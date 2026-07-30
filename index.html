@@ -190,6 +190,70 @@
   }
   .bar-count { color: var(--muted); font-size: 13px; text-align: right; }
 
+  .count-pill {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-radius: 20px;
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
+    vertical-align: middle;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .controls input[type="search"] {
+    flex: 1 1 240px;
+    min-width: 0;
+    padding: 9px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+  }
+  .controls select {
+    padding: 9px 10px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13.5px;
+    max-width: 190px;
+  }
+  .controls input:focus, .controls select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .ghost {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 9px 14px;
+    font-size: 13.5px;
+    font-weight: 500;
+  }
+  .ghost:hover:not(:disabled) { color: var(--text); border-color: var(--muted); filter: none; }
+  .ghost:disabled { opacity: 0.4; cursor: default; }
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--text); }
+  th .arrow { color: var(--accent); }
+  .no-results { padding: 28px; text-align: center; color: var(--muted); }
   .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
   table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
   th, td {
@@ -275,8 +339,22 @@
       <section><h2>Source</h2><div class="bars" id="by-source"></div></section>
     </div>
     <section>
-      <h2>Top videos by views</h2>
+      <h2>Full database <span id="row-count" class="count-pill"></span></h2>
+      <div class="controls">
+        <input type="search" id="search" placeholder="Search creator, title, or tag…">
+        <select id="f-source"></select>
+        <select id="f-platform"></select>
+        <select id="f-format"></select>
+        <select id="f-hook"></select>
+        <select id="f-niche"></select>
+        <button type="button" id="reset" class="ghost">Reset</button>
+      </div>
       <div id="table-host"></div>
+      <div class="pager">
+        <button type="button" id="prev" class="ghost">← Prev</button>
+        <span id="page-info"></span>
+        <button type="button" id="next" class="ghost">Next →</button>
+      </div>
     </section>
   </main>
 </div>
@@ -291,7 +369,10 @@ const KEY = "lynxr_access";
 const gate = document.getElementById("gate");
 const app = document.getElementById("app");
 
+let unlocked = false;
 function unlock() {
+  if (unlocked) return;   // guard: double-unlock would double-bind listeners
+  unlocked = true;
   document.getElementById("err").textContent = "";
   gate.style.display = "none";
   app.style.display = "block";
@@ -376,26 +457,132 @@ function renderStats(rows) {
     <div class="stat"><div class="label">${label}</div><div class="value">${value}</div></div>`).join("");
 }
 
-function renderTable(rows) {
-  const top = [...rows].sort((a, b) => (+b.views || 0) - (+a.views || 0)).slice(0, 25);
-  document.getElementById("table-host").innerHTML = `
-    <div class="table-wrap"><table>
-      <thead><tr>
-        <th>Creator</th><th>Platform</th><th>Title</th>
-        <th>Views</th><th>ER</th><th>Format</th><th>Hook</th>
-      </tr></thead>
-      <tbody>${top.map((r) => `
-        <tr>
-          <td>${escapeHtml(r.creator || "—")}</td>
-          <td>${escapeHtml(r.platform || "—")}</td>
-          <td class="title" title="${escapeHtml(r.title || "")}">${escapeHtml(r.title || "—")}</td>
-          <td class="num">${fmt(+r.views || 0)}</td>
-          <td class="num">${r.engagement_rate ? escapeHtml(r.engagement_rate) + "%" : "—"}</td>
-          <td>${escapeHtml(r.format_type || "—")}</td>
-          <td>${escapeHtml(r.hook_pattern || "—")}</td>
-        </tr>`).join("")}
-      </tbody>
-    </table></div>`;
+// ---------- Full browsable database ----------
+const PAGE_SIZE = 50;
+const COLS = [
+  { key: "creator", label: "Creator" },
+  { key: "platform", label: "Platform" },
+  { key: "title", label: "Title", cls: "title" },
+  { key: "views", label: "Views", num: true },
+  { key: "likes", label: "Likes", num: true },
+  { key: "comments", label: "Comments", num: true },
+  { key: "engagement_rate", label: "ER", num: true, pct: true },
+  { key: "format_type", label: "Format" },
+  { key: "hook_pattern", label: "Hook" },
+  { key: "niche_category", label: "Niche" },
+  { key: "target_audience", label: "Audience" },
+  { key: "data_source", label: "Source" },
+];
+
+const FILTERS = [
+  { id: "f-source", key: "data_source", label: "All sources" },
+  { id: "f-platform", key: "platform", label: "All platforms" },
+  { id: "f-format", key: "format_type", label: "All formats" },
+  { id: "f-hook", key: "hook_pattern", label: "All hooks" },
+  { id: "f-niche", key: "niche_category", label: "All niches" },
+];
+
+let ALL = [];
+let view = [];
+let page = 0;
+let sortKey = "views";
+let sortDir = -1;
+
+function num(r, k) {
+  const v = parseFloat(r[k]);
+  return isNaN(v) ? -1 : v;
+}
+
+function applyFilters() {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const active = FILTERS.map((f) => [f.key, document.getElementById(f.id).value]);
+
+  view = ALL.filter((r) => {
+    for (const [key, val] of active) {
+      if (val && (r[key] || "") !== val) return false;
+    }
+    if (!q) return true;
+    return (r.creator + " " + r.title + " " + r.format_type + " " + r.hook_pattern +
+            " " + r.niche_category + " " + r.target_audience).toLowerCase().includes(q);
+  });
+
+  const isNum = COLS.find((c) => c.key === sortKey)?.num;
+  view.sort((a, b) => {
+    if (isNum) return (num(a, sortKey) - num(b, sortKey)) * sortDir;
+    return String(a[sortKey] || "").localeCompare(String(b[sortKey] || "")) * sortDir;
+  });
+
+  page = 0;
+  renderTable();
+}
+
+function renderTable() {
+  const total = view.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  page = Math.min(page, pages - 1);
+  const slice = view.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  document.getElementById("row-count").textContent =
+    total === ALL.length ? `${fmt(total)} videos` : `${fmt(total)} of ${fmt(ALL.length)}`;
+
+  const host = document.getElementById("table-host");
+  if (!total) {
+    host.innerHTML = `<div class="table-wrap"><div class="no-results">No videos match those filters.</div></div>`;
+  } else {
+    host.innerHTML = `
+      <div class="table-wrap"><table>
+        <thead><tr>${COLS.map((c) => `
+          <th class="sortable" data-key="${c.key}">${c.label}${
+            sortKey === c.key ? ` <span class="arrow">${sortDir === -1 ? "▼" : "▲"}</span>` : ""
+          }</th>`).join("")}</tr></thead>
+        <tbody>${slice.map((r) => `
+          <tr>${COLS.map((c) => {
+            const raw = r[c.key];
+            if (c.num) {
+              const v = parseFloat(raw);
+              return `<td class="num">${isNaN(v) ? "—" : fmt(v) + (c.pct ? "%" : "")}</td>`;
+            }
+            return `<td class="${c.cls || ""}" title="${escapeHtml(raw || "")}">${escapeHtml(raw || "—")}</td>`;
+          }).join("")}</tr>`).join("")}
+        </tbody>
+      </table></div>`;
+
+    host.querySelectorAll("th.sortable").forEach((th) => {
+      th.addEventListener("click", () => {
+        const k = th.dataset.key;
+        if (sortKey === k) sortDir *= -1;
+        else { sortKey = k; sortDir = COLS.find((c) => c.key === k)?.num ? -1 : 1; }
+        applyFilters();
+      });
+    });
+  }
+
+  document.getElementById("page-info").textContent =
+    `Page ${page + 1} of ${pages}`;
+  document.getElementById("prev").disabled = page === 0;
+  document.getElementById("next").disabled = page >= pages - 1;
+}
+
+function initControls() {
+  for (const f of FILTERS) {
+    const sel = document.getElementById(f.id);
+    const values = [...new Set(ALL.map((r) => r[f.key]).filter(Boolean))].sort();
+    sel.innerHTML = `<option value="">${f.label}</option>` +
+      values.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+    sel.addEventListener("change", applyFilters);
+  }
+  let t;
+  document.getElementById("search").addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(applyFilters, 150);
+  });
+  document.getElementById("reset").addEventListener("click", () => {
+    document.getElementById("search").value = "";
+    FILTERS.forEach((f) => (document.getElementById(f.id).value = ""));
+    applyFilters();
+  });
+  document.getElementById("prev").addEventListener("click", () => { page--; renderTable(); });
+  document.getElementById("next").addEventListener("click", () => { page++; renderTable(); });
 }
 
 async function loadData() {
@@ -412,12 +599,14 @@ async function loadData() {
       </div>`;
     return;
   }
+  ALL = rows;
   renderStats(rows);
   renderBars("by-format", countBy(rows, "format_type"));
   renderBars("by-hook", countBy(rows, "hook_pattern"));
   renderBars("by-niche", countBy(rows, "niche_category"));
   renderBars("by-source", countBy(rows, "data_source"));
-  renderTable(rows);
+  initControls();
+  applyFilters();
 }
 </script>
 </body>

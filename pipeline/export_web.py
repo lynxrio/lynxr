@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 SRC = ROOT / "output" / "master_video_database.csv"
-DEST = ROOT / "web" / "data.json"
+DEST = ROOT / "data.json"  # repo root — GitHub Pages serves it next to index.html
 
 KEEP = [
     "video_id", "creator", "platform", "title", "views", "likes", "comments",

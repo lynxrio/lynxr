@@ -1,18 +1,17 @@
 {
 	"folders": [
 		{
-			"name": "lynxr (repo — site + scripts)",
 			"path": "."
-		},
-		{
-			"name": "lynxr-data (pipeline data + output)",
-			"path": "../../lynxr"
 		}
 	],
 	"settings": {
 		"files.exclude": {
 			"**/venv": true,
 			"**/__pycache__": true
+		},
+		"search.exclude": {
+			"**/venv": true,
+			"**/data.json": true
 		}
 	}
 }

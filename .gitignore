@@ -1,10 +1,11 @@
 # Secrets — never commit
 .env
 
-# Local python env
+# Local Python environment
 venv/
+__pycache__/
 
-# Large/derived data
+# Scraped + generated data (regenerate with pipeline/run_pipeline.sh)
 data/
 output/
 *.batch_state.json

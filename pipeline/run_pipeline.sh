@@ -5,7 +5,7 @@ set -e
 cd "$(dirname "$0")"
 PY=../venv/bin/python
 
-# Load API keys from ~/lynxr/.env if present
+# Load API keys from the repo-root .env if present
 if [ -f ../.env ]; then
   set -a; source ../.env; set +a
 fi
@@ -30,7 +30,10 @@ $PY tag_videos.py --input ../data/instagram_normalized.csv --output ../output/in
 echo "=== Step 5-6: Merge + summary ==="
 $PY merge_data.py
 
-echo "=== Step 7: Export data for web MVP ==="
+echo "=== Step 7: Export data for the dashboard ==="
 $PY export_web.py
 
 echo "=== PIPELINE COMPLETE ==="
+echo "  Master database: output/master_video_database.csv"
+echo "  Summary:         output/data_summary.txt"
+echo "  Dashboard data:  data.json"
