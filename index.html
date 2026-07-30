@@ -304,7 +304,8 @@
     <p class="tagline">Format intelligence for short-form video.</p>
     <form class="field" id="gate-form">
       <div class="pw-wrap">
-        <input type="password" id="pw" placeholder="Access code" autocomplete="current-password" autofocus>
+        <input type="password" id="pw" placeholder="Access code" autofocus
+               autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
         <button type="button" class="toggle" id="toggle-pw" aria-pressed="false" aria-label="Show access code" title="Show access code">
           <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/>
@@ -379,15 +380,23 @@ function unlock() {
   loadData();
 }
 
+// Forgiving comparison: phones auto-capitalize the first letter, and pasted
+// codes often carry a trailing space or newline. Neither should lock you out.
+function normalize(s) {
+  return (s || "").replace(/\s+/g, "").toLowerCase();
+}
+
 document.getElementById("gate-form").addEventListener("submit", (e) => {
   e.preventDefault();
-  const val = document.getElementById("pw").value;
-  if (val === ACCESS_CODE) {
+  const pw = document.getElementById("pw");
+  if (normalize(pw.value) === normalize(ACCESS_CODE)) {
     sessionStorage.setItem(KEY, "1");
     unlock();
   } else {
-    document.getElementById("err").textContent = "Incorrect access code.";
-    document.getElementById("pw").select();
+    document.getElementById("err").textContent = pw.value
+      ? "Incorrect access code."
+      : "Enter the access code.";
+    pw.select();
   }
 });
 
