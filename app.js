@@ -340,6 +340,596 @@ function inferNiche(rawUrl) {
   return { niche: best, score: bestScore };
 }
 
+// ---------- Site reading ----------
+// A static page can't fetch a third-party site directly (CORS), so we go
+// through public CORS-enabled readers, allowlisted in the CSP. Everything that
+// comes back is UNTRUSTED TEXT: parsed inertly (DOMParser — scripts never
+// execute) and always escaped before rendering.
+
+function normalizeClientUrl(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  try {
+    const u = new URL(s.includes("://") ? s : "https://" + s);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    if (!u.hostname.includes(".")) return null;
+    return u.href;
+  } catch { return null; }
+}
+
+async function fetchWithTimeout(url, ms) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: ctl.signal, redirect: "follow" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return await res.text();
+  } finally { clearTimeout(t); }
+}
+
+/** Shared extraction — DOMParser never executes scripts in the parsed doc. */
+function parseHtmlRead(html, via) {
+  if (!html || html.length < 200) throw new Error("empty read");
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const meta = (sel) => doc.querySelector(sel)?.getAttribute("content") || "";
+  const headings = [...doc.querySelectorAll("h1, h2, h3")]
+    .map((h) => h.textContent.trim().replace(/\s+/g, " ")).filter((t) => t.length >= 2 && t.length <= 80);
+  return {
+    via,
+    title: (doc.querySelector("title")?.textContent || meta('meta[property="og:title"]')).trim(),
+    description: (meta('meta[name="description"]') || meta('meta[property="og:description"]')).trim(),
+    headings,
+    text: (doc.body?.textContent || "").replace(/\s+/g, " "),
+  };
+}
+
+/** Route A: allorigins /get wraps the page HTML in JSON (its /raw endpoint is flaky). */
+async function readViaAllOrigins(url) {
+  const raw = await fetchWithTimeout(
+    "https://api.allorigins.win/get?url=" + encodeURIComponent(url), 25000);
+  const wrapped = JSON.parse(raw);
+  const code = wrapped.status?.http_code;
+  if (code && code >= 400) throw new Error("site returned " + code);
+  return parseHtmlRead(wrapped.contents || "", "allorigins");
+}
+
+/** Route B: codetabs relays raw HTML. */
+async function readViaCodetabs(url) {
+  const html = await fetchWithTimeout(
+    "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(url), 25000);
+  return parseHtmlRead(html, "codetabs");
+}
+
+async function readClientSite(url) {
+  try { return await readViaAllOrigins(url); }
+  catch (e1) {
+    try { return await readViaCodetabs(url); }
+    catch (e2) { throw new Error(`allorigins: ${e1.message}; codetabs: ${e2.message}`); }
+  }
+}
+
+// Headings that are site chrome, not product features.
+const GENERIC_HEADINGS = new Set([
+  "about", "about us", "contact", "contact us", "pricing", "plans", "login", "log in",
+  "sign up", "sign in", "faq", "faqs", "blog", "privacy", "privacy policy", "terms",
+  "terms of service", "careers", "home", "menu", "features", "resources", "support",
+  "help", "download", "get started", "learn more", "overview", "company", "products",
+  "solutions", "testimonials", "reviews", "newsletter", "subscribe", "follow us",
+  "team", "our team", "mission", "search", "english", "table of contents",
+]);
+
+const AUDIENCE_KEYWORDS = {
+  "Students": ["student", "study", "exam", "school", "college", "university", "class", "course", "nclex", "flashcard"],
+  "Healthcare Professionals": ["nurse", "nursing", "clinician", "physician", "doctor", "emt", "paramedic", "patient care", "medical professional"],
+  "Fitness Enthusiasts": ["workout", "gym", "athlete", "training plan", "lifter", "runner"],
+  "Musicians & Creators": ["musician", "artist", "creator", "producer", "songwriter", "content creator"],
+  "Entrepreneurs & Marketers": ["founder", "marketer", "agency", "business owner", "entrepreneur", "growth team"],
+  "Developers & Founders": ["developer", "engineer", "api", "startup", "saas", "documentation"],
+  "Young Professionals": ["professional", "career", "resume", "workplace", "job search"],
+};
+
+function analyzeSite(read, url) {
+  const hay = (read.title + " " + read.description + " " +
+    read.headings.join(" ") + " " + read.text.slice(0, 20000)).toLowerCase();
+
+  // Niche: keyword occurrences weighted by specificity (length), capped so one
+  // repeated word can't drown everything else.
+  const scores = [];
+  for (const [niche, words] of Object.entries(NICHE_KEYWORDS)) {
+    let score = 0;
+    for (const w of words) {
+      const count = hay.split(w).length - 1;
+      if (count) score += w.length * Math.min(count, 5);
+    }
+    if (score) scores.push({ niche, score });
+  }
+  scores.sort((a, b) => b.score - a.score);
+  const confident = scores.length && (scores.length === 1 || scores[0].score >= scores[1].score * 1.4);
+
+  // Features: real product headings, minus chrome.
+  const feats = [];
+  const seenF = new Set();
+  for (const h of read.headings) {
+    const clean = h.replace(/\s+/g, " ").trim();
+    const k = clean.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+    if (!k || GENERIC_HEADINGS.has(k) || k.length < 4) continue;
+    if (/cookie|privacy|©|copyright|all rights/i.test(clean)) continue;
+    if (clean.split(" ").length > 9) continue;
+    if (seenF.has(k)) continue;
+    seenF.add(k);
+    feats.push(clean);
+    if (feats.length >= 8) break;
+  }
+
+  let audience = null, audScore = 0;
+  for (const [aud, words] of Object.entries(AUDIENCE_KEYWORDS)) {
+    let s = 0;
+    for (const w of words) s += (hay.split(w).length - 1);
+    if (s > audScore) { audScore = s; audience = aud; }
+  }
+
+  let brand = (read.title || "").split(/[|–—:·]/)[0].trim();
+  if (!brand || brand.length > 40) {
+    try { brand = new URL(url).hostname.replace(/^www\./, "").split(".")[0]; } catch { brand = "the product"; }
+  }
+
+  return {
+    brand, feats, audience,
+    niche: scores[0]?.niche || null,
+    nicheRunnerUp: scores[1]?.niche || null,
+    confident,
+    words: Math.round(read.text.split(/\s+/).length),
+  };
+}
+
+// Starter hook per hook pattern, grounded in the client's own brand/feature.
+// Deterministic templates + escaped insertions — untrusted text never executes.
+function starterHook(hookPattern, brand, feat) {
+  const f = feat || "this";
+  const t = {
+    "Curiosity Gap": `Nobody tells you what ${f} actually does — until you see this`,
+    "Bold Claim": `${brand} just made everything else feel outdated`,
+    "Surprising Stat": `[stat] people struggle with this — ${brand} fixes it in minutes`,
+    "Relatable Pain": `POV: you're still doing this manually instead of using ${brand}`,
+    "Us vs Them": `People who use ${brand} vs people who don't`,
+    "Question": `Why is nobody talking about ${f}?`,
+    "Warning": `Stop doing this before you've tried ${brand}`,
+    "Social Proof": `Everyone's quietly switching to ${brand} — here's why`,
+    "Transformation": `My week before ${brand} vs after`,
+  };
+  return t[hookPattern] || `Show ${f} in the first two seconds — no intro`;
+}
+
+// ---------- Video embeds ----------
+// We don't host any video — playback uses each platform's official embed
+// endpoint in a sandboxed iframe (frame-src allowlisted in the CSP). TikTok and
+// YouTube embed reliably; Instagram/Facebook sometimes refuse without login,
+// so every card keeps an "open on platform" link as the fallback.
+function embedFor(row) {
+  const url = String(row.url || "");
+  const p = (row.platform || "").toLowerCase();
+  if (p === "tiktok") {
+    const id = /^\d{15,}$/.test(row.video_id) ? row.video_id : (url.match(/video\/(\d+)/) || [])[1];
+    return id ? { src: `https://www.tiktok.com/embed/v2/${id}`, tall: true } : null;
+  }
+  if (p === "youtube") {
+    const id = (url.match(/(?:shorts\/|watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/) || [])[1];
+    return id ? { src: `https://www.youtube-nocookie.com/embed/${id}`, tall: url.includes("/shorts/") } : null;
+  }
+  if (p === "instagram") {
+    const code = (url.match(/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/) || [])[1];
+    return code ? { src: `https://www.instagram.com/reel/${code}/embed/`, tall: true } : null;
+  }
+  if (p === "facebook") {
+    return url ? { src: `https://www.facebook.com/plugins/video.php?show_text=false&href=${encodeURIComponent(url)}`, tall: false } : null;
+  }
+  return null;
+}
+
+// ---------- Tailored scripts ----------
+// Deterministic beat templates per format from the locked taxonomy, filled with
+// the client's brand, features, and audience from the site analysis. Escaped at
+// render time; the exporter escapes for XML separately.
+function tailoredScript(row, ctx, slot) {
+  const brand = ctx?.brand || "the product";
+  const feats = ctx?.feats?.length ? ctx.feats : ["the core feature"];
+  const f1 = feats[slot % feats.length];
+  const f2 = feats[(slot + 1) % feats.length];
+  const aud = ctx?.audience || "your audience";
+  const hook = starterHook(row.hook_pattern, brand, f1);
+  const fmtName = row.format_type || "Other";
+
+  const beats = {
+    "Talking Head": [
+      `[0–2s] To camera, no intro: “${hook}”`,
+      `[2–8s] Name the pain ${aud.toLowerCase()} feel before ${brand} — one concrete moment, not a list.`,
+      `[8–20s] Show ${brand} solving it. Lead with ${f1} — one screen, one action, real pace.`,
+      `[20–28s] Payoff: what changed. Mention ${f2} in one sentence as the “and it also…”`,
+    ],
+    "Listicle": [
+      `[0–2s] Text + VO: “${hook}”`,
+      `[2–10s] #1 — ${f1}: show it doing the thing, count on screen.`,
+      `[10–18s] #2 — ${f2}: cut fast, keep each item under 8s.`,
+      `[18–26s] #3 — the sleeper feature nobody expects. Save the best for last.`,
+    ],
+    "Screen Demo": [
+      `[0–2s] Screen recording already mid-action, VO: “${hook}”`,
+      `[2–12s] Walk ${f1} start-to-finish. Zoom on taps. No menus tour — one task.`,
+      `[12–22s] The result on screen. Before/after split if possible.`,
+    ],
+    "POV": [
+      `[0–2s] Text overlay: “POV: ${aud.toLowerCase()} discovering ${brand} for the first time”`,
+      `[2–12s] Act the scenario — the frustration first, then ${f1} as the turn.`,
+      `[12–20s] The after-state. Underplay it; let the contrast land.`,
+    ],
+    "Skit": [
+      `[0–2s] Character A mid-crisis: “${hook}”`,
+      `[2–14s] Character B (or future-you) solves it with ${brand} — show ${f1} on a phone.`,
+      `[14–24s] Punchline callback to the opening crisis.`,
+    ],
+    "Story Time": [
+      `[0–2s] “${hook}” — face to camera, sat down, real.`,
+      `[2–15s] The story: where ${aud.toLowerCase()} hit the wall. Specifics sell it.`,
+      `[15–25s] How ${brand} (${f1}) changed the ending. Keep it one beat, not an ad read.`,
+    ],
+    "Green Screen": [
+      `[0–2s] You over a screenshot of the client's own site/app: “${hook}”`,
+      `[2–14s] Point at ${f1} on screen behind you — react, don't narrate the UI.`,
+      `[14–22s] Swap background to the results screen. One-line verdict.`,
+    ],
+    "Voiceover B-roll": [
+      `[0–2s] VO over motion: “${hook}”`,
+      `[2–14s] B-roll of the routine ${aud.toLowerCase()} know too well; VO ties it to ${f1}.`,
+      `[14–24s] Product close on ${f2}; VO lands the one-sentence pitch.`,
+    ],
+    "Reaction / Duet": [
+      `[0–2s] React to a viral clip in this niche: “${hook}”`,
+      `[2–14s] Pause it where it goes wrong — show how ${brand} (${f1}) handles it.`,
+      `[14–22s] Side-by-side verdict.`,
+    ],
+  };
+  const fallback = [
+    `[0–2s] Open on the strongest visual you have, line: “${hook}”`,
+    `[2–12s] One problem, one solution: ${brand}'s ${f1}, shown not told.`,
+    `[12–22s] Result + one-line payoff for ${aud.toLowerCase()}.`,
+  ];
+  const ctas = [
+    `Search “${brand}” — don't spell out the link.`,
+    `“Link in bio if you want to try ${f1} yourself.”`,
+    `“Comment ‘${brand.split(" ")[0].toUpperCase()}’ and I'll send it to you.”`,
+    `“It's free to try — that's the whole pitch.”`,
+  ];
+  return {
+    heading: `${fmtName} × ${row.hook_pattern || "Other"}`,
+    hook,
+    beats: beats[fmtName] || fallback,
+    cta: `[last 3s] CTA: ${ctas[slot % ctas.length]}`,
+  };
+}
+
+// ---------- Brief cart ----------
+const CART_LIMIT = 10;
+let CART = new Map();   // rowKey -> row
+
+const rowKey = (r) => (r.platform || "") + "|" + (r.video_id || r.url || r.title);
+
+function buildShelf(pool, relative, count = 24) {
+  // Round-robin the formats (each sorted by index) so the shelf isn't 24
+  // near-identical listicles — diversity is the point of a browsing surface.
+  const byFormat = new Map();
+  for (const r of pool) {
+    if (!embedFor(r)) continue;
+    const f = r.format_type || "Other";
+    if (!byFormat.has(f)) byFormat.set(f, []);
+    byFormat.get(f).push(r);
+  }
+  for (const list of byFormat.values()) list.sort((a, b) => relative(b) - relative(a));
+  const queues = [...byFormat.entries()]
+    .sort((a, b) => relative(b[1][0]) - relative(a[1][0]))
+    .map(([, list]) => list);
+  const shelf = [];
+  let added = true;
+  while (shelf.length < count && added) {
+    added = false;
+    for (const q of queues) {
+      if (q.length && shelf.length < count) { shelf.push(q.shift()); added = true; }
+    }
+  }
+  return shelf;
+}
+
+function trayHtml() {
+  const n = CART.size;
+  return `
+    <div class="tray-inner">
+      <span class="tray-count"><strong>${n}</strong>/${CART_LIMIT} in brief</span>
+      <span class="tray-hint">${n < CART_LIMIT ? `check ${CART_LIMIT - n} more to export` : "ready to export"}</span>
+      <span class="spacer"></span>
+      <button type="button" class="ghost" id="tray-copy" ${n ? "" : "disabled"}>Copy scripts</button>
+      <button type="button" class="btn" id="tray-export" ${n >= CART_LIMIT ? "" : "disabled"}
+        title="${n >= CART_LIMIT ? "Download a .docx that Google Docs opens directly" : `Unlocks at ${CART_LIMIT} videos`}">
+        Export for Google Docs</button>
+    </div>`;
+}
+
+function refreshTray() {
+  const tray = document.getElementById("tray");
+  if (!tray) return;
+  tray.innerHTML = trayHtml();
+  document.getElementById("tray-export")?.addEventListener("click", exportDocx);
+  document.getElementById("tray-copy")?.addEventListener("click", copyScripts);
+}
+
+function scriptHtml(row) {
+  const slot = [...CART.keys()].indexOf(rowKey(row));
+  const s = tailoredScript(row, BRIEF_CTX, Math.max(slot, 0));
+  return `
+    <div class="vscript">
+      <div class="lbl">Tailored script — ${escapeHtml(s.heading)}</div>
+      <p class="vs-hook">“${escapeHtml(s.hook)}”</p>
+      ${s.beats.map((b) => `<p class="vs-beat">${escapeHtml(b)}</p>`).join("")}
+      <p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>
+    </div>`;
+}
+
+function renderShelf(niche) {
+  const body = document.getElementById("brief-body");
+  let pool = niche ? ALL.filter((r) => r.niche_category === niche) : ALL;
+  const notes = [];
+  if (niche && pool.length < MIN_N_NICHE) {
+    notes.push(`Only ${pool.length} videos tagged <strong>${escapeHtml(niche)}</strong> — too few to rank
+      reliably, so the shelf draws from the whole database instead. Treat it as directional.`);
+    pool = ALL;
+  }
+
+  const bySource = new Map();
+  for (const r of pool) {
+    const s = r.data_source || "?";
+    if (!bySource.has(s)) bySource.set(s, []);
+    bySource.get(s).push(views(r));
+  }
+  const srcMedian = new Map([...bySource].map(([s, vs]) => [s, median(vs) || 1]));
+  const relative = (r) => views(r) / (srcMedian.get(r.data_source || "?") || 1);
+  const shelf = buildShelf(pool, relative);
+
+  const { plays } = buildPlays(pool);
+
+  body.innerHTML =
+    notes.map((n) => `<div class="warn">${n}</div>`).join("") +
+    `<div class="tray" id="tray"></div>
+     <div class="shelf">` +
+    shelf.map((r) => {
+      const k = rowKey(r);
+      const checked = CART.has(k);
+      const er = r.engagement_rate ? parseFloat(r.engagement_rate).toFixed(1) + "%" : "—";
+      return `
+      <article class="vcard${checked ? " picked" : ""}" data-key="${escapeHtml(k)}">
+        <div class="vframe" data-key="${escapeHtml(k)}">
+          <button type="button" class="vload">▶ Play here</button>
+        </div>
+        <div class="vmeta">
+          <div class="vtitle" title="${escapeHtml(r.title || "")}">${escapeHtml(r.title || "(no caption)")}</div>
+          <div class="vstats">${escapeHtml(r.creator || "—")} · ${compact(views(r))} views · ER ${er}
+            · <span title="vs the median of its source">${relative(r).toFixed(1)}× index</span></div>
+          <div class="vtags">${escapeHtml(r.format_type || "Other")} × ${escapeHtml(r.hook_pattern || "Other")}
+            · ${escapeHtml(r.data_source || "")}
+            ${safeUrl(r.url) ? ` · <a href="${escapeHtml(safeUrl(r.url))}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}</div>
+          <label class="vpick"><input type="checkbox" class="vcheck" ${checked ? "checked" : ""}> Add to brief</label>
+        </div>
+        <div class="vscript-host">${checked ? scriptHtml(r) : ""}</div>
+      </article>`;
+    }).join("") + `</div>` +
+    `<details class="playbook"><summary>The scoreboard behind this shelf — top format × hook plays</summary>
+      <div id="plays-host"></div></details>`;
+
+  // scoreboard inside the details
+  renderPlaysInto(document.getElementById("plays-host"), plays, niche, pool);
+
+  const shelfIndex = new Map(shelf.map((r) => [rowKey(r), r]));
+
+  // click-to-load players (one iframe per click, not 24 up front)
+  body.querySelectorAll(".vload").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const host = btn.closest(".vframe");
+      const row = shelfIndex.get(host.dataset.key);
+      const emb = row && embedFor(row);
+      if (!emb) return;
+      const iframe = document.createElement("iframe");
+      iframe.src = emb.src;
+      iframe.className = emb.tall ? "tall" : "wide";
+      iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups");
+      iframe.setAttribute("loading", "lazy");
+      iframe.setAttribute("referrerpolicy", "no-referrer");
+      iframe.setAttribute("title", "Video player");
+      host.replaceChildren(iframe);
+    });
+  });
+
+  // add/remove from the brief
+  body.querySelectorAll(".vcheck").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      const card = cb.closest(".vcard");
+      const row = shelfIndex.get(card.dataset.key);
+      if (cb.checked) {
+        if (CART.size >= CART_LIMIT) {
+          cb.checked = false;
+          refreshTray();
+          const tray = document.getElementById("tray");
+          tray.classList.add("shake");
+          setTimeout(() => tray.classList.remove("shake"), 500);
+          return;
+        }
+        CART.set(rowKey(row), row);
+        card.classList.add("picked");
+        card.querySelector(".vscript-host").innerHTML = scriptHtml(row);
+      } else {
+        CART.delete(rowKey(row));
+        card.classList.remove("picked");
+        card.querySelector(".vscript-host").innerHTML = "";
+      }
+      refreshTray();
+    });
+  });
+
+  refreshTray();
+}
+
+// The old play-card list, now rendered into the collapsible scoreboard.
+function renderPlaysInto(host, plays, niche, pool) {
+  if (!plays.length) { host.innerHTML = `<div class="empty">Not enough data.</div>`; return; }
+  const scope = niche && pool !== ALL ? escapeHtml(niche) : "the whole database";
+  host.innerHTML =
+    `<p class="note">Scope: ${scope}. Index 1.00 = typical for the video's own source.</p>` +
+    `<div class="plays">` + plays.map((p, i) => {
+      const conf = confidenceOf(p.n);
+      return `
+      <article class="play">
+        <div class="play-head">
+          <div class="rank">${String(i + 1).padStart(2, "0")}</div>
+          <div style="min-width:0">
+            <h3 class="play-title">${escapeHtml(p.format)} <span style="color:var(--text-3)">×</span> ${escapeHtml(p.hook)}</h3>
+            <p class="play-why">${fmt(p.n)} videos · <span class="badge ${conf.cls}">${escapeHtml(conf.label)}</span></p>
+          </div>
+          <div class="metrics">
+            <div class="metric"><div class="m-val">${p.index.toFixed(2)}×</div><div class="m-lbl">Index</div></div>
+            <div class="metric"><div class="m-val">${compact(p.med)}</div><div class="m-lbl">Median views</div></div>
+            <div class="metric"><div class="m-val">${fmt(p.n)}</div><div class="m-lbl">Sample</div></div>
+          </div>
+        </div>
+      </article>`;
+    }).join("") + `</div>`;
+}
+
+// ---------- Export: .docx built in pure JS ----------
+// A .docx is a zip of XML parts. We write STORED (uncompressed) zip entries
+// with real CRC32s — no libraries, nothing loaded off-origin, CSP intact.
+// Google Docs opens the result directly (drag into Drive → Open with Docs).
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function zipStore(files) {   // files: [{name, text}]
+  const enc = new TextEncoder();
+  const chunks = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = enc.encode(f.text);
+    const crc = crc32(data);
+    const head = new DataView(new ArrayBuffer(30));
+    head.setUint32(0, 0x04034b50, true); head.setUint16(4, 20, true);
+    head.setUint32(14, crc, true);
+    head.setUint32(18, data.length, true); head.setUint32(22, data.length, true);
+    head.setUint16(26, name.length, true);
+    chunks.push(new Uint8Array(head.buffer), name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true);
+    c.setUint32(16, crc, true);
+    c.setUint32(20, data.length, true); c.setUint32(24, data.length, true);
+    c.setUint16(28, name.length, true);
+    c.setUint32(42, offset, true);
+    central.push(new Uint8Array(c.buffer), name);
+    offset += 30 + name.length + data.length;
+  }
+  const centralSize = central.reduce((a, b) => a + b.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, centralSize, true); end.setUint32(16, offset, true);
+  return new Blob([...chunks, ...central, new Uint8Array(end.buffer)],
+    { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+}
+
+const xmlEsc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function para(text, { bold = false, size = 22, spaceAfter = 120 } = {}) {
+  return `<w:p><w:pPr><w:spacing w:after="${spaceAfter}"/></w:pPr>` +
+    `<w:r><w:rPr>${bold ? "<w:b/>" : ""}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>` +
+    `<w:t xml:space="preserve">${xmlEsc(text)}</w:t></w:r></w:p>`;
+}
+
+function briefDocParts() {
+  const ctx = BRIEF_CTX || {};
+  const brand = ctx.brand || "Client";
+  const today = new Date().toISOString().slice(0, 10);
+  let body = "";
+  body += para(`${brand} — Content Brief`, { bold: true, size: 40, spaceAfter: 60 });
+  body += para(`${CART.size} scripts tailored from the Lynxr format database · ${today}`, { size: 20, spaceAfter: 300 });
+  if (ctx.audience) body += para(`Audience: ${ctx.audience}`, { size: 22 });
+  if (ctx.feats?.length) body += para(`Product angles used: ${ctx.feats.join(" · ")}`, { size: 22, spaceAfter: 360 });
+
+  let i = 0;
+  for (const row of CART.values()) {
+    i += 1;
+    const s = tailoredScript(row, ctx, i - 1);
+    const er = row.engagement_rate ? parseFloat(row.engagement_rate).toFixed(2) + "%" : "n/a";
+    body += para(`Script ${i} — ${s.heading}`, { bold: true, size: 28, spaceAfter: 100 });
+    body += para(`Hook: “${s.hook}”`, { bold: true, size: 22 });
+    for (const b of s.beats) body += para(b, { size: 22 });
+    body += para(s.cta, { size: 22, spaceAfter: 160 });
+    body += para(`Reference: ${row.title || "(no caption)"}`, { size: 18 });
+    body += para(`${row.creator || "—"} on ${row.platform} · ${fmt(views(row))} views · ${fmt(+row.likes || 0)} likes · ${fmt(+row.comments || 0)} comments · ER ${er} · source: ${row.data_source}`, { size: 18 });
+    body += para(row.url || "", { size: 18, spaceAfter: 360 });
+  }
+
+  const document =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+    `<w:body>${body}<w:sectPr/></w:body></w:document>`;
+  return [
+    { name: "[Content_Types].xml", text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>` },
+    { name: "_rels/.rels", text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>` },
+    { name: "word/document.xml", text: document },
+  ];
+}
+
+function exportDocx() {
+  if (CART.size < CART_LIMIT) return;
+  const blob = zipStore(briefDocParts());
+  const a = document.createElement("a");
+  const brand = (BRIEF_CTX?.brand || "client").replace(/[^\w -]+/g, "").trim() || "client";
+  a.href = URL.createObjectURL(blob);
+  a.download = `${brand} — Lynxr Content Brief.docx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+function scriptsAsText() {
+  const ctx = BRIEF_CTX || {};
+  let out = `${ctx.brand || "Client"} — Content Brief (${CART.size} scripts)\n\n`;
+  let i = 0;
+  for (const row of CART.values()) {
+    i += 1;
+    const s = tailoredScript(row, ctx, i - 1);
+    out += `SCRIPT ${i} — ${s.heading}\nHook: “${s.hook}”\n`;
+    for (const b of s.beats) out += b + "\n";
+    out += s.cta + "\n";
+    out += `Reference: ${row.title || ""}\n${row.creator || "—"} · ${fmt(views(row))} views · ${row.url || ""}\n\n`;
+  }
+  return out;
+}
+
+async function copyScripts() {
+  try {
+    await navigator.clipboard.writeText(scriptsAsText());
+    const btn = document.getElementById("tray-copy");
+    const old = btn.textContent;
+    btn.textContent = "Copied ✓";
+    setTimeout(() => { btn.textContent = old; }, 1500);
+  } catch { /* clipboard denied — the export button still works */ }
+}
+
 function confidenceOf(n) {
   if (n >= 25) return { label: "Strong", cls: "strong" };
   if (n >= 12) return { label: "Moderate", cls: "" };
@@ -429,87 +1019,104 @@ function buildPlays(pool) {
   return { plays: plays.slice(0, 10).sort((a, b) => b.index - a.index) };
 }
 
-function renderBrief(rawUrl) {
+let BRIEF_CTX = null;  // {brand, feats, audience} from the last site read, used in play cards
+
+async function renderBrief(rawUrl) {
   const host = document.getElementById("brief-out");
-  const { niche, score } = inferNiche(rawUrl);
-  const niches = [...new Set(ALL.map((r) => r.niche_category).filter(Boolean))].sort();
-  const chosen = niche || "";
-
-  host.innerHTML = `
-    <div class="detected">
-      <span class="lbl">Niche</span>
-      <select id="brief-niche" aria-label="Niche to build the brief from">
-        <option value="">Whole database (all niches)</option>
-        ${niches.map((n) => `<option value="${escapeHtml(n)}"${n === chosen ? " selected" : ""}>${escapeHtml(n)}</option>`).join("")}
-      </select>
-      <span class="lbl">${score ? "inferred from the URL" : "no keyword match — pick one"}</span>
-    </div>
-    <div id="brief-body"></div>`;
-  document.getElementById("brief-niche").addEventListener("change", (e) => renderPlays(e.target.value));
-  renderPlays(chosen);
-}
-
-function renderPlays(niche) {
-  const body = document.getElementById("brief-body");
-  let pool = niche ? ALL.filter((r) => r.niche_category === niche) : ALL;
-  let notes = [];
-
-  if (niche && pool.length < MIN_N_NICHE) {
-    notes.push(`Only ${pool.length} videos tagged <strong>${escapeHtml(niche)}</strong> — too few to rank
-      reliably, so this brief uses the whole database instead. Treat it as directional.`);
-    pool = ALL;
-  }
-
-  const { plays } = buildPlays(pool);
-  if (!plays.length) {
-    body.innerHTML = `<div class="empty">Not enough data to build a brief for this niche.</div>`;
+  const hasUrl = String(rawUrl || "").trim().length > 0;
+  const url = hasUrl ? normalizeClientUrl(rawUrl) : null;
+  if (hasUrl && !url) {
+    host.innerHTML = `<div class="warn">That doesn't look like a website address. Try something like
+      <code>clientsite.com</code> — or leave it empty and fill in the client details by hand.</div>`;
     return;
   }
-  if (plays.length < 10) {
-    notes.push(`Only ${plays.length} segments clear the minimum sample size
-      (${MIN_N_COMBO}+ videos for a format×hook play), so fewer than 10 are shown rather than padding with noise.`);
+
+  let analysis = null, failReason = null;
+  if (url) {
+    host.innerHTML = `<div class="progress" role="status">Reading ${escapeHtml(new URL(url).hostname)}…</div>`;
+    try {
+      const read = await readClientSite(url);
+      analysis = analyzeSite(read, url);
+      analysis.title = read.title;
+      analysis.description = read.description;
+      analysis.via = read.via;
+    } catch (e) {
+      failReason = e.message || "unreachable";
+    }
   }
 
-  const scope = niche && pool !== ALL ? escapeHtml(niche) : "the whole database";
-  body.innerHTML =
-    notes.map((n) => `<div class="warn">${n}</div>`).join("") +
-    `<p class="note">Scope: ${scope}. Each video is scored against the median of its own
-       source, so <strong>index 1.00 = typical</strong> for where it came from — a 900-view
-       Medceptor post and a 900,000-view viral TikTok are judged on the same scale. Plays are
-       ranked on the median index of their videos.</p>` +
-    `<div class="plays">` + plays.map((p, i) => {
-      const conf = confidenceOf(p.n);
-      return `
-      <article class="play">
-        <div class="play-head">
-          <div class="rank">${String(i + 1).padStart(2, "0")}</div>
-          <div style="min-width:0">
-            <h3 class="play-title">${escapeHtml(p.format)} <span style="color:var(--text-3)">×</span> ${escapeHtml(p.hook)}</h3>
-            <p class="play-why">${fmt(p.n)} videos ·
-              <span class="badge ${conf.cls}">${escapeHtml(conf.label)}</span></p>
-          </div>
-          <div class="metrics">
-            <div class="metric"><div class="m-val">${p.index.toFixed(2)}×</div><div class="m-lbl">Index</div></div>
-            <div class="metric"><div class="m-val">${compact(p.med)}</div><div class="m-lbl">Median views</div></div>
-            <div class="metric"><div class="m-val">${fmt(p.n)}</div><div class="m-lbl">Sample</div></div>
-          </div>
+  const urlGuess = inferNiche(rawUrl);
+  const chosen = analysis?.niche || urlGuess.niche || "";
+  BRIEF_CTX = analysis ? { brand: analysis.brand, feats: analysis.feats, audience: analysis.audience } : null;
+  CART = new Map();   // a new client = a fresh brief
+
+  const status = analysis
+    ? `<div class="site-card">
+        <div class="site-head">
+          <strong>${escapeHtml(analysis.title || analysis.brand)}</strong>
+          <span class="lbl">read ${fmt(analysis.words)} words via ${escapeHtml(analysis.via)}</span>
         </div>
-        <div class="examples">${p.examples.map((ex) => {
-          const href = safeUrl(ex.url);
-          const label = escapeHtml(ex.title || "(no caption)");
-          return `<div class="ex">
-            <span class="ex-title">${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label}</span>
-            <span class="ex-meta">${escapeHtml(ex.creator || "—")} · ${compact(views(ex))} views</span>
-          </div>`;
-        }).join("")}</div>
-      </article>`;
-    }).join("") + `</div>`;
+        ${analysis.description ? `<p class="site-desc">${escapeHtml(analysis.description)}</p>` : ""}
+        ${!analysis.confident && analysis.nicheRunnerUp ? `
+          <div class="lbl" style="margin-top:8px">Could also be ${escapeHtml(analysis.nicheRunnerUp)} — check the niche in the details below.</div>` : ""}
+      </div>`
+    : hasUrl
+      ? `<div class="warn">Couldn't read the site (${escapeHtml(failReason || "unknown")}) — it may block
+          automated readers. Fill in the client details below and everything still works.</div>`
+      : `<div class="note" style="margin-top:14px">No URL — fill in the client details below.</div>`;
+
+  // Manual client details: prefilled when the read worked, blank when it didn't.
+  // This is the fallback for sites that block scraping AND the correction surface
+  // when detection is wrong — Apply re-tailors every script.
+  const niches = [...new Set(ALL.map((r) => r.niche_category).filter(Boolean))].sort();
+  const audiences = [...new Set(ALL.map((r) => r.target_audience).filter(Boolean))].sort();
+  host.innerHTML = status + `
+    <div class="client-editor">
+      <h3 class="ce-title">Client details</h3>
+      <div class="ce-grid">
+        <label class="ce-field"><span class="lbl">Brand / product name</span>
+          <input type="text" id="ce-brand" value="${escapeHtml(analysis?.brand || "")}" placeholder="e.g. Medceptor"></label>
+        <label class="ce-field"><span class="lbl">Niche</span>
+          <select id="brief-niche">
+            <option value="">Whole database (all niches)</option>
+            ${niches.map((n) => `<option value="${escapeHtml(n)}"${n === chosen ? " selected" : ""}>${escapeHtml(n)}</option>`).join("")}
+          </select></label>
+        <label class="ce-field"><span class="lbl">Target audience</span>
+          <select id="ce-audience">
+            <option value="">Not sure</option>
+            ${audiences.map((a) => `<option value="${escapeHtml(a)}"${a === analysis?.audience ? " selected" : ""}>${escapeHtml(a)}</option>`).join("")}
+          </select></label>
+        <label class="ce-field ce-wide"><span class="lbl">Features / selling points (comma-separated — these get written into the scripts)</span>
+          <input type="text" id="ce-feats" value="${escapeHtml((analysis?.feats || []).join(", "))}"
+            placeholder="e.g. NCLEX practice questions, case walkthroughs, study planner"></label>
+      </div>
+      <button type="button" class="btn" id="ce-apply">Apply — build the shelf</button>
+    </div>
+    <div id="brief-body"></div>`;
+
+  const apply = () => {
+    const brand = document.getElementById("ce-brand").value.trim();
+    const feats = document.getElementById("ce-feats").value.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 8);
+    const audience = document.getElementById("ce-audience").value || null;
+    BRIEF_CTX = (brand || feats.length || audience)
+      ? { brand: brand || "the product", feats, audience }
+      : BRIEF_CTX;
+    renderShelf(document.getElementById("brief-niche").value);
+  };
+  document.getElementById("ce-apply").addEventListener("click", apply);
+  document.getElementById("brief-niche").addEventListener("change", apply);
+  apply();
 }
 
+
 function initBrief() {
-  document.getElementById("brief-form").addEventListener("submit", (e) => {
+  const form = document.getElementById("brief-form");
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    renderBrief(document.getElementById("client-url").value);
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    try { await renderBrief(document.getElementById("client-url").value); }
+    finally { btn.disabled = false; }
   });
 }
 

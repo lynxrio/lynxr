@@ -90,6 +90,24 @@ bucket on `format_type` — that is honest, not broken.
 - **TikTok volume is capped.** The actor returns roughly 10–25 results per
   hashtag on the current Apify plan, regardless of the requested count.
 
+## Client brief
+
+Paste a client's site (or skip the URL and fill in the details by hand — some
+sites block automated readers). The page reads the site through a public CORS
+reader (allorigins, codetabs fallback), detects niche / features / audience
+from the actual content, and builds a **video shelf**: real examples from the
+database, playable in-page via each platform's official embed, ranked by the
+source-normalised index and diversified across formats.
+
+Check off the videos you want — each pick generates a script tailored to the
+client (brand, features, audience woven into format-specific beats). At 10
+picks, **Export for Google Docs** downloads a .docx (built in pure JS, no
+libraries) with all 10 scripts plus reference links and stats; drag it into
+Google Drive and open with Docs. "Copy scripts" gives the same as plain text.
+
+Embeds: TikTok and YouTube play reliably; Instagram and Facebook sometimes
+refuse to embed without login — those cards keep an "open ↗" fallback link.
+
 ## Security model
 
 The database is **encrypted at rest in the repo**. `data.enc` is AES-256-GCM

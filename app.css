@@ -180,6 +180,96 @@
   .ex a { border: 0; color: var(--text-3); }
   .ex a:hover { color: var(--text); }
 
+  /* Client brief: site analysis */
+  .progress { color: var(--text-3); font-size: 14px; padding: 18px 0; }
+  .progress::after { content: ""; display: inline-block; width: 1ch; animation: dots 1.2s steps(4) infinite; overflow: hidden; vertical-align: bottom; }
+  @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+  .site-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; margin: 18px 0 6px;
+  }
+  .site-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .site-desc { color: var(--text-2); font-size: 14px; margin: 8px 0 0; max-width: 70ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip {
+    font-size: 12px; color: var(--text-2); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+  }
+  .starter { display: flex; align-items: baseline; gap: 10px; padding: 10px 0 2px; }
+  .starter-line { color: var(--text); font-size: 14px; font-style: italic; }
+
+  /* Client details editor */
+  .client-editor {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; margin: 14px 0 4px;
+  }
+  .ce-title { font-size: 14px; margin: 0 0 12px; color: var(--text-2); text-transform: uppercase; letter-spacing: .05em; }
+  .ce-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .ce-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .ce-wide { grid-column: 1 / -1; }
+  .ce-field input, .ce-field select {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); font: inherit; font-size: 14px; padding: 9px 11px; min-width: 0;
+  }
+  .ce-field input:focus, .ce-field select:focus { outline: none; border-color: var(--line-2); }
+
+  /* Brief tray (the cart) */
+  .tray {
+    position: sticky; top: 57px; z-index: 5;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    margin: 14px 0; padding: 10px 14px;
+  }
+  .tray-inner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .tray-count { font-size: 14px; }
+  .tray-count strong { font-family: var(--mono); font-size: 16px; }
+  .tray-hint { color: var(--text-3); font-size: 13px; }
+  .tray.shake { animation: shake .4s; }
+  @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+  /* Video shelf */
+  .shelf {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 14px; margin: 6px 0 20px;
+  }
+  .vcard {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .vcard.picked { border-color: var(--text-3); }
+  .vframe {
+    aspect-ratio: 9 / 12; background: var(--surface-2); display: grid; place-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .vframe iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+  .vload {
+    background: none; border: 1px solid var(--line-2); border-radius: 999px;
+    color: var(--text-2); font: inherit; font-size: 13px; padding: 8px 16px; cursor: pointer;
+  }
+  .vload:hover { color: var(--text); border-color: var(--text-3); }
+  .vmeta { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .vtitle { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vstats { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); }
+  .vtags { font-size: 12px; color: var(--text-2); }
+  .vtags a { border: 0; color: var(--text-3); }
+  .vtags a:hover { color: var(--text); }
+  .vpick {
+    display: flex; align-items: center; gap: 8px; margin-top: 4px;
+    font-size: 13px; color: var(--text-2); cursor: pointer; user-select: none;
+  }
+  .vpick input { accent-color: var(--text); width: 15px; height: 15px; }
+  .vcard.picked .vpick { color: var(--text); }
+
+  /* Tailored script on a picked card */
+  .vscript { border-top: 1px dashed var(--line-2); padding: 12px 14px; }
+  .vs-hook { font-size: 13px; font-style: italic; margin: 6px 0 8px; }
+  .vs-beat { font-size: 12.5px; color: var(--text-2); margin: 0 0 6px; }
+  .vs-cta { color: var(--text); }
+
+  /* Collapsed scoreboard */
+  .playbook { margin: 8px 0 20px; }
+  .playbook summary { color: var(--text-3); font-size: 13px; cursor: pointer; padding: 8px 0; }
+  .playbook summary:hover { color: var(--text-2); }
+
   @media (max-width: 640px) {
     header { gap: 10px; padding: 0 14px; }
     header .wordmark { display: none; }
