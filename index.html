@@ -49,20 +49,42 @@
     font-size: 14px;
   }
   .field { display: flex; gap: 8px; }
-  input[type="password"] {
-    flex: 1;
-    min-width: 0;
-    padding: 11px 13px;
+  .pw-wrap { position: relative; flex: 1; min-width: 0; }
+  .pw-wrap input {
+    width: 100%;
+    padding: 11px 42px 11px 13px;
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 8px;
     color: var(--text);
     font-size: 15px;
   }
-  input[type="password"]:focus {
+  .pw-wrap input:focus {
     outline: none;
     border-color: var(--accent);
   }
+  .toggle {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 6px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .toggle:hover { color: var(--text); background: #1c2029; }
+  .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .toggle svg { width: 18px; height: 18px; display: block; }
+  .toggle .icon-off { display: none; }
+  .toggle[aria-pressed="true"] .icon-on { display: none; }
+  .toggle[aria-pressed="true"] .icon-off { display: block; }
   button {
     padding: 11px 18px;
     background: var(--accent);
@@ -217,7 +239,20 @@
     <h1 class="logo">lynxr<span>.</span></h1>
     <p class="tagline">Format intelligence for short-form video.</p>
     <form class="field" id="gate-form">
-      <input type="password" id="pw" placeholder="Access code" autocomplete="current-password" autofocus>
+      <div class="pw-wrap">
+        <input type="password" id="pw" placeholder="Access code" autocomplete="current-password" autofocus>
+        <button type="button" class="toggle" id="toggle-pw" aria-pressed="false" aria-label="Show access code" title="Show access code">
+          <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.6 6.1A9.9 9.9 0 0 1 12 6c6.4 0 10 7 10 7a15.4 15.4 0 0 1-3.1 3.9M6.6 6.6A15.4 15.4 0 0 0 2 13s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/>
+            <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>
+            <line x1="3" y1="3" x2="21" y2="21"/>
+          </svg>
+        </button>
+      </div>
       <button type="submit">Enter</button>
     </form>
     <div class="error" id="err"></div>
@@ -273,6 +308,18 @@ document.getElementById("gate-form").addEventListener("submit", (e) => {
     document.getElementById("err").textContent = "Incorrect access code.";
     document.getElementById("pw").select();
   }
+});
+
+const toggleBtn = document.getElementById("toggle-pw");
+toggleBtn.addEventListener("click", () => {
+  const pw = document.getElementById("pw");
+  const showing = pw.type === "text";
+  pw.type = showing ? "password" : "text";
+  toggleBtn.setAttribute("aria-pressed", String(!showing));
+  const label = showing ? "Show access code" : "Hide access code";
+  toggleBtn.setAttribute("aria-label", label);
+  toggleBtn.setAttribute("title", label);
+  pw.focus();
 });
 
 document.getElementById("signout").addEventListener("click", () => {
