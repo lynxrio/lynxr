@@ -8,8 +8,8 @@ single database that powers the dashboard at [lynxr.io](https://www.lynxr.io).
 
 | Path | What it is |
 |---|---|
-| `index.html` | The site: access-code gate + MVP dashboard |
-| `data.json` | Dashboard data (generated — do not edit by hand) |
+| `index.html` / `app.css` / `app.js` | The site: access-code gate + dashboard (split out so the CSP can forbid inline script) |
+| `data.enc` | Encrypted database the site decrypts in-browser (generated) |
 | `pipeline/` | All the Python that produces the data |
 | `data/` | Raw scrapes and normalized CSVs *(gitignored)* |
 | `output/` | **The database, summary, and logs** *(gitignored)* |
@@ -33,7 +33,7 @@ section is searchable, filterable, and sortable.
 
 `video_id`, `creator`, `platform`, `title`, `views`, `likes`, `comments`,
 `engagement_rate`, `format_type`, `hook_pattern`, `niche_category`,
-`target_audience`, `data_source`, `source_type`, `scraped_at`
+`target_audience`, `data_source`, `source_type`, `scraped_at`, `url`
 
 ## Running the pipeline
 
@@ -64,7 +64,7 @@ $PY pipeline/process_scraped.py tiktok           # raw JSON -> normalized CSV
 $PY pipeline/tag_videos.py --input data/tiktok_normalized.csv \
                            --output output/tiktok_tagged.csv
 $PY pipeline/merge_data.py                       # build master database
-$PY pipeline/export_web.py                       # refresh data.json
+$PY pipeline/export_web.py --access-code CODE    # encrypt -> data.enc
 ```
 
 ## Tagging
@@ -90,16 +90,58 @@ bucket on `format_type` — that is honest, not broken.
 - **TikTok volume is capped.** The actor returns roughly 10–25 results per
   hashtag on the current Apify plan, regardless of the requested count.
 
-## Deploying
+## Security model
 
-The site is a single static file served by GitHub Pages from `main` at the repo
-root, with `CNAME` pointing at `www.lynxr.io`.
+The database is **encrypted at rest in the repo**. `data.enc` is AES-256-GCM
+ciphertext; the key is derived from the access code with PBKDF2-SHA256 (8,000,000
+iterations, per-bundle random salt). The page ships **no password and no
+plaintext** — the visitor types the code, the browser derives the key and
+decrypts in memory, and a wrong code simply fails GCM authentication (that
+failure *is* the access check). A strict Content-Security-Policy blocks all
+external loads and native form posts, so an injected value can't phone home.
+
+What this protects against: anyone downloading `data.enc` (or the whole repo)
+learns nothing without the code. What it does **not** protect against:
+
+- **A shared code.** Anyone you give the code to can pass it on. It's one shared
+  secret, not per-user login.
+- **Offline brute force of the code.** The ciphertext is public, so the access
+  code is the only thing protecting it and can be attacked offline at the
+  attacker's own pace. PBKDF2 runs at 8,000,000 iterations (13x the OWASP floor,
+  ~1.8s per guess in a browser) to make that expensive, but iteration count
+  cannot rescue a guessable code.
+- **Never reuse or near-reuse a code that has leaked.** `lmoatsfiya` was
+  committed to this repo's public history early on. Crackers automatically apply
+  transposition and substitution rules to known-leaked passwords, so any close
+  variant of it is effectively pre-guessed. If confidentiality of this data ever
+  starts to matter, rotate to an unrelated high-entropy code.
+- **Truly sensitive data.** For anything that needs per-user access, audit
+  logging, or revocation, a static site is the wrong tool — that needs a server.
+
+### Rotating the access code
+
+The code is never stored anywhere in the repo, so rotating it = re-encrypt and
+redeploy:
 
 ```bash
-./venv/bin/python pipeline/export_web.py   # refresh data.json
-git add -A && git commit -m "Update data" && git push
+./venv/bin/python pipeline/export_web.py --access-code NEW-CODE
+git add data.enc && git commit -m "Rotate access code" && git push
 ```
 
-> The access code is checked in browser JavaScript. That keeps casual visitors
-> out; it is **not** security, since anyone can read it via view-source. Move the
-> check server-side before putting anything sensitive behind it.
+Everyone using the old code must be given the new one.
+
+> ⚠️ **Never commit `data.json`, `output/`, or the access code.** The plaintext
+> database and an inline password were committed early in this project and had to
+> be purged from git history. `.gitignore` now blocks them; keep it that way. If
+> plaintext ever lands in a commit, purging history alone isn't enough — rotate
+> the code too, because git history on a public repo is world-readable.
+
+## Deploying
+
+The site is served by GitHub Pages from `main` at the repo root (`index.html`,
+`app.css`, `app.js`, `data.enc`), with `CNAME` pointing at the apex `lynxr.io`.
+
+```bash
+./venv/bin/python pipeline/export_web.py --access-code CODE  # refresh data.enc
+git add -A && git commit -m "Update data" && git push
+```

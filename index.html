@@ -2,305 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Strict CSP: no inline script or style at all, nothing loads off-origin, and
+     native form posts are blocked (they could otherwise put the code in a URL).
+     Dropping 'unsafe-inline' means a future missed escape cannot execute. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lynxr — Format Intelligence</title>
-<style>
-  :root {
-    --bg: #0b0d11;
-    --panel: #14171d;
-    --line: #242932;
-    --text: #e8eaed;
-    --muted: #8b929e;
-    --accent: #4ade80;
-    --accent-dim: #1c3a29;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  a { color: var(--accent); }
-
-  /* ---------- Gate ---------- */
-  #gate {
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    padding: 24px;
-  }
-  .gate-card {
-    width: 100%;
-    max-width: 360px;
-    text-align: center;
-  }
-  .logo {
-    font-size: 34px;
-    font-weight: 650;
-    letter-spacing: -0.02em;
-    margin: 0 0 6px;
-  }
-  .logo span { color: var(--accent); }
-  .tagline {
-    color: var(--muted);
-    margin: 0 0 32px;
-    font-size: 14px;
-  }
-  .field { display: flex; gap: 8px; }
-  .pw-wrap { position: relative; flex: 1; min-width: 0; }
-  .pw-wrap input {
-    width: 100%;
-    padding: 11px 42px 11px 13px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--text);
-    font-size: 15px;
-  }
-  .pw-wrap input:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  .toggle {
-    position: absolute;
-    top: 50%;
-    right: 4px;
-    transform: translateY(-50%);
-    display: grid;
-    place-items: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    background: none;
-    border: 0;
-    border-radius: 6px;
-    color: var(--muted);
-    cursor: pointer;
-  }
-  .toggle:hover { color: var(--text); background: #1c2029; }
-  .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .toggle svg { width: 18px; height: 18px; display: block; }
-  .toggle .icon-off { display: none; }
-  .toggle[aria-pressed="true"] .icon-on { display: none; }
-  .toggle[aria-pressed="true"] .icon-off { display: block; }
-  button {
-    padding: 11px 18px;
-    background: var(--accent);
-    color: #06210f;
-    border: 0;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  button:hover { filter: brightness(1.08); }
-  .error {
-    color: #f87171;
-    font-size: 13px;
-    margin-top: 12px;
-    min-height: 18px;
-  }
-
-  /* ---------- App ---------- */
-  #app { display: none; }
-  header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    padding: 20px 28px;
-    border-bottom: 1px solid var(--line);
-  }
-  header .logo { font-size: 21px; margin: 0; }
-  .signout {
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    padding: 6px 12px;
-    font-size: 13px;
-    font-weight: 500;
-  }
-  main { padding: 28px; max-width: 1100px; margin: 0 auto; }
-
-  .stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px;
-    margin-bottom: 32px;
-  }
-  .stat {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 16px;
-  }
-  .stat .label {
-    color: var(--muted);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 6px;
-  }
-  .stat .value { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
-
-  h2 {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0 0 12px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .grid-2 {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 24px;
-    margin-bottom: 32px;
-  }
-  .bars { display: flex; flex-direction: column; gap: 8px; }
-  .bar-row {
-    display: grid;
-    grid-template-columns: 1fr 46px;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-  }
-  .bar-track {
-    position: relative;
-    background: var(--panel);
-    border-radius: 5px;
-    height: 26px;
-    overflow: hidden;
-  }
-  .bar-fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background: var(--accent-dim);
-    border-left: 2px solid var(--accent);
-  }
-  .bar-label {
-    position: relative;
-    padding: 3px 9px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .bar-count { color: var(--muted); font-size: 13px; text-align: right; }
-
-  .count-pill {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 2px 8px;
-    background: var(--accent-dim);
-    color: var(--accent);
-    border-radius: 20px;
-    font-size: 12px;
-    letter-spacing: 0;
-    text-transform: none;
-    vertical-align: middle;
-  }
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .controls input[type="search"] {
-    flex: 1 1 240px;
-    min-width: 0;
-    padding: 9px 12px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--text);
-    font-size: 14px;
-  }
-  .controls select {
-    padding: 9px 10px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--text);
-    font-size: 13.5px;
-    max-width: 190px;
-  }
-  .controls input:focus, .controls select:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  .ghost {
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    padding: 9px 14px;
-    font-size: 13.5px;
-    font-weight: 500;
-  }
-  .ghost:hover:not(:disabled) { color: var(--text); border-color: var(--muted); filter: none; }
-  .ghost:disabled { opacity: 0.4; cursor: default; }
-  .pager {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    margin-top: 14px;
-    color: var(--muted);
-    font-size: 13.5px;
-  }
-  th.sortable { cursor: pointer; user-select: none; }
-  th.sortable:hover { color: var(--text); }
-  th .arrow { color: var(--accent); }
-  .no-results { padding: 28px; text-align: center; color: var(--muted); }
-  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
-  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
-  th, td {
-    text-align: left;
-    padding: 9px 12px;
-    border-bottom: 1px solid var(--line);
-    white-space: nowrap;
-  }
-  th {
-    background: var(--panel);
-    color: var(--muted);
-    font-weight: 600;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    position: sticky;
-    top: 0;
-  }
-  tbody tr:last-child td { border-bottom: 0; }
-  td.title {
-    max-width: 380px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .empty {
-    background: var(--panel);
-    border: 1px dashed var(--line);
-    border-radius: 10px;
-    padding: 32px;
-    text-align: center;
-    color: var(--muted);
-  }
-  .empty code {
-    color: var(--text);
-    background: #0b0d11;
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-</style>
+<link rel="stylesheet" href="app.css">
 </head>
 <body>
 
 <div id="gate">
   <div class="gate-card">
-    <h1 class="logo">lynxr<span>.</span></h1>
+    <h1 class="wordmark">lynxr<i>.</i></h1>
     <p class="tagline">Format intelligence for short-form video.</p>
     <form class="field" id="gate-form">
       <div class="pw-wrap">
@@ -308,46 +23,56 @@
                autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
         <button type="button" class="toggle" id="toggle-pw" aria-pressed="false" aria-label="Show access code" title="Show access code">
           <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/>
-            <circle cx="12" cy="12" r="3"/>
+            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
           </svg>
           <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M10.6 6.1A9.9 9.9 0 0 1 12 6c6.4 0 10 7 10 7a15.4 15.4 0 0 1-3.1 3.9M6.6 6.6A15.4 15.4 0 0 0 2 13s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/>
-            <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>
-            <line x1="3" y1="3" x2="21" y2="21"/>
+            <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><line x1="3" y1="3" x2="21" y2="21"/>
           </svg>
         </button>
       </div>
-      <button type="submit">Enter</button>
+      <button type="submit" class="btn">Enter</button>
     </form>
-    <div class="error" id="err"></div>
+    <div class="err" id="err" role="status" aria-live="polite"></div>
   </div>
 </div>
 
 <div id="app">
   <header>
-    <h1 class="logo">lynxr<span>.</span></h1>
-    <button class="signout" id="signout">Sign out</button>
+    <h1 class="wordmark">lynxr<i>.</i></h1>
+    <nav role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true">Overview</button>
+      <button class="tab" role="tab" id="tab-database" aria-controls="panel-database" aria-selected="false">Database</button>
+      <button class="tab" role="tab" id="tab-brief" aria-controls="panel-brief" aria-selected="false">Client brief</button>
+    </nav>
+    <div class="spacer"></div>
+    <button class="ghost" id="signout">Sign out</button>
   </header>
+
   <main>
-    <div class="stats" id="stats"></div>
-    <div class="grid-2">
-      <section><h2>Format type</h2><div class="bars" id="by-format"></div></section>
-      <section><h2>Hook pattern</h2><div class="bars" id="by-hook"></div></section>
-    </div>
-    <div class="grid-2">
-      <section><h2>Niche</h2><div class="bars" id="by-niche"></div></section>
-      <section><h2>Source</h2><div class="bars" id="by-source"></div></section>
-    </div>
-    <section>
-      <h2>Full database <span id="row-count" class="count-pill"></span></h2>
+    <!-- Overview -->
+    <section class="panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+      <div class="section"><div class="stats" id="stats"></div></div>
+      <div class="section grid-2">
+        <div><h2>Format type</h2><div class="bars" id="by-format"></div></div>
+        <div><h2>Hook pattern</h2><div class="bars" id="by-hook"></div></div>
+      </div>
+      <div class="section grid-2">
+        <div><h2>Niche</h2><div class="bars" id="by-niche"></div></div>
+        <div><h2>Source</h2><div class="bars" id="by-source"></div></div>
+      </div>
+    </section>
+
+    <!-- Database -->
+    <section class="panel" id="panel-database" role="tabpanel" aria-labelledby="tab-database" hidden>
+      <h2>Full database <span id="row-count" class="pill"></span></h2>
       <div class="controls">
-        <input type="search" id="search" placeholder="Search creator, title, or tag…">
-        <select id="f-source"></select>
-        <select id="f-platform"></select>
-        <select id="f-format"></select>
-        <select id="f-hook"></select>
-        <select id="f-niche"></select>
+        <input type="search" id="search" placeholder="Search creator, title, or tag…" aria-label="Search the database">
+        <select id="f-source" aria-label="Filter by source"></select>
+        <select id="f-platform" aria-label="Filter by platform"></select>
+        <select id="f-format" aria-label="Filter by format"></select>
+        <select id="f-hook" aria-label="Filter by hook"></select>
+        <select id="f-niche" aria-label="Filter by niche"></select>
         <button type="button" id="reset" class="ghost">Reset</button>
       </div>
       <div id="table-host"></div>
@@ -357,266 +82,24 @@
         <button type="button" id="next" class="ghost">Next →</button>
       </div>
     </section>
+
+    <!-- Client brief -->
+    <section class="panel" id="panel-brief" role="tabpanel" aria-labelledby="tab-brief" hidden>
+      <h2>Client brief</h2>
+      <p class="lede">Paste a client's site to get ten format &amp; hook plays ranked against what
+        actually performs in their niche, each with real example videos from the database.</p>
+      <form class="brief-form" id="brief-form">
+        <input type="url" id="client-url" placeholder="https://clientsite.com" aria-label="Client website URL"
+               autocomplete="off" spellcheck="false">
+        <button type="submit" class="btn">Build brief</button>
+      </form>
+      <p class="note">The niche is inferred from words in the URL — this page is static and can't
+        read the site itself. Check it below and correct it if it's wrong.</p>
+      <div id="brief-out"></div>
+    </section>
   </main>
 </div>
 
-<script>
-// NOTE: this is a soft gate, not security — the code below is visible to anyone
-// who views source. Move the check server-side before putting anything sensitive
-// behind it.
-const ACCESS_CODE = "lmoatsfiya";
-const KEY = "lynxr_access";
-
-const gate = document.getElementById("gate");
-const app = document.getElementById("app");
-
-let unlocked = false;
-function unlock() {
-  if (unlocked) return;   // guard: double-unlock would double-bind listeners
-  unlocked = true;
-  document.getElementById("err").textContent = "";
-  gate.style.display = "none";
-  app.style.display = "block";
-  loadData();
-}
-
-// Forgiving comparison: phones auto-capitalize the first letter, and pasted
-// codes often carry a trailing space or newline. Neither should lock you out.
-function normalize(s) {
-  return (s || "").replace(/\s+/g, "").toLowerCase();
-}
-
-document.getElementById("gate-form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const pw = document.getElementById("pw");
-  if (normalize(pw.value) === normalize(ACCESS_CODE)) {
-    sessionStorage.setItem(KEY, "1");
-    unlock();
-  } else {
-    document.getElementById("err").textContent = pw.value
-      ? "Incorrect access code."
-      : "Enter the access code.";
-    pw.select();
-  }
-});
-
-const toggleBtn = document.getElementById("toggle-pw");
-toggleBtn.addEventListener("click", () => {
-  const pw = document.getElementById("pw");
-  const showing = pw.type === "text";
-  pw.type = showing ? "password" : "text";
-  toggleBtn.setAttribute("aria-pressed", String(!showing));
-  const label = showing ? "Show access code" : "Hide access code";
-  toggleBtn.setAttribute("aria-label", label);
-  toggleBtn.setAttribute("title", label);
-  pw.focus();
-});
-
-document.getElementById("signout").addEventListener("click", () => {
-  sessionStorage.removeItem(KEY);
-  location.reload();
-});
-
-if (sessionStorage.getItem(KEY) === "1") unlock();
-
-// ---------- Dashboard ----------
-const fmt = (n) => n.toLocaleString();
-
-function countBy(rows, key) {
-  const m = new Map();
-  for (const r of rows) {
-    const v = (r[key] || "").trim() || "(untagged)";
-    m.set(v, (m.get(v) || 0) + 1);
-  }
-  return [...m.entries()].sort((a, b) => b[1] - a[1]);
-}
-
-function renderBars(hostId, pairs, limit = 8) {
-  const host = document.getElementById(hostId);
-  const shown = pairs.slice(0, limit);
-  const max = shown.length ? shown[0][1] : 1;
-  host.innerHTML = shown.map(([label, count]) => `
-    <div class="bar-row">
-      <div class="bar-track">
-        <div class="bar-fill" style="width:${(count / max) * 100}%"></div>
-        <div class="bar-label">${escapeHtml(label)}</div>
-      </div>
-      <div class="bar-count">${fmt(count)}</div>
-    </div>`).join("");
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-function renderStats(rows) {
-  const totalViews = rows.reduce((a, r) => a + (+r.views || 0), 0);
-  const ers = rows.map((r) => parseFloat(r.engagement_rate)).filter((n) => !isNaN(n));
-  const avgEr = ers.length ? (ers.reduce((a, b) => a + b, 0) / ers.length) : null;
-  const creators = new Set(rows.map((r) => r.creator).filter(Boolean)).size;
-
-  const cards = [
-    ["Videos", fmt(rows.length)],
-    ["Total views", fmt(totalViews)],
-    ["Avg engagement", avgEr === null ? "—" : avgEr.toFixed(2) + "%"],
-    ["Creators", fmt(creators)],
-  ];
-  document.getElementById("stats").innerHTML = cards.map(([label, value]) => `
-    <div class="stat"><div class="label">${label}</div><div class="value">${value}</div></div>`).join("");
-}
-
-// ---------- Full browsable database ----------
-const PAGE_SIZE = 50;
-const COLS = [
-  { key: "creator", label: "Creator" },
-  { key: "platform", label: "Platform" },
-  { key: "title", label: "Title", cls: "title" },
-  { key: "views", label: "Views", num: true },
-  { key: "likes", label: "Likes", num: true },
-  { key: "comments", label: "Comments", num: true },
-  { key: "engagement_rate", label: "ER", num: true, pct: true },
-  { key: "format_type", label: "Format" },
-  { key: "hook_pattern", label: "Hook" },
-  { key: "niche_category", label: "Niche" },
-  { key: "target_audience", label: "Audience" },
-  { key: "data_source", label: "Source" },
-];
-
-const FILTERS = [
-  { id: "f-source", key: "data_source", label: "All sources" },
-  { id: "f-platform", key: "platform", label: "All platforms" },
-  { id: "f-format", key: "format_type", label: "All formats" },
-  { id: "f-hook", key: "hook_pattern", label: "All hooks" },
-  { id: "f-niche", key: "niche_category", label: "All niches" },
-];
-
-let ALL = [];
-let view = [];
-let page = 0;
-let sortKey = "views";
-let sortDir = -1;
-
-function num(r, k) {
-  const v = parseFloat(r[k]);
-  return isNaN(v) ? -1 : v;
-}
-
-function applyFilters() {
-  const q = document.getElementById("search").value.trim().toLowerCase();
-  const active = FILTERS.map((f) => [f.key, document.getElementById(f.id).value]);
-
-  view = ALL.filter((r) => {
-    for (const [key, val] of active) {
-      if (val && (r[key] || "") !== val) return false;
-    }
-    if (!q) return true;
-    return (r.creator + " " + r.title + " " + r.format_type + " " + r.hook_pattern +
-            " " + r.niche_category + " " + r.target_audience).toLowerCase().includes(q);
-  });
-
-  const isNum = COLS.find((c) => c.key === sortKey)?.num;
-  view.sort((a, b) => {
-    if (isNum) return (num(a, sortKey) - num(b, sortKey)) * sortDir;
-    return String(a[sortKey] || "").localeCompare(String(b[sortKey] || "")) * sortDir;
-  });
-
-  page = 0;
-  renderTable();
-}
-
-function renderTable() {
-  const total = view.length;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  page = Math.min(page, pages - 1);
-  const slice = view.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-
-  document.getElementById("row-count").textContent =
-    total === ALL.length ? `${fmt(total)} videos` : `${fmt(total)} of ${fmt(ALL.length)}`;
-
-  const host = document.getElementById("table-host");
-  if (!total) {
-    host.innerHTML = `<div class="table-wrap"><div class="no-results">No videos match those filters.</div></div>`;
-  } else {
-    host.innerHTML = `
-      <div class="table-wrap"><table>
-        <thead><tr>${COLS.map((c) => `
-          <th class="sortable" data-key="${c.key}">${c.label}${
-            sortKey === c.key ? ` <span class="arrow">${sortDir === -1 ? "▼" : "▲"}</span>` : ""
-          }</th>`).join("")}</tr></thead>
-        <tbody>${slice.map((r) => `
-          <tr>${COLS.map((c) => {
-            const raw = r[c.key];
-            if (c.num) {
-              const v = parseFloat(raw);
-              return `<td class="num">${isNaN(v) ? "—" : fmt(v) + (c.pct ? "%" : "")}</td>`;
-            }
-            return `<td class="${c.cls || ""}" title="${escapeHtml(raw || "")}">${escapeHtml(raw || "—")}</td>`;
-          }).join("")}</tr>`).join("")}
-        </tbody>
-      </table></div>`;
-
-    host.querySelectorAll("th.sortable").forEach((th) => {
-      th.addEventListener("click", () => {
-        const k = th.dataset.key;
-        if (sortKey === k) sortDir *= -1;
-        else { sortKey = k; sortDir = COLS.find((c) => c.key === k)?.num ? -1 : 1; }
-        applyFilters();
-      });
-    });
-  }
-
-  document.getElementById("page-info").textContent =
-    `Page ${page + 1} of ${pages}`;
-  document.getElementById("prev").disabled = page === 0;
-  document.getElementById("next").disabled = page >= pages - 1;
-}
-
-function initControls() {
-  for (const f of FILTERS) {
-    const sel = document.getElementById(f.id);
-    const values = [...new Set(ALL.map((r) => r[f.key]).filter(Boolean))].sort();
-    sel.innerHTML = `<option value="">${f.label}</option>` +
-      values.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-    sel.addEventListener("change", applyFilters);
-  }
-  let t;
-  document.getElementById("search").addEventListener("input", () => {
-    clearTimeout(t);
-    t = setTimeout(applyFilters, 150);
-  });
-  document.getElementById("reset").addEventListener("click", () => {
-    document.getElementById("search").value = "";
-    FILTERS.forEach((f) => (document.getElementById(f.id).value = ""));
-    applyFilters();
-  });
-  document.getElementById("prev").addEventListener("click", () => { page--; renderTable(); });
-  document.getElementById("next").addEventListener("click", () => { page++; renderTable(); });
-}
-
-async function loadData() {
-  let rows;
-  try {
-    const res = await fetch("data.json", { cache: "no-store" });
-    if (!res.ok) throw new Error(res.status);
-    rows = await res.json();
-  } catch (e) {
-    document.querySelector("main").innerHTML = `
-      <div class="empty">
-        <p><strong>No data loaded yet.</strong></p>
-        <p>Generate <code>data.json</code> by running the pipeline, then reload.</p>
-      </div>`;
-    return;
-  }
-  ALL = rows;
-  renderStats(rows);
-  renderBars("by-format", countBy(rows, "format_type"));
-  renderBars("by-hook", countBy(rows, "hook_pattern"));
-  renderBars("by-niche", countBy(rows, "niche_category"));
-  renderBars("by-source", countBy(rows, "data_source"));
-  initControls();
-  applyFilters();
-}
-</script>
+<script src="app.js" defer></script>
 </body>
 </html>

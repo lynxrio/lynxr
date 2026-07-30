@@ -18,7 +18,7 @@ OUT_DIR = Path(__file__).parent.parent / "output"
 MASTER_FIELDS = [
     "video_id", "creator", "platform", "title", "views", "likes", "comments",
     "engagement_rate", "format_type", "hook_pattern", "niche_category",
-    "target_audience", "data_source", "source_type", "scraped_at",
+    "target_audience", "data_source", "source_type", "scraped_at", "url",
 ]
 
 TAG_COLS = ["format_type", "hook_pattern", "niche_category", "target_audience"]
@@ -65,7 +65,7 @@ def load_medceptor(path):
                 "data_source": "Medceptor",
                 "source_type": "ugc_program",
                 "scraped_at": TODAY,
-                "_url": r.get("URL", ""),
+                "url": r.get("URL", ""),
             })
     return rows
 
@@ -87,7 +87,7 @@ def load_scraped(path, source_name):
                 "data_source": source_name,
                 "source_type": "organic_scrape",
                 "scraped_at": TODAY,
-                "_url": r.get("url", ""),
+                "url": r.get("url", ""),
             })
     return rows
 
@@ -98,8 +98,8 @@ def dedupe(rows):
         keys = []
         if r["video_id"]:
             keys.append((r["platform"], r["video_id"]))
-        if r["_url"]:
-            keys.append(("url", r["_url"]))
+        if r["url"]:
+            keys.append(("url", r["url"]))
         if any(k in seen for k in keys):
             dropped += 1
             continue

@@ -30,10 +30,10 @@ $PY tag_videos.py --input ../data/instagram_normalized.csv --output ../output/in
 echo "=== Step 5-6: Merge + summary ==="
 $PY merge_data.py
 
-echo "=== Step 7: Export data for the dashboard ==="
-$PY export_web.py
+echo "=== Step 7: Export encrypted dashboard bundle ==="
+$PY export_web.py   # access code: --access-code, LYNXR_ACCESS_CODE, or prompt
 
 echo "=== PIPELINE COMPLETE ==="
 echo "  Master database: output/master_video_database.csv"
 echo "  Summary:         output/data_summary.txt"
-echo "  Dashboard data:  data.json"
+echo "  Dashboard data:  data.enc (encrypted)"
