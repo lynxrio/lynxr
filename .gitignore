@@ -1,0 +1,10 @@
+# Secrets — never commit
+.env
+
+# Local python env
+venv/
+
+# Large/derived data
+data/
+output/
+*.batch_state.json

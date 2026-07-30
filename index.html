@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lynxr — Format Intelligence</title>
+<style>
+  :root {
+    --bg: #0b0d11;
+    --panel: #14171d;
+    --line: #242932;
+    --text: #e8eaed;
+    --muted: #8b929e;
+    --accent: #4ade80;
+    --accent-dim: #1c3a29;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+
+  /* ---------- Gate ---------- */
+  #gate {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+  .gate-card {
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+  }
+  .logo {
+    font-size: 34px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+  }
+  .logo span { color: var(--accent); }
+  .tagline {
+    color: var(--muted);
+    margin: 0 0 32px;
+    font-size: 14px;
+  }
+  .field { display: flex; gap: 8px; }
+  input[type="password"] {
+    flex: 1;
+    min-width: 0;
+    padding: 11px 13px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 15px;
+  }
+  input[type="password"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  button {
+    padding: 11px 18px;
+    background: var(--accent);
+    color: #06210f;
+    border: 0;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+  .error {
+    color: #f87171;
+    font-size: 13px;
+    margin-top: 12px;
+    min-height: 18px;
+  }
+
+  /* ---------- App ---------- */
+  #app { display: none; }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--line);
+  }
+  header .logo { font-size: 21px; margin: 0; }
+  .signout {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  main { padding: 28px; max-width: 1100px; margin: 0 auto; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .stat .label {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .stat .value { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
+
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  .bars { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 1fr 46px;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+  }
+  .bar-track {
+    position: relative;
+    background: var(--panel);
+    border-radius: 5px;
+    height: 26px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--accent-dim);
+    border-left: 2px solid var(--accent);
+  }
+  .bar-label {
+    position: relative;
+    padding: 3px 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bar-count { color: var(--muted); font-size: 13px; text-align: right; }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  th {
+    background: var(--panel);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    position: sticky;
+    top: 0;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.title {
+    max-width: 380px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .empty {
+    background: var(--panel);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 32px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .empty code {
+    color: var(--text);
+    background: #0b0d11;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-card">
+    <h1 class="logo">lynxr<span>.</span></h1>
+    <p class="tagline">Format intelligence for short-form video.</p>
+    <form class="field" id="gate-form">
+      <input type="password" id="pw" placeholder="Access code" autocomplete="current-password" autofocus>
+      <button type="submit">Enter</button>
+    </form>
+    <div class="error" id="err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <h1 class="logo">lynxr<span>.</span></h1>
+    <button class="signout" id="signout">Sign out</button>
+  </header>
+  <main>
+    <div class="stats" id="stats"></div>
+    <div class="grid-2">
+      <section><h2>Format type</h2><div class="bars" id="by-format"></div></section>
+      <section><h2>Hook pattern</h2><div class="bars" id="by-hook"></div></section>
+    </div>
+    <div class="grid-2">
+      <section><h2>Niche</h2><div class="bars" id="by-niche"></div></section>
+      <section><h2>Source</h2><div class="bars" id="by-source"></div></section>
+    </div>
+    <section>
+      <h2>Top videos by views</h2>
+      <div id="table-host"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+// NOTE: this is a soft gate, not security — the code below is visible to anyone
+// who views source. Move the check server-side before putting anything sensitive
+// behind it.
+const ACCESS_CODE = "lmoatsfiya";
+const KEY = "lynxr_access";
+
+const gate = document.getElementById("gate");
+const app = document.getElementById("app");
+
+function unlock() {
+  document.getElementById("err").textContent = "";
+  gate.style.display = "none";
+  app.style.display = "block";
+  loadData();
+}
+
+document.getElementById("gate-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const val = document.getElementById("pw").value;
+  if (val === ACCESS_CODE) {
+    sessionStorage.setItem(KEY, "1");
+    unlock();
+  } else {
+    document.getElementById("err").textContent = "Incorrect access code.";
+    document.getElementById("pw").select();
+  }
+});
+
+document.getElementById("signout").addEventListener("click", () => {
+  sessionStorage.removeItem(KEY);
+  location.reload();
+});
+
+if (sessionStorage.getItem(KEY) === "1") unlock();
+
+// ---------- Dashboard ----------
+const fmt = (n) => n.toLocaleString();
+
+function countBy(rows, key) {
+  const m = new Map();
+  for (const r of rows) {
+    const v = (r[key] || "").trim() || "(untagged)";
+    m.set(v, (m.get(v) || 0) + 1);
+  }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function renderBars(hostId, pairs, limit = 8) {
+  const host = document.getElementById(hostId);
+  const shown = pairs.slice(0, limit);
+  const max = shown.length ? shown[0][1] : 1;
+  host.innerHTML = shown.map(([label, count]) => `
+    <div class="bar-row">
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${(count / max) * 100}%"></div>
+        <div class="bar-label">${escapeHtml(label)}</div>
+      </div>
+      <div class="bar-count">${fmt(count)}</div>
+    </div>`).join("");
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function renderStats(rows) {
+  const totalViews = rows.reduce((a, r) => a + (+r.views || 0), 0);
+  const ers = rows.map((r) => parseFloat(r.engagement_rate)).filter((n) => !isNaN(n));
+  const avgEr = ers.length ? (ers.reduce((a, b) => a + b, 0) / ers.length) : null;
+  const creators = new Set(rows.map((r) => r.creator).filter(Boolean)).size;
+
+  const cards = [
+    ["Videos", fmt(rows.length)],
+    ["Total views", fmt(totalViews)],
+    ["Avg engagement", avgEr === null ? "—" : avgEr.toFixed(2) + "%"],
+    ["Creators", fmt(creators)],
+  ];
+  document.getElementById("stats").innerHTML = cards.map(([label, value]) => `
+    <div class="stat"><div class="label">${label}</div><div class="value">${value}</div></div>`).join("");
+}
+
+function renderTable(rows) {
+  const top = [...rows].sort((a, b) => (+b.views || 0) - (+a.views || 0)).slice(0, 25);
+  document.getElementById("table-host").innerHTML = `
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>Creator</th><th>Platform</th><th>Title</th>
+        <th>Views</th><th>ER</th><th>Format</th><th>Hook</th>
+      </tr></thead>
+      <tbody>${top.map((r) => `
+        <tr>
+          <td>${escapeHtml(r.creator || "—")}</td>
+          <td>${escapeHtml(r.platform || "—")}</td>
+          <td class="title" title="${escapeHtml(r.title || "")}">${escapeHtml(r.title || "—")}</td>
+          <td class="num">${fmt(+r.views || 0)}</td>
+          <td class="num">${r.engagement_rate ? escapeHtml(r.engagement_rate) + "%" : "—"}</td>
+          <td>${escapeHtml(r.format_type || "—")}</td>
+          <td>${escapeHtml(r.hook_pattern || "—")}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table></div>`;
+}
+
+async function loadData() {
+  let rows;
+  try {
+    const res = await fetch("data.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    rows = await res.json();
+  } catch (e) {
+    document.querySelector("main").innerHTML = `
+      <div class="empty">
+        <p><strong>No data loaded yet.</strong></p>
+        <p>Generate <code>data.json</code> by running the pipeline, then reload.</p>
+      </div>`;
+    return;
+  }
+  renderStats(rows);
+  renderBars("by-format", countBy(rows, "format_type"));
+  renderBars("by-hook", countBy(rows, "hook_pattern"));
+  renderBars("by-niche", countBy(rows, "niche_category"));
+  renderBars("by-source", countBy(rows, "data_source"));
+  renderTable(rows);
+}
+</script>
+</body>
+</html>
