@@ -546,6 +546,77 @@ function starterHook(hookPattern, brand, feat) {
 // endpoint in a sandboxed iframe (frame-src allowlisted in the CSP). TikTok and
 // YouTube embed reliably; Instagram/Facebook sometimes refuse without login,
 // so every card keeps an "open on platform" link as the fallback.
+//
+// Shelf cards are STATIC until clicked: a real thumbnail + play button, no
+// iframe. Embeds auto-animate (TikTok especially), and 24 of them at once
+// makes the shelf unscannable. One click loads that one video's player.
+
+const TT_THUMBS = new Map();   // video url -> thumbnail url (from TikTok oEmbed)
+
+function thumbFor(row) {
+  const p = (row.platform || "").toLowerCase();
+  const url = String(row.url || "");
+  if (p === "youtube") {
+    const id = (url.match(/(?:shorts\/|watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/) || [])[1];
+    return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
+  }
+  if (p === "tiktok") return TT_THUMBS.get(url) || null;
+  return null;   // instagram/facebook: no keyless thumbnail — placeholder card
+}
+
+/** Resolve TikTok thumbnails via oEmbed and drop them into waiting cards. */
+function fillTikTokThumbs(rows) {
+  for (const r of rows) {
+    const url = String(r.url || "");
+    if ((r.platform || "").toLowerCase() !== "tiktok" || !url || TT_THUMBS.has(url)) continue;
+    fetch("https://www.tiktok.com/oembed?url=" + encodeURIComponent(url))
+      .then((res) => res.ok ? res.json() : null)
+      .then((d) => {
+        const t = d && typeof d.thumbnail_url === "string" ? d.thumbnail_url : null;
+        if (!t || !/^https:\/\/[^/]*tiktokcdn[^/]*\//.test(t)) return;
+        TT_THUMBS.set(url, t);
+        document.querySelectorAll(`.vframe[data-url="${CSS.escape(url)}"] .vthumb-pending`)
+          .forEach((el) => {
+            const img = document.createElement("img");
+            img.className = "vthumb";
+            img.src = t;
+            img.alt = "";
+            img.loading = "lazy";
+            el.replaceWith(img);
+          });
+      })
+      .catch(() => {});
+  }
+}
+
+/** Swap a static frame for the live player (the one deliberate click). */
+function playInFrame(frameEl, row) {
+  const emb = embedFor(row);
+  if (!emb) return;
+  const iframe = document.createElement("iframe");
+  // autoplay so the click that loaded the player is also the click that plays
+  iframe.src = emb.src + (emb.src.includes("youtube-nocookie") ? "?autoplay=1&playsinline=1" : "");
+  iframe.setAttribute("scrolling", "no");
+  iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups");
+  iframe.setAttribute("referrerpolicy", "no-referrer");
+  iframe.setAttribute("title", "Video player");
+  frameEl.classList.add("playing");
+  frameEl.replaceChildren(iframe);
+}
+
+function frameHtml(row) {
+  const emb = embedFor(row);
+  const thumb = thumbFor(row);
+  const pending = !thumb && (row.platform || "").toLowerCase() === "tiktok";
+  return `
+    <div class="vframe ${emb ? emb.cls : ""}" data-url="${escapeHtml(String(row.url || ""))}">
+      ${thumb ? `<img class="vthumb" src="${escapeHtml(thumb)}" alt="" loading="lazy">`
+        : `<div class="${pending ? "vthumb-pending" : "vthumb-none"}">${pending ? "" : escapeHtml(row.platform || "video")}</div>`}
+      ${emb ? `<button type="button" class="vplay" aria-label="Play video">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+      </button>` : ""}
+    </div>`;
+}
 function embedFor(row) {
   const url = String(row.url || "");
   const p = (row.platform || "").toLowerCase();
@@ -756,11 +827,7 @@ function modalBody(row) {
   const stat = (v, l) => `<div class="metric"><div class="m-val">${v}</div><div class="m-lbl">${l}</div></div>`;
   return `
     <div class="modal-grid">
-      <div class="modal-player ${emb ? emb.cls : ""}">${emb ? `
-        <iframe src="${escapeHtml(emb.src)}" scrolling="no"
-          sandbox="allow-scripts allow-same-origin allow-popups"
-          referrerpolicy="no-referrer" title="Video player"></iframe>` : `<div class="empty">No embed available</div>`}
-      </div>
+      <div class="modal-player-host">${emb ? frameHtml(row).replace('class="vframe ', 'class="vframe modal-player ') : `<div class="empty">No embed available</div>`}</div>
       <div class="modal-info">
         <p class="modal-title">${escapeHtml(row.title || "(no caption)")}</p>
         <p class="lbl">${escapeHtml(row.creator || "—")} · ${escapeHtml(row.platform || "")} · ${escapeHtml(row.data_source || "")}
@@ -793,6 +860,11 @@ function openModal(key) {
 }
 
 function openModalBindings(key, row) {
+  const playBtn = document.querySelector("#modal .vplay");
+  if (playBtn) playBtn.addEventListener("click", () => {
+    playInFrame(document.querySelector("#modal .vframe"), row);
+  });
+  fillTikTokThumbs([row]);
   const copyBtn = document.getElementById("modal-copy");
   if (copyBtn) copyBtn.addEventListener("click", async () => {
     const slot = Math.max([...CART.keys()].indexOf(key), 0);
@@ -804,9 +876,9 @@ function openModalBindings(key, row) {
   if (pickBtn && !pickBtn.dataset.bound) {
     pickBtn.dataset.bound = "1";
     pickBtn.addEventListener("click", () => {
+      // Update in place — re-rendering the body would stop a playing video.
       if (setPicked(key, !CART.has(key))) {
-        document.getElementById("modal-content").innerHTML = modalBody(row);
-        openModalBindings(key, row);
+        pickBtn.textContent = CART.has(key) ? "Remove from brief" : "Add to brief";
       }
     });
   }
@@ -856,14 +928,9 @@ function renderShelf(niche) {
     shelf.map((r) => {
       const k = rowKey(r);
       const checked = CART.has(k);
-      const emb = embedFor(r);
       return `
       <article class="vcard${checked ? " picked" : ""}" data-key="${escapeHtml(k)}">
-        <div class="vframe ${emb ? emb.cls : ""}">${emb ? `
-          <iframe src="${escapeHtml(emb.src)}" loading="lazy" scrolling="no"
-            sandbox="allow-scripts allow-same-origin allow-popups"
-            referrerpolicy="no-referrer" title="Video player"></iframe>` : ""}
-        </div>
+        ${frameHtml(r)}
         <div class="vmeta">
           <div class="vtitle">${escapeHtml(r.title || "(no caption)")}</div>
           <div class="vrow">
@@ -891,6 +958,13 @@ function renderShelf(niche) {
   body.querySelectorAll(".vdetails").forEach((btn) => {
     btn.addEventListener("click", () => openModal(btn.dataset.key));
   });
+  body.querySelectorAll(".vplay").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const card = btn.closest(".vcard");
+      playInFrame(card.querySelector(".vframe"), SHELF_CTX.index.get(card.dataset.key));
+    });
+  });
+  fillTikTokThumbs(shelf);
 
   refreshTray();
 }

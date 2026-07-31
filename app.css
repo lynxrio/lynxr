@@ -39,7 +39,7 @@
   /* ---------- Gate ---------- */
   #gate { min-height: 100svh; display: grid; place-items: center; padding: 24px; }
   .gate-card { width: 100%; max-width: 340px; text-align: center; }
-  .gate-card .wordmark { font-size: 32px; margin-bottom: 8px; }
+  .gate-card .wordmark { font-size: 32px; margin-bottom: 34px; }
   .tagline { color: var(--text-3); margin: 0 0 36px; font-size: 14px; }
   .field { display: flex; gap: 8px; }
   .pw-wrap { position: relative; flex: 1; min-width: 0; }
@@ -284,6 +284,24 @@
   .playbook { margin: 8px 0 20px; }
   .playbook summary { color: var(--text-3); font-size: 13px; cursor: pointer; padding: 8px 0; }
   .playbook summary:hover { color: var(--text-2); }
+
+  /* Static video frames: thumbnail + play button; iframe only after a click */
+  .vframe { position: relative; }
+  .vthumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .vthumb-pending, .vthumb-none {
+    width: 100%; height: 100%; display: grid; place-items: center;
+    color: var(--text-3); font-size: 12px; text-transform: capitalize;
+    background: linear-gradient(160deg, var(--surface-2), var(--surface));
+  }
+  .vplay {
+    position: absolute; inset: 0; margin: auto; width: 52px; height: 52px;
+    display: grid; place-items: center; padding: 0;
+    background: #0a0a0bc9; border: 1px solid #ffffff3d; border-radius: 50%;
+    color: var(--text); cursor: pointer; transition: transform .12s, background .12s;
+  }
+  .vplay svg { width: 22px; height: 22px; margin-left: 3px; }
+  .vplay:hover { background: #0a0a0be6; transform: scale(1.07); }
+  .vframe.playing .vplay { display: none; }
 
   /* Clickable Overview bars */
   .bar-row.drill { cursor: pointer; border-radius: 6px; }
