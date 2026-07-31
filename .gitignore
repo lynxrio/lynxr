@@ -13,3 +13,6 @@ output/
 # Local transcription artifacts
 output/transcripts.jsonl
 data/covers/
+
+# macOS noise
+.DS_Store
