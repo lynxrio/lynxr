@@ -285,6 +285,61 @@
   .playbook summary { color: var(--text-3); font-size: 13px; cursor: pointer; padding: 8px 0; }
   .playbook summary:hover { color: var(--text-2); }
 
+  /* Clickable Overview bars */
+  .bar-row.drill { cursor: pointer; border-radius: 6px; }
+  .bar-row.drill:hover .bar-track { background: var(--surface-2); }
+  .bar-row.drill:hover .bar-label { color: var(--text); }
+
+  /* Collapsible client editor */
+  .ce-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .ce-head .ce-title { margin: 0; }
+  .ce-toggle { margin-left: auto; padding: 5px 11px; font-size: 12.5px; }
+  .ce-body { margin-top: 14px; }
+  .client-editor.collapsed .ce-body { display: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-size: 12px; color: var(--text-2); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+  }
+
+  /* Compact shelf card row */
+  .vrow { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+  .vstat { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
+  .vdetails {
+    background: none; border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text-2); font: inherit; font-size: 12px; padding: 3px 10px; cursor: pointer;
+  }
+  .vdetails:hover { color: var(--text); border-color: var(--line-2); }
+  .vpick { margin-left: auto; margin-top: 0; }
+
+  /* Detail modal */
+  .no-scroll { overflow: hidden; }
+  #modal { position: fixed; inset: 0; z-index: 100; }
+  #modal[hidden] { display: none; }
+  .modal-back { position: absolute; inset: 0; background: #000000b8; backdrop-filter: blur(3px); }
+  .modal-card {
+    position: relative; margin: 4vh auto; width: min(880px, calc(100vw - 32px));
+    max-height: 92vh; overflow: auto; background: var(--surface);
+    border: 1px solid var(--line-2); border-radius: 14px; padding: 22px;
+  }
+  .modal-x { position: absolute; top: 12px; right: 12px; padding: 5px 10px; z-index: 2; }
+  .modal-grid { display: grid; grid-template-columns: 300px 1fr; gap: 22px; }
+  .modal-player { border-radius: 10px; overflow: hidden; background: #000; align-self: start; }
+  .modal-player iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .modal-player.vf-tiktok { aspect-ratio: 9 / 19.8; }
+  .modal-player.vf-insta { aspect-ratio: 9 / 19; }
+  .modal-player.vf-short { aspect-ratio: 9 / 16; }
+  .modal-player.vf-wide { aspect-ratio: 16 / 9; grid-column: 1 / -1; }
+  .modal-info { min-width: 0; }
+  .modal-title { font-size: 15px; margin: 0 0 6px; padding-right: 40px; }
+  .modal-metrics { display: flex; gap: 18px; margin: 14px 0; flex-wrap: wrap; }
+  .modal-info .chips { margin: 4px 0 12px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+  @media (max-width: 700px) {
+    .modal-grid { grid-template-columns: 1fr; }
+    .modal-player { max-width: 320px; margin: 0 auto; }
+  }
+
   @media (max-width: 640px) {
     header { gap: 10px; padding: 0 14px; }
     header .wordmark { display: none; }

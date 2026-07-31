@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 """Tag videos with Claude via the Message Batches API (50% cost, built for bulk).
 
-Usage:
-    python tag_videos.py --input ../data/medceptor_raw.csv --output ../output/medceptor_tagged.csv
+One request per video. An earlier design batched N videos per request and asked
+for an array back — the model would return a valid 1-element array and stop,
+silently under-tagging (structured outputs has no minItems). Per-video requests
+make coverage verifiable: every custom_id either has a tag object or failed.
 
-Resumable: a state file (<output>.batch_state.json) records the submitted batch ID.
-Re-running the script polls the existing batch instead of re-submitting.
+Failed/refused requests are automatically retried once via the live API before
+writing output. Coverage below 95% is a loud error.
+
+Usage:
+    python tag_videos.py --input ../data/x_normalized.csv --output ../output/x_tagged.csv
+
+Resumable: <output>.batch_state.json records the batch ID; re-running polls it
+instead of re-submitting. Delete the state file to force a fresh batch.
 """
 
 import argparse
@@ -21,11 +29,11 @@ import anthropic
 from taxonomy import SYSTEM_PROMPT, TAG_SCHEMA
 
 MODEL = "claude-opus-5"
-CHUNK_SIZE = 10          # videos per batch request
-MAX_TOKENS = 8000
-POLL_SECONDS = 60
+MAX_TOKENS = 2000
+POLL_SECONDS = 30
 
 TITLE_COLUMNS = ["Title", "title", "caption", "text", "desc", "description"]
+TAG_COLS = ["format_type", "hook_pattern", "niche_category", "target_audience"]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,53 +61,33 @@ def load_rows(input_path):
     return rows, title_col, reader.fieldnames
 
 
+def user_content(row, title_col):
+    title = (row.get(title_col) or "").strip().replace("\n", " ")[:1000]
+    return "Tag this video.\n\nCaption: " + (title or "(no caption)")
+
+
 def build_requests(rows, title_col):
-    """Chunk rows into batch requests. Returns list of Request dicts."""
-    requests = []
-    for start in range(0, len(rows), CHUNK_SIZE):
-        chunk = rows[start : start + CHUNK_SIZE]
-        lines = []
-        for i, row in enumerate(chunk):
-            title = (row.get(title_col) or "").strip().replace("\n", " ")[:500]
-            lines.append(f"[{start + i}] {title or '(no caption)'}")
-        requests.append(
-            {
-                "custom_id": f"chunk-{start}",
-                "params": {
-                    "model": MODEL,
-                    "max_tokens": MAX_TOKENS,
-                    "system": [
-                        {
-                            "type": "text",
-                            "text": SYSTEM_PROMPT,
-                            "cache_control": {"type": "ephemeral"},
-                        }
-                    ],
-                    "output_config": {
-                        "format": {"type": "json_schema", "schema": TAG_SCHEMA}
-                    },
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": (
-                                f"Tag all {len(chunk)} videos below. Your `videos` array "
-                                f"MUST contain exactly {len(chunk)} objects — one per input "
-                                f"line, using that line's bracketed index. Do not skip any, "
-                                f"do not stop early, do not merge duplicates.\n\n"
-                                + "\n".join(lines)
-                            ),
-                        }
-                    ],
-                },
-            }
-        )
-    return requests
+    return [
+        {
+            "custom_id": f"v-{i}",
+            "params": {
+                "model": MODEL,
+                "max_tokens": MAX_TOKENS,
+                "system": [
+                    {"type": "text", "text": SYSTEM_PROMPT,
+                     "cache_control": {"type": "ephemeral"}}
+                ],
+                "output_config": {"format": {"type": "json_schema", "schema": TAG_SCHEMA}},
+                "messages": [{"role": "user", "content": user_content(row, title_col)}],
+            },
+        }
+        for i, row in enumerate(rows)
+    ]
 
 
 def submit_or_resume(client, requests, state_path):
     if state_path.exists():
-        state = json.loads(state_path.read_text())
-        batch_id = state["batch_id"]
+        batch_id = json.loads(state_path.read_text())["batch_id"]
         log.info("Resuming existing batch %s", batch_id)
         return batch_id
     batch = client.messages.batches.create(requests=requests)
@@ -111,57 +99,73 @@ def submit_or_resume(client, requests, state_path):
 def wait_for_batch(client, batch_id):
     while True:
         batch = client.messages.batches.retrieve(batch_id)
-        counts = batch.request_counts
-        log.info(
-            "Batch %s: %s (processing=%d succeeded=%d errored=%d)",
-            batch_id, batch.processing_status, counts.processing,
-            counts.succeeded, counts.errored,
-        )
+        c = batch.request_counts
+        log.info("Batch %s: %s (processing=%d succeeded=%d errored=%d)",
+                 batch_id, batch.processing_status, c.processing, c.succeeded, c.errored)
         if batch.processing_status == "ended":
             return batch
         time.sleep(POLL_SECONDS)
 
 
+def parse_message(msg):
+    if msg.stop_reason == "refusal":
+        return None
+    text = next((b.text for b in msg.content if b.type == "text"), None)
+    return json.loads(text) if text else None
+
+
 def collect_results(client, batch_id, n_rows):
-    """Returns dict index -> tag dict."""
-    tags = {}
-    errored_chunks = 0
+    tags, failed = {}, []
     for result in client.messages.batches.results(batch_id):
+        idx = int(result.custom_id.split("-", 1)[1])
+        if not (0 <= idx < n_rows):
+            continue
         if result.result.type != "succeeded":
-            log.warning("Request %s: %s", result.custom_id, result.result.type)
-            errored_chunks += 1
+            failed.append(idx)
             continue
-        msg = result.result.message
-        if msg.stop_reason == "refusal":
-            log.warning("Request %s refused by safety classifier", result.custom_id)
-            errored_chunks += 1
-            continue
-        if msg.stop_reason == "max_tokens":
-            log.warning("Request %s truncated (max_tokens)", result.custom_id)
         try:
-            text = next(b.text for b in msg.content if b.type == "text")
-            data = json.loads(text)
-            for v in data.get("videos", []):
-                idx = v.get("index")
-                if isinstance(idx, int) and 0 <= idx < n_rows:
-                    tags[idx] = v
-        except (StopIteration, json.JSONDecodeError) as e:
-            log.warning("Request %s unparseable: %s", result.custom_id, e)
-            errored_chunks += 1
-    if errored_chunks:
-        log.warning("%d chunks errored/refused — those rows get blank tags", errored_chunks)
-    return tags
+            data = parse_message(result.result.message)
+            if data:
+                tags[idx] = data
+            else:
+                failed.append(idx)
+        except (ValueError, json.JSONDecodeError):
+            failed.append(idx)
+    return tags, failed
+
+
+def retry_live(client, rows, title_col, indices, tags):
+    """Second chance for batch failures via the live API."""
+    fixed = 0
+    for i in indices:
+        for attempt in range(3):
+            try:
+                m = client.messages.create(
+                    model=MODEL, max_tokens=MAX_TOKENS,
+                    system=[{"type": "text", "text": SYSTEM_PROMPT,
+                             "cache_control": {"type": "ephemeral"}}],
+                    output_config={"format": {"type": "json_schema", "schema": TAG_SCHEMA}},
+                    messages=[{"role": "user", "content": user_content(rows[i], title_col)}],
+                )
+                data = parse_message(m)
+                if data:
+                    tags[i] = data
+                    fixed += 1
+                break
+            except Exception:
+                if attempt < 2:
+                    time.sleep(2 * (attempt + 1))
+    return fixed
 
 
 def write_output(rows, fieldnames, tags, output_path):
-    tag_cols = ["format_type", "hook_pattern", "niche_category", "target_audience"]
-    out_fields = list(fieldnames) + [c for c in tag_cols if c not in fieldnames]
+    out_fields = list(fieldnames) + [c for c in TAG_COLS if c not in fieldnames]
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=out_fields)
         writer.writeheader()
         for i, row in enumerate(rows):
             t = tags.get(i, {})
-            for c in tag_cols:
+            for c in TAG_COLS:
                 row[c] = t.get(c, "")
             writer.writerow(row)
 
@@ -172,8 +176,7 @@ def main():
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
-    input_path = Path(args.input)
-    output_path = Path(args.output)
+    input_path, output_path = Path(args.input), Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     state_path = output_path.with_suffix(output_path.suffix + ".batch_state.json")
 
@@ -181,18 +184,19 @@ def main():
     log.info("Loaded %d rows from %s (title column: %s)", len(rows), input_path, title_col)
 
     client = anthropic.Anthropic()
-    requests = build_requests(rows, title_col)
-    batch_id = submit_or_resume(client, requests, state_path)
+    batch_id = submit_or_resume(client, build_requests(rows, title_col), state_path)
     wait_for_batch(client, batch_id)
-    tags = collect_results(client, batch_id, len(rows))
+    tags, failed = collect_results(client, batch_id, len(rows))
+    if failed:
+        log.warning("%d requests failed in batch — retrying live", len(failed))
+        fixed = retry_live(client, rows, title_col, failed, tags)
+        log.info("Live retry recovered %d/%d", fixed, len(failed))
+
     coverage = len(tags) / len(rows) * 100 if rows else 0
     log.info("Tagged %d/%d rows (%.1f%% coverage)", len(tags), len(rows), coverage)
     if coverage < 95:
-        log.error(
-            "LOW COVERAGE: %.1f%% of rows tagged. The model returned fewer results "
-            "than requested. Delete %s and re-run to retry.",
-            coverage, state_path,
-        )
+        log.error("LOW COVERAGE (%.1f%%). Delete %s and re-run to retry the batch.",
+                  coverage, state_path)
 
     write_output(rows, fieldnames, tags, output_path)
     log.info("Wrote %s", output_path)

@@ -143,13 +143,14 @@ function countBy(rows, key) {
   return [...m.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-function renderBars(hostId, pairs, limit = 8) {
+function renderBars(hostId, pairs, limit = 8, drillSelectId = null) {
   const host = document.getElementById(hostId);
   const shown = pairs.slice(0, limit);
   const max = shown.length ? shown[0][1] : 1;
   const total = pairs.reduce((a, [, n]) => a + n, 0) || 1;
   host.innerHTML = shown.map(([label, count]) => `
-    <div class="bar-row">
+    <div class="bar-row${drillSelectId && label !== "(untagged)" ? " drill" : ""}" data-val="${escapeHtml(label)}"
+         ${drillSelectId ? `role="button" tabindex="0" title="Show these videos in the database"` : ""}>
       <div class="bar-track">
         <div class="bar-fill"></div>
         <div class="bar-label">${escapeHtml(label)}</div>
@@ -162,6 +163,19 @@ function renderBars(hostId, pairs, limit = 8) {
   [...host.querySelectorAll(".bar-fill")].forEach((el, i) => {
     el.style.width = Math.max((shown[i][1] / max) * 100, 1).toFixed(2) + "%";
   });
+  // Overview shows the split; clicking a bar drills into those exact videos.
+  if (drillSelectId) {
+    host.querySelectorAll(".bar-row.drill").forEach((rowEl) => {
+      const go = () => {
+        document.getElementById("reset").click();
+        document.getElementById(drillSelectId).value = rowEl.dataset.val;
+        applyFilters();
+        activateTab("tab-database");
+      };
+      rowEl.addEventListener("click", go);
+      rowEl.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+    });
+  }
 }
 
 function renderStats(rows) {
@@ -186,16 +200,17 @@ const TABS = [
   ["tab-database", "panel-database"],
   ["tab-brief", "panel-brief"],
 ];
+function activateTab(tabId) {
+  for (const [t, p] of TABS) {
+    const on = t === tabId;
+    document.getElementById(t).setAttribute("aria-selected", String(on));
+    document.getElementById(p).hidden = !on;
+  }
+  window.scrollTo({ top: 0 });
+}
 function initTabs() {
-  for (const [tabId, panelId] of TABS) {
-    document.getElementById(tabId).addEventListener("click", () => {
-      for (const [t, p] of TABS) {
-        const on = t === tabId;
-        document.getElementById(t).setAttribute("aria-selected", String(on));
-        document.getElementById(p).hidden = !on;
-      }
-      window.scrollTo({ top: 0 });
-    });
+  for (const [tabId] of TABS) {
+    document.getElementById(tabId).addEventListener("click", () => activateTab(tabId));
   }
 }
 
@@ -701,6 +716,117 @@ function scriptHtml(row) {
     </div>`;
 }
 
+// ---------- Video detail modal ----------
+// Shelf cards stay light (title + one stat); everything else lives here.
+let SHELF_CTX = null;   // { index: Map(key -> row), relative: fn } from the last renderShelf
+
+function setPicked(key, on) {
+  const row = SHELF_CTX?.index.get(key);
+  if (!row) return false;
+  if (on) {
+    if (CART.size >= CART_LIMIT) {
+      const tray = document.getElementById("tray");
+      if (tray) {
+        tray.classList.add("shake");
+        setTimeout(() => tray.classList.remove("shake"), 500);
+      }
+      return false;
+    }
+    CART.set(key, row);
+  } else {
+    CART.delete(key);
+  }
+  const card = document.querySelector(`.vcard[data-key="${CSS.escape(key)}"]`);
+  if (card) {
+    card.classList.toggle("picked", on);
+    const cb = card.querySelector(".vcheck");
+    if (cb) cb.checked = on;
+  }
+  refreshTray();
+  return true;
+}
+
+function modalBody(row) {
+  const k = rowKey(row);
+  const picked = CART.has(k);
+  const emb = embedFor(row);
+  const er = row.engagement_rate ? parseFloat(row.engagement_rate).toFixed(2) + "%" : "—";
+  const idx = SHELF_CTX ? SHELF_CTX.relative(row).toFixed(2) + "×" : "—";
+  const href = safeUrl(row.url);
+  const stat = (v, l) => `<div class="metric"><div class="m-val">${v}</div><div class="m-lbl">${l}</div></div>`;
+  return `
+    <div class="modal-grid">
+      <div class="modal-player ${emb ? emb.cls : ""}">${emb ? `
+        <iframe src="${escapeHtml(emb.src)}" scrolling="no"
+          sandbox="allow-scripts allow-same-origin allow-popups"
+          referrerpolicy="no-referrer" title="Video player"></iframe>` : `<div class="empty">No embed available</div>`}
+      </div>
+      <div class="modal-info">
+        <p class="modal-title">${escapeHtml(row.title || "(no caption)")}</p>
+        <p class="lbl">${escapeHtml(row.creator || "—")} · ${escapeHtml(row.platform || "")} · ${escapeHtml(row.data_source || "")}
+          ${href ? ` · <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open on platform ↗</a>` : ""}</p>
+        <div class="metrics modal-metrics">
+          ${stat(compact(views(row)), "Views")}${stat(compact(+row.likes || 0), "Likes")}
+          ${stat(compact(+row.comments || 0), "Comments")}${stat(er, "ER")}${stat(idx, "Index")}
+        </div>
+        <div class="chips">
+          ${["format_type", "hook_pattern", "niche_category", "target_audience"]
+            .map((d) => row[d] ? `<span class="chip">${escapeHtml(row[d])}</span>` : "").join("")}
+        </div>
+        ${BRIEF_CTX ? scriptHtml(row) : `<p class="note">Apply client details to generate a tailored script.</p>`}
+        <div class="modal-actions">
+          <button type="button" class="btn" id="modal-pick">${picked ? "Remove from brief" : "Add to brief"}</button>
+          ${BRIEF_CTX ? `<button type="button" class="ghost" id="modal-copy">Copy script</button>` : ""}
+        </div>
+      </div>
+    </div>`;
+}
+
+function openModal(key) {
+  const row = SHELF_CTX?.index.get(key);
+  if (!row) return;
+  const modal = document.getElementById("modal");
+  document.getElementById("modal-content").innerHTML = modalBody(row);
+  modal.hidden = false;
+  document.body.classList.add("no-scroll");
+  openModalBindings(key, row);
+}
+
+function openModalBindings(key, row) {
+  const copyBtn = document.getElementById("modal-copy");
+  if (copyBtn) copyBtn.addEventListener("click", async () => {
+    const slot = Math.max([...CART.keys()].indexOf(key), 0);
+    const s = tailoredScript(row, BRIEF_CTX, slot);
+    const text = `${s.heading}\nHook: “${s.hook}”\n${s.beats.join("\n")}\n${s.cta}`;
+    try { await navigator.clipboard.writeText(text); copyBtn.textContent = "Copied ✓"; } catch {}
+  });
+  const pickBtn = document.getElementById("modal-pick");
+  if (pickBtn && !pickBtn.dataset.bound) {
+    pickBtn.dataset.bound = "1";
+    pickBtn.addEventListener("click", () => {
+      if (setPicked(key, !CART.has(key))) {
+        document.getElementById("modal-content").innerHTML = modalBody(row);
+        openModalBindings(key, row);
+      }
+    });
+  }
+}
+
+function closeModal() {
+  const modal = document.getElementById("modal");
+  modal.hidden = true;
+  document.getElementById("modal-content").innerHTML = "";  // stops playback
+  document.body.classList.remove("no-scroll");
+}
+
+function initModal() {
+  document.getElementById("modal-close").addEventListener("click", closeModal);
+  document.querySelector("#modal .modal-back").addEventListener("click", closeModal);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !document.getElementById("modal").hidden) closeModal();
+  });
+}
+
 function renderShelf(niche) {
   const body = document.getElementById("brief-body");
   let pool = niche ? ALL.filter((r) => r.niche_category === niche) : ALL;
@@ -730,7 +856,6 @@ function renderShelf(niche) {
     shelf.map((r) => {
       const k = rowKey(r);
       const checked = CART.has(k);
-      const er = r.engagement_rate ? parseFloat(r.engagement_rate).toFixed(1) + "%" : "—";
       const emb = embedFor(r);
       return `
       <article class="vcard${checked ? " picked" : ""}" data-key="${escapeHtml(k)}">
@@ -740,15 +865,13 @@ function renderShelf(niche) {
             referrerpolicy="no-referrer" title="Video player"></iframe>` : ""}
         </div>
         <div class="vmeta">
-          <div class="vtitle" title="${escapeHtml(r.title || "")}">${escapeHtml(r.title || "(no caption)")}</div>
-          <div class="vstats">${escapeHtml(r.creator || "—")} · ${compact(views(r))} views · ER ${er}
-            · <span title="vs the median of its source">${relative(r).toFixed(1)}× index</span></div>
-          <div class="vtags">${escapeHtml(r.format_type || "Other")} × ${escapeHtml(r.hook_pattern || "Other")}
-            · ${escapeHtml(r.data_source || "")}
-            ${safeUrl(r.url) ? ` · <a href="${escapeHtml(safeUrl(r.url))}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}</div>
-          <label class="vpick"><input type="checkbox" class="vcheck" ${checked ? "checked" : ""}> Add to brief</label>
+          <div class="vtitle">${escapeHtml(r.title || "(no caption)")}</div>
+          <div class="vrow">
+            <span class="vstat" title="views · index vs its source's median">${compact(views(r))} · ${relative(r).toFixed(1)}×</span>
+            <button type="button" class="vdetails" data-key="${escapeHtml(k)}">Details</button>
+            <label class="vpick"><input type="checkbox" class="vcheck" ${checked ? "checked" : ""}> Add</label>
+          </div>
         </div>
-        <div class="vscript-host">${checked ? scriptHtml(r) : ""}</div>
       </article>`;
     }).join("") + `</div>` +
     `<details class="playbook"><summary>The scoreboard behind this shelf — top format × hook plays</summary>
@@ -757,32 +880,16 @@ function renderShelf(niche) {
   // scoreboard inside the details
   renderPlaysInto(document.getElementById("plays-host"), plays, niche, pool);
 
-  const shelfIndex = new Map(shelf.map((r) => [rowKey(r), r]));
+  SHELF_CTX = { index: new Map(shelf.map((r) => [rowKey(r), r])), relative };
 
-  // add/remove from the brief
   body.querySelectorAll(".vcheck").forEach((cb) => {
     cb.addEventListener("change", () => {
-      const card = cb.closest(".vcard");
-      const row = shelfIndex.get(card.dataset.key);
-      if (cb.checked) {
-        if (CART.size >= CART_LIMIT) {
-          cb.checked = false;
-          refreshTray();
-          const tray = document.getElementById("tray");
-          tray.classList.add("shake");
-          setTimeout(() => tray.classList.remove("shake"), 500);
-          return;
-        }
-        CART.set(rowKey(row), row);
-        card.classList.add("picked");
-        card.querySelector(".vscript-host").innerHTML = scriptHtml(row);
-      } else {
-        CART.delete(rowKey(row));
-        card.classList.remove("picked");
-        card.querySelector(".vscript-host").innerHTML = "";
-      }
-      refreshTray();
+      const key = cb.closest(".vcard").dataset.key;
+      if (!setPicked(key, cb.checked)) cb.checked = false;
     });
+  });
+  body.querySelectorAll(".vdetails").forEach((btn) => {
+    btn.addEventListener("click", () => openModal(btn.dataset.key));
   });
 
   refreshTray();
@@ -1085,8 +1192,13 @@ async function renderBrief(rawUrl) {
   const niches = [...new Set(ALL.map((r) => r.niche_category).filter(Boolean))].sort();
   const audiences = [...new Set(ALL.map((r) => r.target_audience).filter(Boolean))].sort();
   host.innerHTML = status + `
-    <div class="client-editor">
-      <h3 class="ce-title">Client details</h3>
+    <div class="client-editor" id="client-editor">
+      <div class="ce-head">
+        <h3 class="ce-title">Client details</h3>
+        <div class="chips" id="ce-chips"></div>
+        <button type="button" class="ghost ce-toggle" id="ce-toggle">Edit</button>
+      </div>
+      <div class="ce-body" id="ce-body">
       <div class="ce-grid">
         <label class="ce-field"><span class="lbl">Brand / product name</span>
           <input type="text" id="ce-brand" value="${escapeHtml(analysis?.brand || "")}" placeholder="e.g. Medceptor"></label>
@@ -1105,6 +1217,7 @@ async function renderBrief(rawUrl) {
             placeholder="e.g. NCLEX practice questions, case walkthroughs, study planner"></label>
       </div>
       <button type="button" class="btn" id="ce-apply">Apply — build the shelf</button>
+      </div>
     </div>
     <div id="brief-body"></div>`;
 
@@ -1112,14 +1225,31 @@ async function renderBrief(rawUrl) {
     const brand = document.getElementById("ce-brand").value.trim();
     const feats = document.getElementById("ce-feats").value.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 8);
     const audience = document.getElementById("ce-audience").value || null;
+    const niche = document.getElementById("brief-niche").value;
     BRIEF_CTX = (brand || feats.length || audience)
       ? { brand: brand || "the product", feats, audience }
       : BRIEF_CTX;
-    renderShelf(document.getElementById("brief-niche").value);
+    // Collapse the editor into a one-line summary; Edit re-opens it.
+    const chips = [
+      BRIEF_CTX?.brand, niche || "All niches", BRIEF_CTX?.audience,
+      BRIEF_CTX?.feats?.length ? `${BRIEF_CTX.feats.length} features` : null,
+    ].filter(Boolean);
+    document.getElementById("ce-chips").innerHTML =
+      chips.map((c) => `<span class="chip">${escapeHtml(c)}</span>`).join("");
+    document.getElementById("client-editor").classList.add("collapsed");
+    renderShelf(niche);
+    document.getElementById("brief-body").scrollIntoView({ behavior: "smooth", block: "start" });
   };
+  document.getElementById("ce-toggle").addEventListener("click", () => {
+    document.getElementById("client-editor").classList.toggle("collapsed");
+  });
   document.getElementById("ce-apply").addEventListener("click", apply);
   document.getElementById("brief-niche").addEventListener("change", apply);
-  apply();
+  if (analysis) {
+    apply();   // read succeeded: collapse to summary and build the shelf
+  } else {
+    renderShelf(chosen);   // manual path: keep the editor open for filling in
+  }
 }
 
 
@@ -1144,11 +1274,12 @@ function renderApp(rows) {
   }
   ALL = rows;
   renderStats(rows);
-  renderBars("by-format", countBy(rows, "format_type"));
-  renderBars("by-hook", countBy(rows, "hook_pattern"));
-  renderBars("by-niche", countBy(rows, "niche_category"));
-  renderBars("by-source", countBy(rows, "data_source"));
+  renderBars("by-format", countBy(rows, "format_type"), 8, "f-format");
+  renderBars("by-hook", countBy(rows, "hook_pattern"), 8, "f-hook");
+  renderBars("by-niche", countBy(rows, "niche_category"), 8, "f-niche");
+  renderBars("by-source", countBy(rows, "data_source"), 8, "f-source");
   initTabs();
+  initModal();
   initControls();
   initBrief();
   applyFilters();
