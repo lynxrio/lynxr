@@ -27,8 +27,14 @@
   button { font: inherit; cursor: pointer; }
   :focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; border-radius: 4px; }
 
-  .wordmark { font-size: 20px; font-weight: 600; letter-spacing: -0.03em; margin: 0; }
+  .wordmark {
+    font-size: 20px; font-weight: 600; letter-spacing: -0.03em; margin: 0;
+    display: inline-flex; align-items: center; gap: 9px;
+  }
   .wordmark i { font-style: normal; color: var(--text-3); }
+  .mark { width: 17px; height: 17px; flex: none; }
+  .gate-card .wordmark { justify-content: center; gap: 12px; }
+  .gate-card .mark { width: 26px; height: 26px; }
 
   /* ---------- Gate ---------- */
   #gate { min-height: 100svh; display: grid; place-items: center; padding: 24px; }
