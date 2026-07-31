@@ -81,6 +81,10 @@ Reading the audio:
 - NO SPEECH means nothing is said aloud: the message is on-screen text or the
   visual. That is normally Meme / Trend Clip, and the hook is No Hook unless the
   caption itself carries a real device. Do not invent a spoken hook.
+- AUDIO TRACK tells you which is which. "Licensed music" means the transcript is
+  almost certainly lyrics — treat the video as having no speech unless the
+  transcript clearly contains the creator talking over the track. "Original
+  sound" means the audio is the creator's own, so speech is expected.
 - LYRICS ARE NOT SPEECH. Short-form video is full of music with vocals, which
   transcribes as confidently as talking. If the transcript reads as song lyrics
   — rhyme, chorus repetition, sung phrasing, or words the creator plainly did
@@ -93,6 +97,31 @@ Reading the audio:
 
 Commit to the most plausible specific value for every dimension. "Other" is only
 for genuinely unintelligible material."""
+
+
+def load_music_index():
+    """video_id -> {original: bool, name: str, author: str} from the raw scrapes.
+
+    TikTok reports whether a video's audio is the creator's own recording
+    ("original sound") or a licensed track. That distinction is the strongest
+    lyrics-vs-speech evidence we have, and unlike a text heuristic it comes
+    from the platform rather than a guess about the words.
+    """
+    import glob
+    idx = {}
+    for f in glob.glob(str(ROOT / "data" / "*_parts*" / "*.json")):
+        try:
+            items = json.loads(Path(f).read_text())
+        except Exception:
+            continue
+        for it in items:
+            mm = it.get("musicMeta") or {}
+            vid = str(it.get("id") or "")
+            if vid and mm:
+                idx[vid] = {"original": bool(mm.get("musicOriginal")),
+                            "name": (mm.get("musicName") or "")[:80],
+                            "author": (mm.get("musicAuthor") or "")[:60]}
+    return idx
 
 
 def load_transcripts():
@@ -110,11 +139,15 @@ def load_transcripts():
     return t
 
 
-def user_content(row, tr):
+def user_content(row, tr, music=None):
     caption = (row.get("title") or "").strip().replace("\n", " ")[:600]
     parts = [f"Platform: {row['platform']}",
              "Source: Medceptor campaign" if row["data_source"] == "Medceptor" else "Source: organic scrape",
              f"Caption: {caption or '(none)'}"]
+    if music:
+        parts.append("Audio track: creator's own recording (original sound)" if music["original"]
+                     else f"Audio track: licensed music — \"{music['name']}\" by {music['author']}. "
+                          "Anything transcribed is very likely song lyrics, not the creator speaking.")
     if tr.get("has_speech"):
         if tr.get("hook_usable", True) and tr.get("hook_spoken"):
             parts.append(f'SPOKEN HOOK (first 3s, verbatim): "{tr["hook_spoken"]}"')
@@ -135,6 +168,7 @@ def main():
     args = ap.parse_args()
 
     trs = load_transcripts()
+    music = load_music_index()
     rows = list(csv.DictReader(open(MASTER, newline="", encoding="utf-8")))
     targets = [(i, r) for i, r in enumerate(rows) if r["video_id"] in trs]
     if args.limit:
@@ -143,8 +177,13 @@ def main():
         raise SystemExit("No transcribed videos found in the master database.")
 
     speech = sum(1 for _, r in targets if trs[r["video_id"]].get("has_speech"))
+    with_music = sum(1 for _, r in targets if r["video_id"] in music)
+    licensed = sum(1 for _, r in targets
+                   if music.get(r["video_id"]) and not music[r["video_id"]]["original"])
     log.info("%d transcribed rows to retag (%d with speech, %d without)",
              len(targets), speech, len(targets) - speech)
+    log.info("music metadata on %d of them; %d use a licensed track (lyrics likely)",
+             with_music, licensed)
 
     client = anthropic.Anthropic()
     requests = [{
@@ -153,7 +192,7 @@ def main():
             "model": MODEL, "max_tokens": 2000,
             "system": [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
             "output_config": {"format": {"type": "json_schema", "schema": TAG_SCHEMA}},
-            "messages": [{"role": "user", "content": user_content(r, trs[r["video_id"]])}],
+            "messages": [{"role": "user", "content": user_content(r, trs[r["video_id"]], music.get(r["video_id"]))}],
         },
     } for i, r in targets]
 
