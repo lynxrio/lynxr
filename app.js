@@ -1220,7 +1220,13 @@ const postLatest = (p) => p.checkins.length ? p.checkins[p.checkins.length - 1].
 function sparkSvg(points, predicted, w = 240, h = 64) {
   const pad = 7;
   const ys = points.filter((v) => v != null);
-  if (!ys.length) return `<div class="lbl">no check-ins yet</div>`;
+  if (!ys.length) {
+    // Always show the graph, even empty: frame + dashed benchmark placeholder.
+    return `<svg class="spark empty" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}" class="spark-axis"/>
+      <line x1="${pad}" y1="${h / 2}" x2="${w - pad}" y2="${h / 2}" class="spark-pred"/>
+    </svg>`;
+  }
   const maxY = Math.max(...ys, predicted || 0) * 1.1 || 1;
   const x = (i) => points.length === 1 ? w / 2 : pad + (i * (w - 2 * pad)) / (points.length - 1);
   const y = (v) => h - pad - (v / maxY) * (h - 2 * pad);
@@ -1258,6 +1264,15 @@ function clientVerdict(client) {
   const predicted = tracked.reduce((a, p) => a + (p.predicted || 0), 0) || 1;
   return { actual, predicted, ratio: actual / predicted, good: actual >= predicted };
 }
+
+const weekPostsOf = (client, briefId) => client.posts.filter((p) => p.briefId === briefId);
+
+function weekVerdict(client, briefId) {
+  return clientVerdict({ posts: weekPostsOf(client, briefId) });
+}
+
+// Per-post performance ratio vs its locked benchmark (null if no check-ins).
+const postRatio = (p) => p.checkins.length ? postLatest(p) / (p.predicted || 1) : null;
 
 function scriptsAsText(ctx, items) {
   let out = `${ctx?.brand || "Client"} — Content Brief (${items.length} scripts)\n\n`;
@@ -1402,6 +1417,10 @@ function renderClientPage(host, client, list) {
       <input type="text" id="pf-creator" placeholder="Creator">
       <select id="pf-format">${fmtOptions.map((f) => `<option>${escapeHtml(f)}</option>`).join("")}</select>
       <select id="pf-hook">${hookOptions.map((h) => `<option>${escapeHtml(h)}</option>`).join("")}</select>
+      <select id="pf-week" title="Which week's brief this post executes">
+        ${client.briefs.map((b, i) => `<option value="${escapeHtml(b.id)}">${i === 0 ? "This week" : "Week of"} ${escapeHtml((b.createdAt || "").slice(0, 10))}</option>`).join("")}
+        <option value="">No week</option>
+      </select>
       <button type="submit" class="btn">Track post</button>
     </form>
     <p class="note">The benchmark prediction (median views for that format in ${escapeHtml(client.niche || "the database")})
@@ -1430,17 +1449,22 @@ function renderClientPage(host, client, list) {
       </div>`;
     }).join("") + `</div>
 
-    ${client.briefs.length ? `<h2>Briefs <span class="pill">${client.briefs.length}</span></h2>
-    <div class="brief-stack">` + client.briefs.map((b) => `
+    ${client.briefs.length ? `<h2>Weekly briefs <span class="pill">${client.briefs.length}</span></h2>
+    <div class="brief-stack">` + client.briefs.map((b) => {
+      const wv = weekVerdict(client, b.id);
+      const wp = weekPostsOf(client, b.id).length;
+      return `
       <article class="bcard" data-bid="${escapeHtml(b.id)}">
         <div class="bcard-main">
-          <div class="bcard-title">${escapeHtml((b.createdAt || "").slice(0, 10))}</div>
-          <div class="lbl">${escapeHtml(b.niche || "All niches")} · ${b.items.length} videos</div>
+          <div class="bcard-title">Week of ${escapeHtml((b.createdAt || "").slice(0, 10))}</div>
+          <div class="lbl">${escapeHtml(b.niche || "All niches")} · ${b.items.length} scripts · ${wp} post${wp === 1 ? "" : "s"} tracked</div>
         </div>
+        ${wv ? `<span class="verdict ${wv.good ? "good" : "bad"}">${wv.good ? "▲" : "▼"} ${ratioLabel(wv.ratio)}</span>` : ""}
         <button type="button" class="btn br-open">Open</button>
         <button type="button" class="ghost br-docx" title="Download as .docx for Google Docs">.docx</button>
         <button type="button" class="ghost br-del">Delete</button>
-      </article>`).join("") + `</div>` : ""}`;
+      </article>`;
+    }).join("") + `</div>` : ""}`;
 
   document.getElementById("cl-back").addEventListener("click", () => {
     CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
@@ -1458,6 +1482,7 @@ function renderClientPage(host, client, list) {
     c.posts.unshift({
       id: newId(), url, creator: document.getElementById("pf-creator").value.trim(),
       format, hook, predicted: predictViews(c.niche, format, hook),
+      briefId: document.getElementById("pf-week")?.value || "",
       addedAt: new Date().toISOString(), checkins: [],
     });
     persistClients(fresh);
@@ -1507,6 +1532,88 @@ function renderClientPage(host, client, list) {
   });
 }
 
+/** The week dashboard: the graph is the hero; the 10 scripts support it. */
+function weekDashboardHtml(rec, client) {
+  const posts = weekPostsOf(client, rec.id);
+  const tracked = posts.filter((p) => p.checkins.length);
+  const v = weekVerdict(client, rec.id);
+
+  // Week growth series: cumulative views across this week's posts
+  const events = posts.flatMap((p) => p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views })))
+    .sort((a, b) => a.d < b.d ? -1 : 1);
+  const latest = new Map();
+  const series = events.map((e) => { latest.set(e.id, e.views); return [...latest.values()].reduce((a, b) => a + b, 0); });
+
+  // Per-script cards: match this week's posts to each script by format×hook
+  const scriptCards = rec.items.map((it, i) => {
+    const matched = posts.filter((p) => p.format === it.format_type && p.hook === it.hook_pattern && p.checkins.length);
+    const pts = matched.map(postLatest);
+    const pred = matched.length ? Math.round(median(matched.map((p) => p.predicted || 0)))
+                                : predictViews(client.niche, it.format_type, it.hook_pattern);
+    const ratios = matched.map(postRatio);
+    const avg = ratios.length ? ratios.reduce((a, b) => a + b, 0) / ratios.length : null;
+    const cls = avg == null ? "" : avg >= 1 ? "good" : "bad";
+    const status = avg == null ? "untracked"
+      : avg >= 1.25 ? `▲ ${ratioLabel(avg)} — push more`
+      : avg >= 1 ? `▲ ${ratioLabel(avg)}`
+      : avg >= 0.75 ? `▼ ${ratioLabel(avg)}`
+      : `▼ ${ratioLabel(avg)} — change`;
+    return `<div class="fmt-card ${cls}">
+      <div class="fmt-head"><strong>${i + 1}. ${escapeHtml(it.format_type || "—")} × ${escapeHtml(it.hook_pattern || "—")}</strong>
+        <span class="verdict ${cls}">${escapeHtml(status)}</span></div>
+      ${sparkSvg(pts, pred)}
+    </div>`;
+  }).join("");
+
+  // Flags: emphasize overperformers, call out underperformers
+  const over = tracked.filter((p) => postRatio(p) >= 1.25).sort((a, b) => postRatio(b) - postRatio(a));
+  const under = tracked.filter((p) => postRatio(p) < 0.75).sort((a, b) => postRatio(a) - postRatio(b));
+  const postLine = (p) => {
+    const href = safeUrl(p.url);
+    const label = escapeHtml((p.url || "").replace(/^https?:\/\//, "").slice(0, 55));
+    return `<li><span class="verdict ${postRatio(p) >= 1 ? "good" : "bad"}">${ratioLabel(postRatio(p))}</span>
+      ${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label}
+      <span class="lbl">${escapeHtml(p.creator || "")} · ${escapeHtml(p.format)} × ${escapeHtml(p.hook)} · ${compact(postLatest(p))} views</span></li>`;
+  };
+
+  // What to change — deterministic reading of the week's numbers
+  const recs = [];
+  const byScript = rec.items.map((it) => {
+    const m = tracked.filter((p) => p.format === it.format_type && p.hook === it.hook_pattern);
+    const avg = m.length ? m.reduce((a, p) => a + postRatio(p), 0) / m.length : null;
+    return { it, n: m.length, avg };
+  });
+  for (const b of byScript) {
+    if (b.avg != null && b.avg >= 1.25)
+      recs.push(`Double down on ${b.it.format_type} × ${b.it.hook_pattern} — running ${ratioLabel(b.avg)}. Brief more of these next week.`);
+    if (b.avg != null && b.avg < 0.75)
+      recs.push(`Change ${b.it.format_type} × ${b.it.hook_pattern} — at ${ratioLabel(b.avg)}. Swap the hook or replace the format next week.`);
+  }
+  const untrackedN = byScript.filter((b) => b.n === 0).length;
+  if (untrackedN && tracked.length)
+    recs.push(`${untrackedN} of ${rec.items.length} scripts have no tracked post yet — post them or replace them.`);
+  if (!tracked.length)
+    recs.push("Nothing tracked for this week yet — add posts below (Tracked posts on the client page) and check in with views.");
+
+  return `
+    <div class="growth-card ${v ? (v.good ? "good" : "bad") : ""}">
+      <div class="growth-head">
+        <h2>${v ? (v.good ? "Good week — ahead of benchmark" : "Behind benchmark this week") : "This week"}</h2>
+        ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
+            : `<span class="lbl">the graph fills in as posts get check-ins</span>`}
+      </div>
+      ${sparkSvg(series, v ? v.predicted : null, 720, 110)}
+    </div>
+
+    ${recs.length ? `<div class="recs"><h2>What to change</h2><ul>${recs.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div>` : ""}
+
+    ${over.length ? `<div class="flag-block good-block"><h2>Overperforming — emphasize these</h2><ul class="flag-list">${over.map(postLine).join("")}</ul></div>` : ""}
+    ${under.length ? `<div class="flag-block bad-block"><h2>Underperforming — flagged</h2><ul class="flag-list">${under.map(postLine).join("")}</ul></div>` : ""}
+
+    <h2>The 10 scripts behind the graph</h2>
+    <div class="fmt-grid">${scriptCards}</div>`;
+}
+
 function renderBriefViewer(host, rec, client) {
   const n = rec.items.length;
   const page = Math.min(Math.max(BRIEF_VIEW.page, 0), n - 1);
@@ -1521,12 +1628,16 @@ function renderBriefViewer(host, rec, client) {
     <div class="viewer-top">
       <button type="button" class="ghost" id="bv-back">← ${escapeHtml(client?.company || "Back")}</button>
       <div class="minw0">
-        <div class="bcard-title">${escapeHtml(rec.company)}</div>
-        <div class="lbl">${escapeHtml((rec.createdAt || "").slice(0, 10))} · ${escapeHtml(rec.niche || "All niches")}</div>
+        <div class="bcard-title">${escapeHtml(rec.company)} — week of ${escapeHtml((rec.createdAt || "").slice(0, 10))}</div>
+        <div class="lbl">${escapeHtml(rec.niche || "All niches")}</div>
       </div>
       <div class="spacer"></div>
       <button type="button" class="ghost" id="bv-docx">Download .docx</button>
     </div>
+
+    ${weekDashboardHtml(rec, client)}
+
+    <h2>Flip through the scripts</h2>
     <div class="viewer ${BRIEF_VIEW.dir || "first-open"}">
       <div class="viewer-player-col">
         ${frameHtml(row).replace('class="vframe ', 'class="vframe viewer-player ')}

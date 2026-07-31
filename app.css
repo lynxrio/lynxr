@@ -476,6 +476,18 @@
   }
   .checkin-form .ghost { padding: 6px 12px; font-size: 12.5px; }
   .p-del.armed, .br-del.armed { color: #f0b3b3; border-color: #6b3a3a; background: #2a1414; }
+  .spark-axis { stroke: var(--line-2); stroke-width: 1; }
+  .spark.empty { opacity: .6; }
+  .recs { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin-bottom: 22px; }
+  .recs h2 { margin-bottom: 8px; }
+  .recs ul { margin: 0; padding-left: 20px; color: var(--text-2); font-size: 14px; }
+  .recs li { margin: 6px 0; }
+  .flag-block { border-radius: 12px; border: 1px solid var(--line); padding: 14px 20px; margin-bottom: 18px; }
+  .flag-block.good-block { border-left: 3px solid var(--good); }
+  .flag-block.bad-block { border-left: 3px solid var(--bad); }
+  .flag-list { list-style: none; margin: 0; padding: 0; }
+  .flag-list li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; padding: 6px 0; font-size: 13.5px; border-bottom: 1px solid var(--line); }
+  .flag-list li:last-child { border-bottom: 0; }
   @media (max-width: 700px) { .post-row { grid-template-columns: 1fr; } .post-spark { max-width: 260px; } }
 
   @media (max-width: 640px) {
