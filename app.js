@@ -1384,10 +1384,9 @@ function sparkSvg(points, predicted, w = 240, h = 64) {
 
 /** Full chart with x/y axes: dotted estimated slope vs solid actual line.
     Points are {x, y} where x is days since the chart's day zero. */
-function chartSvg({ actual = [], est = [], proj = [], w = 720, h = 200, xMax = 7, yMax = 1 }) {
-  const padL = 56, padR = 14, padT = 12, padB = 28;
-  // "Nice" y-axis: round the top up to 1/2/5 x 10^n so ticks are real,
-  // readable view counts (0 / 250K / 500K), never 0.5 and 1.
+function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1, tone = "" }) {
+  const padL = 74, padR = 16, padT = 14, padB = 46;   // room for axis titles
+  // "Nice" top so ticks are readable view counts, never fractions.
   const niceTop = (v) => {
     if (v <= 0) return 1;
     const mag = Math.pow(10, Math.floor(Math.log10(v)));
@@ -1399,59 +1398,66 @@ function chartSvg({ actual = [], est = [], proj = [], w = 720, h = 200, xMax = 7
   const Y = (y) => padT + (1 - Math.min(y, top) / top) * (h - padT - padB);
   const poly = (pts) => pts.map((p) => `${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join(" ");
 
-  // Dedupe ticks after rounding — a tiny range rendered as 0,0,1,1,1 otherwise.
   const yTicks = [...new Set([0, top / 4, top / 2, (top * 3) / 4, top]
-    .filter((v) => v === 0 || v >= 1)
-    .map((v) => Math.round(v)))];
+    .filter((v) => v === 0 || v >= 1).map((v) => Math.round(v)))];
   const xStep = xMax <= 8 ? 1 : Math.ceil(xMax / 7);
   const xTicks = [];
   for (let d = 0; d <= xMax; d += xStep) xTicks.push(d);
+  const midY = padT + (h - padT - padB) / 2;
 
-  return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+  return `<svg class="chart ${tone}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
     ${yTicks.map((v) => `
       <line x1="${padL}" y1="${Y(v)}" x2="${w - padR}" y2="${Y(v)}" class="chart-grid"/>
-      <text x="${padL - 8}" y="${Y(v) + 3.5}" class="chart-tick" text-anchor="end">${compact(v)}</text>`).join("")}
+      <text x="${padL - 10}" y="${Y(v) + 3.5}" class="chart-tick" text-anchor="end">${compact(v)}</text>`).join("")}
     ${xTicks.map((d) => `
-      <text x="${X(d)}" y="${h - 8}" class="chart-tick" text-anchor="middle">D${d}</text>`).join("")}
-    <text x="${padL - 8}" y="${padT - 2}" class="chart-tick chart-unit" text-anchor="end">views</text>
+      <text x="${X(d)}" y="${h - padB + 18}" class="chart-tick" text-anchor="middle">${d}</text>`).join("")}
     <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h - padB}" class="chart-axis"/>
     <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" class="chart-axis"/>
-    ${est.length > 1 ? `<polyline points="${poly(est)}" class="spark-est"/>` : ""}
-    ${est.map((p) => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="2.5" class="spark-est-dot"/>`).join("")}
-    ${proj.length > 1 ? `<polyline points="${poly(proj)}" class="spark-proj"/>` : ""}
-    ${proj.length ? `<circle cx="${X(proj[proj.length - 1].x).toFixed(1)}" cy="${Y(proj[proj.length - 1].y).toFixed(1)}" r="3.5" class="spark-proj-dot"/>` : ""}
-    ${actual.length > 1 ? `<polyline points="${poly(actual)}" class="spark-line"/>` : ""}
-    ${actual.map((p) => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.5" class="spark-dot"/>`).join("")}
+    <text class="axis-title" text-anchor="middle" transform="translate(18 ${midY}) rotate(-90)">cumulative views</text>
+    <text class="axis-title" text-anchor="middle" x="${padL + (w - padL - padR) / 2}" y="${h - 6}">days since brief</text>
+    ${est.length > 1 ? `<polyline points="${poly(est)}" class="line-pred"/>` : ""}
+    ${actual.length > 1 ? `<polyline points="${poly(actual)}" class="line-actual"/>` : ""}
+    ${actual.map((p) => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.5" class="dot-actual"/>`).join("")}
   </svg>`;
 }
 
-/** Project the actual trend forward to day 7: fit the current run rate
-    (views per day so far) and extend it, so you can see where this pace lands
-    by the end of the week versus where the estimate says it should. */
-function projectTo(actualPts, days = 7) {
-  if (actualPts.length < 2) return [];
-  const last = actualPts[actualPts.length - 1];
-  if (last.x >= days) return [];
-  const rate = last.x > 0 ? last.y / last.x : last.y;   // cumulative views per day
-  return [last, { x: days, y: Math.round(last.y + rate * (days - last.x)) }];
+/** Three-state read of actual against predicted at the same point in time. */
+function paceTone(actual, est) {
+  if (!actual.length || !est.length) return { tone: "", label: "" };
+  const last = actual[actual.length - 1];
+  // predicted value interpolated at the actual's latest day
+  let target = est[est.length - 1].y;
+  for (let i = 1; i < est.length; i++) {
+    if (est[i].x >= last.x) {
+      const a = est[i - 1], b = est[i];
+      const t = b.x === a.x ? 0 : (last.x - a.x) / (b.x - a.x);
+      target = a.y + (b.y - a.y) * t;
+      break;
+    }
+  }
+  // At day zero the predicted line is still at 0; any real views are ahead.
+  if (target <= 0) return last.y > 0
+    ? { tone: "good", label: "▲ ahead of pace — early views" }
+    : { tone: "", label: "" };
+  const r = last.y / target;
+  if (r >= 1.1) return { tone: "good", label: `▲ ahead of pace — ${ratioLabel(r)}` };
+  if (r <= 0.9) return { tone: "bad", label: `▼ behind pace — ${ratioLabel(r)}` };
+  return { tone: "even", label: `on pace — ${ratioLabel(r)}` };
 }
 
 const DAY_MS = 86400000;
 const daysBetween = (a, b) => Math.max(0, (new Date(a) - new Date(b)) / DAY_MS);
 
-/** Estimated week progression from the brief's formats: the 10 scripts post
-    across 7 days, each contributing its database benchmark scaled by a
-    fresh-account warm-up ramp (40% effectiveness on post 1 rising to 100% by
-    the last) — new/warming accounts should not be expected to hit full
-    database medians immediately. */
+/** The predicted slope: the brief's scripts post evenly across 7 days, each
+    contributing its database benchmark in full. Accounts are new but assumed
+    properly warmed up, so no ramp discount is applied — the line is what these
+    formats should do at full effectiveness. */
 function weekEstimateCurve(rec, client) {
   const n = rec.items.length || 1;
   const pts = [{ x: 0, y: 0 }];
   let cum = 0;
   rec.items.forEach((it, i) => {
-    const bench = predictViews(client.niche, it.format_type, it.hook_pattern);
-    const warm = 0.4 + 0.6 * (n === 1 ? 1 : i / (n - 1));
-    cum += Math.round(bench * warm);
+    cum += predictViews(client.niche, it.format_type, it.hook_pattern);
     pts.push({ x: (i + 1) * (7 / n), y: cum });
   });
   return pts;
@@ -1628,10 +1634,9 @@ function renderClientPage(host, client, list) {
     const curve = weekEstimateCurve(client.briefs[0], client);
     curve.forEach((pt) => cEst.push(pt));
   }
-  const cProj = projectTo(cActual, Math.max(7, Math.ceil(Math.max(0, ...cActual.map((p) => p.x)))));
-  const cxMax = Math.max(7, ...cActual.map((p) => p.x));
-  const cyMax = Math.max(1, ...cActual.map((p) => p.y), ...cEst.map((p) => p.y), ...cProj.map((p) => p.y));
-  const formats = [...new Set(client.posts.map((p) => p.format))];
+  const cxMax = Math.max(7, ...cActual.map((p) => p.x), ...cEst.map((p) => p.x));
+  const cyMax = Math.max(1, ...cActual.map((p) => p.y), ...cEst.map((p) => p.y));
+  const cPace = paceTone(cActual, cEst);
   const fmtOptions = [...new Set(ALL.map((r) => r.format_type).filter(Boolean))].sort();
   const hookOptions = [...new Set(ALL.map((r) => r.hook_pattern).filter(Boolean))].sort();
 
@@ -1652,29 +1657,12 @@ function renderClientPage(host, client, list) {
         ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
             : `<span class="lbl">add posts and check-ins below to start the graph</span>`}
       </div>
-      ${chartSvg({ actual: cActual, est: cEst, proj: cProj, xMax: cxMax, yMax: cyMax })}
+      ${chartSvg({ actual: cActual, est: cEst, xMax: cxMax, yMax: cyMax, tone: cPace.tone })}
       <div class="chart-key">
-        <span><i class="k-est"></i> estimated</span>
+        <span><i class="k-est"></i> predicted</span>
         <span><i class="k-act"></i> actual</span>
-        ${cProj.length ? `<span><i class="k-proj"></i> projected — ${compact(cProj[1].y)}</span>` : ""}
-        <span class="lbl">x: days tracked · y: cumulative views</span>
       </div>
     </div>
-
-    ${formats.length ? `<h2>Prediction vs actual — by format</h2>
-    <div class="fmt-grid">` + formats.map((f) => {
-      const posts = client.posts.filter((p) => p.format === f && p.checkins.length);
-      const pts = posts.map(postLatest);
-      const predSeries = posts.map((p) => p.predicted || 0);
-      const pred = posts.length ? Math.round(median(predSeries)) : 0;
-      const beat = posts.filter((p) => postLatest(p) >= (p.predicted || 0)).length;
-      const good = posts.length && beat >= posts.length / 2;
-      return `<div class="fmt-card ${posts.length ? (good ? "good" : "bad") : ""}">
-        <div class="fmt-head"><strong>${escapeHtml(f)}</strong>
-          <span class="lbl">${posts.length ? `${beat}/${posts.length} beat benchmark` : "no check-ins yet"}</span></div>
-        ${posts.length ? sparkSvg(pts, predSeries) : sparkSvg([], null)}
-      </div>`;
-    }).join("") + `</div>` : ""}
 
     <h2>Tracked posts <span class="pill">${client.posts.length}</span></h2>
     <form class="post-form" id="post-form">
@@ -1907,9 +1895,9 @@ function weekDashboardHtml(rec, client) {
     return { x: daysBetween(e.d, day0), y: [...seen.values()].reduce((a, b) => a + b, 0) };
   });
   if (actualPts.length) actualPts.unshift({ x: 0, y: 0 });
-  const projPts = projectTo(actualPts, 7);
   const xMax = Math.max(7, ...actualPts.map((p) => p.x), ...est.map((p) => p.x));
-  const yMax = Math.max(1, ...actualPts.map((p) => p.y), ...est.map((p) => p.y), ...projPts.map((p) => p.y));
+  const yMax = Math.max(1, ...actualPts.map((p) => p.y), ...est.map((p) => p.y));
+  const pace = paceTone(actualPts, est);
 
   // Per-script cards: match this week's posts to each script by format×hook
   const scriptCards = rec.items.map((it, i) => {
@@ -1968,18 +1956,18 @@ function weekDashboardHtml(rec, client) {
     recs.push("Nothing tracked for this week yet — add posts below (Tracked posts on the client page) and check in with views.");
 
   return `
-    <div class="growth-card ${v ? (v.good ? "good" : "bad") : ""}">
+    <div class="growth-card ${pace.tone}">
       <div class="growth-head">
-        <h2>${v ? (v.good ? "Good week — ahead of benchmark" : "Behind benchmark this week") : "This week"}</h2>
-        ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
-            : `<span class="lbl">the graph fills in as posts get check-ins</span>`}
+        <h2>${pace.label ? (pace.tone === "good" ? "Good week — ahead of the predicted slope"
+                          : pace.tone === "bad" ? "Behind the predicted slope"
+                          : "Tracking the predicted slope") : "This week"}</h2>
+        ${pace.label ? `<span class="verdict ${pace.tone}">${escapeHtml(pace.label)}</span>`
+                     : `<span class="lbl">the actual line fills in as posts get check-ins</span>`}
       </div>
-      ${chartSvg({ actual: actualPts, est, proj: projPts, xMax, yMax })}
+      ${chartSvg({ actual: actualPts, est, xMax, yMax, tone: pace.tone })}
       <div class="chart-key">
-        <span><i class="k-est"></i> estimated (database formats, warm-up adjusted)</span>
+        <span><i class="k-est"></i> predicted — the brief's formats at benchmark</span>
         <span><i class="k-act"></i> actual</span>
-        ${projPts.length ? `<span><i class="k-proj"></i> projected to D7 — ${compact(projPts[1].y)} at this pace</span>` : ""}
-        <span class="lbl">x: days since brief · y: cumulative views</span>
       </div>
     </div>
 

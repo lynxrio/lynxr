@@ -452,16 +452,18 @@
   }
 
   /* Performance tracking: green = beating benchmark, red = under it */
-  :root { --good: #57c98a; --bad: #e06c6c; }
+  :root { --good: #57c98a; --bad: #e06c6c; --even: #d8a657; }
   .verdict { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
   .verdict.good { color: var(--good); }
   .verdict.bad { color: var(--bad); }
+  .verdict.even { color: var(--even); }
   .growth-card {
     background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
     padding: 18px 20px; margin: 4px 0 30px;
   }
   .growth-card.good { border-color: #2c4a39; }
   .growth-card.bad { border-color: #4a2c2c; }
+  .growth-card.even { border-color: #4a412c; }
   .growth-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
   .growth-head h2 { margin: 0; }
   .spark { width: 100%; height: auto; display: block; }
@@ -476,14 +478,18 @@
   .chart-tick { fill: var(--text-3); font-family: var(--mono); font-size: 9.5px; }
   .chart-key { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; margin-top: 8px; font-size: 12px; color: var(--text-2); }
   .chart-key i { display: inline-block; width: 16px; height: 0; vertical-align: middle; margin-right: 6px; }
-  .chart-key .k-est { border-top: 1.5px dotted var(--text-3); }
+  .chart-key .k-est { border-top: 2px dashed var(--text-3); }
   .chart-key .k-act { border-top: 2px solid var(--text-2); }
-  .chart-key .k-proj { border-top: 2px dashed var(--text-2); opacity: .7; }
-  .chart-unit { fill: var(--text-3); }
-  .spark-proj { fill: none; stroke: var(--text-2); stroke-width: 2; stroke-dasharray: 6 4; opacity: .6; }
-  .spark-proj-dot { fill: none; stroke: var(--text-2); stroke-width: 2; opacity: .8; }
-  .good .spark-proj, .good .spark-proj-dot { stroke: var(--good); }
-  .bad .spark-proj, .bad .spark-proj-dot { stroke: var(--bad); }
+  .axis-title { fill: var(--text-3); font-size: 11px; letter-spacing: .04em; }
+  .line-pred { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-dasharray: 5 5; stroke-linecap: round; }
+  .line-actual { fill: none; stroke: var(--text-2); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .dot-actual { fill: var(--text-2); }
+  .chart.good .line-actual { stroke: var(--good); }  .chart.good .dot-actual { fill: var(--good); }
+  .chart.bad .line-actual { stroke: var(--bad); }    .chart.bad .dot-actual { fill: var(--bad); }
+  .chart.even .line-actual { stroke: var(--even); }  .chart.even .dot-actual { fill: var(--even); }
+  .good .chart-key .k-act { border-top-color: var(--good); }
+  .bad .chart-key .k-act { border-top-color: var(--bad); }
+  .even .chart-key .k-act { border-top-color: var(--even); }
   .good .chart-key .k-act { border-top-color: var(--good); }
   .bad .chart-key .k-act { border-top-color: var(--bad); }
   .spark-est { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 1.5 5; stroke-linecap: round; }
