@@ -623,3 +623,39 @@
   }
   .nextweek h2 { margin-bottom: 4px; }
   .nextweek .lbl { max-width: 68ch; }
+
+  /* Health at a glance */
+  .health-row {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px;
+    background: var(--line); border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 22px;
+  }
+  @media (max-width: 880px) { .health-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .health-card { background: var(--surface); padding: 16px 18px; }
+  .health-card.good { box-shadow: inset 3px 0 0 var(--good); }
+  .health-card.even { box-shadow: inset 3px 0 0 var(--even); }
+  .health-card.bad  { box-shadow: inset 3px 0 0 var(--bad); }
+  .health-card.idle { box-shadow: inset 3px 0 0 var(--line-2); }
+  .h-label { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+  .h-value { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 8px; }
+  .h-of { color: var(--text-3); font-size: 15px; font-weight: 500; margin-left: -4px; }
+  .h-sub { color: var(--text-3); font-size: 12px; margin-top: 3px; }
+  .h-dot { font-size: 11px; line-height: 1; }
+  .health-card.good .h-dot { color: var(--good); }
+  .health-card.even .h-dot { color: var(--even); }
+  .health-card.bad .h-dot  { color: var(--bad); }
+  .health-card.idle .h-dot { color: var(--text-3); }
+
+  .health-chip {
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    font-size: 12px; font-family: var(--mono);
+    border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px;
+    color: var(--text-2);
+  }
+  .health-chip.good { color: var(--good); border-color: #2c4a39; }
+  .health-chip.even { color: var(--even); border-color: #4a412c; }
+  .health-chip.bad  { color: var(--bad);  border-color: #4a2c2c; }
+  .health-chip.idle { color: var(--text-3); }
+  .bcard.good { border-left: 3px solid var(--good); }
+  .bcard.even { border-left: 3px solid var(--even); }
+  .bcard.bad  { border-left: 3px solid var(--bad); }

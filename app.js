@@ -1651,7 +1651,7 @@ function renderBriefs() {
         if (rec) { renderBriefViewer(host, rec, client); return; }
         BRIEF_VIEW = null;
       }
-      renderClientPage(host, client, list);
+      renderClientPage(host, client);
       return;
     }
     CLIENT_VIEW = null;
@@ -1694,6 +1694,37 @@ function renderBriefs() {
 
 
 /** Start next week's brief for a client, carrying their learning across. */
+
+/** One glanceable health read: a ratio, a tone, and a plain label. */
+function healthOf(ratio, n) {
+  if (!n) return { tone: "idle", dot: "○", label: "Not tracked", ratio: null };
+  if (ratio >= 1.25) return { tone: "good", dot: "●", label: "Strong", ratio };
+  if (ratio >= 1.0)  return { tone: "good", dot: "●", label: "Healthy", ratio };
+  if (ratio >= 0.75) return { tone: "even", dot: "●", label: "On pace", ratio };
+  if (ratio >= 0.5)  return { tone: "bad",  dot: "●", label: "Slipping", ratio };
+  return { tone: "bad", dot: "●", label: "At risk", ratio };
+}
+
+function campaignHealth(client) {
+  const tracked = client.posts.filter((p) => p.checkins.length);
+  const actual = tracked.reduce((a, p) => a + postLatest(p), 0);
+  const predicted = tracked.reduce((a, p) => a + (p.predicted || 0), 0);
+  const h = healthOf(predicted ? actual / predicted : 0, tracked.length);
+  const beat = tracked.filter((p) => postRatio(p) >= 1).length;
+  return { ...h, actual, predicted, posts: tracked.length, beat,
+           briefs: client.briefs.length, totalPosts: client.posts.length };
+}
+
+function briefHealth(client, briefId) {
+  const posts = weekPostsOf(client, briefId);
+  const tracked = posts.filter((p) => p.checkins.length);
+  const actual = tracked.reduce((a, p) => a + postLatest(p), 0);
+  const predicted = tracked.reduce((a, p) => a + (p.predicted || 0), 0);
+  const h = healthOf(predicted ? actual / predicted : 0, tracked.length);
+  return { ...h, actual, predicted, posts: posts.length, tracked: tracked.length,
+           beat: tracked.filter((p) => postRatio(p) >= 1).length };
+}
+
 function startNextWeekBrief(client) {
   LEARN_CLIENT = loadClients().find((c) => c.id === client.id) || client;
   BRIEF_CTX = client.ctx && Object.keys(client.ctx).length ? client.ctx
@@ -1713,34 +1744,41 @@ function startNextWeekBrief(client) {
   });
 }
 
-function renderClientPage(host, client, list) {
-  const v = clientVerdict(client);
-  const cPosts = client.posts;
-  const cDay0 = [...cPosts].map((p) => p.addedAt).sort()[0] || new Date().toISOString();
-  const cEvents = cPosts.flatMap((p) => p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views })))
+function renderClientPage(host, client) {
+  // Briefs are stored newest-first; number them oldest-first so "Brief 1" is
+  // where the client started and the number never changes as weeks are added.
+  const total = client.briefs.length;
+  const briefNo = (idx) => total - idx;
+
+  // This month's posts, so the client-level graph answers "how is this month
+  // going" rather than blending in everything since the account opened.
+  const now = new Date();
+  const monthKey = now.toISOString().slice(0, 7);
+  const monthName = now.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const monthPosts = client.posts.filter((p) =>
+    (p.addedAt || "").slice(0, 7) === monthKey || p.checkins.some((c) => c.d.slice(0, 7) === monthKey));
+
+  const day0 = [...monthPosts].map((p) => p.addedAt).sort()[0] || (monthKey + "-01T00:00:00Z");
+  const events = monthPosts.flatMap((p) => p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views })))
     .sort((a, b) => a.d < b.d ? -1 : 1);
-  const cSeen = new Map(), cEstSeen = new Map();
-  const cById = new Map(cPosts.map((p) => [p.id, p]));
-  const cActual = [], cEst = [];
-  for (const e of cEvents) {
-    cSeen.set(e.id, e.views);
-    cEstSeen.set(e.id, cById.get(e.id)?.predicted || 0);
-    const x = daysBetween(e.d, cDay0);
-    cActual.push({ x, y: [...cSeen.values()].reduce((a, b) => a + b, 0) });
-    cEst.push({ x, y: [...cEstSeen.values()].reduce((a, b) => a + b, 0) });
+  const byId = new Map(monthPosts.map((p) => [p.id, p]));
+  const seenA = new Map(), seenE = new Map();
+  const mActual = [], mEst = [];
+  for (const e of events) {
+    seenA.set(e.id, e.views);
+    seenE.set(e.id, byId.get(e.id)?.predicted || 0);
+    const x = daysBetween(e.d, day0);
+    mActual.push({ x, y: [...seenA.values()].reduce((a, b) => a + b, 0) });
+    mEst.push({ x, y: [...seenE.values()].reduce((a, b) => a + b, 0) });
   }
-  if (cActual.length) { cActual.unshift({ x: 0, y: 0 }); cEst.unshift({ x: 0, y: 0 }); }
-  // No tracked estimates yet? Derive the target slope from the client's briefs
-  // so the graph shows where they should be from day one.
-  if (!cEst.length && client.briefs.length) {
-    const curve = weekEstimateCurve(client.briefs[0], client);
-    curve.forEach((pt) => cEst.push(pt));
-  }
-  const cxMax = Math.max(7, ...cActual.map((p) => p.x), ...cEst.map((p) => p.x));
-  const cyMax = Math.max(1, ...cActual.map((p) => p.y), ...cEst.map((p) => p.y));
-  const cPace = paceTone(cActual, cEst);
-  const fmtOptions = [...new Set(ALL.map((r) => r.format_type).filter(Boolean))].sort();
-  const hookOptions = [...new Set(ALL.map((r) => r.hook_pattern).filter(Boolean))].sort();
+  if (mActual.length) { mActual.unshift({ x: 0, y: 0 }); mEst.unshift({ x: 0, y: 0 }); }
+  // Nothing tracked yet? Draw the target from this month's briefs so the graph
+  // still shows where they should be.
+  if (!mEst.length && client.briefs.length) weekEstimateCurve(client.briefs[0], client).forEach((pt) => mEst.push(pt));
+  const mxMax = Math.max(7, ...mActual.map((p) => p.x), ...mEst.map((p) => p.x));
+  const myMax = Math.max(1, ...mActual.map((p) => p.y), ...mEst.map((p) => p.y));
+  const mPace = paceTone(mActual, mEst);
+  const ch = campaignHealth(client);
 
   host.innerHTML = `
     <div class="viewer-top">
@@ -1751,146 +1789,78 @@ function renderClientPage(host, client, list) {
       </div>
     </div>
 
-    <div class="growth-card ${v ? (v.good ? "good" : "bad") : ""}">
-      <div class="growth-head">
-        <h2>Growth — total views across tracked posts</h2>
-        ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
-            : `<span class="lbl">add posts and check-ins below to start the graph</span>`}
+    <div class="health-row">
+      <div class="health-card ${ch.tone}">
+        <div class="h-label">Campaign health</div>
+        <div class="h-value"><span class="h-dot">${ch.dot}</span>${escapeHtml(ch.label)}</div>
+        <div class="h-sub">${ch.ratio != null ? escapeHtml(ratioLabel(ch.ratio)) : "no posts tracked yet"}</div>
       </div>
-      ${chartSvg({ actual: cActual, est: cEst, xMax: cxMax, yMax: cyMax, tone: cPace.tone })}
-      <div class="chart-key">
-        <span><i class="k-est"></i> predicted</span>
-        <span><i class="k-act"></i> actual</span>
+      <div class="health-card">
+        <div class="h-label">Beating benchmark</div>
+        <div class="h-value">${ch.beat}<span class="h-of">/${ch.posts || 0}</span></div>
+        <div class="h-sub">posts tracked</div>
+      </div>
+      <div class="health-card">
+        <div class="h-label">Views this campaign</div>
+        <div class="h-value">${compact(ch.actual)}</div>
+        <div class="h-sub">vs ${compact(ch.predicted)} predicted</div>
+      </div>
+      <div class="health-card">
+        <div class="h-label">Briefs</div>
+        <div class="h-value">${ch.briefs}</div>
+        <div class="h-sub">${ch.totalPosts} post${ch.totalPosts === 1 ? "" : "s"} total</div>
       </div>
     </div>
 
-    <h2>Tracked posts <span class="pill">${client.posts.length}</span></h2>
-    <form class="post-form" id="post-form">
-      <input type="url" id="pf-url" placeholder="Paste the post link — we'll read and tag it" required>
-      <select id="pf-week" title="Which week's brief this post executes">
-        ${client.briefs.map((b, i) => `<option value="${escapeHtml(b.id)}">${i === 0 ? "This week" : "Week of"} ${escapeHtml((b.createdAt || "").slice(0, 10))}</option>`).join("")}
-        <option value="">No week</option>
-      </select>
-      <button type="submit" class="btn" id="pf-add">Add &amp; auto-tag</button>
-    </form>
-    <p class="note" id="pf-note">Paste a TikTok, YouTube, Instagram, or Facebook link — the caption and creator
-      are pulled from the post and tagged automatically against the taxonomy. Format and hook stay editable on
-      the row. The benchmark locks in on add; check in with views whenever to plot the trend.</p>
+    <div class="growth-card ${mPace.tone}">
+      <div class="growth-head">
+        <h2>${escapeHtml(monthName)} — predicted vs actual</h2>
+        ${mPace.label ? `<span class="verdict ${mPace.tone}">${escapeHtml(mPace.label)}</span>`
+                      : `<span class="lbl">open a brief below and track its posts to start the actual line</span>`}
+      </div>
+      ${chartSvg({ actual: mActual, est: mEst, xMax: mxMax, yMax: myMax, tone: mPace.tone })}
+      <div class="chart-key">
+        <span><i class="k-est"></i> predicted</span>
+        <span><i class="k-act"></i> actual</span>
+        <span class="lbl">${monthPosts.length} post${monthPosts.length === 1 ? "" : "s"} tracked this month</span>
+      </div>
+    </div>
 
-    <div class="post-list">` + client.posts.map((p) => {
-      const latest = postLatest(p);
-      const good = latest != null && latest >= (p.predicted || 0);
-      const href = safeUrl(p.url);
-      return `<div class="post-row ${latest != null ? (good ? "good" : "bad") : ""}" data-pid="${escapeHtml(p.id)}">
-        <div class="post-main">
-          <div class="vtitle">${escapeHtml(p.caption || p.url.replace(/^https?:\/\//, "").slice(0, 70))}</div>
-          <div class="lbl">${escapeHtml(p.creator || "—")}${p.platform ? " · " + escapeHtml(p.platform) : ""} · added ${escapeHtml((p.addedAt || "").slice(0, 10))}
-            ${href ? ` · <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}</div>
-          <div class="post-tags">
-            <select class="pt-format" title="Detected format — correct if wrong">${fmtOptions.map((f) => `<option${f === p.format ? " selected" : ""}>${escapeHtml(f)}</option>`).join("")}</select>
-            <select class="pt-hook" title="Detected hook — correct if wrong">${hookOptions.map((h) => `<option${h === p.hook ? " selected" : ""}>${escapeHtml(h)}</option>`).join("")}</select>
-          </div>
-          <div class="post-nums">
-            <span class="lbl">benchmark</span> <span class="mono">${compact(p.predicted || 0)}</span>
-            <span class="lbl">latest</span> <span class="mono verdict ${latest != null ? (good ? "good" : "bad") : ""}">${latest != null ? compact(latest) : "—"}</span>
-            <span class="lbl">${p.checkins.length} check-in${p.checkins.length === 1 ? "" : "s"}</span>
-          </div>
-        </div>
-        <div class="post-spark">${sparkSvg(p.checkins.map((c) => c.views), p.predicted)}</div>
-        <form class="checkin-form">
-          <input type="text" class="ci-views" placeholder="views now (e.g. 12.5k)" required>
-          <button type="submit" class="ghost">Check in</button>
-          <button type="button" class="ghost p-del">Delete</button>
-        </form>
-      </div>`;
-    }).join("") + `</div>
-
-    ${client.briefs.length ? `<h2>Weekly briefs <span class="pill">${client.briefs.length}</span></h2>
-    <div class="brief-stack">` + client.briefs.map((b) => {
-      const wv = weekVerdict(client, b.id);
-      const wp = weekPostsOf(client, b.id).length;
+    <h2>Briefs <span class="pill">${total}</span></h2>
+    ${total ? `<div class="brief-stack">` + client.briefs.map((b, i) => {
+      const bh = briefHealth(client, b.id);
       return `
-      <article class="bcard" data-bid="${escapeHtml(b.id)}">
+      <article class="bcard ${bh.tone}" data-bid="${escapeHtml(b.id)}">
         <div class="bcard-main">
-          <div class="bcard-title">Week of ${escapeHtml((b.createdAt || "").slice(0, 10))}</div>
-          <div class="lbl">${escapeHtml(b.niche || "All niches")} · ${b.items.length} scripts · ${wp} post${wp === 1 ? "" : "s"} tracked</div>
+          <div class="bcard-title">Brief ${briefNo(i)}${i === 0 ? ` <span class="pill">latest</span>` : ""}</div>
+          <div class="lbl">${escapeHtml((b.createdAt || "").slice(0, 10))} · ${b.items.length} scripts
+            · ${bh.tracked}/${bh.posts} post${bh.posts === 1 ? "" : "s"} tracked${bh.tracked ? ` · ${bh.beat} beating benchmark` : ""}</div>
         </div>
-        ${wv ? `<span class="verdict ${wv.good ? "good" : "bad"}">${wv.good ? "▲" : "▼"} ${ratioLabel(wv.ratio)}</span>` : ""}
+        <span class="health-chip ${bh.tone}"><span class="h-dot">${bh.dot}</span>${escapeHtml(bh.label)}${bh.ratio != null ? ` · ${escapeHtml(ratioLabel(bh.ratio))}` : ""}</span>
         <button type="button" class="btn br-open">Open</button>
         <button type="button" class="ghost br-docx" title="Download as .docx for Google Docs">.docx</button>
         <button type="button" class="ghost br-del">Delete</button>
       </article>`;
-    }).join("") + `</div>` : ""}`;
+    }).join("") + `</div>`
+    : `<div class="empty"><p><strong>No briefs yet.</strong></p>
+        <p>Build one in the New brief tab — it files here as Brief 1.</p></div>`}
+
+    <div class="nextweek">
+      <div class="minw0">
+        <h2>Next brief${client.posts.some((p) => p.checkins.length) ? " — learns from tracked posts" : ""}</h2>
+        <p class="lbl">${client.posts.some((p) => p.checkins.length)
+          ? `Builds on what actually performed for ${escapeHtml(client.company)}: winning formats boosted, misses demoted, and posts that beat benchmark leading the shelf.`
+          : `Track posts inside a brief and the next one will learn from what performed.`}</p>
+      </div>
+      <button type="button" class="btn" id="cl-nextbrief">Build brief ${total + 1}</button>
+    </div>`;
 
   bindChartHover(host);
-
   document.getElementById("cl-back").addEventListener("click", () => {
     CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
   });
+  document.getElementById("cl-nextbrief").addEventListener("click", () => startNextWeekBrief(client));
 
-
-  // track a new post — benchmark locked in now
-  document.getElementById("post-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const url = normalizeClientUrl(document.getElementById("pf-url").value);
-    const note = document.getElementById("pf-note");
-    const btn = document.getElementById("pf-add");
-    if (!url) { note.textContent = "That doesn't look like a post link."; return; }
-    btn.disabled = true;
-    btn.textContent = "Reading post…";
-    let meta = { caption: "", creator: "", platform: "" };
-    try { meta = await fetchPostMeta(url); }
-    catch { note.textContent = "Couldn't read that post — tagged from the link only; correct it on the row."; }
-    const { format, hook } = autoTag(meta.caption, meta.platform);
-    const fresh = loadClients();
-    const c = fresh.find((x) => x.id === client.id);
-    c.posts.unshift({
-      id: newId(), url, creator: meta.creator || "",
-      caption: meta.caption || "", thumb: meta.thumb || "", platform: meta.platform || "",
-      format, hook, predicted: predictViews(c.niche, format, hook),
-      briefId: document.getElementById("pf-week")?.value || "",
-      addedAt: new Date().toISOString(), checkins: [],
-    });
-    persistClients(fresh);
-    renderBriefs();
-  });
-
-  // check-ins + post deletion
-  host.querySelectorAll(".post-row").forEach((rowEl) => {
-    const pid = rowEl.dataset.pid;
-    rowEl.querySelector(".checkin-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const n = parseNum(rowEl.querySelector(".ci-views").value);
-      if (isNaN(n)) { rowEl.querySelector(".ci-views").select(); return; }
-      const fresh = loadClients();
-      const p = fresh.find((x) => x.id === client.id)?.posts.find((x) => x.id === pid);
-      if (!p) return;
-      p.checkins.push({ d: new Date().toISOString().slice(0, 10), views: n });
-      persistClients(fresh);
-      renderBriefs();
-    });
-    rowEl.querySelectorAll(".pt-format, .pt-hook").forEach((sel) => {
-      sel.addEventListener("change", () => {
-        const fresh = loadClients();
-        const post = fresh.find((x) => x.id === client.id)?.posts.find((x) => x.id === pid);
-        if (!post) return;
-        post.format = rowEl.querySelector(".pt-format").value;
-        post.hook = rowEl.querySelector(".pt-hook").value;
-        post.predicted = predictViews(client.niche, post.format, post.hook);   // re-benchmark
-        persistClients(fresh);
-        renderBriefs();
-      });
-    });
-    armDelete(rowEl.querySelector(".p-del"), "Delete", () => {
-      const fresh = loadClients();
-      const c = fresh.find((x) => x.id === client.id);
-      c.posts = c.posts.filter((x) => x.id !== pid);
-      persistClients(fresh);
-      renderBriefs();
-    });
-  });
-
-  // briefs inside the folder
   host.querySelectorAll(".bcard[data-bid]").forEach((card) => {
     const bid = card.dataset.bid;
     card.querySelector(".br-open").addEventListener("click", () => {
@@ -2068,6 +2038,9 @@ function renderBriefViewer(host, rec, client) {
   const total = client.briefs.length;
   const idx = client.briefs.findIndex((b) => b.id === rec.id);
   const trackedThisWeek = weekPostsOf(client, rec.id).some((p) => p.checkins.length);
+  const briefPosts = weekPostsOf(client, rec.id);
+  const fmtOptions = [...new Set(ALL.map((r) => r.format_type).filter(Boolean))].sort();
+  const hookOptions = [...new Set(ALL.map((r) => r.hook_pattern).filter(Boolean))].sort();
   if (BRIEF_VIEW.expanded != null)
     BRIEF_VIEW.expanded = Math.max(0, Math.min(BRIEF_VIEW.expanded, rec.items.length - 1));
   host.innerHTML = `
@@ -2079,24 +2052,60 @@ function renderBriefViewer(host, rec, client) {
 
     <div class="week-nav">
       <button type="button" class="ghost week-arrow" id="wk-prev" ${idx >= total - 1 ? "disabled" : ""}
-        title="${idx >= total - 1 ? "No earlier week" : "Earlier week"}">←</button>
+        title="${idx >= total - 1 ? "No earlier brief" : "Earlier brief"}">←</button>
       <div class="week-head">
-        <div class="bcard-title">Week of ${escapeHtml((rec.createdAt || "").slice(0, 10))}</div>
-        <div class="lbl">${escapeHtml(rec.company)} · ${escapeHtml(rec.niche || "All niches")} · week ${total - idx} of ${total}</div>
+        <div class="bcard-title">Brief ${total - idx}</div>
+        <div class="lbl">${escapeHtml(rec.company)} · ${escapeHtml((rec.createdAt || "").slice(0, 10))} · ${total - idx} of ${total}</div>
       </div>
       <button type="button" class="ghost week-arrow" id="wk-next" ${idx <= 0 ? "disabled" : ""}
-        title="${idx <= 0 ? "No later week" : "Later week"}">→</button>
+        title="${idx <= 0 ? "No later brief" : "Later brief"}">→</button>
     </div>
     ${weekDashboardHtml(rec, client)}
 
+    <h2>Posts from this brief <span class="pill">${briefPosts.length}</span></h2>
+    <form class="post-form" id="post-form">
+      <input type="url" id="pf-url" placeholder="Paste the post link — we'll read and tag it" required>
+      <button type="submit" class="btn" id="pf-add">Add &amp; auto-tag</button>
+    </form>
+    <p class="note" id="pf-note">Paste a TikTok, YouTube, Instagram, or Facebook link — the caption and creator
+      are read from the post and tagged automatically. Format and hook stay editable on the row. The benchmark
+      locks in on add; check in with views to plot the actual line above.</p>
+    <div class="post-list">${briefPosts.map((p) => {
+      const latest = postLatest(p);
+      const good = latest != null && latest >= (p.predicted || 0);
+      const href = safeUrl(p.url);
+      return `<div class="post-row ${latest != null ? (good ? "good" : "bad") : ""}" data-pid="${escapeHtml(p.id)}">
+        <div class="post-main">
+          <div class="vtitle">${escapeHtml(p.caption || p.url.replace(/^https?:\/\//, "").slice(0, 70))}</div>
+          <div class="lbl">${escapeHtml(p.creator || "—")}${p.platform ? " · " + escapeHtml(p.platform) : ""} · added ${escapeHtml((p.addedAt || "").slice(0, 10))}
+            ${href ? ` · <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}</div>
+          <div class="post-tags">
+            <select class="pt-format" title="Detected format — correct if wrong">${fmtOptions.map((f) => `<option${f === p.format ? " selected" : ""}>${escapeHtml(f)}</option>`).join("")}</select>
+            <select class="pt-hook" title="Detected hook — correct if wrong">${hookOptions.map((h) => `<option${h === p.hook ? " selected" : ""}>${escapeHtml(h)}</option>`).join("")}</select>
+          </div>
+          <div class="post-nums">
+            <span class="lbl">benchmark</span> <span class="mono">${compact(p.predicted || 0)}</span>
+            <span class="lbl">latest</span> <span class="mono verdict ${latest != null ? (good ? "good" : "bad") : ""}">${latest != null ? compact(latest) : "—"}</span>
+            <span class="lbl">${p.checkins.length} check-in${p.checkins.length === 1 ? "" : "s"}</span>
+          </div>
+        </div>
+        <div class="post-spark">${sparkSvg(p.checkins.map((c) => c.views), p.predicted)}</div>
+        <form class="checkin-form">
+          <input type="text" class="ci-views" placeholder="views now (e.g. 12.5k)" required>
+          <button type="submit" class="ghost">Check in</button>
+          <button type="button" class="ghost p-del">Delete</button>
+        </form>
+      </div>`;
+    }).join("")}</div>
+
     <div class="nextweek">
       <div class="minw0">
-        <h2>Next week's brief${trackedThisWeek ? " — learned from this week" : ""}</h2>
+        <h2>Next brief${trackedThisWeek ? " — learns from this one" : ""}</h2>
         <p class="lbl">${trackedThisWeek
-          ? `Builds on what actually performed for ${escapeHtml(client.company)}: their winning formats get boosted, the misses demoted, and posts that beat benchmark lead the shelf.`
-          : `Track this week's posts above first and next week's brief will learn from what performed.`}</p>
+          ? `Builds on what actually performed for ${escapeHtml(client.company)}: winning formats boosted, misses demoted, and posts that beat benchmark leading the shelf.`
+          : `Track this brief's posts above and the next one will learn from what performed.`}</p>
       </div>
-      <button type="button" class="btn" id="wk-nextbrief">Build next week's brief</button>
+      <button type="button" class="btn" id="wk-nextbrief">Build brief ${total + 1}</button>
     </div>`;
 
   bindChartHover(host);
@@ -2107,6 +2116,67 @@ function renderBriefViewer(host, rec, client) {
   document.getElementById("wk-next").addEventListener("click", () => {
     if (idx > 0) { BRIEF_VIEW = { id: client.briefs[idx - 1].id, expanded: null }; renderBriefs(); }
   });
+  const postForm = document.getElementById("post-form");
+  if (postForm) {
+    postForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const url = normalizeClientUrl(document.getElementById("pf-url").value);
+      const note = document.getElementById("pf-note");
+      const btn = document.getElementById("pf-add");
+      if (!url) { note.textContent = "That doesn't look like a post link."; return; }
+      btn.disabled = true; btn.textContent = "Reading post…";
+      let meta = { caption: "", creator: "", platform: "" };
+      try { meta = await fetchPostMeta(url); }
+      catch { note.textContent = "Couldn't read that post — tagged from the link only; correct it on the row."; }
+      const { format, hook } = autoTag(meta.caption, meta.platform);
+      const fresh = loadClients();
+      const c = fresh.find((x) => x.id === client.id);
+      c.posts.unshift({
+        id: newId(), url, creator: meta.creator || "",
+        caption: meta.caption || "", thumb: meta.thumb || "", platform: meta.platform || "",
+        format, hook, predicted: predictViews(c.niche, format, hook),
+        briefId: rec.id,                       // implicit: the brief you're inside
+        addedAt: new Date().toISOString(), checkins: [],
+      });
+      persistClients(fresh);
+      renderBriefs();
+    });
+  }
+
+  host.querySelectorAll(".post-row").forEach((rowEl) => {
+    const pid = rowEl.dataset.pid;
+    rowEl.querySelector(".checkin-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const n = parseNum(rowEl.querySelector(".ci-views").value);
+      if (isNaN(n)) { rowEl.querySelector(".ci-views").select(); return; }
+      const fresh = loadClients();
+      const post = fresh.find((x) => x.id === client.id)?.posts.find((x) => x.id === pid);
+      if (!post) return;
+      post.checkins.push({ d: new Date().toISOString().slice(0, 10), views: n });
+      persistClients(fresh);
+      renderBriefs();
+    });
+    rowEl.querySelectorAll(".pt-format, .pt-hook").forEach((sel) => {
+      sel.addEventListener("change", () => {
+        const fresh = loadClients();
+        const post = fresh.find((x) => x.id === client.id)?.posts.find((x) => x.id === pid);
+        if (!post) return;
+        post.format = rowEl.querySelector(".pt-format").value;
+        post.hook = rowEl.querySelector(".pt-hook").value;
+        post.predicted = predictViews(client.niche, post.format, post.hook);
+        persistClients(fresh);
+        renderBriefs();
+      });
+    });
+    armDelete(rowEl.querySelector(".p-del"), "Delete", () => {
+      const fresh = loadClients();
+      const c = fresh.find((x) => x.id === client.id);
+      c.posts = c.posts.filter((x) => x.id !== pid);
+      persistClients(fresh);
+      renderBriefs();
+    });
+  });
+
   document.getElementById("wk-nextbrief").addEventListener("click", () => startNextWeekBrief(client));
   document.getElementById("bv-docx").addEventListener("click", () =>
     downloadDocx(rec.ctx, rec.items, (rec.createdAt || "").slice(0, 10)));
