@@ -143,11 +143,17 @@ function renderBars(hostId, pairs, limit = 8) {
   host.innerHTML = shown.map(([label, count]) => `
     <div class="bar-row">
       <div class="bar-track">
-        <div class="bar-fill" style="width:${Math.max((count / max) * 100, 1).toFixed(2)}%"></div>
+        <div class="bar-fill"></div>
         <div class="bar-label">${escapeHtml(label)}</div>
       </div>
       <div class="bar-count">${fmt(count)} <span class="bar-pct">${(count / total * 100).toFixed(count / total >= 0.1 ? 0 : 1)}%</span></div>
     </div>`).join("");
+  // Widths via CSSOM, not style="" attributes — the strict CSP (style-src 'self',
+  // no 'unsafe-inline') silently discards inline style attributes, which shipped
+  // as invisible bars. el.style assignment is allowed under CSP.
+  [...host.querySelectorAll(".bar-fill")].forEach((el, i) => {
+    el.style.width = Math.max((shown[i][1] / max) * 100, 1).toFixed(2) + "%";
+  });
 }
 
 function renderStats(rows) {
@@ -786,8 +792,8 @@ function renderPlaysInto(host, plays, niche, pool) {
       <article class="play">
         <div class="play-head">
           <div class="rank">${String(i + 1).padStart(2, "0")}</div>
-          <div style="min-width:0">
-            <h3 class="play-title">${escapeHtml(p.format)} <span style="color:var(--text-3)">×</span> ${escapeHtml(p.hook)}</h3>
+          <div class="minw0">
+            <h3 class="play-title">${escapeHtml(p.format)} <span class="x-sep">×</span> ${escapeHtml(p.hook)}</h3>
             <p class="play-why">${fmt(p.n)} videos · <span class="badge ${conf.cls}">${escapeHtml(conf.label)}</span></p>
           </div>
           <div class="metrics">
@@ -1058,12 +1064,12 @@ async function renderBrief(rawUrl) {
         </div>
         ${analysis.description ? `<p class="site-desc">${escapeHtml(analysis.description)}</p>` : ""}
         ${!analysis.confident && analysis.nicheRunnerUp ? `
-          <div class="lbl" style="margin-top:8px">Could also be ${escapeHtml(analysis.nicheRunnerUp)} — check the niche in the details below.</div>` : ""}
+          <div class="lbl mt8">Could also be ${escapeHtml(analysis.nicheRunnerUp)} — check the niche in the details below.</div>` : ""}
       </div>`
     : hasUrl
       ? `<div class="warn">Couldn't read the site (${escapeHtml(failReason || "unknown")}) — it may block
           automated readers. Fill in the client details below and everything still works.</div>`
-      : `<div class="note" style="margin-top:14px">No URL — fill in the client details below.</div>`;
+      : `<div class="note mt14">No URL — fill in the client details below.</div>`;
 
   // Manual client details: prefilled when the read worked, blank when it didn't.
   // This is the fallback for sites that block scraping AND the correction surface

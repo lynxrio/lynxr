@@ -194,6 +194,12 @@
   .ex a { border: 0; color: var(--text-3); }
   .ex a:hover { color: var(--text); }
 
+  /* Utility classes replacing CSP-blocked inline style attributes */
+  .minw0 { min-width: 0; }
+  .x-sep { color: var(--text-3); }
+  .mt8 { margin-top: 8px; }
+  .mt14 { margin-top: 14px; }
+
   /* Client brief: site analysis */
   .progress { color: var(--text-3); font-size: 14px; padding: 18px 0; }
   .progress::after { content: ""; display: inline-block; width: 1ch; animation: dots 1.2s steps(4) infinite; overflow: hidden; vertical-align: bottom; }
