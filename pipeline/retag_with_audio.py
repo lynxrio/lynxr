@@ -81,16 +81,23 @@ Reading the audio:
 - NO SPEECH means nothing is said aloud: the message is on-screen text or the
   visual. That is normally Meme / Trend Clip, and the hook is No Hook unless the
   caption itself carries a real device. Do not invent a spoken hook.
-- AUDIO TRACK tells you which is which. "Licensed music" means the transcript is
-  almost certainly lyrics — treat the video as having no speech unless the
-  transcript clearly contains the creator talking over the track. "Original
-  sound" means the audio is the creator's own, so speech is expected.
-- LYRICS ARE NOT SPEECH. Short-form video is full of music with vocals, which
-  transcribes as confidently as talking. If the transcript reads as song lyrics
-  — rhyme, chorus repetition, sung phrasing, or words the creator plainly did
-  not say to camera — treat the video as having NO speech and tag it as though
-  the audio were silent. Do not classify a hook from a lyric. No automated
-  filter catches this; your judgement is the only thing that does.
+- ALWAYS READ THE TRANSCRIPT ON ITS MERITS. Creators routinely talk over a
+  trending sound — that is normal UGC practice, not an exception. A licensed
+  track playing does NOT mean there is no speech. Judge every transcript by
+  what it actually says.
+- AUDIO TRACK is context, never a verdict. "Licensed music" means the words
+  COULD be the song's lyrics, so look harder before deciding — it does not
+  license you to skip the transcript. "Original sound" means the audio is the
+  creator's own upload, which usually means speech but can still be them
+  lip-syncing or music they posted.
+- TELLING SPEECH FROM LYRICS is a content judgement, not a metadata one. Speech
+  addresses a viewer, explains, instructs, enumerates, or recounts ("here are
+  four apps", "listen up", "I passed my NREMT"). Lyrics rhyme, repeat a chorus,
+  scan in metre, and do not address the viewer as a person. When a transcript
+  contains both — the creator talking while a song plays underneath — the
+  creator's words are the speech; use them and ignore the sung fragments.
+- Only when the transcript is ENTIRELY lyrics with no one addressing the viewer
+  should you treat the video as having no speech.
 - HOOK NOT USABLE means speech exists but its opening is too fragmentary to
   classify. Use the full transcript for format, and take the hook from the
   caption instead.
@@ -147,7 +154,7 @@ def user_content(row, tr, music=None):
     if music:
         parts.append("Audio track: creator's own recording (original sound)" if music["original"]
                      else f"Audio track: licensed music — \"{music['name']}\" by {music['author']}. "
-                          "Anything transcribed is very likely song lyrics, not the creator speaking.")
+                          "The creator may still be speaking over it — read the transcript and decide.")
     if tr.get("has_speech"):
         if tr.get("hook_usable", True) and tr.get("hook_spoken"):
             parts.append(f'SPOKEN HOOK (first 3s, verbatim): "{tr["hook_spoken"]}"')
