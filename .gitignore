@@ -9,3 +9,6 @@ __pycache__/
 data/
 output/
 *.batch_state.json
+
+# Local transcription artifacts
+output/transcripts.jsonl
