@@ -181,7 +181,7 @@ function renderBars(hostId, pairs, limit = 8, drillSelectId = null) {
         document.getElementById("reset").click();
         document.getElementById(drillSelectId).value = rowEl.dataset.val;
         applyFilters();
-        activateTab("tab-database");
+        document.getElementById("table-anchor").scrollIntoView({ behavior: "smooth", block: "start" });
       };
       rowEl.addEventListener("click", go);
       rowEl.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
@@ -207,7 +207,6 @@ function renderStats(rows) {
 
 // ---------- Tabs ----------
 const TABS = [
-  ["tab-overview", "panel-overview"],
   ["tab-database", "panel-database"],
   ["tab-brief", "panel-brief"],
   ["tab-briefs", "panel-briefs"],

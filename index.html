@@ -41,8 +41,7 @@
   <header>
     <h1 class="wordmark"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></h1>
     <nav role="tablist" aria-label="Sections">
-      <button class="tab" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true">Overview</button>
-      <button class="tab" role="tab" id="tab-database" aria-controls="panel-database" aria-selected="false">Database</button>
+      <button class="tab" role="tab" id="tab-database" aria-controls="panel-database" aria-selected="true">Database</button>
       <button class="tab" role="tab" id="tab-brief" aria-controls="panel-brief" aria-selected="false">New brief</button>
       <button class="tab" role="tab" id="tab-briefs" aria-controls="panel-briefs" aria-selected="false">Clients</button>
     </nav>
@@ -51,8 +50,8 @@
   </header>
 
   <main>
-    <!-- Overview -->
-    <section class="panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+    <!-- Database (overview + table) -->
+    <section class="panel" id="panel-database" role="tabpanel" aria-labelledby="tab-database">
       <div class="section"><div class="stats" id="stats"></div></div>
       <div class="section grid-2">
         <div><h2>Format type</h2><div class="bars" id="by-format"></div></div>
@@ -62,11 +61,7 @@
         <div><h2>Niche</h2><div class="bars" id="by-niche"></div></div>
         <div><h2>Source</h2><div class="bars" id="by-source"></div></div>
       </div>
-    </section>
-
-    <!-- Database -->
-    <section class="panel" id="panel-database" role="tabpanel" aria-labelledby="tab-database" hidden>
-      <h2>Full database <span id="row-count" class="pill"></span></h2>
+      <h2 id="table-anchor">Full database <span id="row-count" class="pill"></span></h2>
       <div class="controls">
         <input type="search" id="search" placeholder="Search creator, title, or tag…" aria-label="Search the database">
         <select id="f-source" aria-label="Filter by source"></select>
