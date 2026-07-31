@@ -65,28 +65,59 @@ function unlock(rows) {
 
 document.getElementById("gate-form").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const emailEl = document.getElementById("email");
   const pw = document.getElementById("pw");
   const err = document.getElementById("err");
   const submitBtn = e.target.querySelector('button[type="submit"]');
-  if (!normalize(pw.value)) { err.textContent = "Enter the access code."; return; }
+  const email = (emailEl?.value || "").trim();
+  const password = pw.value;
+  if (!email || !password) { err.textContent = "Enter your email and password."; return; }
 
   submitBtn.disabled = true;
-  err.textContent = "Unlocking…";
+  err.textContent = "Signing in…";
   try {
+    await sbSignIn(email, password);
+    err.textContent = "Unlocking…";
+    // One login: the bundle passphrase comes from Supabase, not from the user.
+    const passphrase = await sbBundlePassphrase();
     const bundle = await fetchBundle();
-    const key = await deriveKey(pw.value, bundle);   // ~0.5s: 600k PBKDF2 rounds
-    const rows = await decryptRows(key, bundle);     // wrong code throws here
-    pw.value = "";                                   // don't leave the code in the DOM
+    const key = await deriveKey(passphrase, bundle);
+    const rows = await decryptRows(key, bundle);
+    pw.value = "";
+    try { await syncClients(); } catch { SYNC_OK = false; }
     unlock(rows);
+    updateSyncBadge();
   } catch (ex) {
-    err.textContent = (ex && ex.message || "").startsWith("bundle")
+    const m = (ex && ex.message) || "";
+    err.textContent = m.startsWith("bundle")
       ? "Data bundle missing — run the pipeline and redeploy."
-      : "Incorrect access code.";
+      : /Invalid login|invalid_grant|Sign-in failed/i.test(m)
+        ? "Wrong email or password."
+        : m.includes("passphrase")
+          ? "Signed in, but the bundle passphrase is not set in Supabase."
+          : "Could not sign in — check your connection.";
     pw.select();
   } finally {
     submitBtn.disabled = false;
   }
 });
+
+// Returning session: refresh the token and go straight in, no retyping.
+(async () => {
+  const sess = sbLoadSession();
+  if (!sess?.refresh_token) return;
+  try {
+    await sbRefresh(sess.refresh_token);
+    const passphrase = await sbBundlePassphrase();
+    const bundle = await fetchBundle();
+    const rows = await decryptRows(await deriveKey(passphrase, bundle), bundle);
+    try { await syncClients(); } catch { SYNC_OK = false; }
+    unlock(rows);
+    updateSyncBadge();
+  } catch {
+    sbClearSession();   // stale or revoked — fall back to the login form
+  }
+})();
 
 const toggleBtn = document.getElementById("toggle-pw");
 toggleBtn.addEventListener("click", () => {
@@ -101,7 +132,8 @@ toggleBtn.addEventListener("click", () => {
 });
 
 document.getElementById("signout").addEventListener("click", () => {
-  // Key lives only in page memory; reloading discards it and shows the gate.
+  sbClearSession();
+  SB_TOKEN = null;
   location.reload();
 });
 
@@ -1180,7 +1212,136 @@ function downloadDocx(ctx, items, dateStr) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-// ---------- Clients (in-platform, browser localStorage) ----------
+// ---------- Supabase: shared workspace for the team ----------
+// Two people, one set of clients. localStorage is per-browser, so a client
+// saved on one machine was invisible on the other; this syncs through Postgres
+// instead. The publishable key below is public by design — the repo is public
+// too — which is only safe because row-level security grants access to signed-in
+// users exclusively (see supabase/schema.sql). Anonymous readers get nothing.
+const SB_URL = "https://esakjfogplfszievvabi.supabase.co";
+const SB_KEY = "sb_publishable_pTFNX2B94PE_DFLL799w4A_4VcH2xTN";
+const SB_SESSION_KEY = "lynxr_sb_session";
+
+let SB_TOKEN = null;      // access token for the signed-in user
+let SB_EMAIL = null;
+let SYNC_OK = false;      // false => running local-only, and the UI says so
+
+function sbSaveSession(sess) {
+  try { localStorage.setItem(SB_SESSION_KEY, JSON.stringify(sess)); } catch {}
+}
+function sbLoadSession() {
+  try { return JSON.parse(localStorage.getItem(SB_SESSION_KEY)); } catch { return null; }
+}
+function sbClearSession() {
+  try { localStorage.removeItem(SB_SESSION_KEY); } catch {}
+}
+
+async function sbFetch(path, opts = {}) {
+  const headers = {
+    apikey: SB_KEY,
+    Authorization: `Bearer ${SB_TOKEN || SB_KEY}`,
+    "Content-Type": "application/json",
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(SB_URL + path, { ...opts, headers });
+  if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`);
+  return res.status === 204 ? null : res.json();
+}
+
+/** Sign in with email + password. Returns the session or throws. */
+async function sbSignIn(email, password) {
+  const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error_description || body.msg || "Sign-in failed");
+  }
+  const sess = await res.json();
+  SB_TOKEN = sess.access_token;
+  SB_EMAIL = sess.user?.email || email;
+  sbSaveSession(sess);
+  return sess;
+}
+
+/** Refresh an expired token so a returning session does not force a re-login. */
+async function sbRefresh(refresh_token) {
+  const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token }),
+  });
+  if (!res.ok) throw new Error("refresh failed");
+  const sess = await res.json();
+  SB_TOKEN = sess.access_token;
+  SB_EMAIL = sess.user?.email || SB_EMAIL;
+  sbSaveSession(sess);
+  return sess;
+}
+
+/** The data.enc passphrase, held server-side so there is one login, not two. */
+async function sbBundlePassphrase() {
+  const rows = await sbFetch("/rest/v1/lynxr_secrets?key=eq.bundle_passphrase&select=value");
+  if (!rows?.length) throw new Error("bundle passphrase not set in Supabase");
+  return rows[0].value;
+}
+
+// ---------- Client sync ----------
+// Per-client rows, so edits to different clients never collide. Same-client
+// edits resolve by whichever was written last, which is right for two people.
+async function sbPullClients() {
+  const rows = await sbFetch("/rest/v1/lynxr_clients?select=id,data,updated_at");
+  return rows.map((r) => ({ ...r.data, id: r.id, _remote_updated: r.updated_at }));
+}
+
+async function sbPushClient(client) {
+  await sbFetch("/rest/v1/lynxr_clients", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify({ id: client.id, data: client, updated_by: SB_EMAIL || "" }),
+  });
+}
+
+async function sbDeleteClient(id) {
+  await sbFetch(`/rest/v1/lynxr_clients?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/** Merge local and remote, push anything the server has not seen, and adopt
+    the result locally. Runs once at startup so a machine that worked offline
+    contributes rather than being overwritten. */
+async function syncClients() {
+  if (!SB_TOKEN) return;
+  const remote = await sbPullClients();
+  const local = loadClientsLocal();
+  const byId = new Map(remote.map((c) => [c.id, c]));
+  const toPush = [];
+  for (const l of local) {
+    const r = byId.get(l.id);
+    if (!r) { byId.set(l.id, l); toPush.push(l); continue; }
+    // Prefer whichever side holds more work; ties go to remote.
+    const score = (c) => (c.briefs?.length || 0) * 100 + (c.posts?.length || 0);
+    if (score(l) > score(r)) { byId.set(l.id, l); toPush.push(l); }
+  }
+  for (const c of toPush) await sbPushClient(c);
+  const merged = [...byId.values()];
+  persistClientsLocal(merged);
+  SYNC_OK = true;
+  return merged;
+}
+
+function updateSyncBadge() {
+  const el = document.getElementById("sync-state");
+  if (!el) return;
+  el.className = "sync-state " + (SYNC_OK ? "ok" : "bad");
+  el.textContent = SYNC_OK ? `● shared · ${SB_EMAIL || ""}` : "● local only — not syncing";
+  el.title = SYNC_OK
+    ? "Clients are shared with your team through Supabase"
+    : "Could not reach Supabase; changes are saved on this device only";
+}
+
+// ---------- Clients (local cache, mirrored to Supabase) ----------
 // A client folder groups everything for one company: saved briefs plus tracked
 // posts with performance check-ins. Legacy flat briefs migrate on first load.
 const CLIENTS_KEY = "lynxr_clients";
@@ -1202,7 +1363,7 @@ function findOrCreateClient(list, company, ctx, niche) {
   return c;
 }
 
-function loadClients() {
+function loadClientsLocal() {
   let list = [];
   try { list = JSON.parse(localStorage.getItem(CLIENTS_KEY)) || []; } catch {}
   let legacy = [];
@@ -1215,8 +1376,24 @@ function loadClients() {
   for (const c of list) { c.briefs = c.briefs || []; c.posts = c.posts || []; }
   return list;
 }
-function persistClients(list) {
+function persistClientsLocal(list) {
   try { localStorage.setItem(CLIENTS_KEY, JSON.stringify(list)); } catch {}
+}
+
+// Every caller still uses loadClients/persistClients; persisting now also
+// mirrors to Supabase in the background so the other machine sees it.
+function loadClients() { return loadClientsLocal(); }
+
+function persistClients(list) {
+  persistClientsLocal(list);
+  if (!SB_TOKEN) return;
+  const before = new Set((window.__lastClientIds || []));
+  const now = new Set(list.map((c) => c.id));
+  window.__lastClientIds = [...now];
+  Promise.all([
+    ...list.map((c) => sbPushClient(c).catch(() => { SYNC_OK = false; })),
+    ...[...before].filter((id) => !now.has(id)).map((id) => sbDeleteClient(id).catch(() => {})),
+  ]).then(updateSyncBadge, updateSyncBadge);
 }
 
 /** Save the current cart as a brief inside its client's folder. */
@@ -2479,6 +2656,7 @@ function renderApp(rows) {
   renderBars("by-source", countBy(rows, "data_source"), 8, "f-source");
   initTabs();
   initModal();
+  updateSyncBadge();
   renderBriefs();
   // Arrow keys flip through an open brief (unless typing in a field).
   document.addEventListener("keydown", (e) => {

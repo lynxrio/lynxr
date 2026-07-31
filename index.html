@@ -5,7 +5,7 @@
 <!-- Strict CSP: no inline script or style at all, nothing loads off-origin, and
      native form posts are blocked (they could otherwise put the code in a URL).
      Dropping 'unsafe-inline' means a future missed escape cannot execute. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com; img-src 'self' https://i.ytimg.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokcdn-eu.com; frame-src https://www.tiktok.com https://www.youtube-nocookie.com https://www.instagram.com https://www.facebook.com; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://esakjfogplfszievvabi.supabase.co; img-src 'self' https://i.ytimg.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokcdn-eu.com; frame-src https://www.tiktok.com https://www.youtube-nocookie.com https://www.instagram.com https://www.facebook.com; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lynxr</title>
@@ -17,10 +17,12 @@
 <div id="gate">
   <div class="gate-card">
     <h1 class="wordmark"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></h1>
-    <form class="field" id="gate-form">
+    <form class="field login" id="gate-form">
+      <input type="email" id="email" placeholder="Email" autofocus
+             autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
       <div class="pw-wrap">
-        <input type="password" id="pw" placeholder="Access code" autofocus
-               autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <input type="password" id="pw" placeholder="Password"
+               autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false">
         <button type="button" class="toggle" id="toggle-pw" aria-pressed="false" aria-label="Show access code" title="Show access code">
           <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
@@ -46,6 +48,7 @@
       <button class="tab" role="tab" id="tab-briefs" aria-controls="panel-briefs" aria-selected="false">Clients</button>
     </nav>
     <div class="spacer"></div>
+    <span class="sync-state" id="sync-state"></span>
     <button class="ghost" id="signout">Sign out</button>
   </header>
 
