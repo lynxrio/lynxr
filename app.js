@@ -58,12 +58,8 @@ function unlock(rows) {
   if (unlocked) return;   // guard: double-unlock would double-bind listeners
   unlocked = true;
   document.getElementById("err").textContent = "";
-  gate.classList.add("leaving");
-  setTimeout(() => {
-    gate.style.display = "none";
-    app.style.display = "block";
-    app.classList.add("shown");
-  }, 160);
+  gate.style.display = "none";
+  app.style.display = "block";
   renderApp(rows);
 }
 
@@ -834,16 +830,11 @@ function trayHtml() {
     </div>`;
 }
 
-let LAST_TRAY_N = -1;
 function refreshTray() {
   const tray = document.getElementById("tray");
   if (!tray) return;
   tray.innerHTML = trayHtml();
-  const strong = tray.querySelector(".tray-count strong");
-  if (strong && LAST_TRAY_N !== -1 && CART.size !== LAST_TRAY_N) strong.classList.add("bump");
-  if (CART.size >= CART_LIMIT && LAST_TRAY_N < CART_LIMIT)
-    document.getElementById("tray-export")?.classList.add("ready");
-  LAST_TRAY_N = CART.size;
+
   document.getElementById("tray-export")?.addEventListener("click", saveCurrentBrief);
   document.getElementById("tray-copy")?.addEventListener("click", copyScripts);
 }
