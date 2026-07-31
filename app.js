@@ -1024,6 +1024,7 @@ function renderShelf(niche) {
         <div class="vmeta">
           <div class="vtitle">${escapeHtml(r.title || "(no caption)")}</div>
           <div class="vrow">
+            ${r._client ? `<span class="proven" title="This client's own post — beat its benchmark">proven ${ratioLabel(r._ratio)}</span>` : ""}
             <span class="vstat" title="views · index vs its source's median">${compact(views(r))} · ${relative(r).toFixed(1)}×</span>
             <button type="button" class="vdetails" data-key="${escapeHtml(k)}">Details</button>
             <label class="vpick"><input type="checkbox" class="vcheck" ${checked ? "checked" : ""}> Add</label>
@@ -1398,7 +1399,10 @@ function chartSvg({ actual = [], est = [], proj = [], w = 720, h = 200, xMax = 7
   const Y = (y) => padT + (1 - Math.min(y, top) / top) * (h - padT - padB);
   const poly = (pts) => pts.map((p) => `${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join(" ");
 
-  const yTicks = [0, top / 4, top / 2, (top * 3) / 4, top];
+  // Dedupe ticks after rounding — a tiny range rendered as 0,0,1,1,1 otherwise.
+  const yTicks = [...new Set([0, top / 4, top / 2, (top * 3) / 4, top]
+    .filter((v) => v === 0 || v >= 1)
+    .map((v) => Math.round(v)))];
   const xStep = xMax <= 8 ? 1 : Math.ceil(xMax / 7);
   const xTicks = [];
   for (let d = 0; d <= xMax; d += xStep) xTicks.push(d);
@@ -1406,7 +1410,7 @@ function chartSvg({ actual = [], est = [], proj = [], w = 720, h = 200, xMax = 7
   return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
     ${yTicks.map((v) => `
       <line x1="${padL}" y1="${Y(v)}" x2="${w - padR}" y2="${Y(v)}" class="chart-grid"/>
-      <text x="${padL - 8}" y="${Y(v) + 3.5}" class="chart-tick" text-anchor="end">${compact(Math.round(v))}</text>`).join("")}
+      <text x="${padL - 8}" y="${Y(v) + 3.5}" class="chart-tick" text-anchor="end">${compact(v)}</text>`).join("")}
     ${xTicks.map((d) => `
       <text x="${X(d)}" y="${h - 8}" class="chart-tick" text-anchor="middle">D${d}</text>`).join("")}
     <text x="${padL - 8}" y="${padT - 2}" class="chart-tick chart-unit" text-anchor="end">views</text>
@@ -1618,6 +1622,12 @@ function renderClientPage(host, client, list) {
     cEst.push({ x, y: [...cEstSeen.values()].reduce((a, b) => a + b, 0) });
   }
   if (cActual.length) { cActual.unshift({ x: 0, y: 0 }); cEst.unshift({ x: 0, y: 0 }); }
+  // No tracked estimates yet? Derive the target slope from the client's briefs
+  // so the graph shows where they should be from day one.
+  if (!cEst.length && client.briefs.length) {
+    const curve = weekEstimateCurve(client.briefs[0], client);
+    curve.forEach((pt) => cEst.push(pt));
+  }
   const cProj = projectTo(cActual, Math.max(7, Math.ceil(Math.max(0, ...cActual.map((p) => p.x)))));
   const cxMax = Math.max(7, ...cActual.map((p) => p.x));
   const cyMax = Math.max(1, ...cActual.map((p) => p.y), ...cEst.map((p) => p.y), ...cProj.map((p) => p.y));
