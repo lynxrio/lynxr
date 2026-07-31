@@ -81,7 +81,15 @@ Reading the audio:
 - NO SPEECH means nothing is said aloud: the message is on-screen text or the
   visual. That is normally Meme / Trend Clip, and the hook is No Hook unless the
   caption itself carries a real device. Do not invent a spoken hook.
-- Ignore lyrics. If the transcript is only song lyrics, treat it as no speech.
+- LYRICS ARE NOT SPEECH. Short-form video is full of music with vocals, which
+  transcribes as confidently as talking. If the transcript reads as song lyrics
+  — rhyme, chorus repetition, sung phrasing, or words the creator plainly did
+  not say to camera — treat the video as having NO speech and tag it as though
+  the audio were silent. Do not classify a hook from a lyric. No automated
+  filter catches this; your judgement is the only thing that does.
+- HOOK NOT USABLE means speech exists but its opening is too fragmentary to
+  classify. Use the full transcript for format, and take the hook from the
+  caption instead.
 
 Commit to the most plausible specific value for every dimension. "Other" is only
 for genuinely unintelligible material."""
@@ -108,7 +116,11 @@ def user_content(row, tr):
              "Source: Medceptor campaign" if row["data_source"] == "Medceptor" else "Source: organic scrape",
              f"Caption: {caption or '(none)'}"]
     if tr.get("has_speech"):
-        parts.append(f'SPOKEN HOOK (first 3s, verbatim): "{tr["hook_spoken"]}"')
+        if tr.get("hook_usable", True) and tr.get("hook_spoken"):
+            parts.append(f'SPOKEN HOOK (first 3s, verbatim): "{tr["hook_spoken"]}"')
+        else:
+            parts.append("SPOKEN HOOK: not usable — opening too fragmentary. "
+                         "Take the hook from the caption; use the transcript for format.")
         parts.append(f"FULL TRANSCRIPT: {tr['text'][:2000]}")
     else:
         parts.append("AUDIO: no speech — music or ambient only. "
