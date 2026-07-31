@@ -226,14 +226,23 @@
   .mt14 { margin-top: 14px; }
 
   /* Brand loader */
-  @keyframes blade-a { to { transform: rotate(360deg); } }
-  @keyframes blade-b { to { transform: rotate(-360deg); } }
+  /* Each arm scales out of the centre in turn, the four hold as the complete
+     mark, then the cycle resets. */
+  @keyframes arm-in {
+    0%   { opacity: 0; transform: scale(.15); }
+    14%  { opacity: 1; transform: scale(1); }
+    68%  { opacity: 1; transform: scale(1); }
+    82%  { opacity: 0; transform: scale(.15); }
+    100% { opacity: 0; transform: scale(.15); }
+  }
   @keyframes loader-glow { 50% { opacity: .55; } }
   .loader { display: flex; align-items: center; gap: 16px; padding: 28px 0; }
-  .loader-mark { width: 44px; height: 44px; flex: none; color: var(--text); overflow: visible; }
-  .loader-mark .blade { transform-origin: 12px 12px; }
-  .loader-mark .b1 { animation: blade-a 2.4s var(--ease) infinite; }
-  .loader-mark .b2 { animation: blade-b 2.4s var(--ease) infinite; }
+  .loader-mark { width: 46px; height: 46px; flex: none; color: var(--text); overflow: visible; }
+  .loader-mark .arm { transform-origin: 12px 12px; animation: arm-in 1.9s var(--ease) infinite; opacity: 0; }
+  .loader-mark .a1 { animation-delay: 0s; }
+  .loader-mark .a2 { animation-delay: .13s; }
+  .loader-mark .a3 { animation-delay: .26s; }
+  .loader-mark .a4 { animation-delay: .39s; }
   .loader-text { min-width: 0; }
   .loader-stage { font-size: 15px; animation: loader-glow 1.6s ease infinite; }
   .loader-sub { margin-top: 2px; }
@@ -551,4 +560,10 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
     html { scroll-behavior: auto; }
+  }
+
+  .proven {
+    display: inline-block; font-size: 10.5px; font-family: var(--mono);
+    color: var(--good); border: 1px solid #2c4a39; border-radius: 999px;
+    padding: 1px 7px; margin-right: 4px;
   }

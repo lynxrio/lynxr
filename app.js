@@ -742,6 +742,53 @@ function tailoredScript(row, ctx, slot) {
   };
 }
 
+
+// ---------- Client learning loop ----------
+// After week one, a client's own tracked posts become evidence. Their videos
+// join the ranking pool (so real performance competes with the database), and
+// formats/hooks that beat their benchmark get boosted while ones that missed
+// get demoted — the engine learns client by client.
+let LEARN_CLIENT = null;   // client record whose history should shape the shelf
+
+/** Tracked posts with check-ins, shaped like database rows so buildPlays can
+    rank them alongside scraped videos. */
+function clientRows(client) {
+  return (client?.posts || []).filter((p) => p.checkins.length).map((p) => ({
+    video_id: p.id, creator: p.creator || client.company, platform: p.platform || "",
+    title: p.caption || p.url, views: postLatest(p), likes: 0, comments: 0,
+    engagement_rate: "", format_type: p.format, hook_pattern: p.hook,
+    niche_category: client.niche || "", target_audience: client.ctx?.audience || "",
+    data_source: client.company + " (tracked)", url: p.url,
+    _client: true, _ratio: postRatio(p),
+  }));
+}
+
+/** Multipliers per format and per hook from how this client actually did. */
+function clientLearning(client) {
+  const fmt = new Map(), hook = new Map();
+  const add = (m, k, r) => { if (!m.has(k)) m.set(k, []); m.get(k).push(r); };
+  for (const p of client?.posts || []) {
+    const r = postRatio(p);
+    if (r == null) continue;
+    add(fmt, p.format, r);
+    add(hook, p.hook, r);
+  }
+  const avg = (m) => new Map([...m].map(([k, v]) => [k, v.reduce((a, b) => a + b, 0) / v.length]));
+  return { fmt: avg(fmt), hook: avg(hook), n: (client?.posts || []).filter((p) => p.checkins.length).length };
+}
+
+/** Blend a learned multiplier toward 1 so a single post can't dominate. */
+function learnedBoost(learning, format, hook) {
+  if (!learning || !learning.n) return 1;
+  const f = learning.fmt.get(format), h = learning.hook.get(hook);
+  const parts = [f, h].filter((v) => v != null);
+  if (!parts.length) return 1;
+  const raw = parts.reduce((a, b) => a + b, 0) / parts.length;
+  const clamped = Math.max(0.4, Math.min(2.5, raw));
+  const weight = Math.min(0.6, 0.15 * learning.n);   // more history, more say
+  return 1 + (clamped - 1) * weight;
+}
+
 // ---------- Brief cart ----------
 const CART_LIMIT = 10;
 let CART = new Map();   // rowKey -> row
@@ -927,12 +974,20 @@ function initModal() {
 
 function renderShelf(niche) {
   const body = document.getElementById("brief-body");
-  let pool = niche ? ALL.filter((r) => r.niche_category === niche) : ALL;
+  const own = LEARN_CLIENT ? clientRows(LEARN_CLIENT) : [];
+  const base = own.length ? ALL.concat(own) : ALL;
+  let pool = niche ? base.filter((r) => r.niche_category === niche) : base;
   const notes = [];
   if (niche && pool.length < MIN_N_NICHE) {
     notes.push(`Only ${pool.length} videos tagged <strong>${escapeHtml(niche)}</strong> — too few to rank
       reliably, so the shelf draws from the whole database instead. Treat it as directional.`);
-    pool = ALL;
+    pool = base;
+  }
+  if (own.length) {
+    const L = clientLearning(LEARN_CLIENT);
+    const up = [...L.fmt].filter(([, v]) => v >= 1.25).map(([k]) => k);
+    const down = [...L.fmt].filter(([, v]) => v < 0.75).map(([k]) => k);
+    notes.push(`Learning from <strong>${escapeHtml(LEARN_CLIENT.company)}</strong>: ${own.length} tracked post${own.length === 1 ? "" : "s"} are in this ranking${up.length ? `, and <strong>${escapeHtml(up.join(", "))}</strong> ${up.length === 1 ? "is" : "are"} boosted for beating benchmark` : ""}${down.length ? `, <strong>${escapeHtml(down.join(", "))}</strong> demoted for missing it` : ""}.`);
   }
 
   const bySource = new Map();
@@ -942,8 +997,17 @@ function renderShelf(niche) {
     bySource.get(s).push(views(r));
   }
   const srcMedian = new Map([...bySource].map(([s, vs]) => [s, median(vs) || 1]));
-  const relative = (r) => views(r) / (srcMedian.get(r.data_source || "?") || 1);
-  const shelf = buildShelf(pool, relative);
+  // Client-tracked rows are scored against the benchmark they were measured
+  // against; source-normalising them would divide them by themselves.
+  const relative = (r) => (r._client && r._ratio != null)
+    ? r._ratio : views(r) / (srcMedian.get(r.data_source || "?") || 1);
+  // A client's own posts that beat their benchmark are proven for THIS client —
+  // lead with them rather than making them out-compete viral database clips on
+  // a raw index they can't win.
+  const proven = own.filter((r) => (r._ratio || 0) >= 1).sort((a, b) => b._ratio - a._ratio).slice(0, 4);
+  const provenKeys = new Set(proven.map(rowKey));
+  const shelf = proven.concat(
+    buildShelf(pool, relative, 24 - proven.length).filter((r) => !provenKeys.has(rowKey(r))));
 
   const { plays } = buildPlays(pool);
 
@@ -1083,7 +1147,7 @@ function briefDocParts(ctx, items, dateStr) {
   const today = dateStr || new Date().toISOString().slice(0, 10);
   let body = "";
   body += para(`${brand} — Content Brief`, { bold: true, size: 40, spaceAfter: 60 });
-  body += para(`${items.length} scripts tailored from the Lynxr format database · ${today}`, { size: 20, spaceAfter: 300 });
+  body += para(`${items.length} scripts tailored from the lynxr format database · ${today}`, { size: 20, spaceAfter: 300 });
   if (ctx?.audience) body += para(`Audience: ${ctx.audience}`, { size: 22 });
   if (ctx?.feats?.length) body += para(`Product angles used: ${ctx.feats.join(" · ")}`, { size: 22, spaceAfter: 360 });
 
@@ -1117,7 +1181,7 @@ function downloadDocx(ctx, items, dateStr) {
   const a = document.createElement("a");
   const brand = (ctx?.brand || "client").replace(/[^\w -]+/g, "").trim() || "client";
   a.href = URL.createObjectURL(blob);
-  a.download = `${brand} — Lynxr Content Brief.docx`;
+  a.download = `${brand} — lynxr content brief.docx`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -1190,6 +1254,79 @@ function saveCurrentBrief() {
   BRIEF_VIEW = null;
   renderBriefs();
   activateTab("tab-briefs");
+}
+
+// ---------- Auto-tagging a pasted post ----------
+// Paste a link and we fetch the post's real caption + creator from the
+// platform's own oEmbed endpoint, then tag it with the same routing rules the
+// database tagger uses. Deterministic, so it runs in-page with no API key —
+// every field stays editable, since caption-only tagging is inference.
+
+async function fetchPostMeta(url) {
+  const p = (url.match(/^https?:\/\/(?:www\.)?([^/]+)/) || [])[1] || "";
+  let endpoint = null;
+  if (/tiktok\.com/.test(p)) endpoint = "https://www.tiktok.com/oembed?url=" + encodeURIComponent(url);
+  else if (/youtube\.com|youtu\.be/.test(p)) endpoint = "https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent(url);
+  if (endpoint) {
+    const raw = await fetchWithTimeout(endpoint, 15000);
+    const d = JSON.parse(raw);
+    return {
+      caption: d.title || "",
+      creator: (d.author_name || d.author_unique_id || "").replace(/^@/, ""),
+      thumb: typeof d.thumbnail_url === "string" ? d.thumbnail_url : "",
+      platform: /tiktok/.test(p) ? "tiktok" : "youtube",
+    };
+  }
+  // Instagram/Facebook have no keyless oEmbed — read the page's meta tags.
+  const raw = await fetchWithTimeout(
+    "https://api.allorigins.win/get?url=" + encodeURIComponent(url), 20000);
+  const html = JSON.parse(raw).contents || "";
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const meta = (s) => doc.querySelector(s)?.getAttribute("content") || "";
+  const og = meta('meta[property="og:title"]') || doc.querySelector("title")?.textContent || "";
+  return {
+    caption: meta('meta[property="og:description"]') || og,
+    creator: (og.match(/^([^\s(]+)/) || [])[1] || "",
+    thumb: "",
+    platform: /instagram/.test(p) ? "instagram" : /facebook/.test(p) ? "facebook" : "",
+  };
+}
+
+/** Deterministic tagger mirroring the locked taxonomy's routing rules. */
+function autoTag(caption, platform) {
+  const raw = String(caption || "");
+  const t = raw.toLowerCase();
+  const stripped = raw.replace(/[#@]\S+/g, "").replace(/\s+/g, " ").trim();
+  const has = (...w) => w.some((x) => t.includes(x));
+
+  // format
+  let format = "Other";
+  if (/^pov\b|pov:/i.test(stripped)) format = "POV";
+  else if (/\b(top\s?\d|\d+\s+(things|apps|tips|ways|items)|my top|you need these|part \d)\b/i.test(t)) format = "Listicle";
+  else if (has("storytime", "story time") || /\b(passed|i failed|how i (passed|got|did))\b/i.test(t)) format = "Story Time";
+  else if (has("green screen", "greenscreen")) format = "Green Screen";
+  else if (has("stitch", "duet", "replying to", "reply to")) format = "Reaction / Duet";
+  else if (has("app store", "download the app", "screen record", "tutorial", "how to use")) format = "Screen Demo";
+  else if (has("it's called", "its called", "search ", "thank me later", "link in bio", "free app")) format = "Talking Head";
+  else if (!stripped || stripped.length < 12) format = platform === "tiktok" ? "Meme / Trend Clip" : "Screen Demo";
+  else format = "Talking Head";
+
+  // hook — same precedence order as the database tagger
+  let hook = "Other";
+  if (!stripped || stripped.length < 3) hook = "No Hook";
+  else if (/\b(search|download|visit|use|try|follow|comment|tag|go|get|save|watch)\b/i.test(stripped)) hook = "Direct CTA";
+  else if (/\b(for my|i gotchu|i got you|hope this helps|good ?luck|attn|calling all|if you'?re a)\b/i.test(t)) hook = "Audience Call-Out";
+  else if (/\b(miss|proud|thank you|grateful|so happy|love (my|you))\b/i.test(t)) hook = "Emotional Share";
+  else if (/\?\s*$|^(why|how|what|who|when|is|are|do|does|did|can)\b/i.test(stripped)) hook = "Question";
+  else if (/\b(stop|don'?t|never|mistake|warning)\b/i.test(t)) hook = "Warning";
+  else if (/\b(everyone|everybody|nobody tells|people are)\b/i.test(t)) hook = /nobody tells/i.test(t) ? "Curiosity Gap" : "Social Proof";
+  else if (/\b(before|after|changed my|transformed)\b/i.test(t)) hook = "Transformation";
+  else if (/\b(best|worst|only|never seen|game ?changer|underrated)\b/i.test(t)) hook = "Bold Claim";
+  else if (/\d+([km%]|,\d{3})/i.test(stripped)) hook = "Surprising Stat";
+  else if (/\b(struggl|hate when|tired of|why is it so hard|losing it)\b/i.test(t)) hook = "Relatable Pain";
+  else hook = "No Hook";
+
+  return { format, hook };
 }
 
 // ---------- Performance tracking ----------
@@ -1495,6 +1632,8 @@ function renderClientPage(host, client, list) {
         <div class="bcard-title">${escapeHtml(client.company)}</div>
         <div class="lbl">${escapeHtml(client.niche || "All niches")}${client.ctx?.audience ? " · " + escapeHtml(client.ctx.audience) : ""}</div>
       </div>
+      <div class="spacer"></div>
+      <button type="button" class="btn" id="cl-nextweek">Next week's brief${client.posts.some((p) => p.checkins.length) ? " — learns from this week" : ""}</button>
     </div>
 
     <div class="growth-card ${v ? (v.good ? "good" : "bad") : ""}">
@@ -1529,18 +1668,16 @@ function renderClientPage(host, client, list) {
 
     <h2>Tracked posts <span class="pill">${client.posts.length}</span></h2>
     <form class="post-form" id="post-form">
-      <input type="url" id="pf-url" placeholder="Post URL" required>
-      <input type="text" id="pf-creator" placeholder="Creator">
-      <select id="pf-format">${fmtOptions.map((f) => `<option>${escapeHtml(f)}</option>`).join("")}</select>
-      <select id="pf-hook">${hookOptions.map((h) => `<option>${escapeHtml(h)}</option>`).join("")}</select>
+      <input type="url" id="pf-url" placeholder="Paste the post link — we'll read and tag it" required>
       <select id="pf-week" title="Which week's brief this post executes">
         ${client.briefs.map((b, i) => `<option value="${escapeHtml(b.id)}">${i === 0 ? "This week" : "Week of"} ${escapeHtml((b.createdAt || "").slice(0, 10))}</option>`).join("")}
         <option value="">No week</option>
       </select>
-      <button type="submit" class="btn">Track post</button>
+      <button type="submit" class="btn" id="pf-add">Add &amp; auto-tag</button>
     </form>
-    <p class="note">The benchmark prediction (median views for that format in ${escapeHtml(client.niche || "the database")})
-      locks in when you add the post. Check in with current views whenever — each check-in becomes a point on the trend.</p>
+    <p class="note" id="pf-note">Paste a TikTok, YouTube, Instagram, or Facebook link — the caption and creator
+      are pulled from the post and tagged automatically against the taxonomy. Format and hook stay editable on
+      the row. The benchmark locks in on add; check in with views whenever to plot the trend.</p>
 
     <div class="post-list">` + client.posts.map((p) => {
       const latest = postLatest(p);
@@ -1548,8 +1685,13 @@ function renderClientPage(host, client, list) {
       const href = safeUrl(p.url);
       return `<div class="post-row ${latest != null ? (good ? "good" : "bad") : ""}" data-pid="${escapeHtml(p.id)}">
         <div class="post-main">
-          <div class="vtitle">${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.url.replace(/^https?:\/\//, "").slice(0, 60))}</a>` : escapeHtml(p.url)}</div>
-          <div class="lbl">${escapeHtml(p.creator || "—")} · ${escapeHtml(p.format)} × ${escapeHtml(p.hook)} · added ${escapeHtml((p.addedAt || "").slice(0, 10))}</div>
+          <div class="vtitle">${escapeHtml(p.caption || p.url.replace(/^https?:\/\//, "").slice(0, 70))}</div>
+          <div class="lbl">${escapeHtml(p.creator || "—")}${p.platform ? " · " + escapeHtml(p.platform) : ""} · added ${escapeHtml((p.addedAt || "").slice(0, 10))}
+            ${href ? ` · <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}</div>
+          <div class="post-tags">
+            <select class="pt-format" title="Detected format — correct if wrong">${fmtOptions.map((f) => `<option${f === p.format ? " selected" : ""}>${escapeHtml(f)}</option>`).join("")}</select>
+            <select class="pt-hook" title="Detected hook — correct if wrong">${hookOptions.map((h) => `<option${h === p.hook ? " selected" : ""}>${escapeHtml(h)}</option>`).join("")}</select>
+          </div>
           <div class="post-nums">
             <span class="lbl">benchmark</span> <span class="mono">${compact(p.predicted || 0)}</span>
             <span class="lbl">latest</span> <span class="mono verdict ${latest != null ? (good ? "good" : "bad") : ""}">${latest != null ? compact(latest) : "—"}</span>
@@ -1586,17 +1728,44 @@ function renderClientPage(host, client, list) {
     CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
   });
 
+  document.getElementById("cl-nextweek").addEventListener("click", () => {
+    LEARN_CLIENT = loadClients().find((c) => c.id === client.id) || client;
+    BRIEF_CTX = client.ctx && Object.keys(client.ctx).length ? client.ctx
+              : { brand: client.company, feats: [], audience: null };
+    CART = new Map();
+    activateTab("tab-brief");
+    // Skip the site read — we already know this client; go straight to the shelf.
+    renderBrief("").then(() => {
+      const b = document.getElementById("ce-brand");
+      if (b) b.value = client.company;
+      const nSel = document.getElementById("brief-niche");
+      if (nSel && client.niche) nSel.value = client.niche;
+      const aSel = document.getElementById("ce-audience");
+      if (aSel && client.ctx?.audience) aSel.value = client.ctx.audience;
+      const fIn = document.getElementById("ce-feats");
+      if (fIn && client.ctx?.feats?.length) fIn.value = client.ctx.feats.join(", ");
+      document.getElementById("ce-apply")?.click();
+    });
+  });
+
   // track a new post — benchmark locked in now
-  document.getElementById("post-form").addEventListener("submit", (e) => {
+  document.getElementById("post-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const url = normalizeClientUrl(document.getElementById("pf-url").value);
-    if (!url) return;
-    const format = document.getElementById("pf-format").value;
-    const hook = document.getElementById("pf-hook").value;
+    const note = document.getElementById("pf-note");
+    const btn = document.getElementById("pf-add");
+    if (!url) { note.textContent = "That doesn't look like a post link."; return; }
+    btn.disabled = true;
+    btn.textContent = "Reading post…";
+    let meta = { caption: "", creator: "", platform: "" };
+    try { meta = await fetchPostMeta(url); }
+    catch { note.textContent = "Couldn't read that post — tagged from the link only; correct it on the row."; }
+    const { format, hook } = autoTag(meta.caption, meta.platform);
     const fresh = loadClients();
     const c = fresh.find((x) => x.id === client.id);
     c.posts.unshift({
-      id: newId(), url, creator: document.getElementById("pf-creator").value.trim(),
+      id: newId(), url, creator: meta.creator || "",
+      caption: meta.caption || "", thumb: meta.thumb || "", platform: meta.platform || "",
       format, hook, predicted: predictViews(c.niche, format, hook),
       briefId: document.getElementById("pf-week")?.value || "",
       addedAt: new Date().toISOString(), checkins: [],
@@ -1618,6 +1787,18 @@ function renderClientPage(host, client, list) {
       p.checkins.push({ d: new Date().toISOString().slice(0, 10), views: n });
       persistClients(fresh);
       renderBriefs();
+    });
+    rowEl.querySelectorAll(".pt-format, .pt-hook").forEach((sel) => {
+      sel.addEventListener("change", () => {
+        const fresh = loadClients();
+        const post = fresh.find((x) => x.id === client.id)?.posts.find((x) => x.id === pid);
+        if (!post) return;
+        post.format = rowEl.querySelector(".pt-format").value;
+        post.hook = rowEl.querySelector(".pt-hook").value;
+        post.predicted = predictViews(client.niche, post.format, post.hook);   // re-benchmark
+        persistClients(fresh);
+        renderBriefs();
+      });
     });
     armDelete(rowEl.querySelector(".p-del"), "Delete", () => {
       const fresh = loadClients();
@@ -1885,7 +2066,11 @@ function buildPlays(pool) {
     bySource.get(s).push(views(r));
   }
   const srcMedian = new Map([...bySource].map(([s, vs]) => [s, median(vs) || 1]));
-  const relative = (r) => views(r) / (srcMedian.get(r.data_source || "?") || 1);
+  // Client-tracked rows are scored against the benchmark they were measured
+  // against; source-normalising them would divide them by themselves.
+  const relative = (r) => (r._client && r._ratio != null)
+    ? r._ratio : views(r) / (srcMedian.get(r.data_source || "?") || 1);
+  const learning = LEARN_CLIENT ? clientLearning(LEARN_CLIENT) : null;
 
   const plays = [];
   const seen = new Set();
@@ -1897,7 +2082,7 @@ function buildPlays(pool) {
     plays.push({
       kind, format, hook, n: rows.length,
       med: median(rows.map(views)),
-      index: median(rows.map(relative)),
+      index: median(rows.map(relative)) * learnedBoost(learning, format, hook),
       examples: [...rows].sort((a, b) => relative(b) - relative(a)).slice(0, 3),
     });
   };
@@ -1956,9 +2141,14 @@ let BRIEF_CTX = null;  // {brand, feats, audience} from the last site read, used
 function showLoader(host, hostname) {
   host.innerHTML = `
     <div class="loader" role="status" aria-live="polite">
+      <!-- The mark split at its centre into four arms, each scaling out from
+           the middle in clockwise sequence, holding as the complete X, then
+           resetting. Geometry is the exact logo path cut on both diagonals. -->
       <svg class="loader-mark" viewBox="0 0 24 24" aria-hidden="true">
-        <path class="blade b1" fill="currentColor" d="M3 3h3l15 15-3 3L3 6z"/>
-        <path class="blade b2" fill="currentColor" d="M21 3v3L6 21l-3-3L18 3z"/>
+        <path class="arm a1" fill="currentColor" d="M3 3h3l7.5 7.5-3 3L3 6z"/>
+        <path class="arm a2" fill="currentColor" d="M21 3v3l-7.5 7.5-3-3L18 3z"/>
+        <path class="arm a3" fill="currentColor" d="M13.5 10.5 21 18l-3 3-7.5-7.5z"/>
+        <path class="arm a4" fill="currentColor" d="M13.5 13.5 6 21l-3-3 7.5-7.5z"/>
       </svg>
       <div class="loader-text">
         <div class="loader-stage" id="loader-stage">${hostname ? `Reading ${escapeHtml(hostname)}` : "Preparing"}</div>
@@ -2092,6 +2282,7 @@ function initBrief() {
   const form = document.getElementById("brief-form");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    LEARN_CLIENT = null;   // a brief started here is fresh unless launched from a client
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
     try { await renderBrief(document.getElementById("client-url").value); }
