@@ -1,3 +1,11 @@
+// Frame guard: GitHub Pages cannot send an X-Frame-Options/CSP header, and
+// frame-ancestors is spec-ignored in meta CSP — so block clickjacking in JS.
+// If framed, blank the page and bust out to the real site.
+if (window.top !== window.self) {
+  document.documentElement.innerHTML = "";
+  try { window.top.location = window.location; } catch { window.location.replace("about:blank"); }
+}
+
 // The database ships as data.enc — AES-256-GCM ciphertext keyed off the access
 // code via PBKDF2-SHA256 (params embedded in the bundle). The page contains no
 // password and no plaintext data; a wrong code simply fails GCM authentication.

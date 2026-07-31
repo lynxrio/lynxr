@@ -168,8 +168,7 @@
   .brief-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
   .brief-form input[type="url"] { flex: 1 1 320px; min-width: 0; }
   .note { color: var(--text-3); font-size: 12.5px; margin: 10px 0 0; max-width: 70ch; }
-  .detected { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 22px 0 6px; }
-  .detected .lbl { color: var(--text-3); font-size: 12.5px; }
+  .lbl { color: var(--text-3); font-size: 12.5px; }
   .warn {
     border: 1px solid var(--line-2); background: var(--surface); border-radius: var(--radius);
     padding: 13px 16px; color: var(--text-2); font-size: 13.5px; margin: 16px 0 0;
@@ -210,13 +209,6 @@
   }
   .site-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .site-desc { color: var(--text-2); font-size: 14px; margin: 8px 0 0; max-width: 70ch; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-  .chip {
-    font-size: 12px; color: var(--text-2); background: var(--surface-2);
-    border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; white-space: nowrap;
-  }
-  .starter { display: flex; align-items: baseline; gap: 10px; padding: 10px 0 2px; }
-  .starter-line { color: var(--text); font-size: 14px; font-style: italic; }
 
   /* Client details editor */
   .client-editor {
