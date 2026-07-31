@@ -1387,7 +1387,8 @@ function sparkSvg(points, predicted, w = 240, h = 64) {
 /** Linear-interpolated value of a series at day x (null if out of range). */
 function seriesAt(series, x) {
   if (!series.length) return null;
-  if (x < series[0].x || x > series[series.length - 1].x) return null;
+  const EPS = 1e-6;   // (i+1)*(7/n) lands at 6.999999… for the final point
+  if (x < series[0].x - EPS || x > series[series.length - 1].x + EPS) return null;
   for (let i = 1; i < series.length; i++) {
     if (series[i].x >= x) {
       const a = series[i - 1], b = series[i];
@@ -1396,14 +1397,6 @@ function seriesAt(series, x) {
     }
   }
   return series[series.length - 1].y;
-}
-
-/** Last known cumulative actual at or before day x — check-ins are discrete,
-    so stepping is honest where interpolating would invent numbers. */
-function actualAt(series, x) {
-  let v = null;
-  for (const p of series) if (p.x <= x + 1e-9) v = p.y;
-  return v;
 }
 
 function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1, tone = "" }) {
@@ -1444,11 +1437,11 @@ function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1,
     }).join("")}
     ${actual.length > 1 ? `<polyline points="${poly(actual)}" class="line-actual"/>` : ""}
     ${xTicks.map((d) => {
-      const av = actualAt(actual, d);
+      const av = seriesAt(actual, d);
       return av == null ? "" : `<circle cx="${X(d).toFixed(1)}" cy="${Y(av).toFixed(1)}" r="3.4" class="dot-actual"/>`;
     }).join("")}
     ${xTicks.map((d) => {
-      const pv = seriesAt(est, d), av = actualAt(actual, d);
+      const pv = seriesAt(est, d), av = seriesAt(actual, d);
       const half = (w - padL - padR) / (xTicks.length - 1 || 1) / 2;
       return `<rect class="hit" x="${(X(d) - half).toFixed(1)}" y="${padT}"
         width="${(half * 2).toFixed(1)}" height="${(h - padT - padB).toFixed(1)}"
@@ -1566,6 +1559,55 @@ async function copyScripts() {
   } catch { /* clipboard denied — saving still works */ }
 }
 
+
+/** Hover a day column to compare predicted vs actual at that point. */
+function bindChartHover(scope) {
+  scope.querySelectorAll(".growth-card").forEach((card) => {
+    const svg = card.querySelector(".chart");
+    if (!svg || card.querySelector(".chart-tip")) return;
+    card.classList.add("has-tip");
+    const tip = document.createElement("div");
+    tip.className = "chart-tip";
+    tip.hidden = true;
+    card.appendChild(tip);
+    const rule = svg.querySelector(".hover-rule");
+    const vbWidth = svg.viewBox.baseVal.width || 720;
+
+    svg.querySelectorAll(".hit").forEach((hit) => {
+      const show = () => {
+        const pred = hit.dataset.pred === "" ? null : +hit.dataset.pred;
+        const act = hit.dataset.actual === "" ? null : +hit.dataset.actual;
+        const ratio = pred && act != null ? act / pred : null;
+        const tone = ratio == null ? "" : ratio >= 1.1 ? "good" : ratio <= 0.9 ? "bad" : "even";
+        tip.innerHTML =
+          `<div class="tip-day">Day ${hit.dataset.day}</div>
+           <div class="tip-row"><i class="k-est"></i>predicted<b>${pred == null ? "—" : compact(pred)}</b></div>
+           <div class="tip-row"><i class="k-act ${tone}"></i>actual<b class="${tone}">${act == null ? "no check-in" : compact(act)}</b></div>
+           ${ratio != null ? `<div class="tip-delta ${tone}">${ratioLabel(ratio)}</div>` : ""}`;
+        tip.hidden = false;
+        // viewBox x -> rendered px (uniform scale: SVG is full-width, height auto)
+        const svgRect = svg.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+        const scale = svgRect.width / (vbWidth || 1);
+        const px = (+hit.dataset.x) * scale + (svgRect.left - cardRect.left);
+        tip.style.left = px.toFixed(1) + "px";
+        tip.classList.toggle("flip", px > cardRect.width - 150);
+        if (rule) {
+          rule.setAttribute("x1", hit.dataset.x);
+          rule.setAttribute("x2", hit.dataset.x);
+          rule.style.display = "";
+        }
+      };
+      const hide = () => { tip.hidden = true; if (rule) rule.style.display = "none"; };
+      hit.addEventListener("mouseenter", show);
+      hit.addEventListener("focus", show);
+      hit.addEventListener("mouseleave", hide);
+      hit.addEventListener("blur", hide);
+      hit.setAttribute("tabindex", "0");
+    });
+  });
+}
+
 // ---------- Clients tab: folders -> client page -> brief flip-through ----------
 let CLIENT_VIEW = null;  // { id } when a client folder is open
 let BRIEF_VIEW = null;   // { id, page, dir } when a brief inside it is open
@@ -1650,6 +1692,27 @@ function renderBriefs() {
   });
 }
 
+
+/** Start next week's brief for a client, carrying their learning across. */
+function startNextWeekBrief(client) {
+  LEARN_CLIENT = loadClients().find((c) => c.id === client.id) || client;
+  BRIEF_CTX = client.ctx && Object.keys(client.ctx).length ? client.ctx
+            : { brand: client.company, feats: [], audience: null };
+  CART = new Map();
+  activateTab("tab-brief");
+  renderBrief("").then(() => {
+    const b = document.getElementById("ce-brand");
+    if (b) b.value = client.company;
+    const nSel = document.getElementById("brief-niche");
+    if (nSel && client.niche) nSel.value = client.niche;
+    const aSel = document.getElementById("ce-audience");
+    if (aSel && client.ctx?.audience) aSel.value = client.ctx.audience;
+    const fIn = document.getElementById("ce-feats");
+    if (fIn && client.ctx?.feats?.length) fIn.value = client.ctx.feats.join(", ");
+    document.getElementById("ce-apply")?.click();
+  });
+}
+
 function renderClientPage(host, client, list) {
   const v = clientVerdict(client);
   const cPosts = client.posts;
@@ -1686,8 +1749,6 @@ function renderClientPage(host, client, list) {
         <div class="bcard-title">${escapeHtml(client.company)}</div>
         <div class="lbl">${escapeHtml(client.niche || "All niches")}${client.ctx?.audience ? " · " + escapeHtml(client.ctx.audience) : ""}</div>
       </div>
-      <div class="spacer"></div>
-      <button type="button" class="btn" id="cl-nextweek">Next week's brief${client.posts.some((p) => p.checkins.length) ? " — learns from this week" : ""}</button>
     </div>
 
     <div class="growth-card ${v ? (v.good ? "good" : "bad") : ""}">
@@ -1761,29 +1822,12 @@ function renderClientPage(host, client, list) {
       </article>`;
     }).join("") + `</div>` : ""}`;
 
+  bindChartHover(host);
+
   document.getElementById("cl-back").addEventListener("click", () => {
     CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
   });
 
-  document.getElementById("cl-nextweek").addEventListener("click", () => {
-    LEARN_CLIENT = loadClients().find((c) => c.id === client.id) || client;
-    BRIEF_CTX = client.ctx && Object.keys(client.ctx).length ? client.ctx
-              : { brand: client.company, feats: [], audience: null };
-    CART = new Map();
-    activateTab("tab-brief");
-    // Skip the site read — we already know this client; go straight to the shelf.
-    renderBrief("").then(() => {
-      const b = document.getElementById("ce-brand");
-      if (b) b.value = client.company;
-      const nSel = document.getElementById("brief-niche");
-      if (nSel && client.niche) nSel.value = client.niche;
-      const aSel = document.getElementById("ce-audience");
-      if (aSel && client.ctx?.audience) aSel.value = client.ctx.audience;
-      const fIn = document.getElementById("ce-feats");
-      if (fIn && client.ctx?.feats?.length) fIn.value = client.ctx.feats.join(", ");
-      document.getElementById("ce-apply")?.click();
-    });
-  });
 
   // track a new post — benchmark locked in now
   document.getElementById("post-form").addEventListener("submit", async (e) => {
@@ -2020,21 +2064,50 @@ function weekDashboardHtml(rec, client) {
 }
 
 function renderBriefViewer(host, rec, client) {
+  // briefs are newest-first, so a lower index is a later week
+  const total = client.briefs.length;
+  const idx = client.briefs.findIndex((b) => b.id === rec.id);
+  const trackedThisWeek = weekPostsOf(client, rec.id).some((p) => p.checkins.length);
   if (BRIEF_VIEW.expanded != null)
     BRIEF_VIEW.expanded = Math.max(0, Math.min(BRIEF_VIEW.expanded, rec.items.length - 1));
   host.innerHTML = `
     <div class="viewer-top">
       <button type="button" class="ghost" id="bv-back">← ${escapeHtml(client?.company || "Back")}</button>
-      <div class="minw0">
-        <div class="bcard-title">${escapeHtml(rec.company)} — week of ${escapeHtml((rec.createdAt || "").slice(0, 10))}</div>
-        <div class="lbl">${escapeHtml(rec.niche || "All niches")}</div>
-      </div>
       <div class="spacer"></div>
       <button type="button" class="ghost" id="bv-docx">Download .docx</button>
     </div>
-    ${weekDashboardHtml(rec, client)}`;
 
+    <div class="week-nav">
+      <button type="button" class="ghost week-arrow" id="wk-prev" ${idx >= total - 1 ? "disabled" : ""}
+        title="${idx >= total - 1 ? "No earlier week" : "Earlier week"}">←</button>
+      <div class="week-head">
+        <div class="bcard-title">Week of ${escapeHtml((rec.createdAt || "").slice(0, 10))}</div>
+        <div class="lbl">${escapeHtml(rec.company)} · ${escapeHtml(rec.niche || "All niches")} · week ${total - idx} of ${total}</div>
+      </div>
+      <button type="button" class="ghost week-arrow" id="wk-next" ${idx <= 0 ? "disabled" : ""}
+        title="${idx <= 0 ? "No later week" : "Later week"}">→</button>
+    </div>
+    ${weekDashboardHtml(rec, client)}
+
+    <div class="nextweek">
+      <div class="minw0">
+        <h2>Next week's brief${trackedThisWeek ? " — learned from this week" : ""}</h2>
+        <p class="lbl">${trackedThisWeek
+          ? `Builds on what actually performed for ${escapeHtml(client.company)}: their winning formats get boosted, the misses demoted, and posts that beat benchmark lead the shelf.`
+          : `Track this week's posts above first and next week's brief will learn from what performed.`}</p>
+      </div>
+      <button type="button" class="btn" id="wk-nextbrief">Build next week's brief</button>
+    </div>`;
+
+  bindChartHover(host);
   document.getElementById("bv-back").addEventListener("click", () => { BRIEF_VIEW = null; renderBriefs(); });
+  document.getElementById("wk-prev").addEventListener("click", () => {
+    if (idx < total - 1) { BRIEF_VIEW = { id: client.briefs[idx + 1].id, expanded: null }; renderBriefs(); }
+  });
+  document.getElementById("wk-next").addEventListener("click", () => {
+    if (idx > 0) { BRIEF_VIEW = { id: client.briefs[idx - 1].id, expanded: null }; renderBriefs(); }
+  });
+  document.getElementById("wk-nextbrief").addEventListener("click", () => startNextWeekBrief(client));
   document.getElementById("bv-docx").addEventListener("click", () =>
     downloadDocx(rec.ctx, rec.items, (rec.createdAt || "").slice(0, 10)));
 

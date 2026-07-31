@@ -573,3 +573,53 @@
     color: var(--good); border: 1px solid #2c4a39; border-radius: 999px;
     padding: 1px 7px; margin-right: 4px;
   }
+
+  /* Chart day markers + hover readout */
+  .dot-pred { fill: var(--bg); stroke: var(--text-3); stroke-width: 1.5; }
+  .hit { fill: transparent; cursor: crosshair; }
+  .hit:focus-visible { outline: none; }
+  .hover-rule { stroke: var(--line-2); stroke-width: 1; stroke-dasharray: 3 3; }
+  .growth-card.has-tip { position: relative; }
+  .chart-tip {
+    position: absolute; top: 18px; transform: translateX(-50%);
+    background: #17171acc; backdrop-filter: blur(6px);
+    border: 1px solid var(--line-2); border-radius: 9px;
+    padding: 9px 12px; min-width: 132px; pointer-events: none; z-index: 4;
+    font-size: 12.5px; animation: fade-in .1s ease both;
+  }
+  .chart-tip.flip { transform: translateX(-100%); }
+  .chart-tip[hidden] { display: none; }
+  .tip-day { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+  .tip-row { display: flex; align-items: center; gap: 7px; color: var(--text-2); margin: 3px 0; }
+  .tip-row i { display: inline-block; width: 14px; height: 0; flex: none; }
+  .tip-row i.k-est { border-top: 2px dashed var(--text-3); }
+  .tip-row i.k-act { border-top: 2px solid var(--text-2); }
+  .tip-row i.k-act.good { border-top-color: var(--good); }
+  .tip-row i.k-act.bad { border-top-color: var(--bad); }
+  .tip-row i.k-act.even { border-top-color: var(--even); }
+  .tip-row b { margin-left: auto; font-family: var(--mono); font-weight: 600; color: var(--text); }
+  .tip-row b.good { color: var(--good); } .tip-row b.bad { color: var(--bad); } .tip-row b.even { color: var(--even); }
+  .tip-delta { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; }
+  .tip-delta.good { color: var(--good); } .tip-delta.bad { color: var(--bad); } .tip-delta.even { color: var(--even); }
+
+  /* Week navigation */
+  .week-nav {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 18px; margin-bottom: 20px;
+  }
+  .week-head { flex: 1; min-width: 0; text-align: center; }
+  .week-arrow {
+    width: 38px; height: 38px; padding: 0; flex: none;
+    display: grid; place-items: center; font-size: 16px; border-radius: 50%;
+  }
+  .week-arrow:disabled { opacity: .22; cursor: default; }
+
+  /* Next week's brief, at the foot of the week */
+  .nextweek {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px 20px; margin-top: 30px;
+  }
+  .nextweek h2 { margin-bottom: 4px; }
+  .nextweek .lbl { max-width: 68ch; }
