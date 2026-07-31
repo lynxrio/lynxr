@@ -146,6 +146,7 @@ def main():
         ("medceptor_tagged.csv", load_medceptor, None),
         ("tiktok_tagged.csv", load_scraped, "TikTok"),
         ("instagram_tagged.csv", load_scraped, "Instagram"),
+        ("youtube_tagged.csv", load_scraped, "YouTube"),
     ]
     all_rows = []
     for fname, loader, source_name in sources:

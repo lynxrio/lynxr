@@ -338,8 +338,8 @@ def main():
         r["views"] = to_int(r["views"])
         r.setdefault("_url", r.get("url", ""))
     (ROOT / "output" / "data_summary.txt").write_text(summarize(rows, 0) + "\n")
-    log.info("Summary regenerated. Re-encrypt with: "
-             "./venv/bin/python pipeline/export_web.py --access-code YOURCODE")
+    log.info("Summary regenerated. Push new tags to Supabase with: "
+             "./venv/bin/python pipeline/export_supabase.py")
 
 
 if __name__ == "__main__":

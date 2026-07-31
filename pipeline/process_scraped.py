@@ -61,13 +61,17 @@ def normalize_tiktok(item):
 def is_instagram_video(item):
     t = (item.get("type") or "").lower()
     pt = (item.get("productType") or "").lower()
-    return t == "video" or pt in ("clips", "igtv") or item.get("videoViewCount") is not None
+    return (t == "video" or pt in ("clips", "igtv")
+            or item.get("videoViewCount") is not None
+            or item.get("videoPlayCount") is not None)
 
 
 def normalize_instagram(item):
     views = to_int(item.get("videoPlayCount") or item.get("videoViewCount"))
-    likes = to_int(item.get("likesCount"))
-    comments = to_int(item.get("commentsCount"))
+    # Instagram returns likesCount == -1 when the creator hides like counts;
+    # treat that (and any negative) as 0 so engagement_rate stays sane.
+    likes = max(0, to_int(item.get("likesCount")))
+    comments = max(0, to_int(item.get("commentsCount")))
     return {
         "video_id": str(item.get("id") or item.get("shortCode") or ""),
         "creator": item.get("ownerUsername") or "",
@@ -84,10 +88,34 @@ def normalize_instagram(item):
     }
 
 
+def normalize_youtube(item):
+    # From streamers/youtube-shorts-scraper. Shorts are always video, so no
+    # video filter is needed. YouTube exposes no share count -> 0.
+    views = to_int(item.get("viewCount"))
+    likes = max(0, to_int(item.get("likes")))
+    comments = max(0, to_int(item.get("commentsCount")))
+    return {
+        "video_id": str(item.get("id") or ""),
+        "creator": item.get("channelUsername") or item.get("channelName") or "",
+        "platform": "youtube",
+        "title": (item.get("title") or "").replace("\n", " ").strip(),
+        "views": views,
+        "likes": likes,
+        "comments": comments,
+        "shares": 0,
+        "engagement_rate": engagement(views, likes, comments, 0),
+        "url": item.get("url") or "",
+        "uploaded_at": item.get("date") or "",
+        "source_hashtag": item.get("_source_hashtag") or "",
+    }
+
+
 def main():
-    if len(sys.argv) != 2 or sys.argv[1] not in ("tiktok", "instagram"):
-        raise SystemExit("Usage: process_scraped.py {tiktok|instagram}")
+    if len(sys.argv) != 2 or sys.argv[1] not in ("tiktok", "instagram", "youtube"):
+        raise SystemExit("Usage: process_scraped.py {tiktok|instagram|youtube}")
     platform = sys.argv[1]
+    normalizers = {"tiktok": normalize_tiktok, "instagram": normalize_instagram,
+                   "youtube": normalize_youtube}
 
     raw_path = DATA_DIR / f"{platform}_raw.json"
     out_path = DATA_DIR / f"{platform}_normalized.csv"
@@ -99,7 +127,7 @@ def main():
         if platform == "instagram" and not is_instagram_video(item):
             skipped_non_video += 1
             continue
-        row = normalize_tiktok(item) if platform == "tiktok" else normalize_instagram(item)
+        row = normalizers[platform](item)
         key = row["video_id"] or row["url"]
         if not key or key in seen:
             continue

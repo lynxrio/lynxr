@@ -17,9 +17,14 @@ from pathlib import Path
 
 from apify_client import ApifyClient
 
+# UGC-focused discovery: these surface authentic creator content (the format
+# style Lynx's clients actually make), not brand/news posts. Blend of explicit
+# UGC tags, product-review UGC, and a couple of app-niche tags for relevance.
+# Edit freely — this list is just the seed for what enters the database.
 HASHTAGS = [
-    "apptok", "apptutorial", "studytok", "musicapp", "appmarketing",
-    "fitnessapp", "healthapp", "edtech", "fintech", "datingapp",
+    "ugc", "ugccreator", "ugcexample", "ugccommunity",
+    "tiktokmademebuyit", "productreview", "honestreview", "founditontiktok",
+    "appreview", "studytok",
 ]
 VIDEOS_PER_HASHTAG = 10  # scaled down per user: ~100 videos total per platform
 ACTOR = "clockworks/tiktok-scraper"

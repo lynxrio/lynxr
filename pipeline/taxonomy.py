@@ -54,6 +54,58 @@ VISUAL_HOOKS = [
     "Other",
 ]
 
+# CTA Type — the single call to action. Exactly one per video. From the locked
+# taxonomy; taggable from caption + transcript (text evidence).
+CTA_TYPES = [
+    "Search Product",
+    "Link in Bio",
+    "Comment Prompt",
+    "It's Free",
+    "Try It",
+    "Soft / Implied",
+    "None",
+    "Other",
+]
+
+# Hook Delivery — HOW the spoken hook is performed. This dimension genuinely
+# needs the audio/video: deadpan vs high-energy vs whisper cannot be told from a
+# transcript's words or a single still. We only assign a specific value when the
+# evidence actually shows it (a shocked face in the cover frame; a clearly
+# narrative transcript). Everything else is "Other" — an honest "can't tell from
+# what we have", not a guess. Never infer energy from text alone.
+HOOK_DELIVERIES = [
+    "Deadpan",
+    "High Energy",
+    "Whisper / Intimate",
+    "Shocked Face",
+    "Storytelling",
+    "Fast-cut",
+    "Other",
+]
+
+# Length Bucket — derived mechanically from the video's duration in seconds.
+# No model involved; edges from the locked taxonomy.
+LENGTH_BUCKETS = ["0–10s", "11–20s", "21–34s", "35–59s", "60s+"]
+
+
+def length_bucket(seconds):
+    """Map a duration in seconds to its taxonomy bucket, or '' if unknown."""
+    try:
+        s = float(seconds)
+    except (TypeError, ValueError):
+        return ""
+    if s <= 0:
+        return ""
+    if s <= 10:
+        return "0–10s"
+    if s <= 20:
+        return "11–20s"
+    if s <= 34:
+        return "21–34s"
+    if s <= 59:
+        return "35–59s"
+    return "60s+"
+
 NICHE_CATEGORIES = [
     "Health & Medical",
     "Education & Study",
@@ -91,6 +143,69 @@ TAG_SCHEMA = {
     "required": ["format_type", "hook_pattern", "niche_category", "target_audience"],
     "additionalProperties": False,
 }
+
+# Extra-dimension tagger (cta_type, visual_hook, hook_delivery, onscreen_text).
+# WITH an opening frame attached — visual_hook is answerable.
+TAG_SCHEMA_EXTRA_VISION = {
+    "type": "object",
+    "properties": {
+        "cta_type": {"type": "string", "enum": CTA_TYPES},
+        "visual_hook": {"type": "string", "enum": VISUAL_HOOKS},
+        "onscreen_text": {"type": "string",
+                          "description": "Text visible in the opening frame, verbatim; empty if none."},
+        "hook_delivery": {"type": "string", "enum": HOOK_DELIVERIES},
+    },
+    "required": ["cta_type", "visual_hook", "onscreen_text", "hook_delivery"],
+    "additionalProperties": False,
+}
+
+# No opening frame — visual_hook can't be judged, so it's not requested (the row
+# is left blank downstream). cta_type and hook_delivery still come from text.
+TAG_SCHEMA_EXTRA = {
+    "type": "object",
+    "properties": {
+        "cta_type": {"type": "string", "enum": CTA_TYPES},
+        "hook_delivery": {"type": "string", "enum": HOOK_DELIVERIES},
+    },
+    "required": ["cta_type", "hook_delivery"],
+    "additionalProperties": False,
+}
+
+SYSTEM_EXTRA = f"""You tag short-form videos for Lynxr against a LOCKED taxonomy. \
+You are adding THREE dimensions to already-tagged rows; do not re-judge format or hook. \
+You get the caption, and when available the spoken hook + full transcript and the \
+opening frame. Commit to one value per dimension.
+
+cta_type — the single call to action, if any: {", ".join(CTA_TYPES)}.
+- "search/look up/find X" (search the app/product by name) -> Search Product.
+- "link in bio", "in my bio", "check the link" -> Link in Bio.
+- "comment X", "drop a Y below", "let me know" -> Comment Prompt.
+- explicit "it's FREE", "free to use", "no cost" as the pull -> It's Free.
+- "try it", "give it a go", "you should use this" -> Try It.
+- no explicit ask, but the video clearly nudges toward the product without an \
+  imperative -> Soft / Implied.
+- genuinely no call to action -> None. Other only for a real CTA that fits nothing above.
+
+hook_delivery — HOW the opening is performed. This needs real audio/video evidence, \
+which you mostly DO NOT have (a transcript is words, not tone; a cover is one still). \
+Be strict and honest:
+- Assign "Shocked Face" ONLY if the attached frame visibly shows a shocked/exaggerated expression.
+- Assign "Storytelling" ONLY if the transcript is a clear first-person narrative recount \
+  ("so yesterday I...", "let me tell you what happened").
+- "Deadpan", "High Energy", "Whisper / Intimate", "Fast-cut" require hearing or seeing \
+  the delivery, which you cannot from text + one frame — do NOT guess these from wording \
+  or punctuation. If the evidence does not clearly show one of the two cases above, answer \
+  "Other". "Other" here means "not determinable from the available evidence", and that is \
+  the correct, expected answer for most rows. Never infer energy from an exclamation mark \
+  or an emoji.
+
+visual_hook (only when an opening frame is attached) — what is on screen in frame one: \
+{", ".join(VISUAL_HOOKS)}. A face filling the frame -> Face Close-up; text burned over the \
+video before anything else reads -> Text-first; the product or an app UI visible -> \
+Product On-screen; an unexpected object/action -> Pattern Interrupt; a place shown off -> \
+Location Reveal; motion as the opener -> Motion / Movement; a plain, static, unremarkable \
+opener -> None.
+onscreen_text (only with a frame) — transcribe text burned into the frame, verbatim; empty if none."""
 
 # Used by the vision pass, which can also see the opening frame.
 TAG_SCHEMA_VISION = {

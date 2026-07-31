@@ -61,27 +61,72 @@ create trigger lynxr_clients_touch
   for each row execute function public.touch_updated_at();
 
 -- ---------------------------------------------------------------------------
--- One login, not two.
+-- lynxr_secrets is RETIRED. It once held the data.enc bundle passphrase, which
+-- was committed in plaintext to this public repo and must be treated as leaked.
+-- Nothing reads it now (the video rows live in lynxr_videos below), so drop it
+-- outright — this removes the leaked value from the live database when the file
+-- is re-run. Do NOT recreate it to store secrets; a public repo is the wrong
+-- place to document a table that holds them.
+drop table if exists public.lynxr_secrets;
+
+-- ---------------------------------------------------------------------------
+-- The video database itself: 2,640+ tagged videos, one row per video.
+-- Replaces the encrypted data.enc blob the page used to download and decrypt.
+-- Read-only for signed-in users; NO write policies exist, so browsers can
+-- never modify it — writes go through the pipeline with the service-role key
+-- (pipeline/export_supabase.py), which bypasses RLS by design.
 --
--- The site currently needs a typed access code to decrypt data.enc. Adding a
--- Supabase login on top of that would mean two secrets for the same door. So
--- the bundle passphrase lives here instead, readable only once you are signed
--- in: log in, the page fetches it, decryption happens with nobody typing a
--- shared code. Rotating it stays a one-row update plus a re-encrypt.
-create table if not exists public.lynxr_secrets (
-  key         text primary key,
-  value       text not null,
-  updated_at  timestamptz not null default now()
+-- Types mirror what the front end already expects from the old JSON bundle:
+-- video_id stays text (TikTok ids overflow JS numbers), engagement_rate stays
+-- text (the UI truthiness-checks it before parseFloat; a numeric 0 would
+-- change behavior), counts are bigint and arrive in JS as plain numbers.
+create table if not exists public.lynxr_videos (
+  platform         text not null,
+  video_id         text not null,
+  creator          text not null default '',
+  title            text not null default '',
+  views            bigint not null default 0,
+  likes            bigint not null default 0,
+  comments         bigint not null default 0,
+  engagement_rate  text not null default '',
+  format_type      text not null default '',
+  hook_pattern     text not null default '',
+  niche_category   text not null default '',
+  target_audience  text not null default '',
+  data_source      text not null default '',
+  -- url is NOT unique-constrained on purpose: the upsert arbitrates only on the
+  -- (platform, video_id) primary key, so a separate url UNIQUE would abort the
+  -- whole load if a re-scrape ever brought the same url under a new id.
+  url              text not null,
+  -- Extra taxonomy dimensions (pipeline/tag_extra_dims.py). length_bucket and
+  -- audio_trend are mechanical; cta_type/visual_hook/onscreen_text/hook_delivery
+  -- come from the multimodal pass. All blank until that pass runs.
+  length_bucket    text not null default '',
+  audio_trend      text not null default '',
+  cta_type         text not null default '',
+  visual_hook      text not null default '',
+  onscreen_text    text not null default '',
+  hook_delivery    text not null default '',
+  updated_at       timestamptz not null default now(),
+  primary key (platform, video_id)
 );
 
-alter table public.lynxr_secrets enable row level security;
+-- Idempotent add for tables created before these columns existed.
+alter table public.lynxr_videos add column if not exists length_bucket text not null default '';
+alter table public.lynxr_videos add column if not exists audio_trend   text not null default '';
+alter table public.lynxr_videos add column if not exists cta_type      text not null default '';
+alter table public.lynxr_videos add column if not exists visual_hook   text not null default '';
+alter table public.lynxr_videos add column if not exists onscreen_text text not null default '';
+alter table public.lynxr_videos add column if not exists hook_delivery text not null default '';
 
-drop policy if exists "signed-in users read secrets" on public.lynxr_secrets;
-create policy "signed-in users read secrets"
-  on public.lynxr_secrets for select
+alter table public.lynxr_videos enable row level security;
+
+drop policy if exists "signed-in users read videos" on public.lynxr_videos;
+create policy "signed-in users read videos"
+  on public.lynxr_videos for select
   to authenticated using (true);
 
--- Seed the current bundle passphrase.
-insert into public.lynxr_secrets (key, value)
-values ('bundle_passphrase', 'lmaotsfiya')
-on conflict (key) do update set value = excluded.value, updated_at = now();
+drop trigger if exists lynxr_videos_touch on public.lynxr_videos;
+create trigger lynxr_videos_touch
+  before update on public.lynxr_videos
+  for each row execute function public.touch_updated_at();

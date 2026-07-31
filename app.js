@@ -6,52 +6,17 @@ if (window.top !== window.self) {
   try { window.top.location = window.location; } catch { window.location.replace("about:blank"); }
 }
 
-// The database ships as data.enc — AES-256-GCM ciphertext keyed off the access
-// code via PBKDF2-SHA256 (params embedded in the bundle). The page contains no
-// password and no plaintext data; a wrong code simply fails GCM authentication.
-//
-// The derived key is NON-EXTRACTABLE and lives only in memory for the life of
-// the page — no key material is written to any storage, so a reload re-prompts.
-// Honest limits: anyone GIVEN the code can share it, and the ciphertext is
-// public, so a weak code could be brute-forced offline. Keep the code strong.
+// The video database lives in Supabase (table lynxr_videos) behind row-level
+// security: signed-in users can read it, anonymous visitors get nothing, and
+// no write policies exist so a browser can never modify it. This replaced the
+// old encrypted data.enc blob — one login is the whole gate, there is no
+// second passphrase and no client-side crypto.
 
 const gate = document.getElementById("gate");
 const app = document.getElementById("app");
 
 // Belt-and-suspenders: clear any key bytes a prior build may have persisted.
 try { sessionStorage.removeItem("lynxr_k"); sessionStorage.removeItem("lynxr_access"); } catch {}
-
-// Forgiving input: phones auto-capitalize the first letter, and pasted codes
-// carry stray whitespace. Must mirror normalize_code() in export_web.py.
-function normalize(s) { return (s || "").replace(/\s+/g, "").toLowerCase(); }
-
-const b64decode = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
-
-let bundlePromise = null;
-function fetchBundle() {
-  bundlePromise ??= fetch("data.enc", { cache: "no-store" }).then((res) => {
-    if (!res.ok) throw new Error("bundle " + res.status);
-    return res.json();
-  });
-  return bundlePromise;
-}
-
-async function deriveKey(code, bundle) {
-  const material = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(normalize(code)), "PBKDF2", false, ["deriveKey"]);
-  // extractable=false: the key can decrypt but its raw bytes can never be read
-  // back out (no exportKey), so nothing can exfiltrate it even under XSS.
-  return crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt: b64decode(bundle.salt), iterations: bundle.iter, hash: "SHA-256" },
-    material, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
-}
-
-async function decryptRows(key, bundle) {
-  // Throws OperationError on a wrong key — that IS the password check.
-  const pt = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: b64decode(bundle.iv) }, key, b64decode(bundle.ct));
-  return JSON.parse(new TextDecoder().decode(pt));
-}
 
 let unlocked = false;
 function unlock(rows) {
@@ -75,27 +40,27 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
 
   submitBtn.disabled = true;
   err.textContent = "Signing in…";
+  let signedIn = false;
   try {
     await sbSignIn(email, password);
-    err.textContent = "Unlocking…";
-    // One login: the bundle passphrase comes from Supabase, not from the user.
-    const passphrase = await sbBundlePassphrase();
-    const bundle = await fetchBundle();
-    const key = await deriveKey(passphrase, bundle);
-    const rows = await decryptRows(key, bundle);
+    signedIn = true;
+    err.textContent = "Loading database…";
+    const rows = await sbFetchVideos();
     pw.value = "";
     try { await syncClients(); } catch { SYNC_OK = false; }
     unlock(rows);
     updateSyncBadge();
   } catch (ex) {
     const m = (ex && ex.message) || "";
-    err.textContent = m.startsWith("bundle")
-      ? "Data bundle missing — run the pipeline and redeploy."
-      : /Invalid login|invalid_grant|Sign-in failed/i.test(m)
-        ? "Wrong email or password."
-        : m.includes("passphrase")
-          ? "Signed in, but the bundle passphrase is not set in Supabase."
-          : "Could not sign in — check your connection.";
+    // Once sign-in succeeded, the credentials were fine — any later failure is
+    // the database load, so don't blame the password.
+    err.textContent = signedIn
+      ? (m.includes("videos")
+          ? "Signed in, but the database is empty — run pipeline/export_supabase.py."
+          : "Signed in, but couldn't load the database — check your connection.")
+      : (/Invalid login|invalid_grant|Sign-in failed/i.test(m)
+          ? "Wrong email or password."
+          : "Could not sign in — check your connection.");
     pw.select();
   } finally {
     submitBtn.disabled = false;
@@ -103,21 +68,31 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
 });
 
 // Returning session: refresh the token and go straight in, no retyping.
-(async () => {
+// Invoked at the very end of this file — it reads SB_SESSION_KEY and the other
+// Supabase consts, which are declared far below, so it must not run until they
+// are initialized (this is a classic top-to-bottom script).
+async function resumeSession() {
   const sess = sbLoadSession();
   if (!sess?.refresh_token) return;
   try {
     await sbRefresh(sess.refresh_token);
-    const passphrase = await sbBundlePassphrase();
-    const bundle = await fetchBundle();
-    const rows = await decryptRows(await deriveKey(passphrase, bundle), bundle);
+  } catch {
+    sbClearSession();   // stale or revoked — fall back to the login form
+    return;
+  }
+  // The token is good; a data-load hiccup here is transient, so keep the
+  // session (the gate stays up and a reload retries) rather than forcing a
+  // re-login on every blip.
+  try {
+    const rows = await sbFetchVideos();
     try { await syncClients(); } catch { SYNC_OK = false; }
     unlock(rows);
     updateSyncBadge();
   } catch {
-    sbClearSession();   // stale or revoked — fall back to the login form
+    document.getElementById("err").textContent =
+      "Couldn't load the database — reload to retry.";
   }
-})();
+}
 
 const toggleBtn = document.getElementById("toggle-pw");
 toggleBtn.addEventListener("click", () => {
@@ -125,7 +100,7 @@ toggleBtn.addEventListener("click", () => {
   const showing = pw.type === "text";
   pw.type = showing ? "password" : "text";
   toggleBtn.setAttribute("aria-pressed", String(!showing));
-  const label = showing ? "Show access code" : "Hide access code";
+  const label = showing ? "Show password" : "Hide password";
   toggleBtn.setAttribute("aria-label", label);
   toggleBtn.setAttribute("title", label);
   pw.focus();
@@ -1281,11 +1256,31 @@ async function sbRefresh(refresh_token) {
   return sess;
 }
 
-/** The data.enc passphrase, held server-side so there is one login, not two. */
-async function sbBundlePassphrase() {
-  const rows = await sbFetch("/rest/v1/lynxr_secrets?key=eq.bundle_passphrase&select=value");
-  if (!rows?.length) throw new Error("bundle passphrase not set in Supabase");
-  return rows[0].value;
+/** The full video database, RLS-gated to signed-in users. PostgREST caps a
+    response at 1,000 rows and the table holds ~2,640, so page with Range
+    headers until a short page arrives. Field names and types mirror the old
+    data.enc JSON exactly (engagement_rate stays a string on purpose). */
+async function sbFetchVideos() {
+  const FIELDS = "video_id,creator,platform,title,views,likes,comments,engagement_rate,"
+    + "format_type,hook_pattern,niche_category,target_audience,data_source,url";
+  const PAGE = 1000;
+  const rows = [];
+  for (let from = 0; ; from += PAGE) {
+    let batch;
+    try {
+      batch = await sbFetch(
+        `/rest/v1/lynxr_videos?select=${FIELDS}&order=platform.asc,video_id.asc`,
+        { headers: { "Range-Unit": "items", Range: `${from}-${from + PAGE - 1}` } });
+    } catch (ex) {
+      // 416 = asked past the last row (count was an exact multiple of PAGE).
+      if (from > 0 && String(ex.message).startsWith("416")) break;
+      throw ex;
+    }
+    rows.push(...(batch || []));
+    if (!batch || batch.length < PAGE) break;
+  }
+  if (!rows.length) throw new Error("videos table is empty");
+  return rows;
 }
 
 // ---------- Client sync ----------
@@ -2645,7 +2640,7 @@ function renderApp(rows) {
   if (!Array.isArray(rows) || rows.length === 0) {
     document.querySelector("main").innerHTML = `
       <div class="empty"><p><strong>No data loaded yet.</strong></p>
-        <p>Generate <code>data.enc</code> by running the pipeline, then reload.</p></div>`;
+        <p>Load the database with <code>pipeline/export_supabase.py</code>, then reload.</p></div>`;
     return;
   }
   ALL = rows;
@@ -2670,3 +2665,6 @@ function renderApp(rows) {
   initBrief();
   applyFilters();
 }
+
+// Kick off auto-login last, once every Supabase const above is initialized.
+resumeSession();
