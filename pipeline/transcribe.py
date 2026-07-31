@@ -77,9 +77,13 @@ def fetch_audio(url, dest_dir):
     out_tmpl = str(dest_dir / "%(id)s.%(ext)s")
     cmd = [
         str(ROOT / "venv" / "bin" / "yt-dlp"),
-        # TikTok lists a watermarked "download" pseudo-format first whose codec
-        # ffmpeg cannot read; prefer real audio, then a concrete mp4.
-        "-f", "bestaudio/best[ext=mp4]/best",
+        # TikTok lists every format as carrying aac, but the h265 ("bytevc1")
+        # variants it actually delivers frequently contain a video stream only —
+        # ffprobe then reports "unable to obtain file audio codec" and the whole
+        # download is wasted. The h264 variants are reliably muxed, so prefer
+        # them explicitly. Verified: the same video fails on bytevc1_1080p and
+        # succeeds on h264_540p.
+        "-f", "bestaudio/best[vcodec^=avc]/best[vcodec^=h264]/best",
         # TikTok increasingly requires browser impersonation (curl-cffi).
         "--impersonate", "chrome",
         "-x", "--audio-format", "mp3", "--audio-quality", "5",
