@@ -549,6 +549,10 @@ function starterHook(hookPattern, brand, feat) {
     "Warning": `Stop doing this before you've tried ${brand}`,
     "Social Proof": `Everyone's quietly switching to ${brand} — here's why`,
     "Transformation": `My week before ${brand} vs after`,
+    "No Hook": `${brand}. ${f}. That's the video.`,
+    "Direct CTA": `Search ${brand} right now — you'll see why in ten seconds`,
+    "Audience Call-Out": `If you're serious about this — ${brand} is for you. I gotchu`,
+    "Emotional Share": `Honestly? ${brand} is the first thing that's made ${f} feel doable`,
   };
   return t[hookPattern] || `Show ${f} in the first two seconds — no intro`;
 }
@@ -713,6 +717,11 @@ function tailoredScript(row, ctx, slot) {
       `[0–2s] React to a viral clip in this niche: “${hook}”`,
       `[2–14s] Pause it where it goes wrong — show how ${brand} (${f1}) handles it.`,
       `[14–22s] Side-by-side verdict.`,
+    ],
+    "Meme / Trend Clip": [
+      `[0–2s] Current trend audio; on-screen text: “${hook}” — you emote, don't speak.`,
+      `[2–8s] Hold the bit. The text carries the joke about life before ${brand}.`,
+      `[8–12s] One beat only: phone flashes ${f1} on screen. No feature tour — the wink is the sell.`,
     ],
   };
   const fallback = [
