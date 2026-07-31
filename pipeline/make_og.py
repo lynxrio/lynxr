@@ -57,11 +57,18 @@ y_text = (H * SS - (asc + desc)) / 2
 cap_top = y_text + font.getbbox("l")[1]
 y0 = cap_top + (cap - MARK_PX) / 2
 
+# The site SVG uses fill-rule="evenodd": where the two strokes overlap, the
+# background shows through. XOR of the two filled masks reproduces that.
+from PIL import ImageChops
+masks = []
 for poly in [
     [(3, 3), (6, 3), (21, 18), (18, 21), (3, 6)],
     [(21, 3), (21, 6), (6, 21), (3, 18), (18, 3)],
 ]:
-    d.polygon([(x0 + px * s, y0 + py * s) for px, py in poly], fill=TEXT)
+    m = Image.new("L", img.size, 0)
+    ImageDraw.Draw(m).polygon([(x0 + px * s, y0 + py * s) for px, py in poly], fill=255)
+    masks.append(m)
+img.paste(TEXT, mask=ImageChops.difference(*masks))
 
 x = draw_text(x0 + MARK_PX + GAP_PX, y_text, word, TEXT)
 draw_text(x, y_text, ".", DIM)
