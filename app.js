@@ -2151,14 +2151,16 @@ let BRIEF_CTX = null;  // {brand, feats, audience} from the last site read, used
 function showLoader(host, hostname) {
   host.innerHTML = `
     <div class="loader" role="status" aria-live="polite">
-      <!-- The mark split at its centre into four arms, each scaling out from
-           the middle in clockwise sequence, holding as the complete X, then
-           resetting. Geometry is the exact logo path cut on both diagonals. -->
+      <!-- The mark split into its four arms, each scaling out of the centre in
+           clockwise turn, holding as the complete X, then resetting. Arms stop
+           at the diamond (9,12)(12,9)(15,12)(12,15) — the void the real logo's
+           evenodd rule carves where the two blades cross — so the assembled
+           mark keeps its centre gap. -->
       <svg class="loader-mark" viewBox="0 0 24 24" aria-hidden="true">
-        <path class="arm a1" fill="currentColor" d="M3 3h3l7.5 7.5-3 3L3 6z"/>
-        <path class="arm a2" fill="currentColor" d="M21 3v3l-7.5 7.5-3-3L18 3z"/>
-        <path class="arm a3" fill="currentColor" d="M13.5 10.5 21 18l-3 3-7.5-7.5z"/>
-        <path class="arm a4" fill="currentColor" d="M13.5 13.5 6 21l-3-3 7.5-7.5z"/>
+        <path class="arm a1" fill="currentColor" d="M3 3H6L12 9L9 12L3 6Z"/>
+        <path class="arm a2" fill="currentColor" d="M21 3V6L15 12L12 9L18 3Z"/>
+        <path class="arm a3" fill="currentColor" d="M15 12L21 18L18 21L12 15Z"/>
+        <path class="arm a4" fill="currentColor" d="M12 15L6 21L3 18L9 12Z"/>
       </svg>
       <div class="loader-text">
         <div class="loader-stage" id="loader-stage">${hostname ? `Reading ${escapeHtml(hostname)}` : "Preparing"}</div>
