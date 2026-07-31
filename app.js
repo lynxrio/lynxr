@@ -1244,6 +1244,56 @@ function sparkSvg(points, predicted, w = 240, h = 64) {
   </svg>`;
 }
 
+/** Full chart with x/y axes: dotted estimated slope vs solid actual line.
+    Points are {x, y} where x is days since the chart's day zero. */
+function chartSvg({ actual = [], est = [], w = 720, h = 180, xMax = 7, yMax = 1 }) {
+  const padL = 48, padR = 12, padT = 12, padB = 26;
+  const X = (x) => padL + (Math.min(x, xMax) / xMax) * (w - padL - padR);
+  const Y = (y) => padT + (1 - Math.min(y, yMax) / yMax) * (h - padT - padB);
+  const poly = (pts) => pts.map((p) => `${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join(" ");
+
+  // y gridlines at 0 / 50% / 100%; x ticks at whole-day steps that fit
+  const yTicks = [0, yMax / 2, yMax];
+  const xStep = xMax <= 8 ? 1 : Math.ceil(xMax / 7);
+  const xTicks = [];
+  for (let d = 0; d <= xMax; d += xStep) xTicks.push(d);
+
+  return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    ${yTicks.map((v) => `
+      <line x1="${padL}" y1="${Y(v)}" x2="${w - padR}" y2="${Y(v)}" class="chart-grid"/>
+      <text x="${padL - 7}" y="${Y(v) + 3.5}" class="chart-tick" text-anchor="end">${compact(v)}</text>`).join("")}
+    ${xTicks.map((d) => `
+      <text x="${X(d)}" y="${h - 7}" class="chart-tick" text-anchor="middle">D${d}</text>`).join("")}
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h - padB}" class="chart-axis"/>
+    <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" class="chart-axis"/>
+    ${est.length > 1 ? `<polyline points="${poly(est)}" class="spark-est"/>` : ""}
+    ${est.map((p) => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="2.5" class="spark-est-dot"/>`).join("")}
+    ${actual.length > 1 ? `<polyline points="${poly(actual)}" class="spark-line"/>` : ""}
+    ${actual.map((p) => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.5" class="spark-dot"/>`).join("")}
+  </svg>`;
+}
+
+const DAY_MS = 86400000;
+const daysBetween = (a, b) => Math.max(0, (new Date(a) - new Date(b)) / DAY_MS);
+
+/** Estimated week progression from the brief's formats: the 10 scripts post
+    across 7 days, each contributing its database benchmark scaled by a
+    fresh-account warm-up ramp (40% effectiveness on post 1 rising to 100% by
+    the last) — new/warming accounts should not be expected to hit full
+    database medians immediately. */
+function weekEstimateCurve(rec, client) {
+  const n = rec.items.length || 1;
+  const pts = [{ x: 0, y: 0 }];
+  let cum = 0;
+  rec.items.forEach((it, i) => {
+    const bench = predictViews(client.niche, it.format_type, it.hook_pattern);
+    const warm = 0.4 + 0.6 * (n === 1 ? 1 : i / (n - 1));
+    cum += Math.round(bench * warm);
+    pts.push({ x: (i + 1) * (7 / n), y: cum });
+  });
+  return pts;
+}
+
 /** Cumulative actual views over check-in dates, across all of a client's posts. */
 function growthSeries(posts) {
   const byId = new Map(posts.map((p) => [p.id, p]));
@@ -1313,20 +1363,30 @@ let CLIENT_VIEW = null;  // { id } when a client folder is open
 let BRIEF_VIEW = null;   // { id, page, dir } when a brief inside it is open
 
 // Two-step delete used everywhere something is gone forever.
+// Two-step delete. Deliberately does NOT use confirm(): browsers suppress
+// repeat native dialogs (and return false instantly), which silently turned
+// every second click into a cancel. The armed state is the confirmation —
+// two distinct clicks, a visible red warning, and a 5s auto-disarm.
 function armDelete(btn, label, onConfirm) {
-  btn.addEventListener("click", () => {
+  let timer = null;
+  const disarm = () => {
+    clearTimeout(timer);
+    btn.classList.remove("armed");
+    btn.textContent = label;
+  };
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
     if (!btn.classList.contains("armed")) {
       btn.classList.add("armed");
-      btn.textContent = "Delete forever?";
-      setTimeout(() => { btn.classList.remove("armed"); btn.textContent = label; }, 3500);
+      btn.textContent = "Click again to delete";
+      btn.title = "This cannot be undone";
+      timer = setTimeout(disarm, 5000);
       return;
     }
-    if (!confirm("This permanently deletes it — it cannot be recovered. Delete?")) {
-      btn.classList.remove("armed"); btn.textContent = label;
-      return;
-    }
+    clearTimeout(timer);
     onConfirm();
   });
+  btn.addEventListener("blur", disarm);
 }
 
 function renderBriefs() {
@@ -1384,7 +1444,23 @@ function renderBriefs() {
 
 function renderClientPage(host, client, list) {
   const v = clientVerdict(client);
-  const growth = growthSeries(client.posts);
+  const cPosts = client.posts;
+  const cDay0 = [...cPosts].map((p) => p.addedAt).sort()[0] || new Date().toISOString();
+  const cEvents = cPosts.flatMap((p) => p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views })))
+    .sort((a, b) => a.d < b.d ? -1 : 1);
+  const cSeen = new Map(), cEstSeen = new Map();
+  const cById = new Map(cPosts.map((p) => [p.id, p]));
+  const cActual = [], cEst = [];
+  for (const e of cEvents) {
+    cSeen.set(e.id, e.views);
+    cEstSeen.set(e.id, cById.get(e.id)?.predicted || 0);
+    const x = daysBetween(e.d, cDay0);
+    cActual.push({ x, y: [...cSeen.values()].reduce((a, b) => a + b, 0) });
+    cEst.push({ x, y: [...cEstSeen.values()].reduce((a, b) => a + b, 0) });
+  }
+  if (cActual.length) { cActual.unshift({ x: 0, y: 0 }); cEst.unshift({ x: 0, y: 0 }); }
+  const cxMax = Math.max(7, ...cActual.map((p) => p.x));
+  const cyMax = Math.max(1, ...cActual.map((p) => p.y), ...cEst.map((p) => p.y));
   const formats = [...new Set(client.posts.map((p) => p.format))];
   const fmtOptions = [...new Set(ALL.map((r) => r.format_type).filter(Boolean))].sort();
   const hookOptions = [...new Set(ALL.map((r) => r.hook_pattern).filter(Boolean))].sort();
@@ -1404,7 +1480,12 @@ function renderClientPage(host, client, list) {
         ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
             : `<span class="lbl">add posts and check-ins below to start the graph</span>`}
       </div>
-      ${growth.actual.length ? sparkSvg(growth.actual, growth.pred, 720, 110) : sparkSvg([], null, 720, 110)}
+      ${chartSvg({ actual: cActual, est: cEst, xMax: cxMax, yMax: cyMax })}
+      <div class="chart-key">
+        <span><i class="k-est"></i> estimated</span>
+        <span><i class="k-act"></i> actual</span>
+        <span class="lbl">x: days tracked · y: cumulative views</span>
+      </div>
     </div>
 
     ${formats.length ? `<h2>Prediction vs actual — by format</h2>
@@ -1599,8 +1680,20 @@ function weekDashboardHtml(rec, client) {
   const tracked = posts.filter((p) => p.checkins.length);
   const v = weekVerdict(client, rec.id);
 
-  // Week growth: cumulative actual vs the accumulating estimate (dotted)
-  const series = growthSeries(posts);
+  // Week chart: estimated slope from the brief's 10 formats (warm-up adjusted)
+  // vs the actual cumulative views from check-ins, both on a days-since-brief axis.
+  const est = weekEstimateCurve(rec, client);
+  const day0 = rec.createdAt || (posts[0] && posts[0].addedAt) || new Date().toISOString();
+  const events = posts.flatMap((p) => p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views })))
+    .sort((a, b) => a.d < b.d ? -1 : 1);
+  const seen = new Map();
+  const actualPts = events.map((e) => {
+    seen.set(e.id, e.views);
+    return { x: daysBetween(e.d, day0), y: [...seen.values()].reduce((a, b) => a + b, 0) };
+  });
+  if (actualPts.length) actualPts.unshift({ x: 0, y: 0 });
+  const xMax = Math.max(7, ...actualPts.map((p) => p.x), ...est.map((p) => p.x));
+  const yMax = Math.max(1, ...actualPts.map((p) => p.y), ...est.map((p) => p.y));
 
   // Per-script cards: match this week's posts to each script by format×hook
   const scriptCards = rec.items.map((it, i) => {
@@ -1665,7 +1758,12 @@ function weekDashboardHtml(rec, client) {
         ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
             : `<span class="lbl">the graph fills in as posts get check-ins</span>`}
       </div>
-      ${series.actual.length ? sparkSvg(series.actual, series.pred, 720, 110) : sparkSvg([], null, 720, 110)}
+      ${chartSvg({ actual: actualPts, est, xMax, yMax })}
+      <div class="chart-key">
+        <span><i class="k-est"></i> estimated (database formats, warm-up adjusted)</span>
+        <span><i class="k-act"></i> actual</span>
+        <span class="lbl">x: days since brief · y: cumulative views</span>
+      </div>
     </div>
 
     ${recs.length ? `<div class="recs"><h2>What to change</h2><ul>${recs.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div>` : ""}
