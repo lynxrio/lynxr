@@ -425,6 +425,59 @@
     .viewer-player-col { max-width: 300px; margin: 0 auto; }
   }
 
+  /* Performance tracking: green = beating benchmark, red = under it */
+  :root { --good: #57c98a; --bad: #e06c6c; }
+  .verdict { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  .verdict.good { color: var(--good); }
+  .verdict.bad { color: var(--bad); }
+  .growth-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; margin: 4px 0 30px;
+  }
+  .growth-card.good { border-color: #2c4a39; }
+  .growth-card.bad { border-color: #4a2c2c; }
+  .growth-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+  .growth-head h2 { margin: 0; }
+  .spark { width: 100%; height: auto; display: block; }
+  .spark-line { fill: none; stroke: var(--text-2); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .spark-dot { fill: var(--text-2); }
+  .good .spark-line { stroke: var(--good); } .good .spark-dot { fill: var(--good); }
+  .bad .spark-line { stroke: var(--bad); } .bad .spark-dot { fill: var(--bad); }
+  .spark-pred { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 5 5; }
+
+  .fmt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 30px; }
+  .fmt-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .fmt-card.good { border-color: #2c4a39; }
+  .fmt-card.bad { border-color: #4a2c2c; }
+  .fmt-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; font-size: 13.5px; }
+
+  .post-form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .post-form input[type="url"] { flex: 1 1 260px; }
+  .post-form input[type="text"] { flex: 0 1 150px; }
+  .post-form input, .post-form select {
+    padding: 9px 12px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 8px; color: var(--text); font: inherit; font-size: 14px; min-width: 0;
+  }
+  .post-list { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 34px; }
+  .post-row {
+    display: grid; grid-template-columns: 1fr 240px; gap: 8px 20px; align-items: center;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px;
+  }
+  .post-row.good { border-left: 3px solid var(--good); }
+  .post-row.bad { border-left: 3px solid var(--bad); }
+  .post-main { min-width: 0; }
+  .post-nums { display: flex; gap: 8px; align-items: baseline; margin-top: 4px; flex-wrap: wrap; }
+  .post-nums .mono { font-family: var(--mono); font-size: 13px; }
+  .post-spark { align-self: center; }
+  .checkin-form { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+  .checkin-form .ci-views {
+    flex: 0 1 190px; padding: 7px 11px; background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 8px; color: var(--text); font: inherit; font-size: 13px;
+  }
+  .checkin-form .ghost { padding: 6px 12px; font-size: 12.5px; }
+  .p-del.armed, .br-del.armed { color: #f0b3b3; border-color: #6b3a3a; background: #2a1414; }
+  @media (max-width: 700px) { .post-row { grid-template-columns: 1fr; } .post-spark { max-width: 260px; } }
+
   @media (max-width: 640px) {
     header { gap: 10px; padding: 0 14px; }
     header .wordmark { display: none; }

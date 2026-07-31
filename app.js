@@ -1125,30 +1125,58 @@ function downloadDocx(ctx, items, dateStr) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-// ---------- Saved briefs (in-platform, browser localStorage) ----------
-const BRIEFS_KEY = "lynxr_briefs";
+// ---------- Clients (in-platform, browser localStorage) ----------
+// A client folder groups everything for one company: saved briefs plus tracked
+// posts with performance check-ins. Legacy flat briefs migrate on first load.
+const CLIENTS_KEY = "lynxr_clients";
+const LEGACY_BRIEFS_KEY = "lynxr_briefs";
 
-function loadBriefs() {
-  try { return JSON.parse(localStorage.getItem(BRIEFS_KEY)) || []; } catch { return []; }
-}
-function persistBriefs(list) {
-  try { localStorage.setItem(BRIEFS_KEY, JSON.stringify(list)); } catch {}
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+
+function findOrCreateClient(list, company, ctx, niche) {
+  const key = String(company || "Client").trim().toLowerCase();
+  let c = list.find((x) => (x.company || "").trim().toLowerCase() === key);
+  if (!c) {
+    c = { id: newId(), company: company || "Client", ctx: ctx || {}, niche: niche || "",
+          createdAt: new Date().toISOString(), briefs: [], posts: [] };
+    list.unshift(c);
+  } else {
+    if (ctx) c.ctx = ctx;
+    if (niche) c.niche = niche;
+  }
+  return c;
 }
 
-/** Save the current cart as an in-platform brief (newest stacks on top). */
+function loadClients() {
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(CLIENTS_KEY)) || []; } catch {}
+  let legacy = [];
+  try { legacy = JSON.parse(localStorage.getItem(LEGACY_BRIEFS_KEY)) || []; } catch {}
+  if (legacy.length) {
+    for (const b of legacy) findOrCreateClient(list, b.company, b.ctx, b.niche).briefs.push(b);
+    localStorage.removeItem(LEGACY_BRIEFS_KEY);
+    persistClients(list);
+  }
+  for (const c of list) { c.briefs = c.briefs || []; c.posts = c.posts || []; }
+  return list;
+}
+function persistClients(list) {
+  try { localStorage.setItem(CLIENTS_KEY, JSON.stringify(list)); } catch {}
+}
+
+/** Save the current cart as a brief inside its client's folder. */
 function saveCurrentBrief() {
   if (CART.size < CART_LIMIT) return;
+  const company = BRIEF_CTX?.brand || "Client";
+  const niche = document.getElementById("brief-niche")?.value || "";
   const rec = {
-    id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
-    company: BRIEF_CTX?.brand || "Client",
-    ctx: BRIEF_CTX || {},
-    niche: document.getElementById("brief-niche")?.value || "",
-    createdAt: new Date().toISOString(),
-    items: [...CART.values()],
+    id: newId(), company, ctx: BRIEF_CTX || {}, niche,
+    createdAt: new Date().toISOString(), items: [...CART.values()],
   };
-  const list = loadBriefs();
-  list.unshift(rec);
-  persistBriefs(list);
+  const list = loadClients();
+  const client = findOrCreateClient(list, company, BRIEF_CTX, niche);
+  client.briefs.unshift(rec);
+  persistClients(list);
 
   // Wrap up for the next client: clear cart, reopen the details editor.
   CART = new Map();
@@ -1158,9 +1186,77 @@ function saveCurrentBrief() {
     editor.classList.remove("collapsed");
     renderShelf(document.getElementById("brief-niche")?.value || "");
   }
-  // Land on the stack so the new brief is visibly on top, ready to flip through.
+  // Land inside the client folder with the new brief on top.
+  CLIENT_VIEW = { id: client.id };
+  BRIEF_VIEW = null;
   renderBriefs();
   activateTab("tab-briefs");
+}
+
+// ---------- Performance tracking ----------
+/** Benchmark prediction: median views for this format×hook in the client's
+    niche pool (falling back to format-only, then the whole pool). Locked in
+    when the post is added, so later comparisons are stable. */
+function predictViews(niche, format, hook) {
+  let pool = niche ? ALL.filter((r) => r.niche_category === niche) : ALL;
+  if (pool.length < MIN_N_NICHE) pool = ALL;
+  let seg = pool.filter((r) => r.format_type === format && r.hook_pattern === hook);
+  if (seg.length < 5) seg = pool.filter((r) => r.format_type === format);
+  if (seg.length < 5) seg = pool;
+  return Math.max(1, Math.round(median(seg.map(views))));
+}
+
+function parseNum(s) {
+  const t = String(s || "").trim().toLowerCase().replace(/[, ]/g, "");
+  const m = t.match(/^([\d.]+)([km])?$/);
+  if (!m) return NaN;
+  return Math.round(parseFloat(m[1]) * (m[2] === "m" ? 1e6 : m[2] === "k" ? 1e3 : 1));
+}
+
+const postLatest = (p) => p.checkins.length ? p.checkins[p.checkins.length - 1].views : null;
+
+/** Tiny SVG line chart: actual series vs a dashed benchmark line.
+    Color comes from the parent's .good/.bad class via currentColor. */
+function sparkSvg(points, predicted, w = 240, h = 64) {
+  const pad = 7;
+  const ys = points.filter((v) => v != null);
+  if (!ys.length) return `<div class="lbl">no check-ins yet</div>`;
+  const maxY = Math.max(...ys, predicted || 0) * 1.1 || 1;
+  const x = (i) => points.length === 1 ? w / 2 : pad + (i * (w - 2 * pad)) / (points.length - 1);
+  const y = (v) => h - pad - (v / maxY) * (h - 2 * pad);
+  const line = points.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const py = predicted ? y(predicted).toFixed(1) : null;
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    ${py !== null ? `<line x1="${pad}" y1="${py}" x2="${w - pad}" y2="${py}" class="spark-pred"/>` : ""}
+    ${points.length > 1 ? `<polyline points="${line}" class="spark-line"/>` : ""}
+    ${points.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3" class="spark-dot"/>`).join("")}
+  </svg>`;
+}
+
+/** Cumulative actual views over check-in dates, across all of a client's posts. */
+function growthSeries(client) {
+  const events = client.posts.flatMap((p) =>
+    p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views }))).sort((a, b) => a.d < b.d ? -1 : 1);
+  const latest = new Map();
+  return events.map((e) => {
+    latest.set(e.id, e.views);
+    return [...latest.values()].reduce((a, b) => a + b, 0);
+  });
+}
+
+
+function ratioLabel(ratio) {
+  return ratio >= 10 ? ratio.toFixed(0) + "× benchmark"
+       : ratio >= 2 ? ratio.toFixed(1) + "× benchmark"
+       : (ratio * 100).toFixed(0) + "% of benchmark";
+}
+
+function clientVerdict(client) {
+  const tracked = client.posts.filter((p) => p.checkins.length);
+  if (!tracked.length) return null;
+  const actual = tracked.reduce((a, p) => a + postLatest(p), 0);
+  const predicted = tracked.reduce((a, p) => a + (p.predicted || 0), 0) || 1;
+  return { actual, predicted, ratio: actual / predicted, good: actual >= predicted };
 }
 
 function scriptsAsText(ctx, items) {
@@ -1187,69 +1283,231 @@ async function copyScripts() {
   } catch { /* clipboard denied — saving still works */ }
 }
 
-// ---------- Briefs tab: stacked list + flip-through viewer ----------
-let BRIEF_VIEW = null;   // { id, page, dir } when a brief is open
+// ---------- Clients tab: folders -> client page -> brief flip-through ----------
+let CLIENT_VIEW = null;  // { id } when a client folder is open
+let BRIEF_VIEW = null;   // { id, page, dir } when a brief inside it is open
+
+// Two-step delete used everywhere something is gone forever.
+function armDelete(btn, label, onConfirm) {
+  btn.addEventListener("click", () => {
+    if (!btn.classList.contains("armed")) {
+      btn.classList.add("armed");
+      btn.textContent = "Delete forever?";
+      setTimeout(() => { btn.classList.remove("armed"); btn.textContent = label; }, 3500);
+      return;
+    }
+    if (!confirm("This permanently deletes it — it cannot be recovered. Delete?")) {
+      btn.classList.remove("armed"); btn.textContent = label;
+      return;
+    }
+    onConfirm();
+  });
+}
 
 function renderBriefs() {
   const host = document.getElementById("briefs-host");
-  const list = loadBriefs();
+  const list = loadClients();
 
-  if (BRIEF_VIEW) {
-    const rec = list.find((b) => b.id === BRIEF_VIEW.id);
-    if (rec) { renderBriefViewer(host, rec); return; }
-    BRIEF_VIEW = null;
+  if (CLIENT_VIEW) {
+    const client = list.find((c) => c.id === CLIENT_VIEW.id);
+    if (client) {
+      if (BRIEF_VIEW) {
+        const rec = client.briefs.find((b) => b.id === BRIEF_VIEW.id);
+        if (rec) { renderBriefViewer(host, rec, client); return; }
+        BRIEF_VIEW = null;
+      }
+      renderClientPage(host, client, list);
+      return;
+    }
+    CLIENT_VIEW = null;
   }
 
   if (!list.length) {
-    host.innerHTML = `<h2>Briefs</h2>
-      <div class="empty"><p><strong>No saved briefs yet.</strong></p>
-        <p>Build one in the Client brief tab — pick 10 videos and hit Save brief.</p></div>`;
+    host.innerHTML = `<h2>Clients</h2>
+      <div class="empty"><p><strong>No clients yet.</strong></p>
+        <p>Save a brief in the New brief tab — its company becomes your first client folder.</p></div>`;
     return;
   }
 
-  host.innerHTML = `<h2>Briefs <span class="pill">${list.length}</span></h2>
-    <div class="brief-stack">` + list.map((b) => `
-      <article class="bcard" data-id="${escapeHtml(b.id)}">
+  host.innerHTML = `<h2>Clients <span class="pill">${list.length}</span></h2>
+    <div class="brief-stack">` + list.map((c) => {
+      const v = clientVerdict(c);
+      return `
+      <article class="bcard" data-id="${escapeHtml(c.id)}">
         <div class="bcard-main">
-          <div class="bcard-title">${escapeHtml(b.company)}</div>
-          <div class="lbl">${escapeHtml((b.createdAt || "").slice(0, 10))}
-            · ${escapeHtml(b.niche || "All niches")} · ${b.items.length} videos</div>
+          <div class="bcard-title">${escapeHtml(c.company)}</div>
+          <div class="lbl">${escapeHtml(c.niche || "All niches")} · ${c.briefs.length} brief${c.briefs.length === 1 ? "" : "s"}
+            · ${c.posts.length} post${c.posts.length === 1 ? "" : "s"}</div>
         </div>
+        ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${ratioLabel(v.ratio)}</span>` : ""}
         <button type="button" class="btn b-open">Open</button>
-        <button type="button" class="ghost b-docx" title="Download as .docx for Google Docs">.docx</button>
-        <button type="button" class="ghost b-del" title="Delete brief">Delete</button>
-      </article>`).join("") + `</div>`;
+        <button type="button" class="ghost b-del">Delete</button>
+      </article>`;
+    }).join("") + `</div>`;
 
   host.querySelectorAll(".bcard").forEach((card) => {
     const id = card.dataset.id;
     card.querySelector(".b-open").addEventListener("click", () => {
-      BRIEF_VIEW = { id, page: 0, dir: "first-open" };
-      renderBriefs();
+      CLIENT_VIEW = { id }; BRIEF_VIEW = null; renderBriefs();
     });
-    card.querySelector(".b-docx").addEventListener("click", () => {
-      const rec = loadBriefs().find((b) => b.id === id);
-      if (rec) downloadDocx(rec.ctx, rec.items, (rec.createdAt || "").slice(0, 10));
-    });
-    const del = card.querySelector(".b-del");
-    del.addEventListener("click", () => {
-      // Two-step delete: arm first (auto-disarms), then a final confirm.
-      if (!del.classList.contains("armed")) {
-        del.classList.add("armed");
-        del.textContent = "Delete forever?";
-        setTimeout(() => { del.classList.remove("armed"); del.textContent = "Delete"; }, 3500);
-        return;
-      }
-      if (!confirm("This permanently deletes the brief — it cannot be recovered. Delete it?")) {
-        del.classList.remove("armed"); del.textContent = "Delete";
-        return;
-      }
-      persistBriefs(loadBriefs().filter((b) => b.id !== id));
+    armDelete(card.querySelector(".b-del"), "Delete", () => {
+      persistClients(loadClients().filter((c) => c.id !== id));
       renderBriefs();
     });
   });
 }
 
-function renderBriefViewer(host, rec) {
+function renderClientPage(host, client, list) {
+  const v = clientVerdict(client);
+  const growth = growthSeries(client);
+  const formats = [...new Set(client.posts.map((p) => p.format))];
+  const fmtOptions = [...new Set(ALL.map((r) => r.format_type).filter(Boolean))].sort();
+  const hookOptions = [...new Set(ALL.map((r) => r.hook_pattern).filter(Boolean))].sort();
+
+  host.innerHTML = `
+    <div class="viewer-top">
+      <button type="button" class="ghost" id="cl-back">← All clients</button>
+      <div class="minw0">
+        <div class="bcard-title">${escapeHtml(client.company)}</div>
+        <div class="lbl">${escapeHtml(client.niche || "All niches")}${client.ctx?.audience ? " · " + escapeHtml(client.ctx.audience) : ""}</div>
+      </div>
+    </div>
+
+    <div class="growth-card ${v ? (v.good ? "good" : "bad") : ""}">
+      <div class="growth-head">
+        <h2>Growth — total views across tracked posts</h2>
+        ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
+            : `<span class="lbl">add posts and check-ins below to start the graph</span>`}
+      </div>
+      ${growth.length ? sparkSvg(growth, v ? v.predicted : null, 720, 110) : ""}
+    </div>
+
+    ${formats.length ? `<h2>Prediction vs actual — by format</h2>
+    <div class="fmt-grid">` + formats.map((f) => {
+      const posts = client.posts.filter((p) => p.format === f && p.checkins.length);
+      const pts = posts.map(postLatest);
+      const pred = posts.length ? Math.round(median(posts.map((p) => p.predicted || 0))) : 0;
+      const beat = posts.filter((p) => postLatest(p) >= (p.predicted || 0)).length;
+      const good = posts.length && beat >= posts.length / 2;
+      return `<div class="fmt-card ${posts.length ? (good ? "good" : "bad") : ""}">
+        <div class="fmt-head"><strong>${escapeHtml(f)}</strong>
+          <span class="lbl">${posts.length ? `${beat}/${posts.length} beat benchmark` : "no check-ins yet"}</span></div>
+        ${posts.length ? sparkSvg(pts, pred) : `<div class="lbl">—</div>`}
+      </div>`;
+    }).join("") + `</div>` : ""}
+
+    <h2>Tracked posts <span class="pill">${client.posts.length}</span></h2>
+    <form class="post-form" id="post-form">
+      <input type="url" id="pf-url" placeholder="Post URL" required>
+      <input type="text" id="pf-creator" placeholder="Creator">
+      <select id="pf-format">${fmtOptions.map((f) => `<option>${escapeHtml(f)}</option>`).join("")}</select>
+      <select id="pf-hook">${hookOptions.map((h) => `<option>${escapeHtml(h)}</option>`).join("")}</select>
+      <button type="submit" class="btn">Track post</button>
+    </form>
+    <p class="note">The benchmark prediction (median views for that format in ${escapeHtml(client.niche || "the database")})
+      locks in when you add the post. Check in with current views whenever — each check-in becomes a point on the trend.</p>
+
+    <div class="post-list">` + client.posts.map((p) => {
+      const latest = postLatest(p);
+      const good = latest != null && latest >= (p.predicted || 0);
+      const href = safeUrl(p.url);
+      return `<div class="post-row ${latest != null ? (good ? "good" : "bad") : ""}" data-pid="${escapeHtml(p.id)}">
+        <div class="post-main">
+          <div class="vtitle">${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.url.replace(/^https?:\/\//, "").slice(0, 60))}</a>` : escapeHtml(p.url)}</div>
+          <div class="lbl">${escapeHtml(p.creator || "—")} · ${escapeHtml(p.format)} × ${escapeHtml(p.hook)} · added ${escapeHtml((p.addedAt || "").slice(0, 10))}</div>
+          <div class="post-nums">
+            <span class="lbl">benchmark</span> <span class="mono">${compact(p.predicted || 0)}</span>
+            <span class="lbl">latest</span> <span class="mono verdict ${latest != null ? (good ? "good" : "bad") : ""}">${latest != null ? compact(latest) : "—"}</span>
+            <span class="lbl">${p.checkins.length} check-in${p.checkins.length === 1 ? "" : "s"}</span>
+          </div>
+        </div>
+        <div class="post-spark">${sparkSvg(p.checkins.map((c) => c.views), p.predicted)}</div>
+        <form class="checkin-form">
+          <input type="text" class="ci-views" placeholder="views now (e.g. 12.5k)" required>
+          <button type="submit" class="ghost">Check in</button>
+          <button type="button" class="ghost p-del">Delete</button>
+        </form>
+      </div>`;
+    }).join("") + `</div>
+
+    ${client.briefs.length ? `<h2>Briefs <span class="pill">${client.briefs.length}</span></h2>
+    <div class="brief-stack">` + client.briefs.map((b) => `
+      <article class="bcard" data-bid="${escapeHtml(b.id)}">
+        <div class="bcard-main">
+          <div class="bcard-title">${escapeHtml((b.createdAt || "").slice(0, 10))}</div>
+          <div class="lbl">${escapeHtml(b.niche || "All niches")} · ${b.items.length} videos</div>
+        </div>
+        <button type="button" class="btn br-open">Open</button>
+        <button type="button" class="ghost br-docx" title="Download as .docx for Google Docs">.docx</button>
+        <button type="button" class="ghost br-del">Delete</button>
+      </article>`).join("") + `</div>` : ""}`;
+
+  document.getElementById("cl-back").addEventListener("click", () => {
+    CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
+  });
+
+  // track a new post — benchmark locked in now
+  document.getElementById("post-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const url = normalizeClientUrl(document.getElementById("pf-url").value);
+    if (!url) return;
+    const format = document.getElementById("pf-format").value;
+    const hook = document.getElementById("pf-hook").value;
+    const fresh = loadClients();
+    const c = fresh.find((x) => x.id === client.id);
+    c.posts.unshift({
+      id: newId(), url, creator: document.getElementById("pf-creator").value.trim(),
+      format, hook, predicted: predictViews(c.niche, format, hook),
+      addedAt: new Date().toISOString(), checkins: [],
+    });
+    persistClients(fresh);
+    renderBriefs();
+  });
+
+  // check-ins + post deletion
+  host.querySelectorAll(".post-row").forEach((rowEl) => {
+    const pid = rowEl.dataset.pid;
+    rowEl.querySelector(".checkin-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const n = parseNum(rowEl.querySelector(".ci-views").value);
+      if (isNaN(n)) { rowEl.querySelector(".ci-views").select(); return; }
+      const fresh = loadClients();
+      const p = fresh.find((x) => x.id === client.id)?.posts.find((x) => x.id === pid);
+      if (!p) return;
+      p.checkins.push({ d: new Date().toISOString().slice(0, 10), views: n });
+      persistClients(fresh);
+      renderBriefs();
+    });
+    armDelete(rowEl.querySelector(".p-del"), "Delete", () => {
+      const fresh = loadClients();
+      const c = fresh.find((x) => x.id === client.id);
+      c.posts = c.posts.filter((x) => x.id !== pid);
+      persistClients(fresh);
+      renderBriefs();
+    });
+  });
+
+  // briefs inside the folder
+  host.querySelectorAll(".bcard[data-bid]").forEach((card) => {
+    const bid = card.dataset.bid;
+    card.querySelector(".br-open").addEventListener("click", () => {
+      BRIEF_VIEW = { id: bid, page: 0, dir: "first-open" }; renderBriefs();
+    });
+    card.querySelector(".br-docx").addEventListener("click", () => {
+      const rec = loadClients().find((c) => c.id === client.id)?.briefs.find((b) => b.id === bid);
+      if (rec) downloadDocx(rec.ctx, rec.items, (rec.createdAt || "").slice(0, 10));
+    });
+    armDelete(card.querySelector(".br-del"), "Delete", () => {
+      const fresh = loadClients();
+      const c = fresh.find((x) => x.id === client.id);
+      c.briefs = c.briefs.filter((b) => b.id !== bid);
+      persistClients(fresh);
+      renderBriefs();
+    });
+  });
+}
+
+function renderBriefViewer(host, rec, client) {
   const n = rec.items.length;
   const page = Math.min(Math.max(BRIEF_VIEW.page, 0), n - 1);
   BRIEF_VIEW.page = page;
@@ -1261,7 +1519,7 @@ function renderBriefViewer(host, rec) {
 
   host.innerHTML = `
     <div class="viewer-top">
-      <button type="button" class="ghost" id="bv-back">← All briefs</button>
+      <button type="button" class="ghost" id="bv-back">← ${escapeHtml(client?.company || "Back")}</button>
       <div class="minw0">
         <div class="bcard-title">${escapeHtml(rec.company)}</div>
         <div class="lbl">${escapeHtml((rec.createdAt || "").slice(0, 10))} · ${escapeHtml(rec.niche || "All niches")}</div>
