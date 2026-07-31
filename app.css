@@ -444,6 +444,8 @@
   .good .spark-line { stroke: var(--good); } .good .spark-dot { fill: var(--good); }
   .bad .spark-line { stroke: var(--bad); } .bad .spark-dot { fill: var(--bad); }
   .spark-pred { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 5 5; }
+  .spark-est { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 1.5 5; stroke-linecap: round; }
+  .spark-est-dot { fill: none; stroke: var(--text-3); stroke-width: 1.5; }
 
   .fmt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 30px; }
   .fmt-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }

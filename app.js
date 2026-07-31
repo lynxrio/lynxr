@@ -1220,6 +1220,8 @@ const postLatest = (p) => p.checkins.length ? p.checkins[p.checkins.length - 1].
 function sparkSvg(points, predicted, w = 240, h = 64) {
   const pad = 7;
   const ys = points.filter((v) => v != null);
+  const estSeries = Array.isArray(predicted) ? predicted : null;
+  const estFlat = Array.isArray(predicted) ? null : predicted;
   if (!ys.length) {
     // Always show the graph, even empty: frame + dashed benchmark placeholder.
     return `<svg class="spark empty" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
@@ -1227,27 +1229,36 @@ function sparkSvg(points, predicted, w = 240, h = 64) {
       <line x1="${pad}" y1="${h / 2}" x2="${w - pad}" y2="${h / 2}" class="spark-pred"/>
     </svg>`;
   }
-  const maxY = Math.max(...ys, predicted || 0) * 1.1 || 1;
+  const estVals = estSeries ? estSeries.filter((v) => v != null) : [];
+  const maxY = Math.max(...ys, ...(estVals.length ? estVals : [0]), estFlat || 0) * 1.1 || 1;
   const x = (i) => points.length === 1 ? w / 2 : pad + (i * (w - 2 * pad)) / (points.length - 1);
   const y = (v) => h - pad - (v / maxY) * (h - 2 * pad);
   const line = points.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const py = predicted ? y(predicted).toFixed(1) : null;
+  const estLine = estSeries ? estSeries.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ") : null;
+  const py = estFlat ? y(estFlat).toFixed(1) : null;
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
     ${py !== null ? `<line x1="${pad}" y1="${py}" x2="${w - pad}" y2="${py}" class="spark-pred"/>` : ""}
+    ${estLine && estSeries.length > 1 ? `<polyline points="${estLine}" class="spark-est"/>` : ""}
+    ${estSeries ? estSeries.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.5" class="spark-est-dot"/>`).join("") : ""}
     ${points.length > 1 ? `<polyline points="${line}" class="spark-line"/>` : ""}
     ${points.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3" class="spark-dot"/>`).join("")}
   </svg>`;
 }
 
 /** Cumulative actual views over check-in dates, across all of a client's posts. */
-function growthSeries(client) {
-  const events = client.posts.flatMap((p) =>
+function growthSeries(posts) {
+  const byId = new Map(posts.map((p) => [p.id, p]));
+  const events = posts.flatMap((p) =>
     p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views }))).sort((a, b) => a.d < b.d ? -1 : 1);
-  const latest = new Map();
-  return events.map((e) => {
+  const latest = new Map(), estSeen = new Map();
+  const actual = [], pred = [];
+  for (const e of events) {
     latest.set(e.id, e.views);
-    return [...latest.values()].reduce((a, b) => a + b, 0);
-  });
+    estSeen.set(e.id, byId.get(e.id)?.predicted || 0);
+    actual.push([...latest.values()].reduce((a, b) => a + b, 0));
+    pred.push([...estSeen.values()].reduce((a, b) => a + b, 0));
+  }
+  return { actual, pred };
 }
 
 
@@ -1374,7 +1385,7 @@ function renderBriefs() {
 
 function renderClientPage(host, client, list) {
   const v = clientVerdict(client);
-  const growth = growthSeries(client);
+  const growth = growthSeries(client.posts);
   const formats = [...new Set(client.posts.map((p) => p.format))];
   const fmtOptions = [...new Set(ALL.map((r) => r.format_type).filter(Boolean))].sort();
   const hookOptions = [...new Set(ALL.map((r) => r.hook_pattern).filter(Boolean))].sort();
@@ -1394,20 +1405,21 @@ function renderClientPage(host, client, list) {
         ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
             : `<span class="lbl">add posts and check-ins below to start the graph</span>`}
       </div>
-      ${growth.length ? sparkSvg(growth, v ? v.predicted : null, 720, 110) : ""}
+      ${growth.actual.length ? sparkSvg(growth.actual, growth.pred, 720, 110) : sparkSvg([], null, 720, 110)}
     </div>
 
     ${formats.length ? `<h2>Prediction vs actual — by format</h2>
     <div class="fmt-grid">` + formats.map((f) => {
       const posts = client.posts.filter((p) => p.format === f && p.checkins.length);
       const pts = posts.map(postLatest);
-      const pred = posts.length ? Math.round(median(posts.map((p) => p.predicted || 0))) : 0;
+      const predSeries = posts.map((p) => p.predicted || 0);
+      const pred = posts.length ? Math.round(median(predSeries)) : 0;
       const beat = posts.filter((p) => postLatest(p) >= (p.predicted || 0)).length;
       const good = posts.length && beat >= posts.length / 2;
       return `<div class="fmt-card ${posts.length ? (good ? "good" : "bad") : ""}">
         <div class="fmt-head"><strong>${escapeHtml(f)}</strong>
           <span class="lbl">${posts.length ? `${beat}/${posts.length} beat benchmark` : "no check-ins yet"}</span></div>
-        ${posts.length ? sparkSvg(pts, pred) : `<div class="lbl">—</div>`}
+        ${posts.length ? sparkSvg(pts, predSeries) : sparkSvg([], null)}
       </div>`;
     }).join("") + `</div>` : ""}
 
@@ -1588,17 +1600,15 @@ function weekDashboardHtml(rec, client) {
   const tracked = posts.filter((p) => p.checkins.length);
   const v = weekVerdict(client, rec.id);
 
-  // Week growth series: cumulative views across this week's posts
-  const events = posts.flatMap((p) => p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views })))
-    .sort((a, b) => a.d < b.d ? -1 : 1);
-  const latest = new Map();
-  const series = events.map((e) => { latest.set(e.id, e.views); return [...latest.values()].reduce((a, b) => a + b, 0); });
+  // Week growth: cumulative actual vs the accumulating estimate (dotted)
+  const series = growthSeries(posts);
 
   // Per-script cards: match this week's posts to each script by format×hook
   const scriptCards = rec.items.map((it, i) => {
     const matched = posts.filter((p) => p.format === it.format_type && p.hook === it.hook_pattern && p.checkins.length);
     const pts = matched.map(postLatest);
-    const pred = matched.length ? Math.round(median(matched.map((p) => p.predicted || 0)))
+    const predSeries = matched.map((p) => p.predicted || 0);
+    const pred = matched.length ? Math.round(median(predSeries))
                                 : predictViews(client.niche, it.format_type, it.hook_pattern);
     const ratios = matched.map(postRatio);
     const avg = ratios.length ? ratios.reduce((a, b) => a + b, 0) / ratios.length : null;
@@ -1614,7 +1624,7 @@ function weekDashboardHtml(rec, client) {
         <strong>${i + 1}. ${escapeHtml(it.format_type || "—")} × ${escapeHtml(it.hook_pattern || "—")}</strong>
         <span class="fmt-head-right"><span class="verdict ${cls}">${escapeHtml(status)}</span><span class="caret">${expanded ? "▾" : "▸"}</span></span>
       </div>
-      ${sparkSvg(pts, pred)}
+      ${sparkSvg(pts, matched.length ? predSeries : pred)}
       ${expanded ? scriptDetailHtml(rec, client, i, matched) : ""}
     </div>`;
   }).join("");
@@ -1656,7 +1666,7 @@ function weekDashboardHtml(rec, client) {
         ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
             : `<span class="lbl">the graph fills in as posts get check-ins</span>`}
       </div>
-      ${sparkSvg(series, v ? v.predicted : null, 720, 110)}
+      ${series.actual.length ? sparkSvg(series.actual, series.pred, 720, 110) : sparkSvg([], null, 720, 110)}
     </div>
 
     ${recs.length ? `<div class="recs"><h2>What to change</h2><ul>${recs.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div>` : ""}
