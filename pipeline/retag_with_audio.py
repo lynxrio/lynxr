@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""Re-tag videos using what was actually said, not just the caption.
+
+This is where the accuracy comes from. transcribe.py produced the evidence;
+this feeds it to the tagger and overwrites the caption-only guesses.
+
+Three kinds of evidence now reach the model:
+  1. The spoken hook — the literal words in the first ~3 seconds. The taxonomy
+     defines the hook pattern by exactly this, so it stops being inference.
+  2. The full transcript — first-person address ("I", "you guys") means a
+     talking head; narration over unrelated footage reads differently; a
+     numbered rundown out loud is a Listicle no matter what the caption says.
+  3. has_speech=false — a real answer, not a gap. No speech means the message
+     is carried by on-screen text or the visual, which points at Meme / Trend
+     Clip and a non-spoken hook.
+
+Only rows with a transcript are touched; everything else keeps its current tag.
+Each retagged row records tag_source=audio so you can tell measured tags from
+inferred ones later.
+
+Usage:
+    python retag_with_audio.py --dry-run    # show what would change
+    python retag_with_audio.py              # apply, then re-encrypt
+"""
+
+import argparse
+import csv
+import json
+import logging
+import shutil
+import sys
+import time
+from collections import Counter
+from datetime import date
+from pathlib import Path
+
+import anthropic
+
+sys.path.insert(0, str(Path(__file__).parent))
+from taxonomy import FORMAT_TYPES, HOOK_PATTERNS, NICHE_CATEGORIES, TARGET_AUDIENCES, TAG_SCHEMA
+from merge_data import MASTER_FIELDS, summarize, to_int
+
+ROOT = Path(__file__).parent.parent
+MASTER = ROOT / "output" / "master_video_database.csv"
+TRANSCRIPTS = ROOT / "output" / "transcripts.jsonl"
+MODEL = "claude-opus-5"
+DIMS = ["format_type", "hook_pattern", "niche_category", "target_audience"]
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout),
+              logging.FileHandler(ROOT / "output" / "retag_audio.log")],
+)
+log = logging.getLogger("retag-audio")
+
+SYSTEM = f"""You are tagging short-form videos for Lynxr using a LOCKED taxonomy.
+Unlike caption-only tagging, you can now hear the video: you get the words spoken
+in the first ~3 seconds and the full transcript. Use them as primary evidence —
+they outrank the caption whenever the two disagree.
+
+format_type: {", ".join(FORMAT_TYPES)}
+hook_pattern: {", ".join(HOOK_PATTERNS)}
+niche_category: {", ".join(NICHE_CATEGORIES)}
+target_audience: {", ".join(TARGET_AUDIENCES)}
+
+Reading the audio:
+- SPOKEN HOOK is the hook. Classify hook_pattern from those exact words:
+  withholds a payoff -> Curiosity Gap; superlative/contrarian -> Bold Claim;
+  a number that stops the scroll -> Surprising Stat; names a frustration the
+  viewer shares -> Relatable Pain; insider/outsider -> Us vs Them; asks the
+  viewer -> Question; "stop doing X" -> Warning; "everyone's switching" ->
+  Social Proof; before/after -> Transformation; an imperative aimed at the
+  viewer -> Direct CTA; names/addresses a segment -> Audience Call-Out; the
+  creator's own feeling -> Emotional Share.
+- FORMAT from how they speak: sustained first-person address to camera ->
+  Talking Head; an enumerated rundown ("number one… number two") -> Listicle;
+  narrating an interface/walkthrough -> Screen Demo; recounting something that
+  happened to them -> Story Time; acted dialogue or characters -> Skit;
+  reacting to another clip -> Reaction / Duet; narration over footage with no
+  direct address -> Voiceover B-roll; "POV:" framing -> POV.
+- NO SPEECH means nothing is said aloud: the message is on-screen text or the
+  visual. That is normally Meme / Trend Clip, and the hook is No Hook unless the
+  caption itself carries a real device. Do not invent a spoken hook.
+- Ignore lyrics. If the transcript is only song lyrics, treat it as no speech.
+
+Commit to the most plausible specific value for every dimension. "Other" is only
+for genuinely unintelligible material."""
+
+
+def load_transcripts():
+    t = {}
+    if not TRANSCRIPTS.exists():
+        raise SystemExit(f"{TRANSCRIPTS} not found — run transcribe.py first.")
+    for line in TRANSCRIPTS.read_text().splitlines():
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if d.get("error"):
+            continue
+        t[d["video_id"]] = d
+    return t
+
+
+def user_content(row, tr):
+    caption = (row.get("title") or "").strip().replace("\n", " ")[:600]
+    parts = [f"Platform: {row['platform']}",
+             "Source: Medceptor campaign" if row["data_source"] == "Medceptor" else "Source: organic scrape",
+             f"Caption: {caption or '(none)'}"]
+    if tr.get("has_speech"):
+        parts.append(f'SPOKEN HOOK (first 3s, verbatim): "{tr["hook_spoken"]}"')
+        parts.append(f"FULL TRANSCRIPT: {tr['text'][:2000]}")
+    else:
+        parts.append("AUDIO: no speech — music or ambient only. "
+                     "The message is on-screen text or visual.")
+    return "Tag this video.\n\n" + "\n".join(parts)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--limit", type=int, default=0)
+    args = ap.parse_args()
+
+    trs = load_transcripts()
+    rows = list(csv.DictReader(open(MASTER, newline="", encoding="utf-8")))
+    targets = [(i, r) for i, r in enumerate(rows) if r["video_id"] in trs]
+    if args.limit:
+        targets = targets[: args.limit]
+    if not targets:
+        raise SystemExit("No transcribed videos found in the master database.")
+
+    speech = sum(1 for _, r in targets if trs[r["video_id"]].get("has_speech"))
+    log.info("%d transcribed rows to retag (%d with speech, %d without)",
+             len(targets), speech, len(targets) - speech)
+
+    client = anthropic.Anthropic()
+    requests = [{
+        "custom_id": f"a-{i}",
+        "params": {
+            "model": MODEL, "max_tokens": 2000,
+            "system": [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
+            "output_config": {"format": {"type": "json_schema", "schema": TAG_SCHEMA}},
+            "messages": [{"role": "user", "content": user_content(r, trs[r["video_id"]])}],
+        },
+    } for i, r in targets]
+
+    if args.dry_run:
+        i, r = targets[0]
+        log.info("DRY RUN — %d requests would be sent. Example prompt:\n%s",
+                 len(requests), requests[0]["params"]["messages"][0]["content"][:700])
+        return
+
+    state = ROOT / "output" / "retag_audio.batch_state.json"
+    if state.exists():
+        batch_id = json.loads(state.read_text())["batch_id"]
+        log.info("Resuming batch %s", batch_id)
+    else:
+        b = client.messages.batches.create(requests=requests)
+        state.write_text(json.dumps({"batch_id": b.id, "n": len(requests)}))
+        batch_id = b.id
+        log.info("Submitted batch %s (%d requests)", batch_id, len(requests))
+
+    while True:
+        b = client.messages.batches.retrieve(batch_id)
+        c = b.request_counts
+        log.info("batch %s: processing=%d succeeded=%d errored=%d",
+                 b.processing_status, c.processing, c.succeeded, c.errored)
+        if b.processing_status == "ended":
+            break
+        time.sleep(30)
+
+    snap = MASTER.with_name(f"master_before_audio_{date.today().isoformat()}.csv")
+    if not snap.exists():
+        shutil.copy(MASTER, snap)
+        log.info("snapshot -> %s", snap.name)
+
+    changed = Counter()
+    applied = 0
+    for result in client.messages.batches.results(batch_id):
+        idx = int(result.custom_id.split("-", 1)[1])
+        if result.result.type != "succeeded" or not (0 <= idx < len(rows)):
+            continue
+        msg = result.result.message
+        if msg.stop_reason == "refusal":
+            continue
+        try:
+            data = json.loads(next(b_.text for b_ in msg.content if b_.type == "text"))
+        except (StopIteration, json.JSONDecodeError):
+            continue
+        for d in DIMS:
+            if rows[idx][d] != data[d]:
+                changed[d] += 1
+            rows[idx][d] = data[d]
+        rows[idx]["tag_source"] = "audio"
+        applied += 1
+
+    fields = MASTER_FIELDS + (["tag_source"] if "tag_source" not in MASTER_FIELDS else [])
+    for r in rows:
+        r.setdefault("tag_source", "caption")
+    with open(MASTER, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+
+    log.info("Retagged %d rows from audio. Changes: %s", applied, dict(changed))
+    log.info("  (a change means the caption-only tag was wrong and audio corrected it)")
+
+    for r in rows:
+        r["views"] = to_int(r["views"])
+        r.setdefault("_url", r.get("url", ""))
+    (ROOT / "output" / "data_summary.txt").write_text(summarize(rows, 0) + "\n")
+    log.info("Summary regenerated. Re-encrypt with: "
+             "./venv/bin/python pipeline/export_web.py --access-code YOURCODE")
+
+
+if __name__ == "__main__":
+    main()
