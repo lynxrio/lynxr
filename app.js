@@ -58,9 +58,12 @@ function unlock(rows) {
   if (unlocked) return;   // guard: double-unlock would double-bind listeners
   unlocked = true;
   document.getElementById("err").textContent = "";
-  gate.style.display = "none";
-  app.style.display = "block";
-  app.classList.add("shown");
+  gate.classList.add("leaving");
+  setTimeout(() => {
+    gate.style.display = "none";
+    app.style.display = "block";
+    app.classList.add("shown");
+  }, 160);
   renderApp(rows);
 }
 
@@ -161,11 +164,16 @@ function renderBars(hostId, pairs, limit = 8, drillSelectId = null) {
   // Widths via CSSOM, not style="" attributes — the strict CSP (style-src 'self',
   // no 'unsafe-inline') silently discards inline style attributes, which shipped
   // as invisible bars. el.style assignment is allowed under CSP.
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  // Force the width:0 state to be styled, then set targets a tick later so the
+  // transition animates the draw-in. setTimeout (not rAF): rAF never fires in
+  // hidden tabs, which would leave the bars empty until something else painted.
+  void host.offsetWidth;
+  setTimeout(() => {
     [...host.querySelectorAll(".bar-fill")].forEach((el, i) => {
+      el.style.transitionDelay = (i * 45) + "ms";
       el.style.width = Math.max((shown[i][1] / max) * 100, 1).toFixed(2) + "%";
     });
-  }));
+  }, 30);
   // Overview shows the split; clicking a bar drills into those exact videos.
   if (drillSelectId) {
     host.querySelectorAll(".bar-row.drill").forEach((rowEl) => {
@@ -778,6 +786,8 @@ function refreshTray() {
   tray.innerHTML = trayHtml();
   const strong = tray.querySelector(".tray-count strong");
   if (strong && LAST_TRAY_N !== -1 && CART.size !== LAST_TRAY_N) strong.classList.add("bump");
+  if (CART.size >= CART_LIMIT && LAST_TRAY_N < CART_LIMIT)
+    document.getElementById("tray-export")?.classList.add("ready");
   LAST_TRAY_N = CART.size;
   document.getElementById("tray-export")?.addEventListener("click", saveCurrentBrief);
   document.getElementById("tray-copy")?.addEventListener("click", copyScripts);
@@ -1169,7 +1179,7 @@ async function copyScripts() {
 }
 
 // ---------- Briefs tab: stacked list + flip-through viewer ----------
-let BRIEF_VIEW = null;   // { id, page } when a brief is open
+let BRIEF_VIEW = null;   // { id, page, dir } when a brief is open
 
 function renderBriefs() {
   const host = document.getElementById("briefs-host");
@@ -1204,7 +1214,7 @@ function renderBriefs() {
   host.querySelectorAll(".bcard").forEach((card) => {
     const id = card.dataset.id;
     card.querySelector(".b-open").addEventListener("click", () => {
-      BRIEF_VIEW = { id, page: 0 };
+      BRIEF_VIEW = { id, page: 0, dir: "first-open" };
       renderBriefs();
     });
     card.querySelector(".b-docx").addEventListener("click", () => {
@@ -1250,7 +1260,7 @@ function renderBriefViewer(host, rec) {
       <div class="spacer"></div>
       <button type="button" class="ghost" id="bv-docx">Download .docx</button>
     </div>
-    <div class="viewer">
+    <div class="viewer ${BRIEF_VIEW.dir || "first-open"}">
       <div class="viewer-player-col">
         ${frameHtml(row).replace('class="vframe ', 'class="vframe viewer-player ')}
       </div>
@@ -1284,8 +1294,8 @@ function renderBriefViewer(host, rec) {
   document.getElementById("bv-back").addEventListener("click", () => { BRIEF_VIEW = null; renderBriefs(); });
   document.getElementById("bv-docx").addEventListener("click", () =>
     downloadDocx(rec.ctx, rec.items, (rec.createdAt || "").slice(0, 10)));
-  document.getElementById("bv-prev").addEventListener("click", () => { BRIEF_VIEW.page--; renderBriefs(); });
-  document.getElementById("bv-next").addEventListener("click", () => { BRIEF_VIEW.page++; renderBriefs(); });
+  document.getElementById("bv-prev").addEventListener("click", () => { BRIEF_VIEW.page--; BRIEF_VIEW.dir = "from-left"; renderBriefs(); });
+  document.getElementById("bv-next").addEventListener("click", () => { BRIEF_VIEW.page++; BRIEF_VIEW.dir = "from-right"; renderBriefs(); });
   const play = host.querySelector(".vplay");
   if (play) play.addEventListener("click", () => playInFrame(host.querySelector(".viewer-player"), row));
   fillTikTokThumbs([row]);
@@ -1525,8 +1535,8 @@ function renderApp(rows) {
   document.addEventListener("keydown", (e) => {
     if (!BRIEF_VIEW || document.getElementById("panel-briefs").hidden) return;
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) return;
-    if (e.key === "ArrowLeft") { BRIEF_VIEW.page--; renderBriefs(); }
-    if (e.key === "ArrowRight") { BRIEF_VIEW.page++; renderBriefs(); }
+    if (e.key === "ArrowLeft") { BRIEF_VIEW.page--; BRIEF_VIEW.dir = "from-left"; renderBriefs(); }
+    if (e.key === "ArrowRight") { BRIEF_VIEW.page++; BRIEF_VIEW.dir = "from-right"; renderBriefs(); }
   });
   initControls();
   initBrief();
