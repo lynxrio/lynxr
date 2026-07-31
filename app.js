@@ -1384,6 +1384,28 @@ function sparkSvg(points, predicted, w = 240, h = 64) {
 
 /** Full chart with x/y axes: dotted estimated slope vs solid actual line.
     Points are {x, y} where x is days since the chart's day zero. */
+/** Linear-interpolated value of a series at day x (null if out of range). */
+function seriesAt(series, x) {
+  if (!series.length) return null;
+  if (x < series[0].x || x > series[series.length - 1].x) return null;
+  for (let i = 1; i < series.length; i++) {
+    if (series[i].x >= x) {
+      const a = series[i - 1], b = series[i];
+      const t = b.x === a.x ? 0 : (x - a.x) / (b.x - a.x);
+      return a.y + (b.y - a.y) * t;
+    }
+  }
+  return series[series.length - 1].y;
+}
+
+/** Last known cumulative actual at or before day x — check-ins are discrete,
+    so stepping is honest where interpolating would invent numbers. */
+function actualAt(series, x) {
+  let v = null;
+  for (const p of series) if (p.x <= x + 1e-9) v = p.y;
+  return v;
+}
+
 function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1, tone = "" }) {
   const padL = 74, padR = 16, padT = 14, padB = 46;   // room for axis titles
   // "Nice" top so ticks are readable view counts, never fractions.
@@ -1416,8 +1438,25 @@ function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1,
     <text class="axis-title" text-anchor="middle" transform="translate(18 ${midY}) rotate(-90)">cumulative views</text>
     <text class="axis-title" text-anchor="middle" x="${padL + (w - padL - padR) / 2}" y="${h - 6}">days since brief</text>
     ${est.length > 1 ? `<polyline points="${poly(est)}" class="line-pred"/>` : ""}
+    ${xTicks.map((d) => {
+      const pv = seriesAt(est, d);
+      return pv == null ? "" : `<circle cx="${X(d).toFixed(1)}" cy="${Y(pv).toFixed(1)}" r="2.8" class="dot-pred"/>`;
+    }).join("")}
     ${actual.length > 1 ? `<polyline points="${poly(actual)}" class="line-actual"/>` : ""}
-    ${actual.map((p) => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.5" class="dot-actual"/>`).join("")}
+    ${xTicks.map((d) => {
+      const av = actualAt(actual, d);
+      return av == null ? "" : `<circle cx="${X(d).toFixed(1)}" cy="${Y(av).toFixed(1)}" r="3.4" class="dot-actual"/>`;
+    }).join("")}
+    ${xTicks.map((d) => {
+      const pv = seriesAt(est, d), av = actualAt(actual, d);
+      const half = (w - padL - padR) / (xTicks.length - 1 || 1) / 2;
+      return `<rect class="hit" x="${(X(d) - half).toFixed(1)}" y="${padT}"
+        width="${(half * 2).toFixed(1)}" height="${(h - padT - padB).toFixed(1)}"
+        data-day="${d}" data-x="${X(d).toFixed(1)}"
+        data-pred="${pv == null ? "" : Math.round(pv)}"
+        data-actual="${av == null ? "" : Math.round(av)}"/>`;
+    }).join("")}
+    <line class="hover-rule" x1="0" y1="${padT}" x2="0" y2="${h - padB}" style="display:none"/>
   </svg>`;
 }
 
