@@ -166,9 +166,30 @@ def load_transcripts():
     return t
 
 
-def cover_for(video_id):
+# Vision cost scales with pixel area (~w*h/750 tokens). Covers arrive anywhere
+# from 480x360 to 1170x2080; capping the long edge keeps on-screen text
+# readable while roughly halving the image spend across the set.
+MAX_EDGE = 768
+
+
+def cover_bytes(video_id):
+    """Downscaled JPEG bytes for the opening frame, or None."""
     p = COVERS / f"{video_id}.jpg"
-    return p if p.exists() else None
+    if not p.exists():
+        return None
+    try:
+        from PIL import Image
+        import io
+        im = Image.open(p).convert("RGB")
+        w, h = im.size
+        scale = min(MAX_EDGE / max(w, h), 1.0)
+        if scale < 1.0:
+            im = im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=82)
+        return buf.getvalue()
+    except Exception:
+        return p.read_bytes()   # fall back to the original rather than skipping
 
 
 def user_content(row, tr, music=None):
@@ -223,12 +244,12 @@ def main():
     with_vision = 0
     for i, r in targets:
         text = user_content(r, trs[r["video_id"]], music.get(r["video_id"]))
-        cover = cover_for(r["video_id"])
+        cover = cover_bytes(r["video_id"])
         if cover:
             with_vision += 1
             content = [
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
-                                             "data": base64.b64encode(cover.read_bytes()).decode()}},
+                                             "data": base64.b64encode(cover).decode()}},
                 {"type": "text", "text": text + "\n\nThe image above is this video's opening frame."},
             ]
             schema = TAG_SCHEMA_VISION
