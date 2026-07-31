@@ -61,9 +61,14 @@ def already_done():
     done = set()
     for line in OUT.read_text().splitlines():
         try:
-            done.add(json.loads(line)["video_id"])
+            d = json.loads(line)
         except Exception:
             continue
+        # Only successes count as done — failures are usually transient
+        # (rate limits, missing impersonation) and should be retried on a
+        # later run rather than written off forever.
+        if not d.get("error"):
+            done.add(d["video_id"])
     return done
 
 
@@ -72,7 +77,11 @@ def fetch_audio(url, dest_dir):
     out_tmpl = str(dest_dir / "%(id)s.%(ext)s")
     cmd = [
         str(ROOT / "venv" / "bin" / "yt-dlp"),
-        "-f", "bestaudio/best",
+        # TikTok lists a watermarked "download" pseudo-format first whose codec
+        # ffmpeg cannot read; prefer real audio, then a concrete mp4.
+        "-f", "bestaudio/best[ext=mp4]/best",
+        # TikTok increasingly requires browser impersonation (curl-cffi).
+        "--impersonate", "chrome",
         "-x", "--audio-format", "mp3", "--audio-quality", "5",
         "--no-playlist", "--no-warnings", "--quiet",
         "--socket-timeout", "20", "--retries", "2",
