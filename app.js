@@ -1651,7 +1651,7 @@ function renderBriefs() {
   if (!list.length) {
     host.innerHTML = `<h2>Clients</h2>
       <div class="empty"><p><strong>No clients yet.</strong></p>
-        <p>Save a brief in the New brief tab — its company becomes your first client folder.</p></div>`;
+        <p>Save a brief in the New Client tab — its company becomes your first client folder.</p></div>`;
     return;
   }
 
@@ -1834,7 +1834,7 @@ function renderClientPage(host, client) {
       </article>`;
     }).join("") + `</div>`
     : `<div class="empty"><p><strong>No briefs yet.</strong></p>
-        <p>Build one in the New brief tab — it files here as Brief 1.</p></div>`}
+        <p>Build one in the New Client tab — it files here as Brief 1.</p></div>`}
 
     <div class="nextweek">
       <div class="minw0">
