@@ -41,6 +41,19 @@ HOOK_PATTERNS = [
     "Other",
 ]
 
+# Visual Hook — what is on screen in frame one. From the locked Lynx taxonomy;
+# only fillable once we can actually see the frame.
+VISUAL_HOOKS = [
+    "Face Close-up",
+    "Motion / Movement",
+    "Text-first",
+    "Product On-screen",
+    "Pattern Interrupt",
+    "Location Reveal",
+    "None",
+    "Other",
+]
+
 NICHE_CATEGORIES = [
     "Health & Medical",
     "Education & Study",
@@ -76,6 +89,23 @@ TAG_SCHEMA = {
         "target_audience": {"type": "string", "enum": TARGET_AUDIENCES},
     },
     "required": ["format_type", "hook_pattern", "niche_category", "target_audience"],
+    "additionalProperties": False,
+}
+
+# Used by the vision pass, which can also see the opening frame.
+TAG_SCHEMA_VISION = {
+    "type": "object",
+    "properties": {
+        "format_type": {"type": "string", "enum": FORMAT_TYPES},
+        "hook_pattern": {"type": "string", "enum": HOOK_PATTERNS},
+        "niche_category": {"type": "string", "enum": NICHE_CATEGORIES},
+        "target_audience": {"type": "string", "enum": TARGET_AUDIENCES},
+        "visual_hook": {"type": "string", "enum": VISUAL_HOOKS},
+        "onscreen_text": {"type": "string",
+                          "description": "Text visible in the frame, verbatim; empty if none."},
+    },
+    "required": ["format_type", "hook_pattern", "niche_category",
+                 "target_audience", "visual_hook", "onscreen_text"],
     "additionalProperties": False,
 }
 

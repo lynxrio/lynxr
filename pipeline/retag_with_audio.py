@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Re-tag videos using what was actually said, not just the caption.
+"""Re-tag videos using what was said AND what is on screen, not just the caption.
 
 This is where the accuracy comes from. transcribe.py produced the evidence;
 this feeds it to the tagger and overwrites the caption-only guesses.
@@ -11,8 +11,11 @@ Three kinds of evidence now reach the model:
      talking head; narration over unrelated footage reads differently; a
      numbered rundown out loud is a Listicle no matter what the caption says.
   3. has_speech=false — a real answer, not a gap. No speech means the message
-     is carried by on-screen text or the visual, which points at Meme / Trend
-     Clip and a non-spoken hook.
+     is carried by on-screen text or the visual.
+  4. The opening frame, when a cover has been fetched. This is the only source
+     for the Visual Hook column and for on-screen text, and it rescues exactly
+     the videos audio cannot reach: a silent clip of a campus with "my campus>"
+     burned into the frame has a real hook that no caption or transcript holds.
 
 Only rows with a transcript are touched; everything else keeps its current tag.
 Each retagged row records tag_source=audio so you can tell measured tags from
@@ -37,14 +40,17 @@ from pathlib import Path
 import anthropic
 
 sys.path.insert(0, str(Path(__file__).parent))
-from taxonomy import FORMAT_TYPES, HOOK_PATTERNS, NICHE_CATEGORIES, TARGET_AUDIENCES, TAG_SCHEMA
+from taxonomy import (FORMAT_TYPES, HOOK_PATTERNS, NICHE_CATEGORIES, TARGET_AUDIENCES,
+                      VISUAL_HOOKS, TAG_SCHEMA, TAG_SCHEMA_VISION)
 from merge_data import MASTER_FIELDS, summarize, to_int
 
 ROOT = Path(__file__).parent.parent
 MASTER = ROOT / "output" / "master_video_database.csv"
 TRANSCRIPTS = ROOT / "output" / "transcripts.jsonl"
+COVERS = ROOT / "data" / "covers"
 MODEL = "claude-opus-5"
 DIMS = ["format_type", "hook_pattern", "niche_category", "target_audience"]
+VIS_DIMS = ["visual_hook", "onscreen_text"]
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
@@ -102,6 +108,20 @@ Reading the audio:
   classify. Use the full transcript for format, and take the hook from the
   caption instead.
 
+WHEN AN IMAGE IS ATTACHED it is the video's opening frame. Use it for:
+- visual_hook — what is on screen in frame one: {", ".join(VISUAL_HOOKS)}.
+  A face filling the frame -> Face Close-up; text burned over the video before
+  anything else reads -> Text-first; the product or an app UI visible ->
+  Product On-screen; an unexpected object or action -> Pattern Interrupt; a
+  place being shown off -> Location Reveal; motion as the opener ->
+  Motion / Movement.
+- onscreen_text — transcribe any text burned into the frame, verbatim. This is
+  frequently the real hook on silent videos, so read it carefully.
+- Corroborating format: a face to camera supports Talking Head, an app UI
+  supports Screen Demo, a person over a screenshot supports Green Screen.
+If the video has no speech, the on-screen text IS the hook — classify
+hook_pattern from those words rather than defaulting to No Hook.
+
 Commit to the most plausible specific value for every dimension. "Other" is only
 for genuinely unintelligible material."""
 
@@ -144,6 +164,11 @@ def load_transcripts():
             continue
         t[d["video_id"]] = d
     return t
+
+
+def cover_for(video_id):
+    p = COVERS / f"{video_id}.jpg"
+    return p if p.exists() else None
 
 
 def user_content(row, tr, music=None):
@@ -193,15 +218,33 @@ def main():
              with_music, licensed)
 
     client = anthropic.Anthropic()
-    requests = [{
-        "custom_id": f"a-{i}",
-        "params": {
-            "model": MODEL, "max_tokens": 2000,
-            "system": [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
-            "output_config": {"format": {"type": "json_schema", "schema": TAG_SCHEMA}},
-            "messages": [{"role": "user", "content": user_content(r, trs[r["video_id"]], music.get(r["video_id"]))}],
-        },
-    } for i, r in targets]
+    import base64
+    requests = []
+    with_vision = 0
+    for i, r in targets:
+        text = user_content(r, trs[r["video_id"]], music.get(r["video_id"]))
+        cover = cover_for(r["video_id"])
+        if cover:
+            with_vision += 1
+            content = [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                             "data": base64.b64encode(cover.read_bytes()).decode()}},
+                {"type": "text", "text": text + "\n\nThe image above is this video's opening frame."},
+            ]
+            schema = TAG_SCHEMA_VISION
+        else:
+            content = text
+            schema = TAG_SCHEMA
+        requests.append({
+            "custom_id": f"a-{i}",
+            "params": {
+                "model": MODEL, "max_tokens": 2000,
+                "system": [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
+                "output_config": {"format": {"type": "json_schema", "schema": schema}},
+                "messages": [{"role": "user", "content": content}],
+            },
+        })
+    log.info("%d of %d requests include the opening frame", with_vision, len(requests))
 
     if args.dry_run:
         i, r = targets[0]
@@ -250,12 +293,18 @@ def main():
             if rows[idx][d] != data[d]:
                 changed[d] += 1
             rows[idx][d] = data[d]
-        rows[idx]["tag_source"] = "audio"
+        for d in VIS_DIMS:
+            if d in data:
+                rows[idx][d] = data[d]
+        rows[idx]["tag_source"] = "audio+visual" if "visual_hook" in data else "audio"
         applied += 1
 
-    fields = MASTER_FIELDS + (["tag_source"] if "tag_source" not in MASTER_FIELDS else [])
+    extra = [c for c in ["visual_hook", "onscreen_text", "tag_source"] if c not in MASTER_FIELDS]
+    fields = MASTER_FIELDS + extra
     for r in rows:
         r.setdefault("tag_source", "caption")
+        r.setdefault("visual_hook", "")
+        r.setdefault("onscreen_text", "")
     with open(MASTER, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()

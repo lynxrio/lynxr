@@ -12,3 +12,4 @@ output/
 
 # Local transcription artifacts
 output/transcripts.jsonl
+data/covers/
