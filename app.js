@@ -60,6 +60,7 @@ function unlock(rows) {
   document.getElementById("err").textContent = "";
   gate.style.display = "none";
   app.style.display = "block";
+  app.classList.add("shown");
   renderApp(rows);
 }
 
@@ -160,9 +161,11 @@ function renderBars(hostId, pairs, limit = 8, drillSelectId = null) {
   // Widths via CSSOM, not style="" attributes — the strict CSP (style-src 'self',
   // no 'unsafe-inline') silently discards inline style attributes, which shipped
   // as invisible bars. el.style assignment is allowed under CSP.
-  [...host.querySelectorAll(".bar-fill")].forEach((el, i) => {
-    el.style.width = Math.max((shown[i][1] / max) * 100, 1).toFixed(2) + "%";
-  });
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    [...host.querySelectorAll(".bar-fill")].forEach((el, i) => {
+      el.style.width = Math.max((shown[i][1] / max) * 100, 1).toFixed(2) + "%";
+    });
+  }));
   // Overview shows the split; clicking a bar drills into those exact videos.
   if (drillSelectId) {
     host.querySelectorAll(".bar-row.drill").forEach((rowEl) => {
@@ -768,10 +771,14 @@ function trayHtml() {
     </div>`;
 }
 
+let LAST_TRAY_N = -1;
 function refreshTray() {
   const tray = document.getElementById("tray");
   if (!tray) return;
   tray.innerHTML = trayHtml();
+  const strong = tray.querySelector(".tray-count strong");
+  if (strong && LAST_TRAY_N !== -1 && CART.size !== LAST_TRAY_N) strong.classList.add("bump");
+  LAST_TRAY_N = CART.size;
   document.getElementById("tray-export")?.addEventListener("click", saveCurrentBrief);
   document.getElementById("tray-copy")?.addEventListener("click", copyScripts);
 }
@@ -1204,8 +1211,19 @@ function renderBriefs() {
       const rec = loadBriefs().find((b) => b.id === id);
       if (rec) downloadDocx(rec.ctx, rec.items, (rec.createdAt || "").slice(0, 10));
     });
-    card.querySelector(".b-del").addEventListener("click", () => {
-      if (!confirm("Delete this brief?")) return;
+    const del = card.querySelector(".b-del");
+    del.addEventListener("click", () => {
+      // Two-step delete: arm first (auto-disarms), then a final confirm.
+      if (!del.classList.contains("armed")) {
+        del.classList.add("armed");
+        del.textContent = "Delete forever?";
+        setTimeout(() => { del.classList.remove("armed"); del.textContent = "Delete"; }, 3500);
+        return;
+      }
+      if (!confirm("This permanently deletes the brief — it cannot be recovered. Delete it?")) {
+        del.classList.remove("armed"); del.textContent = "Delete";
+        return;
+      }
       persistBriefs(loadBriefs().filter((b) => b.id !== id));
       renderBriefs();
     });
