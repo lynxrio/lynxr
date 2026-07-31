@@ -1,10 +1,14 @@
 {
 	"files.exclude": {
 		"**/venv": true,
-		"**/__pycache__": true
+		"**/__pycache__": true,
+		"data": true,
+		"output": true
 	},
 	"search.exclude": {
 		"**/venv": true,
-		"**/data.json": true
+		"**/data.json": true,
+		"data": true,
+		"output": true
 	}
 }
