@@ -199,6 +199,7 @@ const TABS = [
   ["tab-overview", "panel-overview"],
   ["tab-database", "panel-database"],
   ["tab-brief", "panel-brief"],
+  ["tab-briefs", "panel-briefs"],
 ];
 function activateTab(tabId) {
   for (const [t, p] of TABS) {
@@ -758,12 +759,12 @@ function trayHtml() {
   return `
     <div class="tray-inner">
       <span class="tray-count"><strong>${n}</strong>/${CART_LIMIT} in brief</span>
-      <span class="tray-hint">${n < CART_LIMIT ? `check ${CART_LIMIT - n} more to export` : "ready to export"}</span>
+      <span class="tray-hint">${n < CART_LIMIT ? `check ${CART_LIMIT - n} more to save` : "ready to save"}</span>
       <span class="spacer"></span>
       <button type="button" class="ghost" id="tray-copy" ${n ? "" : "disabled"}>Copy scripts</button>
       <button type="button" class="btn" id="tray-export" ${n >= CART_LIMIT ? "" : "disabled"}
-        title="${n >= CART_LIMIT ? "Download a .docx that Google Docs opens directly" : `Unlocks at ${CART_LIMIT} videos`}">
-        Export for Google Docs</button>
+        title="${n >= CART_LIMIT ? "Saves into the Briefs tab — flip through videos and scripts there" : `Unlocks at ${CART_LIMIT} videos`}">
+        Save brief</button>
     </div>`;
 }
 
@@ -771,7 +772,7 @@ function refreshTray() {
   const tray = document.getElementById("tray");
   if (!tray) return;
   tray.innerHTML = trayHtml();
-  document.getElementById("tray-export")?.addEventListener("click", exportDocx);
+  document.getElementById("tray-export")?.addEventListener("click", saveCurrentBrief);
   document.getElementById("tray-copy")?.addEventListener("click", copyScripts);
 }
 
@@ -1052,18 +1053,17 @@ function para(text, { bold = false, size = 22, spaceAfter = 120 } = {}) {
     `<w:t xml:space="preserve">${xmlEsc(text)}</w:t></w:r></w:p>`;
 }
 
-function briefDocParts() {
-  const ctx = BRIEF_CTX || {};
-  const brand = ctx.brand || "Client";
-  const today = new Date().toISOString().slice(0, 10);
+function briefDocParts(ctx, items, dateStr) {
+  const brand = ctx?.brand || "Client";
+  const today = dateStr || new Date().toISOString().slice(0, 10);
   let body = "";
   body += para(`${brand} — Content Brief`, { bold: true, size: 40, spaceAfter: 60 });
-  body += para(`${CART.size} scripts tailored from the Lynxr format database · ${today}`, { size: 20, spaceAfter: 300 });
-  if (ctx.audience) body += para(`Audience: ${ctx.audience}`, { size: 22 });
-  if (ctx.feats?.length) body += para(`Product angles used: ${ctx.feats.join(" · ")}`, { size: 22, spaceAfter: 360 });
+  body += para(`${items.length} scripts tailored from the Lynxr format database · ${today}`, { size: 20, spaceAfter: 300 });
+  if (ctx?.audience) body += para(`Audience: ${ctx.audience}`, { size: 22 });
+  if (ctx?.feats?.length) body += para(`Product angles used: ${ctx.feats.join(" · ")}`, { size: 22, spaceAfter: 360 });
 
   let i = 0;
-  for (const row of CART.values()) {
+  for (const row of items) {
     i += 1;
     const s = tailoredScript(row, ctx, i - 1);
     const er = row.engagement_rate ? parseFloat(row.engagement_rate).toFixed(2) + "%" : "n/a";
@@ -1087,11 +1087,10 @@ function briefDocParts() {
   ];
 }
 
-function exportDocx() {
-  if (CART.size < CART_LIMIT) return;
-  const blob = zipStore(briefDocParts());
+function downloadDocx(ctx, items, dateStr) {
+  const blob = zipStore(briefDocParts(ctx, items, dateStr));
   const a = document.createElement("a");
-  const brand = (BRIEF_CTX?.brand || "client").replace(/[^\w -]+/g, "").trim() || "client";
+  const brand = (ctx?.brand || "client").replace(/[^\w -]+/g, "").trim() || "client";
   a.href = URL.createObjectURL(blob);
   a.download = `${brand} — Lynxr Content Brief.docx`;
   document.body.appendChild(a);
@@ -1100,11 +1099,48 @@ function exportDocx() {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-function scriptsAsText() {
-  const ctx = BRIEF_CTX || {};
-  let out = `${ctx.brand || "Client"} — Content Brief (${CART.size} scripts)\n\n`;
+// ---------- Saved briefs (in-platform, browser localStorage) ----------
+const BRIEFS_KEY = "lynxr_briefs";
+
+function loadBriefs() {
+  try { return JSON.parse(localStorage.getItem(BRIEFS_KEY)) || []; } catch { return []; }
+}
+function persistBriefs(list) {
+  try { localStorage.setItem(BRIEFS_KEY, JSON.stringify(list)); } catch {}
+}
+
+/** Save the current cart as an in-platform brief (newest stacks on top). */
+function saveCurrentBrief() {
+  if (CART.size < CART_LIMIT) return;
+  const rec = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+    company: BRIEF_CTX?.brand || "Client",
+    ctx: BRIEF_CTX || {},
+    niche: document.getElementById("brief-niche")?.value || "",
+    createdAt: new Date().toISOString(),
+    items: [...CART.values()],
+  };
+  const list = loadBriefs();
+  list.unshift(rec);
+  persistBriefs(list);
+
+  // Wrap up for the next client: clear cart, reopen the details editor.
+  CART = new Map();
+  closeModal();
+  const editor = document.getElementById("client-editor");
+  if (editor) {
+    editor.classList.remove("collapsed");
+    renderShelf(document.getElementById("brief-niche")?.value || "");
+  }
+  // Land on the stack so the new brief is visibly on top, ready to flip through.
+  renderBriefs();
+  activateTab("tab-briefs");
+}
+
+function scriptsAsText(ctx, items) {
+  let out = `${ctx?.brand || "Client"} — Content Brief (${items.length} scripts)\n\n`;
   let i = 0;
-  for (const row of CART.values()) {
+  for (const row of items) {
     i += 1;
     const s = tailoredScript(row, ctx, i - 1);
     out += `SCRIPT ${i} — ${s.heading}\nHook: “${s.hook}”\n`;
@@ -1117,12 +1153,124 @@ function scriptsAsText() {
 
 async function copyScripts() {
   try {
-    await navigator.clipboard.writeText(scriptsAsText());
+    await navigator.clipboard.writeText(scriptsAsText(BRIEF_CTX, [...CART.values()]));
     const btn = document.getElementById("tray-copy");
     const old = btn.textContent;
     btn.textContent = "Copied ✓";
     setTimeout(() => { btn.textContent = old; }, 1500);
-  } catch { /* clipboard denied — the export button still works */ }
+  } catch { /* clipboard denied — saving still works */ }
+}
+
+// ---------- Briefs tab: stacked list + flip-through viewer ----------
+let BRIEF_VIEW = null;   // { id, page } when a brief is open
+
+function renderBriefs() {
+  const host = document.getElementById("briefs-host");
+  const list = loadBriefs();
+
+  if (BRIEF_VIEW) {
+    const rec = list.find((b) => b.id === BRIEF_VIEW.id);
+    if (rec) { renderBriefViewer(host, rec); return; }
+    BRIEF_VIEW = null;
+  }
+
+  if (!list.length) {
+    host.innerHTML = `<h2>Briefs</h2>
+      <div class="empty"><p><strong>No saved briefs yet.</strong></p>
+        <p>Build one in the Client brief tab — pick 10 videos and hit Save brief.</p></div>`;
+    return;
+  }
+
+  host.innerHTML = `<h2>Briefs <span class="pill">${list.length}</span></h2>
+    <div class="brief-stack">` + list.map((b) => `
+      <article class="bcard" data-id="${escapeHtml(b.id)}">
+        <div class="bcard-main">
+          <div class="bcard-title">${escapeHtml(b.company)}</div>
+          <div class="lbl">${escapeHtml((b.createdAt || "").slice(0, 10))}
+            · ${escapeHtml(b.niche || "All niches")} · ${b.items.length} videos</div>
+        </div>
+        <button type="button" class="btn b-open">Open</button>
+        <button type="button" class="ghost b-docx" title="Download as .docx for Google Docs">.docx</button>
+        <button type="button" class="ghost b-del" title="Delete brief">Delete</button>
+      </article>`).join("") + `</div>`;
+
+  host.querySelectorAll(".bcard").forEach((card) => {
+    const id = card.dataset.id;
+    card.querySelector(".b-open").addEventListener("click", () => {
+      BRIEF_VIEW = { id, page: 0 };
+      renderBriefs();
+    });
+    card.querySelector(".b-docx").addEventListener("click", () => {
+      const rec = loadBriefs().find((b) => b.id === id);
+      if (rec) downloadDocx(rec.ctx, rec.items, (rec.createdAt || "").slice(0, 10));
+    });
+    card.querySelector(".b-del").addEventListener("click", () => {
+      if (!confirm("Delete this brief?")) return;
+      persistBriefs(loadBriefs().filter((b) => b.id !== id));
+      renderBriefs();
+    });
+  });
+}
+
+function renderBriefViewer(host, rec) {
+  const n = rec.items.length;
+  const page = Math.min(Math.max(BRIEF_VIEW.page, 0), n - 1);
+  BRIEF_VIEW.page = page;
+  const row = rec.items[page];
+  const s = tailoredScript(row, rec.ctx, page);
+  const er = row.engagement_rate ? parseFloat(row.engagement_rate).toFixed(2) + "%" : "—";
+  const href = safeUrl(row.url);
+  const stat = (v, l) => `<div class="metric"><div class="m-val">${v}</div><div class="m-lbl">${l}</div></div>`;
+
+  host.innerHTML = `
+    <div class="viewer-top">
+      <button type="button" class="ghost" id="bv-back">← All briefs</button>
+      <div class="minw0">
+        <div class="bcard-title">${escapeHtml(rec.company)}</div>
+        <div class="lbl">${escapeHtml((rec.createdAt || "").slice(0, 10))} · ${escapeHtml(rec.niche || "All niches")}</div>
+      </div>
+      <div class="spacer"></div>
+      <button type="button" class="ghost" id="bv-docx">Download .docx</button>
+    </div>
+    <div class="viewer">
+      <div class="viewer-player-col">
+        ${frameHtml(row).replace('class="vframe ', 'class="vframe viewer-player ')}
+      </div>
+      <div class="viewer-info">
+        <div class="lbl">Script ${page + 1} of ${n}</div>
+        <p class="modal-title">${escapeHtml(row.title || "(no caption)")}</p>
+        <p class="lbl">${escapeHtml(row.creator || "—")} · ${escapeHtml(row.platform || "")} · ${escapeHtml(row.data_source || "")}
+          ${href ? ` · <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}</p>
+        <div class="metrics modal-metrics">
+          ${stat(compact(views(row)), "Views")}${stat(compact(+row.likes || 0), "Likes")}
+          ${stat(compact(+row.comments || 0), "Comments")}${stat(er, "ER")}
+        </div>
+        <div class="chips">
+          ${["format_type", "hook_pattern", "niche_category", "target_audience"]
+            .map((d) => row[d] ? `<span class="chip">${escapeHtml(row[d])}</span>` : "").join("")}
+        </div>
+        <div class="vscript">
+          <div class="lbl">Tailored script — ${escapeHtml(s.heading)}</div>
+          <p class="vs-hook">“${escapeHtml(s.hook)}”</p>
+          ${s.beats.map((b) => `<p class="vs-beat">${escapeHtml(b)}</p>`).join("")}
+          <p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>
+        </div>
+      </div>
+    </div>
+    <div class="pager">
+      <button type="button" class="ghost" id="bv-prev" ${page === 0 ? "disabled" : ""}>← Prev</button>
+      <span>${page + 1} / ${n}</span>
+      <button type="button" class="ghost" id="bv-next" ${page === n - 1 ? "disabled" : ""}>Next →</button>
+    </div>`;
+
+  document.getElementById("bv-back").addEventListener("click", () => { BRIEF_VIEW = null; renderBriefs(); });
+  document.getElementById("bv-docx").addEventListener("click", () =>
+    downloadDocx(rec.ctx, rec.items, (rec.createdAt || "").slice(0, 10)));
+  document.getElementById("bv-prev").addEventListener("click", () => { BRIEF_VIEW.page--; renderBriefs(); });
+  document.getElementById("bv-next").addEventListener("click", () => { BRIEF_VIEW.page++; renderBriefs(); });
+  const play = host.querySelector(".vplay");
+  if (play) play.addEventListener("click", () => playInFrame(host.querySelector(".viewer-player"), row));
+  fillTikTokThumbs([row]);
 }
 
 function confidenceOf(n) {
@@ -1274,7 +1422,7 @@ async function renderBrief(rawUrl) {
       </div>
       <div class="ce-body" id="ce-body">
       <div class="ce-grid">
-        <label class="ce-field"><span class="lbl">Brand / product name</span>
+        <label class="ce-field"><span class="lbl">Company name</span>
           <input type="text" id="ce-brand" value="${escapeHtml(analysis?.brand || "")}" placeholder="e.g. Medceptor"></label>
         <label class="ce-field"><span class="lbl">Niche</span>
           <select id="brief-niche">
@@ -1354,6 +1502,14 @@ function renderApp(rows) {
   renderBars("by-source", countBy(rows, "data_source"), 8, "f-source");
   initTabs();
   initModal();
+  renderBriefs();
+  // Arrow keys flip through an open brief (unless typing in a field).
+  document.addEventListener("keydown", (e) => {
+    if (!BRIEF_VIEW || document.getElementById("panel-briefs").hidden) return;
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) return;
+    if (e.key === "ArrowLeft") { BRIEF_VIEW.page--; renderBriefs(); }
+    if (e.key === "ArrowRight") { BRIEF_VIEW.page++; renderBriefs(); }
+  });
   initControls();
   initBrief();
   applyFilters();

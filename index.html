@@ -44,6 +44,7 @@
       <button class="tab" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true">Overview</button>
       <button class="tab" role="tab" id="tab-database" aria-controls="panel-database" aria-selected="false">Database</button>
       <button class="tab" role="tab" id="tab-brief" aria-controls="panel-brief" aria-selected="false">Client brief</button>
+      <button class="tab" role="tab" id="tab-briefs" aria-controls="panel-briefs" aria-selected="false">Briefs</button>
     </nav>
     <div class="spacer"></div>
     <button class="ghost" id="signout">Sign out</button>
@@ -99,6 +100,11 @@
         fill in the client details panel by hand — the shelf and scripts work either way. Check off
         the videos you want; at 10 the brief exports as a .docx that Google Docs opens directly.</p>
       <div id="brief-out"></div>
+    </section>
+
+    <!-- Saved briefs -->
+    <section class="panel" id="panel-briefs" role="tabpanel" aria-labelledby="tab-briefs" hidden>
+      <div id="briefs-host"></div>
     </section>
   </main>
 </div>
