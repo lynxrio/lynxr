@@ -14,11 +14,17 @@ covers architecture, the pipeline, and the security model.
 | `index.html` / `app.css` / `app.js` | The site — access gate, database browser, brief builder, client folders |
 | `data.enc` | The database, encrypted (generated — never edit by hand) |
 | `pipeline/` | Scrape → tag → merge → encrypt, plus transcription and multimodal retagging |
+| `supabase/schema.sql` | Shared-workspace tables and RLS policies (already applied) |
 | `output/` | Master CSV, summaries, logs *(gitignored)* |
 | `data/` | Raw scrapes, cover frames *(gitignored)* |
 | `.env` | `ANTHROPIC_API_KEY`, `APIFY_API_TOKEN` *(gitignored)* |
 
-The site's access code is `lmaotsfiya`. The database is 2,640 videos.
+Sign-in is **email + password** via Supabase Auth (project
+`esakjfogplfszievvabi`). The publishable key in `app.js` is public by design —
+this repo is public — and is safe only because row-level security grants access
+to signed-in users and nothing to anonymous ones. The `data.enc` passphrase
+lives server-side in `lynxr_secrets`, so there is one login rather than a login
+plus a typed code. The database is 2,640 videos.
 
 ## Rules that matter
 
