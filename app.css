@@ -450,6 +450,20 @@
   .fmt-card.good { border-color: #2c4a39; }
   .fmt-card.bad { border-color: #4a2c2c; }
   .fmt-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; font-size: 13.5px; }
+  .fmt-card.expandable .fmt-head { cursor: pointer; border-radius: 6px; }
+  .fmt-card.expandable .fmt-head:hover strong { color: var(--text); }
+  .fmt-card.expandable .fmt-head:hover .caret { color: var(--text); }
+  .fmt-head-right { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+  .caret { color: var(--text-3); font-size: 12px; transition: color .12s; }
+  .fmt-card.expanded { grid-column: 1 / -1; }
+  .card-detail {
+    display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start;
+    border-top: 1px solid var(--line); margin-top: 14px; padding-top: 18px;
+    animation: rise-in .22s var(--ease) both;
+  }
+  .cd-info { min-width: 0; }
+  .cd-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  @media (max-width: 700px) { .card-detail { grid-template-columns: 1fr; } .cd-player-col { max-width: 280px; margin: 0 auto; } }
 
   .post-form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
   .post-form input[type="url"] { flex: 1 1 260px; }

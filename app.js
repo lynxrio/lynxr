@@ -1516,7 +1516,7 @@ function renderClientPage(host, client, list) {
   host.querySelectorAll(".bcard[data-bid]").forEach((card) => {
     const bid = card.dataset.bid;
     card.querySelector(".br-open").addEventListener("click", () => {
-      BRIEF_VIEW = { id: bid, page: 0, dir: "first-open" }; renderBriefs();
+      BRIEF_VIEW = { id: bid, expanded: null }; renderBriefs();
     });
     card.querySelector(".br-docx").addEventListener("click", () => {
       const rec = loadClients().find((c) => c.id === client.id)?.briefs.find((b) => b.id === bid);
@@ -1530,6 +1530,56 @@ function renderClientPage(host, client, list) {
       renderBriefs();
     });
   });
+}
+
+/** The expanded body of a script card: player, stats, tags, the tailored
+    script, and this slot's tracked posts — everything in one place. */
+function scriptDetailHtml(rec, client, i, matchedPosts) {
+  const row = rec.items[i];
+  const s = tailoredScript(row, rec.ctx, i);
+  const er = row.engagement_rate ? parseFloat(row.engagement_rate).toFixed(2) + "%" : "—";
+  const href = safeUrl(row.url);
+  const stat = (v, l) => `<div class="metric"><div class="m-val">${v}</div><div class="m-lbl">${l}</div></div>`;
+  const slotPosts = weekPostsOf(client, rec.id)
+    .filter((p) => p.format === row.format_type && p.hook === row.hook_pattern);
+  return `
+    <div class="card-detail">
+      <div class="cd-player-col">
+        ${frameHtml(row).replace('class="vframe ', 'class="vframe viewer-player ')}
+      </div>
+      <div class="cd-info">
+        <p class="modal-title">${escapeHtml(row.title || "(no caption)")}</p>
+        <p class="lbl">${escapeHtml(row.creator || "—")} · ${escapeHtml(row.platform || "")} · ${escapeHtml(row.data_source || "")}
+          ${href ? ` · <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}</p>
+        <div class="metrics modal-metrics">
+          ${stat(compact(views(row)), "Views")}${stat(compact(+row.likes || 0), "Likes")}
+          ${stat(compact(+row.comments || 0), "Comments")}${stat(er, "ER")}
+        </div>
+        <div class="chips">
+          ${["format_type", "hook_pattern", "niche_category", "target_audience"]
+            .map((d) => row[d] ? `<span class="chip">${escapeHtml(row[d])}</span>` : "").join("")}
+        </div>
+        <div class="vscript">
+          <div class="lbl">Tailored script — ${escapeHtml(s.heading)}</div>
+          <p class="vs-hook">“${escapeHtml(s.hook)}”</p>
+          ${s.beats.map((b) => `<p class="vs-beat">${escapeHtml(b)}</p>`).join("")}
+          <p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>
+        </div>
+        ${slotPosts.length ? `<div class="lbl">Tracked posts for this script</div>
+          <ul class="flag-list">${slotPosts.map((p) => {
+            const r = postRatio(p); const ph = safeUrl(p.url);
+            return `<li>${r != null ? `<span class="verdict ${r >= 1 ? "good" : "bad"}">${ratioLabel(r)}</span>` : `<span class="lbl">no check-ins</span>`}
+              ${ph ? `<a href="${escapeHtml(ph)}" target="_blank" rel="noopener noreferrer">${escapeHtml(p.url.replace(/^https?:\/\//, "").slice(0, 50))}</a>` : ""}
+              <span class="lbl">${escapeHtml(p.creator || "")}</span></li>`;
+          }).join("")}</ul>` : ""}
+        <div class="cd-controls">
+          <button type="button" class="ghost cd-prev" ${i === 0 ? "disabled" : ""}>← Script ${i}</button>
+          <button type="button" class="ghost cd-copy">Copy script</button>
+          <button type="button" class="ghost cd-close">Collapse</button>
+          <button type="button" class="ghost cd-next" ${i === rec.items.length - 1 ? "disabled" : ""}>Script ${i + 2} →</button>
+        </div>
+      </div>
+    </div>`;
 }
 
 /** The week dashboard: the graph is the hero; the 10 scripts support it. */
@@ -1558,10 +1608,14 @@ function weekDashboardHtml(rec, client) {
       : avg >= 1 ? `▲ ${ratioLabel(avg)}`
       : avg >= 0.75 ? `▼ ${ratioLabel(avg)}`
       : `▼ ${ratioLabel(avg)} — change`;
-    return `<div class="fmt-card ${cls}">
-      <div class="fmt-head"><strong>${i + 1}. ${escapeHtml(it.format_type || "—")} × ${escapeHtml(it.hook_pattern || "—")}</strong>
-        <span class="verdict ${cls}">${escapeHtml(status)}</span></div>
+    const expanded = BRIEF_VIEW && BRIEF_VIEW.expanded === i;
+    return `<div class="fmt-card expandable ${cls}${expanded ? " expanded" : ""}" data-idx="${i}">
+      <div class="fmt-head" role="button" tabindex="0" title="${expanded ? "Collapse" : "Expand for the script, video, and details"}">
+        <strong>${i + 1}. ${escapeHtml(it.format_type || "—")} × ${escapeHtml(it.hook_pattern || "—")}</strong>
+        <span class="fmt-head-right"><span class="verdict ${cls}">${escapeHtml(status)}</span><span class="caret">${expanded ? "▾" : "▸"}</span></span>
+      </div>
       ${sparkSvg(pts, pred)}
+      ${expanded ? scriptDetailHtml(rec, client, i, matched) : ""}
     </div>`;
   }).join("");
 
@@ -1615,15 +1669,8 @@ function weekDashboardHtml(rec, client) {
 }
 
 function renderBriefViewer(host, rec, client) {
-  const n = rec.items.length;
-  const page = Math.min(Math.max(BRIEF_VIEW.page, 0), n - 1);
-  BRIEF_VIEW.page = page;
-  const row = rec.items[page];
-  const s = tailoredScript(row, rec.ctx, page);
-  const er = row.engagement_rate ? parseFloat(row.engagement_rate).toFixed(2) + "%" : "—";
-  const href = safeUrl(row.url);
-  const stat = (v, l) => `<div class="metric"><div class="m-val">${v}</div><div class="m-lbl">${l}</div></div>`;
-
+  if (BRIEF_VIEW.expanded != null)
+    BRIEF_VIEW.expanded = Math.max(0, Math.min(BRIEF_VIEW.expanded, rec.items.length - 1));
   host.innerHTML = `
     <div class="viewer-top">
       <button type="button" class="ghost" id="bv-back">← ${escapeHtml(client?.company || "Back")}</button>
@@ -1634,49 +1681,48 @@ function renderBriefViewer(host, rec, client) {
       <div class="spacer"></div>
       <button type="button" class="ghost" id="bv-docx">Download .docx</button>
     </div>
-
-    ${weekDashboardHtml(rec, client)}
-
-    <h2>Flip through the scripts</h2>
-    <div class="viewer ${BRIEF_VIEW.dir || "first-open"}">
-      <div class="viewer-player-col">
-        ${frameHtml(row).replace('class="vframe ', 'class="vframe viewer-player ')}
-      </div>
-      <div class="viewer-info">
-        <div class="lbl">Script ${page + 1} of ${n}</div>
-        <p class="modal-title">${escapeHtml(row.title || "(no caption)")}</p>
-        <p class="lbl">${escapeHtml(row.creator || "—")} · ${escapeHtml(row.platform || "")} · ${escapeHtml(row.data_source || "")}
-          ${href ? ` · <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}</p>
-        <div class="metrics modal-metrics">
-          ${stat(compact(views(row)), "Views")}${stat(compact(+row.likes || 0), "Likes")}
-          ${stat(compact(+row.comments || 0), "Comments")}${stat(er, "ER")}
-        </div>
-        <div class="chips">
-          ${["format_type", "hook_pattern", "niche_category", "target_audience"]
-            .map((d) => row[d] ? `<span class="chip">${escapeHtml(row[d])}</span>` : "").join("")}
-        </div>
-        <div class="vscript">
-          <div class="lbl">Tailored script — ${escapeHtml(s.heading)}</div>
-          <p class="vs-hook">“${escapeHtml(s.hook)}”</p>
-          ${s.beats.map((b) => `<p class="vs-beat">${escapeHtml(b)}</p>`).join("")}
-          <p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>
-        </div>
-      </div>
-    </div>
-    <div class="pager">
-      <button type="button" class="ghost" id="bv-prev" ${page === 0 ? "disabled" : ""}>← Prev</button>
-      <span>${page + 1} / ${n}</span>
-      <button type="button" class="ghost" id="bv-next" ${page === n - 1 ? "disabled" : ""}>Next →</button>
-    </div>`;
+    ${weekDashboardHtml(rec, client)}`;
 
   document.getElementById("bv-back").addEventListener("click", () => { BRIEF_VIEW = null; renderBriefs(); });
   document.getElementById("bv-docx").addEventListener("click", () =>
     downloadDocx(rec.ctx, rec.items, (rec.createdAt || "").slice(0, 10)));
-  document.getElementById("bv-prev").addEventListener("click", () => { BRIEF_VIEW.page--; BRIEF_VIEW.dir = "from-left"; renderBriefs(); });
-  document.getElementById("bv-next").addEventListener("click", () => { BRIEF_VIEW.page++; BRIEF_VIEW.dir = "from-right"; renderBriefs(); });
-  const play = host.querySelector(".vplay");
-  if (play) play.addEventListener("click", () => playInFrame(host.querySelector(".viewer-player"), row));
-  fillTikTokThumbs([row]);
+
+  const setExpanded = (idx) => {
+    BRIEF_VIEW.expanded = idx;
+    renderBriefs();
+    if (idx != null) {
+      const card = document.querySelector(`.fmt-card[data-idx="${idx}"]`);
+      card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  };
+
+  host.querySelectorAll(".fmt-card.expandable .fmt-head").forEach((head) => {
+    const idx = Number(head.closest(".fmt-card").dataset.idx);
+    const toggle = () => setExpanded(BRIEF_VIEW.expanded === idx ? null : idx);
+    head.addEventListener("click", toggle);
+    head.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+    });
+  });
+
+  const openIdx = BRIEF_VIEW.expanded;
+  if (openIdx != null && rec.items[openIdx]) {
+    const row = rec.items[openIdx];
+    const detail = host.querySelector(".card-detail");
+    detail?.querySelector(".cd-close")?.addEventListener("click", () => setExpanded(null));
+    detail?.querySelector(".cd-prev")?.addEventListener("click", () => setExpanded(openIdx - 1));
+    detail?.querySelector(".cd-next")?.addEventListener("click", () => setExpanded(openIdx + 1));
+    detail?.querySelector(".cd-copy")?.addEventListener("click", async (e) => {
+      const sc = tailoredScript(row, rec.ctx, openIdx);
+      try {
+        await navigator.clipboard.writeText(`${sc.heading}\nHook: \u201c${sc.hook}\u201d\n${sc.beats.join("\n")}\n${sc.cta}`);
+        e.target.textContent = "Copied ✓";
+      } catch {}
+    });
+    const play = detail?.querySelector(".vplay");
+    if (play) play.addEventListener("click", () => playInFrame(detail.querySelector(".viewer-player"), row));
+    fillTikTokThumbs([row]);
+  }
 }
 
 function confidenceOf(n) {
@@ -1913,8 +1959,9 @@ function renderApp(rows) {
   document.addEventListener("keydown", (e) => {
     if (!BRIEF_VIEW || document.getElementById("panel-briefs").hidden) return;
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) return;
-    if (e.key === "ArrowLeft") { BRIEF_VIEW.page--; BRIEF_VIEW.dir = "from-left"; renderBriefs(); }
-    if (e.key === "ArrowRight") { BRIEF_VIEW.page++; BRIEF_VIEW.dir = "from-right"; renderBriefs(); }
+    if (BRIEF_VIEW.expanded == null) return;
+    if (e.key === "ArrowLeft" && BRIEF_VIEW.expanded > 0) { BRIEF_VIEW.expanded--; renderBriefs(); }
+    if (e.key === "ArrowRight") { BRIEF_VIEW.expanded++; renderBriefs(); }
   });
   initControls();
   initBrief();
