@@ -131,20 +131,27 @@
   }
 
   /* ---------- Table ---------- */
-  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  /* The table scrolls inside its own container so the sticky header pins to the
+     wrapper, not the page — rows can never bleed through above it. */
+  .table-wrap { overflow: auto; max-height: 72vh; border: 1px solid var(--line); border-radius: var(--radius); }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13.5px; }
   th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th {
-    background: var(--surface-2); color: var(--text-3); font-weight: 600; font-size: 11px;
-    text-transform: uppercase; letter-spacing: .07em; position: sticky; top: 56px; z-index: 5;
+    background: #131316; color: var(--text-3); font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .07em; position: sticky; top: 0; z-index: 5;
+    box-shadow: 0 1px 0 var(--line-2);
   }
   th.sortable { cursor: pointer; user-select: none; }
   th.sortable:hover { color: var(--text); }
   th .arrow { color: var(--text); }
+  tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.015); }
   tbody tr:hover td { background: var(--surface); }
   tbody tr:last-child td { border-bottom: 0; }
-  td.title { max-width: 400px; overflow: hidden; text-overflow: ellipsis; }
-  td.num { text-align: right; font-family: var(--mono); font-size: 12.5px; }
+  td.title { max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+  td.title a { border: 0; color: var(--text); }
+  td.title a:hover { color: var(--text); border-bottom: 1px solid var(--text-3); }
+  td.num { text-align: right; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  td.dim { color: var(--text-2); font-size: 12.5px; }
   .pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; color: var(--text-3); font-size: 13.5px; }
   .no-results, .empty { padding: 34px; text-align: center; color: var(--text-3); }
   .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius); }
@@ -276,5 +283,5 @@
     main { padding: 24px 14px 60px; }
     .metrics { margin-left: 0; text-align: left; width: 100%; }
     .play-head { flex-wrap: wrap; }
-    th { top: 56px; }
+
   }

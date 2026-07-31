@@ -256,9 +256,20 @@ function renderTable() {
             const raw = r[c.key];
             if (c.num) {
               const v = parseFloat(raw);
-              return `<td class="num">${isNaN(v) ? "—" : fmt(v) + (c.pct ? "%" : "")}</td>`;
+              if (isNaN(v)) return `<td class="num">—</td>`;
+              // Compact display, exact number on hover — 40.7M scans better than 40,700,000
+              return c.pct
+                ? `<td class="num">${v.toFixed(2)}%</td>`
+                : `<td class="num" title="${fmt(v)}">${compact(v)}</td>`;
             }
-            return `<td class="${c.cls || ""}" title="${escapeHtml(raw || "")}">${escapeHtml(raw || "—")}</td>`;
+            if (c.key === "title") {
+              const href = safeUrl(r.url);
+              const label = escapeHtml(raw || "—");
+              return `<td class="title" title="${escapeHtml(raw || "")}">${
+                href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label}</td>`;
+            }
+            const dim = ["platform", "format_type", "hook_pattern", "niche_category", "target_audience", "data_source"].includes(c.key);
+            return `<td class="${dim ? "dim" : ""}">${escapeHtml(raw || "—")}</td>`;
           }).join("")}</tr>`).join("")}
         </tbody>
       </table></div>`;
