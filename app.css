@@ -108,11 +108,12 @@
   /* ---------- Bars ---------- */
   .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; }
   .bars { display: flex; flex-direction: column; gap: 6px; }
-  .bar-row { display: grid; grid-template-columns: 1fr 52px; align-items: center; gap: 12px; font-size: 13.5px; }
+  .bar-row { display: grid; grid-template-columns: 1fr 96px; align-items: center; gap: 12px; font-size: 13.5px; }
   .bar-track { position: relative; background: var(--surface); border-radius: 6px; height: 28px; overflow: hidden; }
-  .bar-fill { position: absolute; inset: 0 auto 0 0; background: #ffffff14; border-right: 1px solid #ffffff2e; }
+  .bar-fill { position: absolute; inset: 0 auto 0 0; background: #ffffff2b; border-right: 2px solid #ffffff52; border-radius: 6px 0 0 6px; }
   .bar-label { position: relative; padding: 4px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bar-count { color: var(--text-3); font-size: 12.5px; text-align: right; }
+  .bar-count { color: var(--text-2); font-size: 12.5px; text-align: right; font-family: var(--mono); white-space: nowrap; }
+  .bar-pct { color: var(--text-3); font-size: 11px; }
 
   /* ---------- Controls ---------- */
   .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
@@ -243,16 +244,19 @@
     overflow: hidden; display: flex; flex-direction: column;
   }
   .vcard.picked { border-color: var(--text-3); }
+  /* Embeds are preloaded (lazy) so each card shows its real thumbnail with the
+     platform's own play button. Per-platform aspect ratios absorb the header/
+     caption chrome TikTok and Instagram add below the video — sized right, the
+     iframe never scrolls internally (scrolling="no" backstops the remainder). */
   .vframe {
-    aspect-ratio: 9 / 12; background: var(--surface-2); display: grid; place-items: center;
-    border-bottom: 1px solid var(--line);
+    background: var(--surface-2); display: grid; place-items: center;
+    border-bottom: 1px solid var(--line); aspect-ratio: 9 / 16;
   }
+  .vframe.vf-tiktok { aspect-ratio: 9 / 19.8; }
+  .vframe.vf-insta { aspect-ratio: 9 / 19; }
+  .vframe.vf-short { aspect-ratio: 9 / 16; }
+  .vframe.vf-wide { aspect-ratio: 16 / 9; }
   .vframe iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
-  .vload {
-    background: none; border: 1px solid var(--line-2); border-radius: 999px;
-    color: var(--text-2); font: inherit; font-size: 13px; padding: 8px 16px; cursor: pointer;
-  }
-  .vload:hover { color: var(--text); border-color: var(--text-3); }
   .vmeta { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
   .vtitle { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vstats { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); }

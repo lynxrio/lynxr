@@ -139,13 +139,14 @@ function renderBars(hostId, pairs, limit = 8) {
   const host = document.getElementById(hostId);
   const shown = pairs.slice(0, limit);
   const max = shown.length ? shown[0][1] : 1;
+  const total = pairs.reduce((a, [, n]) => a + n, 0) || 1;
   host.innerHTML = shown.map(([label, count]) => `
     <div class="bar-row">
       <div class="bar-track">
-        <div class="bar-fill" style="width:${(count / max) * 100}%"></div>
+        <div class="bar-fill" style="width:${Math.max((count / max) * 100, 1).toFixed(2)}%"></div>
         <div class="bar-label">${escapeHtml(label)}</div>
       </div>
-      <div class="bar-count">${fmt(count)}</div>
+      <div class="bar-count">${fmt(count)} <span class="bar-pct">${(count / total * 100).toFixed(count / total >= 0.1 ? 0 : 1)}%</span></div>
     </div>`).join("");
 }
 
@@ -519,20 +520,23 @@ function starterHook(hookPattern, brand, feat) {
 function embedFor(row) {
   const url = String(row.url || "");
   const p = (row.platform || "").toLowerCase();
+  // cls drives the frame's aspect ratio: TikTok/Instagram embeds carry header +
+  // caption chrome below the video, so their frames must be taller than 9:16 or
+  // the iframe scrolls internally.
   if (p === "tiktok") {
     const id = /^\d{15,}$/.test(row.video_id) ? row.video_id : (url.match(/video\/(\d+)/) || [])[1];
-    return id ? { src: `https://www.tiktok.com/embed/v2/${id}`, tall: true } : null;
+    return id ? { src: `https://www.tiktok.com/embed/v2/${id}`, cls: "vf-tiktok" } : null;
   }
   if (p === "youtube") {
     const id = (url.match(/(?:shorts\/|watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/) || [])[1];
-    return id ? { src: `https://www.youtube-nocookie.com/embed/${id}`, tall: url.includes("/shorts/") } : null;
+    return id ? { src: `https://www.youtube-nocookie.com/embed/${id}`, cls: url.includes("/shorts/") ? "vf-short" : "vf-wide" } : null;
   }
   if (p === "instagram") {
     const code = (url.match(/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/) || [])[1];
-    return code ? { src: `https://www.instagram.com/reel/${code}/embed/`, tall: true } : null;
+    return code ? { src: `https://www.instagram.com/reel/${code}/embed/`, cls: "vf-insta" } : null;
   }
   if (p === "facebook") {
-    return url ? { src: `https://www.facebook.com/plugins/video.php?show_text=false&href=${encodeURIComponent(url)}`, tall: false } : null;
+    return url ? { src: `https://www.facebook.com/plugins/video.php?show_text=false&href=${encodeURIComponent(url)}`, cls: "vf-short" } : null;
   }
   return null;
 }
@@ -713,10 +717,13 @@ function renderShelf(niche) {
       const k = rowKey(r);
       const checked = CART.has(k);
       const er = r.engagement_rate ? parseFloat(r.engagement_rate).toFixed(1) + "%" : "—";
+      const emb = embedFor(r);
       return `
       <article class="vcard${checked ? " picked" : ""}" data-key="${escapeHtml(k)}">
-        <div class="vframe" data-key="${escapeHtml(k)}">
-          <button type="button" class="vload">▶ Play here</button>
+        <div class="vframe ${emb ? emb.cls : ""}">${emb ? `
+          <iframe src="${escapeHtml(emb.src)}" loading="lazy" scrolling="no"
+            sandbox="allow-scripts allow-same-origin allow-popups"
+            referrerpolicy="no-referrer" title="Video player"></iframe>` : ""}
         </div>
         <div class="vmeta">
           <div class="vtitle" title="${escapeHtml(r.title || "")}">${escapeHtml(r.title || "(no caption)")}</div>
@@ -737,24 +744,6 @@ function renderShelf(niche) {
   renderPlaysInto(document.getElementById("plays-host"), plays, niche, pool);
 
   const shelfIndex = new Map(shelf.map((r) => [rowKey(r), r]));
-
-  // click-to-load players (one iframe per click, not 24 up front)
-  body.querySelectorAll(".vload").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const host = btn.closest(".vframe");
-      const row = shelfIndex.get(host.dataset.key);
-      const emb = row && embedFor(row);
-      if (!emb) return;
-      const iframe = document.createElement("iframe");
-      iframe.src = emb.src;
-      iframe.className = emb.tall ? "tall" : "wide";
-      iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups");
-      iframe.setAttribute("loading", "lazy");
-      iframe.setAttribute("referrerpolicy", "no-referrer");
-      iframe.setAttribute("title", "Video player");
-      host.replaceChildren(iframe);
-    });
-  });
 
   // add/remove from the brief
   body.querySelectorAll(".vcheck").forEach((cb) => {
