@@ -190,24 +190,6 @@
   code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 4px; }
 
   /* ---------- Client brief ---------- */
-  .steps { counter-reset: step; list-style: none; margin: 18px 0 14px; padding: 0; max-width: 74ch; }
-  .steps li {
-    counter-increment: step; position: relative; padding: 0 0 14px 40px;
-    color: var(--text-2); font-size: 14px; line-height: 1.55;
-  }
-  .steps li::before {
-    content: counter(step); position: absolute; left: 0; top: 0;
-    width: 25px; height: 25px; display: grid; place-items: center;
-    background: var(--surface-2); border: 1px solid var(--line);
-    border-radius: 50%; color: var(--text); font-family: var(--mono); font-size: 12px;
-  }
-  .steps li::after {
-    content: ""; position: absolute; left: 12px; top: 28px; bottom: 2px;
-    border-left: 1px solid var(--line);
-  }
-  .steps li:last-child { padding-bottom: 0; }
-  .steps li:last-child::after { display: none; }
-  .steps strong { color: var(--text); font-weight: 600; }
 
   .brief-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
   .brief-form input[type="url"] { flex: 1 1 320px; min-width: 0; }
@@ -242,6 +224,19 @@
   .x-sep { color: var(--text-3); }
   .mt8 { margin-top: 8px; }
   .mt14 { margin-top: 14px; }
+
+  /* Brand loader */
+  @keyframes blade-a { to { transform: rotate(360deg); } }
+  @keyframes blade-b { to { transform: rotate(-360deg); } }
+  @keyframes loader-glow { 50% { opacity: .55; } }
+  .loader { display: flex; align-items: center; gap: 16px; padding: 28px 0; }
+  .loader-mark { width: 44px; height: 44px; flex: none; color: var(--text); overflow: visible; }
+  .loader-mark .blade { transform-origin: 12px 12px; }
+  .loader-mark .b1 { animation: blade-a 2.4s var(--ease) infinite; }
+  .loader-mark .b2 { animation: blade-b 2.4s var(--ease) infinite; }
+  .loader-text { min-width: 0; }
+  .loader-stage { font-size: 15px; animation: loader-glow 1.6s ease infinite; }
+  .loader-sub { margin-top: 2px; }
 
   /* Client brief: site analysis */
   .progress { color: var(--text-3); font-size: 14px; padding: 18px 0; }
@@ -474,6 +469,12 @@
   .chart-key i { display: inline-block; width: 16px; height: 0; vertical-align: middle; margin-right: 6px; }
   .chart-key .k-est { border-top: 1.5px dotted var(--text-3); }
   .chart-key .k-act { border-top: 2px solid var(--text-2); }
+  .chart-key .k-proj { border-top: 2px dashed var(--text-2); opacity: .7; }
+  .chart-unit { fill: var(--text-3); }
+  .spark-proj { fill: none; stroke: var(--text-2); stroke-width: 2; stroke-dasharray: 6 4; opacity: .6; }
+  .spark-proj-dot { fill: none; stroke: var(--text-2); stroke-width: 2; opacity: .8; }
+  .good .spark-proj, .good .spark-proj-dot { stroke: var(--good); }
+  .bad .spark-proj, .bad .spark-proj-dot { stroke: var(--bad); }
   .good .chart-key .k-act { border-top-color: var(--good); }
   .bad .chart-key .k-act { border-top-color: var(--bad); }
   .spark-est { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 1.5 5; stroke-linecap: round; }

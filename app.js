@@ -1246,14 +1246,22 @@ function sparkSvg(points, predicted, w = 240, h = 64) {
 
 /** Full chart with x/y axes: dotted estimated slope vs solid actual line.
     Points are {x, y} where x is days since the chart's day zero. */
-function chartSvg({ actual = [], est = [], w = 720, h = 180, xMax = 7, yMax = 1 }) {
-  const padL = 48, padR = 12, padT = 12, padB = 26;
+function chartSvg({ actual = [], est = [], proj = [], w = 720, h = 200, xMax = 7, yMax = 1 }) {
+  const padL = 56, padR = 14, padT = 12, padB = 28;
+  // "Nice" y-axis: round the top up to 1/2/5 x 10^n so ticks are real,
+  // readable view counts (0 / 250K / 500K), never 0.5 and 1.
+  const niceTop = (v) => {
+    if (v <= 0) return 1;
+    const mag = Math.pow(10, Math.floor(Math.log10(v)));
+    const n = v / mag;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+  };
+  const top = niceTop(yMax);
   const X = (x) => padL + (Math.min(x, xMax) / xMax) * (w - padL - padR);
-  const Y = (y) => padT + (1 - Math.min(y, yMax) / yMax) * (h - padT - padB);
+  const Y = (y) => padT + (1 - Math.min(y, top) / top) * (h - padT - padB);
   const poly = (pts) => pts.map((p) => `${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join(" ");
 
-  // y gridlines at 0 / 50% / 100%; x ticks at whole-day steps that fit
-  const yTicks = [0, yMax / 2, yMax];
+  const yTicks = [0, top / 4, top / 2, (top * 3) / 4, top];
   const xStep = xMax <= 8 ? 1 : Math.ceil(xMax / 7);
   const xTicks = [];
   for (let d = 0; d <= xMax; d += xStep) xTicks.push(d);
@@ -1261,16 +1269,30 @@ function chartSvg({ actual = [], est = [], w = 720, h = 180, xMax = 7, yMax = 1 
   return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
     ${yTicks.map((v) => `
       <line x1="${padL}" y1="${Y(v)}" x2="${w - padR}" y2="${Y(v)}" class="chart-grid"/>
-      <text x="${padL - 7}" y="${Y(v) + 3.5}" class="chart-tick" text-anchor="end">${compact(v)}</text>`).join("")}
+      <text x="${padL - 8}" y="${Y(v) + 3.5}" class="chart-tick" text-anchor="end">${compact(Math.round(v))}</text>`).join("")}
     ${xTicks.map((d) => `
-      <text x="${X(d)}" y="${h - 7}" class="chart-tick" text-anchor="middle">D${d}</text>`).join("")}
+      <text x="${X(d)}" y="${h - 8}" class="chart-tick" text-anchor="middle">D${d}</text>`).join("")}
+    <text x="${padL - 8}" y="${padT - 2}" class="chart-tick chart-unit" text-anchor="end">views</text>
     <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h - padB}" class="chart-axis"/>
     <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" class="chart-axis"/>
     ${est.length > 1 ? `<polyline points="${poly(est)}" class="spark-est"/>` : ""}
     ${est.map((p) => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="2.5" class="spark-est-dot"/>`).join("")}
+    ${proj.length > 1 ? `<polyline points="${poly(proj)}" class="spark-proj"/>` : ""}
+    ${proj.length ? `<circle cx="${X(proj[proj.length - 1].x).toFixed(1)}" cy="${Y(proj[proj.length - 1].y).toFixed(1)}" r="3.5" class="spark-proj-dot"/>` : ""}
     ${actual.length > 1 ? `<polyline points="${poly(actual)}" class="spark-line"/>` : ""}
     ${actual.map((p) => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.5" class="spark-dot"/>`).join("")}
   </svg>`;
+}
+
+/** Project the actual trend forward to day 7: fit the current run rate
+    (views per day so far) and extend it, so you can see where this pace lands
+    by the end of the week versus where the estimate says it should. */
+function projectTo(actualPts, days = 7) {
+  if (actualPts.length < 2) return [];
+  const last = actualPts[actualPts.length - 1];
+  if (last.x >= days) return [];
+  const rate = last.x > 0 ? last.y / last.x : last.y;   // cumulative views per day
+  return [last, { x: days, y: Math.round(last.y + rate * (days - last.x)) }];
 }
 
 const DAY_MS = 86400000;
@@ -1459,8 +1481,9 @@ function renderClientPage(host, client, list) {
     cEst.push({ x, y: [...cEstSeen.values()].reduce((a, b) => a + b, 0) });
   }
   if (cActual.length) { cActual.unshift({ x: 0, y: 0 }); cEst.unshift({ x: 0, y: 0 }); }
+  const cProj = projectTo(cActual, Math.max(7, Math.ceil(Math.max(0, ...cActual.map((p) => p.x)))));
   const cxMax = Math.max(7, ...cActual.map((p) => p.x));
-  const cyMax = Math.max(1, ...cActual.map((p) => p.y), ...cEst.map((p) => p.y));
+  const cyMax = Math.max(1, ...cActual.map((p) => p.y), ...cEst.map((p) => p.y), ...cProj.map((p) => p.y));
   const formats = [...new Set(client.posts.map((p) => p.format))];
   const fmtOptions = [...new Set(ALL.map((r) => r.format_type).filter(Boolean))].sort();
   const hookOptions = [...new Set(ALL.map((r) => r.hook_pattern).filter(Boolean))].sort();
@@ -1480,10 +1503,11 @@ function renderClientPage(host, client, list) {
         ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
             : `<span class="lbl">add posts and check-ins below to start the graph</span>`}
       </div>
-      ${chartSvg({ actual: cActual, est: cEst, xMax: cxMax, yMax: cyMax })}
+      ${chartSvg({ actual: cActual, est: cEst, proj: cProj, xMax: cxMax, yMax: cyMax })}
       <div class="chart-key">
         <span><i class="k-est"></i> estimated</span>
         <span><i class="k-act"></i> actual</span>
+        ${cProj.length ? `<span><i class="k-proj"></i> projected — ${compact(cProj[1].y)}</span>` : ""}
         <span class="lbl">x: days tracked · y: cumulative views</span>
       </div>
     </div>
@@ -1692,8 +1716,9 @@ function weekDashboardHtml(rec, client) {
     return { x: daysBetween(e.d, day0), y: [...seen.values()].reduce((a, b) => a + b, 0) };
   });
   if (actualPts.length) actualPts.unshift({ x: 0, y: 0 });
+  const projPts = projectTo(actualPts, 7);
   const xMax = Math.max(7, ...actualPts.map((p) => p.x), ...est.map((p) => p.x));
-  const yMax = Math.max(1, ...actualPts.map((p) => p.y), ...est.map((p) => p.y));
+  const yMax = Math.max(1, ...actualPts.map((p) => p.y), ...est.map((p) => p.y), ...projPts.map((p) => p.y));
 
   // Per-script cards: match this week's posts to each script by format×hook
   const scriptCards = rec.items.map((it, i) => {
@@ -1758,10 +1783,11 @@ function weekDashboardHtml(rec, client) {
         ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${compact(v.actual)} actual vs ${compact(v.predicted)} benchmark · ${ratioLabel(v.ratio)}</span>`
             : `<span class="lbl">the graph fills in as posts get check-ins</span>`}
       </div>
-      ${chartSvg({ actual: actualPts, est, xMax, yMax })}
+      ${chartSvg({ actual: actualPts, est, proj: projPts, xMax, yMax })}
       <div class="chart-key">
         <span><i class="k-est"></i> estimated (database formats, warm-up adjusted)</span>
         <span><i class="k-act"></i> actual</span>
+        ${projPts.length ? `<span><i class="k-proj"></i> projected to D7 — ${compact(projPts[1].y)} at this pace</span>` : ""}
         <span class="lbl">x: days since brief · y: cumulative views</span>
       </div>
     </div>
@@ -1923,6 +1949,30 @@ function buildPlays(pool) {
 
 let BRIEF_CTX = null;  // {brand, feats, audience} from the last site read, used in play cards
 
+/** Brand loader: the mark's two blades counter-rotate and keep converging —
+    the logo's own "data converging into insight" gesture, used while we read
+    the client's site and match it against the database. Stages are advanced
+    at real transition points, not on a timer, so the text never lies. */
+function showLoader(host, hostname) {
+  host.innerHTML = `
+    <div class="loader" role="status" aria-live="polite">
+      <svg class="loader-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path class="blade b1" fill="currentColor" d="M3 3h3l15 15-3 3L3 6z"/>
+        <path class="blade b2" fill="currentColor" d="M21 3v3L6 21l-3-3L18 3z"/>
+      </svg>
+      <div class="loader-text">
+        <div class="loader-stage" id="loader-stage">${hostname ? `Reading ${escapeHtml(hostname)}` : "Preparing"}</div>
+        <div class="lbl loader-sub">matching the client against ${fmt(ALL.length)} videos</div>
+      </div>
+    </div>`;
+  return {
+    stage(text) {
+      const el = document.getElementById("loader-stage");
+      if (el) el.textContent = text;
+    },
+  };
+}
+
 async function renderBrief(rawUrl) {
   const host = document.getElementById("brief-out");
   const hasUrl = String(rawUrl || "").trim().length > 0;
@@ -1934,14 +1984,18 @@ async function renderBrief(rawUrl) {
   }
 
   let analysis = null, failReason = null;
+  const loader = showLoader(host, url ? new URL(url).hostname : "");
   if (url) {
-    host.innerHTML = `<div class="progress" role="status">Reading ${escapeHtml(new URL(url).hostname)}…</div>`;
     try {
       const read = await readClientSite(url);
+      loader.stage("Detecting niche, features, and audience");
+      await new Promise((r) => setTimeout(r, 60));   // let the stage paint
       analysis = analyzeSite(read, url);
       analysis.title = read.title;
       analysis.description = read.description;
       analysis.via = read.via;
+      loader.stage("Matching formats that perform in this niche");
+      await new Promise((r) => setTimeout(r, 60));
     } catch (e) {
       failReason = e.message || "unreachable";
     }
