@@ -46,10 +46,9 @@ script on real timestamps with per-beat visual cues.
    `alter table public.lynxr_videos add column if not exists transcript_segments text not null default '';`
    `alter table public.lynxr_videos add column if not exists visual_cues text not null default '';`
    (hook_spoken + transcript columns were already added 2026-07-31.)
-3. **Transcription** (free, local) — may still be mid-run: pass 1 near done,
-   then `--redo-nosegments` backfills timestamps on ~2,700 older entries.
-   Resumable at any time: `./venv/bin/python pipeline/transcribe.py` then
-   `--redo-nosegments` then plain once more for retries.
+3. ~~Transcription~~ **DONE 2026-08-01**: 6,952 verbatim scripts (70%),
+   6,925 with real timestamps, 6,989 usable spoken hooks, cleaned and attached
+   to master. Blueprints now 93%. Only gates 1 and 2 remain.
 
 ## Resume sequence (after credits + ALTER)
 
@@ -77,9 +76,6 @@ niche 88.1 / audience 92.9 caption-only) so the gain is measured, not assumed.
   (load_scraped + dedupe + rewrite with full fields) or re-attach after.
 - attach_transcripts: LAST line per video_id in transcripts.jsonl wins
   (re-transcribed entries with segments replace old ones).
-- "spoken hook 603" after the timestamp redo looks suspiciously low
-  (was 1,694) — hook_usable may need clean_transcripts re-run; scripts fall
-  back to segment[0] so user impact is minor. Investigate at resume.
 - Structured outputs need `"additionalProperties": false` on every object.
 - `data/*_parts*/` + `data/covers/` feed retag/tag_extra (duration, music,
   frames) — don't delete until the FULL pipeline has run and been verified.
