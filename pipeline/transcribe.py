@@ -55,7 +55,7 @@ logging.basicConfig(
 log = logging.getLogger("transcribe")
 
 
-def already_done():
+def already_done(require_segments=False):
     if not OUT.exists():
         return set()
     done = set()
@@ -67,8 +67,13 @@ def already_done():
         # Only successes count as done — failures are usually transient
         # (rate limits, missing impersonation) and should be retried on a
         # later run rather than written off forever.
-        if not d.get("error"):
-            done.add(d["video_id"])
+        if d.get("error"):
+            continue
+        # With require_segments, speech entries written before segment
+        # timestamps existed count as NOT done so they get re-transcribed.
+        if require_segments and d.get("has_speech") and "segments" not in d:
+            continue
+        done.add(d["video_id"])
     return done
 
 
@@ -143,6 +148,10 @@ def transcribe(path, model):
         "no_speech_prob": avg_ns,
         "language": r.get("language", ""),
         "duration": round(segs[-1]["end"], 1) if segs else 0,
+        # Whisper's real segment timings — [start, end, text] — so beats in
+        # tailored scripts follow the video's actual pacing, not an estimate.
+        "segments": [[round(s.get("start", 0), 1), round(s.get("end", 0), 1), s["text"].strip()]
+                     for s in segs] if speech else [],
     }
 
 
@@ -151,10 +160,12 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--platform", default="")
     ap.add_argument("--model", default=MODEL)
+    ap.add_argument("--redo-nosegments", action="store_true",
+                    help="re-transcribe speech entries recorded before segment timestamps")
     args = ap.parse_args()
 
     rows = list(csv.DictReader(open(MASTER, newline="", encoding="utf-8")))
-    done = already_done()
+    done = already_done(require_segments=args.redo_nosegments)
     todo = [r for r in rows
             if r.get("url") and r["video_id"] not in done
             and (not args.platform or r["platform"] == args.platform)]

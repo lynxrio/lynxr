@@ -48,6 +48,7 @@ KEEP = [
     "data_source", "url",
     "length_bucket", "audio_trend", "cta_type", "visual_hook",
     "onscreen_text", "hook_delivery",
+    "hook_spoken", "transcript", "transcript_segments", "visual_cues",
 ]
 INT_FIELDS = {"views", "likes", "comments"}
 

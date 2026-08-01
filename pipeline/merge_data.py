@@ -25,6 +25,9 @@ MASTER_FIELDS = [
     # list are silently dropped on the next rewrite.
     "length_bucket", "audio_trend", "cta_type", "visual_hook",
     "onscreen_text", "hook_delivery", "tag_source",
+    # The video's own words + timing + shot list (attach_transcripts.py /
+    # analyze_visuals.py) — the recreation blueprint behind tailored scripts.
+    "hook_spoken", "transcript", "transcript_segments", "visual_cues",
 ]
 
 TAG_COLS = ["format_type", "hook_pattern", "niche_category", "target_audience"]

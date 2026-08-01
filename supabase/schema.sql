@@ -107,6 +107,11 @@ create table if not exists public.lynxr_videos (
   visual_hook      text not null default '',
   onscreen_text    text not null default '',
   hook_delivery    text not null default '',
+  -- The video's own words (pipeline/attach_transcripts.py): the verbatim
+  -- spoken hook and the transcript (capped ~900 chars). These power tailored
+  -- scripts that adapt the real script instead of a format template.
+  hook_spoken      text not null default '',
+  transcript       text not null default '',
   updated_at       timestamptz not null default now(),
   primary key (platform, video_id)
 );
@@ -118,6 +123,8 @@ alter table public.lynxr_videos add column if not exists cta_type      text not 
 alter table public.lynxr_videos add column if not exists visual_hook   text not null default '';
 alter table public.lynxr_videos add column if not exists onscreen_text text not null default '';
 alter table public.lynxr_videos add column if not exists hook_delivery text not null default '';
+alter table public.lynxr_videos add column if not exists hook_spoken   text not null default '';
+alter table public.lynxr_videos add column if not exists transcript    text not null default '';
 
 alter table public.lynxr_videos enable row level security;
 

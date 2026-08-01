@@ -703,7 +703,105 @@ function embedFor(row) {
 // Deterministic beat templates per format from the locked taxonomy, filled with
 // the client's brand, features, and audience from the site analysis. Escaped at
 // render time; the exporter escapes for XML separately.
+/** The recreation blueprint: exactly what a creator needs to remake the
+    video. Spoken words verbatim on the video's REAL timestamps (Whisper
+    segments), each beat annotated with what's on screen at that moment
+    (shot description + on-screen text, read from extracted frames). Silent
+    videos get a shot-by-shot plan — their script IS the screen.
+    Returns null when the row has no evidence (then the labeled template runs). */
+function realScript(row) {
+  const parse = (v) => { try { return JSON.parse(v || "[]"); } catch { return []; } };
+  const segs = parse(row.transcript_segments);     // [[start, end, "words"], ...]
+  const shots = parse(row.visual_cues);            // [{t, visual, onscreen_text}, ...]
+  const raw = (row.transcript || "").trim();
+
+  const shotAt = (a, b) => {
+    // Best shot for a time window: prefer inside it, else the nearest.
+    let best = null, bestD = Infinity;
+    for (const s of shots) {
+      const d = s.t >= a && s.t < b ? 0 : Math.min(Math.abs(s.t - a), Math.abs(s.t - b));
+      if (d < bestD) { best = s; bestD = d; }
+    }
+    return bestD <= 4 ? best : null;
+  };
+  const screenNote = (s) => {
+    if (!s) return "";
+    const txt = (s.onscreen_text || "").trim();
+    return `\n   ON SCREEN: ${s.visual}${txt ? ` — text: “${txt}”` : ""}`;
+  };
+
+  // Path 1 — spoken video with real timestamps: beats are the actual segments,
+  // grouped to ~5 readable beats, each with its moment's visual.
+  if (segs.length) {
+    const total = segs[segs.length - 1][1] || 1;
+    const target = Math.max(4, total / 5);
+    const beats = [];
+    let curStart = segs[0][0], curEnd = segs[0][1], curText = [];
+    const flush = () => {
+      if (!curText.length) return;
+      beats.push(`[${Math.round(curStart)}–${Math.round(curEnd)}s] ${curText.join(" ")}`
+        + screenNote(shotAt(curStart, curEnd)));
+      curText = [];
+    };
+    for (const [s, e, text] of segs) {
+      if (curText.length && (e - curStart) > target) { flush(); curStart = s; }
+      curEnd = e;
+      curText.push(text.trim());
+    }
+    flush();
+    return {
+      heading: `${row.format_type || "Format"} — full recreation blueprint (verbatim words + what's on screen)`,
+      hook: (row.hook_spoken || segs[0][2] || "").trim(),
+      beats,
+      cta: "",
+      real: true,
+    };
+  }
+
+  // Path 2 — silent video with a shot list: the screen IS the script.
+  if (shots.length) {
+    const beats = shots.map((s) => {
+      const txt = (s.onscreen_text || "").trim();
+      return `[${Math.round(s.t)}s] ${s.visual}${txt ? ` — on-screen text: “${txt}”` : ""}`;
+    });
+    const firstTxt = shots.map((s) => (s.onscreen_text || "").trim()).find(Boolean);
+    return {
+      heading: `${row.format_type || "Format"} — shot-by-shot plan (no speech; the screen carries it)`,
+      hook: firstTxt || shots[0].visual,
+      beats,
+      cta: "",
+      real: true,
+    };
+  }
+
+  // Path 3 — transcript text only (no timestamps yet): estimated beat timing.
+  if (raw.length < 40) return null;
+  const sents = (raw.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [raw]).map((s) => s.trim()).filter(Boolean);
+  const mid = { "0–10s": 8, "11–20s": 16, "21–34s": 27, "35–59s": 45, "60s+": 70 }[row.length_bucket];
+  const secs = mid || Math.max(8, Math.round(raw.split(/\s+/).length / 2.5));
+  const nBeats = Math.min(4, sents.length);
+  const perBeat = Math.ceil(sents.length / nBeats);
+  const totalChars = raw.length || 1;
+  const beats = [];
+  let t = 0;
+  for (let i = 0; i < sents.length; i += perBeat) {
+    const group = sents.slice(i, i + perBeat);
+    const span = Math.max(1, Math.round((group.join(" ").length / totalChars) * secs));
+    beats.push(`[${t}–${Math.min(t + span, secs)}s] ${group.join(" ")}` + screenNote(shotAt(t, t + span)));
+    t += span;
+  }
+  return {
+    heading: `${row.format_type || "Format"} — the video's exact script (verbatim)`,
+    hook: (row.hook_spoken || sents[0] || "").trim(),
+    beats,
+    cta: "",
+    real: true,
+  };
+}
+
 function tailoredScript(row, ctx, slot) {
+  const real = realScript(row);
+  if (real) return real;
   const brand = ctx?.brand || "the product";
   const feats = ctx?.feats?.length ? ctx.feats : ["the core feature"];
   const f1 = feats[slot % feats.length];
@@ -778,11 +876,35 @@ function tailoredScript(row, ctx, slot) {
     `“It's free to try — that's the whole pitch.”`,
   ];
   return {
-    heading: `${fmtName} × ${row.hook_pattern || "Other"}`,
+    heading: `${fmtName} × ${row.hook_pattern || "Other"} — pattern template (no transcript yet)`,
     hook,
     beats: beats[fmtName] || fallback,
     cta: `[last 3s] CTA: ${ctas[slot % ctas.length]}`,
   };
+}
+
+/** Pull the real spoken words for a set of rows from Supabase and attach them
+    in place. Rows picked into a brief keep the fields, so saved briefs carry
+    the real scripts. Fails silently (template fallback) if the columns don't
+    exist yet or the query errors. */
+async function enrichTranscripts(rows) {
+  const need = rows.filter((r) => r.transcript === undefined && !r._client && r.video_id);
+  if (!need.length) return;
+  try {
+    const ids = [...new Set(need.map((r) => `"${String(r.video_id).replace(/"/g, "")}"`))];
+    const got = await sbFetch(`/rest/v1/lynxr_videos?select=platform,video_id,hook_spoken,transcript,transcript_segments,visual_cues`
+      + `&video_id=in.(${ids.join(",")})`);
+    const byKey = new Map(got.map((g) => [`${g.platform}|${g.video_id}`, g]));
+    for (const r of rows) {
+      const g = byKey.get(`${r.platform}|${r.video_id}`);
+      r.hook_spoken = g?.hook_spoken || "";
+      r.transcript = g?.transcript || "";
+      r.transcript_segments = g?.transcript_segments || "";
+      r.visual_cues = g?.visual_cues || "";
+    }
+  } catch {
+    for (const r of need) { r.hook_spoken = r.hook_spoken || ""; r.transcript = r.transcript || ""; }
+  }
 }
 
 
@@ -839,25 +961,60 @@ let CART = new Map();   // rowKey -> row
 const rowKey = (r) => (r.platform || "") + "|" + (r.video_id || r.url || r.title);
 
 function buildShelf(pool, relative, count = 24) {
-  // Round-robin the formats (each sorted by index) so the shelf isn't 24
-  // near-identical listicles — diversity is the point of a browsing surface.
-  const byFormat = new Map();
+  // Trend-first ranking: a video earns its slot because its format × hook
+  // combo performs REPEATEDLY, not because it alone blew up. Combos need
+  // MIN_COMBO tagged videos; they're ranked by the median index of their
+  // members (robust to one lucky outlier). From each combo we surface the
+  // upper-middle band — the videos that show the trend is reproducible —
+  // and explicitly skip the single biggest outlier in large combos.
+  const MIN_COMBO = 4;
+  const byCombo = new Map();
   for (const r of pool) {
     if (!embedFor(r)) continue;
-    const f = r.format_type || "Other";
-    if (!byFormat.has(f)) byFormat.set(f, []);
-    byFormat.get(f).push(r);
+    if (!r.format_type || !r.hook_pattern) continue;
+    const k = `${r.format_type}×${r.hook_pattern}`;
+    if (!byCombo.has(k)) byCombo.set(k, []);
+    byCombo.get(k).push(r);
   }
-  for (const list of byFormat.values()) list.sort((a, b) => relative(b) - relative(a));
-  const queues = [...byFormat.entries()]
-    .sort((a, b) => relative(b[1][0]) - relative(a[1][0]))
-    .map(([, list]) => list);
+  const combos = [...byCombo.values()]
+    .filter((list) => list.length >= MIN_COMBO)
+    .map((list) => {
+      list.sort((a, b) => relative(a) - relative(b));           // ascending
+      return { list, med: relative(list[Math.floor(list.length / 2)]) };
+    })
+    .sort((a, b) => b.med - a.med);
+
+  // Per-combo queue: from the median up, best-first, minus the top outlier
+  // when the combo is big enough to afford dropping it. Cap 3 per combo so
+  // one strong combo can't fill the shelf.
+  const queues = combos.map(({ list }) => {
+    const lo = Math.floor(list.length / 2);
+    const hi = list.length >= 8 ? list.length - 1 : list.length;
+    return list.slice(lo, hi).reverse().slice(0, 3);
+  });
+
+  const seen = new Set();
   const shelf = [];
   let added = true;
   while (shelf.length < count && added) {
     added = false;
     for (const q of queues) {
-      if (q.length && shelf.length < count) { shelf.push(q.shift()); added = true; }
+      if (q.length && shelf.length < count) {
+        const r = q.shift();
+        if (!seen.has(rowKey(r))) { shelf.push(r); seen.add(rowKey(r)); }
+        added = true;
+      }
+    }
+  }
+
+  // Small or thinly-tagged pools may not fill from combos — top up with the
+  // best remaining individuals so the shelf is never short.
+  if (shelf.length < count) {
+    const rest = pool.filter((r) => embedFor(r) && !seen.has(rowKey(r)))
+      .sort((a, b) => relative(b) - relative(a));
+    for (const r of rest) {
+      if (shelf.length >= count) break;
+      shelf.push(r); seen.add(rowKey(r));
     }
   }
   return shelf;
@@ -894,7 +1051,7 @@ function scriptHtml(row) {
       <div class="lbl">Tailored script — ${escapeHtml(s.heading)}</div>
       <p class="vs-hook">“${escapeHtml(s.hook)}”</p>
       ${s.beats.map((b) => `<p class="vs-beat">${escapeHtml(b)}</p>`).join("")}
-      <p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>
+      ${s.cta ? `<p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>` : ""}
     </div>`;
 }
 
@@ -923,6 +1080,8 @@ function setPicked(key, on) {
     card.classList.toggle("picked", on);
     const cb = card.querySelector(".vcheck");
     if (cb) cb.checked = on;
+    const txt = card.querySelector(".vpick-txt");
+    if (txt) txt.textContent = on ? "Added" : "Add";
   }
   refreshTray();
   return true;
@@ -1010,7 +1169,7 @@ function initModal() {
   });
 }
 
-function renderShelf(niche) {
+async function renderShelf(niche) {
   const body = document.getElementById("brief-body");
   const own = LEARN_CLIENT ? clientRows(LEARN_CLIENT) : [];
   const base = own.length ? ALL.concat(own) : ALL;
@@ -1050,6 +1209,12 @@ function renderShelf(niche) {
   const shelf = proven.concat(
     buildShelf(pool, relative, 24 - proven.length).filter((r) => !provenKeys.has(rowKey(r))));
 
+  // Fetch the shelf's real spoken scripts so every card's tailored script can
+  // adapt the video's own words rather than fall back to a format template.
+  await enrichTranscripts(shelf);
+  notes.push("Ranked by repeatable trends: format × hook combos proven across multiple videos "
+    + "(median index, one-off viral outliers excluded) — not single lucky uploads.");
+
   const { plays } = buildPlays(pool);
 
   body.innerHTML =
@@ -1068,7 +1233,7 @@ function renderShelf(niche) {
             ${r._client ? `<span class="proven" title="This client's own post — beat its benchmark">proven ${ratioLabel(r._ratio)}</span>` : ""}
             <span class="vstat" title="views · index vs its source's median">${compact(views(r))} · ${relative(r).toFixed(1)}×</span>
             <button type="button" class="vdetails" data-key="${escapeHtml(k)}">Details</button>
-            <label class="vpick"><input type="checkbox" class="vcheck" ${checked ? "checked" : ""}> Add</label>
+            <label class="vpick"><input type="checkbox" class="vcheck" ${checked ? "checked" : ""}><span class="vpick-txt">${checked ? "Added" : "Add"}</span></label>
           </div>
         </div>
       </article>`;
@@ -2131,7 +2296,7 @@ function scriptDetailHtml(rec, client, i, matchedPosts) {
           <div class="lbl">Tailored script — ${escapeHtml(s.heading)}</div>
           <p class="vs-hook">“${escapeHtml(s.hook)}”</p>
           ${s.beats.map((b) => `<p class="vs-beat">${escapeHtml(b)}</p>`).join("")}
-          <p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>
+          ${s.cta ? `<p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>` : ""}
         </div>
         ${slotPosts.length ? `<div class="lbl">Tracked posts for this script</div>
           <ul class="flag-list">${slotPosts.map((p) => {
@@ -2427,7 +2592,8 @@ function renderBriefViewer(host, rec, client) {
     detail?.querySelector(".cd-copy")?.addEventListener("click", async (e) => {
       const sc = tailoredScript(row, rec.ctx, openIdx);
       try {
-        await navigator.clipboard.writeText(`${sc.heading}\nHook: \u201c${sc.hook}\u201d\n${sc.beats.join("\n")}\n${sc.cta}`);
+        await navigator.clipboard.writeText(
+          [sc.heading, `Hook: \u201c${sc.hook}\u201d`, ...sc.beats, sc.cta].filter(Boolean).join("\n"));
         e.target.textContent = "Copied ✓";
       } catch {}
     });
