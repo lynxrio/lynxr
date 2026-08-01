@@ -62,7 +62,7 @@ def merge():
             "title": r["title"], "views": to_int(r["views"]), "likes": to_int(r["likes"]),
             "comments": to_int(r["comments"]), "engagement_rate": r["engagement_rate"],
             **{c: r.get(c, "") for c in TAG_COLS},
-            "data_source": "TikTok", "source_type": "organic_scrape",
+            "data_source": "Scraped", "source_type": "organic_scrape",
             "scraped_at": TODAY, "url": r.get("url", ""),
         })
         added += 1

@@ -19,6 +19,12 @@ MASTER_FIELDS = [
     "video_id", "creator", "platform", "title", "views", "likes", "comments",
     "engagement_rate", "format_type", "hook_pattern", "niche_category",
     "target_audience", "data_source", "source_type", "scraped_at", "url",
+    # Extended tag dimensions + provenance. These MUST live here: every writer
+    # that rewrites the master (merge, append_batch2, retag_with_audio,
+    # tag_extra_dims) trims to MASTER_FIELDS, and columns missing from this
+    # list are silently dropped on the next rewrite.
+    "length_bucket", "audio_trend", "cta_type", "visual_hook",
+    "onscreen_text", "hook_delivery", "tag_source",
 ]
 
 TAG_COLS = ["format_type", "hook_pattern", "niche_category", "target_audience"]
@@ -49,6 +55,8 @@ def load_medceptor(path):
     rows = []
     with open(path, newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
+            if (r.get("Platform") or "").lower() == "facebook":
+                continue  # Facebook dropped from the database entirely
             views = to_int(r.get("Views"))
             likes = to_int(r.get("Likes"))
             comments = to_int(r.get("Comments"))
@@ -144,9 +152,9 @@ def summarize(rows, dropped):
 def main():
     sources = [
         ("medceptor_tagged.csv", load_medceptor, None),
-        ("tiktok_tagged.csv", load_scraped, "TikTok"),
-        ("instagram_tagged.csv", load_scraped, "Instagram"),
-        ("youtube_tagged.csv", load_scraped, "YouTube"),
+        ("tiktok_tagged.csv", load_scraped, "Scraped"),
+        ("instagram_tagged.csv", load_scraped, "Scraped"),
+        ("youtube_tagged.csv", load_scraped, "Scraped"),
     ]
     all_rows = []
     for fname, loader, source_name in sources:

@@ -38,13 +38,55 @@ from apify_client import ApifyClient
 # with the creators you actually want in the database (e.g. your Sideshift
 # roster). Empty = nothing to scrape.
 HANDLES = [
-    # Cloey campaign creators (from Sideshift) — replace/extend with your roster.
     "ezerafits",
     "jiwonsootds",
     "styledbylexy",
+    # Organic UGC creators mined from the UGC-hashtag TikTok scrapes
+    # (unverified, 1K-150K followers, 2+ posts in our niches). UGC creators
+    # commonly reuse handles cross-platform; unknown handles fail gracefully.
+    "motivational.moneytok",
+    "ashleahoess",
+    "investwjonah",
+    "apluslisa",
+    "mindfuldating0",
+    "1ukas.online",
+    "patricklyspeaking",
+    "mialynnebsnrn",
+    "matt.elior",
+    "mics.tech",
+    "investingdiary",
+    "liftingenius",
+    "mange.marketing",
+    "frazfinance",
+    "nursingstudybyally",
+    "sun_nicoco",
+    "faithryanw",
+    ".lesisuretime",
+    "routinsieapp",
+    "meodotrii",
+    "language.learning414",
+    "studywitharyana",
+    "lockinwithrachel",
+    "goodgradestudytips",
+    "_stdwmeichan_",
+    "studywithtokk",
+    "myafterlight",
+    "mattshoss",
+    "ociouswagnerfinances",
+    "jay.esqueda",
+    "nursingwithnic",
+    "studyingwkristen",
+    "d0tfps",
+    "alps.tech",
+    "justkneebcidontcap",
+    "liv_yapps",
+    "studyerik",
+    "livingthevegalifee",
+    "sophiiezhou",
+    "moneytok087",
 ]
 
-RESULTS_PER_HANDLE = 25       # reels per profile
+RESULTS_PER_HANDLE = 150      # reels per profile
 INCLUDE_TRANSCRIPT = False    # paid add-on; local Whisper already transcribes
 INCLUDE_SHARES = False        # paid add-on; Instagram has no free share count
 ACTOR = "apify/instagram-reel-scraper"

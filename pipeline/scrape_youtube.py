@@ -32,9 +32,52 @@ CHANNELS = [
     "ezerafits",
     "jiwonsootds",
     "styledbylexy",
+    # Organic UGC creators mined from the UGC-hashtag TikTok scrapes
+    # (unverified, 1K-150K followers, 2+ posts in our niches). UGC creators
+    # commonly reuse handles cross-platform; unknown handles fail gracefully.
+    "motivational.moneytok",
+    "ashleahoess",
+    "investwjonah",
+    "apluslisa",
+    "mindfuldating0",
+    "1ukas.online",
+    "patricklyspeaking",
+    "mialynnebsnrn",
+    "matt.elior",
+    "mics.tech",
+    "investingdiary",
+    "liftingenius",
+    "mange.marketing",
+    "frazfinance",
+    "nursingstudybyally",
+    "sun_nicoco",
+    "faithryanw",
+    ".lesisuretime",
+    "routinsieapp",
+    "meodotrii",
+    "language.learning414",
+    "studywitharyana",
+    "lockinwithrachel",
+    "goodgradestudytips",
+    "_stdwmeichan_",
+    "studywithtokk",
+    "myafterlight",
+    "mattshoss",
+    "ociouswagnerfinances",
+    "jay.esqueda",
+    "nursingwithnic",
+    "studyingwkristen",
+    "d0tfps",
+    "alps.tech",
+    "justkneebcidontcap",
+    "liv_yapps",
+    "studyerik",
+    "livingthevegalifee",
+    "sophiiezhou",
+    "moneytok087",
 ]
 
-RESULTS_PER_CHANNEL = 25
+RESULTS_PER_CHANNEL = 150
 ACTOR = "streamers/youtube-shorts-scraper"
 
 DATA_DIR = Path(__file__).parent.parent / "data"

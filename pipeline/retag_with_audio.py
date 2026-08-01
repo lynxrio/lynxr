@@ -218,12 +218,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--all", action="store_true",
+                    help="also re-tag rows already marked tag_source=audio")
     args = ap.parse_args()
 
     trs = load_transcripts()
     music = load_music_index()
     rows = list(csv.DictReader(open(MASTER, newline="", encoding="utf-8")))
     targets = [(i, r) for i, r in enumerate(rows) if r["video_id"] in trs]
+    if not args.all:
+        already = sum(1 for _, r in targets if r.get("tag_source", "").startswith("audio"))
+        if already:
+            log.info("skipping %d rows already retagged from audio (--all to redo)", already)
+        targets = [(i, r) for i, r in targets
+                   if not r.get("tag_source", "").startswith("audio")]
     if args.limit:
         targets = targets[: args.limit]
     if not targets:

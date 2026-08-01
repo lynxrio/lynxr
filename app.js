@@ -156,13 +156,13 @@ function renderBars(hostId, pairs, limit = 8, drillSelectId = null) {
   const max = shown.length ? shown[0][1] : 1;
   const total = pairs.reduce((a, [, n]) => a + n, 0) || 1;
   host.innerHTML = shown.map(([label, count]) => `
-    <div class="bar-row${drillSelectId && label !== "(untagged)" ? " drill" : ""}" data-val="${escapeHtml(label)}"
+    <div class="bar-row${drillSelectId && !label.startsWith("(") ? " drill" : ""}" data-val="${escapeHtml(label)}"
          ${drillSelectId ? `role="button" tabindex="0" title="Show these videos in the database"` : ""}>
       <div class="bar-track">
         <div class="bar-fill"></div>
         <div class="bar-label">${escapeHtml(label)}</div>
       </div>
-      <div class="bar-count">${fmt(count)} <span class="bar-pct">${(count / total * 100).toFixed(count / total >= 0.1 ? 0 : 1)}%</span></div>
+      <div class="bar-count"><span class="bar-n">${fmt(count)}</span> <span class="bar-pct">${(count / total * 100).toFixed(count / total >= 0.1 ? 0 : 1)}%</span></div>
     </div>`).join("");
   // Widths via CSSOM, not style="" attributes — the strict CSP (style-src 'self',
   // no 'unsafe-inline') silently discards inline style attributes, which shipped
@@ -176,6 +176,9 @@ function renderBars(hostId, pairs, limit = 8, drillSelectId = null) {
       el.style.transitionDelay = (i * 45) + "ms";
       el.style.width = Math.max((shown[i][1] / max) * 100, 1).toFixed(2) + "%";
     });
+    // Counts climb with their bars, on the same stagger.
+    [...host.querySelectorAll(".bar-n")].forEach((el, i) =>
+      setTimeout(() => animateCount(el, shown[i][1], (v) => fmt(Math.round(v)), 650), i * 45));
   }, 30);
   // Overview shows the split; clicking a bar drills into those exact videos.
   if (drillSelectId) {
@@ -192,20 +195,39 @@ function renderBars(hostId, pairs, limit = 8, drillSelectId = null) {
   }
 }
 
+/** Count a number element up from 0 to its real value. The formatter runs on
+    every frame so "10.2B" counts through "3.1B", "7.8B", … not raw digits.
+    Ends on the exact formatted target even in hidden tabs (rAF stalls there). */
+function animateCount(el, target, format, dur = 900) {
+  const done = () => { el.textContent = format(target); };
+  if (!isFinite(target) || matchMedia("(prefers-reduced-motion: reduce)").matches) return done();
+  // Timer-driven, not rAF: rAF is starved in embedded/background contexts and
+  // the counter would snap straight to the end. ~33fps is plenty for digits.
+  const t0 = performance.now();
+  const ease = (t) => 1 - Math.pow(1 - t, 3);
+  const timer = setInterval(() => {
+    const p = Math.min(1, (performance.now() - t0) / dur);
+    el.textContent = format(target * ease(p));
+    if (p >= 1) { clearInterval(timer); done(); }
+  }, 30);
+}
+
 function renderStats(rows) {
   const totalViews = rows.reduce((a, r) => a + views(r), 0);
   const ers = rows.map((r) => parseFloat(r.engagement_rate)).filter((n) => !isNaN(n));
   const avgEr = ers.length ? ers.reduce((a, b) => a + b, 0) / ers.length : null;
   const creators = new Set(rows.map((r) => r.creator).filter(Boolean)).size;
   const cards = [
-    ["Videos", fmt(rows.length), ""],
-    ["Total views", compact(totalViews), fmt(totalViews)],
-    ["Avg engagement", avgEr === null ? "—" : avgEr.toFixed(2) + "%", `${fmt(ers.length)} with data`],
-    ["Creators", fmt(creators), ""],
+    ["Videos", rows.length, (v) => fmt(Math.round(v)), ""],
+    ["Total views", totalViews, compact, fmt(totalViews)],
+    ["Avg engagement", avgEr, avgEr === null ? () => "—" : (v) => v.toFixed(2) + "%", `${fmt(ers.length)} with data`],
+    ["Creators", creators, (v) => fmt(Math.round(v)), ""],
   ];
-  document.getElementById("stats").innerHTML = cards.map(([label, value, sub]) => `
-    <div class="stat"><div class="label">${label}</div><div class="value">${value}</div>
+  document.getElementById("stats").innerHTML = cards.map(([label, , , sub]) => `
+    <div class="stat"><div class="label">${label}</div><div class="value"></div>
       ${sub ? `<div class="sub">${escapeHtml(sub)}</div>` : ""}</div>`).join("");
+  document.querySelectorAll("#stats .value").forEach((el, i) =>
+    animateCount(el, cards[i][1] ?? NaN, cards[i][2]));
 }
 
 // ---------- Tabs ----------
@@ -242,6 +264,11 @@ const COLS = [
   { key: "hook_pattern", label: "Hook" },
   { key: "niche_category", label: "Niche" },
   { key: "target_audience", label: "Audience" },
+  { key: "length_bucket", label: "Length" },
+  { key: "cta_type", label: "CTA" },
+  { key: "visual_hook", label: "Visual hook" },
+  { key: "audio_trend", label: "Audio" },
+  { key: "hook_delivery", label: "Delivery" },
   { key: "data_source", label: "Source" },
 ];
 const FILTERS = [
@@ -250,6 +277,10 @@ const FILTERS = [
   { id: "f-format", key: "format_type", label: "All formats" },
   { id: "f-hook", key: "hook_pattern", label: "All hooks" },
   { id: "f-niche", key: "niche_category", label: "All niches" },
+  { id: "f-length", key: "length_bucket", label: "All lengths" },
+  { id: "f-cta", key: "cta_type", label: "All CTAs" },
+  { id: "f-visual", key: "visual_hook", label: "All visual hooks" },
+  { id: "f-audio", key: "audio_trend", label: "All audio" },
 ];
 
 let ALL = [];
@@ -263,6 +294,10 @@ function numOf(r, k) { const v = parseFloat(r[k]); return isNaN(v) ? -1 : v; }
 function applyFilters() {
   const q = document.getElementById("search").value.trim().toLowerCase();
   const active = FILTERS.map((f) => [f.key, document.getElementById(f.id).value]);
+  for (const f of FILTERS) {
+    const sel = document.getElementById(f.id);
+    sel.classList.toggle("active", !!sel.value);
+  }
   view = ALL.filter((r) => {
     for (const [key, val] of active) if (val && (r[key] || "") !== val) return false;
     if (!q) return true;
@@ -312,7 +347,8 @@ function renderTable() {
               return `<td class="title" title="${escapeHtml(raw || "")}">${
                 href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label}</td>`;
             }
-            const dim = ["platform", "format_type", "hook_pattern", "niche_category", "target_audience", "data_source"].includes(c.key);
+            const dim = ["platform", "format_type", "hook_pattern", "niche_category", "target_audience",
+                         "length_bucket", "cta_type", "visual_hook", "audio_trend", "hook_delivery", "data_source"].includes(c.key);
             return `<td class="${dim ? "dim" : ""}">${escapeHtml(raw || "—")}</td>`;
           }).join("")}</tr>`).join("")}
         </tbody>
@@ -334,7 +370,14 @@ function renderTable() {
 function initControls() {
   for (const f of FILTERS) {
     const sel = document.getElementById(f.id);
-    const values = [...new Set(ALL.map((r) => r[f.key]).filter(Boolean))].sort();
+    let values = [...new Set(ALL.map((r) => r[f.key]).filter(Boolean))].sort();
+    // Unbounded vocabularies (audio track names) would make the dropdown
+    // unusable — only offer values with enough rows to be worth filtering on.
+    if (values.length > 40) {
+      const counts = new Map();
+      for (const r of ALL) counts.set(r[f.key], (counts.get(r[f.key]) || 0) + 1);
+      values = values.filter((v) => (counts.get(v) || 0) >= 10);
+    }
     sel.innerHTML = `<option value="">${f.label}</option>` +
       values.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
     sel.addEventListener("change", applyFilters);
@@ -562,7 +605,7 @@ function starterHook(hookPattern, brand, feat) {
 // ---------- Video embeds ----------
 // We don't host any video — playback uses each platform's official embed
 // endpoint in a sandboxed iframe (frame-src allowlisted in the CSP). TikTok and
-// YouTube embed reliably; Instagram/Facebook sometimes refuse without login,
+// YouTube embed reliably; Instagram sometimes refuses without login,
 // so every card keeps an "open on platform" link as the fallback.
 //
 // Shelf cards are STATIC until clicked: a real thumbnail + play button, no
@@ -579,7 +622,7 @@ function thumbFor(row) {
     return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
   }
   if (p === "tiktok") return TT_THUMBS.get(url) || null;
-  return null;   // instagram/facebook: no keyless thumbnail — placeholder card
+  return null;   // instagram: no keyless thumbnail — placeholder card
 }
 
 /** Resolve TikTok thumbnails via oEmbed and drop them into waiting cards. */
@@ -652,9 +695,6 @@ function embedFor(row) {
   if (p === "instagram") {
     const code = (url.match(/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/) || [])[1];
     return code ? { src: `https://www.instagram.com/reel/${code}/embed/`, cls: "vf-insta" } : null;
-  }
-  if (p === "facebook") {
-    return url ? { src: `https://www.facebook.com/plugins/video.php?show_text=false&href=${encodeURIComponent(url)}`, cls: "vf-short" } : null;
   }
   return null;
 }
@@ -988,9 +1028,12 @@ function renderShelf(niche) {
     notes.push(`Learning from <strong>${escapeHtml(LEARN_CLIENT.company)}</strong>: ${own.length} tracked post${own.length === 1 ? "" : "s"} are in this ranking${up.length ? `, and <strong>${escapeHtml(up.join(", "))}</strong> ${up.length === 1 ? "is" : "are"} boosted for beating benchmark` : ""}${down.length ? `, <strong>${escapeHtml(down.join(", "))}</strong> demoted for missing it` : ""}.`);
   }
 
+  // Comparison group = source × platform: a scraped IG reel is scored against
+  // scraped IG reels, not against viral TikToks or UGC campaign posts.
+  const srcKey = (r) => (r.data_source || "?") + "|" + (r.platform || "?");
   const bySource = new Map();
   for (const r of pool) {
-    const s = r.data_source || "?";
+    const s = srcKey(r);
     if (!bySource.has(s)) bySource.set(s, []);
     bySource.get(s).push(views(r));
   }
@@ -998,7 +1041,7 @@ function renderShelf(niche) {
   // Client-tracked rows are scored against the benchmark they were measured
   // against; source-normalising them would divide them by themselves.
   const relative = (r) => (r._client && r._ratio != null)
-    ? r._ratio : views(r) / (srcMedian.get(r.data_source || "?") || 1);
+    ? r._ratio : views(r) / (srcMedian.get(srcKey(r)) || 1);
   // A client's own posts that beat their benchmark are proven for THIS client —
   // lead with them rather than making them out-compete viral database clips on
   // a raw index they can't win.
@@ -1262,7 +1305,8 @@ async function sbRefresh(refresh_token) {
     data.enc JSON exactly (engagement_rate stays a string on purpose). */
 async function sbFetchVideos() {
   const FIELDS = "video_id,creator,platform,title,views,likes,comments,engagement_rate,"
-    + "format_type,hook_pattern,niche_category,target_audience,data_source,url";
+    + "format_type,hook_pattern,niche_category,target_audience,data_source,url,"
+    + "length_bucket,audio_trend,cta_type,visual_hook,hook_delivery";
   const PAGE = 1000;
   const rows = [];
   for (let from = 0; ; from += PAGE) {
@@ -1330,7 +1374,18 @@ function updateSyncBadge() {
   const el = document.getElementById("sync-state");
   if (!el) return;
   el.className = "sync-state " + (SYNC_OK ? "ok" : "bad");
-  el.textContent = SYNC_OK ? `● shared · ${SB_EMAIL || ""}` : "● local only — not syncing";
+  // Two spans so narrow screens can drop the email but keep the sync signal.
+  el.replaceChildren();
+  const word = document.createElement("span");
+  word.className = "sync-word";
+  word.textContent = SYNC_OK ? "● shared" : "● local only — not syncing";
+  el.appendChild(word);
+  if (SYNC_OK && SB_EMAIL) {
+    const mail = document.createElement("span");
+    mail.className = "sync-mail";
+    mail.textContent = "· " + SB_EMAIL;
+    el.appendChild(mail);
+  }
   el.title = SYNC_OK
     ? "Clients are shared with your team through Supabase"
     : "Could not reach Supabase; changes are saved on this device only";
@@ -1441,7 +1496,7 @@ async function fetchPostMeta(url) {
       platform: /tiktok/.test(p) ? "tiktok" : "youtube",
     };
   }
-  // Instagram/Facebook have no keyless oEmbed — read the page's meta tags.
+  // Instagram has no keyless oEmbed — read the page's meta tags.
   const raw = await fetchWithTimeout(
     "https://api.allorigins.win/get?url=" + encodeURIComponent(url), 20000);
   const html = JSON.parse(raw).contents || "";
@@ -1452,7 +1507,7 @@ async function fetchPostMeta(url) {
     caption: meta('meta[property="og:description"]') || og,
     creator: (og.match(/^([^\s(]+)/) || [])[1] || "",
     thumb: "",
-    platform: /instagram/.test(p) ? "instagram" : /facebook/.test(p) ? "facebook" : "",
+    platform: /instagram/.test(p) ? "instagram" : "",
   };
 }
 
@@ -1598,7 +1653,7 @@ function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1,
       const pv = seriesAt(est, d);
       return pv == null ? "" : `<circle cx="${X(d).toFixed(1)}" cy="${Y(pv).toFixed(1)}" r="2.8" class="dot-pred"/>`;
     }).join("")}
-    ${actual.length > 1 ? `<polyline points="${poly(actual)}" class="line-actual"/>` : ""}
+    ${actual.length > 1 ? `<polyline points="${poly(actual)}" class="line-actual" pathLength="1"/>` : ""}
     ${xTicks.map((d) => {
       const av = seriesAt(actual, d);
       return av == null ? "" : `<circle cx="${X(d).toFixed(1)}" cy="${Y(av).toFixed(1)}" r="3.4" class="dot-actual"/>`;
@@ -1944,12 +1999,14 @@ function renderClientPage(host, client) {
   const ch = campaignHealth(client);
 
   host.innerHTML = `
-    <div class="viewer-top">
-      <button type="button" class="ghost" id="cl-back">← All clients</button>
-      <div class="minw0">
-        <div class="bcard-title">${escapeHtml(client.company)}</div>
-        <div class="lbl">${escapeHtml(client.niche || "All niches")}${client.ctx?.audience ? " · " + escapeHtml(client.ctx.audience) : ""}</div>
-      </div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <button type="button" class="crumb-link" id="cl-back">Clients</button>
+      <span class="crumb-sep">›</span>
+      <span class="crumb-here">${escapeHtml(client.company)}</span>
+    </nav>
+    <div class="page-head">
+      <div class="bcard-title">${escapeHtml(client.company)}</div>
+      <div class="lbl">${escapeHtml(client.niche || "All niches")}${client.ctx?.audience ? " · " + escapeHtml(client.ctx.audience) : ""}</div>
     </div>
 
     <div class="health-row">
@@ -2171,7 +2228,8 @@ function weekDashboardHtml(rec, client) {
   if (!tracked.length)
     recs.push("Nothing tracked for this week yet — add posts below (Tracked posts on the client page) and check in with views.");
 
-  return `
+  return {
+    dash: `
     <div class="growth-card ${pace.tone}">
       <div class="growth-head">
         <h2>${pace.label ? (pace.tone === "good" ? "Good week — ahead of the predicted slope"
@@ -2190,10 +2248,11 @@ function weekDashboardHtml(rec, client) {
     ${recs.length ? `<div class="recs"><h2>What to change</h2><ul>${recs.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div>` : ""}
 
     ${over.length ? `<div class="flag-block good-block"><h2>Overperforming — emphasize these</h2><ul class="flag-list">${over.map(postLine).join("")}</ul></div>` : ""}
-    ${under.length ? `<div class="flag-block bad-block"><h2>Underperforming — flagged</h2><ul class="flag-list">${under.map(postLine).join("")}</ul></div>` : ""}
-
+    ${under.length ? `<div class="flag-block bad-block"><h2>Underperforming — flagged</h2><ul class="flag-list">${under.map(postLine).join("")}</ul></div>` : ""}`,
+    scripts: `
     <h2>The 10 scripts behind the graph</h2>
-    <div class="fmt-grid">${scriptCards}</div>`;
+    <div class="fmt-grid">${scriptCards}</div>`,
+  };
 }
 
 function renderBriefViewer(host, rec, client) {
@@ -2206,31 +2265,33 @@ function renderBriefViewer(host, rec, client) {
   const hookOptions = [...new Set(ALL.map((r) => r.hook_pattern).filter(Boolean))].sort();
   if (BRIEF_VIEW.expanded != null)
     BRIEF_VIEW.expanded = Math.max(0, Math.min(BRIEF_VIEW.expanded, rec.items.length - 1));
+  const dash = weekDashboardHtml(rec, client);
   host.innerHTML = `
-    <div class="viewer-top">
-      <button type="button" class="ghost" id="bv-back">← ${escapeHtml(client?.company || "Back")}</button>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <button type="button" class="crumb-link" id="bv-clients">Clients</button>
+      <span class="crumb-sep">›</span>
+      <button type="button" class="crumb-link" id="bv-back">${escapeHtml(client?.company || "Back")}</button>
+      <span class="crumb-sep">›</span>
+      <span class="crumb-here">Brief ${total - idx}</span>
       <div class="spacer"></div>
-      <button type="button" class="ghost" id="bv-docx">Download .docx</button>
-    </div>
-
-    <div class="week-nav">
       <button type="button" class="ghost week-arrow" id="wk-prev" ${idx >= total - 1 ? "disabled" : ""}
         title="${idx >= total - 1 ? "No earlier brief" : "Earlier brief"}">←</button>
-      <div class="week-head">
-        <div class="bcard-title">Brief ${total - idx}</div>
-        <div class="lbl">${escapeHtml(rec.company)} · ${escapeHtml((rec.createdAt || "").slice(0, 10))} · ${total - idx} of ${total}</div>
-      </div>
       <button type="button" class="ghost week-arrow" id="wk-next" ${idx <= 0 ? "disabled" : ""}
         title="${idx <= 0 ? "No later brief" : "Later brief"}">→</button>
+      <button type="button" class="ghost" id="bv-docx">.docx</button>
+    </nav>
+    <div class="page-head">
+      <div class="bcard-title">Brief ${total - idx} <span class="pill">${total - idx} of ${total}</span></div>
+      <div class="lbl">${escapeHtml(rec.company)} · ${escapeHtml((rec.createdAt || "").slice(0, 10))}</div>
     </div>
-    ${weekDashboardHtml(rec, client)}
+    ${dash.dash}
 
     <h2>Posts from this brief <span class="pill">${briefPosts.length}</span></h2>
     <form class="post-form" id="post-form">
       <input type="url" id="pf-url" placeholder="Paste the post link — we'll read and tag it" required>
       <button type="submit" class="btn" id="pf-add">Add &amp; auto-tag</button>
     </form>
-    <p class="note" id="pf-note">Paste a TikTok, YouTube, Instagram, or Facebook link — the caption and creator
+    <p class="note" id="pf-note">Paste a TikTok, YouTube, or Instagram link — the caption and creator
       are read from the post and tagged automatically. Format and hook stay editable on the row. The benchmark
       locks in on add; check in with views to plot the actual line above.</p>
     <div class="post-list">${briefPosts.map((p) => {
@@ -2261,18 +2322,13 @@ function renderBriefViewer(host, rec, client) {
       </div>`;
     }).join("")}</div>
 
-    <div class="nextweek">
-      <div class="minw0">
-        <h2>Next brief${trackedThisWeek ? " — learns from this one" : ""}</h2>
-        <p class="lbl">${trackedThisWeek
-          ? `Builds on what actually performed for ${escapeHtml(client.company)}: winning formats boosted, misses demoted, and posts that beat benchmark leading the shelf.`
-          : `Track this brief's posts above and the next one will learn from what performed.`}</p>
-      </div>
-      <button type="button" class="btn" id="wk-nextbrief">Build brief ${total + 1}</button>
-    </div>`;
+    ${dash.scripts}`;
 
   bindChartHover(host);
   document.getElementById("bv-back").addEventListener("click", () => { BRIEF_VIEW = null; renderBriefs(); });
+  document.getElementById("bv-clients").addEventListener("click", () => {
+    CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
+  });
   document.getElementById("wk-prev").addEventListener("click", () => {
     if (idx < total - 1) { BRIEF_VIEW = { id: client.briefs[idx + 1].id, expanded: null }; renderBriefs(); }
   });
@@ -2340,7 +2396,6 @@ function renderBriefViewer(host, rec, client) {
     });
   });
 
-  document.getElementById("wk-nextbrief").addEventListener("click", () => startNextWeekBrief(client));
   document.getElementById("bv-docx").addEventListener("click", () =>
     downloadDocx(rec.ctx, rec.items, (rec.createdAt || "").slice(0, 10)));
 
@@ -2402,9 +2457,11 @@ function segmentStats(rows) {
  *  for where it came from — and segments are ranked on the median of that.
  */
 function buildPlays(pool) {
+  // Comparison group = source × platform (see the shelf ranking above).
+  const srcKey = (r) => (r.data_source || "?") + "|" + (r.platform || "?");
   const bySource = new Map();
   for (const r of pool) {
-    const s = r.data_source || "?";
+    const s = srcKey(r);
     if (!bySource.has(s)) bySource.set(s, []);
     bySource.get(s).push(views(r));
   }
@@ -2412,7 +2469,7 @@ function buildPlays(pool) {
   // Client-tracked rows are scored against the benchmark they were measured
   // against; source-normalising them would divide them by themselves.
   const relative = (r) => (r._client && r._ratio != null)
-    ? r._ratio : views(r) / (srcMedian.get(r.data_source || "?") || 1);
+    ? r._ratio : views(r) / (srcMedian.get(srcKey(r)) || 1);
   const learning = LEARN_CLIENT ? clientLearning(LEARN_CLIENT) : null;
 
   const plays = [];
@@ -2635,6 +2692,32 @@ function initBrief() {
   });
 }
 
+// ---------- Footer ----------
+/** The giant footer wordmark fills left-to-right as the footer scrolls into
+    view, completing exactly at the bottom of the page. Width is set through
+    element.style (CSSOM) — allowed under the strict CSP, unlike style="". */
+function initFooter(rows) {
+  const count = document.getElementById("foot-count");
+  if (count) count.textContent = fmt(rows.length);
+
+  document.querySelectorAll(".foot-link[data-tab]").forEach((b) =>
+    b.addEventListener("click", () => activateTab(b.dataset.tab)));
+
+  const rect = document.getElementById("fw-rect");
+  const foot = document.getElementById("site-footer");
+  if (!rect || !foot) return;
+  const update = () => {
+    const r = foot.getBoundingClientRect();
+    // 0 as the footer's top crosses the viewport bottom → 1 when the footer is
+    // fully on screen (it's the last element, so that IS the bottom of page).
+    const p = Math.min(1, Math.max(0, (innerHeight - r.top) / r.height));
+    rect.setAttribute("width", (p * 560).toFixed(1));  // viewBox units
+  };
+  addEventListener("scroll", update, { passive: true });
+  addEventListener("resize", update, { passive: true });
+  update();
+}
+
 // ---------- Boot ----------
 function renderApp(rows) {
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -2648,7 +2731,20 @@ function renderApp(rows) {
   renderBars("by-format", countBy(rows, "format_type"), 8, "f-format");
   renderBars("by-hook", countBy(rows, "hook_pattern"), 8, "f-hook");
   renderBars("by-niche", countBy(rows, "niche_category"), 8, "f-niche");
-  renderBars("by-source", countBy(rows, "data_source"), 8, "f-source");
+  renderBars("by-platform", countBy(rows, "platform"), 8, "f-platform");
+  renderBars("by-cta", countBy(rows, "cta_type"), 8, "f-cta");
+  renderBars("by-visual", countBy(rows, "visual_hook"), 8, "f-visual");
+  renderBars("by-length", countBy(rows, "length_bucket"), 8, "f-length");
+  // audio_trend holds the platform's sound label, so its tail is hundreds of
+  // one-off track names. A sound only earns its own bar at >=1% of the
+  // database; the rest roll up so the panel reads as a split, not a playlist.
+  const audioPairs = countBy(rows, "audio_trend");
+  const audioMin = rows.length * 0.01;
+  const majors = audioPairs.filter(([l, n]) => n >= audioMin || l === "(untagged)");
+  const tail = audioPairs.filter(([l, n]) => n < audioMin && l !== "(untagged)");
+  const tailSum = tail.reduce((a, [, n]) => a + n, 0);
+  if (tailSum) majors.push([`(${fmt(tail.length)} named sounds)`, tailSum]);
+  renderBars("by-audio", majors.sort((a, b) => b[1] - a[1]), 8, "f-audio");
   initTabs();
   initModal();
   updateSyncBadge();
@@ -2663,6 +2759,7 @@ function renderApp(rows) {
   });
   initControls();
   initBrief();
+  initFooter(rows);
   applyFilters();
 }
 

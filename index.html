@@ -5,7 +5,7 @@
 <!-- Strict CSP: no inline script or style at all, nothing loads off-origin, and
      native form posts are blocked (they could otherwise put the code in a URL).
      Dropping 'unsafe-inline' means a future missed escape cannot execute. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://esakjfogplfszievvabi.supabase.co; img-src 'self' https://i.ytimg.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokcdn-eu.com; frame-src https://www.tiktok.com https://www.youtube-nocookie.com https://www.instagram.com https://www.facebook.com; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://esakjfogplfszievvabi.supabase.co; img-src 'self' https://i.ytimg.com https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokcdn-eu.com; frame-src https://www.tiktok.com https://www.youtube-nocookie.com https://www.instagram.com; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lynxr</title>
@@ -20,7 +20,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://lynxr.io/og.png">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=20260731x">
 </head>
 <body>
 
@@ -66,13 +66,15 @@
     <!-- Database (overview + table) -->
     <section class="panel" id="panel-database" role="tabpanel" aria-labelledby="tab-database">
       <div class="section"><div class="stats" id="stats"></div></div>
-      <div class="section grid-2">
+      <div class="section bars-grid">
         <div><h2>Format type</h2><div class="bars" id="by-format"></div></div>
         <div><h2>Hook pattern</h2><div class="bars" id="by-hook"></div></div>
-      </div>
-      <div class="section grid-2">
         <div><h2>Niche</h2><div class="bars" id="by-niche"></div></div>
-        <div><h2>Source</h2><div class="bars" id="by-source"></div></div>
+        <div><h2>Platform</h2><div class="bars" id="by-platform"></div></div>
+        <div><h2>CTA type</h2><div class="bars" id="by-cta"></div></div>
+        <div><h2>Visual hook</h2><div class="bars" id="by-visual"></div></div>
+        <div><h2>Length</h2><div class="bars" id="by-length"></div></div>
+        <div><h2>Audio</h2><div class="bars" id="by-audio"></div></div>
       </div>
       <h2 id="table-anchor">Full database <span id="row-count" class="pill"></span></h2>
       <div class="controls">
@@ -82,6 +84,10 @@
         <select id="f-format" aria-label="Filter by format"></select>
         <select id="f-hook" aria-label="Filter by hook"></select>
         <select id="f-niche" aria-label="Filter by niche"></select>
+        <select id="f-length" aria-label="Filter by length"></select>
+        <select id="f-cta" aria-label="Filter by CTA type"></select>
+        <select id="f-visual" aria-label="Filter by visual hook"></select>
+        <select id="f-audio" aria-label="Filter by audio"></select>
         <button type="button" id="reset" class="ghost">Reset</button>
       </div>
       <div id="table-host"></div>
@@ -113,6 +119,38 @@
       <div id="briefs-host"></div>
     </section>
   </main>
+
+  <footer id="site-footer">
+    <svg class="foot-wordmark" viewBox="0 0 560 168" aria-hidden="true">
+      <defs><clipPath id="fw-clip"><rect id="fw-rect" x="0" y="0" width="0" height="168"/></clipPath></defs>
+      <text x="280" y="138" text-anchor="middle" class="fwt-outline">lynxr.</text>
+      <text x="280" y="138" text-anchor="middle" class="fwt-fill" clip-path="url(#fw-clip)">lynxr.</text>
+    </svg>
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+        <p>The format intelligence behind Lynx Media Group —
+          <span id="foot-count"></span> short-form videos measured, tagged, and turned into briefs.</p>
+      </div>
+      <div class="foot-col">
+        <div class="foot-label">Sections</div>
+        <button type="button" class="foot-link" data-tab="tab-database">Database</button>
+        <button type="button" class="foot-link" data-tab="tab-brief">New Client</button>
+        <button type="button" class="foot-link" data-tab="tab-briefs">Clients</button>
+      </div>
+      <div class="foot-col">
+        <div class="foot-label">Socials</div>
+        <a class="foot-link" href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a class="foot-link" href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">TikTok</a>
+        <a class="foot-link" href="https://www.linkedin.com/company/lynxr" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+      <div class="foot-col">
+        <div class="foot-label">Lynx</div>
+        <a class="foot-link" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">lynxmediagroup.org</a>
+      </div>
+    </div>
+    <div class="foot-legal">© 2026 lynxr LLC. All rights reserved.</div>
+  </footer>
 </div>
 
 <div id="modal" hidden>
@@ -123,6 +161,6 @@
   </div>
 </div>
 
-<script src="app.js" defer></script>
+<script src="app.js?v=20260731x" defer></script>
 </body>
 </html>
