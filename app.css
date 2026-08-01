@@ -53,7 +53,7 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font: 15px/1.6 "Outfit", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font: 15px/1.6 "Share Tech Mono", "Outfit", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
   }
@@ -174,7 +174,10 @@
   .bars { display: flex; flex-direction: column; gap: 5px; }
   .bar-row { display: grid; grid-template-columns: 1fr 96px; align-items: center; gap: 12px; font-size: 13px; }
   .bar-track { position: relative; background: var(--surface); border-radius: 6px; height: 26px; overflow: hidden; }
-  .bar-fill { position: absolute; inset: 0 auto 0 0; background: #ffffff2b; border-right: 2px solid #ffffff52; border-radius: 6px 0 0 6px; width: 0; transition: width .7s var(--ease); }
+  .bar-fill { position: absolute; inset: 0 auto 0 0; background: #ffffff2b; border-radius: 6px 0 0 6px; width: 0; transition: width .7s var(--ease), background .35s ease; }
+  /* Hover: the fill brightens a couple of steps — enough to read as selected,
+     not enough to flashbang the row. Label stays put and stays readable. */
+  .bar-row.drill:hover .bar-fill { background: #ffffff59; }
   .bar-label { position: relative; padding: 4px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bar-count { color: var(--text-2); font-size: 12.5px; text-align: right; font-family: var(--mono); white-space: nowrap; }
   .bar-pct { color: var(--text-3); font-size: 11px; }
@@ -803,24 +806,19 @@
     padding: 48px 24px 28px;
     max-width: 1180px; margin-left: auto; margin-right: auto;
   }
-  /* SVG wordmark: outline and fill are two <text> layers sharing the exact
-     same coordinates, so they cannot mis-register. paint-order:stroke draws
-     the outline BEHIND a background-colored fill — Outfit's overlapping glyph
-     contours would otherwise show their internal seams through the letters
-     (CSS text-stroke has no way to do this; that was the "overlap"). */
+  /* Slot-machine wordmark: JS splits "lynxr." into one span per character;
+     unlocked positions spin through random glyphs and lock left-to-right as
+     the footer scrolls in — all settled by the bottom of the page. Monospace
+     means every glyph has the same advance, so nothing jitters. */
   .foot-wordmark {
-    display: block; width: 100%; max-width: 280px;
-    margin: 0 auto 44px; user-select: none; pointer-events: none;
+    font-family: var(--mono); font-size: clamp(44px, 7.5vw, 76px);
+    line-height: 1.1; text-align: center; margin: 0 auto 44px;
+    user-select: none; pointer-events: none; color: var(--text);
   }
-  .foot-wordmark text {
-    font-family: "Outfit", sans-serif; font-weight: 700;
-    font-size: 150px; letter-spacing: -0.04em;
-  }
-  .fwt-outline {
-    fill: var(--bg);                 /* solid interior hides contour seams */
-    stroke: var(--line-2); stroke-width: 3; paint-order: stroke;
-  }
-  .fwt-fill { fill: var(--text); }
+  .fw-ch { display: inline-block; min-width: .62em; transition: color .3s ease; }
+  .fw-ch.spin { color: var(--text-3); }
+  @keyframes fw-settle { from { transform: translateY(-12%); opacity: .35; } }
+  .fw-ch.settled { animation: fw-settle .22s var(--ease); }
   .foot-grid {
     display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     gap: 40px; padding-bottom: 36px; border-bottom: 1px solid var(--line);

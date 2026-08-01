@@ -1419,16 +1419,37 @@ function sbClearSession() {
   try { localStorage.removeItem(SB_SESSION_KEY); } catch {}
 }
 
+// One shared in-flight refresh: parallel 401s must not each burn the (single
+// use) refresh token — the second refresh would fail and sign everyone out.
+let SB_REFRESHING = null;
+
 async function sbFetch(path, opts = {}) {
-  const headers = {
-    apikey: SB_KEY,
-    Authorization: `Bearer ${SB_TOKEN || SB_KEY}`,
-    "Content-Type": "application/json",
-    ...(opts.headers || {}),
-  };
-  const res = await fetch(SB_URL + path, { ...opts, headers });
+  const attempt = () => fetch(SB_URL + path, {
+    ...opts,
+    headers: {
+      apikey: SB_KEY,
+      Authorization: `Bearer ${SB_TOKEN || SB_KEY}`,   // re-read on every try
+      "Content-Type": "application/json",
+      ...(opts.headers || {}),
+    },
+  });
+  let res = await attempt();
+  // Access tokens expire after an hour. Mid-session that made every write 401
+  // and the badge fell to "local only" — refresh once and retry instead.
+  if (res.status === 401 && sbLoadSession()?.refresh_token) {
+    try {
+      SB_REFRESHING = SB_REFRESHING
+        || sbRefresh(sbLoadSession().refresh_token).finally(() => { SB_REFRESHING = null; });
+      await SB_REFRESHING;
+      res = await attempt();
+    } catch { /* refresh failed — fall through to the normal error */ }
+  }
   if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`);
-  return res.status === 204 ? null : res.json();
+  // Writes come back 200/201 with an EMPTY body (PostgREST only returns rows
+  // when asked via Prefer: return=representation). res.json() on empty threw,
+  // which made every successful save look like a sync failure.
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 /** Sign in with email + password. Returns the session or throws. */
@@ -1543,7 +1564,7 @@ function updateSyncBadge() {
   el.replaceChildren();
   const word = document.createElement("span");
   word.className = "sync-word";
-  word.textContent = SYNC_OK ? "● shared" : "● local only — not syncing";
+  word.textContent = SYNC_OK ? "● syncing" : "● local only — not syncing";
   el.appendChild(word);
   if (SYNC_OK && SB_EMAIL) {
     const mail = document.createElement("span");
@@ -1605,10 +1626,16 @@ function persistClients(list) {
   const before = new Set((window.__lastClientIds || []));
   const now = new Set(list.map((c) => c.id));
   window.__lastClientIds = [...now];
+  let failed = false;
   Promise.all([
-    ...list.map((c) => sbPushClient(c).catch(() => { SYNC_OK = false; })),
-    ...[...before].filter((id) => !now.has(id)).map((id) => sbDeleteClient(id).catch(() => {})),
-  ]).then(updateSyncBadge, updateSyncBadge);
+    ...list.map((c) => sbPushClient(c).catch(() => { failed = true; })),
+    ...[...before].filter((id) => !now.has(id)).map((id) => sbDeleteClient(id).catch(() => { failed = true; })),
+  ]).then(() => {
+    // A clean cycle proves sync is healthy again — earlier hiccups are healed
+    // because every persist re-pushes the full client list.
+    SYNC_OK = !failed;
+    updateSyncBadge();
+  });
 }
 
 /** Save the current cart as a brief inside its client's folder. */
@@ -2869,15 +2896,50 @@ function initFooter(rows) {
   document.querySelectorAll(".foot-link[data-tab]").forEach((b) =>
     b.addEventListener("click", () => activateTab(b.dataset.tab)));
 
-  const rect = document.getElementById("fw-rect");
+  // Slot-machine wordmark: each character spins through random glyphs and
+  // locks in left-to-right as the footer scrolls into view. At the bottom of
+  // the page every slot has stopped on its letter: l y n x r .
+  const mark = document.getElementById("foot-wordmark");
   const foot = document.getElementById("site-footer");
-  if (!rect || !foot) return;
+  if (!mark || !foot) return;
+  const FINAL = mark.textContent.trim() || "lynxr.";
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;  // static text stays
+  // Split-flap, not slot machine: each reel walks the alphabet TOWARD its
+  // letter and arrives exactly as it locks — convergence, not noise.
+  const REEL = "abcdefghijklmnopqrstuvwxyz.";
+  mark.replaceChildren(...[...FINAL].map((ch) => {
+    const s = document.createElement("span");
+    s.className = "fw-ch spin";
+    s.textContent = ch;
+    return s;
+  }));
+  const chars = [...mark.children];
+  const N = FINAL.length;
   const update = () => {
     const r = foot.getBoundingClientRect();
     // 0 as the footer's top crosses the viewport bottom → 1 when the footer is
     // fully on screen (it's the last element, so that IS the bottom of page).
     const p = Math.min(1, Math.max(0, (innerHeight - r.top) / r.height));
-    rect.setAttribute("width", (p * 560).toFixed(1));  // viewBox units
+    chars.forEach((s, i) => {
+      const lockP = (i + 1) / (N + 1);        // slots lock left-to-right
+      if (p >= lockP) {
+        if (s.classList.contains("spin")) {   // just arrived: settle in place
+          s.classList.remove("spin");
+          void s.offsetWidth;
+          s.classList.add("settled");
+        }
+        s.textContent = FINAL[i];
+      } else {
+        s.classList.add("spin");
+        s.classList.remove("settled");
+        // Scrubbed by scroll: N flips remain proportional to the distance
+        // from this slot's lock point; stationary = frozen.
+        const target = Math.max(0, REEL.indexOf(FINAL[i]));
+        const total = 6 + i * 2;              // later slots travel further
+        const remaining = Math.max(1, Math.ceil(total * (lockP - p) / lockP));
+        s.textContent = REEL[(target - (remaining % REEL.length) + REEL.length) % REEL.length];
+      }
+    });
   };
   addEventListener("scroll", update, { passive: true });
   addEventListener("resize", update, { passive: true });
