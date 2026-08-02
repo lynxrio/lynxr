@@ -162,10 +162,37 @@ def main():
     ap.add_argument("--model", default=MODEL)
     ap.add_argument("--redo-nosegments", action="store_true",
                     help="re-transcribe speech entries recorded before segment timestamps")
+    ap.add_argument("--only-suspect", action="store_true",
+                    help="re-transcribe only entries with quality red flags (looping, "
+                         "sparse output, low confidence) — pair with a bigger --model")
     args = ap.parse_args()
 
     rows = list(csv.DictReader(open(MASTER, newline="", encoding="utf-8")))
     done = already_done(require_segments=args.redo_nosegments)
+    if args.only_suspect:
+        # Quality triage: the current transcript exists but looks wrong —
+        # whisper looping one phrase, far too few words for the duration, or
+        # low model confidence. A bigger model usually fixes all three.
+        from collections import Counter as C
+        suspect = set()
+        for line in OUT.read_text().splitlines():
+            try:
+                d = json.loads(line)
+            except Exception:
+                continue
+            if d.get("error") or not d.get("has_speech"):
+                suspect.discard(str(d["video_id"]))
+                continue
+            words = (d.get("text") or "").split()
+            dur = d.get("duration") or 0
+            grams = C(tuple(words[i:i + 3]) for i in range(len(words) - 2))
+            bad = (grams and grams.most_common(1)[0][1] >= 4) \
+                or (dur > 15 and len(words) / dur < 0.8) \
+                or d.get("no_speech_prob", 0) > 0.45
+            # last entry per id wins, matching every other consumer
+            (suspect.add if bad else suspect.discard)(str(d["video_id"]))
+        done = {v for v in done if v not in suspect}
+        log.info("suspect re-transcription: %d flagged", len(suspect))
     todo = [r for r in rows
             if r.get("url") and r["video_id"] not in done
             and (not args.platform or r["platform"] == args.platform)]

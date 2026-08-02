@@ -40,3 +40,7 @@ echo "=== PIPELINE COMPLETE ==="
 echo "  Master database: output/master_video_database.csv"
 echo "  Summary:         output/data_summary.txt"
 echo "  Dashboard data:  Supabase table lynxr_videos (RLS: signed-in read only)"
+
+# Content policy: English-only organic UGC — drops non-English, influencer
+# (>200K/verified), and AI-generated rows, then removes them from Supabase.
+$PY filter_database.py

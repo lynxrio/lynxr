@@ -184,10 +184,17 @@
 
   /* ---------- Controls ---------- */
   .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-  input[type="search"], input[type="url"], select {
+  input[type="search"], input[type="url"], select, textarea {
     padding: 9px 12px; background: var(--surface); border: 1px solid var(--line);
     border-radius: 8px; color: var(--text); font-size: 14px;
   }
+  textarea { resize: vertical; min-height: 58px; line-height: 1.5; }
+  .ce-avatar-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 14px; margin-top: 6px;
+  }
+  @media (max-width: 700px) { .ce-avatar-grid { grid-template-columns: 1fr; } }
+  textarea:focus { outline: none; border-color: var(--line-2); background: var(--surface-2); }
   input[type="search"] { flex: 1 1 260px; min-width: 0; }
   select { max-width: 200px; }
   input:focus, select:focus { outline: none; border-color: var(--line-2); background: var(--surface-2); }
@@ -841,3 +848,43 @@
     .foot-grid { grid-template-columns: 1fr; gap: 28px; }
     .foot-wordmark { margin-bottom: 36px; }
   }
+
+  /* ---------- Client editor readability ----------
+     The digital mono is for numbers and readouts; a form you READ and type
+     sentences into gets the text face. Labels lose the all-caps tracking,
+     fields get room to breathe. */
+  .ce-body { font-family: "Outfit", ui-sans-serif, sans-serif; }
+  .ce-body .lbl {
+    font-family: "Outfit", ui-sans-serif, sans-serif;
+    text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text-2);
+  }
+  .ce-body input, .ce-body select, .ce-body textarea {
+    font-family: "Outfit", ui-sans-serif, sans-serif; font-size: 14px; line-height: 1.5;
+  }
+  .ce-body ::placeholder { color: var(--text-3); opacity: .8; }
+  .ce-grid { gap: 16px 18px; }
+  .ce-avatar-grid { gap: 14px 18px; }
+
+  /* ---------- Avatar card on the client page ----------
+     Collapsed by default so it's there when you need it, invisible when not. */
+  .avatar-box {
+    border: 1px solid var(--line); border-radius: 10px;
+    margin: -6px 0 22px; font-family: "Outfit", ui-sans-serif, sans-serif;
+  }
+  .avatar-box summary {
+    cursor: pointer; list-style: none; padding: 10px 14px;
+    font-size: 12px; font-weight: 600; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: .08em; user-select: none;
+  }
+  .avatar-box summary::before { content: "▸ "; }
+  .avatar-box[open] summary::before { content: "▾ "; }
+  .avatar-box summary::-webkit-details-marker { display: none; }
+  .avatar-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px 22px; padding: 2px 14px 14px;
+  }
+  .avatar-grid .av-label {
+    font-size: 11px; color: var(--text-3); text-transform: uppercase;
+    letter-spacing: .07em; margin-bottom: 3px;
+  }
+  .avatar-grid .av-text { font-size: 13.5px; color: var(--text-2); line-height: 1.55; }

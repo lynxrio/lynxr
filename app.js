@@ -890,20 +890,28 @@ function tailoredScript(row, ctx, slot) {
 async function enrichTranscripts(rows) {
   const need = rows.filter((r) => r.transcript === undefined && !r._client && r.video_id);
   if (!need.length) return;
-  try {
-    const ids = [...new Set(need.map((r) => `"${String(r.video_id).replace(/"/g, "")}"`))];
-    const got = await sbFetch(`/rest/v1/lynxr_videos?select=platform,video_id,hook_spoken,transcript,transcript_segments,visual_cues`
-      + `&video_id=in.(${ids.join(",")})`);
-    const byKey = new Map(got.map((g) => [`${g.platform}|${g.video_id}`, g]));
-    for (const r of rows) {
-      const g = byKey.get(`${r.platform}|${r.video_id}`);
-      r.hook_spoken = g?.hook_spoken || "";
-      r.transcript = g?.transcript || "";
-      r.transcript_segments = g?.transcript_segments || "";
-      r.visual_cues = g?.visual_cues || "";
-    }
-  } catch {
-    for (const r of need) { r.hook_spoken = r.hook_spoken || ""; r.transcript = r.transcript || ""; }
+  const ids = [...new Set(need.map((r) => `"${String(r.video_id).replace(/"/g, "")}"`))];
+  // If the full select fails (a column not migrated yet), retry with ever
+  // smaller column sets — partial evidence beats template fallback.
+  const selects = [
+    "platform,video_id,hook_spoken,transcript,transcript_segments,visual_cues",
+    "platform,video_id,hook_spoken,transcript",
+    "platform,video_id",
+  ];
+  let got = [];
+  for (const sel of selects) {
+    try {
+      got = await sbFetch(`/rest/v1/lynxr_videos?select=${sel}&video_id=in.(${ids.join(",")})`);
+      break;
+    } catch { /* try the next, smaller select */ }
+  }
+  const byKey = new Map(got.map((g) => [`${g.platform}|${g.video_id}`, g]));
+  for (const r of rows) {
+    const g = byKey.get(`${r.platform}|${r.video_id}`);
+    r.hook_spoken = g?.hook_spoken || "";
+    r.transcript = g?.transcript || "";
+    r.transcript_segments = g?.transcript_segments || "";
+    r.visual_cues = g?.visual_cues || "";
   }
 }
 
@@ -942,6 +950,58 @@ function clientLearning(client) {
   return { fmt: avg(fmt), hook: avg(hook), n: (client?.posts || []).filter((p) => p.checkins.length).length };
 }
 
+/** The client's own experiment ledger: every format×hook combo they've
+    actually posted, with a verdict. "failed" combos are RETIRED for this
+    client — the shelf refuses them and pulls the next-best untried combo from
+    the main database instead. One catastrophic post (<0.5×) retires a combo;
+    a mild miss needs a second data point before retirement, so one unlucky
+    upload can't kill a good idea. */
+function comboVerdicts(client) {
+  const stats = new Map();
+  for (const p of client?.posts || []) {
+    const r = postRatio(p);
+    if (r == null || !p.format || !p.hook) continue;
+    const k = `${p.format}×${p.hook}`;
+    if (!stats.has(k)) stats.set(k, []);
+    stats.get(k).push(r);
+  }
+  const out = new Map();
+  for (const [k, rs] of stats) {
+    const avg = rs.reduce((a, b) => a + b, 0) / rs.length;
+    const status = avg >= 1 ? "proven"
+      : (rs.length >= 2 && avg < 0.75) || avg < 0.5 ? "failed"
+      : "testing";
+    out.set(k, { n: rs.length, avg, status });
+  }
+  return out;
+}
+
+/** How well a video speaks to the client's target avatar. Two signals:
+    the structured audience tag (exact match boosted, clearly-other demoted)
+    and keyword overlap between the avatar description and the caption. Small
+    multipliers — the avatar tilts the ranking, it doesn't replace it. */
+const AVATAR_STOP = new Set(("the,a,an,and,or,of,to,in,on,for,with,who,that,they,their,them,is,are,was,be," +
+  "between,into,who,what,when,really,very,just,like,about,from,this,these,those,her,his,she,he").split(","));
+function avatarWords(text) {
+  return [...new Set(((text || "").toLowerCase().match(/[a-z][a-z-]{3,}/g) || []))]
+    .filter((w) => !AVATAR_STOP.has(w)).slice(0, 24);
+}
+function avatarBoost(r, ctx) {
+  let b = 1;
+  if (ctx?.audience && r.target_audience) {
+    if (r.target_audience === ctx.audience) b *= 1.15;
+    else if (r.target_audience !== "Other") b *= 0.94;
+  }
+  const words = ctx?._avatarWords;
+  if (words?.length) {
+    const hay = (r.title || "").toLowerCase();
+    let hits = 0;
+    for (const w of words) if (hay.includes(w)) hits++;
+    b *= 1 + Math.min(0.25, hits * 0.05);
+  }
+  return b;
+}
+
 /** Blend a learned multiplier toward 1 so a single post can't dominate. */
 function learnedBoost(learning, format, hook) {
   if (!learning || !learning.n) return 1;
@@ -960,7 +1020,7 @@ let CART = new Map();   // rowKey -> row
 
 const rowKey = (r) => (r.platform || "") + "|" + (r.video_id || r.url || r.title);
 
-function buildShelf(pool, relative, count = 24) {
+function buildShelf(pool, relative, count = 24, learning = null, verdicts = null) {
   // Trend-first ranking: a video earns its slot because its format × hook
   // combo performs REPEATEDLY, not because it alone blew up. Combos need
   // MIN_COMBO tagged videos; they're ranked by the median index of their
@@ -976,11 +1036,18 @@ function buildShelf(pool, relative, count = 24) {
     if (!byCombo.has(k)) byCombo.set(k, []);
     byCombo.get(k).push(r);
   }
-  const combos = [...byCombo.values()]
-    .filter((list) => list.length >= MIN_COMBO)
-    .map((list) => {
+  const combos = [...byCombo.entries()]
+    .filter(([, list]) => list.length >= MIN_COMBO)
+    // Retired for THIS client: underperformed when they actually tried it.
+    // Dropping the combo here is what pulls its replacement up from the
+    // main database — the next-ranked untried combo takes the slots.
+    .filter(([k]) => verdicts?.get(k)?.status !== "failed")
+    .map(([, list]) => {
       list.sort((a, b) => relative(a) - relative(b));           // ascending
-      return { list, med: relative(list[Math.floor(list.length / 2)]) };
+      const med = relative(list[Math.floor(list.length / 2)]);
+      const boost = learning
+        ? learnedBoost(learning, list[0].format_type, list[0].hook_pattern) : 1;
+      return { list, med: med * boost };
     })
     .sort((a, b) => b.med - a.med);
 
@@ -1180,11 +1247,19 @@ async function renderShelf(niche) {
       reliably, so the shelf draws from the whole database instead. Treat it as directional.`);
     pool = base;
   }
+  let learning = null, verdicts = null;
   if (own.length) {
-    const L = clientLearning(LEARN_CLIENT);
-    const up = [...L.fmt].filter(([, v]) => v >= 1.25).map(([k]) => k);
-    const down = [...L.fmt].filter(([, v]) => v < 0.75).map(([k]) => k);
+    learning = clientLearning(LEARN_CLIENT);
+    verdicts = comboVerdicts(LEARN_CLIENT);
+    const up = [...learning.fmt].filter(([, v]) => v >= 1.25).map(([k]) => k);
+    const down = [...learning.fmt].filter(([, v]) => v < 0.75).map(([k]) => k);
     notes.push(`Learning from <strong>${escapeHtml(LEARN_CLIENT.company)}</strong>: ${own.length} tracked post${own.length === 1 ? "" : "s"} are in this ranking${up.length ? `, and <strong>${escapeHtml(up.join(", "))}</strong> ${up.length === 1 ? "is" : "are"} boosted for beating benchmark` : ""}${down.length ? `, <strong>${escapeHtml(down.join(", "))}</strong> demoted for missing it` : ""}.`);
+    const retired = [...verdicts].filter(([, v]) => v.status === "failed");
+    if (retired.length) {
+      notes.push(`Retired for ${escapeHtml(LEARN_CLIENT.company)} after underperforming:
+        ${retired.map(([k, v]) => `<strong>${escapeHtml(k)}</strong> (${ratioLabel(v.avg)} over ${v.n} post${v.n === 1 ? "" : "s"})`).join(", ")}
+        — replaced below with the next-best combos from the database they haven't tried yet.`);
+    }
   }
 
   // Comparison group = source × platform: a scraped IG reel is scored against
@@ -1206,8 +1281,16 @@ async function renderShelf(niche) {
   // a raw index they can't win.
   const proven = own.filter((r) => (r._ratio || 0) >= 1).sort((a, b) => b._ratio - a._ratio).slice(0, 4);
   const provenKeys = new Set(proven.map(rowKey));
+  // Avatar-aware scoring: performance index × how directly the video speaks
+  // to the client's declared target person.
+  BRIEF_CTX && (BRIEF_CTX._avatarWords = avatarWords(BRIEF_CTX.avatar));
+  const scored = (r) => relative(r) * avatarBoost(r, BRIEF_CTX);
+  if (BRIEF_CTX?.avatar || BRIEF_CTX?.audience) {
+    notes.push(`Ranking is tilted toward the target avatar${BRIEF_CTX.audience ? ` (<strong>${escapeHtml(BRIEF_CTX.audience)}</strong> tag boosted)` : ""}${BRIEF_CTX._avatarWords?.length ? ` and captions matching: <em>${escapeHtml(BRIEF_CTX._avatarWords.slice(0, 8).join(", "))}</em>` : ""}.`);
+  }
   const shelf = proven.concat(
-    buildShelf(pool, relative, 24 - proven.length).filter((r) => !provenKeys.has(rowKey(r))));
+    buildShelf(pool, scored, 24 - proven.length, learning, verdicts)
+      .filter((r) => !provenKeys.has(rowKey(r))));
 
   // Fetch the shelf's real spoken scripts so every card's tailored script can
   // adapt the video's own words rather than fall back to a format template.
@@ -2150,8 +2233,36 @@ function startNextWeekBrief(client) {
     if (aSel && client.ctx?.audience) aSel.value = client.ctx.audience;
     const fIn = document.getElementById("ce-feats");
     if (fIn && client.ctx?.feats?.length) fIn.value = client.ctx.feats.join(", ");
+    const parts = client.ctx?.avatarParts
+      || (client.ctx?.avatar ? { stats: client.ctx.avatar } : null);   // legacy single-field avatars
+    if (parts) {
+      for (const [key, id] of [["stats", "ce-av-stats"], ["habits", "ce-av-habits"],
+                               ["goals", "ce-av-goals"], ["problems", "ce-av-problems"]]) {
+        const el = document.getElementById(id);
+        if (el && parts[key]) el.value = parts[key];
+      }
+    }
     document.getElementById("ce-apply")?.click();
   });
+}
+
+/** Collapsed avatar card for the client page — there when needed, out of the
+    way when not. Renders nothing if no avatar was ever set. */
+function avatarBoxHtml(client) {
+  const parts = client.ctx?.avatarParts
+    || (client.ctx?.avatar ? { stats: client.ctx.avatar } : null);
+  if (!parts || !Object.values(parts).some(Boolean)) return "";
+  const sections = [
+    ["Core statistics", parts.stats], ["Daily habits", parts.habits],
+    ["Deep personal goals", parts.goals], ["Major problems", parts.problems],
+  ].filter(([, v]) => v);
+  return `<details class="avatar-box">
+    <summary>Target avatar</summary>
+    <div class="avatar-grid">${sections.map(([label, text]) => `
+      <div><div class="av-label">${escapeHtml(label)}</div>
+        <div class="av-text">${escapeHtml(text)}</div></div>`).join("")}
+    </div>
+  </details>`;
 }
 
 function renderClientPage(host, client) {
@@ -2200,6 +2311,7 @@ function renderClientPage(host, client) {
       <div class="bcard-title">${escapeHtml(client.company)}</div>
       <div class="lbl">${escapeHtml(client.niche || "All niches")}${client.ctx?.audience ? " · " + escapeHtml(client.ctx.audience) : ""}</div>
     </div>
+    ${avatarBoxHtml(client)}
 
     <div class="health-row">
       <div class="health-card ${ch.tone}">
@@ -2835,6 +2947,22 @@ async function renderBrief(rawUrl) {
         <label class="ce-field ce-wide"><span class="lbl">Features / selling points (comma-separated — these get written into the scripts)</span>
           <input type="text" id="ce-feats" value="${escapeHtml((analysis?.feats || []).join(", "))}"
             placeholder="e.g. NCLEX practice questions, case walkthroughs, study planner"></label>
+        <div class="ce-field ce-wide"><span class="lbl">Target avatar — who these videos are for (all four shape the ranking)</span>
+          <div class="ce-avatar-grid">
+            <label class="ce-field"><span class="lbl">Core statistics</span>
+              <textarea id="ce-av-stats" rows="2"
+                placeholder="e.g. 20–24, 2nd-year nursing student, part-time hospital job, tight budget">${escapeHtml(BRIEF_CTX?.avatarParts?.stats || "")}</textarea></label>
+            <label class="ce-field"><span class="lbl">Daily habits</span>
+              <textarea id="ce-av-habits" rows="2"
+                placeholder="e.g. studies after night shifts, lives on TikTok study hacks, flashcards on the bus">${escapeHtml(BRIEF_CTX?.avatarParts?.habits || "")}</textarea></label>
+            <label class="ce-field"><span class="lbl">Deep personal goals</span>
+              <textarea id="ce-av-goals" rows="2"
+                placeholder="e.g. pass the NCLEX first try, land an ICU job, make family proud">${escapeHtml(BRIEF_CTX?.avatarParts?.goals || "")}</textarea></label>
+            <label class="ce-field"><span class="lbl">Major problems</span>
+              <textarea id="ce-av-problems" rows="2"
+                placeholder="e.g. overwhelmed by content volume, fails practice tests, no study plan, burnout">${escapeHtml(BRIEF_CTX?.avatarParts?.problems || "")}</textarea></label>
+          </div>
+        </div>
       </div>
       <button type="button" class="btn" id="ce-apply">Apply — build the shelf</button>
       </div>
@@ -2845,14 +2973,23 @@ async function renderBrief(rawUrl) {
     const brand = document.getElementById("ce-brand").value.trim();
     const feats = document.getElementById("ce-feats").value.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 8);
     const audience = document.getElementById("ce-audience").value || null;
+    const avatarParts = {
+      stats: document.getElementById("ce-av-stats").value.trim(),
+      habits: document.getElementById("ce-av-habits").value.trim(),
+      goals: document.getElementById("ce-av-goals").value.trim(),
+      problems: document.getElementById("ce-av-problems").value.trim(),
+    };
+    // The joined text feeds the keyword matcher; the parts keep the form.
+    const avatar = Object.values(avatarParts).filter(Boolean).join("\n");
     const niche = document.getElementById("brief-niche").value;
-    BRIEF_CTX = (brand || feats.length || audience)
-      ? { brand: brand || "the product", feats, audience }
+    BRIEF_CTX = (brand || feats.length || audience || avatar)
+      ? { brand: brand || "the product", feats, audience, avatar, avatarParts }
       : BRIEF_CTX;
     // Collapse the editor into a one-line summary; Edit re-opens it.
     const chips = [
       BRIEF_CTX?.brand, niche || "All niches", BRIEF_CTX?.audience,
       BRIEF_CTX?.feats?.length ? `${BRIEF_CTX.feats.length} features` : null,
+      BRIEF_CTX?.avatar ? "avatar set" : null,
     ].filter(Boolean);
     document.getElementById("ce-chips").innerHTML =
       chips.map((c) => `<span class="chip">${escapeHtml(c)}</span>`).join("");
