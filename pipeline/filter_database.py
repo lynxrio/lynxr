@@ -132,6 +132,13 @@ def main():
         vid = str(r["video_id"])
         reason = None
 
+        # Owner-curated rows bypass every automated gate — someone chose this
+        # exact video on purpose (add_urls.py). The gates exist to clean bulk
+        # scrapes, not to overrule deliberate picks.
+        if r.get("source_type") == "hand_picked":
+            keep.append(r)
+            continue
+
         lang, has_speech = langs.get(vid, ("", False))
         if has_speech and lang and lang != "en":
             reason = "non-english"
