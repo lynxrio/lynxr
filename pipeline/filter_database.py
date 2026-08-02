@@ -36,7 +36,12 @@ ROOT = Path(__file__).parent.parent
 MASTER = ROOT / "output" / "master_video_database.csv"
 TRANSCRIPTS = ROOT / "output" / "transcripts.jsonl"
 
+# SCRAPING_SPEC rule: organic UGC lives under 100K followers. 100K–200K only
+# survives when the views prove the FORMAT did the work (views ≥ 3× followers);
+# above 200K or platform-verified is influencer reach, always out.
 MAX_FANS = 200_000
+SOFT_FANS = 100_000
+FORMAT_PROOF_RATIO = 3
 
 AI_SLOP = re.compile(
     r"#ai(ugc|video|girl|model|influencer|art|generated|actress|avatar)\b"
@@ -135,8 +140,11 @@ def main():
 
         if not reason and r["platform"] == "tiktok" and r.get("data_source") == "Scraped":
             fans, verified = authors.get(vid, (0, False))
+            views = int(float(r.get("views") or 0))
             if verified or fans > MAX_FANS:
                 reason = "influencer"
+            elif fans > SOFT_FANS and views < fans * FORMAT_PROOF_RATIO:
+                reason = "influencer"       # audience-sized reach, not format
 
         if not reason and AI_SLOP.search(r.get("title", "") or ""):
             reason = "ai-slop"

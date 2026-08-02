@@ -199,12 +199,17 @@ def user_text(row, tr):
     return "Tag this video.\n\n" + "\n".join(parts)
 
 
-def build_requests(rows, tr, limit):
+def build_requests(rows, tr, limit, niche=""):
     reqs = []
     with_vision = 0
     for i, r in enumerate(rows):
-        if limit and i >= limit:
+        if limit and len(reqs) >= limit:
             break
+        # Only rows the LLM pass hasn't tagged yet — re-running never re-bills.
+        if r.get("cta_type"):
+            continue
+        if niche and r.get("niche_category") != niche:
+            continue
         text = user_text(r, tr)
         cover = cover_bytes(r["video_id"])
         if cover:
@@ -219,7 +224,8 @@ def build_requests(rows, tr, limit):
             content = text
             schema = TAG_SCHEMA_EXTRA
         reqs.append({
-            "custom_id": f"x-{i}",
+            # id-keyed so results survive master reorders (see retag_with_audio)
+            "custom_id": f"x-{r['video_id']}"[:64],
             "params": {
                 "model": MODEL, "max_tokens": 1200,
                 "system": [{"type": "text", "text": SYSTEM_EXTRA, "cache_control": {"type": "ephemeral"}}],
@@ -233,8 +239,11 @@ def build_requests(rows, tr, limit):
 def apply_results(client, batch_id, rows):
     changed = Counter()
     applied = 0
+    by_vid = {str(r["video_id"]): i for i, r in enumerate(rows)}
     for result in client.messages.batches.results(batch_id):
-        idx = int(result.custom_id.split("-", 1)[1])
+        kind, _, key = result.custom_id.partition("-")
+        idx = by_vid.get(key, -1) if kind == "x" and not key.isdigit() else (
+            int(key) if key.isdigit() else -1)
         if result.result.type != "succeeded" or not (0 <= idx < len(rows)):
             continue
         msg = result.result.message
@@ -266,6 +275,8 @@ def write_master(rows):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mechanical-only", action="store_true")
+    ap.add_argument("--niche", default="",
+                    help='only rows in this niche_category (e.g. "Fashion & Beauty")')
     ap.add_argument("--limit", type=int, default=0, help="cap LLM rows (for a credit test)")
     args = ap.parse_args()
 
@@ -284,7 +295,7 @@ def main():
         log.info("wrote master with length_bucket + audio_trend. Push: export_supabase.py")
         return
 
-    reqs, with_vision = build_requests(rows, tr, args.limit)
+    reqs, with_vision = build_requests(rows, tr, args.limit, args.niche)
     log.info("%d LLM requests, %d include the opening frame", len(reqs), with_vision)
 
     client = anthropic.Anthropic()

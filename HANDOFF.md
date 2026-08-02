@@ -33,22 +33,46 @@ script on real timestamps with per-beat visual cues.
   look failed, and the 1-hour token expiry 401'd all writes. sbFetch now
   refreshes+retries; badge says "syncing" and self-heals.
 
-## THE THREE GATES to finish everything
+## CURRENT PRIORITY: finish the FASHION vertical (owner's AI-stylist app)
 
-1. **Anthropic credits (~$60–100 total)** — ran out 2026-08-01 midday:
-   - finish visual shot lists: 2,610 remain (~$15–25) — rerun
-     `analyze_visuals.py`, it skips done rows and retries credit-failures
-   - retag pass 2, the accuracy pass for ~7K caption-tagged rows (~$25–40):
-     `retag_with_audio.py` (skips tag_source=audio rows — do NOT use --all)
-   - extra dims for the new rows (~$20–30): tag_extra_dims has NO batch
-     resume — if it fails mid-run, recover via its batch_state like on 07-31.
-2. **Owner runs one ALTER in the Supabase SQL editor** (then export works):
-   `alter table public.lynxr_videos add column if not exists transcript_segments text not null default '';`
-   `alter table public.lynxr_videos add column if not exists visual_cues text not null default '';`
-   (hook_spoken + transcript columns were already added 2026-07-31.)
-3. ~~Transcription~~ **DONE 2026-08-01**: 6,952 verbatim scripts (70%),
-   6,925 with real timestamps, 6,989 usable spoken hooks, cleaned and attached
-   to master. Blueprints now 93%. Only gates 1 and 2 remain.
+Fashion & Beauty: 1,291 rows merged + filtered + caption-tagged (100%).
+Transcription (large model) + cover fetch were running overnight 08-02.
+All three credit-gated scripts now take --niche "Fashion & Beauty".
+
+**On the next Anthropic top-up (~$20 covers fashion; ~$60-75 finishes ALL),
+run fashion-first, sequentially:**
+```bash
+cd ~/Documents/lynxrio && set -a && source .env && set +a
+./venv/bin/python pipeline/analyze_visuals.py --niche "Fashion & Beauty" --workers 3
+./venv/bin/python pipeline/retag_with_audio.py --niche "Fashion & Beauty"
+./venv/bin/python pipeline/tag_extra_dims.py --niche "Fashion & Beauty"
+./venv/bin/python pipeline/enrich_signals.py
+./venv/bin/python pipeline/attach_transcripts.py
+./venv/bin/python pipeline/export_supabase.py
+```
+Then the same three without --niche for the rest of the database
+(retag remainder ~3,380 rows, visuals ~2,600, extra dims ~5,800).
+Retag/extra-dims are id-keyed + chunk-submitted now (network-safe, resume-safe,
+never re-bill: retag skips tag_source=audio, extra-dims skips cta_type set).
+
+**Owner ALTER still pending** (signal columns; export includes them and will
+400 until this runs in the dashboard SQL editor):
+```sql
+alter table public.lynxr_videos
+  add column if not exists creator_followers    text not null default '',
+  add column if not exists saves                text not null default '',
+  add column if not exists shares               text not null default '',
+  add column if not exists save_ratio           text not null default '',
+  add column if not exists views_to_followers   text not null default '',
+  add column if not exists reach_confidence_tier text not null default '',
+  add column if not exists similar_format_count text not null default '',
+  add column if not exists avg_views_of_similar text not null default '';
+```
+(The site tolerates the missing columns via fetch fallback; export does not.)
+
+SCRAPING_SPEC.md is the owner's canonical content policy — enrich_signals.py
+(signals + repeatability tiers) and filter_database.py (gates incl. the
+<100K-followers rule) implement it. Tiers show as chips on shelf cards.
 
 ## Resume sequence (after credits + ALTER)
 

@@ -158,6 +158,8 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--workers", type=int, default=3,
                     help="parallel download+analyze workers (downloads dominate wall time)")
+    ap.add_argument("--niche", default="",
+                    help='only rows in this niche_category (e.g. "Fashion & Beauty")')
     ap.add_argument("--no-speech-only", action="store_true",
                     help="only videos whose transcript says no speech — their script IS the screen text")
     args = ap.parse_args()
@@ -169,6 +171,8 @@ def main():
     for r in rows:
         vid = str(r["video_id"])
         if not r.get("url") or vid in done:
+            continue
+        if args.niche and r.get("niche_category") != args.niche:
             continue
         entry = trs.get(vid)
         if args.no_speech_only and (entry is None or entry.get("has_speech") or entry.get("error")):

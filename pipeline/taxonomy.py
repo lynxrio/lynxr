@@ -116,6 +116,7 @@ NICHE_CATEGORIES = [
     "Productivity & Apps",
     "Marketing & Business",
     "Tech & Software",
+    "Fashion & Beauty",
     "Lifestyle & Entertainment",
     "Other",
 ]

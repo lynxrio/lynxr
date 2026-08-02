@@ -218,6 +218,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--niche", default="",
+                    help='only rows in this niche_category (e.g. "Fashion & Beauty")')
     ap.add_argument("--all", action="store_true",
                     help="also re-tag rows already marked tag_source=audio")
     args = ap.parse_args()
@@ -225,7 +227,8 @@ def main():
     trs = load_transcripts()
     music = load_music_index()
     rows = list(csv.DictReader(open(MASTER, newline="", encoding="utf-8")))
-    targets = [(i, r) for i, r in enumerate(rows) if r["video_id"] in trs]
+    targets = [(i, r) for i, r in enumerate(rows) if r["video_id"] in trs
+               and (not args.niche or r.get("niche_category") == args.niche)]
     if not args.all:
         already = sum(1 for _, r in targets if r.get("tag_source", "").startswith("audio"))
         if already:
@@ -265,7 +268,11 @@ def main():
             content = text
             schema = TAG_SCHEMA
         requests.append({
-            "custom_id": f"a-{i}",
+            # Keyed by VIDEO ID, not row index: results then apply correctly
+            # even if the master is filtered/reordered/appended between
+            # submission and application. (An index-keyed resume once applied
+            # a stale batch onto reordered rows — restored from snapshot.)
+            "custom_id": f"v-{r['video_id']}"[:64],
             "params": {
                 "model": MODEL, "max_tokens": 2000,
                 "system": [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
@@ -281,22 +288,43 @@ def main():
                  len(requests), requests[0]["params"]["messages"][0]["content"][:700])
         return
 
+    # Chunked submission: one giant batch is a multi-GB POST (covers are
+    # embedded base64) and flaky networks kill it mid-upload. Sub-batches
+    # upload independently; state records each id as it lands, so a crash
+    # resumes submitting only what's missing. Requests are id-keyed, so
+    # skipping already-submitted videos on resume is exact.
+    CHUNK = 1200
     state = ROOT / "output" / "retag_audio.batch_state.json"
-    if state.exists():
-        batch_id = json.loads(state.read_text())["batch_id"]
-        log.info("Resuming batch %s", batch_id)
-    else:
-        b = client.messages.batches.create(requests=requests)
-        state.write_text(json.dumps({"batch_id": b.id, "n": len(requests)}))
-        batch_id = b.id
-        log.info("Submitted batch %s (%d requests)", batch_id, len(requests))
+    st = json.loads(state.read_text()) if state.exists() else {}
+    batch_ids = st.get("batch_ids") or ([st["batch_id"]] if "batch_id" in st else [])
+    submitted = set(st.get("submitted_ids") or [])
+    if batch_ids:
+        log.info("Resuming %d batch(es)", len(batch_ids))
+    pending = [q for q in requests if q["custom_id"] not in submitted]
+    for i in range(0, len(pending), CHUNK):
+        chunk = pending[i:i + CHUNK]
+        b = client.messages.batches.create(requests=chunk)
+        batch_ids.append(b.id)
+        submitted.update(q["custom_id"] for q in chunk)
+        state.write_text(json.dumps({"batch_ids": batch_ids,
+                                     "submitted_ids": sorted(submitted)}))
+        log.info("Submitted batch %s (%d requests, %d/%d total)",
+                 b.id, len(chunk), len(submitted), len(requests))
 
     while True:
-        b = client.messages.batches.retrieve(batch_id)
-        c = b.request_counts
-        log.info("batch %s: processing=%d succeeded=%d errored=%d",
-                 b.processing_status, c.processing, c.succeeded, c.errored)
-        if b.processing_status == "ended":
+        counts = Counter()
+        ended = 0
+        for bid in batch_ids:
+            b = client.messages.batches.retrieve(bid)
+            c = b.request_counts
+            counts["processing"] += c.processing
+            counts["succeeded"] += c.succeeded
+            counts["errored"] += c.errored
+            ended += b.processing_status == "ended"
+        log.info("%d/%d batches ended: processing=%d succeeded=%d errored=%d",
+                 ended, len(batch_ids), counts["processing"],
+                 counts["succeeded"], counts["errored"])
+        if ended == len(batch_ids):
             break
         time.sleep(30)
 
@@ -307,8 +335,15 @@ def main():
 
     changed = Counter()
     applied = 0
-    for result in client.messages.batches.results(batch_id):
-        idx = int(result.custom_id.split("-", 1)[1])
+    by_vid = {str(r["video_id"]): i for i, r in enumerate(rows)}
+    all_results = (result for bid in batch_ids
+                   for result in client.messages.batches.results(bid))
+    for result in all_results:
+        kind, _, key = result.custom_id.partition("-")
+        if kind == "v":
+            idx = by_vid.get(key, -1)          # id-keyed: reorder-proof
+        else:
+            idx = int(key)                     # legacy index-keyed batches
         if result.result.type != "succeeded" or not (0 <= idx < len(rows)):
             continue
         msg = result.result.message

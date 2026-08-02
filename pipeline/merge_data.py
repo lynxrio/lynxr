@@ -28,6 +28,10 @@ MASTER_FIELDS = [
     # The video's own words + timing + shot list (attach_transcripts.py /
     # analyze_visuals.py) — the recreation blueprint behind tailored scripts.
     "hook_spoken", "transcript", "transcript_segments", "visual_cues",
+    # SCRAPING_SPEC signal columns (enrich_signals.py): raw creator/engagement
+    # signals plus the computed format-repeatability tier.
+    "creator_followers", "saves", "shares", "save_ratio", "views_to_followers",
+    "reach_confidence_tier", "similar_format_count", "avg_views_of_similar",
 ]
 
 TAG_COLS = ["format_type", "hook_pattern", "niche_category", "target_audience"]

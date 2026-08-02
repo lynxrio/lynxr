@@ -49,6 +49,9 @@ KEEP = [
     "length_bucket", "audio_trend", "cta_type", "visual_hook",
     "onscreen_text", "hook_delivery",
     "hook_spoken", "transcript", "transcript_segments", "visual_cues",
+    # SCRAPING_SPEC signal columns — require the matching ALTER in Supabase
+    "creator_followers", "saves", "shares", "save_ratio", "views_to_followers",
+    "reach_confidence_tier", "similar_format_count", "avg_views_of_similar",
 ]
 INT_FIELDS = {"views", "likes", "comments"}
 

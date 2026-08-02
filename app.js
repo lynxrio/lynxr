@@ -269,6 +269,10 @@ const COLS = [
   { key: "visual_hook", label: "Visual hook" },
   { key: "audio_trend", label: "Audio" },
   { key: "hook_delivery", label: "Delivery" },
+  { key: "creator_followers", label: "Followers", num: true },
+  { key: "saves", label: "Saves", num: true },
+  { key: "save_ratio", label: "Save %", num: true, ratioPct: true },
+  { key: "reach_confidence_tier", label: "Tier" },
   { key: "data_source", label: "Source" },
 ];
 const FILTERS = [
@@ -281,6 +285,7 @@ const FILTERS = [
   { id: "f-cta", key: "cta_type", label: "All CTAs" },
   { id: "f-visual", key: "visual_hook", label: "All visual hooks" },
   { id: "f-audio", key: "audio_trend", label: "All audio" },
+  { id: "f-tier", key: "reach_confidence_tier", label: "All tiers" },
 ];
 
 let ALL = [];
@@ -337,6 +342,7 @@ function renderTable() {
               const v = parseFloat(raw);
               if (isNaN(v)) return `<td class="num">—</td>`;
               // Compact display, exact number on hover — 40.7M scans better than 40,700,000
+              if (c.ratioPct) return `<td class="num">${(v * 100).toFixed(1)}%</td>`;
               return c.pct
                 ? `<td class="num">${v.toFixed(2)}%</td>`
                 : `<td class="num" title="${fmt(v)}">${compact(v)}</td>`;
@@ -1315,6 +1321,8 @@ async function renderShelf(niche) {
           <div class="vrow">
             ${r._client ? `<span class="proven" title="This client's own post — beat its benchmark">proven ${ratioLabel(r._ratio)}</span>` : ""}
             <span class="vstat" title="views · index vs its source's median">${compact(views(r))} · ${relative(r).toFixed(1)}×</span>
+            ${/^Tier [123]$/.test(r.reach_confidence_tier || "") ? `<span class="tier-chip t${r.reach_confidence_tier.slice(-1)}"
+              title="Reach confidence: ${escapeHtml(r.reach_confidence_tier)} — this format×hook combo repeats across ${escapeHtml(r.similar_format_count || "?")} videos averaging ${compact(+r.avg_views_of_similar || 0)} views">${escapeHtml(r.reach_confidence_tier)}</span>` : ""}
             <button type="button" class="vdetails" data-key="${escapeHtml(k)}">Details</button>
             <label class="vpick"><input type="checkbox" class="vcheck" ${checked ? "checked" : ""}><span class="vpick-txt">${checked ? "Added" : "Add"}</span></label>
           </div>
@@ -1573,9 +1581,19 @@ async function sbRefresh(refresh_token) {
     headers until a short page arrives. Field names and types mirror the old
     data.enc JSON exactly (engagement_rate stays a string on purpose). */
 async function sbFetchVideos() {
-  const FIELDS = "video_id,creator,platform,title,views,likes,comments,engagement_rate,"
+  const BASE = "video_id,creator,platform,title,views,likes,comments,engagement_rate,"
     + "format_type,hook_pattern,niche_category,target_audience,data_source,url,"
     + "length_bucket,audio_trend,cta_type,visual_hook,hook_delivery";
+  // Signal columns land in Supabase after the code ships — probe once and
+  // fall back to the base list so a lagging migration can't blank the site.
+  const SIGNALS = ",creator_followers,saves,save_ratio,views_to_followers,"
+    + "reach_confidence_tier,similar_format_count,avg_views_of_similar";
+  let FIELDS = BASE + SIGNALS;
+  try {
+    await sbFetch(`/rest/v1/lynxr_videos?select=${FIELDS}&limit=1`);
+  } catch {
+    FIELDS = BASE;
+  }
   const PAGE = 1000;
   const rows = [];
   for (let from = 0; ; from += PAGE) {
@@ -1616,6 +1634,30 @@ async function sbDeleteClient(id) {
   await sbFetch(`/rest/v1/lynxr_clients?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
+/** Deleted-client tombstones: sync would otherwise resurrect any client whose
+    remote row outlives the local delete (offline delete, failed request, or a
+    delete issued before the first persist seeded the diff tracker). A
+    tombstone keeps the id dead until the remote row is confirmed gone. */
+const TOMBSTONES_KEY = "lynxr_deleted_clients";
+const loadTombstones = () => {
+  try { return new Set(JSON.parse(localStorage.getItem(TOMBSTONES_KEY)) || []); }
+  catch { return new Set(); }
+};
+const saveTombstones = (set) => {
+  try { localStorage.setItem(TOMBSTONES_KEY, JSON.stringify([...set])); } catch {}
+};
+
+/** The one true way to delete a client: local removal + tombstone + an
+    immediate, explicit remote delete (not the persist diff, which only knows
+    ids seen since page load). */
+function deleteClient(id) {
+  persistClients(loadClients().filter((c) => c.id !== id));
+  const t = loadTombstones();
+  t.add(id);
+  saveTombstones(t);
+  sbDeleteClient(id).catch(() => {});   // tombstone re-tries on next sync
+}
+
 /** Merge local and remote, push anything the server has not seen, and adopt
     the result locally. Runs once at startup so a machine that worked offline
     contributes rather than being overwritten. */
@@ -1623,7 +1665,18 @@ async function syncClients() {
   if (!SB_TOKEN) return;
   const remote = await sbPullClients();
   const local = loadClientsLocal();
-  const byId = new Map(remote.map((c) => [c.id, c]));
+  // Honor deletions first: a tombstoned id must not merge back. Re-issue the
+  // remote delete while the row survives; drop the tombstone once it's gone.
+  const tombs = loadTombstones();
+  if (tombs.size) {
+    for (const c of remote) {
+      if (tombs.has(c.id)) sbDeleteClient(c.id).catch(() => {});
+    }
+    const alive = new Set(remote.map((c) => c.id));
+    for (const id of [...tombs]) if (!alive.has(id)) tombs.delete(id);
+    saveTombstones(tombs);
+  }
+  const byId = new Map(remote.filter((c) => !loadTombstones().has(c.id)).map((c) => [c.id, c]));
   const toPush = [];
   for (const l of local) {
     const r = byId.get(l.id);
@@ -1635,6 +1688,9 @@ async function syncClients() {
   for (const c of toPush) await sbPushClient(c);
   const merged = [...byId.values()];
   persistClientsLocal(merged);
+  // Seed the persist diff tracker so a delete-first session still issues the
+  // remote DELETE (it diffs against ids seen at last persist).
+  window.__lastClientIds = merged.map((c) => c.id);
   SYNC_OK = true;
   return merged;
 }
@@ -2179,7 +2235,7 @@ function renderBriefs() {
       CLIENT_VIEW = { id }; BRIEF_VIEW = null; renderBriefs();
     });
     armDelete(card.querySelector(".b-del"), "Delete", () => {
-      persistClients(loadClients().filter((c) => c.id !== id));
+      deleteClient(id);
       renderBriefs();
     });
   });
