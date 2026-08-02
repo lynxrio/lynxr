@@ -47,7 +47,7 @@ log = logging.getLogger("add-urls")
 
 
 def split_urls(urls):
-    tt, ig, bad = [], [], []
+    tt, ig, yt, bad = [], [], [], []
     for u in urls:
         u = u.strip().rstrip("/")
         if not u:
@@ -58,9 +58,44 @@ def split_urls(urls):
             # the scraper wants /reel/<code> (singular), not /reels/
             code = re.search(r"/(?:reels?|p)/([A-Za-z0-9_-]+)", u).group(1)
             ig.append(f"https://www.instagram.com/reel/{code}/")
+        elif "youtube.com" in u and "/shorts/" in u:
+            yt.append(u)
         else:
             bad.append(u)
-    return tt, ig, bad
+    return tt, ig, yt, bad
+
+
+def fetch_youtube(urls):
+    """Per-URL metadata via yt-dlp — free, no actor needed for known links."""
+    import subprocess
+    rows = []
+    for u in urls:
+        try:
+            out = subprocess.run(
+                [str(ROOT / "venv" / "bin" / "yt-dlp"), "--dump-json", "--no-download",
+                 "--no-warnings", u],
+                capture_output=True, text=True, timeout=60)
+            d = json.loads(out.stdout)
+        except Exception as e:
+            log.error("youtube failed %s: %s", u, str(e)[:120])
+            continue
+        views = d.get("view_count") or 0
+        likes = d.get("like_count") or 0
+        comments = d.get("comment_count") or 0
+        er = round(100 * (likes + comments) / views, 2) if views else ""
+        rows.append({
+            "video_id": d.get("id", ""),
+            "creator": d.get("uploader_id", d.get("channel", "")).lstrip("@"),
+            "platform": "youtube",
+            "title": d.get("title", ""),
+            "views": views, "likes": likes, "comments": comments, "shares": "",
+            "engagement_rate": er,
+            "url": u,
+            "uploaded_at": d.get("upload_date", ""),
+            "source_hashtag": "",
+        })
+        log.info("youtube ok: %s (%s views)", d.get("id"), views)
+    return rows
 
 
 def fetch_tiktok(client, urls):
@@ -96,16 +131,20 @@ def main():
     ap.add_argument("--file", help="text file with one URL per line")
     ap.add_argument("--niche", default="",
                     help="set niche_category directly (owner-curated ground truth)")
+    ap.add_argument("--source", default="",
+                    help='data_source override, e.g. "Cloey" for campaign posts — '
+                         "keeps them in their own benchmark group, never compared "
+                         "against viral scrapes")
     args = ap.parse_args()
 
     urls = list(args.urls)
     if args.file:
         urls += Path(args.file).read_text().splitlines()
-    tt, ig, bad = split_urls(urls)
+    tt, ig, yt, bad = split_urls(urls)
     for u in bad:
         log.warning("unrecognized url skipped: %s", u)
-    if not tt and not ig:
-        raise SystemExit("No usable TikTok/Instagram URLs.")
+    if not tt and not ig and not yt:
+        raise SystemExit("No usable TikTok/Instagram/YouTube URLs.")
 
     token = os.environ.get("APIFY_API_TOKEN")
     if not token:
@@ -130,7 +169,8 @@ def main():
         r = normalize_instagram(it)
         if r:
             rows.append(r)
-    log.info("normalized %d of %d requested", len(rows), len(tt) + len(ig))
+    rows += fetch_youtube(yt)
+    log.info("normalized %d of %d requested", len(rows), len(tt) + len(ig) + len(yt))
 
     master = list(csv.DictReader(open(MASTER, newline="", encoding="utf-8")))
     seen = {(m["platform"], m["video_id"]) for m in master} | \
@@ -144,8 +184,8 @@ def main():
         seen.update(keys)
         row = {c: "" for c in MASTER_FIELDS}
         row.update({k: r.get(k, "") for k in r})
-        row["data_source"] = "Scraped"
-        row["source_type"] = "hand_picked"
+        row["data_source"] = args.source or "Scraped"
+        row["source_type"] = "ugc_program" if args.source else "hand_picked"
         row["tag_source"] = "caption"
         if args.niche:
             row["niche_category"] = args.niche
