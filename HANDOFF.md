@@ -95,10 +95,24 @@ niche 88.1 / audience 92.9 caption-only) so the gain is measured, not assumed.
 - **Campaign estimate calibration (owner, 2026-08-03): 3M views / 10 creators
   / month = SUCCESS** (≈300K per creator-month, ≈15K/video avg). Three-layer
   model in app.js: per-post bar = client's own platform medians; day-to-day
-  expectation = trailing-14-day range (`planRange`, floor ×0.65 / ceiling
-  ×1.8, cold-start 450); business reference = success pace line
-  (`ctx.successViews30d`, scaled by active creators). Never judge a single
-  post against the success bar.
+  expectation = `planRange` — MEDIAN of the client's trailing-14-day posts
+  (posts ≥3 days old, check-ins as of the queried date only — no look-ahead),
+  band = mid ×0.8 / ×1.5, cold band {350/530/800} for the first 10 days,
+  warmed floor {1000/1250/1500}; business reference = success pace line
+  (`ctx.successViews30d`, entered per client — 3M ÷ that client's creators).
+  Both plan fields are set in the client editor (`ce-vpm` / `ce-success`);
+  `findOrCreateClient` MERGES ctx so brief saves can't wipe them. Never judge
+  a single post against the success bar.
+- **Train/test calibration (owner, 2026-08-03): Cloey = training, next
+  campaign = testing.** `ctx.calibrationRole` (client editor). Training
+  campaigns feed `trainedBand()` (20/50/80th percentile of mature ≥7-day
+  posts, owner constants until ≥20 posts). Testing campaigns are held out:
+  `planRange` refuses to self-calibrate from their own numbers, and the
+  client page shows a "Model test — held out" card (in-band %, bias).
+- **One-team sync**: every signed-in account is one workspace. Devices push
+  only clients whose content changed (fingerprint + `updatedAt`), merge is
+  last-write-wins, deletions propagate via the shared `deleted-clients`
+  tombstone row, and the site re-pulls on tab focus + a 90s heartbeat.
 
 - **Every master-rewriting script trims to `MASTER_FIELDS`** (merge_data.py).
   Any new column MUST be added there or the next rewrite silently drops it

@@ -26,6 +26,7 @@ function unlock(rows) {
   gate.style.display = "none";
   app.style.display = "block";
   renderApp(rows);
+  startLiveSync();
 }
 
 document.getElementById("gate-form").addEventListener("submit", async (e) => {
@@ -462,6 +463,25 @@ function normalizeClientUrl(raw) {
   } catch { return null; }
 }
 
+/** Canonical key for "is this the same video?" across pasted variants —
+    share links carry tracking queries, hosts vary (www./m.), YouTube has two
+    URL shapes. Tracking params are dropped but YouTube's ?v= is the identity
+    and is kept (youtu.be/ID becomes youtube.com/watch?v=ID). vm.tiktok.com
+    short links are opaque redirects and can't be resolved client-side, so
+    they stay their own key. */
+function canonUrl(raw) {
+  try {
+    const s = String(raw || "").trim();
+    const u = new URL(s.includes("://") ? s : "https://" + s);
+    let host = u.hostname.toLowerCase().replace(/^(www|m)\./, "");
+    let path = u.pathname.replace(/\/+$/, "");
+    let key = "";
+    if (host === "youtu.be") { key = "?v=" + path.slice(1); host = "youtube.com"; path = "/watch"; }
+    else if (host === "youtube.com" && u.searchParams.get("v")) key = "?v=" + u.searchParams.get("v");
+    return host + path + key;
+  } catch { return String(raw || "").trim().replace(/\/$/, ""); }
+}
+
 async function fetchWithTimeout(url, ms) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), ms);
@@ -810,7 +830,7 @@ function tailoredScript(row, ctx, slot) {
   // Self-heal: an item saved before its video was fully ingested upgrades to
   // the database row (real transcript, tags, shots) the moment it exists.
   if (row && !row.transcript && row.url) {
-    const full = URL_INDEX.get((row.url || "").replace(/\/$/, ""));
+    const full = URL_INDEX.get(canonUrl(row.url));
     if (full && full.transcript) row = { ...row, ...full };
   }
   const real = realScript(row);
@@ -1365,9 +1385,9 @@ async function renderShelf(niche) {
     const note = document.getElementById("av-note");
     const btn = document.getElementById("av-add");
     if (!url) { note.textContent = "That doesn't look like a video link."; return; }
-    const clean = (u) => (u || "").replace(/\/$/, "");
-    let row = [...SHELF_CTX.index.values()].find((r) => clean(r.url) === clean(url))
-      || ALL.find((r) => clean(r.url) === clean(url));
+    const clean = canonUrl;
+    let row = [...SHELF_CTX.index.values()].find((r) => r.url && clean(r.url) === clean(url))
+      || ALL.find((r) => r.url && clean(r.url) === clean(url));
     const existed = !!row;
     btn.disabled = true; btn.textContent = "Reading…";
     if (!row) {
@@ -1688,7 +1708,7 @@ const INGEST_QUEUE_ID = "ingest-queue";
 
 async function sbPullClients() {
   const rows = await sbFetch("/rest/v1/lynxr_clients?select=id,data,updated_at");
-  return rows.filter((r) => r.id !== INGEST_QUEUE_ID)
+  return rows.filter((r) => r.id !== INGEST_QUEUE_ID && r.id !== TOMBSTONE_ROW_ID)
     .map((r) => ({ ...r.data, id: r.id, _remote_updated: r.updated_at }));
 }
 
@@ -1699,7 +1719,7 @@ async function queueVideoIngest(url, niche) {
     const rows = await sbFetch(`/rest/v1/lynxr_clients?id=eq.${INGEST_QUEUE_ID}&select=data`);
     if (rows[0]?.data?.urls) queue = rows[0].data;
   } catch {}
-  if (!queue.urls.some((u) => u.url === url))
+  if (!queue.urls.some((u) => canonUrl(u.url) === canonUrl(url)))
     queue.urls.push({ url, niche: niche || "", requestedAt: new Date().toISOString() });
   await sbFetch("/rest/v1/lynxr_clients", {
     method: "POST",
@@ -1713,6 +1733,27 @@ async function sbPushClient(client) {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates" },
     body: JSON.stringify({ id: client.id, data: client, updated_by: SB_EMAIL || "" }),
+  });
+}
+
+// A second reserved row: team-wide deletion tombstones. Local tombstones only
+// protect the device that deleted; every OTHER account's cache would happily
+// re-push the dead client. The shared set keeps an id dead for the whole team.
+const TOMBSTONE_ROW_ID = "deleted-clients";
+
+async function sbSharedTombstones() {
+  const rows = await sbFetch(`/rest/v1/lynxr_clients?id=eq.${TOMBSTONE_ROW_ID}&select=data`);
+  return new Set(rows[0]?.data?.ids || []);
+}
+
+async function pushSharedTombstones(ids) {
+  const remote = await sbSharedTombstones().catch(() => new Set());
+  const union = new Set([...remote, ...ids]);
+  if (union.size === remote.size) return;   // nothing new to record
+  await sbFetch("/rest/v1/lynxr_clients", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify({ id: TOMBSTONE_ROW_ID, data: { ids: [...union] }, updated_by: SB_EMAIL || "" }),
   });
 }
 
@@ -1737,11 +1778,12 @@ const saveTombstones = (set) => {
     immediate, explicit remote delete (not the persist diff, which only knows
     ids seen since page load). */
 function deleteClient(id) {
-  persistClients(loadClients().filter((c) => c.id !== id));
   const t = loadTombstones();
   t.add(id);
   saveTombstones(t);
-  sbDeleteClient(id).catch(() => {});   // tombstone re-tries on next sync
+  persistClients(loadClients().filter((c) => c.id !== id));
+  sbDeleteClient(id).catch(() => {});          // tombstone re-tries on next sync
+  pushSharedTombstones([id]).catch(() => {});  // and the whole team honors it
 }
 
 /** Merge local and remote, push anything the server has not seen, and adopt
@@ -1751,34 +1793,72 @@ async function syncClients() {
   if (!SB_TOKEN) return;
   const remote = await sbPullClients();
   const local = loadClientsLocal();
-  // Honor deletions first: a tombstoned id must not merge back. Re-issue the
-  // remote delete while the row survives; drop the tombstone once it's gone.
+  // Honor deletions first, TEAM-wide: adopt the shared tombstone set (so a
+  // delete on any account sticks on every account), contribute our local
+  // tombstones to it, and re-issue the remote delete while the row survives.
   const tombs = loadTombstones();
+  try {
+    const shared = await sbSharedTombstones();
+    if ([...tombs].some((id) => !shared.has(id))) pushSharedTombstones(tombs).catch(() => {});
+    for (const id of shared) tombs.add(id);
+    saveTombstones(tombs);
+  } catch { /* offline — local tombstones still hold on this device */ }
   if (tombs.size) {
     for (const c of remote) {
       if (tombs.has(c.id)) sbDeleteClient(c.id).catch(() => {});
     }
-    const alive = new Set(remote.map((c) => c.id));
-    for (const id of [...tombs]) if (!alive.has(id)) tombs.delete(id);
-    saveTombstones(tombs);
   }
-  const byId = new Map(remote.filter((c) => !loadTombstones().has(c.id)).map((c) => [c.id, c]));
+  const byId = new Map(remote.filter((c) => !tombs.has(c.id)).map((c) => [c.id, c]));
   const toPush = [];
   for (const l of local) {
+    if (tombs.has(l.id)) continue;
     const r = byId.get(l.id);
     if (!r) { byId.set(l.id, l); toPush.push(l); continue; }
-    // Prefer whichever side holds more work; ties go to remote.
-    const score = (c) => (c.briefs?.length || 0) * 100 + (c.posts?.length || 0);
-    if (score(l) > score(r)) { byId.set(l.id, l); toPush.push(l); }
+    // Newest write wins. Clock skew between devices is possible but a stale
+    // fingerprint never stamps, so only real edits ever compete. Legacy copies
+    // without timestamps fall back to whichever side holds more work.
+    const lt = l.updatedAt || null;
+    const rt = r.updatedAt || r._remote_updated || null;
+    let localWins;
+    if (lt && rt) localWins = lt > rt;
+    else {
+      const score = (c) => (c.briefs?.length || 0) * 100 + (c.posts?.length || 0);
+      localWins = score(l) > score(r);
+    }
+    if (localWins) { byId.set(l.id, l); toPush.push(l); }
   }
   for (const c of toPush) await sbPushClient(c);
   const merged = [...byId.values()];
   persistClientsLocal(merged);
+  CLIENT_SNAPSHOTS = new Map(merged.map((c) => [c.id, clientFingerprint(c)]));
   // Seed the persist diff tracker so a delete-first session still issues the
   // remote DELETE (it diffs against ids seen at last persist).
   window.__lastClientIds = merged.map((c) => c.id);
   SYNC_OK = true;
   return merged;
+}
+
+// "Whatever one account sees, they all see" — without waiting for a reload.
+// Re-pull on tab focus and on a slow heartbeat; re-render the clients tab only
+// when the data actually changed and the user isn't mid-keystroke in a field
+// (a teammate's update must never eat a half-typed form).
+let LIVE_SYNC_STARTED = false;
+function startLiveSync() {
+  if (LIVE_SYNC_STARTED) return;
+  LIVE_SYNC_STARTED = true;
+  const tick = async () => {
+    if (!SB_TOKEN || document.hidden) return;
+    const before = JSON.stringify(loadClientsLocal());
+    try { await syncClients(); } catch { SYNC_OK = false; }
+    updateSyncBadge();
+    if (JSON.stringify(loadClientsLocal()) === before) return;
+    const briefsShown = !document.getElementById("panel-briefs")?.hidden;
+    const editing = document.activeElement
+      && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (briefsShown && !editing) renderBriefs();
+  };
+  setInterval(tick, 90000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
 }
 
 function updateSyncBadge() {
@@ -1818,7 +1898,10 @@ function findOrCreateClient(list, company, ctx, niche) {
           createdAt: new Date().toISOString(), briefs: [], posts: [] };
     list.unshift(c);
   } else {
-    if (ctx) c.ctx = ctx;
+    // MERGE, never replace: the brief editor only knows brand/feats/audience/
+    // avatar, and a wholesale assignment used to silently destroy the campaign
+    // plan fields (videosPerMonth, successViews30d) on every saved brief.
+    if (ctx) c.ctx = { ...c.ctx, ...ctx };
     if (niche) c.niche = niche;
   }
   return c;
@@ -1845,7 +1928,31 @@ function persistClientsLocal(list) {
 // mirrors to Supabase in the background so the other machine sees it.
 function loadClients() { return loadClientsLocal(); }
 
+// One-team semantics: every account is the same workspace, so a device may
+// only push what IT changed — re-pushing its whole cached list would overwrite
+// teammates' fresh edits with stale copies. Each client carries updatedAt,
+// stamped only when its content actually changes on this device; sync then
+// resolves conflicts by newest write. `_remote_updated`/`updatedAt` are
+// excluded from the fingerprint so stamping itself never reads as a change.
+const clientFingerprint = (c) => {
+  const { _remote_updated, updatedAt, ...rest } = c;
+  return JSON.stringify(rest);
+};
+let CLIENT_SNAPSHOTS = new Map();   // id -> fingerprint at last sync/push
+
 function persistClients(list) {
+  const stamp = new Date().toISOString();
+  const tombs = loadTombstones();
+  const dirty = [];
+  for (const c of list) {
+    if (tombs.has(c.id)) continue;
+    const fp = clientFingerprint(c);
+    if (CLIENT_SNAPSHOTS.get(c.id) !== fp) {
+      c.updatedAt = stamp;
+      CLIENT_SNAPSHOTS.set(c.id, fp);
+      dirty.push(c);
+    }
+  }
   persistClientsLocal(list);
   if (!SB_TOKEN) return;
   const before = new Set((window.__lastClientIds || []));
@@ -1853,11 +1960,10 @@ function persistClients(list) {
   window.__lastClientIds = [...now];
   let failed = false;
   Promise.all([
-    ...list.map((c) => sbPushClient(c).catch(() => { failed = true; })),
+    // A failed push forgets its snapshot so the next persist retries it.
+    ...dirty.map((c) => sbPushClient(c).catch(() => { failed = true; CLIENT_SNAPSHOTS.delete(c.id); })),
     ...[...before].filter((id) => !now.has(id)).map((id) => sbDeleteClient(id).catch(() => { failed = true; })),
   ]).then(() => {
-    // A clean cycle proves sync is healthy again — earlier hiccups are healed
-    // because every persist re-pushes the full client list.
     SYNC_OK = !failed;
     updateSyncBadge();
   });
@@ -1969,37 +2075,114 @@ function autoTag(caption, platform) {
 /** Benchmark prediction: median views for this format×hook in the client's
     niche pool (falling back to format-only, then the whole pool). Locked in
     when the post is added, so later comparisons are stable. */
+// Owner-calibrated expectations (2026-08-03, measured on the Cloey campaign):
+//  · cold accounts (first ~10 days): ~530/video measured in week 1
+//  · warmed accounts: posts are EXPECTED to average 1–1.5K views
+//  · success pace (15K/video avg) comes from breakouts landing ON TOP of
+//    this baseline — actual above the band = hits are landing.
+const OWNER_COLD = { low: 350, mid: 530, high: 800 };
+const OWNER_WARM = { low: 1000, mid: 1250, high: 1500 };
+
+// ---- Train/test calibration ----
+// Campaigns marked "training" (Cloey first) TEACH the model; campaigns marked
+// "testing" are held out — their bands come only from the trained model, never
+// from their own numbers, so the next campaign genuinely validates what the
+// training campaigns learned.
+const TRAIN_MIN_POSTS = 20;   // below this, the owner's hand-measured band stands
+let TRAINED_CACHE = null;     // recomputing per chart-day would re-parse localStorage 31×
+
+/** The warmed band LEARNED from training campaigns: 20th/50th/80th percentile
+    of mature (≥7-day-old) post views. Falls back to the owner constants until
+    the training pool is big enough to trust. */
+function trainedBand() {
+  if (TRAINED_CACHE && Date.now() - TRAINED_CACHE.at < 5000) return TRAINED_CACHE.band;
+  const vals = [];
+  for (const c of loadClients()) {
+    if (c.ctx?.calibrationRole !== "training") continue;
+    for (const p of c.posts || []) {
+      if (!p.checkins.length) continue;
+      if ((Date.now() - new Date(p.addedAt).getTime()) / 86400000 < 7) continue;
+      vals.push(p.checkins[p.checkins.length - 1].views);
+    }
+  }
+  let band;
+  if (vals.length < TRAIN_MIN_POSTS) {
+    band = { ...OWNER_WARM, n: vals.length, source: "owner" };
+  } else {
+    // Enough real data: the data wins in BOTH directions — a trained model
+    // that can only agree with or exceed the prior isn't learning.
+    vals.sort((a, b) => a - b);
+    const q = (f) => vals[Math.min(vals.length - 1, Math.floor(f * vals.length))];
+    band = { low: q(0.2), mid: q(0.5), high: q(0.8), n: vals.length, source: "trained" };
+  }
+  TRAINED_CACHE = { at: Date.now(), band };
+  return band;
+}
+
+/** Out-of-sample scorecard for a held-out (testing) campaign: how often did
+    mature posts land inside the band the model predicted for their posting
+    day, and how far off was the middle? This only means anything because
+    planRange refuses to fit itself to a testing campaign's own numbers. */
+function validationReport(client) {
+  if ((client.ctx?.calibrationRole || "") !== "testing") return null;
+  const posts = (client.posts || []).filter((p) => p.checkins.length
+    && (Date.now() - new Date(p.addedAt).getTime()) / 86400000 >= 7);
+  if (posts.length < 5) return { n: posts.length, ready: false };
+  let inBand = 0;
+  const ratios = [];
+  for (const p of posts) {
+    const r = planRange(client, p.addedAt);
+    if (!r) continue;
+    const v = p.checkins[p.checkins.length - 1].views;
+    if (v >= r.low && v <= r.high) inBand++;
+    ratios.push(v / r.mid);
+  }
+  return { n: posts.length, ready: true, inBand, hitRate: inBand / posts.length,
+           bias: median(ratios) };
+}
+
 /** The campaign's REALISTIC per-video expectation at a moment in time — used
     only by campaign-level charts and health, never as a single post's bar.
-    Self-calibrating: the trailing 14 days of the client's own posts set the
-    baseline, stretched 15% (the bar creators should reach for, not a dream).
-    Brand-new accounts with no history start at cold-start reach (~500/video)
-    and the expectation grows automatically as their real numbers grow. */
+    Self-calibrating: the MEDIAN view count of the client's own trailing-14-day
+    posts sets the baseline (median so one breakout can't ratchet the bar up —
+    breakouts are supposed to land ON TOP of the band, not move it), and the
+    baseline never drops below the owner-calibrated floor. Testing campaigns
+    skip self-calibration entirely — see trainedBand above. */
 function planRange(client, atISO) {
   const vpm = client?.ctx?.videosPerMonth;
   if (!vpm) return null;
   const at = atISO ? new Date(atISO).getTime() : Date.now();
   const from = at - 14 * 86400000;
-  const win = (client.posts || []).filter((p) => {
-    const t = new Date(p.addedAt).getTime();
-    return t <= at && t >= from && p.checkins.length;
-  });
-  // Owner-calibrated expectations (2026-08-03, from real campaign data):
-  //  · cold accounts (first ~10 days): ~530/video measured in week 1
-  //  · warmed accounts: posts are EXPECTED to average 1–1.5K views
-  //  · success pace (15K/video avg) comes from breakouts landing ON TOP of
-  //    this baseline — actual above the band = hits are landing.
   // If the trailing 14 days run hotter than the owner band, the data wins:
   // expectations ratchet up, never down below the owner floor.
+  const COLD = OWNER_COLD;
+  const WARM = OWNER_WARM;
   const t0 = new Date(client.createdAt || Date.now()).getTime();
   const campaignDays = (at - t0) / 86400000;
-  if (campaignDays < 10 || win.length < 5)
-    return { low: 350, mid: 530, high: 800 };
-  const trailing = win.reduce((a, p) => a + p.checkins[p.checkins.length - 1].views, 0) / win.length;
-  const mid = Math.max(1250, Math.round(trailing));
-  return { low: Math.max(1000, Math.round(mid * 0.8)),
+  if (campaignDays < 10) return COLD;
+  // Held-out campaign: predict from the TRAINED model only. Fitting the band
+  // to this campaign's own trailing numbers would make the test meaningless.
+  if (client?.ctx?.calibrationRole === "testing") {
+    const t = trainedBand();
+    return { low: t.low, mid: t.mid, high: t.high };
+  }
+  // Two honesty rules for the trailing window: posts must be ≥3 days old at
+  // `at` (day-one numbers would drag the baseline down), and only check-ins
+  // that existed by `at` count — the band drawn for a past date must not know
+  // the future, or historical corridors rise to meet the actual line.
+  const vals = (client.posts || []).map((p) => {
+    const added = new Date(p.addedAt).getTime();
+    if (added < from || added > at - 3 * 86400000) return null;
+    let v = null;
+    for (const c of p.checkins) if (new Date(c.d).getTime() <= at) v = c.views;
+    return v;
+  }).filter((v) => v != null);
+  // Warmed but data-sparse: hold the owner's warmed band, never the cold one.
+  if (vals.length < 5) return WARM;
+  const mid = Math.max(WARM.mid, Math.round(median(vals)));
+  return { low: Math.max(WARM.low, Math.round(mid * 0.8)),
            mid,
-           high: Math.max(1500, Math.round(mid * 1.5)) };
+           high: Math.max(WARM.high, Math.round(mid * 1.5)) };
 }
 
 function planPerVideo(client, atISO) {
@@ -2197,7 +2380,16 @@ function weekEstimateBand(rec, client) {
   const vpm = client?.ctx?.videosPerMonth;
   if (!vpm) return null;
   const t0 = new Date(rec.createdAt || Date.now()).getTime();
-  const days = Math.max(7, Math.min(31, Math.ceil((Date.now() - t0) / 86400000)));
+  // A brief accrues plan volume only over its ACTIVE window — from creation
+  // until the next brief takes over (or now). Without the clamp every past
+  // brief kept accruing a full month of expectation against one week of
+  // posts (drifting to "At risk"), while the old 7-day floor judged a
+  // day-old brief against a week it hadn't been given yet.
+  const succ = (client.briefs || [])
+    .map((b) => new Date(b.createdAt || 0).getTime())
+    .filter((t) => t > t0);
+  const end = Math.min(Date.now(), succ.length ? Math.min(...succ) : Infinity);
+  const days = Math.max(1, Math.min(31, Math.ceil((end - t0) / 86400000)));
   const low = [{ x: 0, y: 0 }], mid = [{ x: 0, y: 0 }], high = [{ x: 0, y: 0 }];
   let cl = 0, cm = 0, ch = 0;
   const daily = vpm / 30.44;
@@ -2209,7 +2401,7 @@ function weekEstimateBand(rec, client) {
     high.push({ x: d, y: Math.round(ch) });
   }
   const success = client?.ctx?.successViews30d
-    ? [{ x: 0, y: 0 }, { x: days, y: Math.round((client.ctx.successViews30d / 30.44) * days) }]
+    ? [{ x: 0, y: 0 }, { x: days, y: Math.round((client.ctx.successViews30d / 30) * days) }]
     : [];
   return { low, mid, high, success };
 }
@@ -2227,7 +2419,9 @@ function weekEstimateCurve(rec, client) {
   const pts = [{ x: 0, y: 0 }];
   let cum = 0;
   rec.items.forEach((it, i) => {
-    cum += predictViews(client.niche, it.format_type, it.hook_pattern, client, rec.createdAt);
+    // An awaiting-ingest item has no real tags — predicting a whole-pool
+    // median for an unknown video would inflate the estimate line.
+    if (!it._pending) cum += predictViews(client.niche, it.format_type, it.hook_pattern, client, rec.createdAt);
     pts.push({ x: (i + 1) * (7 / n), y: cum });
   });
   return pts;
@@ -2272,10 +2466,6 @@ function clientVerdict(client) {
 }
 
 const weekPostsOf = (client, briefId) => client.posts.filter((p) => p.briefId === briefId);
-
-function weekVerdict(client, briefId) {
-  return clientVerdict({ posts: weekPostsOf(client, briefId) });
-}
 
 // Per-post performance ratio vs its locked benchmark (null if no check-ins).
 const postRatio = (p) => p.checkins.length ? postLatest(p) / (p.predicted || 1) : null;
@@ -2471,8 +2661,11 @@ function campaignHealth(client) {
   const vpm = client.ctx?.videosPerMonth;
   if (vpm) {
     planBased = true;
+    // No day cap: actual accumulates over the campaign's whole life, so the
+    // plan must too — a capped denominator inflated every campaign to
+    // "Strong" from month three onward, mechanically.
     const t0 = new Date(client.createdAt || Date.now()).getTime();
-    const days = Math.max(1, Math.min(60, Math.ceil((Date.now() - t0) / 86400000)));
+    const days = Math.max(1, Math.ceil((Date.now() - t0) / 86400000));
     predicted = 0;
     for (let d = 1; d <= days; d++)
       predicted += (vpm / 30.44) * planPerVideo(client, new Date(t0 + d * 86400000).toISOString());
@@ -2485,8 +2678,8 @@ function campaignHealth(client) {
   let successRatio = null;
   if (client.ctx?.successViews30d) {
     const t0 = new Date(client.createdAt || Date.now()).getTime();
-    const days = Math.max(1, Math.min(60, (Date.now() - t0) / 86400000));
-    successRatio = actual / ((client.ctx.successViews30d / 30.44) * days);
+    const days = Math.max(1, (Date.now() - t0) / 86400000);
+    successRatio = actual / ((client.ctx.successViews30d / 30) * days);
   }
   return { ...h, actual, predicted, planBased, successRatio, posts: tracked.length, beat,
            briefs: client.briefs.length, totalPosts: client.posts.length };
@@ -2526,6 +2719,12 @@ function startNextWeekBrief(client) {
     if (aSel && client.ctx?.audience) aSel.value = client.ctx.audience;
     const fIn = document.getElementById("ce-feats");
     if (fIn && client.ctx?.feats?.length) fIn.value = client.ctx.feats.join(", ");
+    const vpmIn = document.getElementById("ce-vpm");
+    if (vpmIn && client.ctx?.videosPerMonth) vpmIn.value = client.ctx.videosPerMonth;
+    const sIn = document.getElementById("ce-success");
+    if (sIn && client.ctx?.successViews30d) sIn.value = client.ctx.successViews30d;
+    const roleIn = document.getElementById("ce-calrole");
+    if (roleIn && client.ctx?.calibrationRole) roleIn.value = client.ctx.calibrationRole;
     const parts = client.ctx?.avatarParts
       || (client.ctx?.avatar ? { stats: client.ctx.avatar } : null);   // legacy single-field avatars
     if (parts) {
@@ -2584,6 +2783,36 @@ function clientTrendsHtml(client) {
     if (!combos.has(k)) combos.set(k, []);
     combos.get(k).push(latest(p) / (p.predicted || 1));
   }
+
+  // Format × creator: a winning format is often a winning format FOR SOMEONE —
+  // the same play can run 2× for one creator and die for another, and the
+  // campaign-wide average hides exactly that. A format is only credited to a
+  // creator when it ACTUALLY overperforms for them: ≥1.25× benchmark (the
+  // same bar the script cards call "push more") on ≥2 posts. Ties and losers
+  // are simply absent — this card is the brief-planning shortlist, per creator.
+  const fc = new Map();   // format -> Map(creator -> ratios[])
+  for (const p of tracked) {
+    if (!p.format) continue;
+    const cr = (p.creator || "").trim() || "—";
+    if (!fc.has(p.format)) fc.set(p.format, new Map());
+    const m = fc.get(p.format);
+    if (!m.has(cr)) m.set(cr, []);
+    m.get(cr).push(latest(p) / (p.predicted || 1));
+  }
+  const byCreator = new Map();   // creator -> [{format, n, avg}] proven only
+  for (const [format, m] of fc) {
+    for (const [cr, rs] of m) {
+      if (rs.length < 2) continue;
+      const avg = rs.reduce((a, b) => a + b, 0) / rs.length;
+      if (avg < 1.25) continue;
+      if (!byCreator.has(cr)) byCreator.set(cr, []);
+      byCreator.get(cr).push({ format, n: rs.length, avg });
+    }
+  }
+  const crRows = [...byCreator.entries()]
+    .map(([cr, fs]) => ({ cr, fs: fs.sort((a, b) => b.avg - a.avg) }))
+    .sort((a, b) => b.fs[0].avg - a.fs[0].avg)
+    .slice(0, 8);
   const comboRows = [...combos.entries()]
     .filter(([, rs]) => rs.length >= 2)
     .map(([k, rs]) => ({ k, n: rs.length, avg: rs.reduce((a, b) => a + b, 0) / rs.length }))
@@ -2604,6 +2833,13 @@ function clientTrendsHtml(client) {
         <div class="tc-label">Formats proven in this campaign</div>
         ${comboRows.map((r) => `<div class="tc-row ${r.avg >= 1 ? "good" : "bad"}"><span>${escapeHtml(r.k)}</span>
           <span class="mono">${ratioLabel(r.avg)} · ${r.n} posts</span></div>`).join("")}
+      </div>` : ""}
+      ${crRows.length ? `<div class="trend-card">
+        <div class="tc-label">Proven formats by creator <i class="tc-dim">— ≥1.25× on ≥2 posts; brief these again</i></div>
+        ${crRows.map((r) => `<div class="tc-row fc-row"><span>${escapeHtml(r.cr)}</span>
+          <span class="fc-cells">${r.fs.map((f) =>
+            `<span class="verdict good">${escapeHtml(f.format)} · ${ratioLabel(f.avg)} · ${f.n}</span>`).join("")}</span>
+        </div>`).join("")}
       </div>` : ""}
       <div class="trend-card">
         <div class="tc-label">Top posts</div>
@@ -2636,13 +2872,23 @@ function renderClientPage(host, client) {
   // not days since the first tracked post.
   const day0 = monthKey + "-01T00:00:00Z";
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const events = monthPosts.flatMap((p) => p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views })))
+  // Views EARNED this month, not lifetime totals: a post carried over from a
+  // previous month subtracts its last pre-month check-in as a baseline —
+  // otherwise a July post at 50K hands August 50K of "actual" on day one.
+  const base = new Map();
+  for (const p of monthPosts) {
+    let b = 0;
+    for (const c of p.checkins) if (c.d < day0) b = c.views;
+    if (b) base.set(p.id, b);
+  }
+  const events = monthPosts.flatMap((p) =>
+    p.checkins.filter((c) => c.d >= monthKey).map((c) => ({ d: c.d, id: p.id, views: c.views })))
     .sort((a, b) => a.d < b.d ? -1 : 1);
   const seenA = new Map();
   const mActual = [];
   let mEst = [];
   for (const e of events) {
-    seenA.set(e.id, e.views);
+    seenA.set(e.id, Math.max(0, e.views - (base.get(e.id) || 0)));
     mActual.push({ x: daysBetween(e.d, day0), y: [...seenA.values()].reduce((a, b) => a + b, 0) });
   }
   if (mActual.length) mActual.unshift({ x: Math.max(0, mActual[0].x - 1), y: 0 });
@@ -2652,7 +2898,7 @@ function renderClientPage(host, client) {
   const vpm = client.ctx?.videosPerMonth;
   let mLow = [], mHigh = [];
   const mGoal = client.ctx?.successViews30d
-    ? [{ x: 0, y: 0 }, { x: daysInMonth, y: Math.round((client.ctx.successViews30d / 30.44) * daysInMonth) }]
+    ? [{ x: 0, y: 0 }, { x: daysInMonth, y: Math.round((client.ctx.successViews30d / 30) * daysInMonth) }]
     : [];
   if (vpm) {
     let cl = 0, cm = 0, chi = 0;
@@ -2715,6 +2961,21 @@ function renderClientPage(host, client) {
         <div class="h-value">${ch.briefs}</div>
         <div class="h-sub">${ch.totalPosts} post${ch.totalPosts === 1 ? "" : "s"} total</div>
       </div>
+      ${(() => {
+        const vr = validationReport(client);
+        if (!vr) return "";
+        if (!vr.ready) return `<div class="health-card idle">
+          <div class="h-label">Model test — held out</div>
+          <div class="h-value">Collecting</div>
+          <div class="h-sub">${vr.n}/5 mature posts (≥7 days old)</div>
+        </div>`;
+        const tone = vr.hitRate >= 0.6 ? "good" : vr.hitRate >= 0.4 ? "even" : "bad";
+        return `<div class="health-card ${tone}">
+          <div class="h-label">Model test — held out</div>
+          <div class="h-value">${Math.round(vr.hitRate * 100)}%<span class="h-of"> in band</span></div>
+          <div class="h-sub">median actual = ${Math.round(vr.bias * 100)}% of predicted mid · ${vr.n} posts</div>
+        </div>`;
+      })()}
     </div>
 
     <div class="growth-card ${mPace.tone}">
@@ -2795,8 +3056,12 @@ function scriptDetailHtml(rec, client, i, matchedPosts) {
   const er = row.engagement_rate ? parseFloat(row.engagement_rate).toFixed(2) + "%" : "—";
   const href = safeUrl(row.url);
   const stat = (v, l) => `<div class="metric"><div class="m-val">${v}</div><div class="m-lbl">${l}</div></div>`;
+  // Slot-bound posts always belong here; tag matching needs REAL tags on both
+  // sides (blank === blank must not count as a match).
   const slotPosts = weekPostsOf(client, rec.id)
-    .filter((p) => p.format === row.format_type && p.hook === row.hook_pattern);
+    .filter((p) => p.slotIdx === i
+      || (row.format_type && row.hook_pattern
+          && p.format === row.format_type && p.hook === row.hook_pattern));
   return `
     <div class="card-detail">
       <div class="cd-player-col">
@@ -2841,7 +3106,6 @@ function scriptDetailHtml(rec, client, i, matchedPosts) {
 function weekDashboardHtml(rec, client) {
   const posts = weekPostsOf(client, rec.id);
   const tracked = posts.filter((p) => p.checkins.length);
-  const v = weekVerdict(client, rec.id);
 
   // Week chart: estimated slope from the brief's 10 formats (warm-up adjusted)
   // vs the actual cumulative views from check-ins, both on a days-since-brief axis.
@@ -2860,14 +3124,19 @@ function weekDashboardHtml(rec, client) {
   const yMax = Math.max(1, ...actualPts.map((p) => p.y), ...est.map((p) => p.y), ...(band?.high || []).map((p) => p.y));
   const pace = paceTone(actualPts, est, band?.low, band?.high);
 
-  // Per-script cards: match this week's posts to each script by format×hook
+  // Per-script cards: a post binds to its card by SLOT when it was created
+  // from that brief item (track-all), falling back to format×hook matching
+  // for posts added by hand.
   const scriptCards = rec.items.map((it, i) => {
     // Blank tags match NOTHING — otherwise every untagged post "matches"
     // every untagged slot and all ten cards show identical fake stats.
     const tagged = it.format_type && it.hook_pattern;
-    const matched = tagged
-      ? posts.filter((p) => p.format === it.format_type && p.hook === it.hook_pattern && p.checkins.length)
+    const byTag = tagged
+      ? posts.filter((p) => p.format === it.format_type && p.hook === it.hook_pattern)
       : [];
+    const bySlot = posts.filter((p) => p.slotIdx === i);
+    const matchedAll = [...new Map([...bySlot, ...byTag].map((p) => [p.id, p])).values()];
+    const matched = matchedAll.filter((p) => p.checkins.length);
     const pts = matched.map(postLatest);
     const predSeries = matched.map((p) => p.predicted || 0);
     const pred = matched.length ? Math.round(median(predSeries))
@@ -2875,7 +3144,8 @@ function weekDashboardHtml(rec, client) {
     const ratios = matched.map(postRatio);
     const avg = ratios.length ? ratios.reduce((a, b) => a + b, 0) / ratios.length : null;
     const cls = avg == null ? "" : avg >= 1 ? "good" : "bad";
-    const status = avg == null ? "untracked"
+    const status = avg == null
+      ? (matchedAll.length ? "tracked — no check-ins yet" : "untracked")
       : avg >= 1.25 ? `▲ ${ratioLabel(avg)} — push more`
       : avg >= 1 ? `▲ ${ratioLabel(avg)}`
       : avg >= 0.75 ? `▼ ${ratioLabel(avg)}`
@@ -2960,6 +3230,14 @@ function renderBriefViewer(host, rec, client) {
 
     <details class="flag-block posts-block">
     <summary>Posts from this brief <span class="pill">${briefPosts.length}</span></summary>
+    ${(() => {
+      const have = new Set(client.posts.filter((p) => p.url).map((p) => canonUrl(p.url)));
+      const untracked = rec.items.filter((it) => it.url && !have.has(canonUrl(it.url))).length;
+      return untracked ? `<div class="track-all-row">
+        <button type="button" class="btn" id="pf-track-all">Track all ${untracked} brief video${untracked === 1 ? "" : "s"}</button>
+        <span class="note">each one becomes a tracked post bound to its script card — check in with views below</span>
+      </div>` : "";
+    })()}
     <form class="post-form" id="post-form">
       <input type="url" id="pf-url" placeholder="Paste the post link — we'll read and tag it" required>
       <button type="submit" class="btn" id="pf-add">Add &amp; auto-tag</button>
@@ -3009,6 +3287,36 @@ function renderBriefViewer(host, rec, client) {
   document.getElementById("wk-next").addEventListener("click", () => {
     if (idx > 0) { BRIEF_VIEW = { id: client.briefs[idx - 1].id, expanded: null }; renderBriefs(); }
   });
+  // Track-all: every brief item with a URL that isn't already a tracked post
+  // becomes one, bound to its script slot (slotIdx) so the card shows ITS
+  // video even while tags are blank awaiting ingestion. Benchmarks lock from
+  // the item's tags, or auto-tagging its caption when the tags are blank —
+  // same rule as the by-hand form.
+  const trackAllBtn = document.getElementById("pf-track-all");
+  if (trackAllBtn) trackAllBtn.addEventListener("click", () => {
+    const fresh = loadClients();
+    const c = fresh.find((x) => x.id === client.id);
+    if (!c) return;
+    const have = new Set(c.posts.filter((p) => p.url).map((p) => canonUrl(p.url)));
+    let added = 0;
+    rec.items.forEach((it, i) => {
+      if (!it.url || have.has(canonUrl(it.url))) return;
+      const { format, hook } = it.format_type && it.hook_pattern
+        ? { format: it.format_type, hook: it.hook_pattern }
+        : autoTag(it.title || "", it.platform);
+      c.posts.unshift({
+        id: newId(), url: it.url, creator: it.creator || "",
+        caption: it.title || "", thumb: "", platform: it.platform || "",
+        format, hook, predicted: predictViews(c.niche, format, hook, c, null, it.platform),
+        briefId: rec.id, slotIdx: i,
+        addedAt: new Date().toISOString(), checkins: [],
+      });
+      have.add(canonUrl(it.url));
+      added++;
+    });
+    if (added) { persistClients(fresh); renderBriefs(); }
+  });
+
   const postForm = document.getElementById("post-form");
   if (postForm) {
     postForm.addEventListener("submit", async (e) => {
@@ -3314,6 +3622,16 @@ async function renderBrief(rawUrl) {
             <option value="">Not sure</option>
             ${audiences.map((a) => `<option value="${escapeHtml(a)}"${a === analysis?.audience ? " selected" : ""}>${escapeHtml(a)}</option>`).join("")}
           </select></label>
+        <label class="ce-field"><span class="lbl">Campaign plan — videos / month (blank = no campaign yardstick)</span>
+          <input type="number" id="ce-vpm" min="1" step="1" value="${BRIEF_CTX?.videosPerMonth || ""}" placeholder="e.g. 90"></label>
+        <label class="ce-field"><span class="lbl">Success target — views / 30 days for THIS client</span>
+          <input type="text" id="ce-success" value="${BRIEF_CTX?.successViews30d || ""}" placeholder="e.g. 300K (3M ÷ 10 creators)"></label>
+        <label class="ce-field"><span class="lbl">Calibration role — how this campaign relates to the model</span>
+          <select id="ce-calrole">
+            <option value=""${!BRIEF_CTX?.calibrationRole ? " selected" : ""}>Auto — self-calibrating</option>
+            <option value="training"${BRIEF_CTX?.calibrationRole === "training" ? " selected" : ""}>Training — teaches the model (Cloey)</option>
+            <option value="testing"${BRIEF_CTX?.calibrationRole === "testing" ? " selected" : ""}>Testing — held out, validates the model</option>
+          </select></label>
         <label class="ce-field ce-wide"><span class="lbl">Features / selling points (comma-separated — these get written into the scripts)</span>
           <input type="text" id="ce-feats" value="${escapeHtml((analysis?.feats || []).join(", "))}"
             placeholder="e.g. NCLEX practice questions, case walkthroughs, study planner"></label>
@@ -3352,14 +3670,24 @@ async function renderBrief(rawUrl) {
     // The joined text feeds the keyword matcher; the parts keep the form.
     const avatar = Object.values(avatarParts).filter(Boolean).join("\n");
     const niche = document.getElementById("brief-niche").value;
-    BRIEF_CTX = (brand || feats.length || audience || avatar)
-      ? { brand: brand || "the product", feats, audience, avatar, avatarParts }
+    // Campaign plan: these two numbers are what turn on the plan yardstick
+    // (expected-range corridor, success pace, plan-based health) everywhere.
+    const videosPerMonth = Math.max(0, parseInt(document.getElementById("ce-vpm")?.value, 10) || 0) || null;
+    const successRaw = (document.getElementById("ce-success")?.value || "").trim();
+    const successViews30d = successRaw ? (parseNum(successRaw) || null) : null;
+    const calibrationRole = document.getElementById("ce-calrole")?.value || "";
+    BRIEF_CTX = (brand || feats.length || audience || avatar || videosPerMonth || successViews30d)
+      ? { brand: brand || "the product", feats, audience, avatar, avatarParts,
+          videosPerMonth, successViews30d, calibrationRole }
       : BRIEF_CTX;
     // Collapse the editor into a one-line summary; Edit re-opens it.
     const chips = [
       BRIEF_CTX?.brand, niche || "All niches", BRIEF_CTX?.audience,
       BRIEF_CTX?.feats?.length ? `${BRIEF_CTX.feats.length} features` : null,
       BRIEF_CTX?.avatar ? "avatar set" : null,
+      BRIEF_CTX?.videosPerMonth ? `${BRIEF_CTX.videosPerMonth}/mo plan` : null,
+      BRIEF_CTX?.successViews30d ? `${compact(BRIEF_CTX.successViews30d)}/30d target` : null,
+      BRIEF_CTX?.calibrationRole ? `model: ${BRIEF_CTX.calibrationRole}` : null,
     ].filter(Boolean);
     document.getElementById("ce-chips").innerHTML =
       chips.map((c) => `<span class="chip">${escapeHtml(c)}</span>`).join("");
@@ -3462,7 +3790,7 @@ function renderApp(rows) {
     return;
   }
   ALL = rows;
-  URL_INDEX = new Map(rows.filter((r) => r.url).map((r) => [r.url.replace(/\/$/, ""), r]));
+  URL_INDEX = new Map(rows.filter((r) => r.url).map((r) => [canonUrl(r.url), r]));
   renderStats(rows);
   renderBars("by-format", countBy(rows, "format_type"), 8, "f-format");
   renderBars("by-hook", countBy(rows, "hook_pattern"), 8, "f-hook");
