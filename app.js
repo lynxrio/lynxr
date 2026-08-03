@@ -1900,13 +1900,24 @@ function campaignWeek(client, atISO) {
   return Math.max(1, Math.min(WARMUP.length, Math.ceil((days + 1) / 7)));
 }
 
-/** The campaign PLAN pace — used only by the campaign-level charts, never as
-    a single post's bar. */
+/** The campaign's REALISTIC per-video expectation at a moment in time — used
+    only by campaign-level charts and health, never as a single post's bar.
+    Self-calibrating: the trailing 14 days of the client's own posts set the
+    baseline, stretched 15% (the bar creators should reach for, not a dream).
+    Brand-new accounts with no history start at cold-start reach (~500/video)
+    and the expectation grows automatically as their real numbers grow. */
 function planPerVideo(client, atISO) {
-  const goal = client?.ctx?.goalViews30d, vpm = client?.ctx?.videosPerMonth;
-  if (!goal || !vpm) return null;
-  const steady = (goal / vpm) / WARMUP_AVG;   // week-4 velocity hits the goal pace
-  return Math.max(1, Math.round(steady * WARMUP[campaignWeek(client, atISO) - 1]));
+  const vpm = client?.ctx?.videosPerMonth;
+  if (!vpm) return null;
+  const at = atISO ? new Date(atISO).getTime() : Date.now();
+  const from = at - 14 * 86400000;
+  const win = (client.posts || []).filter((p) => {
+    const t = new Date(p.addedAt).getTime();
+    return t <= at && t >= from && p.checkins.length;
+  });
+  if (win.length < 5) return 500;   // cold start: fresh, just-warmed accounts
+  const total = win.reduce((a, p) => a + p.checkins[p.checkins.length - 1].views, 0);
+  return Math.max(300, Math.round((total / win.length) * 1.15));
 }
 
 function predictViews(niche, format, hook, client, atISO, platform) {
