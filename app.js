@@ -2129,8 +2129,15 @@ function ratioLabel(ratio) {
 }
 
 function clientVerdict(client) {
-  const tracked = client.posts.filter((p) => p.checkins.length);
+  const tracked = (client.posts || []).filter((p) => p.checkins.length);
   if (!tracked.length) return null;
+  // Campaign clients: the SAME plan yardstick as the client page — one truth
+  // everywhere. Non-campaign clients keep the per-post benchmark sum.
+  if (client.ctx?.goalViews30d && client.ctx?.videosPerMonth) {
+    const ch = campaignHealth(client);
+    return { actual: ch.actual, predicted: ch.predicted, ratio: ch.ratio,
+             good: ch.ratio >= 1, planBased: true };
+  }
   const actual = tracked.reduce((a, p) => a + postLatest(p), 0);
   const predicted = tracked.reduce((a, p) => a + (p.predicted || 0), 0) || 1;
   return { actual, predicted, ratio: actual / predicted, good: actual >= predicted };
@@ -2284,7 +2291,7 @@ function renderBriefs() {
           <div class="lbl">${escapeHtml(c.niche || "All niches")} · ${c.briefs.length} brief${c.briefs.length === 1 ? "" : "s"}
             · ${c.posts.length} post${c.posts.length === 1 ? "" : "s"}</div>
         </div>
-        ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${ratioLabel(v.ratio)}</span>` : ""}
+        ${v ? `<span class="verdict ${v.good ? "good" : "bad"}">${v.good ? "▲" : "▼"} ${v.planBased ? `${Math.round(v.ratio * 100)}% of plan` : ratioLabel(v.ratio)}</span>` : ""}
         <button type="button" class="btn b-open">Open</button>
         <button type="button" class="ghost b-del">Delete</button>
       </article>`;
