@@ -1993,7 +1993,7 @@ function seriesAt(series, x) {
   return series[series.length - 1].y;
 }
 
-function chartSvg({ actual = [], est = [], estLow = [], estHigh = [], w = 720, h = 210, xMax = 7, yMax = 1, tone = "", xLabel = "days since brief" }) {
+function chartSvg({ actual = [], est = [], estLow = [], estHigh = [], goalLine = [], w = 720, h = 210, xMax = 7, yMax = 1, tone = "", xLabel = "days since brief" }) {
   const banded = estLow.length > 1 && estHigh.length > 1;
   const padL = 74, padR = 16, padT = 14, padB = 46;   // room for axis titles
   // "Nice" top so ticks are readable view counts, never fractions.
@@ -2028,6 +2028,7 @@ function chartSvg({ actual = [], est = [], estLow = [], estHigh = [], w = 720, h
     ${banded ? `<polygon points="${poly(estLow)} ${poly([...estHigh].reverse())}" class="chart-band"/>
       <polyline points="${poly(estLow)}" class="line-pred line-band"/>
       <polyline points="${poly(estHigh)}" class="line-pred line-band"/>` : ""}
+    ${goalLine.length > 1 ? `<polyline points="${poly(goalLine)}" class="line-goal"/>` : ""}
     ${!banded && est.length > 1 ? `<polyline points="${poly(est)}" class="line-pred"/>` : ""}
     ${!banded ? xTicks.map((d) => {
       const pv = seriesAt(est, d);
@@ -2110,7 +2111,10 @@ function weekEstimateBand(rec, client) {
     mid.push({ x: d, y: Math.round(cm) });
     high.push({ x: d, y: Math.round(ch) });
   }
-  return { low, mid, high };
+  const success = client?.ctx?.successViews30d
+    ? [{ x: 0, y: 0 }, { x: days, y: Math.round((client.ctx.successViews30d / 30.44) * days) }]
+    : [];
+  return { low, mid, high, success };
 }
 
 function weekEstimateCurve(rec, client) {
@@ -2381,7 +2385,13 @@ function campaignHealth(client) {
   }
   const h = healthOf(predicted ? actual / predicted : 0, tracked.length);
   const beat = tracked.filter((p) => postRatio(p) >= 1).length;
-  return { ...h, actual, predicted, planBased, posts: tracked.length, beat,
+  let successRatio = null;
+  if (client.ctx?.successViews30d) {
+    const t0 = new Date(client.createdAt || Date.now()).getTime();
+    const days = Math.max(1, Math.min(60, (Date.now() - t0) / 86400000));
+    successRatio = actual / ((client.ctx.successViews30d / 30.44) * days);
+  }
+  return { ...h, actual, predicted, planBased, successRatio, posts: tracked.length, beat,
            briefs: client.briefs.length, totalPosts: client.posts.length };
 }
 
@@ -2535,6 +2545,9 @@ function renderClientPage(host, client) {
   // month. Others fall back to the sum of tracked posts' predicted values.
   const vpm = client.ctx?.videosPerMonth;
   let mLow = [], mHigh = [];
+  const mGoal = client.ctx?.successViews30d
+    ? [{ x: 0, y: 0 }, { x: daysInMonth, y: Math.round((client.ctx.successViews30d / 30.44) * daysInMonth) }]
+    : [];
   if (vpm) {
     let cl = 0, cm = 0, chi = 0;
     mEst.push({ x: 0, y: 0 }); mLow.push({ x: 0, y: 0 }); mHigh.push({ x: 0, y: 0 });
@@ -2578,7 +2591,7 @@ function renderClientPage(host, client) {
         <div class="h-label">Campaign health</div>
         <div class="h-value"><span class="h-dot">${ch.dot}</span>${escapeHtml(ch.label)}</div>
         <div class="h-sub">${ch.ratio != null
-          ? (ch.planBased ? `${Math.round(ch.ratio * 100)}% of plan pace` : escapeHtml(ratioLabel(ch.ratio)))
+          ? (ch.planBased ? `${Math.round(ch.ratio * 100)}% of expected${ch.successRatio != null ? ` · ${Math.round(ch.successRatio * 100)}% of success pace` : ""}` : escapeHtml(ratioLabel(ch.ratio)))
           : "no posts tracked yet"}</div>
       </div>
       <div class="health-card">
@@ -2604,7 +2617,7 @@ function renderClientPage(host, client) {
         ${mPace.label ? `<span class="verdict ${mPace.tone}">${escapeHtml(mPace.label)}</span>`
                       : `<span class="lbl">open a brief below and track its posts to start the actual line</span>`}
       </div>
-      ${chartSvg({ actual: mActual, est: mEst, estLow: mLow, estHigh: mHigh, xMax: mxMax, yMax: myMax, tone: mPace.tone, xLabel: "day of the month" })}
+      ${chartSvg({ actual: mActual, est: mEst, estLow: mLow, estHigh: mHigh, goalLine: mGoal, xMax: mxMax, yMax: myMax, tone: mPace.tone, xLabel: "day of the month" })}
       <div class="chart-key">
         <span><i class="k-est"></i> predicted</span>
         <span><i class="k-act"></i> actual</span>
@@ -2793,7 +2806,7 @@ function weekDashboardHtml(rec, client) {
         ${pace.label ? `<span class="verdict ${pace.tone}">${escapeHtml(pace.label)}</span>`
                      : `<span class="lbl">the actual line fills in as posts get check-ins</span>`}
       </div>
-      ${chartSvg({ actual: actualPts, est, estLow: band?.low || [], estHigh: band?.high || [], xMax, yMax, tone: pace.tone })}
+      ${chartSvg({ actual: actualPts, est, estLow: band?.low || [], estHigh: band?.high || [], goalLine: band?.success || [], xMax, yMax, tone: pace.tone })}
       <div class="chart-key">
         <span><i class="k-est"></i> expected — realistic pace for these accounts</span>
         <span><i class="k-act"></i> actual</span>

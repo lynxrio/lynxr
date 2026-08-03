@@ -925,3 +925,7 @@
      should live inside. */
   .chart-band { fill: #ffffff0e; stroke: none; }
   .line-band { opacity: .55; }
+
+  /* The success-pace reference: what a winning campaign of this size does
+     (owner benchmark: 3M / 10 creators / month, scaled to this roster). */
+  .line-goal { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 2 7; opacity: .6; }
