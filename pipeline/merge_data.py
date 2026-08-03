@@ -32,6 +32,9 @@ MASTER_FIELDS = [
     # signals plus the computed format-repeatability tier.
     "creator_followers", "saves", "shares", "save_ratio", "views_to_followers",
     "reach_confidence_tier", "similar_format_count", "avg_views_of_similar",
+    # When the video was posted (platform timestamp) — needed to window
+    # campaign posts into weekly briefs.
+    "uploaded_at",
 ]
 
 TAG_COLS = ["format_type", "hook_pattern", "niche_category", "target_audience"]

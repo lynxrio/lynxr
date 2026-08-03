@@ -1883,9 +1883,41 @@ function autoTag(caption, platform) {
 /** Benchmark prediction: median views for this format×hook in the client's
     niche pool (falling back to format-only, then the whole pool). Locked in
     when the post is added, so later comparisons are stable. */
-function predictViews(niche, format, hook) {
-  let pool = niche ? ALL.filter((r) => r.niche_category === niche) : ALL;
-  if (pool.length < MIN_N_NICHE) pool = ALL;
+/* Campaign accounts are BRAND NEW and freshly warmed — niche medians (10-20K)
+   would call every week-1 post a failure, and the campaign's own cold medians
+   (~500) would call everything a win. The honest benchmark is the RAMP TO A
+   SUCCESSFUL CAMPAIGN: ~4M views / 30 days / 10 creators ≈ 20K per video on
+   average, weighted onto a warm-up curve — new accounts earn reach as the
+   algorithm learns them, so week 1 expects 15% of steady state, week 4 100%.
+   The weekly targets sum to the campaign goal. */
+const WARMUP = [0.15, 0.35, 0.7, 1.0];
+const WARMUP_AVG = WARMUP.reduce((a, b) => a + b, 0) / WARMUP.length;   // 0.55
+
+function campaignWeek(client, atISO) {
+  const start = new Date(client?.createdAt || Date.now());
+  const at = atISO ? new Date(atISO) : new Date();
+  const days = Math.max(0, (at - start) / 86400000);
+  return Math.max(1, Math.min(WARMUP.length, Math.ceil((days + 1) / 7)));
+}
+
+function predictViews(niche, format, hook, client, atISO) {
+  // Campaign-goal model: the client declares a 30-day goal and posting volume.
+  const goal = client?.ctx?.goalViews30d, vpm = client?.ctx?.videosPerMonth;
+  if (goal && vpm) {
+    const steady = (goal / vpm) / WARMUP_AVG;   // week-4 velocity hits the goal pace
+    return Math.max(1, Math.round(steady * WARMUP[campaignWeek(client, atISO) - 1]));
+  }
+  // Else: the client's own posted history, when they have enough of it.
+  let pool = null;
+  const company = client?.company;
+  if (company) {
+    const own = ALL.filter((r) => r.data_source === company);
+    if (own.length >= 5) pool = own;
+  }
+  if (!pool) {
+    pool = niche ? ALL.filter((r) => r.niche_category === niche) : ALL;
+    if (pool.length < MIN_N_NICHE) pool = ALL;
+  }
   let seg = pool.filter((r) => r.format_type === format && r.hook_pattern === hook);
   if (seg.length < 5) seg = pool.filter((r) => r.format_type === format);
   if (seg.length < 5) seg = pool;
@@ -2038,7 +2070,7 @@ function weekEstimateCurve(rec, client) {
   const pts = [{ x: 0, y: 0 }];
   let cum = 0;
   rec.items.forEach((it, i) => {
-    cum += predictViews(client.niche, it.format_type, it.hook_pattern);
+    cum += predictViews(client.niche, it.format_type, it.hook_pattern, client, rec.createdAt);
     pts.push({ x: (i + 1) * (7 / n), y: cum });
   });
   return pts;
@@ -2538,7 +2570,7 @@ function weekDashboardHtml(rec, client) {
     const pts = matched.map(postLatest);
     const predSeries = matched.map((p) => p.predicted || 0);
     const pred = matched.length ? Math.round(median(predSeries))
-                                : predictViews(client.niche, it.format_type, it.hook_pattern);
+                                : predictViews(client.niche, it.format_type, it.hook_pattern, client, rec.createdAt);
     const ratios = matched.map(postRatio);
     const avg = ratios.length ? ratios.reduce((a, b) => a + b, 0) / ratios.length : null;
     const cls = avg == null ? "" : avg >= 1 ? "good" : "bad";
@@ -2713,7 +2745,7 @@ function renderBriefViewer(host, rec, client) {
       c.posts.unshift({
         id: newId(), url, creator: meta.creator || "",
         caption: meta.caption || "", thumb: meta.thumb || "", platform: meta.platform || "",
-        format, hook, predicted: predictViews(c.niche, format, hook),
+        format, hook, predicted: predictViews(c.niche, format, hook, c),
         briefId: rec.id,                       // implicit: the brief you're inside
         addedAt: new Date().toISOString(), checkins: [],
       });
@@ -2742,7 +2774,7 @@ function renderBriefViewer(host, rec, client) {
         if (!post) return;
         post.format = rowEl.querySelector(".pt-format").value;
         post.hook = rowEl.querySelector(".pt-hook").value;
-        post.predicted = predictViews(client.niche, post.format, post.hook);
+        post.predicted = predictViews(client.niche, post.format, post.hook, client, post.addedAt);
         persistClients(fresh);
         renderBriefs();
       });
