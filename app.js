@@ -1898,11 +1898,13 @@ function planRange(client, atISO) {
     const t = new Date(p.addedAt).getTime();
     return t <= at && t >= from && p.checkins.length;
   });
-  const base = win.length < 5 ? 450   // cold start: fresh, just-warmed accounts
+  // Constants measured from the Cloey campaign (Sideshift, 20 days of data):
+  // week-1 cold accounts averaged 527/video; a week WITHOUT a breakout runs
+  // ~0.5× the trailing average (breakouts are ~half of all views: top-3 posts
+  // carried 49%), a multi-breakout week ~1.8×.
+  const base = win.length < 5 ? 530   // measured cold-start reach
     : Math.max(260, win.reduce((a, p) => a + p.checkins[p.checkins.length - 1].views, 0) / win.length);
-  // Floor = a soft week (no breakout lands); ceiling = a breakout week.
-  // Short-form views are power-law — the corridor is wide on purpose.
-  return { low: Math.round(base * 0.65), mid: Math.round(base * 1.15), high: Math.round(base * 1.8) };
+  return { low: Math.round(base * 0.5), mid: Math.round(base * 1.15), high: Math.round(base * 1.8) };
 }
 
 function planPerVideo(client, atISO) {
