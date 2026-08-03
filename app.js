@@ -1985,7 +1985,7 @@ function seriesAt(series, x) {
   return series[series.length - 1].y;
 }
 
-function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1, tone = "" }) {
+function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1, tone = "", xLabel = "days since brief" }) {
   const padL = 74, padR = 16, padT = 14, padB = 46;   // room for axis titles
   // "Nice" top so ticks are readable view counts, never fractions.
   const niceTop = (v) => {
@@ -2015,7 +2015,7 @@ function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1,
     <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h - padB}" class="chart-axis"/>
     <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" class="chart-axis"/>
     <text class="axis-title" text-anchor="middle" transform="translate(18 ${midY}) rotate(-90)">cumulative views</text>
-    <text class="axis-title" text-anchor="middle" x="${padL + (w - padL - padR) / 2}" y="${h - 6}">days since brief</text>
+    <text class="axis-title" text-anchor="middle" x="${padL + (w - padL - padR) / 2}" y="${h - 6}">${xLabel}</text>
     ${est.length > 1 ? `<polyline points="${poly(est)}" class="line-pred"/>` : ""}
     ${xTicks.map((d) => {
       const pv = seriesAt(est, d);
@@ -2380,24 +2380,43 @@ function renderClientPage(host, client) {
   const monthPosts = client.posts.filter((p) =>
     (p.addedAt || "").slice(0, 7) === monthKey || p.checkins.some((c) => c.d.slice(0, 7) === monthKey));
 
-  const day0 = [...monthPosts].map((p) => p.addedAt).sort()[0] || (monthKey + "-01T00:00:00Z");
+  // The month chart spans the CALENDAR MONTH — x is the day of the month,
+  // not days since the first tracked post.
+  const day0 = monthKey + "-01T00:00:00Z";
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const events = monthPosts.flatMap((p) => p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views })))
     .sort((a, b) => a.d < b.d ? -1 : 1);
-  const byId = new Map(monthPosts.map((p) => [p.id, p]));
-  const seenA = new Map(), seenE = new Map();
-  const mActual = [], mEst = [];
+  const seenA = new Map();
+  const mActual = [];
+  let mEst = [];
   for (const e of events) {
     seenA.set(e.id, e.views);
-    seenE.set(e.id, byId.get(e.id)?.predicted || 0);
-    const x = daysBetween(e.d, day0);
-    mActual.push({ x, y: [...seenA.values()].reduce((a, b) => a + b, 0) });
-    mEst.push({ x, y: [...seenE.values()].reduce((a, b) => a + b, 0) });
+    mActual.push({ x: daysBetween(e.d, day0), y: [...seenA.values()].reduce((a, b) => a + b, 0) });
   }
-  if (mActual.length) { mActual.unshift({ x: 0, y: 0 }); mEst.unshift({ x: 0, y: 0 }); }
-  // Nothing tracked yet? Draw the target from this month's briefs so the graph
-  // still shows where they should be.
-  if (!mEst.length && client.briefs.length) weekEstimateCurve(client.briefs[0], client).forEach((pt) => mEst.push(pt));
-  const mxMax = Math.max(7, ...mActual.map((p) => p.x), ...mEst.map((p) => p.x));
+  if (mActual.length) mActual.unshift({ x: Math.max(0, mActual[0].x - 1), y: 0 });
+  // Predicted: campaign clients get the month's PLAN — daily posting volume ×
+  // the warm-up-adjusted per-video target, accumulated across the calendar
+  // month. Others fall back to the sum of tracked posts' predicted values.
+  const goal = client.ctx?.goalViews30d, vpm = client.ctx?.videosPerMonth;
+  if (goal && vpm) {
+    let cum = 0;
+    mEst.push({ x: 0, y: 0 });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const at = new Date(now.getFullYear(), now.getMonth(), d).toISOString();
+      cum += (vpm / 30.44) * predictViews(client.niche, "", "", client, at);
+      mEst.push({ x: d, y: Math.round(cum) });
+    }
+  } else {
+    const byId = new Map(monthPosts.map((p) => [p.id, p]));
+    const seenE = new Map();
+    for (const e of events) {
+      seenE.set(e.id, byId.get(e.id)?.predicted || 0);
+      mEst.push({ x: daysBetween(e.d, day0), y: [...seenE.values()].reduce((a, b) => a + b, 0) });
+    }
+    if (mEst.length) mEst.unshift({ x: 0, y: 0 });
+    if (!mEst.length && client.briefs.length) mEst = weekEstimateCurve(client.briefs[0], client);
+  }
+  const mxMax = daysInMonth;
   const myMax = Math.max(1, ...mActual.map((p) => p.y), ...mEst.map((p) => p.y));
   const mPace = paceTone(mActual, mEst);
   const ch = campaignHealth(client);
@@ -2443,7 +2462,7 @@ function renderClientPage(host, client) {
         ${mPace.label ? `<span class="verdict ${mPace.tone}">${escapeHtml(mPace.label)}</span>`
                       : `<span class="lbl">open a brief below and track its posts to start the actual line</span>`}
       </div>
-      ${chartSvg({ actual: mActual, est: mEst, xMax: mxMax, yMax: myMax, tone: mPace.tone })}
+      ${chartSvg({ actual: mActual, est: mEst, xMax: mxMax, yMax: myMax, tone: mPace.tone, xLabel: "day of the month" })}
       <div class="chart-key">
         <span><i class="k-est"></i> predicted</span>
         <span><i class="k-act"></i> actual</span>
