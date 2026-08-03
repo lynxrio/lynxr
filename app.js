@@ -1883,23 +1883,6 @@ function autoTag(caption, platform) {
 /** Benchmark prediction: median views for this format×hook in the client's
     niche pool (falling back to format-only, then the whole pool). Locked in
     when the post is added, so later comparisons are stable. */
-/* Campaign accounts are BRAND NEW and freshly warmed — niche medians (10-20K)
-   would call every week-1 post a failure, and the campaign's own cold medians
-   (~500) would call everything a win. The honest benchmark is the RAMP TO A
-   SUCCESSFUL CAMPAIGN: ~4M views / 30 days / 10 creators ≈ 20K per video on
-   average, weighted onto a warm-up curve — new accounts earn reach as the
-   algorithm learns them, so week 1 expects 15% of steady state, week 4 100%.
-   The weekly targets sum to the campaign goal. */
-const WARMUP = [0.15, 0.35, 0.7, 1.0];
-const WARMUP_AVG = WARMUP.reduce((a, b) => a + b, 0) / WARMUP.length;   // 0.55
-
-function campaignWeek(client, atISO) {
-  const start = new Date(client?.createdAt || Date.now());
-  const at = atISO ? new Date(atISO) : new Date();
-  const days = Math.max(0, (at - start) / 86400000);
-  return Math.max(1, Math.min(WARMUP.length, Math.ceil((days + 1) / 7)));
-}
-
 /** The campaign's REALISTIC per-video expectation at a moment in time — used
     only by campaign-level charts and health, never as a single post's bar.
     Self-calibrating: the trailing 14 days of the client's own posts set the
@@ -2091,8 +2074,8 @@ const daysBetween = (a, b) => Math.max(0, (new Date(a) - new Date(b)) / DAY_MS);
 function weekEstimateCurve(rec, client) {
   // Campaign clients: the target is volume × warm-up-adjusted per-video goal —
   // the briefed formats set WHAT to post; the campaign plan sets how much.
-  const goal = client?.ctx?.goalViews30d, vpm = client?.ctx?.videosPerMonth;
-  if (goal && vpm) {
+  const vpm = client?.ctx?.videosPerMonth;
+  if (vpm) {
     // The plan line spans the brief's actual life — daily volume × the
     // warm-up-adjusted target, stepping up as campaign weeks mature.
     const t0 = new Date(rec.createdAt || Date.now()).getTime();
@@ -2144,7 +2127,7 @@ function clientVerdict(client) {
   if (!tracked.length) return null;
   // Campaign clients: the SAME plan yardstick as the client page — one truth
   // everywhere. Non-campaign clients keep the per-post benchmark sum.
-  if (client.ctx?.goalViews30d && client.ctx?.videosPerMonth) {
+  if (client.ctx?.videosPerMonth) {
     const ch = campaignHealth(client);
     return { actual: ch.actual, predicted: ch.predicted, ratio: ch.ratio,
              good: ch.ratio >= 1, planBased: true };
@@ -2340,8 +2323,8 @@ function campaignHealth(client) {
   // vs the plan accumulated to today. One viral post can't call a behind-pace
   // campaign "Strong" against a pile of medians.
   let predicted, planBased = false;
-  const goal = client.ctx?.goalViews30d, vpm = client.ctx?.videosPerMonth;
-  if (goal && vpm) {
+  const vpm = client.ctx?.videosPerMonth;
+  if (vpm) {
     planBased = true;
     const t0 = new Date(client.createdAt || Date.now()).getTime();
     const days = Math.max(1, Math.min(60, Math.ceil((Date.now() - t0) / 86400000)));
@@ -2506,8 +2489,8 @@ function renderClientPage(host, client) {
   // Predicted: campaign clients get the month's PLAN — daily posting volume ×
   // the warm-up-adjusted per-video target, accumulated across the calendar
   // month. Others fall back to the sum of tracked posts' predicted values.
-  const goal = client.ctx?.goalViews30d, vpm = client.ctx?.videosPerMonth;
-  if (goal && vpm) {
+  const vpm = client.ctx?.videosPerMonth;
+  if (vpm) {
     let cum = 0;
     mEst.push({ x: 0, y: 0 });
     for (let d = 1; d <= daysInMonth; d++) {
@@ -2763,7 +2746,7 @@ function weekDashboardHtml(rec, client) {
       </div>
       ${chartSvg({ actual: actualPts, est, xMax, yMax, tone: pace.tone })}
       <div class="chart-key">
-        <span><i class="k-est"></i> predicted — the brief's formats at benchmark</span>
+        <span><i class="k-est"></i> expected — realistic pace for these accounts</span>
         <span><i class="k-act"></i> actual</span>
       </div>
     </div>
