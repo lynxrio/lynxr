@@ -2318,10 +2318,25 @@ function healthOf(ratio, n) {
 function campaignHealth(client) {
   const tracked = client.posts.filter((p) => p.checkins.length);
   const actual = tracked.reduce((a, p) => a + postLatest(p), 0);
-  const predicted = tracked.reduce((a, p) => a + (p.predicted || 0), 0);
+  // Campaign clients: health = the SAME yardstick as the chart — actual views
+  // vs the plan accumulated to today. One viral post can't call a behind-pace
+  // campaign "Strong" against a pile of medians.
+  let predicted, planBased = false;
+  const goal = client.ctx?.goalViews30d, vpm = client.ctx?.videosPerMonth;
+  if (goal && vpm) {
+    planBased = true;
+    const t0 = new Date(client.createdAt || Date.now()).getTime();
+    const days = Math.max(1, Math.min(60, Math.ceil((Date.now() - t0) / 86400000)));
+    predicted = 0;
+    for (let d = 1; d <= days; d++)
+      predicted += (vpm / 30.44) * planPerVideo(client, new Date(t0 + d * 86400000).toISOString());
+    predicted = Math.round(predicted);
+  } else {
+    predicted = tracked.reduce((a, p) => a + (p.predicted || 0), 0);
+  }
   const h = healthOf(predicted ? actual / predicted : 0, tracked.length);
   const beat = tracked.filter((p) => postRatio(p) >= 1).length;
-  return { ...h, actual, predicted, posts: tracked.length, beat,
+  return { ...h, actual, predicted, planBased, posts: tracked.length, beat,
            briefs: client.briefs.length, totalPosts: client.posts.length };
 }
 
@@ -2513,7 +2528,9 @@ function renderClientPage(host, client) {
       <div class="health-card ${ch.tone}">
         <div class="h-label">Campaign health</div>
         <div class="h-value"><span class="h-dot">${ch.dot}</span>${escapeHtml(ch.label)}</div>
-        <div class="h-sub">${ch.ratio != null ? escapeHtml(ratioLabel(ch.ratio)) : "no posts tracked yet"}</div>
+        <div class="h-sub">${ch.ratio != null
+          ? (ch.planBased ? `${Math.round(ch.ratio * 100)}% of plan pace` : escapeHtml(ratioLabel(ch.ratio)))
+          : "no posts tracked yet"}</div>
       </div>
       <div class="health-card">
         <div class="h-label">Beating benchmark</div>
@@ -2523,7 +2540,7 @@ function renderClientPage(host, client) {
       <div class="health-card">
         <div class="h-label">Views this campaign</div>
         <div class="h-value">${compact(ch.actual)}</div>
-        <div class="h-sub">vs ${compact(ch.predicted)} predicted</div>
+        <div class="h-sub">vs ${compact(ch.predicted)} ${ch.planBased ? "plan to date" : "predicted"}</div>
       </div>
       <div class="health-card">
         <div class="h-label">Briefs</div>
