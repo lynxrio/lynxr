@@ -1954,12 +1954,17 @@ function sparkSvg(points, predicted, w = 240, h = 64) {
   const line = points.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   const estLine = estSeries ? estSeries.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ") : null;
   const py = estFlat ? y(estFlat).toFixed(1) : null;
+  // Markers earn their place only on sparse series — the viewBox stretches to
+  // the container, so on a 20-point series 3px dots render as fat beads.
+  // Dense series read as clean lines; sparse ones keep their point markers.
+  const showDots = points.length <= 8;
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
     ${py !== null ? `<line x1="${pad}" y1="${py}" x2="${w - pad}" y2="${py}" class="spark-pred"/>` : ""}
     ${estLine && estSeries.length > 1 ? `<polyline points="${estLine}" class="spark-est"/>` : ""}
-    ${estSeries ? estSeries.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.5" class="spark-est-dot"/>`).join("") : ""}
+    ${estSeries && estSeries.length <= 8 ? estSeries.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2" class="spark-est-dot"/>`).join("") : ""}
     ${points.length > 1 ? `<polyline points="${line}" class="spark-line"/>` : ""}
-    ${points.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3" class="spark-dot"/>`).join("")}
+    ${showDots ? points.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.4" class="spark-dot"/>`).join("")
+               : `<circle cx="${x(points.length - 1).toFixed(1)}" cy="${y(points[points.length - 1]).toFixed(1)}" r="2.4" class="spark-dot"/>`}
   </svg>`;
 }
 
@@ -2066,6 +2071,14 @@ const daysBetween = (a, b) => Math.max(0, (new Date(a) - new Date(b)) / DAY_MS);
     properly warmed up, so no ramp discount is applied — the line is what these
     formats should do at full effectiveness. */
 function weekEstimateCurve(rec, client) {
+  // Campaign clients: the target is volume × warm-up-adjusted per-video goal —
+  // the briefed formats set WHAT to post; the campaign plan sets how much.
+  const goal = client?.ctx?.goalViews30d, vpm = client?.ctx?.videosPerMonth;
+  if (goal && vpm) {
+    const perVideo = predictViews(client.niche, "", "", client, rec.createdAt);
+    const weekTotal = Math.round((vpm / 4.345) * perVideo);
+    return [{ x: 0, y: 0 }, { x: 7, y: weekTotal }];
+  }
   const n = rec.items.length || 1;
   const pts = [{ x: 0, y: 0 }];
   let cum = 0;

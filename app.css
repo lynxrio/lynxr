@@ -535,6 +535,8 @@
   .growth-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
   .growth-head h2 { margin: 0; }
   .spark { width: 100%; height: auto; display: block; }
+  /* Strokes stay hairline-true no matter how far the viewBox stretches. */
+  .spark polyline, .spark line { vector-effect: non-scaling-stroke; }
   .spark-line { fill: none; stroke: var(--text-2); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .spark-dot { fill: var(--text-2); }
   .good .spark-line { stroke: var(--good); } .good .spark-dot { fill: var(--good); }
