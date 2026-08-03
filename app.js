@@ -289,6 +289,7 @@ const FILTERS = [
 ];
 
 let ALL = [];
+let URL_INDEX = new Map();   // url -> row, for brief items that predate full ingestion
 let view = [];
 let page = 0;
 let sortKey = "views";
@@ -806,6 +807,12 @@ function realScript(row) {
 }
 
 function tailoredScript(row, ctx, slot) {
+  // Self-heal: an item saved before its video was fully ingested upgrades to
+  // the database row (real transcript, tags, shots) the moment it exists.
+  if (row && !row.transcript && row.url) {
+    const full = URL_INDEX.get((row.url || "").replace(/\/$/, ""));
+    if (full && full.transcript) row = { ...row, ...full };
+  }
   const real = realScript(row);
   if (real) return real;
   const brand = ctx?.brand || "the product";
@@ -1308,7 +1315,17 @@ async function renderShelf(niche) {
 
   body.innerHTML =
     notes.map((n) => `<div class="warn">${n}</div>`).join("") +
-    `<div class="tray" id="tray"></div>
+    `<div class="add-video">
+      <form class="post-form" id="av-form">
+        <input type="url" id="av-url" placeholder="Add a specific video by link — it joins this brief now, full data follows"
+          autocomplete="off" spellcheck="false">
+        <button type="submit" class="btn" id="av-add">Add video</button>
+      </form>
+      <p class="note" id="av-note">Not in the database yet? Paste any TikTok / Instagram / YouTube link. It's added
+        to this brief immediately with what the platform reveals, queued for full ingestion (real metrics, tags,
+        verbatim script) on the next pipeline run — the brief upgrades itself when that lands.</p>
+    </div>
+    <div class="tray" id="tray"></div>
      <div class="shelf">` +
     shelf.map((r) => {
       const k = rowKey(r);
@@ -1336,6 +1353,53 @@ async function renderShelf(niche) {
   renderPlaysInto(document.getElementById("plays-host"), plays, niche, pool);
 
   SHELF_CTX = { index: new Map(shelf.map((r) => [rowKey(r), r])), relative };
+
+  // Add-by-link: a video not in the database joins the brief NOW with what
+  // the platform reveals client-side, and is queued for full pipeline
+  // ingestion (metrics, tags, verbatim script). Briefs self-heal once the
+  // ingested row exists — see tailoredScript's URL lookup.
+  const avForm = document.getElementById("av-form");
+  if (avForm) avForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const url = normalizeClientUrl(document.getElementById("av-url").value);
+    const note = document.getElementById("av-note");
+    const btn = document.getElementById("av-add");
+    if (!url) { note.textContent = "That doesn't look like a video link."; return; }
+    const clean = (u) => (u || "").replace(/\/$/, "");
+    let row = [...SHELF_CTX.index.values()].find((r) => clean(r.url) === clean(url))
+      || ALL.find((r) => clean(r.url) === clean(url));
+    const existed = !!row;
+    btn.disabled = true; btn.textContent = "Reading…";
+    if (!row) {
+      let meta = { caption: "", creator: "", platform: "" };
+      try { meta = await fetchPostMeta(url); } catch {}
+      row = { video_id: "", url, title: meta.caption || url, creator: meta.creator || "",
+              platform: (meta.platform || "").toLowerCase(), views: "", likes: "", comments: "",
+              engagement_rate: "", format_type: "", hook_pattern: "",
+              niche_category: niche || "", target_audience: "",
+              data_source: "Scraped", source_type: "hand_picked", _pending: true };
+      queueVideoIngest(url, row.niche_category).catch(() => {});
+    }
+    const k = rowKey(row);
+    SHELF_CTX.index.set(k, row);
+    const ok = setPicked(k, true);
+    note.textContent = !ok ? "Brief is full — uncheck something first."
+      : existed ? "Already in the database — added to the brief with full data."
+      : "Added to the brief · queued for full ingestion (real metrics, tags, and the verbatim script land on the next pipeline run).";
+    const shelfEl = body.querySelector(".shelf");
+    if (ok && shelfEl && !body.querySelector(`.vcard[data-key="${CSS.escape(k)}"]`)) {
+      const card = document.createElement("article");
+      card.className = "vcard picked";
+      card.dataset.key = k;
+      card.innerHTML = `<div class="vmeta"><div class="vtitle">${escapeHtml(row.title || url)}</div>
+        <div class="vrow"><span class="vstat">${row._pending ? "awaiting ingest" : compact(views(row)) + " views"}</span>
+        <label class="vpick"><input type="checkbox" class="vcheck" checked><span class="vpick-txt">Added</span></label></div></div>`;
+      shelfEl.prepend(card);
+      card.querySelector(".vcheck").addEventListener("change", (ev) => setPicked(k, ev.target.checked));
+    }
+    btn.disabled = false; btn.textContent = "Add video";
+    document.getElementById("av-url").value = "";
+  });
 
   body.querySelectorAll(".vcheck").forEach((cb) => {
     cb.addEventListener("change", () => {
@@ -1617,9 +1681,31 @@ async function sbFetchVideos() {
 // ---------- Client sync ----------
 // Per-client rows, so edits to different clients never collide. Same-client
 // edits resolve by whichever was written last, which is right for two people.
+// A reserved lynxr_clients row that is NOT a client: the video-ingest queue.
+// The site appends URLs the owner wants in the database; the local pipeline
+// (daily task or an interactive session) scrapes, tags, and scripts them.
+const INGEST_QUEUE_ID = "ingest-queue";
+
 async function sbPullClients() {
   const rows = await sbFetch("/rest/v1/lynxr_clients?select=id,data,updated_at");
-  return rows.map((r) => ({ ...r.data, id: r.id, _remote_updated: r.updated_at }));
+  return rows.filter((r) => r.id !== INGEST_QUEUE_ID)
+    .map((r) => ({ ...r.data, id: r.id, _remote_updated: r.updated_at }));
+}
+
+/** Queue a video URL for full pipeline ingestion (scrape → tag → script). */
+async function queueVideoIngest(url, niche) {
+  let queue = { urls: [] };
+  try {
+    const rows = await sbFetch(`/rest/v1/lynxr_clients?id=eq.${INGEST_QUEUE_ID}&select=data`);
+    if (rows[0]?.data?.urls) queue = rows[0].data;
+  } catch {}
+  if (!queue.urls.some((u) => u.url === url))
+    queue.urls.push({ url, niche: niche || "", requestedAt: new Date().toISOString() });
+  await sbFetch("/rest/v1/lynxr_clients", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify({ id: INGEST_QUEUE_ID, data: queue, updated_by: SB_EMAIL || "" }),
+  });
 }
 
 async function sbPushClient(client) {
@@ -2410,7 +2496,16 @@ function briefHealth(client, briefId) {
   const posts = weekPostsOf(client, briefId);
   const tracked = posts.filter((p) => p.checkins.length);
   const actual = tracked.reduce((a, p) => a + postLatest(p), 0);
-  const predicted = tracked.reduce((a, p) => a + (p.predicted || 0), 0);
+  // Campaign clients: a brief's bar is the expected band over ITS window —
+  // the same yardstick as its chart, so the card can never contradict it.
+  let predicted;
+  const rec = client.briefs?.find((b) => b.id === briefId);
+  if (client.ctx?.videosPerMonth && rec) {
+    const band = weekEstimateBand(rec, client);
+    predicted = band ? band.mid[band.mid.length - 1].y : 0;
+  } else {
+    predicted = tracked.reduce((a, p) => a + (p.predicted || 0), 0);
+  }
   const h = healthOf(predicted ? actual / predicted : 0, tracked.length);
   return { ...h, actual, predicted, posts: posts.length, tracked: tracked.length,
            beat: tracked.filter((p) => postRatio(p) >= 1).length };
@@ -3367,6 +3462,7 @@ function renderApp(rows) {
     return;
   }
   ALL = rows;
+  URL_INDEX = new Map(rows.filter((r) => r.url).map((r) => [r.url.replace(/\/$/, ""), r]));
   renderStats(rows);
   renderBars("by-format", countBy(rows, "format_type"), 8, "f-format");
   renderBars("by-hook", countBy(rows, "hook_pattern"), 8, "f-hook");
