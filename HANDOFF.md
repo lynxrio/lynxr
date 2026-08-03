@@ -92,6 +92,14 @@ niche 88.1 / audience 92.9 caption-only) so the gain is measured, not assumed.
 
 ## Hard-won context — don't rediscover
 
+- **Campaign estimate calibration (owner, 2026-08-03): 3M views / 10 creators
+  / month = SUCCESS** (≈300K per creator-month, ≈15K/video avg). Three-layer
+  model in app.js: per-post bar = client's own platform medians; day-to-day
+  expectation = trailing-14-day range (`planRange`, floor ×0.65 / ceiling
+  ×1.8, cold-start 450); business reference = success pace line
+  (`ctx.successViews30d`, scaled by active creators). Never judge a single
+  post against the success bar.
+
 - **Every master-rewriting script trims to `MASTER_FIELDS`** (merge_data.py).
   Any new column MUST be added there or the next rewrite silently drops it
   (this destroyed the extra-dims once; recovered from the batch state).
