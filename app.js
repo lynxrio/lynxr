@@ -2642,25 +2642,6 @@ function weekDashboardHtml(rec, client) {
       <span class="lbl">${escapeHtml(p.creator || "")} · ${escapeHtml(p.format)} × ${escapeHtml(p.hook)} · ${compact(postLatest(p))} views</span></li>`;
   };
 
-  // What to change — deterministic reading of the week's numbers
-  const recs = [];
-  const byScript = rec.items.map((it) => {
-    const m = tracked.filter((p) => p.format === it.format_type && p.hook === it.hook_pattern);
-    const avg = m.length ? m.reduce((a, p) => a + postRatio(p), 0) / m.length : null;
-    return { it, n: m.length, avg };
-  });
-  for (const b of byScript) {
-    if (b.avg != null && b.avg >= 1.25)
-      recs.push(`Double down on ${b.it.format_type} × ${b.it.hook_pattern} — running ${ratioLabel(b.avg)}. Brief more of these next week.`);
-    if (b.avg != null && b.avg < 0.75)
-      recs.push(`Change ${b.it.format_type} × ${b.it.hook_pattern} — at ${ratioLabel(b.avg)}. Swap the hook or replace the format next week.`);
-  }
-  const untrackedN = byScript.filter((b) => b.n === 0).length;
-  if (untrackedN && tracked.length)
-    recs.push(`${untrackedN} of ${rec.items.length} scripts have no tracked post yet — post them or replace them.`);
-  if (!tracked.length)
-    recs.push("Nothing tracked for this week yet — add posts below (Tracked posts on the client page) and check in with views.");
-
   return {
     dash: `
     <div class="growth-card ${pace.tone}">
@@ -2677,8 +2658,6 @@ function weekDashboardHtml(rec, client) {
         <span><i class="k-act"></i> actual</span>
       </div>
     </div>
-
-    ${recs.length ? `<div class="recs"><h2>What to change</h2><ul>${recs.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div>` : ""}
 
     ${over.length ? `<div class="flag-block good-block"><h2>Overperforming — emphasize these</h2><ul class="flag-list">${over.map(postLine).join("")}</ul></div>` : ""}
     ${under.length ? `<div class="flag-block bad-block"><h2>Underperforming — flagged</h2><ul class="flag-list">${under.map(postLine).join("")}</ul></div>` : ""}`,
