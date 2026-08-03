@@ -2700,7 +2700,12 @@ function weekDashboardHtml(rec, client) {
 
   // Per-script cards: match this week's posts to each script by format×hook
   const scriptCards = rec.items.map((it, i) => {
-    const matched = posts.filter((p) => p.format === it.format_type && p.hook === it.hook_pattern && p.checkins.length);
+    // Blank tags match NOTHING — otherwise every untagged post "matches"
+    // every untagged slot and all ten cards show identical fake stats.
+    const tagged = it.format_type && it.hook_pattern;
+    const matched = tagged
+      ? posts.filter((p) => p.format === it.format_type && p.hook === it.hook_pattern && p.checkins.length)
+      : [];
     const pts = matched.map(postLatest);
     const predSeries = matched.map((p) => p.predicted || 0);
     const pred = matched.length ? Math.round(median(predSeries))
