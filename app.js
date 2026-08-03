@@ -2767,7 +2767,8 @@ function renderBriefViewer(host, rec, client) {
     </div>
     ${dash.dash}
 
-    <h2>Posts from this brief <span class="pill">${briefPosts.length}</span></h2>
+    <details class="flag-block posts-block">
+    <summary>Posts from this brief <span class="pill">${briefPosts.length}</span></summary>
     <form class="post-form" id="post-form">
       <input type="url" id="pf-url" placeholder="Paste the post link — we'll read and tag it" required>
       <button type="submit" class="btn" id="pf-add">Add &amp; auto-tag</button>
@@ -2802,6 +2803,7 @@ function renderBriefViewer(host, rec, client) {
         </form>
       </div>`;
     }).join("")}</div>
+    </details>
 
     ${dash.scripts}`;
 
