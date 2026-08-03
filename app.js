@@ -1900,18 +1900,23 @@ function campaignWeek(client, atISO) {
   return Math.max(1, Math.min(WARMUP.length, Math.ceil((days + 1) / 7)));
 }
 
-function predictViews(niche, format, hook, client, atISO) {
-  // Campaign-goal model: the client declares a 30-day goal and posting volume.
+/** The campaign PLAN pace — used only by the campaign-level charts, never as
+    a single post's bar. */
+function planPerVideo(client, atISO) {
   const goal = client?.ctx?.goalViews30d, vpm = client?.ctx?.videosPerMonth;
-  if (goal && vpm) {
-    const steady = (goal / vpm) / WARMUP_AVG;   // week-4 velocity hits the goal pace
-    return Math.max(1, Math.round(steady * WARMUP[campaignWeek(client, atISO) - 1]));
-  }
-  // Else: the client's own posted history, when they have enough of it.
-  let pool = null;
+  if (!goal || !vpm) return null;
+  const steady = (goal / vpm) / WARMUP_AVG;   // week-4 velocity hits the goal pace
+  return Math.max(1, Math.round(steady * WARMUP[campaignWeek(client, atISO) - 1]));
+}
+
+function predictViews(niche, format, hook, client, atISO, platform) {
+  // A single post's bar: the client's OWN posted history — their median on the
+  // same platform (or format when tagged) — so "beating benchmark" means
+  // beating what THIS campaign typically does, not an aspiration.
+  let pool = null, own = null;
   const company = client?.company;
   if (company) {
-    const own = ALL.filter((r) => r.data_source === company);
+    own = ALL.filter((r) => r.data_source === company);
     if (own.length >= 5) pool = own;
   }
   if (!pool) {
@@ -1919,6 +1924,8 @@ function predictViews(niche, format, hook, client, atISO) {
     if (pool.length < MIN_N_NICHE) pool = ALL;
   }
   let seg = pool.filter((r) => r.format_type === format && r.hook_pattern === hook);
+  if (seg.length < 5 && own && platform)
+    seg = pool.filter((r) => (r.platform || "").toLowerCase() === platform.toLowerCase());
   if (seg.length < 5) seg = pool.filter((r) => r.format_type === format);
   if (seg.length < 5) seg = pool;
   return Math.max(1, Math.round(median(seg.map(views))));
@@ -2083,7 +2090,7 @@ function weekEstimateCurve(rec, client) {
     let cum = 0;
     for (let d = 1; d <= days; d++) {
       const at = new Date(t0 + d * 86400000).toISOString();
-      cum += (vpm / 30.44) * predictViews(client.niche, "", "", client, at);
+      cum += (vpm / 30.44) * planPerVideo(client, at);
       pts.push({ x: d, y: Math.round(cum) });
     }
     return pts;
@@ -2375,6 +2382,66 @@ function avatarBoxHtml(client) {
   </details>`;
 }
 
+/** The client's own mini-database: what THIS campaign's numbers say works.
+    Platform medians, the campaign's proven format×hook combos (when tagged),
+    and top posts — all from their tracked posts, nothing borrowed from the
+    main database. The main database still powers next-brief SUGGESTIONS. */
+function clientTrendsHtml(client) {
+  const tracked = (client.posts || []).filter((p) => p.checkins.length);
+  if (tracked.length < 5) return "";
+  const latest = (p) => p.checkins[p.checkins.length - 1].views;
+
+  const byPlat = new Map();
+  for (const p of tracked) {
+    if (!byPlat.has(p.platform)) byPlat.set(p.platform, []);
+    byPlat.get(p.platform).push(p);
+  }
+  const platRows = [...byPlat.entries()]
+    .map(([plat, ps]) => ({ plat, n: ps.length, med: median(ps.map(latest)),
+                            top: Math.max(...ps.map(latest)) }))
+    .sort((a, b) => b.med - a.med);
+
+  const combos = new Map();
+  for (const p of tracked) {
+    if (!p.format || !p.hook) continue;
+    const k = `${p.format} × ${p.hook}`;
+    if (!combos.has(k)) combos.set(k, []);
+    combos.get(k).push(latest(p) / (p.predicted || 1));
+  }
+  const comboRows = [...combos.entries()]
+    .filter(([, rs]) => rs.length >= 2)
+    .map(([k, rs]) => ({ k, n: rs.length, avg: rs.reduce((a, b) => a + b, 0) / rs.length }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 6);
+
+  const top = [...tracked].sort((a, b) => latest(b) - latest(a)).slice(0, 3);
+
+  return `<div class="section client-trends">
+    <h2>What works for ${escapeHtml(client.company)} <span class="pill">${tracked.length} posts</span></h2>
+    <div class="trends-grid">
+      <div class="trend-card">
+        <div class="tc-label">By platform — median views</div>
+        ${platRows.map((r) => `<div class="tc-row"><span>${escapeHtml(r.plat)}</span>
+          <span class="mono">${compact(r.med)} <i class="tc-dim">med</i> · ${compact(r.top)} <i class="tc-dim">top</i> · ${r.n}</span></div>`).join("")}
+      </div>
+      ${comboRows.length ? `<div class="trend-card">
+        <div class="tc-label">Formats proven in this campaign</div>
+        ${comboRows.map((r) => `<div class="tc-row ${r.avg >= 1 ? "good" : "bad"}"><span>${escapeHtml(r.k)}</span>
+          <span class="mono">${ratioLabel(r.avg)} · ${r.n} posts</span></div>`).join("")}
+      </div>` : ""}
+      <div class="trend-card">
+        <div class="tc-label">Top posts</div>
+        ${top.map((p) => {
+          const href = safeUrl(p.url);
+          const label = escapeHtml((p.caption || p.url).slice(0, 42));
+          return `<div class="tc-row"><span>${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label}</span>
+            <span class="mono">${compact(latest(p))} · ${escapeHtml(p.platform)}</span></div>`;
+        }).join("")}
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderClientPage(host, client) {
   // Briefs are stored newest-first; number them oldest-first so "Brief 1" is
   // where the client started and the number never changes as weeks are added.
@@ -2412,7 +2479,7 @@ function renderClientPage(host, client) {
     mEst.push({ x: 0, y: 0 });
     for (let d = 1; d <= daysInMonth; d++) {
       const at = new Date(now.getFullYear(), now.getMonth(), d).toISOString();
-      cum += (vpm / 30.44) * predictViews(client.niche, "", "", client, at);
+      cum += (vpm / 30.44) * planPerVideo(client, at);
       mEst.push({ x: d, y: Math.round(cum) });
     }
   } else {
@@ -2478,6 +2545,8 @@ function renderClientPage(host, client) {
         <span class="lbl">${monthPosts.length} post${monthPosts.length === 1 ? "" : "s"} tracked this month</span>
       </div>
     </div>
+
+    ${clientTrendsHtml(client)}
 
     <h2>Briefs <span class="pill">${total}</span></h2>
     ${total ? `<div class="brief-stack">` + client.briefs.map((b, i) => {
@@ -2659,8 +2728,8 @@ function weekDashboardHtml(rec, client) {
       </div>
     </div>
 
-    ${over.length ? `<div class="flag-block good-block"><h2>Overperforming — emphasize these</h2><ul class="flag-list">${over.map(postLine).join("")}</ul></div>` : ""}
-    ${under.length ? `<div class="flag-block bad-block"><h2>Underperforming — flagged</h2><ul class="flag-list">${under.map(postLine).join("")}</ul></div>` : ""}`,
+    ${over.length ? `<details class="flag-block good-block"><summary>Overperforming — emphasize these <span class="pill">${over.length}</span></summary><ul class="flag-list">${over.map(postLine).join("")}</ul></details>` : ""}
+    ${under.length ? `<details class="flag-block bad-block"><summary>Underperforming — flagged <span class="pill">${under.length}</span></summary><ul class="flag-list">${under.map(postLine).join("")}</ul></details>` : ""}`,
     scripts: `
     <h2>The 10 scripts behind the graph</h2>
     <div class="fmt-grid">${scriptCards}</div>`,
@@ -2765,7 +2834,7 @@ function renderBriefViewer(host, rec, client) {
       c.posts.unshift({
         id: newId(), url, creator: meta.creator || "",
         caption: meta.caption || "", thumb: meta.thumb || "", platform: meta.platform || "",
-        format, hook, predicted: predictViews(c.niche, format, hook, c),
+        format, hook, predicted: predictViews(c.niche, format, hook, c, null, meta.platform),
         briefId: rec.id,                       // implicit: the brief you're inside
         addedAt: new Date().toISOString(), checkins: [],
       });
@@ -2794,7 +2863,7 @@ function renderBriefViewer(host, rec, client) {
         if (!post) return;
         post.format = rowEl.querySelector(".pt-format").value;
         post.hook = rowEl.querySelector(".pt-hook").value;
-        post.predicted = predictViews(client.niche, post.format, post.hook, client, post.addedAt);
+        post.predicted = predictViews(client.niche, post.format, post.hook, client, post.addedAt, post.platform);
         persistClients(fresh);
         renderBriefs();
       });
