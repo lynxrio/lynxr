@@ -1889,7 +1889,7 @@ function autoTag(caption, platform) {
     baseline, stretched 15% (the bar creators should reach for, not a dream).
     Brand-new accounts with no history start at cold-start reach (~500/video)
     and the expectation grows automatically as their real numbers grow. */
-function planPerVideo(client, atISO) {
+function planRange(client, atISO) {
   const vpm = client?.ctx?.videosPerMonth;
   if (!vpm) return null;
   const at = atISO ? new Date(atISO).getTime() : Date.now();
@@ -1898,9 +1898,16 @@ function planPerVideo(client, atISO) {
     const t = new Date(p.addedAt).getTime();
     return t <= at && t >= from && p.checkins.length;
   });
-  if (win.length < 5) return 500;   // cold start: fresh, just-warmed accounts
-  const total = win.reduce((a, p) => a + p.checkins[p.checkins.length - 1].views, 0);
-  return Math.max(300, Math.round((total / win.length) * 1.15));
+  const base = win.length < 5 ? 450   // cold start: fresh, just-warmed accounts
+    : Math.max(260, win.reduce((a, p) => a + p.checkins[p.checkins.length - 1].views, 0) / win.length);
+  // Floor = a soft week (no breakout lands); ceiling = a breakout week.
+  // Short-form views are power-law — the corridor is wide on purpose.
+  return { low: Math.round(base * 0.65), mid: Math.round(base * 1.15), high: Math.round(base * 1.8) };
+}
+
+function planPerVideo(client, atISO) {
+  const r = planRange(client, atISO);
+  return r ? r.mid : null;
 }
 
 function predictViews(niche, format, hook, client, atISO, platform) {
@@ -1986,7 +1993,8 @@ function seriesAt(series, x) {
   return series[series.length - 1].y;
 }
 
-function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1, tone = "", xLabel = "days since brief" }) {
+function chartSvg({ actual = [], est = [], estLow = [], estHigh = [], w = 720, h = 210, xMax = 7, yMax = 1, tone = "", xLabel = "days since brief" }) {
+  const banded = estLow.length > 1 && estHigh.length > 1;
   const padL = 74, padR = 16, padT = 14, padB = 46;   // room for axis titles
   // "Nice" top so ticks are readable view counts, never fractions.
   const niceTop = (v) => {
@@ -2017,11 +2025,14 @@ function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1,
     <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" class="chart-axis"/>
     <text class="axis-title" text-anchor="middle" transform="translate(18 ${midY}) rotate(-90)">cumulative views</text>
     <text class="axis-title" text-anchor="middle" x="${padL + (w - padL - padR) / 2}" y="${h - 6}">${xLabel}</text>
-    ${est.length > 1 ? `<polyline points="${poly(est)}" class="line-pred"/>` : ""}
-    ${xTicks.map((d) => {
+    ${banded ? `<polygon points="${poly(estLow)} ${poly([...estHigh].reverse())}" class="chart-band"/>
+      <polyline points="${poly(estLow)}" class="line-pred line-band"/>
+      <polyline points="${poly(estHigh)}" class="line-pred line-band"/>` : ""}
+    ${!banded && est.length > 1 ? `<polyline points="${poly(est)}" class="line-pred"/>` : ""}
+    ${!banded ? xTicks.map((d) => {
       const pv = seriesAt(est, d);
       return pv == null ? "" : `<circle cx="${X(d).toFixed(1)}" cy="${Y(pv).toFixed(1)}" r="2.8" class="dot-pred"/>`;
-    }).join("")}
+    }).join("") : ""}
     ${actual.length > 1 ? `<polyline points="${poly(actual)}" class="line-actual" pathLength="1"/>` : ""}
     ${xTicks.map((d) => {
       const av = seriesAt(actual, d);
@@ -2034,6 +2045,8 @@ function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1,
         width="${(half * 2).toFixed(1)}" height="${(h - padT - padB).toFixed(1)}"
         data-day="${d}" data-x="${X(d).toFixed(1)}"
         data-pred="${pv == null ? "" : Math.round(pv)}"
+        data-predlo="${banded && seriesAt(estLow, d) != null ? Math.round(seriesAt(estLow, d)) : ""}"
+        data-predhi="${banded && seriesAt(estHigh, d) != null ? Math.round(seriesAt(estHigh, d)) : ""}"
         data-actual="${av == null ? "" : Math.round(av)}"/>`;
     }).join("")}
     <line class="hover-rule" x1="0" y1="${padT}" x2="0" y2="${h - padB}" style="display:none"/>
@@ -2041,9 +2054,18 @@ function chartSvg({ actual = [], est = [], w = 720, h = 210, xMax = 7, yMax = 1,
 }
 
 /** Three-state read of actual against predicted at the same point in time. */
-function paceTone(actual, est) {
+function paceTone(actual, est, estLow, estHigh) {
   if (!actual.length || !est.length) return { tone: "", label: "" };
   const last = actual[actual.length - 1];
+  // With an expected RANGE: judge against the corridor, not a single line.
+  if (estLow?.length && estHigh?.length) {
+    const lo = seriesAt(estLow, last.x), hi = seriesAt(estHigh, last.x);
+    if (lo != null && hi != null && hi > 0) {
+      if (last.y > hi) return { tone: "good", label: `▲ above range — ${compact(last.y)} vs ${compact(lo)}–${compact(hi)}` };
+      if (last.y < lo) return { tone: "bad", label: `▼ below range — ${compact(last.y)} vs ${compact(lo)}–${compact(hi)}` };
+      return { tone: "even", label: `in range — ${compact(last.y)} vs ${compact(lo)}–${compact(hi)}` };
+    }
+  }
   // predicted value interpolated at the actual's latest day
   let target = est[est.length - 1].y;
   for (let i = 1; i < est.length; i++) {
@@ -2071,23 +2093,34 @@ const daysBetween = (a, b) => Math.max(0, (new Date(a) - new Date(b)) / DAY_MS);
     contributing its database benchmark in full. Accounts are new but assumed
     properly warmed up, so no ramp discount is applied — the line is what these
     formats should do at full effectiveness. */
+/** The expected RANGE for a campaign brief: cumulative floor / mid / ceiling
+    curves. The actual line should land inside low–high; mid is the target. */
+function weekEstimateBand(rec, client) {
+  const vpm = client?.ctx?.videosPerMonth;
+  if (!vpm) return null;
+  const t0 = new Date(rec.createdAt || Date.now()).getTime();
+  const days = Math.max(7, Math.min(31, Math.ceil((Date.now() - t0) / 86400000)));
+  const low = [{ x: 0, y: 0 }], mid = [{ x: 0, y: 0 }], high = [{ x: 0, y: 0 }];
+  let cl = 0, cm = 0, ch = 0;
+  const daily = vpm / 30.44;
+  for (let d = 1; d <= days; d++) {
+    const r = planRange(client, new Date(t0 + d * 86400000).toISOString());
+    cl += daily * r.low; cm += daily * r.mid; ch += daily * r.high;
+    low.push({ x: d, y: Math.round(cl) });
+    mid.push({ x: d, y: Math.round(cm) });
+    high.push({ x: d, y: Math.round(ch) });
+  }
+  return { low, mid, high };
+}
+
 function weekEstimateCurve(rec, client) {
   // Campaign clients: the target is volume × warm-up-adjusted per-video goal —
   // the briefed formats set WHAT to post; the campaign plan sets how much.
   const vpm = client?.ctx?.videosPerMonth;
   if (vpm) {
-    // The plan line spans the brief's actual life — daily volume × the
-    // warm-up-adjusted target, stepping up as campaign weeks mature.
-    const t0 = new Date(rec.createdAt || Date.now()).getTime();
-    const days = Math.max(7, Math.min(31, Math.ceil((Date.now() - t0) / 86400000)));
-    const pts = [{ x: 0, y: 0 }];
-    let cum = 0;
-    for (let d = 1; d <= days; d++) {
-      const at = new Date(t0 + d * 86400000).toISOString();
-      cum += (vpm / 30.44) * planPerVideo(client, at);
-      pts.push({ x: d, y: Math.round(cum) });
-    }
-    return pts;
+    // The plan spans the brief's actual life — daily volume × the realistic
+    // per-video expectation at each day.
+    return weekEstimateBand(rec, client).mid;
   }
   const n = rec.items.length || 1;
   const pts = [{ x: 0, y: 0 }];
@@ -2187,14 +2220,25 @@ function bindChartHover(scope) {
     svg.querySelectorAll(".hit").forEach((hit) => {
       const show = () => {
         const pred = hit.dataset.pred === "" ? null : +hit.dataset.pred;
+        const lo = hit.dataset.predlo === "" || hit.dataset.predlo == null ? null : +hit.dataset.predlo;
+        const hi = hit.dataset.predhi === "" || hit.dataset.predhi == null ? null : +hit.dataset.predhi;
         const act = hit.dataset.actual === "" ? null : +hit.dataset.actual;
-        const ratio = pred && act != null ? act / pred : null;
-        const tone = ratio == null ? "" : ratio >= 1.1 ? "good" : ratio <= 0.9 ? "bad" : "even";
+        let tone = "", delta = "";
+        if (act != null && lo != null && hi != null) {
+          tone = act > hi ? "good" : act < lo ? "bad" : "even";
+          delta = act > hi ? "above the expected range"
+                : act < lo ? `${Math.round((act / lo) * 100)}% of the range floor`
+                : "within the expected range";
+        } else if (act != null && pred) {
+          const ratio = act / pred;
+          tone = ratio >= 1.1 ? "good" : ratio <= 0.9 ? "bad" : "even";
+          delta = ratioLabel(ratio);
+        }
         tip.innerHTML =
           `<div class="tip-day">Day ${hit.dataset.day}</div>
-           <div class="tip-row"><i class="k-est"></i>predicted<b>${pred == null ? "—" : compact(pred)}</b></div>
+           <div class="tip-row"><i class="k-est"></i>expected<b>${lo != null && hi != null ? `${compact(lo)}–${compact(hi)}` : (pred == null ? "—" : compact(pred))}</b></div>
            <div class="tip-row"><i class="k-act ${tone}"></i>actual<b class="${tone}">${act == null ? "no check-in" : compact(act)}</b></div>
-           ${ratio != null ? `<div class="tip-delta ${tone}">${ratioLabel(ratio)}</div>` : ""}`;
+           ${delta ? `<div class="tip-delta ${tone}">${delta}</div>` : ""}`;
         tip.hidden = false;
         // viewBox x -> rendered px (uniform scale: SVG is full-width, height auto)
         const svgRect = svg.getBoundingClientRect();
@@ -2490,13 +2534,17 @@ function renderClientPage(host, client) {
   // the warm-up-adjusted per-video target, accumulated across the calendar
   // month. Others fall back to the sum of tracked posts' predicted values.
   const vpm = client.ctx?.videosPerMonth;
+  let mLow = [], mHigh = [];
   if (vpm) {
-    let cum = 0;
-    mEst.push({ x: 0, y: 0 });
+    let cl = 0, cm = 0, chi = 0;
+    mEst.push({ x: 0, y: 0 }); mLow.push({ x: 0, y: 0 }); mHigh.push({ x: 0, y: 0 });
     for (let d = 1; d <= daysInMonth; d++) {
       const at = new Date(now.getFullYear(), now.getMonth(), d).toISOString();
-      cum += (vpm / 30.44) * planPerVideo(client, at);
-      mEst.push({ x: d, y: Math.round(cum) });
+      const r = planRange(client, at);
+      cl += (vpm / 30.44) * r.low; cm += (vpm / 30.44) * r.mid; chi += (vpm / 30.44) * r.high;
+      mLow.push({ x: d, y: Math.round(cl) });
+      mEst.push({ x: d, y: Math.round(cm) });
+      mHigh.push({ x: d, y: Math.round(chi) });
     }
   } else {
     const byId = new Map(monthPosts.map((p) => [p.id, p]));
@@ -2509,8 +2557,8 @@ function renderClientPage(host, client) {
     if (!mEst.length && client.briefs.length) mEst = weekEstimateCurve(client.briefs[0], client);
   }
   const mxMax = daysInMonth;
-  const myMax = Math.max(1, ...mActual.map((p) => p.y), ...mEst.map((p) => p.y));
-  const mPace = paceTone(mActual, mEst);
+  const myMax = Math.max(1, ...mActual.map((p) => p.y), ...mEst.map((p) => p.y), ...mHigh.map((p) => p.y));
+  const mPace = paceTone(mActual, mEst, mLow, mHigh);
   const ch = campaignHealth(client);
 
   host.innerHTML = `
@@ -2556,7 +2604,7 @@ function renderClientPage(host, client) {
         ${mPace.label ? `<span class="verdict ${mPace.tone}">${escapeHtml(mPace.label)}</span>`
                       : `<span class="lbl">open a brief below and track its posts to start the actual line</span>`}
       </div>
-      ${chartSvg({ actual: mActual, est: mEst, xMax: mxMax, yMax: myMax, tone: mPace.tone, xLabel: "day of the month" })}
+      ${chartSvg({ actual: mActual, est: mEst, estLow: mLow, estHigh: mHigh, xMax: mxMax, yMax: myMax, tone: mPace.tone, xLabel: "day of the month" })}
       <div class="chart-key">
         <span><i class="k-est"></i> predicted</span>
         <span><i class="k-act"></i> actual</span>
@@ -2678,7 +2726,8 @@ function weekDashboardHtml(rec, client) {
 
   // Week chart: estimated slope from the brief's 10 formats (warm-up adjusted)
   // vs the actual cumulative views from check-ins, both on a days-since-brief axis.
-  const est = weekEstimateCurve(rec, client);
+  const band = weekEstimateBand(rec, client);
+  const est = band ? band.mid : weekEstimateCurve(rec, client);
   const day0 = rec.createdAt || (posts[0] && posts[0].addedAt) || new Date().toISOString();
   const events = posts.flatMap((p) => p.checkins.map((c) => ({ d: c.d, id: p.id, views: c.views })))
     .sort((a, b) => a.d < b.d ? -1 : 1);
@@ -2689,8 +2738,8 @@ function weekDashboardHtml(rec, client) {
   });
   if (actualPts.length) actualPts.unshift({ x: 0, y: 0 });
   const xMax = Math.max(7, ...actualPts.map((p) => p.x), ...est.map((p) => p.x));
-  const yMax = Math.max(1, ...actualPts.map((p) => p.y), ...est.map((p) => p.y));
-  const pace = paceTone(actualPts, est);
+  const yMax = Math.max(1, ...actualPts.map((p) => p.y), ...est.map((p) => p.y), ...(band?.high || []).map((p) => p.y));
+  const pace = paceTone(actualPts, est, band?.low, band?.high);
 
   // Per-script cards: match this week's posts to each script by format×hook
   const scriptCards = rec.items.map((it, i) => {
@@ -2744,7 +2793,7 @@ function weekDashboardHtml(rec, client) {
         ${pace.label ? `<span class="verdict ${pace.tone}">${escapeHtml(pace.label)}</span>`
                      : `<span class="lbl">the actual line fills in as posts get check-ins</span>`}
       </div>
-      ${chartSvg({ actual: actualPts, est, xMax, yMax, tone: pace.tone })}
+      ${chartSvg({ actual: actualPts, est, estLow: band?.low || [], estHigh: band?.high || [], xMax, yMax, tone: pace.tone })}
       <div class="chart-key">
         <span><i class="k-est"></i> expected — realistic pace for these accounts</span>
         <span><i class="k-act"></i> actual</span>

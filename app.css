@@ -920,3 +920,8 @@
   .flag-block[open] summary::before { content: "▾ "; }
   .flag-block summary::-webkit-details-marker { display: none; }
   .flag-block[open] summary { margin-bottom: 10px; }
+
+  /* Expected-range band on campaign charts: the corridor the actual line
+     should live inside. */
+  .chart-band { fill: #ffffff0e; stroke: none; }
+  .line-band { opacity: .55; }
