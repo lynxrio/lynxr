@@ -1898,13 +1898,22 @@ function planRange(client, atISO) {
     const t = new Date(p.addedAt).getTime();
     return t <= at && t >= from && p.checkins.length;
   });
-  // Constants measured from the Cloey campaign (Sideshift, 20 days of data):
-  // week-1 cold accounts averaged 527/video; a week WITHOUT a breakout runs
-  // ~0.5× the trailing average (breakouts are ~half of all views: top-3 posts
-  // carried 49%), a multi-breakout week ~1.8×.
-  const base = win.length < 5 ? 530   // measured cold-start reach
-    : Math.max(260, win.reduce((a, p) => a + p.checkins[p.checkins.length - 1].views, 0) / win.length);
-  return { low: Math.round(base * 0.5), mid: Math.round(base * 1.15), high: Math.round(base * 1.8) };
+  // Owner-calibrated expectations (2026-08-03, from real campaign data):
+  //  · cold accounts (first ~10 days): ~530/video measured in week 1
+  //  · warmed accounts: posts are EXPECTED to average 1–1.5K views
+  //  · success pace (15K/video avg) comes from breakouts landing ON TOP of
+  //    this baseline — actual above the band = hits are landing.
+  // If the trailing 14 days run hotter than the owner band, the data wins:
+  // expectations ratchet up, never down below the owner floor.
+  const t0 = new Date(client.createdAt || Date.now()).getTime();
+  const campaignDays = (at - t0) / 86400000;
+  if (campaignDays < 10 || win.length < 5)
+    return { low: 350, mid: 530, high: 800 };
+  const trailing = win.reduce((a, p) => a + p.checkins[p.checkins.length - 1].views, 0) / win.length;
+  const mid = Math.max(1250, Math.round(trailing));
+  return { low: Math.max(1000, Math.round(mid * 0.8)),
+           mid,
+           high: Math.max(1500, Math.round(mid * 1.5)) };
 }
 
 function planPerVideo(client, atISO) {
