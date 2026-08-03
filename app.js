@@ -2075,9 +2075,18 @@ function weekEstimateCurve(rec, client) {
   // the briefed formats set WHAT to post; the campaign plan sets how much.
   const goal = client?.ctx?.goalViews30d, vpm = client?.ctx?.videosPerMonth;
   if (goal && vpm) {
-    const perVideo = predictViews(client.niche, "", "", client, rec.createdAt);
-    const weekTotal = Math.round((vpm / 4.345) * perVideo);
-    return [{ x: 0, y: 0 }, { x: 7, y: weekTotal }];
+    // The plan line spans the brief's actual life — daily volume × the
+    // warm-up-adjusted target, stepping up as campaign weeks mature.
+    const t0 = new Date(rec.createdAt || Date.now()).getTime();
+    const days = Math.max(7, Math.min(31, Math.ceil((Date.now() - t0) / 86400000)));
+    const pts = [{ x: 0, y: 0 }];
+    let cum = 0;
+    for (let d = 1; d <= days; d++) {
+      const at = new Date(t0 + d * 86400000).toISOString();
+      cum += (vpm / 30.44) * predictViews(client.niche, "", "", client, at);
+      pts.push({ x: d, y: Math.round(cum) });
+    }
+    return pts;
   }
   const n = rec.items.length || 1;
   const pts = [{ x: 0, y: 0 }];
