@@ -1728,6 +1728,32 @@ async function queueVideoIngest(url, niche) {
   });
 }
 
+/** Upload a raw file to Supabase Storage (blueprint videos). A separate
+    helper because sbFetch forces a JSON Content-Type; this sends the file's
+    own type and keeps the same 401-refresh-retry behavior. */
+async function sbUploadFile(bucket, path, file) {
+  const attempt = () => fetch(`${SB_URL}/storage/v1/object/${bucket}/${path}`, {
+    method: "POST",
+    headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_TOKEN || SB_KEY}`,
+               "Content-Type": file.type || "application/octet-stream", "x-upsert": "true" },
+    body: file,
+  });
+  let res = await attempt();
+  if (res.status === 401 && sbLoadSession()?.refresh_token) {
+    try {
+      SB_REFRESHING = SB_REFRESHING
+        || sbRefresh(sbLoadSession().refresh_token).finally(() => { SB_REFRESHING = null; });
+      await SB_REFRESHING;
+      res = await attempt();
+    } catch { /* refresh failed — fall through to the normal error */ }
+  }
+  if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`);
+}
+
+async function sbDeleteFile(bucket, path) {
+  await sbFetch(`/storage/v1/object/${bucket}/${path}`, { method: "DELETE" });
+}
+
 async function sbPushClient(client) {
   await sbFetch("/rest/v1/lynxr_clients", {
     method: "POST",
@@ -2757,6 +2783,156 @@ function avatarBoxHtml(client) {
   </details>`;
 }
 
+/** Per-client raw-video blueprints: upload a video file → the next pipeline
+    pass transcribes it locally (Whisper, no API cost, nothing leaves the
+    owner's machine) → the exact spoken script with timed beats renders here.
+    The upload goes to the private lynxr-blueprints bucket; the entry in the
+    client record carries status queued → done/error and self-heals via sync. */
+/** A finished blueprint shaped as a database row, so realScript renders the
+    IDENTICAL recreation blueprint database videos get — verbatim beats with
+    per-beat shot cues, or a shot-by-shot plan for silent videos. */
+function bpAsRow(b) {
+  return {
+    transcript_segments: JSON.stringify(b.script?.segments || []),
+    visual_cues: JSON.stringify(b.shots || []),
+    transcript: b.script?.text || (b.script?.segments || []).map((s) => s[2]).join(" "),
+    hook_spoken: b.script?.hook || "",
+    format_type: b.tags?.format_type || "",
+  };
+}
+
+function blueprintsBoxHtml(client) {
+  const bps = client.blueprints || [];
+  const item = (b) => {
+    const chip = b.status === "done" ? `<span class="chip good">blueprint ready</span>`
+      : b.status === "error" ? `<span class="chip bad">failed${b.note ? " — " + escapeHtml(b.note) : ""}</span>`
+      : `<span class="chip">queued — next pipeline pass</span>`;
+    const bhref = b.url ? safeUrl(b.url) : null;
+    const s = b.status === "done" ? realScript(bpAsRow(b)) : null;
+    return `<details class="bp-item">
+      <summary>${escapeHtml(b.name || "video")} ${chip}
+        ${bhref ? `<a class="lbl" href="${escapeHtml(bhref)}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}
+        <span class="lbl">${escapeHtml((b.addedAt || "").slice(0, 10))}</span></summary>
+      ${b.status === "done" ? `
+        ${b.tags ? `<div class="chips">${["format_type", "hook_pattern", "niche_category", "target_audience", "visual_hook"]
+          .map((d) => b.tags[d] ? `<span class="chip">${escapeHtml(b.tags[d])}</span>` : "").join("")}</div>` : ""}
+        ${b.note ? `<p class="lbl">${escapeHtml(b.note)}</p>` : ""}
+        ${s ? `<div class="vscript">
+            <div class="lbl">${escapeHtml(s.heading)}</div>
+            ${s.hook ? `<p class="vs-hook">“${escapeHtml(s.hook)}”</p>` : ""}
+            ${s.beats.map((bt) => `<p class="vs-beat">${escapeHtml(bt)}</p>`).join("")}
+          </div>
+          <button type="button" class="ghost bp-copy" data-bpid="${escapeHtml(b.id)}">Copy script</button>`
+        : `<p class="lbl">No speech and no shot list — nothing to blueprint.</p>`}` : ""}
+      <button type="button" class="ghost bp-del" data-bpid="${escapeHtml(b.id)}">Delete</button>
+    </details>`;
+  };
+  return `<div class="section blueprints-box">
+    <h2>Video blueprints <span class="pill">${bps.length}</span></h2>
+    <form class="post-form" id="bp-form">
+      <input type="file" id="bp-file" accept="video/*,audio/*">
+      <input type="url" id="bp-url" placeholder="…or paste a TikTok / Instagram / YouTube link"
+        autocomplete="off" spellcheck="false">
+      <button type="submit" class="btn" id="bp-add">Get script</button>
+    </form>
+    <p class="note" id="bp-note">Upload a raw video (≤50MB) or paste a posted video's link — the next
+      pipeline pass transcribes it on our machine (nothing goes to a third party) and the exact spoken
+      script with timed beats appears here. Uploaded files are deleted after processing.</p>
+    ${bps.map(item).join("")}
+  </div>`;
+}
+
+function bindBlueprints(host, client) {
+  // One form, one button: a chosen file, a pasted link, or both — each valid
+  // input becomes its own queued blueprint entry.
+  const bpForm = document.getElementById("bp-form");
+  if (bpForm) bpForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const note = document.getElementById("bp-note");
+    const btn = document.getElementById("bp-add");
+    const file = document.getElementById("bp-file").files?.[0];
+    const rawUrl = (document.getElementById("bp-url").value || "").trim();
+    const url = rawUrl ? normalizeClientUrl(rawUrl) : null;
+    if (!file && !rawUrl) { note.textContent = "Choose a video file or paste a link first."; return; }
+    if (rawUrl && !url) { note.textContent = "That doesn't look like a video link."; return; }
+    if (file && file.size > 50 * 1024 * 1024) {
+      note.textContent = "Over the 50MB per-file storage limit — trim/compress it, or raise the bucket limit in the Supabase dashboard.";
+      return;
+    }
+    btn.disabled = true; btn.textContent = "Adding…";
+    const fresh = loadClients();
+    const c = fresh.find((x) => x.id === client.id);
+    if (!c) return;
+    c.blueprints = c.blueprints || [];
+    let changed = false, errMsg = "";
+    if (url) {
+      if (c.blueprints.some((b) => b.url && canonUrl(b.url) === canonUrl(url))) {
+        errMsg = "That link is already in the blueprint list.";
+      } else {
+        // A caption makes a far better list label than a URL tail — best-effort.
+        let name = url.replace(/^https?:\/\//, "").slice(0, 60);
+        try {
+          const meta = await fetchPostMeta(url);
+          if (meta.caption) name = meta.caption.slice(0, 60);
+        } catch { /* oEmbed blocked or unsupported — the URL tail is fine */ }
+        c.blueprints.unshift({ id: newId(), name, url, status: "queued",
+                               addedAt: new Date().toISOString() });
+        changed = true;
+      }
+    }
+    if (file) {
+      const id = newId();
+      const ext = ((file.name || "").match(/\.[a-z0-9]{2,5}$/i) || [".mp4"])[0].toLowerCase();
+      const path = `${client.id}/${id}${ext}`;
+      try {
+        await sbUploadFile("lynxr-blueprints", path, file);
+        c.blueprints.unshift({ id, name: file.name || "video", path, status: "queued",
+                               addedAt: new Date().toISOString() });
+        changed = true;
+      } catch (ex) {
+        errMsg = /404|Bucket not found/i.test(ex.message)
+          ? "Storage bucket missing — run the blueprint section of supabase/schema.sql in the dashboard SQL editor first."
+          : "Upload failed — " + ex.message.slice(0, 120);
+      }
+    }
+    if (changed) { persistClients(fresh); renderBriefs(); }
+    else { btn.disabled = false; btn.textContent = "Get script"; }
+    // renderBriefs rebuilt the note element — target the fresh one.
+    if (errMsg) {
+      const n = document.getElementById("bp-note");
+      if (n) n.textContent = errMsg;
+    }
+  });
+  host.querySelectorAll(".bp-copy").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const b = (loadClients().find((c) => c.id === client.id)?.blueprints || [])
+        .find((x) => x.id === btn.dataset.bpid);
+      const s = b && realScript(bpAsRow(b));
+      if (!s) return;
+      const text = `${s.heading}\n` + (s.hook ? `HOOK: "${s.hook}"\n\n` : "\n")
+        + s.beats.join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = "Copied ✓";
+        setTimeout(() => { btn.textContent = "Copy script"; }, 1500);
+      } catch { /* clipboard denied */ }
+    });
+  });
+  host.querySelectorAll(".bp-del").forEach((btn) => {
+    armDelete(btn, "Delete", () => {
+      const fresh = loadClients();
+      const c = fresh.find((x) => x.id === client.id);
+      if (!c) return;
+      const b = (c.blueprints || []).find((x) => x.id === btn.dataset.bpid);
+      c.blueprints = (c.blueprints || []).filter((x) => x.id !== btn.dataset.bpid);
+      persistClients(fresh);
+      // Queued uploads still hold a storage object — clean it up best-effort.
+      if (b && b.status === "queued" && b.path) sbDeleteFile("lynxr-blueprints", b.path).catch(() => {});
+      renderBriefs();
+    });
+  });
+}
+
 /** The client's own mini-database: what THIS campaign's numbers say works.
     Platform medians, the campaign's proven format×hook combos (when tagged),
     and top posts — all from their tracked posts, nothing borrowed from the
@@ -2994,6 +3170,8 @@ function renderClientPage(host, client) {
 
     ${clientTrendsHtml(client)}
 
+    ${blueprintsBoxHtml(client)}
+
     <h2>Briefs <span class="pill">${total}</span></h2>
     ${total ? `<div class="brief-stack">` + client.briefs.map((b, i) => {
       const bh = briefHealth(client, b.id);
@@ -3024,6 +3202,7 @@ function renderClientPage(host, client) {
     </div>`;
 
   bindChartHover(host);
+  bindBlueprints(host, client);
   document.getElementById("cl-back").addEventListener("click", () => {
     CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
   });

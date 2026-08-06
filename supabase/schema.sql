@@ -137,3 +137,28 @@ drop trigger if exists lynxr_videos_touch on public.lynxr_videos;
 create trigger lynxr_videos_touch
   before update on public.lynxr_videos
   for each row execute function public.touch_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- Client video blueprints: the site uploads a raw video per client into this
+-- private bucket; pipeline/process_blueprints.py (owner's machine) transcribes
+-- it locally with Whisper and writes the verbatim script + timed beats back
+-- into the client's row, then deletes the object. Files are transient.
+-- Free-tier note: per-file limit is 50MB unless raised in the dashboard.
+insert into storage.buckets (id, name, public)
+  values ('lynxr-blueprints', 'lynxr-blueprints', false)
+  on conflict (id) do nothing;
+
+drop policy if exists "team uploads blueprint videos" on storage.objects;
+create policy "team uploads blueprint videos"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'lynxr-blueprints');
+
+drop policy if exists "team reads blueprint videos" on storage.objects;
+create policy "team reads blueprint videos"
+  on storage.objects for select to authenticated
+  using (bucket_id = 'lynxr-blueprints');
+
+drop policy if exists "team deletes blueprint videos" on storage.objects;
+create policy "team deletes blueprint videos"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'lynxr-blueprints');

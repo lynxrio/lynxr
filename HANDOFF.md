@@ -113,6 +113,28 @@ niche 88.1 / audience 92.9 caption-only) so the gain is measured, not assumed.
   only clients whose content changed (fingerprint + `updatedAt`), merge is
   last-write-wins, deletions propagate via the shared `deleted-clients`
   tombstone row, and the site re-pulls on tab focus + a 90s heartbeat.
+- **Client video blueprints get the FULL database treatment**: client page →
+  upload a raw video (≤50MB) OR paste a posted link → queued entry on the
+  client record (uploads also land in the private `lynxr-blueprints` bucket)
+  → `pipeline/process_blueprints.py` runs the same passes as the database:
+  Whisper verbatim script + segments (local, free), frames at beat starts →
+  shot list (analyze_visuals fns), locked-taxonomy tags from audio + opening
+  frame (retag_with_audio SYSTEM, opus). Shots+tags need ANTHROPIC_API_KEY
+  (pennies each; `--no-ai` skips). The site renders finished entries through
+  realScript via bpAsRow — identical blueprint UI to database rows. Uploaded
+  objects deleted after processing. NEEDS the storage section at the end of
+  supabase/schema.sql run once in the dashboard SQL editor (bucket +
+  policies) or file uploads 404 — link entries work without it.
+- **Blueprints run THEMSELVES**: launchd agent `io.lynxr.blueprints`
+  (~/Library/LaunchAgents/io.lynxr.blueprints.plist) runs the worker every
+  3 min in the background — no Claude, no terminal. Site + DB + queue are
+  hosted (GitHub Pages / Supabase), so the only constraint is the Mac being
+  awake; queued items wait harmlessly until it is. The plist carries
+  PATH=/opt/homebrew/bin (launchd has no Homebrew PATH; ffmpeg broke without
+  it). Retry policy: error entries auto-retry, partial-AI entries retry via
+  --redo-ai, both on a 6h cooldown (`--cooldown-hours`). Log:
+  output/blueprints_daemon.log. Manage:
+  `launchctl bootout/bootstrap gui/$UID ~/Library/LaunchAgents/io.lynxr.blueprints.plist`.
 
 - **Every master-rewriting script trims to `MASTER_FIELDS`** (merge_data.py).
   Any new column MUST be added there or the next rewrite silently drops it
