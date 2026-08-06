@@ -271,3 +271,4 @@ Rule: any exam-prep/test-prep/school content (NREMT, EMT school, nursing school,
 NOT Healthcare Professionals. Healthcare Professionals is for practicing-clinician content only.
 
 Return one object with all four fields."""
+

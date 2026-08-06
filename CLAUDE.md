@@ -51,3 +51,4 @@ Verify with real data or in the browser rather than assuming — several bugs
 here looked correct in code and only surfaced when measured. Say plainly when
 something is broken, blocked, or worse than hoped. Keep the UI professional and
 information-dense; motion stays minimal and functional.
+

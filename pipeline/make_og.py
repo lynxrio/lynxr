@@ -76,3 +76,4 @@ draw_text(x, y_text, ".", DIM)
 img = img.resize((W, H), Image.LANCZOS)
 img.save("/Users/junsahwang/Documents/lynxrio/og.png", optimize=True)
 print("wrote og.png", img.size)
+

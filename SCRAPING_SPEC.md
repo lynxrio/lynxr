@@ -68,3 +68,4 @@ IG/YT carry a subset — blank means unavailable, never zero.
 - Per-niche format vocabularies (Try-On Showcase, Fit Check, …) — a taxonomy
   expansion; migrate deliberately, never rename existing values.
 - Audio saturation/age tracking.
+

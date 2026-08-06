@@ -162,3 +162,4 @@ drop policy if exists "team deletes blueprint videos" on storage.objects;
 create policy "team deletes blueprint videos"
   on storage.objects for delete to authenticated
   using (bucket_id = 'lynxr-blueprints');
+

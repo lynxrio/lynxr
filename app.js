@@ -1728,28 +1728,8 @@ async function queueVideoIngest(url, niche) {
   });
 }
 
-/** Upload a raw file to Supabase Storage (blueprint videos). A separate
-    helper because sbFetch forces a JSON Content-Type; this sends the file's
-    own type and keeps the same 401-refresh-retry behavior. */
-async function sbUploadFile(bucket, path, file) {
-  const attempt = () => fetch(`${SB_URL}/storage/v1/object/${bucket}/${path}`, {
-    method: "POST",
-    headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_TOKEN || SB_KEY}`,
-               "Content-Type": file.type || "application/octet-stream", "x-upsert": "true" },
-    body: file,
-  });
-  let res = await attempt();
-  if (res.status === 401 && sbLoadSession()?.refresh_token) {
-    try {
-      SB_REFRESHING = SB_REFRESHING
-        || sbRefresh(sbLoadSession().refresh_token).finally(() => { SB_REFRESHING = null; });
-      await SB_REFRESHING;
-      res = await attempt();
-    } catch { /* refresh failed — fall through to the normal error */ }
-  }
-  if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`);
-}
-
+/** Blueprints are link-only, so nothing is uploaded from the browser. This
+    stays for cleanup of any legacy entry that still carries a storage path. */
 async function sbDeleteFile(bucket, path) {
   await sbFetch(`/storage/v1/object/${bucket}/${path}`, { method: "DELETE" });
 }
@@ -2830,78 +2810,48 @@ function blueprintsBoxHtml(client) {
   return `<div class="section blueprints-box">
     <h2>Video blueprints <span class="pill">${bps.length}</span></h2>
     <form class="post-form" id="bp-form">
-      <input type="file" id="bp-file" accept="video/*,audio/*">
-      <input type="url" id="bp-url" placeholder="…or paste a TikTok / Instagram / YouTube link"
+      <input type="url" id="bp-url" placeholder="Paste a TikTok / Instagram / YouTube link"
         autocomplete="off" spellcheck="false">
       <button type="submit" class="btn" id="bp-add">Get script</button>
     </form>
-    <p class="note" id="bp-note">Upload a raw video (≤50MB) or paste a posted video's link — the next
-      pipeline pass transcribes it on our machine (nothing goes to a third party) and the exact spoken
-      script with timed beats appears here. Uploaded files are deleted after processing.</p>
+    <p class="note" id="bp-note">Paste a posted video's link — the next pipeline pass transcribes it
+      on our machine (nothing goes to a third party) and the exact spoken script with timed beats
+      appears here.</p>
     ${bps.map(item).join("")}
   </div>`;
 }
 
 function bindBlueprints(host, client) {
-  // One form, one button: a chosen file, a pasted link, or both — each valid
-  // input becomes its own queued blueprint entry.
+  // Link-only: a pasted post URL becomes a queued blueprint entry. The pipeline
+  // fetches the media itself (yt-dlp), so nothing is uploaded from the browser.
   const bpForm = document.getElementById("bp-form");
   if (bpForm) bpForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const note = document.getElementById("bp-note");
     const btn = document.getElementById("bp-add");
-    const file = document.getElementById("bp-file").files?.[0];
     const rawUrl = (document.getElementById("bp-url").value || "").trim();
     const url = rawUrl ? normalizeClientUrl(rawUrl) : null;
-    if (!file && !rawUrl) { note.textContent = "Choose a video file or paste a link first."; return; }
-    if (rawUrl && !url) { note.textContent = "That doesn't look like a video link."; return; }
-    if (file && file.size > 50 * 1024 * 1024) {
-      note.textContent = "Over the 50MB per-file storage limit — trim/compress it, or raise the bucket limit in the Supabase dashboard.";
-      return;
-    }
-    btn.disabled = true; btn.textContent = "Adding…";
+    if (!rawUrl) { note.textContent = "Paste a video link first."; return; }
+    if (!url) { note.textContent = "That doesn't look like a video link."; return; }
     const fresh = loadClients();
     const c = fresh.find((x) => x.id === client.id);
     if (!c) return;
     c.blueprints = c.blueprints || [];
-    let changed = false, errMsg = "";
-    if (url) {
-      if (c.blueprints.some((b) => b.url && canonUrl(b.url) === canonUrl(url))) {
-        errMsg = "That link is already in the blueprint list.";
-      } else {
-        // A caption makes a far better list label than a URL tail — best-effort.
-        let name = url.replace(/^https?:\/\//, "").slice(0, 60);
-        try {
-          const meta = await fetchPostMeta(url);
-          if (meta.caption) name = meta.caption.slice(0, 60);
-        } catch { /* oEmbed blocked or unsupported — the URL tail is fine */ }
-        c.blueprints.unshift({ id: newId(), name, url, status: "queued",
-                               addedAt: new Date().toISOString() });
-        changed = true;
-      }
+    if (c.blueprints.some((b) => b.url && canonUrl(b.url) === canonUrl(url))) {
+      note.textContent = "That link is already in the blueprint list.";
+      return;
     }
-    if (file) {
-      const id = newId();
-      const ext = ((file.name || "").match(/\.[a-z0-9]{2,5}$/i) || [".mp4"])[0].toLowerCase();
-      const path = `${client.id}/${id}${ext}`;
-      try {
-        await sbUploadFile("lynxr-blueprints", path, file);
-        c.blueprints.unshift({ id, name: file.name || "video", path, status: "queued",
-                               addedAt: new Date().toISOString() });
-        changed = true;
-      } catch (ex) {
-        errMsg = /404|Bucket not found/i.test(ex.message)
-          ? "Storage bucket missing — run the blueprint section of supabase/schema.sql in the dashboard SQL editor first."
-          : "Upload failed — " + ex.message.slice(0, 120);
-      }
-    }
-    if (changed) { persistClients(fresh); renderBriefs(); }
-    else { btn.disabled = false; btn.textContent = "Get script"; }
-    // renderBriefs rebuilt the note element — target the fresh one.
-    if (errMsg) {
-      const n = document.getElementById("bp-note");
-      if (n) n.textContent = errMsg;
-    }
+    btn.disabled = true; btn.textContent = "Adding…";
+    // A caption makes a far better list label than a URL tail — best-effort.
+    let name = url.replace(/^https?:\/\//, "").slice(0, 60);
+    try {
+      const meta = await fetchPostMeta(url);
+      if (meta.caption) name = meta.caption.slice(0, 60);
+    } catch { /* oEmbed blocked or unsupported — the URL tail is fine */ }
+    c.blueprints.unshift({ id: newId(), name, url, status: "queued",
+                           addedAt: new Date().toISOString() });
+    persistClients(fresh);
+    renderBriefs();
   });
   host.querySelectorAll(".bp-copy").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -4008,3 +3958,4 @@ function renderApp(rows) {
 
 // Kick off auto-login last, once every Supabase const above is initialized.
 resumeSession();
+
