@@ -2829,11 +2829,15 @@ function blueprintsBoxHtml(client) {
     const flash = BP_FLASH.has(b.id);
     BP_FLASH.delete(b.id);
 
-    const chip = b.status === "done" ? `<span class="chip good">script ready</span>`
-      : b.status === "error" ? `<span class="chip bad">couldn't fetch</span>`
-      : `<span class="chip bp-wait"><i class="bp-dot"></i>waiting for pipeline</span>`;
     const bhref = b.url ? safeUrl(b.url) : null;
     const s = b.status === "done" ? realScript(bpAsRow(b)) : null;
+    // "done" alone doesn't mean there's a script: a music-only video finishes
+    // successfully with nothing to show, and calling that "script ready" sends
+    // you clicking into an empty row.
+    const chip = b.status === "error" ? `<span class="chip bad">couldn't fetch</span>`
+      : b.status !== "done" ? `<span class="chip bp-wait"><i class="bp-dot"></i>waiting for pipeline</span>`
+      : s ? `<span class="chip good">script ready</span>`
+      : `<span class="chip">no speech found</span>`;
     const id = escapeHtml(b.id);
 
     let body;
@@ -2853,7 +2857,11 @@ function blueprintsBoxHtml(client) {
         <ol class="bp-beats">${s.beats.map(bpBeatHtml).join("")}</ol>
         <div class="bp-actions"><button type="button" class="ghost bp-copy" data-bpid="${id}">Copy script</button></div>`;
     } else {
-      body = `<p class="bp-hint">No speech and no shot list — nothing to blueprint.</p>`;
+      const sc = b.script || {};
+      body = `<p class="bp-hint">Whisper found no usable speech${sc.language ? ` — detected ${escapeHtml(sc.language)}` : ""}${sc.duration ? `, ${Math.round(sc.duration)}s of audio` : ""}.
+        Usually that means the video is music-only; a visual shot list would still describe it.</p>
+        ${b.note ? `<p class="bp-hint">${escapeHtml(b.note)}</p>` : ""}
+        <div class="bp-actions"><button type="button" class="ghost bp-retry" data-bpid="${id}">Try again</button></div>`;
     }
 
     return `<details class="bp-item bp-${escapeHtml(b.status)}${flash ? " bp-flash" : ""}"${justReady ? " open" : ""} data-bpid="${id}">
