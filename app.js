@@ -2781,77 +2781,208 @@ function bpAsRow(b) {
   };
 }
 
+/** "just now" / "12 min ago" / "3h ago" / a date — a queued entry's age is the
+    useful fact (how long until the pipeline picks it up), not its calendar day. */
+function agoLabel(iso) {
+  const t = new Date(iso || 0).getTime();
+  if (!t) return "";
+  const m = Math.floor((Date.now() - t) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m} min ago`;
+  if (m < 1440) return `${Math.floor(m / 60)}h ago`;
+  return String(iso).slice(0, 10);
+}
+
+const platformLabel = (u) => /tiktok\.com/.test(u) ? "TikTok"
+  : /instagram\.com/.test(u) ? "Instagram"
+  : /youtube\.com|youtu\.be/.test(u) ? "YouTube" : "Link";
+
+/** One beat as a timeline row: timestamp in its own column, spoken line, and
+    the on-screen cue underneath. realScript hands back "[0–2s] words" strings
+    (optionally with an ON SCREEN clause), so split rather than re-derive —
+    blueprints stay identical to database rows by construction. */
+function bpBeatHtml(bt) {
+  const m = String(bt).match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
+  if (!m) return `<li class="bp-beat"><span class="bp-t"></span><span class="bp-say">${escapeHtml(bt)}</span></li>`;
+  const rest = m[2];
+  const i = rest.search(/on[- ]screen(\s+text)?:/i);
+  const say = (i >= 0 ? rest.slice(0, i) : rest).replace(/[—-]\s*$/, "").trim();
+  const screen = i >= 0 ? rest.slice(i).replace(/^on[- ]screen(\s+text)?:\s*/i, "").trim() : "";
+  return `<li class="bp-beat">
+    <span class="bp-t">${escapeHtml(m[1])}</span>
+    <span class="bp-say">${escapeHtml(say)}</span>
+    ${screen ? `<span class="bp-screen">${escapeHtml(screen)}</span>` : ""}
+  </li>`;
+}
+
+// Status at last paint, so an entry that flips queued -> done while the page is
+// open announces itself (opens + flashes) instead of quietly changing a chip.
+const BP_SEEN = new Map();
+const BP_FLASH = new Set();
+
 function blueprintsBoxHtml(client) {
   const bps = client.blueprints || [];
   const item = (b) => {
-    const chip = b.status === "done" ? `<span class="chip good">blueprint ready</span>`
-      : b.status === "error" ? `<span class="chip bad">failed${b.note ? " — " + escapeHtml(b.note) : ""}</span>`
-      : `<span class="chip">queued — next pipeline pass</span>`;
+    const justReady = BP_SEEN.get(b.id) === "queued" && b.status === "done";
+    if (justReady) BP_FLASH.add(b.id);
+    BP_SEEN.set(b.id, b.status);
+    const flash = BP_FLASH.has(b.id);
+    BP_FLASH.delete(b.id);
+
+    const chip = b.status === "done" ? `<span class="chip good">script ready</span>`
+      : b.status === "error" ? `<span class="chip bad">couldn't fetch</span>`
+      : `<span class="chip bp-wait"><i class="bp-dot"></i>waiting for pipeline</span>`;
     const bhref = b.url ? safeUrl(b.url) : null;
     const s = b.status === "done" ? realScript(bpAsRow(b)) : null;
-    return `<details class="bp-item">
-      <summary>${escapeHtml(b.name || "video")} ${chip}
-        ${bhref ? `<a class="lbl" href="${escapeHtml(bhref)}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}
-        <span class="lbl">${escapeHtml((b.addedAt || "").slice(0, 10))}</span></summary>
-      ${b.status === "done" ? `
-        ${b.tags ? `<div class="chips">${["format_type", "hook_pattern", "niche_category", "target_audience", "visual_hook"]
+    const id = escapeHtml(b.id);
+
+    let body;
+    if (b.status === "queued") {
+      body = `<p class="bp-hint">Queued. The pipeline checks every few minutes — the verbatim
+        script and timed beats appear here on their own, no need to stay on this page.</p>`;
+    } else if (b.status === "error") {
+      body = `<p class="bp-hint bad">${escapeHtml(b.note || "The video couldn't be downloaded.")}</p>
+        <div class="bp-actions"><button type="button" class="ghost bp-retry" data-bpid="${id}">Try again</button></div>`;
+    } else if (s) {
+      body = `
+        ${b.tags ? `<div class="chips bp-tags">${["format_type", "hook_pattern", "niche_category", "target_audience", "visual_hook"]
           .map((d) => b.tags[d] ? `<span class="chip">${escapeHtml(b.tags[d])}</span>` : "").join("")}</div>` : ""}
-        ${b.note ? `<p class="lbl">${escapeHtml(b.note)}</p>` : ""}
-        ${s ? `<div class="vscript">
-            <div class="lbl">${escapeHtml(s.heading)}</div>
-            ${s.hook ? `<p class="vs-hook">“${escapeHtml(s.hook)}”</p>` : ""}
-            ${s.beats.map((bt) => `<p class="vs-beat">${escapeHtml(bt)}</p>`).join("")}
-          </div>
-          <button type="button" class="ghost bp-copy" data-bpid="${escapeHtml(b.id)}">Copy script</button>`
-        : `<p class="lbl">No speech and no shot list — nothing to blueprint.</p>`}` : ""}
-      <button type="button" class="ghost bp-del" data-bpid="${escapeHtml(b.id)}">Delete</button>
+        ${b.note ? `<p class="bp-hint">${escapeHtml(b.note)}</p>` : ""}
+        ${s.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(s.hook)}”</div>` : ""}
+        <div class="bp-heading">${escapeHtml(s.heading)}</div>
+        <ol class="bp-beats">${s.beats.map(bpBeatHtml).join("")}</ol>
+        <div class="bp-actions"><button type="button" class="ghost bp-copy" data-bpid="${id}">Copy script</button></div>`;
+    } else {
+      body = `<p class="bp-hint">No speech and no shot list — nothing to blueprint.</p>`;
+    }
+
+    return `<details class="bp-item bp-${escapeHtml(b.status)}${flash ? " bp-flash" : ""}"${justReady ? " open" : ""} data-bpid="${id}">
+      <summary>
+        <span class="bp-caret" aria-hidden="true">▸</span>
+        <span class="bp-name">${escapeHtml(b.name || "video")}</span>
+        ${chip}
+        <span class="bp-when">${escapeHtml(agoLabel(b.addedAt))}</span>
+        ${bhref ? `<a class="bp-open" href="${escapeHtml(bhref)}" target="_blank" rel="noopener noreferrer" title="Open the original post">↗</a>` : ""}
+      </summary>
+      <div class="bp-body">
+        ${body}
+        <button type="button" class="ghost bp-del" data-bpid="${id}">Delete</button>
+      </div>
     </details>`;
   };
   return `<div class="section blueprints-box">
     <h2>Video blueprints <span class="pill">${bps.length}</span></h2>
-    <form class="post-form" id="bp-form">
-      <input type="url" id="bp-url" placeholder="Paste a TikTok / Instagram / YouTube link"
-        autocomplete="off" spellcheck="false">
+    <form class="post-form bp-form" id="bp-form">
+      <span class="bp-field">
+        <input type="url" id="bp-url" placeholder="Paste a TikTok / Instagram / YouTube link"
+          autocomplete="off" spellcheck="false">
+        <span class="bp-plat" id="bp-plat"></span>
+      </span>
       <button type="submit" class="btn" id="bp-add">Get script</button>
     </form>
-    <p class="note" id="bp-note">Paste a posted video's link — the next pipeline pass transcribes it
-      on our machine (nothing goes to a third party) and the exact spoken script with timed beats
-      appears here.</p>
-    ${bps.map(item).join("")}
+    <p class="bp-msg" id="bp-msg" role="status" aria-live="polite"></p>
+    <p class="note" id="bp-note">Paste a posted video's link — the pipeline transcribes it on our
+      machine (nothing goes to a third party) and the exact spoken script with timed beats appears
+      here.</p>
+    ${bps.length ? `<div class="bp-list">${bps.map(item).join("")}</div>` : ""}
   </div>`;
+}
+
+/** Transient inline feedback — replaces overwriting the permanent help text,
+    which left stale error copy sitting under the field forever. */
+let BP_MSG_T = null;
+function bpMsg(text, tone) {
+  const el = document.getElementById("bp-msg");
+  if (!el) return;
+  el.textContent = text;
+  el.className = `bp-msg show${tone ? " " + tone : ""}`;
+  clearTimeout(BP_MSG_T);
+  BP_MSG_T = setTimeout(() => {
+    const e2 = document.getElementById("bp-msg");
+    if (e2) e2.className = "bp-msg";
+  }, 4500);
+}
+
+/** Re-render the client page without the scroll jump a full innerHTML swap
+    otherwise causes — the blueprints list sits well below the fold. */
+function renderBriefsKeepScroll() {
+  const y = window.scrollY;
+  renderBriefs();
+  window.scrollTo({ top: y });
 }
 
 function bindBlueprints(host, client) {
   // Link-only: a pasted post URL becomes a queued blueprint entry. The pipeline
   // fetches the media itself (yt-dlp), so nothing is uploaded from the browser.
+  const urlEl = document.getElementById("bp-url");
+  const platEl = document.getElementById("bp-plat");
+  // Recognize the platform as the link is typed/pasted, so it's obvious the URL
+  // parsed before submitting rather than after.
+  const showPlat = () => {
+    if (!urlEl || !platEl) return;
+    const raw = (urlEl.value || "").trim();
+    const u = raw ? normalizeClientUrl(raw) : null;
+    platEl.textContent = u ? platformLabel(u) : "";
+    platEl.className = "bp-plat" + (u ? " on" : "");
+  };
+  if (urlEl) { urlEl.addEventListener("input", showPlat); showPlat(); }
+
   const bpForm = document.getElementById("bp-form");
   if (bpForm) bpForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const note = document.getElementById("bp-note");
-    const btn = document.getElementById("bp-add");
-    const rawUrl = (document.getElementById("bp-url").value || "").trim();
+    const rawUrl = (urlEl.value || "").trim();
     const url = rawUrl ? normalizeClientUrl(rawUrl) : null;
-    if (!rawUrl) { note.textContent = "Paste a video link first."; return; }
-    if (!url) { note.textContent = "That doesn't look like a video link."; return; }
+    if (!rawUrl) { bpMsg("Paste a video link first.", "bad"); urlEl.focus(); return; }
+    if (!url) { bpMsg("That doesn't look like a video link.", "bad"); urlEl.select(); return; }
     const fresh = loadClients();
     const c = fresh.find((x) => x.id === client.id);
     if (!c) return;
     c.blueprints = c.blueprints || [];
     if (c.blueprints.some((b) => b.url && canonUrl(b.url) === canonUrl(url))) {
-      note.textContent = "That link is already in the blueprint list.";
+      bpMsg("That link is already in the list.", "bad");
       return;
     }
-    btn.disabled = true; btn.textContent = "Adding…";
-    // A caption makes a far better list label than a URL tail — best-effort.
-    let name = url.replace(/^https?:\/\//, "").slice(0, 60);
+    // Queue FIRST, fetch the caption after: the oEmbed round-trip took about a
+    // second, and making the row wait on it made adding feel broken.
+    const id = newId();
+    c.blueprints.unshift({ id, name: url.replace(/^https?:\/\//, "").slice(0, 60), url,
+                           status: "queued", addedAt: new Date().toISOString() });
+    persistClients(fresh);
+    urlEl.value = "";
+    showPlat();
+    BP_FLASH.add(id);
+    bpMsg("Queued — the script lands here on its own.", "good");
+    renderBriefsKeepScroll();
+
+    // A caption is a far better label than a URL tail. Patch the row in place
+    // when it arrives; no re-render, so nothing the user is reading moves.
     try {
       const meta = await fetchPostMeta(url);
-      if (meta.caption) name = meta.caption.slice(0, 60);
-    } catch { /* oEmbed blocked or unsupported — the URL tail is fine */ }
-    c.blueprints.unshift({ id: newId(), name, url, status: "queued",
-                           addedAt: new Date().toISOString() });
-    persistClients(fresh);
-    renderBriefs();
+      if (!meta.caption) return;
+      const list = loadClients();
+      const cc = list.find((x) => x.id === client.id);
+      const bb = cc?.blueprints?.find((x) => x.id === id);
+      if (!bb) return;
+      bb.name = meta.caption.slice(0, 60);
+      persistClients(list);
+      const nameEl = document.querySelector(`.bp-item[data-bpid="${CSS.escape(id)}"] .bp-name`);
+      if (nameEl) nameEl.textContent = bb.name;
+    } catch { /* oEmbed blocked or unsupported — the URL tail stands */ }
+  });
+
+  host.querySelectorAll(".bp-retry").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const fresh = loadClients();
+      const c = fresh.find((x) => x.id === client.id);
+      const b = c?.blueprints?.find((x) => x.id === btn.dataset.bpid);
+      if (!b) return;
+      b.status = "queued";
+      delete b.note;
+      delete b.attemptedAt;
+      persistClients(fresh);
+      bpMsg("Re-queued for the next pipeline pass.", "good");
+      renderBriefsKeepScroll();
+    });
   });
   host.querySelectorAll(".bp-copy").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -2876,9 +3007,10 @@ function bindBlueprints(host, client) {
       const b = (c.blueprints || []).find((x) => x.id === btn.dataset.bpid);
       c.blueprints = (c.blueprints || []).filter((x) => x.id !== btn.dataset.bpid);
       persistClients(fresh);
-      // Queued uploads still hold a storage object — clean it up best-effort.
+      BP_SEEN.delete(btn.dataset.bpid);
+      // Legacy uploads still hold a storage object — clean it up best-effort.
       if (b && b.status === "queued" && b.path) sbDeleteFile("lynxr-blueprints", b.path).catch(() => {});
-      renderBriefs();
+      renderBriefsKeepScroll();
     });
   });
 }

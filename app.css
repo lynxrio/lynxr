@@ -433,13 +433,97 @@
   .chip.good { color: var(--good); border-color: var(--good); }
   .chip.bad { color: var(--bad); border-color: var(--bad); }
 
-  /* Client video blueprints */
-  .blueprints-box .post-form input[type="url"] { flex: 1 1 240px; }
-  .bp-item { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-top: 10px; }
-  .bp-item summary { cursor: pointer; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
-  .bp-item summary::-webkit-details-marker { display: none; }
-  .bp-item[open] summary { margin-bottom: 8px; }
-  .bp-item .vs-beat { font-family: var(--mono); font-size: 12px; white-space: pre-line; }
+  /* Client video blueprints — paste a link, the script arrives here.
+     Motion is functional only: a pulse means "still waiting", a one-shot
+     flash means "this just became ready", and both stop for reduced-motion. */
+  .bp-form { align-items: stretch; }
+  .bp-field { position: relative; display: flex; flex: 1 1 260px; }
+  .bp-field input[type="url"] { flex: 1 1 auto; padding-right: 82px; }
+  .bp-plat {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
+    color: var(--text-3); border: 1px solid var(--line); border-radius: 4px;
+    padding: 2px 6px; pointer-events: none; opacity: 0;
+    transition: opacity .16s var(--ease);
+  }
+  .bp-plat.on { opacity: 1; }
+
+  .bp-msg {
+    font-size: 12px; margin: 8px 0 0; color: var(--text-2);
+    max-height: 0; opacity: 0; overflow: hidden;
+    transition: opacity .18s var(--ease), max-height .18s var(--ease);
+  }
+  .bp-msg.show { opacity: 1; max-height: 40px; }
+  .bp-msg.good { color: var(--good); }
+  .bp-msg.bad { color: var(--bad); }
+
+  .bp-list { margin-top: 12px; }
+  .bp-item {
+    border: 1px solid var(--line); border-radius: 10px; margin-top: 8px;
+    background: var(--surface); overflow: hidden;
+    transition: border-color .18s var(--ease);
+  }
+  .bp-item:hover { border-color: var(--line-2); }
+  .bp-item > summary {
+    cursor: pointer; display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px; font-size: 13px; list-style: none;
+  }
+  .bp-item > summary::-webkit-details-marker { display: none; }
+  .bp-caret { color: var(--text-3); font-size: 10px; transition: transform .18s var(--ease); }
+  .bp-item[open] .bp-caret { transform: rotate(90deg); }
+  .bp-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bp-when { color: var(--text-3); font-size: 11px; white-space: nowrap; }
+  .bp-open { color: var(--text-3); text-decoration: none; font-size: 12px; }
+  .bp-open:hover { color: var(--text); }
+  .bp-body { padding: 2px 14px 12px; animation: bp-open .18s var(--ease); }
+  @keyframes bp-open { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+  .bp-wait { color: var(--text-3); }
+  .bp-dot {
+    width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+    display: inline-block; margin-right: 6px; vertical-align: middle;
+    animation: bp-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes bp-pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+  .bp-flash { animation: bp-flash 1.1s var(--ease); }
+  @keyframes bp-flash {
+    0% { border-color: var(--good); background: var(--surface-2); }
+    100% { border-color: var(--line); background: var(--surface); }
+  }
+
+  .bp-hint { font-size: 12px; color: var(--text-3); margin: 6px 0 10px; line-height: 1.5; }
+  .bp-hint.bad { color: var(--bad); }
+  .bp-tags { margin: 4px 0 10px; }
+  .bp-hook {
+    font-size: 13.5px; font-style: italic; line-height: 1.5;
+    border-left: 2px solid var(--good); padding: 4px 0 4px 12px; margin: 0 0 12px;
+  }
+  .bp-hook-lbl {
+    display: block; font-style: normal; font-size: 10px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-3); margin-bottom: 3px;
+  }
+  .bp-heading {
+    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--text-3); margin-bottom: 4px;
+  }
+  .bp-beats { list-style: none; margin: 0; padding: 0; }
+  .bp-beat {
+    display: grid; grid-template-columns: 78px 1fr; gap: 4px 12px;
+    padding: 8px 0; border-top: 1px solid var(--line);
+  }
+  .bp-beat:first-child { border-top: 0; }
+  .bp-t { font-family: var(--mono); font-size: 11px; color: var(--text-3); padding-top: 2px; }
+  .bp-say { font-size: 13px; line-height: 1.5; }
+  .bp-screen {
+    grid-column: 2; font-size: 11.5px; color: var(--text-3); line-height: 1.45;
+    border-left: 1px solid var(--line-2); padding-left: 8px;
+  }
+  .bp-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bp-dot, .bp-flash, .bp-body { animation: none; }
+    .bp-item, .bp-caret, .bp-plat, .bp-msg { transition: none; }
+  }
 
   /* Compact shelf card row */
   .vrow { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
