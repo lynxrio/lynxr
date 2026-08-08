@@ -2797,21 +2797,51 @@ const platformLabel = (u) => /tiktok\.com/.test(u) ? "TikTok"
   : /instagram\.com/.test(u) ? "Instagram"
   : /youtube\.com|youtu\.be/.test(u) ? "YouTube" : "Link";
 
-/** One beat as a timeline row: timestamp in its own column, spoken line, and
-    the on-screen cue underneath. realScript hands back "[0–2s] words" strings
-    (optionally with an ON SCREEN clause), so split rather than re-derive —
-    blueprints stay identical to database rows by construction. */
-function bpBeatHtml(bt) {
+/** One beat, split into the three things a creator actually needs:
+      SAY   — the verbatim words (Whisper segments)
+      DO    — the direction for that moment (shot list `visual`)
+      SHOW  — the text on screen (shot list `onscreen_text`)
+    realScript emits these fused into one string — "[0–2s] words\n   ON SCREEN:
+    direction — text: “overlay”" — because database rows render it as prose.
+    Blueprints get the same beats (identical grouping and nearest-shot matching,
+    by construction) but pulled apart into labelled rows. `silent` marks a
+    no-speech video, where the whole beat is direction and nothing is said. */
+function bpBeatHtml(bt, silent, prev) {
   const m = String(bt).match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
-  if (!m) return `<li class="bp-beat"><span class="bp-t"></span><span class="bp-say">${escapeHtml(bt)}</span></li>`;
-  const rest = m[2];
-  const i = rest.search(/on[- ]screen(\s+text)?:/i);
-  const say = (i >= 0 ? rest.slice(0, i) : rest).replace(/[—-]\s*$/, "").trim();
-  const screen = i >= 0 ? rest.slice(i).replace(/^on[- ]screen(\s+text)?:\s*/i, "").trim() : "";
+  if (!m) return `<li class="bp-beat"><span class="bp-t"></span><span class="bp-lbl">SAY</span><span class="bp-val">${escapeHtml(bt)}</span></li>`;
+  let rest = m[2].trim();
+
+  // Peel the on-screen overlay off the end: — text: “X”  /  — on-screen text: “X”
+  let show = "";
+  const om = rest.match(/[—–-]\s*(?:on[- ]screen\s+)?text:\s*[“"]([\s\S]*?)[”"]\s*$/i);
+  if (om) { show = om[1].trim(); rest = rest.slice(0, om.index).trim(); }
+
+  // Then separate the spoken words from the direction.
+  let say = "", direction = "";
+  const dm = rest.match(/\n\s*ON SCREEN:\s*([\s\S]*)$/i);
+  if (dm) { direction = dm[1].trim(); say = rest.slice(0, dm.index).trim(); }
+  else if (silent) { direction = rest; }
+  else { say = rest; }
+
+  // Only ~6 frames are sampled per video, so a long beat often lands on the
+  // same shot as the one before it. Repeating the direction would read as
+  // "do this again"; blank it instead — an unchanged shot is still running.
+  if (prev) {
+    const wasDir = direction, wasShow = show;
+    if (direction && direction === prev.direction) direction = "";
+    if (show && show === prev.show) show = "";
+    prev.direction = wasDir || prev.direction;
+    prev.show = wasShow || prev.show;
+  }
+
+  const row = (label, value, dim) => value
+    ? `<span class="bp-lbl">${label}</span><span class="bp-val${dim ? " bp-dim" : ""}">${escapeHtml(value)}</span>`
+    : "";
+  const rows = [row("SAY", say), row("DO", direction, true), row("SHOW", show, true)].filter(Boolean);
+  if (!rows.length) return "";
   return `<li class="bp-beat">
-    <span class="bp-t">${escapeHtml(m[1])}</span>
-    <span class="bp-say">${escapeHtml(say)}</span>
-    ${screen ? `<span class="bp-screen">${escapeHtml(screen)}</span>` : ""}
+    <span class="bp-t">${escapeHtml(m[1])}</span>${rows[0]}
+    ${rows.slice(1).map((r) => `<span></span>${r}`).join("\n    ")}
   </li>`;
 }
 
@@ -2869,7 +2899,10 @@ function blueprintsBoxHtml(client) {
           : b.note ? `<p class="bp-hint">${escapeHtml(b.note)}</p>` : ""}
         ${s.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(s.hook)}”</div>` : ""}
         <div class="bp-heading">${escapeHtml(s.heading)}</div>
-        <ol class="bp-beats">${s.beats.map(bpBeatHtml).join("")}</ol>
+        <ol class="bp-beats">${(() => {
+          const carry = { direction: "", show: "" };
+          return s.beats.map((bt) => bpBeatHtml(bt, !b.script?.has_speech, carry)).join("");
+        })()}</ol>
         <div class="bp-actions">
           <button type="button" class="ghost bp-copy" data-bpid="${id}">Copy script</button>
           ${partial ? `<button type="button" class="ghost bp-retry" data-bpid="${id}">Try again</button>` : ""}

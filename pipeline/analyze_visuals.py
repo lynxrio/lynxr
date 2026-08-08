@@ -59,7 +59,7 @@ SCHEMA = {
                 "additionalProperties": False,
                 "properties": {
                     "t": {"type": "number", "description": "timestamp seconds of this frame"},
-                    "visual": {"type": "string", "description": "one short clause: subject, framing, action"},
+                    "visual": {"type": "string", "description": "DIRECTION for this moment, imperative voice, 1-2 short clauses: who is on screen and how they are framed, their expression or gesture, any prop or product shown, and any movement (enter/leave frame, point, turn, camera push, cut). e.g. 'hold the watch up to camera, fills the frame'"},
                     "onscreen_text": {"type": "string", "description": "ALL text visible in the frame, verbatim; empty string if none"},
                 },
                 "required": ["t", "visual", "onscreen_text"],
@@ -69,11 +69,28 @@ SCHEMA = {
     "required": ["shots"],
 }
 
-PROMPT = ("These are frames from one short-form vertical video, in order, taken at the "
-          "timestamps given with each image. For EACH frame return: `t` (its timestamp), "
-          "`visual` (one short clause — subject, framing, what's happening), and "
-          "`onscreen_text` (every piece of text visible in the frame, transcribed verbatim — "
-          "captions, overlays, app UI; empty string if none). Keep frame order.")
+PROMPT = (
+    "These are frames from one short-form vertical video, in order, taken at the "
+    "timestamps given with each image.\n\n"
+    "You are writing a SHOT LIST that a creator will follow to recreate this video. "
+    "Describe what to DO at each moment — not what a caption would say about the "
+    "picture.\n\n"
+    "For EACH frame return:\n"
+    "`t` — its timestamp.\n"
+    "`visual` — the direction for that moment, imperative voice, one or two short "
+    "clauses. Cover whichever of these the frame actually shows: who is on screen and "
+    "how they are framed; their facial expression or gesture; any prop, product, or "
+    "screen they hold up or cut to; and any movement — entering or leaving frame, "
+    "pointing, turning, a camera push, a hard cut. Compare each frame against the ones "
+    "before and after it so you catch what CHANGED, and say that. Write it the way a "
+    "director would: \"hold the watch up to camera, fills the frame\", \"react with mock "
+    "outrage, hands up\", \"walk out of frame left, empty room holds\", \"cut to overhead "
+    "of the desk\", \"point down at the caption\". Never open with \"A person\", \"The "
+    "video shows\", or \"This frame\".\n"
+    "`onscreen_text` — every piece of text visible in the frame, transcribed verbatim "
+    "(captions, overlays, app UI); empty string if none.\n\n"
+    "Keep frame order."
+)
 
 
 def latest_transcripts():
