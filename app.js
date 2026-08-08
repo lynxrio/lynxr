@@ -2834,10 +2834,15 @@ function blueprintsBoxHtml(client) {
     // "done" alone doesn't mean there's a script: a music-only video finishes
     // successfully with nothing to show, and calling that "script ready" sends
     // you clicking into an empty row.
+    // A blueprint is only complete with BOTH halves: the spoken script
+    // (local Whisper, free) and the visual layer (shot list + tags, paid).
+    // Say which one you're looking at rather than calling half of it "ready".
+    const hasShots = !!(b.shots || []).length;
     const chip = b.status === "error" ? `<span class="chip bad">couldn't fetch</span>`
       : b.status !== "done" ? `<span class="chip bp-wait"><i class="bp-dot"></i>waiting for pipeline</span>`
-      : s ? `<span class="chip good">script ready</span>`
-      : `<span class="chip">no speech found</span>`;
+      : !s ? `<span class="chip">no speech found</span>`
+      : hasShots ? `<span class="chip good">blueprint ready</span>`
+      : `<span class="chip">script only</span>`;
     const id = escapeHtml(b.id);
 
     let body;
@@ -2848,14 +2853,27 @@ function blueprintsBoxHtml(client) {
       body = `<p class="bp-hint bad">${escapeHtml(b.note || "The video couldn't be downloaded.")}</p>
         <div class="bp-actions"><button type="button" class="ghost bp-retry" data-bpid="${id}">Try again</button></div>`;
     } else if (s) {
+      // Missing visuals is the common case while API credits are out, and it
+      // is invisible in the beats themselves — they just quietly lack their
+      // ON SCREEN line. Name it, rather than letting it read as "that's all
+      // this video had".
+      const partial = !hasShots || !b.tags;
+      const outOfCredits = /credit balance/i.test(b.note || "");
       body = `
         ${b.tags ? `<div class="chips bp-tags">${["format_type", "hook_pattern", "niche_category", "target_audience", "visual_hook"]
           .map((d) => b.tags[d] ? `<span class="chip">${escapeHtml(b.tags[d])}</span>` : "").join("")}</div>` : ""}
-        ${b.note ? `<p class="bp-hint">${escapeHtml(b.note)}</p>` : ""}
+        ${partial ? `<p class="bp-hint bp-partial">Spoken words only — no ${[!hasShots ? "shot list" : "", !b.tags ? "tags" : ""].filter(Boolean).join(" or ")}.
+            ${outOfCredits
+              ? `The visual pass (framing and on-screen text beneath each beat) runs on the Anthropic API and the balance is empty. Top up, then hit Try again.`
+              : escapeHtml(b.note || "The visual pass didn't run.")}</p>`
+          : b.note ? `<p class="bp-hint">${escapeHtml(b.note)}</p>` : ""}
         ${s.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(s.hook)}”</div>` : ""}
         <div class="bp-heading">${escapeHtml(s.heading)}</div>
         <ol class="bp-beats">${s.beats.map(bpBeatHtml).join("")}</ol>
-        <div class="bp-actions"><button type="button" class="ghost bp-copy" data-bpid="${id}">Copy script</button></div>`;
+        <div class="bp-actions">
+          <button type="button" class="ghost bp-copy" data-bpid="${id}">Copy script</button>
+          ${partial ? `<button type="button" class="ghost bp-retry" data-bpid="${id}">Try again</button>` : ""}
+        </div>`;
     } else {
       const sc = b.script || {};
       body = `<p class="bp-hint">Whisper found no usable speech${sc.language ? ` — detected ${escapeHtml(sc.language)}` : ""}${sc.duration ? `, ${Math.round(sc.duration)}s of audio` : ""}.
