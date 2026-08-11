@@ -1257,3 +1257,76 @@
     .pane-head, .pane-body, .composer { padding-left: 16px; padding-right: 16px; }
   }
   @media (prefers-reduced-motion: reduce) { .side { transition: none; } }
+
+  /* ---------------------------------------------------------------------
+     FRONT DOOR (index.html) — pick a side.
+     Two apps, two logins, two stored sessions. The cards reuse the same
+     surface / line / radius language as .bcard so this reads as the same
+     product, not a marketing page bolted on the front.
+     --------------------------------------------------------------------- */
+  .pick {
+    min-height: 100svh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 0;
+    padding: 40px 24px; text-align: center;
+  }
+  .pick .wordmark { font-size: 32px; margin-bottom: 14px; gap: 12px; }
+  .pick .mark { width: 34px; height: 34px; }
+  .pick .tagline { margin: 0 0 40px; }
+
+  .pick-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px; width: 100%; max-width: 720px;
+  }
+  .pick-card {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+    padding: 22px 22px 18px; text-align: left;
+    background: var(--surface); border: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);       /* beat the global `a` underline */
+    border-radius: 12px; color: var(--text); text-decoration: none;
+    transition: border-color .18s var(--ease), transform .18s var(--ease), background .18s var(--ease);
+  }
+  .pick-card:hover {
+    border-color: var(--line-2); background: var(--surface-2); transform: translateY(-2px);
+  }
+  .pick-card.known { border-color: var(--line-2); }
+  .pick-kind {
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-3);
+  }
+  .pick-name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .pick-what {
+    color: var(--text-2); font-size: 13px; line-height: 1.55; margin: 6px 0 0;
+    flex: 1 1 auto;
+  }
+  .pick-who {
+    font-family: var(--mono); font-size: 11.5px; color: var(--good);
+    margin-top: 12px; overflow: hidden; text-overflow: ellipsis;
+    max-width: 100%; white-space: nowrap;
+  }
+  .pick-who::before { content: "● "; }
+  .pick-who:empty { display: none; }
+  .pick-go {
+    margin-top: 14px; font-size: 13.5px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .pick-go i { font-style: normal; transition: transform .18s var(--ease); }
+  .pick-card:hover .pick-go i { transform: translateX(3px); }
+
+  .pick-foot { margin: 36px 0 0; color: var(--text-3); font-size: 12.5px; }
+  .pick-foot a { color: var(--text-3); border-bottom-color: var(--line); }
+  .pick-foot a:hover { color: var(--text-2); }
+
+  @media (max-width: 620px) {
+    .pick-grid { grid-template-columns: 1fr; }
+    .pick .wordmark { font-size: 27px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pick-card, .pick-go i { transition: none; }
+    .pick-card:hover { transform: none; }
+  }
+
+  /* Landed on the wrong door: each gate points at the other one rather than
+     leaving you to guess the URL. */
+  .gate-other { color: var(--text-3); font-size: 12.5px; margin: 12px 0 0; }
+  .gate-other a { color: var(--text-2); border-bottom-color: var(--line); }
+  .gate-other a:hover { color: var(--text); border-bottom-color: var(--line-2); }

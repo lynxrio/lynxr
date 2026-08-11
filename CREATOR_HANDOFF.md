@@ -117,6 +117,27 @@ from library entries.
 **Deleting a brand takes its scripts but not the videos** — those were the
 creator's before any brand existed and outlive it.
 
+## URLs — three pages now (owner's ask, 2026-08-11)
+
+| URL | What |
+|---|---|
+| `lynxr.io/` | **Front door.** Two cards: Agency or Creators. `index.html` + `choose.js`. |
+| `lynxr.io/agency.html` | The agency app — was `index.html`, moved. |
+| `lynxr.io/creator.html` | The creator app. |
+
+**The agency app moved off the root**, so any bookmark pointing at `lynxr.io/`
+now lands on the chooser rather than the dashboard — one extra click for you and
+your cofounder. Re-bookmark `lynxr.io/agency.html` if that annoys.
+
+`choose.js` reads the two stored sessions (`lynxr_sb_session`,
+`lynxr_creator_session`) and labels whichever card you are already signed into.
+It sends nothing — the CSP on that page allows no connections at all — and
+writes nothing. A stored session is a hint, not proof you are still
+authenticated; it may have expired.
+
+Each gate also links to the other, so landing on the wrong door is not a dead
+end.
+
 ## Sending a link: pick the companies (owner's ask, 2026-08-11)
 
 The composer carries a "Write it for" chip row. The brand you are standing in is
