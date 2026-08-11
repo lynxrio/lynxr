@@ -56,9 +56,7 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
     // Once sign-in succeeded, the credentials were fine — any later failure is
     // the database load, so don't blame the password.
     err.textContent = signedIn
-      ? (m.includes("videos")
-          ? "Signed in, but the database is empty — run pipeline/export_supabase.py."
-          : "Signed in, but couldn't load the database — check your connection.")
+      ? await loadFailureReason(m)
       : (/Invalid login|invalid_grant|Sign-in failed/i.test(m)
           ? "Wrong email or password."
           : "Could not sign in — check your connection.");
@@ -67,6 +65,25 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
     submitBtn.disabled = false;
   }
 });
+
+/** Why the database wouldn't load for an account that just signed in fine.
+    Since agency tables went staff-only, the commonest cause is a creator
+    account reaching the wrong app: RLS filters every row, so the read comes
+    back empty and looks identical to "the pipeline never ran". Ask the
+    database which it is rather than guessing — is_staff() is the same check
+    the policies use, and it costs one request on the failure path only. */
+async function loadFailureReason(m) {
+  if (m.includes("videos")) {
+    try {
+      const staff = await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" });
+      if (staff === false) {
+        return "That's a creator account — it has no agency access. Sign in at /creator.html instead.";
+      }
+    } catch { /* pre-staff-gate database, or offline: fall through */ }
+    return "Signed in, but the database is empty — run pipeline/export_supabase.py.";
+  }
+  return "Signed in, but couldn't load the database — check your connection.";
+}
 
 // Returning session: refresh the token and go straight in, no retyping.
 // Invoked at the very end of this file — it reads SB_SESSION_KEY and the other
@@ -89,9 +106,10 @@ async function resumeSession() {
     try { await syncClients(); } catch { SYNC_OK = false; }
     unlock(rows);
     updateSyncBadge();
-  } catch {
+  } catch (ex) {
     document.getElementById("err").textContent =
-      "Couldn't load the database — reload to retry.";
+      await loadFailureReason((ex && ex.message) || "")
+        .catch(() => "Couldn't load the database — reload to retry.");
   }
 }
 

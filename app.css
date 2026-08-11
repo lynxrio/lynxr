@@ -135,6 +135,15 @@
   .btn:disabled { opacity: .45; cursor: default; }
   .err { color: var(--text-2); font-size: 13px; margin-top: 14px; min-height: 18px; }
 
+  /* Sign in ⇄ create an account (creator app). A button, not a link, because
+     it changes this form rather than going anywhere. */
+  .gate-switch { color: var(--text-3); font-size: 13px; margin: 18px 0 0; }
+  .linkish {
+    background: none; border: 0; padding: 0; color: var(--text);
+    font-size: inherit; border-bottom: 1px solid var(--line-2);
+  }
+  .linkish:hover { border-bottom-color: var(--text-2); }
+
   /* ---------- Shell ---------- */
   #app { display: none; }
 
@@ -550,8 +559,52 @@
   @media (max-width: 560px) {
     .bp-beat { grid-template-columns: 42px 1fr; }
     .bp-t { grid-column: 1 / -1; }
+    /* Continuation rows (DO, SHOW) carry an empty span that skips the time
+       column. With the time column gone that spacer pushes the label into
+       column 2 and the value onto the next line — inside the 42px label
+       column, so "Straight to camera" wrapped one word per line. Drop the
+       spacer here and each label/value pair sits in the two columns it wants. */
+    .bp-beat > span:empty { display: none; }
   }
   .bp-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+  /* ---------- Creator library ----------
+     Saved sources inside a company folder, shown in the same collapsible row
+     as a script so the library and the scripts below it read as one system.
+     Search appears only once the shelf is big enough to need it — filtering
+     three items is noise. */
+  .lib-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+  .lib-tools input[type="search"] { flex: 1 1 220px; }
+  .lib-shown { color: var(--text-3); font-size: 12px; white-space: nowrap; }
+  .lib-plat { font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; }
+  .lib-item > summary .chip { flex: none; }
+  .lib-cap {
+    color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .lib-item .bp-heading { margin-top: 16px; }
+  .lib-item .bp-actions .btn { padding: 9px 16px; font-size: 14px; }
+  .lib-made { list-style: none; margin: 0 0 4px; padding: 0; }
+  .lib-made li {
+    display: flex; gap: 10px; align-items: baseline;
+    padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px;
+  }
+  .lib-made li:first-child { border-top: 0; }
+  .lib-made-state { color: var(--text-3); font-size: 11.5px; }
+  /* A library row carries two chips, a date and a link, which on a phone leaves
+     the title — the only part worth reading — squeezed to "Why…". Give it the
+     whole first line and let the rest wrap underneath, indented past the
+     caret. Scoped to .lib-item so the agency app's blueprint rows, which share
+     .bp-item and carry one chip, keep their single-line layout. */
+  @media (max-width: 620px) {
+    .lib-item > summary, .pane .bp-item > summary { flex-wrap: wrap; row-gap: 8px; }
+    .lib-item > summary .bp-name, .pane .bp-item > summary .bp-name {
+      flex: 1 1 calc(100% - 26px); white-space: normal; overflow: visible;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .lib-item > summary .lib-plat, .pane .bp-item > summary .chip:first-of-type { margin-left: 20px; }
+    .lib-item > summary .bp-when, .pane .bp-item > summary .bp-when { margin-left: auto; }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .bp-dot, .bp-flash, .bp-body { animation: none; }
@@ -1061,3 +1114,146 @@
      (owner benchmark: 3M / 10 creators / month, scaled to this roster). */
   .line-goal { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 2 7; opacity: .6; }
 
+
+  /* ---------------------------------------------------------------------
+     CREATOR SHELL — a sidebar app, not a tabbed page.
+     Brands sit in the rail like conversations; picking one fills the pane
+     with its scripts and puts a composer at the bottom to send the next
+     link. "Library" is the one place every original video lives, once,
+     however many brands you have scripted it for. Creator page only —
+     index.html never matches these classes.
+     --------------------------------------------------------------------- */
+  .shell { display: flex; min-height: 100svh; align-items: stretch; overflow-x: clip; }
+
+  .side {
+    flex: 0 0 252px; display: flex; flex-direction: column; gap: 4px;
+    padding: 14px 12px; border-right: 1px solid var(--line);
+    background: var(--surface); position: sticky; top: 0; height: 100svh;
+  }
+  .side-brand { display: flex; align-items: center; gap: 9px; padding: 6px 8px 14px; }
+  .side-brand .wordmark { font-size: 18px; }
+
+  .side-new {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 9px 10px; margin-bottom: 6px; text-align: left;
+    background: var(--text); color: var(--bg); border: 1px solid var(--text);
+    border-radius: 8px; font-weight: 600; font-size: 13.5px;
+  }
+  .side-new:hover { opacity: .85; }
+
+  .side-link, .side-item {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 8px 10px; text-align: left; border-radius: 8px;
+    background: none; border: 1px solid transparent;
+    color: var(--text-2); font-size: 13.5px; min-width: 0;
+  }
+  .side-link:hover, .side-item:hover { background: var(--hover); color: var(--text); }
+  .side-link.on, .side-item.on { background: var(--surface-2); color: var(--text); border-color: var(--line); }
+  .side-ico { flex: none; width: 15px; height: 15px; opacity: .8; }
+  .side-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-count { flex: none; font-size: 11px; color: var(--text-3); font-family: var(--mono); }
+  .side-item.on .side-count { color: var(--text-2); }
+
+  .side-head {
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text-3); padding: 16px 10px 6px;
+  }
+  .side-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
+  .side-empty { color: var(--text-3); font-size: 12.5px; padding: 4px 10px; line-height: 1.5; }
+  .side-foot { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px; }
+  .side-who { color: var(--text-3); font-size: 11.5px; padding: 0 10px 8px; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Main pane: a column that scrolls, with the composer pinned at its foot. */
+  /* max-width matters as much as min-width here: in the mobile column layout
+     the pane is a flex item whose cross size stretches, and without a cap it
+     grew to its widest unwrappable child (a nowrap title plus two chips plus
+     the Details button) and pushed the whole page sideways. */
+  .pane { flex: 1 1 auto; min-width: 0; max-width: 100%; display: flex; flex-direction: column; }
+  .pane-head {
+    position: sticky; top: 0; z-index: 5; padding: 18px 28px 14px;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+  }
+  /* The pane title reuses the agency page-head treatment rather than
+     inventing one, and section headings inside the body keep the theme's
+     uppercase + dash marker. */
+  .pane-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+  .pane-title .bcard-title { min-width: 0; }
+  .pane-title .bcard-title { font-size: 19px; }
+  .pane-sub { color: var(--text-3); font-size: 12.5px; margin: 5px 0 0; }
+  .pane-body { flex: 1 1 auto; padding: 20px 28px 8px; max-width: 900px; width: 100%; }
+  .pane-scroll { flex: 1 1 auto; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* The composer — paste a link, get a script for the brand you're inside. */
+  .composer { position: sticky; bottom: 0; padding: 12px 28px 20px; max-width: 900px; width: 100%; }
+  .composer::before {
+    content: ""; position: absolute; inset: -28px 0 0; pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--bg) 40%);
+  }
+  .composer-row {
+    position: relative; display: flex; gap: 8px; align-items: center;
+    background: var(--surface); border: 1px solid var(--line-2);
+    border-radius: 14px; padding: 7px 7px 7px 15px;
+  }
+  .composer-row:focus-within { border-color: var(--text-3); }
+  .composer-row input {
+    flex: 1 1 auto; background: none; border: 0; color: var(--text);
+    font-size: 14.5px; padding: 8px 0; min-width: 0;
+  }
+  .composer-row input:focus { outline: none; }
+  /* .bp-plat is absolutely positioned inside the old paste field; in the
+     composer it is a flex item sitting just left of the send button, so it
+     must not be taken out of flow or it lands on top of it. */
+  .composer-row .bp-plat { position: static; transform: none; flex: none; }
+
+  .composer-send {
+    flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+    background: var(--text); color: var(--bg); border: 0;
+  }
+  .composer-send:disabled { opacity: .3; }
+  .composer-send svg { width: 17px; height: 17px; }
+  /* Which companies this link is for. The brand you are standing in is
+     pre-selected; click others to fan the same link out to them in one send. */
+  .composer-for {
+    position: relative; display: flex; flex-wrap: wrap; gap: 6px;
+    align-items: center; margin: 0 2px 8px;
+  }
+  .composer-for .lbl { margin-right: 2px; }
+  .for-chip {
+    font-size: 12px; color: var(--text-3); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .for-chip:hover { color: var(--text-2); border-color: var(--line-2); }
+  .for-chip.on { color: var(--text); border-color: var(--text-3); background: var(--surface-2); }
+  .for-chip .tick { opacity: 0; font-size: 10px; margin-left: -2px; transition: opacity .12s; }
+  .for-chip.on .tick { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .for-chip .tick { transition: none; } }
+
+  .composer-note { color: var(--text-3); font-size: 11.5px; margin: 8px 2px 0; position: relative; }
+
+  /* The brand editor is revealed by the header's Details button, so when it is
+     collapsed it must vanish entirely — the shared .client-editor rule only
+     hides .ce-body, which left an empty bordered card above the scripts.
+     Scoped to the id so the agency editor keeps its always-visible header. */
+  #brand-editor.collapsed { display: none; }
+
+  .side-toggle { display: none; }
+  @media (max-width: 820px) {
+    .shell { flex-direction: column; }
+    .side {
+      position: fixed; z-index: 40; left: 0; top: 0; width: 264px; flex-basis: auto;
+      transform: translateX(-100%); transition: transform .2s var(--ease);
+    }
+    body.side-open .side { transform: none; }
+    body.side-open::after {
+      content: ""; position: fixed; inset: 0; z-index: 30; background: #0009;
+    }
+    .side-toggle {
+      display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px;
+      padding: 7px 11px; font-size: 13px;
+    }
+    .pane-head, .pane-body, .composer { padding-left: 16px; padding-right: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .side { transition: none; } }

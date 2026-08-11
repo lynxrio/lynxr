@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Same strict CSP as the agency app: no inline script or style, nothing
+     off-origin, native form posts blocked. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lynxr for creators</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="favicon.png">
+<link rel="shortcut icon" href="favicon.ico">
+<link rel="stylesheet" href="app.css?v=20260811i">
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-card">
+    <h1 class="wordmark"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></h1>
+    <p class="tagline" id="gate-tagline">for creators</p>
+    <form class="field login" id="gate-form">
+      <input type="email" id="email" placeholder="Email" autofocus
+             autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
+      <div class="pw-wrap">
+        <input type="password" id="pw" placeholder="Password"
+               autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <button type="button" class="toggle" id="toggle-pw" aria-pressed="false" aria-label="Show password" title="Show password">
+          <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+          <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.6 6.1A9.9 9.9 0 0 1 12 6c6.4 0 10 7 10 7a15.4 15.4 0 0 1-3.1 3.9M6.6 6.6A15.4 15.4 0 0 0 2 13s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/>
+            <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><line x1="3" y1="3" x2="21" y2="21"/>
+          </svg>
+        </button>
+      </div>
+      <div class="pw-wrap" id="pw2-wrap" hidden>
+        <input type="password" id="pw2" placeholder="Confirm password"
+               autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false">
+      </div>
+      <button type="submit" class="btn" id="gate-go">Enter</button>
+    </form>
+    <div class="err" id="err" role="status" aria-live="polite"></div>
+    <p class="gate-switch">
+      <span id="switch-lede">Don't have an account?</span>
+      <button type="button" class="linkish" id="switch-mode">Create one</button>
+    </p>
+  </div>
+</div>
+
+<div id="app">
+  <div class="shell">
+
+    <!-- The rail. Brands sit here like conversations; Library is the one place
+         every original video lives, once, across every brand. -->
+    <nav class="side" id="side" aria-label="Brands">
+      <div class="side-brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+        <span class="wordmark"><span>lynxr<i>.</i></span></span>
+      </div>
+
+      <button type="button" class="side-new" id="side-new">
+        <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        New brand
+      </button>
+
+      <button type="button" class="side-link" id="nav-library">
+        <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h6v14H4zM14 5h6v14h-6z"/></svg>
+        <span class="side-label">Library</span>
+        <span class="side-count" id="nav-library-n"></span>
+      </button>
+
+      <div class="side-head">Brands</div>
+      <div class="side-list" id="side-list"></div>
+
+      <div class="side-foot">
+        <div class="side-who"><span id="sync-state" class="sync-state"></span> <span id="side-who"></span></div>
+        <button type="button" class="side-link" id="nav-you">
+          <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>
+          <span class="side-label">You &amp; settings</span>
+        </button>
+        <button type="button" class="side-link" id="signout">
+          <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4M16 16l4-4-4-4M20 12H10"/></svg>
+          <span class="side-label">Sign out</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- The pane. Header + scrolling body, with the composer pinned at its
+         foot when you are inside a brand. -->
+    <main class="pane">
+      <div class="pane-scroll" id="pane-scroll">
+        <div class="pane-head" id="pane-head"></div>
+        <div class="pane-body" id="pane-body"></div>
+      </div>
+      <div class="composer" id="composer" hidden>
+        <div class="composer-for" id="composer-for"></div>
+        <form class="composer-row" id="composer-form">
+          <input type="url" id="composer-url" placeholder="Paste a TikTok / Instagram / YouTube link"
+            autocomplete="off" spellcheck="false" aria-label="Paste a video link">
+          <span class="bp-plat" id="composer-plat"></span>
+          <button type="submit" class="composer-send" id="composer-send" aria-label="Get the script">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </form>
+        <p class="composer-note" id="composer-note"></p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="creator.js?v=20260811i" defer></script>
+</body>
+</html>
