@@ -338,21 +338,27 @@
   .ce-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
   .ce-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .ce-wide { grid-column: 1 / -1; }
-  .ce-field input, .ce-field select, .ce-field textarea {
+  .ce-field input, .ce-field select {
     background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
     color: var(--text); font: inherit; font-size: 14px; padding: 9px 11px; min-width: 0;
   }
-  .ce-field input:focus, .ce-field select:focus, .ce-field textarea:focus {
-    outline: none; border-color: var(--line-2); background: var(--surface-2);
-  }
+  .ce-field input:focus, .ce-field select:focus { outline: none; border-color: var(--line-2); }
   /* Grows with its text instead of scrolling it sideways out of sight — a long
      answer belongs on screen where it can be re-read. JS sets the height, so
      resize is off (a hand-dragged height fights it) and overflow is hidden
      (a scrollbar's slack inside scrollHeight makes the box creep taller on
      every keystroke). min-height clears the 58px the generic textarea rule
-     sets, so an empty field is exactly as tall as the inputs beside it. */
+     sets, so an empty field is exactly as tall as the inputs beside it.
+     Deliberately keyed to .grow rather than to .ce-field textarea: the agency
+     app's client editor has four plain textareas in .ce-field, and this is the
+     creator side's rule — it must not restyle them. */
   .ce-field textarea.grow {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); font: inherit; font-size: 14px; padding: 9px 11px; min-width: 0;
     resize: none; overflow: hidden; min-height: 0; line-height: 1.5; display: block;
+  }
+  .ce-field textarea.grow:focus {
+    outline: none; border-color: var(--line-2); background: var(--surface-2);
   }
 
   /* Brief tray (the cart) */
@@ -1283,6 +1289,15 @@
     display: flex; flex-direction: column; justify-content: center; gap: 18px;
   }
   .newscript-greet { text-align: center; }
+  /* First run only: the two fields a script cannot be written without, sitting
+     directly above the composer so signing up and sending a link is one screen
+     rather than a form you are sent away to fill in. */
+  .composer-first {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 16px 4px;
+  }
+  .composer-first .ce-grid { margin-bottom: 10px; }
+  .composer-first .bp-hint { margin: 0 0 12px; }
   .newscript-mark { width: 28px; height: 28px; color: var(--text-3); margin-bottom: 14px; }
   .newscript-h { font-size: 26px; line-height: 1.2; margin: 0; letter-spacing: -.01em; }
   .newscript-sub { margin: 8px 0 0; color: var(--text-2); font-size: 14px; line-height: 1.55; }

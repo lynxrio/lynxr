@@ -38,6 +38,35 @@ function safeUrl(u) {
     return (p.protocol === "http:" || p.protocol === "https:") ? p.href : "";
   } catch { return ""; }
 }
+/** Fit a `.grow` textarea to its text, the way a message composer does.
+ *
+ *  Height is reset to "auto" before measuring, because scrollHeight can never
+ *  report less than the height already set — without the reset the box grows
+ *  as you type and then never shrinks back when you delete. A hidden element
+ *  measures 0, so leave it alone and re-fit when it is shown.
+ */
+function autoGrow(el) {
+  if (!el || !el.offsetParent) return;
+  el.style.height = "auto";
+  // An EMPTY field measures its PLACEHOLDER, not its value — and a placeholder
+  // wraps to three lines in a narrow pane, so an untouched field opened as a
+  // big blank box among one-line inputs. Empty means one row: clearing the
+  // inline height hands it back to rows="1".
+  if (!el.value) { el.style.height = ""; return; }
+  // scrollHeight covers content + padding but NOT the border, while
+  // box-sizing: border-box makes the height we set include it. Assigning
+  // scrollHeight straight across therefore comes up two pixels short and
+  // shaves the bottom off the last line — invisible until a descender lands.
+  el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+}
+/** Fit now, and on every edit. Blur too: a trim on blur can drop a line. */
+function wireGrow(el) {
+  if (!el) return;
+  autoGrow(el);
+  el.addEventListener("input", () => autoGrow(el));
+  el.addEventListener("blur", () => autoGrow(el));
+}
+
 /** Keep a click on a link inside a <summary> from also toggling the card.
  *  The browser's disclosure toggle is the summary's activation behaviour, so
  *  stopping the event at the anchor is what prevents it — the anchor's own
@@ -399,16 +428,14 @@ function renderNewScript(head, body) {
   document.getElementById("side-open").addEventListener("click", () =>
     document.body.classList.toggle("side-open"));
 
-  if (!ME.brands.length) {
-    body.innerHTML = `<div class="section"><div class="empty">
-      <p><strong>Add a company first.</strong></p>
-      <p>A script is always written <em>for</em> something, so there has to be one company
-        before you can send a link.</p>
-      <div class="bp-actions"><button type="button" class="btn" id="new-add-brand">Add a company</button></div>
-    </div></div>`;
-    document.getElementById("new-add-brand").addEventListener("click", addBrand);
-    return;
-  }
+  // A brand-new account used to hit a wall here — "Add a company first", with
+  // no composer on the page at all. Someone who signs up, pastes the link they
+  // came to paste and is told to go and do something else first mostly just
+  // leaves: one live account got exactly this far and stopped, with zero
+  // companies and nothing in its library. A script does still have to be
+  // written FOR something, so the composer now asks for that inline and makes
+  // the company as part of the send, instead of sending you away to a form.
+  const firstRun = !ME.brands.length;
 
   // Centred greeting over the app's EXISTING composer component. The markup of
   // the composer is deliberately untouched — the `composer-inline` /
@@ -420,8 +447,20 @@ function renderNewScript(head, body) {
       <div class="newscript-greet">
         <svg class="newscript-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
         <h1 class="newscript-h">What are we making?</h1>
-        <p class="newscript-sub">Paste a TikTok, Instagram or YouTube video worth remaking.</p>
+        <p class="newscript-sub">${firstRun
+          ? "Tell us who it's for, paste a video worth remaking, and the script comes back written for them."
+          : "Paste a TikTok, Instagram or YouTube video worth remaking."}</p>
       </div>
+      ${firstRun ? `<div class="composer-first">
+        <div class="ce-grid">
+          <label class="ce-field"><span class="lbl">Who is it for?</span>
+            <input type="text" id="first-name" placeholder="e.g. Medceptor" autocomplete="off"></label>
+          <label class="ce-field ce-wide"><span class="lbl">What is it?</span>
+            <textarea id="first-desc" class="grow" rows="1"
+              placeholder="e.g. NCLEX practice questions for nursing students"></textarea></label>
+        </div>
+        <p class="bp-hint">Both go to the model with every link you send. You can change them later.</p>
+      </div>` : ""}
       <div class="composer composer-inline" id="composer">
         <div class="composer-for" id="composer-for"></div>
         <form class="composer-row" id="composer-form">
@@ -439,10 +478,13 @@ function renderNewScript(head, body) {
 
   renderComposeFor();
   wireComposer();
+  wireGrow(document.getElementById("first-desc"));
   // Focus on desktop only — on a phone the keyboard would spring up and cover
-  // the company picker before you've chosen who the script is for.
+  // the company picker before you've chosen who the script is for. On a first
+  // run the company name is the first thing asked for, so start there instead.
   const url = document.getElementById("composer-url");
-  if (url && window.matchMedia("(min-width: 761px)").matches) url.focus();
+  const first = document.getElementById("first-name");
+  if (window.matchMedia("(min-width: 761px)").matches) (first || url)?.focus();
 }
 
 function renderSide() {
@@ -563,30 +605,9 @@ function renderBrand(head, body, b) {
   const toggle = document.getElementById("brand-details");
   if (!b.name) editor.classList.remove("collapsed");
 
-  // "What is it?" wraps instead of scrolling sideways: it is a textarea that
-  // grows with the text, the way a message composer does.
-  //
-  // Height is reset to "auto" before measuring, because scrollHeight can never
-  // report less than the height already set — without the reset the box grows
-  // as you type and then never shrinks back when you delete. And a collapsed
-  // editor is display:none, where every measurement is 0, so skip it then and
-  // re-fit when it opens.
-  const fitDesc = () => {
-    const el = editor.querySelector(".b-desc");
-    if (!el || !el.offsetParent) return;
-    el.style.height = "auto";
-    // An EMPTY field measures its placeholder, not its value — and the
-    // placeholder wraps to three lines in a narrow pane, so a brand-new brand
-    // opened with a big blank box sitting among one-line inputs. Empty means
-    // one row: clearing the inline height hands it back to rows="1".
-    if (!el.value) { el.style.height = ""; return; }
-    // scrollHeight covers content + padding but NOT the border, while
-    // box-sizing: border-box makes the height we set include it. Assigning
-    // scrollHeight straight across therefore comes up short by the two border
-    // pixels and shaves the bottom off the last line — invisible until a
-    // descender lands there.
-    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
-  };
+  // "What is it?" wraps instead of scrolling sideways. A collapsed editor is
+  // display:none, where every measurement is 0, so re-fit when it opens.
+  const fitDesc = () => autoGrow(editor.querySelector(".b-desc"));
 
   // A brand is set up once, and the toggle above the empty fields used to read
   // "Done" — which names a state, not an action, so it reads as a label on
@@ -651,10 +672,7 @@ function renderBrand(head, body, b) {
   };
   bind(".b-name", "name"); bind(".b-site", "site"); bind(".b-desc", "description");
   bind(".b-obj", "objective"); bind(".b-niche", "niche");
-  // Also on blur: bind() rewrites the value when it trims, which can drop a line.
-  const desc = editor.querySelector(".b-desc");
-  desc.addEventListener("input", fitDesc);
-  desc.addEventListener("blur", fitDesc);
+  wireGrow(editor.querySelector(".b-desc"));
 
   // Same plus as the Library's, and it does one thing more: standing in a
   // company is the answer to "who is this for", so it arrives at the composer
@@ -1119,6 +1137,9 @@ function composeTargets() {
 function renderComposeFor() {
   const host = document.getElementById("composer-for");
   if (!host) return;
+  // Nothing to pick between on a first run — the fields above the composer are
+  // the answer, and a bare "Write it for" label over no chips reads as broken.
+  if (!ME.brands.length) { host.innerHTML = ""; return; }
   const on = new Set(composeTargets());
   host.innerHTML = `<span class="lbl">Write it for</span>` + ME.brands.map((b) => `
     <button type="button" class="for-chip${on.has(b.id) ? " on" : ""}" data-bid="${escapeHtml(b.id)}"
@@ -1158,6 +1179,24 @@ function wireComposer() {
     if (!raw) { say("Paste a video link first.", "bad"); input.focus(); return; }
     const url = normalizeUrl(raw);
     if (!url) { say("That doesn't look like a video link.", "bad"); input.select(); return; }
+
+    // First run: the company is made here, from the two fields above the
+    // composer, so the whole path from a fresh account to a queued script is
+    // one screen and one send.
+    if (!ME.brands.length) {
+      const nameEl = document.getElementById("first-name");
+      const descEl = document.getElementById("first-desc");
+      const name = (nameEl?.value || "").trim();
+      if (!name) {
+        say("Who's the script for? Add the company name.", "bad");
+        nameEl?.focus();
+        return;
+      }
+      const made = { id: newId(), name, site: "", description: (descEl?.value || "").trim(),
+                     objective: "", niche: "", code: trackCode(name) };
+      ME.brands.push(made);
+      COMPOSE_FOR = new Set([made.id]);
+    }
 
     const targets = composeTargets().map(brandById).filter(Boolean);
     if (!targets.length) {
@@ -1489,7 +1528,10 @@ function adaptationHtml(a, liveName) {
       <ol class="bp-beats">${(ad.beats || []).map((b) => beatRow(b, carry, silent)).join("")}</ol>
       ${ad.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> ${escapeHtml(ad.cta)}</p>` : ""}
       ${ad.caption ? `<p class="bp-hint"><strong>Caption:</strong> ${escapeHtml(ad.caption)}</p>` : ""}
-      ${a.format?.why_it_works ? `<p class="bp-hint">Why this format works: ${escapeHtml(a.format.why_it_works)}</p>` : ""}
+      ${/* format.why_it_works is still extracted and stored — it is useful to the
+            model and to step 2's clustering — it just isn't shown. It explains the
+            format to someone who already has the script, which is analysis nobody
+            asked for at the bottom of the thing they came to film. */""}
       <div class="bp-actions">
         <button type="button" class="ghost ad-copy" data-adid="${id}">Copy script</button>
       </div>

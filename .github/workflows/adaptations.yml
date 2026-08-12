@@ -13,10 +13,12 @@ name: creator scripts
 
 on:
   schedule:
-    # Every 15 minutes. GitHub's floor is 5, but scheduled runs on public repos
-    # are best-effort and get queued under load, so a tighter cron buys less
-    # than it looks like it does — and each run already skips instantly when
-    # nothing is queued.
+    # Every 15 minutes — but MEASURED, this fires roughly every 3 hours: runs
+    # #4-#7 on 2026-08-12 landed at 05:50, 09:46, 12:34 and 15:44. Scheduled
+    # runs on public repos are best-effort and get queued under load, and no
+    # cron expression changes that. The job below therefore polls for ~50
+    # minutes per firing instead of processing the queue once and exiting,
+    # which is what actually closes the gap.
     - cron: "*/15 * * * *"
   workflow_dispatch:        # a Run workflow button, for when you don't want to wait
 
@@ -29,7 +31,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 30      # a stuck download must not burn a whole job slot
+    timeout-minutes: 55      # the polling loop below runs for 50 of them
 
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +71,17 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           WHISPER_MODEL: small
-        run: python pipeline/process_adaptations.py
+        # Poll for ~50 minutes rather than draining the queue once and exiting.
+        # One firing then covers 50 minutes at ~1-minute latency, so a creator
+        # gets their script without anyone's laptop being awake. A pass that
+        # throws must not kill the loop — the next one retries in a minute, and
+        # the worker itself is resume-safe (it claims work before spending).
+        run: |
+          DEADLINE=$(( SECONDS + 50*60 ))
+          while (( SECONDS < DEADLINE )); do
+            python pipeline/process_adaptations.py || echo "pass failed — retrying next minute"
+            if (( SECONDS < DEADLINE )); then sleep 60; fi
+          done
 
       - name: Keep the log from a failed run
         if: failure()
