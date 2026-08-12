@@ -39,6 +39,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import ssl
 import subprocess
 import sys
@@ -242,12 +243,51 @@ def note_usage(model, msg):
     d["calls"] += 1
 
 
+# USD per MILLION tokens, input/output. Anthropic list prices, 2026-08-12.
+# Update when prices change — a stale number here is worse than none, because it
+# reads as measured when it isn't.
+PRICES = {
+    "claude-opus-5":  (5.00, 25.00),
+    "claude-haiku-4-5": (1.00, 5.00),
+}
+
+
+def price_of(model):
+    """Rates for a model id, tolerating a dated suffix (…-20251001)."""
+    for name, rates in PRICES.items():
+        if model.startswith(name):
+            return rates
+    return None
+
+
 def log_usage(label):
+    """Tokens AND dollars per script.
+
+    Cost per script is the number that decides whether opening the doors is
+    sane, and it cannot be worked out from the outside: four calls, three of
+    them Opus, one carrying six images. Printing the dollar figure on every run
+    means the answer is in the log the first time a real script is written,
+    instead of being reconstructed from token counts afterwards.
+    """
     if not USAGE:
         return
+    total = 0.0
+    priced = True
     for model, d in USAGE.items():
-        log.info("  tokens %s: %d in / %d out over %d call%s  [%s]",
-                 model, d["in"], d["out"], d["calls"], "" if d["calls"] == 1 else "s", label)
+        rates = price_of(model)
+        if rates:
+            cost = d["in"] / 1e6 * rates[0] + d["out"] / 1e6 * rates[1]
+            total += cost
+            money = f"  ${cost:.4f}"
+        else:
+            priced = False
+            money = "  (no price on file)"
+        log.info("  tokens %s: %d in / %d out over %d call%s%s  [%s]",
+                 model, d["in"], d["out"], d["calls"],
+                 "" if d["calls"] == 1 else "s", money, label)
+    if len(USAGE) > 1 or not priced:
+        log.info("  TOTAL %s: $%.4f%s", label, total,
+                 "" if priced else " (+ unpriced models above)")
 
 
 def first_text(msg):
@@ -266,6 +306,32 @@ def first_text(msg):
     raise RuntimeError("no text block in the model response")
 
 
+_LITERAL_ESCAPE = re.compile(r"\\u([0-9a-fA-F]{4})")
+
+
+def undouble(obj):
+    r"""Repair a \uXXXX that survived JSON decoding as six literal characters.
+
+    The model sometimes DOUBLE-escapes a non-ASCII character: it writes
+    "\\u2192" where it means "→", and json.loads faithfully returns the literal
+    text → rather than an arrow. Nothing downstream decodes it again, so it
+    reaches the creator verbatim — creator.js renders format.name as a chip, and
+    the first real script shipped "Reframe hook → personal anecdote spiral
+    → …". One of the first two live scripts was affected.
+
+    Repaired here, at the point every model call funnels through, rather than at
+    the render site: the stored row is then correct for everything that reads it
+    later (the shared source library, the agency app, any export).
+    """
+    if isinstance(obj, str):
+        return _LITERAL_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), obj)
+    if isinstance(obj, list):
+        return [undouble(v) for v in obj]
+    if isinstance(obj, dict):
+        return {k: undouble(v) for k, v in obj.items()}
+    return obj
+
+
 def structured(client, system, schema, content, max_tokens=3000):
     msg = client.messages.create(
         model=MODEL, max_tokens=max_tokens,
@@ -273,7 +339,7 @@ def structured(client, system, schema, content, max_tokens=3000):
         output_config={"format": {"type": "json_schema", "schema": schema}},
         messages=[{"role": "user", "content": content}])
     note_usage(MODEL, msg)
-    return json.loads(first_text(msg))
+    return undouble(json.loads(first_text(msg)))
 
 
 def source_digest(a):
@@ -536,7 +602,7 @@ def process_one(a, creator, aclient):
                 output_config={"format": {"type": "json_schema", "schema": schema}},
                 messages=[{"role": "user", "content": content}])
             note_usage(TAG_MODEL, msg)
-            src["tags"] = json.loads(first_text(msg))
+            src["tags"] = undouble(json.loads(first_text(msg)))
         except Exception as e:  # noqa: BLE001
             notes.append(f"tags failed: {api_reason(e)}")
 
@@ -583,6 +649,28 @@ def process_one(a, creator, aclient):
         a.pop("note", None)
 
 
+def graft_adaptations(key, cid, touched):
+    """Write only the adaptations this pass touched onto the creator's CURRENT row.
+
+    Writing `data` wholesale would roll back everything the creator did while
+    this ran — a transcript plus two model calls can take minutes, and saving
+    library entries during it is exactly what the app is for. So re-pull now and
+    graft only what changed. Anything the creator deleted mid-run stays deleted.
+    """
+    if not touched:
+        return
+    fresh = sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}&select=data")[0]["data"]
+    pending = {a.get("id"): a for a in touched}
+    merged = []
+    for a in fresh.get("adaptations") or []:
+        merged.append(pending.pop(a.get("id"), a))
+    for gone in pending:
+        log.info("  (adaptation %s vanished during the run — dropped)", str(gone)[:8])
+    fresh["adaptations"] = merged
+    fresh["updatedAt"] = now_iso()
+    sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}", method="PATCH", body={"data": fresh})
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-ai", action="store_true",
@@ -591,6 +679,10 @@ def main():
                     help="also retry entries whose AI step failed (e.g. after a credit top-up)")
     ap.add_argument("--cooldown-hours", type=float, default=6,
                     help="min hours between retries of the same entry")
+    ap.add_argument("--max-per-creator", type=int, default=2,
+                    help="most adaptations to take from any one creator per run (0 = no cap)")
+    ap.add_argument("--lease-minutes", type=float, default=25,
+                    help="how long a claimed adaptation stays claimed before it is retryable")
     args = ap.parse_args()
 
     env = load_env(ROOT / ".env")
@@ -616,9 +708,25 @@ def main():
             return True
         return age >= args.cooldown_hours
 
+    def abandoned(a):
+        """A run killed mid-script (job timeout, crash, laptop sleep) leaves an
+        adaptation claimed forever. Treat a claim older than the lease as dead
+        so the next run picks it up instead of it silently never finishing."""
+        held = a.get("claimedAt") or ""
+        if not held:
+            return True
+        try:
+            age = (datetime.now(timezone.utc)
+                   - datetime.fromisoformat(held.replace("Z", "+00:00"))).total_seconds() / 60
+        except ValueError:
+            return True
+        return age >= args.lease_minutes
+
     def wants_work(a):
         if a.get("status") == "queued":
             return True
+        if a.get("status") == "running":
+            return abandoned(a)
         if a.get("status") == "error":
             return cooled(a)
         return (args.redo_ai and a.get("status") == "done"
@@ -635,11 +743,35 @@ def main():
     for cid in todo:
         row = sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}&select=id,data")[0]
         data = row["data"]
+
+        # FAIRNESS. The worker is serial, so draining one creator's whole queue
+        # before touching the next puts everyone else behind it — 30 pasted
+        # links is ~40 minutes, past the job's 30-minute timeout, and the other
+        # creators just watch "writing your script". Taking a couple per creator
+        # per run serves the whole cohort on every pass instead.
+        ready = [a for a in (data.get("adaptations") or []) if wants_work(a)]
+        batch = ready[:args.max_per_creator] if args.max_per_creator else ready
+        if not batch:
+            continue
+        if len(ready) > len(batch):
+            log.info("[%s] taking %d of %d queued — the rest next run",
+                     data.get("name") or cid[:8], len(batch), len(ready))
+
+        # CLAIM before spending anything. Nothing previously marked work as
+        # in-flight: status stayed "queued" for the whole 1-2 minutes of
+        # processing, so two triggers firing together (GitHub's cron and the
+        # launchd fallback) would both do the same adaptation and bill twice.
+        # This is a lease, not a transaction — PostgREST can't compare-and-swap
+        # inside a jsonb blob — but it narrows the overlap from the entire run
+        # to the few hundred ms between reading and claiming.
+        for a in batch:
+            a["status"] = "running"
+            a["claimedAt"] = now_iso()
+        graft_adaptations(key, cid, batch)
+
         changed = False
-        done_ids = []
-        for a in data.get("adaptations") or []:
-            if not wants_work(a):
-                continue
+        touched = []
+        for a in batch:
             log.info("[%s] %s -> %s", data.get("name", cid[:8]),
                      (a.get("sourceUrl") or "")[:52], a.get("brandName", "?"))
             a["attemptedAt"] = now_iso()
@@ -648,7 +780,7 @@ def main():
                 a["status"] = "done"
                 a["processedAt"] = now_iso()
                 changed = True
-                done_ids.append(a.get("id"))
+                touched.append(a)
                 brand = next((b for b in (data.get("brands") or [])
                               if b.get("id") == a.get("brandId")), {})
                 upsert_source(key, a)
@@ -663,27 +795,10 @@ def main():
                 a["status"] = "error"
                 a["note"] = str(e)[:200]
                 changed = True
-                done_ids.append(a.get("id"))
+                touched.append(a)
                 log.error("  -> FAILED: %s", e)
         if changed:
-            # Writing `data` wholesale would roll back everything the creator
-            # did while this ran — a transcript plus two model calls can take
-            # minutes, and saving library entries during it is exactly what the
-            # app is for. So re-pull now and graft only the adaptations this
-            # pass actually touched onto the current row.
-            fresh = sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}&select=data")[0]["data"]
-            processed = {a.get("id"): a for a in data.get("adaptations") or []
-                         if a.get("id") in done_ids}
-            merged = []
-            for a in fresh.get("adaptations") or []:
-                merged.append(processed.pop(a.get("id"), a))
-            # Anything the creator deleted mid-run stays deleted; the rest is new
-            # to us and keeps whatever the app most recently said about it.
-            for gone in processed:
-                log.info("  (adaptation %s vanished during the run — dropped)", str(gone)[:8])
-            fresh["adaptations"] = merged
-            fresh["updatedAt"] = now_iso()
-            sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}", method="PATCH", body={"data": fresh})
+            graft_adaptations(key, cid, touched)
     log.info("done")
 
 

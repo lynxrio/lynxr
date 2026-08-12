@@ -429,7 +429,7 @@ function addBrand() {
 function renderBrand(head, body, b) {
   const scripts = brandScripts(b);
   const ready = scripts.filter((a) => a.status === "done" && a.adaptation).length;
-  const writing = scripts.filter((a) => a.status === "queued").length;
+  const writing = scripts.filter(isWriting).length;
 
   head.innerHTML = `
     <button type="button" class="ghost side-toggle" id="side-open">☰ Brands</button>
@@ -485,16 +485,37 @@ function renderBrand(head, body, b) {
   // detached copy that save() never sends. That is why company details silently
   // failed to stick — and the `editing` guard below made it permanent, because
   // it skips the re-render (and therefore the rebind) precisely while you type.
-  const bind = (sel, key) => editor.querySelector(sel).addEventListener("input", (e) => {
-    const live = brandById(b.id);
-    if (!live) return;                 // deleted on another device mid-edit
-    live[key] = e.target.value;
-    if (key === "name") {
-      document.getElementById("brand-heading").textContent = live.name || "Untitled brand";
-      renderSide();
-    }
-    save();
-  });
+  const bind = (sel, key) => {
+    const el = editor.querySelector(sel);
+    el.addEventListener("input", (e) => {
+      const live = brandById(b.id);
+      if (!live) return;               // deleted on another device mid-edit
+      live[key] = e.target.value;
+      if (key === "name") {
+        document.getElementById("brand-heading").textContent = live.name || "Untitled brand";
+        renderSide();
+      }
+      save();
+    });
+    // Trim on BLUR, never on input: trimming mid-keystroke makes it impossible
+    // to type a space between two words, because the space is eaten the moment
+    // it is typed. Without this pass a pasted name keeps its padding — one live
+    // account carries a brand called "Medceptor " with a trailing space, which
+    // then reads as a different company everywhere the name is compared.
+    el.addEventListener("blur", () => {
+      const live = brandById(b.id);
+      if (!live) return;
+      const trimmed = (live[key] || "").trim();
+      if (trimmed === live[key]) return;
+      live[key] = trimmed;
+      el.value = trimmed;
+      if (key === "name") {
+        document.getElementById("brand-heading").textContent = live.name || "Untitled brand";
+        renderSide();
+      }
+      save();
+    });
+  };
   bind(".b-name", "name"); bind(".b-site", "site"); bind(".b-desc", "description");
   bind(".b-obj", "objective"); bind(".b-niche", "niche");
 
@@ -617,7 +638,7 @@ function paintLibraryList() {
 function libraryItemHtml(item) {
   const made = libScripts(item);
   const href = safeUrl(item.url || "");
-  const waiting = made.filter((a) => a.status === "queued").length;
+  const waiting = made.filter(isWriting).length;
   const done = made.filter((a) => a.status === "done").length;
   const chip = !made.length ? `<span class="chip">not scripted</span>`
     : waiting ? `<span class="chip bp-wait"><i class="bp-dot"></i>writing ${waiting}</span>`
@@ -901,6 +922,18 @@ function wireComposer() {
       say("Tick which companies this is for.", "bad");
       return;
     }
+    // A script is written FOR a company: the worker sends the model the name,
+    // description, objective and niche. With no name that digest reads
+    // "Brand: ?" with everything else "(not given)", so four model calls —
+    // three of them Opus — go into a script adapted to nothing. Cheaper and
+    // kinder to stop here than to hand someone a generic script.
+    const unnamed = targets.filter((t) => !(t.name || "").trim());
+    if (unnamed.length) {
+      say(targets.length === 1
+        ? "Give this company a name first — the script gets written for it."
+        : "Name every company you've ticked — a script can't be written for an unnamed one.", "bad");
+      return;
+    }
     // One library entry however many companies it is written for.
     const { item } = ensureLibraryItem(url);
     const queued = [], skipped = [];
@@ -1004,13 +1037,25 @@ async function hydrate(item) {
 
 // ---------- scripts ----------
 
+/** Still being written.
+ *
+ *  The worker claims an adaptation before it spends anything, flipping it
+ *  "queued" -> "running" so two triggers firing at once can't both process it.
+ *  To a creator that distinction is invisible and should stay that way: both
+ *  states mean "we're on it". Every status test in this file goes through here
+ *  rather than comparing to "queued", which would drop a claimed script out of
+ *  the counts and render it as neither waiting nor ready. */
+function isWriting(a) {
+  return a.status === "queued" || a.status === "running";
+}
+
 /** The one place a saved video becomes a queued script. Caller saves. */
 function queueAdaptation(item, co) {
   const dupe = ME.adaptations.find((a) => a.brandId === co.id && a.status !== "error"
     && a.sourceUrl && canonUrl(a.sourceUrl) === item.canon);
   if (dupe) {
     return { ok: false, id: dupe.id,
-             reason: dupe.status === "queued"
+             reason: isWriting(dupe)
                ? "That one's already being written — it'll appear here."
                : `You've already got a ${co.name || "brand"} script from that video.` };
   }
@@ -1075,7 +1120,8 @@ function scriptText(a) {
 }
 
 function adaptationHtml(a, liveName) {
-  const justReady = SEEN.get(a.id) === "queued" && a.status === "done";
+  const prevSeen = SEEN.get(a.id);
+  const justReady = (prevSeen === "queued" || prevSeen === "running") && a.status === "done";
   if (justReady) FLASH.add(a.id);
   SEEN.set(a.id, a.status);
   const flash = FLASH.has(a.id);
@@ -1100,7 +1146,7 @@ function adaptationHtml(a, liveName) {
   const brandNow = liveName || a.brandName || "this brand";
 
   let body;
-  if (a.status === "queued") {
+  if (isWriting(a)) {
     body = `<p class="bp-hint">Queued. The source gets transcribed, the format underneath it pulled
       out, and the script written for ${escapeHtml(brandNow)}. It appears here
       on its own — no need to stay on this page.</p>`;
@@ -1136,7 +1182,7 @@ function adaptationHtml(a, liveName) {
       <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
   }
 
-  return `<details class="bp-item bp-${escapeHtml(a.status)}${flash ? " bp-flash" : ""}"${justReady ? " open" : ""} data-adid="${id}">
+  return `<details class="bp-item bp-${isWriting(a) ? "queued" : escapeHtml(a.status)}${flash ? " bp-flash" : ""}"${justReady ? " open" : ""} data-adid="${id}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
       <span class="bp-name">${escapeHtml(a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}</span>

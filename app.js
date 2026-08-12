@@ -1318,6 +1318,16 @@ async function renderShelf(niche) {
   const srcKey = (r) => (r.data_source || "?") + "|" + (r.platform || "?");
   const bySource = new Map();
   for (const r of pool) {
+    // 0 views almost always means "the platform never told us", not "nobody
+    // watched it" — yt-dlp returns no view count for Instagram Reels at all, so
+    // every creator-submitted Reel lands as 0. Averaging those zeros in
+    // collapses the group's median to 0, the `|| 1` fallback below takes over,
+    // and any row in that group that DOES carry real views is then scored as
+    // its RAW view count: one Reel indexes at ~80,000 while every correctly
+    // normalised row sits near 1.00, and it owns the entire shelf. So the
+    // median is taken over measured rows only. Unmeasured rows still score 0
+    // and rank last, which is the honest answer for "we don't know".
+    if (views(r) <= 0) continue;
     const s = srcKey(r);
     if (!bySource.has(s)) bySource.set(s, []);
     bySource.get(s).push(views(r));
@@ -2947,21 +2957,15 @@ function blueprintsBoxHtml(client) {
       </div>
     </details>`;
   };
+  // Add-by-link lives on the creator app now (creator.html), not here. The
+  // agency side only DISPLAYS blueprints the pipeline has already produced —
+  // bindBlueprints guards every form element, so dropping the form is safe and
+  // retry / copy / delete on existing entries keep working.
   return `<div class="section blueprints-box">
     <h2>Video blueprints <span class="pill">${bps.length}</span></h2>
-    <form class="post-form bp-form" id="bp-form">
-      <span class="bp-field">
-        <input type="url" id="bp-url" placeholder="Paste a TikTok / Instagram / YouTube link"
-          autocomplete="off" spellcheck="false">
-        <span class="bp-plat" id="bp-plat"></span>
-      </span>
-      <button type="submit" class="btn" id="bp-add">Get script</button>
-    </form>
     <p class="bp-msg" id="bp-msg" role="status" aria-live="polite"></p>
-    <p class="note" id="bp-note">Paste a posted video's link — the pipeline transcribes it on our
-      machine (nothing goes to a third party) and the exact spoken script with timed beats appears
-      here.</p>
-    ${bps.length ? `<div class="bp-list">${bps.map(item).join("")}</div>` : ""}
+    ${bps.length ? `<div class="bp-list">${bps.map(item).join("")}</div>`
+                 : `<p class="note">No blueprints yet.</p>`}
   </div>`;
 }
 
@@ -3782,6 +3786,16 @@ function buildPlays(pool) {
   const srcKey = (r) => (r.data_source || "?") + "|" + (r.platform || "?");
   const bySource = new Map();
   for (const r of pool) {
+    // 0 views almost always means "the platform never told us", not "nobody
+    // watched it" — yt-dlp returns no view count for Instagram Reels at all, so
+    // every creator-submitted Reel lands as 0. Averaging those zeros in
+    // collapses the group's median to 0, the `|| 1` fallback below takes over,
+    // and any row in that group that DOES carry real views is then scored as
+    // its RAW view count: one Reel indexes at ~80,000 while every correctly
+    // normalised row sits near 1.00, and it owns the entire shelf. So the
+    // median is taken over measured rows only. Unmeasured rows still score 0
+    // and rank last, which is the honest answer for "we don't know".
+    if (views(r) <= 0) continue;
     const s = srcKey(r);
     if (!bySource.has(s)) bySource.set(s, []);
     bySource.get(s).push(views(r));
