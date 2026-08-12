@@ -828,7 +828,7 @@ function libraryItemHtml(item, scopeBrandId) {
   return `<details class="bp-item lib-item" data-lid="${escapeHtml(item.id)}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
-      <span class="bp-name">${escapeHtml(sourceLabel(item))}</span>
+      ${nameLink(href, sourceLabel(item))}
       <span class="chip lib-plat">${escapeHtml(item.platform || "Link")}</span>
       ${chip}
       <span class="bp-when">${escapeHtml(agoLabel(item.addedAt))}</span>
