@@ -132,6 +132,7 @@ ADAPT_SCHEMA = {
         "hook": {"type": "string", "description": "the first line, under ~12 words. The spoken opener when delivery is 'spoken'; the opening on-screen text card when it is 'silent'."},
         "beats": {
             "type": "array",
+            "minItems": 1,          # belt and braces: an empty beat list is not a script
             "items": {
                 "type": "object",
                 "additionalProperties": False,
@@ -639,7 +640,29 @@ def process_one(a, creator, aclient):
                   f"=== FORMAT TO REUSE ===\n{json.dumps(a['format'], indent=1)}\n\n"
                   f"=== ORIGINAL VIDEO (for reference — do NOT reuse its topic) ===\n{source_digest(a)}\n\n"
                   f"=== BRAND ===\n{brand_digest(brand, creator)}")
-        a["adaptation"] = structured(aclient, ADAPT_SYSTEM, ADAPT_SCHEMA, prompt, max_tokens=4000)
+        # A script with no beats is not a script, and the schema cannot catch
+        # it: the model can return a perfectly valid SHELL — a real fit, a real
+        # fit_reason, a hook — and then `beats: []`, `cta: ""`, caption
+        # "placeholder". Nothing downstream looked, so the entry went "done"
+        # and the creator opened a card headed "Your script" with nothing
+        # underneath it. Seen live on 2026-08-12 against a good source: 722
+        # characters of transcript, 15 segments, 6 shots, fit 0.88.
+        #
+        # Ask once more before giving up. It is one Opus call against a retry
+        # that usually works, versus handing someone an empty script or making
+        # them wait out the six-hour cooldown for the same answer.
+        ad = structured(aclient, ADAPT_SYSTEM, ADAPT_SCHEMA, prompt, max_tokens=4000)
+        if not (ad.get("beats") or []):
+            log.warning("  -> adaptation came back with no beats; asking again")
+            ad = structured(aclient, ADAPT_SYSTEM, ADAPT_SCHEMA,
+                            prompt + "\n\n=== IMPORTANT ===\nYour last answer had an EMPTY "
+                                     "`beats` array, which is unusable. Write the full beat "
+                                     "list: one beat per moment of the format above, each with "
+                                     "`say`, `do` and `show` filled in as the delivery requires.",
+                            max_tokens=4000)
+        if not (ad.get("beats") or []):
+            raise RuntimeError("the model returned a script with no beats")
+        a["adaptation"] = ad
     except Exception as e:  # noqa: BLE001
         notes.append(f"adaptation failed: {api_reason(e)}")
 
@@ -647,6 +670,15 @@ def process_one(a, creator, aclient):
         a["note"] = "; ".join(notes)[:200]
     else:
         a.pop("note", None)
+
+    # An entry with no script is a FAILURE, not a finished job. Left as "done"
+    # it renders as a "source only" card with no Try again button, and nothing
+    # ever picks it up again: wants_work() only reconsiders "error" entries
+    # (or "done" ones under --redo-ai, which the launchd agent does not pass).
+    # Raising hands it to main(), which marks it error — so the creator gets a
+    # Try again button and the cooldown retries it on its own.
+    if not ((a.get("adaptation") or {}).get("beats") or []):
+        raise RuntimeError(a.get("note") or "no script was produced")
 
 
 def graft_adaptations(key, cid, touched):

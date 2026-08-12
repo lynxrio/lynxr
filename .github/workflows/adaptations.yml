@@ -31,7 +31,11 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 55      # the polling loop below runs for 50 of them
+    # Just under GitHub's 6-hour ceiling for a single job. Paired with the
+    # concurrency group below, this is what makes coverage CONTINUOUS rather
+    # than bursty: one run polls for hours while the next firing sits pending,
+    # and the moment this job ends the pending one takes over.
+    timeout-minutes: 350
 
     steps:
       - uses: actions/checkout@v4
@@ -71,13 +75,20 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           WHISPER_MODEL: small
-        # Poll for ~50 minutes rather than draining the queue once and exiting.
-        # One firing then covers 50 minutes at ~1-minute latency, so a creator
-        # gets their script without anyone's laptop being awake. A pass that
-        # throws must not kill the loop — the next one retries in a minute, and
-        # the worker itself is resume-safe (it claims work before spending).
+        # Poll for ~5h45m rather than draining the queue once and exiting.
+        #
+        # MEASURED 2026-08-12: the cron above says every 15 minutes, but real
+        # firings landed at 05:50, 09:46, 12:34 and 15:44 — roughly every three
+        # hours, because scheduled runs on public repos are best-effort. A run
+        # that processes the queue once and exits therefore left ~2h50m of every
+        # 3h with no worker at all, and the owner's Mac was quietly covering it.
+        # Polling until just short of the job ceiling, with the next firing held
+        # pending by the concurrency group, hands over run-to-run instead.
+        #
+        # A pass that throws must not kill the loop — the next one retries in a
+        # minute, and the worker is resume-safe (it claims work before spending).
         run: |
-          DEADLINE=$(( SECONDS + 50*60 ))
+          DEADLINE=$(( SECONDS + 345*60 ))
           while (( SECONDS < DEADLINE )); do
             python pipeline/process_adaptations.py || echo "pass failed — retrying next minute"
             if (( SECONDS < DEADLINE )); then sleep 60; fi
