@@ -10,7 +10,37 @@ const SB_URL = "https://esakjfogplfszievvabi.supabase.co";
 // policy grants INSERT and nothing else: no one can read the list back with it.
 const SB_KEY = "sb_publishable_pTFNX2B94PE_DFLL799w4A_4VcH2xTN";
 
+/* A convenience mirror of the waitlist into a Google Sheet, so signups show up
+   somewhere you actually look instead of only in the Supabase dashboard.
+
+   Paste the Apps Script /exec URL here — see supabase/waitlist-sheet.gs for the
+   two-minute deploy. Left empty, the mirror is simply skipped and Supabase
+   still gets every signup, so shipping this before the script is deployed
+   breaks nothing.
+
+   Sheet: docs.google.com/spreadsheets/d/1ypPfMkF6jpyQJ-9WCNoyjcjTenXrePhMz2uv96LjScY */
+const WAITLIST_SHEET_URL =
+  "https://script.google.com/macros/s/AKfycbyFGbycer3b7rH2FS-tzHGcYcX4ywQpBrWpVFkXaEzKHlUWDn82fnZhv5DddT4gGqjG/exec";
+
 const $ = (id) => document.getElementById(id);
+
+/** Fire-and-forget. Apps Script answers with a 302 the browser will not let us
+    read, so this is mode:"no-cors" and its success cannot be confirmed from
+    here — which is why it is never allowed to affect what the visitor sees.
+    Supabase is the record; this is a copy. */
+function mirrorToSheet(email) {
+  if (!WAITLIST_SHEET_URL) return;
+  try {
+    fetch(WAITLIST_SHEET_URL, {
+      method: "POST",
+      mode: "no-cors",
+      // text/plain keeps it a CORS "simple request" — a JSON content-type
+      // would trigger a preflight that Apps Script does not answer.
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ email, source: "landing", created_at: new Date().toISOString() }),
+    }).catch(() => {});
+  } catch { /* the signup is already in Supabase; the mirror is optional */ }
+}
 
 function say(text, kind) {
   const el = $("wait-msg");
@@ -61,6 +91,10 @@ $("wait-form").addEventListener("submit", async (e) => {
     // visitor's side, and saying "already there" would confirm to a stranger
     // which addresses have signed up.
     if (res.ok || res.status === 409) {
+      // Only mirror a genuinely new signup. A 409 means they are already on
+      // the list, and copying that to the sheet would add a duplicate row for
+      // someone who simply submitted twice.
+      if (res.ok) mirrorToSheet(email);
       $("wait-form").hidden = true;
       say("You're on the list. We'll be in touch.", "good");
       return;
