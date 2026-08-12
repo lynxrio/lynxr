@@ -9,6 +9,83 @@ Last updated 2026-08-11.
 
 ---
 
+## Feedback: two destinations, one of them authoritative
+
+The rail has its own **Feedback** tab (beside You & settings, Sign out and the
+sync badge). A creator picks "Something is broken" / "Something could be better",
+writes a line, and it goes to:
+
+1. **`lynxr_feedback` in Supabase — the record.** RLS: a creator may insert
+   their own and read nobody's, including their own. Staff read via `is_staff()`.
+2. **A Google Sheet — a convenience mirror.** Via an Apps Script web app
+   (`supabase/feedback-sheet.gs`, deployed 2026-08-11, URL wired into
+   `FEEDBACK_SHEET_URL` in creator.js).
+   Sheet: `1wCd0fQ84F0I39qyHEwZmKcagSnGpwHUuXEqwsPLOmhE`
+
+**Trust Supabase if they disagree.** The mirror is fire-and-forget: Apps Script
+answers a POST with a 302 the browser will not let us read, so the send is
+`mode: "no-cors"` and cannot be confirmed client-side. That is exactly why the
+message the creator sees reflects the *Supabase* write, not the sheet's.
+
+Why Apps Script and not the Sheets API: the site is static and public, so any
+Google credential shipped in `creator.js` would be readable by anyone. Apps
+Script runs on Google's servers as the owner, so the page only needs a URL.
+The cost is that the endpoint is open — the sheet is append-only and
+technically spammable by anyone who finds the URL.
+
+`creator.html`'s CSP now allows `script.google.com` and
+`script.googleusercontent.com` (it redirects to the latter).
+
+**If you redeploy the Apps Script as a new version, the `/exec` URL changes.**
+Update `FEEDBACK_SHEET_URL`, or feedback keeps reaching Supabase while the sheet
+silently stops filling.
+
+## LAUNCH CHECKLIST — before 50–100 creators (2026-08-11)
+
+### Blocks launch. Each is a certainty at this scale, not a risk.
+
+- [ ] **Push everything.** lynxr.io is running an old build: no new homepage, no
+      `/agencyonly/`, no feedback form, and none of today's fixes.
+- [ ] **Email confirmation.** `mailer_autoconfirm: false` with no custom SMTP.
+      Supabase's built-in mailer is a few messages an hour and is not a delivery
+      service — most of 50–100 signups never get their link and you never hear
+      from them. Either turn OFF *Confirm email*, or wire real SMTP.
+- [ ] **Supabase Site URL** is still `localhost`. Any confirmation email that
+      does send points at a laptop. Set it to `https://lynxr.io` and add
+      `https://lynxr.io/**` to Redirect URLs.
+- [ ] **Run the staff gate** (`supabase/schema.sql`). Until then every creator
+      can read AND DELETE `lynxr_clients` and read all 9,003 `lynxr_videos`
+      rows. Unlisting `/agencyonly/` does nothing about this.
+- [ ] **Run the feedback table** — same file. Without it the in-app form fails
+      (it says so plainly rather than pretending to send).
+- [ ] **Set the two GitHub secrets and confirm the workflow runs.** Without CI
+      the worker only runs when you run it by hand, so scripts never arrive.
+
+### Needed for the feedback loop to be worth anything
+
+- [ ] **Measure cost per script.** The worker now logs tokens per model per
+      script. Read it on the next few runs and multiply out: 100 creators × 5
+      videos = 500 scripts, four model calls each, three on Opus.
+- [ ] **Cap submissions per creator.** Nothing stops one person queueing 500
+      links. There is no rate limit anywhere.
+- [ ] **Tune the prompts on real output first.** They have had exactly one live
+      run, which immediately exposed a crash and a broken tracking code. Run 5
+      creators, read every script, then open to 50.
+- [ ] **Fix Instagram Reels** (yt-dlp needs cookies). Reels will be a large
+      share of what creators paste, and today many fail.
+
+### Will hurt but survivable
+
+- [ ] Throughput: ~75s per script, serial, 15-min cron, 30-min timeout ≈ 24
+      scripts per run.
+- [ ] No onboarding — a new creator lands on an empty app and must work out that
+      a brand comes first.
+- [ ] No way to see who signed up but never sent a link.
+- [ ] Rotate the service-role key if the current `sb_secret_…` predates
+      2026-07-31.
+
+---
+
 ## The three-step plan (owner's framing — do not skip ahead)
 
 | Step | Scope | State |
@@ -179,26 +256,56 @@ creator identity is written to either shared table**. The row describes a public
 video someone found — never who sent it, or which company they were shopping it
 for. That stays in the creator's own RLS-protected row.
 
-## URLs — three pages now (owner's ask, 2026-08-11)
+## URLs (owner's ask, 2026-08-11)
 
-| URL | What |
-|---|---|
-| `lynxr.io/` | **Front door.** Two cards: Agency or Creators. `index.html` + `choose.js`. |
-| `lynxr.io/agency.html` | The agency app — was `index.html`, moved. |
-| `lynxr.io/creator.html` | The creator app. |
+| URL | What | Linked from |
+|---|---|---|
+| `lynxr.io/` | Public homepage. One CTA: creators make an account. | — |
+| `lynxr.io/creator.html` | The creator app. `?signup=1` opens the create form. | the homepage |
+| `lynxr.io/agencyonly/` | The agency app. | **nothing** |
 
-**The agency app moved off the root**, so any bookmark pointing at `lynxr.io/`
-now lands on the chooser rather than the dashboard — one extra click for you and
-your cofounder. Re-bookmark `lynxr.io/agency.html` if that annoys.
+`agencyonly/index.html` is a directory so the URL has no `.html`. Its asset
+paths are root-absolute (`/app.css`, `/app.js`) because relative ones would
+resolve a level down and 404. It carries `noindex, nofollow`.
 
-`choose.js` reads the two stored sessions (`lynxr_sb_session`,
-`lynxr_creator_session`) and labels whichever card you are already signed into.
-It sends nothing — the CSP on that page allows no connections at all — and
-writes nothing. A stored session is a hint, not proof you are still
-authenticated; it may have expired.
+**Nothing on the public side links to it** — not the homepage, not the creator
+gate, not `home.js`, not `creator.js`. Verified: zero references in all four.
+The agency gate still links *back* to `/creator.html`, which leaks nothing.
 
-Each gate also links to the other, so landing on the wrong door is not a dead
-end.
+### What "unlisted" actually buys you
+
+Not much on its own, and it is important not to mistake it for security:
+
+- The repo is **public**, so `agencyonly/` is listed at
+  github.com/lynxrio/lynxr for anyone who looks.
+- `noindex` asks search engines not to list it. It is a request, not a control.
+
+So the URL keeps the agency app out of a creator's way. **The actual lock is the
+`lynxr_staff` gate in `supabase/schema.sql`, which has still not been run.**
+Until it is, any signed-in account — including every self-serve creator — can
+read and delete `lynxr_clients` and read all 9,003 rows of `lynxr_videos`,
+whatever URL the page lives at.
+
+If you want the agency app genuinely undiscoverable, unlisting is the wrong
+tool: host it from a private repo on Netlify/Vercel, or put it behind Cloudflare
+Access. Say the word and I'll set that up.
+
+### Inviting someone to the agency side
+
+Signup is open to everyone, but signing up only ever creates a *creator*
+account. Agency access is granted by you, one row at a time:
+
+1. They sign up normally at `lynxr.io`.
+2. You add them to staff in the Supabase SQL editor:
+   ```sql
+   insert into public.lynxr_staff (id, email)
+   select id, email from auth.users where email = 'them@example.com'
+   on conflict (id) do nothing;
+   ```
+3. You send them `lynxr.io/agencyonly/`.
+
+`lynxr_staff` has **no insert policy for `authenticated`** — membership can only
+be granted from the dashboard, so nobody can promote themselves.
 
 ## Sending a link: pick the companies (owner's ask, 2026-08-11)
 

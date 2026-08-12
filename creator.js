@@ -129,7 +129,8 @@ let SYNC_OK = false;
 // adaptations[] are the scripts — kept as a flat top-level array because that
 // is exactly what the worker iterates; nesting them inside brands would break
 // pipeline/process_adaptations.py.
-const BLANK_ME = { name: "", niches: [], brands: [], adaptations: [], library: [] };
+const BLANK_ME = { name: "", niches: [], brands: [], adaptations: [], library: [],
+                   contactEmail: "", emailOptIn: false };
 let ME = { ...BLANK_ME };
 
 const saveSession = (s) => { try { localStorage.setItem(SB_SESSION_KEY, JSON.stringify(s)); } catch {} };
@@ -239,7 +240,14 @@ async function sbFetch(path, opts = {}) {
 // One row per creator, keyed on auth.uid(); RLS makes it unreachable by anyone
 // else. Saves are debounced because typing in a company form fires constantly.
 let SAVE_T = null;
+// True from the moment an edit is made until it is safely on the server. The
+// sync loop refuses to pull while this is set: a pull mid-debounce replaces ME
+// with the server's copy, and the pending write then posts that back over the
+// edit that triggered it.
+let SAVE_PENDING = false;
+
 function save({ now = false } = {}) {
+  SAVE_PENDING = true;
   renderSyncBadge("saving");
   clearTimeout(SAVE_T);
   const run = async () => {
@@ -251,6 +259,7 @@ function save({ now = false } = {}) {
       });
       SYNC_OK = true;
     } catch { SYNC_OK = false; }
+    SAVE_PENDING = false;
     renderSyncBadge();
   };
   if (now) return run();
@@ -377,6 +386,7 @@ function renderSide() {
   document.getElementById("nav-library-n").textContent = ME.library.length || "";
   document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library");
   document.getElementById("nav-you").classList.toggle("on", VIEW.kind === "you");
+  document.getElementById("nav-feedback").classList.toggle("on", VIEW.kind === "feedback");
 
   const host = document.getElementById("side-list");
   if (!ME.brands.length) {
@@ -403,6 +413,7 @@ function renderPane() {
   if (VIEW.kind === "brand") renderComposeFor();
 
   if (VIEW.kind === "you") return renderYou(head, body);
+  if (VIEW.kind === "feedback") return renderFeedback(head, body);
   if (VIEW.kind === "brand") {
     const b = brandById(VIEW.id);
     if (b) return renderBrand(head, body, b);
@@ -475,10 +486,19 @@ function renderBrand(head, body, b) {
   toggle.addEventListener("click", () => { editor.classList.toggle("collapsed"); syncToggle(); });
 
   // Bind, don't re-render — the creator is mid-word in these fields.
+  //
+  // Resolve the brand by ID on every keystroke rather than closing over the
+  // object. pull() rebuilds ME from the server response, so every brand object
+  // is REPLACED on each sync; a handler holding the old one then writes into a
+  // detached copy that save() never sends. That is why company details silently
+  // failed to stick — and the `editing` guard below made it permanent, because
+  // it skips the re-render (and therefore the rebind) precisely while you type.
   const bind = (sel, key) => editor.querySelector(sel).addEventListener("input", (e) => {
-    b[key] = e.target.value;
+    const live = brandById(b.id);
+    if (!live) return;                 // deleted on another device mid-edit
+    live[key] = e.target.value;
     if (key === "name") {
-      document.getElementById("brand-heading").textContent = b.name || "Untitled brand";
+      document.getElementById("brand-heading").textContent = live.name || "Untitled brand";
       renderSide();
     }
     save();
@@ -614,17 +634,153 @@ function renderYou(head, body) {
         <label class="ce-field"><span class="lbl">Your niches (comma-separated)</span>
           <input type="text" id="me-niches" value="${escapeHtml((ME.niches || []).join(", "))}"
             placeholder="e.g. EMT education, study, fitness"></label>
+        <label class="ce-field"><span class="lbl">Best email to reach you on</span>
+          <input type="email" id="me-email" value="${escapeHtml(ME.contactEmail || SB_EMAIL || "")}"
+            autocapitalize="none" autocorrect="off" spellcheck="false"
+            placeholder="only if it differs from your login"></label>
+        <label class="ce-field"><span class="lbl">Can we email you about lynxr?</span>
+          <select id="me-optin">
+            <option value="no"${ME.emailOptIn ? "" : " selected"}>No — account emails only</option>
+            <option value="yes"${ME.emailOptIn ? " selected" : ""}>Yes — updates and questions are fine</option>
+          </select></label>
       </div>
       <button type="button" class="btn" id="me-save">Save</button>
       <p class="bp-msg" id="me-msg" role="status" aria-live="polite"></p>
-    </div>`;
+    </div>
+
+`;
 
   document.getElementById("me-save").addEventListener("click", () => {
     ME.name = document.getElementById("me-name").value.trim();
-    ME.niches = document.getElementById("me-niches").value.split(",").map((s) => s.trim()).filter(Boolean);
+    ME.niches = document.getElementById("me-niches").value.split(",").map((x) => x.trim()).filter(Boolean);
+    ME.contactEmail = document.getElementById("me-email").value.trim();
+    ME.emailOptIn = document.getElementById("me-optin").value === "yes";
     save({ now: true });
     flashMsg("me-msg", "Saved.", "good");
   });
+
+}
+
+function renderFeedback(head, body) {
+  head.innerHTML = `
+    <button type="button" class="ghost side-toggle" id="side-open">☰ Brands</button>
+    <div class="pane-title"><div class="bcard-title">Feedback</div></div>
+    <p class="pane-sub">This is early software and you're one of the first people using it.</p>`;
+  document.getElementById("side-open").addEventListener("click", () =>
+    document.body.classList.toggle("side-open"));
+
+  body.innerHTML = `
+    <div class="section">
+      <p class="lede">Broken things and half-ideas are both worth sending. Tell us what happened
+        and we'll see it — you don't need to write it up neatly.</p>
+      <div class="ce-grid">
+        <label class="ce-field"><span class="lbl">What kind of thing is it?</span>
+          <select id="fb-kind">
+            <option value="broken">Something is broken</option>
+            <option value="idea">Something could be better</option>
+          </select></label>
+        <label class="ce-field"><span class="lbl">Reply to you at</span>
+          <input type="email" id="fb-email" value="${escapeHtml(ME.contactEmail || SB_EMAIL || "")}"
+            autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="optional"></label>
+        <label class="ce-field ce-wide"><span class="lbl">What happened, or what would you want instead?</span>
+          <textarea id="fb-msg" rows="5"
+            placeholder="e.g. the script for my Reel came back with the wrong hook, or: I want to reorder the beats"></textarea></label>
+      </div>
+      <button type="button" class="btn" id="fb-send">Send it</button>
+      <p class="bp-msg" id="fb-out" role="status" aria-live="polite"></p>
+    </div>`;
+
+  document.getElementById("fb-send").addEventListener("click", () => sendFeedback());
+}
+
+/** Replace the form with a real acknowledgement. Someone who took the time to
+    write up a bug deserves more than a line of grey text that fades after five
+    seconds — and if they cannot tell whether it sent, they will either send it
+    twice or stop bothering. Both are worse than a panel they dismiss. */
+function acknowledgeFeedback(row) {
+  const body = document.getElementById("pane-body");
+  if (!body) return;
+  const broken = row.kind === "broken";
+  body.innerHTML = `
+    <div class="section">
+      <div class="fb-thanks">
+        <div class="fb-tick" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 7"/></svg>
+        </div>
+        <h2 class="fb-thanks-h">Got it — thank you.</h2>
+        <p class="fb-thanks-p">Your ${broken ? "bug report" : "suggestion"} has been received and
+          will be reviewed by the team. We read every one of these, and they genuinely decide what
+          gets built next.</p>
+        ${row.email ? `<p class="fb-thanks-sub">If we need more detail we'll reply to
+          <strong>${escapeHtml(row.email)}</strong>.</p>`
+        : `<p class="fb-thanks-sub">You didn't leave an email, so we can't follow up on this one —
+          add one under You &amp; settings if you'd like us to.</p>`}
+        <div class="bp-actions">
+          <button type="button" class="btn" id="fb-again">Send something else</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("fb-again").addEventListener("click", () => renderPane());
+}
+
+/* Feedback is written TWICE, on purpose.
+
+   Supabase is the record: RLS-protected, always reachable, and the thing to
+   trust if the two ever disagree. The Google Sheet is a convenience mirror so
+   feedback lands somewhere you already read.
+
+   The mirror goes through a Google Apps Script web app rather than the Sheets
+   API, because this site is static and public — any Google credential shipped
+   to the browser would be readable by everyone. An Apps Script deployed as
+   "anyone can access" needs no credential at all; it just accepts a POST.
+
+   That endpoint is public, so treat the Sheet as append-only and slightly
+   spammable, and Supabase as the source of truth. Sending is fire-and-forget
+   (`no-cors`): Apps Script answers with a redirect the browser will not let us
+   read, so we cannot confirm it landed — which is exactly why the Supabase
+   write is the one whose result the creator is shown. */
+const FEEDBACK_SHEET_URL =
+  "https://script.google.com/macros/s/AKfycby65vSjjDqXCzLv_1wG49_01maywtyPHDgW1x1srdQSI36Ogg1CxHQYaEYLcRG28RrsCw/exec";
+
+function mirrorToSheet(row) {
+  if (!FEEDBACK_SHEET_URL) return;
+  try {
+    // text/plain dodges the CORS preflight Apps Script will not answer.
+    fetch(FEEDBACK_SHEET_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(row),
+    }).catch(() => {});
+  } catch { /* the Supabase row already landed; the mirror is a bonus */ }
+}
+
+async function sendFeedback() {
+  const btn = document.getElementById("fb-send");
+  const msg = document.getElementById("fb-msg");
+  const text = (msg.value || "").trim();
+  if (!text) { flashMsg("fb-out", "Write a line or two first.", "bad"); msg.focus(); return; }
+
+  const row = {
+    creator_id: SB_UID,
+    email: (document.getElementById("fb-email")?.value || "").trim() || SB_EMAIL || "",
+    kind: document.getElementById("fb-kind").value,
+    message: text.slice(0, 4000),
+    page: location.pathname,
+  };
+
+  btn.disabled = true;
+  try {
+    await sbFetch("/rest/v1/lynxr_feedback", { method: "POST", body: JSON.stringify(row) });
+    mirrorToSheet({ ...row, name: ME.name || "", created_at: new Date().toISOString() });
+    msg.value = "";
+    acknowledgeFeedback(row);
+  } catch (ex) {
+    flashMsg("fb-out", /PGRST205|schema cache/i.test(ex.message || "")
+      ? "Couldn't send — the feedback table isn't set up yet (run supabase/schema.sql)."
+      : "Couldn't send that — check your connection and try again.", "bad");
+  } finally { btn.disabled = false; }
 }
 
 // ---------- the library record ----------
@@ -1027,6 +1183,7 @@ function startLiveSync() {
   LIVE_STARTED = true;
   const tick = async () => {
     if (!SB_TOKEN || document.hidden) return;
+    if (SAVE_PENDING) return;          // never pull over an unsaved edit
     const before = JSON.stringify(ME.adaptations);
     try { await pull(); } catch { SYNC_OK = false; }
     renderSyncBadge();
@@ -1056,7 +1213,58 @@ function setGateMode(mode) {
     up ? "Already have an account?" : "Don't have an account?";
   document.getElementById("switch-mode").textContent = up ? "Sign in" : "Create one";
   document.getElementById("err").textContent = "";
+  // The resend link belongs to a failed sign-in, not to the create form.
+  document.getElementById("resend-wrap").hidden = true;
 }
+
+// The homepage CTA links to ?signup=1, so "Create your account" lands on the
+// create form rather than the sign-in form the visitor has no credentials for.
+if (/[?&]signup=1\b/.test(location.search)) setGateMode("up");
+
+/* Recovery for an address that never got its link, or whose link expired.
+   Without this the only route is to sign up again — and Supabase answers a
+   repeat signup for an existing address with a decoy that sends nothing, so
+   the creator would be told to check an inbox nothing is coming to. With
+   confirmation on and 50+ signups, some will land here; a dead end at the
+   front door is the most expensive kind. */
+let RESEND_FOR = "";
+
+function showResend(email) {
+  RESEND_FOR = email;
+  document.getElementById("resend-wrap").hidden = false;
+}
+
+document.getElementById("gate-resend").addEventListener("click", async () => {
+  const btn = document.getElementById("gate-resend");
+  const err = document.getElementById("err");
+  const email = RESEND_FOR || (document.getElementById("email").value || "").trim();
+  if (!email) { err.textContent = "Enter your email first."; return; }
+  btn.disabled = true;
+  err.textContent = "Sending…";
+  try {
+    // Same per-request redirect as signup, so the link comes back to whichever
+    // host served this page rather than the project's single Site URL.
+    const back = encodeURIComponent(location.origin + "/creator.html");
+    const res = await fetch(`${SB_URL}/auth/v1/resend?redirect_to=${back}`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "signup", email }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error_description || body.msg || body.message || "failed");
+    err.textContent = "Sent — check your inbox, and your spam folder.";
+    document.getElementById("resend-wrap").hidden = true;
+  } catch (ex) {
+    const m = String(ex.message || "");
+    // Supabase answers /resend with 200 even for an address that is already
+    // confirmed — the same refusal to confirm who has an account that signup
+    // makes. So there is no "already confirmed" case to report here; only a
+    // genuine transport or rate-limit failure reaches this branch.
+    err.textContent = /rate|too many|429|for security purposes/i.test(m)
+      ? "Too many emails just now — wait a minute and try again."
+      : "Couldn't send it. Check the address and try again.";
+  } finally { btn.disabled = false; }
+});
 
 document.getElementById("switch-mode").addEventListener("click", () => {
   setGateMode(GATE_MODE === "up" ? "in" : "up");
@@ -1111,6 +1319,7 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
     const m = ex.message || "";
     // Once sign-in succeeded the password was fine, so never blame it for what
     // is really a failure to load the account.
+    if (/Email not confirmed/i.test(m)) showResend(email);
     err.textContent = signedIn ? accountLoadError(m)
       : /Email not confirmed/i.test(m)
       ? "Confirm your email first — check your inbox for the link."
@@ -1153,91 +1362,8 @@ document.getElementById("signout").addEventListener("click", () => {
 document.getElementById("side-new").addEventListener("click", addBrand);
 document.getElementById("nav-library").addEventListener("click", () => go({ kind: "library" }));
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
+document.getElementById("nav-feedback").addEventListener("click", () => go({ kind: "feedback" }));
 wireComposer();
-
-/* ---------- Interactive dot grid ----------
-   The same pointer-reactive lattice the agency app runs, ported verbatim so
-   both sides of the product share one backdrop. The canvas draws the WHOLE
-   grid — exactly one set of dots, aligned with the CSS lattice it replaces —
-   and swells the ones nearest the cursor. Mouse only; touch and
-   prefers-reduced-motion keep the static CSS grid from app.css.
-
-   It sizes itself through the width/height ATTRIBUTES, never inline styles:
-   the strict CSP discards those, and .dot-fx already spans the viewport via
-   the stylesheet. */
-(function initDotGrid() {
-  const fine = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!fine || still) return;
-
-  const GAP = 34;      // matches the CSS lattice spacing
-  const REACH = 78;    // px of influence around the cursor
-  const DOT_R = 1.3;   // resting radius, matches the CSS lattice
-  const DOT_A = 0.06;  // resting alpha — light dots, this theme is dark
-
-  const canvas = document.createElement("canvas");
-  canvas.className = "dot-fx";
-  canvas.setAttribute("aria-hidden", "true");
-  document.body.appendChild(canvas);
-  document.body.classList.add("dots-live");   // retires the CSS lattice
-
-  const ctx = canvas.getContext("2d");
-  let viewW = 0, viewH = 0, dpr = 1, px = -9999, py = -9999, queued = false;
-
-  // Drawn in device pixels and snapped to the device grid, so the dots stay
-  // razor-sharp at any zoom or display density.
-  const draw = () => {
-    queued = false;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const half = GAP / 2;
-    for (let x = half; x < viewW + half; x += GAP) {
-      for (let y = half; y < viewH + half; y += GAP) {
-        const d = Math.hypot(x - px, y - py);
-        let r = DOT_R, a = DOT_A;
-        if (d < REACH) {
-          const ease = (1 - d / REACH) ** 2;   // 0 at the edge, 1 under the cursor
-          r = DOT_R + ease * 1.8;
-          a = DOT_A + ease * 0.30;
-        }
-        ctx.beginPath();
-        ctx.arc(Math.round(x * dpr), Math.round(y * dpr), r * dpr, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
-        ctx.fill();
-      }
-    }
-  };
-  const queue = () => { if (!queued) { queued = true; requestAnimationFrame(draw); } };
-
-  const sizeCanvas = () => {
-    // Follow the real pixel ratio (browser zoom changes it) so the canvas
-    // never renders below the display's resolution.
-    dpr = Math.min(window.devicePixelRatio || 1, 4);
-    viewW = document.documentElement.clientWidth || window.innerWidth;
-    viewH = document.documentElement.clientHeight || window.innerHeight;
-    canvas.width = Math.round(viewW * dpr);
-    canvas.height = Math.round(viewH * dpr);
-    draw();
-  };
-  // Zoom changes devicePixelRatio without always firing resize.
-  const watchDpr = () => {
-    window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
-      .addEventListener("change", () => { sizeCanvas(); watchDpr(); }, { once: true });
-  };
-
-  sizeCanvas();
-  watchDpr();
-  window.addEventListener("resize", sizeCanvas);
-  document.addEventListener("pointermove", (e) => {
-    if (e.pointerType && e.pointerType !== "mouse") return;
-    px = e.clientX; py = e.clientY;
-    queue();
-  }, { passive: true });
-
-  // Pointer gone: settle every dot back to its resting size.
-  const rest = () => { px = -9999; py = -9999; queue(); };
-  document.addEventListener("pointerleave", rest);
-  window.addEventListener("blur", rest);
-})();
 
 /** A confirmation (or recovery) link comes back here with the session in the
     URL fragment. Take it, strip it out of the address bar so the tokens never

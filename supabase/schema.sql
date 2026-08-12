@@ -366,3 +366,40 @@ create index if not exists lynxr_sources_seen_idx     on public.lynxr_sources (l
 
 alter table public.lynxr_sources enable row level security;
 -- (no policies on purpose — service-role only; see the note above)
+
+
+-- ---------------------------------------------------------------------------
+-- CREATOR FEEDBACK — "what's broken, what should be better".
+--
+-- A separate table rather than a field on lynxr_creators so you can read every
+-- creator's feedback in ONE query instead of walking every row's jsonb, and so
+-- deleting a creator's account does not silently delete what they told you
+-- (on delete set null, not cascade).
+--
+-- SECURITY: a creator may INSERT their own feedback and nothing else. There is
+-- no select policy for `authenticated`, so no creator can read anyone's
+-- feedback — including their own. Staff read it via is_staff(); the pipeline
+-- reads it with the service-role key.
+create table if not exists public.lynxr_feedback (
+  id          uuid primary key default gen_random_uuid(),
+  creator_id  uuid references auth.users(id) on delete set null,
+  email       text        not null default '',   -- who to reply to, if they said
+  kind        text        not null default 'idea',  -- 'broken' | 'idea'
+  message     text        not null,
+  page        text        not null default '',   -- where they were when they wrote it
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists lynxr_feedback_created_idx on public.lynxr_feedback (created_at desc);
+
+alter table public.lynxr_feedback enable row level security;
+
+drop policy if exists "creator writes own feedback" on public.lynxr_feedback;
+create policy "creator writes own feedback"
+  on public.lynxr_feedback for insert
+  to authenticated with check (auth.uid() = creator_id);
+
+drop policy if exists "staff read feedback" on public.lynxr_feedback;
+create policy "staff read feedback"
+  on public.lynxr_feedback for select
+  to authenticated using (public.is_staff());

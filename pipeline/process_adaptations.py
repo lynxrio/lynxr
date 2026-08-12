@@ -226,6 +226,30 @@ def platform_of(url):
     return "other"
 
 
+# Tokens spent this run, per model. Cost per script is the number that decides
+# whether opening the doors to 100 creators is sane, and it cannot be guessed
+# from the outside: four calls, three of them Opus, one carrying six images.
+USAGE = {}
+
+
+def note_usage(model, msg):
+    u = getattr(msg, "usage", None)
+    if not u:
+        return
+    d = USAGE.setdefault(model, {"in": 0, "out": 0, "calls": 0})
+    d["in"] += getattr(u, "input_tokens", 0) or 0
+    d["out"] += getattr(u, "output_tokens", 0) or 0
+    d["calls"] += 1
+
+
+def log_usage(label):
+    if not USAGE:
+        return
+    for model, d in USAGE.items():
+        log.info("  tokens %s: %d in / %d out over %d call%s  [%s]",
+                 model, d["in"], d["out"], d["calls"], "" if d["calls"] == 1 else "s", label)
+
+
 def first_text(msg):
     """The first text block of a response, whatever precedes it.
 
@@ -248,6 +272,7 @@ def structured(client, system, schema, content, max_tokens=3000):
         system=[{"type": "text", "text": system}],
         output_config={"format": {"type": "json_schema", "schema": schema}},
         messages=[{"role": "user", "content": content}])
+    note_usage(MODEL, msg)
     return json.loads(first_text(msg))
 
 
@@ -509,6 +534,7 @@ def process_one(a, creator, aclient):
                 system=[{"type": "text", "text": TAG_SYSTEM}],
                 output_config={"format": {"type": "json_schema", "schema": schema}},
                 messages=[{"role": "user", "content": content}])
+            note_usage(TAG_MODEL, msg)
             src["tags"] = json.loads(first_text(msg))
         except Exception as e:  # noqa: BLE001
             notes.append(f"tags failed: {api_reason(e)}")
@@ -630,6 +656,8 @@ def main():
                 log.info("  -> fit=%s, %d beats%s", ad.get("fit", "—"),
                          len(ad.get("beats") or []),
                          f", note: {a['note']}" if a.get("note") else "")
+                log_usage("this script")
+                USAGE.clear()
             except Exception as e:  # noqa: BLE001
                 a["status"] = "error"
                 a["note"] = str(e)[:200]
