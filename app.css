@@ -680,10 +680,10 @@
   }
   .crumb-link {
     background: none; border: none; padding: 2px 4px; cursor: pointer;
-    color: var(--dim); font: inherit; font-size: 13px; border-radius: 6px;
+    color: var(--text-3); font: inherit; font-size: 13px; border-radius: 6px;
   }
   .crumb-link:hover { color: var(--text); background: var(--surface); }
-  .crumb-sep { color: var(--dim); opacity: .5; font-size: 13px; }
+  .crumb-sep { color: var(--text-3); opacity: .5; font-size: 13px; }
   .crumb-here { color: var(--text); font-size: 13px; font-weight: 600; padding: 2px 4px; }
   .crumbs .spacer { flex: 1; }
   .page-head { margin-bottom: 18px; }
@@ -1242,11 +1242,109 @@
      Scoped to the id so the agency editor keeps its always-visible header. */
   #brand-editor.collapsed { display: none; }
 
+  /* ---------------------------------------------------------------------
+     NEW SCRIPT — the landing screen, shaped like a chat app's new-chat view.
+     One input, centred, nothing to read first. Opening lynxr or pressing
+     "New script" always arrives here empty.
+     --------------------------------------------------------------------- */
+  /* Desktop: greeting and composer sit together as one group, centred in the
+     empty pane — the same shape a chat app opens with. Nothing else competes
+     for attention, so where to start is never a question. */
+  .newchat {
+    max-width: 640px; margin: 0 auto; padding: 0 0 24px;
+    min-height: calc(100dvh - 140px);
+    display: flex; flex-direction: column; justify-content: center; gap: 20px;
+  }
+  .newchat-greet { text-align: center; }
+  .newchat-mark { width: 30px; height: 30px; color: var(--text-3); margin-bottom: 14px; }
+  .newchat-h { font-size: 27px; line-height: 1.2; margin: 0; letter-spacing: -.01em; }
+  .newchat-sub { margin: 8px 0 0; color: var(--text-2); font-size: 14px; line-height: 1.55; }
+  .newchat-cta { margin-top: 4px; justify-content: center; }
+
+  /* The composer is the hero, not a footer strip. Input on its own line so a
+     pasted URL is readable, controls beneath it. A lighter surface than the
+     page plus a hairline border — at --surface it sat only 8 greys off the
+     background and read as a faded ghost rather than a control. */
+  .composer-chat {
+    border-radius: 18px; padding: 6px 6px 6px;
+    background: var(--surface-2); border: 1px solid var(--line-2);
+  }
+  .composer-chat input {
+    width: 100%; border: 0; background: none; color: var(--text);
+    font: inherit; font-size: 16px; padding: 14px 12px 8px; outline: none;
+  }
+  .composer-chat input::placeholder { color: var(--text-3); }
+  .composer-bar { display: flex; align-items: center; gap: 8px; padding: 2px 4px 2px 6px; }
+  /* One row that scrolls sideways rather than wrapping. Wrapping grew the
+     composer a line at a time as companies were added and shoved the send
+     button around; a creator with six companies would have lost it entirely.
+     `min-width: 0` is what actually lets this shrink — without it the flex
+     item refuses to go below its content width and pushes the send out. */
+  .composer-bar .composer-for {
+    flex: 1 1 auto; min-width: 0; padding: 0; flex-wrap: nowrap;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .composer-bar .composer-for::-webkit-scrollbar { display: none; }
+  .composer-bar .for-chip { flex: 0 0 auto; }
+  /* The label must never be the thing that shrinks — squeezed to a few pixels
+     it wrapped one word per line and stacked "Write / it / for" vertically. */
+  .composer-bar .composer-for .lbl { flex: 0 0 auto; white-space: nowrap; }
+  .composer-chat .composer-send { width: 40px; height: 40px; flex: 0 0 auto; }
+
+  /* ---------------------------------------------------------------------
+     LIBRARY — every video once, grouped either by the company it was
+     scripted for or as one flat list.
+     --------------------------------------------------------------------- */
+  .lib-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+  }
+  .lib-modes { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-2); }
+  .lib-mode {
+    border: 0; background: none; color: var(--text-2); cursor: pointer;
+    font: inherit; font-size: 12.5px; padding: 7px 12px; border-radius: 8px;
+  }
+  .lib-mode.on { background: var(--surface); color: var(--text); }
+  .lib-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; font-size: 13px; }
+  .lib-add svg { width: 15px; height: 15px; }
+
+  .lib-group { margin-bottom: 22px; }
+  .lib-group-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 0 2px 7px; border-bottom: 1px solid var(--line); margin-bottom: 9px;
+  }
+  .lib-group-name { font-size: 14px; color: var(--text); text-align: left; }
+  .lib-group-meta { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+  .lib-empty { text-align: center; }
+  .lib-empty .bp-actions { justify-content: center; }
+
+  /* "Also write this for" — one tap adds a company, so these need to read as
+     buttons rather than the static tag-chips they sit beside. */
+  .lib-also { margin: 6px 0 2px; }
+  .chip.pick {
+    cursor: pointer; border-style: dashed; color: var(--text);
+    transition: background .15s var(--ease), border-color .15s var(--ease);
+  }
+  .chip.pick:hover { background: var(--surface-2); border-style: solid; }
+  .chip.pick:disabled { opacity: .5; cursor: default; }
+  .bp-eta { color: var(--text-2); font-size: 12.5px; }
+
+  /* Destructive actions look destructive. Two-click arming still guards the
+     press; the colour is what stops the press being casual. */
+  .ghost.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  .ghost.danger:hover { background: color-mix(in srgb, var(--bad) 12%, transparent); border-color: var(--bad); }
+
   .side-toggle { display: none; }
+
+  /* ---------------------------------------------------------------------
+     PHONES. Creators live here — they find a video on TikTok and paste it
+     from the same device. Three things matter: the rail must get out of the
+     way, taps must be big enough, and text must never need a pinch.
+     --------------------------------------------------------------------- */
   @media (max-width: 820px) {
     .shell { flex-direction: column; }
     .side {
-      position: fixed; z-index: 40; left: 0; top: 0; width: 264px; flex-basis: auto;
+      position: fixed; z-index: 40; left: 0; top: 0; width: min(84vw, 300px); flex-basis: auto;
       transform: translateX(-100%); transition: transform .2s var(--ease);
     }
     body.side-open .side { transform: none; }
@@ -1255,9 +1353,58 @@
     }
     .side-toggle {
       display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px;
-      padding: 7px 11px; font-size: 13px;
+      padding: 10px 13px; font-size: 14px;
     }
     .pane-head, .pane-body, .composer { padding-left: 16px; padding-right: 16px; }
+    /* Comfortable thumb targets in the drawer. */
+    .side-item, .side-link, .side-new { min-height: 46px; }
+  }
+
+  /* Phone: the chat-app shape. The greeting takes the empty middle, the
+     composer rests on the bottom edge. 100dvh (not vh) so the browser's own
+     collapsing chrome doesn't push the composer off-screen. */
+  @media (max-width: 820px) {
+    .side-toggle-ico {
+      width: 40px; height: 40px; padding: 0; border-radius: 999px;
+      justify-content: center; margin-bottom: 0;
+    }
+    .side-toggle-ico svg { width: 19px; height: 19px; }
+
+    .newchat {
+      min-height: calc(100dvh - 150px);
+      padding-bottom: 8px; gap: 0; justify-content: flex-start;
+    }
+    .newchat-greet { margin: auto 0; }        /* floats in the middle */
+    .composer-chat {
+      margin-top: auto; position: sticky; bottom: 8px;
+      background: var(--surface); box-shadow: 0 8px 24px #0006;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .newchat-h { font-size: 22px; }
+    /* Every horizontal pixel in the composer bar belongs to the company chips
+       and the send button; the heading above already says what this is for. */
+    .composer-bar .composer-for .lbl { display: none; }
+    /* 16px is the threshold below which iOS Safari zooms the page on focus —
+       and once it zooms, it does not zoom back out. Every text input in this
+       app therefore stays at 16px on phones. */
+    .composer-chat .composer-row input,
+    .lib-tools input, .ce-field input, .ce-field select, .ce-field textarea { font-size: 16px; }
+
+    .lib-head { gap: 8px; }
+    .lib-modes { flex: 1 1 auto; }
+    .lib-mode { flex: 1 1 0; text-align: center; padding: 9px 8px; }
+    .lib-add { width: 100%; justify-content: center; padding: 12px 14px; }
+
+    /* Card headers wrap instead of squeezing the title to a few characters. */
+    .bp-item > summary { flex-wrap: wrap; row-gap: 5px; padding: 12px 12px; }
+    .bp-name { flex: 1 1 100%; order: -1; white-space: normal; }
+    .bp-when { margin-left: 0; }
+    .bp-actions { flex-wrap: wrap; }
+    .bp-actions .ghost { flex: 1 1 auto; min-height: 42px; }
+    .chip.pick { padding: 8px 12px; }
+    .lib-group-head { flex-wrap: wrap; }
   }
   @media (prefers-reduced-motion: reduce) { .side { transition: none; } }
 

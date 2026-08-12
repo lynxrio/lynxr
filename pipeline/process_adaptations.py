@@ -749,7 +749,15 @@ def main():
         # links is ~40 minutes, past the job's 30-minute timeout, and the other
         # creators just watch "writing your script". Taking a couple per creator
         # per run serves the whole cohort on every pass instead.
-        ready = [a for a in (data.get("adaptations") or []) if wants_work(a)]
+        # OLDEST FIRST. The app unshifts new adaptations onto the front of the
+        # array, so plain array order is newest-first — and slicing that under
+        # the cap below would write the most recently pasted link first and
+        # starve the earliest one for as many runs as it takes to reach it.
+        # Sorting by addedAt makes the queue FIFO, which is both what a creator
+        # expects and what makes the app's "ready in about N minutes" estimate
+        # correct. Entries with no addedAt sort first — they predate the field.
+        ready = sorted((a for a in (data.get("adaptations") or []) if wants_work(a)),
+                       key=lambda a: a.get("addedAt") or "")
         batch = ready[:args.max_per_creator] if args.max_per_creator else ready
         if not batch:
             continue

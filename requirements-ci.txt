@@ -3,5 +3,18 @@
 # backend is importable, so the two never need to agree.
 anthropic>=0.40
 faster-whisper>=1.0
-yt-dlp>=2024.1
 certifi
+
+# yt-dlp WITHOUT the curl-cffi extra, deliberately.
+#
+# curl-cffi 0.15.0 breaks the TikTok extractor outright: every TikTok URL —
+# including TikTok's own official video — fails with "Unexpected response from
+# webpage request", while Instagram and YouTube keep working. A real creator
+# submission failed this way on 2026-08-12. Verified by bisection: same yt-dlp
+# version, curl_cffi present = fail, absent = OK, on both the stable release and
+# the nightly.
+#
+# So install plain `yt-dlp`, never `yt-dlp[default]` or `yt-dlp[curl-cffi]` —
+# the extra is what drags curl-cffi in. Nothing else in this file needs it.
+# Re-test TikTok before ever adding it back.
+yt-dlp>=2024.1

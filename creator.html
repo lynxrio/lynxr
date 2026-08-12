@@ -7,11 +7,11 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>lynxr for creators</title>
+<title>lynxr.</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="favicon.png">
 <link rel="shortcut icon" href="favicon.ico">
-<link rel="stylesheet" href="app.css?v=20260812c">
+<link rel="stylesheet" href="app.css?v=20260812g">
 </head>
 <body>
 
@@ -64,9 +64,20 @@
       </div>
 
 
-      <button type="button" class="side-new" id="nav-library">
+      <!-- Shaped like a chat app: this is the new-chat button. It always lands
+           on an empty composer, and that composer is where opening lynxr starts.
+           The old "New script" page rendered the same list as the Library, which
+           is what made the two feel identical. -->
+      <button type="button" class="side-new" id="nav-new">
         <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
         New script
+      </button>
+
+      <!-- Library is the home page: every video ever sent, once, with the
+           scripts made from it nested inside. -->
+      <button type="button" class="side-link" id="nav-library">
+        <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H9v16H5.5A1.5 1.5 0 0 1 4 18.5zM11 4h3.5A1.5 1.5 0 0 1 16 5.5v13a1.5 1.5 0 0 1-1.5 1.5H11z"/><path d="M18.2 5.6l1.9 13.2"/></svg>
+        <span class="side-label">Library</span>
         <span class="side-count" id="nav-library-n"></span>
       </button>
 
@@ -95,8 +106,7 @@
       </div>
     </nav>
 
-    <!-- The pane. Header + scrolling body, with the composer pinned at its
-         foot when you are inside a brand. -->
+    <!-- The pane. Header + scrolling body. -->
     <main class="pane">
       <div class="pane-scroll" id="pane-scroll">
         <div class="pane-head" id="pane-head"></div>
@@ -104,9 +114,10 @@
       </div>
     </main>
   </div>
+
 </div>
 
-<script src="dotgrid.js?v=20260812c" defer></script>
-<script src="creator.js?v=20260812c" defer></script>
+<script src="dotgrid.js?v=20260812g" defer></script>
+<script src="creator.js?v=20260812g" defer></script>
 </body>
 </html>

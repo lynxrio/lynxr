@@ -367,7 +367,7 @@ const brandById = (id) => ME.brands.find((b) => b.id === id);
 
 // ---------- view routing ----------
 // One rail, one pane. VIEW says what the pane is showing; nothing else does.
-let VIEW = { kind: "library" };
+let VIEW = { kind: "new" };      // opening the app starts a fresh script
 
 function go(view) {
   VIEW = view;
@@ -378,9 +378,73 @@ function go(view) {
   if (s) s.scrollTop = 0;
 }
 
+// ---------- New script ----------
+// Modelled on a chat app's new-chat screen: opening lynxr lands here with an
+// empty composer, and pressing "New script" from anywhere returns here empty.
+// One job on the page, so there is nothing to read before you can start.
+function renderNewScript(head, body) {
+  // Icon only, and no title beside it — the page has one job and the greeting
+  // in the middle already says what it is.
+  head.innerHTML = `
+    <button type="button" class="ghost side-toggle side-toggle-ico" id="side-open" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        aria-hidden="true"><path d="M4 7h16M4 12h11M4 17h16"/></svg>
+    </button>`;
+  document.getElementById("side-open").addEventListener("click", () =>
+    document.body.classList.toggle("side-open"));
+
+  if (!ME.brands.length) {
+    body.innerHTML = `<div class="newchat">
+      <h1 class="newchat-h">Add a company first</h1>
+      <p class="newchat-sub">A script is always written <em>for</em> something, so there has to be
+        one company before you can send a link.</p>
+      <div class="bp-actions newchat-cta">
+        <button type="button" class="btn" id="new-add-brand">Add a company</button>
+      </div></div>`;
+    document.getElementById("new-add-brand").addEventListener("click", addBrand);
+    return;
+  }
+
+  // Shaped like a chat app: the greeting floats in the middle of the empty
+  // space and the composer sits on the bottom edge, where a thumb already
+  // rests. The input takes its own line with the controls beneath, so a long
+  // pasted URL is never squeezed into a sliver beside the send button.
+  body.innerHTML = `
+    <div class="newchat">
+      <div class="newchat-greet">
+        <svg class="newchat-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+        <h1 class="newchat-h">What are we making?</h1>
+        <p class="newchat-sub">Paste a TikTok, Instagram or YouTube video worth remaking.</p>
+      </div>
+      <div class="composer composer-chat" id="composer">
+        <form id="composer-form">
+          <input type="url" id="composer-url" placeholder="Paste a video link"
+            autocomplete="off" spellcheck="false" aria-label="Paste a video link">
+          <div class="composer-bar">
+            <div class="composer-for" id="composer-for"></div>
+            <span class="bp-plat" id="composer-plat"></span>
+            <button type="submit" class="composer-send" id="composer-send" aria-label="Get the script">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </div>
+        </form>
+        <p class="composer-note" id="composer-note"></p>
+      </div>
+    </div>`;
+
+  renderComposeFor();
+  wireComposer();
+  // Focus on desktop only — on a phone the keyboard would spring up and cover
+  // the company picker before you've chosen who the script is for.
+  const url = document.getElementById("composer-url");
+  if (url && window.matchMedia("(min-width: 761px)").matches) url.focus();
+}
+
 function renderSide() {
   document.getElementById("side-who").textContent = SB_EMAIL || "";
   document.getElementById("nav-library-n").textContent = ME.library.length || "";
+  document.getElementById("nav-new").classList.toggle("on", VIEW.kind === "new");
   document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library");
   document.getElementById("nav-you").classList.toggle("on", VIEW.kind === "you");
   document.getElementById("nav-feedback").classList.toggle("on", VIEW.kind === "feedback");
@@ -405,17 +469,31 @@ function renderSide() {
 function renderPane() {
   const head = document.getElementById("pane-head");
   const body = document.getElementById("pane-body");
+  if (VIEW.kind === "new") return renderNewScript(head, body);
   if (VIEW.kind === "you") return renderYou(head, body);
   if (VIEW.kind === "feedback") return renderFeedback(head, body);
   if (VIEW.kind === "brand") {
     const b = brandById(VIEW.id);
     if (b) return renderBrand(head, body, b);
-    VIEW = { kind: "library" };            // deleted on another device
+    VIEW = { kind: "new" };                // deleted on another device
   }
   return renderLibrary(head, body);
 }
 
 function addBrand() {
+  // Pressing this twice used to mint a second blank company, and again, and
+  // again — a rail full of "Untitled company" rows that all look identical and
+  // none of which can be scripted for (a nameless company is refused at send).
+  // If a blank one is already waiting, go finish that instead of adding to the
+  // pile.
+  const blank = ME.brands.find((b) => !(b.name || "").trim());
+  if (blank) {
+    go({ kind: "brand", id: blank.id });
+    const nameEl = document.querySelector("#pane-body .b-name");
+    if (nameEl) nameEl.focus();
+    flashMsg("brand-flash", "You've already got an unnamed company — give this one a name first.", "bad");
+    return;
+  }
   const b = { id: newId(), name: "", site: "", description: "", objective: "",
               niche: "", code: trackCode("LYNX") };
   ME.brands.push(b);
@@ -444,6 +522,7 @@ function renderBrand(head, body, b) {
       b.objective ? " · " + escapeHtml(b.objective) : ""} · ${plural(scripts.length, "script")}</p>`;
 
   body.innerHTML = `
+    <p class="composer-note" id="brand-flash" role="status" aria-live="polite"></p>
     <div class="section client-editor collapsed" id="brand-editor">
       <div class="ce-body">
         <p class="lbl">These go to the model with every link you send, so the more specific they
@@ -461,7 +540,7 @@ function renderBrand(head, body, b) {
           <label class="ce-field"><span class="lbl">Niche</span>
             <input type="text" class="b-niche" value="${escapeHtml(b.niche || "")}" placeholder="e.g. Education"></label>
         </div>
-        <div class="bp-actions"><button type="button" class="ghost b-del">Delete this brand</button></div>
+        <div class="bp-actions"><button type="button" class="ghost danger b-del">Delete this brand</button></div>
       </div>
     </div>
     <h2>Scripts <span class="pill">${scripts.length}</span></h2>
@@ -536,41 +615,38 @@ function renderBrand(head, body, b) {
 // belongs to the creator, not to a brand: the same link scripted for three
 // companies is still one entry here, listing where each script went.
 let LIB_Q = "";
+// "brand" answers "what does this client have?"; "all" answers "what have I
+// saved?". Both are real questions, so the Library offers both rather than
+// picking one. Not persisted — it resets to By company each visit.
+let LIB_MODE = "brand";
 const LIB_SEARCH_AT = 4;      // searching three items is noise; the box stays hidden
 
 function renderLibrary(head, body) {
   head.innerHTML = `
-    <button type="button" class="ghost side-toggle" id="side-open">☰ Brands</button>
-    <div class="pane-title"><div class="bcard-title">New script</div>
+    <button type="button" class="ghost side-toggle" id="side-open">☰ Menu</button>
+    <div class="pane-title"><div class="bcard-title">Library</div>
       <span class="pill">${ME.library.length}</span></div>
-    <p class="pane-sub">Send a link once, pick who it's for. Everything you've sent stays below.</p>`;
+    <p class="pane-sub">Every video you've sent, and the scripts made from each one.</p>`;
 
   document.getElementById("side-open").addEventListener("click", () =>
     document.body.classList.toggle("side-open"));
 
-  const noBrands = !ME.brands.length;
   body.innerHTML = `
     <div class="section">
-      ${noBrands ? `<div class="empty"><p><strong>Add a brand first.</strong></p>
-        <p>A script has to be written for something. Use <em>New brand</em> in the rail, then come
-        back and send your first link.</p></div>`
-      : `<div class="composer composer-inline" id="composer">
-          <div class="composer-for" id="composer-for"></div>
-          <form class="composer-row" id="composer-form">
-            <input type="url" id="composer-url" placeholder="Paste a TikTok / Instagram / YouTube link"
-              autocomplete="off" spellcheck="false" aria-label="Paste a video link">
-            <span class="bp-plat" id="composer-plat"></span>
-            <button type="submit" class="composer-send" id="composer-send" aria-label="Get the script">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-            </button>
-          </form>
-          <p class="composer-note" id="composer-note"></p>
-        </div>`}
-    </div>
-
-    <div class="section">
-      <h2>Everything you've sent <span class="pill">${ME.library.length}</span></h2>
+      <div class="lib-head">
+        <div class="lib-modes" role="tablist" aria-label="How to group the library">
+          <button type="button" class="lib-mode${LIB_MODE === "brand" ? " on" : ""}"
+            id="lib-mode-brand" role="tab" aria-selected="${LIB_MODE === "brand"}">By company</button>
+          <button type="button" class="lib-mode${LIB_MODE === "all" ? " on" : ""}"
+            id="lib-mode-all" role="tab" aria-selected="${LIB_MODE === "all"}">All videos</button>
+        </div>
+        <button type="button" class="btn lib-add" id="lib-add">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          New script
+        </button>
+      </div>
+      <p class="composer-note" id="lib-flash" role="status" aria-live="polite"></p>
       ${ME.library.length >= LIB_SEARCH_AT ? `<div class="lib-tools">
         <input type="search" id="lib-q" placeholder="Search titles, captions, creators"
           autocomplete="off" spellcheck="false" value="${escapeHtml(LIB_Q)}">
@@ -579,7 +655,10 @@ function renderLibrary(head, body) {
       <div id="lib-list"></div>
     </div>`;
 
-  if (!noBrands) { renderComposeFor(); wireComposer(); }
+  document.getElementById("lib-add").addEventListener("click", () => go({ kind: "new" }));
+  const setMode = (m) => { LIB_MODE = m; renderLibrary(head, body); };
+  document.getElementById("lib-mode-brand").addEventListener("click", () => setMode("brand"));
+  document.getElementById("lib-mode-all").addEventListener("click", () => setMode("all"));
 
   const qEl = document.getElementById("lib-q");
   if (qEl) qEl.addEventListener("input", (e) => {
@@ -599,9 +678,13 @@ function paintLibraryList() {
   if (!host) return;
 
   if (!ME.library.length) {
-    host.innerHTML = `<div class="empty"><p><strong>Nothing sent yet.</strong></p>
-      <p>Paste a link above and tick the companies it should be written for. Every video you send
-      is kept here once, however many brands you script it for.</p></div>`;
+    host.innerHTML = `<div class="empty lib-empty">
+      <p><strong>Nothing in your library yet.</strong></p>
+      <p>Find a video worth remaking, paste the link, and pick who it's for. We write the script
+      and it shows up here — one entry per video, however many companies you script it for.</p>
+      <div class="bp-actions"><button type="button" class="btn" id="lib-empty-cta">Add your first script</button></div>
+    </div>`;
+    host.querySelector("#lib-empty-cta").addEventListener("click", () => go({ kind: "new" }));
     return;
   }
 
@@ -612,9 +695,47 @@ function paintLibraryList() {
   const tally = document.getElementById("lib-shown");
   if (tally) tally.textContent = shown.length === ME.library.length ? "" : `${shown.length} of ${ME.library.length}`;
 
-  host.innerHTML = shown.length
-    ? `<div class="bp-list">${shown.map(libraryItemHtml).join("")}</div>`
-    : `<div class="empty"><p>Nothing you've sent matches that.</p></div>`;
+  if (!shown.length) {
+    host.innerHTML = `<div class="empty"><p>Nothing you've sent matches that.</p></div>`;
+    return;
+  }
+
+  if (LIB_MODE === "brand") {
+    // One block per company, so "what does Cloey actually have?" is answerable
+    // at a glance. A video reused across three companies appears under each —
+    // that repetition IS the answer to the question this view asks.
+    const blocks = ME.brands.map((b) => {
+      const items = shown.filter((it) => libScripts(it).some((a) => a.brandId === b.id));
+      if (!items.length) return "";
+      const ready = ME.adaptations.filter((a) => a.brandId === b.id && a.status === "done").length;
+      const busy = ME.adaptations.filter((a) => a.brandId === b.id && isWriting(a)).length;
+      return `<section class="lib-group">
+        <div class="lib-group-head">
+          <button type="button" class="lib-group-name linkish" data-bid="${escapeHtml(b.id)}">${
+            escapeHtml(b.name || "Untitled company")}</button>
+          <span class="lib-group-meta">${ready} ready${busy ? ` · ${busy} writing` : ""}</span>
+        </div>
+        <div class="bp-list">${items.map((it) => libraryItemHtml(it, b.id)).join("")}</div>
+      </section>`;
+    }).filter(Boolean).join("");
+
+    // Saved but not yet scripted for anyone — otherwise these vanish in this view.
+    const orphans = shown.filter((it) => !libScripts(it).length);
+    const orphanBlock = orphans.length ? `<section class="lib-group">
+      <div class="lib-group-head">
+        <span class="lib-group-name">Not scripted yet</span>
+        <span class="lib-group-meta">${orphans.length} saved</span>
+      </div>
+      <div class="bp-list">${orphans.map((it) => libraryItemHtml(it)).join("")}</div>
+    </section>` : "";
+
+    host.innerHTML = (blocks + orphanBlock)
+      || `<div class="empty"><p>No scripts yet. Send a link and they'll group by company here.</p></div>`;
+    host.querySelectorAll(".lib-group-name[data-bid]").forEach((el) =>
+      el.addEventListener("click", () => go({ kind: "brand", id: el.dataset.bid })));
+  } else {
+    host.innerHTML = `<div class="bp-list">${shown.map((it) => libraryItemHtml(it)).join("")}</div>`;
+  }
 
   host.querySelectorAll(".lib-item").forEach((card) => {
     const item = ME.library.find((l) => l.id === card.dataset.lid);
@@ -626,6 +747,23 @@ function paintLibraryList() {
       const target = document.querySelector(`#ad-list [data-adid="${CSS.escape(a.id)}"]`);
       if (target) { target.open = true; target.scrollIntoView({ block: "center" }); }
     }));
+    // One tap = one more script from a video already saved. Keeping the card
+    // open across the repaint matters: the creator is usually adding two or
+    // three companies in a row and a collapsing card loses their place.
+    card.querySelectorAll(".lib-also-b").forEach((btn) => btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      const co = brandById(btn.dataset.bid);
+      await alsoWriteFor(item, [btn.dataset.bid], () => {
+        paintLibraryList();
+        // By company mode renders the same video under every company that has a
+        // script from it, so there can be several copies of this card. Reopen
+        // all of them — querySelector would pick an arbitrary one and collapse
+        // the card the creator was actually working in.
+        document.querySelectorAll(`.lib-item[data-lid="${CSS.escape(item.id)}"]`)
+          .forEach((el) => { el.open = true; });
+      });
+      flashMsg("lib-flash", `Writing it for ${co ? co.name : "that company"} — it'll appear here.`, "good");
+    }));
     armDelete(card.querySelector(".l-del"), "Remove from library", () => {
       ME.library = ME.library.filter((l) => l.id !== item.id);
       save();
@@ -635,8 +773,18 @@ function paintLibraryList() {
   });
 }
 
-function libraryItemHtml(item) {
-  const made = libScripts(item);
+/** One saved video as a card.
+ *
+ *  `scopeBrandId` is set when the card is rendered inside a company's group:
+ *  the status chip and the script list then describe THAT company only.
+ *  Without it a video scripted for two companies showed the same "writing 1"
+ *  chip under both, so a finished Cloey script read as still being written
+ *  because Medceptor's copy was — the exact question this view exists to
+ *  answer, answered wrongly. */
+function libraryItemHtml(item, scopeBrandId) {
+  const all = libScripts(item);
+  const made = scopeBrandId ? all.filter((a) => a.brandId === scopeBrandId) : all;
+  const spare = brandsWithout(item);
   const href = safeUrl(item.url || "");
   const waiting = made.filter(isWriting).length;
   const done = made.filter((a) => a.status === "done").length;
@@ -663,8 +811,13 @@ function libraryItemHtml(item) {
             escapeHtml(a.brandName || "Brand")}</button>
             <span class="lib-made-state">${a.status === "done" ? "ready"
               : a.status === "error" ? "couldn't fetch" : "being written"}</span></li>`).join("")}</ul>`
-        : `<p class="bp-hint">No script from this one yet — open a brand and send the link again.</p>`}
-      <div class="bp-actions"><button type="button" class="ghost l-del">Remove from library</button></div>
+        : `<p class="bp-hint">No script from this one yet.</p>`}
+      ${spare.length ? `<div class="bp-heading">Also write this for</div>
+        <div class="chips lib-also">${spare.map((b) => `
+          <button type="button" class="chip pick lib-also-b" data-bid="${escapeHtml(b.id)}"
+            >+ ${escapeHtml(b.name)}</button>`).join("")}</div>`
+        : made.length ? `<p class="bp-hint">Every one of your companies already has a script from this video.</p>` : ""}
+      <div class="bp-actions"><button type="button" class="ghost danger l-del">Remove from library</button></div>
     </div>
   </details>`;
 }
@@ -715,7 +868,7 @@ function renderYou(head, body) {
 
 function renderFeedback(head, body) {
   head.innerHTML = `
-    <button type="button" class="ghost side-toggle" id="side-open">☰ Brands</button>
+    <button type="button" class="ghost side-toggle" id="side-open">☰ Menu</button>
     <div class="pane-title"><div class="bcard-title">Feedback</div></div>
     <p class="pane-sub">This is early software and you're one of the first people using it.</p>`;
   document.getElementById("side-open").addEventListener("click", () =>
@@ -723,8 +876,12 @@ function renderFeedback(head, body) {
 
   body.innerHTML = `
     <div class="section">
-      <p class="lede">Broken things and half-ideas are both worth sending. Tell us what happened
-        and we'll see it — you don't need to write it up neatly.</p>
+      <p class="lede"><strong>We want all of it — especially the small stuff.</strong> A button that's
+        awkward to reach, a word that reads wrong, a step that took longer than it should, something
+        you expected to be there and wasn't. The tiny annoyances are the ones we can't see from the
+        inside, and they're what makes this pleasant or irritating to use every day.</p>
+      <p class="lede">Nothing is too minor to send, and you don't need to write it up neatly — half
+        a sentence is fine. Broken things and half-ideas both count.</p>
       <div class="ce-grid">
         <label class="ce-field"><span class="lbl">What kind of thing is it?</span>
           <select id="fb-kind">
@@ -903,6 +1060,11 @@ function renderComposeFor() {
 function wireComposer() {
   const input = document.getElementById("composer-url");
   const badge = document.getElementById("composer-plat");
+  // The composer only exists while the New script view is rendered. Without
+  // this guard the top-level call below threw on every page load — and because
+  // it threw at module scope, every statement after it (including the
+  // confirmation-link handler) silently never ran.
+  if (!input || !badge) return;
   const showPlat = () => {
     const u = normalizeUrl(input.value);
     badge.textContent = u ? platformLabel(u) : "";
@@ -952,9 +1114,21 @@ function wireComposer() {
     await save({ now: true });
     renderSide();
     renderComposeFor();
-    paintLibraryList();
-    say(`On it — ${listOf(queued)} ${queued.length > 1 ? "scripts are" : "script is"} being written.`
-        + `${skipped.length ? ` (${listOf(skipped)} already had one.)` : ""}`, "good");
+
+    const msg = `On it — ${listOf(queued)} ${queued.length > 1 ? "scripts are" : "script is"} being written.`
+      + `${skipped.length ? ` (${listOf(skipped)} already had one.)` : ""}`;
+
+    // Sending from the New script page moves you to the Library, where the new
+    // entry is already sitting with its "writing your script" chip and its
+    // estimate. Staying on an emptied composer would look like nothing
+    // happened — the confirmation belongs next to the thing it created.
+    if (VIEW.kind === "new") {
+      go({ kind: "library" });
+      flashMsg("lib-flash", msg, "good");
+    } else {
+      paintLibraryList();
+      say(msg, "good");
+    }
     hydrate(item);
   });
 }
@@ -1047,6 +1221,59 @@ async function hydrate(item) {
  *  the counts and render it as neither waiting nor ready. */
 function isWriting(a) {
   return a.status === "queued" || a.status === "running";
+}
+
+// How long a script actually takes, from measurement rather than guesswork.
+// The worker (io.lynxr.adaptations) polls every 5 minutes and takes at most 2
+// adaptations per creator per pass; the work itself came in at 49s, 55s and 78s
+// on the first live scripts. So what a creator waits for is almost entirely
+// queue position, not processing — which is why the estimate below counts
+// passes rather than pretending to know a duration.
+const POLL_MIN = 5;
+const PER_PASS = 2;
+const WORK_MIN = 2;
+
+/** Everything of this creator's still waiting, oldest first — the same order
+    the worker now uses, so position here is position there. */
+function writingQueue() {
+  return ME.adaptations.filter(isWriting)
+    .sort((a, b) => String(a.addedAt || "").localeCompare(String(b.addedAt || "")));
+}
+
+function etaFor(a) {
+  const pos = writingQueue().findIndex((x) => x.id === a.id);
+  const passes = Math.floor((pos < 0 ? 0 : pos) / PER_PASS) + 1;
+  const est = passes * POLL_MIN + WORK_MIN;
+  const waited = a.addedAt ? (Date.now() - new Date(a.addedAt).getTime()) / 60000 : 0;
+  // Overdue is worth saying out loud. Silently showing "about 7 minutes" to
+  // someone who has been waiting half an hour is how a pilot loses trust.
+  if (waited > est + POLL_MIN) {
+    return { late: true, text: `Taking longer than usual — sent ${Math.round(waited)} minutes ago. Still queued; it'll retry on its own.` };
+  }
+  return { late: false, text: `Usually ready within about ${est} minutes.` };
+}
+
+/** Companies that do NOT already have a script from this source video. */
+function brandsWithout(item) {
+  const taken = new Set(libScripts(item).filter((a) => a.status !== "error").map((a) => a.brandId));
+  return ME.brands.filter((b) => !taken.has(b.id) && (b.name || "").trim());
+}
+
+/** Queue the same saved video for more companies, from wherever it's shown.
+    This is the whole point of the library holding one entry per video: a
+    source worth remaking is usually worth remaking for more than one client,
+    and re-pasting the link to do it was busywork. */
+async function alsoWriteFor(item, brandIds, afterRender) {
+  const queued = [], skipped = [];
+  for (const id of brandIds) {
+    const co = brandById(id);
+    if (!co) continue;
+    (queueAdaptation(item, co).ok ? queued : skipped).push(co.name || "that company");
+  }
+  if (!queued.length) return;
+  await save({ now: true });
+  renderSide();
+  if (afterRender) afterRender();
 }
 
 /** The one place a saved video becomes a queued script. Caller saves. */
@@ -1144,12 +1371,20 @@ function adaptationHtml(a, liveName) {
   // brandName was snapshotted when this was queued, so it goes stale the moment
   // the brand is renamed. Prefer what the brand is called now.
   const brandNow = liveName || a.brandName || "this brand";
+  // The same source is usually worth remaking for more than one client, and
+  // the library already holds it — so offer the other companies right here
+  // rather than making the creator go and paste the link again.
+  const srcItem = ME.library.find((l) => l.id === a.libraryId)
+    || (a.sourceUrl ? ME.library.find((l) => l.canon === canonUrl(a.sourceUrl)) : null);
+  const reuse = srcItem ? brandsWithout(srcItem) : [];
 
   let body;
   if (isWriting(a)) {
+    const eta = etaFor(a);
     body = `<p class="bp-hint">Queued. The source gets transcribed, the format underneath it pulled
       out, and the script written for ${escapeHtml(brandNow)}. It appears here
-      on its own — no need to stay on this page.</p>`;
+      on its own — no need to stay on this page.</p>
+      <p class="bp-hint bp-eta${eta.late ? " bp-partial" : ""}">${escapeHtml(eta.text)}</p>`;
   } else if (a.status === "error") {
     body = `<p class="bp-hint bad">${escapeHtml(a.note || "That video couldn't be downloaded.")}</p>
       <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
@@ -1175,7 +1410,11 @@ function adaptationHtml(a, liveName) {
       ${a.format?.why_it_works ? `<p class="bp-hint">Why this format works: ${escapeHtml(a.format.why_it_works)}</p>` : ""}
       <div class="bp-actions">
         <button type="button" class="ghost ad-copy" data-adid="${id}">Copy script</button>
-      </div>`;
+      </div>
+      ${reuse.length ? `<div class="bp-heading">Also write this for</div>
+        <div class="chips lib-also">${reuse.map((b) => `
+          <button type="button" class="chip pick ad-also" data-adid="${id}" data-bid="${escapeHtml(b.id)}"
+            >+ ${escapeHtml(b.name)}</button>`).join("")}</div>` : ""}`;
   } else {
     body = `<p class="bp-hint">The source was read but the script hasn't been written yet.
       ${escapeHtml(a.note || "")}</p>
@@ -1192,7 +1431,7 @@ function adaptationHtml(a, liveName) {
     </summary>
     <div class="bp-body">
       ${body}
-      <button type="button" class="ghost ad-del" data-adid="${id}">Delete</button>
+      <button type="button" class="ghost danger ad-del" data-adid="${id}">Delete</button>
     </div>
   </details>`;
 }
@@ -1438,10 +1677,14 @@ document.getElementById("signout").addEventListener("click", () => {
 });
 
 document.getElementById("side-new").addEventListener("click", addBrand);
+
+// Always a FRESH composer, exactly like pressing new-chat: re-rendering the
+// view is what clears the field and resets the company picker.
+document.getElementById("nav-new").addEventListener("click", () => go({ kind: "new" }));
+
 document.getElementById("nav-library").addEventListener("click", () => go({ kind: "library" }));
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
 document.getElementById("nav-feedback").addEventListener("click", () => go({ kind: "feedback" }));
-wireComposer();
 
 /** A confirmation (or recovery) link comes back here with the session in the
     URL fragment. Take it, strip it out of the address bar so the tokens never
