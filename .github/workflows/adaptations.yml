@@ -38,6 +38,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          # setup-python only looks for requirements.txt / pyproject.toml by
+          # default, and this repo has neither — the deps live in
+          # requirements-ci.txt because the Mac uses ./venv with mlx-whisper
+          # instead. Without this the cache step fails the whole job at ~9s.
+          cache-dependency-path: requirements-ci.txt
 
       - name: Install ffmpeg
         run: |
