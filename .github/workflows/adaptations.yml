@@ -20,6 +20,14 @@ on:
     # minutes per firing instead of processing the queue once and exiting,
     # which is what actually closes the gap.
     - cron: "*/15 * * * *"
+  # Any push starts a run too. The loop below is self-sustaining ONCE STARTED —
+  # each run hands off to the one the concurrency group is holding pending — but
+  # something has to start the first one, and waiting on a best-effort cron
+  # meant up to three hours of no worker after any gap. Pushing is a thing that
+  # already happens, so it costs nobody an action; it also means the chain
+  # re-bootstraps by itself if it is ever broken by a failure or a repo change.
+  push:
+    branches: [main]
   workflow_dispatch:        # a Run workflow button, for when you don't want to wait
 
 concurrency:
