@@ -715,6 +715,9 @@ def main():
                     help="most adaptations to take from any one creator per run (0 = no cap)")
     ap.add_argument("--lease-minutes", type=float, default=25,
                     help="how long a claimed adaptation stays claimed before it is retryable")
+    ap.add_argument("--cap", type=int, default=int(os.environ.get("SCRIPT_CAP", 50)),
+                    help="most scripts one creator may ever have written (0 = unlimited). "
+                         "Keep in step with SCRIPT_CAP in creator.js")
     args = ap.parse_args()
 
     env = load_env(ROOT / ".env")
@@ -788,7 +791,30 @@ def main():
         # Sorting by addedAt makes the queue FIFO, which is both what a creator
         # expects and what makes the app's "ready in about N minutes" estimate
         # correct. Entries with no addedAt sort first — they predate the field.
-        ready = sorted((a for a in (data.get("adaptations") or []) if wants_work(a)),
+        # THE CAP, enforced where the money is spent. creator.js checks it too,
+        # but that check is a courtesy: the queue is a field inside a row the
+        # creator owns, so anyone with the browser console can append a
+        # hundred more. Four model calls each, three on Opus, ~$0.12 a script —
+        # an uncapped queue is the one thing here that can run up a real bill
+        # unattended. Allowance is the OLDEST `cap` adaptations by addedAt, so
+        # it cannot be reset by deleting finished ones.
+        allowed = set()
+        if args.cap:
+            in_order = sorted((data.get("adaptations") or []),
+                              key=lambda a: a.get("addedAt") or "")
+            allowed = {id(a) for a in in_order[:args.cap]}
+            over = [a for a in in_order[args.cap:] if wants_work(a)]
+            if over:
+                for a in over:
+                    a["status"] = "error"
+                    a["note"] = (f"This account has used its {args.cap} scripts. "
+                                 "Ask us to raise the limit.")
+                log.info("[%s] refusing %d over the %d-script cap",
+                         data.get("name") or cid[:8], len(over), args.cap)
+                graft_adaptations(key, cid, over)
+
+        ready = sorted((a for a in (data.get("adaptations") or [])
+                        if wants_work(a) and (not args.cap or id(a) in allowed)),
                        key=lambda a: a.get("addedAt") or "")
         batch = ready[:args.max_per_creator] if args.max_per_creator else ready
         if not batch:

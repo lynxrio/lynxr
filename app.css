@@ -1179,6 +1179,10 @@
   .side-empty { color: var(--text-3); font-size: 12.5px; padding: 4px 10px; line-height: 1.5; }
   .side-foot { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px; }
   .side-who { color: var(--text-3); font-size: 11.5px; padding: 0 10px 8px; overflow: hidden; text-overflow: ellipsis; }
+  /* Scripts used / allowed. Quiet until it is spent, then it is the answer to
+     "why won't it send" and needs to be the thing you notice. */
+  .side-quota { color: var(--text-3); font-size: 11.5px; padding: 0 10px 6px; }
+  .side-quota.spent { color: var(--bad); }
 
   /* Main pane: a column that scrolls, with the composer pinned at its foot. */
   /* max-width matters as much as min-width here: in the mobile column layout

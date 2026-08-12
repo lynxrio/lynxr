@@ -489,6 +489,10 @@ function renderNewScript(head, body) {
 
 function renderSide() {
   document.getElementById("side-who").textContent = SB_EMAIL || "";
+  const used = scriptsUsed();
+  const quota = document.getElementById("side-quota");
+  quota.textContent = `${used}/${SCRIPT_CAP} scripts`;
+  quota.classList.toggle("spent", used >= SCRIPT_CAP);
   document.getElementById("nav-library-n").textContent = ME.library.length || "";
   document.getElementById("nav-new").classList.toggle("on", VIEW.kind === "new");
   document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library");
@@ -1125,6 +1129,14 @@ function sourceLabel(item) {
 // one library entry, a separate script per company.
 let COMPOSE_FOR = null;      // Set of brand ids; null means "just this brand"
 
+// How many scripts one account may ever have written. Four model calls each,
+// three of them Opus, so this is a spend limit before it is a product rule.
+// The WORKER enforces the same number (--cap / SCRIPT_CAP) and that is the one
+// that counts — this row belongs to the creator, so the check below can be
+// walked around from the browser console. Keep the two in step.
+const SCRIPT_CAP = 50;
+const scriptsUsed = () => (ME.adaptations || []).length;
+
 /** Which companies the pasted link is for. Links are sent from one place now,
     so there is no "current brand" to assume — the ticks are the whole answer.
     With a single company there is nothing to choose, so it is pre-ticked; with
@@ -1180,6 +1192,14 @@ function wireComposer() {
     const url = normalizeUrl(raw);
     if (!url) { say("That doesn't look like a video link.", "bad"); input.select(); return; }
 
+    // Refuse before making anything — a company created and then blocked by
+    // the cap would leave an empty folder behind.
+    const room = SCRIPT_CAP - scriptsUsed();
+    if (room <= 0) {
+      say(`That's all ${SCRIPT_CAP} scripts on this account. Message us and we'll raise it.`, "bad");
+      return;
+    }
+
     // First run: the company is made here, from the two fields above the
     // composer, so the whole path from a fresh account to a queued script is
     // one screen and one send.
@@ -1215,6 +1235,14 @@ function wireComposer() {
         : "Name every company you've ticked — a script can't be written for an unnamed one.", "bad");
       return;
     }
+    // Ticking four companies is four scripts, so the cap has to be checked
+    // against the number of TARGETS rather than the number of sends.
+    if (targets.length > room) {
+      say(`That's ${targets.length} scripts and you have ${room} left of ${SCRIPT_CAP}. `
+        + `Untick ${targets.length - room} to send it.`, "bad");
+      return;
+    }
+
     // One library entry however many companies it is written for.
     const { item } = ensureLibraryItem(url);
     const queued = [], skipped = [];

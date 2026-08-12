@@ -11,7 +11,7 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="favicon.png">
 <link rel="shortcut icon" href="favicon.ico">
-<link rel="stylesheet" href="app.css?v=20260813d">
+<link rel="stylesheet" href="app.css?v=20260813f">
 </head>
 <body>
 
@@ -82,6 +82,10 @@
       <div class="side-list" id="side-list"></div>
 
       <div class="side-foot">
+        <!-- Scripts used against the account's allowance. Always visible rather
+             than only near the end: a limit you discover at 50 is a wall, and a
+             limit you can see from the first script is just how it works. -->
+        <div class="side-quota" id="side-quota"></div>
         <div class="side-who"><span id="sync-state" class="sync-state"></span> <span id="side-who"></span></div>
         <!-- Library sits with the other places you go, rather than up top with
              the one thing you do. Every video ever sent lives here, once, with
@@ -120,7 +124,7 @@
 
 </div>
 
-<script src="dotgrid.js?v=20260813d" defer></script>
-<script src="creator.js?v=20260813d" defer></script>
+<script src="dotgrid.js?v=20260813f" defer></script>
+<script src="creator.js?v=20260813f" defer></script>
 </body>
 </html>
