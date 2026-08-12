@@ -1472,6 +1472,12 @@ function beatRow(bt, carry, silent) {
   const row = (label, v, dim) => v
     ? `<span class="bp-lbl">${label}</span><span class="bp-val${dim ? " bp-dim" : ""}">${escapeHtml(v)}</span>`
     : "";
+  // No timing column. These are recreation beats, not a cut list — the order
+  // is the instruction, and "0-4s" invited people to match a stopwatch to a
+  // video they are deliberately not copying shot for shot. The `t` values are
+  // still stored. (The agency blueprints still show theirs: they annotate a
+  // specific existing video, where the timestamp is the point. Hence the
+  // scoped .bp-notime class rather than editing the shared .bp-beat grid.)
   // SPOKEN scripts are SAY and DO only. SHOW was a third line to read on every
   // beat when the words are the thing you came for, and it mostly restated the
   // hook as an on-screen caption. It is still extracted and stored — nothing
