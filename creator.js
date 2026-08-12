@@ -528,8 +528,8 @@ function renderBrand(head, body, b) {
           <label class="ce-field"><span class="lbl">Website</span>
             <input type="url" class="b-site" value="${escapeHtml(b.site || "")}" placeholder="https://…"></label>
           <label class="ce-field ce-wide"><span class="lbl">What is it?</span>
-            <input type="text" class="b-desc" value="${escapeHtml(b.description || "")}"
-              placeholder="e.g. NCLEX practice questions for nursing students"></label>
+            <textarea class="b-desc grow" rows="1"
+              placeholder="e.g. NCLEX practice questions for nursing students">${escapeHtml(b.description || "")}</textarea></label>
           <label class="ce-field"><span class="lbl">Campaign objective</span>
             <input type="text" class="b-obj" value="${escapeHtml(b.objective || "")}" placeholder="e.g. free-trial signups"></label>
           <label class="ce-field"><span class="lbl">Niche</span>
@@ -547,9 +547,43 @@ function renderBrand(head, body, b) {
   const editor = document.getElementById("brand-editor");
   const toggle = document.getElementById("brand-details");
   if (!b.name) editor.classList.remove("collapsed");
-  const syncToggle = () => { toggle.textContent = editor.classList.contains("collapsed") ? "Details" : "Done"; };
+
+  // "What is it?" wraps instead of scrolling sideways: it is a textarea that
+  // grows with the text, the way a message composer does.
+  //
+  // Height is reset to "auto" before measuring, because scrollHeight can never
+  // report less than the height already set — without the reset the box grows
+  // as you type and then never shrinks back when you delete. And a collapsed
+  // editor is display:none, where every measurement is 0, so skip it then and
+  // re-fit when it opens.
+  const fitDesc = () => {
+    const el = editor.querySelector(".b-desc");
+    if (!el || !el.offsetParent) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  // A brand is set up once, and the toggle above the empty fields used to read
+  // "Done" — which names a state, not an action, so it reads as a label on
+  // finished work rather than the button you press to keep what you typed.
+  // People filled the form in and navigated away past it. Until the brand has
+  // been through setup once it says "Save" and carries the solid fill, so it
+  // is the most obvious thing in the row. (Every keystroke is already saved;
+  // this is the confirmation people look for, and its absence read as loss.)
+  let firstRun = !b.name;
+  const syncToggle = () => {
+    const open = !editor.classList.contains("collapsed");
+    toggle.textContent = firstRun ? "Save" : open ? "Done" : "Details";
+    toggle.classList.toggle("pane-save", firstRun);
+  };
   syncToggle();
-  toggle.addEventListener("click", () => { editor.classList.toggle("collapsed"); syncToggle(); });
+  fitDesc();
+  toggle.addEventListener("click", () => {
+    editor.classList.toggle("collapsed");
+    if (firstRun && editor.classList.contains("collapsed")) firstRun = false;
+    syncToggle();
+    fitDesc();
+  });
 
   // Bind, don't re-render — the creator is mid-word in these fields.
   //
@@ -592,6 +626,10 @@ function renderBrand(head, body, b) {
   };
   bind(".b-name", "name"); bind(".b-site", "site"); bind(".b-desc", "description");
   bind(".b-obj", "objective"); bind(".b-niche", "niche");
+  // Also on blur: bind() rewrites the value when it trims, which can drop a line.
+  const desc = editor.querySelector(".b-desc");
+  desc.addEventListener("input", fitDesc);
+  desc.addEventListener("blur", fitDesc);
 
   // Deleting a brand takes its scripts. The videos stay in the Library —
   // they were yours before any brand existed, and they outlive it.
@@ -1399,10 +1437,12 @@ function adaptationHtml(a, liveName) {
   } else if (ad) {
     const carry = { do: "", show: "" };
     body = `
+      ${/* A good score explains nothing the script itself doesn't say better, and
+            it pushed the hook — the thing you came for — below the fold. Only the
+            poor-fit warning still shows: that one changes what you'd do next. */""}
       ${lowFit ? `<p class="bp-hint bp-partial"><strong>This format doesn't really suit ${escapeHtml(brandNow)}.</strong>
           ${escapeHtml(ad.fit_reason || "")} The script below is written anyway, but a format that fits
-          would do better than forcing this one.</p>`
-        : ad.fit_reason ? `<p class="bp-hint">Fit ${Math.round((ad.fit || 0) * 100)}% — ${escapeHtml(ad.fit_reason)}</p>` : ""}
+          would do better than forcing this one.</p>` : ""}
       ${a.format?.name ? `<div class="chips bp-tags"><span class="chip">${escapeHtml(a.format.name)}</span>
         ${a.source?.tags?.format_type ? `<span class="chip">${escapeHtml(a.source.tags.format_type)}</span>` : ""}
         ${a.source?.tags?.hook_pattern ? `<span class="chip">${escapeHtml(a.source.tags.hook_pattern)}</span>` : ""}</div>` : ""}
@@ -1432,7 +1472,7 @@ function adaptationHtml(a, liveName) {
   return `<details class="bp-item bp-${isWriting(a) ? "queued" : escapeHtml(a.status)}${flash ? " bp-flash" : ""}"${justReady ? " open" : ""} data-adid="${id}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
-      <span class="bp-name">${escapeHtml(a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}</span>
+      ${nameLink(href, a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}
       ${chip}
       <span class="bp-when">${escapeHtml(agoLabel(a.addedAt))}</span>
       ${href ? `<a class="bp-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="Open the original">↗</a>` : ""}
