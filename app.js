@@ -77,7 +77,7 @@ async function loadFailureReason(m) {
     try {
       const staff = await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" });
       if (staff === false) {
-        return "That's a creator account — it has no agency access. Sign in at /creator.html instead.";
+        return "That's a creator account — it has no agency access. Ask us for the creator link instead.";
       }
     } catch { /* pre-staff-gate database, or offline: fall through */ }
     return "Signed in, but the database is empty — run pipeline/export_supabase.py.";

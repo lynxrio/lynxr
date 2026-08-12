@@ -403,3 +403,37 @@ drop policy if exists "staff read feedback" on public.lynxr_feedback;
 create policy "staff read feedback"
   on public.lynxr_feedback for select
   to authenticated using (public.is_staff());
+
+
+-- ---------------------------------------------------------------------------
+-- WAITLIST — the public landing page's email capture (2026-08-12)
+-- ---------------------------------------------------------------------------
+-- lynxr.io is a marketing page now; the app itself lives on an unlisted path
+-- handed out by invitation. This is the only table an ANONYMOUS visitor may
+-- write to, so it is deliberately the narrowest surface in the schema:
+--
+--   * insert only, and only for `anon` — nobody can read the list back, not
+--     even the person who just joined it. An email list readable with the
+--     publishable key (which is in this public repo) would be a leak.
+--   * unique on email, so a double-tap or a refresh is not two rows.
+--   * no free-text field. Nothing here is rendered anywhere, but a form open
+--     to the internet with a message box is a spam magnet and an XSS surface.
+--
+-- Read it in the dashboard, or with the service-role key.
+create table if not exists public.lynxr_waitlist (
+  email       text        primary key,
+  source      text        not null default 'landing',  -- which page/campaign
+  created_at  timestamptz not null default now()
+);
+
+alter table public.lynxr_waitlist enable row level security;
+
+drop policy if exists "anyone may join the waitlist" on public.lynxr_waitlist;
+create policy "anyone may join the waitlist"
+  on public.lynxr_waitlist for insert
+  to anon, authenticated with check (true);
+
+drop policy if exists "staff read the waitlist" on public.lynxr_waitlist;
+create policy "staff read the waitlist"
+  on public.lynxr_waitlist for select
+  to authenticated using (public.is_staff());

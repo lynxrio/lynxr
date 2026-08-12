@@ -1533,6 +1533,30 @@
     font-family: var(--mono); font-size: 11px;
     display: inline-grid; place-items: center;
   }
+  /* Waitlist. The one interactive thing on the public page, so it gets a card
+     of its own rather than floating in the middle column. */
+  .wait {
+    margin: 52px 0 0; padding: 26px 24px; width: 100%; max-width: 52ch;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+  }
+  .wait-h {
+    font-size: 16px; font-weight: 600; color: var(--text); margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .wait-sub { color: var(--text-2); font-size: 13.5px; line-height: 1.6; margin: 0 0 18px; }
+  .wait-form { display: flex; gap: 8px; flex-wrap: wrap; }
+  .wait-form input {
+    flex: 1 1 220px; min-width: 0; padding: 12px 14px; font: inherit; font-size: 14px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 9px; color: var(--text);
+  }
+  .wait-form input:focus { outline: none; border-color: var(--line-2); }
+  .wait-form .btn { flex: none; padding: 12px 20px; font-size: 14px; }
+  .wait-msg { min-height: 18px; margin: 12px 0 0; font-size: 13px; color: var(--text-2); }
+  .wait-msg.good { color: var(--good); }
+  .wait-msg.bad { color: var(--bad); }
+  @media (max-width: 460px) { .wait-form .btn { flex: 1 1 100%; } }
+
   .home-foot { margin: 52px 0 0; color: var(--text-3); font-size: 12.5px; }
   .home-foot a { color: var(--text-3); border-bottom-color: var(--line); }
   .home-foot a:hover { color: var(--text-2); }

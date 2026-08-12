@@ -181,6 +181,14 @@ function trackCode(brandName) {
 // ---------- Supabase ----------
 const SB_URL = "https://esakjfogplfszievvabi.supabase.co";
 const SB_KEY = "sb_publishable_pTFNX2B94PE_DFLL799w4A_4VcH2xTN";
+
+// Where this app lives, for the links Supabase mails back — confirmation and
+// password reset. It moved off /creator.html to an unlisted directory so the
+// homepage can be a public marketing page; a stale value here does not fail
+// loudly, it just mails people a 404, so it is defined once and used for both.
+// Supabase must also allow it: Authentication -> URL Configuration -> Redirect
+// URLs needs https://lynxr.io/** or the link is rejected as an open redirect.
+const CREATOR_PATH = "/creatorsonly/";
 const SB_SESSION_KEY = "lynxr_creator_session";
 
 let SB_TOKEN = null, SB_EMAIL = null, SB_UID = null, SB_REFRESHING = null;
@@ -251,7 +259,7 @@ async function sbSignUp(email, password) {
   // localhost, so every confirmation email sent a real user to a page only the
   // developer's laptop could serve. location.origin is whatever host actually
   // served this page, so the link always comes back to the same deployment.
-  const back = encodeURIComponent(location.origin + "/creator.html");
+  const back = encodeURIComponent(location.origin + CREATOR_PATH);
   const res = await fetch(`${SB_URL}/auth/v1/signup?redirect_to=${back}`, {
     method: "POST",
     headers: { apikey: SB_KEY, "Content-Type": "application/json" },
@@ -1827,7 +1835,7 @@ document.getElementById("gate-resend").addEventListener("click", async () => {
   try {
     // Same per-request redirect as signup, so the link comes back to whichever
     // host served this page rather than the project's single Site URL.
-    const back = encodeURIComponent(location.origin + "/creator.html");
+    const back = encodeURIComponent(location.origin + CREATOR_PATH);
     const res = await fetch(`${SB_URL}/auth/v1/resend?redirect_to=${back}`, {
       method: "POST",
       headers: { apikey: SB_KEY, "Content-Type": "application/json" },
