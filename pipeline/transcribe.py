@@ -31,6 +31,7 @@ import argparse
 import csv
 import json
 import logging
+import os
 import subprocess
 import sys
 import tempfile
@@ -44,8 +45,12 @@ OUT = ROOT / "output" / "transcripts.jsonl"
 # Whisper size/quality trade-off. "small" is the sweet spot for short-form:
 # near-large accuracy on clear speech, several times faster. Bump to
 # "mlx-community/whisper-large-v3-mlx" if you want maximum fidelity.
-MODEL = "mlx-community/whisper-small-mlx"
+# Overridable so CI can name a faster-whisper size ("small") while the Mac
+# keeps the MLX repo id. _size_of() maps between them either way.
+MODEL = os.environ.get("WHISPER_MODEL") or "mlx-community/whisper-small-mlx"
 HOOK_SECONDS = 3.0
+
+(ROOT / "output").mkdir(exist_ok=True)   # gitignored: absent in a fresh CI checkout
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
@@ -132,9 +137,40 @@ def looks_hallucinated(text, segs):
     return False
 
 
-def transcribe(path, model):
+def _size_of(model):
+    """'mlx-community/whisper-small-mlx' -> 'small'. The MLX repo names and the
+    faster-whisper size names describe the same weights; only the packaging
+    differs, so one setting drives both backends."""
+    tail = str(model).rsplit("/", 1)[-1]
+    return tail.replace("whisper-", "").replace("-mlx", "") or "small"
+
+
+def _mlx(path, model):
     import mlx_whisper
-    r = mlx_whisper.transcribe(str(path), path_or_hf_repo=model, verbose=False)
+    return mlx_whisper.transcribe(str(path), path_or_hf_repo=model, verbose=False)
+
+
+def _faster(path, model):
+    """CPU backend for anywhere that is not an Apple GPU — CI runners, Linux
+    boxes. Same fields the MLX path returns, so `transcribe` cannot tell them
+    apart."""
+    from faster_whisper import WhisperModel
+    m = WhisperModel(_size_of(model), device="cpu", compute_type="int8")
+    segs, info = m.transcribe(str(path), vad_filter=True)
+    out = [{"start": sg.start, "end": sg.end, "text": sg.text,
+            "no_speech_prob": getattr(sg, "no_speech_prob", 0.0)} for sg in segs]
+    return {"segments": out,
+            "text": " ".join(sg["text"].strip() for sg in out),
+            "language": getattr(info, "language", "") or ""}
+
+
+def transcribe(path, model):
+    # MLX is the fast path and only exists on Apple Silicon. Falling back rather
+    # than branching on platform keeps one code path everywhere.
+    try:
+        r = _mlx(path, model)
+    except ImportError:
+        r = _faster(path, model)
     segs = r.get("segments") or []
     text = (r.get("text") or "").strip()
     hook = " ".join(s["text"].strip() for s in segs

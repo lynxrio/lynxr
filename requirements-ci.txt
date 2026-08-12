@@ -1,0 +1,7 @@
+# Linux/CI dependencies for .github/workflows/adaptations.yml.
+# The Mac keeps using ./venv with mlx-whisper; transcribe.py picks whichever
+# backend is importable, so the two never need to agree.
+anthropic>=0.40
+faster-whisper>=1.0
+yt-dlp>=2024.1
+certifi

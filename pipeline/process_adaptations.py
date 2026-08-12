@@ -58,7 +58,7 @@ import urllib.request
 from transcribe import MODEL as WHISPER_MODEL
 from transcribe import fetch_audio, transcribe
 from analyze_visuals import analyze as analyze_frames
-from analyze_visuals import download_video, extract_frames, frame_times
+from analyze_visuals import download_video, extract_frames, frame_times, yt_dlp_bin
 from retag_with_audio import MODEL as TAG_MODEL
 from retag_with_audio import SYSTEM as TAG_SYSTEM
 from retag_with_audio import user_content
@@ -67,6 +67,8 @@ from taxonomy import TAG_SCHEMA, TAG_SCHEMA_VISION, length_bucket
 ROOT = Path(__file__).parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
 MODEL = "claude-opus-5"
+
+(ROOT / "output").mkdir(exist_ok=True)   # gitignored: absent in a fresh CI checkout
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(message)s",
@@ -224,13 +226,29 @@ def platform_of(url):
     return "other"
 
 
+def first_text(msg):
+    """The first text block of a response, whatever precedes it.
+
+    Opus 5 can return a ThinkingBlock before the answer, and it does so
+    adaptively — the same call site works one minute and raises
+    'ThinkingBlock' object has no attribute 'text' the next. Reading
+    content[0] blindly is therefore a bug that hides until a live run:
+    format extraction died this way on the very first one (2026-08-11).
+    analyze_visuals.py already filtered by type, which is why the shot list
+    survived the same response shape."""
+    for b in msg.content:
+        if getattr(b, "type", None) == "text":
+            return b.text
+    raise RuntimeError("no text block in the model response")
+
+
 def structured(client, system, schema, content, max_tokens=3000):
     msg = client.messages.create(
         model=MODEL, max_tokens=max_tokens,
         system=[{"type": "text", "text": system}],
         output_config={"format": {"type": "json_schema", "schema": schema}},
         messages=[{"role": "user", "content": content}])
-    return json.loads(msg.content[0].text)
+    return json.loads(first_text(msg))
 
 
 def source_digest(a):
@@ -259,7 +277,7 @@ def source_digest(a):
     return "\n".join(parts)
 
 
-def brand_digest(brand, creator):
+def brand_digest(brand, creator, code=""):
     parts = [f"Brand: {brand.get('name', '?')}",
              f"What it is: {brand.get('description') or '(not given)'}",
              f"Campaign objective: {brand.get('objective') or '(not given)'}",
@@ -270,8 +288,13 @@ def brand_digest(brand, creator):
         parts.append(f"Creator delivering it: {creator['name']}")
     if creator.get("niches"):
         parts.append(f"Creator's usual niches: {', '.join(creator['niches'])}")
-    if brand.get("code"):
-        parts.append(f"Trackable code the CTA should mention: {brand['code']}")
+    # THE ADAPTATION'S code, not the brand's. Each script gets its own at queue
+    # time and that is what the app shows the creator; passing the brand-level
+    # one had the model write "say LYNXSMPQ" into a script the app labelled
+    # LYNX2FBD, so the creator read one code aloud and the brand was told to
+    # expect another. Attribution died silently on the very first live run.
+    if code:
+        parts.append(f"Trackable code the CTA should mention, verbatim: {code}")
     return "\n".join(parts)
 
 
@@ -292,18 +315,25 @@ def canon_url(u):
         return (u or "").rstrip("/")
 
 
-def upsert_source(key, a, consent):
+def upsert_source(key, a):
     """Step 1's second half: the creator gets their script AND the source joins
     the Lynx library. One row per video; a second creator tagging the same
-    video bumps tag_count rather than duplicating it. Best-effort — a failure
-    here must never cost the creator their script."""
+    video bumps tag_count rather than duplicating it.
+
+    Every source goes in — the per-brand "is this a Lynx client?" opt-out was
+    removed 2026-08-11 (owner's call): the whole point is one pooled database of
+    what creators think is worth remaking. `consent` stays in the table so the
+    column does not need dropping, pinned to 'full'. Nothing brand-identifying
+    is written here, which is what makes pooling safe.
+
+    Best-effort — a failure here must never cost the creator their script."""
     src = a.get("source") or {}
     body = {
         "canonical_url": canon_url(a.get("sourceUrl") or ""),
         "url": a.get("sourceUrl") or "",
         "platform": src.get("platform") or "",
         "last_seen_at": now_iso(),
-        "consent": consent,
+        "consent": "full",   # every source joins the shared library — see note
         "script": src.get("script"),
         "shots": src.get("shots"),
         "tags": src.get("tags"),
@@ -329,7 +359,7 @@ def fetch_meta(url):
     lynxr_videos as a real row rather than one with zeroed metrics."""
     try:
         r = subprocess.run(
-            [str(ROOT / "venv" / "bin" / "yt-dlp"), "-q", "--no-warnings", "--skip-download",
+            [yt_dlp_bin(), "-q", "--no-warnings", "--skip-download",
              "--no-playlist", "--dump-single-json", url],
             capture_output=True, text=True, timeout=90)
         if r.returncode != 0 or not r.stdout.strip():
@@ -360,9 +390,9 @@ def upsert_video(key, a):
       submissions with the scraped corpus can filter on it. Without a marker
       these rows would silently move the medians that shelf ranking depends on.
     * NO brand or creator identity is written. The source is a public video the
-      creator merely found; which brand they were shopping it for is their
-      business (spec §1.1), and it stays in their own row. That is also why this
-      runs regardless of the brand's consent flag — nothing here is theirs.
+      creator merely found; which brand they were shopping it for stays in their
+      own row. That separation is what makes pooling every source safe: the row
+      records a public video, never who was shopping it or for whom.
 
     Best-effort: a failure must never cost the creator their script.
     """
@@ -479,7 +509,7 @@ def process_one(a, creator, aclient):
                 system=[{"type": "text", "text": TAG_SYSTEM}],
                 output_config={"format": {"type": "json_schema", "schema": schema}},
                 messages=[{"role": "user", "content": content}])
-            src["tags"] = json.loads(msg.content[0].text)
+            src["tags"] = json.loads(first_text(msg))
         except Exception as e:  # noqa: BLE001
             notes.append(f"tags failed: {api_reason(e)}")
 
@@ -515,7 +545,7 @@ def process_one(a, creator, aclient):
                   f"=== DELIVERY ===\n{mode}\n\n"
                   f"=== FORMAT TO REUSE ===\n{json.dumps(a['format'], indent=1)}\n\n"
                   f"=== ORIGINAL VIDEO (for reference — do NOT reuse its topic) ===\n{source_digest(a)}\n\n"
-                  f"=== BRAND ===\n{brand_digest(brand, creator)}")
+                  f"=== BRAND ===\n{brand_digest(brand, creator, a.get('code') or '')}")
         a["adaptation"] = structured(aclient, ADAPT_SYSTEM, ADAPT_SCHEMA, prompt, max_tokens=4000)
     except Exception as e:  # noqa: BLE001
         notes.append(f"adaptation failed: {api_reason(e)}")
@@ -594,7 +624,7 @@ def main():
                 done_ids.append(a.get("id"))
                 brand = next((b for b in (data.get("brands") or [])
                               if b.get("id") == a.get("brandId")), {})
-                upsert_source(key, a, brand.get("consent") or "private")
+                upsert_source(key, a)
                 upsert_video(key, a)          # and into the main video database
                 ad = a.get("adaptation") or {}
                 log.info("  -> fit=%s, %d beats%s", ad.get("fit", "—"),

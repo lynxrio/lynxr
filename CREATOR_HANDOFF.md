@@ -117,6 +117,68 @@ from library entries.
 **Deleting a brand takes its scripts but not the videos** — those were the
 creator's before any brand existed and outlive it.
 
+## Scripts run on GitHub, not on your Mac (owner's ask, 2026-08-11)
+
+`.github/workflows/adaptations.yml` runs `process_adaptations.py` on an
+`ubuntu-latest` runner every 15 minutes, plus a **Run workflow** button for
+impatience. Public repos get unlimited free standard-runner minutes, so the only
+cost is the Anthropic spend the worker was always going to make.
+
+**Two secrets must be set before it can work** — Settings → Secrets and
+variables → Actions:
+
+| secret | why |
+|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | reads and writes every creator's row; bypasses RLS by design |
+| `ANTHROPIC_API_KEY` | format extraction + adaptation |
+
+Fork pull requests never receive secrets, so a drive-by PR cannot read them.
+
+**Rotate the service-role key first.** It was pasted into a chat on 2026-07-31
+and has been treated as leaked ever since. Putting a known-leaked key into CI
+just spreads it — issue a new one in the Supabase dashboard, put that in the
+GitHub secret, and update `.env`.
+
+### What had to change to run off-Mac
+
+- **Whisper.** `mlx-whisper` is Apple-Silicon only. `transcribe()` now tries MLX
+  and falls back to `faster-whisper` on CPU, returning the identical dict, so
+  neither the worker nor anything downstream can tell which ran. `_size_of()`
+  maps `mlx-community/whisper-small-mlx` ⇄ `small`, and `WHISPER_MODEL` (set to
+  `small` in the workflow) overrides the default. Verified the Mac still takes
+  the MLX path.
+- **yt-dlp path.** `yt_dlp_bin()` prefers `./venv/bin/yt-dlp` and falls back to
+  PATH; CI pip-installs it and has no venv.
+- **`output/` is gitignored**, so it does not exist in a fresh checkout and the
+  logging `FileHandler` raised at import. Every pipeline module now mkdirs it.
+- `requirements-ci.txt` pins the Linux deps. The Mac keeps using `./venv` with
+  `mlx-whisper`; the two never have to agree.
+
+`concurrency: creator-scripts` stops two runs racing on the same queued
+adaptation — that would pay for it twice and fight over the write-back. A failed
+run uploads `output/adaptations.log` as an artifact for 7 days.
+
+**Caveats worth knowing:** GitHub's cron floor is 5 minutes but scheduled runs
+on public repos are best-effort and get queued under load, so treat 15 minutes
+as "usually". Scheduled workflows are also **disabled automatically after 60
+days of repo inactivity** — a commit resets that.
+
+## One pooled database — the consent toggle is gone (owner's ask, 2026-08-11)
+
+The per-brand "Is this a Lynx client?" selector has been removed from the brand
+editor, new brands no longer carry a `consent` field, and `upsert_source()` no
+longer takes one. **Every source a creator sends now joins the shared library
+and `lynxr_videos`**, which is the point: one database of what creators actually
+think is worth remaking.
+
+`lynxr_sources.consent` stays in the table, pinned to `'full'`, so existing rows
+and the upsert body stay valid without a migration.
+
+What makes pooling safe is unchanged and worth not breaking: **no brand or
+creator identity is written to either shared table**. The row describes a public
+video someone found — never who sent it, or which company they were shopping it
+for. That stays in the creator's own RLS-protected row.
+
 ## URLs — three pages now (owner's ask, 2026-08-11)
 
 | URL | What |

@@ -41,6 +41,8 @@ MODEL = "claude-haiku-4-5-20251001"
 MAX_FRAMES = 6
 FRAME_EDGE = 512
 
+(ROOT / "output").mkdir(exist_ok=True)   # gitignored: absent in a fresh CI checkout
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
     handlers=[logging.StreamHandler(sys.stdout),
@@ -131,9 +133,16 @@ def frame_times(entry, duration):
     return [round(d * p, 1) for p in (0.03, 0.25, 0.5, 0.75, 0.92)]
 
 
+def yt_dlp_bin():
+    """The venv copy on the owner's Mac, else whatever is on PATH. CI installs
+    yt-dlp with pip and has no ./venv, so a hardcoded path would break there."""
+    local = ROOT / "venv" / "bin" / "yt-dlp"
+    return str(local) if local.exists() else "yt-dlp"
+
+
 def download_video(url, dest):
     r = subprocess.run(
-        [str(ROOT / "venv" / "bin" / "yt-dlp"), "-q", "--no-warnings", "-f", "b[height<=720]/b",
+        [yt_dlp_bin(), "-q", "--no-warnings", "-f", "b[height<=720]/b",
          "--no-playlist", "-o", str(dest / "v.%(ext)s"), url],
         capture_output=True, text=True, timeout=180)
     if r.returncode != 0:

@@ -167,7 +167,13 @@ async function sbSignIn(email, password) {
     an account here. Telling the two apart would undo that, so both get the same
     "check your email" answer. */
 async function sbSignUp(email, password) {
-  const res = await fetch(`${SB_URL}/auth/v1/signup`, {
+  // Tell Supabase where the confirmation link should land, per signup, instead
+  // of relying on the project's single Site URL. That setting pointed at
+  // localhost, so every confirmation email sent a real user to a page only the
+  // developer's laptop could serve. location.origin is whatever host actually
+  // served this page, so the link always comes back to the same deployment.
+  const back = encodeURIComponent(location.origin + "/creator.html");
+  const res = await fetch(`${SB_URL}/auth/v1/signup?redirect_to=${back}`, {
     method: "POST",
     headers: { apikey: SB_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -408,7 +414,7 @@ function renderPane() {
 
 function addBrand() {
   const b = { id: newId(), name: "", site: "", description: "", objective: "",
-              niche: "", consent: "private", code: trackCode("LYNX") };
+              niche: "", code: trackCode("LYNX") };
   ME.brands.push(b);
   save();
   go({ kind: "brand", id: b.id });
@@ -426,7 +432,6 @@ function renderBrand(head, body, b) {
     <button type="button" class="ghost side-toggle" id="side-open">☰ Brands</button>
     <div class="pane-title">
       <div class="bcard-title" id="brand-heading">${escapeHtml(b.name || "Untitled brand")}</div>
-      ${b.code ? `<span class="chip">${escapeHtml(b.code)}</span>` : ""}
       ${writing ? `<span class="chip bp-wait"><i class="bp-dot"></i>${writing} writing</span>`
         : ready ? `<span class="chip good">${plural(ready, "script")}</span>` : ""}
       <div class="spacer"></div>
@@ -452,11 +457,6 @@ function renderBrand(head, body, b) {
             <input type="text" class="b-obj" value="${escapeHtml(b.objective || "")}" placeholder="e.g. free-trial signups"></label>
           <label class="ce-field"><span class="lbl">Niche</span>
             <input type="text" class="b-niche" value="${escapeHtml(b.niche || "")}" placeholder="e.g. Education"></label>
-          <label class="ce-field"><span class="lbl">Is this a Lynx client?</span>
-            <select class="b-consent">
-              <option value="private"${b.consent !== "full" ? " selected" : ""}>No — keep my data private</option>
-              <option value="full"${b.consent === "full" ? " selected" : ""}>Yes — Lynx client</option>
-            </select></label>
         </div>
         <div class="bp-actions"><button type="button" class="ghost b-del">Delete this brand</button></div>
       </div>
@@ -485,7 +485,6 @@ function renderBrand(head, body, b) {
   });
   bind(".b-name", "name"); bind(".b-site", "site"); bind(".b-desc", "description");
   bind(".b-obj", "objective"); bind(".b-niche", "niche");
-  editor.querySelector(".b-consent").addEventListener("change", (e) => { b.consent = e.target.value; save(); });
 
   // Deleting a brand takes its scripts. The videos stay in the Library —
   // they were yours before any brand existed, and they outlive it.
@@ -883,7 +882,7 @@ function scriptText(a) {
   return lines.join("\n");
 }
 
-function adaptationHtml(a) {
+function adaptationHtml(a, liveName) {
   const justReady = SEEN.get(a.id) === "queued" && a.status === "done";
   if (justReady) FLASH.add(a.id);
   SEEN.set(a.id, a.status);
@@ -904,11 +903,14 @@ function adaptationHtml(a) {
     : `<span class="chip">source only</span>`;
   const href = safeUrl(a.sourceUrl || "");
   const id = escapeHtml(a.id);
+  // brandName was snapshotted when this was queued, so it goes stale the moment
+  // the brand is renamed. Prefer what the brand is called now.
+  const brandNow = liveName || a.brandName || "this brand";
 
   let body;
   if (a.status === "queued") {
     body = `<p class="bp-hint">Queued. The source gets transcribed, the format underneath it pulled
-      out, and the script written for ${escapeHtml(a.brandName || "this company")}. It appears here
+      out, and the script written for ${escapeHtml(brandNow)}. It appears here
       on its own — no need to stay on this page.</p>`;
   } else if (a.status === "error") {
     body = `<p class="bp-hint bad">${escapeHtml(a.note || "That video couldn't be downloaded.")}</p>
@@ -916,7 +918,7 @@ function adaptationHtml(a) {
   } else if (ad) {
     const carry = { do: "", show: "" };
     body = `
-      ${lowFit ? `<p class="bp-hint bp-partial"><strong>This format doesn't really suit ${escapeHtml(a.brandName || "this company")}.</strong>
+      ${lowFit ? `<p class="bp-hint bp-partial"><strong>This format doesn't really suit ${escapeHtml(brandNow)}.</strong>
           ${escapeHtml(ad.fit_reason || "")} The script below is written anyway, but a format that fits
           would do better than forcing this one.</p>`
         : ad.fit_reason ? `<p class="bp-hint">Fit ${Math.round((ad.fit || 0) * 100)}% — ${escapeHtml(ad.fit_reason)}</p>` : ""}
@@ -970,7 +972,7 @@ function renderScripts(b) {
       and a script comes back for each — the video files itself in your Library either way.</p></div>`;
     return;
   }
-  host.innerHTML = `<div class="bp-list">${list.map(adaptationHtml).join("")}</div>`;
+  host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a, b.name)).join("")}</div>`;
 
   host.querySelectorAll(".ad-copy").forEach((btn) => btn.addEventListener("click", async () => {
     const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
@@ -1237,8 +1239,45 @@ wireComposer();
   window.addEventListener("blur", rest);
 })();
 
-// Returning session: refresh the token and go straight in.
+/** A confirmation (or recovery) link comes back here with the session in the
+    URL fragment. Take it, strip it out of the address bar so the tokens never
+    sit in history or get pasted into a chat, and go straight in — otherwise a
+    creator clicks "confirm", lands on the login form, and has to type the
+    password they set thirty seconds ago.
+
+    Fragments never reach a server, so this is the only place that can read it;
+    GitHub Pages sees nothing. */
+async function sessionFromLink() {
+  const hash = location.hash || "";
+  if (!hash.includes("access_token") && !hash.includes("error")) return false;
+  const p = new URLSearchParams(hash.replace(/^#/, ""));
+  history.replaceState(null, "", location.pathname + location.search);
+
+  const err = p.get("error_description") || p.get("error");
+  if (err) {
+    document.getElementById("err").textContent = /expired|invalid/i.test(err)
+      ? "That confirmation link has expired — sign up again to get a new one."
+      : decodeURIComponent(err).replace(/\+/g, " ");
+    return false;
+  }
+  const access_token = p.get("access_token"), refresh_token = p.get("refresh_token");
+  if (!access_token || !refresh_token) return false;
+  try {
+    // The fragment carries no user object, and we need the id to read the row.
+    const res = await fetch(`${SB_URL}/auth/v1/user`, {
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${access_token}` } });
+    if (!res.ok) return false;
+    adoptSession({ access_token, refresh_token, user: await res.json() });
+    return true;
+  } catch { return false; }
+}
+
+// Arriving from a confirmation link, or a session already stored here.
 (async function resume() {
+  if (await sessionFromLink()) {
+    try { await pull(); unlock(); return; }
+    catch (ex) { document.getElementById("err").textContent = accountLoadError(ex.message || ""); return; }
+  }
   const sess = loadSession();
   if (!sess?.refresh_token) return;
   try { await sbRefresh(sess.refresh_token); }

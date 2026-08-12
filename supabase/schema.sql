@@ -342,8 +342,11 @@ create trigger lynxr_creators_touch
 -- table. When the agency dashboard needs it, add a roles table and gate on
 -- that; do not loosen this to `authenticated`.
 --
--- `consent` mirrors the brand's setting at tag time: rows from brands marked
--- 'private' must be excluded from any cross-brand analysis.
+-- `consent` is vestigial: the per-brand "is this a Lynx client?" opt-out was
+-- removed 2026-08-11 and every source now pools into the shared library, so the
+-- column is always 'full'. Kept rather than dropped so existing rows and the
+-- upsert body stay valid. Nothing brand-identifying is stored here — the row
+-- describes a public video, not who sent it or who it was for.
 create table if not exists public.lynxr_sources (
   canonical_url  text primary key,
   url            text        not null,

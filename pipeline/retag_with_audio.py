@@ -52,6 +52,8 @@ MODEL = "claude-opus-5"
 DIMS = ["format_type", "hook_pattern", "niche_category", "target_audience"]
 VIS_DIMS = ["visual_hook", "onscreen_text"]
 
+(ROOT / "output").mkdir(exist_ok=True)   # gitignored: absent in a fresh CI checkout
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
     handlers=[logging.StreamHandler(sys.stdout),
