@@ -489,9 +489,14 @@ function renderNewScript(head, body) {
 
 function renderSide() {
   document.getElementById("side-who").textContent = SB_EMAIL || "";
-  const used = scriptsUsed();
+  const used = Math.min(scriptsUsed(), SCRIPT_CAP);
   const quota = document.getElementById("side-quota");
-  quota.textContent = `${used}/${SCRIPT_CAP} scripts`;
+  document.getElementById("side-quota-text").textContent =
+    used >= SCRIPT_CAP ? `${SCRIPT_CAP}/${SCRIPT_CAP} — none left`
+                       : `${used}/${SCRIPT_CAP} scripts · ${SCRIPT_CAP - used} left`;
+  // Width via CSSOM, not a style attribute: the CSP drops inline styles, and
+  // this exact mistake once shipped bar charts that rendered as nothing.
+  document.getElementById("side-quota-fill").style.width = `${(used / SCRIPT_CAP) * 100}%`;
   quota.classList.toggle("spent", used >= SCRIPT_CAP);
   document.getElementById("nav-library-n").textContent = ME.library.length || "";
   document.getElementById("nav-new").classList.toggle("on", VIEW.kind === "new");

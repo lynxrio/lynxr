@@ -1181,8 +1181,14 @@
   .side-who { color: var(--text-3); font-size: 11.5px; padding: 0 10px 8px; overflow: hidden; text-overflow: ellipsis; }
   /* Scripts used / allowed. Quiet until it is spent, then it is the answer to
      "why won't it send" and needs to be the thing you notice. */
-  .side-quota { color: var(--text-3); font-size: 11.5px; padding: 0 10px 6px; }
+  .side-quota { color: var(--text-3); font-size: 11.5px; padding: 0 10px 8px; }
   .side-quota.spent { color: var(--bad); }
+  .quota-bar {
+    display: block; height: 3px; margin-top: 5px; border-radius: 2px;
+    background: var(--surface-2); overflow: hidden;
+  }
+  .quota-bar > i { display: block; height: 100%; width: 0; background: var(--text-3); }
+  .side-quota.spent .quota-bar > i { background: var(--bad); }
 
   /* Main pane: a column that scrolls, with the composer pinned at its foot. */
   /* max-width matters as much as min-width here: in the mobile column layout

@@ -651,8 +651,17 @@ def process_one(a, creator, aclient):
                 "single beat — that text IS the script here."
                 if silent else
                 "The original is spoken to camera. Set delivery=\"spoken\".")
+        # If the format step stripped a wrapper, say so again here. The source
+        # digest below still contains the WHOLE original — including the
+        # portfolio intro — and left unsaid the model drifts back to it and
+        # writes the frame it was supposed to discard.
+        wrapper = (a.get("format") or {}).get("wrapper_removed") or ""
+        frame = (f"\n=== IGNORE THE FRAMING ===\nThe original is wrapped in: {wrapper}\n"
+                 "That framing is NOT part of the format. It appears in the transcript and "
+                 "shots below — skip past it and adapt only the piece inside. Never open with "
+                 "the creator introducing themselves or their work.\n" if wrapper else "")
         prompt = ("Adapt this format for the brand below.\n\n"
-                  f"=== DELIVERY ===\n{mode}\n\n"
+                  f"=== DELIVERY ===\n{mode}\n{frame}\n"
                   f"=== FORMAT TO REUSE ===\n{json.dumps(a['format'], indent=1)}\n\n"
                   f"=== ORIGINAL VIDEO (for reference — do NOT reuse its topic) ===\n{source_digest(a)}\n\n"
                   f"=== BRAND ===\n{brand_digest(brand, creator)}")
