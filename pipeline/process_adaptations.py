@@ -104,8 +104,9 @@ FORMAT_SCHEMA = {
         "product_entry": {"type": "string", "enum": ["early", "mid", "late", "none"],
                           "description": "where the product is introduced"},
         "why_it_works": {"type": "string", "description": "one sentence on the mechanism — what keeps attention"},
+        "wrapper_removed": {"type": "string", "description": "the framing you discarded before extracting the format, e.g. 'portfolio intro presenting the ad as sample work'. EMPTY STRING if the video was not wrapped."},
     },
-    "required": ["name", "beats", "product_entry", "why_it_works"],
+    "required": ["name", "beats", "product_entry", "why_it_works", "wrapper_removed"],
 }
 
 FORMAT_SYSTEM = """You extract the REUSABLE STRUCTURE of a short-form video.
@@ -119,7 +120,22 @@ hydration — it is a contrarian hook, a three-item list, a visual reset between
 items, the most surprising item held for last, then a soft CTA. That skeleton
 is the format.
 
-Be specific about what each beat DOES structurally, never about what it says."""
+Be specific about what each beat DOES structurally, never about what it says.
+
+SOME VIDEOS HAVE ANOTHER VIDEO INSIDE THEM. A creator's portfolio piece — "I
+make UGC for brands, here's one I shot for a client, take a look" — is a FRAME
+around an ad. So is a reaction, a stitch, a duet, a screen-recorded clip with
+commentary over it, or "watch this ad I made".
+
+In all of those the reusable format is the INNER video. Extract the ad and
+discard the presenting. Get this wrong and the creator who reuses the format
+opens their own video by announcing that they make videos for brands — which
+is a portfolio piece about them, not an ad for the product they were paid to
+sell. The frame is that creator's business model, not a format.
+
+Name what you discarded in `wrapper_removed`, or leave it empty when the video
+was not wrapped. If the frame is ALL there is — someone talking about their
+work with no inner piece to pull out — then keep it and say so there."""
 
 
 # ------------------------------------------------------------ adaptation
