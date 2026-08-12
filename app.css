@@ -512,6 +512,14 @@
     padding: 11px 14px; font-size: 13px; list-style: none;
   }
   .bp-item > summary::-webkit-details-marker { display: none; }
+  /* A frame from the source video. Portrait, because short-form is, and a
+     square crop of a 9:16 frame throws away the part with the face in it.
+     The surface-2 background means a slow or missing image leaves a neutral
+     tile rather than a flash of nothing that reflows the row. */
+  .bp-thumb {
+    width: 32px; height: 42px; flex: none; border-radius: 5px;
+    object-fit: cover; background: var(--surface-2); display: block;
+  }
   .bp-caret { color: var(--text-3); font-size: 10px; transition: transform .18s var(--ease); }
   .bp-item[open] .bp-caret { transform: rotate(90deg); }
   .bp-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -560,6 +568,10 @@
   }
   .bp-beat:first-child { border-top: 0; }
   .bp-t { font-family: var(--mono); font-size: 11px; color: var(--text-3); padding-top: 3px; }
+  /* Creator scripts drop the timing column (creator.js emits no .bp-t and no
+     spacer spans). Scoped so the agency blueprints, which share .bp-beat and
+     DO show timings against a specific video, are untouched. */
+  .bp-notime .bp-beat { grid-template-columns: 42px 1fr; }
   .bp-lbl {
     font-size: 9.5px; letter-spacing: .1em; color: var(--text-3);
     padding-top: 4px; user-select: none;
@@ -1365,6 +1377,22 @@
   /* "Also write this for" — one tap adds a company, so these need to read as
      buttons rather than the static tag-chips they sit beside. */
   .lib-also { margin: 6px 0 2px; }
+  /* Three things stack at the foot of a finished script and two of them are
+     easy to regret: a "+ Company" chip SPENDS a script, Delete throws one away.
+     They were a thumb-width apart. Give the reuse row air above it and put a
+     clear break before Delete — the armed two-click is a backstop, not a
+     reason to leave them adjacent. */
+  .bp-body > .ad-del { margin-top: 20px; }
+  /* Trash rows in Settings: not a disclosure like the rest of .bp-item, just a
+     line and the way back. */
+  .trash-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  }
+  .trash-main { min-width: 0; flex: 1; }
+  .trash-row .bp-name { white-space: normal; }
+  .trash-row .bp-hint { margin: 2px 0 0; }
+  .trash-row .ghost { flex: none; }
+  .bp-body > .bp-actions + .bp-heading { margin-top: 18px; }
   .chip.pick {
     cursor: pointer; border-style: dashed; color: var(--text);
     transition: background .15s var(--ease), border-color .15s var(--ease);

@@ -67,6 +67,30 @@ function wireGrow(el) {
   el.addEventListener("blur", () => autoGrow(el));
 }
 
+/** A frame from the source video, for telling one row from another.
+ *
+ *  The worker uploads it, so it hangs off the adaptation rather than the
+ *  library entry — a library row finds it through whichever script was written
+ *  from that video. The trash is searched too: a deleted script still knows
+ *  what its video looked like, and the library keeps the video regardless.
+ *  Returns "" when there is none, and the row renders exactly as it did before.
+ */
+function coverUrl({ libraryId, canon } = {}) {
+  const all = [...(ME.adaptations || []), ...(ME.trash || [])];
+  const hit = all.find((x) => (x.source || {}).cover
+    && (x.libraryId === libraryId
+        || (canon && x.sourceUrl && canonUrl(x.sourceUrl) === canon)));
+  return hit ? hit.source.cover : "";
+}
+
+/** The thumbnail cell, or nothing at all. */
+function thumbHtml(url, label) {
+  return url
+    ? `<img class="bp-thumb" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async"
+         title="${escapeHtml(label || "")}">`
+    : "";
+}
+
 /** Keep a click on a link inside a <summary> from also toggling the card.
  *  The browser's disclosure toggle is the summary's activation behaviour, so
  *  stopping the event at the anchor is what prevents it — the anchor's own
@@ -168,7 +192,23 @@ let SYNC_OK = false;
 // is exactly what the worker iterates; nesting them inside brands would break
 // pipeline/process_adaptations.py.
 const BLANK_ME = { name: "", niches: [], brands: [], adaptations: [], library: [],
-                   contactEmail: "", emailOptIn: false };
+                   trash: [], contactEmail: "", emailOptIn: false };
+
+/** Delete a script the recoverable way: it moves to the trash with a stamp and
+ *  the name of the company it was written for, so Settings can offer it back.
+ *  Nothing here is free to remake — a delete used to be the one action in the
+ *  app that destroyed something you had paid for, behind a single arm. */
+function trashAdaptations(pred) {
+  const goes = (ME.adaptations || []).filter(pred);
+  if (!goes.length) return 0;
+  ME.trash = ME.trash || [];
+  for (const a of goes) {
+    SEEN.delete(a.id);
+    ME.trash.unshift({ ...a, deletedAt: new Date().toISOString() });
+  }
+  ME.adaptations = ME.adaptations.filter((a) => !pred(a));
+  return goes.length;
+}
 let ME = { ...BLANK_ME };
 
 const saveSession = (s) => { try { localStorage.setItem(SB_SESSION_KEY, JSON.stringify(s)); } catch {} };
@@ -313,7 +353,7 @@ function save({ now = false } = {}) {
 function normalizeMe() {
   ME = { ...BLANK_ME, ...ME };
   let changed = false;
-  for (const k of ["niches", "brands", "adaptations", "library"]) {
+  for (const k of ["niches", "brands", "adaptations", "library", "trash"]) {
     if (!Array.isArray(ME[k])) { ME[k] = []; changed = true; }
   }
 
@@ -691,11 +731,12 @@ function renderBrand(head, body, b) {
     go({ kind: "new" });
   });
 
-  // Deleting a brand takes its scripts. The videos stay in the Library —
-  // they were yours before any brand existed, and they outlive it.
+  // Deleting a brand takes its scripts — to the trash, not to nothing, so a
+  // mistyped company name deleted in a hurry doesn't cost a dozen scripts.
+  // The videos stay in the Library: they were yours before any brand existed.
   armDelete(editor.querySelector(".b-del"), "Delete this brand", () => {
     ME.brands = ME.brands.filter((x) => x.id !== b.id);
-    ME.adaptations = ME.adaptations.filter((a) => a.brandId !== b.id);
+    trashAdaptations((a) => a.brandId === b.id);
     save({ now: true });
     go(ME.brands.length ? { kind: "brand", id: ME.brands[0].id } : { kind: "library" });
   });
@@ -889,6 +930,7 @@ function libraryItemHtml(item, scopeBrandId) {
   return `<details class="bp-item lib-item" data-lid="${escapeHtml(item.id)}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
+      ${thumbHtml(coverUrl({ libraryId: item.id, canon: item.canon }), sourceLabel(item))}
       <span class="bp-name">${escapeHtml(sourceLabel(item))}</span>
       <span class="chip lib-plat">${escapeHtml(item.platform || "Link")}</span>
       ${chip}
@@ -947,12 +989,19 @@ function renderYou(head, body) {
     </div>
 
     <div class="section">
+      <h2>Trash <span class="pill">${(ME.trash || []).length}</span></h2>
+      <div id="trash-list"></div>
+    </div>
+
+    <div class="section">
       <h2>Account</h2>
       <p class="note">${escapeHtml(SB_EMAIL || "")}</p>
       <div class="bp-actions">
         <button type="button" class="ghost danger" id="signout">Sign out</button>
       </div>
     </div>`;
+
+  renderTrash();
 
   // Single click: signing out is reversible, so the two-click arm the repo
   // uses for real deletes would just be friction. It already sits behind a
@@ -971,6 +1020,49 @@ function renderYou(head, body) {
     flashMsg("me-msg", "Saved.", "good");
   });
 
+}
+
+/** The trash list inside Settings. Restore puts a script back on its company;
+ *  if that company is gone the script would have nowhere to live, so it is
+ *  offered against the companies that still exist instead of failing. */
+function renderTrash() {
+  const host = document.getElementById("trash-list");
+  if (!host) return;
+  const items = ME.trash || [];
+  if (!items.length) {
+    host.innerHTML = `<p class="bp-hint">Nothing deleted.</p>`;
+    return;
+  }
+  host.innerHTML = `<div class="bp-list">${items.map((a) => {
+    const gone = !brandById(a.brandId);
+    const ad = a.adaptation || {};
+    return `<div class="bp-item trash-row" data-adid="${escapeHtml(a.id)}">
+      <div class="trash-main">
+        <div class="bp-name">${escapeHtml(a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}</div>
+        <p class="bp-hint">${escapeHtml(a.brandName || "—")}${gone ? " · company deleted" : ""}
+          · deleted ${escapeHtml(agoLabel(a.deletedAt))}${ad.hook ? ` · “${escapeHtml(ad.hook.slice(0, 60))}”` : ""}</p>
+      </div>
+      <button type="button" class="ghost trash-restore" data-adid="${escapeHtml(a.id)}">Restore</button>
+    </div>`;
+  }).join("")}</div>`;
+
+  host.querySelectorAll(".trash-restore").forEach((btn) => btn.addEventListener("click", () => {
+    const i = (ME.trash || []).findIndex((x) => x.id === btn.dataset.adid);
+    if (i < 0) return;
+    const [a] = ME.trash.splice(i, 1);
+    delete a.deletedAt;
+    // Its company may have been deleted since. Rather than refuse, put it with
+    // the first company that still exists and say so — the script is the
+    // expensive part, and which folder it sits in is easy to change.
+    if (!brandById(a.brandId) && (ME.brands || []).length) {
+      a.brandId = ME.brands[0].id;
+      a.brandName = ME.brands[0].name;
+    }
+    ME.adaptations.unshift(a);
+    save({ now: true });
+    renderSide(); renderPane();
+    say(`Restored to ${a.brandName || "your scripts"}.`, "good");
+  }));
 }
 
 function renderFeedback(head, body) {
@@ -1140,7 +1232,12 @@ let COMPOSE_FOR = null;      // Set of brand ids; null means "just this brand"
 // that counts — this row belongs to the creator, so the check below can be
 // walked around from the browser console. Keep the two in step.
 const SCRIPT_CAP = 50;
-const scriptsUsed = () => (ME.adaptations || []).length;
+// Counted against the allowance whether or not the creator still has it. Every
+// one of these was four model calls that were actually paid for, so deleting a
+// script must not hand the money back — otherwise 50 is not a limit, it is a
+// limit on how many you keep. Deleted scripts go to the trash rather than
+// vanishing, so this is just "everything ever made".
+const scriptsUsed = () => (ME.adaptations || []).length + (ME.trash || []).length;
 
 /** Which companies the pasted link is for. Links are sent from one place now,
     so there is no "current brand" to assume — the ticks are the whole answer.
@@ -1489,10 +1586,7 @@ function beatRow(bt, carry, silent) {
   const rows = [row("SAY", say), row("DO", doIt, !silent),
                 silent ? row("SHOW", show, false) : ""].filter(Boolean);
   if (!rows.length) return "";
-  return `<li class="bp-beat">
-    <span class="bp-t">${escapeHtml(bt.t || "")}</span>${rows[0]}
-    ${rows.slice(1).map((r) => `<span></span>${r}`).join("")}
-  </li>`;
+  return `<li class="bp-beat">${rows.join("")}</li>`;
 }
 
 function scriptText(a) {
@@ -1503,7 +1597,6 @@ function scriptText(a) {
   if (quiet) lines.push("NO VOICEOVER — shot by shot, the SHOW lines go on screen.", "");
   if (ad.hook) lines.push(`${quiet ? "OPENING CARD" : "HOOK"}: "${ad.hook}"`, "");
   for (const b of ad.beats || []) {
-    lines.push(`[${b.t || ""}]`);
     if (b.say) lines.push(`  SAY:  ${b.say}`);
     if (b.do) lines.push(`  DO:   ${b.do}`);
     if (quiet && b.show) lines.push(`  SHOW: ${b.show}`);   // matches the card: silent only
@@ -1573,7 +1666,7 @@ function adaptationHtml(a, liveName) {
       ${silent ? `<p class="bp-hint">No voiceover — this one is read, not heard, so it still works
         on mute. Film the shots below and put the SHOW line on screen at each beat.</p>` : ""}
       <div class="bp-heading">${silent ? "Shot by shot" : "Your script"}</div>
-      <ol class="bp-beats">${(ad.beats || []).map((b) => beatRow(b, carry, silent)).join("")}</ol>
+      <ol class="bp-beats bp-notime">${(ad.beats || []).map((b) => beatRow(b, carry, silent)).join("")}</ol>
       ${ad.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> ${escapeHtml(ad.cta)}</p>` : ""}
       ${ad.caption ? `<p class="bp-hint"><strong>Caption:</strong> ${escapeHtml(ad.caption)}</p>` : ""}
       ${/* format.why_it_works is still extracted and stored — it is useful to the
@@ -1596,6 +1689,7 @@ function adaptationHtml(a, liveName) {
   return `<details class="bp-item bp-${isWriting(a) ? "queued" : escapeHtml(a.status)}${flash ? " bp-flash" : ""}"${justReady ? " open" : ""} data-adid="${id}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
+      ${thumbHtml((a.source || {}).cover, a.title || "")}
       <span class="bp-name">${escapeHtml(a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}</span>
       ${chip}
       <span class="bp-when">${escapeHtml(agoLabel(a.addedAt))}</span>
@@ -1639,8 +1733,7 @@ function renderScripts(b) {
     say("Re-queued — it'll be picked up on the next pass.", "good");
   }));
   host.querySelectorAll(".ad-del").forEach((btn) => armDelete(btn, "Delete", () => {
-    ME.adaptations = ME.adaptations.filter((x) => x.id !== btn.dataset.adid);
-    SEEN.delete(btn.dataset.adid);
+    trashAdaptations((x) => x.id === btn.dataset.adid);
     save(); renderSide(); renderPane();   // the video stays in the Library
   }));
 }

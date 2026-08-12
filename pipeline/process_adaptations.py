@@ -227,6 +227,50 @@ def sb(key, path, method="GET", body=None, raw=False):
     return data if raw else (json.loads(data) if data else None)
 
 
+COVER_BUCKET = "lynxr-covers"
+
+
+def make_cover(media, dest):
+    """One small JPEG from the source video, for telling scripts apart.
+
+    A creator with twenty entries cannot remember which link was which, and the
+    rows fall back to a raw URL whenever the title fails to hydrate. A frame
+    from the video itself is the one label that always works.
+
+    Taken at 1s rather than 0s: the very first frame of a short-form video is
+    routinely black, a platform splash, or a half-drawn caption.
+    """
+    out = dest / "cover.jpg"
+    r = subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-ss", "1", "-i", str(media),
+         "-frames:v", "1", "-vf", "scale='min(360,iw)':-2", "-q:v", "6", str(out)],
+        capture_output=True, timeout=60)
+    if r.returncode != 0 or not out.exists() or out.stat().st_size < 500:
+        return None
+    return out.read_bytes()
+
+
+def upload_cover(key, name, blob):
+    """Put the cover in a PUBLIC bucket and return its URL.
+
+    Public because these are frames of already-public videos, and because a
+    signed URL would expire and leave the row blank later. Storing the bytes on
+    the creator's row instead was the alternative and it is worse: that row is
+    re-fetched on tab focus and every 90 seconds, so fifty covers would be a
+    few hundred KB of repeated mobile traffic. A URL is cached by the browser.
+    """
+    path = f"{COVER_BUCKET}/{name}.jpg"
+    req = urllib.request.Request(f"{SB_URL}/storage/v1/object/{path}", method="POST")
+    req.add_header("apikey", key)
+    req.add_header("Authorization", f"Bearer {key}")
+    req.add_header("Content-Type", "image/jpeg")
+    req.add_header("x-upsert", "true")     # a re-run should replace, not 409
+    req.data = blob
+    with urllib.request.urlopen(req, timeout=120, context=SSL_CTX) as r:
+        r.read()
+    return f"{SB_URL}/storage/v1/object/public/{path}"
+
+
 def now_iso():
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -558,7 +602,7 @@ def upsert_video(key, a):
         log.warning("  database upsert skipped: %s", str(e)[:120])
 
 
-def process_one(a, creator, aclient):
+def process_one(a, creator, aclient, key):
     """Fill adaptation `a` in place. Transcript always; AI steps need aclient."""
     url = a.get("sourceUrl")
     if not url:
@@ -574,6 +618,15 @@ def process_one(a, creator, aclient):
 
         t = transcribe(str(media), WHISPER_MODEL)
         src = a.setdefault("source", {})
+        # Before anything billable: the cover is free, and a source that fails
+        # at the model steps is exactly the one a creator needs to recognise.
+        try:
+            blob = make_cover(media, td)
+            if blob:
+                src["cover"] = upload_cover(
+                    key, hashlib.sha1(canon_url(url).encode()).hexdigest()[:20], blob)
+        except Exception as e:  # noqa: BLE001
+            log.warning("  -> no cover: %s", api_reason(e))
         src.update({
             "platform": platform_of(url),
             "meta": fetch_meta(url),          # public counts + the platform's id
@@ -740,6 +793,8 @@ def main():
                     help="most adaptations to take from any one creator per run (0 = no cap)")
     ap.add_argument("--lease-minutes", type=float, default=25,
                     help="how long a claimed adaptation stays claimed before it is retryable")
+    ap.add_argument("--backfill-covers", action="store_true",
+                    help="give existing scripts a cover frame and exit. No model calls.")
     ap.add_argument("--cap", type=int, default=int(os.environ.get("SCRIPT_CAP", 50)),
                     help="most scripts one creator may ever have written (0 = unlimited). "
                          "Keep in step with SCRIPT_CAP in creator.js")
@@ -792,6 +847,42 @@ def main():
         return (args.redo_ai and a.get("status") == "done"
                 and "failed" in (a.get("note") or "") and cooled(a))
 
+    if args.backfill_covers:
+        # Scripts written before covers existed still show a bare URL, which is
+        # the whole problem covers solve. Re-fetching just the video and pulling
+        # one frame costs nothing but bandwidth — no model call, no cap spend,
+        # and the script itself is left exactly as it is.
+        done = failed = 0
+        for row in sb(key, "/rest/v1/lynxr_creators?select=id,data"):
+            data, touched = row["data"], []
+            for a in (data.get("adaptations") or []) + (data.get("trash") or []):
+                src = a.get("source") or {}
+                if src.get("cover") or not a.get("sourceUrl"):
+                    continue
+                try:
+                    with tempfile.TemporaryDirectory() as td_s:
+                        td = Path(td_s)
+                        media, err = download_video(a["sourceUrl"], td)
+                        if not media:
+                            raise RuntimeError(err or "download failed")
+                        blob = make_cover(media, td)
+                        if not blob:
+                            raise RuntimeError("no frame")
+                        a.setdefault("source", {})["cover"] = upload_cover(
+                            key, hashlib.sha1(canon_url(a["sourceUrl"]).encode()).hexdigest()[:20], blob)
+                    touched.append(a)
+                    done += 1
+                    log.info("  cover: %s", a["sourceUrl"][:60])
+                except Exception as e:  # noqa: BLE001
+                    failed += 1
+                    log.warning("  no cover for %s — %s", a["sourceUrl"][:50], api_reason(e))
+            if touched:
+                # Trash entries are grafted by id the same way; graft_adaptations
+                # matches on id and leaves everything it does not recognise.
+                graft_adaptations(key, row["id"], touched)
+        log.info("backfill done: %d covered, %d failed", done, failed)
+        return
+
     rows = sb(key, "/rest/v1/lynxr_creators?select=id,data")
     todo = [r["id"] for r in rows
             if any(wants_work(a) for a in (r["data"].get("adaptations") or []))]
@@ -825,7 +916,11 @@ def main():
         # it cannot be reset by deleting finished ones.
         allowed = set()
         if args.cap:
-            in_order = sorted((data.get("adaptations") or []),
+            # Trashed scripts COUNT. Each was four model calls that were paid
+            # for, so deleting one must not buy another — otherwise the cap
+            # limits how many you keep, not how many you spend. The app moves
+            # deletions to `trash` rather than dropping them for this reason.
+            in_order = sorted((data.get("adaptations") or []) + (data.get("trash") or []),
                               key=lambda a: a.get("addedAt") or "")
             allowed = {id(a) for a in in_order[:args.cap]}
             over = [a for a in in_order[args.cap:] if wants_work(a)]
@@ -867,7 +962,7 @@ def main():
                      (a.get("sourceUrl") or "")[:52], a.get("brandName", "?"))
             a["attemptedAt"] = now_iso()
             try:
-                process_one(a, data, aclient)
+                process_one(a, data, aclient, key)
                 a["status"] = "done"
                 a["processedAt"] = now_iso()
                 changed = True
