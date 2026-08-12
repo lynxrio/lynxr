@@ -383,51 +383,46 @@ function go(view) {
 // empty composer, and pressing "New script" from anywhere returns here empty.
 // One job on the page, so there is nothing to read before you can start.
 function renderNewScript(head, body) {
-  // Icon only, and no title beside it — the page has one job and the greeting
-  // in the middle already says what it is.
+  // No page title — the greeting below is the title, and repeating it twice
+  // above a one-field form is exactly the clutter this view is avoiding.
   head.innerHTML = `
-    <button type="button" class="ghost side-toggle side-toggle-ico" id="side-open" aria-label="Menu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-        aria-hidden="true"><path d="M4 7h16M4 12h11M4 17h16"/></svg>
-    </button>`;
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>`;
   document.getElementById("side-open").addEventListener("click", () =>
     document.body.classList.toggle("side-open"));
 
   if (!ME.brands.length) {
-    body.innerHTML = `<div class="newchat">
-      <h1 class="newchat-h">Add a company first</h1>
-      <p class="newchat-sub">A script is always written <em>for</em> something, so there has to be
-        one company before you can send a link.</p>
-      <div class="bp-actions newchat-cta">
-        <button type="button" class="btn" id="new-add-brand">Add a company</button>
-      </div></div>`;
+    body.innerHTML = `<div class="section"><div class="empty">
+      <p><strong>Add a company first.</strong></p>
+      <p>A script is always written <em>for</em> something, so there has to be one company
+        before you can send a link.</p>
+      <div class="bp-actions"><button type="button" class="btn" id="new-add-brand">Add a company</button></div>
+    </div></div>`;
     document.getElementById("new-add-brand").addEventListener("click", addBrand);
     return;
   }
 
-  // Shaped like a chat app: the greeting floats in the middle of the empty
-  // space and the composer sits on the bottom edge, where a thumb already
-  // rests. The input takes its own line with the controls beneath, so a long
-  // pasted URL is never squeezed into a sliver beside the send button.
+  // Centred greeting over the app's EXISTING composer component. The markup of
+  // the composer is deliberately untouched — the `composer-inline` /
+  // `composer-row` pair is what all its styling hangs off, and rebuilding it
+  // with a different structure dropped those classes and made the input and
+  // send button vanish entirely.
   body.innerHTML = `
-    <div class="newchat">
-      <div class="newchat-greet">
-        <svg class="newchat-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
-        <h1 class="newchat-h">What are we making?</h1>
-        <p class="newchat-sub">Paste a TikTok, Instagram or YouTube video worth remaking.</p>
+    <div class="newscript">
+      <div class="newscript-greet">
+        <svg class="newscript-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+        <h1 class="newscript-h">What are we making?</h1>
+        <p class="newscript-sub">Paste a TikTok, Instagram or YouTube video worth remaking.</p>
       </div>
-      <div class="composer composer-chat" id="composer">
-        <form id="composer-form">
-          <input type="url" id="composer-url" placeholder="Paste a video link"
+      <div class="composer composer-inline" id="composer">
+        <div class="composer-for" id="composer-for"></div>
+        <form class="composer-row" id="composer-form">
+          <input type="url" id="composer-url" placeholder="Paste a TikTok / Instagram / YouTube link"
             autocomplete="off" spellcheck="false" aria-label="Paste a video link">
-          <div class="composer-bar">
-            <div class="composer-for" id="composer-for"></div>
-            <span class="bp-plat" id="composer-plat"></span>
-            <button type="submit" class="composer-send" id="composer-send" aria-label="Get the script">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-            </button>
-          </div>
+          <span class="bp-plat" id="composer-plat"></span>
+          <button type="submit" class="composer-send" id="composer-send" aria-label="Get the script">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
         </form>
         <p class="composer-note" id="composer-note"></p>
       </div>
@@ -510,7 +505,7 @@ function renderBrand(head, body, b) {
   const writing = scripts.filter(isWriting).length;
 
   head.innerHTML = `
-    <button type="button" class="ghost side-toggle" id="side-open">☰ Brands</button>
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="pane-title">
       <div class="bcard-title" id="brand-heading">${escapeHtml(b.name || "Untitled brand")}</div>
       ${writing ? `<span class="chip bp-wait"><i class="bp-dot"></i>${writing} writing</span>`
@@ -623,7 +618,7 @@ const LIB_SEARCH_AT = 4;      // searching three items is noise; the box stays h
 
 function renderLibrary(head, body) {
   head.innerHTML = `
-    <button type="button" class="ghost side-toggle" id="side-open">☰ Menu</button>
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="pane-title"><div class="bcard-title">Library</div>
       <span class="pill">${ME.library.length}</span></div>
     <p class="pane-sub">Every video you've sent, and the scripts made from each one.</p>`;
@@ -640,10 +635,9 @@ function renderLibrary(head, body) {
           <button type="button" class="lib-mode${LIB_MODE === "all" ? " on" : ""}"
             id="lib-mode-all" role="tab" aria-selected="${LIB_MODE === "all"}">All videos</button>
         </div>
-        <button type="button" class="btn lib-add" id="lib-add">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-            stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-          New script
+        <button type="button" class="lib-plus" id="lib-add" title="New script" aria-label="New script">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+            aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
         </button>
       </div>
       <p class="composer-note" id="lib-flash" role="status" aria-live="polite"></p>
@@ -825,9 +819,9 @@ function libraryItemHtml(item, scopeBrandId) {
 // ---------- you ----------
 function renderYou(head, body) {
   head.innerHTML = `
-    <button type="button" class="ghost side-toggle" id="side-open">☰ Brands</button>
-    <div class="pane-title"><div class="bcard-title">You</div></div>
-    <p class="pane-sub">Goes to the model with every script, so it sounds like you.</p>`;
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="pane-title"><div class="bcard-title">Settings</div></div>
+    <p class="pane-sub">About you — this goes to the model with every script, so it sounds like you.</p>`;
   document.getElementById("side-open").addEventListener("click", () =>
     document.body.classList.toggle("side-open"));
 
@@ -853,7 +847,21 @@ function renderYou(head, body) {
       <p class="bp-msg" id="me-msg" role="status" aria-live="polite"></p>
     </div>
 
-`;
+    <div class="section">
+      <h2>Account</h2>
+      <p class="note">${escapeHtml(SB_EMAIL || "")}</p>
+      <div class="bp-actions">
+        <button type="button" class="ghost danger" id="signout">Sign out</button>
+      </div>
+    </div>`;
+
+  // Single click: signing out is reversible, so the two-click arm the repo
+  // uses for real deletes would just be friction. It already sits behind a
+  // page rather than in the rail, which is the protection that matters.
+  document.getElementById("signout").addEventListener("click", () => {
+    clearSession();
+    location.reload();
+  });
 
   document.getElementById("me-save").addEventListener("click", () => {
     ME.name = document.getElementById("me-name").value.trim();
@@ -868,7 +876,7 @@ function renderYou(head, body) {
 
 function renderFeedback(head, body) {
   head.innerHTML = `
-    <button type="button" class="ghost side-toggle" id="side-open">☰ Menu</button>
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="pane-title"><div class="bcard-title">Feedback</div></div>
     <p class="pane-sub">This is early software and you're one of the first people using it.</p>`;
   document.getElementById("side-open").addEventListener("click", () =>
@@ -1671,16 +1679,22 @@ document.getElementById("toggle-pw").addEventListener("click", () => {
   pw.focus();
 });
 
-document.getElementById("signout").addEventListener("click", () => {
-  clearSession();
-  location.reload();
-});
-
 document.getElementById("side-new").addEventListener("click", addBrand);
 
 // Always a FRESH composer, exactly like pressing new-chat: re-rendering the
 // view is what clears the field and resets the company picker.
 document.getElementById("nav-new").addEventListener("click", () => go({ kind: "new" }));
+
+// Tapping the dimmed page closes the drawer. The scrim is a ::after
+// pseudo-element on <body> so it can't carry its own handler — clicks on it
+// land on <body>. Rail items already close it via go(); this covers the far
+// more common "open it, change my mind, tap the page" gesture, which
+// previously left the menu stuck open.
+document.addEventListener("click", (e) => {
+  if (!document.body.classList.contains("side-open")) return;
+  if (e.target.closest("#side") || e.target.closest("#side-open")) return;
+  document.body.classList.remove("side-open");
+});
 
 document.getElementById("nav-library").addEventListener("click", () => go({ kind: "library" }));
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));

@@ -1,20 +1,3 @@
-/* Outfit — the Lynx Media Group typeface, self-hosted (CSP allows no external
-   hosts). Variable font: one file carries weights 400-700. */
-@font-face {
-  font-family: "Outfit";
-  src: url("fonts/outfit-latin.woff2") format("woff2");
-  font-weight: 100 900;
-  font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Outfit";
-  src: url("fonts/outfit-latin-ext.woff2") format("woff2");
-  font-weight: 100 900;
-  font-display: swap;
-  unicode-range: U+0100-02AF, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
 /* Share Tech Mono — the "digital readout" face for numbers, verdicts, and
    chart ticks. Single weight, monospace, full ASCII. */
 @font-face {
@@ -77,12 +60,12 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font: 15px/1.6 "Share Tech Mono", "Outfit", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font: 15px/1.6 "Share Tech Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
   }
-  /* Form controls don't inherit the page font by default — force Outfit
-     everywhere; the password field's explicit mono still wins over this. */
+  /* Form controls don't inherit the page font by default — force the page
+     face everywhere so nothing falls back to the system sans. */
   input, select, textarea { font-family: inherit; }
   ::selection { background: #ffffff26; }
   a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--line-2); }
@@ -1040,13 +1023,13 @@
      The digital mono is for numbers and readouts; a form you READ and type
      sentences into gets the text face. Labels lose the all-caps tracking,
      fields get room to breathe. */
-  .ce-body { font-family: "Outfit", ui-sans-serif, sans-serif; }
+  .ce-body { font-family: inherit; }
   .ce-body .lbl {
-    font-family: "Outfit", ui-sans-serif, sans-serif;
+    font-family: inherit;
     text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text-2);
   }
   .ce-body input, .ce-body select, .ce-body textarea {
-    font-family: "Outfit", ui-sans-serif, sans-serif; font-size: 14px; line-height: 1.5;
+    font-family: inherit; font-size: 14px; line-height: 1.5;
   }
   .ce-body ::placeholder { color: var(--text-3); opacity: .8; }
   .ce-grid { gap: 16px 18px; }
@@ -1056,7 +1039,7 @@
      Collapsed by default so it's there when you need it, invisible when not. */
   .avatar-box {
     border: 1px solid var(--line); border-radius: 10px;
-    margin: -6px 0 22px; font-family: "Outfit", ui-sans-serif, sans-serif;
+    margin: -6px 0 22px; font-family: inherit;
   }
   .avatar-box summary {
     cursor: pointer; list-style: none; padding: 10px 14px;
@@ -1171,9 +1154,24 @@
      the pane is a flex item whose cross size stretches, and without a cap it
      grew to its widest unwrappable child (a nowrap title plus two chips plus
      the Details button) and pushed the whole page sideways. */
-  .pane { flex: 1 1 auto; min-width: 0; max-width: 100%; display: flex; flex-direction: column; }
+  .pane {
+    /* This is a <main>, so the agency app's `main { padding: … }` rules were
+       applying here too — 32px of transparent padding above the sticky header
+       on desktop, 24px on mobile, which the fixed dot grid showed straight
+       through as a band of dots along the top edge. The header and body carry
+       their own padding, so this element needs none. */
+    padding: 0; position: relative;
+    flex: 1 1 auto; min-width: 0; max-width: 100%; display: flex; flex-direction: column;
+    /* Content is centred by GUTTER, not by max-width, so the header keeps its
+       full-bleed border and blurred backdrop while its text still lines up with
+       the body beneath it. Previously .pane-body was capped at 900px and
+       left-aligned while .pane-head ran the full width — on any display wider
+       than ~1150px the content hugged the left and the right half of every
+       page sat empty. */
+    --gutter: max(28px, (100% - 1180px) / 2);
+  }
   .pane-head {
-    position: sticky; top: 0; z-index: 5; padding: 18px 28px 14px;
+    position: sticky; top: 0; z-index: 5; padding: 18px var(--gutter) 14px;
     border-bottom: 1px solid var(--line);
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     backdrop-filter: blur(8px);
@@ -1185,11 +1183,11 @@
   .pane-title .bcard-title { min-width: 0; }
   .pane-title .bcard-title { font-size: 19px; }
   .pane-sub { color: var(--text-3); font-size: 12.5px; margin: 5px 0 0; }
-  .pane-body { flex: 1 1 auto; padding: 20px 28px 8px; max-width: 900px; width: 100%; }
+  .pane-body { flex: 1 1 auto; padding: 20px var(--gutter) 8px; width: 100%; }
   .pane-scroll { flex: 1 1 auto; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; }
 
   /* The composer — paste a link, get a script for the brand you're inside. */
-  .composer { position: sticky; bottom: 0; padding: 12px 28px 20px; max-width: 900px; width: 100%; }
+  .composer { position: sticky; bottom: 0; padding: 12px var(--gutter) 20px; width: 100%; }
   .composer::before {
     content: ""; position: absolute; inset: -28px 0 0; pointer-events: none;
     background: linear-gradient(to bottom, transparent, var(--bg) 40%);
@@ -1243,53 +1241,39 @@
   #brand-editor.collapsed { display: none; }
 
   /* ---------------------------------------------------------------------
-     NEW SCRIPT — the landing screen, shaped like a chat app's new-chat view.
-     One input, centred, nothing to read first. Opening lynxr or pressing
-     "New script" always arrives here empty.
+     NEW SCRIPT — the landing view. Deliberately plain: it reuses the app's
+     existing composer component untouched, because rebuilding it with new
+     markup dropped the .composer-row / .composer-inline classes its styling
+     hangs off and the input and send button stopped rendering at all.
      --------------------------------------------------------------------- */
-  /* Desktop: greeting and composer sit together as one group, centred in the
-     empty pane — the same shape a chat app opens with. Nothing else competes
-     for attention, so where to start is never a question. */
-  .newchat {
-    max-width: 640px; margin: 0 auto; padding: 0 0 24px;
-    min-height: calc(100dvh - 140px);
-    display: flex; flex-direction: column; justify-content: center; gap: 20px;
+  .newscript {
+    max-width: 640px; margin: 0 auto;
+    min-height: calc(100dvh - 150px);
+    display: flex; flex-direction: column; justify-content: center; gap: 18px;
   }
-  .newchat-greet { text-align: center; }
-  .newchat-mark { width: 30px; height: 30px; color: var(--text-3); margin-bottom: 14px; }
-  .newchat-h { font-size: 27px; line-height: 1.2; margin: 0; letter-spacing: -.01em; }
-  .newchat-sub { margin: 8px 0 0; color: var(--text-2); font-size: 14px; line-height: 1.55; }
-  .newchat-cta { margin-top: 4px; justify-content: center; }
+  .newscript-greet { text-align: center; }
+  .newscript-mark { width: 28px; height: 28px; color: var(--text-3); margin-bottom: 14px; }
+  .newscript-h { font-size: 26px; line-height: 1.2; margin: 0; letter-spacing: -.01em; }
+  .newscript-sub { margin: 8px 0 0; color: var(--text-2); font-size: 14px; line-height: 1.55; }
+  @media (max-width: 560px) {
+    .newscript { min-height: calc(100dvh - 120px); gap: 14px; }
+    .newscript-h { font-size: 21px; }
+  }
 
-  /* The composer is the hero, not a footer strip. Input on its own line so a
-     pasted URL is readable, controls beneath it. A lighter surface than the
-     page plus a hairline border — at --surface it sat only 8 greys off the
-     background and read as a faded ghost rather than a control. */
-  .composer-chat {
-    border-radius: 18px; padding: 6px 6px 6px;
-    background: var(--surface-2); border: 1px solid var(--line-2);
+  /* New script lives in the Library's own toolbar, top-right — the one place
+     with dead space for it. It was on every view as a floating button, which
+     put a permanent control over pages that had nothing to do with it. */
+  .lib-plus {
+    margin-left: auto; flex: 0 0 auto;
+    width: 38px; height: 38px; display: grid; place-items: center;
+    /* Rounded square, matching .btn / .ghost / .side-link — a pill here was the
+       only circular control on the page and read as borrowed from elsewhere. */
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface); color: var(--text-2); cursor: pointer;
+    transition: background .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
   }
-  .composer-chat input {
-    width: 100%; border: 0; background: none; color: var(--text);
-    font: inherit; font-size: 16px; padding: 14px 12px 8px; outline: none;
-  }
-  .composer-chat input::placeholder { color: var(--text-3); }
-  .composer-bar { display: flex; align-items: center; gap: 8px; padding: 2px 4px 2px 6px; }
-  /* One row that scrolls sideways rather than wrapping. Wrapping grew the
-     composer a line at a time as companies were added and shoved the send
-     button around; a creator with six companies would have lost it entirely.
-     `min-width: 0` is what actually lets this shrink — without it the flex
-     item refuses to go below its content width and pushes the send out. */
-  .composer-bar .composer-for {
-    flex: 1 1 auto; min-width: 0; padding: 0; flex-wrap: nowrap;
-    overflow-x: auto; scrollbar-width: none;
-  }
-  .composer-bar .composer-for::-webkit-scrollbar { display: none; }
-  .composer-bar .for-chip { flex: 0 0 auto; }
-  /* The label must never be the thing that shrinks — squeezed to a few pixels
-     it wrapped one word per line and stacked "Write / it / for" vertically. */
-  .composer-bar .composer-for .lbl { flex: 0 0 auto; white-space: nowrap; }
-  .composer-chat .composer-send { width: 40px; height: 40px; flex: 0 0 auto; }
+  .lib-plus:hover { background: var(--hover); color: var(--text); border-color: var(--line-2); }
+  .lib-plus svg { width: 17px; height: 17px; }
 
   /* ---------------------------------------------------------------------
      LIBRARY — every video once, grouped either by the company it was
@@ -1334,6 +1318,14 @@
   .ghost.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
   .ghost.danger:hover { background: color-mix(in srgb, var(--bad) 12%, transparent); border-color: var(--bad); }
 
+  /* The New script view's header carries only the mobile menu button, which is
+     hidden on desktop — leaving an empty bar and a divider line floating above
+     the greeting. Collapse the header when it has no title in it. */
+  @media (min-width: 821px) {
+    .pane-head:not(:has(.pane-title)) { padding: 0; border-bottom: 0; }
+  }
+
+  .pane-mark { display: none; }
   .side-toggle { display: none; }
 
   /* ---------------------------------------------------------------------
@@ -1345,17 +1337,41 @@
     .shell { flex-direction: column; }
     .side {
       position: fixed; z-index: 40; left: 0; top: 0; width: min(84vw, 300px); flex-basis: auto;
-      transform: translateX(-100%); transition: transform .2s var(--ease);
+      /* -100% left an 8px sliver of the rail visible down the left edge (its
+         untransformed left measured 8px, not 0 — no ancestor creates a
+         containing block, so the cause is unclear). Overshooting past its own
+         width clears it regardless, and the open state is still translateX(0). */
+      transform: translateX(calc(-100% - 16px)); transition: transform .2s var(--ease);
     }
     body.side-open .side { transform: none; }
     body.side-open::after {
       content: ""; position: fixed; inset: 0; z-index: 30; background: #0009;
     }
+    /* Icon only, no chrome: a bordered box holding one glyph was the heaviest
+       thing on the page and the label said nothing the icon doesn't. */
     .side-toggle {
-      display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px;
-      padding: 10px 13px; font-size: 14px;
+      display: inline-grid; place-items: center; margin: 0 0 10px -8px;
+      width: 40px; height: 40px; padding: 0;
+      border: 0; background: none; color: var(--text-2); cursor: pointer;
     }
+    .side-toggle:hover { color: var(--text); background: none; }
+
+    .pane-mark {
+      display: block; position: absolute; top: 24px; right: 18px; z-index: 6;
+      width: 19px; height: 19px; color: var(--text-3); pointer-events: none;
+    }
+    .side-toggle svg { width: 20px; height: 20px; }
+
+    /* The drawer sits fully off-screen at translateX(-100%), which parks its
+       1px right border exactly on x=0 — a hairline down the left edge of every
+       page. The scrim already separates the open drawer from the content. */
+    .side { border-right: 0; }
     .pane-head, .pane-body, .composer { padding-left: 16px; padding-right: 16px; }
+    /* The header is 88% opaque on desktop so the page shows faintly through it.
+       On a phone the dot grid reads as a stray band of dots above the title —
+       there is no scrolled content behind it yet to justify the translucency,
+       so make it solid. */
+    .pane-head { background: var(--bg); }
     /* Comfortable thumb targets in the drawer. */
     .side-item, .side-link, .side-new { min-height: 46px; }
   }
@@ -1364,32 +1380,13 @@
      composer rests on the bottom edge. 100dvh (not vh) so the browser's own
      collapsing chrome doesn't push the composer off-screen. */
   @media (max-width: 820px) {
-    .side-toggle-ico {
-      width: 40px; height: 40px; padding: 0; border-radius: 999px;
-      justify-content: center; margin-bottom: 0;
-    }
-    .side-toggle-ico svg { width: 19px; height: 19px; }
-
-    .newchat {
-      min-height: calc(100dvh - 150px);
-      padding-bottom: 8px; gap: 0; justify-content: flex-start;
-    }
-    .newchat-greet { margin: auto 0; }        /* floats in the middle */
-    .composer-chat {
-      margin-top: auto; position: sticky; bottom: 8px;
-      background: var(--surface); box-shadow: 0 8px 24px #0006;
-    }
   }
 
   @media (max-width: 560px) {
-    .newchat-h { font-size: 22px; }
-    /* Every horizontal pixel in the composer bar belongs to the company chips
-       and the send button; the heading above already says what this is for. */
-    .composer-bar .composer-for .lbl { display: none; }
     /* 16px is the threshold below which iOS Safari zooms the page on focus —
        and once it zooms, it does not zoom back out. Every text input in this
        app therefore stays at 16px on phones. */
-    .composer-chat .composer-row input,
+    .composer-row input,
     .lib-tools input, .ce-field input, .ce-field select, .ce-field textarea { font-size: 16px; }
 
     .lib-head { gap: 8px; }
