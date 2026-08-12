@@ -145,7 +145,7 @@ ADAPT_SCHEMA = {
         },
         "delivery": {"type": "string", "enum": ["spoken", "silent"],
                      "description": "'spoken' if the creator talks to camera; 'silent' if the video carries itself on action, on-screen text and audio, with no voiceover. Match the source."},
-        "cta": {"type": "string", "description": "the closing call to action. Spoken when delivery is 'spoken'; the final on-screen card when it is 'silent'."},
+        "cta": {"type": "string", "description": "the closing call to action. Spoken when delivery is 'spoken'; the final on-screen card when it is 'silent'. Do NOT invent a discount or referral code."},
         "caption": {"type": "string", "description": "suggested post caption"},
     },
     "required": ["fit", "fit_reason", "hook", "beats", "delivery", "cta", "caption"],
@@ -313,13 +313,14 @@ def brand_digest(brand, creator, code=""):
         parts.append(f"Creator delivering it: {creator['name']}")
     if creator.get("niches"):
         parts.append(f"Creator's usual niches: {', '.join(creator['niches'])}")
-    # THE ADAPTATION'S code, not the brand's. Each script gets its own at queue
-    # time and that is what the app shows the creator; passing the brand-level
-    # one had the model write "say LYNXSMPQ" into a script the app labelled
-    # LYNX2FBD, so the creator read one code aloud and the brand was told to
-    # expect another. Attribution died silently on the very first live run.
-    if code:
-        parts.append(f"Trackable code the CTA should mention, verbatim: {code}")
+    # Tracking codes are PARKED, not deleted (owner, 2026-08-12). The model is
+    # no longer told about one, so scripts stop ending in "use code ABCD1234"
+    # while the product is still about proving the scripts are any good.
+    #
+    # The code is still ISSUED and stored on every adaptation, because
+    # attribution cannot be applied retroactively (spec R3) — a code invented
+    # later cannot be matched to a video that already went out. Re-enabling is
+    # one line here plus the two render sites in creator.js.
     return "\n".join(parts)
 
 
@@ -571,7 +572,7 @@ def process_one(a, creator, aclient):
                   f"=== DELIVERY ===\n{mode}\n\n"
                   f"=== FORMAT TO REUSE ===\n{json.dumps(a['format'], indent=1)}\n\n"
                   f"=== ORIGINAL VIDEO (for reference — do NOT reuse its topic) ===\n{source_digest(a)}\n\n"
-                  f"=== BRAND ===\n{brand_digest(brand, creator, a.get('code') or '')}")
+                  f"=== BRAND ===\n{brand_digest(brand, creator)}")
         a["adaptation"] = structured(aclient, ADAPT_SYSTEM, ADAPT_SCHEMA, prompt, max_tokens=4000)
     except Exception as e:  # noqa: BLE001
         notes.append(f"adaptation failed: {api_reason(e)}")

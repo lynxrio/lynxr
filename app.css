@@ -1342,3 +1342,17 @@
   .fb-thanks-sub { color: var(--text-3); font-size: 12.5px; line-height: 1.6; margin: 0; }
   .fb-thanks .bp-actions { justify-content: center; margin-top: 22px; }
   @media (prefers-reduced-motion: reduce) { .fb-thanks { animation: none; } }
+
+  /* The composer moved out of the pane's foot and into the New script view, so
+     it sits in the flow rather than floating. Same shell, no sticky gradient. */
+  .composer-inline { position: static; padding: 0; max-width: 100%; }
+  .composer-inline::before { display: none; }
+  .composer-inline .composer-for { margin-bottom: 10px; }
+  .composer-inline .composer-note { margin-top: 10px; }
+
+  /* A second action button in the rail, quieter than "New brand" so the two
+     do not compete for the same attention. */
+  .side-new .side-count { margin-left: auto; color: var(--bg); opacity: .55; }
+  /* Adding a brand is setup you do a handful of times — it should not compete
+     with the button you press every day. */
+  .side-brand-add { margin-bottom: 4px; }

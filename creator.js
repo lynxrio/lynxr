@@ -370,9 +370,6 @@ const brandById = (id) => ME.brands.find((b) => b.id === id);
 let VIEW = { kind: "library" };
 
 function go(view) {
-  // The picker follows you: landing in a brand selects that brand and nothing
-  // else, so the common case (send this link here) needs no clicks at all.
-  if (view.kind !== "brand" || view.id !== VIEW.id) COMPOSE_FOR = null;
   VIEW = view;
   document.body.classList.remove("side-open");
   renderSide();
@@ -408,17 +405,12 @@ function renderSide() {
 function renderPane() {
   const head = document.getElementById("pane-head");
   const body = document.getElementById("pane-body");
-  const composer = document.getElementById("composer");
-  composer.hidden = VIEW.kind !== "brand";
-  if (VIEW.kind === "brand") renderComposeFor();
-
   if (VIEW.kind === "you") return renderYou(head, body);
   if (VIEW.kind === "feedback") return renderFeedback(head, body);
   if (VIEW.kind === "brand") {
     const b = brandById(VIEW.id);
     if (b) return renderBrand(head, body, b);
     VIEW = { kind: "library" };            // deleted on another device
-    composer.hidden = true;
   }
   return renderLibrary(head, body);
 }
@@ -518,28 +510,77 @@ function renderBrand(head, body, b) {
   renderScripts(b);
 }
 
-// ---------- library view ----------
-// Every original video ever sent, once. A video belongs to the creator, not to
-// a brand: the same link can end up scripted for three of them and it is still
-// one entry here, listing where it went.
+// ---------- New script ----------
+// One place to send a link, and the record of everything ever sent. A video
+// belongs to the creator, not to a brand: the same link scripted for three
+// companies is still one entry here, listing where each script went.
 let LIB_Q = "";
+const LIB_SEARCH_AT = 4;      // searching three items is noise; the box stays hidden
 
 function renderLibrary(head, body) {
   head.innerHTML = `
     <button type="button" class="ghost side-toggle" id="side-open">☰ Brands</button>
-    <div class="pane-title">
-      <div class="bcard-title">Library</div>
-      <span class="pill">${ME.library.length}</span>
-    </div>
-    <p class="pane-sub">Every video you've sent, kept once — with the scripts each one turned into.</p>`;
+    <div class="pane-title"><div class="bcard-title">New script</div>
+      <span class="pill">${ME.library.length}</span></div>
+    <p class="pane-sub">Send a link once, pick who it's for. Everything you've sent stays below.</p>`;
 
   document.getElementById("side-open").addEventListener("click", () =>
     document.body.classList.toggle("side-open"));
 
+  const noBrands = !ME.brands.length;
+  body.innerHTML = `
+    <div class="section">
+      ${noBrands ? `<div class="empty"><p><strong>Add a brand first.</strong></p>
+        <p>A script has to be written for something. Use <em>New brand</em> in the rail, then come
+        back and send your first link.</p></div>`
+      : `<div class="composer composer-inline" id="composer">
+          <div class="composer-for" id="composer-for"></div>
+          <form class="composer-row" id="composer-form">
+            <input type="url" id="composer-url" placeholder="Paste a TikTok / Instagram / YouTube link"
+              autocomplete="off" spellcheck="false" aria-label="Paste a video link">
+            <span class="bp-plat" id="composer-plat"></span>
+            <button type="submit" class="composer-send" id="composer-send" aria-label="Get the script">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </form>
+          <p class="composer-note" id="composer-note"></p>
+        </div>`}
+    </div>
+
+    <div class="section">
+      <h2>Everything you've sent <span class="pill">${ME.library.length}</span></h2>
+      ${ME.library.length >= LIB_SEARCH_AT ? `<div class="lib-tools">
+        <input type="search" id="lib-q" placeholder="Search titles, captions, creators"
+          autocomplete="off" spellcheck="false" value="${escapeHtml(LIB_Q)}">
+        <span class="lib-shown" id="lib-shown"></span>
+      </div>` : ""}
+      <div id="lib-list"></div>
+    </div>`;
+
+  if (!noBrands) { renderComposeFor(); wireComposer(); }
+
+  const qEl = document.getElementById("lib-q");
+  if (qEl) qEl.addEventListener("input", (e) => {
+    LIB_Q = e.target.value;
+    paintLibraryList();
+    const again = document.getElementById("lib-q");
+    if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+  });
+
+  paintLibraryList();
+}
+
+/** Just the list — so a keystroke in the search box does not rebuild the
+    composer underneath the cursor. */
+function paintLibraryList() {
+  const host = document.getElementById("lib-list");
+  if (!host) return;
+
   if (!ME.library.length) {
-    body.innerHTML = `<div class="empty"><p><strong>Nothing here yet.</strong></p>
-      <p>Open a brand and paste a link at the bottom. Every video you send lands here,
-      whichever brand you sent it for.</p></div>`;
+    host.innerHTML = `<div class="empty"><p><strong>Nothing sent yet.</strong></p>
+      <p>Paste a link above and tick the companies it should be written for. Every video you send
+      is kept here once, however many brands you script it for.</p></div>`;
     return;
   }
 
@@ -547,24 +588,14 @@ function renderLibrary(head, body) {
   const shown = ME.library.filter((it) => !q || [it.title, it.caption, it.creator, it.url]
     .some((v) => String(v || "").toLowerCase().includes(q)));
 
-  body.innerHTML = `
-    ${ME.library.length >= 4 ? `<div class="lib-tools">
-      <input type="search" id="lib-q" placeholder="Search titles, captions, creators"
-        autocomplete="off" spellcheck="false" value="${escapeHtml(LIB_Q)}">
-      <span class="lib-shown">${shown.length === ME.library.length ? "" : `${shown.length} of ${ME.library.length}`}</span>
-    </div>` : ""}
-    ${shown.length ? `<div class="bp-list">${shown.map(libraryItemHtml).join("")}</div>`
-      : `<div class="empty"><p>Nothing in your library matches that.</p></div>`}`;
+  const tally = document.getElementById("lib-shown");
+  if (tally) tally.textContent = shown.length === ME.library.length ? "" : `${shown.length} of ${ME.library.length}`;
 
-  const qEl = document.getElementById("lib-q");
-  if (qEl) qEl.addEventListener("input", (e) => {
-    LIB_Q = e.target.value;
-    renderLibrary(head, body);
-    const again = document.getElementById("lib-q");
-    if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
-  });
+  host.innerHTML = shown.length
+    ? `<div class="bp-list">${shown.map(libraryItemHtml).join("")}</div>`
+    : `<div class="empty"><p>Nothing you've sent matches that.</p></div>`;
 
-  body.querySelectorAll(".lib-item").forEach((card) => {
+  host.querySelectorAll(".lib-item").forEach((card) => {
     const item = ME.library.find((l) => l.id === card.dataset.lid);
     if (!item) return;
     card.querySelectorAll(".lib-jump").forEach((btn) => btn.addEventListener("click", () => {
@@ -578,7 +609,7 @@ function renderLibrary(head, body) {
       ME.library = ME.library.filter((l) => l.id !== item.id);
       save();
       renderSide();
-      renderLibrary(head, body);
+      paintLibraryList();
     });
   });
 }
@@ -818,15 +849,18 @@ function sourceLabel(item) {
 // one library entry, a separate script per company.
 let COMPOSE_FOR = null;      // Set of brand ids; null means "just this brand"
 
+/** Which companies the pasted link is for. Links are sent from one place now,
+    so there is no "current brand" to assume — the ticks are the whole answer.
+    With a single company there is nothing to choose, so it is pre-ticked; with
+    several, sending requires an explicit pick rather than guessing. */
 function composeTargets() {
-  if (!COMPOSE_FOR) return VIEW.kind === "brand" ? [VIEW.id] : [];
+  if (!COMPOSE_FOR) return ME.brands.length === 1 ? [ME.brands[0].id] : [];
   return ME.brands.filter((b) => COMPOSE_FOR.has(b.id)).map((b) => b.id);
 }
 
 function renderComposeFor() {
   const host = document.getElementById("composer-for");
   if (!host) return;
-  if (ME.brands.length < 2) { host.replaceChildren(); return; }   // nothing to choose
   const on = new Set(composeTargets());
   host.innerHTML = `<span class="lbl">Write it for</span>` + ME.brands.map((b) => `
     <button type="button" class="for-chip${on.has(b.id) ? " on" : ""}" data-bid="${escapeHtml(b.id)}"
@@ -838,8 +872,9 @@ function renderComposeFor() {
     const next = new Set(composeTargets());
     const id = chip.dataset.bid;
     if (next.has(id)) next.delete(id); else next.add(id);
-    // Never leave it pointing at nothing — the last chip off means "just here".
-    COMPOSE_FOR = next.size ? next : null;
+    // An empty set is a real state now: untick everything and sending refuses,
+    // rather than silently guessing a brand for you.
+    COMPOSE_FOR = next;
     renderComposeFor();
   }));
 }
@@ -856,17 +891,18 @@ function wireComposer() {
 
   document.getElementById("composer-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (VIEW.kind !== "brand") return;
-    const b = brandById(VIEW.id);
-    if (!b) return;
     const raw = (input.value || "").trim();
     if (!raw) { say("Paste a video link first.", "bad"); input.focus(); return; }
     const url = normalizeUrl(raw);
     if (!url) { say("That doesn't look like a video link.", "bad"); input.select(); return; }
 
+    const targets = composeTargets().map(brandById).filter(Boolean);
+    if (!targets.length) {
+      say("Tick which companies this is for.", "bad");
+      return;
+    }
     // One library entry however many companies it is written for.
     const { item } = ensureLibraryItem(url);
-    const targets = composeTargets().map(brandById).filter(Boolean);
     const queued = [], skipped = [];
     for (const target of targets) {
       const res = queueAdaptation(item, target);
@@ -882,9 +918,10 @@ function wireComposer() {
     showPlat();
     await save({ now: true });
     renderSide();
-    renderPane();
-    say(`On it — ${listOf(queued)} ${queued.length > 1 ? "scripts land" : "script lands"} here`
-        + ` on their own.${skipped.length ? ` (${listOf(skipped)} already had one.)` : ""}`, "good");
+    renderComposeFor();
+    paintLibraryList();
+    say(`On it — ${listOf(queued)} ${queued.length > 1 ? "scripts are" : "script is"} being written.`
+        + `${skipped.length ? ` (${listOf(skipped)} already had one.)` : ""}`, "good");
     hydrate(item);
   });
 }
@@ -962,7 +999,7 @@ async function hydrate(item) {
   save();
   const editing = document.activeElement
     && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
-  if (!editing) { renderSide(); renderPane(); }
+  if (!editing) { renderSide(); renderPane(); }   // titles land in both views
 }
 
 // ---------- scripts ----------
@@ -1033,7 +1070,6 @@ function scriptText(a) {
     if (b.show) lines.push(`  SHOW: ${b.show}`);
   }
   if (ad.cta) lines.push("", `${quiet ? "FINAL CARD" : "CTA"}: ${ad.cta}`);
-  if (a.code) lines.push(`CODE: ${a.code}`);
   if (ad.caption) lines.push("", `CAPTION: ${ad.caption}`);
   return lines.join("\n");
 }
@@ -1089,9 +1125,6 @@ function adaptationHtml(a, liveName) {
       <div class="bp-heading">${silent ? "Shot by shot" : "Your script"}</div>
       <ol class="bp-beats">${(ad.beats || []).map((b) => beatRow(b, carry, silent)).join("")}</ol>
       ${ad.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> ${escapeHtml(ad.cta)}</p>` : ""}
-      ${a.code ? `<p class="bp-hint">${silent ? "Put your code" : "Say your code"}
-        <strong>${escapeHtml(a.code)}</strong> ${silent ? "on the final card" : "out loud"} so this
-        video's signups can be traced back to it.</p>` : ""}
       ${ad.caption ? `<p class="bp-hint"><strong>Caption:</strong> ${escapeHtml(ad.caption)}</p>` : ""}
       ${a.format?.why_it_works ? `<p class="bp-hint">Why this format works: ${escapeHtml(a.format.why_it_works)}</p>` : ""}
       <div class="bp-actions">
@@ -1124,8 +1157,8 @@ function renderScripts(b) {
   const list = brandScripts(b);
   if (!list.length) {
     host.innerHTML = `<div class="empty"><p><strong>No scripts yet.</strong></p>
-      <p>Paste a link at the bottom of this page. Tick the companies it should be written for,
-      and a script comes back for each — the video files itself in your Library either way.</p></div>`;
+      <p>Send a link from <em>New script</em> in the rail and tick this company — the script
+      lands here.</p></div>`;
     return;
   }
   host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a, b.name)).join("")}</div>`;
@@ -1156,9 +1189,8 @@ function renderScripts(b) {
 
 // ---------- boot ----------
 function renderAll() {
-  // Land on a brand when there is one — an empty Library is a dead end for
-  // someone who just signed up.
-  if (VIEW.kind === "library" && ME.brands.length) VIEW = { kind: "brand", id: ME.brands[0].id };
+  // Land on New script. It is where the work happens — a brand page is a shelf
+  // you visit to read what came back, not the thing you open the app to do.
   renderSide();
   renderPane();
   renderSyncBadge();
