@@ -1472,7 +1472,16 @@ function beatRow(bt, carry, silent) {
   const row = (label, v, dim) => v
     ? `<span class="bp-lbl">${label}</span><span class="bp-val${dim ? " bp-dim" : ""}">${escapeHtml(v)}</span>`
     : "";
-  const rows = [row("SAY", say), row("DO", doIt, !silent), row("SHOW", show, !silent)].filter(Boolean);
+  // SPOKEN scripts are SAY and DO only. SHOW was a third line to read on every
+  // beat when the words are the thing you came for, and it mostly restated the
+  // hook as an on-screen caption. It is still extracted and stored — nothing
+  // downstream loses it — it just isn't in the way.
+  //
+  // SILENT scripts keep it, because there it IS the script: `say` is empty by
+  // design on every beat, and dropping SHOW would leave a shot list with the
+  // actual content missing.
+  const rows = [row("SAY", say), row("DO", doIt, !silent),
+                silent ? row("SHOW", show, false) : ""].filter(Boolean);
   if (!rows.length) return "";
   return `<li class="bp-beat">
     <span class="bp-t">${escapeHtml(bt.t || "")}</span>${rows[0]}
@@ -1491,7 +1500,7 @@ function scriptText(a) {
     lines.push(`[${b.t || ""}]`);
     if (b.say) lines.push(`  SAY:  ${b.say}`);
     if (b.do) lines.push(`  DO:   ${b.do}`);
-    if (b.show) lines.push(`  SHOW: ${b.show}`);
+    if (quiet && b.show) lines.push(`  SHOW: ${b.show}`);   // matches the card: silent only
   }
   if (ad.cta) lines.push("", `${quiet ? "FINAL CARD" : "CTA"}: ${ad.cta}`);
   if (ad.caption) lines.push("", `CAPTION: ${ad.caption}`);
