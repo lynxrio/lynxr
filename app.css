@@ -157,6 +157,16 @@
   }
   .ghost:hover:not(:disabled) { color: var(--text); border-color: var(--line-2); background: var(--surface); }
   .ghost:disabled { opacity: .35; cursor: default; }
+  /* A .ghost that is the one thing to press: solid fill at the header's own
+     proportions, because .btn's 15px/11px stands a head taller than everything
+     else in a title row. The hover override is not optional — .ghost:hover
+     paints the text var(--text) on a var(--text) fill, i.e. invisible. */
+  .ghost.pane-save {
+    background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600;
+  }
+  .ghost.pane-save:hover:not(:disabled) {
+    background: var(--text); border-color: var(--text); color: var(--bg); opacity: .85;
+  }
   main { padding: 32px 24px 72px; max-width: 1180px; margin: 0 auto; }
   .panel[hidden] { display: none; }
 
@@ -328,11 +338,22 @@
   .ce-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
   .ce-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .ce-wide { grid-column: 1 / -1; }
-  .ce-field input, .ce-field select {
+  .ce-field input, .ce-field select, .ce-field textarea {
     background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
     color: var(--text); font: inherit; font-size: 14px; padding: 9px 11px; min-width: 0;
   }
-  .ce-field input:focus, .ce-field select:focus { outline: none; border-color: var(--line-2); }
+  .ce-field input:focus, .ce-field select:focus, .ce-field textarea:focus {
+    outline: none; border-color: var(--line-2); background: var(--surface-2);
+  }
+  /* Grows with its text instead of scrolling it sideways out of sight — a long
+     answer belongs on screen where it can be re-read. JS sets the height, so
+     resize is off (a hand-dragged height fights it) and overflow is hidden
+     (a scrollbar's slack inside scrollHeight makes the box creep taller on
+     every keystroke). min-height clears the 58px the generic textarea rule
+     sets, so an empty field is exactly as tall as the inputs beside it. */
+  .ce-field textarea.grow {
+    resize: none; overflow: hidden; min-height: 0; line-height: 1.5; display: block;
+  }
 
   /* Brief tray (the cart) */
   .tray {
@@ -1293,6 +1314,10 @@
     display: flex; align-items: center; justify-content: space-between;
     gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
   }
+  /* An h2 carries a 14px bottom margin for the gap under a section heading.
+     Inside this row the row owns that spacing, and the leftover margin drags
+     the heading half a line above the + it sits beside. */
+  .lib-head h2 { margin: 0; }
   .lib-modes { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-2); }
   .lib-mode {
     border: 0; background: none; color: var(--text-2); cursor: pointer;

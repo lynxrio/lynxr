@@ -38,6 +38,15 @@ function safeUrl(u) {
     return (p.protocol === "http:" || p.protocol === "https:") ? p.href : "";
   } catch { return ""; }
 }
+/** Keep a click on a link inside a <summary> from also toggling the card.
+ *  The browser's disclosure toggle is the summary's activation behaviour, so
+ *  stopping the event at the anchor is what prevents it — the anchor's own
+ *  navigation is a default action and still happens. Covers the ↗ too, which
+ *  until now opened the video AND flipped the card open behind it. */
+function stopSummaryLinks(root) {
+  root.querySelectorAll("summary a").forEach((el) =>
+    el.addEventListener("click", (e) => e.stopPropagation()));
+}
 function normalizeUrl(raw) {
   const s = String(raw || "").trim();
   if (!s) return null;
@@ -538,7 +547,13 @@ function renderBrand(head, body, b) {
         <div class="bp-actions"><button type="button" class="ghost danger b-del">Delete this brand</button></div>
       </div>
     </div>
-    <h2>Scripts <span class="pill">${scripts.length}</span></h2>
+    <div class="lib-head">
+      <h2>Scripts <span class="pill">${scripts.length}</span></h2>
+      <button type="button" class="lib-plus" id="brand-add" title="New script" aria-label="New script">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+          aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
     <div id="ad-list"></div>`;
 
   document.getElementById("side-open").addEventListener("click", () =>
@@ -560,7 +575,17 @@ function renderBrand(head, body, b) {
     const el = editor.querySelector(".b-desc");
     if (!el || !el.offsetParent) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    // An EMPTY field measures its placeholder, not its value — and the
+    // placeholder wraps to three lines in a narrow pane, so a brand-new brand
+    // opened with a big blank box sitting among one-line inputs. Empty means
+    // one row: clearing the inline height hands it back to rows="1".
+    if (!el.value) { el.style.height = ""; return; }
+    // scrollHeight covers content + padding but NOT the border, while
+    // box-sizing: border-box makes the height we set include it. Assigning
+    // scrollHeight straight across therefore comes up short by the two border
+    // pixels and shaves the bottom off the last line — invisible until a
+    // descender lands there.
+    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
   };
 
   // A brand is set up once, and the toggle above the empty fields used to read
@@ -630,6 +655,14 @@ function renderBrand(head, body, b) {
   const desc = editor.querySelector(".b-desc");
   desc.addEventListener("input", fitDesc);
   desc.addEventListener("blur", fitDesc);
+
+  // Same plus as the Library's, and it does one thing more: standing in a
+  // company is the answer to "who is this for", so it arrives at the composer
+  // with this company already ticked instead of asking again.
+  document.getElementById("brand-add").addEventListener("click", () => {
+    COMPOSE_FOR = new Set([b.id]);
+    go({ kind: "new" });
+  });
 
   // Deleting a brand takes its scripts. The videos stay in the Library —
   // they were yours before any brand existed, and they outlive it.
@@ -768,6 +801,7 @@ function paintLibraryList() {
   } else {
     host.innerHTML = `<div class="bp-list">${shown.map((it) => libraryItemHtml(it)).join("")}</div>`;
   }
+  stopSummaryLinks(host);
 
   host.querySelectorAll(".lib-item").forEach((card) => {
     const item = ME.library.find((l) => l.id === card.dataset.lid);
@@ -828,7 +862,7 @@ function libraryItemHtml(item, scopeBrandId) {
   return `<details class="bp-item lib-item" data-lid="${escapeHtml(item.id)}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
-      ${nameLink(href, sourceLabel(item))}
+      <span class="bp-name">${escapeHtml(sourceLabel(item))}</span>
       <span class="chip lib-plat">${escapeHtml(item.platform || "Link")}</span>
       ${chip}
       <span class="bp-when">${escapeHtml(agoLabel(item.addedAt))}</span>
@@ -1472,7 +1506,7 @@ function adaptationHtml(a, liveName) {
   return `<details class="bp-item bp-${isWriting(a) ? "queued" : escapeHtml(a.status)}${flash ? " bp-flash" : ""}"${justReady ? " open" : ""} data-adid="${id}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
-      ${nameLink(href, a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}
+      <span class="bp-name">${escapeHtml(a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}</span>
       ${chip}
       <span class="bp-when">${escapeHtml(agoLabel(a.addedAt))}</span>
       ${href ? `<a class="bp-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="Open the original">↗</a>` : ""}
@@ -1495,6 +1529,7 @@ function renderScripts(b) {
     return;
   }
   host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a, b.name)).join("")}</div>`;
+  stopSummaryLinks(host);
 
   host.querySelectorAll(".ad-copy").forEach((btn) => btn.addEventListener("click", async () => {
     const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
