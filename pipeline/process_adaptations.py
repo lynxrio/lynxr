@@ -687,6 +687,23 @@ def process_one(a, creator, aclient, key):
         return
 
     # ---- adaptation for the chosen brand ----
+    #
+    # NO BRAND IS A VALID, FINISHED RESULT (owner, 2026-08-13). A creator with a
+    # brand-new account has nothing to adapt FOR, and making them set a company
+    # up before they can see anything is the wall that lost us a live account
+    # once already. So a link with no brandId is a first-class request: read the
+    # video, hand back its actual script and structure, and stop there. The app
+    # then offers to rewrite it for a company, which is the point at which
+    # asking for one is a favour rather than a toll gate.
+    #
+    # Everything above this line has already run, so the entry carries the
+    # verbatim transcript, the shot list, the tags and the extracted format —
+    # which is the whole "here is what this video actually is" answer. Only the
+    # rewrite needs a brand, and the rewrite is what gets skipped.
+    if not a.get("brandId"):
+        a.pop("note", None)
+        return
+
     brand = next((b for b in (creator.get("brands") or [])
                   if b.get("id") == a.get("brandId")), None)
     if not brand:
@@ -755,7 +772,10 @@ def process_one(a, creator, aclient, key):
     # (or "done" ones under --redo-ai, which the launchd agent does not pass).
     # Raising hands it to main(), which marks it error — so the creator gets a
     # Try again button and the cooldown retries it on its own.
-    if not ((a.get("adaptation") or {}).get("beats") or []):
+    # ...but only when a rewrite was actually asked for. A brandless entry is
+    # finished the moment the source is read (see above), and has no beats by
+    # design — raising here would mark every one of them an error.
+    if a.get("brandId") and not ((a.get("adaptation") or {}).get("beats") or []):
         raise RuntimeError(a.get("note") or "no script was produced")
 
 
@@ -972,9 +992,19 @@ def main():
                 upsert_source(key, a)
                 upsert_video(key, a)          # and into the main video database
                 ad = a.get("adaptation") or {}
-                log.info("  -> fit=%s, %d beats%s", ad.get("fit", "—"),
-                         len(ad.get("beats") or []),
-                         f", note: {a['note']}" if a.get("note") else "")
+                # A brandless entry has no fit and no beats BY DESIGN — it is
+                # the source read back, not a rewrite. Logging it as "fit=—, 0
+                # beats" alongside real failures made a working feature look
+                # like a broken one.
+                if not a.get("brandId"):
+                    src = a.get("source") or {}
+                    log.info("  -> source only (no brand): %d shots, %s transcript",
+                             len(src.get("shots") or []),
+                             "spoken" if (src.get("script") or {}).get("has_speech") else "silent")
+                else:
+                    log.info("  -> fit=%s, %d beats%s", ad.get("fit", "—"),
+                             len(ad.get("beats") or []),
+                             f", note: {a['note']}" if a.get("note") else "")
                 log_usage("this script")
                 USAGE.clear()
             except Exception as e:  # noqa: BLE001

@@ -1,11 +1,178 @@
 # Lynxr Creator Side — handoff
 
-**For the next Claude Code session.** Read this, then `output/LYNXR_SPEC_v2.md`
-(the corrected product spec — every decision here traces to a section in it).
-`HANDOFF.md` and `README.md` cover the original agency app, which is a separate
-thing that shares this repo.
+**For the next Claude Code session.** Start with SESSION 2026-08-13 below — it
+is the current state. Everything after it is older context that is still mostly
+true; where the two disagree, 08-13 wins.
 
-Last updated 2026-08-11.
+Then read `output/Lynxr-Spec.html` (current product spec, Google-Docs-friendly).
+`HANDOFF.md` and `README.md` cover the agency app, which shares this repo.
+
+Last updated **2026-08-13**.
+
+> **Path change, applies throughout this document.** The creator app moved from
+> `creator.html` to `/creatorsonly/` on 2026-08-12. Older sections below still
+> say `creator.html`; read that as `/creatorsonly/` everywhere. `creator.html`
+> now 404s and there is **no redirect** — see the open items.
+
+---
+
+# SESSION 2026-08-13
+
+## STOP-POINT STATE — read this first
+
+**Nothing is pushed.** The working tree has six modified files and lynxr.io is
+running the previous build:
+
+| | |
+|---|---|
+| live `creator.js` | `?v=20260813u` |
+| local `creator.js` | `?v=20260814m` |
+
+Modified, uncommitted: `creator.js`, `app.css`, `creatorsonly/index.html`,
+`index.html`, `agencyonly/index.html`, `pipeline/process_adaptations.py`.
+
+> **⚠ The SQL and the push are coupled — do not push without reading this.**
+> `supabase/invites.sql` is committed but **has not been run**. Checked live
+> 2026-08-13: `rpc/signup_state` → **404**, `rpc/signup_open` → **200**. The
+> local `creator.js` already calls `signup_state`, so right now that call 404s
+> and falls open.
+>
+> Consequence: nothing breaks and nothing is exposed — the database trigger
+> still refuses signups when the gate is full — but the page stops being able to
+> *say* "we're full" and shows a generic error instead. **Run `invites.sql` and
+> push `creator.js` together**, in either order but close in time.
+
+Serve locally with the existing launch config (`python -m http.server 8811`
+from the repo root) and open `http://localhost:8811/creatorsonly/`.
+
+## What changed this session
+
+### Worker — a link with no brand is now a finished job
+
+`pipeline/process_adaptations.py`. A creator with no company can send a link and
+get the video's **own** script back — transcript, shots, tags, extracted format —
+with the rewrite skipped. Three edits:
+
+1. `process_one()` returns early before the adaptation stage when `brandId` is
+   falsy, instead of failing on "brand not found".
+2. The "no beats is a failure" guard now only applies when a brand was actually
+   asked for. Without this every brandless entry would be marked `error`.
+3. The completion log distinguishes source-only runs, which previously logged as
+   `fit=—, 0 beats` and looked like a bug.
+
+**Creator submissions already reach `lynxr_videos` with no change needed** —
+`upsert_video()` reads only the stored source, has no brand dependency, and is
+called unconditionally. Rows land marked `data_source='Creator'` with no creator
+or brand identity, exactly as before.
+
+### Creator app
+
+- **One centred layout for everyone.** The two-step first-run screen was built,
+  then removed at the owner's direction. Creators with and without brands now see
+  the identical page.
+- **Brandless send** wired end to end in the app (`queueAdaptation(item, null)`).
+- **Adding a brand asks one question** — the website — and reads it to fill name,
+  description and niche. The site reader (`readCompanySite`, `analyzeCompanySite`,
+  `asUrl`) is ported from `app.js`, where it has run since launch. "No website"
+  escape hatch sets `BRAND_MANUAL` and opens the full editor. Details still edits
+  everything afterwards.
+- **Copy trimmed app-wide**, 13 replacements. Longest UI string is now 58 chars.
+- **Rail reordered ChatGPT-style**: logo → New script → Library → New brand →
+  BRANDS → account foot. Library was previously in the account foot.
+- **Composer raised** off the bottom edge and made keyboard-aware (below).
+- **Deleting your last brand** lands on New script, not the Library.
+- **Client names removed from placeholders** — `Medceptor` / NCLEX were showing
+  to every outside creator, which leaks a client relationship. Now `lynxr`.
+- **Time saved** was built (rail + account page) and then **removed** on request.
+  Nothing of it remains; don't rebuild it without asking.
+
+### Keyboard handling — two mechanisms, both needed
+
+- `interactive-widget=resizes-content` on `creatorsonly/index.html`'s viewport
+  meta covers Chrome and most Android browsers.
+- **iOS Safari ignores that AND does not shrink `dvh` for the keyboard**, so the
+  composer would sit behind it. `trackVisibleHeight()` in `creator.js` publishes
+  `visualViewport.height` as `--vvh`, and `.newscript` uses
+  `min-height: calc(var(--vvh, 100dvh) - 150px)`. Throttled through `rAF` because
+  iOS fires `resize` continuously through the keyboard animation.
+
+## VERIFIED vs NOT — be honest about this
+
+**Verified:** JS syntax, Python compile, CSS comment/brace balance, computed
+styles and painted screenshots via injected markup, every rail element id
+surviving the reorder, the URL-vs-name detection and site-analysis logic in Node,
+and live Supabase checks for the seat gate and email confirmation.
+
+**NOT verified, and each is a real risk:**
+
+1. **No signed-in end-to-end walkthrough.** Everything visual was checked with
+   markup injected into the page, not by driving the real app with an account.
+2. **The site read has never succeeded end to end.** The CORS relays
+   (allorigins, codetabs) are unreachable from the preview sandbox. The parsing
+   is proven; the fetch is not.
+3. **The brandless worker path has never run.** The code is written and compiles;
+   no queued brandless entry has been processed.
+4. **Keyboard behaviour is untestable here** — no on-screen keyboard in the
+   preview pane, so `--vvh` always equals full height.
+
+**Before pushing, walk this on localhost with a real account:** send a link with
+no brand → does it queue and land in the Library? → "Add a brand" → paste a real
+website → do the fields fill? → open Details → delete the brand → do you land on
+New script?
+
+## Open items
+
+1. **The CTA on a finished brandless script** — "turn this into a UGC script for
+   a brand" — is **not built**. The card does not yet render a brandless entry as
+   "the original script", and there is no button on it. This is the last piece of
+   the flow the owner described.
+   **Design decision still open:** the entry already holds the transcript, shots
+   and format. Re-queuing from scratch is simple but re-downloads, re-transcribes
+   and re-pays for tags and format (~$0.13, 60–75s). Reusing the stored source
+   needs a worker change but makes the rewrite ~$0.05 and fast. **Recommend the
+   reuse** — it is the difference between the CTA feeling instant and feeling
+   like starting over.
+2. **Run `supabase/invites.sql`** — see the coupling warning at the top. It
+   defaults `require_invite` to false, so applying it changes nothing about who
+   can sign up until you flip that flag:
+   ```sql
+   update public.lynxr_signup_gate set require_invite = true where id = 1;
+   ```
+   When invites are on, **invites are the cap and `seats` is ignored** — issuing
+   50 invites against 4 seats would otherwise refuse 46 of them. The file's
+   footer carries the waitlist→invite queries for working a list at scale.
+3. **`creator.html` 404s with no redirect.** Anyone who bookmarked the old path
+   is stranded.
+4. **Three overlapping spec files** in `output/`: `Lynxr-Spec.html` (current,
+   Docs-friendly), `Lynxr-Product-Spec.html` (styled, superseded) and
+   `LYNXR_SPEC_v2.md` (annotated working doc). Delete the two you won't maintain.
+5. **The agency blueprints worker still runs on the founder's Mac** via launchd.
+   Explicitly on hold — do not migrate it without asking.
+
+## Gotchas found the hard way this session
+
+- **`autoGrow()` forces an empty textarea back to one row on purpose**, so any
+  placeholder longer than ~55 characters is clipped. Shorten the placeholder;
+  don't fight the function.
+- **Never shadow the global `go()`** — a local `const go = document.getElementById(…)`
+  turns every `go({kind:…})` in that scope into a button click.
+- **Valid view kinds are only** `new`, `you`, `feedback`, `brand`, `library`.
+  Anything else falls through to the Library.
+- **A stray `*/` inside a CSS comment silently kills the rest of the stylesheet.**
+  After any CSS edit, check `/*` and `*/` counts match — this bit once already.
+- **Trash entries keep their full record**, `status: 'done'` included. Relevant to
+  any counting: `scriptsUsed()` deliberately counts adaptations + trash because
+  that is what the money cap charges for.
+- **GoTrue passes a trigger's `raise exception` text straight through** as
+  `message` with a 500 — not the generic "Database error saving new user" the
+  docs imply. Both shapes are matched in `signupError()`.
+
+---
+
+# OLDER CONTEXT (pre-2026-08-13)
+
+*Still broadly accurate. Where it conflicts with the session above, the session
+above is right. Remember `creator.html` → `/creatorsonly/`.*
 
 ---
 

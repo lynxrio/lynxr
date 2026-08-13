@@ -585,20 +585,11 @@ function renderNewScript(head, body) {
       <div class="newscript-greet">
         <svg class="newscript-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
         <h1 class="newscript-h">What are we making?</h1>
-        <p class="newscript-sub">${firstRun
-          ? "Tell us who it's for, paste a video worth remaking, and the script comes back written for them."
-          : "Paste a TikTok, Instagram or YouTube video worth remaking."}</p>
+        <p class="newscript-sub">Paste a TikTok, Instagram or YouTube video worth remaking.</p>
       </div>
-      ${firstRun ? `<div class="composer-first">
-        <div class="ce-grid">
-          <label class="ce-field"><span class="lbl">Who is it for?</span>
-            <input type="text" id="first-name" placeholder="e.g. Medceptor" autocomplete="off"></label>
-          <label class="ce-field ce-wide"><span class="lbl">What is it?</span>
-            <textarea id="first-desc" class="grow" rows="1"
-              placeholder="e.g. NCLEX practice questions for nursing students"></textarea></label>
-        </div>
-        <p class="bp-hint">Both go to the model with every link you send. You can change them later.</p>
-      </div>` : ""}
+      ${firstRun ? `<p class="nobrand">
+        <button type="button" class="linkish" id="nobrand-add">Add a brand</button>
+        to get scripts written for them</p>` : ""}
       <div class="composer composer-inline" id="composer">
         <div class="composer-for" id="composer-for"></div>
         <form class="composer-row" id="composer-form">
@@ -616,14 +607,45 @@ function renderNewScript(head, body) {
 
   renderComposeFor();
   wireComposer();
-  wireGrow(document.getElementById("first-desc"));
+  document.getElementById("nobrand-add")?.addEventListener("click", addBrand);
   // Focus on desktop only — on a phone the keyboard would spring up and cover
-  // the company picker before you've chosen who the script is for. On a first
-  // run the company name is the first thing asked for, so start there instead.
-  const url = document.getElementById("composer-url");
-  const first = document.getElementById("first-name");
-  if (window.matchMedia("(min-width: 761px)").matches) (first || url)?.focus();
+  // the company picker before you've chosen who the script is for.
+  if (window.matchMedia("(min-width: 761px)").matches) {
+    document.getElementById("composer-url")?.focus();
+  }
 }
+
+/* KEYBOARD-AWARE HEIGHT ------------------------------------------------------
+   The composer sits at the foot of the page, which is exactly where a phone
+   puts its keyboard. `interactive-widget=resizes-content` in the viewport meta
+   handles Chrome and most Android browsers; iOS Safari ignores it and does NOT
+   shrink dvh for the keyboard either, so the composer would end up behind it.
+
+   visualViewport is the one measurement that is correct everywhere: it reports
+   the area actually visible to the user. Publishing it as --vvh lets the layout
+   follow the keyboard up and back down on every device that has one.
+
+   Throttled through rAF because iOS fires resize continuously through the
+   keyboard animation, and writing a custom property on every one of those
+   events re-runs layout for the whole page mid-animation. */
+function trackVisibleHeight() {
+  const vv = window.visualViewport;
+  if (!vv) return;                       // older browser: the dvh fallback stands
+  let queued = false;
+  const publish = () => {
+    queued = false;
+    document.documentElement.style.setProperty("--vvh", `${Math.round(vv.height)}px`);
+  };
+  const onChange = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(publish);
+  };
+  publish();
+  vv.addEventListener("resize", onChange);
+  vv.addEventListener("scroll", onChange);
+}
+trackVisibleHeight();
 
 function renderSide() {
   document.getElementById("side-who").textContent = SB_EMAIL || "";
@@ -684,7 +706,7 @@ function addBrand() {
     go({ kind: "brand", id: blank.id });
     const nameEl = document.querySelector("#pane-body .b-name");
     if (nameEl) nameEl.focus();
-    flashMsg("brand-flash", "You've already got an unnamed company — give this one a name first.", "bad");
+    flashMsg("brand-flash", "Name your other brand first.", "bad");
     return;
   }
   const b = { id: newId(), name: "", site: "", description: "", objective: "",
@@ -694,6 +716,67 @@ function addBrand() {
   go({ kind: "brand", id: b.id });
   const first = document.querySelector("#pane-body .b-name");
   if (first) { first.focus(); }
+}
+
+/* Brands whose owner chose to type the details rather than give a website.
+   Kept in memory only: it exists to stop the lookup panel reappearing while
+   they are still on the page, and a brand with a name never shows it again
+   anyway, so there is nothing worth persisting. */
+const BRAND_MANUAL = new Set();
+
+/** The one question a new brand asks. Fills name, what-it-is and niche from the
+    company's own homepage, then hands over to the normal editor. */
+function wireBrandLookup(b) {
+  const panel = document.getElementById("brand-lookup");
+  const input = panel.querySelector(".b-lookup");
+  const msg = document.getElementById("lookup-msg");
+  // NOT `go` — that is the app's navigation function, and shadowing it here
+  // would turn every go({kind:…}) in this scope into a click on a button.
+  const goBtn = document.getElementById("lookup-go");
+
+  const openEditor = () => {
+    BRAND_MANUAL.add(b.id);
+    go({ kind: "brand", id: b.id });     // re-render without the lookup panel
+  };
+
+  document.getElementById("lookup-skip").addEventListener("click", openEditor);
+
+  const run = async () => {
+    const url = asUrl(input.value.trim());
+    if (!url) {
+      msg.textContent = "That's not a website — try lynxr.io.";
+      msg.className = "lookup-hint";
+      input.focus();
+      return;
+    }
+    goBtn.disabled = true;
+    msg.textContent = "Reading their site…";
+    msg.className = "lookup-hint";
+    try {
+      const got = analyzeCompanySite(await readCompanySite(url), url);
+      b.name = got.name || b.name;
+      b.site = url;
+      b.description = got.description || "";
+      b.niche = got.niche || "";
+      if (b.name) b.code = trackCode(b.name);
+      save();
+      // Straight into the normal view: the panel is gone, the fields are
+      // filled, and Details is there to correct anything that came back wrong.
+      go({ kind: "brand", id: b.id });
+      flashMsg("brand-flash",
+        `Filled in from ${url.replace(/^https?:\/\//, "")}. Check Details if anything looks off.`, "good");
+    } catch {
+      goBtn.disabled = false;
+      msg.textContent = "Couldn't read that site. Type the details instead.";
+      msg.className = "lookup-hint";
+    }
+  };
+
+  goBtn.addEventListener("click", run);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); run(); }
+  });
+  if (window.matchMedia("(min-width: 761px)").matches) input.focus();
 }
 
 // ---------- brand view ----------
@@ -714,24 +797,41 @@ function renderBrand(head, body, b) {
     <p class="pane-sub" id="brand-sub">${escapeHtml(b.niche || "No niche set")}${
       b.objective ? " · " + escapeHtml(b.objective) : ""} · ${plural(scripts.length, "script")}</p>`;
 
+  // A brand nobody has filled in yet asks for ONE thing: the website. Every
+  // other field is something the company already says about itself on its own
+  // homepage, and a creator typing it from memory produces a worse answer than
+  // the source does. The full editor is one click away behind Details, and
+  // opens automatically the moment the lookup finishes or is skipped.
+  const fresh = !b.name && !b.site && !BRAND_MANUAL.has(b.id);
+
   body.innerHTML = `
     <p class="composer-note" id="brand-flash" role="status" aria-live="polite"></p>
-    <div class="section client-editor collapsed" id="brand-editor">
+    ${fresh ? `
+    <div class="section lookup" id="brand-lookup">
+      <p class="lookup-label">What's their website?</p>
+      <input type="text" class="b-lookup" autocomplete="off" spellcheck="false"
+        placeholder="lynxr.io">
+      <p class="lookup-hint" id="lookup-msg"></p>
+      <div class="lookup-actions">
+        <button type="button" class="btn" id="lookup-go">Get the details</button>
+        <button type="button" class="linkish" id="lookup-skip">No website</button>
+      </div>
+    </div>` : ""}
+    <div class="section client-editor${fresh ? " collapsed" : " collapsed"}" id="brand-editor">
       <div class="ce-body">
-        <p class="lbl">These go to the model with every link you send, so the more specific they
-          are, the better the script.</p>
+        <p class="lbl">The more specific these are, the better the script.</p>
         <div class="ce-grid">
           <label class="ce-field"><span class="lbl">Brand name</span>
-            <input type="text" class="b-name" value="${escapeHtml(b.name || "")}" placeholder="e.g. Medceptor"></label>
+            <input type="text" class="b-name" value="${escapeHtml(b.name || "")}" placeholder="e.g. lynxr"></label>
           <label class="ce-field"><span class="lbl">Website</span>
             <input type="url" class="b-site" value="${escapeHtml(b.site || "")}" placeholder="https://…"></label>
           <label class="ce-field ce-wide"><span class="lbl">What is it?</span>
             <textarea class="b-desc grow" rows="1"
-              placeholder="e.g. NCLEX practice questions for nursing students">${escapeHtml(b.description || "")}</textarea></label>
+              placeholder="e.g. scripts for UGC creators">${escapeHtml(b.description || "")}</textarea></label>
           <label class="ce-field"><span class="lbl">Campaign objective</span>
-            <input type="text" class="b-obj" value="${escapeHtml(b.objective || "")}" placeholder="e.g. free-trial signups"></label>
+            <input type="text" class="b-obj" value="${escapeHtml(b.objective || "")}" placeholder="e.g. creator sign-ups"></label>
           <label class="ce-field"><span class="lbl">Niche</span>
-            <input type="text" class="b-niche" value="${escapeHtml(b.niche || "")}" placeholder="e.g. Education"></label>
+            <input type="text" class="b-niche" value="${escapeHtml(b.niche || "")}" placeholder="e.g. Creator tools"></label>
         </div>
         <div class="bp-actions"><button type="button" class="ghost danger b-del">Delete this brand</button></div>
       </div>
@@ -750,7 +850,10 @@ function renderBrand(head, body, b) {
 
   const editor = document.getElementById("brand-editor");
   const toggle = document.getElementById("brand-details");
-  if (!b.name) editor.classList.remove("collapsed");
+  // Open the full editor for a half-set-up brand — unless the lookup panel is
+  // showing, which is the one question we want answered first.
+  if (!b.name && !fresh) editor.classList.remove("collapsed");
+  if (fresh) wireBrandLookup(b);
 
   // "What is it?" wraps instead of scrolling sideways. A collapsed editor is
   // display:none, where every measurement is 0, so re-fit when it opens.
@@ -836,7 +939,10 @@ function renderBrand(head, body, b) {
     ME.brands = ME.brands.filter((x) => x.id !== b.id);
     trashAdaptations((a) => a.brandId === b.id);
     save({ now: true });
-    go(ME.brands.length ? { kind: "brand", id: ME.brands[0].id } : { kind: "library" });
+    // Deleting the last brand used to land on the Library, which is a list of
+    // what you have saved — the least useful answer to "I just cleared this
+    // out." The new-script page is where the next thing starts, so go there.
+    go(ME.brands.length ? { kind: "brand", id: ME.brands[0].id } : { kind: "new" });
   });
 
   renderScripts(b);
@@ -858,7 +964,7 @@ function renderLibrary(head, body) {
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="pane-title"><div class="bcard-title">Library</div>
       <span class="pill">${ME.library.length}</span></div>
-    <p class="pane-sub">Every video you've sent, and the scripts made from each one.</p>`;
+    <p class="pane-sub">Every video you've sent.</p>`;
 
   document.getElementById("side-open").addEventListener("click", () =>
     document.body.classList.toggle("side-open"));
@@ -1049,7 +1155,7 @@ function libraryItemHtml(item, scopeBrandId) {
         <div class="chips lib-also">${spare.map((b) => `
           <button type="button" class="chip pick lib-also-b" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>`
-        : made.length ? `<p class="bp-hint">Every one of your companies already has a script from this video.</p>` : ""}
+        : made.length ? `<p class="bp-hint">All your brands already have this one.</p>` : ""}
       <div class="bp-actions"><button type="button" class="ghost danger l-del">Remove from library</button></div>
     </div>
   </details>`;
@@ -1060,7 +1166,7 @@ function renderYou(head, body) {
   head.innerHTML = `
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="pane-title"><div class="bcard-title">Settings</div></div>
-    <p class="pane-sub">About you — this goes to the model with every script, so it sounds like you.</p>`;
+    <p class="pane-sub">Goes into every script, so it sounds like you.</p>`;
   document.getElementById("side-open").addEventListener("click", () =>
     document.body.classList.toggle("side-open"));
 
@@ -1167,7 +1273,7 @@ function renderFeedback(head, body) {
   head.innerHTML = `
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="pane-title"><div class="bcard-title">Feedback</div></div>
-    <p class="pane-sub">This is early software and you're one of the first people using it.</p>`;
+    <p class="pane-sub">Early software — tell us what's broken.</p>`;
   document.getElementById("side-open").addEventListener("click", () =>
     document.body.classList.toggle("side-open"));
 
@@ -1400,22 +1506,27 @@ function wireComposer() {
       return;
     }
 
-    // First run: the company is made here, from the two fields above the
-    // composer, so the whole path from a fresh account to a queued script is
-    // one screen and one send.
+    // NO COMPANY YET IS A VALID SEND (owner, 2026-08-13). Making a brand-new
+    // account set a company up before it can see anything is the wall that lost
+    // a live account once already. So the link goes through as-is and comes
+    // back as the video's OWN script — what was said, the shots, the structure.
+    // The prompt above the composer, and the card itself, then offer to rewrite
+    // it for a company, which is a far easier thing to say yes to once you have
+    // seen the machine work.
     if (!ME.brands.length) {
-      const nameEl = document.getElementById("first-name");
-      const descEl = document.getElementById("first-desc");
-      const name = (nameEl?.value || "").trim();
-      if (!name) {
-        say("Who's the script for? Add the company name.", "bad");
-        nameEl?.focus();
-        return;
-      }
-      const made = { id: newId(), name, site: "", description: (descEl?.value || "").trim(),
-                     objective: "", niche: "", code: trackCode(name) };
-      ME.brands.push(made);
-      COMPOSE_FOR = new Set([made.id]);
+      const { item } = ensureLibraryItem(url);
+      const res = queueAdaptation(item, null);
+      if (!res.ok) { say(res.reason, "bad"); return; }
+      input.value = "";
+      showPlat();
+      await save({ now: true });
+      renderSide();
+      // The Library is where it lands, same as any other send — the entry is
+      // already there with its "writing" chip.
+      go({ kind: "library" });
+      flashMsg("composer-note",
+        "Reading it now — you'll get the video's own script.", "good");
+      return;
     }
 
     const targets = composeTargets().map(brandById).filter(Boolean);
@@ -1431,8 +1542,8 @@ function wireComposer() {
     const unnamed = targets.filter((t) => !(t.name || "").trim());
     if (unnamed.length) {
       say(targets.length === 1
-        ? "Give this company a name first — the script gets written for it."
-        : "Name every company you've ticked — a script can't be written for an unnamed one.", "bad");
+        ? "Name this brand first."
+        : "Name every brand you've ticked first.", "bad");
       return;
     }
     // Ticking four companies is four scripts, so the cap has to be checked
@@ -1489,6 +1600,114 @@ async function fetchWithTimeout(url, ms) {
     if (!res.ok) throw new Error("HTTP " + res.status);
     return await res.text();
   } finally { clearTimeout(t); }
+}
+
+/* READING A COMPANY'S WEBSITE ----------------------------------------------
+   Ported from the agency app, which has done this since launch. Asking a
+   creator to WRITE a description of someone else's product is asking the wrong
+   person: they make videos, they do not own the positioning, and what they type
+   in a hurry is worse than what the company already says about itself on its
+   own homepage. So we read the homepage instead.
+
+   Two relays because neither is reliable alone, and a browser cannot fetch a
+   third-party page directly. Both are already allowed by this page's CSP. */
+async function readViaAllOrigins(url) {
+  const raw = await fetchWithTimeout(
+    "https://api.allorigins.win/get?url=" + encodeURIComponent(url), 20000);
+  const wrapped = JSON.parse(raw);
+  const code = wrapped.status?.http_code;
+  if (code && code >= 400) throw new Error("site returned " + code);
+  return parseSiteHtml(wrapped.contents || "");
+}
+
+async function readViaCodetabs(url) {
+  return parseSiteHtml(await fetchWithTimeout(
+    "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(url), 20000));
+}
+
+async function readCompanySite(url) {
+  try { return await readViaAllOrigins(url); }
+  catch { return await readViaCodetabs(url); }
+}
+
+/** DOMParser never executes scripts in the parsed document, so a hostile page
+    cannot run anything here — it is inert markup by the time we read it. */
+function parseSiteHtml(html) {
+  if (!html || html.length < 200) throw new Error("empty read");
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const meta = (sel) => doc.querySelector(sel)?.getAttribute("content") || "";
+  return {
+    title: (doc.querySelector("title")?.textContent || meta('meta[property="og:title"]')).trim(),
+    description: (meta('meta[name="description"]') || meta('meta[property="og:description"]')).trim(),
+    headings: [...doc.querySelectorAll("h1, h2, h3")]
+      .map((h) => h.textContent.trim().replace(/\s+/g, " "))
+      .filter((t) => t.length >= 2 && t.length <= 80),
+    text: (doc.body?.textContent || "").replace(/\s+/g, " "),
+  };
+}
+
+const SITE_NICHES = {
+  "Health & Medical": ["health", "med", "clinic", "care", "nurse", "nursing", "doctor", "dental",
+    "pharm", "therap", "wellness", "patient", "hospital", "mental", "derm", "vet", "surgery", "emt"],
+  "Education & Study": ["edu", "study", "learn", "school", "course", "tutor", "academy", "exam",
+    "student", "univers", "class", "teach", "lesson", "quiz", "flashcard"],
+  "Fitness": ["fit", "gym", "workout", "train", "muscle", "yoga", "pilates", "run", "athlet",
+    "nutrition", "strength", "cardio"],
+  "Music & Audio": ["music", "audio", "sound", "song", "beat", "podcast", "guitar", "piano",
+    "band", "record", "studio", "vocal", "mix"],
+  "Finance & Fintech": ["financ", "fintech", "bank", "invest", "money", "crypto", "trading",
+    "loan", "credit", "wealth", "tax", "budget", "payment", "payroll", "insur"],
+  "Dating & Relationships": ["dating", "date", "match", "love", "relationship", "single",
+    "couple", "romance", "marriage"],
+  "Productivity & Apps": ["app", "productiv", "task", "note", "todo", "calendar", "workflow",
+    "focus", "habit", "organiz", "planner", "remind"],
+  "Marketing & Business": ["market", "agency", "brand", "growth", "seo", "ads", "advert",
+    "ecommerce", "shopify", "business", "consult", "sales", "crm", "b2b"],
+  "Tech & Software": ["tech", "software", "dev", "code", "coding", "ai", "data", "cloud", "api",
+    "platform", "cyber", "engineer", "saas", "robot"],
+  "Lifestyle & Entertainment": ["lifestyle", "travel", "food", "recipe", "fashion", "beauty",
+    "game", "gaming", "entertain", "movie", "style", "home", "pet"],
+};
+
+/** Name, what it is, and a niche — everything brand_digest() needs, taken from
+    the company's own words rather than the creator's guess. */
+function analyzeCompanySite(read, url) {
+  const hay = (read.title + " " + read.description + " " +
+    read.headings.join(" ") + " " + read.text.slice(0, 20000)).toLowerCase();
+
+  let best = null, bestScore = 0;
+  for (const [niche, words] of Object.entries(SITE_NICHES)) {
+    let score = 0;
+    for (const w of words) {
+      const count = hay.split(w).length - 1;
+      if (count) score += w.length * Math.min(count, 5);
+    }
+    if (score > bestScore) { bestScore = score; best = niche; }
+  }
+
+  // The <title> is usually "Brand — tagline"; the first segment is the name.
+  let name = (read.title || "").split(/[|–—:·]/)[0].trim();
+  if (!name || name.length > 40) {
+    try { name = new URL(url).hostname.replace(/^www\./, "").split(".")[0]; } catch { name = ""; }
+  }
+
+  // The meta description is the company's own one-line pitch. Failing that,
+  // the first real heading — which is what a homepage leads with.
+  const desc = read.description
+    || read.headings.find((h) => h.split(" ").length >= 3 && h.length <= 120)
+    || "";
+
+  return { name, description: desc.slice(0, 300), niche: best || "" };
+}
+
+/** "medceptor.com", "https://x.co/y" -> a URL. Anything else -> null, and we
+    treat what they typed as a plain company name. */
+function asUrl(raw) {
+  const s = (raw || "").trim();
+  if (!s || /\s/.test(s)) return null;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(s)) return "https://" + s;
+  return null;
 }
 
 function metaFromHtml(html) {
@@ -1624,22 +1843,28 @@ async function alsoWriteFor(item, brandIds, afterRender) {
 }
 
 /** The one place a saved video becomes a queued script. Caller saves. */
+/** `co` may be null: a creator with no company yet still gets the video read
+    and its own script handed back. The worker treats a missing brandId as a
+    finished job rather than an error, and stops before the rewrite. */
 function queueAdaptation(item, co) {
-  const dupe = ME.adaptations.find((a) => a.brandId === co.id && a.status !== "error"
+  const dupe = ME.adaptations.find((a) => (a.brandId || null) === (co ? co.id : null)
+    && a.status !== "error"
     && a.sourceUrl && canonUrl(a.sourceUrl) === item.canon);
   if (dupe) {
     return { ok: false, id: dupe.id,
              reason: isWriting(dupe)
                ? "That one's already being written — it'll appear here."
-               : `You've already got a ${co.name || "brand"} script from that video.` };
+               : co ? `You've already got a ${co.name || "brand"} script from that video.`
+                    : "You've already got that video's script." };
   }
   const id = newId();
   ME.adaptations.unshift({
-    id, libraryId: item.id, sourceUrl: item.url, brandId: co.id,
-    brandName: co.name || "Untitled brand",
+    id, libraryId: item.id, sourceUrl: item.url,
+    brandId: co ? co.id : null,
+    brandName: co ? (co.name || "Untitled brand") : "",
     title: sourceLabel(item),
     status: "queued", addedAt: new Date().toISOString(),
-    code: trackCode(co.name),             // spec §6.2 / R3 — issued at brief time
+    code: trackCode(co ? co.name : "LYNX"),   // spec §6.2 / R3 — issued at brief time
   });
   return { ok: true, id };
 }
@@ -1739,9 +1964,7 @@ function adaptationHtml(a, liveName) {
   let body;
   if (isWriting(a)) {
     const eta = etaFor(a);
-    body = `<p class="bp-hint">Queued. The source gets transcribed, the format underneath it pulled
-      out, and the script written for ${escapeHtml(brandNow)}. It appears here
-      on its own — no need to stay on this page.</p>
+    body = `<p class="bp-hint">Writing it for ${escapeHtml(brandNow)}. It'll appear here.</p>
       <p class="bp-hint bp-eta${eta.late ? " bp-partial" : ""}">${escapeHtml(eta.text)}</p>`;
   } else if (a.status === "error") {
     body = `<p class="bp-hint bad">${escapeHtml(a.note || "That video couldn't be downloaded.")}</p>
@@ -1761,8 +1984,7 @@ function adaptationHtml(a, liveName) {
       ${a.note ? `<p class="bp-hint">${escapeHtml(a.note)}</p>` : ""}
       ${ad.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">${
         silent ? "Opening card" : "Hook"}</span>“${escapeHtml(ad.hook)}”</div>` : ""}
-      ${silent ? `<p class="bp-hint">No voiceover — this one is read, not heard, so it still works
-        on mute. Film the shots below and put the SHOW line on screen at each beat.</p>` : ""}
+      ${silent ? `<p class="bp-hint">No voiceover — put the SHOW line on screen at each beat.</p>` : ""}
       <div class="bp-heading">${silent ? "Shot by shot" : "Your script"}</div>
       <ol class="bp-beats bp-notime">${(ad.beats || []).map((b) => beatRow(b, carry, silent)).join("")}</ol>
       ${ad.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> ${escapeHtml(ad.cta)}</p>` : ""}
@@ -1779,8 +2001,7 @@ function adaptationHtml(a, liveName) {
           <button type="button" class="chip pick ad-also" data-adid="${id}" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>` : ""}`;
   } else {
-    body = `<p class="bp-hint">The source was read but the script hasn't been written yet.
-      ${escapeHtml(a.note || "")}</p>
+    body = `<p class="bp-hint">Read, but not written yet. ${escapeHtml(a.note || "")}</p>
       <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
   }
 

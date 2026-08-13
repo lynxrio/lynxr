@@ -1307,10 +1307,34 @@
      --------------------------------------------------------------------- */
   .newscript {
     max-width: 640px; margin: 0 auto;
-    min-height: calc(100dvh - 150px);
-    display: flex; flex-direction: column; justify-content: center; gap: 18px;
+    /* --vvh is the VISIBLE viewport height, set from JS. dvh does not shrink
+       for the on-screen keyboard on iOS, so without this the composer sits
+       behind the keyboard the moment the field is focused. The dvh value is the
+       fallback for anything without visualViewport. */
+    min-height: calc(var(--vvh, 100dvh) - 150px);
+    /* Keeps the composer off the very bottom edge — pinned to the floor it read
+       as a separate toolbar rather than part of the page. */
+    padding-bottom: clamp(20px, 7vh, 72px);
+    display: flex; flex-direction: column; justify-content: flex-start; gap: 18px;
   }
-  .newscript-greet { text-align: center; }
+  /* The greeting takes all the free space and centres inside it, which drops
+     the composer to the foot of the screen where the thumb already is. Done
+     with one flex child rather than auto margins on several — competing autos
+     split the slack evenly and left everything bunched in the middle. */
+  /* align-items matters as much as text-align here: the mark is a fixed-size
+     flex item, so text-align does nothing for it and it sat hard left while the
+     heading beside it was centred. */
+  .newscript-greet {
+    flex: 1; display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    text-align: center;
+  }
+  /* One centred layout for everyone. A creator with no brand yet gets a single
+     quiet line under the composer rather than a panel — the composer is what
+     they came to use, and a boxed notice with an icon and a filled button
+     competed with it for the eye. */
+  .nobrand { margin: 0; text-align: center; font-size: 13px; color: var(--text-3); }
+  .nobrand .linkish { font-size: 13px; }
   /* First run only: the two fields a script cannot be written without, sitting
      directly above the composer so signing up and sending a link is one screen
      rather than a form you are sent away to fill in. */
@@ -1323,6 +1347,26 @@
   .newscript-mark { width: 28px; height: 28px; color: var(--text-3); margin-bottom: 14px; }
   .newscript-h { font-size: 26px; line-height: 1.2; margin: 0; letter-spacing: -.01em; }
   .newscript-sub { margin: 8px 0 0; color: var(--text-2); font-size: 14px; line-height: 1.55; }
+
+  /* The single question a brand-new brand asks. Its own block because the
+     first-run step layout it used to borrow is gone — and because the input
+     inherited nothing from that block, which is why it rendered at the browser
+     default width next to a full-width button. */
+  .lookup { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+  .lookup-label { margin: 0; font-size: 15px; color: var(--text); }
+  .lookup input[type="text"] {
+    width: 100%; padding: 11px 13px;
+    background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    font: inherit; font-size: 14px;
+  }
+  .lookup input[type="text"]:focus { outline: none; border-color: var(--line-2); }
+  .lookup-hint { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-3); }
+  .lookup-hint:empty { display: none; }
+  /* The primary sits at its natural width and the escape hatch is a text link,
+     so the two never read as an equal pair of choices. */
+  .lookup-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .lookup-actions .btn { flex: none; }
   @media (max-width: 560px) {
     .newscript { min-height: calc(100dvh - 120px); gap: 14px; }
     .newscript-h { font-size: 21px; }
