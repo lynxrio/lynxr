@@ -1879,17 +1879,30 @@ function startLiveSync() {
 
 // The gate does double duty: sign in, or create an account. One form, one
 // extra field, so the two paths can't drift apart.
+/* Three modes, one form: sign in, create an account, and set a new password
+   after a reset link. "reset" is the odd one — the person is already
+   authenticated by the link they clicked, so it asks for no email and no old
+   password, only the replacement. */
 let GATE_MODE = "in";
 function setGateMode(mode) {
   GATE_MODE = mode;
   const up = mode === "up";
+  const reset = mode === "reset";
   const pw = document.getElementById("pw");
-  document.getElementById("gate-tagline").textContent = up ? "create your account" : "for creators";
-  document.getElementById("pw2-wrap").hidden = !up;
+  document.getElementById("gate-tagline").textContent =
+    reset ? "choose a new password" : up ? "create your account" : "for creators";
+  // The email is known from the link; asking for it again invites a typo that
+  // would silently reset nothing.
+  document.getElementById("email").hidden = reset;
+  document.getElementById("pw2-wrap").hidden = !(up || reset);
   document.getElementById("pw2").value = "";
-  document.getElementById("gate-go").textContent = up ? "Create account" : "Enter";
-  pw.setAttribute("autocomplete", up ? "new-password" : "current-password");
-  pw.placeholder = up ? "Password — 8 characters or more" : "Password";
+  document.getElementById("gate-go").textContent =
+    reset ? "Save new password" : up ? "Create account" : "Enter";
+  pw.setAttribute("autocomplete", up || reset ? "new-password" : "current-password");
+  pw.placeholder = up || reset ? "Password — 8 characters or more" : "Password";
+  // Nothing to switch to mid-reset, and no point offering another reset mail.
+  document.querySelector(".gate-switch").hidden = reset;
+  document.getElementById("forgot-wrap").hidden = up || reset;
   document.getElementById("switch-lede").textContent =
     up ? "Already have an account?" : "Don't have an account?";
   document.getElementById("switch-mode").textContent = up ? "Sign in" : "Create one";
@@ -1906,6 +1919,52 @@ function setGateMode(mode) {
 // The homepage CTA links to ?signup=1, so "Create your account" lands on the
 // create form rather than the sign-in form the visitor has no credentials for.
 if (/[?&]signup=1\b/.test(location.search)) setGateMode("up");
+
+/* An invite link carries both halves — ?e=<address>&c=<code> — so the invited
+   person types a password and nothing else. Filling these in is also the only
+   way the address is guaranteed to match the invite: retyping it is where the
+   typo lives, and a mismatched address reads as "you're not invited". */
+if (INVITED_EMAIL) {
+  document.getElementById("email").value = INVITED_EMAIL;
+  setGateMode("up");
+}
+if (INVITE) {
+  const f = document.getElementById("invite");
+  if (f) f.value = INVITE;
+}
+
+/* Forgot password. Supabase answers /recover with 200 whether or not the
+   address exists — deliberately, so the endpoint can't be used to find out who
+   has an account — so the wording below must not claim a mail was sent. */
+document.getElementById("gate-forgot").addEventListener("click", async () => {
+  const err = document.getElementById("err");
+  const btn = document.getElementById("gate-forgot");
+  const email = (document.getElementById("email").value || "").trim();
+  if (!email) {
+    err.textContent = "Enter your email first, then tap Forgot your password.";
+    document.getElementById("email").focus();
+    return;
+  }
+  btn.disabled = true;
+  err.textContent = "Sending…";
+  try {
+    // Same per-request redirect as signup: the link must come back to whichever
+    // host served this page, not to the project's single Site URL.
+    const back = encodeURIComponent(location.origin + CREATOR_PATH);
+    const res = await fetch(`${SB_URL}/auth/v1/recover?redirect_to=${back}`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    err.textContent = "If that address has an account, a reset link is on its way. "
+      + "Open it on this device and you can set a new password.";
+  } catch (ex) {
+    err.textContent = /429|rate/i.test(ex.message)
+      ? "Too many attempts — wait a minute and try again."
+      : "Couldn't send the reset link — check your connection and try again.";
+  } finally { btn.disabled = false; }
+});
 
 /* Recovery for an address that never got its link, or whose link expired.
    Without this the only route is to sign up again — and Supabase answers a
@@ -1964,6 +2023,31 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
   const email = (document.getElementById("email").value || "").trim();
   const pw = document.getElementById("pw");
   const pw2 = document.getElementById("pw2");
+
+  /* Setting a new password after a reset link. Checked BEFORE the email test
+     below, because this mode deliberately has no email field — the link
+     already said who this is. */
+  if (GATE_MODE === "reset") {
+    if (pw.value.length < 8) { err.textContent = "Use at least 8 characters."; pw.select(); return; }
+    if (pw.value !== pw2.value) { err.textContent = "Those two passwords don't match."; pw2.select(); return; }
+    btn.disabled = true;
+    err.textContent = "Saving…";
+    try {
+      // sbFetch carries the recovery session the link established, and refreshes
+      // it if the person sat on this screen past the hour.
+      await sbFetch("/auth/v1/user", { method: "PUT", body: JSON.stringify({ password: pw.value }) });
+      pw.value = ""; pw2.value = "";
+      await pull();
+      unlock();
+    } catch (ex) {
+      err.textContent = /same.*password|different from the old/i.test(ex.message || "")
+        ? "That's the password you already had — pick a different one."
+        : "Couldn't save the new password. Ask for a fresh reset link and try again.";
+      btn.disabled = false;
+    }
+    return;
+  }
+
   if (!email || !pw.value) { err.textContent = "Enter your email and password."; return; }
 
   if (GATE_MODE === "up") {
@@ -2095,13 +2179,24 @@ async function sessionFromLink() {
       headers: { apikey: SB_KEY, Authorization: `Bearer ${access_token}` } });
     if (!res.ok) return false;
     adoptSession({ access_token, refresh_token, user: await res.json() });
-    return true;
+    // A recovery link authenticates but does NOT change the password. Dropping
+    // straight into the app would look like success while leaving the old
+    // password in place — so the next sign-in fails exactly as before and the
+    // reset appears not to have worked. Say so by asking for the new one.
+    return p.get("type") === "recovery" ? "recovery" : true;
   } catch { return false; }
 }
 
 // Arriving from a confirmation link, or a session already stored here.
 (async function resume() {
-  if (await sessionFromLink()) {
+  const link = await sessionFromLink();
+  if (link === "recovery") {
+    setGateMode("reset");
+    document.getElementById("pw").focus();
+    document.getElementById("err").textContent = "Set a new password to finish.";
+    return;
+  }
+  if (link) {
     try { await pull(); unlock(); return; }
     catch (ex) { document.getElementById("err").textContent = accountLoadError(ex.message || ""); return; }
   }
@@ -2112,3 +2207,4 @@ async function sessionFromLink() {
   try { await pull(); unlock(); }
   catch (ex) { document.getElementById("err").textContent = accountLoadError(ex.message || ""); }
 })();
+
