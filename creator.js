@@ -38,6 +38,32 @@ function safeUrl(u) {
     return (p.protocol === "http:" || p.protocol === "https:") ? p.href : "";
   } catch { return ""; }
 }
+/** THE LOADING MARK — the lynxr X split into its four arms, each scaling out of
+ *  the centre in clockwise turn (`arm-in` in app.css).
+ *
+ *  The four arms stop short of the middle: they meet at (12,9), (15,12),
+ *  (12,15) and (9,12), which leaves the diamond gap the wordmark has. Do not
+ *  "close" that hole — it is the mark, not a rendering slip, and the whole
+ *  point of animating this shape instead of a generic spinner is that the thing
+ *  spinning is recognisably lynxr.
+ *
+ *  It exists in one place because it is now used for every long wait: reading a
+ *  brand's site, and writing a script from a link. Three hand-copied SVGs would
+ *  drift the moment one arm's path changed.
+ */
+function loaderMark() {
+  return `<svg class="loader-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="arm a1" fill="currentColor" d="M3 3H6L12 9L9 12L3 6Z"/>
+      <path class="arm a2" fill="currentColor" d="M21 3V6L15 12L12 9L18 3Z"/>
+      <path class="arm a3" fill="currentColor" d="M15 12L21 18L18 21L12 15Z"/>
+      <path class="arm a4" fill="currentColor" d="M12 15L6 21L3 18L9 12Z"/>
+    </svg>`;
+}
+/** Put a status line into a working state: the mark at text size, plus what it
+ *  is doing. `text` is ours, never server-supplied — failures use textContent. */
+function gateBusy(el, text) {
+  el.innerHTML = `<span class="loader inline">${loaderMark()}<span>${escapeHtml(text)}</span></span>`;
+}
 /** Fit a `.grow` textarea to its text, the way a message composer does.
  *
  *  Height is reset to "auto" before measuring, because scrollHeight can never
@@ -987,14 +1013,7 @@ function renderBrand(head, body, b) {
             split into four arms that scale out of the centre in clockwise
             turn. Same markup and animation the agency app uses while it reads
             a client site — the identical job, so the identical signal. */""}
-      <div class="lookup-loader" id="lookup-loader" hidden>
-        <svg class="loader-mark" viewBox="0 0 24 24" aria-hidden="true">
-          <path class="arm a1" fill="currentColor" d="M3 3H6L12 9L9 12L3 6Z"/>
-          <path class="arm a2" fill="currentColor" d="M21 3V6L15 12L12 9L18 3Z"/>
-          <path class="arm a3" fill="currentColor" d="M15 12L21 18L18 21L12 15Z"/>
-          <path class="arm a4" fill="currentColor" d="M12 15L6 21L3 18L9 12Z"/>
-        </svg>
-      </div>
+      <div class="lookup-loader" id="lookup-loader" hidden>${loaderMark()}</div>
     </div>` : ""}
     <div class="section client-editor${fresh ? " collapsed" : " collapsed"}" id="brand-editor">
       <div class="ce-body">
@@ -2251,10 +2270,25 @@ function adaptationHtml(a, liveName) {
   let body;
   if (isWriting(a)) {
     const eta = etaFor(a);
-    body = `<p class="bp-hint">${a.brandId
-        ? `Writing it for ${escapeHtml(brandNow)}.`
-        : "Reading the video for its original script."} It'll appear here.</p>
-      <p class="bp-hint bp-eta${eta.late ? " bp-partial" : ""}">${escapeHtml(eta.text)}</p>`;
+    /* The same mark the brand lookup uses. This is the longest wait in the app
+       — a link goes off to be transcribed, watched and rewritten — and it used
+       to be two lines of grey text, which reads the same whether the worker is
+       running or has died. A moving mark says "still going" on its own.
+       The small "writing" chips in the library lists stay as dots: a 46px
+       animation inside a status chip would be noise, and those are glanced at
+       rather than waited on. */
+    body = `<div class="loader" role="status" aria-live="polite">
+        ${loaderMark()}
+        <div class="loader-text">
+          <div class="loader-stage">${a.brandId
+            ? `Writing it for ${escapeHtml(brandNow)}`
+            : "Reading the video for its original script"}</div>
+          ${/* .bp-eta carries the colour and size; .bp-hint is deliberately NOT
+                here, because its `margin: 6px 0 10px` overrides .loader-sub's
+                tighter 2px and pushes the ETA off the mark it belongs to. */""}
+          <div class="loader-sub bp-eta${eta.late ? " bp-partial" : ""}">${escapeHtml(eta.text)}</div>
+        </div>
+      </div>`;
   } else if (a.status === "error") {
     body = `<p class="bp-hint bad">${escapeHtml(a.note || "That video couldn't be downloaded.")}</p>
       <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
@@ -2691,12 +2725,16 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
   }
 
   btn.disabled = true;
-  err.textContent = "Signing in…";
+  /* The mark, working — the same signal the brand lookup and the script write
+     use. Every failure line below stays on textContent: those render messages
+     derived from server responses, and innerHTML would make that an injection. */
+  gateBusy(err, "Signing in…");
   let signedIn = false;
   try {
     await sbSignIn(email, pw.value);
     signedIn = true;
     pw.value = "";
+    gateBusy(err, "Loading your account…");
     await pull();
     unlock();
   } catch (ex) {

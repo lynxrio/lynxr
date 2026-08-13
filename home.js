@@ -24,6 +24,57 @@ const WAITLIST_SHEET_URL =
 
 const $ = (id) => document.getElementById(id);
 
+/* WHERE THE SIGNUP CAME FROM.
+
+   `source` is a column the schema always had ("which page/campaign") that this
+   page never filled in — every row said "landing", so the list could tell you
+   how many people joined and never which link they came from.
+
+   Order matters, most trustworthy first:
+
+     1. ?ref=... — a tag YOU put on a link before sharing it. The only one that
+        survives everywhere, because it's part of the URL rather than something
+        the platform decides to pass along.
+     2. ?utm_source=... — same idea, for links that already carry UTMs.
+     3. The referring site's HOSTNAME, recorded as "ref:tiktok.com".
+        Weak: TikTok and the Instagram in-app browser usually strip the
+        referrer entirely, so treat a bare "landing" as "unknown", not "typed
+        it in directly".
+
+   Only the hostname is ever stored, never the full referring URL — that can
+   carry search terms or private path segments, and none of it is our business.
+
+   Read at load rather than at submit, so it reflects how the visitor actually
+   arrived. */
+const SOURCE_MAX = 40;
+
+/** Keep it to a small, boring charset. Nothing renders this column, but it
+    lands in a database and a spreadsheet, and neither wants surprises. */
+function cleanSource(raw) {
+  const s = String(raw || "").trim().toLowerCase().replace(/[^a-z0-9._:-]/g, "");
+  return s.slice(0, SOURCE_MAX);
+}
+
+function signupSource() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const tagged = cleanSource(q.get("ref") || q.get("utm_source"));
+    if (tagged) return tagged;
+
+    if (document.referrer) {
+      const host = new URL(document.referrer).hostname.replace(/^www\./, "");
+      // Ignore our own pages — arriving from lynxr.io isn't a traffic source.
+      if (host && host !== location.hostname) {
+        const tag = cleanSource("ref:" + host);
+        if (tag) return tag;
+      }
+    }
+  } catch { /* a malformed URL or referrer is not worth failing a signup over */ }
+  return "landing";
+}
+
+const SOURCE = signupSource();
+
 /** Fire-and-forget. Apps Script answers with a 302 the browser will not let us
     read, so this is mode:"no-cors" and its success cannot be confirmed from
     here — which is why it is never allowed to affect what the visitor sees.
@@ -37,7 +88,7 @@ function mirrorToSheet(email) {
       // text/plain keeps it a CORS "simple request" — a JSON content-type
       // would trigger a preflight that Apps Script does not answer.
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ email, source: "landing", created_at: new Date().toISOString() }),
+      body: JSON.stringify({ email, source: SOURCE, created_at: new Date().toISOString() }),
     }).catch(() => {});
   } catch { /* the signup is already in Supabase; the mirror is optional */ }
 }
@@ -84,7 +135,7 @@ $("wait-form").addEventListener("submit", async (e) => {
         // it 409 below, which is what we want anyway.
         Prefer: "return=minimal",
       },
-      body: JSON.stringify({ email, source: "landing" }),
+      body: JSON.stringify({ email, source: SOURCE }),
     });
 
     // 409 means the email is already on the list. That is a success from the

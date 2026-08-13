@@ -366,6 +366,15 @@
   .loader-text { min-width: 0; }
   .loader-stage { font-size: 15px; }
   .loader-sub { margin-top: 2px; }
+  /* The same mark on a line of text — the sign-in gate's status line has no
+     room for the 46px block form, but "Loading database…" is a long enough
+     wait to need the signal. */
+  .loader.inline { display: inline-flex; align-items: center; gap: 9px; padding: 0; }
+  /* 20px, not the 15px of the text beside it: the centre gap is 3 of the
+     mark's 24 units, so at 15px it renders about a pixel wide and the X reads
+     as a blob. 20px keeps the gap visible, which is the whole point of using
+     this shape instead of a dot. */
+  .loader.inline .loader-mark { width: 20px; height: 20px; }
 
   /* Client brief: site analysis */
   .progress { color: var(--text-3); font-size: 14px; padding: 18px 0; }
@@ -893,6 +902,12 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
     html { scroll-behavior: auto; }
+    /* The loader's arms rest at opacity:0 and are revealed BY `arm-in`, so the
+       blanket rule above left the whole mark invisible — a loading indicator
+       that isn't there, on every long wait in both apps. Show the assembled
+       mark instead; the status line beside it carries "still working".
+       Measured, not assumed: computed opacity was 0 on all four arms. */
+    .loader-mark .arm { opacity: 1; }
   }
 
   .proven {

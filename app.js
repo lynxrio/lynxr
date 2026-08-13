@@ -29,6 +29,13 @@ function unlock(rows) {
   startLiveSync();
 }
 
+/** Put the gate's status line into a working state: the four-arm mark at text
+ *  size, plus what it is doing. `text` is ours, never server-supplied — every
+ *  failure message goes through textContent instead. */
+function gateBusy(el, text) {
+  el.innerHTML = `<span class="loader inline">${loaderMark()}<span>${escapeHtml(text)}</span></span>`;
+}
+
 document.getElementById("gate-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const emailEl = document.getElementById("email");
@@ -40,12 +47,19 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
   if (!email || !password) { err.textContent = "Enter your email and password."; return; }
 
   submitBtn.disabled = true;
-  err.textContent = "Signing in…";
+  /* The mark, working — same signal as the site read and the script write.
+     Pulling the database is the longest wait in this app (thousands of rows
+     over one request), and a line of static text there is indistinguishable
+     from a request that has already died.
+
+     textContent for the failure paths below, deliberately: those render
+     server-supplied text, and innerHTML would make that an injection. */
+  gateBusy(err, "Signing in…");
   let signedIn = false;
   try {
     await sbSignIn(email, password);
     signedIn = true;
-    err.textContent = "Loading database…";
+    gateBusy(err, "Loading database…");
     const rows = await sbFetchVideos();
     pw.value = "";
     try { await syncClients(); } catch { SYNC_OK = false; }
@@ -151,6 +165,21 @@ function safeUrl(u) {
     const p = new URL(String(u), location.origin);
     return (p.protocol === "http:" || p.protocol === "https:") ? p.href : "";
   } catch { return ""; }
+}
+/** THE LOADING MARK — the lynxr X split into its four arms, each scaling out of
+ *  the centre in clockwise turn (`arm-in` in app.css). Mirrored in creator.js.
+ *
+ *  The arms meet at (12,9), (15,12), (12,15) and (9,12), leaving the diamond
+ *  the real logo's evenodd rule carves where its two blades cross. That hole is
+ *  the mark — never close it.
+ */
+function loaderMark() {
+  return `<svg class="loader-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="arm a1" fill="currentColor" d="M3 3H6L12 9L9 12L3 6Z"/>
+      <path class="arm a2" fill="currentColor" d="M21 3V6L15 12L12 9L18 3Z"/>
+      <path class="arm a3" fill="currentColor" d="M15 12L21 18L18 21L12 15Z"/>
+      <path class="arm a4" fill="currentColor" d="M12 15L6 21L3 18L9 12Z"/>
+    </svg>`;
 }
 const views = (r) => Number(r.views) || 0;
 function median(nums) {
@@ -3876,17 +3905,7 @@ let BRIEF_CTX = null;  // {brand, feats, audience} from the last site read, used
 function showLoader(host, hostname) {
   host.innerHTML = `
     <div class="loader" role="status" aria-live="polite">
-      <!-- The mark split into its four arms, each scaling out of the centre in
-           clockwise turn, holding as the complete X, then resetting. Arms stop
-           at the diamond (9,12)(12,9)(15,12)(12,15) — the void the real logo's
-           evenodd rule carves where the two blades cross — so the assembled
-           mark keeps its centre gap. -->
-      <svg class="loader-mark" viewBox="0 0 24 24" aria-hidden="true">
-        <path class="arm a1" fill="currentColor" d="M3 3H6L12 9L9 12L3 6Z"/>
-        <path class="arm a2" fill="currentColor" d="M21 3V6L15 12L12 9L18 3Z"/>
-        <path class="arm a3" fill="currentColor" d="M15 12L21 18L18 21L12 15Z"/>
-        <path class="arm a4" fill="currentColor" d="M12 15L6 21L3 18L9 12Z"/>
-      </svg>
+      ${loaderMark()}
       <div class="loader-text">
         <div class="loader-stage" id="loader-stage">${hostname ? `Reading ${escapeHtml(hostname)}` : "Preparing"}</div>
         <div class="lbl loader-sub">matching the client against ${fmt(ALL.length)} videos</div>
