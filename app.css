@@ -1672,7 +1672,12 @@
        a box that was itself sliding off-screen, so it left with the content.
        Dropping the overflow here hands sticky back to the document, and top:0
        finally means the top of the viewport. */
-    .pane-scroll { overflow-y: visible; }
+    /* The header is part of the page on a phone, not furniture bolted to the
+       viewport: it sits at the top and scrolls away with everything else.
+       (.pane-head is position:sticky at desktop widths, where there is room
+       for it to stay.) The screen is short enough that a permanent 138px of
+       title above a script costs more than it tells you. */
+    .pane-head { position: static; }
     /* Comfortable thumb targets in the drawer. */
     .side-item, .side-link, .side-new { min-height: 46px; }
   }
