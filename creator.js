@@ -145,20 +145,33 @@ function agoLabel(iso) {
     confirming. Copied from app.js so both apps disarm identically. */
 function armDelete(btn, label, onConfirm) {
   let timer = null;
+  // Remember the button's FACE, not just its label: some of these are a trash
+  // icon, and restoring them with textContent would replace the svg with a
+  // word and leave the button permanently wrong after the first disarm.
+  const face = btn.innerHTML;
   const disarm = () => {
     clearTimeout(timer);
     btn.classList.remove("armed");
-    btn.textContent = label;
+    btn.innerHTML = face;
   };
+  /* A double-click used to delete: the first click armed the button and the
+     second landed on the armed one milliseconds later, so the safeguard was
+     defeated by an ordinary slip of the finger — and this button now sits
+     beside Save, which people press often. The armed button therefore ignores
+     anything that arrives too quickly to be a considered second press. */
+  let armedAt = 0;
+  const SETTLE_MS = 450;
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
     if (!btn.classList.contains("armed")) {
       btn.classList.add("armed");
-      btn.textContent = "Click again to delete";
+      btn.innerHTML = "Are you sure?";
       btn.title = "This cannot be undone";
+      armedAt = performance.now();
       timer = setTimeout(disarm, 5000);
       return;
     }
+    if (performance.now() - armedAt < SETTLE_MS) return;   // that was a double-click
     clearTimeout(timer);
     onConfirm();
   });
@@ -541,6 +554,26 @@ function libScripts(item) {
 
 const brandById = (id) => ME.brands.find((b) => b.id === id);
 
+/* Brands a script can actually be written FOR. A brand with no name gives the
+   model "Brand: ?" with everything else "(not given)", so four calls — three of
+   them Opus — would go into a script adapted to nothing.
+
+   Filtering here rather than refusing at send time is what stops an unnamed
+   brand becoming a dead end. It used to be one: a lone unnamed brand was
+   auto-ticked by composeTargets(), then refused for having no name, with no
+   prompt to name it because that prompt was gated on having no brands at all.
+   Now it simply is not a target, and the send falls through to the video's
+   original script.
+
+   Defined up here with the other slices because renderNewScript() calls it —
+   as a `const` it would sit in the temporal dead zone for anything that ran
+   during initial evaluation. */
+const namedBrands = () => ME.brands.filter((b) => (b.name || "").trim());
+
+/** Scripts written for no company — the video's own words, shots and structure.
+    Their own folder in the rail, because that is what they are to a creator. */
+const originalScripts = () => ME.adaptations.filter((a) => !a.brandId);
+
 // ---------- view routing ----------
 // One rail, one pane. VIEW says what the pane is showing; nothing else does.
 let VIEW = { kind: "new" };      // opening the app starts a fresh script
@@ -573,7 +606,10 @@ function renderNewScript(head, body) {
   // companies and nothing in its library. A script does still have to be
   // written FOR something, so the composer now asks for that inline and makes
   // the company as part of the send, instead of sending you away to a form.
-  const firstRun = !ME.brands.length;
+  // "No brand yet" means no brand we could WRITE for. A brand that exists but
+  // has never been named is the same situation from the creator's side, and
+  // gating this on ME.brands.length left them with no prompt and no send.
+  const firstRun = !namedBrands().length;
 
   // Centred greeting over the app's EXISTING composer component. The markup of
   // the composer is deliberately untouched — the `composer-inline` /
@@ -669,6 +705,10 @@ function renderSide() {
     host.innerHTML = `<p class="side-empty">No brands yet — add the first company you make videos for.</p>`;
     return;
   }
+  // Original scripts are NOT listed here. The rail is companies you write for,
+  // and a script that belongs to no company is not one of them — it reached
+  // this list once and read as a brand called "Original scripts". They live in
+  // the Library, which is where the videos are.
   host.innerHTML = ME.brands.map((b) => {
     const n = brandScripts(b).length;
     const on = VIEW.kind === "brand" && VIEW.id === b.id;
@@ -681,12 +721,35 @@ function renderSide() {
     el.addEventListener("click", () => go({ kind: "brand", id: el.dataset.bid })));
 }
 
+/** Their own page, built exactly like a brand's, because that is what they are
+    to a creator: a folder of scripts. */
+function renderOriginals(head, body) {
+  const list = originalScripts();
+  head.innerHTML = `
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="pane-title"><div class="bcard-title">Original scripts</div></div>
+    <p class="pane-sub">What the video itself said and showed &middot; ${plural(list.length, "script")}</p>`;
+  document.getElementById("side-open").addEventListener("click", () =>
+    document.body.classList.toggle("side-open"));
+
+  body.innerHTML = `<div id="ad-list"></div>`;
+  const host = document.getElementById("ad-list");
+  if (!list.length) {
+    host.innerHTML = `<div class="empty"><p><strong>Nothing here yet.</strong></p>
+      <p>Send a link without picking a brand and you'll get the video's own script.</p></div>`;
+    return;
+  }
+  host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a)).join("")}</div>`;
+  wireAdaptationCards(host);
+}
+
 function renderPane() {
   const head = document.getElementById("pane-head");
   const body = document.getElementById("pane-body");
   if (VIEW.kind === "new") return renderNewScript(head, body);
   if (VIEW.kind === "you") return renderYou(head, body);
   if (VIEW.kind === "feedback") return renderFeedback(head, body);
+  if (VIEW.kind === "originals") return renderOriginals(head, body);
   if (VIEW.kind === "brand") {
     const b = brandById(VIEW.id);
     if (b) return renderBrand(head, body, b);
@@ -704,9 +767,12 @@ function addBrand() {
   const blank = ME.brands.find((b) => !(b.name || "").trim());
   if (blank) {
     go({ kind: "brand", id: blank.id });
-    const nameEl = document.querySelector("#pane-body .b-name");
-    if (nameEl) nameEl.focus();
-    flashMsg("brand-flash", "Name your other brand first.", "bad");
+    // Land on the field that finishes it — the website box when the lookup
+    // panel is up, the name field when they chose to type it in.
+    const field = document.querySelector("#pane-body .b-lookup")
+      || document.querySelector("#pane-body .b-name");
+    if (field) field.focus();
+    flashMsg("brand-flash", "Add this brand here first.", "bad");
     return;
   }
   const b = { id: newId(), name: "", site: "", description: "", objective: "",
@@ -724,15 +790,30 @@ function addBrand() {
    anyway, so there is nothing worth persisting. */
 const BRAND_MANUAL = new Set();
 
+/* Brands asking for the website panel back after leaving it — either by
+   choosing "Add manually", or after a read that failed. Needed because the
+   panel normally only shows for a brand with NO site, and a failed read
+   deliberately keeps the URL that was typed. */
+const RETRY_LOOKUP = new Set();
+
 /** The one question a new brand asks. Fills name, what-it-is and niche from the
     company's own homepage, then hands over to the normal editor. */
+/* Set while a lookup panel is on screen, so the header's tick can run it. The
+   panel used to carry its own "Get the details" button beside the tick, making
+   confirmation a two-button decision — press one to fetch, the other to keep —
+   when it is really one action: take this website and set the brand up from it. */
+let BRAND_LOOKUP_RUN = null;
+
+/* Set by a successful lookup, consumed by the render that follows it. The old
+   confirmation was a paragraph of green text explaining where the details went,
+   which is a lot of reading for "they are behind that button" — a small arrow
+   pointing at Details says it without a sentence. */
+let POINT_AT_DETAILS = false;
+
 function wireBrandLookup(b) {
   const panel = document.getElementById("brand-lookup");
   const input = panel.querySelector(".b-lookup");
   const msg = document.getElementById("lookup-msg");
-  // NOT `go` — that is the app's navigation function, and shadowing it here
-  // would turn every go({kind:…}) in this scope into a click on a button.
-  const goBtn = document.getElementById("lookup-go");
 
   const openEditor = () => {
     BRAND_MANUAL.add(b.id);
@@ -742,16 +823,54 @@ function wireBrandLookup(b) {
   document.getElementById("lookup-skip").addEventListener("click", openEditor);
 
   const run = async () => {
+    const tick = document.getElementById("brand-details");
     const url = asUrl(input.value.trim());
     if (!url) {
-      msg.textContent = "That's not a website — try lynxr.io.";
+      msg.textContent = input.value.trim()
+        ? "That's not a website — try lynxr.io, or add the details manually."
+        : "Paste their website, or add the details manually.";
       msg.className = "lookup-hint";
       input.focus();
       return;
     }
-    goBtn.disabled = true;
-    msg.textContent = "Reading their site…";
-    msg.className = "lookup-hint";
+    /* Rotating status while the read is in flight. These describe what the
+       read ACTUALLY does — fetch the page, then pull out the name, what they
+       sell, the niche and the audience — rather than claiming a numbered step
+       is happening at a given moment. The fetch is most of the wall clock and
+       the analysis is near-instant, so per-stage claims would be theatre; this
+       is ambient and truthful about the job as a whole. */
+    let phase = 0, phaseTimer = null;
+    const PHASES = ["Reading their site", "Looking for what they sell",
+                    "Working out their niche", "Finding who it's for"];
+    const stopPhases = () => {
+      clearInterval(phaseTimer); phaseTimer = null;
+      document.getElementById("lookup-loader")?.setAttribute("hidden", "");
+      const live = document.getElementById("lookup-msg");
+      if (live) live.className = "lookup-hint";
+    };
+    if (tick) {
+      // Swap the tick for a spinner and keep the button's own markup so the
+      // tick comes back if the read fails. A dimmed, pulsing tick was not
+      // legible as "working" — loader-glow animates opacity, which overrode
+      // the static dim and left it flickering between full and near-full.
+      tick.disabled = true;
+      tick.dataset.face = tick.innerHTML;
+      tick.innerHTML = `<svg class="ico spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.4" stroke-linecap="round" aria-hidden="true"
+        ><path d="M12 3a9 9 0 1 0 9 9"/></svg>`;
+      tick.setAttribute("aria-label", "Reading their site");
+    }
+    msg.textContent = PHASES[0];
+    msg.className = "lookup-hint working";   // .working supplies the moving dots
+    document.getElementById("lookup-loader")?.removeAttribute("hidden");
+    // 2.6s, not 1.1s: at the old pace the words changed faster than they could
+    // be read, which reads as flicker rather than progress.
+    phaseTimer = setInterval(() => {
+      phase = (phase + 1) % PHASES.length;
+      const live = document.getElementById("lookup-msg");
+      if (!live) return stopPhases();      // panel gone: nothing to write to
+      live.textContent = PHASES[phase];
+    }, 2600);
     try {
       const got = analyzeCompanySite(await readCompanySite(url), url);
       b.name = got.name || b.name;
@@ -762,17 +881,33 @@ function wireBrandLookup(b) {
       save();
       // Straight into the normal view: the panel is gone, the fields are
       // filled, and Details is there to correct anything that came back wrong.
+      stopPhases();
+      RETRY_LOOKUP.delete(b.id);
+      POINT_AT_DETAILS = true;
       go({ kind: "brand", id: b.id });
-      flashMsg("brand-flash",
-        `Filled in from ${url.replace(/^https?:\/\//, "")}. Check Details if anything looks off.`, "good");
     } catch {
-      goBtn.disabled = false;
-      msg.textContent = "Couldn't read that site. Type the details instead.";
-      msg.className = "lookup-hint";
+      /* The read failed — plenty of sites block automated readers. Don't leave
+         them sitting on a panel that just failed with nothing to do but press
+         the same button again: move them to the manual form, which is the
+         thing that still works.
+
+         The URL is KEPT. It is probably correct — the reader is what failed —
+         and it goes to the model with every script, so throwing it away would
+         cost them something for a failure that was ours. Keeping it also means
+         the Website field shows on the manual form, so they can see and fix it.
+
+         No need to restore the tick here: go() re-renders the header. */
+      stopPhases();
+      RETRY_LOOKUP.delete(b.id);
+      b.site = url;
+      save();
+      BRAND_MANUAL.add(b.id);
+      go({ kind: "brand", id: b.id });
+      flashMsg("brand-flash", "Couldn't read that site — add the details here.", "bad");
     }
   };
 
-  goBtn.addEventListener("click", run);
+  BRAND_LOOKUP_RUN = run;
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); run(); }
   });
@@ -793,7 +928,15 @@ function renderBrand(head, body, b) {
         : ready ? `<span class="chip good">${plural(ready, "script")}</span>` : ""}
       <div class="spacer"></div>
       <button type="button" class="ghost" id="brand-details">Details</button>
+      <button type="button" class="ghost danger icon-only b-del" title="Delete this brand"
+        aria-label="Delete this brand"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
     </div>
+    ${/* Arrow LAST so it lands under Details. Leading with it put the arrow at
+          the start of the row, ~170px to the left of the button it means. */""}
+    <p class="detail-point" id="detail-point" hidden>Brand details are in here<svg
+      class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+      ><path d="M12 19V5M5 12l7-7 7 7"/></svg></p>
     <p class="pane-sub" id="brand-sub">${escapeHtml(b.niche || "No niche set")}${
       b.objective ? " · " + escapeHtml(b.objective) : ""} · ${plural(scripts.length, "script")}</p>`;
 
@@ -802,7 +945,13 @@ function renderBrand(head, body, b) {
   // homepage, and a creator typing it from memory produces a worse answer than
   // the source does. The full editor is one click away behind Details, and
   // opens automatically the moment the lookup finishes or is skipped.
-  const fresh = !b.name && !b.site && !BRAND_MANUAL.has(b.id);
+  const fresh = RETRY_LOOKUP.has(b.id)
+    || (!b.name && !b.site && !BRAND_MANUAL.has(b.id));
+  // Offered while the brand is still unnamed — naming it is what the panel is
+  // for. After a failed read the site IS set (we keep what was typed), so the
+  // old `!b.site` condition hid the way back exactly when it was most wanted.
+  const backToLookup = !fresh && !(b.name || "").trim();
+  const readFailed = backToLookup && !!b.site;
 
   body.innerHTML = `
     <p class="composer-note" id="brand-flash" role="status" aria-live="polite"></p>
@@ -810,21 +959,39 @@ function renderBrand(head, body, b) {
     <div class="section lookup" id="brand-lookup">
       <p class="lookup-label">What's their website?</p>
       <input type="text" class="b-lookup" autocomplete="off" spellcheck="false"
-        placeholder="lynxr.io">
+        value="${escapeHtml(b.site || "")}" placeholder="lynxr.io">
       <p class="lookup-hint" id="lookup-msg"></p>
+      <div class="lookup-loader" id="lookup-loader" hidden>
+        <svg class="lx-load" viewBox="0 0 24 24" aria-hidden="true">
+          <path class="lx-a" fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6z"/>
+          <path class="lx-b" fill="currentColor" fill-rule="evenodd" d="M21 3v3L6 21l-3-3L18 3z"/>
+        </svg>
+      </div>
       <div class="lookup-actions">
-        <button type="button" class="btn" id="lookup-go">Get the details</button>
-        <button type="button" class="linkish" id="lookup-skip">No website</button>
+        <button type="button" class="linkish" id="lookup-skip">Add manually</button>
       </div>
     </div>` : ""}
     <div class="section client-editor${fresh ? " collapsed" : " collapsed"}" id="brand-editor">
       <div class="ce-body">
-        <p class="lbl">The more specific these are, the better the script.</p>
+        ${/* Only offered while the form is still empty. Once anything is typed,
+              going back to the one-question panel would look like it threw the
+              work away. */""}
+        ${/* A ghost button with a back arrow, not an underlined sentence. As a
+              link it read as body copy that happened to be underlined, and
+              nobody could tell it was the way back to the website panel. */""}
+        ${backToLookup ? `<button type="button" class="ghost b-back" id="b-back-lookup">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+            ><path d="M15 18l-6-6 6-6"/></svg>${readFailed ? "Try again" : "Use their website instead"}</button>` : ""}
         <div class="ce-grid">
           <label class="ce-field"><span class="lbl">Brand name</span>
             <input type="text" class="b-name" value="${escapeHtml(b.name || "")}" placeholder="e.g. lynxr"></label>
-          <label class="ce-field"><span class="lbl">Website</span>
-            <input type="url" class="b-site" value="${escapeHtml(b.site || "")}" placeholder="https://…"></label>
+          ${/* Only shown once there IS one — i.e. the lookup found it. Asking for
+                a website on the manual form is asking the question the lookup
+                already exists to answer, and anyone on this form got here by
+                saying they did not have one. */""}
+          ${b.site ? `<label class="ce-field"><span class="lbl">Website</span>
+            <input type="url" class="b-site" value="${escapeHtml(b.site)}" placeholder="https://…"></label>` : ""}
           <label class="ce-field ce-wide"><span class="lbl">What is it?</span>
             <textarea class="b-desc grow" rows="1"
               placeholder="e.g. scripts for UGC creators">${escapeHtml(b.description || "")}</textarea></label>
@@ -833,9 +1000,13 @@ function renderBrand(head, body, b) {
           <label class="ce-field"><span class="lbl">Niche</span>
             <input type="text" class="b-niche" value="${escapeHtml(b.niche || "")}" placeholder="e.g. Creator tools"></label>
         </div>
-        <div class="bp-actions"><button type="button" class="ghost danger b-del">Delete this brand</button></div>
       </div>
     </div>
+    ${/* Hidden until the brand has a name. A script is written FOR a company,
+          so offering "add a script" before there is one to write for is an
+          invitation to a refusal — better not to offer it at all than to shake
+          the form at someone who took us up on it. */""}
+    ${(b.name || "").trim() ? `
     <div class="lib-head">
       <h2>Scripts <span class="pill">${scripts.length}</span></h2>
       <button type="button" class="lib-plus" id="brand-add" title="New script" aria-label="New script">
@@ -843,7 +1014,7 @@ function renderBrand(head, body, b) {
           aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       </button>
     </div>
-    <div id="ad-list"></div>`;
+    <div id="ad-list"></div>` : ""}`;
 
   document.getElementById("side-open").addEventListener("click", () =>
     document.body.classList.toggle("side-open"));
@@ -853,7 +1024,23 @@ function renderBrand(head, body, b) {
   // Open the full editor for a half-set-up brand — unless the lookup panel is
   // showing, which is the one question we want answered first.
   if (!b.name && !fresh) editor.classList.remove("collapsed");
-  if (fresh) wireBrandLookup(b);
+  BRAND_LOOKUP_RUN = null;          // cleared first: a stale handle from the
+  if (fresh) wireBrandLookup(b);    // previous brand would run against it
+
+  if (POINT_AT_DETAILS) {
+    POINT_AT_DETAILS = false;
+    const point = document.getElementById("detail-point");
+    if (point) {
+      point.hidden = false;
+      setTimeout(() => { const p2 = document.getElementById("detail-point");
+                         if (p2) p2.hidden = true; }, 6000);
+    }
+  }
+  document.getElementById("b-back-lookup")?.addEventListener("click", () => {
+    BRAND_MANUAL.delete(b.id);
+    RETRY_LOOKUP.add(b.id);          // brings the panel back even with a site set
+    go({ kind: "brand", id: b.id });
+  });
 
   // "What is it?" wraps instead of scrolling sideways. A collapsed editor is
   // display:none, where every measurement is 0, so re-fit when it opens.
@@ -869,12 +1056,29 @@ function renderBrand(head, body, b) {
   let firstRun = !b.name;
   const syncToggle = () => {
     const open = !editor.classList.contains("collapsed");
-    toggle.textContent = firstRun ? "Save" : open ? "Done" : "Details";
-    toggle.classList.toggle("pane-save", firstRun);
+    // Save is a green tick, matching the red trash below it. "Done" and
+    // "Details" stay words — they name a place to go, which an icon cannot.
+    if (firstRun) {
+      toggle.innerHTML = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+        ><path d="M4 12.5l5.5 5.5L20 7"/></svg>`;
+      toggle.title = "Save this brand";
+      toggle.setAttribute("aria-label", "Save this brand");
+    } else {
+      toggle.textContent = open ? "Done" : "Details";
+      toggle.removeAttribute("title");
+      toggle.removeAttribute("aria-label");
+    }
+    toggle.classList.toggle("icon-only", firstRun);
+    toggle.classList.toggle("good", firstRun);
+    toggle.classList.toggle("pane-save", false);
   };
   syncToggle();
   fitDesc();
   toggle.addEventListener("click", () => {
+    // With the lookup panel up, the tick IS "read this website and set the
+    // brand up". It re-renders on success, so nothing below this runs.
+    if (BRAND_LOOKUP_RUN) { BRAND_LOOKUP_RUN(); return; }
     editor.classList.toggle("collapsed");
     if (firstRun && editor.classList.contains("collapsed")) firstRun = false;
     syncToggle();
@@ -891,6 +1095,10 @@ function renderBrand(head, body, b) {
   // it skips the re-render (and therefore the rebind) precisely while you type.
   const bind = (sel, key) => {
     const el = editor.querySelector(sel);
+    // Not every field is always rendered — Website only appears once there is
+    // one. Without this guard a missing field throws here and takes the whole
+    // editor down with it.
+    if (!el) return;
     el.addEventListener("input", (e) => {
       const live = brandById(b.id);
       if (!live) return;               // deleted on another device mid-edit
@@ -927,7 +1135,9 @@ function renderBrand(head, body, b) {
   // Same plus as the Library's, and it does one thing more: standing in a
   // company is the answer to "who is this for", so it arrives at the composer
   // with this company already ticked instead of asking again.
-  document.getElementById("brand-add").addEventListener("click", () => {
+  // Only rendered once the brand has a name, so there is nothing to guard
+  // against here any more — the optional chaining covers the unnamed case.
+  document.getElementById("brand-add")?.addEventListener("click", () => {
     COMPOSE_FOR = new Set([b.id]);
     go({ kind: "new" });
   });
@@ -935,7 +1145,11 @@ function renderBrand(head, body, b) {
   // Deleting a brand takes its scripts — to the trash, not to nothing, so a
   // mistyped company name deleted in a hurry doesn't cost a dozen scripts.
   // The videos stay in the Library: they were yours before any brand existed.
-  armDelete(editor.querySelector(".b-del"), "Delete this brand", () => {
+  // Two buttons, one action. The editor's Delete is unreachable while the
+  // lookup panel is up (the editor is collapsed behind Details), so a brand
+  // made by mistake had no way out of this screen — and the "name your other
+  // brand first" guard meant it also blocked making another one.
+  const removeBrand = () => {
     ME.brands = ME.brands.filter((x) => x.id !== b.id);
     trashAdaptations((a) => a.brandId === b.id);
     save({ now: true });
@@ -943,7 +1157,9 @@ function renderBrand(head, body, b) {
     // what you have saved — the least useful answer to "I just cleared this
     // out." The new-script page is where the next thing starts, so go there.
     go(ME.brands.length ? { kind: "brand", id: ME.brands[0].id } : { kind: "new" });
-  });
+  };
+  armDelete(head.querySelector(".b-del"), "Delete this brand", removeBrand);
+
 
   renderScripts(b);
 }
@@ -1056,20 +1272,39 @@ function paintLibraryList() {
       </section>`;
     }).filter(Boolean).join("");
 
-    // Saved but not yet scripted for anyone — otherwise these vanish in this view.
+    // Anything with no script for ANY company needs a home here, or it is
+    // invisible in this view. Two distinct cases, and they are not the same
+    // thing to a creator:
+    //
+    //   * videos whose only script is the ORIGINAL — a real, finished result
+    //     that simply belongs to no company. These used to vanish outright:
+    //     they matched no company block (no brandId) and were not caught by the
+    //     old orphan filter either, which only looked for videos with NO
+    //     scripts at all. Sending a link without a company therefore appeared
+    //     to do nothing.
+    //   * videos saved but never scripted for anyone.
+    const grouped = (it) => libScripts(it).some((a) => a.brandId);
+    const originals = shown.filter((it) => !grouped(it) && libScripts(it).length);
     const orphans = shown.filter((it) => !libScripts(it).length);
-    const orphanBlock = orphans.length ? `<section class="lib-group">
+
+    const loose = (title, items, meta, href) => items.length ? `<section class="lib-group">
       <div class="lib-group-head">
-        <span class="lib-group-name">Not scripted yet</span>
-        <span class="lib-group-meta">${orphans.length} saved</span>
+        ${href ? `<button type="button" class="lib-group-name linkish" data-originals="1">${title}</button>`
+               : `<span class="lib-group-name">${title}</span>`}
+        <span class="lib-group-meta">${items.length} ${meta}</span>
       </div>
-      <div class="bp-list">${orphans.map((it) => libraryItemHtml(it)).join("")}</div>
+      <div class="bp-list">${items.map((it) => libraryItemHtml(it)).join("")}</div>
     </section>` : "";
 
-    host.innerHTML = (blocks + orphanBlock)
+    const looseBlocks = loose("Original scripts", originals, "video", true)
+      + loose("Not scripted yet", orphans, "saved");
+
+    host.innerHTML = (blocks + looseBlocks)
       || `<div class="empty"><p>No scripts yet. Send a link and they'll group by company here.</p></div>`;
     host.querySelectorAll(".lib-group-name[data-bid]").forEach((el) =>
       el.addEventListener("click", () => go({ kind: "brand", id: el.dataset.bid })));
+    host.querySelectorAll(".lib-group-name[data-originals]").forEach((el) =>
+      el.addEventListener("click", () => go({ kind: "originals" })));
   } else {
     host.innerHTML = `<div class="bp-list">${shown.map((it) => libraryItemHtml(it)).join("")}</div>`;
   }
@@ -1081,10 +1316,15 @@ function paintLibraryList() {
     card.querySelectorAll(".lib-jump").forEach((btn) => btn.addEventListener("click", () => {
       const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
       if (!a) return;
-      go({ kind: "brand", id: a.brandId });
+      // An original script has no company to jump to — its card is rendered
+      // right here in the library entry, so open that instead of navigating to
+      // a brand page that does not exist. (`go({kind:"brand", id:null})` used
+      // to land nowhere, which is why the script appeared to vanish.)
+      go(a.brandId ? { kind: "brand", id: a.brandId } : { kind: "originals" });
       const target = document.querySelector(`#ad-list [data-adid="${CSS.escape(a.id)}"]`);
       if (target) { target.open = true; target.scrollIntoView({ block: "center" }); }
     }));
+
     // One tap = one more script from a video already saved. Keeping the card
     // open across the repaint matters: the creator is usually adding two or
     // three companies in a row and a collapsing card loses their place.
@@ -1147,10 +1387,11 @@ function libraryItemHtml(item, scopeBrandId) {
       ${made.length ? `<div class="bp-heading">Scripts from this</div>
         <ul class="lib-made">${made.map((a) => `
           <li><button type="button" class="linkish lib-jump" data-adid="${escapeHtml(a.id)}">${
-            escapeHtml(a.brandName || "Brand")}</button>
+            escapeHtml(a.brandName || (a.brandId ? "Brand" : "Original script"))}</button>
             <span class="lib-made-state">${a.status === "done" ? "ready"
               : a.status === "error" ? "couldn't fetch" : "being written"}</span></li>`).join("")}</ul>`
         : `<p class="bp-hint">No script from this one yet.</p>`}
+
       ${spare.length ? `<div class="bp-heading">Also write this for</div>
         <div class="chips lib-also">${spare.map((b) => `
           <button type="button" class="chip pick lib-also-b" data-bid="${escapeHtml(b.id)}"
@@ -1448,18 +1689,22 @@ const scriptsUsed = () => (ME.adaptations || []).length + (ME.trash || []).lengt
     With a single company there is nothing to choose, so it is pre-ticked; with
     several, sending requires an explicit pick rather than guessing. */
 function composeTargets() {
-  if (!COMPOSE_FOR) return ME.brands.length === 1 ? [ME.brands[0].id] : [];
-  return ME.brands.filter((b) => COMPOSE_FOR.has(b.id)).map((b) => b.id);
+  const named = namedBrands();
+  if (!COMPOSE_FOR) return named.length === 1 ? [named[0].id] : [];
+  return named.filter((b) => COMPOSE_FOR.has(b.id)).map((b) => b.id);
 }
 
 function renderComposeFor() {
   const host = document.getElementById("composer-for");
   if (!host) return;
-  // Nothing to pick between on a first run — the fields above the composer are
-  // the answer, and a bare "Write it for" label over no chips reads as broken.
-  if (!ME.brands.length) { host.innerHTML = ""; return; }
+  // Only NAMED brands are offered. A half-made brand used to appear here as a
+  // tickable "Untitled brand" chip, which is an invitation to pick something
+  // that cannot be written for. With none of them named there is nothing to
+  // choose between, and the send produces the video's original script.
+  const named = namedBrands();
+  if (!named.length) { host.innerHTML = ""; return; }
   const on = new Set(composeTargets());
-  host.innerHTML = `<span class="lbl">Write it for</span>` + ME.brands.map((b) => `
+  host.innerHTML = `<span class="lbl">Write it for</span>` + named.map((b) => `
     <button type="button" class="for-chip${on.has(b.id) ? " on" : ""}" data-bid="${escapeHtml(b.id)}"
       aria-pressed="${on.has(b.id)}">
       <span class="tick" aria-hidden="true">✓</span>${escapeHtml(b.name || "Untitled brand")}
@@ -1502,7 +1747,7 @@ function wireComposer() {
     // the cap would leave an empty folder behind.
     const room = SCRIPT_CAP - scriptsUsed();
     if (room <= 0) {
-      say(`That's all ${SCRIPT_CAP} scripts on this account. Message us and we'll raise it.`, "bad");
+      say(`That's all ${SCRIPT_CAP} scripts. Ask for more from Feedback in the menu.`, "bad");
       return;
     }
 
@@ -1529,23 +1774,42 @@ function wireComposer() {
       return;
     }
 
+    // composeTargets() only ever returns NAMED brands, so an unnamed one can no
+    // longer be ticked-by-default and then block the send. That combination —
+    // one brand, no name — used to be a dead end: auto-ticked, then refused for
+    // having no name, with no way through and no prompt explaining it.
     const targets = composeTargets().map(brandById).filter(Boolean);
+
+    // Nothing ticked means one of two very different things.
     if (!targets.length) {
-      say("Tick which companies this is for.", "bad");
+      // They HAVE brands worth writing for and picked none — ask.
+      if (namedBrands().length) {
+        say("Tick which brand this is for.", "bad");
+        return;
+      }
+      // They have no usable brand at all, so send an ORIGINAL SCRIPT: the
+      // video's own words, shots and structure, with no rewrite. This is a
+      // real result, not a fallback for a failure.
+      if (room <= 0) {
+        say(`That's all ${SCRIPT_CAP} scripts. Ask for more from Feedback in the menu.`, "bad");
+        return;
+      }
+      const { item: solo } = ensureLibraryItem(url);
+      const res = queueAdaptation(solo, null);
+      if (!res.ok) {
+        say("You've already got the original script from that video.", "bad");
+        return;
+      }
+      input.value = "";
+      showPlat();
+      await save({ now: true });
+      renderSide();
+      renderComposeFor();
+      say("On it — reading the video for its original script.", "good");
+      go({ kind: "library" });
       return;
     }
-    // A script is written FOR a company: the worker sends the model the name,
-    // description, objective and niche. With no name that digest reads
-    // "Brand: ?" with everything else "(not given)", so four model calls —
-    // three of them Opus — go into a script adapted to nothing. Cheaper and
-    // kinder to stop here than to hand someone a generic script.
-    const unnamed = targets.filter((t) => !(t.name || "").trim());
-    if (unnamed.length) {
-      say(targets.length === 1
-        ? "Name this brand first."
-        : "Name every brand you've ticked first.", "bad");
-      return;
-    }
+
     // Ticking four companies is four scripts, so the cap has to be checked
     // against the number of TARGETS rather than the number of sends.
     if (targets.length > room) {
@@ -1846,8 +2110,13 @@ async function alsoWriteFor(item, brandIds, afterRender) {
 /** `co` may be null: a creator with no company yet still gets the video read
     and its own script handed back. The worker treats a missing brandId as a
     finished job rather than an error, and stops before the rewrite. */
-function queueAdaptation(item, co) {
-  const dupe = ME.adaptations.find((a) => (a.brandId || null) === (co ? co.id : null)
+function queueAdaptation(item, co, { force = false } = {}) {
+  // `force` is a deliberate RE-SCRIPT: same video, same brand, run again. The
+  // duplicate guard exists to stop an accidental second send costing money, not
+  // to stop someone who read the script and wants another take — so the guard
+  // is skipped, and the new entry counts against the allowance like any other,
+  // because it costs exactly the same to produce.
+  const dupe = force ? null : ME.adaptations.find((a) => (a.brandId || null) === (co ? co.id : null)
     && a.status !== "error"
     && a.sourceUrl && canonUrl(a.sourceUrl) === item.canon);
   if (dupe) {
@@ -1948,6 +2217,7 @@ function adaptationHtml(a, liveName) {
     : a.status !== "done" ? `<span class="chip bp-wait"><i class="bp-dot"></i>writing your script</span>`
     : lowFit ? `<span class="chip">poor fit</span>`
     : ad ? `<span class="chip good">script ready</span>`
+    : !a.brandId ? `<span class="chip good">original script</span>`
     : `<span class="chip">source only</span>`;
   const href = safeUrl(a.sourceUrl || "");
   const id = escapeHtml(a.id);
@@ -1964,7 +2234,9 @@ function adaptationHtml(a, liveName) {
   let body;
   if (isWriting(a)) {
     const eta = etaFor(a);
-    body = `<p class="bp-hint">Writing it for ${escapeHtml(brandNow)}. It'll appear here.</p>
+    body = `<p class="bp-hint">${a.brandId
+        ? `Writing it for ${escapeHtml(brandNow)}.`
+        : "Reading the video for its original script."} It'll appear here.</p>
       <p class="bp-hint bp-eta${eta.late ? " bp-partial" : ""}">${escapeHtml(eta.text)}</p>`;
   } else if (a.status === "error") {
     body = `<p class="bp-hint bad">${escapeHtml(a.note || "That video couldn't be downloaded.")}</p>
@@ -1995,11 +2267,42 @@ function adaptationHtml(a, liveName) {
             asked for at the bottom of the thing they came to film. */""}
       <div class="bp-actions">
         <button type="button" class="ghost ad-copy" data-adid="${id}">Copy script</button>
+        <button type="button" class="ghost ad-again" data-adid="${id}">Rewrite</button>
       </div>
       ${reuse.length ? `<div class="bp-heading">Also write this for</div>
         <div class="chips lib-also">${reuse.map((b) => `
           <button type="button" class="chip pick ad-also" data-adid="${id}" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>` : ""}`;
+  } else if (!a.brandId) {
+    /* THE ORIGINAL SCRIPT — a finished result, not a failure.
+       This branch used to be shared with "the rewrite failed", so a creator who
+       asked for the original got "Read, but not written yet" and a Try again
+       button that would spend another script and produce the same answer. The
+       two cases are opposites and are told apart by brandId. */
+    const src = a.source || {};
+    const scr = src.script || {};
+    const segs = Array.isArray(scr.segments) ? scr.segments : [];
+    const shots = Array.isArray(src.shots) ? src.shots : [];
+    const t = (n) => `${Math.round(Number(n) || 0)}s`;
+    body = `
+      ${a.format?.name ? `<div class="chips bp-tags"><span class="chip">${escapeHtml(a.format.name)}</span>
+        ${src.tags?.format_type ? `<span class="chip">${escapeHtml(src.tags.format_type)}</span>` : ""}
+        ${src.tags?.hook_pattern ? `<span class="chip">${escapeHtml(src.tags.hook_pattern)}</span>` : ""}</div>` : ""}
+      ${segs.length ? `<div class="bp-heading">What they say</div>
+        <ol class="bp-beats">${segs.map(([st, , txt]) => `
+          <li class="bp-beat"><span class="bp-t">${escapeHtml(t(st))}</span>
+            <span class="bp-lbl">SAY</span><span class="bp-val">${escapeHtml(String(txt || "").trim())}</span></li>`).join("")}</ol>`
+        : `<p class="bp-hint">No speech &mdash; this one is carried by what's on screen.</p>`}
+      ${shots.length ? `<div class="bp-heading">What's on screen</div>
+        <ol class="bp-beats">${shots.map((sh) => `
+          <li class="bp-beat"><span class="bp-t">${escapeHtml(t(sh.t))}</span>
+            <span class="bp-lbl">SHOW</span><span class="bp-val">${escapeHtml(sh.visual || "")}${
+              (sh.onscreen_text || "").trim() ? `\n“${escapeHtml(sh.onscreen_text.trim())}”` : ""}</span></li>`).join("")}</ol>` : ""}
+      <div class="bp-actions">
+        <button type="button" class="ghost ad-copy" data-adid="${id}">Copy</button>
+        <button type="button" class="ghost ad-again" data-adid="${id}">Rewrite</button>
+        <button type="button" class="btn ad-brandify" data-adid="${id}">Write this for a brand</button>
+      </div>`;
   } else {
     body = `<p class="bp-hint">Read, but not written yet. ${escapeHtml(a.note || "")}</p>
       <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
@@ -2026,12 +2329,19 @@ function renderScripts(b) {
   if (!host) return;
   const list = brandScripts(b);
   if (!list.length) {
-    host.innerHTML = `<div class="empty"><p><strong>No scripts yet.</strong></p>
-      <p>Send a link from <em>New script</em> in the rail and tick this company — the script
-      lands here.</p></div>`;
+    host.innerHTML = `<div class="empty"><p><strong>No scripts yet.</strong></p></div>`;
     return;
   }
   host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a, b.name)).join("")}</div>`;
+  wireAdaptationCards(host);
+}
+
+/* Everything an adaptation card can do, wired against whatever host it was
+   rendered into. Extracted from renderScripts because the Library renders
+   cards too: an ORIGINAL script belongs to no brand, so no brand page can list
+   it, and before this it was written, stored, and visible nowhere. */
+function wireAdaptationCards(host) {
+  if (!host) return;
   stopSummaryLinks(host);
 
   host.querySelectorAll(".ad-copy").forEach((btn) => btn.addEventListener("click", async () => {
@@ -2051,9 +2361,70 @@ function renderScripts(b) {
     save(); renderSide(); renderPane();
     say("Re-queued — it'll be picked up on the next pass.", "good");
   }));
+  /* Run it again — a second take on the same video, for the same brand (or for
+     no brand). A script is one shot at an interpretation and the model is not
+     deterministic, so "I'd like another" is a normal request rather than a
+     mistake to be prevented. It spends from the allowance exactly like a first
+     script, because it costs exactly as much. */
+  host.querySelectorAll(".ad-again").forEach((btn) => btn.addEventListener("click", () => {
+    const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
+    if (!a) return;
+    if (SCRIPT_CAP - scriptsUsed() <= 0) {
+      say(`That's all ${SCRIPT_CAP} scripts. Ask for more from Feedback in the menu.`, "bad");
+      return;
+    }
+    const item = ME.library.find((l) => l.id === a.libraryId)
+      || (a.sourceUrl ? ME.library.find((l) => l.canon === canonUrl(a.sourceUrl)) : null);
+    if (!item) { say("That video isn't in your library any more.", "bad"); return; }
+    const co = a.brandId ? brandById(a.brandId) : null;
+    if (a.brandId && !co) { say("That brand is gone — write it for another one.", "bad"); return; }
+    queueAdaptation(item, co, { force: true });
+    save({ now: true });
+    renderSide(); renderPane();
+    say(co ? `Writing another ${co.name} script from that video.`
+           : "Reading that video again.", "good");
+  }));
+
   host.querySelectorAll(".ad-del").forEach((btn) => armDelete(btn, "Delete", () => {
     trashAdaptations((x) => x.id === btn.dataset.adid);
     save(); renderSide(); renderPane();   // the video stays in the Library
+  }));
+
+  /* Turn an original script into a brand script. The video is already in the
+     library, so this is the same "also write this for" move the finished cards
+     offer — the only difference is that a creator who got here may have no
+     brand yet, which is the moment asking for one is a favour rather than a
+     toll gate.
+
+     It re-runs the pipeline rather than reusing the source already stored on
+     the entry. Reuse would be cheaper (~$0.05 against ~$0.13) and quicker, and
+     is worth doing — but it means restructuring the paid worker, which is not
+     something to ship untested. Filed in the handoff. */
+  host.querySelectorAll(".ad-brandify").forEach((btn) => btn.addEventListener("click", () => {
+    const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
+    if (!a) return;
+    const item = ME.library.find((l) => l.id === a.libraryId)
+      || (a.sourceUrl ? ME.library.find((l) => l.canon === canonUrl(a.sourceUrl)) : null);
+    if (!item) { say("That video isn't in your library any more.", "bad"); return; }
+
+    const named = namedBrands();
+    if (!named.length) {
+      // No brand to write for yet — send them to make one. addBrand() lands on
+      // the new brand with the website lookup open, and the video is still in
+      // the Library waiting when they come back.
+      say("Add a brand first — then write this for them.", "good");
+      addBrand();
+      return;
+    }
+    const spare = brandsWithout(item);
+    if (!spare.length) {
+      say("Every brand already has a script from this video.", "bad");
+      return;
+    }
+    // One brand: no picker needed. Several: the Library row already lists them
+    // as chips, so send them there rather than inventing a second picker.
+    if (spare.length === 1) alsoWriteFor(item, [spare[0].id]);
+    else { go({ kind: "library" }); say("Pick which brand to write it for.", "good"); }
   }));
 }
 

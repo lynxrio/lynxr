@@ -772,7 +772,8 @@ def process_one(a, creator, aclient, key):
     # (or "done" ones under --redo-ai, which the launchd agent does not pass).
     # Raising hands it to main(), which marks it error — so the creator gets a
     # Try again button and the cooldown retries it on its own.
-    # ...but only when a rewrite was actually asked for. A brandless entry is
+    # ...but only when a rewrite was actually asked for. An ORIGINAL-script
+    # entry is
     # finished the moment the source is read (see above), and has no beats by
     # design — raising here would mark every one of them an error.
     if a.get("brandId") and not ((a.get("adaptation") or {}).get("beats") or []):
@@ -992,7 +993,7 @@ def main():
                 upsert_source(key, a)
                 upsert_video(key, a)          # and into the main video database
                 ad = a.get("adaptation") or {}
-                # A brandless entry has no fit and no beats BY DESIGN — it is
+                # An original-script entry has no fit and no beats BY DESIGN — it is
                 # the source read back, not a rewrite. Logging it as "fit=—, 0
                 # beats" alongside real failures made a working feature look
                 # like a broken one.

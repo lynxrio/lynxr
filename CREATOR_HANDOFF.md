@@ -66,7 +66,7 @@ with the rewrite skipped. Three edits:
 1. `process_one()` returns early before the adaptation stage when `brandId` is
    falsy, instead of failing on "brand not found".
 2. The "no beats is a failure" guard now only applies when a brand was actually
-   asked for. Without this every brandless entry would be marked `error`.
+   asked for. Without this every original-script entry would be marked `error`.
 3. The completion log distinguishes source-only runs, which previously logged as
    `fit=—, 0 beats` and looked like a bug.
 
@@ -80,7 +80,8 @@ or brand identity, exactly as before.
 - **One centred layout for everyone.** The two-step first-run screen was built,
   then removed at the owner's direction. Creators with and without brands now see
   the identical page.
-- **Brandless send** wired end to end in the app (`queueAdaptation(item, null)`).
+- **Original-script send** (no brand) wired end to end in the app
+  (`queueAdaptation(item, null)`).
 - **Adding a brand asks one question** — the website — and reads it to fill name,
   description and niche. The site reader (`readCompanySite`, `analyzeCompanySite`,
   `asUrl`) is ported from `app.js`, where it has run since launch. "No website"
@@ -95,6 +96,33 @@ or brand identity, exactly as before.
   to every outside creator, which leaks a client relationship. Now `lynxr`.
 - **Time saved** was built (rail + account page) and then **removed** on request.
   Nothing of it remains; don't rebuild it without asking.
+
+### Workflow review — four fixes (end of session)
+
+A pass over every state a creator can reach found one serious bug and three
+label problems, all now fixed.
+
+**The original script reported itself as a failure.** `status: done` with no
+adaptation fell into the same branch as "the rewrite failed", so a creator who
+asked for the original got *"Read, but not written yet"* and a **Try again**
+button — which would spend another script and produce the identical result. The
+transcript, shot list and format were stored and rendered nowhere.
+
+The branch now splits on `brandId`:
+
+- **no `brandId`** → the original script, rendered as a result: format and
+  taxonomy chips, *What they say* (verbatim segments on timestamps), *What's on
+  screen* (shot list with on-screen text), Copy, and **Write this for a brand**.
+- **`brandId` set, no adaptation** → still a genuine failure, keeps Try again.
+
+Also: the in-flight line said *"Writing it for this brand"* on an entry with no
+brand (now *"Reading the video for its original script"*); the Library listed
+such a script as **"Brand"** (now *"Original script"*); and the cap message said
+*"Message us"* with no route (now points at Feedback).
+
+**Verified** against a fixture built from a real stored source — 18 segments and
+6 shots, 24 rows, none overflowing, 203-character shot descriptions wrapping
+correctly, no failure language anywhere on the path.
 
 ### Keyboard handling — two mechanisms, both needed
 
@@ -120,8 +148,8 @@ and live Supabase checks for the seat gate and email confirmation.
 2. **The site read has never succeeded end to end.** The CORS relays
    (allorigins, codetabs) are unreachable from the preview sandbox. The parsing
    is proven; the fetch is not.
-3. **The brandless worker path has never run.** The code is written and compiles;
-   no queued brandless entry has been processed.
+3. **The original-script worker path has never run.** The code is written and
+   compiles; no such entry has been processed.
 4. **Keyboard behaviour is untestable here** — no on-screen keyboard in the
    preview pane, so `--vvh` always equals full height.
 
@@ -132,16 +160,16 @@ New script?
 
 ## Open items
 
-1. **The CTA on a finished brandless script** — "turn this into a UGC script for
-   a brand" — is **not built**. The card does not yet render a brandless entry as
-   "the original script", and there is no button on it. This is the last piece of
-   the flow the owner described.
-   **Design decision still open:** the entry already holds the transcript, shots
-   and format. Re-queuing from scratch is simple but re-downloads, re-transcribes
-   and re-pays for tags and format (~$0.13, 60–75s). Reusing the stored source
-   needs a worker change but makes the rewrite ~$0.05 and fast. **Recommend the
-   reuse** — it is the difference between the CTA feeling instant and feeling
-   like starting over.
+1. **Reuse the stored source when converting an original script.** The convert
+   CTA now exists and works, but it re-runs the whole pipeline: re-download,
+   re-transcribe, re-shot-list, re-tag, re-extract, then adapt (~$0.13, 60–75s).
+   The entry already holds all of that, so the rewrite could cost ~$0.05 and be
+   near-instant.
+
+   Not done because it means restructuring `process_one()` — extracting the
+   adaptation stage so it can be called with a source that is already present —
+   in paid code that could not be tested live at the time. Do it when a real
+   conversion can be watched end to end.
 2. **Invites are installed but switched off** — see the table at the top. The
    remaining work is a product decision, not a technical one: when to flip
    `require_invite`, and issuing the first wave. `supabase/invites.sql`'s footer

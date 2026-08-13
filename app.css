@@ -157,6 +157,59 @@
   }
   .ghost:hover:not(:disabled) { color: var(--text); border-color: var(--line-2); background: var(--surface); }
   .ghost:disabled { opacity: .35; cursor: default; }
+  /* A ghost whose face is an icon: square, and sized so the tap target still
+     clears 34px on a phone. It grows back into a worded button when armed,
+     because "click again to delete" is not something an icon can say. */
+  .ghost.icon-only {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; padding: 0;
+  }
+  .ghost.icon-only .ico { width: 16px; height: 16px; }
+  .ghost.icon-only.armed { width: auto; padding: 7px 13px; }
+  /* Back out of the manual form to the one-question panel. Icon and label sit
+     together so it reads as a control rather than a sentence. */
+  /* The tick while it reads a website. A spinner, not a dimmed tick: opacity
+     alone was not legible as "working", and loader-glow animates opacity too,
+     so the two fought and it merely flickered. */
+  .ico.spin { animation: spin .8s linear infinite; transform-origin: 50% 50%; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .ico.spin { animation: spin 2.4s linear infinite; }   /* slower, never static */
+  }
+  /* Points up at Details after a website read. Right-aligned so the arrow sits
+     under the button it means, and only ever on screen for a few seconds. */
+  .detail-point {
+    display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+    /* Right padding clears the trash button (34px + its 8px gap) so the arrow
+       lands under DETAILS rather than under Delete — pointing at the wrong
+       button would be worse than not pointing at all. */
+    margin: 8px 0 0; padding-right: 74px;
+    font-size: 12.5px; color: var(--good);
+    animation: fade-in .3s;
+  }
+  .detail-point[hidden] { display: none; }
+
+  /* The mark, working. Its two bars light alternately — the shape people
+     already know as lynxr, doing something, rather than a generic spinner. */
+  .lookup-loader { display: flex; justify-content: center; padding: 44px 0 8px; }
+  .lookup-loader[hidden] { display: none; }
+  .lx-load { width: 34px; height: 34px; color: var(--text-2); }
+  .lx-a, .lx-b { animation: lx-pulse 1.5s ease-in-out infinite; }
+  .lx-b { animation-delay: .75s; }
+  @keyframes lx-pulse { 0%, 100% { opacity: .18; } 50% { opacity: 1; } }
+
+  /* Moving dots on the status line, so the wait reads as ongoing between the
+     message changes rather than as a sentence that has stopped. */
+  .lookup-hint.working::after {
+    content: ""; animation: dots 1.2s steps(1, end) infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lx-a, .lx-b { animation: none; opacity: .7; }
+    .lookup-hint.working::after { content: "…"; animation: none; }
+  }
+  .detail-point .ico { width: 14px; height: 14px; }
+  .ghost.b-back { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 16px; }
+  .ghost.b-back .ico { width: 15px; height: 15px; }
   /* A .ghost that is the one thing to press: solid fill at the header's own
      proportions, because .btn's 15px/11px stands a head taller than everything
      else in a title row. The hover override is not optional — .ghost:hover
@@ -1395,6 +1448,10 @@
     display: flex; align-items: center; justify-content: space-between;
     gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
   }
+  /* Breathing room where the SCRIPTS row follows the brand details — the two
+     were touching, so the add button read as part of the form above it rather
+     than as the head of the list below. */
+  .client-editor + .lib-head { margin-top: 26px; }
   /* An h2 carries a 14px bottom margin for the gap under a section heading.
      Inside this row the row owns that spacing, and the leftover margin drags
      the heading half a line above the + it sits beside. */
@@ -1447,6 +1504,9 @@
 
   /* Destructive actions look destructive. Two-click arming still guards the
      press; the colour is what stops the press being casual. */
+  /* The affirmative twin of .danger — same treatment, other end of the scale. */
+  .ghost.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 30%, var(--line)); }
+  .ghost.good:hover { background: color-mix(in srgb, var(--good) 12%, transparent); border-color: var(--good); }
   .ghost.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
   .ghost.danger:hover { background: color-mix(in srgb, var(--bad) 12%, transparent); border-color: var(--bad); }
 
@@ -1525,6 +1585,8 @@
     .bp-when { margin-left: 0; }
     .bp-actions { flex-wrap: wrap; }
     .bp-actions .ghost { flex: 1 1 auto; min-height: 42px; }
+    /* ...but an icon button is a square, not a row-filler. */
+    .bp-actions .ghost.icon-only { flex: 0 0 auto; }
     .chip.pick { padding: 8px 12px; }
     .lib-group-head { flex-wrap: wrap; }
   }
@@ -1648,4 +1710,14 @@
   .side-new .side-count { margin-left: auto; color: var(--bg); opacity: .55; }
   /* Adding a brand is setup you do a handful of times — it should not compete
      with the button you press every day. */
-  .side-brand-add { margin-bottom: 4px; }
+  /* The two ADD actions read as a pair: same shape, same weight, same + icon —
+     New script filled because it is the thing you came to do, New brand
+     outlined because it is the same kind of action one step down. Library and
+     the rest stay plain rows, because they are places you go rather than
+     things you make. */
+  .side-brand-add {
+    padding: 9px 10px; margin-bottom: 14px;
+    border-color: var(--line); color: var(--text); font-weight: 600;
+  }
+  .side-brand-add:hover { background: var(--hover); border-color: var(--line-2); }
+  .side-brand-add .side-ico { opacity: 1; }
