@@ -193,10 +193,6 @@
      already know as lynxr, doing something, rather than a generic spinner. */
   .lookup-loader { display: flex; justify-content: center; padding: 44px 0 8px; }
   .lookup-loader[hidden] { display: none; }
-  .lx-load { width: 34px; height: 34px; color: var(--text-2); }
-  .lx-a, .lx-b { animation: lx-pulse 1.5s ease-in-out infinite; }
-  .lx-b { animation-delay: .75s; }
-  @keyframes lx-pulse { 0%, 100% { opacity: .18; } 50% { opacity: 1; } }
 
   /* Moving dots on the status line, so the wait reads as ongoing between the
      message changes rather than as a sentence that has stopped. */
@@ -204,7 +200,6 @@
     content: ""; animation: dots 1.2s steps(1, end) infinite;
   }
   @media (prefers-reduced-motion: reduce) {
-    .lx-a, .lx-b { animation: none; opacity: .7; }
     .lookup-hint.working::after { content: "…"; animation: none; }
   }
   .detail-point .ico { width: 14px; height: 14px; }
@@ -1450,8 +1445,11 @@
   }
   /* Breathing room where the SCRIPTS row follows the brand details — the two
      were touching, so the add button read as part of the form above it rather
-     than as the head of the list below. */
+     than as the head of the list below. Only when the form is actually on
+     screen: a collapsed editor is display:none, so the gap was separating the
+     row from nothing and left a dead band under the header. */
   .client-editor + .lib-head { margin-top: 26px; }
+  #brand-editor.collapsed + .lib-head { margin-top: 0; }
   /* An h2 carries a 14px bottom margin for the gap under a section heading.
      Inside this row the row owns that spacing, and the leftover margin drags
      the heading half a line above the + it sits beside. */

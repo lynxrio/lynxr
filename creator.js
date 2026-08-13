@@ -810,6 +810,19 @@ let BRAND_LOOKUP_RUN = null;
    pointing at Details says it without a sentence. */
 let POINT_AT_DETAILS = false;
 
+/** Point at Details for a few seconds. Used after a website read AND after the
+    details are typed in by hand — either way the brand is now set up and the
+    fields have gone behind a button, which is worth saying once. */
+function showDetailPoint() {
+  const point = document.getElementById("detail-point");
+  if (!point) return;
+  point.hidden = false;
+  setTimeout(() => {
+    const again = document.getElementById("detail-point");
+    if (again) again.hidden = true;
+  }, 6000);
+}
+
 function wireBrandLookup(b) {
   const panel = document.getElementById("brand-lookup");
   const input = panel.querySelector(".b-lookup");
@@ -945,12 +958,18 @@ function renderBrand(head, body, b) {
   // homepage, and a creator typing it from memory produces a worse answer than
   // the source does. The full editor is one click away behind Details, and
   // opens automatically the moment the lookup finishes or is skipped.
-  const fresh = RETRY_LOOKUP.has(b.id)
-    || (!b.name && !b.site && !BRAND_MANUAL.has(b.id));
+  // Once the brand has a name it is SET UP, and the website panel is never
+  // shown again — editing a live brand happens in Details, by hand. Re-reading
+  // a site would silently overwrite a name, description and niche the creator
+  // may have corrected themselves, which is not a thing a "back" button should
+  // be able to do.
+  const named = !!(b.name || "").trim();
+  const fresh = !named
+    && (RETRY_LOOKUP.has(b.id) || (!b.site && !BRAND_MANUAL.has(b.id)));
   // Offered while the brand is still unnamed — naming it is what the panel is
   // for. After a failed read the site IS set (we keep what was typed), so the
   // old `!b.site` condition hid the way back exactly when it was most wanted.
-  const backToLookup = !fresh && !(b.name || "").trim();
+  const backToLookup = !fresh && !named;
   const readFailed = backToLookup && !!b.site;
 
   body.innerHTML = `
@@ -961,14 +980,20 @@ function renderBrand(head, body, b) {
       <input type="text" class="b-lookup" autocomplete="off" spellcheck="false"
         value="${escapeHtml(b.site || "")}" placeholder="lynxr.io">
       <p class="lookup-hint" id="lookup-msg"></p>
-      <div class="lookup-loader" id="lookup-loader" hidden>
-        <svg class="lx-load" viewBox="0 0 24 24" aria-hidden="true">
-          <path class="lx-a" fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6z"/>
-          <path class="lx-b" fill="currentColor" fill-rule="evenodd" d="M21 3v3L6 21l-3-3L18 3z"/>
-        </svg>
-      </div>
       <div class="lookup-actions">
         <button type="button" class="linkish" id="lookup-skip">Add manually</button>
+      </div>
+      ${/* The app's established loading mark, not a second invention: the X
+            split into four arms that scale out of the centre in clockwise
+            turn. Same markup and animation the agency app uses while it reads
+            a client site — the identical job, so the identical signal. */""}
+      <div class="lookup-loader" id="lookup-loader" hidden>
+        <svg class="loader-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path class="arm a1" fill="currentColor" d="M3 3H6L12 9L9 12L3 6Z"/>
+          <path class="arm a2" fill="currentColor" d="M21 3V6L15 12L12 9L18 3Z"/>
+          <path class="arm a3" fill="currentColor" d="M15 12L21 18L18 21L12 15Z"/>
+          <path class="arm a4" fill="currentColor" d="M12 15L6 21L3 18L9 12Z"/>
+        </svg>
       </div>
     </div>` : ""}
     <div class="section client-editor${fresh ? " collapsed" : " collapsed"}" id="brand-editor">
@@ -1027,15 +1052,7 @@ function renderBrand(head, body, b) {
   BRAND_LOOKUP_RUN = null;          // cleared first: a stale handle from the
   if (fresh) wireBrandLookup(b);    // previous brand would run against it
 
-  if (POINT_AT_DETAILS) {
-    POINT_AT_DETAILS = false;
-    const point = document.getElementById("detail-point");
-    if (point) {
-      point.hidden = false;
-      setTimeout(() => { const p2 = document.getElementById("detail-point");
-                         if (p2) p2.hidden = true; }, 6000);
-    }
-  }
+  if (POINT_AT_DETAILS) { POINT_AT_DETAILS = false; showDetailPoint(); }
   document.getElementById("b-back-lookup")?.addEventListener("click", () => {
     BRAND_MANUAL.delete(b.id);
     RETRY_LOOKUP.add(b.id);          // brings the panel back even with a site set
@@ -1079,10 +1096,14 @@ function renderBrand(head, body, b) {
     // With the lookup panel up, the tick IS "read this website and set the
     // brand up". It re-renders on success, so nothing below this runs.
     if (BRAND_LOOKUP_RUN) { BRAND_LOOKUP_RUN(); return; }
+    const wasSetup = firstRun;                 // this press was "Save"
     editor.classList.toggle("collapsed");
     if (firstRun && editor.classList.contains("collapsed")) firstRun = false;
     syncToggle();
     fitDesc();
+    // Typed the details in and pressed Save: the fields just disappeared behind
+    // Details, so say where they went — the same thing a successful read says.
+    if (wasSetup && editor.classList.contains("collapsed")) showDetailPoint();
   });
 
   // Bind, don't re-render — the creator is mid-word in these fields.
@@ -1520,12 +1541,8 @@ function renderFeedback(head, body) {
 
   body.innerHTML = `
     <div class="section">
-      <p class="lede"><strong>We want all of it — especially the small stuff.</strong> A button that's
-        awkward to reach, a word that reads wrong, a step that took longer than it should, something
-        you expected to be there and wasn't. The tiny annoyances are the ones we can't see from the
-        inside, and they're what makes this pleasant or irritating to use every day.</p>
-      <p class="lede">Nothing is too minor to send, and you don't need to write it up neatly — half
-        a sentence is fine. Broken things and half-ideas both count.</p>
+      <p class="lede"><strong>Send anything — especially the small stuff.</strong> Half a sentence
+        is fine. The tiny annoyances are the ones we can't see from the inside.</p>
       <div class="ce-grid">
         <label class="ce-field"><span class="lbl">What kind of thing is it?</span>
           <select id="fb-kind">
