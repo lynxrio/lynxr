@@ -2333,8 +2333,14 @@ function beatRow(bt, carry, silent) {
     carry.do = wasDo || carry.do;
     carry.show = wasShow || carry.show;
   }
+  /* Each row carries its TYPE as a class. SAY, DO and SHOW are three different
+     instructions — words to speak, an action to perform, literal text to put on
+     screen — and they were rendering identically in silent scripts, where `dim`
+     is false for both DO and SHOW. A wall of same-weight text with a 9.5px
+     label as the only distinction is unreadable at a glance, and these are read
+     while filming. */
   const row = (label, v, dim) => v
-    ? `<span class="bp-lbl">${label}</span><span class="bp-val${dim ? " bp-dim" : ""}">${escapeHtml(v)}</span>`
+    ? `<span class="bp-lbl bp-lbl-${label.toLowerCase()}">${label}</span><span class="bp-val bp-${label.toLowerCase()}${dim ? " bp-dim" : ""}">${escapeHtml(v)}</span>`
     : "";
   // No timing column. These are recreation beats, not a cut list — the order
   // is the instruction, and "0-4s" invited people to match a stopwatch to a
@@ -2457,7 +2463,13 @@ function adaptationHtml(a, liveName, opts = {}) {
       ${ad.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">${
         silent ? "Opening card" : "Hook"}</span>“${escapeHtml(ad.hook)}”</div>` : ""}
       ${silent ? `<p class="bp-hint">No voiceover — put the SHOW line on screen at each beat.</p>` : ""}
-      <div class="bp-heading">${silent ? "Shot by shot" : "Your script"}</div>
+      ${/* Silent scripts get no heading. "Shot by shot" sat directly above a
+            list of shots, under a line that already says "no voiceover — put
+            the show line on screen at each beat", so it named what was
+            self-evident twice over. Spoken scripts keep theirs: there the beats
+            follow a hook and a delivery note, so the label marks where the
+            script itself starts. */""}
+      ${silent ? "" : `<div class="bp-heading">Your script</div>`}
       <ol class="bp-beats bp-notime">${(ad.beats || []).map((b) => beatRow(b, carry, silent)).join("")}</ol>
       ${ad.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> ${escapeHtml(ad.cta)}</p>` : ""}
       ${ad.caption ? `<p class="bp-hint"><strong>Caption:</strong> ${escapeHtml(ad.caption)}</p>` : ""}
@@ -2491,7 +2503,7 @@ function adaptationHtml(a, liveName, opts = {}) {
       ${segs.length ? `<div class="bp-heading">What they say</div>
         <ol class="bp-beats">${segs.map(([st, , txt]) => `
           <li class="bp-beat"><span class="bp-t">${escapeHtml(t(st))}</span>
-            <span class="bp-lbl">SAY</span><span class="bp-val">${escapeHtml(String(txt || "").trim())}</span></li>`).join("")}</ol>`
+            <span class="bp-lbl bp-lbl-say">SAY</span><span class="bp-val bp-say">${escapeHtml(String(txt || "").trim())}</span></li>`).join("")}</ol>`
         : `<p class="bp-hint">No speech &mdash; this one is carried by what's on screen.</p>`}
       ${/* SHOW rows are .bp-dim, SAY rows are not — the same weighting the
             agency blueprints use (row("SAY", say) plain, row("SHOW", …, true)
@@ -2502,7 +2514,7 @@ function adaptationHtml(a, liveName, opts = {}) {
       ${shots.length ? `<div class="bp-heading">What's on screen</div>
         <ol class="bp-beats">${shots.map((sh) => `
           <li class="bp-beat"><span class="bp-t">${escapeHtml(t(sh.t))}</span>
-            <span class="bp-lbl">SHOW</span><span class="bp-val bp-dim">${escapeHtml(sh.visual || "")}${
+            <span class="bp-lbl bp-lbl-show">SHOW</span><span class="bp-val bp-show bp-dim">${escapeHtml(sh.visual || "")}${
               (sh.onscreen_text || "").trim() ? `\n“${escapeHtml(sh.onscreen_text.trim())}”` : ""}</span></li>`).join("")}</ol>` : ""}
       <div class="bp-actions">
         <button type="button" class="ghost ad-copy" data-adid="${id}">Copy</button>

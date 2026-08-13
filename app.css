@@ -657,6 +657,22 @@
      card layout the creator is supposed to reproduce. */
   .bp-val { font-size: 13px; line-height: 1.5; white-space: pre-line; }
   .bp-val.bp-dim { font-size: 12.5px; color: var(--text-2); }
+
+  /* A beat can hold one, two or three lines, in any combination — say+do,
+     do+show, say+show, all three. Whatever the combination, the FIRST line is
+     the instruction and anything under it is subordinate, so the distinction is
+     positional rather than per-type: the lower line simply goes dimmer.
+
+     Doing it by type instead would need a rule per pairing and would still read
+     wrong when a type appears first in one beat and second in another. This is
+     one rule that holds for every combination.
+
+     It matters most in SILENT scripts, where beatRow passes `dim` as `!silent`
+     — so DO and SHOW both arrived undimmed and a paragraph of stage direction
+     sat at the same weight as the words to put on screen. */
+  .bp-beat .bp-val { color: var(--text); }
+  .bp-beat .bp-val ~ .bp-val { color: var(--text-2); }
+  .bp-beat .bp-lbl ~ .bp-lbl { color: var(--text-3); }
   @media (max-width: 560px) {
     .bp-beat { grid-template-columns: 42px 1fr; }
     .bp-t { grid-column: 1 / -1; }
@@ -1843,31 +1859,40 @@
           `node --check` — `math.round(...)` is valid JavaScript that simply
           throws at runtime. Not a mistake worth repeating.
 
-     OPT-IN, deliberately. Every selector below is lynxr's OWN copy: buttons,
-     headings, labels, hints, empty states. Blanket-lowercasing `body` and
-     excepting the content would invert the risk — miss a chrome selector here
-     and you get one stray capital; miss a CONTENT selector there and a
-     creator's script renders wrong.
+     EVERYTHING, then exceptions — not a list of our own classes. An opt-in
+     list was tried first and leaked a straggler every round ("New brand",
+     "Library", "Not scripted yet", "What are we making?"), because there is no
+     end to the list of classes that hold our own words. Inverting it makes the
+     rule complete by default: the only things that keep their capitals are the
+     ones named below, and that list is short and knowable.
 
-     So: nothing that can hold a brand name, a video title, a caption, a
-     transcript or a hook appears in this list. Those are listed again at the
-     bottom as `none`, because .bp-hint (a chrome class) is also worn by
-     .lib-cap (a caption), and inheritance would otherwise reach it. */
-  .btn, .ghost, .linkish, .lib-mode, .side-new, .side-link,
-  h2, h3, .pane-sub, .wait-h, .wait-sub, .wait-msg,
-  .bp-heading, .bp-hint, .bp-eta, .composer-note, .bp-msg, .err,
-  .empty, .lbl, .lib-group-meta, .lib-shown, .side-quota, .home-foot,
-  .home-lead, .gate-other, .gate-switch, .tagline, .detail-point,
-  .loader-sub, .demo-link, .pill, .bp-when, .lib-made-state,
-  ::placeholder {
-    text-transform: lowercase;
-  }
+     `button` and `select` are named alongside `body` because the UA stylesheet
+     sets text-transform: none on form controls, so they do NOT inherit it.
+     Every straggler the opt-in list leaked was a button — "new brand",
+     "library", "by brand" — which is why it kept looking like a missing class
+     rather than one missing rule. (input/textarea stay excluded below: that
+     text is typed by the creator.) */
+  body, button, select { text-transform: lowercase; }
 
   /* CONTENT — never restyled. What the creator wrote, what the video said,
-     what the scraper found. Listed after the block above so it wins, and
-     scoped tightly enough to survive inheritance from a lowercased parent. */
-  .bp-val, .bp-hook, .bp-name, .lib-cap, .side-label, .lib-group-name,
-  .bcard-title, .loader-stage, .brand-heading, td, input, textarea,
-  .chip.pick, .lib-also .chip, .bp-tags .chip, .lib-plat {
+     what the scraper found. Lowercasing a script would be editing a creator's
+     work, not styling ours.
+
+     Three of these are classes worn by BOTH kinds of text, which is exactly
+     what the opt-in attempt kept getting wrong — so each is scoped to the
+     variant that actually holds content:
+       .side-label     — the rail's own "new brand"/"library" AND a brand name.
+                         Only the brand row (.side-item) is content.
+       .bcard-title    — the pane title: our own word on the library, settings
+                         and feedback pages, the BRAND NAME on a brand page.
+                         Only the latter carries #brand-heading.
+       .lib-group-name — a brand heading its group in "by brand" mode, and also
+                         our "not scripted yet". Only the brand one has data-bid. */
+  .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title,
+  .lib-group-name[data-bid], .side-item .side-label, #brand-heading,
+  .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip {
     text-transform: none;
   }
+  /* Placeholders are ours, but they live inside an input that is not — so they
+     have to be put back explicitly after the rule above. */
+  ::placeholder { text-transform: lowercase; }
