@@ -221,7 +221,7 @@
 
   h2 {
     font-size: 12px; font-weight: 600; margin: 0 0 14px;
-    color: var(--text-3); text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--text-3); text-transform: lowercase; letter-spacing: 0.09em;
     display: flex; align-items: center; gap: 10px;
   }
   /* The agency site's eyebrow rule — "— SECTION" — inverted to monochrome. */
@@ -236,7 +236,7 @@
            background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
   @media (max-width: 880px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .stat { background: var(--surface); padding: 18px 20px; }
-  .stat .label { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 7px; }
+  .stat .label { color: var(--text-3); font-size: 11px; text-transform: lowercase; letter-spacing: .08em; margin-bottom: 7px; }
   .stat .value { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
   .stat .sub { color: var(--text-3); font-size: 12px; margin-top: 3px; }
 
@@ -290,7 +290,7 @@
   th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th {
     background: #131316; color: var(--text-3); font-weight: 600; font-size: 11px;
-    text-transform: uppercase; letter-spacing: .07em; position: sticky; top: 0; z-index: 5;
+    text-transform: lowercase; letter-spacing: .07em; position: sticky; top: 0; z-index: 5;
     box-shadow: 0 1px 0 var(--line-2);
   }
   th.sortable { cursor: pointer; user-select: none; }
@@ -327,9 +327,9 @@
   .play-why { color: var(--text-2); font-size: 13.5px; margin: 0; }
   .metrics { display: flex; gap: 20px; flex-wrap: wrap; margin-left: auto; text-align: right; padding-top: 2px; }
   .metric .m-val { font-family: var(--mono); font-size: 15px; font-weight: 600; }
-  .metric .m-lbl { color: var(--text-3); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; }
+  .metric .m-lbl { color: var(--text-3); font-size: 10.5px; text-transform: lowercase; letter-spacing: .07em; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10.5px;
-           text-transform: uppercase; letter-spacing: .07em; border: 1px solid var(--line-2); color: var(--text-3); }
+           text-transform: lowercase; letter-spacing: .07em; border: 1px solid var(--line-2); color: var(--text-3); }
   .badge.strong { color: var(--text); border-color: var(--text-3); }
   .examples { border-top: 1px solid var(--line); background: var(--surface-2); padding: 4px 18px 10px; }
   .ex { display: flex; align-items: baseline; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
@@ -391,7 +391,7 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
     padding: 16px 18px; margin: 14px 0 4px;
   }
-  .ce-title { font-size: 14px; margin: 0 0 12px; color: var(--text-2); text-transform: uppercase; letter-spacing: .05em; }
+  .ce-title { font-size: 14px; margin: 0 0 12px; color: var(--text-2); text-transform: lowercase; letter-spacing: .05em; }
   .ce-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
   .ce-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .ce-wide { grid-column: 1 / -1; }
@@ -629,10 +629,10 @@
   }
   .bp-hook-lbl {
     display: block; font-style: normal; font-size: 10px; letter-spacing: .1em;
-    text-transform: uppercase; color: var(--text-3); margin-bottom: 3px;
+    text-transform: lowercase; color: var(--text-3); margin-bottom: 3px;
   }
   .bp-heading {
-    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+    font-size: 10.5px; letter-spacing: .08em; text-transform: lowercase;
     color: var(--text-3); margin-bottom: 4px;
   }
   /* Each beat answers three questions in its own labelled row: what to SAY,
@@ -963,7 +963,7 @@
   }
   .chart-tip.flip { transform: translateX(-100%); }
   .chart-tip[hidden] { display: none; }
-  .tip-day { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+  .tip-day { color: var(--text-3); font-size: 11px; text-transform: lowercase; letter-spacing: .07em; margin-bottom: 5px; }
   .tip-row { display: flex; align-items: center; gap: 7px; color: var(--text-2); margin: 3px 0; }
   .tip-row i { display: inline-block; width: 14px; height: 0; flex: none; }
   .tip-row i.k-est { border-top: 2px dashed var(--text-3); }
@@ -1010,7 +1010,7 @@
   .health-card.even { box-shadow: inset 2px 0 0 var(--even); }
   .health-card.bad  { box-shadow: inset 2px 0 0 var(--bad); }
   .health-card.idle { box-shadow: inset 2px 0 0 var(--line-2); }
-  .h-label { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+  .h-label { color: var(--text-3); font-size: 11px; text-transform: lowercase; letter-spacing: .08em; margin-bottom: 6px; }
   .h-value { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 7px; }
   .h-of { color: var(--text-3); font-size: 15px; font-weight: 500; margin-left: -4px; }
   .h-sub { color: var(--text-3); font-size: 12px; margin-top: 3px; }
@@ -1138,7 +1138,7 @@
   .foot-brand p { margin: 0; color: var(--text-2); font-size: 14px; max-width: 44ch; }
   .foot-label {
     color: var(--text-3); font-size: 11px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: .09em; margin-bottom: 12px;
+    text-transform: lowercase; letter-spacing: .09em; margin-bottom: 12px;
   }
   .foot-col { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
   .foot-link {
@@ -1178,7 +1178,7 @@
   .avatar-box summary {
     cursor: pointer; list-style: none; padding: 10px 14px;
     font-size: 12px; font-weight: 600; color: var(--text-3);
-    text-transform: uppercase; letter-spacing: .08em; user-select: none;
+    text-transform: lowercase; letter-spacing: .08em; user-select: none;
   }
   .avatar-box summary::before { content: "▸ "; }
   .avatar-box[open] summary::before { content: "▾ "; }
@@ -1188,7 +1188,7 @@
     gap: 14px 22px; padding: 2px 14px 14px;
   }
   .avatar-grid .av-label {
-    font-size: 11px; color: var(--text-3); text-transform: uppercase;
+    font-size: 11px; color: var(--text-3); text-transform: lowercase;
     letter-spacing: .07em; margin-bottom: 3px;
   }
   .avatar-grid .av-text { font-size: 13.5px; color: var(--text-2); line-height: 1.55; }
@@ -1204,7 +1204,7 @@
   /* ---------- Client trends (the campaign's own mini-database) ---------- */
   .trends-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
   .trend-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-  .tc-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+  .tc-label { font-size: 11px; color: var(--text-3); text-transform: lowercase; letter-spacing: .08em; margin-bottom: 10px; }
   .tc-row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--line); }
   .tc-row:last-child { border-bottom: 0; }
   .tc-row .mono { font-family: var(--mono); font-size: 12px; color: var(--text-2); white-space: nowrap; }
@@ -1218,7 +1218,7 @@
   .flag-block summary {
     cursor: pointer; list-style: none; user-select: none;
     font-size: 12px; font-weight: 600; color: var(--text-3);
-    text-transform: uppercase; letter-spacing: 0.09em;
+    text-transform: lowercase; letter-spacing: 0.09em;
   }
   .flag-block summary::before { content: "▸ "; }
   .flag-block[open] summary::before { content: "▾ "; }
@@ -1279,7 +1279,7 @@
   .side-item.on .side-count { color: var(--text-2); }
 
   .side-head {
-    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    font-size: 10px; letter-spacing: .1em; text-transform: lowercase;
     color: var(--text-3); padding: 16px 10px 6px;
   }
   .side-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -1729,10 +1729,6 @@
     text-transform: none; display: block;
   }
   .home-lead::before { display: none; }
-  .home-sub {
-    color: var(--text-2); font-size: 15px; line-height: 1.65;
-    max-width: 54ch; margin: 0 0 34px;
-  }
   .home-cta { display: flex; flex-direction: column; align-items: center; gap: 14px; }
   .home-go {
     padding: 14px 30px; font-size: 15.5px; text-decoration: none;
@@ -1743,20 +1739,9 @@
   .home-alt { color: var(--text-3); font-size: 13px; border-bottom-color: var(--line); }
   .home-alt:hover { color: var(--text-2); }
 
-  .home-how {
-    list-style: none; margin: 52px 0 0; padding: 0; text-align: left;
-    display: flex; flex-direction: column; gap: 12px; max-width: 52ch;
-  }
-  .home-how li {
-    display: flex; gap: 12px; align-items: baseline;
-    color: var(--text-2); font-size: 13.5px; line-height: 1.6;
-  }
-  .home-n {
-    flex: none; width: 22px; height: 22px; border-radius: 50%;
-    border: 1px solid var(--line-2); color: var(--text-3);
-    font-family: var(--mono); font-size: 11px;
-    display: inline-grid; place-items: center;
-  }
+  /* (.home-sub, .home-how and .home-n lived here — the explanatory paragraph
+     and the three numbered steps. Both are gone from index.html.) */
+
   /* Waitlist. The one interactive thing on the public page, so it gets a card
      of its own rather than floating in the middle column. */
   .wait {

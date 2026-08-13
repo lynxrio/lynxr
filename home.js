@@ -111,13 +111,13 @@ $("wait-form").addEventListener("submit", async (e) => {
   const btn = $("wait-go");
 
   if (!looksLikeEmail(email)) {
-    say("That doesn't look like an email address.", "bad");
+    say("that doesn't look like an email address.", "bad");
     input.focus();
     return;
   }
 
   btn.disabled = true;
-  say("Adding you…");
+  say("adding you…");
   try {
     const res = await fetch(`${SB_URL}/rest/v1/lynxr_waitlist`, {
       method: "POST",
@@ -147,7 +147,7 @@ $("wait-form").addEventListener("submit", async (e) => {
       // someone who simply submitted twice.
       if (res.ok) mirrorToSheet(email);
       $("wait-form").hidden = true;
-      say("You're on the list. We'll be in touch.", "good");
+      say("you're on the list. we'll be in touch.", "good");
       return;
     }
     // The table not existing is the one failure worth naming precisely — it is
@@ -155,12 +155,12 @@ $("wait-form").addEventListener("submit", async (e) => {
     // a network error from out here.
     const body = await res.text();
     if (body.includes("PGRST205")) {
-      say("The waitlist isn't set up yet. Try again shortly.", "bad");
+      say("the waitlist isn't set up yet. try again shortly.", "bad");
     } else {
-      say("That didn't send. Try again in a moment.", "bad");
+      say("that didn't send. try again in a moment.", "bad");
     }
   } catch {
-    say("That didn't send — check your connection.", "bad");
+    say("that didn't send — check your connection.", "bad");
   } finally {
     btn.disabled = false;
   }

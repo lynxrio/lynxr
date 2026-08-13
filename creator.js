@@ -1650,7 +1650,17 @@ function renderTrash() {
   host.innerHTML = `<div class="bp-list">${items.map((a) => {
     const gone = !brandById(a.brandId);
     const ad = a.adaptation || {};
+    /* The frame, same as everywhere else. Deciding what to restore off eight
+       near-identical instagram.com/p/… URLs meant reading permalinks; the
+       thumbnail is how you actually recognise which video it was.
+       Falls back to coverUrl() because a trash entry keeps its own copy of
+       `source` — if that copy predates covers, a sibling of the same video
+       still has one (coverUrl already searches the trash as well as the live
+       list), and thumbHtml renders nothing at all when neither does. */
+    const cover = (a.source || {}).cover
+      || coverUrl({ libraryId: a.libraryId, canon: a.sourceUrl ? canonUrl(a.sourceUrl) : "" });
     return `<div class="bp-item trash-row" data-adid="${escapeHtml(a.id)}">
+      ${thumbHtml(cover, a.title || "")}
       <div class="trash-main">
         <div class="bp-name">${escapeHtml(a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}</div>
         <p class="bp-hint">${escapeHtml(a.brandName || "—")}${gone ? " · company deleted" : ""}
