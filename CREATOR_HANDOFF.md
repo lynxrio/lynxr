@@ -18,211 +18,201 @@ Last updated **2026-08-13**.
 
 # SESSION 2026-08-13
 
-## STOP-POINT STATE — read this first
+## STOP-POINT STATE
 
-**Nothing is pushed.** The working tree has six modified files and lynxr.io is
-running the previous build:
+**Everything is pushed, deployed and live.** `HEAD` = `origin/main` = `014339ea7`,
+clean tree, and `lynxr.io/creatorsonly/` serves `?v=20260815u` — the same stamp
+as local.
 
-| | |
-|---|---|
-| live `creator.js` | `?v=20260813u` |
-| local `creator.js` | `?v=20260814m` |
+Nothing on any Mac runs Lynxr any more. Both launchd agents were removed this
+session (`io.lynxr.blueprints`, and a stale unloaded `io.lynxr.adaptations`);
+backups sit in `output/*.plist.bak`. Site, auth, database, email and the script
+worker are all hosted.
 
-Modified, uncommitted: `creator.js`, `app.css`, `creatorsonly/index.html`,
-`index.html`, `agencyonly/index.html`, `pipeline/process_adaptations.py`.
+## Access — installed and tested
 
-**`supabase/invites.sql` has been run** (2026-08-13) and tested end to end
-against the live project:
+`supabase/invites.sql` **has been run**, tested end to end, and left **off**:
+`seats: 4`, `require_invite: false`, 1 of 4 seats used.
 
 | check | result |
 |---|---|
 | `rpc/signup_state` | 200 — `{"open": true, "invite_required": false}` |
 | `rpc/signup_open` | 404, correctly replaced |
 | anon reading invite codes | `[]` with a real row present — no leak |
-| anon inserting an invite | 401 |
 | signup, invites OFF | succeeds — the renamed trigger does **not** block everyone |
 | signup, invites ON, no invite | refused: *"lynxr: no invite for this address"* |
 | signup with a matching code | succeeds, `redeemed_at` stamped (single use) |
 
-Left **off**: `seats: 4`, `require_invite: false`, 1 of 4 seats used. Turn on
-when working from the waitlist — and note that invites then become the cap and
-`seats` is ignored:
+Email confirmation is **ON**, delivered by Resend (owner wired it; the older
+sections below saying "no custom SMTP" are wrong). Verified live: signup returns
+no session and stamps `confirmation_sent_at`.
+
+Turn invites on when working from the waitlist. **Invites then become the cap and
+`seats` is ignored** — otherwise 50 invites against 4 seats would refuse 46:
 
 ```sql
 update public.lynxr_signup_gate set require_invite = true where id = 1;
 ```
 
-Serve locally with the existing launch config (`python -m http.server 8811`
-from the repo root) and open `http://localhost:8811/creatorsonly/`.
-
-## What changed this session
-
-### Worker — a link with no brand is now a finished job
+## The big change: a link with no brand is a finished job
 
 `pipeline/process_adaptations.py`. A creator with no company can send a link and
 get the video's **own** script back — transcript, shots, tags, extracted format —
-with the rewrite skipped. Three edits:
+with the rewrite skipped. Called an **ORIGINAL SCRIPT** throughout (not
+"brandless").
 
 1. `process_one()` returns early before the adaptation stage when `brandId` is
    falsy, instead of failing on "brand not found".
-2. The "no beats is a failure" guard now only applies when a brand was actually
-   asked for. Without this every original-script entry would be marked `error`.
+2. The "no beats is a failure" guard only applies when a brand was asked for.
+   Without this every original-script entry is marked `error`.
 3. The completion log distinguishes source-only runs, which previously logged as
    `fit=—, 0 beats` and looked like a bug.
 
-**Creator submissions already reach `lynxr_videos` with no change needed** —
-`upsert_video()` reads only the stored source, has no brand dependency, and is
-called unconditionally. Rows land marked `data_source='Creator'` with no creator
-or brand identity, exactly as before.
+`upsert_video()` needed no change — it reads only the stored source, so these
+rows already reach `lynxr_videos` as `data_source='Creator'` with no identity.
 
-### Creator app
+### In the app
 
-- **One centred layout for everyone.** The two-step first-run screen was built,
-  then removed at the owner's direction. Creators with and without brands now see
-  the identical page.
-- **Original-script send** (no brand) wired end to end in the app
-  (`queueAdaptation(item, null)`).
-- **Adding a brand asks one question** — the website — and reads it to fill name,
-  description and niche. The site reader (`readCompanySite`, `analyzeCompanySite`,
-  `asUrl`) is ported from `app.js`, where it has run since launch. "No website"
-  escape hatch sets `BRAND_MANUAL` and opens the full editor. Details still edits
-  everything afterwards.
-- **Copy trimmed app-wide**, 13 replacements. Longest UI string is now 58 chars.
-- **Rail reordered ChatGPT-style**: logo → New script → Library → New brand →
-  BRANDS → account foot. Library was previously in the account foot.
-- **Composer raised** off the bottom edge and made keyboard-aware (below).
-- **Deleting your last brand** lands on New script, not the Library.
-- **Client names removed from placeholders** — `Medceptor` / NCLEX were showing
-  to every outside creator, which leaks a client relationship. Now `lynxr`.
-- **Time saved** was built (rail + account page) and then **removed** on request.
-  Nothing of it remains; don't rebuild it without asking.
+- The card **renders the original script**: format/taxonomy chips, *What they
+  say* (verbatim segments on timestamps), *What's on screen* (shot list), Copy,
+  **Rewrite**, and **Write this for a brand**.
+  Before this it fell into the same branch as "the rewrite failed" and showed
+  *"Read, but not written yet"* with a **Try again** button that would spend
+  another script and produce the same result. The branch splits on `brandId`.
+- **Its own page** (`renderOriginals`, `VIEW.kind === "originals"`), built like a
+  brand page. Reached from the Library only — the group header and the jump
+  link. It is deliberately **not** in the rail: the rail is companies you write
+  for, and it read as a brand called "Original scripts".
+- The Library's *By company* view has two catch-all groups, **Original scripts**
+  and **Not scripted yet**. Previously a video whose only script was an original
+  matched no company block and was not an orphan either, so it vanished.
 
-### Workflow review — four fixes (end of session)
+## Brand setup — rebuilt
 
-A pass over every state a creator can reach found one serious bug and three
-label problems, all now fixed.
+**Adding a brand asks one question: the website.** The site reader
+(`readCompanySite`, `analyzeCompanySite`, `asUrl`) is ported from `app.js`.
 
-**The original script reported itself as a failure.** `status: done` with no
-adaptation fell into the same branch as "the rewrite failed", so a creator who
-asked for the original got *"Read, but not written yet"* and a **Try again**
-button — which would spend another script and produce the identical result. The
-transcript, shot list and format were stored and rendered nowhere.
+The state machine, and every route through it:
 
-The branch now splits on `brandId`:
+| state | shows | back button |
+|---|---|---|
+| brand new | lookup panel | — |
+| pressed "Add manually" | manual form | *Use their website instead* |
+| pressed back | lookup panel | — |
+| read failed | manual form, URL kept | ***Try again*** |
+| pressed retry | lookup panel, prefilled | — |
+| named | manual form only | — |
 
-- **no `brandId`** → the original script, rendered as a result: format and
-  taxonomy chips, *What they say* (verbatim segments on timestamps), *What's on
-  screen* (shot list with on-screen text), Copy, and **Write this for a brand**.
-- **`brandId` set, no adaptation** → still a genuine failure, keeps Try again.
+Driven by two sets: `BRAND_MANUAL` (chose to type it) and `RETRY_LOOKUP` (wants
+the panel back). Both in memory only.
 
-Also: the in-flight line said *"Writing it for this brand"* on an entry with no
-brand (now *"Reading the video for its original script"*); the Library listed
-such a script as **"Brand"** (now *"Original script"*); and the cap message said
-*"Message us"* with no route (now points at Feedback).
+- **The tick IS the confirm.** The panel's own "Get the details" button is gone —
+  confirming was a two-button decision when it is one action. `BRAND_LOOKUP_RUN`
+  holds the run function; **it is cleared before every render**, or a stale
+  handle fires against the wrong brand.
+- **While reading:** the tick becomes a spinner, the status rotates every 2.6s
+  (*Reading their site → Looking for what they sell → Working out their niche →
+  Finding who it's for*) with animated dots, and the app's real four-arm loader
+  mark appears below "Add manually". The interval is cleared on **both** exits —
+  success calls `go()`, which detaches the element it writes to.
+- **A failed read moves you forward** to the manual form and keeps the URL: the
+  address is probably right, the reader failed. That also makes the Website
+  field appear so it can be corrected.
+- **Once named, the lookup never returns.** Re-reading would silently overwrite
+  a name, description and niche the creator may have fixed by hand.
+- **Details is pointed at** by a small green arrow after setup — after a read
+  *and* after a manual save. One `showDetailPoint()` serves both.
+- **Delete sits beside Save** in the header, both as icons (green tick, red
+  trash). SCRIPTS is hidden entirely until the brand is named.
 
-**Verified** against a fixture built from a real stored source — 18 segments and
-6 shots, 24 rows, none overflowing, 203-character shot descriptions wrapping
-correctly, no failure language anywhere on the path.
+## Rescripts
 
-### Keyboard handling — two mechanisms, both needed
+**Rewrite** on any finished card queues a genuinely new entry via
+`queueAdaptation(item, co, {force: true})`, bypassing the duplicate guard, and
+**counts against the 50** — it costs what a first script costs. *Try again* on a
+failed script is different and still free: it re-queues the existing entry.
 
-- `interactive-widget=resizes-content` on `creatorsonly/index.html`'s viewport
-  meta covers Chrome and most Android browsers.
-- **iOS Safari ignores that AND does not shrink `dvh` for the keyboard**, so the
-  composer would sit behind it. `trackVisibleHeight()` in `creator.js` publishes
-  `visualViewport.height` as `--vvh`, and `.newscript` uses
-  `min-height: calc(var(--vvh, 100dvh) - 150px)`. Throttled through `rAF` because
-  iOS fires `resize` continuously through the keyboard animation.
+## Gotchas found the hard way — these will bite again
 
-## VERIFIED vs NOT — be honest about this
+- **`armDelete` restores `innerHTML`, not `textContent`.** Some of those buttons
+  are icons; restoring with text would replace the svg with a word permanently.
+- **A double-click used to delete.** First click armed, second landed on the
+  armed button milliseconds later. There is now a **450ms settle window** before
+  an armed button accepts a confirm. It matters more now that Delete sits beside
+  Save.
+- **`bind()` had no null check.** Any conditionally-rendered field (Website is
+  one) would throw there and take the whole editor down.
+- **`autoGrow()` forces an empty textarea back to one row on purpose**, so any
+  placeholder over ~55 characters is clipped. Shorten the placeholder.
+- **Never shadow the global `go()`** — a local `const go = getElementById(…)`
+  turns every `go({kind:…})` in scope into a button click.
+- **A stray `*/` inside a CSS comment kills the rest of the stylesheet.** Check
+  `/*` and `*/` counts after any CSS edit. This happened once.
+- **`loader-glow` animates opacity**, so it overrides a static `opacity` dim —
+  which is why a "dimmed pulsing tick" was invisible and became a spinner.
+- **Icon buttons must be exempt from `.bp-actions .ghost { flex: 1 1 auto }`**,
+  a mobile rule that stretched them to 151px wide.
+- **Valid view kinds:** `new`, `you`, `feedback`, `brand`, `library`,
+  `originals`. Anything else falls through to the Library.
+- **Declare slice helpers with the others near the top.** `namedBrands` and
+  `originalScripts` are `const` arrows used by earlier-defined renderers; they
+  only work because rendering happens post-boot. Two near-misses.
+- **Test markup with inline `style="…"` is silently dropped by the CSP**, which
+  produced nonsense measurements twice. Use classes when driving the page.
+- **A patch script that asserts before writing can discard work silently.** One
+  run lost six applied edits because a seventh assertion threw. Write what
+  applied and report misses by name.
+
+## VERIFIED vs NOT
 
 **Verified:** JS syntax, Python compile, CSS comment/brace balance, computed
-styles and painted screenshots via injected markup, every rail element id
-surviving the reorder, the URL-vs-name detection and site-analysis logic in Node,
-and live Supabase checks for the seat gate and email confirmation.
+styles and painted screenshots, the brand-setup state machine replayed across
+all six routes, the delete double-click guard, the phase rotation and its
+teardown, live Supabase tests for the seat gate, invites and confirmation.
 
-**NOT verified, and each is a real risk:**
+**NOT verified — all need a signed-in session:**
 
-1. **No signed-in end-to-end walkthrough.** Everything visual was checked with
-   markup injected into the page, not by driving the real app with an account.
-2. **The site read has never succeeded end to end.** The CORS relays
-   (allorigins, codetabs) are unreachable from the preview sandbox. The parsing
-   is proven; the fetch is not.
-3. **The original-script worker path has never run.** The code is written and
-   compiles; no such entry has been processed.
-4. **Keyboard behaviour is untestable here** — no on-screen keyboard in the
-   preview pane, so `--vvh` always equals full height.
+1. **The original-script card with real data.** The CSP blocks injecting state
+   (`new Function` is refused), so it was only checked against a fixture built
+   from a real stored source, not driven through the app.
+2. **Rescripts decrementing the allowance.**
+3. **The website read end to end.** The CORS relays are unreachable from the
+   preview sandbox; parsing is proven, the fetch is not.
+4. **A failed read's landing page**, for the same reason.
+5. **The spinner and loader actually animating** — the preview pane reports zero
+   dimensions and throttles animation.
 
-**Before pushing, walk this on localhost with a real account:** send a link with
-no brand → does it queue and land in the Library? → "Add a brand" → paste a real
-website → do the fields fill? → open Details → delete the brand → do you land on
-New script?
+**Walk this once on the live site:** send a link with no brand → does the
+original script render? → *Write this for a brand* → add a brand by pasting a
+website → do the fields fill and does the arrow point at Details? → Rewrite →
+does the allowance drop?
 
 ## Open items
 
-1. **Reuse the stored source when converting an original script.** The convert
-   CTA now exists and works, but it re-runs the whole pipeline: re-download,
-   re-transcribe, re-shot-list, re-tag, re-extract, then adapt (~$0.13, 60–75s).
-   The entry already holds all of that, so the rewrite could cost ~$0.05 and be
-   near-instant.
-
-   Not done because it means restructuring `process_one()` — extracting the
-   adaptation stage so it can be called with a source that is already present —
-   in paid code that could not be tested live at the time. Do it when a real
-   conversion can be watched end to end.
-2. **Invites are installed but switched off** — see the table at the top. The
-   remaining work is a product decision, not a technical one: when to flip
-   `require_invite`, and issuing the first wave. `supabase/invites.sql`'s footer
-   carries the waitlist→invite queries for working a list at scale.
-   **Push `creator.js` before flipping it** — the local build is what knows to
-   show the invite-code field when the database asks for one.
-3. **`creator.html` 404s with no redirect.** Anyone who bookmarked the old path
-   is stranded.
-4. **Three overlapping spec files** in `output/`: `Lynxr-Spec.html` (current,
-   Docs-friendly), `Lynxr-Product-Spec.html` (styled, superseded) and
-   `LYNXR_SPEC_v2.md` (annotated working doc). Delete the two you won't maintain.
-5. **The agency blueprints worker has been REMOVED** (2026-08-13). The launchd
-   agent `io.lynxr.blueprints` was booted out and its plist deleted, so
-   **nothing on any Mac runs Lynxr any more** — site, auth, database, email and
-   the creator script worker are all hosted.
-
-   Consequence to be aware of: the agency app still offers "paste a link to
-   something this client posted", but nothing processes those now. A queued
-   blueprint sits at `queued` forever rather than erroring, so it looks like it
-   is working when it is not. Existing blueprints are unaffected (3, all done).
-
-   Run one by hand when needed:
+1. **Reuse the stored source when converting an original script.** The CTA
+   re-runs the whole pipeline (~$0.13, 60–75s) when the entry already holds the
+   transcript, shots and format — a rewrite could be ~$0.05 and near-instant. It
+   means restructuring `process_one()` to call the adaptation stage against an
+   existing source; not done because it is paid code that could not be tested
+   live. **Do this when a real conversion can be watched.**
+2. **`creator.html` 404s with no redirect.** Anyone with the old bookmark is
+   stranded.
+3. **Three overlapping spec files** in `output/`: `Lynxr-Spec.html` (current,
+   Docs-friendly), `Lynxr-Product-Spec.html` (styled, superseded),
+   `LYNXR_SPEC_v2.md` (annotated). Delete the two you will not maintain.
+4. **The agency blueprint feature has no worker.** The launchd agent was removed
+   at the owner's request, so a queued blueprint sits at `queued` forever rather
+   than erroring. Run by hand when needed:
    ```bash
    cd ~/Documents/lynxrio && set -a && source .env && set +a && ./venv/bin/python pipeline/process_blueprints.py
    ```
-   Restore the agent from the backup if you want it back:
-   ```bash
-   cp output/io.lynxr.blueprints.plist.bak ~/Library/LaunchAgents/io.lynxr.blueprints.plist
-   launchctl bootstrap gui/$UID ~/Library/LaunchAgents/io.lynxr.blueprints.plist
-   ```
-   Migrating it to Actions like the creator worker is the permanent fix; the
-   hard parts (Whisper CPU fallback, yt-dlp path, `requirements-ci.txt`) are
-   already solved. Owner has not asked for this — do not do it unprompted.
-
-## Gotchas found the hard way this session
-
-- **`autoGrow()` forces an empty textarea back to one row on purpose**, so any
-  placeholder longer than ~55 characters is clipped. Shorten the placeholder;
-  don't fight the function.
-- **Never shadow the global `go()`** — a local `const go = document.getElementById(…)`
-  turns every `go({kind:…})` in that scope into a button click.
-- **Valid view kinds are only** `new`, `you`, `feedback`, `brand`, `library`.
-  Anything else falls through to the Library.
-- **A stray `*/` inside a CSS comment silently kills the rest of the stylesheet.**
-  After any CSS edit, check `/*` and `*/` counts match — this bit once already.
-- **Trash entries keep their full record**, `status: 'done'` included. Relevant to
-  any counting: `scriptsUsed()` deliberately counts adaptations + trash because
-  that is what the money cap charges for.
-- **GoTrue passes a trigger's `raise exception` text straight through** as
-  `message` with a 500 — not the generic "Database error saving new user" the
-  docs imply. Both shapes are matched in `signupError()`.
-
----
+   Migrating it to Actions is the permanent fix — the hard parts (Whisper CPU
+   fallback, yt-dlp path, `requirements-ci.txt`) are already solved. **Owner has
+   not asked for this; do not do it unprompted.**
+5. **Worker handover can stall.** Runs are chained by a concurrency group, and a
+   run that overshoots its 350-minute timeout blocks its successor — this cost
+   ~7 hours once. If scripts stop arriving, check the Actions tab before the
+   code: cancel the *oldest* in-progress run, then use **Run workflow**.
 
 # OLDER CONTEXT (pre-2026-08-13)
 
