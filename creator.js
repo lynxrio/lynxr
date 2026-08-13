@@ -253,7 +253,7 @@ async function sbSignIn(email, password) {
     identities, deliberately, so this endpoint can't be used to find out who has
     an account here. Telling the two apart would undo that, so both get the same
     "check your email" answer. */
-async function sbSignUp(email, password) {
+async function sbSignUp(email, password, invite) {
   // Tell Supabase where the confirmation link should land, per signup, instead
   // of relying on the project's single Site URL. That setting pointed at
   // localhost, so every confirmation email sent a real user to a page only the
@@ -263,7 +263,11 @@ async function sbSignUp(email, password) {
   const res = await fetch(`${SB_URL}/auth/v1/signup?redirect_to=${back}`, {
     method: "POST",
     headers: { apikey: SB_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    // The invite code rides along as signup metadata. GoTrue writes `data` into
+    // raw_user_meta_data BEFORE the gate trigger runs, which is the only way the
+    // trigger can see a value that isn't the email or the password.
+    body: JSON.stringify(invite ? { email, password, data: { invite } }
+                                : { email, password }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error_description || body.msg || body.message || "Sign-up failed");
@@ -271,8 +275,94 @@ async function sbSignUp(email, password) {
   return "confirm";
 }
 
+/* SEATS. The invited group is finite and the front door closes by itself —
+   see the signup gate in supabase/schema.sql. THE DATABASE IS THE LOCK; this
+   is only so a full gate can say so in words.
+
+   Fails OPEN on purpose. If the RPC is missing (a database without the
+   migration) or the network is down, the page behaves exactly as it did before
+   and the trigger still refuses the account — an unreachable check must not
+   lock out a creator who is entitled to sign up. */
+const FULL_MSG = "lynxr is invite-only and full right now — "
+  + "join the waitlist at lynxr.io and we'll come to you as we open up.";
+let SEATS_OPEN = null;                       // null = not asked yet
+let INVITE_REQUIRED = false;
+
+/* The invite that brought them here. An invite link is
+   /creatorsonly/?signup=1&e=<email>&c=<code>, so the common path is one click
+   and nothing to type; the code field exists for someone who has the mail open
+   on their phone and the app on a laptop. */
+const INVITE = new URLSearchParams(location.search).get("c") || "";
+const INVITED_EMAIL = new URLSearchParams(location.search).get("e") || "";
+
+async function signupState() {
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/rpc/signup_state`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!res.ok) return { open: true, invite_required: false };
+    const s = await res.json();
+    // A database with no gate row answers null. Treat that as "no gate".
+    return s && typeof s === "object" ? s : { open: true, invite_required: false };
+  } catch { return { open: true, invite_required: false }; }
+}
+
+/* Only ever speaks up in create mode: a closed door is no reason to stop
+   someone signing in, and saying "we're full" over the sign-in form would read
+   as "your account is gone". */
+function applySeatState() {
+  if (GATE_MODE !== "up") return;
+  // The invite field is shown only when the database says invites are the gate,
+  // so the same build serves an open signup, a seat-capped one and an
+  // invite-only one without a redeploy.
+  const wrap = document.getElementById("invite-wrap");
+  if (wrap) wrap.hidden = !INVITE_REQUIRED;
+  if (SEATS_OPEN === false) {
+    document.getElementById("gate-go").disabled = true;
+    document.getElementById("err").textContent = FULL_MSG;
+  }
+}
+
+function refreshSeats() {
+  signupState().then((s) => {
+    SEATS_OPEN = s.open !== false;
+    INVITE_REQUIRED = s.invite_required === true;
+    applySeatState();
+  });
+}
+
 function signupError(raw) {
   const s = String(raw || "");
+  /* The seat gate refusing an account. MEASURED against the live project on
+     2026-08-12, because the wording here is not obvious: GoTrue passes the
+     trigger's own `raise exception` text straight through as `message`, so what
+     arrives is "lynxr: signups are closed — all 4 seats are taken" with a 500,
+     NOT the generic "Database error saving new user" that a raise inside
+     auth.users is usually said to produce. Both are matched — the second as a
+     fallback, since which one you get depends on the GoTrue version and it
+     costs nothing to cover.
+
+     Only reachable by a page that was already open when the last seat went;
+     signup_open() disables the button before this in the normal case. Re-ask
+     on the way out so a genuine database fault doesn't leave the gate claiming
+     to be full forever. */
+  // Invite refusals, same delivery route as the seat message below: the
+  // trigger's own text arrives as `message` with a 500. Named separately
+  // because "you're not on the list" and "that code is wrong" are different
+  // problems and the second one is fixable by the person reading it.
+  if (/no invite for this address/i.test(s))
+    return "That email isn't on the invite list. Use the address your invite was sent to, "
+      + "or join the waitlist at lynxr.io.";
+  if (/invite code does not match/i.test(s))
+    return "That invite code isn't right — check the link in your invite email.";
+
+  if (/signups are closed|seats are taken/i.test(s)
+      || /database error saving new user|unexpected_failure/i.test(s)) {
+    refreshSeats();
+    return FULL_MSG;
+  }
   if (/already registered|already been registered|user already/i.test(s))
     return "That email already has an account — sign in instead.";
   if (/password/i.test(s) && /short|least|weak|characters/i.test(s))
@@ -1806,6 +1896,11 @@ function setGateMode(mode) {
   document.getElementById("err").textContent = "";
   // The resend link belongs to a failed sign-in, not to the create form.
   document.getElementById("resend-wrap").hidden = true;
+  // Both modes share one submit button, so a seat refusal that disabled it must
+  // be lifted on the way back to sign-in or existing creators are locked out by
+  // a rule that was never about them.
+  document.getElementById("gate-go").disabled = false;
+  if (up) { if (SEATS_OPEN === null) refreshSeats(); else applySeatState(); }
 }
 
 // The homepage CTA links to ?signup=1, so "Create your account" lands on the
@@ -1872,12 +1967,17 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
   if (!email || !pw.value) { err.textContent = "Enter your email and password."; return; }
 
   if (GATE_MODE === "up") {
+    // Known-full: refuse here rather than sending a request that can only come
+    // back as a 500. If the answer never arrived (SEATS_OPEN === null) the
+    // signup goes ahead and the trigger decides — the check is a courtesy.
+    if (SEATS_OPEN === false) { err.textContent = FULL_MSG; return; }
     if (pw.value.length < 8) { err.textContent = "Use at least 8 characters."; pw.select(); return; }
     if (pw.value !== pw2.value) { err.textContent = "Those two passwords don't match."; pw2.select(); return; }
     btn.disabled = true;
     err.textContent = "Creating your account…";
     try {
-      const outcome = await sbSignUp(email, pw.value);
+      const code = (document.getElementById("invite")?.value || INVITE).trim();
+      const outcome = await sbSignUp(email, pw.value, code);
       pw.value = ""; pw2.value = "";
       if (outcome === "confirm") {
         setGateMode("in");

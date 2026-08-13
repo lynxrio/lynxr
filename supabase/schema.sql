@@ -437,3 +437,278 @@ drop policy if exists "staff read the waitlist" on public.lynxr_waitlist;
 create policy "staff read the waitlist"
   on public.lynxr_waitlist for select
   to authenticated using (public.is_staff());
+
+
+-- ---------------------------------------------------------------------------
+-- SIGNUP SEATS — signup closes itself once the invited group is full
+-- (owner's ask, 2026-08-12)
+-- ---------------------------------------------------------------------------
+-- Mirrored in supabase/signup_gate.sql, which is the standalone copy to paste
+-- if you only want this part. Keep the two in step if you edit either.
+--
+-- Four outside creators, then /auth/v1/signup starts refusing. The rule lives
+-- in Postgres because the publishable key and the app's path are both in this
+-- public repo — a check in creator.js is a suggestion anyone can skip by
+-- POSTing to the endpoint directly. creator.js asks signup_open() as well, but
+-- only so the gate can say "we're full" in words instead of showing a 500.
+--
+-- Sign-in is untouched: existing creators keep working whether or not seats
+-- remain. This closes the front door only.
+--
+-- `internal` is the list of addresses that DO NOT consume a seat — yours, your
+-- cofounder's, and the test aliases. Everyone else counts.
+create table if not exists public.lynxr_signup_gate (
+  id        int    primary key default 1,
+  seats     int    not null default 4,
+  internal  text[] not null default '{}',
+  constraint lynxr_signup_gate_one_row check (id = 1)
+);
+
+-- Seeded ONCE. `do nothing` is deliberate: re-running this file must never
+-- silently reopen signups you have since closed, or wipe an address you added
+-- to `internal` by hand.
+insert into public.lynxr_signup_gate (id, seats, internal)
+values (1, 4, array[
+  'junsaemail@gmail.com',
+  'gawinhsu99@gmail.com',
+  'lynxmedianetwork@gmail.com',
+  'lynxrnetwork@gmail.com',
+  -- Aliases and .edu addresses of the same two people.
+  'junsaemail+t1@gmail.com',
+  'junsaemail+t2@gmail.com',
+  'gawin@bu.edu',
+  'junsa@bu.edu'
+])
+on conflict (id) do nothing;
+
+alter table public.lynxr_signup_gate enable row level security;
+
+drop policy if exists "staff read the signup gate" on public.lynxr_signup_gate;
+create policy "staff read the signup gate"
+  on public.lynxr_signup_gate for select
+  to authenticated using (public.is_staff());
+
+-- Boolean, never a count. "3 seats left" would tell any anonymous visitor how
+-- many creators lynxr has.
+create or replace function public.signup_open()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (select count(*)
+            from auth.users u
+            join public.lynxr_signup_gate g on g.id = 1
+           where lower(u.email) <> all (g.internal))
+         < (select seats from public.lynxr_signup_gate where id = 1);
+$$;
+
+grant execute on function public.signup_open() to anon, authenticated;
+
+-- FAIL-OPEN on a missing config row: a dropped table should cost you an
+-- unwanted signup, not lock every account out of your own product.
+create or replace function public.enforce_signup_seats()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  g public.lynxr_signup_gate%rowtype;
+  taken int;
+begin
+  select * into g from public.lynxr_signup_gate where id = 1;
+  if not found then
+    return new;
+  end if;
+
+  if lower(new.email) = any (g.internal) then
+    return new;
+  end if;
+
+  select count(*) into taken
+    from auth.users u
+   where lower(u.email) <> all (g.internal);
+
+  if taken >= g.seats then
+    -- GoTrue turns this into a generic 500, so the text is for your logs.
+    raise exception 'lynxr: signups are closed — all % seats are taken', g.seats
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+grant usage on schema public to supabase_auth_admin;
+grant execute on function public.enforce_signup_seats() to supabase_auth_admin;
+
+drop trigger if exists lynxr_signup_seats on auth.users;
+create trigger lynxr_signup_seats
+  before insert on auth.users
+  for each row execute function public.enforce_signup_seats();
+
+-- NOTE: this applies to the dashboard too. Once seats are full, "Add user" in
+-- Authentication → Users fails the same way. To let someone in after that:
+--   update public.lynxr_signup_gate set seats = seats + 1 where id = 1;
+--   update public.lynxr_signup_gate
+--      set internal = internal || 'them@example.com' where id = 1;
+
+
+-- ---------------------------------------------------------------------------
+-- INVITES — which specific people may sign up (owner's ask, 2026-08-12)
+-- ---------------------------------------------------------------------------
+-- Mirrored in supabase/invites.sql, the standalone copy. Keep the two in step.
+--
+-- The seat gate above answers "how many outsiders may exist". At a waitlist of
+-- a thousand people the question becomes "WHICH of them", and a counter cannot
+-- express that: tell fifty waitlisted people they're in and the first fifty
+-- strangers who find the URL take the places. The path and the publishable key
+-- are both in this public repo, so that is not paranoia.
+--
+-- This also REPLACES EMAIL CONFIRMATION as the verification step, which is why
+-- mailer_autoconfirm can stay on. A confirmation email proves someone can read
+-- an inbox; an invite code delivered to that inbox proves the same thing, before
+-- the account exists, using an email you send rather than Supabase's built-in
+-- mailer (a few messages an hour, not a delivery service).
+--
+-- Defaults to OFF so applying this changes nothing today. Turn on with:
+--   update public.lynxr_signup_gate set require_invite = true where id = 1;
+-- When on, invites ARE the cap and `seats` is ignored — otherwise 50 invites
+-- against 4 seats would refuse 46 of them.
+alter table public.lynxr_signup_gate
+  add column if not exists require_invite boolean not null default false;
+
+create table if not exists public.lynxr_invites (
+  email        text        primary key,
+  code         text        not null,
+  note         text        not null default '',
+  created_at   timestamptz not null default now(),
+  redeemed_at  timestamptz,
+  redeemed_by  uuid
+);
+
+alter table public.lynxr_invites enable row level security;
+
+-- No anon/authenticated policies: the browser never reads this table. The
+-- trigger does, as definer. An anon-readable invite table would hand every code
+-- to anyone holding the publishable key.
+drop policy if exists "staff read invites" on public.lynxr_invites;
+create policy "staff read invites"
+  on public.lynxr_invites for select
+  to authenticated using (public.is_staff());
+
+drop policy if exists "staff write invites" on public.lynxr_invites;
+create policy "staff write invites"
+  on public.lynxr_invites for all
+  to authenticated using (public.is_staff()) with check (public.is_staff());
+
+-- Codes get typed and read aloud, so the alphabet drops I, O, 0 and 1 — same
+-- rule as the adaptation tracking codes.
+create or replace function public.new_invite_code()
+returns text
+language sql
+volatile
+as $$
+  select string_agg(
+    substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 1 + floor(random() * 32)::int, 1), '')
+  from generate_series(1, 8);
+$$;
+
+-- One call, two facts, no counts.
+drop function if exists public.signup_open();
+
+create or replace function public.signup_state()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'invite_required', g.require_invite,
+    'open', case
+              when g.require_invite then true
+              else (select count(*) from auth.users u
+                     where lower(u.email) <> all (g.internal)) < g.seats
+            end)
+    from public.lynxr_signup_gate g
+   where g.id = 1;
+$$;
+
+grant execute on function public.signup_state() to anon, authenticated;
+
+-- The code travels as signup metadata: creator.js posts
+-- {email, password, data:{invite:"..."}} and GoTrue lands `data` in
+-- raw_user_meta_data before this trigger runs.
+drop trigger if exists lynxr_signup_seats on auth.users;
+drop function if exists public.enforce_signup_seats();
+
+create or replace function public.enforce_signup_gate()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  g        public.lynxr_signup_gate%rowtype;
+  inv      public.lynxr_invites%rowtype;
+  supplied text;
+  taken    int;
+begin
+  select * into g from public.lynxr_signup_gate where id = 1;
+  if not found then
+    return new;
+  end if;
+
+  if lower(new.email) = any (g.internal) then
+    return new;
+  end if;
+
+  if g.require_invite then
+    select * into inv
+      from public.lynxr_invites
+     where lower(email) = lower(new.email)
+       and redeemed_at is null;
+
+    if not found then
+      raise exception 'lynxr: no invite for this address'
+        using errcode = 'check_violation';
+    end if;
+
+    supplied := upper(coalesce(new.raw_user_meta_data->>'invite', ''));
+    if supplied = '' or supplied <> upper(inv.code) then
+      raise exception 'lynxr: invite code does not match'
+        using errcode = 'check_violation';
+    end if;
+
+    -- Same transaction as the insert, so a signup that fails later rolls the
+    -- redemption back with it and the invite stays usable.
+    update public.lynxr_invites
+       set redeemed_at = now(), redeemed_by = new.id
+     where email = inv.email;
+
+    return new;
+  end if;
+
+  select count(*) into taken
+    from auth.users u
+   where lower(u.email) <> all (g.internal);
+
+  if taken >= g.seats then
+    raise exception 'lynxr: signups are closed — all % seats are taken', g.seats
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+grant usage on schema public to supabase_auth_admin;
+grant execute on function public.enforce_signup_gate() to supabase_auth_admin;
+
+drop trigger if exists lynxr_signup_gate on auth.users;
+create trigger lynxr_signup_gate
+  before insert on auth.users
+  for each row execute function public.enforce_signup_gate();

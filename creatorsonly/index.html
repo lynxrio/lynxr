@@ -24,7 +24,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260813r">
+<link rel="stylesheet" href="/app.css?v=20260813t">
 </head>
 <body>
 
@@ -51,6 +51,12 @@
       <div class="pw-wrap" id="pw2-wrap" hidden>
         <input type="password" id="pw2" placeholder="Confirm password"
                autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false">
+      </div>
+      <!-- Shown only when the database says invites are the gate. An invite link
+           fills this in, so most people never see it typed. -->
+      <div class="pw-wrap" id="invite-wrap" hidden>
+        <input type="text" id="invite" placeholder="Invite code"
+               autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false">
       </div>
       <button type="submit" class="btn" id="gate-go">Enter</button>
     </form>
@@ -140,7 +146,7 @@
 
 </div>
 
-<script src="/dotgrid.js?v=20260813r" defer></script>
-<script src="/creator.js?v=20260813r" defer></script>
+<script src="/dotgrid.js?v=20260813t" defer></script>
+<script src="/creator.js?v=20260813t" defer></script>
 </body>
 </html>
