@@ -153,8 +153,28 @@ New script?
 4. **Three overlapping spec files** in `output/`: `Lynxr-Spec.html` (current,
    Docs-friendly), `Lynxr-Product-Spec.html` (styled, superseded) and
    `LYNXR_SPEC_v2.md` (annotated working doc). Delete the two you won't maintain.
-5. **The agency blueprints worker still runs on the founder's Mac** via launchd.
-   Explicitly on hold — do not migrate it without asking.
+5. **The agency blueprints worker has been REMOVED** (2026-08-13). The launchd
+   agent `io.lynxr.blueprints` was booted out and its plist deleted, so
+   **nothing on any Mac runs Lynxr any more** — site, auth, database, email and
+   the creator script worker are all hosted.
+
+   Consequence to be aware of: the agency app still offers "paste a link to
+   something this client posted", but nothing processes those now. A queued
+   blueprint sits at `queued` forever rather than erroring, so it looks like it
+   is working when it is not. Existing blueprints are unaffected (3, all done).
+
+   Run one by hand when needed:
+   ```bash
+   cd ~/Documents/lynxrio && set -a && source .env && set +a && ./venv/bin/python pipeline/process_blueprints.py
+   ```
+   Restore the agent from the backup if you want it back:
+   ```bash
+   cp output/io.lynxr.blueprints.plist.bak ~/Library/LaunchAgents/io.lynxr.blueprints.plist
+   launchctl bootstrap gui/$UID ~/Library/LaunchAgents/io.lynxr.blueprints.plist
+   ```
+   Migrating it to Actions like the creator worker is the permanent fix; the
+   hard parts (Whisper CPU fallback, yt-dlp path, `requirements-ci.txt`) are
+   already solved. Owner has not asked for this — do not do it unprompted.
 
 ## Gotchas found the hard way this session
 
