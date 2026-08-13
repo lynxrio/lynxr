@@ -64,6 +64,20 @@ function loaderMark() {
 function gateBusy(el, text) {
   el.innerHTML = `<span class="loader inline">${loaderMark()}<span>${escapeHtml(text)}</span></span>`;
 }
+
+/** The empty-state demo: a link lands, a script draws itself underneath, on a
+ *  loop. Shown where someone has nothing yet and a sentence alone leaves them
+ *  guessing what "send a link" actually produces. Decorative — aria-hidden, so
+ *  a screen reader gets the wording beside it and not a pile of empty spans. */
+function emptyDemo() {
+  return `<div class="demo" aria-hidden="true">
+      <span class="demo-link"><i class="demo-dot"></i>instagram.com/reel/…</span>
+      <span class="demo-arrow">↓</span>
+      <span class="demo-card">
+        <i class="demo-row r1"></i><i class="demo-row r2"></i><i class="demo-row r3"></i>
+      </span>
+    </div>`;
+}
 /** Fit a `.grow` textarea to its text, the way a message composer does.
  *
  *  Height is reset to "auto" before measuring, because scrollHeight can never
@@ -125,6 +139,44 @@ function thumbHtml(url, label) {
 function stopSummaryLinks(root) {
   root.querySelectorAll("summary a").forEach((el) =>
     el.addEventListener("click", (e) => e.stopPropagation()));
+}
+
+/** Animate a <details> SHUT as well as open.
+ *
+ *  A <details> destroys its content the instant `open` is unset, so a closing
+ *  animation has nothing left to run on. This holds the card open, plays
+ *  `bp-close`, and only then closes it — so the body visibly lifts back up into
+ *  the summary it belongs to instead of vanishing.
+ *
+ *  Under reduced motion it does NOTHING and lets the browser close natively.
+ *  That is not politeness: the blanket `animation: none !important` means
+ *  `animationend` would never fire, and the card could never be shut again.
+ *  The timeout below is the same guard for a dropped event mid-transition.
+ */
+function wireDisclosureMotion(root) {
+  if (!root) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  root.querySelectorAll("details.bp-item > summary").forEach((sum) => {
+    if (sum.dataset.motion) return;                 // a repaint must not stack handlers
+    sum.dataset.motion = "1";
+    sum.addEventListener("click", (e) => {
+      const card = sum.parentElement;
+      if (!card.open) return;                       // opening: CSS bp-open has it
+      const body = card.querySelector(":scope > .bp-body");
+      if (!body) return;
+      e.preventDefault();                           // stop the instant native close
+      body.classList.add("bp-closing");
+      let closed = false;
+      const finish = () => {
+        if (closed) return;
+        closed = true;
+        body.classList.remove("bp-closing");
+        card.open = false;
+      };
+      body.addEventListener("animationend", finish, { once: true });
+      setTimeout(finish, 260);
+    });
+  });
 }
 function normalizeUrl(raw) {
   const s = String(raw || "").trim();
@@ -596,10 +648,6 @@ const brandById = (id) => ME.brands.find((b) => b.id === id);
    during initial evaluation. */
 const namedBrands = () => ME.brands.filter((b) => (b.name || "").trim());
 
-/** Scripts written for no company — the video's own words, shots and structure.
-    Their own folder in the rail, because that is what they are to a creator. */
-const originalScripts = () => ME.adaptations.filter((a) => !a.brandId);
-
 // ---------- view routing ----------
 // One rail, one pane. VIEW says what the pane is showing; nothing else does.
 let VIEW = { kind: "new" };      // opening the app starts a fresh script
@@ -734,7 +782,7 @@ function renderSide() {
   // Original scripts are NOT listed here. The rail is companies you write for,
   // and a script that belongs to no company is not one of them — it reached
   // this list once and read as a brand called "Original scripts". They live in
-  // the Library, which is where the videos are.
+  // the Library, as its third grouping mode.
   host.innerHTML = ME.brands.map((b) => {
     const n = brandScripts(b).length;
     const on = VIEW.kind === "brand" && VIEW.id === b.id;
@@ -747,27 +795,13 @@ function renderSide() {
     el.addEventListener("click", () => go({ kind: "brand", id: el.dataset.bid })));
 }
 
-/** Their own page, built exactly like a brand's, because that is what they are
-    to a creator: a folder of scripts. */
-function renderOriginals(head, body) {
-  const list = originalScripts();
-  head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div class="pane-title"><div class="bcard-title">Original scripts</div></div>
-    <p class="pane-sub">What the video itself said and showed &middot; ${plural(list.length, "script")}</p>`;
-  document.getElementById("side-open").addEventListener("click", () =>
-    document.body.classList.toggle("side-open"));
-
-  body.innerHTML = `<div id="ad-list"></div>`;
-  const host = document.getElementById("ad-list");
-  if (!list.length) {
-    host.innerHTML = `<div class="empty"><p><strong>Nothing here yet.</strong></p>
-      <p>Send a link without picking a brand and you'll get the video's own script.</p></div>`;
-    return;
-  }
-  host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a)).join("")}</div>`;
-  wireAdaptationCards(host);
-}
+/* renderOriginals() lived here: a standalone page listing every script that
+   belonged to no brand. It is gone, and so is its `originals` view. The
+   Library's "Original scripts" tab shows the same set, and the scripts
+   themselves now render inline inside each Library entry — so the page was
+   both unreachable (nothing linked to it once the loose group went) and a
+   second place with the same name, which is what made the two easy to
+   confuse in the first place. */
 
 function renderPane() {
   const head = document.getElementById("pane-head");
@@ -775,7 +809,6 @@ function renderPane() {
   if (VIEW.kind === "new") return renderNewScript(head, body);
   if (VIEW.kind === "you") return renderYou(head, body);
   if (VIEW.kind === "feedback") return renderFeedback(head, body);
-  if (VIEW.kind === "originals") return renderOriginals(head, body);
   if (VIEW.kind === "brand") {
     const b = brandById(VIEW.id);
     if (b) return renderBrand(head, body, b);
@@ -1044,6 +1077,7 @@ function renderBrand(head, body, b) {
           <label class="ce-field"><span class="lbl">Niche</span>
             <input type="text" class="b-niche" value="${escapeHtml(b.niche || "")}" placeholder="e.g. Creator tools"></label>
         </div>
+        <p class="bp-msg" id="brand-msg" role="status" aria-live="polite"></p>
       </div>
     </div>
     ${/* Hidden until the brand has a name. A script is written FOR a company,
@@ -1111,18 +1145,74 @@ function renderBrand(head, body, b) {
   };
   syncToggle();
   fitDesc();
+
+  /* SETTING A BRAND UP MEANS FILLING IT IN.
+     Every field on this form is rendered only when it applies — Website, for
+     instance, appears only when the lookup found one — so "all the inputs" is
+     literally every input and textarea still standing in the editor. No list of
+     field names to keep in step with the markup.
+
+     Enforced on the SAVE press only, not on "Done" for a brand that already
+     exists. That is not squeamishness: 2 of the 4 brands on live accounts are
+     missing `objective` and `niche` (they predate those fields). Gating "Done"
+     on completeness would open the editor on one of those brands and refuse to
+     let the creator back out of it — a trap, on their own data. They still get
+     the fields marked, so it is fixable; it just isn't compulsory. */
+  const editorFields = () =>
+    [...editor.querySelectorAll(".ce-field input, .ce-field textarea")];
+
+  /** Marks every empty field and returns the first, or null when all are set. */
+  const markEmpty = () => {
+    let first = null;
+    editorFields().forEach((el) => {
+      const empty = !el.value.trim();
+      el.classList.toggle("ce-missing", empty);
+      if (empty && !first) first = el;
+    });
+    return first;
+  };
+  // Clear a field's flag the moment it stops being empty, so the form stops
+  // shouting while you are still fixing it.
+  editor.addEventListener("input", (e) => {
+    if (e.target.value.trim()) e.target.classList.remove("ce-missing");
+  });
+
   toggle.addEventListener("click", () => {
     // With the lookup panel up, the tick IS "read this website and set the
     // brand up". It re-renders on success, so nothing below this runs.
     if (BRAND_LOOKUP_RUN) { BRAND_LOOKUP_RUN(); return; }
+    const open = !editor.classList.contains("collapsed");
+    if (firstRun && open) {
+      const missing = markEmpty();
+      if (missing) {
+        // The label goes in verbatim and in quotes. Lower-casing it read as
+        // "Fill in what is it? — …", because one of these labels is a question.
+        const label = missing.closest(".ce-field")?.querySelector(".lbl")?.textContent || "every field";
+        const left = editorFields().filter((el) => !el.value.trim()).length;
+        flashMsg("brand-msg", `Fill in “${label}”${left > 1 ? ` and ${left - 1} more` : ""} — every field feeds the script.`, "bad");
+        missing.focus();
+        return;                                // refuse: the editor stays open
+      }
+    }
     const wasSetup = firstRun;                 // this press was "Save"
     editor.classList.toggle("collapsed");
     if (firstRun && editor.classList.contains("collapsed")) firstRun = false;
+    /* Saving a brand for the first time RE-RENDERS, rather than just collapsing
+       the editor. The Scripts heading and its + button are emitted only once the
+       brand has a name — and when this page was built it had none, so pressing
+       Save left a brand with no way to add a script to it until you navigated
+       away and came back. (It showed "Brand details are in here ↑" above an
+       empty page, which read as the save having failed.)
+
+       This is the same move the successful website read makes below: set
+       POINT_AT_DETAILS, then go(). Both routes now end in the same place. */
+    if (wasSetup && editor.classList.contains("collapsed")) {
+      POINT_AT_DETAILS = true;
+      go({ kind: "brand", id: b.id });
+      return;                                  // the DOM below is gone
+    }
     syncToggle();
     fitDesc();
-    // Typed the details in and pressed Save: the fields just disappeared behind
-    // Details, so say where they went — the same thing a successful read says.
-    if (wasSetup && editor.classList.contains("collapsed")) showDetailPoint();
   });
 
   // Bind, don't re-render — the creator is mid-word in these fields.
@@ -1215,6 +1305,13 @@ let LIB_Q = "";
 let LIB_MODE = "brand";
 const LIB_SEARCH_AT = 4;      // searching three items is noise; the box stays hidden
 
+/** Scope sentinel for libraryItemHtml: show only the scripts that belong to NO
+ *  company. A Symbol rather than a magic string — it cannot collide with a real
+ *  brand id no matter how ids are generated later, and it stays truthy, which
+ *  matters because a falsy scope already means "show every script on this
+ *  video". */
+const SCOPE_ORIGINAL = Symbol("original scripts only");
+
 function renderLibrary(head, body) {
   head.innerHTML = `
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -1230,9 +1327,15 @@ function renderLibrary(head, body) {
       <div class="lib-head">
         <div class="lib-modes" role="tablist" aria-label="How to group the library">
           <button type="button" class="lib-mode${LIB_MODE === "brand" ? " on" : ""}"
-            id="lib-mode-brand" role="tab" aria-selected="${LIB_MODE === "brand"}">By company</button>
+            id="lib-mode-brand" role="tab" aria-selected="${LIB_MODE === "brand"}">By brand</button>
           <button type="button" class="lib-mode${LIB_MODE === "all" ? " on" : ""}"
             id="lib-mode-all" role="tab" aria-selected="${LIB_MODE === "all"}">All videos</button>
+          ${/* The third question this list answers: "what did the video itself
+                say?" — the scripts that belong to no company. They are otherwise
+                only visible as a loose block at the bottom of By company, which
+                is where they go to be missed. */""}
+          <button type="button" class="lib-mode${LIB_MODE === "original" ? " on" : ""}"
+            id="lib-mode-original" role="tab" aria-selected="${LIB_MODE === "original"}">Original scripts</button>
         </div>
         <button type="button" class="lib-plus" id="lib-add" title="New script" aria-label="New script">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
@@ -1252,6 +1355,7 @@ function renderLibrary(head, body) {
   const setMode = (m) => { LIB_MODE = m; renderLibrary(head, body); };
   document.getElementById("lib-mode-brand").addEventListener("click", () => setMode("brand"));
   document.getElementById("lib-mode-all").addEventListener("click", () => setMode("all"));
+  document.getElementById("lib-mode-original").addEventListener("click", () => setMode("original"));
 
   const qEl = document.getElementById("lib-q");
   if (qEl) qEl.addEventListener("input", (e) => {
@@ -1272,6 +1376,7 @@ function paintLibraryList() {
 
   if (!ME.library.length) {
     host.innerHTML = `<div class="empty lib-empty">
+      ${emptyDemo()}
       <p><strong>Nothing in your library yet.</strong></p>
       <p>Find a video worth remaking, paste the link, and pick who it's for. We write the script
       and it shows up here — one entry per video, however many companies you script it for.</p>
@@ -1312,58 +1417,69 @@ function paintLibraryList() {
       </section>`;
     }).filter(Boolean).join("");
 
-    // Anything with no script for ANY company needs a home here, or it is
-    // invisible in this view. Two distinct cases, and they are not the same
-    // thing to a creator:
+    // Videos saved but never scripted for anyone still need a home here, or
+    // they are invisible in this view.
     //
-    //   * videos whose only script is the ORIGINAL — a real, finished result
-    //     that simply belongs to no company. These used to vanish outright:
-    //     they matched no company block (no brandId) and were not caught by the
-    //     old orphan filter either, which only looked for videos with NO
-    //     scripts at all. Sending a link without a company therefore appeared
-    //     to do nothing.
-    //   * videos saved but never scripted for anyone.
-    const grouped = (it) => libScripts(it).some((a) => a.brandId);
-    const originals = shown.filter((it) => !grouped(it) && libScripts(it).length);
+    // Scripts that belong to NO brand deliberately do NOT get a block here any
+    // more — this view is brands, and they have their own tab now. They used to
+    // appear as a loose "Original scripts" group, which put the same name in two
+    // places on one screen.
     const orphans = shown.filter((it) => !libScripts(it).length);
 
-    const loose = (title, items, meta, href) => items.length ? `<section class="lib-group">
+    const loose = (title, items, meta) => items.length ? `<section class="lib-group">
       <div class="lib-group-head">
-        ${href ? `<button type="button" class="lib-group-name linkish" data-originals="1">${title}</button>`
-               : `<span class="lib-group-name">${title}</span>`}
+        <span class="lib-group-name">${title}</span>
         <span class="lib-group-meta">${items.length} ${meta}</span>
       </div>
       <div class="bp-list">${items.map((it) => libraryItemHtml(it)).join("")}</div>
     </section>` : "";
 
-    const looseBlocks = loose("Original scripts", originals, "video", true)
-      + loose("Not scripted yet", orphans, "saved");
-
-    host.innerHTML = (blocks + looseBlocks)
-      || `<div class="empty"><p>No scripts yet. Send a link and they'll group by company here.</p></div>`;
+    host.innerHTML = (blocks + loose("Not scripted yet", orphans, "saved"))
+      || `<div class="empty"><p>No scripts yet. Send a link and they'll group by brand here.</p></div>`;
     host.querySelectorAll(".lib-group-name[data-bid]").forEach((el) =>
       el.addEventListener("click", () => go({ kind: "brand", id: el.dataset.bid })));
-    host.querySelectorAll(".lib-group-name[data-originals]").forEach((el) =>
-      el.addEventListener("click", () => go({ kind: "originals" })));
+  } else if (LIB_MODE === "original") {
+    /* Every video that has an original script — NOT just the ones whose only
+       script is original. A video can be scripted for a company AND have the
+       video's own words kept; asking for original scripts should show that one
+       too. (The loose block in By company mode is deliberately narrower: there
+       its job is to catch what no company block would show.)
+       SCOPE_ORIGINAL then hides the brand scripts inside the card, so the tab
+       shows what it says it shows. */
+    const items = shown.filter((it) => libScripts(it).some((a) => !a.brandId));
+    host.innerHTML = items.length
+      ? `<div class="bp-list">${items.map((it) => libraryItemHtml(it, SCOPE_ORIGINAL)).join("")}</div>`
+      : `<div class="empty"><p><strong>No original scripts yet.</strong></p>
+          <p>Send a link without picking a company and you'll get the video's own
+          words, shots and structure back.</p></div>`;
   } else {
     host.innerHTML = `<div class="bp-list">${shown.map((it) => libraryItemHtml(it)).join("")}</div>`;
   }
   stopSummaryLinks(host);
+  // The Library now renders real script cards inside its entries, so they need
+  // the same Copy / Rewrite / Delete wiring the brand pages give them. Without
+  // this every button inside a nested script is inert.
+  wireAdaptationCards(host);
+  wireDisclosureMotion(host);
+
+  /* ONE VIDEO OPEN AT A TIME, for the same reason as one script: an open entry
+     runs to a screen or more, so two at once means scrolling past the first to
+     find out what the second even is.
+     Matched on data-lid, not on identity: "By brand" renders the SAME video
+     once under every brand that has a script from it, and those copies are one
+     thing. Closing a video's own twin would fight alsoWriteFor(), which
+     deliberately reopens every copy after writing a new script. */
+  const entries = [...host.querySelectorAll("details.lib-item")];
+  entries.forEach((d) => d.addEventListener("toggle", () => {
+    if (!d.open) return;
+    entries.forEach((other) => {
+      if (other.dataset.lid !== d.dataset.lid) other.open = false;
+    });
+  }));
 
   host.querySelectorAll(".lib-item").forEach((card) => {
     const item = ME.library.find((l) => l.id === card.dataset.lid);
     if (!item) return;
-    card.querySelectorAll(".lib-jump").forEach((btn) => btn.addEventListener("click", () => {
-      const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
-      if (!a) return;
-      // An original script has no company to jump to — its card is rendered
-      // right here in the library entry, so open that instead of navigating to
-      // a brand page that does not exist. (`go({kind:"brand", id:null})` used
-      // to land nowhere, which is why the script appeared to vanish.)
-      go(a.brandId ? { kind: "brand", id: a.brandId } : { kind: "originals" });
-      const target = document.querySelector(`#ad-list [data-adid="${CSS.escape(a.id)}"]`);
-      if (target) { target.open = true; target.scrollIntoView({ block: "center" }); }
-    }));
 
     // One tap = one more script from a video already saved. Keeping the card
     // open across the repaint matters: the creator is usually adding two or
@@ -1382,12 +1498,9 @@ function paintLibraryList() {
       });
       flashMsg("lib-flash", `Writing it for ${co ? co.name : "that company"} — it'll appear here.`, "good");
     }));
-    armDelete(card.querySelector(".l-del"), "Remove from library", () => {
-      ME.library = ME.library.filter((l) => l.id !== item.id);
-      save();
-      renderSide();
-      paintLibraryList();
-    });
+    // The .l-del handler lived here. Its button is gone, and armDelete() reads
+    // btn.innerHTML with no null guard — so leaving this would have thrown on
+    // every Library paint and taken the whole list down with it.
   });
 }
 
@@ -1401,7 +1514,9 @@ function paintLibraryList() {
  *  answer, answered wrongly. */
 function libraryItemHtml(item, scopeBrandId) {
   const all = libScripts(item);
-  const made = scopeBrandId ? all.filter((a) => a.brandId === scopeBrandId) : all;
+  const made = scopeBrandId === SCOPE_ORIGINAL ? all.filter((a) => !a.brandId)
+    : scopeBrandId ? all.filter((a) => a.brandId === scopeBrandId)
+    : all;
   const spare = brandsWithout(item);
   const href = safeUrl(item.url || "");
   const waiting = made.filter(isWriting).length;
@@ -1424,12 +1539,22 @@ function libraryItemHtml(item, scopeBrandId) {
     <div class="bp-body">
       ${item.creator ? `<p class="bp-hint">@${escapeHtml(item.creator)}</p>` : ""}
       ${item.caption ? `<p class="bp-hint lib-cap">${escapeHtml(item.caption)}</p>` : ""}
-      ${made.length ? `<div class="bp-heading">Scripts from this</div>
-        <ul class="lib-made">${made.map((a) => `
-          <li><button type="button" class="linkish lib-jump" data-adid="${escapeHtml(a.id)}">${
-            escapeHtml(a.brandName || (a.brandId ? "Brand" : "Original script"))}</button>
-            <span class="lib-made-state">${a.status === "done" ? "ready"
-              : a.status === "error" ? "couldn't fetch" : "being written"}</span></li>`).join("")}</ul>`
+      ${/* THE SCRIPT ITSELF, right here. This used to be a list of links, each
+            one navigating away — to a brand page, or to a standalone originals
+            page that has since been deleted — so reading a script you were
+            already looking at cost two clicks and a change of scene. The card
+            is the same one the brand pages render, so nothing about a script
+            looks or behaves differently for being inline.
+
+            A single script opens expanded: you opened the video to read it.
+            Several stay collapsed, because then the list IS the choice. */""}
+      ${/* No "N scripts from this" heading: the entry's own summary already
+            carries a "1 script" chip, so the heading restated the count
+            directly under it. The scripts are self-evidently the scripts. */""}
+      ${made.length ? `<div class="bp-list lib-scripts">${made.map((a) => adaptationHtml(
+            a, a.brandId ? (brandById(a.brandId) || {}).name : null,
+            { nested: true, bare: made.length === 1 }
+          )).join("")}</div>`
         : `<p class="bp-hint">No script from this one yet.</p>`}
 
       ${spare.length ? `<div class="bp-heading">Also write this for</div>
@@ -1437,7 +1562,11 @@ function libraryItemHtml(item, scopeBrandId) {
           <button type="button" class="chip pick lib-also-b" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>`
         : made.length ? `<p class="bp-hint">All your brands already have this one.</p>` : ""}
-      <div class="bp-actions"><button type="button" class="ghost danger l-del">Remove from library</button></div>
+      ${/* No entry-level delete. Each script carries its own "Delete", and a
+            second red button under it — for the video rather than the script —
+            was one red button too many in a card that now reads as one thing.
+            NOTE: nothing removes a video from the Library any more; entries
+            with no script at all therefore have no delete of their own. */""}
     </div>
   </details>`;
 }
@@ -2234,7 +2363,17 @@ function scriptText(a) {
   return lines.join("\n");
 }
 
-function adaptationHtml(a, liveName) {
+/** opts.open   — render already expanded. Used inside a Library entry the
+ *                creator has just opened: they opened it to read the script, so
+ *                a second disclosure to reach it is the step this removes.
+ *  opts.nested — this card is inside a Library entry. That entry already shows
+ *                the video's thumbnail and its title, so repeating both here
+ *                said nothing and made one video look like two. Nested cards
+ *                are labelled by what actually differs between them — the brand
+ *                each was written for — and drop the thumbnail.
+ */
+function adaptationHtml(a, liveName, opts = {}) {
+  const { open: forceOpen = false, nested = false, bare = false } = opts;
   const prevSeen = SEEN.get(a.id);
   const justReady = (prevSeen === "queued" || prevSeen === "running") && a.status === "done";
   if (justReady) FLASH.add(a.id);
@@ -2344,10 +2483,16 @@ function adaptationHtml(a, liveName) {
           <li class="bp-beat"><span class="bp-t">${escapeHtml(t(st))}</span>
             <span class="bp-lbl">SAY</span><span class="bp-val">${escapeHtml(String(txt || "").trim())}</span></li>`).join("")}</ol>`
         : `<p class="bp-hint">No speech &mdash; this one is carried by what's on screen.</p>`}
+      ${/* SHOW rows are .bp-dim, SAY rows are not — the same weighting the
+            agency blueprints use (row("SAY", say) plain, row("SHOW", …, true)
+            dimmed) and the same one beatRow() applies to brand scripts. The
+            words are what you came to read; the visuals are the annotation
+            around them, and printing both in full white made the two compete.
+            This branch was the one place that never got the treatment. */""}
       ${shots.length ? `<div class="bp-heading">What's on screen</div>
         <ol class="bp-beats">${shots.map((sh) => `
           <li class="bp-beat"><span class="bp-t">${escapeHtml(t(sh.t))}</span>
-            <span class="bp-lbl">SHOW</span><span class="bp-val">${escapeHtml(sh.visual || "")}${
+            <span class="bp-lbl">SHOW</span><span class="bp-val bp-dim">${escapeHtml(sh.visual || "")}${
               (sh.onscreen_text || "").trim() ? `\n“${escapeHtml(sh.onscreen_text.trim())}”` : ""}</span></li>`).join("")}</ol>` : ""}
       <div class="bp-actions">
         <button type="button" class="ghost ad-copy" data-adid="${id}">Copy</button>
@@ -2359,19 +2504,42 @@ function adaptationHtml(a, liveName) {
       <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
   }
 
-  return `<details class="bp-item bp-${isWriting(a) ? "queued" : escapeHtml(a.status)}${flash ? " bp-flash" : ""}"${justReady ? " open" : ""} data-adid="${id}">
+  const statusClass = `bp-${isWriting(a) ? "queued" : escapeHtml(a.status)}${flash ? " bp-flash" : ""}`;
+  const deleteBtn = `${/* The only delete in a Library entry — the entry-level
+        "Remove video" is gone. It removes THIS script; the video stays. */""}
+      <button type="button" class="ghost danger ad-del" data-adid="${id}">Delete</button>`;
+
+  /* BARE: no summary row at all, just the script.
+     Used for the ONLY script on a Library entry. Opening the entry is already
+     the decision — a second disclosure underneath it, labelled with a brand
+     name the group heading above has just said, was two clicks and two labels
+     for one thing. With several scripts the rows come back, because then the
+     list is a genuine choice between them. */
+  if (bare) {
+    return `<div class="bp-item lib-bare ${statusClass}" data-adid="${id}">
+      <div class="bp-body">${body}${deleteBtn}</div>
+    </div>`;
+  }
+
+  return `<details class="bp-item ${statusClass}"${justReady || forceOpen ? " open" : ""} data-adid="${id}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
-      ${thumbHtml((a.source || {}).cover, a.title || "")}
-      <span class="bp-name">${escapeHtml(a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}</span>
-      ${chip}
-      <span class="bp-when">${escapeHtml(agoLabel(a.addedAt))}</span>
-      ${href ? `<a class="bp-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="Open the original">↗</a>` : ""}
+      ${nested ? "" : thumbHtml((a.source || {}).cover, a.title || "")}
+      <span class="bp-name">${escapeHtml(nested
+        ? (a.brandId ? brandNow : "Original script")
+        : (a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52)))}</span>
+      ${/* Nested, a green "script ready" sits next to the finished script it is
+            describing, under an entry whose own chip already counts it — three
+            ways of saying the same thing. Writing and error chips STAY: those
+            say something the collapsed card otherwise cannot. */""}
+      ${nested && a.status === "done" ? "" : chip}
+      ${/* Same for the timestamp: the entry above carries the video's own. */""}
+      ${nested ? "" : `<span class="bp-when">${escapeHtml(agoLabel(a.addedAt))}</span>`}
+      ${/* The ↗ is the parent entry's link too when nested — same video, same
+            URL — so it only appears on a standalone card. */""}
+      ${href && !nested ? `<a class="bp-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="Open the original">↗</a>` : ""}
     </summary>
-    <div class="bp-body">
-      ${body}
-      <button type="button" class="ghost danger ad-del" data-adid="${id}">Delete</button>
-    </div>
+    <div class="bp-body">${body}${deleteBtn}</div>
   </details>`;
 }
 
@@ -2380,7 +2548,16 @@ function renderScripts(b) {
   if (!host) return;
   const list = brandScripts(b);
   if (!list.length) {
-    host.innerHTML = `<div class="empty"><p><strong>No scripts yet.</strong></p></div>`;
+    /* A brand you have just finished setting up lands here, so this is the
+       first thing a new creator sees after the form — "No scripts yet." alone
+       named the state and left them to work out the next move. */
+    host.innerHTML = `<div class="empty lib-empty">
+      ${emptyDemo()}
+      <p><strong>No scripts yet.</strong></p>
+      <p>Send a link worth remaking and it comes back as a script for ${escapeHtml(b.name || "this brand")}.</p>
+      <div class="bp-actions"><button type="button" class="btn" id="brand-empty-cta">Write the first one</button></div>
+    </div>`;
+    host.querySelector("#brand-empty-cta").addEventListener("click", () => go({ kind: "new" }));
     return;
   }
   host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a, b.name)).join("")}</div>`;
@@ -2394,6 +2571,22 @@ function renderScripts(b) {
 function wireAdaptationCards(host) {
   if (!host) return;
   stopSummaryLinks(host);
+
+  /* ONE SCRIPT OPEN AT A TIME. A script runs to a couple of screens, so two
+     expanded at once meant scrolling through the first to discover the second
+     — and in the Library, where each entry can hold a script per brand, three
+     open at once buried the page.
+
+     Wired per-element rather than delegated: the `toggle` event does not
+     bubble. Scoped to [data-adid] so it closes SCRIPTS only — the Library
+     entries around them are .bp-item too, and folding those would shut the
+     video you are reading inside. Assigning .open re-fires toggle on the ones
+     being closed, but they exit on the !d.open guard, so there is no loop. */
+  const cards = [...host.querySelectorAll("details.bp-item[data-adid]")];
+  cards.forEach((d) => d.addEventListener("toggle", () => {
+    if (!d.open) return;
+    cards.forEach((other) => { if (other !== d) other.open = false; });
+  }));
 
   host.querySelectorAll(".ad-copy").forEach((btn) => btn.addEventListener("click", async () => {
     const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
@@ -2436,7 +2629,7 @@ function wireAdaptationCards(host) {
            : "Reading that video again.", "good");
   }));
 
-  host.querySelectorAll(".ad-del").forEach((btn) => armDelete(btn, "Delete", () => {
+  host.querySelectorAll(".ad-del").forEach((btn) => armDelete(btn, "Delete script", () => {
     trashAdaptations((x) => x.id === btn.dataset.adid);
     save(); renderSide(); renderPane();   // the video stays in the Library
   }));

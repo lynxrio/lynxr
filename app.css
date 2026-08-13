@@ -400,6 +400,15 @@
     color: var(--text); font: inherit; font-size: 14px; padding: 9px 11px; min-width: 0;
   }
   .ce-field input:focus, .ce-field select:focus { outline: none; border-color: var(--line-2); }
+  /* A field the Save press found empty. Border only — no red fill and no shake:
+     this fires on a form someone is part-way through, so it is a marker of what
+     is left rather than a scolding. Cleared the moment the field has content.
+     Higher specificity than the :focus rule above so the mark survives the
+     focus() that lands on it. */
+  .ce-field input.ce-missing, .ce-field textarea.ce-missing,
+  .ce-field input.ce-missing:focus, .ce-field textarea.ce-missing:focus {
+    border-color: var(--bad);
+  }
   /* Grows with its text instead of scrolling it sideways out of sight — a long
      answer belongs on screen where it can be re-read. JS sets the height, so
      resize is off (a hand-dragged height fights it) and overflow is hidden
@@ -583,8 +592,18 @@
   .bp-when { color: var(--text-3); font-size: 11px; white-space: nowrap; }
   .bp-open { color: var(--text-3); text-decoration: none; font-size: 12px; }
   .bp-open:hover { color: var(--text); }
-  .bp-body { padding: 2px 14px 12px; animation: bp-open .18s var(--ease); }
-  @keyframes bp-open { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  /* Opening drops the body down out of its own summary; closing lifts it back
+     up into it. The pair is what makes a card read as a drawer belonging to the
+     row above it rather than as content that blinks in and out somewhere on the
+     page — you can see where the script came from and where it went. Kept to
+     6px and under .2s: enough to follow, not enough to wait for. */
+  .bp-body { padding: 2px 14px 12px; animation: bp-open .19s var(--ease); }
+  @keyframes bp-open { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  /* The closing half. <details> removes its content the instant `open` is
+     unset, so there is nothing left to animate — creator.js therefore holds the
+     card open, runs this, and only then closes it. */
+  .bp-body.bp-closing { animation: bp-close .16s var(--ease) forwards; }
+  @keyframes bp-close { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-6px); } }
 
   .bp-wait { color: var(--text-3); }
   .bp-dot {
@@ -666,13 +685,26 @@
   }
   .lib-item .bp-heading { margin-top: 16px; }
   .lib-item .bp-actions .btn { padding: 9px 16px; font-size: 14px; }
-  .lib-made { list-style: none; margin: 0 0 4px; padding: 0; }
-  .lib-made li {
-    display: flex; gap: 10px; align-items: baseline;
-    padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px;
+  /* Scripts nested inside a Library entry. (These replaced .lib-made, a list of
+     links out to other pages — the script is rendered here now.)
+
+     NOT a card. A bordered box inside the entry's own bordered box read as one
+     video wrapped around another, which is exactly what it isn't: the entry is
+     the video, and these are what was written from it. So the frame comes off
+     and only the brand-name row survives as a heading — a divider between
+     scripts when there is more than one, and nothing at all when there is one.
+     The disclosure still works; it just no longer looks like a second object. */
+  .lib-scripts { margin-top: 2px; }
+  .lib-scripts .bp-item {
+    background: transparent; border: 0; border-radius: 0; margin-top: 0;
   }
-  .lib-made li:first-child { border-top: 0; }
-  .lib-made-state { color: var(--text-3); font-size: 11.5px; }
+  .lib-scripts .bp-item:hover { border-color: transparent; }
+  /* Flush with .bp-body's own 14px, so the script lines up with the caption and
+     the heading above it instead of sitting in an invisible indent. */
+  .lib-scripts .bp-item > summary { padding-left: 0; padding-right: 0; }
+  .lib-scripts .bp-body { padding-left: 0; padding-right: 0; }
+  /* A rule between scripts, not around them. */
+  .lib-scripts .bp-item + .bp-item { border-top: 1px solid var(--line); }
   /* A library row carries two chips, a date and a link, which on a phone leaves
      the title — the only part worth reading — squeezed to "Why…". Give it the
      whole first line and let the rest wrap underneath, indented past the
@@ -1488,6 +1520,64 @@
   .lib-empty { text-align: center; }
   .lib-empty .bp-actions { justify-content: center; }
 
+  /* ---------- The empty-state demo ----------
+     An empty page is where someone is most stuck and least told what to do, so
+     these show the shape of the answer instead of describing it: a link lands,
+     and a script draws itself underneath. Pure CSS on a loop — no timers, no
+     images, nothing to load.
+
+     Every animated part sits at its FINISHED state by default and animates
+     FROM zero. That way the blanket `animation: none` under reduced motion
+     leaves a legible little diagram rather than an empty box — the same trap
+     that made the loading mark invisible. */
+  .demo {
+    display: flex; flex-direction: column; align-items: center; gap: 9px;
+    margin: 4px 0 18px; user-select: none;
+  }
+  .demo-link {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 12px; border: 1px solid var(--line-2); border-radius: 999px;
+    background: var(--surface-2); color: var(--text-2);
+    font-family: var(--mono); font-size: 11.5px;
+    animation: demo-link-in 5.5s var(--ease) infinite;
+  }
+  .demo-link .demo-dot {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--good); flex: none;
+  }
+  .demo-arrow {
+    color: var(--text-3); font-size: 13px; line-height: 1;
+    animation: demo-arrow 5.5s var(--ease) infinite;
+  }
+  .demo-card {
+    width: min(230px, 100%); display: flex; flex-direction: column; gap: 7px;
+    padding: 12px 13px; border: 1px solid var(--line); border-radius: 9px;
+    background: var(--surface-2);
+  }
+  .demo-row {
+    display: block; height: 6px; border-radius: 3px; background: var(--line-2);
+    width: var(--w); animation: demo-draw 5.5s var(--ease) infinite;
+  }
+  .demo-row.r1 { --w: 92%; animation-delay: .35s; }
+  .demo-row.r2 { --w: 72%; animation-delay: .70s; }
+  .demo-row.r3 { --w: 55%; animation-delay: 1.05s; }
+  /* The first row is the hook — the line the whole script hangs off. */
+  .demo-row.r1 { background: var(--text-3); }
+  @keyframes demo-draw {
+    0%          { width: 0; opacity: .25; }
+    14%, 78%    { width: var(--w); opacity: 1; }
+    92%, 100%   { width: 0; opacity: .25; }
+  }
+  @keyframes demo-link-in {
+    0%          { opacity: 0; transform: translateY(5px); }
+    9%, 82%     { opacity: 1; transform: none; }
+    94%, 100%   { opacity: 0; transform: translateY(5px); }
+  }
+  @keyframes demo-arrow {
+    0%, 6%      { opacity: 0; transform: translateY(-3px); }
+    18%, 80%    { opacity: 1; transform: none; }
+    92%, 100%   { opacity: 0; transform: translateY(-3px); }
+  }
+
   /* "Also write this for" — one tap adds a company, so these need to read as
      buttons rather than the static tag-chips they sit beside. */
   .lib-also { margin: 6px 0 2px; }
@@ -1573,6 +1663,16 @@
        there is no scrolled content behind it yet to justify the translucency,
        so make it solid. */
     .pane-head { background: var(--bg); }
+    /* THE HEADER HAD TO FOLLOW THE SCROLL, AND DIDN'T.
+       .pane-head is position:sticky at every width, but sticky pins to its
+       nearest SCROLLING ancestor — and that is .pane-scroll, which carries
+       overflow-y:auto. On a phone .shell is a column with no height cap, so
+       .pane-scroll never actually scrolls (measured: scrollHeight === client
+       Height); the DOCUMENT does. The header was therefore pinned to the top of
+       a box that was itself sliding off-screen, so it left with the content.
+       Dropping the overflow here hands sticky back to the document, and top:0
+       finally means the top of the viewport. */
+    .pane-scroll { overflow-y: visible; }
     /* Comfortable thumb targets in the drawer. */
     .side-item, .side-link, .side-new { min-height: 46px; }
   }
