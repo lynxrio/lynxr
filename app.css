@@ -1824,3 +1824,50 @@
   }
   .side-brand-add:hover { background: var(--hover); border-color: var(--line-2); }
   .side-brand-add .side-ico { opacity: 1; }
+
+  /* ==========================================================================
+     HOUSE STYLE: NO CAPITALS
+     ==========================================================================
+     Done in CSS rather than by rewriting the strings in creator.js / app.js,
+     for three reasons:
+
+       1. text-transform changes what is DRAWN, not what the text IS. "copy
+          script" therefore still copies the creator's script in its real
+          casing — rewriting the source strings would have lowercased it for
+          real, including on-screen text like "STOP SCRUBBING" that a creator
+          films from.
+       2. One file, one revert.
+       3. A regex sweep over the JS lowercased actual code (Math, Date,
+          escapeHtml) because a negated character class matches newlines, so a
+          `>` on one line paired with a `<` forty lines later. It passed
+          `node --check` — `math.round(...)` is valid JavaScript that simply
+          throws at runtime. Not a mistake worth repeating.
+
+     OPT-IN, deliberately. Every selector below is lynxr's OWN copy: buttons,
+     headings, labels, hints, empty states. Blanket-lowercasing `body` and
+     excepting the content would invert the risk — miss a chrome selector here
+     and you get one stray capital; miss a CONTENT selector there and a
+     creator's script renders wrong.
+
+     So: nothing that can hold a brand name, a video title, a caption, a
+     transcript or a hook appears in this list. Those are listed again at the
+     bottom as `none`, because .bp-hint (a chrome class) is also worn by
+     .lib-cap (a caption), and inheritance would otherwise reach it. */
+  .btn, .ghost, .linkish, .lib-mode, .side-new, .side-link,
+  h2, h3, .pane-sub, .wait-h, .wait-sub, .wait-msg,
+  .bp-heading, .bp-hint, .bp-eta, .composer-note, .bp-msg, .err,
+  .empty, .lbl, .lib-group-meta, .lib-shown, .side-quota, .home-foot,
+  .home-lead, .gate-other, .gate-switch, .tagline, .detail-point,
+  .loader-sub, .demo-link, .pill, .bp-when, .lib-made-state,
+  ::placeholder {
+    text-transform: lowercase;
+  }
+
+  /* CONTENT — never restyled. What the creator wrote, what the video said,
+     what the scraper found. Listed after the block above so it wins, and
+     scoped tightly enough to survive inheritance from a lowercased parent. */
+  .bp-val, .bp-hook, .bp-name, .lib-cap, .side-label, .lib-group-name,
+  .bcard-title, .loader-stage, .brand-heading, td, input, textarea,
+  .chip.pick, .lib-also .chip, .bp-tags .chip, .lib-plat {
+    text-transform: none;
+  }
