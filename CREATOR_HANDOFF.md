@@ -31,16 +31,26 @@ running the previous build:
 Modified, uncommitted: `creator.js`, `app.css`, `creatorsonly/index.html`,
 `index.html`, `agencyonly/index.html`, `pipeline/process_adaptations.py`.
 
-> **⚠ The SQL and the push are coupled — do not push without reading this.**
-> `supabase/invites.sql` is committed but **has not been run**. Checked live
-> 2026-08-13: `rpc/signup_state` → **404**, `rpc/signup_open` → **200**. The
-> local `creator.js` already calls `signup_state`, so right now that call 404s
-> and falls open.
->
-> Consequence: nothing breaks and nothing is exposed — the database trigger
-> still refuses signups when the gate is full — but the page stops being able to
-> *say* "we're full" and shows a generic error instead. **Run `invites.sql` and
-> push `creator.js` together**, in either order but close in time.
+**`supabase/invites.sql` has been run** (2026-08-13) and tested end to end
+against the live project:
+
+| check | result |
+|---|---|
+| `rpc/signup_state` | 200 — `{"open": true, "invite_required": false}` |
+| `rpc/signup_open` | 404, correctly replaced |
+| anon reading invite codes | `[]` with a real row present — no leak |
+| anon inserting an invite | 401 |
+| signup, invites OFF | succeeds — the renamed trigger does **not** block everyone |
+| signup, invites ON, no invite | refused: *"lynxr: no invite for this address"* |
+| signup with a matching code | succeeds, `redeemed_at` stamped (single use) |
+
+Left **off**: `seats: 4`, `require_invite: false`, 1 of 4 seats used. Turn on
+when working from the waitlist — and note that invites then become the cap and
+`seats` is ignored:
+
+```sql
+update public.lynxr_signup_gate set require_invite = true where id = 1;
+```
 
 Serve locally with the existing launch config (`python -m http.server 8811`
 from the repo root) and open `http://localhost:8811/creatorsonly/`.
@@ -132,15 +142,12 @@ New script?
    needs a worker change but makes the rewrite ~$0.05 and fast. **Recommend the
    reuse** — it is the difference between the CTA feeling instant and feeling
    like starting over.
-2. **Run `supabase/invites.sql`** — see the coupling warning at the top. It
-   defaults `require_invite` to false, so applying it changes nothing about who
-   can sign up until you flip that flag:
-   ```sql
-   update public.lynxr_signup_gate set require_invite = true where id = 1;
-   ```
-   When invites are on, **invites are the cap and `seats` is ignored** — issuing
-   50 invites against 4 seats would otherwise refuse 46 of them. The file's
-   footer carries the waitlist→invite queries for working a list at scale.
+2. **Invites are installed but switched off** — see the table at the top. The
+   remaining work is a product decision, not a technical one: when to flip
+   `require_invite`, and issuing the first wave. `supabase/invites.sql`'s footer
+   carries the waitlist→invite queries for working a list at scale.
+   **Push `creator.js` before flipping it** — the local build is what knows to
+   show the invite-code field when the database asks for one.
 3. **`creator.html` 404s with no redirect.** Anyone who bookmarked the old path
    is stranded.
 4. **Three overlapping spec files** in `output/`: `Lynxr-Spec.html` (current,
