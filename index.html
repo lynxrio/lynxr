@@ -21,7 +21,7 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="favicon.png">
 <link rel="shortcut icon" href="favicon.ico">
-<link rel="stylesheet" href="app.css?v=20260817s">
+<link rel="stylesheet" href="app.css?v=20260817y">
 </head>
 <body>
 
@@ -41,12 +41,16 @@
   <section class="wait" id="wait">
     <h3 class="wait-h">join wait list</h3>
     <!-- This line is also the CONSENT statement — it is the only place a visitor
-         is told what their address will be used for. "we'll email you once, at
-         launch" is a specific, limited purpose, which is exactly what makes it
-         valid consent; vaguer wording ("updates", "news") would quietly widen
-         it into marketing they never agreed to. Change the promise here and you
-         change what you are allowed to send. -->
-    <p class="wait-sub">we're still building. leave your email and we'll notify you when we launch 🚀</p>
+         is told what their address will be used for, so it defines what you are
+         allowed to send. Keep it specific: "launch news and the occasional
+         update on what we're shipping" is a real limit. Widening it further
+         ("news", "offers", "from our partners") would quietly turn it into
+         marketing nobody agreed to.
+         CHANGING THE MEANING HERE MEANS BUMPING `CONSENT` IN home.js. Rows
+         carry the tag they were signed up under, and older, narrower tags are
+         held to their narrower promise — see the privacy page. -->
+    <p class="wait-sub">we're still building. leave your email for launch news and
+      the occasional update on what we're shipping 🚀</p>
     <form class="wait-form" id="wait-form" novalidate>
       <input type="email" id="wait-email" placeholder="you@example.com" aria-label="Your email"
              autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" required>
@@ -65,7 +69,7 @@
     2026 &middot; <a href="/privacy/">privacy</a></p>
 </main>
 
-<script src="dotgrid.js?v=20260817s" defer></script>
-<script src="home.js?v=20260817s" defer></script>
+<script src="dotgrid.js?v=20260817y" defer></script>
+<script src="home.js?v=20260817y" defer></script>
 </body>
 </html>

@@ -24,7 +24,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260817s">
+<link rel="stylesheet" href="/app.css?v=20260817y">
 </head>
 <body>
 
@@ -58,6 +58,14 @@
         <input type="text" id="invite" placeholder="Invite code"
                autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false">
       </div>
+      <!-- Shown only when creating an account (see setGateMode). Signing in is
+           not the moment you agree to anything — you already did. A ticked-by-
+           default box would not be agreement at all, so it starts empty and the
+           submit is refused without it. -->
+      <label class="gate-agree" id="agree-wrap" hidden>
+        <input type="checkbox" id="agree">
+        <span>i agree to the <a href="/privacy/" target="_blank" rel="noopener">privacy policy</a></span>
+      </label>
       <button type="submit" class="btn" id="gate-go">Enter</button>
     </form>
     <div class="err" id="err" role="status" aria-live="polite"></div>
@@ -77,8 +85,9 @@
          on to put in. A policy linked only from the public home page is not
          reachable from the app at all — a creator handed this URL directly
          never sees that page. -->
-    <p class="gate-fine">by creating an account you agree to our
-      <a href="/privacy/">privacy policy</a></p>
+    <!-- Agreement is now an explicit tick above, so this is only a way to reach
+         the policy — it no longer claims you agreed by being here. -->
+    <p class="gate-fine"><a href="/privacy/">privacy policy</a></p>
   </div>
 </div>
 
@@ -159,7 +168,7 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260817s" defer></script>
-<script src="/creator.js?v=20260817s" defer></script>
+<script src="/dotgrid.js?v=20260817y" defer></script>
+<script src="/creator.js?v=20260817y" defer></script>
 </body>
 </html>

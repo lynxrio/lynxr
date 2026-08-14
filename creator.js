@@ -1588,10 +1588,11 @@ function renderYou(head, body) {
         <label class="ce-field"><span class="lbl">Your niches (comma-separated)</span>
           <input type="text" id="me-niches" value="${escapeHtml((ME.niches || []).join(", "))}"
             placeholder="e.g. EMT education, study, fitness"></label>
-        <label class="ce-field"><span class="lbl">Best email to reach you on</span>
-          <input type="email" id="me-email" value="${escapeHtml(ME.contactEmail || SB_EMAIL || "")}"
-            autocapitalize="none" autocorrect="off" spellcheck="false"
-            placeholder="only if it differs from your login"></label>
+        ${/* No "best email" field: the address is already collected at sign-in,
+              and asking again produced a second address to keep in step with
+              the first for no benefit. `contactEmail` stays in the record —
+              anyone who set one keeps it, and the feedback form still prefers
+              it — there is just no longer a way to set a new one. */""}
         <label class="ce-field"><span class="lbl">Can we email you about lynxr?</span>
           <select id="me-optin">
             <option value="no"${ME.emailOptIn ? "" : " selected"}>No — account emails only</option>
@@ -1681,7 +1682,6 @@ function renderYou(head, body) {
   document.getElementById("me-save").addEventListener("click", () => {
     ME.name = document.getElementById("me-name").value.trim();
     ME.niches = document.getElementById("me-niches").value.split(",").map((x) => x.trim()).filter(Boolean);
-    ME.contactEmail = document.getElementById("me-email").value.trim();
     ME.emailOptIn = document.getElementById("me-optin").value === "yes";
     save({ now: true });
     flashMsg("me-msg", "Saved.", "good");
@@ -2794,6 +2794,11 @@ function startLiveSync() {
    after a reset link. "reset" is the odd one — the person is already
    authenticated by the link they clicked, so it asks for no email and no old
    password, only the replacement. */
+/* Which version of the privacy policy a new account agreed to. Bump it when the
+   policy changes in a way that matters — the date in privacy/index.html is the
+   human version of the same thing. Old rows keep the version they accepted. */
+const PRIVACY_VERSION = "2026-08-17";
+
 let GATE_MODE = "in";
 function setGateMode(mode) {
   GATE_MODE = mode;
@@ -2807,6 +2812,11 @@ function setGateMode(mode) {
   document.getElementById("email").hidden = reset;
   document.getElementById("pw2-wrap").hidden = !(up || reset);
   document.getElementById("pw2").value = "";
+  // Agreement belongs to creating an account and nothing else. It is also
+  // cleared on every mode change, so switching away and back cannot leave a
+  // tick behind that the creator never made.
+  document.getElementById("agree-wrap").hidden = !up;
+  document.getElementById("agree").checked = false;
   document.getElementById("gate-go").textContent =
     reset ? "Save new password" : up ? "Create account" : "Enter";
   pw.setAttribute("autocomplete", up || reset ? "new-password" : "current-password");
@@ -2968,6 +2978,14 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
     if (SEATS_OPEN === false) { err.textContent = FULL_MSG; return; }
     if (pw.value.length < 8) { err.textContent = "Use at least 8 characters."; pw.select(); return; }
     if (pw.value !== pw2.value) { err.textContent = "Those two passwords don't match."; pw2.select(); return; }
+    /* Checked here rather than with the `required` attribute: this form shares
+       one submit handler with sign-in and password reset, where the box is
+       hidden — and a hidden `required` control blocks submission with a browser
+       bubble pointing at something nobody can see. */
+    if (!document.getElementById("agree").checked) {
+      err.textContent = "Please agree to the privacy policy to create an account.";
+      return;
+    }
     btn.disabled = true;
     err.textContent = "Creating your account…";
     try {
@@ -2985,6 +3003,12 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
         return;
       }
       await pull();
+      /* Record the agreement on the creator's own row, the same way the wait
+         list records its consent tag: a version and a timestamp, so "what did
+         this person actually agree to" stays answerable after the policy is
+         reworded. Set before unlock() so the first save carries it. */
+      ME.privacyAccepted = { version: PRIVACY_VERSION, at: new Date().toISOString() };
+      save();
       unlock();
     } catch (ex) {
       err.textContent = signupError(ex.message);

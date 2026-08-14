@@ -88,7 +88,12 @@ const SOURCE = signupSource();
    Needs supabase/waitlist_consent.sql to have been run. Until then the column
    does not exist and PostgREST rejects the whole insert, so this is sent only
    when the column is confirmed present — see the retry in the submit handler. */
-const CONSENT = "launch-notify-v1";
+/* v2 (2026-08-17) widened the promise from "we'll notify you when we launch" to
+   launch news PLUS occasional product updates. The tag changed with it, which
+   is the whole point of having one: rows carrying launch-notify-v1 agreed to a
+   single launch email and NOTHING else, so a product update may not be sent to
+   them without asking first. Do not retro-fit v2 onto old rows. */
+const CONSENT = "launch-and-updates-v2";
 
 /** Fire-and-forget. Apps Script answers with a 302 the browser will not let us
     read, so this is mode:"no-cors" and its success cannot be confirmed from

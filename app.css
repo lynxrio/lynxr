@@ -18,7 +18,13 @@
     --text-2:    #a3a3ad;
     --text-3:    #6b6b76;
     --radius:    8px;
-    --mono: "Share Tech Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    /* The system's own code font — SF Mono on macOS, Consolas on Windows, the
+       distro default on Linux. `ui-monospace` asks for exactly the face the OS
+       uses in its editors and terminals, which is the look this is after.
+       Share Tech Mono was the previous choice and is still self-hosted in
+       fonts/ (see the @font-face above); putting it back in front here restores
+       it everywhere in one edit, because everything reads from this variable. */
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
     --ease: cubic-bezier(.22, .61, .2, 1);
   }
   * { box-sizing: border-box; }
@@ -60,7 +66,12 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font: 15px/1.6 "Share Tech Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    /* Every page, one face: the body sets it and everything inherits, so this
+       line plus --mono above is the whole change. 15px was tuned for Share Tech
+       Mono, which runs narrow and small — the system mono is wider and taller
+       at the same size, so it is stepped down a touch to keep line lengths and
+       the header from growing. */
+    font: 14px/1.6 var(--mono);
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
   }
@@ -638,8 +649,14 @@
   /* Each beat answers three questions in its own labelled row: what to SAY,
      what to DO, what to SHOW on screen. Time in column one, label in two. */
   .bp-beats { list-style: none; margin: 0; padding: 0; }
+  /* The row gap separates the lines WITHIN one beat — say from do, do from
+     show, whichever combination it is. It was 3px, which set them tighter than
+     the line spacing inside a single wrapped line, so a two-line DO ran
+     straight into the SHOW under it and the beat read as one paragraph. 8px is
+     wider than the leading, so the eye breaks in the right place. The column
+     gap is unchanged; only the vertical one moved. */
   .bp-beat {
-    display: grid; grid-template-columns: 72px 42px 1fr; gap: 3px 10px;
+    display: grid; grid-template-columns: 72px 42px 1fr; gap: 8px 10px;
     padding: 9px 0; border-top: 1px solid var(--line);
   }
   .bp-beat:first-child { border-top: 0; }
@@ -1802,6 +1819,18 @@
   /* The policy link under the creator sign-in gate. Quiet by design — it is a
      reference, not a step — but present, because this is where accounts are
      created. */
+  /* The signup agreement tick. Sits inside the form, above the submit, because
+     it is a step in creating the account rather than a footnote about it. The
+     whole row is a <label>, so the words are part of the hit area — the box
+     alone is a 13px target on a phone. */
+  .gate-agree {
+    display: flex; align-items: flex-start; gap: 9px; margin: 2px 0 4px;
+    font-size: 12px; color: var(--text-2); line-height: 1.5; cursor: pointer;
+  }
+  .gate-agree[hidden] { display: none; }
+  .gate-agree input { margin: 2px 0 0; flex: none; accent-color: var(--text); cursor: pointer; }
+  .gate-agree a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
+  .gate-agree a:hover { color: var(--text); }
   .gate-fine { margin: 20px 0 0; font-size: 11.5px; color: var(--text-3); line-height: 1.6; }
   .gate-fine a { color: var(--text-3); border-bottom: 1px solid var(--line); }
   .gate-fine a:hover { color: var(--text-2); }
