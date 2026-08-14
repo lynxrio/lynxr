@@ -198,6 +198,103 @@ function countBy(rows, key) {
   return [...m.entries()].sort((a, b) => b[1] - a[1]);
 }
 
+/* SATURATION — which formats are crowded, and which still have room.
+ *
+ * The premise of the agency is being early: a format is worth using while it
+ * still beats the feed and before every other UGC shop is running it. That
+ * needs two numbers per format, and neither is enough alone.
+ *
+ *   SATURATION  what share of the database uses this format. Crowded formats
+ *               are ones the algorithm — and our competitors — have seen a lot
+ *               of already.
+ *   REACH       the MEDIAN views of videos using it. Median, not mean: one
+ *               50-million-view outlier would otherwise promote a dead format.
+ *
+ * Why not the views-per-follower index alone, which looks like the smarter
+ * metric? MEASURED on the live database: Skit scores 17.65 on index — third
+ * best — on a median of 3,216 views. That is small accounts doing well for
+ * their size, which is a real thing but not a reach opportunity. Index rewards
+ * being small; this view is for finding formats that travel.
+ *
+ * HONEST LIMIT, and it is why the label says "of our database" rather than
+ * "of the algorithm": saturation here is measured over what we scraped, and
+ * what we scraped is a choice. A format nobody collects looks unsaturated
+ * because it is unobserved. Treat it as a strong hint, not a fact.
+ */
+function renderSaturation(rows) {
+  const host = document.getElementById("saturation");
+  if (!host) return;
+  const list = formatSaturation(rows);
+  if (!list.length) { host.innerHTML = `<p class="note">Not enough tagged videos yet.</p>`; return; }
+
+  host.innerHTML = list.map((o) => {
+    const pct = o.share * 100;
+    // Three bands, named rather than numbered — "31% of the database" is the
+    // fact, "crowded" is the decision it implies.
+    const band = pct >= 15 ? "hot" : pct >= 5 ? "warm" : "open";
+    const word = band === "hot" ? "crowded" : band === "warm" ? "filling up" : "room to run";
+    return `
+      <div class="sat-row drill" data-val="${escapeHtml(o.name)}" role="button" tabindex="0"
+           title="Show these videos in the database">
+        <div class="sat-head">
+          <span class="sat-name">${escapeHtml(o.name)}</span>
+          <span class="sat-reach">${fmt(Math.round(o.reach))} median views</span>
+        </div>
+        <div class="sat-meter" aria-hidden="true"><i class="sat-fill sat-${band}"></i></div>
+        <div class="sat-foot">
+          <span class="sat-word sat-${band}-t">${word}</span>
+          <span class="sat-share">${pct.toFixed(pct >= 10 ? 0 : 1)}% of our database · ${fmt(o.n)} videos</span>
+        </div>
+      </div>`;
+  }).join("");
+
+  // Widths via CSSOM — style="" attributes are dropped by the strict CSP, which
+  // is exactly how the bar charts once shipped as invisible.
+  // Scaled against a 35% ceiling rather than 100%: the most crowded format in
+  // the database sits at ~31%, so a bar drawn against 100% would leave every
+  // format looking equally empty and the meter would say nothing.
+  const CEILING = 0.35;
+  host.querySelectorAll(".sat-row").forEach((row, i) => {
+    row.querySelector(".sat-fill").style.width =
+      `${Math.min(100, (list[i].share / CEILING) * 100).toFixed(1)}%`;
+  });
+
+  // Clicking a format filters the table to it, same as the bar charts do.
+  host.querySelectorAll(".sat-row").forEach((row) => {
+    const go = () => {
+      const sel = document.getElementById("f-format");
+      if (sel) { sel.value = row.dataset.val; sel.dispatchEvent(new Event("change")); }
+      document.getElementById("table-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    row.addEventListener("click", go);
+    row.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+  });
+}
+
+function formatSaturation(rows) {
+  const num = (x) => { const n = Number(String(x ?? "").replace(/,/g, "")); return Number.isFinite(n) ? n : 0; };
+  const by = new Map();
+  for (const r of rows) {
+    const f = (r.format_type || "").trim();
+    if (!f) continue;
+    if (!by.has(f)) by.set(f, []);
+    by.get(f).push(num(r.views));
+  }
+  const total = [...by.values()].reduce((a, v) => a + v.length, 0) || 1;
+  const out = [];
+  for (const [name, views] of by) {
+    // Under ~20 videos a median is noise, and this view drives real decisions.
+    if (views.length < 20) continue;
+    out.push({ name, n: views.length, share: views.length / total, reach: median(views) });
+  }
+  // Rank by room-to-run: best reach among the least crowded. Normalising both
+  // to the observed range keeps one axis from dominating on units alone.
+  const maxReach = Math.max(...out.map((o) => o.reach), 1);
+  const maxShare = Math.max(...out.map((o) => o.share), 0.0001);
+  for (const o of out) o.score = (o.reach / maxReach) * (1 - o.share / maxShare);
+  return out.sort((a, b) => b.score - a.score);
+}
+
 function renderBars(hostId, pairs, limit = 8, drillSelectId = null) {
   const host = document.getElementById(hostId);
   const shown = pairs.slice(0, limit);
@@ -2906,6 +3003,11 @@ function bpBeatHtml(bt, silent, prev) {
 // open announces itself (opens + flashes) instead of quietly changing a chip.
 const BP_SEEN = new Map();
 const BP_FLASH = new Set();
+/* Which blueprints are open for editing. Ids only — the working copy lives in
+   the textareas until Save, so Cancel needs no undo buffer and a reload cannot
+   resurrect a half-finished edit. Not persisted, deliberately: "open in the
+   editor" is a state of this session, not of the blueprint. */
+const BP_EDITING = new Set();
 
 function blueprintsBoxHtml(client) {
   const bps = client.blueprints || [];
@@ -2938,7 +3040,17 @@ function blueprintsBoxHtml(client) {
         script and timed beats appear here on their own, no need to stay on this page.</p>`;
     } else if (b.status === "error") {
       body = `<p class="bp-hint bad">${escapeHtml(b.note || "The video couldn't be downloaded.")}</p>
-        <div class="bp-actions"><button type="button" class="ghost bp-retry" data-bpid="${id}">Try again</button></div>`;
+        <div class="bp-actions">
+          <button type="button" class="ghost bp-retry" data-bpid="${id}">Try again</button>
+          <span class="bp-icons">
+            <button type="button" class="ghost danger icon-only bp-del" data-bpid="${id}"
+              aria-label="Delete this blueprint" title="Delete this blueprint">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+            </button>
+          </span>
+        </div>`;
     } else if (s) {
       // Missing visuals is the common case while API credits are out, and it
       // is invisible in the beats themselves — they just quietly lack their
@@ -2955,21 +3067,81 @@ function blueprintsBoxHtml(client) {
               : escapeHtml(b.note || "The visual pass didn't run.")}</p>`
           : b.note ? `<p class="bp-hint">${escapeHtml(b.note)}</p>` : ""}
         ${s.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(s.hook)}”</div>` : ""}
-        <div class="bp-heading">${escapeHtml(s.heading)}</div>
-        <ol class="bp-beats">${(() => {
-          const carry = { direction: "", show: "" };
-          return s.beats.map((bt) => bpBeatHtml(bt, !b.script?.has_speech, carry)).join("");
-        })()}</ol>
+        <div class="bp-heading">${escapeHtml(s.heading)}${
+          b.editedBeats ? ` <span class="chip">edited</span>` : ""}</div>
+        ${/* EDITING. The beats shown are DERIVED at render time —
+              realScript(bpAsRow(b)) rebuilds them from the Whisper transcript
+              and the shot list every paint — so there is nothing in the record
+              to type into. An edit is therefore stored as an OVERRIDE
+              (b.editedBeats) rather than written over the source: the
+              transcript stays exactly as the pipeline produced it, "Try again"
+              still has real data to rebuild from, and Revert is free.
+
+              The textareas hold the beat STRINGS verbatim, in the same
+              "[0-9s] words / ON SCREEN: … — text: "…"" shape the renderer
+              parses. Editing the parsed pieces and re-serialising them would
+              risk mangling a format we only read with a regex; editing the
+              string round-trips exactly. */""}
+        ${BP_EDITING.has(b.id) ? `
+          <div class="bp-editor">
+            ${(b.editedBeats || s.beats).map((bt, i) => `
+              <textarea class="bp-beat-edit grow" data-i="${i}" rows="2"
+                aria-label="Beat ${i + 1}">${escapeHtml(bt)}</textarea>`).join("")}
+            <div class="bp-actions">
+              <button type="button" class="btn bp-save" data-bpid="${id}">Save changes</button>
+              <button type="button" class="ghost bp-cancel" data-bpid="${id}">Cancel</button>
+              ${b.editedBeats ? `<button type="button" class="ghost bp-revert" data-bpid="${id}"
+                title="Discard your edits and show the pipeline's own version">Revert to original</button>` : ""}
+            </div>
+          </div>`
+        : `<ol class="bp-beats">${(() => {
+            const carry = { direction: "", show: "" };
+            return (b.editedBeats || s.beats).map((bt) => bpBeatHtml(bt, !b.script?.has_speech, carry)).join("");
+          })()}</ol>`}
+        ${/* Same action row as the creator app's script cards: icon-only copy,
+              edit and delete, pushed right by .bp-icons so the destructive one
+              is not adjacent to the one you press most. "Try again" keeps its
+              words — it is rare, and no icon says "re-run the pipeline". */""}
         <div class="bp-actions">
-          <button type="button" class="ghost bp-copy" data-bpid="${id}">Copy script</button>
           ${partial ? `<button type="button" class="ghost bp-retry" data-bpid="${id}">Try again</button>` : ""}
+          <span class="bp-icons">
+            <button type="button" class="ghost icon-only bp-copy" data-bpid="${id}"
+              aria-label="Copy this script" title="Copy this script">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                ><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+            </button>
+            ${BP_EDITING.has(b.id) ? "" : `
+            <button type="button" class="ghost icon-only bp-edit" data-bpid="${id}"
+              aria-label="Edit this script" title="Edit this script">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                ><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>
+            </button>`}
+            <button type="button" class="ghost danger icon-only bp-del" data-bpid="${id}"
+              aria-label="Delete this blueprint" title="Delete this blueprint">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+            </button>
+          </span>
         </div>`;
     } else {
       const sc = b.script || {};
       body = `<p class="bp-hint">Whisper found no usable speech${sc.language ? ` — detected ${escapeHtml(sc.language)}` : ""}${sc.duration ? `, ${Math.round(sc.duration)}s of audio` : ""}.
         Usually that means the video is music-only; a visual shot list would still describe it.</p>
         ${b.note ? `<p class="bp-hint">${escapeHtml(b.note)}</p>` : ""}
-        <div class="bp-actions"><button type="button" class="ghost bp-retry" data-bpid="${id}">Try again</button></div>`;
+        <div class="bp-actions">
+          <button type="button" class="ghost bp-retry" data-bpid="${id}">Try again</button>
+          <span class="bp-icons">
+            <button type="button" class="ghost danger icon-only bp-del" data-bpid="${id}"
+              aria-label="Delete this blueprint" title="Delete this blueprint">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+            </button>
+          </span>
+        </div>`;
     }
 
     return `<details class="bp-item bp-${escapeHtml(b.status)}${flash ? " bp-flash" : ""}"${justReady ? " open" : ""} data-bpid="${id}">
@@ -2980,9 +3152,12 @@ function blueprintsBoxHtml(client) {
         <span class="bp-when">${escapeHtml(agoLabel(b.addedAt))}</span>
         ${bhref ? `<a class="bp-open" href="${escapeHtml(bhref)}" target="_blank" rel="noopener noreferrer" title="Open the original post">↗</a>` : ""}
       </summary>
+      ${/* Delete moved INTO each branch's action row (with copy, as icons) so
+            there is one row of controls rather than a row plus a loose button
+            underneath. Every branch renders exactly one .bp-del — do not add
+            one back here, or armDelete wires two buttons to the same id. */""}
       <div class="bp-body">
         ${body}
-        <button type="button" class="ghost bp-del" data-bpid="${id}">Delete</button>
       </div>
     </details>`;
   };
@@ -3094,6 +3269,56 @@ function bindBlueprints(host, client) {
       renderBriefsKeepScroll();
     });
   });
+  /* MANUAL EDITING of a blueprint. Nothing here calls the API or costs
+     anything — it rewrites text the pipeline already produced.
+
+     Every one of these re-renders, which rebuilds the <details> from scratch
+     and loses the open state, so the card snaps shut on save and hides the
+     change you just made. Reopen it after each paint — the same fix the
+     creator app needed. */
+  const bpKeepOpen = (bpid) => {
+    renderBriefsKeepScroll();
+    document.querySelectorAll(`.bp-item[data-bpid="${CSS.escape(bpid)}"]`)
+      .forEach((el) => { el.open = true; });
+  };
+  host.querySelectorAll(".bp-edit").forEach((btn) => btn.addEventListener("click", () => {
+    BP_EDITING.add(btn.dataset.bpid);
+    bpKeepOpen(btn.dataset.bpid);
+  }));
+  host.querySelectorAll(".bp-cancel").forEach((btn) => btn.addEventListener("click", () => {
+    BP_EDITING.delete(btn.dataset.bpid);
+    bpKeepOpen(btn.dataset.bpid);
+  }));
+  host.querySelectorAll(".bp-save").forEach((btn) => btn.addEventListener("click", () => {
+    const card = btn.closest(".bp-item");
+    const beats = [...card.querySelectorAll(".bp-beat-edit")]
+      .map((t) => t.value.trim())
+      .filter(Boolean);            // a beat cleared to nothing is one you deleted
+    const fresh = loadClients();
+    const c = fresh.find((x) => x.id === client.id);
+    const b = c?.blueprints?.find((x) => x.id === btn.dataset.bpid);
+    if (!b) return;
+    b.editedBeats = beats;
+    persistClients(fresh);
+    BP_EDITING.delete(btn.dataset.bpid);
+    bpMsg("Saved.", "good");
+    bpKeepOpen(btn.dataset.bpid);
+  }));
+  /* Revert drops the override so the derived version shows again. The
+     transcript and shot list were never touched, so this always has something
+     to fall back to. */
+  host.querySelectorAll(".bp-revert").forEach((btn) => btn.addEventListener("click", () => {
+    const fresh = loadClients();
+    const c = fresh.find((x) => x.id === client.id);
+    const b = c?.blueprints?.find((x) => x.id === btn.dataset.bpid);
+    if (!b) return;
+    delete b.editedBeats;
+    persistClients(fresh);
+    BP_EDITING.delete(btn.dataset.bpid);
+    bpMsg("Back to the pipeline's version.", "good");
+    bpKeepOpen(btn.dataset.bpid);
+  }));
+
   host.querySelectorAll(".bp-copy").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const b = (loadClients().find((c) => c.id === client.id)?.blueprints || [])
@@ -4163,6 +4388,7 @@ function renderApp(rows) {
   ALL = rows;
   URL_INDEX = new Map(rows.filter((r) => r.url).map((r) => [canonUrl(r.url), r]));
   renderStats(rows);
+  renderSaturation(rows);
   renderBars("by-format", countBy(rows, "format_type"), 8, "f-format");
   renderBars("by-hook", countBy(rows, "hook_pattern"), 8, "f-hook");
   renderBars("by-niche", countBy(rows, "niche_category"), 8, "f-niche");

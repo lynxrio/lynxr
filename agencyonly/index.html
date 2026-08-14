@@ -23,7 +23,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260818n">
+<link rel="stylesheet" href="/app.css?v=20260818s">
 </head>
 <body>
 
@@ -56,9 +56,15 @@
   <header>
     <h1 class="wordmark"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></h1>
     <nav role="tablist" aria-label="Sections">
-      <button class="tab" role="tab" id="tab-database" aria-controls="panel-database" aria-selected="true">Database</button>
+      <!-- Clients first. This app exists to build briefs for the clients you
+           have; the Database is the raw material that feeds that, and the trend
+           charts on it are a CHECK on whether lynxr's formats beat ones we'd
+           pick by hand — useful, but not the thing you open the app to do.
+           Leading with it meant every session started on analysis nobody asked
+           for and then navigated away from it. -->
+      <button class="tab" role="tab" id="tab-briefs" aria-controls="panel-briefs" aria-selected="true">Clients</button>
       <button class="tab" role="tab" id="tab-brief" aria-controls="panel-brief" aria-selected="false">New Client</button>
-      <button class="tab" role="tab" id="tab-briefs" aria-controls="panel-briefs" aria-selected="false">Clients</button>
+      <button class="tab" role="tab" id="tab-database" aria-controls="panel-database" aria-selected="false">Database</button>
     </nav>
     <div class="spacer"></div>
     <span class="sync-state" id="sync-state"></span>
@@ -67,8 +73,19 @@
 
   <main>
     <!-- Database (overview + table) -->
-    <section class="panel" id="panel-database" role="tabpanel" aria-labelledby="tab-database">
+    <section class="panel" id="panel-database" role="tabpanel" aria-labelledby="tab-database" hidden>
       <div class="section"><div class="stats" id="stats"></div></div>
+
+      <!-- The check the Database tab exists to be: which formats still have room
+           to run, and which are already crowded. Ranked by reach among the least
+           saturated, so the top of this list is where to look first. -->
+      <div class="section">
+        <h2>Room to run</h2>
+        <p class="lede">Formats ranked by median reach against how crowded they already are.
+          Saturation is measured across our own database, so read it as a strong hint
+          rather than a fact about the algorithm. Click one to filter the table.</p>
+        <div class="sat-list" id="saturation"></div>
+      </div>
       <div class="section bars-grid">
         <div><h2>Format type</h2><div class="bars" id="by-format"></div></div>
         <div><h2>Hook pattern</h2><div class="bars" id="by-hook"></div></div>
@@ -116,7 +133,7 @@
     </section>
 
     <!-- Saved briefs -->
-    <section class="panel" id="panel-briefs" role="tabpanel" aria-labelledby="tab-briefs" hidden>
+    <section class="panel" id="panel-briefs" role="tabpanel" aria-labelledby="tab-briefs">
       <div id="briefs-host"></div>
     </section>
   </main>
@@ -158,8 +175,8 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260818n" defer></script>
-<script src="/app.js?v=20260818n" defer></script>
+<script src="/dotgrid.js?v=20260818s" defer></script>
+<script src="/app.js?v=20260818s" defer></script>
 </body>
 </html>
 

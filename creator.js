@@ -1760,9 +1760,23 @@ function renderYou(head, body) {
       ${/* Which account you are in, and the policy, on one quiet line under the
             buttons. The email used to sit above them as its own paragraph,
             where it read as a heading for the section rather than as a note. */""}
-      <p class="note gate-fine">${escapeHtml(SB_EMAIL || "")}
-        <span class="x-sep">&middot;</span>
+      ${/* The separator is tied to the email, not printed unconditionally: with
+            no address to show it rendered as a leading "· privacy policy",
+            a bullet separating nothing from something. */""}
+      <p class="note gate-fine">${SB_EMAIL
+        ? `${escapeHtml(SB_EMAIL)} <span class="x-sep">&middot;</span> ` : ""}
         <a href="/privacy/" target="_blank" rel="noopener">privacy policy</a></p>
+      ${/* Where lynxr is, for creators who want to follow it. Same treatment as
+            the agency footer — plain underlined text, no icons — and on its own
+            line rather than tacked onto the one above, which is about THEIR
+            account rather than about us.
+            rel="noopener noreferrer": these open in a new tab, and noreferrer
+            also keeps this app's unlisted URL out of the Referer header sent to
+            tiktok/instagram. */""}
+      <p class="note gate-fine me-socials">
+        <a href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">instagram</a>
+        <span class="x-sep">&middot;</span>
+        <a href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">tiktok</a></p>
     </div>`;
 
   renderTrash();

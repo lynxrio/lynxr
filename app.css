@@ -351,6 +351,40 @@
   .stat .value { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
   .stat .sub { color: var(--text-3); font-size: 12px; margin-top: 3px; }
 
+  /* ---------- Saturation meter ----------
+     One row per format: name and median reach on top, the crowding bar under
+     it. The bar reads left-to-right as "how much of this is already taken",
+     so a SHORT bar is the good news — which is why the word beside it says
+     what to do ("room to run") rather than repeating the number. */
+  .sat-list { display: flex; flex-direction: column; gap: 2px; }
+  .sat-row {
+    padding: 11px 12px; border-radius: 8px; cursor: pointer;
+    transition: background .15s var(--ease);
+  }
+  .sat-row:hover, .sat-row:focus-visible { background: var(--surface); outline: none; }
+  .sat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .sat-name { font-size: 14px; color: var(--text); }
+  .sat-reach { font-family: var(--mono); font-size: 12.5px; color: var(--text-2); white-space: nowrap; }
+  .sat-meter {
+    height: 5px; border-radius: 3px; background: var(--surface-2);
+    margin: 7px 0 5px; overflow: hidden;
+  }
+  .sat-fill { display: block; height: 100%; width: 0; border-radius: 3px; transition: width .5s var(--ease); }
+  /* Green where there is room, amber filling up, red crowded — the one place
+     in this app colour carries meaning rather than decoration. */
+  .sat-open { background: var(--good); }
+  .sat-warm { background: #b08a3e; }
+  .sat-hot  { background: var(--bad); }
+  .sat-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .sat-word { font-size: 11.5px; letter-spacing: .04em; }
+  .sat-open-t { color: var(--good); }
+  .sat-warm-t { color: #c79a45; }
+  .sat-hot-t  { color: var(--bad); }
+  .sat-share { color: var(--text-3); font-size: 11.5px; white-space: nowrap; }
+  @media (max-width: 560px) {
+    .sat-head, .sat-foot { flex-wrap: wrap; row-gap: 2px; }
+  }
+
   /* ---------- Bars ---------- */
   .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; }
   /* Overview chart panels: pack as many across as fit so the table — the
@@ -1986,6 +2020,24 @@
   .gate-agree a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
   .gate-agree a:hover { color: var(--text); }
   .gate-fine { margin: 20px 0 0; font-size: 11.5px; color: var(--text-3); line-height: 1.6; }
+  /* Where to find lynxr, at the very bottom of Settings. On desktop it is a
+     quiet line like the one above it. */
+  .me-socials { margin-top: 10px; }
+  @media (max-width: 820px) {
+    /* On a phone this is the last thing on the page and the only outbound link
+       in the app, so it earns a bit of room: centred, separated from the
+       account controls by a rule, and with the links padded out to a real tap
+       target — 11.5px text is about 14px tall, well under the ~44px a thumb
+       needs, and these sit directly under "delete account". */
+    .me-socials {
+      display: flex; justify-content: center; align-items: center; gap: 4px;
+      margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .me-socials a { padding: 10px 12px; border-bottom: 0; text-decoration: underline;
+                    text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+    .me-socials a:active { color: var(--text); }
+  }
   .gate-fine a { color: var(--text-3); border-bottom: 1px solid var(--line); }
   .gate-fine a:hover { color: var(--text-2); }
   .wait-msg { min-height: 18px; margin: 12px 0 0; font-size: 13px; color: var(--text-2); }
