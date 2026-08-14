@@ -1612,7 +1612,9 @@ function renderYou(head, body) {
       <p class="note">${escapeHtml(SB_EMAIL || "")}</p>
       <div class="bp-actions">
         <button type="button" class="ghost danger" id="signout">Sign out</button>
+        <button type="button" class="ghost danger" id="account-del">Delete account</button>
       </div>
+      <p class="note" id="del-msg" role="status" aria-live="polite"></p>
     </div>`;
 
   renderTrash();
@@ -1623,6 +1625,45 @@ function renderYou(head, body) {
   document.getElementById("signout").addEventListener("click", () => {
     clearSession();
     location.reload();
+  });
+
+  /* Deleting the account. Two-click armed, like every other destructive action
+     here — and unlike Sign out beside it, because this one cannot be undone.
+     (No confirm(): browsers suppress a repeated dialog and it returns false
+     instantly, which would silently turn "delete" into "do nothing".)
+
+     The work happens in Postgres. delete_own_account() is SECURITY DEFINER and
+     takes no arguments, so it can only ever delete auth.uid() — the caller. The
+     account row goes, and lynxr_creators follows it via ON DELETE CASCADE, so
+     the brands, library, scripts and trash go with it. Nothing is left behind
+     for us to clean up by hand, which is what the privacy page promises. */
+  armDelete(document.getElementById("account-del"), "Delete account", async () => {
+    const btn = document.getElementById("account-del");
+    btn.disabled = true;
+    flashMsg("del-msg", "Deleting your account…");
+    try {
+      const res = await sbFetch("/rest/v1/rpc/delete_own_account", { method: "POST" });
+      // PGRST202 is "function not found" — supabase/delete_account.sql has not
+      // been run in this project. Name it precisely: everything else here looks
+      // identical to a network failure from the browser, and "try again" would
+      // be wrong advice for a deployment step that will never fix itself.
+      if (!res.ok) {
+        const why = await res.text();
+        flashMsg("del-msg", why.includes("PGRST202")
+          ? "Account deletion isn't switched on yet — email us and we'll do it by hand."
+          : "That didn't go through. Try again, or email us.", "bad");
+        btn.disabled = false;
+        return;
+      }
+      // The account is gone, so the session it belongs to is meaningless. Clear
+      // it locally before reloading, or the app boots holding a token for a
+      // user that no longer exists.
+      clearSession();
+      location.reload();
+    } catch {
+      flashMsg("del-msg", "That didn't go through — check your connection.", "bad");
+      btn.disabled = false;
+    }
   });
 
   document.getElementById("me-save").addEventListener("click", () => {

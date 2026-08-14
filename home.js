@@ -75,6 +75,21 @@ function signupSource() {
 
 const SOURCE = signupSource();
 
+/* WHAT THEY AGREED TO.
+   Stored per signup, because the promise on the page has already been reworded
+   more than once and "what did this person actually consent to" is answerable
+   only if each row carries its own answer.
+
+   A version TAG, not the sentence: the sentence is in index.html (.wait-sub)
+   and in git history. Bump this whenever that promise changes MEANING — going
+   from "we'll email you at launch" to anything broader is a new tag, and the
+   old rows keep the narrower one they were given.
+
+   Needs supabase/waitlist_consent.sql to have been run. Until then the column
+   does not exist and PostgREST rejects the whole insert, so this is sent only
+   when the column is confirmed present — see the retry in the submit handler. */
+const CONSENT = "launch-notify-v1";
+
 /** Fire-and-forget. Apps Script answers with a 302 the browser will not let us
     read, so this is mode:"no-cors" and its success cannot be confirmed from
     here — which is why it is never allowed to affect what the visitor sees.
@@ -119,7 +134,7 @@ $("wait-form").addEventListener("submit", async (e) => {
   btn.disabled = true;
   say("adding you…");
   try {
-    const res = await fetch(`${SB_URL}/rest/v1/lynxr_waitlist`, {
+    const send = (row) => fetch(`${SB_URL}/rest/v1/lynxr_waitlist`, {
       method: "POST",
       headers: {
         apikey: SB_KEY,
@@ -135,8 +150,20 @@ $("wait-form").addEventListener("submit", async (e) => {
         // it 409 below, which is what we want anyway.
         Prefer: "return=minimal",
       },
-      body: JSON.stringify({ email, source: SOURCE }),
+      body: JSON.stringify(row),
     });
+
+    let res = await send({ email, source: SOURCE, consent: CONSENT });
+    // PGRST204 is "column not found" — waitlist_consent.sql has not been run in
+    // this project yet. PostgREST rejects the WHOLE insert when a payload names
+    // a column that does not exist, so shipping the consent tag first would
+    // have turned every signup into a failure. A real signup is worth more than
+    // its consent tag, so drop the tag and keep the address. Narrow on purpose:
+    // any other error still surfaces to the visitor below.
+    if (!res.ok && res.status !== 409) {
+      const why = await res.clone().text();
+      if (why.includes("PGRST204")) res = await send({ email, source: SOURCE });
+    }
 
     // 409 means the email is already on the list. That is a success from the
     // visitor's side, and saying "already there" would confirm to a stranger
@@ -147,7 +174,10 @@ $("wait-form").addEventListener("submit", async (e) => {
       // someone who simply submitted twice.
       if (res.ok) mirrorToSheet(email);
       $("wait-form").hidden = true;
-      say("you're on the list. we'll be in touch.", "good");
+      // Repeats the promise rather than widening it. "we'll be in touch" is
+      // vaguer than what they actually agreed to, and the confirmation is the
+      // last thing they read — it should not quietly enlarge the consent.
+      say("you're on the list. we'll email you at launch.", "good");
       return;
     }
     // The table not existing is the one failure worth naming precisely — it is

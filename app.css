@@ -1760,8 +1760,11 @@
 
   /* Waitlist. The one interactive thing on the public page, so it gets a card
      of its own rather than floating in the middle column. */
+  /* 60ch, not 52: the button is flex:none, so every character of card width
+     goes to the input. The address is the thing being typed and "you@example.com"
+     was filling most of the field before a real one was even entered. */
   .wait {
-    margin: 52px 0 0; padding: 26px 24px; width: 100%; max-width: 52ch;
+    margin: 52px 0 0; padding: 26px 24px; width: 100%; max-width: 60ch;
     border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
   }
   .wait-h {
@@ -1771,16 +1774,71 @@
   .wait-sub { color: var(--text-2); font-size: 13.5px; line-height: 1.6; margin: 0 0 18px; }
   .wait-form { display: flex; gap: 8px; flex-wrap: wrap; }
   .wait-form input {
-    flex: 1 1 220px; min-width: 0; padding: 12px 14px; font: inherit; font-size: 14px;
+    flex: 1 1 260px; min-width: 0; padding: 12px 14px; font: inherit; font-size: 14px;
     background: var(--surface-2); border: 1px solid var(--line);
     border-radius: 9px; color: var(--text);
   }
   .wait-form input:focus { outline: none; border-color: var(--line-2); }
-  .wait-form .btn { flex: none; padding: 12px 20px; font-size: 14px; }
+  /* Icon-only. align-self:stretch rather than a fixed height, so it always
+     matches the input beside it — the input's height comes from its own
+     padding and font-size, and hardcoding a number here goes wrong the moment
+     either changes. */
+  /* Solid .btn, deliberately — an outline version was tried and read too quiet
+     for the page's only action. It keeps its fill and earns its weight by being
+     small: 44px square, which is the floor for a tap target and where this
+     stops rather than shrinking to fit the arrow.
+
+     align-self:center rather than stretch — stretching tied it to the input's
+     48px, so it could never sit shorter than the field beside it. */
+  .wait-form .btn {
+    flex: none; align-self: center; width: 44px; height: 44px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .wait-form .btn svg { width: 16px; height: 16px; display: block; }
+  .wait-fine { margin: 14px 0 0; font-size: 11.5px; color: var(--text-3); }
+  .wait-fine a { color: var(--text-3); border-bottom: 1px solid var(--line); }
+  .wait-fine a:hover { color: var(--text-2); }
   .wait-msg { min-height: 18px; margin: 12px 0 0; font-size: 13px; color: var(--text-2); }
   .wait-msg.good { color: var(--good); }
   .wait-msg.bad { color: var(--bad); }
-  @media (max-width: 460px) { .wait-form .btn { flex: 1 1 100%; } }
+  /* The old full-width-on-phones rule (`flex: 1 1 100%`) is gone. It was right
+     for a button that said "join the list" and wrong the moment the label
+     became an arrow: flex-basis beats width, so the 44px square stretched the
+     full card and became the largest object on the page.
+     The row now holds at any width — input plus a 44px square is ~110px, so
+     there is nothing left to wrap. */
+  @media (max-width: 460px) {
+    .wait-form { flex-wrap: nowrap; }
+    .wait-form input { flex: 1 1 auto; min-width: 0; }
+  }
+
+  /* ---------- Legal pages (privacy) ----------
+     Left-aligned and top-aligned, unlike .home which centres everything: this
+     is prose to be read, not a single line to land on. Capped at 68ch because
+     a full-width line of 13.5px text is unreadable on a desktop monitor. */
+  .legal {
+    max-width: 68ch; margin: 0 auto; padding: 56px 24px 96px;
+    text-align: left; font-size: 14px; line-height: 1.7; color: var(--text-2);
+  }
+  .legal h1 { font-size: 30px; font-weight: 600; margin: 0 0 4px; color: var(--text); }
+  .legal h2 {
+    font-size: 13px; margin: 40px 0 10px; color: var(--text);
+    letter-spacing: .04em;
+  }
+  /* h2::before is the agency site's dash marker, which belongs on a dashboard
+     section and not above a paragraph of prose. */
+  .legal h2::before { display: none; }
+  .legal p { margin: 0 0 14px; }
+  .legal strong { color: var(--text); font-weight: 600; }
+  .legal ul { margin: 0 0 14px; padding-left: 18px; }
+  .legal li { margin: 0 0 7px; }
+  .legal a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
+  .legal a:hover { color: var(--text); }
+  .legal-date { color: var(--text-3); font-size: 12.5px; margin: 0 0 28px; }
+  .legal-back, .legal-foot a { color: var(--text-3); font-size: 12.5px; border-bottom: 0; }
+  .legal-back { display: inline-block; margin-bottom: 32px; }
+  .legal-back:hover, .legal-foot a:hover { color: var(--text-2); }
+  .legal-foot { margin-top: 48px; }
 
   .home-foot { margin: 52px 0 0; color: var(--text-3); font-size: 12.5px; }
   .home-foot a { color: var(--text-3); border-bottom-color: var(--line); }
