@@ -2767,7 +2767,30 @@ function blueprintsBoxHtml(client) {
           aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       </button>
     </div>
+    ${/* Starts hidden; the + above reveals it (bindBlueprints sets
+          .hidden = false). `hidden` alone is not enough — .post-form sets
+          display:flex, and an author rule outranks the UA [hidden] rule, so
+          .bp-form[hidden] in app.css is what actually keeps it off the page.
+
+          The note stays a sibling and follows the form's state through the
+          .bp-form[hidden] ~ #bp-note rule, so the + needs to touch only the
+          form. Inside the form it became a flex item and .note's 70ch cap let
+          it sit beside the button instead of taking its own row.
+
+          The submit button carries no id — the + above owns #bp-add, and
+          type="submit" is what submits a form. */""}
+    <form class="post-form bp-form" id="bp-form" hidden>
+      <span class="bp-field">
+        <input type="url" id="bp-url" placeholder="Paste a TikTok / Instagram / YouTube link"
+          autocomplete="off" spellcheck="false">
+        <span class="bp-plat" id="bp-plat"></span>
+      </span>
+      <button type="submit" class="btn">Get script</button>
+    </form>
     <p class="bp-msg" id="bp-msg" role="status" aria-live="polite"></p>
+    <p class="note" id="bp-note">Paste a posted video's link — the pipeline transcribes it on our
+      machine (nothing goes to a third party) and the exact spoken script with timed beats appears
+      here.</p>
     ${bps.length ? `<div class="bp-list">${bps.map(item).join("")}</div>`
                  : `<p class="note">No blueprints yet.</p>`}
   </div>`;

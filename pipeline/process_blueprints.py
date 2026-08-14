@@ -14,7 +14,10 @@ videos get:
       -> frames at the real beat starts -> shot list        (analyze_visuals)
       -> locked-taxonomy tags from audio + opening frame    (retag_with_audio)
     -> written back into the client record -> the site renders the same
-       recreation blueprint it renders for database rows (realScript).
+       recreation blueprint it renders for database rows (realScript)
+    -> and upserted into lynxr_videos, so a video staff found for one client
+       becomes searchable Lynx-wide (see upsert_video for what is and is not
+       written, and why it carries the same data_source as creator finds).
 
 Reuses the SAME functions as the database passes — same Whisper model and
 hallucination gate, same frame timing, same visual schema, same tag SYSTEM
@@ -34,10 +37,12 @@ Usage:
 
 import argparse
 import base64
+import hashlib
 import json
 import logging
 import os
 import ssl
+import subprocess
 import sys
 import tempfile
 import urllib.error
@@ -55,11 +60,11 @@ except ImportError:
 
 from transcribe import MODEL, fetch_audio, transcribe
 from analyze_visuals import analyze as analyze_frames
-from analyze_visuals import download_video, extract_frames, frame_times
+from analyze_visuals import download_video, extract_frames, frame_times, yt_dlp_bin
 from retag_with_audio import MODEL as TAG_MODEL
 from retag_with_audio import SYSTEM as TAG_SYSTEM
 from retag_with_audio import user_content
-from taxonomy import TAG_SCHEMA, TAG_SCHEMA_VISION
+from taxonomy import TAG_SCHEMA, TAG_SCHEMA_VISION, length_bucket
 
 ROOT = Path(__file__).parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
@@ -116,6 +121,118 @@ def api_reason(e):
     s = str(e)
     m = s.split("'message': '")
     return (m[1].split("'")[0] if len(m) > 1 else s)[:90]
+
+
+def canon_url(u):
+    """Same canonicalisation the apps use, so one video is one row. Copied from
+    process_adaptations rather than imported — importing that module would run
+    its logging setup as a side effect, and platform_of is already duplicated
+    here for the same reason."""
+    from urllib.parse import urlparse, parse_qs
+    try:
+        p = urlparse(u if "://" in u else "https://" + u)
+        host = p.hostname.lower().removeprefix("www.").removeprefix("m.")
+        path = p.path.rstrip("/")
+        key = ""
+        if host == "youtu.be":
+            key, host, path = "?v=" + path.lstrip("/"), "youtube.com", "/watch"
+        elif host == "youtube.com" and parse_qs(p.query).get("v"):
+            key = "?v=" + parse_qs(p.query)["v"][0]
+        return host + path + key
+    except Exception:  # noqa: BLE001
+        return (u or "").rstrip("/")
+
+
+def fetch_meta(url):
+    """Public counts and the platform's own id, straight from yt-dlp. Free — no
+    API, no scrape — and it is what lets a blueprint sit in lynxr_videos as a
+    real row rather than one with zeroed metrics."""
+    try:
+        r = subprocess.run(
+            [yt_dlp_bin(), "-q", "--no-warnings", "--skip-download",
+             "--no-playlist", "--dump-single-json", url],
+            capture_output=True, text=True, timeout=90)
+        if r.returncode != 0 or not r.stdout.strip():
+            return {}
+        d = json.loads(r.stdout)
+    except Exception as e:  # noqa: BLE001
+        log.info("  metadata lookup skipped: %s", str(e)[:80])
+        return {}
+    return {
+        "video_id": str(d.get("id") or ""),
+        "creator": str(d.get("uploader_id") or d.get("uploader") or d.get("channel") or "").lstrip("@"),
+        "title": str(d.get("title") or d.get("description") or "")[:300],
+        "views": int(d.get("view_count") or 0),
+        "likes": int(d.get("like_count") or 0),
+        "comments": int(d.get("comment_count") or 0),
+        "duration": float(d.get("duration") or 0),
+    }
+
+
+def upsert_video(key, b):
+    """Put a finished blueprint into the MAIN database alongside the scraped
+    rows, so a video staff found for one client becomes searchable Lynx-wide —
+    the same round trip process_adaptations does for creator submissions.
+
+    Marked `data_source = 'Creator'`, identical to creator submissions, on the
+    owner's instruction: submitted sources are one pool regardless of which app
+    the link was pasted into. The consequence to know about is that nothing
+    downstream can then tell a staff blueprint from a creator find — if that
+    distinction is ever wanted, this string is the only place to change.
+
+    No client or brand identity is written. The row records a PUBLIC video; who
+    it was queued for stays in the client record. That separation is what makes
+    pooling safe, and it is the same rule the creator path follows.
+
+    Best-effort: a failure here must never cost the blueprint its script.
+    """
+    url = b.get("url") or ""
+    meta = fetch_meta(url)
+    tags = b.get("tags") or {}
+    script = b.get("script") or {}
+    shots = b.get("shots") or []
+    vid = meta.get("video_id") or hashlib.sha1(canon_url(url).encode()).hexdigest()[:20]
+    views = meta.get("views") or 0
+    eng = ((meta.get("likes", 0) + meta.get("comments", 0)) / views * 100) if views else None
+
+    row = {
+        "platform": platform_of(url),
+        "video_id": vid,
+        "creator": meta.get("creator") or "",
+        "title": meta.get("title") or b.get("name") or "",
+        "views": views,
+        "likes": meta.get("likes") or 0,
+        "comments": meta.get("comments") or 0,
+        "engagement_rate": f"{eng:.2f}" if eng is not None else "",
+        "format_type": tags.get("format_type") or "",
+        "hook_pattern": tags.get("hook_pattern") or "",
+        "niche_category": tags.get("niche_category") or "",
+        "target_audience": tags.get("target_audience") or "",
+        "data_source": "Creator",
+        "url": url,
+        "length_bucket": length_bucket(meta.get("duration") or script.get("duration") or 0),
+        "visual_hook": tags.get("visual_hook") or "",
+        "onscreen_text": tags.get("onscreen_text") or "",
+        "hook_spoken": script.get("hook") or "",
+        "transcript": (script.get("text") or "")[:900],
+        "transcript_segments": json.dumps(script.get("segments") or []),
+        "visual_cues": json.dumps([{"t": s.get("t"), "visual": s.get("visual"),
+                                    "onscreen_text": s.get("onscreen_text", "")}
+                                   for s in shots]),
+    }
+    try:
+        req = urllib.request.Request(
+            SB_URL + "/rest/v1/lynxr_videos?on_conflict=platform,video_id", method="POST")
+        for h, v in (("apikey", key), ("Authorization", f"Bearer {key}"),
+                     ("Content-Type", "application/json"),
+                     ("Prefer", "resolution=merge-duplicates")):
+            req.add_header(h, v)
+        req.data = json.dumps(row).encode()
+        urllib.request.urlopen(req, timeout=60, context=SSL_CTX).read()
+        log.info("  -> added to the database as %s/%s (%s views)",
+                 row["platform"], vid, f"{views:,}" if views else "no count")
+    except Exception as e:  # noqa: BLE001
+        log.warning("  database upsert skipped: %s", str(e)[:90])
 
 
 def process_one(b, key, aclient):
@@ -261,6 +378,19 @@ def main():
                          len(b["script"]["segments"]), len(b.get("shots") or []),
                          (b.get("tags") or {}).get("format_type", "—"),
                          "" if b["script"]["has_speech"] else " (no speech)")
+                # Into the main database, same as a creator submission. Gated on
+                # BOTH a public url and real tags: an upload has no public video
+                # to point at, and an untagged row (--no-ai, or a tag pass that
+                # failed) would move the medians shelf ranking depends on while
+                # contributing no format or hook signal. Say which, rather than
+                # skipping silently.
+                if not b.get("url"):
+                    log.info("  -> not added to the database: upload, no public url")
+                elif not b.get("tags"):
+                    log.info("  -> not added to the database: no tags yet%s",
+                             " (--no-ai)" if args.no_ai else " — rerun with --redo-ai once tagging works")
+                else:
+                    upsert_video(key, b)
                 # Keep the uploaded object while any AI part failed — it is
                 # the only copy, and --redo-ai needs it after a top-up.
                 if not args.keep and b.get("path") and "failed" not in (b.get("note") or ""):
