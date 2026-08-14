@@ -1147,11 +1147,6 @@ async function enrichTranscripts(rows) {
 
 
 // ---------- Target-demographic scoring ----------
-// The client whose folder launched the current brief. It carries the niche and
-// the target avatar into the shelf; nothing about past performance is read
-// here — tracking was removed from the agency app, so a client's history is
-// stored but never scored.
-let LEARN_CLIENT = null;
 
 /** How well a video speaks to the client's target avatar. Two signals:
     the structured audience tag (exact match boosted, clearly-other demoted)
@@ -1358,7 +1353,6 @@ function clientSuggestions(client, count = 8) {
 // ---------- Brief cart ----------
 const CART_LIMIT = 10;
 let CART = new Map();        // rowKey -> row
-let SEEDED_KEYS = new Set(); // carried in from the client page's suggestions
 
 const rowKey = (r) => (r.platform || "") + "|" + (r.video_id || r.url || r.title);
 
@@ -1609,19 +1603,7 @@ async function renderShelf(niche) {
   if (BRIEF_CTX?.avatar || BRIEF_CTX?.audience) {
     notes.push(`Ranking is tilted toward the target avatar${BRIEF_CTX.audience ? ` (<strong>${escapeHtml(BRIEF_CTX.audience)}</strong> tag boosted)` : ""}${BRIEF_CTX._avatarWords?.length ? ` and captions matching: <em>${escapeHtml(BRIEF_CTX._avatarWords.slice(0, 8).join(", "))}</em>` : ""}.`);
   }
-  // Videos carried in from the client page's suggestions are already in CART,
-  // so they must also be ON the shelf — otherwise the tray counts videos that
-  // have no card, and setPicked (which reads SHELF_CTX) can't untick them.
-  const seeded = [...CART.values()].filter((r) => SEEDED_KEYS.has(rowKey(r)));
-  const pinned = new Set(seeded.map(rowKey));
-  if (seeded.length) {
-    notes.push(`${seeded.length} video${seeded.length === 1 ? "" : "s"} carried in from
-      ${escapeHtml(LEARN_CLIENT?.company || "the client page")}'s suggestions — already in the
-      brief below, untick any that don't fit.`);
-  }
-  const shelf = seeded.concat(
-    buildShelf(pool, scored, Math.max(0, 24 - seeded.length))
-      .filter((r) => !pinned.has(rowKey(r))));
+  const shelf = buildShelf(pool, scored, 24);
 
   // Fetch the shelf's real spoken scripts so every card's tailored script can
   // adapt the video's own words rather than fall back to a format template.
@@ -2228,7 +2210,6 @@ function saveCurrentBrief() {
 
   // Wrap up for the next client: clear cart, reopen the details editor.
   CART = new Map();
-  SEEDED_KEYS = new Set();
   closeModal();
   const editor = document.getElementById("client-editor");
   if (editor) {
@@ -2407,56 +2388,96 @@ function renderBriefs() {
   });
 }
 
+/** Build the next brief straight from the videos ticked in Suggestions.
+    This used to hand off to the New Client tab — its site-lookup form, its own
+    parallel video shelf and a "0/10 in brief" tray — which made no sense as the
+    answer to "+" on a client that already exists and whose videos you had just
+    picked. The brief is created here and opened, and the New Client tab goes
+    back to being only what it says: onboarding a brand-new client. */
 function startNextWeekBrief(client) {
-  LEARN_CLIENT = loadClients().find((c) => c.id === client.id) || client;
-  BRIEF_CTX = client.ctx && Object.keys(client.ctx).length ? client.ctx
-            : { brand: client.company, feats: [], audience: null };
-  // Videos ticked in the client page's suggestions start this brief already in
-  // the cart. renderShelf pins them to the front of the shelf, so the tray
-  // count always matches cards the user can actually see and untick.
-  CART = new Map([...SUGGEST_PICKS].slice(0, CART_LIMIT));
-  SEEDED_KEYS = new Set(CART.keys());
-  SUGGEST_PICKS = new Map();
-  activateTab("tab-brief");
-  renderBrief("").then(() => {
-    const b = document.getElementById("ce-brand");
-    if (b) b.value = client.company;
-    const nSel = document.getElementById("brief-niche");
-    if (nSel && client.niche) nSel.value = client.niche;
-    const aSel = document.getElementById("ce-audience");
-    if (aSel && client.ctx?.audience) aSel.value = client.ctx.audience;
-    const fIn = document.getElementById("ce-feats");
-    if (fIn && client.ctx?.feats?.length) fIn.value = client.ctx.feats.join(", ");
-    const parts = client.ctx?.avatarParts
-      || (client.ctx?.avatar ? { stats: client.ctx.avatar } : null);   // legacy single-field avatars
-    if (parts) {
-      for (const [key, id] of [["stats", "ce-av-stats"], ["habits", "ce-av-habits"],
-                               ["goals", "ce-av-goals"], ["problems", "ce-av-problems"]]) {
-        const el = document.getElementById(id);
-        if (el && parts[key]) el.value = parts[key];
-      }
+  const items = [...SUGGEST_PICKS.values()];
+  if (!items.length) {
+    // Nothing ticked: send them to the thing they need to do first rather than
+    // creating an empty brief or navigating away.
+    const box = document.querySelector(".suggest-box");
+    if (box) {
+      box.scrollIntoView({ behavior: "smooth", block: "start" });
+      sugHint("Tick the videos you want, then hit + again \u2014 they go straight into the brief.");
     }
-    document.getElementById("ce-apply")?.click();
-  });
+    return;
+  }
+  const list = loadClients();
+  const c = list.find((x) => x.id === client.id);
+  if (!c) return;
+  const rec = {
+    id: newId(), company: c.company, ctx: c.ctx || {}, niche: c.niche || "",
+    createdAt: new Date().toISOString(), items,
+  };
+  c.briefs.unshift(rec);
+  persistClients(list);
+  SUGGEST_PICKS = new Map();
+  SUGGEST_SHOWN_FOR = null;          // rescore: briefed videos drop out
+  SUGGEST_CACHE = null;
+  BRIEF_VIEW = { id: rec.id, expanded: null };
+  renderBriefs();
 }
+
+/** Transient note above the suggestions grid. Uses the `hidden` attribute
+    rather than a CSS collapse — see the .sug-hint rules for why. */
+let SUG_HINT_T = null;
+function sugHint(text) {
+  const box = document.querySelector(".suggest-box");
+  const grid = box && box.querySelector(".suggest-grid");
+  if (!grid) return;
+  let el = box.querySelector(".sug-hint");
+  if (!el) {
+    el = document.createElement("p");
+    el.className = "sug-hint";
+    grid.before(el);
+  }
+  el.textContent = text;
+  // Re-trigger the shake even when the hint is already up: removing the node
+  // from layout and forcing a reflow is what restarts a CSS animation.
+  el.hidden = true;
+  void el.offsetWidth;
+  el.hidden = false;
+  clearTimeout(SUG_HINT_T);
+  // ~14 words at a slow 3.5 words/sec, plus a beat to notice it moved.
+  SUG_HINT_T = setTimeout(() => { el.hidden = true; }, 7000);
+}
+
 
 /** Collapsed avatar card for the client page — there when needed, out of the
     way when not. Renders nothing if no avatar was ever set. */
-function avatarBoxHtml(client) {
-  const parts = client.ctx?.avatarParts
-    || (client.ctx?.avatar ? { stats: client.ctx.avatar } : null);
-  if (!parts || !Object.values(parts).some(Boolean)) return "";
-  const sections = [
-    ["Core statistics", parts.stats], ["Daily habits", parts.habits],
-    ["Deep personal goals", parts.goals], ["Major problems", parts.problems],
+/** Everything recorded about a client, behind the header's Details button.
+    Replaces the old avatar-only box: the avatar was the only field you could
+    see on this page, while the niche, audience and features that actually
+    drive the suggestion ranking were invisible unless you opened a brief. */
+function clientDetailsHtml(client) {
+  const ctx = client.ctx || {};
+  const parts = ctx.avatarParts || (ctx.avatar ? { stats: ctx.avatar } : null);
+  const row = (label, val) => val
+    ? `<div class="sug-drow"><span class="sug-dk">${label}</span><span class="sug-dv">${escapeHtml(String(val))}</span></div>` : "";
+  const avatar = [
+    ["Core statistics", parts?.stats], ["Daily habits", parts?.habits],
+    ["Deep personal goals", parts?.goals], ["Major problems", parts?.problems],
   ].filter(([, v]) => v);
-  return `<details class="avatar-box">
-    <summary>Target avatar</summary>
-    <div class="avatar-grid">${sections.map(([label, text]) => `
+  return `<div class="client-details" id="cl-details-box" hidden>
+    <div class="cd-facts">
+      ${row("company", client.company)}
+      ${row("niche", client.niche)}
+      ${row("audience", ctx.audience)}
+      ${row("brand", ctx.brand)}
+      ${row("features", (ctx.feats || []).join(", "))}
+      ${row("briefs", client.briefs.length)}
+      ${row("blueprints", (client.blueprints || []).length)}
+      ${row("added", (client.createdAt || "").slice(0, 10))}
+    </div>
+    ${avatar.length ? `<div class="avatar-grid">${avatar.map(([label, text]) => `
       <div><div class="av-label">${escapeHtml(label)}</div>
         <div class="av-text">${escapeHtml(text)}</div></div>`).join("")}
-    </div>
-  </details>`;
+    </div>` : ""}
+  </div>`;
 }
 
 /** Per-client raw-video blueprints: upload a video file → the next pipeline
@@ -3179,10 +3200,13 @@ function renderClientPage(host, client) {
       <span class="crumb-here">${escapeHtml(client.company)}</span>
     </nav>
     <div class="page-head">
-      <div class="bcard-title">${escapeHtml(client.company)}</div>
-      <div class="lbl">${escapeHtml(client.niche || "All niches")}${client.ctx?.audience ? " \u00b7 " + escapeHtml(client.ctx.audience) : ""}</div>
+      <div class="minw0">
+        <div class="bcard-title">${escapeHtml(client.company)}</div>
+        <div class="lbl">${escapeHtml(client.niche || "All niches")}${client.ctx?.audience ? " \u00b7 " + escapeHtml(client.ctx.audience) : ""}</div>
+      </div>
+      <button type="button" class="ghost" id="cl-details" aria-expanded="false">Details</button>
     </div>
-    ${avatarBoxHtml(client)}
+    ${clientDetailsHtml(client)}
 
     ${suggestionsBoxHtml(client)}
 
@@ -3221,6 +3245,14 @@ function renderClientPage(host, client) {
   bindSuggestions(host, client);
   document.getElementById("cl-back").addEventListener("click", () => {
     CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
+  });
+  const detBtn = document.getElementById("cl-details");
+  detBtn?.addEventListener("click", () => {
+    const panel = document.getElementById("cl-details-box");
+    const open = panel.hasAttribute("hidden");
+    panel.toggleAttribute("hidden", !open);
+    detBtn.setAttribute("aria-expanded", String(open));
+    detBtn.textContent = open ? "Hide details" : "Details";
   });
   document.getElementById("cl-nextbrief").addEventListener("click", () => startNextWeekBrief(client));
 
@@ -3641,7 +3673,6 @@ function initBrief() {
   const form = document.getElementById("brief-form");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    LEARN_CLIENT = null;   // a brief started here is fresh unless launched from a client
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
     try { await renderBrief(document.getElementById("client-url").value); }

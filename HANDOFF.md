@@ -278,6 +278,35 @@ initial render and the append share one definition.
 The Briefs CTA reads **"2 picks → brief 1"** (singular "1 pick"), reverting to
 the bare `+` at zero.
 
+### Briefs are created on the client page now — no New Client detour
+
+`startNextWeekBrief()` used to seed a cart and jump to the **New Client** tab,
+which then showed a site-lookup form, a second parallel video shelf and a
+"0/10 in brief" tray. As the answer to "+" on a client that already exists and
+whose videos you had just ticked, that was nonsense. It now builds the brief
+in place from `SUGGEST_PICKS`, files it, clears the picks, and opens it — the
+tab never changes.
+
+With **nothing ticked**, `+` does not create an empty brief or navigate: it
+scrolls to Suggestions and shows a transient `sugHint()`. Verified end to end —
+3 picks in, brief filed with exactly those 3 items in order, ctx carried,
+new brief opened, and on returning to the folder those videos have dropped out
+of Suggestions (they are `briefed` now) and the CTA is back to a bare `+`.
+
+That deleted the whole seeded-cart mechanism: **`SEEDED_KEYS` and
+`LEARN_CLIENT` are gone**, along with `renderShelf`'s pinning of seeded rows.
+**The New Client tab still exists** and is untouched — it is the only way to
+onboard a brand-new client from a website. Only the brief flow stopped routing
+through it.
+
+### The client header has a Details button
+
+Top-right of `.page-head`, toggling `clientDetailsHtml()`: company, niche,
+audience, brand, features, brief and blueprint counts, date added, plus the
+avatar blocks. It replaces the old `avatarBoxHtml()` — the avatar was the only
+field visible on this page, while the niche and audience that actually drive
+the suggestion ranking were invisible unless you opened a brief.
+
 ### Section headers and the mobile pass (2026-08-14)
 
 `.sec-head` is the shared "title on the left, action pinned right" row, used by

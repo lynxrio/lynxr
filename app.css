@@ -989,8 +989,44 @@
   .crumb-sep { color: var(--text-3); opacity: .5; font-size: 13px; }
   .crumb-here { color: var(--text); font-size: 13px; font-weight: 600; padding: 2px 4px; }
   .crumbs .spacer { flex: 1; }
-  .page-head { margin-bottom: 18px; }
+  /* Title on the left, Details on the right — the same shape as .sec-head, but
+     this row carries a two-line title so it aligns to the top rather than the
+     middle. */
+  .page-head { margin-bottom: 18px; display: flex; align-items: flex-start; gap: 12px; }
+  .page-head .minw0 { flex: 1 1 auto; min-width: 0; }
+  .page-head #cl-details { flex: 0 0 auto; }
   .page-head .bcard-title { font-size: 19px; }
+
+  /* Everything recorded about a client, behind the Details button. */
+  .client-details {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; margin-bottom: 22px;
+  }
+  .client-details[hidden] { display: none; }
+  .cd-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 4px 24px; }
+  .client-details .avatar-grid { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+
+  /* Transient nudge above the suggestions grid when + is pressed with nothing
+     ticked. Collapses to zero height rather than unmounting, so the grid does
+     not jump when it comes and goes. */
+  /* A nudge, so it is red and it moves once on arrival. Three oscillations of
+     4px rather than the tray's single 2px — this one has to catch an eye that
+     is looking at the + button, not at the text. The blanket
+     prefers-reduced-motion rule near the top of this file cancels it. */
+  @keyframes hint-shake {
+    12% { transform: translateX(-4px); } 36% { transform: translateX(4px); }
+    60% { transform: translateX(-3px); } 84% { transform: translateX(2px); }
+  }
+  /* Shown/hidden with the `hidden` ATTRIBUTE, not a max-height collapse. The
+     collapse version computed to max-height:0 / opacity:0 even with its class
+     applied — the element never painted a pixel, which is exactly the failure
+     mode this codebase has been bitten by before. A plain attribute toggle
+     cannot do that. */
+  .sug-hint {
+    color: var(--bad); margin: 0 0 10px; font-size: 12.5px;
+    animation: hint-shake .45s var(--ease);
+  }
+  .sug-hint[hidden] { display: none; }
   .viewer { display: grid; grid-template-columns: 320px 1fr; gap: 26px; align-items: start; }
 
   .viewer-player { border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--line); }
@@ -1235,18 +1271,6 @@
 
   /* ---------- Avatar card on the client page ----------
      Collapsed by default so it's there when you need it, invisible when not. */
-  .avatar-box {
-    border: 1px solid var(--line); border-radius: 10px;
-    margin: -6px 0 22px; font-family: inherit;
-  }
-  .avatar-box summary {
-    cursor: pointer; list-style: none; padding: 10px 14px;
-    font-size: 12px; font-weight: 600; color: var(--text-3);
-    text-transform: lowercase; letter-spacing: .08em; user-select: none;
-  }
-  .avatar-box summary::before { content: "▸ "; }
-  .avatar-box[open] summary::before { content: "▾ "; }
-  .avatar-box summary::-webkit-details-marker { display: none; }
   .avatar-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 14px 22px; padding: 2px 14px 14px;
