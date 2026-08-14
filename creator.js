@@ -1874,14 +1874,66 @@ function renderTrash() {
       || coverUrl({ libraryId: a.libraryId, canon: a.sourceUrl ? canonUrl(a.sourceUrl) : "" });
     return `<div class="bp-item trash-row" data-adid="${escapeHtml(a.id)}">
       ${thumbHtml(cover, a.title || "")}
-      <div class="trash-main">
-        <div class="bp-name">${escapeHtml(a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}</div>
+      ${/* .trash-main is a toggle on a phone only: the meta line is hidden there
+            and tapping the title drops it down. On desktop the meta is always
+            visible and the class this sets does nothing. */""}
+      <div class="trash-main" data-adid="${escapeHtml(a.id)}">
+        <div class="bp-name"><span class="trash-caret" aria-hidden="true">\u25b8</span>${escapeHtml(a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}</div>
+        ${/* The hook is wrapped so the phone can drop it: it is the longest part
+              of this line and the least useful when you are deciding whether to
+              restore something. Brand and age stay. */""}
         <p class="bp-hint">${escapeHtml(a.brandName || "—")}${gone ? " · company deleted" : ""}
-          · deleted ${escapeHtml(agoLabel(a.deletedAt))}${ad.hook ? ` · “${escapeHtml(ad.hook.slice(0, 60))}”` : ""}</p>
+          · deleted ${escapeHtml(agoLabel(a.deletedAt))}${ad.hook ? `<span class="trash-hook"> · “${escapeHtml(ad.hook.slice(0, 60))}”</span>` : ""}</p>
       </div>
-      <button type="button" class="ghost trash-restore" data-adid="${escapeHtml(a.id)}">Restore</button>
+      <span class="trash-actions">
+        ${(() => { const href = safeUrl(a.sourceUrl || "");
+          return href ? `<a class="bp-open" href="${escapeHtml(href)}" target="_blank"
+            rel="noopener noreferrer" title="Open the original video">\u2197</a>` : ""; })()}
+        ${/* Icon + word. The phone hides the word (see .trash-restore-txt) so all
+              three controls fit on the thumbnail's line instead of costing a
+              whole extra row. */""}
+        <button type="button" class="ghost trash-restore" data-adid="${escapeHtml(a.id)}" title="Restore">
+          ${/* A bin with an arrow lifting out of it — "take this back out of the
+                trash", rather than the generic undo curl, which reads as
+                "revert an edit". Same 24-box and 1.8 stroke as the delete icon
+                beside it, so the pair looks like a set. */""}
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+            ><path d="M12 9V2"/><path d="M9 5l3-3 3 3"/><path d="M4 11h16"/><path
+              d="M6 11l1 9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-9"/></svg>
+          <span class="trash-restore-txt">Restore</span>
+        </button>
+        ${/* Removes the script from YOUR trash only. The pasted video itself
+              stays in lynxr_sources — that table is keyed by canonical URL and
+              shared across every creator, so one person emptying their bin must
+              never take a source row out from under the others. Same rule
+              delete_account.sql already follows. */""}
+        <button type="button" class="ghost danger icon-only trash-purge" data-adid="${escapeHtml(a.id)}"
+          aria-label="Delete permanently" title="Delete permanently \u2014 the video stays in the shared library">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+            ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+        </button>
+      </span>
     </div>`;
   }).join("")}</div>`;
+
+  /* Permanent delete drops the entry from ME.trash and nothing else. It does
+     NOT touch lynxr_sources: that row describes a public video, is keyed by
+     canonical URL and is shared by every creator, so emptying one bin must not
+     remove it for anyone else. Two-click armed, like every other destructive
+     control here. */
+  host.querySelectorAll(".trash-main").forEach((main) => main.addEventListener("click", () => {
+    main.closest(".trash-row")?.classList.toggle("open");
+  }));
+
+  host.querySelectorAll(".trash-purge").forEach((btn) => armDelete(btn, "Delete permanently", () => {
+    const i = (ME.trash || []).findIndex((x) => x.id === btn.dataset.adid);
+    if (i < 0) return;
+    ME.trash.splice(i, 1);
+    save({ now: true });
+    renderSide(); renderPane();
+  }));
 
   host.querySelectorAll(".trash-restore").forEach((btn) => btn.addEventListener("click", () => {
     const i = (ME.trash || []).findIndex((x) => x.id === btn.dataset.adid);

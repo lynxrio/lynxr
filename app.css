@@ -552,9 +552,14 @@
   .ce-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
   .ce-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .ce-wide { grid-column: 1 / -1; }
+  /* A stacked form field fills its column. The global `select { max-width:
+     200px }` exists for the Database tab's row of filters and has no business
+     here — it left the one <select> in this form visibly narrower than every
+     <input> stacked above it. */
   .ce-field input, .ce-field select {
     background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
     color: var(--text); font: inherit; font-size: 14px; padding: 9px 11px; min-width: 0;
+    max-width: none; width: 100%;
   }
   .ce-field input:focus, .ce-field select:focus { outline: none; border-color: var(--line-2); }
   /* A field the Save press found empty. Border only — no red fill and no shake:
@@ -756,12 +761,20 @@
   /* Big enough to actually recognise the video at a glance. Two rules used to
      define this — one assuming a bare <img>, one the <span> wrapper bpThumbHtml
      really renders; the wrapper one is kept. */
+  /* Sized by ROW HEIGHT, not by aspect ratio. A strict 9:16 box wide enough to
+     be useful is 82px tall, which took this row from 66px to 104px — one line
+     of text marooned beside a tower. 40x56 keeps the row compact while still
+     being much bigger than the 34x44 it started at.
+     `contain` on the image is what protects the shape: a 9:16 cover renders
+     ~31x56 inside this box and a 4:3 YouTube one ~40x30, both whole and
+     neither stretched. The box only has to be big enough, not the same shape
+     as every source. */
   .bp-thumb {
-    flex: 0 0 auto; width: 48px; height: 62px; border-radius: 6px;
+    flex: 0 0 auto; width: 40px; height: 56px; border-radius: 6px;
     overflow: hidden; background: var(--surface-2); border: 1px solid var(--line);
     display: grid; place-items: center;
   }
-  .bp-thumb .vthumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bp-thumb .vthumb { width: 100%; height: 100%; object-fit: contain; display: block; }
   .bp-thumb .vthumb-none, .bp-thumb .vthumb-pending {
     font-size: 9px; color: var(--text-3); font-family: var(--mono); letter-spacing: .04em;
   }
@@ -971,9 +984,15 @@
     padding: 16px 18px;
   }
   .bcard:hover { border-color: var(--line-2); }
+  /* The whole card is the open button — the "Open" button that used to sit on
+     each row was redundant next to a target this size. The cursor is the only
+     affordance left, so it has to be there. */
+  .bcard.opens { cursor: pointer; }
+  .bcard.opens:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  /* Buttons inside a clickable card keep their own cursor. */
+  .bcard.opens button { cursor: pointer; }
   .bcard-main { min-width: 0; flex: 1; }
   .bcard-title { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .b-open { padding: 8px 16px; }
   .b-del.armed { color: #f0b3b3; border-color: #6b3a3a; background: #2a1414; }
 
   /* Brief viewer: video up top, script + details, flip-through */
@@ -1113,6 +1132,74 @@
     /* Blueprint rows are a flex line of url + chip + date + link. */
     .bp-item > summary { flex-wrap: wrap; row-gap: 8px; }
     .bp-name { flex: 1 1 100%; order: 2; white-space: normal; overflow-wrap: anywhere; }
+
+    /* Trash rows: the ↗/restore/bin cluster is 146px of a 375px screen, which
+       squeezed the text into 185px — a 2-line title over a 4-line meta, 156px
+       per row. Drop the actions onto their own line so the text gets the full
+       width, and clamp the meta so a long hook cannot run away with the row. */
+    /* Scoped under .trash-row on purpose: the base .trash-main/.trash-actions
+       rules live LATER in this file than this media query, so a bare
+       `.trash-actions` here loses to `flex: none` on equal specificity. */
+    .trash-row { flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
+    /* flex-basis 0, NOT 100%: at 100% the text claimed a whole line to itself
+       and pushed the thumbnail onto its own line above it — three stacked rows
+       for one entry. Basis 0 keeps it beside the thumbnail; only .trash-actions
+       wraps. */
+    .trash-row .trash-main { flex: 1 1 0; min-width: 0; }
+    /* All three controls become icons so they fit beside the text on the
+       thumbnail's own line — as a full-width second row they cost 48px per
+       entry and made a 3-line block out of one list item. */
+    .trash-row .trash-actions { flex: 0 0 auto; }
+    /* One line with an ellipsis rather than three wrapped ones. A permalink is
+       not readable prose — the thumbnail and the ↗ identify the entry, and
+       `overflow-wrap: anywhere` was breaking the URL mid-token into a 3-line
+       block taller than the thumbnail beside it.
+       Selector depth beats `.trash-row .bp-name` above, which is later in the
+       file — see the CSS ORDER TRAP note in HANDOFF.md. */
+    .trash-row .trash-main .bp-name {
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      overflow-wrap: normal;
+    }
+    .trash-row .trash-restore-txt { display: none; }
+    .trash-row .trash-restore .ico { display: block; width: 16px; height: 16px; }
+    .trash-row .trash-restore {
+      width: 34px; height: 34px; padding: 0; justify-content: center; flex: none;
+    }
+    .trash-row .trash-actions .icon-only { width: 34px; height: 34px; }
+    /* ...but NOT once armed. armDelete swaps the trash icon for the words "Are
+       you sure?", and a fixed 34x34 box crushed that into three wrapped lines
+       spilling out of the button. The base .ghost.icon-only.armed rule already
+       frees the width; this has to free the HEIGHT too and beat the rule above
+       it, which is more specific than the base one. */
+    .trash-row .trash-actions .icon-only.armed {
+      width: auto; height: auto; padding: 7px 12px; white-space: nowrap;
+    }
+    /* If the armed label leaves no room, the cluster wraps instead of
+       overflowing the card. */
+    .trash-row .trash-actions { flex-wrap: wrap; justify-content: flex-end; }
+    /* On a phone the whole meta line collapses behind the title — brand,
+       company-deleted and the date are all detail you only want when you are
+       actually deciding about one entry. Tap the title to drop it down.
+       .trash-hook stays hidden either way: it is the longest part and the least
+       useful of the lot. */
+    .trash-row .bp-hint { display: none; }
+    .trash-row.open .bp-hint { display: block; }
+    .trash-hook { display: none; }
+    .trash-row .trash-main { cursor: pointer; }
+    /* Scoped under .trash-row: the base `.trash-caret { display: none }` lives
+       later in this file, so an unscoped rule here loses on equal specificity.
+       Third time this file has caught me that way — check rule ORDER, not just
+       the media query, when a mobile override silently does nothing. */
+    .trash-row .trash-caret {
+      display: inline-block; margin-right: 7px; color: var(--text-3);
+      font-size: 10px; transition: transform .18s var(--ease);
+    }
+    .trash-row.open .trash-caret { transform: rotate(90deg); }
+
+    /* A long chip cannot wrap (white-space: nowrap is right for short taxonomy
+       labels) so it overflowed its card and was clipped by the card's own
+       overflow: hidden. On a phone, let any chip wrap rather than vanish. */
+    .chip { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1411,10 +1498,16 @@
   .sug-card .vframe { aspect-ratio: 9 / 16; height: auto; overflow: hidden; }
   .sug-card .vframe.vf-wide { aspect-ratio: 16 / 9; }
   .sug-card .vframe iframe { width: 100%; height: 100%; border: 0; display: block; }
+  /* `contain`, not `cover`. Covers are not all the same shape: TikTok and
+     Instagram frames are a true 9:16 and fill this frame exactly either way,
+     but every YouTube cover is 4:3 (ytimg only publishes a letterboxed
+     hqdefault, and fetch_covers.py sourced ours from it). Under `cover` those
+     were cropped to a narrow middle strip; under `contain` they letterbox
+     inside the frame instead. Nothing is ever stretched, and nothing is cut. */
   .sug-card .vframe > .vthumb,
   .sug-card .vframe > .vthumb-none,
   .sug-card .vframe > .vthumb-pending {
-    width: 100%; height: 100%; object-fit: cover; align-self: stretch; justify-self: stretch;
+    width: 100%; height: 100%; object-fit: contain; align-self: stretch; justify-self: stretch;
   }
   .sug-card .vrow { flex-wrap: wrap; gap: 8px; }
   .sug-card .vstat { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); }
@@ -1815,13 +1908,26 @@
   .bp-body > .ad-del { margin-top: 20px; }
   /* Trash rows in Settings: not a disclosure like the rest of .bp-item, just a
      line and the way back. */
+  /* Two stacked lines of text — the title and a long "brand · deleted 13h ago ·
+     hook" line. At 2px apart with the row's own 10px padding they read as one
+     dense block; these numbers give each line its own air. */
   .trash-row {
-    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 14px; padding: 14px;
   }
   .trash-main { min-width: 0; flex: 1; }
-  .trash-row .bp-name { white-space: normal; }
-  .trash-row .bp-hint { margin: 2px 0 0; }
+  .trash-row .bp-name { white-space: normal; line-height: 1.45; }
+  .trash-row .bp-hint { margin: 6px 0 0; line-height: 1.65; }
   .trash-row .ghost { flex: none; }
+  /* Open-original, Restore and the permanent delete, kept together on the right
+     so the row reads title-then-actions at any width. */
+  .trash-actions { flex: none; display: flex; align-items: center; gap: 8px; }
+  /* The caret is a phone-only affordance; on desktop the meta line never hides
+     so there is nothing to point at. */
+  .trash-caret { display: none; }
+  /* Desktop keeps the word and drops the icon. */
+  .trash-restore .ico { display: none; }
+  .trash-restore { display: inline-flex; align-items: center; gap: 6px; }
+  .trash-actions .bp-open { padding: 0 2px; }
   .bp-body > .bp-actions + .bp-heading { margin-top: 18px; }
   .chip.pick {
     cursor: pointer; border-style: dashed; color: var(--text);

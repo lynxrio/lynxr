@@ -833,6 +833,11 @@ function fillHostedCovers(rows) {
       probe.onload = () => {
         HOSTED_COVERS.set(url, src);
         document.querySelectorAll(`[data-url="${CSS.escape(url)}"]`).forEach((host) => {
+          // Empty slots only. Swapping a ytimg thumbnail for ours was tried and
+          // reverted: fetch_covers.py SOURCED the YouTube covers from ytimg, so
+          // ours are 360x270 — the same 4:3 — and the swap bought nothing but an
+          // extra request per row. object-fit below is what actually fixes the
+          // shape mismatch.
           const slot = host.querySelector(".vthumb-pending, .vthumb-none");
           if (!slot) return;               // already has a real thumbnail
           const img = document.createElement("img");
@@ -2414,6 +2419,23 @@ function armDelete(btn, label, onConfirm) {
   btn.addEventListener("blur", disarm);
 }
 
+/** Make a whole card its own open button: click, Enter or Space. Replaces the
+    "Open" button that used to sit on each row — the card is a big obvious
+    target and the button was redundant beside it. Controls INSIDE the card
+    (the trash icon) stop propagation themselves, so they still win. */
+function openOnCard(card, onOpen) {
+  card.addEventListener("click", (e) => {
+    if (e.target.closest("button, a, input, label, select, textarea")) return;
+    onOpen();
+  });
+  card.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (e.target !== card) return;
+    e.preventDefault();
+    onOpen();
+  });
+}
+
 /** The trash face shared by every destructive icon button (creator-app style). */
 const TRASH_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
@@ -2446,22 +2468,20 @@ function renderBriefs() {
 
   host.innerHTML = `<h2>Clients <span class="pill">${list.length}</span></h2>
     <div class="brief-stack">` + list.map((c) => `
-      <article class="bcard" data-id="${escapeHtml(c.id)}">
+      <article class="bcard opens" data-id="${escapeHtml(c.id)}"
+        role="button" tabindex="0" aria-label="Open ${escapeHtml(c.company)}">
         <div class="bcard-main">
           <div class="bcard-title">${escapeHtml(c.company)}</div>
           <div class="lbl">${escapeHtml(c.niche || "All niches")}${c.ctx?.audience ? " · " + escapeHtml(c.ctx.audience) : ""}
             · ${c.briefs.length} brief${c.briefs.length === 1 ? "" : "s"}</div>
         </div>
-        <button type="button" class="btn b-open">Open</button>
         <button type="button" class="ghost danger icon-only b-del"
           aria-label="Delete this client" title="Delete this client">${TRASH_SVG}</button>
       </article>`).join("") + `</div>`;
 
   host.querySelectorAll(".bcard").forEach((card) => {
     const id = card.dataset.id;
-    card.querySelector(".b-open").addEventListener("click", () => {
-      CLIENT_VIEW = { id }; BRIEF_VIEW = null; renderBriefs();
-    });
+    openOnCard(card, () => { CLIENT_VIEW = { id }; BRIEF_VIEW = null; renderBriefs(); });
     armDelete(card.querySelector(".b-del"), "Delete", () => {
       deleteClient(id);
       renderBriefs();
@@ -3414,12 +3434,12 @@ function renderClientPage(host, client) {
            </button>`}
     </div>
     ${total ? `<div class="brief-stack">` + client.briefs.map((b, i) => `
-      <article class="bcard" data-bid="${escapeHtml(b.id)}">
+      <article class="bcard opens" data-bid="${escapeHtml(b.id)}"
+        role="button" tabindex="0" aria-label="Open brief ${briefNo(i)}">
         <div class="bcard-main">
           <div class="bcard-title">Brief ${briefNo(i)}${i === 0 ? ` <span class="pill">latest</span>` : ""}</div>
           <div class="lbl">${escapeHtml((b.createdAt || "").slice(0, 10))} \u00b7 ${b.items.length} scripts</div>
         </div>
-        <button type="button" class="btn br-open">Open</button>
         <button type="button" class="ghost danger icon-only br-del"
           aria-label="Delete this brief" title="Delete this brief">${TRASH_SVG}</button>
       </article>`).join("") + `</div>`
@@ -3444,9 +3464,9 @@ function renderClientPage(host, client) {
 
   host.querySelectorAll(".bcard[data-bid]").forEach((card) => {
     const bid = card.dataset.bid;
-    card.querySelector(".br-open").addEventListener("click", () => {
-      BRIEF_VIEW = { id: bid, expanded: null }; renderBriefs();
-    });
+    // The whole card is the target now — armDelete already stopPropagation()s,
+    // so the trash button inside it cannot also open the brief.
+    openOnCard(card, () => { BRIEF_VIEW = { id: bid, expanded: null }; renderBriefs(); });
     armDelete(card.querySelector(".br-del"), "Delete", () => {
       const fresh = loadClients();
       const c = fresh.find((x) => x.id === client.id);

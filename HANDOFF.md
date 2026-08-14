@@ -15,6 +15,44 @@ pipeline. Three surfaces, one stylesheet (`app.css`):
 
 ---
 
+## Where this left off (read this first)
+
+The whole of 2026-08-14 went into the **agency app**, at the owner's direction,
+while they waited on feedback from test creators. Two things happened:
+
+1. **It was cut back to three jobs** — format saturation, per-video suggestions
+   per client, and briefs. ~1,340 lines of app.js and ~250 of app.css went with
+   the performance-tracking half. See "cut back to three jobs" below.
+2. **Suggestions became the centre of the app.** A client folder now opens on a
+   ranked grid of videos to copy, each carrying a **1–10 opportunity score**,
+   and ticking them plus `+` files a brief in place.
+3. **8,250 cover frames were published** to the public `lynxr-covers` bucket by
+   the new `pipeline/upload_covers.py`, which finally gives Instagram rows a
+   thumbnail. They had been sitting in gitignored `data/covers/` for months.
+
+**The creator app was touched late in the day too**, all in its trash view:
+an open-original ↗, a delete-permanently button, a restore icon, a mobile
+dropdown for the meta line, and spacing. Everything else there is untouched,
+and the shared stylesheet was re-verified against it on every change.
+
+To pick up: `python -m http.server` via `.claude/launch.json` ("lynxr", port
+8811), then `/agencyonly/`. Sign in as `lynxmedianetwork@gmail.com` — that is
+the only staff account, so any other login shows an empty dashboard.
+
+**Three facts that will save you an hour each.**
+- The HTML documents are NOT cache-stamped, so after a css/js change the
+  browser keeps serving the old `?v=` — a hard reload, or swapping the
+  stylesheet href in the console, is the only way to see your own work.
+- The venv's Python has **no CA bundle**: any `urllib` call to Supabase needs
+  `ssl.create_default_context(cafile=certifi.where())` or it dies with
+  CERTIFICATE_VERIFY_FAILED.
+- **app.css's `@media (max-width: 640px)` block sits ~700 lines ABOVE many of
+  the rules it overrides**, so an unscoped mobile override silently loses on
+  equal specificity. Source order decides, not the media query. This cost three
+  separate silent failures in one session — see the CSS ORDER TRAP note.
+
+---
+
 ## THE POINT (owner, 2026-08-19)
 
 Creators get scripts from videos they already believe will perform. Those
@@ -99,12 +137,25 @@ The sensor records; no dial exists. Highest-leverage unbuilt thing in the repo.
   a content exclusion list). Deliberately NOT a source rewrite: `text-transform`
   changes what is drawn, so "copy script" still copies the creator's real
   casing. `.entity` opts the registered company name back out.
-- **Thumbnails were enlarged across the board (2026-08-14)**: blueprint rows
-  32×42/34×44 → **48×62** (two competing `.bp-thumb` rules existed — one
-  assuming a bare `<img>`, one the `<span>` wrapper `bpThumbHtml` actually
-  renders; the wrapper one survived), the New Client shelf `minmax(250px)` →
-  **290px**, the brief viewer's player column 320 → **360px**, and the expanded
-  script card's 280 → **320px**.
+- **Thumbnails were enlarged (2026-08-14), and every thumbnail is now
+  `object-fit: contain`.** Blueprint rows 34×44 → **40×56**, the New Client
+  shelf `minmax(250px)` → **290px**, the brief viewer's player column 320 →
+  **360px**, the expanded script card 280 → **320px**.
+  Three things learned doing it:
+  - **Two competing `.bp-thumb` rules existed** — one assuming a bare `<img>`,
+    one the `<span>` wrapper `bpThumbHtml` actually renders. The wrapper
+    survived.
+  - **Do not give `.bp-thumb` a 9:16 `aspect-ratio`.** A box wide enough to be
+    useful is then 82px tall, which took the blueprint row from 66px to 104px —
+    one line of text marooned beside a tower. It is sized by ROW HEIGHT
+    (40×56, row back to 78px); `contain` is what protects the shape instead.
+  - **`cover` was cropping YouTube badly.** ytimg only publishes a 4:3
+    letterboxed `hqdefault`, and `fetch_covers.py` sourced ours from it, so
+    every YouTube cover in `lynxr-covers` is 4:3 too (360×270) — swapping one
+    for the other gains nothing and that experiment was reverted. Under
+    `cover` a 4:3 image in a 9:16 frame was cropped to a middle strip; under
+    `contain` it letterboxes whole. Verified painted ratio == natural ratio on
+    every loaded thumbnail.
 - System code font (`ui-monospace`), base 14px. Share Tech Mono is still in
   `fonts/`; put it back at the front of `--mono` to revert.
 - **The LOGO is Share Tech Mono again (2026-08-14), and only the logo.** It
@@ -147,6 +198,11 @@ stored client record, untouched — the app just stops reading it. Re-enabling
 later is a UI job, and the old code is in git history before this commit.
 
 ### Suggested videos — how the score actually works
+
+> **Read this with "The card shows a 1–10 opportunity score" below.** What is
+> described here — the per-video "edge" against its own pocket — is no longer
+> what the card displays. It is now only the TIEBREAKER that orders videos
+> sharing the same 1–10. Both are live; this is the finer of the two.
 
 Per VIDEO, not per format, because a format's aggregate hides its own winners:
 Talking Head has the worst median reach in the corpus and still supplies the
@@ -197,6 +253,11 @@ the front of the shelf** so the tray count never counts a video with no card.
 - **The ratio applies whether or not the card is playing**, so hitting play
   never resizes the card or reflows the grid under the cursor. Measured at
   1900px wide: frame 366×651, card 766px, identical before and after play.
+- **Thumbnails are `object-fit: contain`, not `cover`.** Covers are not all
+  9:16 — every YouTube one is 4:3, because ytimg publishes only a letterboxed
+  `hqdefault` and `fetch_covers.py` sourced ours from it. Under `cover` those
+  were cropped to a middle strip; under `contain` they letterbox whole.
+  Verified painted ratio == natural ratio on every loaded thumbnail.
 - Detail-panel labels are sized in `ch`, not px. At 62px "engagement"
   overflowed its own column and collided with its value.
 
@@ -359,6 +420,81 @@ That deleted the whole seeded-cart mechanism: **`SEEDED_KEYS` and
 onboard a brand-new client from a website. Only the brief flow stopped routing
 through it.
 
+### Client and brief cards are click-anywhere
+
+Both lists lost their "Open" button — the card is a big obvious target and the
+button was redundant beside it. `openOnCard()` wires click plus Enter/Space,
+the card carries `role="button" tabindex="0"`, and `.bcard.opens` supplies the
+`cursor: pointer` that is now the only affordance. The trash button inside a
+card still wins: `armDelete` already calls `stopPropagation()`, and
+`openOnCard` additionally ignores any click that lands on a
+`button, a, input, label, select, textarea`. Verified: card opens on click and
+on Enter, trash arms without navigating.
+
+### The creator trash row gained two controls
+
+Each row in the creator app's trash now carries an **open-original ↗** link and
+a **delete-permanently** trash button beside Restore, grouped in
+`.trash-actions`. The permanent delete splices `ME.trash` **and nothing else** —
+it deliberately does not touch `lynxr_sources`, because that row describes a
+public video, is keyed by canonical URL and is shared by every creator, so one
+person emptying their bin must not remove it for anybody else. Same rule
+`delete_account.sql` already follows. Two-click armed like every other
+destructive control; verified it arms, then purges only the clicked entry.
+
+The row's two text lines were spaced out (`.bp-hint` margin 2px → 6px,
+line-height 1.65, row padding 10px → 14px) — at 2px they read as one dense
+block.
+
+**On a phone the row collapses to one line — 156px → 86px.** Four attempts got
+there, and the dead ends are worth not repeating:
+
+1. Actions on their own full-width row. Still 138px, and it wasted a whole line.
+2. `.trash-main { flex: 1 1 100% }` to widen the text — **wrong**: at basis 100%
+   the text claimed its own line and shoved the thumbnail onto a line above it,
+   three stacked rows for one entry. Basis **0** keeps it beside the thumbnail.
+3. Icons instead of the word "Restore" (`.trash-restore-txt` hidden, an `.ico`
+   shown) so all three controls fit on the thumbnail's line. 91px.
+4. The permalink still wrapped to three lines in 182px, taller than the 56px
+   thumbnail beside it, because `overflow-wrap: anywhere` broke it mid-token.
+   One line with `text-overflow: ellipsis` instead. **86px.**
+
+The meta line hides behind the title with a caret (`.trash-row.open`, toggled by
+clicking `.trash-main`); `.trash-hook` stays hidden on mobile in both states.
+On desktop nothing changes: full URL, the word "Restore", meta always visible,
+caret hidden, `.open` inert.
+
+Three more fixes in the same pass:
+- **The armed delete overflowed its own button.** `armDelete` swaps the trash
+  icon for "Are you sure?", and the mobile `34x34` icon-only rule crushed that
+  into three wrapped lines spilling out of the card. `.icon-only.armed` now
+  frees width AND height (the base `.ghost.icon-only.armed` frees width only).
+- **Restore got a proper icon** — a bin with an arrow lifting out of it, rather
+  than the generic undo curl, which reads as "revert an edit".
+- **`select { max-width: 200px }` is global**, for the Database tab's filter
+  row, and it left the one `<select>` in the account form visibly narrower than
+  every `<input>` stacked above it. `.ce-field input, .ce-field select` now set
+  `max-width: none; width: 100%`. Verified the Database filters keep their
+  200px cap and nothing in the New Client grid overflows its column.
+- **The agency tab title was just "lynxr"** while its own `og:title` already
+  said "lynxr — agency". Now `<title>lynxr — agency</title>`, matching
+  "lynxr — creators". Remember the HTML documents are NOT cache-stamped, so
+  this one needs a hard reload to show.
+
+**Known trade:** the mobile title truncates to `instagram.com/p…`, so the
+shortcode that distinguishes one entry from another is cut. The thumbnail, the
+↗ and the dropdown all still identify it. If that proves annoying, render the
+tail instead of the head for the mobile title rather than reaching for a
+`direction: rtl` truncation trick, which reorders trailing punctuation.
+
+**CSS ORDER TRAP — this bit me three times in one session.** The
+`@media (max-width: 640px)` block sits EARLIER in app.css than several base
+rules (`.trash-main`, `.trash-actions`, `.trash-caret`, all defined ~700 lines
+below it). An unscoped override inside the media query therefore LOSES to the
+base rule on equal specificity and silently does nothing — the media query is
+not the tie-breaker, source order is. Scope mobile overrides under a parent
+(`.trash-row .trash-actions`) when the base rule lives further down the file.
+
 ### The client header has a Details button
 
 Top-right of `.page-head`, toggling `clientDetailsHtml()`: company, niche,
@@ -392,16 +528,26 @@ its label above its value (a 12ch label column plus a value does not fit), and
 `.bcard` / `.crumbs` / `.bp-item > summary` wrap instead of overflowing.
 Verified 0 overflowing elements and no horizontal scroll on all three pages.
 
-### Blueprint thumbnails — partly possible, and why
+### Blueprint thumbnails — three sources, one remaining gap
 
-Blueprint rows carry cover art now. **YouTube** resolves straight off the URL
-(`i.ytimg.com`) and **TikTok** arrives via oEmbed (`*.tiktokcdn.com`), both
-already in the agency CSP's `img-src`. **Instagram cannot**: it publishes no
-keyless thumbnail endpoint, and `*.cdninstagram.com` is not in `img-src`
-either — so those rows get a labelled placeholder in a fixed 34×44 box, which
-is why the box is fixed rather than sized to its content. Doing it properly
-still means the pipeline storing a cover (it already samples frames for the
-shot list) plus a CSP entry.
+Blueprint rows carry cover art in a fixed **48×62** box (fixed so a missing
+cover leaves the row exactly as tall as one that has it). Three sources are
+tried, in effect:
+
+1. **YouTube** — derived straight from the URL (`i.ytimg.com`).
+2. **TikTok** — oEmbed (`*.tiktokcdn.com`). Note this fails from `localhost`
+   with a CORS error; it works on the real origin.
+3. **`lynxr-covers`** — `fillHostedCovers()` runs on blueprint rows too, so an
+   **Instagram** blueprint does resolve *if that same video was ever turned into
+   a creator script*, because `process_adaptations.py` published its frame under
+   the same `canonUrl` key.
+
+**The gap:** a pasted Instagram video that has never been through the creator
+pipeline still shows the placeholder. Instagram publishes no keyless thumbnail
+and `*.cdninstagram.com` is not in `img-src`. The fix is
+`process_blueprints.py` saving a frame — it already downloads the media with
+yt-dlp to transcribe it — and uploading it under the same key. Confirmed today
+that it stores no cover of any kind.
 
 ## Speed (2026-08-14) — measured, not guessed
 
@@ -430,49 +576,53 @@ shot list) plus a CSP entry.
 
 ## Open — in the order I'd do them
 
-1. ~~Client-matched video suggestions.~~ **DONE 2026-08-14** — see the section
-   above. The old blocker ("the 2 rows didn't parse as expected") was a red
-   herring: `lynxr_clients` holds two RESERVED non-client rows, `ingest-queue`
-   and `deleted-clients`, and `sbPullClients` already filters both out. The
-   real shape is `{id, data: {company, ctx:{audience,…}, niche, briefs[],
-   posts[]}}`.
+**Done today, kept only as pointers:** client-matched video suggestions (the
+whole "Suggested videos" machinery below) and the blueprint add-by-link form
+(landed by a separate session in commits `242b8d1` / `6a7134a`; that session
+has since been deleted, so `blueprintsBoxHtml` is uncontested again, and every
+element id app.js looks up now resolves).
+
+1. **Read the test-creator feedback — nothing in the agency app shows it.**
+   Creators write to `lynxr_feedback` (`creator.js`) and the staff select
+   policy already exists (`staff_gate.sql`), but `app.js` references the table
+   **zero times**, so whatever they send is only visible in the Supabase
+   dashboard. Front-end only, no SQL. This is first because the owner is
+   waiting on exactly that feedback.
 2. **Surface `lynxr_sources`** in the agency app, ranked by `tag_count` and
-   recency. See THE POINT above. **Needs SQL first**: the table has no
-   `authenticated` policies at all (service-role only, on purpose), so a
-   `is_staff()` select policy has to be added in the Supabase SQL editor before
-   any UI can read it.
-3. **Nothing in the agency app reads `lynxr_feedback`.** Creators write to it
-   (`creator.js`), and the staff select policy already exists
-   (`staff_gate.sql`), but `app.js` references it zero times — so test-creator
-   feedback is only visible in the Supabase dashboard. Front-end only, no SQL.
-4. Rest of the agency feedback: client fields (website, logo, description),
+   recency — still the highest-leverage unbuilt thing, see THE POINT above.
+   **Needs SQL first**: the table has no `authenticated` policies at all
+   (service-role only, on purpose), so an `is_staff()` select policy has to go
+   in via the Supabase SQL editor before any UI can read it.
+3. **Blueprint covers for pasted Instagram videos.** Have
+   `process_blueprints.py` keep a frame — it already downloads the media with
+   yt-dlp to transcribe it — and upload it to `lynxr-covers` under
+   `sha1(canon_url(url))[:20]`, the key both other pipelines already use.
+   Everything downstream then works with no front-end change. See "Blueprint
+   thumbnails" above for why the other three sources cannot cover this case.
+4. **Backfill the 743 database rows with no cached cover**, and retry the 10
+   that failed upload. `fetch_covers.py` then `upload_covers.py --limit N`.
+   Current coverage: 989/1,335 Instagram, 6,299/6,692 TikTok, 972/976 YouTube.
+5. Rest of the agency feedback: client fields (website, logo, description),
    a 4×4 video grid, briefs tagged by week, swap-a-video-in-a-brief (needs the
    grid), editable briefs (blueprints are done; briefs themselves are not).
-5. ~~The blueprint add-by-link form is missing.~~ **DONE** — a separate session
-   landed it (commits `242b8d1`, `6a7134a`) and that session has since been
-   deleted, so `blueprintsBoxHtml` is no longer contested. Every element id
-   app.js looks up now resolves. The form was restyled to reuse the creator
-   app's **`.composer-row` / `.composer-send`** — one rounded pill, arrow send
-   button, `.bp-plat` inline beside it — so both sides are identical for free.
-   It carries `margin-top: 14px` to clear the header's `+`, which otherwise sat
-   flush against the send button and read as one control. Historical note:
-   `bindBlueprints` looks up `bp-url` / `bp-plat` / `bp-form`, none of which
-   exist in any template — pre-existing, fully null-guarded so nothing throws.
-   A **`+` button now sits top-right of the Video blueprints header** (`bp-add`,
-   flush with the cards, matching the creator app's `.lib-plus`); it reveals and
-   focuses `#bp-url` when that form exists and otherwise says so plainly. So
-   the only missing piece is the form itself. A separate session was started to
-   restore it and had not landed it as of this handoff — check before editing
-   `blueprintsBoxHtml`, two sessions writing that function will clobber
-   each other (it happened once already this session).
 6. **Send the launch email.** Draft at `~/Desktop/lynxr-launch-email.md`.
    Blocked on: linking the word "unsubscribe" to `{{{RESEND_UNSUBSCRIBE_URL}}}`
    (three braces, in the URL field) and verifying `send.lynxr.io` DNS.
    Resend's composer is a VISUAL editor — pasted markdown stays literal.
-7. **Thumbnails on agency blueprints — blocked, not a CSS job.** Blueprints
-   have no cover anywhere: `process_blueprints.py` never stores one and there
-   are 0 blueprints in the DB. The pipeline already samples frames for the shot
-   list; keeping one would fix it, plus an `img-src` entry in the agency CSP.
+
+### Two open questions for the owner
+
+- **The New Client tab survived, deliberately.** The brief flow no longer
+  routes through it (that was the "nonsensical page"), but it is still the only
+  way to onboard a brand-new client from a website. If client creation moves
+  onto the Clients tab, the whole tab — site lookup, its own video shelf, the
+  10-video cart, `renderBrief`/`renderShelf`/`buildShelf`/`buildPlays` — can go.
+  That is a big deletion; ask before doing it.
+- **Suggestion cards are ~766px tall** because the frame is the video's own
+  9:16 and the same height whether or not it is playing, so hitting play never
+  reflows the grid. The owner asked for both "not cut off" and "no jump"; this
+  is the trade that satisfies both. A shorter card means the player clips or
+  the grid moves.
 
 ---
 
@@ -484,9 +634,12 @@ shot list) plus a CSP entry.
   `creator.js` needs resolve — but if something obscure is missing from that
   page, this is why. Never back up two same-named files into one folder.
 - **Cache stamps.** Every page carries `?v=YYYYMMDDx` on css/js. Bump on EVERY
-  css/js change or browsers serve stale files. Currently `20260819a`.
-  Note: the HTML documents themselves are not stamped, so a hard reload is
-  needed to pick up markup changes.
+  css/js change or browsers serve stale files. **Currently `20260820i`** — note
+  it rolled past `z` on the 19th into the next day's letters, so carry on from
+  `20260820j`.
+  The HTML documents themselves are NOT stamped, so markup changes — including
+  `<title>` — need a hard reload; bumping `?v=` does nothing for them. This
+  costs an hour if you forget it: your own CSS edits appear not to apply.
 - **Strict CSP, `style-src 'self'`.** No inline `style=""` — set via CSSOM.
   This once shipped invisible bar charts; verify painted pixels.
 - **Never put `${...}` in a plain .html file.** It is JS template syntax and
