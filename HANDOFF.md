@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-08-19.**
+Read this, then `README.md` for architecture. **Last updated 2026-08-14.**
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -101,30 +101,174 @@ The sensor records; no dial exists. Highest-leverage unbuilt thing in the repo.
   casing. `.entity` opts the registered company name back out.
 - System code font (`ui-monospace`), base 14px. Share Tech Mono is still in
   `fonts/`; put it back at the front of `--mono` to revert.
+- **The LOGO is Share Tech Mono again (2026-08-14), and only the logo.** It
+  lives in its own `--logo` variable used by `.wordmark`, `.foot-wordmark` and
+  `.legal-back` — that last one IS the wordmark on the privacy page, it just
+  isn't marked up with `.wordmark`. All four pages, every instance, verified
+  live. Everything else stays on the system font. Do NOT fold `--logo` back
+  into `--mono` — that is the site-wide revert. The face ships a single 400 weight,
+  so the wordmark's old `font-weight: 600` and `letter-spacing: -0.03em` were
+  dropped (synthesised bold, and negative tracking cramps a monospace face).
+  Verified painted, not just declared: "lynxr." measures 68.05px in Share Tech
+  Mono vs 75.86px in the fallback stack.
 
 ---
 
+## The agency app was cut back to three jobs (2026-08-14)
+
+Owner's call: **"get rid of anything that isn't related to seeing which formats
+are saturated or not and adding them to a brief… focus on finding videos that
+will work well for specific clients based on their niche and target
+demographic. The tracking we can do later."**
+
+So the agency app now does exactly three things: **format saturation**
+(Database tab), **per-video suggestions per client**, and **briefs**.
+
+**The .docx export is gone too (2026-08-14, owner's call).** Both buttons and
+the entire hand-rolled exporter — `zipStore`, `crc32`, the OOXML part builders
+— went with them, ~100 lines that nothing could reach any more. Briefs are
+still copyable as text (`copyScripts`).
+
+**Removed — ~1,240 lines of app.js and ~250 of app.css.** Performance tracking
+in full: post check-ins, predicted-vs-actual charts, campaign/brief health
+cards, the held-out model validation, the warm-up calibration bands, the
+"what works for this client" trends card, and the client learning loop that
+boosted formats off tracked posts. The New Client form lost its three campaign-
+plan fields (videos/month, success target, calibration role).
+
+**Nothing was deleted from anyone's data.** `client.posts` is still in every
+stored client record, untouched — the app just stops reading it. Re-enabling
+later is a UI job, and the old code is in git history before this commit.
+
+### Suggested videos — how the score actually works
+
+Per VIDEO, not per format, because a format's aggregate hides its own winners:
+Talking Head has the worst median reach in the corpus and still supplies the
+most individual overperformers.
+
+The obvious score is `views / avg_views_of_similar` — the column the pipeline
+already ships. **Do not use it raw.** Measured on the master CSV it has two
+defects:
+
+1. Its group key is `(niche, format, hook)` with **no platform**, so it scores
+   a YouTube Short against viral TikToks. Median score by platform: tiktok
+   0.204, instagram 0.110, **youtube 0.012** — a 17× handicap that put 0
+   YouTube videos in the top 200.
+2. It is a **mean**, so one 10M-view clip makes every other member of its
+   pocket look like a failure. Corpus median score was 0.128.
+
+`buildPockets()` rebuilds the denominator: same grouping **plus platform**, a
+**median**, over measured rows only (`views > 0` — the same zero-views trap
+`renderShelf` documents), pockets of ≥12. Corpus median goes to 1.00 with
+50.5% of videos above their pocket, which is what "beat the typical video like
+you" should mean. 440 pockets cover 7,874 of 9,003 rows; anything thinner is
+simply not scored.
+
+**Ranking is banded, not top-N.** A raw descending sort returns a viral
+highlight reel — 21M-view meme clips from pockets of 6 — which is useless as a
+brief because nobody can copy a lottery win. So: keep only videos that beat
+their pocket, **cut the top 3%**, cap 2 per format×hook, then tilt by the
+client's target demographic (`avatarBoost`: audience tag + avatar keywords).
+Same lesson `buildShelf` already encodes for formats.
+
+Ticking suggestions seeds the next brief's cart — `SUGGEST_PICKS` →
+`startNextWeekBrief` → `SEEDED_KEYS`, and `renderShelf` **pins seeded rows to
+the front of the shelf** so the tray count never counts a video with no card.
+
+### Layout rules the suggestion cards learned
+
+- **The grid is fixed at 3 columns**, not `auto-fill`. On a wide monitor
+  auto-fill produced six-plus columns of vertical video and the section
+  swallowed the page. 2 columns under 900px, 1 under 560px.
+- **The frame is `aspect-ratio: 9/16` — the VIDEO's own ratio — with
+  `overflow: hidden`.** Three things were tried and two were wrong: a bare
+  `max-height` let a 1080×1920 cover win the sizing race and paint over the
+  score and buttons below it; a flat 400px height stopped that but clipped the
+  player, cutting the video off partway down. 9/16 is the video itself. The
+  platform frames' full ratios (TikTok is 9/19.8) budget for the embed's
+  header, caption and music rows on top of the video — ~800px at these card
+  widths — so only that surrounding chrome now falls outside the frame.
+- **The ratio applies whether or not the card is playing**, so hitting play
+  never resizes the card or reflows the grid under the cursor. Measured at
+  1900px wide: frame 366×651, card 766px, identical before and after play.
+- Detail-panel labels are sized in `ch`, not px. At 62px "engagement"
+  overflowed its own column and collided with its value.
+
+### `armDelete` ate its own icons (fixed 2026-08-14)
+
+The agency copy restored a button with `btn.textContent = label`, so the first
+arm-then-disarm **replaced the trash `<svg>` with the word "Delete"** — the
+blueprint delete buttons had permanently degraded to text. `creator.js` had
+already solved this; app.js now matches it: capture `btn.innerHTML` as the
+face, restore that, and ignore a second click inside 450ms so an ordinary
+double-click can't delete outright. Client and brief rows now use the same
+`ghost danger icon-only` trash button (`TRASH_SVG`).
+
+### Blueprint thumbnails — partly possible, and why
+
+Blueprint rows carry cover art now. **YouTube** resolves straight off the URL
+(`i.ytimg.com`) and **TikTok** arrives via oEmbed (`*.tiktokcdn.com`), both
+already in the agency CSP's `img-src`. **Instagram cannot**: it publishes no
+keyless thumbnail endpoint, and `*.cdninstagram.com` is not in `img-src`
+either — so those rows get a labelled placeholder in a fixed 34×44 box, which
+is why the box is fixed rather than sized to its content. Doing it properly
+still means the pipeline storing a cover (it already samples frames for the
+shot list) plus a CSP entry.
+
+## Speed (2026-08-14) — measured, not guessed
+
+- **Cold load was 11 sequential Supabase round-trips**: a throwaway probe
+  request plus 10 sequential pages of 1,000 rows. Now **2**: the first request
+  probes, fetches page 1, AND asks `Prefer: count=exact` for the row total, and
+  every remaining page is fetched concurrently. `Promise.all` preserves order,
+  so the rows arrive in exactly the old sequence. Both fallbacks still work
+  (no count header → sequential walk; missing signal columns → retry on the
+  base field list) — all three paths verified against a stub.
+- **Payload is 1.21 MB gzipped / 7.2 MB raw.** Half of the gzipped bytes is
+  the `title` column alone (640 KB) and it is needed everywhere, so there is no
+  big cut left. Dropped `views_to_followers` — fetched but read by nothing, 29 KB.
+- **Client-side compute is not the problem**: at 9,016 rows, `buildPockets`
+  6ms, `formatSaturation` 3ms, `buildPlays` 38ms, `clientSuggestions` 1.7ms.
+- **Static assets are not the problem either**: 87 KB gzipped for the agency
+  page, 90 KB creator, 37 KB landing.
+- **Hosting is not the bottleneck — do not move off GitHub Pages for speed.**
+  Pages serves the small static half from a CDN with gzip. The 1.21 MB comes
+  from Supabase, so what matters is the Supabase project's region relative to
+  whoever is loading it, not the static host.
+- Still on the table, but each changes behaviour so none were done: caching the
+  corpus in IndexedDB with revalidation (instant repeat loads, at the cost of
+  showing stale rows briefly), or a server-side summary endpoint so the
+  Database tab does not need all 9,016 rows client-side.
+
 ## Open — in the order I'd do them
 
-1. **Client-matched video suggestions.** Owner's ask: suggested videos inside
-   each client folder, scored PER VIDEO not per format, because a format's
-   aggregate hides its own winners. **The scoring is validated**: `views /
-   avg_views_of_similar` = did this beat its own format; `similar_format_count`
-   = how crowded that pocket is. 8,925 of 9,016 rows scoreable, only **21% beat
-   their format's average**, and the top picks are Talking Heads — the format
-   that looks worst in aggregate. What's missing is the client join: video
-   `niche_category` ↔ client `niche` / `ctx.audience`. I could not confirm the
-   client record shape (the 2 rows didn't parse as expected) — check that first.
+1. ~~Client-matched video suggestions.~~ **DONE 2026-08-14** — see the section
+   above. The old blocker ("the 2 rows didn't parse as expected") was a red
+   herring: `lynxr_clients` holds two RESERVED non-client rows, `ingest-queue`
+   and `deleted-clients`, and `sbPullClients` already filters both out. The
+   real shape is `{id, data: {company, ctx:{audience,…}, niche, briefs[],
+   posts[]}}`.
 2. **Surface `lynxr_sources`** in the agency app, ranked by `tag_count` and
-   recency. See THE POINT above.
-3. Rest of the agency feedback: client fields (website, logo, description),
+   recency. See THE POINT above. **Needs SQL first**: the table has no
+   `authenticated` policies at all (service-role only, on purpose), so a
+   `is_staff()` select policy has to be added in the Supabase SQL editor before
+   any UI can read it.
+3. **Nothing in the agency app reads `lynxr_feedback`.** Creators write to it
+   (`creator.js`), and the staff select policy already exists
+   (`staff_gate.sql`), but `app.js` references it zero times — so test-creator
+   feedback is only visible in the Supabase dashboard. Front-end only, no SQL.
+4. Rest of the agency feedback: client fields (website, logo, description),
    a 4×4 video grid, briefs tagged by week, swap-a-video-in-a-brief (needs the
    grid), editable briefs (blueprints are done; briefs themselves are not).
-4. **Send the launch email.** Draft at `~/Desktop/lynxr-launch-email.md`.
+5. **The blueprint add-by-link form is not rendered anywhere.** `bindBlueprints`
+   looks up `bp-url` / `bp-plat` / `bp-form`, none of which exist in any
+   template — pre-existing, predates this session, and fully null-guarded so
+   nothing throws. There is currently no way to add a blueprint from the UI.
+6. **Send the launch email.** Draft at `~/Desktop/lynxr-launch-email.md`.
    Blocked on: linking the word "unsubscribe" to `{{{RESEND_UNSUBSCRIBE_URL}}}`
    (three braces, in the URL field) and verifying `send.lynxr.io` DNS.
    Resend's composer is a VISUAL editor — pasted markdown stays literal.
-5. **Thumbnails on agency blueprints — blocked, not a CSS job.** Blueprints
+7. **Thumbnails on agency blueprints — blocked, not a CSS job.** Blueprints
    have no cover anywhere: `process_blueprints.py` never stores one and there
    are 0 blueprints in the DB. The pipeline already samples frames for the shot
    list; keeping one would fix it, plus an `img-src` entry in the agency CSP.

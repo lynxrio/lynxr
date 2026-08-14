@@ -32,6 +32,13 @@
        intentional instead of a happy side effect, and the rest still covers
        Windows and Linux. */
     --mono: Menlo, ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
+    /* THE LOGO ONLY. Share Tech Mono is the original digital-readout face; it
+       stopped being referenced anywhere when --mono moved to the system code
+       font, which meant the self-hosted woff2 was no longer even downloaded.
+       Scoped to a variable of its own so the wordmark keeps that face while
+       every other surface stays on the system font — do NOT fold this back
+       into --mono, that is the site-wide revert. */
+    --logo: "Share Tech Mono", var(--mono);
     --ease: cubic-bezier(.22, .61, .2, 1);
   }
   * { box-sizing: border-box; }
@@ -91,8 +98,13 @@
   button { font: inherit; cursor: pointer; transition: background .12s, color .12s, border-color .12s, opacity .12s; }
   :focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; border-radius: 4px; }
 
+  /* Share Tech Mono ships a single 400 weight, so the old 600 would have been
+     a synthesised bold — smeared strokes on a face whose whole character is
+     thin even ones. Negative tracking goes too: it was tuned for a
+     proportional face and cramps a monospace one. */
   .wordmark {
-    font-size: 20px; font-weight: 600; letter-spacing: -0.03em; margin: 0;
+    font-family: var(--logo); font-size: 21px; font-weight: 400;
+    letter-spacing: 0; margin: 0;
     display: inline-flex; align-items: center; gap: 9px;
   }
   .wordmark i { font-style: normal; color: var(--text-3); }
@@ -733,6 +745,19 @@
   }
   .bp-caret { color: var(--text-3); font-size: 10px; transition: transform .18s var(--ease); }
   .bp-item[open] .bp-caret { transform: rotate(90deg); }
+  /* Cover art on a blueprint row. Fixed box so a missing cover leaves the row
+     exactly as tall as one that has it — Instagram never resolves a thumbnail
+     (no keyless endpoint, and its CDN is not in img-src), so a shifting size
+     here would be the common case, not the rare one. */
+  .bp-thumb {
+    flex: 0 0 auto; width: 34px; height: 44px; border-radius: 5px;
+    overflow: hidden; background: var(--surface-2); border: 1px solid var(--line);
+    display: grid; place-items: center;
+  }
+  .bp-thumb .vthumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bp-thumb .vthumb-none, .bp-thumb .vthumb-pending {
+    font-size: 9px; color: var(--text-3); font-family: var(--mono); letter-spacing: .04em;
+  }
   .bp-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bp-when { color: var(--text-3); font-size: 11px; white-space: nowrap; }
   .bp-open { color: var(--text-3); text-decoration: none; font-size: 12px; }
@@ -986,45 +1011,6 @@
   .verdict.good { color: var(--good); }
   .verdict.bad { color: var(--bad); }
   .verdict.even { color: var(--even); }
-  .growth-card {
-    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
-    padding: 18px 20px; margin: 4px 0 30px;
-  }
-  .growth-card.good { border-color: #2c4a39; }
-  .growth-card.bad { border-color: #4a2c2c; }
-  .growth-card.even { border-color: #4a412c; }
-  .growth-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
-  .growth-head h2 { margin: 0; }
-  .spark { width: 100%; height: auto; display: block; }
-  /* Strokes stay hairline-true no matter how far the viewBox stretches. */
-  .spark polyline, .spark line { vector-effect: non-scaling-stroke; }
-  .spark-line { fill: none; stroke: var(--text-2); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-  .spark-dot { fill: var(--text-2); }
-  .good .spark-line { stroke: var(--good); } .good .spark-dot { fill: var(--good); }
-  .bad .spark-line { stroke: var(--bad); } .bad .spark-dot { fill: var(--bad); }
-  .spark-pred { stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 5 5; }
-  .chart { width: 100%; height: auto; display: block; margin-top: 4px; }
-  .chart-grid { stroke: var(--line); stroke-width: 1; }
-  .chart-axis { stroke: var(--line-2); stroke-width: 1.5; }
-  .chart-tick { fill: var(--text-3); font-family: var(--mono); font-size: 9.5px; }
-  .chart-key { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; margin-top: 8px; font-size: 12px; color: var(--text-2); }
-  .chart-key i { display: inline-block; width: 16px; height: 0; vertical-align: middle; margin-right: 6px; }
-  .chart-key .k-est { border-top: 2px dashed var(--text-3); }
-  .chart-key .k-act { border-top: 2px solid var(--text-2); }
-  .axis-title { fill: var(--text-3); font-size: 11px; letter-spacing: .04em; }
-  .line-pred { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-dasharray: 5 5; stroke-linecap: round; }
-  .line-actual { fill: none; stroke: var(--text-2); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
-  .dot-actual { fill: var(--text-2); }
-  .chart.good .line-actual { stroke: var(--good); }  .chart.good .dot-actual { fill: var(--good); }
-  .chart.bad .line-actual { stroke: var(--bad); }    .chart.bad .dot-actual { fill: var(--bad); }
-  .chart.even .line-actual { stroke: var(--even); }  .chart.even .dot-actual { fill: var(--even); }
-  .good .chart-key .k-act { border-top-color: var(--good); }
-  .bad .chart-key .k-act { border-top-color: var(--bad); }
-  .even .chart-key .k-act { border-top-color: var(--even); }
-  .good .chart-key .k-act { border-top-color: var(--good); }
-  .bad .chart-key .k-act { border-top-color: var(--bad); }
-  .spark-est { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 1.5 5; stroke-linecap: round; }
-  .spark-est-dot { fill: none; stroke: var(--text-3); stroke-width: 1.5; }
 
   .fmt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 30px; }
   .fmt-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
@@ -1045,46 +1031,6 @@
   .cd-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
   @media (max-width: 700px) { .card-detail { grid-template-columns: 1fr; } .cd-player-col { max-width: 280px; margin: 0 auto; } }
 
-  .track-all-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 4px 0 12px; }
-  .track-all-row .note { margin: 0; }
-  .post-form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
-  .post-form input[type="url"] { flex: 1 1 260px; }
-  .post-form input[type="text"] { flex: 0 1 150px; }
-  .post-form input, .post-form select {
-    padding: 9px 12px; background: var(--surface); border: 1px solid var(--line);
-    border-radius: 8px; color: var(--text); font: inherit; font-size: 14px; min-width: 0;
-  }
-  .post-list { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 34px; }
-  .post-row {
-    display: grid; grid-template-columns: 1fr 240px; gap: 8px 20px; align-items: center;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px;
-  }
-  .post-row.good { border-left: 3px solid var(--good); }
-  .post-row.bad { border-left: 3px solid var(--bad); }
-  .post-main { min-width: 0; }
-  .post-nums { display: flex; gap: 8px; align-items: baseline; margin-top: 4px; flex-wrap: wrap; }
-  .post-nums .mono { font-family: var(--mono); font-size: 13px; }
-  .post-spark { align-self: center; }
-  .checkin-form { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
-  .checkin-form .ci-views {
-    flex: 0 1 190px; padding: 7px 11px; background: var(--surface-2);
-    border: 1px solid var(--line); border-radius: 8px; color: var(--text); font: inherit; font-size: 13px;
-  }
-  .checkin-form .ghost { padding: 6px 12px; font-size: 12.5px; }
-  .p-del.armed, .br-del.armed { color: #f0b3b3; border-color: #6b3a3a; background: #2a1414; }
-  .spark-axis { stroke: var(--line-2); stroke-width: 1; }
-  .spark.empty { opacity: .6; }
-  .recs { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin-bottom: 22px; }
-  .recs h2 { margin-bottom: 8px; }
-  .recs ul { margin: 0; padding-left: 20px; color: var(--text-2); font-size: 14px; }
-  .recs li { margin: 6px 0; }
-  .flag-block { border-radius: 12px; border: 1px solid var(--line); padding: 14px 20px; margin-bottom: 18px; }
-  .flag-block.good-block { border-left: 3px solid var(--good); }
-  .flag-block.bad-block { border-left: 3px solid var(--bad); }
-  .flag-list { list-style: none; margin: 0; padding: 0; }
-  .flag-list li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; padding: 6px 0; font-size: 13.5px; border-bottom: 1px solid var(--line); }
-  .flag-list li:last-child { border-bottom: 0; }
-  @media (max-width: 700px) { .post-row { grid-template-columns: 1fr; } .post-spark { max-width: 260px; } }
 
   @media (max-width: 640px) {
     header { gap: 8px; padding: 0 12px; }
@@ -1109,40 +1055,6 @@
     .loader-mark .arm { opacity: 1; }
   }
 
-  .proven {
-    display: inline-block; font-size: 10.5px; font-family: var(--mono);
-    color: var(--good); border: 1px solid #2c4a39; border-radius: 3px;
-    padding: 1px 6px; margin-right: 4px;
-  }
-
-  /* Chart day markers + hover readout */
-  .dot-pred { fill: var(--bg); stroke: var(--text-3); stroke-width: 1.5; }
-  .hit { fill: transparent; cursor: crosshair; }
-  .hit:focus-visible { outline: none; }
-  .hover-rule { stroke: var(--line-2); stroke-width: 1; stroke-dasharray: 3 3; }
-  .growth-card.has-tip { position: relative; }
-  .chart-tip {
-    position: absolute; top: 18px; transform: translateX(-50%);
-    background: #17171acc; backdrop-filter: blur(6px);
-    border: 1px solid var(--line-2); border-radius: 9px;
-    padding: 9px 12px; min-width: 132px; pointer-events: none; z-index: 4;
-    font-size: 12.5px;
-  }
-  .chart-tip.flip { transform: translateX(-100%); }
-  .chart-tip[hidden] { display: none; }
-  .tip-day { color: var(--text-3); font-size: 11px; text-transform: lowercase; letter-spacing: .07em; margin-bottom: 5px; }
-  .tip-row { display: flex; align-items: center; gap: 7px; color: var(--text-2); margin: 3px 0; }
-  .tip-row i { display: inline-block; width: 14px; height: 0; flex: none; }
-  .tip-row i.k-est { border-top: 2px dashed var(--text-3); }
-  .tip-row i.k-act { border-top: 2px solid var(--text-2); }
-  .tip-row i.k-act.good { border-top-color: var(--good); }
-  .tip-row i.k-act.bad { border-top-color: var(--bad); }
-  .tip-row i.k-act.even { border-top-color: var(--even); }
-  .tip-row b { margin-left: auto; font-family: var(--mono); font-weight: 600; color: var(--text); }
-  .tip-row b.good { color: var(--good); } .tip-row b.bad { color: var(--bad); } .tip-row b.even { color: var(--even); }
-  .tip-delta { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; }
-  .tip-delta.good { color: var(--good); } .tip-delta.bad { color: var(--bad); } .tip-delta.even { color: var(--even); }
-
   /* Week navigation */
   .week-nav {
     display: flex; align-items: center; gap: 16px;
@@ -1165,39 +1077,7 @@
   .nextweek h2 { margin-bottom: 4px; }
   .nextweek .lbl { max-width: 68ch; }
 
-  /* Health at a glance */
-  .health-row {
-    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px;
-    background: var(--line); border: 1px solid var(--line);
-    border-radius: var(--radius); overflow: hidden; margin-bottom: 22px;
-  }
-  @media (max-width: 880px) { .health-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  .health-card { background: var(--surface); padding: 16px 18px; }
-  .health-card.good { box-shadow: inset 2px 0 0 var(--good); }
-  .health-card.even { box-shadow: inset 2px 0 0 var(--even); }
-  .health-card.bad  { box-shadow: inset 2px 0 0 var(--bad); }
-  .health-card.idle { box-shadow: inset 2px 0 0 var(--line-2); }
-  .h-label { color: var(--text-3); font-size: 11px; text-transform: lowercase; letter-spacing: .08em; margin-bottom: 6px; }
-  .h-value { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 7px; }
-  .h-of { color: var(--text-3); font-size: 15px; font-weight: 500; margin-left: -4px; }
-  .h-sub { color: var(--text-3); font-size: 12px; margin-top: 3px; }
-  .h-dot { font-size: 8px; line-height: 1; }
-  .health-card.good .h-dot { color: var(--good); }
-  .health-card.even .h-dot { color: var(--even); }
-  .health-card.bad .h-dot  { color: var(--bad); }
-  .health-card.idle .h-dot { color: var(--text-3); }
 
-  .health-chip {
-    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-    font-size: 12px; font-family: var(--mono);
-    border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px;
-    color: var(--text-2);
-  }
-  .health-chip.good { color: var(--good); border-color: #2c4a39; }
-  .health-chip.even { color: var(--even); border-color: #4a412c; }
-  .health-chip.bad  { color: var(--bad);  border-color: #4a2c2c; }
-  .health-chip.idle { color: var(--text-3); }
-  .bcard.good { border-left: 3px solid var(--good); }
   .bcard.even { border-left: 3px solid var(--even); }
   .bcard.bad  { border-left: 3px solid var(--bad); }
 
@@ -1230,10 +1110,6 @@
 
   @keyframes rise-in { from { opacity: 0; transform: translateY(5px); } }
   @keyframes soft-in { from { opacity: .35; } }
-  @keyframes chart-draw {
-    from { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
-    to   { stroke-dasharray: 1 0; stroke-dashoffset: 0; }
-  }
   @keyframes dot-in { from { opacity: 0; } }
 
   /* Switching tabs: the incoming panel settles in. */
@@ -1248,10 +1124,6 @@
 
   /* Filtering / sorting / paging: the table refreshes with a soft blink. */
   #table-host .table-wrap { animation: soft-in .18s var(--ease); }
-
-  /* The actual line draws itself; its day markers land right behind it. */
-  .line-actual { animation: chart-draw .7s var(--ease); }
-  .dot-actual { animation: dot-in .25s ease .5s backwards; }
 
   /* Pressable things acknowledge the press. */
   .btn, .ghost, .tab {
@@ -1268,10 +1140,7 @@
   .modal-back { animation: dot-in .18s ease; }
 
   /* Client-page cards settle in as you land on the page. */
-  .health-row, .growth-card, .recs, .flag-block { animation: rise-in .25s var(--ease) backwards; }
-  .growth-card { animation-delay: 60ms; }
   .recs { animation-delay: 100ms; }
-  .flag-block { animation-delay: 130ms; }
 
   /* ---------- Footer ----------
      Structure borrowed from lynxmediagroup.org, inverted to monochrome.
@@ -1289,7 +1158,7 @@
      the footer scrolls in — all settled by the bottom of the page. Monospace
      means every glyph has the same advance, so nothing jitters. */
   .foot-wordmark {
-    font-family: var(--mono); font-size: clamp(44px, 7.5vw, 76px);
+    font-family: var(--logo); font-size: clamp(44px, 7.5vw, 76px);
     line-height: 1.1; text-align: center; margin: 0 auto 44px;
     user-select: none; pointer-events: none; color: var(--text);
   }
@@ -1368,38 +1237,96 @@
   }
   .tier-chip.t1 { color: var(--good); border-color: #2c4a39; }
 
-  /* ---------- Client trends (the campaign's own mini-database) ---------- */
-  .trends-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
-  .trend-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-  .tc-label { font-size: 11px; color: var(--text-3); text-transform: lowercase; letter-spacing: .08em; margin-bottom: 10px; }
-  .tc-row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--line); }
-  .tc-row:last-child { border-bottom: 0; }
-  .tc-row .mono { font-family: var(--mono); font-size: 12px; color: var(--text-2); white-space: nowrap; }
-  .tc-row.good .mono { color: var(--good); }
-  .tc-row.bad .mono { color: var(--bad); }
-  .tc-dim { font-style: normal; color: var(--text-3); font-size: 10.5px; }
-  .tc-row.fc-row { flex-direction: column; align-items: flex-start; gap: 4px; }
-  .fc-cells { display: flex; flex-wrap: wrap; gap: 6px; font-family: var(--mono); font-size: 11.5px; }
-
-  /* Over/underperforming lists collapse behind their headers. */
-  .flag-block summary {
-    cursor: pointer; list-style: none; user-select: none;
-    font-size: 12px; font-weight: 600; color: var(--text-3);
-    text-transform: lowercase; letter-spacing: 0.09em;
+  /* ---------- Blueprint beat editor ----------
+     One beat per row, top to bottom, so editing reads in the same chronological
+     order as the blueprint itself. Textareas are inline-block by default, which
+     let them flow side by side and wrap into a grid — the beats then read left
+     to right and the running order was impossible to follow. */
+  .bp-editor { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .bp-editor textarea.bp-beat-edit {
+    display: block; width: 100%; box-sizing: border-box; resize: vertical;
+    min-height: 62px; padding: 10px 12px;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
   }
-  .flag-block summary::before { content: "▸ "; }
-  .flag-block[open] summary::before { content: "▾ "; }
-  .flag-block summary::-webkit-details-marker { display: none; }
-  .flag-block[open] summary { margin-bottom: 10px; }
+  .bp-editor textarea.bp-beat-edit:focus { border-color: var(--line-2); outline: none; }
+  .bp-editor .bp-actions { margin-top: 6px; }
 
-  /* Expected-range band on campaign charts: the corridor the actual line
-     should live inside. */
-  .chart-band { fill: #ffffff0e; stroke: none; }
-  .line-band { opacity: .55; }
+  /* The shelf's add-a-video-by-link form (the only surviving .post-form:
+     the brief viewer's post-tracking form was removed with tracking). */
+  .post-form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .post-form input[type="url"] { flex: 1 1 260px; }
+  .post-form input, .post-form select {
+    padding: 9px 12px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 8px; color: var(--text); font: inherit; font-size: 14px; min-width: 0;
+  }
 
-  /* The success-pace reference: what a winning campaign of this size does
-     (owner benchmark: 3M / 10 creators / month, scaled to this roster). */
-  .line-goal { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 2 7; opacity: .6; }
+  /* ---------- Per-video suggestions (client page) ----------
+     Reuses .vcard/.vframe/.vmeta/.vpick from the shelf so a suggestion and a
+     shelf card read as the same object; only the score chip and the "why" line
+     are new. Slightly narrower columns than .shelf — this is a section inside
+     a page that already has charts above it, not the page's whole content. */
+  /* Three across, fixed — not auto-fill. On a wide monitor auto-fill produced
+     six-plus columns of very tall vertical video and the section swallowed the
+     page. Eight suggestions read as three, three, two. */
+  .suggest-grid {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px; margin: 12px 0 4px;
+  }
+  @media (max-width: 900px) { .suggest-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .suggest-grid { grid-template-columns: 1fr; } }
+  .sug-edge {
+    display: inline-block; font-size: 10.5px; font-family: var(--mono);
+    color: var(--good); border: 1px solid #2c4a39; border-radius: 3px;
+    padding: 1px 6px; white-space: nowrap;
+  }
+  /* The VIDEO's own 9:16, thumbnail and player alike.
+     Two constraints meet here. A flat height clipped the player — 400px cut
+     the video itself off partway down. And the platform frames' full ratios
+     (TikTok is 9/19.8) budget for the embed's header, caption and music rows
+     on top of the video, which is ~800px at these card widths. 9/16 is the
+     video itself: it plays complete, and only TikTok's surrounding chrome
+     falls outside the frame.
+     Applied in BOTH states, so hitting play never resizes the card or reflows
+     the grid under the cursor. `overflow: hidden` is what stops a 1080×1920
+     cover from winning the sizing race and painting over the score and
+     buttons below it — the bug a bare max-height could not prevent. */
+  .sug-card .vframe { aspect-ratio: 9 / 16; height: auto; overflow: hidden; }
+  .sug-card .vframe.vf-wide { aspect-ratio: 16 / 9; }
+  .sug-card .vframe iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .sug-card .vframe > .vthumb,
+  .sug-card .vframe > .vthumb-none,
+  .sug-card .vframe > .vthumb-pending {
+    width: 100%; height: 100%; object-fit: cover; align-self: stretch; justify-self: stretch;
+  }
+  .sug-card .vrow { flex-wrap: wrap; gap: 8px; }
+  .sug-card .vstat { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); }
+  .sug-card .vtitle { white-space: normal; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .sug-acts { justify-content: space-between; }
+  .sug-more {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    font: inherit; font-size: 12px; color: var(--text-3);
+    border-bottom: 1px solid var(--line-2);
+  }
+  .sug-more:hover { color: var(--text); }
+  /* An expanded card grows past the others; the grid handles that on its own,
+     but the card must not clip its own panel (.vcard sets overflow: hidden). */
+  .sug-card.open { overflow: visible; }
+  .sug-detail {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line);
+  }
+  .sug-detail[hidden] { display: none; }
+  .sug-drow { display: flex; gap: 12px; align-items: baseline; font-size: 11.5px; line-height: 1.55; }
+  /* Sized in ch, not px: at 62px the longest label ("engagement") overflowed
+     its own column and collided with its value. ch tracks the font, so the
+     column stays correct if the base size ever changes. */
+  .sug-dk { flex: 0 0 12ch; color: var(--text-3); }
+  .sug-dv { flex: 1 1 auto; min-width: 0; color: var(--text-2); overflow-wrap: anywhere; }
+  .sug-open { display: inline-block; margin-top: 6px; font-size: 11.5px; border: 0; color: var(--text-3); }
+  .sug-open:hover { color: var(--text); }
+
 
 
   /* ---------------------------------------------------------------------
@@ -2114,7 +2041,9 @@
   .legal a:hover { color: var(--text); }
   .legal-date { color: var(--text-3); font-size: 12.5px; margin: 0 0 28px; }
   .legal-back, .legal-foot a { color: var(--text-3); font-size: 12.5px; border-bottom: 0; }
-  .legal-back { display: inline-block; margin-bottom: 32px; }
+  /* This back-link IS the wordmark on the privacy page — it just isn't marked
+     up with .wordmark — so it carries the logo face like every other instance. */
+  .legal-back { display: inline-block; margin-bottom: 32px; font-family: var(--logo); }
   .legal-back:hover, .legal-foot a:hover { color: var(--text-2); }
   .legal-foot { margin-top: 48px; }
 
