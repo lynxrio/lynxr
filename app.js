@@ -2754,10 +2754,11 @@ function blueprintsBoxHtml(client) {
       </div>
     </details>`;
   };
-  // Add-by-link lives on the creator app now (creator.html), not here. The
-  // agency side only DISPLAYS blueprints the pipeline has already produced —
-  // bindBlueprints guards every form element, so dropping the form is safe and
-  // retry / copy / delete on existing entries keep working.
+  // The creator app has its own composer, but the agency side needs its own way
+  // in: a blueprint here is filed against THIS client, and staff paste links for
+  // clients who never touch creator.html. This form went missing for a while and
+  // nothing complained — bindBlueprints null-guards every element, so the
+  // handlers just went quiet. Keep the ids in sync with bindBlueprints.
   return `<div class="section blueprints-box">
     <div class="sec-head">
       <h2>Video blueprints <span class="pill">${bps.length}</span></h2>
