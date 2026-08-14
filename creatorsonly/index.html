@@ -24,7 +24,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260817m">
+<link rel="stylesheet" href="/app.css?v=20260817s">
 </head>
 <body>
 
@@ -71,6 +71,14 @@
       <span id="switch-lede">Don't have an account?</span>
       <button type="button" class="linkish" id="switch-mode">Create one</button>
     </p>
+    <!-- One policy covers all of lynxr, but it has to be reachable from HERE:
+         this gate is where an account is created, which is the point the app
+         starts collecting an email, a password, and everything the creator goes
+         on to put in. A policy linked only from the public home page is not
+         reachable from the app at all — a creator handed this URL directly
+         never sees that page. -->
+    <p class="gate-fine">by creating an account you agree to our
+      <a href="/privacy/">privacy policy</a></p>
   </div>
 </div>
 
@@ -151,7 +159,7 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260817m" defer></script>
-<script src="/creator.js?v=20260817m" defer></script>
+<script src="/dotgrid.js?v=20260817s" defer></script>
+<script src="/creator.js?v=20260817s" defer></script>
 </body>
 </html>

@@ -1795,9 +1795,16 @@
     display: inline-flex; align-items: center; justify-content: center;
   }
   .wait-form .btn svg { width: 16px; height: 16px; display: block; }
-  .wait-fine { margin: 14px 0 0; font-size: 11.5px; color: var(--text-3); }
-  .wait-fine a { color: var(--text-3); border-bottom: 1px solid var(--line); }
-  .wait-fine a:hover { color: var(--text-2); }
+  /* (.wait-fine lived here — the "one email, at launch" line under the form,
+     which also carried a privacy link. Removed from index.html; the policy is
+     still linked from the page footer.) */
+
+  /* The policy link under the creator sign-in gate. Quiet by design — it is a
+     reference, not a step — but present, because this is where accounts are
+     created. */
+  .gate-fine { margin: 20px 0 0; font-size: 11.5px; color: var(--text-3); line-height: 1.6; }
+  .gate-fine a { color: var(--text-3); border-bottom: 1px solid var(--line); }
+  .gate-fine a:hover { color: var(--text-2); }
   .wait-msg { min-height: 18px; margin: 12px 0 0; font-size: 13px; color: var(--text-2); }
   .wait-msg.good { color: var(--good); }
   .wait-msg.bad { color: var(--bad); }
@@ -1954,3 +1961,14 @@
   /* Placeholders are ours, but they live inside an input that is not — so they
      have to be put back explicitly after the rule above. */
   ::placeholder { text-transform: lowercase; }
+
+  /* THE REGISTERED COMPANY NAME. The one piece of our own text that keeps its
+     capitals, because it is a legal identifier rather than copy: it appears in
+     the copyright line, in the privacy policy, and — as CAN-SPAM requires — in
+     the footer of every marketing email, and all of those should match the name
+     on the state filing.
+
+     Its own class rather than a selector, because the name turns up inside a
+     footer link, a paragraph and a heading, and it has to survive whichever of
+     those is lowercasing around it. Wrap the name in it wherever it appears. */
+  .entity { text-transform: none; }

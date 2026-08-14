@@ -1609,7 +1609,6 @@ function renderYou(head, body) {
 
     <div class="section">
       <h2>Account</h2>
-      <p class="note">${escapeHtml(SB_EMAIL || "")}</p>
       <div class="bp-actions">
         ${/* Plain ghost, not .danger. Signing out is reversible — you log back
               in — so red was overstating it, and with a genuinely destructive
@@ -1619,6 +1618,15 @@ function renderYou(head, body) {
         <button type="button" class="ghost danger" id="account-del">Delete account</button>
       </div>
       <p class="note" id="del-msg" role="status" aria-live="polite"></p>
+      ${/* The gate links this too, but a creator who signed up months ago never
+            sees the gate again — and this is the page they land on when they
+            want to know what happens to their data or how to delete it. */""}
+      ${/* Which account you are in, and the policy, on one quiet line under the
+            buttons. The email used to sit above them as its own paragraph,
+            where it read as a heading for the section rather than as a note. */""}
+      <p class="note gate-fine">${escapeHtml(SB_EMAIL || "")}
+        <span class="x-sep">&middot;</span>
+        <a href="/privacy/" target="_blank" rel="noopener">privacy policy</a></p>
     </div>`;
 
   renderTrash();

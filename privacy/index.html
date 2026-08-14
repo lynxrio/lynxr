@@ -7,11 +7,11 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lynxr — privacy</title>
-<meta name="description" content="What lynxr collects, why, who it is shared with, and how to have it deleted.">
+<meta name="description" content="What lynxr collects, why, who it is shared with, how long it is kept, and how to have it deleted.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260817m">
+<link rel="stylesheet" href="/app.css?v=20260817s">
 </head>
 <body>
 
@@ -21,82 +21,188 @@
   <h1>privacy</h1>
   <p class="legal-date">last updated 17 august 2026</p>
 
-  <p>lynxr is run by Lynx Media Group LLC (&ldquo;we&rdquo;, &ldquo;us&rdquo;).
-    this page says what we collect, why we collect it, who else can see it, and
-    how to have it deleted. it is written to be read rather than to be
-    thorough-looking.</p>
+  <p>lynxr is run by <span class="entity">Lynx Media Group LLC</span>
+    (&ldquo;we&rdquo;, &ldquo;us&rdquo;), a
+    Massachusetts limited liability company. this page covers everything at
+    lynxr.io &mdash; the public site, the creator app, and the internal agency
+    tool. it says what we collect, why, who else can see it, how long we keep
+    it, and how to make us delete it.</p>
+  <p>it is written to be read. where something might reasonably surprise you, we
+    have said so plainly rather than burying it.</p>
+
+  <h2>the short version</h2>
+  <ul>
+    <li>the wait list is used for <strong>one email, at launch</strong>. nothing
+      else, ever.</li>
+    <li>what you make in lynxr is yours. other creators cannot see it, and that
+      is enforced by the database rather than by the interface.</li>
+    <li><strong>we can see the video links you paste.</strong> not your notes,
+      your companies, or your scripts.</li>
+    <li>we do not sell data, we do not run ads, and there is no analytics or
+      tracking on this site.</li>
+    <li>you can delete your account yourself, instantly, from settings.</li>
+  </ul>
 
   <h2>the wait list</h2>
   <p>if you enter your email on the home page we store three things: <strong>your
     email address</strong>, <strong>the date and time</strong> you entered it,
-    and <strong>a short label for the link you arrived from</strong> (for example
-    a campaign tag, or the site that referred you &mdash; we store only the
-    hostname, never the full referring address).</p>
+    and <strong>a short label for the link you arrived from</strong> &mdash; for
+    example a campaign tag, or the site that referred you. for referrals we keep
+    only the hostname (&ldquo;tiktok.com&rdquo;), never the full referring
+    address, because a full address can carry search terms or private path
+    segments that are none of our business.</p>
+  <p>we also record the exact wording you agreed to at the time, so that if we
+    ever change what we promise, we can tell who agreed to what.</p>
   <p>we use it for one thing: <strong>to email you once, when lynxr
-    launches.</strong> we do not sell it, rent it, or share it with anyone
-    outside the processors listed below, and we will not add you to any other
-    mailing list. every email we send will have a one-click unsubscribe.</p>
+    launches.</strong> we do not sell it, rent it, or share it outside the
+    processors listed below, and we will not add you to any other list. every
+    email carries a one-click unsubscribe.</p>
+  <p><strong>lawful basis:</strong> your consent, which you can withdraw at any
+    time by unsubscribing or emailing us.</p>
 
-  <h2>accounts</h2>
-  <p>if you have a lynxr account we store the email address you signed up with.
-    passwords are handled by our authentication provider and are stored hashed
-    &mdash; we never see them and cannot recover them.</p>
+  <h2>your account</h2>
+  <p>if you have a lynxr account we store the email address you signed up with,
+    and optionally a display name, a contact email and the niches you work in,
+    if you choose to fill those in.</p>
+  <p>passwords are handled by our authentication provider and stored hashed. we
+    never see them, cannot recover them, and could not tell you your password if
+    you asked.</p>
+  <p><strong>lawful basis:</strong> performance of a contract &mdash; we cannot
+    run an account for you without it.</p>
 
-  <h2>what you put into lynxr</h2>
-  <p>when you use the app we store what you create in it: the companies you add,
+  <h2>what you create in lynxr</h2>
+  <p>when you use the app we store what you put into it: the companies you add,
     the video links you paste, any notes you write, and the scripts produced
-    from them. this is yours, and other creators using lynxr cannot see it
-    &mdash; access is enforced by the database, not just by the interface.</p>
-  <p><strong>lynx media group staff can see the video links you paste.</strong>
-    we collect them so we can learn which formats are working across the
-    creators we work with. your notes, your companies and your scripts are not
-    used this way. we are telling you because you would reasonably assume
-    otherwise.</p>
+    from them.</p>
+  <p>this is yours. other creators using lynxr cannot see any of it. that
+    separation is enforced by row-level security in the database, so it holds
+    even if the interface has a bug &mdash; a request for someone else's data
+    returns nothing rather than returning theirs.</p>
+  <p><strong>what our staff can see:</strong> the video links you paste are
+    recorded on our side, so we can learn which formats are performing across
+    the creators we work with. <strong>your notes, your companies and your
+    scripts are not used this way.</strong> we are telling you because you would
+    reasonably assume otherwise, and because that shared source library is part
+    of what makes lynxr better for everyone using it.</p>
+  <p><strong>lawful basis:</strong> performance of a contract, for storing and
+    producing your work; our legitimate interest in understanding which video
+    formats perform, for the link collection.</p>
 
-  <h2>who else processes it</h2>
-  <p>we use these services to run lynxr. they process data on our instructions
-    and for no other purpose:</p>
+  <h2>videos we collect from public platforms</h2>
+  <p>lynxr is built on a database of thousands of publicly posted videos from
+    TikTok, Instagram and YouTube. for each one we hold the link, the account
+    handle that posted it, the caption, public engagement numbers, and a
+    machine-generated transcript and shot list.</p>
+  <p>if you are a creator whose public video is in there: it is used only to
+    understand <em>format</em> &mdash; structure, pacing, how a hook is built.
+    the database is never published, never resold, and is not visible to anyone
+    outside our staff. we do not republish your video or your words as content.
+    if you would rather not be in it, email us and we will remove you; you do
+    not have to explain why.</p>
+  <p><strong>lawful basis:</strong> our legitimate interest in analysing
+    publicly available content to understand video formats, weighed against the
+    limited, internal use described above.</p>
+
+  <h2>how we use AI</h2>
+  <p>producing a script means sending material to an AI provider: the video's
+    transcript and caption, and the text of a company's website when you add
+    that company. speech is transcribed on our own machines, so that step does
+    not involve a third party.</p>
+  <p>our AI provider processes this in order to return a result to us, and does
+    not use it to train their models. nothing here makes an automated decision
+    with a legal or similarly significant effect &mdash; it writes a draft
+    script, and what you do with it is yours to decide.</p>
+
+  <h2>who else processes your data</h2>
+  <p>we use these services to run lynxr. they act on our instructions and for no
+    other purpose:</p>
   <ul>
-    <li><strong>Supabase</strong> &mdash; database and sign-in</li>
+    <li><strong>Supabase</strong> &mdash; the database, and sign-in</li>
     <li><strong>Anthropic</strong> &mdash; the AI that reads a video and writes
-      the script. transcripts, captions and the text of a company&rsquo;s
-      website are sent to it</li>
+      the script</li>
     <li><strong>Apify</strong> &mdash; collecting publicly posted video data</li>
     <li><strong>Google</strong> &mdash; a copy of the wait list is mirrored into
-      a private Google Sheet so we can read it</li>
-    <li><strong>GitHub</strong> &mdash; hosts this site, and keeps standard
-      server logs including IP addresses</li>
+      a private spreadsheet, so that signups land somewhere we actually look</li>
+    <li><strong>GitHub</strong> &mdash; hosts this site and keeps standard
+      server logs, which include visitors' IP addresses</li>
   </ul>
+  <p>we do not sell personal information, and we do not share it with anyone for
+    advertising.</p>
+
+  <h2>where your data is held</h2>
+  <p>our providers are US-based, so your data is stored and processed in the
+    United States. if you are in the UK or EU, that means it is transferred
+    outside your home jurisdiction; our providers offer standard contractual
+    clauses covering those transfers.</p>
 
   <h2>how long we keep it</h2>
-  <p>wait list addresses are deleted once we have launched and emailed you, or
-    sooner if you ask.</p>
-  <p>account data is kept for as long as your account is open. you can close it
-    yourself at any time &mdash; <strong>settings &rarr; delete account</strong>
-    &mdash; and it happens <strong>immediately</strong>: the account and
-    everything in it goes, your companies, your saved links and your scripts
-    included. we do not keep a copy, and we cannot undo it for you.</p>
-  <p>if you would rather we did it, email us and we will action it within 30
-    days. either way, copies can persist in encrypted backups for a short
-    period before they age out.</p>
+  <p><strong>wait list addresses</strong> are deleted once we have launched and
+    emailed you, or sooner if you ask.</p>
+  <p><strong>account data</strong> is kept for as long as your account is open.
+    you can close it yourself at any time &mdash; <strong>settings &rarr; delete
+    account</strong> &mdash; and it happens <strong>immediately</strong>: the
+    account and everything in it goes, your companies, saved links and scripts
+    included. we do not keep a copy, and we cannot undo it for you. if you would
+    rather we did it, email us and we will action it within 30 days.</p>
+  <p><strong>feedback</strong> you send us is kept, but is detached from your
+    account when you delete it &mdash; the note survives, the link to you does
+    not.</p>
+  <p>after deletion, copies can persist in encrypted backups for a short period
+    before they age out.</p>
 
-  <h2>your choices</h2>
-  <p>you can ask us for a copy of what we hold about you, ask us to correct it,
-    or ask us to delete it. email
-    <a href="mailto:lynxrnetwork@gmail.com">lynxrnetwork@gmail.com</a> and we
-    will action it. you do not need to give a reason, and it costs you
-    nothing.</p>
+  <h2>how we protect it</h2>
+  <p>everything travels over an encrypted connection. passwords are hashed by
+    our authentication provider. access between accounts is enforced by the
+    database itself rather than by the interface, so one creator cannot reach
+    another's data even if a page has a bug. only staff accounts can reach
+    agency data, and that is enforced the same way.</p>
+  <p>no system is perfect. if there is ever a breach affecting your data we will
+    tell you, and any regulator we are required to tell, without undue delay.</p>
+
+  <h2>your rights</h2>
+  <p>wherever you live, you can ask us to:</p>
+  <ul>
+    <li>tell you what we hold about you, and give you a copy</li>
+    <li>correct anything that is wrong</li>
+    <li>delete it</li>
+    <li>stop using it for a particular purpose, or withdraw your consent</li>
+    <li>send you a portable copy of what you have put into lynxr</li>
+  </ul>
+  <p>email <a href="mailto:lynxrnetwork@gmail.com">lynxrnetwork@gmail.com</a>.
+    you do not need to give a reason, it costs nothing, and we will respond
+    within 30 days. we will not treat you differently for asking.</p>
   <p>if you are in the UK or EU you also have the right to complain to your data
     protection authority.</p>
 
-  <h2>cookies</h2>
+  <h2>if you are in california</h2>
+  <p>you have the right to know what we collect and why, to request deletion, to
+    request a copy, and not to be discriminated against for exercising any of
+    them. the categories we collect are set out above. <strong>we do not sell or
+    share personal information</strong> as those terms are defined by the CCPA,
+    and we have not done so in the past twelve months.</p>
+
+  <h2>cookies and local storage</h2>
   <p>we do not use tracking or advertising cookies, and there is no analytics on
-    this site. the app stores a sign-in token in your browser so you are not
-    asked to log in on every page &mdash; that is required for it to work at
-    all, and it is not used to track you.</p>
+    this site &mdash; we cannot tell you how many people have visited this
+    page.</p>
+  <p>the app stores two things in your browser: a sign-in token, so you are not
+    asked to log in on every page, and a cached copy of your own work, so it
+    loads instantly. both are required for the app to function, neither is used
+    to track you, and both are cleared when you sign out.</p>
+
+  <h2>children</h2>
+  <p>lynxr is not intended for anyone under 13, and we do not knowingly collect
+    their data. if you believe a child has given us information, email us and we
+    will delete it.</p>
+
+  <h2>changes to this policy</h2>
+  <p>if we change it we will update the date at the top. if a change materially
+    affects how we use data you have already given us &mdash; the wait list in
+    particular &mdash; we will email you rather than quietly editing this
+    page.</p>
 
   <h2>contact</h2>
-  <p>Lynx Media Group LLC<br>
+  <p><span class="entity">Lynx Media Group LLC</span><br>
     15 Farrington Ave, Allston MA 02134, USA<br>
     <a href="mailto:lynxrnetwork@gmail.com">lynxrnetwork@gmail.com</a></p>
 
