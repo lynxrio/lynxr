@@ -1611,7 +1611,11 @@ function renderYou(head, body) {
       <h2>Account</h2>
       <p class="note">${escapeHtml(SB_EMAIL || "")}</p>
       <div class="bp-actions">
-        <button type="button" class="ghost danger" id="signout">Sign out</button>
+        ${/* Plain ghost, not .danger. Signing out is reversible — you log back
+              in — so red was overstating it, and with a genuinely destructive
+              Delete account sitting beside it, two red buttons made the one
+              that cannot be undone no louder than the one that can. */""}
+        <button type="button" class="ghost" id="signout">Sign out</button>
         <button type="button" class="ghost danger" id="account-del">Delete account</button>
       </div>
       <p class="note" id="del-msg" role="status" aria-live="polite"></p>
