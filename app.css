@@ -703,6 +703,14 @@
      Motion is functional only: a pulse means "still waiting", a one-shot
      flash means "this just became ready", and both stop for reduced-motion. */
   .bp-form { align-items: stretch; }
+  /* .post-form sets display:flex, which outranks the UA [hidden] rule — without
+     this the form paints even with the attribute set, and the header's + has
+     nothing to reveal. */
+  .bp-form[hidden] { display: none; }
+  /* The form's help text follows the form's own state, so the + only has to
+     touch the form. Keyed on #bp-note rather than ~ .note, which would also
+     catch the "No blueprints yet." line sitting further down. */
+  .bp-form[hidden] ~ #bp-note { display: none; }
   .bp-field { position: relative; display: flex; flex: 1 1 260px; }
   .bp-field input[type="url"] { flex: 1 1 auto; padding-right: 82px; }
   .bp-plat {
