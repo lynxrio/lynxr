@@ -2733,7 +2733,14 @@ function blueprintsBoxHtml(client) {
   // bindBlueprints guards every form element, so dropping the form is safe and
   // retry / copy / delete on existing entries keep working.
   return `<div class="section blueprints-box">
-    <h2>Video blueprints <span class="pill">${bps.length}</span></h2>
+    <div class="sec-head">
+      <h2>Video blueprints <span class="pill">${bps.length}</span></h2>
+      <button type="button" class="lib-plus" id="bp-add"
+        title="Add a video by link" aria-label="Add a video by link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+          aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
     <p class="bp-msg" id="bp-msg" role="status" aria-live="polite"></p>
     ${bps.length ? `<div class="bp-list">${bps.map(item).join("")}</div>`
                  : `<p class="note">No blueprints yet.</p>`}
@@ -2771,6 +2778,21 @@ function bindBlueprints(host, client) {
   const bpRows = (client.blueprints || []).map(bpThumbRow);
   fillTikTokThumbs(bpRows);
   fillHostedCovers(bpRows);
+
+  // The + reveals the add-by-link form and puts the cursor in it. Written
+  // against whatever form is present rather than rendering one here, because
+  // the form itself is being restored separately — if it is not on the page
+  // yet, say so instead of doing nothing.
+  document.getElementById("bp-add")?.addEventListener("click", () => {
+    const form = document.getElementById("bp-form");
+    const url = document.getElementById("bp-url");
+    if (!form || !url) {
+      bpMsg("The add-by-link form isn't on this page yet — paste the link in the creator app for now.", "bad");
+      return;
+    }
+    form.hidden = false;
+    url.focus();
+  });
   // Link-only: a pasted post URL becomes a queued blueprint entry. The pipeline
   // fetches the media itself (yt-dlp), so nothing is uploaded from the browser.
   const urlEl = document.getElementById("bp-url");
@@ -3072,16 +3094,35 @@ function bindSuggestions(host, client) {
       card.classList.toggle("picked", on);
       const txt = card.querySelector(".vpick-txt");
       if (txt) txt.textContent = on ? "Added" : "Add";
-      // The + is icon-only now, so the count lives in its tooltip rather than
-      // its face — writing textContent here would replace the svg.
-      const btn = document.getElementById("cl-nextbrief");
-      if (btn) { btn.title = nextBriefLabel(client); btn.setAttribute("aria-label", nextBriefLabel(client)); }
+      refreshNextBriefBtn(client);
     });
   });
 }
 
-const nextBriefLabel = (client) =>
-  `Build brief ${client.briefs.length + 1}${SUGGEST_PICKS.size ? ` with ${SUGGEST_PICKS.size} picked` : ""}`;
+/** Swap the Briefs header button between bare + and the labelled CTA as videos
+    are ticked. Replaced wholesale rather than relabelled: the two are different
+    elements (icon button vs .btn), and writing textContent onto the icon one
+    would eat its svg — the same trap armDelete had. */
+function refreshNextBriefBtn(client) {
+  const old = document.getElementById("cl-nextbrief");
+  if (!old) return;
+  const total = client.briefs.length;
+  const el = document.createElement("button");
+  el.type = "button";
+  el.id = "cl-nextbrief";
+  if (SUGGEST_PICKS.size) {
+    el.className = "btn sec-cta";
+    el.textContent = `Build brief ${total + 1} with ${SUGGEST_PICKS.size} picked`;
+  } else {
+    el.className = "lib-plus";
+    el.title = `Build brief ${total + 1}`;
+    el.setAttribute("aria-label", el.title);
+    el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`;
+  }
+  el.addEventListener("click", () => startNextWeekBrief(client));
+  old.replaceWith(el);
+}
 
 function renderClientPage(host, client) {
   // Briefs are stored newest-first; number them oldest-first so "Brief 1" is
@@ -3108,13 +3149,17 @@ function renderClientPage(host, client) {
     <div class="sec-head">
       <h2>Briefs <span class="pill">${total}</span></h2>
       ${/* Replaces the "next brief" block that used to sit at the bottom of the
-            page: same action, but attached to the thing it creates instead of
-            stranded below the brief list. Matches the creator app's .lib-plus. */""}
-      <button type="button" class="lib-plus" id="cl-nextbrief"
-        title="${escapeHtml(nextBriefLabel(client))}" aria-label="${escapeHtml(nextBriefLabel(client))}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
-          aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
+            page: same action, attached to the thing it creates instead of
+            stranded below the brief list. Bare + until videos are ticked above,
+            then it names the count it is carrying — the tick and the button are
+            far apart on screen, so the button has to say what it picked up. */""}
+      ${SUGGEST_PICKS.size
+        ? `<button type="button" class="btn sec-cta" id="cl-nextbrief">Build brief ${total + 1} with ${SUGGEST_PICKS.size} picked</button>`
+        : `<button type="button" class="lib-plus" id="cl-nextbrief"
+             title="Build brief ${total + 1}" aria-label="Build brief ${total + 1}">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+               aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+           </button>`}
     </div>
     ${total ? `<div class="brief-stack">` + client.briefs.map((b, i) => `
       <article class="bcard" data-bid="${escapeHtml(b.id)}">

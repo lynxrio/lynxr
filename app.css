@@ -1042,6 +1042,34 @@
     main { padding: 24px 14px 60px; }
     .metrics { margin-left: 0; text-align: left; width: 100%; }
     .play-head { flex-wrap: wrap; }
+
+    /* The nav is already overflow-x:auto but a flex item will not shrink below
+       its content without this, so at 375px the three tabs pushed Sign out
+       43px off-screen and the whole page scrolled sideways. */
+    header nav { flex: 1 1 auto; min-width: 0; }
+    header #signout { flex: 0 0 auto; padding: 6px 10px; font-size: 12.5px; }
+
+    /* A section title and its action share one line until the action grows a
+       label ("Build brief 2 with 3 picked"), which does not fit beside a title
+       on a phone — let it drop to its own full-width row instead of squeezing
+       the heading to nothing. */
+    .sec-head { flex-wrap: wrap; row-gap: 10px; }
+    .sec-head .sec-cta { width: 100%; margin-left: 0; order: 3; }
+
+    /* Cards on the client page: stack rather than run off the edge. */
+    .bcard { flex-wrap: wrap; row-gap: 10px; }
+    .bcard-main { flex: 1 1 100%; min-width: 0; }
+    .crumbs { flex-wrap: wrap; row-gap: 6px; }
+
+    /* Suggestion detail rows: a 12ch label column plus a value does not fit at
+       375px, so stack the label above its value. */
+    .sug-drow { flex-direction: column; gap: 1px; }
+    .sug-dk { flex: none; }
+    .suggest-grid { gap: 12px; }
+
+    /* Blueprint rows are a flex line of url + chip + date + link. */
+    .bp-item > summary { flex-wrap: wrap; row-gap: 8px; }
+    .bp-name { flex: 1 1 100%; order: 2; white-space: normal; overflow-wrap: anywhere; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1260,6 +1288,25 @@
     padding: 9px 12px; background: var(--surface); border: 1px solid var(--line);
     border-radius: 8px; color: var(--text); font: inherit; font-size: 14px; min-width: 0;
   }
+
+  /* A section title with its action pinned to the far right, flush with the
+     edge of the cards below it. .lib-plus already carries margin-left:auto, so
+     the row only has to be flex; .sec-cta needs the same push. */
+  /* 20px below the header, matching what the blueprints box already had by
+     accident (.bp-msg's 8px + .bp-list's 12px). Set here so EVERY section that
+     uses .sec-head gets the same gap — the briefs list had none and sat flush
+     against its own title.
+     The blueprints box is EXEMPT: it already spaces itself to the same 20px
+     through .bp-msg and .bp-list, and .sec-head is a flex container whose
+     margin does not collapse with a sibling's, so adding one there stacks
+     instead of overlapping. Leave that box alone. */
+  .sec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .sec-head h2 { margin-bottom: 0; }
+  .blueprints-box .sec-head { margin-bottom: 0; }
+  .sec-head .sec-cta { margin-left: auto; flex: 0 0 auto; }
+
+  .sug-more-row { display: flex; justify-content: center; margin: 16px 0 4px; }
+  .sug-more-row .ghost { display: inline-flex; align-items: baseline; gap: 8px; }
 
   /* ---------- Per-video suggestions (client page) ----------
      Reuses .vcard/.vframe/.vmeta/.vpick from the shelf so a suggestion and a

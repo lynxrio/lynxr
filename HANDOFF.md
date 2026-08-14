@@ -204,6 +204,90 @@ face, restore that, and ignore a second click inside 450ms so an ordinary
 double-click can't delete outright. Client and brief rows now use the same
 `ghost danger icon-only` trash button (`TRASH_SVG`).
 
+### Covers are hosted now — Instagram finally has thumbnails
+
+`fetch_covers.py` had been caching an opening frame per video into
+`data/covers/` for months (**10,392 files, 1.7 GB, gitignored**) purely to tag
+Visual Hook. No browser could ever reach them, so the agency app fell back to
+per-platform tricks and Instagram got nothing at all.
+
+**`pipeline/upload_covers.py` publishes them.** 8,250 uploaded, 10 failed.
+Resampled to 360 px (~22 KB each, 181 MB total against Supabase's 1 GB —
+the originals would have been 1.3 GB). The key is deliberately the SAME one
+`process_adaptations.py` uses for creator covers, so both pipelines share one
+bucket and never collide:
+
+    lynxr-covers/<sha1(canon_url(url))[:20]>.jpg      (public bucket)
+
+`canon_url` in Python is byte-identical to `canonUrl()` in app.js, so the
+browser derives the key itself — nothing extra is stored on a row.
+`fillHostedCovers()` probes the URL with an `Image` before swapping it in, so a
+row whose cover was never uploaded keeps whatever thumbnail it already had.
+
+Coverage is honest, not total: **989/1,335 Instagram (74%)**, 6,299/6,692
+TikTok, 972/976 YouTube. 743 database rows have no cached cover at all, so
+those still render the placeholder. Verified live: an Instagram-only pool
+renders 4 of 6 cards from `lynxr-covers`, the rest placeholder.
+
+Two gotchas that cost time:
+- **The venv has no system CA bundle.** A bare `ssl.create_default_context()`
+  fails every request with CERTIFICATE_VERIFY_FAILED; use `certifi.where()`
+  like the rest of the pipeline does.
+- **`img-src` had to gain the Supabase origin** on the agency page. The creator
+  page already had it — that is how creator covers have always worked.
+
+### Suggestions now filter to organic UGC you could actually remake
+
+The shelf was surfacing 11–23M-view runway reposts and meme aggregators. They
+top every performance sort and are worthless as a brief: no script to tweak, no
+creator to imitate. Three gates, all measured on the master CSV:
+
+- **Format.** `Meme / Trend Clip` (1,724 rows) is the repost bucket and
+  `Reaction / Duet` is commentary on someone else's video. Neither is a thing
+  you write a script for. `SCRIPTABLE_FORMATS` holds the rest.
+- **Creator size.** `creator_followers` fills 70% of rows — median 8,157,
+  p90 74,100, max 3.2M. Over 500K is a media brand, not a UGC creator. Rows
+  with unknown followers are KEPT; dropping the blind 30% costs more than it buys.
+- **View ceiling.** Each niche's own p95, because Health & Medical tops out
+  near 280K while Fashion & Beauty runs to 3.5M — one global number would gut
+  the first and let the second through.
+
+**Least-saturated breaks ties**: `sqrt(41 / similar_format_count)` clamped to
+0.65–1.5, so a pocket 4× more crowded is penalised 2×. Crowding tilts the
+ranking, it does not veto.
+
+Measured on the live corpus (8,809 rows, Fashion & Beauty): 358 rows dropped by
+the gates, and the top picks went from a 23.8M-view runway clip to Listicles and
+Talking Heads from creators with 2.9K–189K followers.
+
+The grid shows **6, then loads 3 at a time** (`SUGGEST_PAGE` / `SUGGEST_STEP`),
+scoring 30 deep so there is somewhere to load from.
+
+### Section headers and the mobile pass (2026-08-14)
+
+`.sec-head` is the shared "title on the left, action pinned right" row, used by
+Video blueprints and Briefs. Two things worth knowing:
+
+- **It carries `margin-bottom: 20px`, and the blueprints box is exempt.** That
+  box already spaced itself to 20px via `.bp-msg` (8) + `.bp-list` (12).
+  `.sec-head` is a FLEX container, so its margin does **not** collapse with the
+  next sibling's — adding one there stacked to 32px instead of overlapping.
+  Hence `.blueprints-box .sec-head { margin-bottom: 0 }`.
+- **The Briefs action is two different elements.** Bare `+` (`.lib-plus`) with
+  nothing ticked, and a labelled `.btn.sec-cta` ("Build brief 2 with 3 picked")
+  once suggestions are picked. `refreshNextBriefBtn()` swaps the whole node
+  rather than relabelling, because writing `textContent` onto the icon button
+  would eat its svg — the same trap `armDelete` had.
+
+**Mobile is fixed at 375px**, inside the existing `@media (max-width: 640px)`.
+The page scrolled sideways because `header nav` is `overflow-x: auto` but a flex
+item will not shrink below its content without `flex: 1 1 auto; min-width: 0` —
+so three tabs pushed Sign out 43px off-screen. Also: `.sec-cta` drops to its own
+full-width row (it does not fit beside a title on a phone), `.sug-drow` stacks
+its label above its value (a 12ch label column plus a value does not fit), and
+`.bcard` / `.crumbs` / `.bp-item > summary` wrap instead of overflowing.
+Verified 0 overflowing elements and no horizontal scroll on all three pages.
+
 ### Blueprint thumbnails — partly possible, and why
 
 Blueprint rows carry cover art now. **YouTube** resolves straight off the URL
@@ -260,10 +344,16 @@ shot list) plus a CSP entry.
 4. Rest of the agency feedback: client fields (website, logo, description),
    a 4×4 video grid, briefs tagged by week, swap-a-video-in-a-brief (needs the
    grid), editable briefs (blueprints are done; briefs themselves are not).
-5. **The blueprint add-by-link form is not rendered anywhere.** `bindBlueprints`
-   looks up `bp-url` / `bp-plat` / `bp-form`, none of which exist in any
-   template — pre-existing, predates this session, and fully null-guarded so
-   nothing throws. There is currently no way to add a blueprint from the UI.
+5. **The blueprint add-by-link form is STILL not rendered anywhere.**
+   `bindBlueprints` looks up `bp-url` / `bp-plat` / `bp-form`, none of which
+   exist in any template — pre-existing, fully null-guarded so nothing throws.
+   A **`+` button now sits top-right of the Video blueprints header** (`bp-add`,
+   flush with the cards, matching the creator app's `.lib-plus`); it reveals and
+   focuses `#bp-url` when that form exists and otherwise says so plainly. So
+   the only missing piece is the form itself. A separate session was started to
+   restore it and had not landed it as of this handoff — check before editing
+   `blueprintsBoxHtml`, two sessions writing that function will clobber
+   each other (it happened once already this session).
 6. **Send the launch email.** Draft at `~/Desktop/lynxr-launch-email.md`.
    Blocked on: linking the word "unsubscribe" to `{{{RESEND_UNSUBSCRIBE_URL}}}`
    (three braces, in the URL field) and verifying `send.lynxr.io` DNS.
