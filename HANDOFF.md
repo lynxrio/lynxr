@@ -263,6 +263,21 @@ Talking Heads from creators with 2.9K–189K followers.
 The grid shows **6, then loads 3 at a time** (`SUGGEST_PAGE` / `SUGGEST_STEP`),
 scoring 30 deep so there is somewhere to load from.
 
+**Load more APPENDS; it does not re-render.** Two reasons, both measured:
+re-rendering the section threw away already-decoded thumbnails and any open
+detail panel, and — worse — the browser's **scroll anchoring** kept the visible
+content still by scrolling the page ~800px underneath, so the button stayed
+pinned at the identical spot on screen and nothing looked like it had loaded.
+`overflow-anchor: none` on `.suggest-grid` / `.sug-more-row` disables that, and
+appending lets the new row push the button below the fold where it belongs.
+Verified: scrollY held at 1375, button moved 469 → 1530 (fold at 900), open
+detail panel survived, and the chain runs 6 → 30 before the control removes
+itself. `sugCardHtml()` / `sugMoreRowHtml()` / `bindSugCard()` exist so the
+initial render and the append share one definition.
+
+The Briefs CTA reads **"2 picks → brief 1"** (singular "1 pick"), reverting to
+the bare `+` at zero.
+
 ### Section headers and the mobile pass (2026-08-14)
 
 `.sec-head` is the shared "title on the left, action pinned right" row, used by

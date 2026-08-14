@@ -2961,6 +2961,60 @@ const SUGGEST_STEP = 3;
 let SUGGEST_SHOWN = SUGGEST_PAGE;
 let SUGGEST_SHOWN_FOR = null;
 
+/** One suggestion card. Extracted so "load more" can APPEND new cards to the
+    existing grid instead of re-rendering the whole section — re-rendering threw
+    away already-loaded thumbnails and any open detail panel, and it let the
+    browser's scroll anchoring pin the button in place. */
+function sugCardHtml({ row, edge }) {
+  const k = rowKey(row);
+  const picked = SUGGEST_PICKS.has(k);
+  const href = safeUrl(row.url);
+  const er = row.engagement_rate ? parseFloat(row.engagement_rate).toFixed(2) + "%" : "\u2014";
+  // Collapsed shows only the two facts that decide "is this worth a look":
+  // how far it beat its pocket, and how big it got. Everything else is one
+  // click away — eight cards of full metadata is a wall, not a shelf.
+  const detail = (label, val) => val
+    ? `<div class="sug-drow"><span class="sug-dk">${label}</span><span class="sug-dv">${escapeHtml(String(val))}</span></div>` : "";
+  return `
+  <article class="vcard sug-card${picked ? " picked" : ""}" data-key="${escapeHtml(k)}">
+    ${frameHtml(row)}
+    <div class="vmeta">
+      <div class="vtitle" title="${escapeHtml(row.title || "")}">${escapeHtml(row.title || "(no caption)")}</div>
+      <div class="vrow">
+        <span class="sug-edge" title="This video's views divided by the median of the ${edge.n} videos sharing its niche, format, hook and platform">${edge.x.toFixed(1)}\u00d7 its pocket</span>
+        <span class="vstat">${compact(views(row))} views</span>
+      </div>
+      <div class="vrow sug-acts">
+        <button type="button" class="sug-more" aria-expanded="false">Details</button>
+        <label class="vpick"><input type="checkbox" class="sugcheck" ${picked ? "checked" : ""}><span class="vpick-txt">${picked ? "Added" : "Add"}</span></label>
+      </div>
+      <div class="sug-detail" hidden>
+        ${detail("format", `${row.format_type || "\u2014"} \u00d7 ${row.hook_pattern || "\u2014"}`)}
+        ${detail("beat", `${compact(edge.med)} median across ${edge.n} videos`)}
+        ${detail("platform", row.platform)}
+        ${detail("creator", row.creator)}
+        ${detail("niche", row.niche_category)}
+        ${detail("audience", row.target_audience)}
+        ${detail("visual hook", row.visual_hook)}
+        ${detail("cta", row.cta_type)}
+        ${detail("length", row.length_bucket)}
+        ${detail("engagement", er)}
+        ${detail("likes", compact(+row.likes || 0))}
+        ${detail("comments", compact(+row.comments || 0))}
+        ${href ? `<a class="sug-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open on ${escapeHtml(row.platform || "platform")} \u2197</a>` : ""}
+      </div>
+    </div>
+  </article>`;
+}
+
+/** The load-more control, rebuilt in place as the remaining count changes. */
+const sugMoreRowHtml = (left) => left
+  ? `<div class="sug-more-row">
+      <button type="button" class="ghost" id="sug-loadmore">Load ${Math.min(SUGGEST_STEP, left)} more
+        <span class="lbl">${left} left</span></button>
+    </div>`
+  : "";
+
 /** Per-VIDEO suggestions for this client. Deliberately separate from the shelf:
     the shelf answers "which format should they run", this answers "which video
     should they copy", and the two disagree — the format with the worst median
@@ -3001,102 +3055,90 @@ function suggestionsBoxHtml(client) {
     ${widened ? `<p class="lbl">Too few videos tagged <strong>${escapeHtml(client.niche)}</strong>
       to rank reliably, so this draws from the whole database — treat it as directional.</p>` : ""}
     <div class="suggest-grid">
-      ${picks.map(({ row, edge }) => {
-        const k = rowKey(row);
-        const picked = SUGGEST_PICKS.has(k);
-        const href = safeUrl(row.url);
-        const er = row.engagement_rate ? parseFloat(row.engagement_rate).toFixed(2) + "%" : "—";
-        // Collapsed shows only the two facts that decide "is this worth a look":
-        // how far it beat its pocket, and how big it got. Everything else is
-        // one click away — eight cards of full metadata is a wall, not a shelf.
-        const detail = (label, val) => val
-          ? `<div class="sug-drow"><span class="sug-dk">${label}</span><span class="sug-dv">${escapeHtml(String(val))}</span></div>` : "";
-        return `
-        <article class="vcard sug-card${picked ? " picked" : ""}" data-key="${escapeHtml(k)}">
-          ${frameHtml(row)}
-          <div class="vmeta">
-            <div class="vtitle" title="${escapeHtml(row.title || "")}">${escapeHtml(row.title || "(no caption)")}</div>
-            <div class="vrow">
-              <span class="sug-edge" title="This video's views divided by the median of the ${edge.n} videos sharing its niche, format, hook and platform">${edge.x.toFixed(1)}× its pocket</span>
-              <span class="vstat">${compact(views(row))} views</span>
-            </div>
-            <div class="vrow sug-acts">
-              <button type="button" class="sug-more" aria-expanded="false">Details</button>
-              <label class="vpick"><input type="checkbox" class="sugcheck" ${picked ? "checked" : ""}><span class="vpick-txt">${picked ? "Added" : "Add"}</span></label>
-            </div>
-            <div class="sug-detail" hidden>
-              ${detail("format", `${row.format_type || "—"} × ${row.hook_pattern || "—"}`)}
-              ${detail("beat", `${compact(edge.med)} median across ${edge.n} videos`)}
-              ${detail("platform", row.platform)}
-              ${detail("creator", row.creator)}
-              ${detail("niche", row.niche_category)}
-              ${detail("audience", row.target_audience)}
-              ${detail("visual hook", row.visual_hook)}
-              ${detail("cta", row.cta_type)}
-              ${detail("length", row.length_bucket)}
-              ${detail("engagement", er)}
-              ${detail("likes", compact(+row.likes || 0))}
-              ${detail("comments", compact(+row.comments || 0))}
-              ${href ? `<a class="sug-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open on ${escapeHtml(row.platform || "platform")} ↗</a>` : ""}
-            </div>
-          </div>
-        </article>`;
-      }).join("")}
+      ${picks.map(sugCardHtml).join("")}
     </div>
-    ${more ? `<div class="sug-more-row">
-      <button type="button" class="ghost" id="sug-loadmore">Load ${Math.min(SUGGEST_STEP, more)} more
-        <span class="lbl">${more} left</span></button>
-    </div>` : ""}
+    ${sugMoreRowHtml(more)}
   </div>`;
 }
 
-/** Play buttons and the add-to-next-brief toggle for the suggestions grid. */
+/** Wire one suggestion card: play, expand, and the add-to-brief tick. */
+function bindSugCard(card, row, client) {
+  card.querySelector(".vplay")?.addEventListener("click", () => {
+    playInFrame(card.querySelector(".vframe"), row);
+  });
+  // Toggled in place rather than re-rendered: a re-render would collapse every
+  // other open card (the same trap the <details> keepOpen helpers work around).
+  const more = card.querySelector(".sug-more");
+  more?.addEventListener("click", () => {
+    const panel = card.querySelector(".sug-detail");
+    const open = panel.hasAttribute("hidden");
+    panel.toggleAttribute("hidden", !open);
+    more.setAttribute("aria-expanded", String(open));
+    more.textContent = open ? "Hide details" : "Details";
+    card.classList.toggle("open", open);
+  });
+  card.querySelector(".sugcheck")?.addEventListener("change", (e) => {
+    const on = e.target.checked;
+    if (on) SUGGEST_PICKS.set(card.dataset.key, row);
+    else SUGGEST_PICKS.delete(card.dataset.key);
+    card.classList.toggle("picked", on);
+    const txt = card.querySelector(".vpick-txt");
+    if (txt) txt.textContent = on ? "Added" : "Add";
+    refreshNextBriefBtn(client);
+  });
+}
+
+/** Play buttons, the add-to-brief toggles, and load-more for the grid. */
 function bindSuggestions(host, client) {
   const box = host.querySelector(".suggest-box");
   if (!box) return;
-  const rows = new Map(clientSuggestions(client, 30).picks.map(({ row }) => [rowKey(row), row]));
+  const all = clientSuggestions(client, 30).picks;
+  const rows = new Map(all.map(({ row }) => [rowKey(row), row]));
   fillTikTokThumbs([...rows.values()]);
   fillHostedCovers([...rows.values()]);
 
-  // Reveal three more, then re-render just this section — the rest of the
-  // client page is untouched, so scroll position and open cards elsewhere hold.
-  document.getElementById("sug-loadmore")?.addEventListener("click", () => {
-    SUGGEST_SHOWN += SUGGEST_STEP;
-    const fresh = suggestionsBoxHtml(client);
-    const tmp = document.createElement("div");
-    tmp.innerHTML = fresh;
-    box.replaceWith(tmp.firstElementChild);
-    bindSuggestions(host, client);
-  });
-
   box.querySelectorAll(".sug-card").forEach((card) => {
     const row = rows.get(card.dataset.key);
-    if (!row) return;
-    card.querySelector(".vplay")?.addEventListener("click", () => {
-      playInFrame(card.querySelector(".vframe"), row);
-    });
-    // Toggled in place rather than re-rendered: a re-render would collapse
-    // every other open card (the same trap the <details> keepOpen helpers work
-    // around elsewhere).
-    const more = card.querySelector(".sug-more");
-    more?.addEventListener("click", () => {
-      const panel = card.querySelector(".sug-detail");
-      const open = panel.hasAttribute("hidden");
-      panel.toggleAttribute("hidden", !open);
-      more.setAttribute("aria-expanded", String(open));
-      more.textContent = open ? "Hide details" : "Details";
-      card.classList.toggle("open", open);
-    });
-    card.querySelector(".sugcheck")?.addEventListener("change", (e) => {
-      const on = e.target.checked;
-      if (on) SUGGEST_PICKS.set(card.dataset.key, row);
-      else SUGGEST_PICKS.delete(card.dataset.key);
-      card.classList.toggle("picked", on);
-      const txt = card.querySelector(".vpick-txt");
-      if (txt) txt.textContent = on ? "Added" : "Add";
-      refreshNextBriefBtn(client);
-    });
+    if (row) bindSugCard(card, row, client);
   });
+
+  const wireLoadMore = () => {
+    const btn = box.querySelector("#sug-loadmore");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      const grid = box.querySelector(".suggest-grid");
+      const from = SUGGEST_SHOWN;
+      SUGGEST_SHOWN = Math.min(SUGGEST_SHOWN + SUGGEST_STEP, all.length);
+      const added = all.slice(from, SUGGEST_SHOWN);
+
+      // APPEND rather than re-render. Re-rendering the section threw away
+      // already-decoded thumbnails and any open detail panel, and — because the
+      // browser anchors scroll to keep visible content still — it pinned this
+      // button at the same spot on screen while the page silently scrolled 800px.
+      // Appending pushes the button down past the new row instead, which is
+      // where it belongs: out of the way until you want it again.
+      const tmp = document.createElement("div");
+      tmp.innerHTML = added.map(sugCardHtml).join("");
+      const fresh = [...tmp.children];
+      fresh.forEach((card) => {
+        grid.appendChild(card);
+        const row = rows.get(card.dataset.key);
+        if (row) bindSugCard(card, row, client);
+      });
+      fillTikTokThumbs(added.map((p) => p.row));
+      fillHostedCovers(added.map((p) => p.row));
+
+      // Rebuild the control in place with the new remaining count.
+      const row = box.querySelector(".sug-more-row");
+      const left = all.length - SUGGEST_SHOWN;
+      if (!left) { row.remove(); return; }
+      const holder = document.createElement("div");
+      holder.innerHTML = sugMoreRowHtml(left);
+      row.replaceWith(holder.firstElementChild);
+      wireLoadMore();
+    });
+  };
+  wireLoadMore();
 }
 
 /** Swap the Briefs header button between bare + and the labelled CTA as videos
@@ -3112,7 +3154,7 @@ function refreshNextBriefBtn(client) {
   el.id = "cl-nextbrief";
   if (SUGGEST_PICKS.size) {
     el.className = "btn sec-cta";
-    el.textContent = `Build brief ${total + 1} with ${SUGGEST_PICKS.size} picked`;
+    el.textContent = `${SUGGEST_PICKS.size} pick${SUGGEST_PICKS.size === 1 ? "" : "s"} \u2192 brief ${total + 1}`;
   } else {
     el.className = "lib-plus";
     el.title = `Build brief ${total + 1}`;
@@ -3154,7 +3196,7 @@ function renderClientPage(host, client) {
             then it names the count it is carrying — the tick and the button are
             far apart on screen, so the button has to say what it picked up. */""}
       ${SUGGEST_PICKS.size
-        ? `<button type="button" class="btn sec-cta" id="cl-nextbrief">Build brief ${total + 1} with ${SUGGEST_PICKS.size} picked</button>`
+        ? `<button type="button" class="btn sec-cta" id="cl-nextbrief">${SUGGEST_PICKS.size} pick${SUGGEST_PICKS.size === 1 ? "" : "s"} \u2192 brief ${total + 1}</button>`
         : `<button type="button" class="lib-plus" id="cl-nextbrief"
              title="Build brief ${total + 1}" aria-label="Build brief ${total + 1}">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"

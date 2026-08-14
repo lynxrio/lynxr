@@ -1305,6 +1305,12 @@
   .blueprints-box .sec-head { margin-bottom: 0; }
   .sec-head .sec-cta { margin-left: auto; flex: 0 0 auto; }
 
+  /* overflow-anchor:none is the point of this rule. Appending a row of cards
+     makes the browser "helpfully" scroll to keep visible content still, which
+     pinned the Load-more button at the exact same spot on screen while the page
+     jumped ~800px underneath it. Disabling the anchor lets the new row push the
+     button down past the fold, which is where it should be after a load. */
+  .suggest-grid, .sug-more-row { overflow-anchor: none; }
   .sug-more-row { display: flex; justify-content: center; margin: 16px 0 4px; }
   .sug-more-row .ghost { display: inline-flex; align-items: baseline; gap: 8px; }
 
