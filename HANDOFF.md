@@ -99,6 +99,12 @@ The sensor records; no dial exists. Highest-leverage unbuilt thing in the repo.
   a content exclusion list). Deliberately NOT a source rewrite: `text-transform`
   changes what is drawn, so "copy script" still copies the creator's real
   casing. `.entity` opts the registered company name back out.
+- **Thumbnails were enlarged across the board (2026-08-14)**: blueprint rows
+  32×42/34×44 → **48×62** (two competing `.bp-thumb` rules existed — one
+  assuming a bare `<img>`, one the `<span>` wrapper `bpThumbHtml` actually
+  renders; the wrapper one survived), the New Client shelf `minmax(250px)` →
+  **290px**, the brief viewer's player column 320 → **360px**, and the expanded
+  script card's 280 → **320px**.
 - System code font (`ui-monospace`), base 14px. Share Tech Mono is still in
   `fonts/`; put it back at the front of `--mono` to revert.
 - **The LOGO is Share Tech Mono again (2026-08-14), and only the logo.** It
@@ -252,9 +258,51 @@ creator to imitate. Three gates, all measured on the master CSV:
   near 280K while Fashion & Beauty runs to 3.5M — one global number would gut
   the first and let the second through.
 
-**Least-saturated breaks ties**: `sqrt(41 / similar_format_count)` clamped to
-0.65–1.5, so a pocket 4× more crowded is penalised 2×. Crowding tilts the
-ranking, it does not veto.
+### The card shows a 1–10 opportunity score, and it leads the ranking
+
+`"43.3× its pocket"` was accurate and unreadable. Each card now shows **N/10**
+on the VIDEO TYPE — format × hook, scoped to niche × platform — answering the
+question a brief actually asks: *should we make this kind of video?*
+**1 = crowded and weak, don't bother. 10 = rare and strong, go now.**
+
+Two axes, both measured inside the same niche+platform scope (a TikTok median
+against a YouTube one is meaningless):
+
+- **ROOM** — the type's share of that scope. Measured p10/p90 across all 192
+  types with ≥12 members: **1.8% → 29.3%**.
+- **REACH** — the type's median views ÷ the scope's median type. p10/p90:
+  **0.26× → 3.04×** (with a 250× tail).
+
+Both log-scaled — both distributions are heavily skewed — then averaged and
+mapped onto 1–10. `SHARE_LO/HI` and `REACH_LO/HI` are those measured bounds, so
+the scale is calibrated to this corpus rather than invented. The result is a
+clean curve: 1×1, 4×2, 17×3, 29×4, 38×5, 32×6, 16×7, 12×8, 12×9, 14×10. The
+worst type in the corpus is *Meme × No Hook* on TikTok in Lifestyle — 46% of its
+scope at 0.13× the reach. The best are 1–2% shares pulling 3–8×.
+
+**The score sorts the list, first, descending.** As a multiplicative tilt it did
+nothing: `edge` spans orders of magnitude and swamped a 0.55–1.5 factor, so the
+top six came back 5,5,6,6,7,6 while 10/10 types sat unseen further down. Now
+`tier` sorts and the per-video edge only orders videos sharing a score.
+Verified monotonic in every niche — Fashion opens on two 10s, Education on
+twelve. Unscored types (too few peers) rank as a 5 rather than being buried.
+
+The chip is colour-banded — 7+ green, 5–6 amber, under 5 red. Hovering it shows
+a one-line tooltip with a pointer arrow: *"10 = hardly anyone makes it and it
+performs. 1 = everyone makes it and it flops."* Deliberately one line — the
+score, both axes and the per-video multiple all live in the card's Details
+panel, so the hover only has to say which way the scale runs.
+
+Three placement constraints, all learned the hard way:
+- **The tooltip is parented to `<body>` and `position: fixed`.** `.vcard` is
+  `overflow: hidden`, so anything rendered inside a card is clipped by it.
+- **It clamps on both axes and picks the side with more room.** "Prefer above,
+  else below" was not enough: the first version was a ~314px panel, and a chip
+  low in the viewport put the whole thing off the bottom of the screen.
+- **The arrow's `left` is set from the CHIP's centre, not the panel's.** The two
+  stop agreeing the moment the panel is clamped against a viewport edge.
+Verified on both placements, at the top and bottom of a 900px viewport: fits
+on screen, arrow centred on the chip and flush to the panel edge.
 
 Measured on the live corpus (8,809 rows, Fashion & Beauty): 358 rows dropped by
 the gates, and the top picks went from a 23.8M-view runway clip to Listicles and
@@ -400,7 +448,14 @@ shot list) plus a CSP entry.
 4. Rest of the agency feedback: client fields (website, logo, description),
    a 4×4 video grid, briefs tagged by week, swap-a-video-in-a-brief (needs the
    grid), editable briefs (blueprints are done; briefs themselves are not).
-5. **The blueprint add-by-link form is STILL not rendered anywhere.**
+5. ~~The blueprint add-by-link form is missing.~~ **DONE** — a separate session
+   landed it (commits `242b8d1`, `6a7134a`) and that session has since been
+   deleted, so `blueprintsBoxHtml` is no longer contested. Every element id
+   app.js looks up now resolves. The form was restyled to reuse the creator
+   app's **`.composer-row` / `.composer-send`** — one rounded pill, arrow send
+   button, `.bp-plat` inline beside it — so both sides are identical for free.
+   It carries `margin-top: 14px` to clear the header's `+`, which otherwise sat
+   flush against the send button and read as one control. Historical note:
    `bindBlueprints` looks up `bp-url` / `bp-plat` / `bp-form`, none of which
    exist in any template — pre-existing, fully null-guarded so nothing throws.
    A **`+` button now sits top-right of the Video blueprints header** (`bp-add`,

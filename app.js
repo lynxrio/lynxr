@@ -2861,13 +2861,20 @@ function blueprintsBoxHtml(client) {
 
           The submit button carries no id — the + above owns #bp-add, and
           type="submit" is what submits a form. */""}
-    <form class="post-form bp-form" id="bp-form" hidden>
-      <span class="bp-field">
-        <input type="url" id="bp-url" placeholder="Paste a TikTok / Instagram / YouTube link"
-          autocomplete="off" spellcheck="false">
-        <span class="bp-plat" id="bp-plat"></span>
-      </span>
-      <button type="submit" class="btn">Get script</button>
+    ${/* Same component as the creator app's composer — .composer-row wraps the
+          input and the arrow send button in one rounded pill, with .bp-plat
+          sitting inline just left of the button. Reusing those classes rather
+          than restyling a .post-form keeps the two sides identical for free.
+          The outer sticky .composer wrapper is deliberately NOT used: that one
+          pins to the foot of the creator's scrolling pane. */""}
+    <form class="composer-row bp-form" id="bp-form" hidden>
+      <input type="url" id="bp-url" placeholder="Paste a TikTok / Instagram / YouTube link"
+        autocomplete="off" spellcheck="false" aria-label="Paste a video link">
+      <span class="bp-plat" id="bp-plat"></span>
+      <button type="submit" class="composer-send" aria-label="Get the script">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
     </form>
     <p class="bp-msg" id="bp-msg" role="status" aria-live="polite"></p>
     <p class="note" id="bp-note">Paste a posted video's link — the pipeline transcribes it on our
@@ -3116,7 +3123,7 @@ function sugCardHtml({ row, edge }) {
           const t = typeScore(row);
           if (!t) return `<span class="sug-score s-none" title="Too few videos of this type to judge it">\u2013<i>/10</i></span>`;
           const band = t.score >= 7 ? "good" : t.score >= 5 ? "even" : "bad";
-          return `<span class="sug-score ${band}" title="${t.score}/10 \u2014 ${escapeHtml(scoreVerdict(t.score))}. ${escapeHtml(row.format_type)} \u00d7 ${escapeHtml(row.hook_pattern)} is ${(t.share * 100).toFixed(1)}% of ${escapeHtml(row.niche_category)} on ${escapeHtml(row.platform)} and gets ${t.reach.toFixed(1)}\u00d7 the typical reach there.">${t.score}<i>/10</i></span>`;
+          return `<span class="sug-score ${band}" tabindex="0" role="button" aria-label="Opportunity score ${t.score} out of 10">${t.score}<i>/10</i></span>`;
         })()}
         <span class="vstat">${compact(views(row))} views</span>
       </div>
@@ -3204,8 +3211,65 @@ function suggestionsBoxHtml(client) {
   </div>`;
 }
 
+// One tooltip node for the whole page, parented to <body>. It CANNOT live
+// inside the card: .vcard sets overflow:hidden, so anything overflowing a card
+// is clipped. Fixed positioning against the chip's rect sidesteps that and any
+// stacking context the grid introduces.
+let SCORE_TIP = null;
+function scoreTip() {
+  if (!SCORE_TIP) {
+    SCORE_TIP = document.createElement("div");
+    SCORE_TIP.className = "score-tip";
+    SCORE_TIP.hidden = true;
+    document.body.appendChild(SCORE_TIP);
+  }
+  return SCORE_TIP;
+}
+
+/** Explain the number. Deliberately ONE line — the score, the axes and the
+    per-video multiple all live in the card's Details panel, so the hover only
+    has to say which way the scale runs. */
+function showScoreTip(chip, row) {
+  const tip = scoreTip();
+  tip.innerHTML = `<span class="st-arrow"></span><p class="st-foot">${
+    typeScore(row)
+      ? "10 = hardly anyone makes it and it performs. 1 = everyone makes it and it flops."
+      : "Too few videos of this type in the database to score it."}</p>`;
+  tip.hidden = false;
+  // Prefer above the chip, flip below when there is not room, and clamp to the
+  // viewport on both axes so a card at any edge still shows the whole thing.
+  const r = chip.getBoundingClientRect();
+  const tr = tip.getBoundingClientRect();
+  const GAP = 8, EDGE = 8;
+  const roomAbove = r.top - GAP, roomBelow = window.innerHeight - r.bottom - GAP;
+  const above = tr.height <= roomAbove || roomAbove > roomBelow;
+  tip.style.top = Math.max(EDGE, Math.min(window.innerHeight - tr.height - EDGE,
+    above ? r.top - tr.height - GAP : r.bottom + GAP)) + "px";
+  const left = Math.max(EDGE,
+    Math.min(window.innerWidth - tr.width - EDGE, r.left + r.width / 2 - tr.width / 2));
+  tip.style.left = left + "px";
+  // The arrow points at the CHIP, not at the panel's own centre — the two part
+  // company whenever the panel is clamped against a viewport edge.
+  tip.classList.toggle("above", above);
+  tip.classList.toggle("below", !above);
+  const arrow = tip.querySelector(".st-arrow");
+  if (arrow) {
+    arrow.style.left = Math.max(12, Math.min(tr.width - 22,
+      r.left + r.width / 2 - left - 5)) + "px";
+  }
+}
+const hideScoreTip = () => { if (SCORE_TIP) SCORE_TIP.hidden = true; };
+
 /** Wire one suggestion card: play, expand, and the add-to-brief tick. */
 function bindSugCard(card, row, client) {
+  const chip = card.querySelector(".sug-score");
+  if (chip) {
+    const show = () => showScoreTip(chip, row);
+    chip.addEventListener("mouseenter", show);
+    chip.addEventListener("focus", show);
+    chip.addEventListener("mouseleave", hideScoreTip);
+    chip.addEventListener("blur", hideScoreTip);
+  }
   card.querySelector(".vplay")?.addEventListener("click", () => {
     playInFrame(card.querySelector(".vframe"), row);
   });

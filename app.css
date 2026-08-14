@@ -599,7 +599,7 @@
 
   /* Video shelf */
   .shelf {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
     gap: 14px; margin: 6px 0 20px;
   }
   .vcard {
@@ -702,17 +702,17 @@
   /* Client video blueprints — paste a link, the script arrives here.
      Motion is functional only: a pulse means "still waiting", a one-shot
      flash means "this just became ready", and both stop for reduced-motion. */
-  .bp-form { align-items: stretch; }
-  /* .post-form sets display:flex, which outranks the UA [hidden] rule — without
-     this the form paints even with the attribute set, and the header's + has
-     nothing to reveal. */
+  /* Clears the + in the section header above it — without this the send button
+     sits flush against the +, which reads as one control. */
+  .bp-form { margin-top: 14px; }
+  /* .composer-row sets display:flex, which outranks the UA [hidden] rule —
+     without this the form paints even with the attribute set, and the header's
+     + has nothing to reveal. */
   .bp-form[hidden] { display: none; }
   /* The form's help text follows the form's own state, so the + only has to
      touch the form. Keyed on #bp-note rather than ~ .note, which would also
      catch the "No blueprints yet." line sitting further down. */
   .bp-form[hidden] ~ #bp-note { display: none; }
-  .bp-field { position: relative; display: flex; flex: 1 1 260px; }
-  .bp-field input[type="url"] { flex: 1 1 auto; padding-right: 82px; }
   .bp-plat {
     position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
     font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
@@ -747,18 +747,17 @@
      square crop of a 9:16 frame throws away the part with the face in it.
      The surface-2 background means a slow or missing image leaves a neutral
      tile rather than a flash of nothing that reflows the row. */
-  .bp-thumb {
-    width: 32px; height: 42px; flex: none; border-radius: 5px;
-    object-fit: cover; background: var(--surface-2); display: block;
-  }
   .bp-caret { color: var(--text-3); font-size: 10px; transition: transform .18s var(--ease); }
   .bp-item[open] .bp-caret { transform: rotate(90deg); }
   /* Cover art on a blueprint row. Fixed box so a missing cover leaves the row
      exactly as tall as one that has it — Instagram never resolves a thumbnail
      (no keyless endpoint, and its CDN is not in img-src), so a shifting size
      here would be the common case, not the rare one. */
+  /* Big enough to actually recognise the video at a glance. Two rules used to
+     define this — one assuming a bare <img>, one the <span> wrapper bpThumbHtml
+     really renders; the wrapper one is kept. */
   .bp-thumb {
-    flex: 0 0 auto; width: 34px; height: 44px; border-radius: 5px;
+    flex: 0 0 auto; width: 48px; height: 62px; border-radius: 6px;
     overflow: hidden; background: var(--surface-2); border: 1px solid var(--line);
     display: grid; place-items: center;
   }
@@ -1035,7 +1034,7 @@
     animation: hint-shake .45s var(--ease);
   }
   .sug-hint[hidden] { display: none; }
-  .viewer { display: grid; grid-template-columns: 320px 1fr; gap: 26px; align-items: start; }
+  .viewer { display: grid; grid-template-columns: 360px 1fr; gap: 26px; align-items: start; }
 
   .viewer-player { border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--line); }
   .viewer-player.vf-tiktok { aspect-ratio: 9 / 19.8; }
@@ -1068,7 +1067,7 @@
   .caret { color: var(--text-3); font-size: 12px; transition: color .12s; }
   .fmt-card.expanded { grid-column: 1 / -1; }
   .card-detail {
-    display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start;
+    display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start;
     border-top: 1px solid var(--line); margin-top: 14px; padding-top: 18px;
   }
   .cd-info { min-width: 0; }
@@ -1374,6 +1373,30 @@
   .sug-score.even { color: var(--even); border-color: #4a412c; }
   .sug-score.bad  { color: var(--bad);  border-color: #4a2c2c; }
   .sug-score.s-none { color: var(--text-3); }
+  .sug-score { cursor: help; }
+  .sug-score:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
+
+  /* Parented to <body> and position:fixed on purpose — .vcard is overflow:hidden,
+     so a tooltip rendered inside a card would be clipped by it. */
+  .score-tip {
+    position: fixed; z-index: 60; width: max-content; max-width: min(300px, calc(100vw - 16px));
+    background: var(--surface-2); border: 1px solid var(--line-2);
+    border-radius: 9px; padding: 9px 12px;
+    box-shadow: 0 10px 26px #00000080;
+    animation: soft-in .12s var(--ease);
+  }
+  .score-tip[hidden] { display: none; }
+  .st-foot { margin: 0; color: var(--text-2); font-size: 11.5px; line-height: 1.5; }
+  /* The pointer: a rotated square borrowing the panel's own border and fill, so
+     only its two outer edges show. Its left is set from the CHIP's centre in JS,
+     because the panel gets clamped at the viewport edges and the two centres
+     stop agreeing. */
+  .st-arrow {
+    position: absolute; width: 9px; height: 9px; background: var(--surface-2);
+    border-left: 1px solid var(--line-2); border-top: 1px solid var(--line-2);
+  }
+  .score-tip.below .st-arrow { top: -5px; transform: rotate(45deg); }
+  .score-tip.above .st-arrow { bottom: -5px; transform: rotate(225deg); }
   /* The VIDEO's own 9:16, thumbnail and player alike.
      Two constraints meet here. A flat height clipped the player — 400px cut
      the video itself off partway down. And the platform frames' full ratios
