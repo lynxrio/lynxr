@@ -179,10 +179,11 @@ $("wait-form").addEventListener("submit", async (e) => {
       // someone who simply submitted twice.
       if (res.ok) mirrorToSheet(email);
       $("wait-form").hidden = true;
-      // Repeats the promise rather than widening it. "we'll be in touch" is
-      // vaguer than what they actually agreed to, and the confirmation is the
-      // last thing they read — it should not quietly enlarge the consent.
-      say("you're on the list. we'll email you at launch.", "good");
+      // Restates the promise rather than widening it. The confirmation is the
+      // last thing they read, so it must not quietly enlarge the consent —
+      // anything vaguer ("we'll be in touch", "expect news") would claim more
+      // than the form above asked for.
+      say("you're on the list. we'll update you about the launch.", "good");
       return;
     }
     // The table not existing is the one failure worth naming precisely — it is
