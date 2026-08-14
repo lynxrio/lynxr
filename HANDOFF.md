@@ -288,7 +288,19 @@ in place from `SUGGEST_PICKS`, files it, clears the picks, and opens it — the
 tab never changes.
 
 With **nothing ticked**, `+` does not create an empty brief or navigate: it
-scrolls to Suggestions and shows a transient `sugHint()`. Verified end to end —
+scrolls to Suggestions and shows a transient red `sugHint()` that shakes once
+on arrival and stays 7s.
+
+Two bugs that cost real time there, both worth not repeating:
+- **The hint was built as a `max-height: 0 → 4em` collapse and never painted a
+  pixel.** With its class applied, `max-height` and `opacity` still computed to
+  `0`, even though `color` and `animation` from the *same rule* took effect.
+  It is now shown/hidden with the `hidden` attribute — an attribute toggle
+  cannot fail that way. Same lesson as the invisible bar charts: verify painted
+  height, never DOM state.
+- **The auto-hide timer closed over the element.** Any re-render of the client
+  page swaps that node out, so the timer fired against a detached element and
+  the visible hint never left. It re-queries `.sug-hint` at fire time instead. Verified end to end —
 3 picks in, brief filed with exactly those 3 items in order, ctx carried,
 new brief opened, and on returning to the folder those videos have dropped out
 of Suggestions (they are `briefed` now) and the CTA is back to a bare `+`.
