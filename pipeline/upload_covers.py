@@ -59,7 +59,14 @@ BUCKET = "lynxr-covers"
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
 MAX_W = 360
 QUALITY = 72
-SSL_CTX = ssl.create_default_context()
+# This venv's Python has no system CA bundle — a bare default context fails
+# every request with CERTIFICATE_VERIFY_FAILED. Same guard the rest of the
+# pipeline uses (process_adaptations.py, cohort.py).
+try:
+    import certifi
+    SSL_CTX = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    SSL_CTX = ssl.create_default_context()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s",
                     datefmt="%H:%M:%S")

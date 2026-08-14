@@ -796,6 +796,58 @@ function thumbFor(row) {
   return null;   // instagram: no keyless thumbnail — placeholder card
 }
 
+// ---- Covers we host ourselves ----
+// pipeline/fetch_covers.py already caches an opening frame per video, and
+// upload_covers.py publishes them to the PUBLIC lynxr-covers bucket under the
+// same key process_adaptations.py uses for creator covers:
+//
+//     sha1(canonUrl(url)).slice(0, 20) + ".jpg"
+//
+// This is the only cover source that works for INSTAGRAM — it publishes no
+// keyless thumbnail endpoint and its CDN is not in img-src — and it saves the
+// per-card oEmbed round-trip to tiktok.com for the rest.
+// Lazy, not a top-level const: SB_URL is declared further down the file, so
+// reading it here at evaluation time would hit the temporal dead zone and throw
+// before the app ever boots.
+const coverBase = () => SB_URL + "/storage/v1/object/public/lynxr-covers/";
+const HOSTED_COVERS = new Map();   // canonical url -> cover url ("" = none)
+
+async function coverKey(url) {
+  const bytes = new TextEncoder().encode(canonUrl(url));
+  const hash = await crypto.subtle.digest("SHA-1", bytes);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0"))
+    .join("").slice(0, 20);
+}
+
+/** Point every waiting frame at its hosted cover, if one was published. */
+function fillHostedCovers(rows) {
+  for (const r of rows) {
+    const url = String(r.url || "");
+    if (!url || HOSTED_COVERS.has(url)) continue;
+    HOSTED_COVERS.set(url, "");            // in-flight guard
+    coverKey(url).then((key) => {
+      const src = coverBase() + key + ".jpg";
+      // Probe before swapping: a row whose cover was never uploaded would
+      // otherwise replace a working TikTok/YouTube thumbnail with a broken one.
+      const probe = new Image();
+      probe.onload = () => {
+        HOSTED_COVERS.set(url, src);
+        document.querySelectorAll(`[data-url="${CSS.escape(url)}"]`).forEach((host) => {
+          const slot = host.querySelector(".vthumb-pending, .vthumb-none");
+          if (!slot) return;               // already has a real thumbnail
+          const img = document.createElement("img");
+          img.className = "vthumb";
+          img.src = src;
+          img.alt = "";
+          img.loading = "lazy";
+          slot.replaceWith(img);
+        });
+      };
+      probe.src = src;
+    }).catch(() => {});
+  }
+}
+
 /** Resolve TikTok thumbnails via oEmbed and drop them into waiting cards. */
 function fillTikTokThumbs(rows) {
   for (const r of rows) {
@@ -1155,6 +1207,32 @@ const SUGGEST_CAP = 2;      // per format × hook, so one pocket can't fill the 
 let POCKETS = null;         // Map(pocketKey -> median views), memoized against ALL
 let POCKETS_FOR = null;
 
+// ---- What counts as organic UGC you could actually remake ----
+// The shelf was surfacing 11–23M-view runway reposts and meme aggregators.
+// Those top every performance sort and are worthless as a brief: there is no
+// script to tweak and no creator to imitate. Three gates fix it, measured on
+// the master CSV:
+//
+//  · FORMAT. "Meme / Trend Clip" (1,724 rows) is the repost bucket and
+//    "Reaction / Duet" is commentary on someone else's video. Neither is a
+//    thing you write a script for. Everything else in the taxonomy is.
+//  · CREATOR SIZE. `creator_followers` fills 70% of rows: median 8,157,
+//    p90 74,100, max 3.2M. A 3M-follower media brand pulling 11M views is not
+//    reproducible by a UGC creator; an 8K-follower account pulling 200K is
+//    exactly the thing to copy. Unknown followers are KEPT — dropping the 30%
+//    blind rows costs more than it buys.
+//  · VIEW CEILING. Corpus p95 is 2.5M and p99 is 9.6M, so the tail is where
+//    the lottery winners live. Each niche's own p95 is the cut.
+const SCRIPTABLE_FORMATS = new Set([
+  "Talking Head", "Listicle", "Story Time", "Screen Demo",
+  "Voiceover B-roll", "POV", "Skit", "Green Screen",
+]);
+const MEGA_FOLLOWERS = 500000;
+const VIEW_CEILING_PCT = 0.95;
+// Median similar_format_count across the corpus — the pivot for "is this
+// pocket more or less crowded than typical".
+const SAT_PIVOT = 41;
+
 const pocketKey = (r) =>
   [r.niche_category, r.format_type, r.hook_pattern, r.platform].join("|");
 
@@ -1218,26 +1296,50 @@ function clientSuggestions(client, count = 8) {
   const ctx = { ...(client.ctx || {}) };
   ctx._avatarWords = avatarWords(ctx.avatar);
 
+  // This niche's own view ceiling — above it you are looking at a lottery win,
+  // not a play. Taken per-niche because Health & Medical tops out around 280K
+  // while Fashion & Beauty runs to 3.5M; one global number would gut the first
+  // and let the second through.
+  const poolViews = pool.map(views).filter((v) => v > 0).sort((a, b) => a - b);
+  const viewCeiling = poolViews.length
+    ? poolViews[Math.floor(poolViews.length * VIEW_CEILING_PCT)] : Infinity;
+
+  // Least saturated wins ties: a pocket with fewer entrants has more room left.
+  // sqrt so a pocket 4× more crowded is penalised 2×, not 4× — crowding is a
+  // tilt on the ranking, not a veto.
+  const satBoost = (r) => {
+    const n = parseFloat(r.similar_format_count);
+    if (!n || n <= 0) return 1;
+    return Math.max(0.65, Math.min(1.5, Math.sqrt(SAT_PIVOT / n)));
+  };
+
   // Count WHY rows drop out, so an empty section can say which wall it hit
   // instead of rendering nothing and looking broken.
-  let playable = 0, pocketed = 0, seenBefore = 0;
+  let playable = 0, pocketed = 0, seenBefore = 0, notUgc = 0;
   const scored = [];
   for (const r of pool) {
     if (briefed.has(rowKey(r))) { seenBefore++; continue; }
     if (!embedFor(r)) continue;              // must be playable in the page
     playable++;
+    // Organic-UGC gates — see SCRIPTABLE_FORMATS above for the measurements.
+    const followers = parseFloat(r.creator_followers);
+    if (!SCRIPTABLE_FORMATS.has(r.format_type)
+        || (followers && followers > MEGA_FOLLOWERS)
+        || views(r) > viewCeiling) { notUgc++; continue; }
     const edge = videoEdge(r);
     if (!edge) continue;                     // its pocket is too thin to judge
     pocketed++;
     if (edge.x < 1) continue;                // must beat the typical video like it
-    scored.push({ row: r, edge, score: edge.x * avatarBoost(r, ctx) });
+    scored.push({ row: r, edge, score: edge.x * satBoost(r) * avatarBoost(r, ctx) });
   }
-  const stats = { widened, pool: pool.length, playable, pocketed, seenBefore, beat: scored.length };
+  const stats = { widened, pool: pool.length, playable, pocketed, seenBefore,
+                  notUgc, beat: scored.length };
   const memo = (val) => { SUGGEST_CACHE = { key: cacheKey, rows: ALL, val }; return val; };
   if (!scored.length) return memo({ picks: [], ...stats });
 
-  // Cut the unreproducible tail BEFORE ranking. A 21M-view meme clip tops every
-  // raw sort and is worthless as a brief: nobody can copy a lottery win.
+  // Belt and braces on top of the view ceiling: within what survived, drop the
+  // top 3% by edge. The ceiling catches absolute outliers, this catches a video
+  // that beat a very small pocket by an implausible multiple.
   const cut = [...scored].sort((a, b) => a.edge.x - b.edge.x)
     [Math.floor(scored.length * OUTLIER_PCT)]?.edge.x ?? Infinity;
 
@@ -2662,9 +2764,13 @@ function renderBriefsKeepScroll() {
 }
 
 function bindBlueprints(host, client) {
-  // TikTok covers arrive asynchronously via oEmbed and drop into the pending
-  // slots that bpThumbHtml left behind.
-  fillTikTokThumbs((client.blueprints || []).map(bpThumbRow));
+  // Covers arrive asynchronously and drop into the pending slots bpThumbHtml
+  // left behind. The hosted pass is what can fill an INSTAGRAM row: if the same
+  // video was ever turned into a creator script, process_adaptations.py already
+  // published its frame under the same canonUrl key.
+  const bpRows = (client.blueprints || []).map(bpThumbRow);
+  fillTikTokThumbs(bpRows);
+  fillHostedCovers(bpRows);
   // Link-only: a pasted post URL becomes a queued blueprint entry. The pipeline
   // fetches the media itself (yt-dlp), so nothing is uploaded from the browser.
   const urlEl = document.getElementById("bp-url");
@@ -2825,12 +2931,25 @@ function bindBlueprints(host, client) {
     rowKey -> row, cleared once startNextWeekBrief has consumed them. */
 let SUGGEST_PICKS = new Map();
 
+// Six fills two rows of three and keeps the section above the fold; the rest
+// arrive three at a time so the grid never reflows into a ragged row. Reset per
+// client so opening a different folder doesn't inherit the last one's depth.
+const SUGGEST_PAGE = 6;
+const SUGGEST_STEP = 3;
+let SUGGEST_SHOWN = SUGGEST_PAGE;
+let SUGGEST_SHOWN_FOR = null;
+
 /** Per-VIDEO suggestions for this client. Deliberately separate from the shelf:
     the shelf answers "which format should they run", this answers "which video
     should they copy", and the two disagree — the format with the worst median
     reach supplies the most individual overperformers. */
 function suggestionsBoxHtml(client) {
-  const { picks, widened, pocketed, seenBefore } = clientSuggestions(client, 8);
+  // Reset the reveal depth when a different client's folder opens.
+  if (SUGGEST_SHOWN_FOR !== client.id) { SUGGEST_SHOWN = SUGGEST_PAGE; SUGGEST_SHOWN_FOR = client.id; }
+  // Score deeper than we show, so "load more" has somewhere to go.
+  const { picks: all, widened, pocketed, seenBefore } = clientSuggestions(client, 30);
+  const picks = all.slice(0, SUGGEST_SHOWN);
+  const more = all.length - picks.length;
   // An empty section that renders nothing reads as a broken feature. Say which
   // wall it hit — the niche is too thin, or they have already been shown
   // everything that clears the bar.
@@ -2851,7 +2970,7 @@ function suggestionsBoxHtml(client) {
     </div>`;
   }
   return `<div class="section suggest-box">
-    <h2>Suggested videos for ${escapeHtml(client.company)} <span class="pill">${picks.length}</span></h2>
+    <h2>Suggested videos for ${escapeHtml(client.company)} <span class="pill">${all.length}</span></h2>
     ${/* The how-it-works paragraph that used to sit here is gone — the scoring
           is documented in HANDOFF.md and the per-card "N× its pocket" chip
           carries the same fact where it is actually useful. The widened
@@ -2902,6 +3021,10 @@ function suggestionsBoxHtml(client) {
         </article>`;
       }).join("")}
     </div>
+    ${more ? `<div class="sug-more-row">
+      <button type="button" class="ghost" id="sug-loadmore">Load ${Math.min(SUGGEST_STEP, more)} more
+        <span class="lbl">${more} left</span></button>
+    </div>` : ""}
   </div>`;
 }
 
@@ -2909,8 +3032,20 @@ function suggestionsBoxHtml(client) {
 function bindSuggestions(host, client) {
   const box = host.querySelector(".suggest-box");
   if (!box) return;
-  const rows = new Map(clientSuggestions(client, 8).picks.map(({ row }) => [rowKey(row), row]));
+  const rows = new Map(clientSuggestions(client, 30).picks.map(({ row }) => [rowKey(row), row]));
   fillTikTokThumbs([...rows.values()]);
+  fillHostedCovers([...rows.values()]);
+
+  // Reveal three more, then re-render just this section — the rest of the
+  // client page is untouched, so scroll position and open cards elsewhere hold.
+  document.getElementById("sug-loadmore")?.addEventListener("click", () => {
+    SUGGEST_SHOWN += SUGGEST_STEP;
+    const fresh = suggestionsBoxHtml(client);
+    const tmp = document.createElement("div");
+    tmp.innerHTML = fresh;
+    box.replaceWith(tmp.firstElementChild);
+    bindSuggestions(host, client);
+  });
 
   box.querySelectorAll(".sug-card").forEach((card) => {
     const row = rows.get(card.dataset.key);
@@ -2937,8 +3072,10 @@ function bindSuggestions(host, client) {
       card.classList.toggle("picked", on);
       const txt = card.querySelector(".vpick-txt");
       if (txt) txt.textContent = on ? "Added" : "Add";
+      // The + is icon-only now, so the count lives in its tooltip rather than
+      // its face — writing textContent here would replace the svg.
       const btn = document.getElementById("cl-nextbrief");
-      if (btn) btn.textContent = nextBriefLabel(client);
+      if (btn) { btn.title = nextBriefLabel(client); btn.setAttribute("aria-label", nextBriefLabel(client)); }
     });
   });
 }
@@ -2968,7 +3105,17 @@ function renderClientPage(host, client) {
 
     ${blueprintsBoxHtml(client)}
 
-    <h2>Briefs <span class="pill">${total}</span></h2>
+    <div class="sec-head">
+      <h2>Briefs <span class="pill">${total}</span></h2>
+      ${/* Replaces the "next brief" block that used to sit at the bottom of the
+            page: same action, but attached to the thing it creates instead of
+            stranded below the brief list. Matches the creator app's .lib-plus. */""}
+      <button type="button" class="lib-plus" id="cl-nextbrief"
+        title="${escapeHtml(nextBriefLabel(client))}" aria-label="${escapeHtml(nextBriefLabel(client))}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+          aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
     ${total ? `<div class="brief-stack">` + client.briefs.map((b, i) => `
       <article class="bcard" data-bid="${escapeHtml(b.id)}">
         <div class="bcard-main">
@@ -2980,16 +3127,8 @@ function renderClientPage(host, client) {
           aria-label="Delete this brief" title="Delete this brief">${TRASH_SVG}</button>
       </article>`).join("") + `</div>`
     : `<div class="empty"><p><strong>No briefs yet.</strong></p>
-        <p>Build one in the New Client tab \u2014 it files here as Brief 1.</p></div>`}
-
-    <div class="nextweek">
-      <div class="minw0">
-        <h2>Next brief</h2>
-        <p class="lbl">Tick videos above to start brief ${total + 1} with them already in the cart,
-          or build one from scratch off ${escapeHtml(client.niche || "the whole database")}.</p>
-      </div>
-      <button type="button" class="btn" id="cl-nextbrief">${escapeHtml(nextBriefLabel(client))}</button>
-    </div>`;
+        <p>Tick videos above and hit + to start Brief 1 with them already in the cart.</p></div>`}
+`;
 
   bindBlueprints(host, client);
   bindSuggestions(host, client);
