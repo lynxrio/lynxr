@@ -24,7 +24,14 @@
        Share Tech Mono was the previous choice and is still self-hosted in
        fonts/ (see the @font-face above); putting it back in front here restores
        it everywhere in one edit, because everything reads from this variable. */
-    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    /* Menlo FIRST, deliberately. `ui-monospace` was in front, but it is not
+       supported everywhere — measured against a deliberately-unavailable face
+       it came back with the identical width, i.e. it was resolving to nothing
+       and the stack was falling through by accident. Menlo is the macOS editor
+       default (it is what VS Code uses), so naming it first makes the match
+       intentional instead of a happy side effect, and the rest still covers
+       Windows and Linux. */
+    --mono: Menlo, ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
     --ease: cubic-bezier(.22, .61, .2, 1);
   }
   * { box-sizing: border-box; }
@@ -214,8 +221,11 @@
     .lookup-hint.working::after { content: "…"; animation: none; }
   }
   .detail-point .ico { width: 14px; height: 14px; }
-  .ghost.b-back { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 16px; }
-  .ghost.b-back .ico { width: 15px; height: 15px; }
+  /* (.ghost.b-back lived here — the boxed "use their website instead" button.
+     It is a .linkish now, to match "Add manually" on the panel it returns to,
+     and it sits BELOW the editor box rather than inside it — hence margin-top
+     where this used to carry margin-bottom.) */
+  .b-back-link { display: inline-block; margin-top: 14px; }
   /* A .ghost that is the one thing to press: solid fill at the header's own
      proportions, because .btn's 15px/11px stands a head taller than everything
      else in a title row. The hover override is not optional — .ghost:hover
@@ -1790,6 +1800,12 @@
   }
   .wait-sub { color: var(--text-2); font-size: 13.5px; line-height: 1.6; margin: 0 0 18px; }
   .wait-form { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* Required, not tidiness: home.js hides this form on success with
+     `.hidden = true`, and the UA stylesheet's [hidden] { display: none } is a
+     weaker selector than the .wait-form rule above — so the form stayed on
+     screen under the "you're on the list" message, inviting a second submit
+     that could only ever 409. Same pattern as .lookup-loader[hidden]. */
+  .wait-form[hidden] { display: none; }
   .wait-form input {
     flex: 1 1 260px; min-width: 0; padding: 12px 14px; font: inherit; font-size: 14px;
     background: var(--surface-2); border: 1px solid var(--line);

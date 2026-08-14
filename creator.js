@@ -889,6 +889,14 @@ function wireBrandLookup(b) {
 
   const openEditor = () => {
     BRAND_MANUAL.add(b.id);
+    /* Clearing RETRY_LOOKUP is not optional. `fresh` is
+         RETRY_LOOKUP.has(id) || (!b.site && !BRAND_MANUAL.has(id))
+       and the first clause SHORT-CIRCUITS — so once "use their website
+       instead" had put the id in RETRY_LOOKUP, adding to BRAND_MANUAL was never
+       even read and the lookup panel rendered again. "Add manually" looked
+       dead: it fired, re-rendered, and landed on the same screen.
+       The two successful-lookup paths already clear it; this one did not. */
+    RETRY_LOOKUP.delete(b.id);
     go({ kind: "brand", id: b.id });     // re-render without the lookup panel
   };
 
@@ -1050,16 +1058,6 @@ function renderBrand(head, body, b) {
     </div>` : ""}
     <div class="section client-editor${fresh ? " collapsed" : " collapsed"}" id="brand-editor">
       <div class="ce-body">
-        ${/* Only offered while the form is still empty. Once anything is typed,
-              going back to the one-question panel would look like it threw the
-              work away. */""}
-        ${/* A ghost button with a back arrow, not an underlined sentence. As a
-              link it read as body copy that happened to be underlined, and
-              nobody could tell it was the way back to the website panel. */""}
-        ${backToLookup ? `<button type="button" class="ghost b-back" id="b-back-lookup">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-            ><path d="M15 18l-6-6 6-6"/></svg>${readFailed ? "Try again" : "Use their website instead"}</button>` : ""}
         <div class="ce-grid">
           <label class="ce-field"><span class="lbl">Brand name</span>
             <input type="text" class="b-name" value="${escapeHtml(b.name || "")}" placeholder="e.g. lynxr"></label>
@@ -1080,6 +1078,12 @@ function renderBrand(head, body, b) {
         <p class="bp-msg" id="brand-msg" role="status" aria-live="polite"></p>
       </div>
     </div>
+    ${/* BELOW the box, not inside it. Leaving the form is not one of the form's
+          fields, and sitting above "Brand name" it read as a heading for the
+          panel it takes you out of. The arrow says which direction you are
+          going — this returns to the website panel you came from. */""}
+    ${backToLookup ? `<button type="button" class="linkish b-back-link" id="b-back-lookup"
+      >&larr; ${readFailed ? "Try again" : "Use their website instead"}</button>` : ""}
     ${/* Hidden until the brand has a name. A script is written FOR a company,
           so offering "add a script" before there is one to write for is an
           invitation to a refusal — better not to offer it at all than to shake
@@ -2532,7 +2536,19 @@ function adaptationHtml(a, liveName, opts = {}) {
             asked for at the bottom of the thing they came to film. */""}
       <div class="bp-actions">
         <button type="button" class="ghost ad-copy" data-adid="${id}">Copy script</button>
-        <button type="button" class="ghost ad-again" data-adid="${id}">Rewrite</button>
+        ${/* Icon, not the word: "rewrite" sat the same size as "copy script"
+              beside it, so a button that spends another script from the
+              allowance looked exactly as routine as one that copies text.
+              aria-label and title carry the meaning — with no text inside, a
+              screen reader would otherwise announce only "button". The pencil
+              is the one already used for "new script", because it is the same
+              idea: this writes a new one. */""}
+        <button type="button" class="ghost icon-only ad-again" data-adid="${id}"
+          aria-label="Rewrite this script" title="Rewrite this script">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+            ><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>
+        </button>
       </div>
       ${reuse.length ? `<div class="bp-heading">Also write this for</div>
         <div class="chips lib-also">${reuse.map((b) => `
@@ -2571,7 +2587,19 @@ function adaptationHtml(a, liveName, opts = {}) {
               (sh.onscreen_text || "").trim() ? `\n“${escapeHtml(sh.onscreen_text.trim())}”` : ""}</span></li>`).join("")}</ol>` : ""}
       <div class="bp-actions">
         <button type="button" class="ghost ad-copy" data-adid="${id}">Copy</button>
-        <button type="button" class="ghost ad-again" data-adid="${id}">Rewrite</button>
+        ${/* Icon, not the word: "rewrite" sat the same size as "copy script"
+              beside it, so a button that spends another script from the
+              allowance looked exactly as routine as one that copies text.
+              aria-label and title carry the meaning — with no text inside, a
+              screen reader would otherwise announce only "button". The pencil
+              is the one already used for "new script", because it is the same
+              idea: this writes a new one. */""}
+        <button type="button" class="ghost icon-only ad-again" data-adid="${id}"
+          aria-label="Rewrite this script" title="Rewrite this script">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+            ><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>
+        </button>
         <button type="button" class="btn ad-brandify" data-adid="${id}">Write this for a brand</button>
       </div>`;
   } else {
