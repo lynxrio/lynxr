@@ -1360,11 +1360,20 @@
   }
   @media (max-width: 900px) { .suggest-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 560px) { .suggest-grid { grid-template-columns: 1fr; } }
-  .sug-edge {
-    display: inline-block; font-size: 10.5px; font-family: var(--mono);
-    color: var(--good); border: 1px solid #2c4a39; border-radius: 3px;
-    padding: 1px 6px; white-space: nowrap;
+  /* The 1-10 opportunity score. Big enough to read at a glance across a grid,
+     colour-banded so you can scan for the good ones without reading numbers:
+     7+ green (go), 5-6 amber (workable), under 5 red (crowded or weak). */
+  .sug-score {
+    display: inline-flex; align-items: baseline; gap: 1px;
+    font-family: var(--mono); font-size: 15px; font-weight: 600;
+    border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 7px; white-space: nowrap; color: var(--text-2);
   }
+  .sug-score i { font-style: normal; font-size: 10px; font-weight: 400; color: var(--text-3); }
+  .sug-score.good { color: var(--good); border-color: #2c4a39; }
+  .sug-score.even { color: var(--even); border-color: #4a412c; }
+  .sug-score.bad  { color: var(--bad);  border-color: #4a2c2c; }
+  .sug-score.s-none { color: var(--text-3); }
   /* The VIDEO's own 9:16, thumbnail and player alike.
      Two constraints meet here. A flat height clipped the player — 400px cut
      the video itself off partway down. And the platform frames' full ratios

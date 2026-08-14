@@ -1202,6 +1202,90 @@ const SUGGEST_CAP = 2;      // per format × hook, so one pocket can't fill the 
 let POCKETS = null;         // Map(pocketKey -> median views), memoized against ALL
 let POCKETS_FOR = null;
 
+// ---- Opportunity score: 1–10 on the VIDEO TYPE ----
+// "43.3× its pocket" was accurate and unreadable. This answers the question a
+// brief actually asks — should we make this kind of video? — on two axes:
+//
+//   ROOM   how crowded this type is: its share of every video in the same
+//          niche on the same platform. Less crowded is better.
+//   REACH  how it performs: its median views against the median type in that
+//          same niche+platform. Higher is better.
+//
+// A "type" is format × hook, scoped to niche × platform — scoping matters,
+// because a TikTok median compared against a YouTube one is meaningless.
+// 1 = crowded AND weak (don't bother). 10 = rare AND strong (go now).
+//
+// The four bounds are the measured p10/p90 of each axis across all 192 types
+// with >= POCKET_MIN members, so the scale is calibrated to this corpus rather
+// than invented. Log-scaled: both distributions are heavily skewed (share runs
+// 1.8%→29%, reach 0.26×→3.04× with a 250× tail). The resulting spread over
+// scriptable types is a clean curve from 2 to 10.
+const SHARE_LO = 0.018, SHARE_HI = 0.293;
+const REACH_LO = 0.26,  REACH_HI = 3.04;
+const TYPE_MIN_PEERS = 3;   // a scope needs a few types before ranking means anything
+let TYPE_SCORES = null, TYPE_SCORES_FOR = null;
+
+const typeKey = (r) =>
+  [r.niche_category, r.platform, r.format_type, r.hook_pattern].join("|");
+
+/** log-normalise x into 0..1 between lo and hi. */
+function logNorm(x, lo, hi) {
+  if (!(x > 0)) return 0;
+  const t = (Math.log(x) - Math.log(lo)) / (Math.log(hi) - Math.log(lo));
+  return Math.max(0, Math.min(1, t));
+}
+
+/** Map(typeKey -> {score, room, reach, n, med}) over the whole corpus. */
+function buildTypeScores(rows) {
+  if (TYPE_SCORES && TYPE_SCORES_FOR === rows) return TYPE_SCORES;
+  const groups = new Map();
+  for (const r of rows) {
+    if (views(r) <= 0) continue;
+    if (!r.niche_category || !r.platform || !r.format_type || !r.hook_pattern) continue;
+    const k = typeKey(r);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(views(r));
+  }
+  // Scope = niche × platform. Both axes are measured inside it.
+  const scopes = new Map();
+  for (const [k, vs] of groups) {
+    if (vs.length < POCKET_MIN) continue;
+    const s = k.split("|").slice(0, 2).join("|");
+    if (!scopes.has(s)) scopes.set(s, []);
+    scopes.get(s).push({ k, n: vs.length, med: median(vs) });
+  }
+  TYPE_SCORES = new Map();
+  for (const [, types] of scopes) {
+    if (types.length < TYPE_MIN_PEERS) continue;
+    const total = types.reduce((a, t) => a + t.n, 0);
+    const scopeMed = median(types.map((t) => t.med)) || 1;
+    for (const t of types) {
+      const share = t.n / total;
+      const reach = t.med / scopeMed;
+      const room = 1 - logNorm(share, SHARE_LO, SHARE_HI);
+      const good = logNorm(reach, REACH_LO, REACH_HI);
+      TYPE_SCORES.set(t.k, {
+        score: Math.round(1 + 9 * (0.5 * room + 0.5 * good)),
+        room, reach, share, n: t.n, med: t.med,
+      });
+    }
+  }
+  TYPE_SCORES_FOR = rows;
+  return TYPE_SCORES;
+}
+
+/** The 1–10 for this video's type, or null when its type is too thin to judge. */
+const typeScore = (r) => buildTypeScores(ALL).get(typeKey(r)) || null;
+
+/** Plain-English read of a score, for the chip's tooltip and the details row. */
+function scoreVerdict(s) {
+  if (s >= 9) return "wide open and performing — make this now";
+  if (s >= 7) return "room to run, and it performs";
+  if (s >= 5) return "workable — middle of the pack on both counts";
+  if (s >= 3) return "crowded or underperforming — needs a strong angle";
+  return "saturated and weak — don't bother";
+}
+
 // ---- What counts as organic UGC you could actually remake ----
 // The shelf was surfacing 11–23M-view runway reposts and meme aggregators.
 // Those top every performance sort and are worthless as a brief: there is no
@@ -1224,9 +1308,6 @@ const SCRIPTABLE_FORMATS = new Set([
 ]);
 const MEGA_FOLLOWERS = 500000;
 const VIEW_CEILING_PCT = 0.95;
-// Median similar_format_count across the corpus — the pivot for "is this
-// pocket more or less crowded than typical".
-const SAT_PIVOT = 41;
 
 const pocketKey = (r) =>
   [r.niche_category, r.format_type, r.hook_pattern, r.platform].join("|");
@@ -1299,14 +1380,13 @@ function clientSuggestions(client, count = 8) {
   const viewCeiling = poolViews.length
     ? poolViews[Math.floor(poolViews.length * VIEW_CEILING_PCT)] : Infinity;
 
-  // Least saturated wins ties: a pocket with fewer entrants has more room left.
-  // sqrt so a pocket 4× more crowded is penalised 2×, not 4× — crowding is a
-  // tilt on the ranking, not a veto.
-  const satBoost = (r) => {
-    const n = parseFloat(r.similar_format_count);
-    if (!n || n <= 0) return 1;
-    return Math.max(0.65, Math.min(1.5, Math.sqrt(SAT_PIVOT / n)));
-  };
+  // The 1-10 LEADS the ranking; the per-video edge only orders videos that
+  // share a score. As a multiplicative tilt it was useless — `edge` spans
+  // orders of magnitude, so it swamped a 0.55-1.5 factor and the top six cards
+  // came back 5,5,6,6,7,6 while 10/10 types sat unseen further down. The whole
+  // point of the score is "make this kind of video", so it has to sort first.
+  // Unscored types rank as a 5 rather than being buried.
+  const typeRank = (r) => (typeScore(r)?.score ?? 5);
 
   // Count WHY rows drop out, so an empty section can say which wall it hit
   // instead of rendering nothing and looking broken.
@@ -1325,7 +1405,7 @@ function clientSuggestions(client, count = 8) {
     if (!edge) continue;                     // its pocket is too thin to judge
     pocketed++;
     if (edge.x < 1) continue;                // must beat the typical video like it
-    scored.push({ row: r, edge, score: edge.x * satBoost(r) * avatarBoost(r, ctx) });
+    scored.push({ row: r, edge, tier: typeRank(r), score: edge.x * avatarBoost(r, ctx) });
   }
   const stats = { widened, pool: pool.length, playable, pocketed, seenBefore,
                   notUgc, beat: scored.length };
@@ -1340,7 +1420,8 @@ function clientSuggestions(client, count = 8) {
 
   const picks = [];
   const perCombo = new Map();
-  for (const s of scored.filter((s) => s.edge.x <= cut).sort((a, b) => b.score - a.score)) {
+  const byTierThenEdge = (a, b) => (b.tier - a.tier) || (b.score - a.score);
+  for (const s of scored.filter((s) => s.edge.x <= cut).sort(byTierThenEdge)) {
     const k = `${s.row.format_type}×${s.row.hook_pattern}`;
     if ((perCombo.get(k) || 0) >= SUGGEST_CAP) continue;
     perCombo.set(k, (perCombo.get(k) || 0) + 1);
@@ -3031,7 +3112,12 @@ function sugCardHtml({ row, edge }) {
     <div class="vmeta">
       <div class="vtitle" title="${escapeHtml(row.title || "")}">${escapeHtml(row.title || "(no caption)")}</div>
       <div class="vrow">
-        <span class="sug-edge" title="This video's views divided by the median of the ${edge.n} videos sharing its niche, format, hook and platform">${edge.x.toFixed(1)}\u00d7 its pocket</span>
+        ${(() => {
+          const t = typeScore(row);
+          if (!t) return `<span class="sug-score s-none" title="Too few videos of this type to judge it">\u2013<i>/10</i></span>`;
+          const band = t.score >= 7 ? "good" : t.score >= 5 ? "even" : "bad";
+          return `<span class="sug-score ${band}" title="${t.score}/10 \u2014 ${escapeHtml(scoreVerdict(t.score))}. ${escapeHtml(row.format_type)} \u00d7 ${escapeHtml(row.hook_pattern)} is ${(t.share * 100).toFixed(1)}% of ${escapeHtml(row.niche_category)} on ${escapeHtml(row.platform)} and gets ${t.reach.toFixed(1)}\u00d7 the typical reach there.">${t.score}<i>/10</i></span>`;
+        })()}
         <span class="vstat">${compact(views(row))} views</span>
       </div>
       <div class="vrow sug-acts">
@@ -3040,7 +3126,14 @@ function sugCardHtml({ row, edge }) {
       </div>
       <div class="sug-detail" hidden>
         ${detail("format", `${row.format_type || "\u2014"} \u00d7 ${row.hook_pattern || "\u2014"}`)}
-        ${detail("beat", `${compact(edge.med)} median across ${edge.n} videos`)}
+        ${(() => {
+          const t = typeScore(row);
+          if (!t) return detail("score", "\u2013 (too few videos of this type)");
+          return detail("score", `${t.score}/10 \u2014 ${scoreVerdict(t.score)}`)
+            + detail("saturation", `${(t.share * 100).toFixed(1)}% of ${row.niche_category} on ${row.platform} (${t.n} videos)`)
+            + detail("type reach", `${t.reach.toFixed(1)}\u00d7 the typical type here (${compact(t.med)} median)`);
+        })()}
+        ${detail("this video", `${edge.x.toFixed(1)}\u00d7 the ${compact(edge.med)} median of its ${edge.n} closest peers`)}
         ${detail("platform", row.platform)}
         ${detail("creator", row.creator)}
         ${detail("niche", row.niche_category)}
