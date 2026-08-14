@@ -24,7 +24,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260818d">
+<link rel="stylesheet" href="/app.css?v=20260818n">
 </head>
 <body>
 
@@ -168,7 +168,25 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260818d" defer></script>
-<script src="/creator.js?v=20260818d" defer></script>
+<!-- The privacy policy, shown without leaving the page. Deliberately EMPTY: the
+     text is fetched from /privacy/ at open time rather than duplicated here, so
+     there is exactly one copy of the policy to keep accurate. A second copy
+     pasted into this file would be wrong the first time the real one changed,
+     and nobody would notice. -->
+<div class="modal" id="policy-modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="policy-modal-h">
+    <div class="modal-head">
+      <span class="modal-title" id="policy-modal-h">privacy policy</span>
+      <button type="button" class="ghost icon-only" id="policy-close" aria-label="Close">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="policy-body" tabindex="0"></div>
+  </div>
+</div>
+
+<script src="/dotgrid.js?v=20260818n" defer></script>
+<script src="/creator.js?v=20260818n" defer></script>
 </body>
 </html>

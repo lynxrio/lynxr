@@ -65,6 +65,81 @@ function gateBusy(el, text) {
   el.innerHTML = `<span class="loader inline">${loaderMark()}<span>${escapeHtml(text)}</span></span>`;
 }
 
+/* THE PRIVACY POLICY, WITHOUT LEAVING THE PAGE.
+   Agreeing to something you have to navigate away to read is a poor bargain —
+   and this link sits inside a half-filled signup form, where a new tab means
+   losing your place and the back button means losing the form.
+
+   The text is FETCHED from /privacy/ rather than copied in here, so there is
+   one policy to keep accurate instead of two that drift apart. Same-origin, and
+   connect-src 'self' is already in this page's CSP.
+
+   The <a> keeps its real href throughout: if the fetch fails, or JS never runs,
+   the link still works the ordinary way. A modal is an enhancement here, never
+   the only route to the text. */
+let POLICY_HTML = null;              // fetched once, reused
+
+async function openPolicy() {
+  const modal = document.getElementById("policy-modal");
+  const body = document.getElementById("policy-body");
+  if (!modal || !body) return false;
+
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+  if (POLICY_HTML === null) {
+    body.innerHTML = `<div class="loader">${loaderMark()}
+      <div class="loader-text"><div class="loader-stage">loading the policy…</div></div></div>`;
+    try {
+      const res = await fetch("/privacy/", { credentials: "same-origin" });
+      if (!res.ok) throw new Error(String(res.status));
+      // DOMParser does not run scripts, and /privacy/ ships none — but parsing
+      // rather than assigning the whole document also means only the prose is
+      // taken, not its <head>, favicons or stylesheet link.
+      const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+      const main = doc.querySelector(".legal");
+      if (!main) throw new Error("no .legal");
+      // The in-page copy has its own heading and back-links; the modal supplies
+      // both, so strip them rather than showing two of each.
+      main.querySelectorAll(".legal-back, .legal-foot, h1").forEach((el) => el.remove());
+      POLICY_HTML = main.innerHTML;
+    } catch {
+      POLICY_HTML = null;
+      body.innerHTML = `<p class="bp-hint">couldn't load it here —
+        <a href="/privacy/" target="_blank" rel="noopener">open the privacy policy</a> instead.</p>`;
+      return true;
+    }
+  }
+  body.innerHTML = POLICY_HTML;
+  body.scrollTop = 0;
+  document.getElementById("policy-close")?.focus();
+  return true;
+}
+
+function closePolicy() {
+  const modal = document.getElementById("policy-modal");
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+/** Every /privacy/ link in the app opens the modal instead of navigating.
+    Delegated from the document so it covers links that are rendered later —
+    the one in Settings is built by renderYou long after this runs. */
+document.addEventListener("click", (e) => {
+  const a = e.target.closest?.('a[href="/privacy/"]');
+  if (!a) return;
+  // Let a deliberate new-tab click (cmd/ctrl/middle) behave normally.
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+  if (openPolicy()) e.preventDefault();
+});
+document.addEventListener("click", (e) => {
+  // Backdrop or close button. The card itself stops here via .modal-card.
+  if (e.target.id === "policy-modal" || e.target.closest?.("#policy-close")) closePolicy();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.getElementById("policy-modal")?.hidden) closePolicy();
+});
+
 /** The empty-state demo: a link lands, a script draws itself underneath, on a
  *  loop. Shown where someone has nothing yet and a sentence alone leaves them
  *  guessing what "send a link" actually produces. Decorative — aria-hidden, so
@@ -694,8 +769,13 @@ function renderNewScript(head, body) {
     <div class="newscript">
       <div class="newscript-greet">
         <svg class="newscript-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
-        <h1 class="newscript-h">What are we making?</h1>
-        <p class="newscript-sub">Paste a TikTok, Instagram or YouTube video worth remaking.</p>
+        ${/* One line, doing both jobs. "What are we making?" asked a question
+              the composer below already asks, and needed a second line of
+              small text to explain what to put in it — so the screen opened
+              with a prompt, an explanation, and only then the box. This says
+              what lynxr does and what to do next in the same five words, which
+              is all a returning creator needs and enough for a new one. */""}
+        <h1 class="newscript-h">paste a video, get a script</h1>
       </div>
       ${firstRun ? `<p class="nobrand">
         <button type="button" class="linkish" id="nobrand-add">Add a brand</button>
@@ -1043,19 +1123,21 @@ function renderBrand(head, body, b) {
     <p class="composer-note" id="brand-flash" role="status" aria-live="polite"></p>
     ${fresh ? `
     <div class="section lookup" id="brand-lookup">
-      <p class="lookup-label">What's their website?</p>
+      <p class="lookup-label">Brand website</p>
       <input type="text" class="b-lookup" autocomplete="off" spellcheck="false"
         value="${escapeHtml(b.site || "")}" placeholder="lynxr.io">
       <p class="lookup-hint" id="lookup-msg"></p>
-      <div class="lookup-actions">
-        <button type="button" class="linkish" id="lookup-skip">Add manually</button>
-      </div>
       ${/* The app's established loading mark, not a second invention: the X
             split into four arms that scale out of the centre in clockwise
             turn. Same markup and animation the agency app uses while it reads
             a client site — the identical job, so the identical signal. */""}
       <div class="lookup-loader" id="lookup-loader" hidden>${loaderMark()}</div>
-    </div>` : ""}
+    </div>
+    ${/* Outside the box, mirroring "use their website instead" on the manual
+          form. The two panels are one choice seen from either side, so the way
+          across sits in the same place on both — under the card, not inside it.
+          Leaving the panel is not one of the panel's own fields. */""}
+    <button type="button" class="linkish b-back-link" id="lookup-skip">Add manually</button>` : ""}
     <div class="section client-editor${fresh ? " collapsed" : " collapsed"}" id="brand-editor">
       <div class="ce-body">
         <div class="ce-grid">
@@ -1502,9 +1584,21 @@ function paintLibraryList() {
       });
       flashMsg("lib-flash", `Writing it for ${co ? co.name : "that company"} — it'll appear here.`, "good");
     }));
-    // The .l-del handler lived here. Its button is gone, and armDelete() reads
-    // btn.innerHTML with no null guard — so leaving this would have thrown on
-    // every Library paint and taken the whole list down with it.
+    /* Delete the video and everything written from it. Scoped to `card`, not
+       the document: in "by brand" mode one video renders under every company
+       that has a script from it, so there are several .l-del buttons for the
+       same entry and a document-wide query would wire the wrong one.
+
+       The scripts go to Trash rather than vanishing — same as deleting them
+       one by one — so this is recoverable. The library row itself is dropped,
+       because an entry whose video you removed has nothing left to point at. */
+    const del = card.querySelector(".l-del");
+    if (del) armDelete(del, "Delete video", () => {
+      trashAdaptations((a) => a.libraryId === item.id
+        || (!a.libraryId && a.sourceUrl && canonUrl(a.sourceUrl) === item.canon));
+      ME.library = ME.library.filter((l) => l.id !== item.id);
+      save(); renderSide(); renderPane();
+    });
   });
 }
 
@@ -1565,12 +1659,39 @@ function libraryItemHtml(item, scopeBrandId) {
         <div class="chips lib-also">${spare.map((b) => `
           <button type="button" class="chip pick lib-also-b" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>`
-        : made.length ? `<p class="bp-hint">All your brands already have this one.</p>` : ""}
-      ${/* No entry-level delete. Each script carries its own "Delete", and a
-            second red button under it — for the video rather than the script —
-            was one red button too many in a card that now reads as one thing.
-            NOTE: nothing removes a video from the Library any more; entries
-            with no script at all therefore have no delete of their own. */""}
+        : ""}
+      ${/* "All your brands already have this one." used to sit here when there
+            was nobody left to offer. It stated the absence of an option nobody
+            was looking for — the chips simply not being there says it, and
+            says it without a line of text. */""}
+      ${/* The entry's own delete, back after a spell without one. Removing it
+            left videos with NO script — the "not scripted" rows — with no way
+            out of the Library at all, since the only delete lived inside a
+            script card that those entries do not have.
+
+            "Delete video" against a script card's plain "Delete": the noun is
+            the whole difference, and it is enough. That was the real problem
+            the first time round — two buttons both saying "delete" inside a
+            box-in-a-box, where it was genuinely unclear which one took what.
+            The nesting is flat now and the labels name their own scope. */""}
+      ${/* Deleting is PER SCRIPT: each card carries its own trash, and an entry
+            that has scripts shows no entry-level delete at all. A second trash
+            underneath them removed the whole video, and nothing about the two
+            icons said which was which.
+
+            The one exception is an entry with NO scripts — the "not scripted"
+            rows. Their only delete would live inside a script card they do not
+            have, so without this they could never leave the Library. It is also
+            the only case where the two cannot be confused: there is nothing
+            else to delete. */""}
+      ${!made.length ? `<div class="bp-actions">
+        <button type="button" class="ghost danger icon-only l-del"
+          aria-label="Delete this video" title="Delete this video">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+            ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+        </button>
+      </div>` : ""}
     </div>
   </details>`;
 }
@@ -2342,13 +2463,17 @@ async function alsoWriteFor(item, brandIds, afterRender) {
 /** `co` may be null: a creator with no company yet still gets the video read
     and its own script handed back. The worker treats a missing brandId as a
     finished job rather than an error, and stops before the rewrite. */
-function queueAdaptation(item, co, { force = false } = {}) {
-  // `force` is a deliberate RE-SCRIPT: same video, same brand, run again. The
-  // duplicate guard exists to stop an accidental second send costing money, not
-  // to stop someone who read the script and wants another take — so the guard
-  // is skipped, and the new entry counts against the allowance like any other,
-  // because it costs exactly the same to produce.
-  const dupe = force ? null : ME.adaptations.find((a) => (a.brandId || null) === (co ? co.id : null)
+function queueAdaptation(item, co) {
+  /* ONE SCRIPT PER VIDEO PER BRAND. No exceptions and no `force` escape hatch:
+     the parameter existed for "run it again", which is gone, and leaving it in
+     meant a single caller could quietly reintroduce duplicates — which is
+     exactly how the same video ended up with two scripts for one brand.
+
+     A video with no brand (co === null) is treated the same way, keyed on
+     brandId null, so the original script cannot be produced twice either.
+     `status !== "error"` is what lets a failed read be retried: a script that
+     never arrived is not a duplicate of anything. */
+  const dupe = ME.adaptations.find((a) => (a.brandId || null) === (co ? co.id : null)
     && a.status !== "error"
     && a.sourceUrl && canonUrl(a.sourceUrl) === item.canon);
   if (dupe) {
@@ -2374,6 +2499,84 @@ function queueAdaptation(item, co, { force = false } = {}) {
 // announces itself instead of quietly swapping a chip.
 const SEEN = new Map();
 const FLASH = new Set();
+
+/* WHICH SCRIPTS ARE OPEN FOR EDITING. Ids only — the edits themselves live in
+   the textareas until Save, so Cancel is simply a re-render and needs no undo
+   buffer. Not persisted: a half-finished edit should not survive a reload as a
+   silent draft nobody remembers making. */
+const EDITING = new Set();
+
+/** The script, as fields you can change.
+ *
+ *  Editing is plain textareas over the same shape the model returns — hook,
+ *  a row per beat, cta, caption — rather than a rich editor, because what a
+ *  creator actually wants to fix is a word choice or a line that does not sound
+ *  like them. Nothing here calls the API: this is the creator's own writing, it
+ *  costs nothing, and it cannot fail.
+ *
+ *  Beats keep their SAY / DO / SHOW split rather than collapsing to one box.
+ *  Flattening them would lose which line is spoken and which is an instruction,
+ *  and scriptText() and the Copy button both read those fields by name.
+ */
+/** Read every open textarea back onto the adaptation.
+ *
+ *  Called before ANY re-render that must not lose what is typed — Save, and
+ *  also adding or removing a beat, since those rebuild the list from the data
+ *  and would otherwise discard edits made to the other beats first. */
+function stashEdits(host, a) {
+  const scope = host.querySelector(`.ed[data-adid="${CSS.escape(a.id)}"]`);
+  if (!scope || !a.adaptation) return;
+  const beats = Array.isArray(a.adaptation.beats)
+    ? a.adaptation.beats.map((b) => ({ ...b })) : [];
+  scope.querySelectorAll(".ed-input").forEach((el) => {
+    const v = el.value.trim();
+    if (el.dataset.beat === undefined) { a.adaptation[el.dataset.field] = v; return; }
+    const b = beats[Number(el.dataset.beat)];
+    if (b) b[el.dataset.field] = v;
+  });
+  a.adaptation.beats = beats;
+}
+
+function scriptEditor(a, ad, silent) {
+  const id = escapeHtml(a.id);
+  const beats = Array.isArray(ad.beats) ? ad.beats : [];
+  const field = (label, name, value, rows) => `
+    <label class="ed-field"><span class="lbl">${label}</span>
+      <textarea class="ed-input grow" rows="${rows || 1}" data-adid="${id}"
+        data-field="${name}">${escapeHtml(value || "")}</textarea></label>`;
+  return `
+    <div class="ed" data-adid="${id}">
+      ${field(silent ? "Opening card" : "Hook", "hook", ad.hook, 2)}
+      <div class="bp-heading">${silent ? "Shots" : "Beats"}</div>
+      <ol class="ed-beats">${beats.map((b, i) => `
+        <li class="ed-beat">
+          <span class="ed-n">${i + 1}</span>
+          <div class="ed-beat-fields">
+            ${silent ? "" : `
+            <label class="ed-field"><span class="lbl">say</span>
+              <textarea class="ed-input grow" rows="1" data-adid="${id}"
+                data-beat="${i}" data-field="say">${escapeHtml(b.say || "")}</textarea></label>`}
+            <label class="ed-field"><span class="lbl">do</span>
+              <textarea class="ed-input grow" rows="1" data-adid="${id}"
+                data-beat="${i}" data-field="do">${escapeHtml(b.do || "")}</textarea></label>
+            <label class="ed-field"><span class="lbl">show</span>
+              <textarea class="ed-input grow" rows="1" data-adid="${id}"
+                data-beat="${i}" data-field="show">${escapeHtml(b.show || "")}</textarea></label>
+          </div>
+          ${/* Removing a beat is the one structural edit worth having — a
+                script that runs one beat too long is the commonest fix, and
+                without this the only way to shorten it is a rewrite. */""}
+          <button type="button" class="ghost danger icon-only ed-drop" data-adid="${id}"
+            data-beat="${i}" aria-label="Remove this beat" title="Remove this beat">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+          </button>
+        </li>`).join("")}</ol>
+      <button type="button" class="linkish ed-add" data-adid="${id}">+ add a beat</button>
+      ${field(silent ? "Final card" : "CTA", "cta", ad.cta, 1)}
+      ${field("Caption", "caption", ad.caption, 2)}
+    </div>`;
+}
 
 function beatRow(bt, carry, silent) {
   let say = (bt.say || "").trim();
@@ -2517,6 +2720,7 @@ function adaptationHtml(a, liveName, opts = {}) {
         ${a.source?.tags?.format_type ? `<span class="chip">${escapeHtml(a.source.tags.format_type)}</span>` : ""}
         ${a.source?.tags?.hook_pattern ? `<span class="chip">${escapeHtml(a.source.tags.hook_pattern)}</span>` : ""}</div>` : ""}
       ${a.note ? `<p class="bp-hint">${escapeHtml(a.note)}</p>` : ""}
+      ${EDITING.has(a.id) ? scriptEditor(a, ad, silent) : `
       ${ad.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">${
         silent ? "Opening card" : "Hook"}</span>“${escapeHtml(ad.hook)}”</div>` : ""}
       ${silent ? `<p class="bp-hint">No voiceover — put the SHOW line on screen at each beat.</p>` : ""}
@@ -2529,28 +2733,48 @@ function adaptationHtml(a, liveName, opts = {}) {
       ${silent ? "" : `<div class="bp-heading">Your script</div>`}
       <ol class="bp-beats bp-notime">${(ad.beats || []).map((b) => beatRow(b, carry, silent)).join("")}</ol>
       ${ad.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> ${escapeHtml(ad.cta)}</p>` : ""}
-      ${ad.caption ? `<p class="bp-hint"><strong>Caption:</strong> ${escapeHtml(ad.caption)}</p>` : ""}
+      ${ad.caption ? `<p class="bp-hint"><strong>Caption:</strong> ${escapeHtml(ad.caption)}</p>` : ""}`}
       ${/* format.why_it_works is still extracted and stored — it is useful to the
             model and to step 2's clustering — it just isn't shown. It explains the
             format to someone who already has the script, which is analysis nobody
             asked for at the bottom of the thing they came to film. */""}
       <div class="bp-actions">
-        <button type="button" class="ghost ad-copy" data-adid="${id}">Copy script</button>
-        ${/* Icon, not the word: "rewrite" sat the same size as "copy script"
-              beside it, so a button that spends another script from the
-              allowance looked exactly as routine as one that copies text.
-              aria-label and title carry the meaning — with no text inside, a
-              screen reader would otherwise announce only "button". The pencil
-              is the one already used for "new script", because it is the same
-              idea: this writes a new one. */""}
-        <button type="button" class="ghost icon-only ad-again" data-adid="${id}"
-          aria-label="Rewrite this script" title="Rewrite this script">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-            ><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>
-        </button>
+        ${EDITING.has(a.id) ? `
+          <button type="button" class="btn ad-save" data-adid="${id}">Save changes</button>
+          <button type="button" class="ghost ad-cancel" data-adid="${id}">Cancel</button>`
+        : `${/* No rewrite button. Asking the model again spent another script
+                from the allowance to produce a different-but-equivalent answer,
+                and the pencil now covers the real need — changing a line that
+                does not sound like you — for nothing. A creator who genuinely
+                wants a fresh take can send the link again.
+
+                Edit and delete sit on THIS row rather than a separate one
+                below: they are things you do to this script, same as copying
+                it, and a second row of buttons underneath read as a different
+                kind of control. Pushed right by .bp-icons so the destructive
+                one is not adjacent to the one you press most. */""}
+          <span class="bp-icons">
+            <button type="button" class="ghost icon-only ad-copy" data-adid="${id}"
+              aria-label="Copy this script" title="Copy this script">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                ><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+            </button>
+            <button type="button" class="ghost icon-only ad-edit" data-adid="${id}"
+              aria-label="Edit this script" title="Edit this script">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                ><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>
+            </button>
+            <button type="button" class="ghost danger icon-only ad-del" data-adid="${id}"
+              aria-label="Delete this script" title="Delete this script">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+            </button>
+          </span>`}
       </div>
-      ${reuse.length ? `<div class="bp-heading">Also write this for</div>
+      ${reuse.length && !EDITING.has(a.id) ? `<div class="bp-heading">Also write this for</div>
         <div class="chips lib-also">${reuse.map((b) => `
           <button type="button" class="chip pick ad-also" data-adid="${id}" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>` : ""}`;
@@ -2587,19 +2811,9 @@ function adaptationHtml(a, liveName, opts = {}) {
               (sh.onscreen_text || "").trim() ? `\n“${escapeHtml(sh.onscreen_text.trim())}”` : ""}</span></li>`).join("")}</ol>` : ""}
       <div class="bp-actions">
         <button type="button" class="ghost ad-copy" data-adid="${id}">Copy</button>
-        ${/* Icon, not the word: "rewrite" sat the same size as "copy script"
-              beside it, so a button that spends another script from the
-              allowance looked exactly as routine as one that copies text.
-              aria-label and title carry the meaning — with no text inside, a
-              screen reader would otherwise announce only "button". The pencil
-              is the one already used for "new script", because it is the same
-              idea: this writes a new one. */""}
-        <button type="button" class="ghost icon-only ad-again" data-adid="${id}"
-          aria-label="Rewrite this script" title="Rewrite this script">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-            ><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>
-        </button>
+        ${/* No rewrite here either — same reason as on a brand script. This is
+              the video's own transcript, so "ask again" would return the same
+              words anyway. */""}
         <button type="button" class="btn ad-brandify" data-adid="${id}">Write this for a brand</button>
       </div>`;
   } else {
@@ -2608,9 +2822,21 @@ function adaptationHtml(a, liveName, opts = {}) {
   }
 
   const statusClass = `bp-${isWriting(a) ? "queued" : escapeHtml(a.status)}${flash ? " bp-flash" : ""}`;
-  const deleteBtn = `${/* The only delete in a Library entry — the entry-level
-        "Remove video" is gone. It removes THIS script; the video stays. */""}
-      <button type="button" class="ghost danger ad-del" data-adid="${id}">Delete</button>`;
+  /* A written script carries its own copy / edit / delete icons on the actions
+     row inside `body`, so it gets nothing here — rendering this as well put a
+     second pencil and a second trash on every card.
+
+     The other branches (the original transcript, a failed read) have no such
+     row, and still need a way to be deleted. */
+  const deleteBtn = ad ? "" : `
+      <div class="bp-foot">
+        <button type="button" class="ghost danger icon-only ad-del" data-adid="${id}"
+          aria-label="Delete this script" title="Delete this script">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+            ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+        </button>
+      </div>`;
 
   /* BARE: no summary row at all, just the script.
      Used for the ONLY script on a Library entry. Opening the entry is already
@@ -2696,8 +2922,17 @@ function wireAdaptationCards(host) {
     if (!a) return;
     try {
       await navigator.clipboard.writeText(scriptText(a));
-      btn.textContent = "Copied ✓";
-      setTimeout(() => { btn.textContent = "Copy script"; }, 1500);
+      /* Swap the ICON, not the text. This button used to say "Copy script" and
+         confirmed by setting textContent — which on an icon button replaces the
+         svg with a word and leaves it permanently wrong, because the restore
+         put the old label back rather than the drawing. Remember innerHTML,
+         show a tick, put the drawing back. */
+      const face = btn.innerHTML;
+      btn.innerHTML = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+        ><path d="M20 6L9 17l-5-5"/></svg>`;
+      btn.classList.add("ok");
+      setTimeout(() => { btn.innerHTML = face; btn.classList.remove("ok"); }, 1400);
     } catch { /* clipboard denied */ }
   }));
   host.querySelectorAll(".ad-retry").forEach((btn) => btn.addEventListener("click", () => {
@@ -2708,28 +2943,64 @@ function wireAdaptationCards(host) {
     save(); renderSide(); renderPane();
     say("Re-queued — it'll be picked up on the next pass.", "good");
   }));
-  /* Run it again — a second take on the same video, for the same brand (or for
-     no brand). A script is one shot at an interpretation and the model is not
-     deterministic, so "I'd like another" is a normal request rather than a
-     mistake to be prevented. It spends from the allowance exactly like a first
-     script, because it costs exactly as much. */
-  host.querySelectorAll(".ad-again").forEach((btn) => btn.addEventListener("click", () => {
+  /* The .ad-again handler lived here — "run it again", a second model pass over
+     the same video. Removed with its button: it spent a script from the
+     allowance to produce a different-but-equivalent answer, and editing by hand
+     covers the real need for nothing. Its `force: true` flag went with it — see
+     queueAdaptation, which now enforces one script per video per brand with no
+     way around it. */
+
+  /* MANUAL EDITING — the creator's own words, not another model run. Open,
+     close and save are all a re-render around the EDITING set; the textareas
+     hold the working copy until Save, so Cancel needs no undo buffer and a
+     reload cannot resurrect a half-finished edit. Nothing here calls the API,
+     spends from the allowance, or can fail. */
+  /* Every one of these re-renders the pane, which rebuilds the <details> from
+     scratch and loses the open state — so the card you were editing snaps shut
+     the moment you save, hiding the change you just made. Reopen it after each
+     paint. In "by brand" mode the same script can appear in more than one
+     place, so reopen ALL copies rather than an arbitrary first match. */
+  const keepOpen = (adid) => {
+    renderPane();
+    document.querySelectorAll(`.bp-item[data-adid="${CSS.escape(adid)}"]`)
+      .forEach((el) => { el.open = true; });
+  };
+  host.querySelectorAll(".ad-edit").forEach((btn) => btn.addEventListener("click", () => {
+    EDITING.add(btn.dataset.adid);
+    keepOpen(btn.dataset.adid);
+  }));
+  host.querySelectorAll(".ad-cancel").forEach((btn) => btn.addEventListener("click", () => {
+    EDITING.delete(btn.dataset.adid);
+    keepOpen(btn.dataset.adid);
+  }));
+  host.querySelectorAll(".ad-save").forEach((btn) => btn.addEventListener("click", () => {
     const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
-    if (!a) return;
-    if (SCRIPT_CAP - scriptsUsed() <= 0) {
-      say(`That's all ${SCRIPT_CAP} scripts. Ask for more from Feedback in the menu.`, "bad");
-      return;
-    }
-    const item = ME.library.find((l) => l.id === a.libraryId)
-      || (a.sourceUrl ? ME.library.find((l) => l.canon === canonUrl(a.sourceUrl)) : null);
-    if (!item) { say("That video isn't in your library any more.", "bad"); return; }
-    const co = a.brandId ? brandById(a.brandId) : null;
-    if (a.brandId && !co) { say("That brand is gone — write it for another one.", "bad"); return; }
-    queueAdaptation(item, co, { force: true });
+    if (!a || !a.adaptation) return;
+    stashEdits(host, a);
+    /* A beat emptied to nothing is one the creator deleted by clearing it, so
+       drop it rather than leave a blank row that renders as a gap. */
+    a.adaptation.beats = (a.adaptation.beats || []).filter((b) =>
+      (b.say || "").trim() || (b.do || "").trim() || (b.show || "").trim());
+    a.editedAt = new Date().toISOString();
+    EDITING.delete(a.id);
     save({ now: true });
-    renderSide(); renderPane();
-    say(co ? `Writing another ${co.name} script from that video.`
-           : "Reading that video again.", "good");
+    renderSide(); keepOpen(a.id);
+    say("Saved your changes.", "good");
+  }));
+  host.querySelectorAll(".ed-add").forEach((btn) => btn.addEventListener("click", () => {
+    const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
+    if (!a || !a.adaptation) return;
+    stashEdits(host, a);          // or adding a beat throws away the edit so far
+    a.adaptation.beats = [...(a.adaptation.beats || []), { say: "", do: "", show: "" }];
+    keepOpen(a.id);
+  }));
+  host.querySelectorAll(".ed-drop").forEach((btn) => btn.addEventListener("click", () => {
+    const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
+    if (!a || !a.adaptation) return;
+    stashEdits(host, a);
+    const i = Number(btn.dataset.beat);
+    a.adaptation.beats = (a.adaptation.beats || []).filter((_, n) => n !== i);
+    keepOpen(a.id);
   }));
 
   host.querySelectorAll(".ad-del").forEach((btn) => armDelete(btn, "Delete script", () => {
@@ -2832,9 +3103,11 @@ function setGateMode(mode) {
   GATE_MODE = mode;
   const up = mode === "up";
   const reset = mode === "reset";
+  const sent = mode === "sent";      // account made; waiting on the email link
   const pw = document.getElementById("pw");
   document.getElementById("gate-tagline").textContent =
-    reset ? "choose a new password" : up ? "create your account" : "for creators";
+    sent ? "check your email"
+      : reset ? "choose a new password" : up ? "create your account" : "for creators";
   // The email is known from the link; asking for it again invites a typo that
   // would silently reset nothing.
   document.getElementById("email").hidden = reset;
@@ -2849,12 +3122,24 @@ function setGateMode(mode) {
     reset ? "Save new password" : up ? "Create account" : "Enter";
   pw.setAttribute("autocomplete", up || reset ? "new-password" : "current-password");
   pw.placeholder = up || reset ? "Password — 8 characters or more" : "Password";
+  /* "sent" is the state after a successful signup: the account exists and the
+     only thing left is the link in their inbox. The whole form goes, because
+     every field in it is refused until they confirm — offering a filled-in
+     password box that cannot work is the app inviting a failure it already
+     knows about. */
+  document.getElementById("gate-form").hidden = sent;
   // Nothing to switch to mid-reset, and no point offering another reset mail.
   document.querySelector(".gate-switch").hidden = reset;
-  document.getElementById("forgot-wrap").hidden = up || reset;
+  document.getElementById("forgot-wrap").hidden = up || reset || sent;
+  /* In "sent" this doubles as the safeguard the old wording carried in a
+     sentence. sbSignUp cannot tell a NEW address from one that already has an
+     account without leaking which is which, so both land here — and someone who
+     re-used an existing address is waiting for a link that was never sent.
+     "already have an account? sign in" is exactly what they need, and it says
+     the same thing to everyone, so it leaks nothing. */
   document.getElementById("switch-lede").textContent =
-    up ? "Already have an account?" : "Don't have an account?";
-  document.getElementById("switch-mode").textContent = up ? "Sign in" : "Create one";
+    up || sent ? "Already have an account?" : "Don't have an account?";
+  document.getElementById("switch-mode").textContent = up || sent ? "Sign in" : "Create one";
   document.getElementById("err").textContent = "";
   // The resend link belongs to a failed sign-in, not to the create form.
   document.getElementById("resend-wrap").hidden = true;
@@ -3021,13 +3306,16 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
       const outcome = await sbSignUp(email, pw.value, code);
       pw.value = ""; pw2.value = "";
       if (outcome === "confirm") {
-        setGateMode("in");
-        // Both cases land here and we can't tell them apart without leaking
-        // who has an account (see sbSignUp), so name both. The old wording
-        // said only "check your email", which sent anyone re-using an existing
-        // address off to wait for a link that is never sent.
-        err.textContent = "If that address is new, check your email for the confirmation link. "
-          + "If you've signed up before, just sign in — no new email is sent.";
+        /* "sent" hides the form outright. Nothing in it works until the link in
+           their inbox is clicked, so leaving a password box on screen only
+           invites an attempt that is refused. The "already have an account?
+           sign in" line below the message covers the other case this branch
+           lands on — a re-used address, where no email is sent — without
+           naming which of the two happened, which sbSignUp deliberately will
+           not reveal. */
+        setGateMode("sent");
+        err.textContent = "thanks — your account is created. "
+          + "check your email for the link that signs you in.";
         return;
       }
       await pull();
