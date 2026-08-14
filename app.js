@@ -3325,8 +3325,11 @@ function bindBlueprints(host, client) {
         .find((x) => x.id === btn.dataset.bpid);
       const s = b && realScript(bpAsRow(b));
       if (!s) return;
+      // b.editedBeats first: copy has to give you what is on the screen. `s` is
+      // rebuilt from the transcript every call, so using s.beats here would
+      // quietly hand back the pipeline's version and lose every manual edit.
       const text = `${s.heading}\n` + (s.hook ? `HOOK: "${s.hook}"\n\n` : "\n")
-        + s.beats.join("\n");
+        + (b.editedBeats || s.beats).join("\n");
       try {
         await navigator.clipboard.writeText(text);
         btn.textContent = "Copied ✓";

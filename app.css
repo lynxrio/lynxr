@@ -1918,6 +1918,10 @@
     .bp-when { margin-left: 0; }
     .bp-actions { flex-wrap: wrap; }
     .bp-actions .ghost { flex: 1 1 auto; min-height: 42px; }
+    /* The Account row sizes to its labels instead. Growing them made "delete
+       account" several times the width of "sign out" purely because its label
+       is longer, which put the most emphasis on the irreversible one. */
+    .me-actions .ghost { flex: 0 0 auto; }
     /* ...but an icon button is a square, not a row-filler. */
     .bp-actions .ghost.icon-only { flex: 0 0 auto; }
     .chip.pick { padding: 8px 12px; }
@@ -2020,23 +2024,55 @@
   .gate-agree a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
   .gate-agree a:hover { color: var(--text); }
   .gate-fine { margin: 20px 0 0; font-size: 11.5px; color: var(--text-3); line-height: 1.6; }
-  /* Where to find lynxr, at the very bottom of Settings. On desktop it is a
-     quiet line like the one above it. */
-  .me-socials { margin-top: 10px; }
-  @media (max-width: 820px) {
-    /* On a phone this is the last thing on the page and the only outbound link
-       in the app, so it earns a bit of room: centred, separated from the
-       account controls by a rule, and with the links padded out to a real tap
-       target — 11.5px text is about 14px tall, well under the ~44px a thumb
-       needs, and these sit directly under "delete account". */
-    .me-socials {
-      display: flex; justify-content: center; align-items: center; gap: 4px;
-      margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);
-      font-size: 13px;
+  /* Settings footer: the signed-in account on the left, where to find us and
+     the privacy policy on the right, one line. */
+  /* The links now live inside the Account button row. `margin-left: auto` pushes
+     them to the far right of it, and `align-self: flex-end` puts their baseline
+     on the buttons' bottom edge rather than centring them against a 40px
+     control — "level with the buttons" means the bottoms agree. */
+  .me-actions { flex-wrap: wrap; align-items: center; }
+  .me-actions .me-links {
+    margin-left: auto; align-self: flex-end; padding-bottom: 2px;
+    font-size: 11.5px; color: var(--text-3); line-height: 1.6;
+  }
+  /* The signed-in address, above the buttons that act on it. */
+  .me-who {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    margin: 0 0 10px; font-size: 12.5px;
+  }
+  .me-links { display: inline-flex; align-items: center; gap: 7px; flex: none; }
+  /* ONE underline. .gate-fine sets border-bottom on its links and the phone
+     rule below adds a text underline for the tap target; when both applied
+     every link had two lines under it. This owns the treatment outright. */
+  .me-links a { color: var(--text-3); border-bottom: 1px solid var(--line); text-decoration: none; }
+  .me-links a:hover { color: var(--text-2); }
+  /* Nothing changes at the drawer breakpoint (820px, where the rail becomes a
+     slide-out): the row still fits comfortably there, so the links stay on the
+     buttons' line. Dropping to their own line starts on an actual phone. */
+  @media (max-width: 560px) {
+    /* No room beside two buttons at 375px, so the links wrap to their own full
+       width line under them, separated by a rule and left-aligned to match the
+       column. margin-left:auto is cleared or the wrapped line would still be
+       shoved right. */
+    .me-links {
+      flex-basis: 100%; margin-left: 0; align-self: stretch;
+      gap: 2px; border-top: 1px solid var(--line);
+      margin-top: 16px; padding-top: 6px; padding-bottom: 6px;
+      font-size: 12.5px;
     }
-    .me-socials a { padding: 10px 12px; border-bottom: 0; text-decoration: underline;
-                    text-underline-offset: 3px; text-decoration-color: var(--line-2); }
-    .me-socials a:active { color: var(--text); }
+    /* The rest keep their padding as tap target; only the first loses its left
+       inset, so the row starts flush with everything above it. */
+    .me-links a:first-child { padding-left: 0; }
+    /* border-bottom OFF and text-decoration ON: with padding for the tap
+       target, a border would sit at the bottom of the box, a visible gap below
+       the words. An underline tracks the text itself, so it stays put. One
+       line, not two — that pairing is what drew the double underline. */
+    .me-links a {
+      display: inline-block; padding: 10px 8px;
+      border-bottom: 0; text-decoration: underline;
+      text-underline-offset: 3px; text-decoration-color: var(--line-2);
+    }
+    .me-links a:active { color: var(--text); }
   }
   .gate-fine a { color: var(--text-3); border-bottom: 1px solid var(--line); }
   .gate-fine a:hover { color: var(--text-2); }

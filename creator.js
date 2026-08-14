@@ -1745,38 +1745,49 @@ function renderYou(head, body) {
 
     <div class="section">
       <h2>Account</h2>
-      <div class="bp-actions">
+      ${/* Which account you are signed into, ABOVE the buttons that act on it.
+            It sat below them, which meant "sign out" and "delete account"
+            appeared before the thing they would sign out of or delete — you
+            read the action, then found out whose account it was. */""}
+      ${SB_EMAIL ? `<p class="note me-who">${escapeHtml(SB_EMAIL)}</p>` : ""}
+      ${/* .me-actions opts this row out of the phone rule that makes action
+            buttons grow to fill the row. That rule is right on a script card,
+            where the buttons are the point and want big tap targets — here it
+            stretched "delete account" to several times the width of "sign out",
+            making the irreversible one the largest thing on the page. */""}
+      <div class="bp-actions me-actions">
         ${/* Plain ghost, not .danger. Signing out is reversible — you log back
               in — so red was overstating it, and with a genuinely destructive
               Delete account sitting beside it, two red buttons made the one
               that cannot be undone no louder than the one that can. */""}
         <button type="button" class="ghost" id="signout">Sign out</button>
         <button type="button" class="ghost danger" id="account-del">Delete account</button>
+        ${/* IN the button row, not on a line of its own below it — pushed to the
+              far right and bottom-aligned, so it sits level with the buttons
+              instead of floating in the gap underneath them.
+
+              The gate links the policy too, but a creator who signed up months
+              ago never sees the gate again, and this is the page they come to
+              when they want to know what happens to their data.
+
+              NOT .gate-fine — that class sets `border-bottom` on its links, and
+              the phone rule adds padding plus a text underline for the tap
+              target. Both drew, so every link had two lines under it: the
+              underline against the text and the border at the bottom of the
+              padding box. .me-links owns its style so only one can win.
+
+              rel="noopener noreferrer" on the socials: they open in a new tab,
+              and noreferrer keeps this app's unlisted URL out of the Referer
+              header sent to tiktok and instagram. */""}
+        <span class="me-links">
+          <a href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">instagram</a>
+          <span class="x-sep">&middot;</span>
+          <a href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">tiktok</a>
+          <span class="x-sep">&middot;</span>
+          <a href="/privacy/" target="_blank" rel="noopener">privacy policy</a>
+        </span>
       </div>
       <p class="note" id="del-msg" role="status" aria-live="polite"></p>
-      ${/* The gate links this too, but a creator who signed up months ago never
-            sees the gate again — and this is the page they land on when they
-            want to know what happens to their data or how to delete it. */""}
-      ${/* Which account you are in, and the policy, on one quiet line under the
-            buttons. The email used to sit above them as its own paragraph,
-            where it read as a heading for the section rather than as a note. */""}
-      ${/* The separator is tied to the email, not printed unconditionally: with
-            no address to show it rendered as a leading "· privacy policy",
-            a bullet separating nothing from something. */""}
-      <p class="note gate-fine">${SB_EMAIL
-        ? `${escapeHtml(SB_EMAIL)} <span class="x-sep">&middot;</span> ` : ""}
-        <a href="/privacy/" target="_blank" rel="noopener">privacy policy</a></p>
-      ${/* Where lynxr is, for creators who want to follow it. Same treatment as
-            the agency footer — plain underlined text, no icons — and on its own
-            line rather than tacked onto the one above, which is about THEIR
-            account rather than about us.
-            rel="noopener noreferrer": these open in a new tab, and noreferrer
-            also keeps this app's unlisted URL out of the Referer header sent to
-            tiktok/instagram. */""}
-      <p class="note gate-fine me-socials">
-        <a href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">instagram</a>
-        <span class="x-sep">&middot;</span>
-        <a href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">tiktok</a></p>
     </div>`;
 
   renderTrash();
@@ -2081,7 +2092,10 @@ function renderComposeFor() {
   const named = namedBrands();
   if (!named.length) { host.innerHTML = ""; return; }
   const on = new Set(composeTargets());
-  host.innerHTML = `<span class="lbl">Write it for</span>` + named.map((b) => `
+  // "Write for", not "write it for": there is no "it" yet at this point — the
+  // composer below is still empty, so the label referred to a video the
+  // creator has not pasted.
+  host.innerHTML = `<span class="lbl">Write for</span>` + named.map((b) => `
     <button type="button" class="for-chip${on.has(b.id) ? " on" : ""}" data-bid="${escapeHtml(b.id)}"
       aria-pressed="${on.has(b.id)}">
       <span class="tick" aria-hidden="true">✓</span>${escapeHtml(b.name || "Untitled brand")}
