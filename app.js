@@ -1191,9 +1191,126 @@ function learnedBoost(learning, format, hook) {
   return 1 + (clamped - 1) * weight;
 }
 
+// ---------- Client-matched video suggestions ----------
+// The shelf ranks FORMATS (buildShelf groups by format × hook and ranks the
+// combo). This ranks VIDEOS, because a format's aggregate hides its own
+// winners: Talking Head is the worst format by median reach in this corpus and
+// still supplies the most individual overperformers.
+//
+// The obvious score is `views / avg_views_of_similar` — the column the pipeline
+// already ships. Measured on the master CSV it has two defects that make it
+// wrong to use raw:
+//
+//  1. Its group key is (niche, format, hook) with NO platform, so it compares a
+//     YouTube Short against viral TikToks. Median score by platform: tiktok
+//     0.204, instagram 0.110, youtube 0.012 — a 17× handicap that removed
+//     YouTube from the top 200 entirely (0 rows).
+//  2. It is a MEAN, so one 10M-view clip in a pocket makes every other member
+//     look like a failure. Corpus median score was 0.128 — i.e. "the typical
+//     video loses to its own pocket by 8×", which is an artefact, not a fact.
+//
+// So the denominator is rebuilt here: same grouping PLUS platform, and a MEDIAN
+// over measured rows only — the same guard renderShelf's srcMedian uses. That
+// puts the corpus median back at 1.00 and 50.5% of videos above their pocket,
+// which is what "beat the typical video like you" should mean.
+const POCKET_MIN = 12;      // members before a pocket's median is worth trusting
+const OUTLIER_PCT = 0.97;   // top 3% of beaters are lottery wins, not plays
+const SUGGEST_CAP = 2;      // per format × hook, so one pocket can't fill the list
+let POCKETS = null;         // Map(pocketKey -> median views), memoized against ALL
+let POCKETS_FOR = null;
+
+const pocketKey = (r) =>
+  [r.niche_category, r.format_type, r.hook_pattern, r.platform].join("|");
+
+/** Median views per (niche × format × hook × platform), over measured rows. */
+function buildPockets(rows) {
+  if (POCKETS && POCKETS_FOR === rows) return POCKETS;
+  const groups = new Map();
+  for (const r of rows) {
+    // 0 views means "the platform never told us" far more often than "nobody
+    // watched" — yt-dlp returns no count for Instagram Reels at all. Averaging
+    // those in collapses a pocket to 0 and every measured member then scores as
+    // its raw view count. Same trap renderShelf documents.
+    if (views(r) <= 0) continue;
+    if (!r.niche_category || !r.format_type || !r.hook_pattern || !r.platform) continue;
+    const k = pocketKey(r);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(views(r));
+  }
+  POCKETS = new Map();
+  for (const [k, vs] of groups) {
+    if (vs.length < POCKET_MIN) continue;
+    const m = median(vs);
+    if (m > 0) POCKETS.set(k, { med: m, n: vs.length });
+  }
+  POCKETS_FOR = rows;
+  return POCKETS;
+}
+
+/** How far this ONE video beat the typical video in its own pocket. */
+function videoEdge(r) {
+  const p = buildPockets(ALL).get(pocketKey(r));
+  if (!p || views(r) <= 0) return null;
+  return { x: views(r) / p.med, med: p.med, n: p.n };
+}
+
+/** Per-video picks for a client: videos in their niche that beat their own
+    pocket, tilted by the client's avatar and their own tracked history, minus
+    anything already briefed and any combo they have already tried and lost. */
+function clientSuggestions(client, count = 8) {
+  const niche = client.niche || "";
+  let pool = niche ? ALL.filter((r) => r.niche_category === niche) : ALL;
+  let widened = false;
+  if (niche && pool.length < MIN_N_NICHE) { pool = ALL; widened = true; }
+
+  // Never re-suggest a video this client has already been given.
+  const briefed = new Set();
+  for (const b of client.briefs || []) for (const it of b.items || []) briefed.add(rowKey(it));
+
+  const verdicts = comboVerdicts(client);
+  const learning = clientLearning(client);
+  // Shallow copy: avatarBoost caches its keyword list on the ctx, and the
+  // client record is persisted — don't write scratch state into it.
+  const ctx = { ...(client.ctx || {}) };
+  ctx._avatarWords = avatarWords(ctx.avatar);
+
+  const scored = [];
+  for (const r of pool) {
+    if (briefed.has(rowKey(r))) continue;
+    if (!embedFor(r)) continue;              // must be playable in the page
+    const combo = `${r.format_type}×${r.hook_pattern}`;
+    if (verdicts.get(combo)?.status === "failed") continue;   // they tried it; it lost
+    const edge = videoEdge(r);
+    if (!edge || edge.x < 1) continue;       // must beat the typical video like it
+    scored.push({
+      row: r, edge,
+      score: edge.x * avatarBoost(r, ctx)
+                    * learnedBoost(learning, r.format_type, r.hook_pattern),
+    });
+  }
+  if (!scored.length) return { picks: [], widened, pool: pool.length, beat: 0 };
+
+  // Cut the unreproducible tail BEFORE ranking. A 21M-view meme clip tops every
+  // raw sort and is worthless as a brief: nobody can copy a lottery win.
+  const cut = [...scored].sort((a, b) => a.edge.x - b.edge.x)
+    [Math.floor(scored.length * OUTLIER_PCT)]?.edge.x ?? Infinity;
+
+  const picks = [];
+  const perCombo = new Map();
+  for (const s of scored.filter((s) => s.edge.x <= cut).sort((a, b) => b.score - a.score)) {
+    const k = `${s.row.format_type}×${s.row.hook_pattern}`;
+    if ((perCombo.get(k) || 0) >= SUGGEST_CAP) continue;
+    perCombo.set(k, (perCombo.get(k) || 0) + 1);
+    picks.push(s);
+    if (picks.length >= count) break;
+  }
+  return { picks, widened, pool: pool.length, beat: scored.length, cut };
+}
+
 // ---------- Brief cart ----------
 const CART_LIMIT = 10;
-let CART = new Map();   // rowKey -> row
+let CART = new Map();        // rowKey -> row
+let SEEDED_KEYS = new Set(); // carried in from the client page's suggestions
 
 const rowKey = (r) => (r.platform || "") + "|" + (r.video_id || r.url || r.title);
 
@@ -2868,7 +2985,12 @@ function startNextWeekBrief(client) {
   LEARN_CLIENT = loadClients().find((c) => c.id === client.id) || client;
   BRIEF_CTX = client.ctx && Object.keys(client.ctx).length ? client.ctx
             : { brand: client.company, feats: [], audience: null };
-  CART = new Map();
+  // Videos ticked in the client page's suggestions start this brief already in
+  // the cart. renderShelf pins them to the front of the shelf, so the tray
+  // count always matches cards the user can actually see and untick.
+  CART = new Map([...SUGGEST_PICKS].slice(0, CART_LIMIT));
+  SEEDED_KEYS = new Set(CART.keys());
+  SUGGEST_PICKS = new Map();
   activateTab("tab-brief");
   renderBrief("").then(() => {
     const b = document.getElementById("ce-brand");
@@ -3450,6 +3572,80 @@ function clientTrendsHtml(client) {
   </div>`;
 }
 
+/** Videos picked on the client page, carried into the next brief's cart.
+    rowKey -> row, cleared once startNextWeekBrief has consumed them. */
+let SUGGEST_PICKS = new Map();
+
+/** Per-VIDEO suggestions for this client. Deliberately separate from the shelf:
+    the shelf answers "which format should they run", this answers "which video
+    should they copy", and the two disagree — the format with the worst median
+    reach supplies the most individual overperformers. */
+function suggestionsBoxHtml(client) {
+  const { picks, widened, beat } = clientSuggestions(client, 8);
+  if (!picks.length) return "";
+  const nichLabel = client.niche || "the database";
+  return `<div class="section suggest-box">
+    <h2>Suggested videos for ${escapeHtml(client.company)} <span class="pill">${picks.length}</span></h2>
+    <p class="lbl">Scored one video at a time, not by format: each of these beat the median
+      video in its own <strong>niche × format × hook × platform</strong> pocket. ${beat} videos in
+      ${escapeHtml(nichLabel)} cleared that bar; the top 3% are cut as lottery wins rather than plays,
+      and combos ${escapeHtml(client.company)} already tried and lost are excluded.
+      ${widened ? `Too few videos tagged <strong>${escapeHtml(client.niche)}</strong> to rank
+        reliably, so this draws from the whole database — treat it as directional.` : ""}</p>
+    <div class="suggest-grid">
+      ${picks.map(({ row, edge }) => {
+        const k = rowKey(row);
+        const picked = SUGGEST_PICKS.has(k);
+        const href = safeUrl(row.url);
+        return `
+        <article class="vcard sug-card${picked ? " picked" : ""}" data-key="${escapeHtml(k)}">
+          ${frameHtml(row)}
+          <div class="vmeta">
+            <div class="vtitle">${escapeHtml(row.title || "(no caption)")}</div>
+            <div class="vrow">
+              <span class="sug-edge" title="This video's views divided by the median of the ${edge.n} videos sharing its niche, format, hook and platform">${edge.x.toFixed(1)}× its pocket</span>
+              <span class="vstat">${compact(views(row))} views</span>
+              <label class="vpick"><input type="checkbox" class="sugcheck" ${picked ? "checked" : ""}><span class="vpick-txt">${picked ? "Added" : "Add"}</span></label>
+            </div>
+            <div class="sug-why">${escapeHtml(row.format_type)} × ${escapeHtml(row.hook_pattern)}
+              · beat ${compact(edge.med)} typical across ${edge.n} videos
+              ${href ? `· <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}</div>
+          </div>
+        </article>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+/** Play buttons and the add-to-next-brief toggle for the suggestions grid. */
+function bindSuggestions(host, client) {
+  const box = host.querySelector(".suggest-box");
+  if (!box) return;
+  const rows = new Map(clientSuggestions(client, 8).picks.map(({ row }) => [rowKey(row), row]));
+  fillTikTokThumbs([...rows.values()]);
+
+  box.querySelectorAll(".sug-card").forEach((card) => {
+    const row = rows.get(card.dataset.key);
+    if (!row) return;
+    card.querySelector(".vplay")?.addEventListener("click", () => {
+      playInFrame(card.querySelector(".vframe"), row);
+    });
+    card.querySelector(".sugcheck")?.addEventListener("change", (e) => {
+      const on = e.target.checked;
+      if (on) SUGGEST_PICKS.set(card.dataset.key, row);
+      else SUGGEST_PICKS.delete(card.dataset.key);
+      card.classList.toggle("picked", on);
+      const txt = card.querySelector(".vpick-txt");
+      if (txt) txt.textContent = on ? "Added" : "Add";
+      const btn = document.getElementById("cl-nextbrief");
+      if (btn) btn.textContent = nextBriefLabel(client);
+    });
+  });
+}
+
+const nextBriefLabel = (client) =>
+  `Build brief ${client.briefs.length + 1}${SUGGEST_PICKS.size ? ` with ${SUGGEST_PICKS.size} picked` : ""}`;
+
 function renderClientPage(host, client) {
   // Briefs are stored newest-first; number them oldest-first so "Brief 1" is
   // where the client started and the number never changes as weeks are added.
@@ -3590,6 +3786,8 @@ function renderClientPage(host, client) {
 
     ${clientTrendsHtml(client)}
 
+    ${suggestionsBoxHtml(client)}
+
     ${blueprintsBoxHtml(client)}
 
     <h2>Briefs <span class="pill">${total}</span></h2>
@@ -3618,11 +3816,12 @@ function renderClientPage(host, client) {
           ? `Builds on what actually performed for ${escapeHtml(client.company)}: winning formats boosted, misses demoted, and posts that beat benchmark leading the shelf.`
           : `Track posts inside a brief and the next one will learn from what performed.`}</p>
       </div>
-      <button type="button" class="btn" id="cl-nextbrief">Build brief ${total + 1}</button>
+      <button type="button" class="btn" id="cl-nextbrief">${escapeHtml(nextBriefLabel(client))}</button>
     </div>`;
 
   bindChartHover(host);
   bindBlueprints(host, client);
+  bindSuggestions(host, client);
   document.getElementById("cl-back").addEventListener("click", () => {
     CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
   });

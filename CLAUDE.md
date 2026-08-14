@@ -9,22 +9,33 @@ covers architecture, the pipeline, and the security model.
 
 ## Orientation
 
+Three separate front-ends share one stylesheet. Know which one you are in —
+`app.css` is global, so a change made for one page lands on all three.
+
 | Path | What it is |
 |---|---|
-| `index.html` / `app.css` / `app.js` | The site — access gate, database browser, brief builder, client folders |
+| `index.html` / `home.js` | **Public landing page.** One job: take an email for the wait list. Neither app is linked from it. |
+| `creatorsonly/` + `creator.js` | **Creator app.** Paste a video link → get a script for a brand. Unlisted URL, handed out by hand. |
+| `agencyonly/` + `app.js` | **Agency app.** Staff only: database, brief builder, client folders. |
+| `privacy/` | The privacy policy. Linked from all three; the creator app fetches it into a modal. |
+| `app.css` | **Every page.** One file. |
 | `pipeline/` | Scrape → tag → merge → upsert to Supabase, plus transcription and multimodal retagging |
-| `supabase/schema.sql` | All tables + RLS policies, including `lynxr_videos` (the database) |
-| `output/` | Master CSV, summaries, logs *(gitignored)* |
-| `data/` | Raw scrapes, cover frames *(gitignored)* |
-| `.env` | `ANTHROPIC_API_KEY`, `APIFY_API_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` *(gitignored)* |
+| `.github/workflows/adaptations.yml` | **Writes creator scripts on GitHub's runners** — not on anyone's Mac |
+| `supabase/*.sql` | Tables, RLS, and the one-off migrations. `schema.sql` is the whole thing; the others are standalone pieces |
+| `output/` `data/` `.env` | Master CSV, raw scrapes, secrets *(all gitignored)* |
 
 Sign-in is **email + password** via Supabase Auth (project
-`esakjfogplfszievvabi`). The publishable key in `app.js` is public by design —
-this repo is public — and is safe only because row-level security grants access
-to signed-in users and nothing to anonymous ones. The video database (2,640
-rows) lives in the `lynxr_videos` table — signed-in users read it, only the
-pipeline (service-role key) writes it. The old encrypted `data.enc` blob is
-retired.
+`esakjfogplfszievvabi`). The publishable key is public by design — this repo is
+public — and is safe only because row-level security grants access to
+signed-in users and nothing to anonymous ones. The video database (**9,016
+rows**, verified 2026-08-19) lives in `lynxr_videos`: signed-in staff read it,
+only the pipeline (service-role key) writes it. The old encrypted `data.enc`
+blob is retired.
+
+**Creators and staff share one auth pool**, so "any authenticated user" would
+expose everything. Agency tables are gated on `is_staff()`; a creator owns
+exactly one row in `lynxr_creators`, keyed on `auth.uid()`. This is enforced in
+the database, not the interface — verified live, see HANDOFF.md.
 
 ## Rules that matter
 
@@ -44,6 +55,18 @@ retired.
   silently tagging ~45% of rows. Coverage is now verified and errors below 95%.
 - Clients sync through Supabase (`lynxr_clients`), cached in browser
   localStorage; briefs live inside those client records, not the repo.
+- **Bump the `?v=YYYYMMDDx` stamp on every css/js change**, on all four pages,
+  or browsers serve stale files. The HTML documents are not stamped, so markup
+  changes need a hard reload.
+- **Lowercase is the house style, and it lives in CSS** (`body, button, select
+  { text-transform: lowercase }` plus a content exclusion list near the end of
+  app.css). Do NOT lowercase source strings: `text-transform` changes only what
+  is drawn, so copy-to-clipboard still yields the creator's real casing. Wrap
+  the registered company name in `.entity` to opt it back out.
+- **Never put `${...}` in a plain `.html` file.** It is JS template syntax and
+  renders as literal text on the page.
+- **A waitlist CSV never goes inside the repo.** One `git add -A` would publish
+  every address. Export to `~/Desktop` or outside the project.
 
 ## Working style
 

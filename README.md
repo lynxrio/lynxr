@@ -6,10 +6,18 @@ single database that powers the dashboard at [lynxr.io](https://www.lynxr.io).
 
 ## Where everything lives
 
+There are **three front-ends**, not one, and they share a single stylesheet —
+a change to `app.css` lands on all of them.
+
 | Path | What it is |
 |---|---|
-| `index.html` / `app.css` / `app.js` | The site: login gate + dashboard (split out so the CSP can forbid inline script) |
-| `supabase/schema.sql` | Tables + RLS policies, including `lynxr_videos` (the database) |
+| `index.html` / `home.js` | Public landing page. Wait list capture only; neither app is linked from it |
+| `creatorsonly/` / `creator.js` | Creator app — paste a link, get a script. Unlisted URL, given out by hand |
+| `agencyonly/` / `app.js` | Agency app — database, brief builder, client folders. Staff only |
+| `privacy/` | Privacy policy, linked from all three (the creator app fetches it into a modal) |
+| `app.css` | Every page. One file |
+| `.github/workflows/adaptations.yml` | Writes creator scripts on GitHub's runners, so no local machine has to be awake |
+| `supabase/schema.sql` | Tables + RLS policies, including `lynxr_videos` (the database). Other `supabase/*.sql` files are standalone migrations |
 | `pipeline/` | All the Python that produces the data |
 | `data/` | Raw scrapes and normalized CSVs *(gitignored)* |
 | `output/` | **The database, summary, and logs** *(gitignored)* |
@@ -129,9 +137,25 @@ refuse to embed without login — those cards keep an "open ↗" fallback link.
 
 The database lives in **Supabase Postgres behind row-level security** (table
 `lynxr_videos`), not in the repo. Sign-in is email + password via Supabase
-Auth; RLS grants `select` to the `authenticated` role and nothing to `anon`,
-and **no write policies exist**, so a browser session can read but never
-modify the video rows. Writes happen only through the pipeline
+Auth.
+
+**Creators and agency staff share one auth pool**, so `authenticated` is NOT a
+sufficient gate — a creator signing up would otherwise get the whole agency.
+Access is therefore split three ways:
+
+- **Agency tables** (`lynxr_videos`, `lynxr_clients`, `lynxr_waitlist`,
+  `lynxr_feedback`) require `is_staff()` — membership of `lynxr_staff`, which
+  can only be granted from the dashboard, so nobody can promote themselves.
+- **Creator data** (`lynxr_creators`) is owner-only on `auth.uid() = id`. One
+  creator cannot read, update or delete another's row.
+- **`lynxr_sources`** has no `authenticated` policies at all — service-role
+  only. Do not loosen it; it is shared across every creator.
+- **`lynxr_waitlist`** is the one table `anon` may write, insert-only, so a
+  public form cannot read the list back.
+
+Verified live rather than assumed, with throwaway accounts — see HANDOFF.md.
+**No write policies exist on the video rows**, so a browser session can read
+but never modify them. Writes happen only through the pipeline
 (`pipeline/export_supabase.py`) using the service-role key, which stays in the
 gitignored `.env`. The publishable key in `app.js` is public by design — it
 grants anonymous visitors nothing. A strict Content-Security-Policy blocks all
