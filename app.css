@@ -924,9 +924,17 @@
      .bp-item and carry one chip, keep their single-line layout. */
   @media (max-width: 620px) {
     .lib-item > summary, .pane .bp-item > summary { flex-wrap: wrap; row-gap: 8px; }
+    /* ONE line, ellipsised. This was a 2-line clamp that never clamped:
+       `-webkit-line-clamp` does nothing without `overflow: hidden`, and the
+       same declaration block set `overflow: visible`, so the box drew every
+       line it had. That was invisible while these titles were permalinks
+       (short enough to fit two lines) and became obvious the moment they
+       became real captions — a 3-line title colliding with the thumbnail.
+       Same lesson as the invisible bar charts: verify painted height, not the
+       declaration. One line is what the trash rows already settled on. */
     .lib-item > summary .bp-name, .pane .bp-item > summary .bp-name {
-      flex: 1 1 calc(100% - 26px); white-space: normal; overflow: visible;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      flex: 1 1 calc(100% - 26px);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .lib-item > summary .lib-plat, .pane .bp-item > summary .chip:first-of-type { margin-left: 20px; }
     .lib-item > summary .bp-when, .pane .bp-item > summary .bp-when { margin-left: auto; }

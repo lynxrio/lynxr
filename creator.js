@@ -651,7 +651,9 @@ function normalizeMe() {
     if (!item) {
       item = {
         id: newId(), url: a.sourceUrl, canon: key, platform: platformLabel(a.sourceUrl),
-        title: a.title || "", creator: "", caption: "",
+        // realTitle, so a URL stored by the old sourceLabel fallback does not
+        // ride into the rebuilt entry and then block it from ever hydrating.
+        title: realTitle(a.title), creator: "", caption: "",
         addedAt: a.addedAt || new Date().toISOString(),
       };
       byCanon.set(key, item);
@@ -1482,6 +1484,10 @@ function paintLibraryList() {
     return;
   }
 
+  // Backfills captions for entries that never got one. Deliberately not
+  // awaited: the list paints now and each name drops in as it arrives.
+  hydrateStale();
+
   const q = LIB_Q.trim().toLowerCase();
   const shown = ME.library.filter((it) => !q || [it.title, it.caption, it.creator, it.url]
     .some((v) => String(v || "").toLowerCase().includes(q)));
@@ -1852,6 +1858,26 @@ function renderYou(head, body) {
 /** The trash list inside Settings. Restore puts a script back on its company;
  *  if that company is gone the script would have nowhere to live, so it is
  *  offered against the companies that still exist instead of failing. */
+/** What a SCRIPT is called — in the Trash view and on the script cards alike.
+    An adaptation carries its own copy of the title, taken when it was written,
+    so one created before its caption loaded stored the old URL fallback — and
+    both views rendered that copy directly.
+
+    Resolved the way the Library does it: the live library entry first, because
+    it may have hydrated since this script was thrown away; then the entry's own
+    copy; then sourceLabel()'s platform wording. Matched on libraryId OR
+    canonical URL, since a trash entry can outlive the library row it was made
+    from and a sibling entry for the same video may still carry the caption. */
+function entryLabel(a) {
+  const url = a.sourceUrl || "";
+  const canon = url ? canonUrl(url) : "";
+  const item = (ME.library || []).find((l) =>
+    l.id === a.libraryId || (canon && l.canon === canon));
+  return realTitle(item && item.title) || realTitle(a.title)
+    || sourceLabel({ url, platform: platformLabel(url), title: "",
+                     creator: (item && item.creator) || "" });
+}
+
 function renderTrash() {
   const host = document.getElementById("trash-list");
   if (!host) return;
@@ -1860,6 +1886,10 @@ function renderTrash() {
     host.innerHTML = `<p class="bp-hint">Nothing deleted.</p>`;
     return;
   }
+  // Same backfill the Library runs. Without it, Trash could only ever heal as a
+  // side effect of visiting another view, and hydrate() now writes through to
+  // ME.trash, so asking here is what makes these rows name themselves.
+  hydrateStale();
   host.innerHTML = `<div class="bp-list">${items.map((a) => {
     const gone = !brandById(a.brandId);
     const ad = a.adaptation || {};
@@ -1878,7 +1908,7 @@ function renderTrash() {
             and tapping the title drops it down. On desktop the meta is always
             visible and the class this sets does nothing. */""}
       <div class="trash-main" data-adid="${escapeHtml(a.id)}">
-        <div class="bp-name"><span class="trash-caret" aria-hidden="true">\u25b8</span>${escapeHtml(a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52))}</div>
+        <div class="bp-name"><span class="trash-caret" aria-hidden="true">\u25b8</span>${escapeHtml(entryLabel(a))}</div>
         ${/* The hook is wrapped so the phone can drop it: it is the longest part
               of this line and the least useful when you are deciding whether to
               restore something. Brand and age stay. */""}
@@ -2093,15 +2123,46 @@ function ensureLibraryItem(url, extra = {}) {
   return { item, isNew: true };
 }
 
+/** A stored title that is really a permalink.
+
+    Not a hypothetical: the brief builder sets an adaptation's `title` to
+    sourceLabel(item) at the moment it is written, and sourceLabel USED to
+    return the URL when the caption had not loaded yet. So the string was
+    saved into the record — and because it is a non-empty string, every
+    `title || fallback` test in this file was satisfied by it and no fallback
+    ever ran. The same value then rode into library entries rebuilt from
+    adaptations (`title: a.title || ""`).
+
+    Treating it as absent is what lets those records heal rather than keep the
+    URL for good. Matched on the known video hosts only, so a caption that
+    merely mentions a link is left alone. */
+const URLISH_TITLE = /^(https?:\/\/)?(www\.|m\.)?(instagram\.com|tiktok\.com|youtube\.com|youtu\.be)\//i;
+function realTitle(s) {
+  const t = String(s || "").trim();
+  return URLISH_TITLE.test(t) ? "" : t;
+}
+
 /** What a card is called before — or instead of — a real title. A bare URL
     reads as a bug; "@emt.kayla on TikTok" reads as a video whose caption
-    hasn't loaded. */
+    hasn't loaded.
+
+    A URL is never the answer now, not even last. An Instagram reel URL carries
+    no handle to fall back on (`/reels/DRVQX4RAafH/`), so it used to render the
+    shortcode — which names nothing a person recognises. What is left says what
+    the entry IS, and the cover frame, the platform chip and the ↗ beside it are
+    what tell two un-hydrated rows apart. That is the job make_cover() exists
+    for. Rare either way: hydration only reaches this line when every relay
+    failed. */
 function sourceLabel(item) {
-  if (item.title) return item.title;
-  const handle = (item.url.match(/(?:tiktok\.com|instagram\.com)\/@([A-Za-z0-9._]+)/) || [])[1];
+  const named = realTitle(item.title);
+  if (named) return named;
+  const handle = (item.url.match(/(?:tiktok\.com|instagram\.com)\/@([A-Za-z0-9._]+)/) || [])[1]
+    || item.creator;
   if (handle) return `@${handle} on ${item.platform}`;
-  const tail = item.url.replace(/^https?:\/\/(www\.|m\.)?/, "").replace(/\?.*$/, "");
-  return tail.length > 52 ? tail.slice(0, 52) + "…" : tail;
+  const kind = /\/reels?\//.test(item.url) ? "reel"
+    : /instagram\.com\/p\//.test(item.url) ? "post"
+    : /\/shorts\//.test(item.url) ? "short" : "video";
+  return item.platform === "Link" ? `Saved ${kind}` : `${item.platform} ${kind}`;
 }
 
 // ---------- the composer ----------
@@ -2417,13 +2478,58 @@ function asUrl(raw) {
   return null;
 }
 
+/** Instagram never publishes a bare caption. It wraps the SAME text in
+    boilerplate on both og tags, in two different shapes:
+
+      og:title        Stephanie | Study Tips on Instagram: "<caption>"
+      og:description  862K likes, 1,699 comments - stephyapps on <date>: "<caption>"
+
+    Neither one IS a title; both CONTAIN one. Lifting the quoted span out is
+    what makes an Instagram row read like the TikTok row beside it, which
+    arrives from oEmbed as the bare caption already.
+
+    Matched against those two shapes specifically rather than "text after a
+    colon". A caption can legitimately contain `said: "no"`, and a YouTube
+    title can legitimately contain a colon at all ("How to cook: the basics") —
+    a looser rule saws both in half. Measured on a live reel: og:title 233
+    chars, og:description 258, identical caption inside each. */
+function unwrapCaption(s) {
+  const t = String(s || "").replace(/\s+$/, "");
+  if (!t) return "";
+  const m = t.match(/\bon (?:Instagram|Threads)\s*:\s*["“”](.*)$/s)
+    || t.match(/\bon\s+\w+\s+\d{1,2},\s*\d{4}\s*:\s*["“”](.*)$/s);
+  // The closing quote may be followed by a full stop and trailing space.
+  if (m) return m[1].replace(/["“”][\s.]*$/, "").trim();
+  return t.replace(/^[\d.,]+[KM]?\s*likes?,\s*[\d.,]+[KM]?\s*comments?\s*[-–—]\s*/i, "").trim();
+}
+
+/** A dead, private or mistyped link does not 404 — it redirects to the
+    platform's own landing page, whose og:title is the product name. That is not
+    a caption, and letting it through titles the row "TikTok - Make Your Day",
+    which is worse than the URL it replaced because every dead link then looks
+    identical. Measured with an invalid TikTok id: both relays returned exactly
+    that string, and the creator regex read "TikTok" as the handle. Rejecting it
+    leaves the caption empty, so sourceLabel() falls back to "TikTok video". */
+const PLATFORM_BOILERPLATE =
+  /^(tiktok(\s*-\s*make your day)?|instagram|youtube|login\s*[•·|]\s*instagram|instagram photos and videos|before you continue to youtube)$/i;
+
 function metaFromHtml(html) {
   const doc = new DOMParser().parseFromString(html || "", "text/html");
   const meta = (s) => doc.querySelector(s)?.getAttribute("content") || "";
   const og = meta('meta[property="og:title"]') || doc.querySelector("title")?.textContent || "";
-  const handle = (og.match(/@([A-Za-z0-9._]+)/) || [])[1] || "";
+  const desc = meta('meta[property="og:description"]');
+  // og:description carries the @handle that og:title leaves out — it names the
+  // ACCOUNT ("stephyapps") where og:title gives the display name ("Stephanie").
+  const handle = (og.match(/@([A-Za-z0-9._]+)/) || [])[1]
+    || (desc.match(/[-–—]\s*([A-Za-z0-9._]+)\s+on\s+\w+\s+\d/) || [])[1] || "";
+  // Same preference order as before — description, then title — so the only
+  // behaviour that changes is the unwrapping.
+  const caption = unwrapCaption(desc) || unwrapCaption(og) || og;
+  // Both fields go together: the same landing page that supplies a product
+  // name as the caption supplies "TikTok" as the handle.
+  if (PLATFORM_BOILERPLATE.test(caption.trim())) return { caption: "", creator: "" };
   return {
-    caption: meta('meta[property="og:description"]') || og,
+    caption,
     creator: handle || (og.match(/^([^\s(|·]+)/) || [])[1] || "",
   };
 }
@@ -2451,20 +2557,40 @@ async function fetchSourceMeta(url) {
       }
     } catch { /* fall through to the proxies */ }
   }
-  try {
-    const wrapped = JSON.parse(await fetchWithTimeout(
-      "https://api.allorigins.win/get?url=" + encodeURIComponent(url), 20000));
-    return metaFromHtml(wrapped.contents);
-  } catch { /* spare relay */ }
-  return metaFromHtml(await fetchWithTimeout(
-    "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(url), 20000));
+  /* allorigins is asked for /raw, not /get, on purpose. /get wraps the page in
+     a JSON envelope, and measured against a live Instagram reel that envelope
+     came back TRUNCATED — HTTP 200, 74KB, an unterminated string — so
+     JSON.parse threw and discarded og tags we had ALREADY downloaded. The
+     caption was sitting in those bytes. /raw returns the HTML itself (350KB,
+     no envelope), so there is nothing that can half-arrive.
+
+     Asked twice because the failures are intermittent upstream 522s rather
+     than refusals: over three tries /raw carried the caption twice and timed
+     out once, while /get was unusable 3 times out of 3. codetabs stays as the
+     spare, though it was answering 522 itself when this was measured. */
+  const relays = [
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(url),
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(url),
+    "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(url),
+  ];
+  let best = null;
+  for (const relay of relays) {
+    try {
+      const meta = metaFromHtml(await fetchWithTimeout(relay, 20000));
+      // A relay that answers with an error page parses fine and yields nothing.
+      // Keep trying rather than returning that as the answer.
+      if (meta.caption) return meta;
+      best = best || meta;
+    } catch { /* next relay */ }
+  }
+  return best || { caption: "", creator: "" };
 }
 
 /** Best-effort, fired after the card is already on screen: saving stays instant
     and the entry gets its proper name a second later. A failure is silent — an
     un-hydrated card reads fine, so a red message would be noise. */
 async function hydrate(item) {
-  if (item.title && item.caption) return;
+  if (realTitle(item.title) && item.caption) return;
   let meta;
   try { meta = await fetchSourceMeta(item.url); }
   catch { return; }
@@ -2472,14 +2598,101 @@ async function hydrate(item) {
   if (!live) return;                            // removed while the request was out
   live.caption = live.caption || meta.caption || "";
   live.creator = live.creator || meta.creator || "";
-  live.title = live.title || (meta.caption || "").replace(/\s+/g, " ").trim().slice(0, 90);
-  for (const a of ME.adaptations) {
+  live.title = realTitle(live.title)
+    || (meta.caption || "").replace(/\s+/g, " ").trim().slice(0, 90);
+  // Trash too. A deleted script keeps its own copy of the title, and only the
+  // live list was ever updated — so a trashed entry held the old URL fallback
+  // for good, which is exactly what the Trash view was rendering.
+  for (const a of [...ME.adaptations, ...(ME.trash || [])]) {
     if (a.libraryId === live.id && live.title) a.title = live.title;
   }
   save();
   const editing = document.activeElement
     && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
   if (!editing) { renderSide(); renderPane(); }   // titles land in both views
+}
+
+/* hydrate() only ever ran at send time, so an entry whose relays were down that
+   minute stayed unnamed for good — and every Instagram entry saved before the
+   /raw fix is in exactly that state. The Library asks again for anything still
+   untitled, which is what turns an old `instagram.com/reels/...` row into its
+   caption without the creator re-pasting anything.
+
+   One at a time, and tracked in a session Set rather than a flag on the record:
+   a relay round-trip measured 4-13s, so twenty entries firing at once would
+   stall behind each other; and hydrate() re-renders on success, which calls
+   back into here — the Set is what stops that becoming a loop, while still
+   letting a NEXT visit retry the ones that failed, since these failures are
+   intermittent 522s rather than permanent. */
+/* id -> attempts, not a plain Set, because ONE failure must not be final.
+   fetchSourceMeta already tries three relays, but allorigins answered 522 on
+   roughly a third of measured calls, so a first sweep reliably leaves a couple
+   of entries unnamed — and marking them tried meant they sat on "Instagram
+   post" until a reload. Two passes: everything once, then whatever is still
+   unnamed. Bounded, so a genuinely dead link cannot loop. */
+const HYDRATE_TRIED = new Map();
+const HYDRATE_PASSES = 2;
+let HYDRATING = false;
+
+/** Name a SCRIPT straight from its own source URL.
+
+    hydrate() works through the Library, which is the right route while a
+    library entry exists — but a trashed script can outlive the entry it was
+    made from (delete the video, keep the bin), and then there is nothing left
+    to hydrate and the row sits on "Instagram post" for good. This asks for the
+    caption directly and writes it onto the record itself.
+
+    Matched on canonical URL, not id, so one lookup names every sibling script
+    of the same video at once — the same link scripted for three brands is
+    three records here. */
+async function hydrateScript(rec) {
+  const url = rec.sourceUrl || "";
+  if (!url) return;
+  let meta;
+  try { meta = await fetchSourceMeta(url); } catch { return; }
+  const title = (meta.caption || "").replace(/\s+/g, " ").trim().slice(0, 90);
+  if (!title) return;
+
+  const canon = canonUrl(url);
+  for (const a of [...(ME.adaptations || []), ...(ME.trash || [])]) {
+    if (a.sourceUrl && canonUrl(a.sourceUrl) === canon && !realTitle(a.title)) a.title = title;
+  }
+  const item = (ME.library || []).find((l) => l.canon === canon);
+  if (item) {
+    item.title = realTitle(item.title) || title;
+    item.caption = item.caption || meta.caption || "";
+    item.creator = item.creator || meta.creator || "";
+  }
+  save();
+  const editing = document.activeElement
+    && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  if (!editing) { renderSide(); renderPane(); }
+}
+
+async function hydrateStale() {
+  if (HYDRATING) return;
+  HYDRATING = true;
+  const tries = (id) => HYDRATE_TRIED.get(id) || 0;
+  const note = (id) => HYDRATE_TRIED.set(id, tries(id) + 1);
+  try {
+    // Pass 1 names everything it can; pass 2 picks up whatever a flaky relay
+    // dropped. Anything still unnamed after that is left for the next visit.
+    for (let pass = 1; pass <= HYDRATE_PASSES; pass++) {
+      for (;;) {
+        // Library entries first: hydrate() fills caption and creator too, which
+        // the card bodies show, where a script record only carries a title.
+        const item = ME.library.find((l) => !realTitle(l.title) && tries(l.id) < pass);
+        if (item) { note(item.id); await hydrate(item); continue; }
+        // Then anything the Library cannot reach — chiefly trashed scripts whose
+        // library row is gone, which is every "Instagram post" row in the bin.
+        const rec = [...(ME.adaptations || []), ...(ME.trash || [])]
+          .find((a) => a.sourceUrl && !realTitle(a.title) && tries(a.id) < pass);
+        if (!rec) break;
+        note(rec.id);
+        await hydrateScript(rec);
+      }
+    }
+  } finally { HYDRATING = false; }
 }
 
 // ---------- scripts ----------
@@ -2943,10 +3156,12 @@ function adaptationHtml(a, liveName, opts = {}) {
   return `<details class="bp-item ${statusClass}"${justReady || forceOpen ? " open" : ""} data-adid="${id}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
-      ${nested ? "" : thumbHtml((a.source || {}).cover, a.title || "")}
+      ${nested ? "" : thumbHtml((a.source || {}).cover, entryLabel(a))}
+      ${/* Same resolver the Trash view uses: prefers the live library entry's
+            caption, falls back to the platform wording, never a permalink. */""}
       <span class="bp-name">${escapeHtml(nested
         ? (a.brandId ? brandNow : "Original script")
-        : (a.title || (a.sourceUrl || "").replace(/^https?:\/\//, "").slice(0, 52)))}</span>
+        : entryLabel(a))}</span>
       ${/* Nested, a green "script ready" sits next to the finished script it is
             describing, under an entry whose own chip already counts it — three
             ways of saying the same thing. Writing and error chips STAY: those

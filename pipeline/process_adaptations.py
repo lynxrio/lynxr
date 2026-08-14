@@ -521,10 +521,20 @@ def fetch_meta(url):
     except Exception as e:  # noqa: BLE001
         log.info("  metadata lookup skipped: %s", str(e)[:80])
         return {}
+    # yt-dlp has no real title to report for an Instagram post, so it
+    # SYNTHESISES one — "Video by stephyapps" — and puts the actual caption in
+    # `description`. Preferring `title` blindly filed every creator-submitted
+    # Instagram video into lynxr_videos under that placeholder. Verified on a
+    # live reel: title "Video by stephyapps", description "this is so goated
+    # omg… (not me swallowing the longan pit by accident)". YouTube and TikTok
+    # do report real titles, so the placeholder test leaves them alone.
+    title = str(d.get("title") or "").strip()
+    if not title or re.fullmatch(r"video by \S+", title, re.I):
+        title = str(d.get("description") or "").strip()
     return {
         "video_id": str(d.get("id") or ""),
         "creator": str(d.get("uploader_id") or d.get("uploader") or d.get("channel") or "").lstrip("@"),
-        "title": str(d.get("title") or d.get("description") or "")[:300],
+        "title": title[:300],
         "views": int(d.get("view_count") or 0),
         "likes": int(d.get("like_count") or 0),
         "comments": int(d.get("comment_count") or 0),
