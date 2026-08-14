@@ -2443,7 +2443,12 @@ function sugHint(text) {
   el.hidden = false;
   clearTimeout(SUG_HINT_T);
   // ~14 words at a slow 3.5 words/sec, plus a beat to notice it moved.
-  SUG_HINT_T = setTimeout(() => { el.hidden = true; }, 7000);
+  // Re-queries rather than closing over `el`: any re-render of the client page
+  // swaps the node out, and the captured one would then be detached — the
+  // timer would fire against nothing and the visible hint would never leave.
+  SUG_HINT_T = setTimeout(() => {
+    document.querySelectorAll(".sug-hint").forEach((n) => { n.hidden = true; });
+  }, 7000);
 }
 
 
