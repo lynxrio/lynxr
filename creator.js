@@ -1084,8 +1084,13 @@ function renderBrand(head, body, b) {
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="pane-title">
       <div class="bcard-title" id="brand-heading">${escapeHtml(b.name || "Untitled brand")}</div>
-      ${writing ? `<span class="chip bp-wait"><i class="bp-dot"></i>${writing} writing</span>`
-        : ready ? `<span class="chip good">${plural(ready, "script")}</span>` : ""}
+      ${/* No standing script COUNT here any more — the list of scripts is
+            directly below and counts itself, and on a phone that chip pushed
+            Details and the bin onto a second line.
+            The "writing" chip stays, because it is not a count: it is the only
+            sign that something is in progress on a page that would otherwise
+            look finished while a script is still being written. */""}
+      ${writing ? `<span class="chip bp-wait"><i class="bp-dot"></i>${writing} writing</span>` : ""}
       <div class="spacer"></div>
       <button type="button" class="ghost" id="brand-details">Details</button>
       <button type="button" class="ghost danger icon-only b-del" title="Delete this brand"
@@ -1401,8 +1406,17 @@ const SCOPE_ORIGINAL = Symbol("original scripts only");
 function renderLibrary(head, body) {
   head.innerHTML = `
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    ${/* The + sits on the title row, not down with the tabs. On a phone it had
+          a line of its own between the tabs and the first video, which read as
+          a stray control belonging to neither. Up here it pairs with the
+          heading it acts on, and the tabs get the full width back. */""}
     <div class="pane-title"><div class="bcard-title">Library</div>
-      <span class="pill">${ME.library.length}</span></div>
+      <span class="pill">${ME.library.length}</span>
+      <div class="spacer"></div>
+      <button type="button" class="lib-plus" id="lib-add" title="New script" aria-label="New script">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+          aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button></div>
     <p class="pane-sub">Every video you've sent.</p>`;
 
   document.getElementById("side-open").addEventListener("click", () =>
@@ -1423,10 +1437,6 @@ function renderLibrary(head, body) {
           <button type="button" class="lib-mode${LIB_MODE === "original" ? " on" : ""}"
             id="lib-mode-original" role="tab" aria-selected="${LIB_MODE === "original"}">Original scripts</button>
         </div>
-        <button type="button" class="lib-plus" id="lib-add" title="New script" aria-label="New script">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
-            aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        </button>
       </div>
       <p class="composer-note" id="lib-flash" role="status" aria-live="polite"></p>
       ${ME.library.length >= LIB_SEARCH_AT ? `<div class="lib-tools">
@@ -2882,9 +2892,11 @@ function renderScripts(b) {
        named the state and left them to work out the next move. */
     host.innerHTML = `<div class="empty lib-empty">
       ${emptyDemo()}
+      ${/* No explanatory line under the heading: the little animation above it
+            already shows a link going in and a script coming out, and the
+            button says what pressing it does. The sentence restated both. */""}
       <p><strong>No scripts yet.</strong></p>
-      <p>Send a link worth remaking and it comes back as a script for ${escapeHtml(b.name || "this brand")}.</p>
-      <div class="bp-actions"><button type="button" class="btn" id="brand-empty-cta">Write the first one</button></div>
+      <div class="bp-actions"><button type="button" class="btn" id="brand-empty-cta">Create first script</button></div>
     </div>`;
     host.querySelector("#brand-empty-cta").addEventListener("click", () => go({ kind: "new" }));
     return;
@@ -2963,7 +2975,16 @@ function wireAdaptationCards(host) {
   const keepOpen = (adid) => {
     renderPane();
     document.querySelectorAll(`.bp-item[data-adid="${CSS.escape(adid)}"]`)
-      .forEach((el) => { el.open = true; });
+      .forEach((el) => {
+        el.open = true;
+        /* In the Library the script card is nested INSIDE its video entry, and
+           reopening the script alone left it sitting inside a collapsed parent
+           — so pressing edit looked like it closed the card, and you had to
+           open the video again to reach the editor that was already there.
+           On a brand page there is no parent and this is a no-op. */
+        const entry = el.parentElement?.closest("details.lib-item");
+        if (entry) entry.open = true;
+      });
   };
   host.querySelectorAll(".ad-edit").forEach((btn) => btn.addEventListener("click", () => {
     EDITING.add(btn.dataset.adid);

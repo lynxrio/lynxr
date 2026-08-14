@@ -1841,9 +1841,42 @@
     .lib-tools input, .ce-field input, .ce-field select, .ce-field textarea { font-size: 16px; }
 
     .lib-head { gap: 8px; }
-    .lib-modes { flex: 1 1 auto; }
-    .lib-mode { flex: 1 1 0; text-align: center; padding: 9px 8px; }
+    /* `flex: 1 1 0` here forced the three tabs to equal widths, which is fine
+       until one of them is two words: "original scripts" wrapped onto a second
+       line and made the whole control a squat two-row block. Sizing to content
+       and scrolling sideways if they overflow keeps every tab on one line at
+       any width — a tab that wraps looks broken, one that scrolls does not. */
+    .lib-modes {
+      flex: 1 1 auto; max-width: 100%; overflow-x: auto;
+      scrollbar-width: none;                       /* the tabs are the affordance */
+    }
+    .lib-modes::-webkit-scrollbar { display: none; }
+    /* `1 1 auto`, not `0 0 auto`: sizing purely to content left a strip of dead
+       space to the right of the control. Growing from a content-sized basis
+       fills the row, and `nowrap` is what stops that turning back into the
+       two-line wrap — the original bug was `flex: 1 1 0`, whose ZERO basis
+       ignored the text and squeezed "original scripts" onto two lines. */
+    .lib-mode { flex: 1 1 auto; white-space: nowrap; text-align: center; padding: 9px 11px; }
     .lib-add { width: 100%; justify-content: center; padding: 12px 14px; }
+
+    /* Title row stays on ONE line: the heading takes the slack and truncates,
+       the controls keep their size. Wrapping put the bin on a line by itself
+       under the brand name, which read as a delete for whatever came next. */
+    .pane-title { flex-wrap: nowrap; }
+    /* `0 1 auto`, NOT `1 1 auto`: the heading may SHRINK (so a long brand name
+       truncates instead of pushing the buttons off the row) but must never
+       GROW. Growing made it absorb all the slack and carry the count pill out
+       to the middle of the row, away from the word it counts — the spacer is
+       what pushes the + to the right, not the title. */
+    .pane-title .bcard-title {
+      flex: 0 1 auto; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pane-title .ghost, .pane-title .lib-plus, .pane-title .pill { flex: 0 0 auto; }
+    /* .pill carries its own margin-left: 8px for when it trails a sentence.
+       Inside a flex row that stacks on top of the row's 12px gap and spaces the
+       count further from its word than the "scripts [1]" heading does. */
+    .pane-title .pill { margin-left: 0; }
 
     /* Card headers wrap instead of squeezing the title to a few characters. */
     .bp-item > summary { flex-wrap: wrap; row-gap: 5px; padding: 12px 12px; }
