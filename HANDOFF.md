@@ -17,8 +17,14 @@ pipeline. Three surfaces, one stylesheet (`app.css`):
 
 ## Where this left off (read this first)
 
-**2026-08-17 — scripts now arrive in about a minute instead of hours.** That is
-the headline; everything else below is detail.
+**2026-08-17 — scripts now arrive in about a minute instead of hours, and it
+runs without the owner's Mac.** That is the headline; everything else is detail.
+
+Confirmed live, not just deployed: the worker claimed a real creator-pasted
+TikTok link **1 second** after coming up and returned a finished script
+(`fit=0.72, 8 beats`, `$0.1165` cold). The machine has since held for 7½ minutes
+past the trial cutoff that was killing it, so the account is off trial and the
+worker stays up on its own.
 
 A new worker (`pipeline/worker.py`) runs continuously on **Fly** and replaces the
 GitHub Actions cron as the primary path. It picks up a queued script in **~2
@@ -42,15 +48,36 @@ Also settled today, all verified rather than assumed:
 - **The service-role key was rotated.** Old one is dead; `.env`, Fly and (check
   this) GitHub Actions all need the new `sb_secret_…`.
 
-### Read this before touching the worker
+### If scripts stop appearing, read this before debugging anything
 
-**`fly.toml` has `[[restart]] policy = "always"` and it is load-bearing.**
-`worker.py` handles SIGTERM by finishing the current script and exiting **0**.
-Fly sends that signal on every deploy and every `fly secrets set`, and under the
-default `on-failure` policy a clean exit reads as "job done" — the machine stops
-and stays stopped, silently, with nothing in the logs. This cost an hour to find.
-If scripts stop appearing and there is no error anywhere, run `fly status` and
-look for a **stopped** machine before anything else.
+**Check `fly status` for a *stopped* machine first.** The worker does not crash
+when it fails — it parks, silently, with nothing useful in the logs. Three
+separate causes were mistaken for each other in one evening, so check them in
+this order:
+
+1. **Fly billing.** `fly logs` will say
+   `Trial machine stopping. To run for longer than 5m0s…` and the machine will
+   die at exactly 301 seconds of uptime, every time. This was the real cause of
+   the "17 minutes and still loading" report — nothing to do with the code.
+   **Resolved 2026-08-17** by putting a card on the `Lynxr` / `personal` org;
+   verified by a machine running 7½ minutes with no trial line. If it ever
+   reappears, the account has fallen back to trial and no restart policy or
+   config change will beat it.
+2. **`[[restart]] policy = "always"` in `fly.toml`.** Still correct and worth
+   keeping — `worker.py` exits **0** on SIGTERM, which Fly sends on every deploy
+   and `fly secrets set`, and the default `on-failure` policy reads a clean exit
+   as "job done". It was *not* the cause of the stopped machines above, though it
+   was diagnosed as such at the time.
+3. **The credentials.** A rotated Supabase key shows up as
+   `probe failed (HTTP Error 401: Unauthorized) — will retry` every 2 seconds.
+   The worker survives this correctly and says exactly what is wrong.
+
+**The first script after any machine start takes ~2 minutes, not ~55s.** That is
+464MB of Whisper weights being read cold off disk; every load after is ~1.7s,
+measured in separate processes inside the container. It is per MACHINE START,
+not per script — it only looked per-script while the trial was restarting the
+machine every five minutes. Nothing to fix. (`compute_type="int8"` would make it
+~1.0s at some cost to transcription quality, if it ever matters.)
 
 To pick up on the worker:
 
@@ -130,10 +157,10 @@ records between them hold 8 scripts. Zero placeholder titles remain in
   Re-run that probe after any RLS change; reading the .sql file is not evidence.
 - ~~Scripts are written by GitHub Actions~~ **Superseded 2026-08-17. Scripts are
   written by the Fly worker** (`pipeline/worker.py`, app `lynxr-worker`, region
-  `iad`). `.github/workflows/adaptations.yml` still exists and still fires, but
-  it is now redundant and **should be turned off** — Fly is always-on, so the
-  only thing GitHub adds is runner minutes spent discovering there is nothing to
-  do. It is safe to leave running in the meantime: the worker claims an
+  `iad`). `.github/workflows/adaptations.yml` still exists, still fires, and is
+  **deliberately kept as the fallback** — redundant while Fly is healthy, free on
+  a public repo, and the only thing that writes scripts if Fly goes down. It is
+  safe to run alongside: the worker claims an
   adaptation (`status = "running"` + `claimedAt`, grafted back) *before* any
   model call, and a claimed entry is invisible to other workers until its
   25-minute lease expires, so whichever claims first wins and the other skips.
@@ -771,12 +798,17 @@ whole "Suggested videos" machinery below) and the blueprint add-by-link form
 has since been deleted, so `blueprintsBoxHtml` is uncontested again, and every
 element id app.js looks up now resolves).
 
-0. **HOUSEKEEPING FROM 2026-08-17, do these first — they are minutes each.**
+0. **HOUSEKEEPING FROM 2026-08-17 — minutes each.**
    - **Update the GitHub Actions secret** `SUPABASE_SERVICE_ROLE_KEY` to the new
      `sb_secret_…`. The key was rotated; until this is done every
-     `adaptations.yml` firing 401s.
-   - **Turn off `adaptations.yml`** (delete it, or drop its `schedule` and `push`
-     triggers). Fly is always-on now, so it only burns runner minutes.
+     `adaptations.yml` firing 401s, and you get a wall of red in Actions that
+     hides anything genuinely new. Copy it without retyping:
+     `grep '^SUPABASE_SERVICE_ROLE_KEY=' .env | cut -d= -f2- | pbcopy`
+   - **`adaptations.yml` STAYS — owner's call, kept as the fallback.** It is
+     redundant while Fly is healthy and costs nothing on a public repo, and it
+     is the only thing that writes scripts if Fly has a bad day. Safe to run
+     alongside: whichever worker claims an adaptation first wins and the other
+     skips (see the claim/lease note above).
    - **Do not load the Mac LaunchAgent** while Fly is running.
 
 1. **THE TEST-CREATOR FEEDBACK NEVER ARRIVED — and that changes the plan.**
