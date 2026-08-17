@@ -605,6 +605,26 @@ def upsert_source(key, a):
         "tags": src.get("tags"),
         "format": a.get("format"),
     }
+    # METRICS. fetch_meta() already ran for this video — its result is sitting in
+    # src["meta"], fetched for lynxr_videos — so this costs nothing extra: no
+    # second yt-dlp call, no API. Without it the sources table had no reach
+    # signal at all and could only ever be ranked by tag_count and recency.
+    #
+    # Only written when the fetch actually SUCCEEDED. fetch_meta returns {} on
+    # any failure, and writing zeros from that would be a lie the app cannot
+    # tell apart from a video that genuinely has no views — the column is
+    # nullable precisely so "unknown" stays distinguishable from "none".
+    meta = src.get("meta") or {}
+    if meta:
+        body.update({
+            "views":      meta.get("views"),
+            "likes":      meta.get("likes"),
+            "comments":   meta.get("comments"),
+            "duration":   meta.get("duration") or src.get("duration"),
+            "creator":    meta.get("creator") or "",
+            "title":      meta.get("title") or "",
+            "metrics_at": now_iso(),
+        })
     try:
         # merge-duplicates so a re-tag refreshes the extraction rather than 409ing
         req = urllib.request.Request(

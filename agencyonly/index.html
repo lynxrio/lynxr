@@ -23,7 +23,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260821b">
+<link rel="stylesheet" href="/app.css?v=20260821e">
 </head>
 <body>
 
@@ -74,6 +74,55 @@
   <main>
     <!-- Database (overview + table) -->
     <section class="panel" id="panel-database" role="tabpanel" aria-labelledby="tab-database" hidden>
+
+      <!-- TWO DATABASES, and only one of them is the point.
+           lynxr_sources is what CREATORS PASTED IN — videos someone judged worth
+           remaking before the view count proved it. That is a leading signal and
+           nobody else has it, because nobody else has our creators' paste box.
+           lynxr_videos (9,016 scraped rows) is lagging: it holds videos that have
+           already performed, which is exactly why competitors can find them too.
+           So sources leads and the scrape is kept as backup — owner's call,
+           2026-08-17. The scraped half is untouched behind this switch; the
+           client-folder suggestion engine still runs on it, because it is the
+           only one of the two carrying the view counts that ranking needs. -->
+      <div class="section db-modes" role="group" aria-label="Which database">
+        <button type="button" class="db-mode on" id="db-mode-sources" aria-pressed="true">
+          Creator sources <span class="pill" id="db-src-pill"></span></button>
+        <button type="button" class="db-mode" id="db-mode-archive" aria-pressed="false">
+          Scraped archive <span class="pill" id="db-arc-pill"></span></button>
+      </div>
+
+      <div id="db-sources">
+        <div class="section"><div class="stats" id="src-stats"></div></div>
+
+        <div class="section">
+          <h2>What creators are reaching for</h2>
+          <p class="lede">Counts, not percentages — this table is small enough that a
+            percentage would imply more than it knows. Read it as what the people
+            actually making videos have picked up lately.</p>
+          <div class="bars-grid">
+            <div><h2>Format type</h2><div class="bars" id="src-by-format"></div></div>
+            <div><h2>Hook pattern</h2><div class="bars" id="src-by-hook"></div></div>
+            <div><h2>Niche</h2><div class="bars" id="src-by-niche"></div></div>
+            <div><h2>Platform</h2><div class="bars" id="src-by-platform"></div></div>
+          </div>
+        </div>
+
+        <h2>Pasted videos <span id="src-count" class="pill"></span></h2>
+        <p class="lede">Ranked by how many creators independently picked the same video,
+          then by how recently. A video two creators paste in one week is a format
+          spreading in real time.</p>
+        <div class="controls">
+          <input type="search" id="src-search" placeholder="Search title, creator, format…" aria-label="Search creator sources">
+          <select id="src-f-platform" aria-label="Filter by platform"></select>
+          <select id="src-f-format" aria-label="Filter by format"></select>
+          <select id="src-f-niche" aria-label="Filter by niche"></select>
+          <button type="button" id="src-reset" class="ghost">Reset</button>
+        </div>
+        <div class="bp-list" id="src-list"></div>
+      </div>
+
+      <div id="db-archive" hidden>
       <div class="section"><div class="stats" id="stats"></div></div>
 
       <!-- The check the Database tab exists to be: which formats still have room
@@ -116,6 +165,7 @@
         <button type="button" id="prev" class="ghost">← Prev</button>
         <span id="page-info"></span>
         <button type="button" id="next" class="ghost">Next →</button>
+      </div>
       </div>
     </section>
 
@@ -175,8 +225,8 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260821b" defer></script>
-<script src="/app.js?v=20260821b" defer></script>
+<script src="/dotgrid.js?v=20260821e" defer></script>
+<script src="/app.js?v=20260821e" defer></script>
 </body>
 </html>
 

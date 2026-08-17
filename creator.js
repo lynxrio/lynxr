@@ -2335,7 +2335,12 @@ function wireComposer() {
       await save({ now: true });
       renderSide();
       // The Library is where it lands, same as any other send — the entry is
-      // already there with its "writing" chip.
+      // already there with its "writing" chip. LAND ON THE ORIGINAL SCRIPTS
+      // TAB, not on whatever was open last: in "By brand" a script belonging to
+      // no brand can only appear in the loose block under every named group,
+      // which is where it goes to be missed. What you just asked for should be
+      // the first thing on screen.
+      LIB_MODE = "original";
       go({ kind: "library" });
       flashMsg("composer-note",
         "Reading it now — you'll get the video's own script.", "good");
@@ -2374,6 +2379,7 @@ function wireComposer() {
       renderSide();
       renderComposeFor();
       say("On it — reading the video for its original script.", "good");
+      LIB_MODE = "original";   // same reason as the no-brand branch above
       go({ kind: "library" });
       return;
     }

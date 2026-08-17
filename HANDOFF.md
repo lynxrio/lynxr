@@ -378,6 +378,85 @@ thumbnail. Verified on both apps: the frame click opens the link and leaves the
 card shut, clicking the name still toggles it, and uploads (no url) stay an
 inert span.
 
+### The Database tab is creator sources now; the scrape is the backup
+
+Owner's call, 2026-08-17: **"treat the overall database as only the videos from
+creators — the 9,000 scraped ones, honestly disregard them, keep a button
+somewhere for me to view that as backup."** Done, with one deliberate exception
+below.
+
+A two-button switch at the top of the Database tab. **Creator sources is the
+default**; **Scraped archive** holds everything that was there before —
+stats, Room to run, all eight bar panels, the filtered table — completely
+untouched behind it.
+
+**What the sources view shows.** Ranked by `tag_count` then recency. Each row
+is one pasted video: cover, title, a `N× picked` chip when more than one creator
+chose it, views (or a muted `views —`), and — opened — the taxonomy tags and the
+**extracted format**: its name, why it works, and the beat list with timings.
+That last part has no equivalent in the scraped table and is the reason this
+view is worth more than a row count.
+
+**READ THIS BEFORE CONCLUDING IT IS BROKEN — the table was invisible, not
+empty.** `lynxr_sources` shipped with **no RLS policies at all** (service-role
+only, on purpose). The pipeline writes it with the service key, which bypasses
+RLS entirely, so nothing ever looked wrong — a signed-in staff browser simply
+got `[]` back, with no error. **`supabase/sources_staff_read.sql` must be run in
+the SQL editor** or this view stays empty forever. The empty state says exactly
+this rather than "no results", because "no results" would send the next person
+to debug the query instead of the grant.
+
+**Metrics were added at the same time.** The table had no views/likes column at
+all, so nothing in it could ever be ranked by reach. The same SQL file adds
+`views/likes/comments/duration/creator/title/metrics_at`, and
+`upsert_source()` now writes them — **at no extra cost**, because `fetch_meta()`
+already ran for this video and its result was sitting unused in `src["meta"]`.
+
+**NULL is not zero, and that is load-bearing.** `views` is NULL when it was
+never fetched and 0 when the video genuinely has none. Folding them together
+buries every un-backfilled row at the bottom of a views sort and reads as "these
+all flopped". Test `== null`, never truthiness. The 19 existing rows are all
+NULL until you run:
+
+    ./venv/bin/python pipeline/backfill_source_metrics.py
+
+**Client suggestions still run on the scraped corpus, deliberately.** The 1–10
+opportunity score needs REACH — a type's median views against its niche+platform
+scope — over pockets of ≥12. Sources has neither the volume (19 rows) nor, until
+backfilled, the views. Pointing suggestions at it would empty every client
+folder. Revisit when sources passes a few hundred measured rows.
+
+**Verified against the real 19 rows** (pulled with the service key, fed through
+`srcRow()` and the render chain): 19 cards, stats reading *19 pasted over 5
+days · 1 picked twice+ · 5 formats · median 184.3K from 1 of 19 measured*, bars
+and filter dropdowns populated from the data, covers resolving out of
+`lynxr-covers`, and an opened card showing a 12-beat extracted format.
+
+**`tag_count` is flat at 1 across all 19 rows today.** No video has been pasted
+by two creators yet, so the saturation meter has never fired. That is a real
+answer, not a bug — the "Picked twice+" stat says `no repeats yet` rather than
+implying the number means something.
+
+**The sources bars show counts with NO percentage** (`renderBars(..., {pct:
+false})`). At 19 rows one video is 5.3 points, and a percentage invites a
+confidence the sample cannot support. The scraped panel keeps its percentages —
+9,016 rows can carry them.
+
+### Original scripts: the tab existed, the landing was wrong
+
+Sending a link without picking a company already returned the video's own
+verbatim script, and the Library already had an **Original scripts** tab
+(`LIB_MODE === "original"`). What was missing is that the send dropped you into
+the Library on *whatever tab was open last* — normally "By brand", where a
+script belonging to no brand can only appear in the loose block under every
+named group. It looked like the feature was not there.
+
+Both no-brand send paths now set `LIB_MODE = "original"` before navigating, so
+what you just asked for is the first thing on screen. The tab deliberately shows
+**every video that has an original script**, not only those whose *only* script
+is original — a video can be written for a company and still have its own words
+kept.
+
 ### Smaller
 
 - **The ETA is reactive now.** `etaFor()` takes the median of this account's last
@@ -980,7 +1059,7 @@ tail; 50/month is the natural number because `SCRIPT_CAP` already is 50.
   `creator.js` needs resolve — but if something obscure is missing from that
   page, this is why. Never back up two same-named files into one folder.
 - **Cache stamps.** Every page carries `?v=YYYYMMDDx` on css/js. Bump on EVERY
-  css/js change or browsers serve stale files. **Currently `20260821b`** — note
+  css/js change or browsers serve stale files. **Currently `20260821e`** — note
   it rolled past `z` on the 19th into the next day's letters, so carry on from
   `20260820j`.
   The HTML documents themselves are NOT stamped, so markup changes — including

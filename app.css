@@ -855,6 +855,46 @@
     font-size: 10.5px; letter-spacing: .08em; text-transform: lowercase;
     color: var(--text-3); margin-bottom: 4px;
   }
+
+  /* ---- Creator sources: the leading half of the Database tab ---- */
+  /* The switch between the two databases. Deliberately NOT styled as the header
+     tabs — those change what the app is doing; this changes which corpus one
+     panel is showing, and reading as a second row of tabs made the Database tab
+     look like it had grown a sub-app. */
+  .db-modes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .db-mode {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 8px 12px; color: var(--text-2);
+    font-size: 12.5px; cursor: pointer;
+    transition: border-color .14s var(--ease), color .14s var(--ease);
+  }
+  .db-mode:hover { border-color: var(--line-2); color: var(--text); }
+  .db-mode.on { border-color: var(--line-2); color: var(--text); background: var(--surface-2); }
+  .db-mode .pill { opacity: .75; }
+
+  /* The taxonomy, as labelled pairs rather than a row of bare chips: at five
+     tags the values alone ("Talking Head", "Social Proof", "Fashion & Beauty")
+     do not say which axis each one is. */
+  .src-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .src-tag {
+    display: inline-flex; align-items: baseline; gap: 6px;
+    border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px;
+    font-size: 11.5px; color: var(--text-2);
+  }
+  .src-tag i { font-style: normal; color: var(--text-3); font-size: 10px; letter-spacing: .06em; }
+  /* "views —" means NEVER FETCHED, not zero. Muted so it reads as absent data
+     rather than a measurement of nothing. */
+  .src-nodata { color: var(--text-3); }
+  .src-fname { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; }
+  .src-beats { margin: 8px 0 0; padding-left: 0; list-style: none; counter-reset: b; }
+  .src-beats li {
+    display: grid; grid-template-columns: 4ch 1fr; gap: 10px;
+    padding: 6px 0; border-top: 1px solid var(--line);
+    font-size: 12.5px; line-height: 1.55; color: var(--text-2);
+  }
+  .src-beats li:first-child { border-top: 0; }
+  .src-bt { font-family: var(--mono); font-size: 11px; color: var(--text-3); }
   /* Each beat answers three questions in its own labelled row: what to SAY,
      what to DO, what to SHOW on screen. Time in column one, label in two. */
   .bp-beats { list-style: none; margin: 0; padding: 0; }

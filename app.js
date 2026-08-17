@@ -295,7 +295,11 @@ function formatSaturation(rows) {
   return out.sort((a, b) => b.score - a.score);
 }
 
-function renderBars(hostId, pairs, limit = 8, drillSelectId = null) {
+/* `pct: false` drops the share column. The creator-sources panel uses it: at 19
+   rows "53%" is one video's worth of movement per 5.3 points, and a percentage
+   invites a confidence the sample cannot support. The scraped corpus keeps its
+   percentages — 9,016 rows can carry them. */
+function renderBars(hostId, pairs, limit = 8, drillSelectId = null, { pct = true } = {}) {
   const host = document.getElementById(hostId);
   const shown = pairs.slice(0, limit);
   const max = shown.length ? shown[0][1] : 1;
@@ -307,7 +311,9 @@ function renderBars(hostId, pairs, limit = 8, drillSelectId = null) {
         <div class="bar-fill"></div>
         <div class="bar-label">${escapeHtml(label)}</div>
       </div>
-      <div class="bar-count"><span class="bar-n">${fmt(count)}</span> <span class="bar-pct">${(count / total * 100).toFixed(count / total >= 0.1 ? 0 : 1)}%</span></div>
+      <div class="bar-count"><span class="bar-n">${fmt(count)}</span>${pct
+        ? ` <span class="bar-pct">${(count / total * 100).toFixed(count / total >= 0.1 ? 0 : 1)}%</span>`
+        : ""}</div>
     </div>`).join("");
   // Widths via CSSOM, not style="" attributes — the strict CSP (style-src 'self',
   // no 'unsafe-inline') silently discards inline style attributes, which shipped
@@ -441,6 +447,277 @@ let sortKey = "views";
 let sortDir = -1;
 
 function numOf(r, k) { const v = parseFloat(r[k]); return isNaN(v) ? -1 : v; }
+
+/* ---------- Creator sources: the leading half of the database ----------
+ *
+ * lynxr_sources is one row per video a CREATOR PASTED IN. That is a different
+ * kind of evidence from the scraped corpus: somebody who makes videos for a
+ * living looked at it and judged it worth remaking, BEFORE the view count
+ * proved anything. lynxr_videos can only ever tell you what already worked,
+ * which is why every other UGC shop can find the same rows.
+ *
+ * `tag_count` is the meter. One row per canonical URL, bumped rather than
+ * duplicated when a second creator pastes the same video — so tag_count > 1 is
+ * two people independently arriving at the same format inside a few days.
+ *
+ * FOUR THINGS TO KNOW BEFORE CHANGING ANYTHING HERE:
+ *
+ * 1. THE TABLE IS INVISIBLE WITHOUT AN RLS POLICY. It shipped with none at all
+ *    — service-role only, deliberately (creator_tables.sql). The pipeline writes
+ *    it with the service key, which bypasses RLS, so nothing ever looked broken;
+ *    a signed-in staff browser just got `[]` back. supabase/sources_staff_read.sql
+ *    adds the is_staff() select policy. An empty list here is far more likely to
+ *    be an unapplied policy than an empty table, which is why the empty state
+ *    says so instead of "no results".
+ * 2. METRICS ARE NULLABLE AND THAT IS LOAD-BEARING. `views` is NULL when it was
+ *    never fetched and 0 when the video genuinely has none. Folding them
+ *    together would bury every un-backfilled row at the bottom of a views sort
+ *    and read as "these all flopped". Test `== null`, never truthiness.
+ * 3. NO OPPORTUNITY SCORE LIVES HERE. The 1-10 score needs REACH — a type's
+ *    median views against its niche+platform scope — over pockets of >=12. This
+ *    table has neither the volume nor (until backfilled) the views. Client
+ *    suggestions therefore still run on the scraped corpus; that is deliberate,
+ *    not an oversight.
+ * 4. COVERS COME FREE. process_adaptations.py published a frame for every one of
+ *    these under sha1(canonUrl(url))[:20] in `lynxr-covers` — the same key
+ *    fillHostedCovers() already derives in the browser. Nothing extra is stored
+ *    on the row.
+ */
+let SOURCES = [];
+let SOURCES_STATE = "idle";   // idle | loading | ready | error
+const SRC_FILTERS = [
+  { id: "src-f-platform", key: "platform", label: "All platforms" },
+  { id: "src-f-format", key: "format_type", label: "All formats" },
+  { id: "src-f-niche", key: "niche_category", label: "All niches" },
+];
+
+/** Flatten the jsonb `tags` blob onto the row so countBy/filters — which are
+    written against flat keys like format_type — work unchanged on both tables. */
+function srcRow(r) {
+  const t = r.tags || {};
+  return {
+    ...r,
+    format_type: t.format_type || "",
+    hook_pattern: t.hook_pattern || "",
+    niche_category: t.niche_category || "",
+    target_audience: t.target_audience || "",
+    visual_hook: t.visual_hook || "",
+    canon: canonUrl(r.url || ""),
+  };
+}
+
+async function fetchSources() {
+  SOURCES_STATE = "loading";
+  // Everything except `script` and `shots`: the transcript alone is several KB a
+  // row and only the opened card ever needs it. 19 rows today, but the whole
+  // point is that this table grows, so it is paged-shaped from the start.
+  const sel = "canonical_url,url,platform,first_seen_at,last_seen_at,tag_count,"
+    + "tags,format,views,likes,comments,creator,title,metrics_at";
+  try {
+    const rows = await sbFetch(
+      `/rest/v1/lynxr_sources?select=${sel}&order=tag_count.desc,last_seen_at.desc`);
+    SOURCES = (rows || []).map(srcRow);
+    SOURCES_STATE = "ready";
+  } catch (e) {
+    // A 401/403 here is the policy, not the network. Say which.
+    SOURCES = [];
+    SOURCES_STATE = "error";
+  }
+  return SOURCES;
+}
+
+function srcViews(r) { return r.views == null ? null : Number(r.views) || 0; }
+
+function applySrcFilters() {
+  const q = (document.getElementById("src-search")?.value || "").trim().toLowerCase();
+  const active = SRC_FILTERS
+    .map((f) => [f.key, document.getElementById(f.id)?.value || ""])
+    .filter(([, v]) => v);
+  return SOURCES.filter((r) => {
+    for (const [k, v] of active) if ((r[k] || "") !== v) return false;
+    if (!q) return true;
+    const hay = [r.title, r.creator, r.format_type, r.hook_pattern, r.niche_category,
+                 r.target_audience, (r.format || {}).name, r.url]
+      .filter(Boolean).join(" ").toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+function srcStats(rows) {
+  const withViews = rows.map(srcViews).filter((v) => v != null);
+  const repeats = rows.filter((r) => (r.tag_count || 1) > 1).length;
+  const days = rows.length
+    ? Math.max(1, Math.round(
+        (Date.now() - new Date(rows.reduce((m, r) =>
+          r.first_seen_at < m ? r.first_seen_at : m, rows[0].first_seen_at)).getTime())
+        / 86400000))
+    : 0;
+  return [
+    ["Videos pasted", rows.length, (v) => fmt(Math.round(v)),
+      days ? `over ${days} day${days === 1 ? "" : "s"}` : ""],
+    // The headline number this table exists to produce. Zero is a real, honest
+    // answer while volume is low — it does NOT mean the meter is broken.
+    ["Picked twice+", repeats, (v) => fmt(Math.round(v)),
+      repeats ? "a format spreading" : "no repeats yet"],
+    ["Formats seen", new Set(rows.map((r) => r.format_type).filter(Boolean)).size,
+      (v) => fmt(Math.round(v)), ""],
+    // Views are absent until the backfill runs, and "0" would be a lie.
+    ["Median views", withViews.length ? median(withViews) : null,
+      withViews.length ? compact : () => "—",
+      withViews.length ? `${fmt(withViews.length)} of ${fmt(rows.length)} measured`
+                       : "not fetched yet"],
+  ];
+}
+
+function renderSrcStats(rows) {
+  const cards = srcStats(rows);
+  const host = document.getElementById("src-stats");
+  if (!host) return;
+  host.innerHTML = cards.map(([label, , , sub]) => `
+    <div class="stat"><div class="label">${escapeHtml(label)}</div><div class="value"></div>
+      ${sub ? `<div class="sub">${escapeHtml(sub)}</div>` : ""}</div>`).join("");
+  host.querySelectorAll(".value").forEach((el, i) =>
+    animateCount(el, cards[i][1] ?? NaN, cards[i][2]));
+}
+
+/** One pasted video. Collapsed it is a row; opened it is the extracted FORMAT —
+    which is the thing worth reading, and the thing the scraped table has no
+    equivalent of. */
+function srcCardHtml(r) {
+  const f = r.format || {};
+  const v = srcViews(r);
+  const picks = r.tag_count || 1;
+  const tags = [
+    ["format", r.format_type], ["hook", r.hook_pattern], ["niche", r.niche_category],
+    ["audience", r.target_audience], ["visual", r.visual_hook],
+  ].filter(([, val]) => val);
+
+  return `<details class="bp-item src-item" data-canon="${escapeHtml(r.canon)}">
+    <summary>
+      <span class="bp-caret" aria-hidden="true">▸</span>
+      ${bpThumbHtml({ url: r.url, name: r.title || "" })}
+      <span class="bp-name">${escapeHtml(r.title || sourceHostLabel(r.url))}</span>
+      ${picks > 1 ? `<span class="chip good" title="${picks} creators pasted this video">${picks}× picked</span>`
+                  : `<span class="chip">${escapeHtml(platformLabel(r.url))}</span>`}
+      ${v == null ? `<span class="chip src-nodata" title="Metrics never fetched — run backfill_source_metrics.py">views —</span>`
+                  : `<span class="chip">${compact(v)} views</span>`}
+      <span class="bp-when">${escapeHtml(agoLabel(r.last_seen_at))}</span>
+      ${safeUrl(r.url || "") ? `<a class="bp-open" href="${escapeHtml(safeUrl(r.url))}"
+        target="_blank" rel="noopener noreferrer" title="Open the original">↗</a>` : ""}
+    </summary>
+    <div class="bp-body">
+      ${r.creator ? `<p class="bp-hint">@${escapeHtml(r.creator)}</p>` : ""}
+      ${tags.length ? `<div class="src-tags">${tags.map(([k, val]) =>
+        `<span class="src-tag"><i>${escapeHtml(k)}</i>${escapeHtml(val)}</span>`).join("")}</div>` : ""}
+      ${f.name ? `<div class="bp-heading">Format</div>
+        <p class="src-fname">${escapeHtml(f.name)}</p>` : ""}
+      ${f.why_it_works ? `<p class="bp-hint">${escapeHtml(f.why_it_works)}</p>` : ""}
+      ${Array.isArray(f.beats) && f.beats.length ? `<ol class="src-beats">${f.beats.map((b) =>
+        `<li><span class="src-bt">${escapeHtml(String(b.seconds ?? "") + (b.seconds != null ? "s" : ""))}</span>
+           ${escapeHtml(b.role || "")}</li>`).join("")}</ol>` : ""}
+      ${!f.name && !(f.beats || []).length
+        ? `<p class="bp-hint">No format extracted for this one yet.</p>` : ""}
+    </div>
+  </details>`;
+}
+
+/** The URL's host, for a row whose title never arrived. Never the full
+    permalink — eight near-identical instagram.com/p/… strings identify nothing. */
+function sourceHostLabel(u) {
+  const h = hostOf(u);
+  return h ? `${platformLabel(u)} · ${h}` : "(untitled)";
+}
+
+function renderSources() {
+  const host = document.getElementById("src-list");
+  if (!host) return;
+
+  if (SOURCES_STATE === "loading") {
+    host.innerHTML = `<p class="bp-hint">Reading creator sources…</p>`;
+    return;
+  }
+  // AN EMPTY LIST IS ALMOST CERTAINLY THE POLICY, NOT AN EMPTY TABLE. The rows
+  // exist — the pipeline has been writing them since day one — but RLS returns
+  // [] rather than an error to a caller with no select policy, so "no results"
+  // would send the next person debugging the query instead of the grant.
+  if (SOURCES_STATE === "error" || !SOURCES.length) {
+    host.innerHTML = `<div class="empty">
+      <p><strong>No creator sources readable.</strong></p>
+      <p>The pipeline writes <code>lynxr_sources</code> with the service key, which
+         bypasses row-level security — so rows can exist here while the browser still
+         reads none. If you expected videos, the staff read policy is probably not
+         applied yet: run <code>supabase/sources_staff_read.sql</code> in the Supabase
+         SQL editor, then reload.</p></div>`;
+    ["src-count", "db-src-pill"].forEach((id) => {
+      const el = document.getElementById(id); if (el) el.textContent = "0";
+    });
+    return;
+  }
+
+  const rows = applySrcFilters();
+  const count = document.getElementById("src-count");
+  if (count) count.textContent = rows.length === SOURCES.length
+    ? fmt(rows.length) : `${fmt(rows.length)} of ${fmt(SOURCES.length)}`;
+
+  host.innerHTML = rows.length
+    ? rows.map(srcCardHtml).join("")
+    : `<p class="bp-hint">Nothing matches those filters.</p>`;
+
+  // Covers resolve exactly as they do for blueprint rows — YouTube off the URL,
+  // TikTok via oEmbed, and lynxr-covers for everything the pipeline has framed,
+  // which is every row in this table.
+  const thumbRows = rows.map((r) => bpThumbRow({ url: r.url }));
+  fillTikTokThumbs(thumbRows);
+  fillHostedCovers(thumbRows);
+  host.querySelectorAll("summary a").forEach((el) =>
+    el.addEventListener("click", (e) => e.stopPropagation()));
+}
+
+function renderSourcesAll() {
+  renderSrcStats(SOURCES);
+  const noPct = { pct: false };   // see the note on renderBars
+  renderBars("src-by-format", countBy(SOURCES, "format_type"), 8, null, noPct);
+  renderBars("src-by-hook", countBy(SOURCES, "hook_pattern"), 8, null, noPct);
+  renderBars("src-by-niche", countBy(SOURCES, "niche_category"), 8, null, noPct);
+  renderBars("src-by-platform", countBy(SOURCES, "platform"), 8, null, noPct);
+  const pill = document.getElementById("db-src-pill");
+  if (pill) pill.textContent = fmt(SOURCES.length);
+  for (const f of SRC_FILTERS) {
+    const el = document.getElementById(f.id);
+    if (!el) continue;
+    const vals = [...new Set(SOURCES.map((r) => (r[f.key] || "").trim()).filter(Boolean))].sort();
+    el.innerHTML = `<option value="">${escapeHtml(f.label)}</option>`
+      + vals.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+  }
+  renderSources();
+}
+
+function initSourcesUi() {
+  document.getElementById("src-search")?.addEventListener("input", renderSources);
+  for (const f of SRC_FILTERS) {
+    document.getElementById(f.id)?.addEventListener("change", renderSources);
+  }
+  document.getElementById("src-reset")?.addEventListener("click", () => {
+    const s = document.getElementById("src-search"); if (s) s.value = "";
+    for (const f of SRC_FILTERS) {
+      const el = document.getElementById(f.id); if (el) el.value = "";
+    }
+    renderSources();
+  });
+
+  // The switch between the two databases. Sources is the default view; the
+  // scraped corpus stays one click away and completely unchanged behind it.
+  const wire = (btnId, showId, hideId, otherBtnId) =>
+    document.getElementById(btnId)?.addEventListener("click", () => {
+      document.getElementById(showId).hidden = false;
+      document.getElementById(hideId).hidden = true;
+      const on = document.getElementById(btnId), off = document.getElementById(otherBtnId);
+      on.classList.add("on"); on.setAttribute("aria-pressed", "true");
+      off.classList.remove("on"); off.setAttribute("aria-pressed", "false");
+    });
+  wire("db-mode-sources", "db-sources", "db-archive", "db-mode-archive");
+  wire("db-mode-archive", "db-archive", "db-sources", "db-mode-sources");
+}
 
 function applyFilters() {
   const q = document.getElementById("search").value.trim().toLowerCase();
@@ -4043,6 +4320,18 @@ function renderApp(rows) {
   const tailSum = tail.reduce((a, [, n]) => a + n, 0);
   if (tailSum) majors.push([`(${fmt(tail.length)} named sounds)`, tailSum]);
   renderBars("by-audio", majors.sort((a, b) => b[1] - a[1]), 8, "f-audio");
+  const arcPill = document.getElementById("db-arc-pill");
+  if (arcPill) arcPill.textContent = fmt(rows.length);
+
+  // CREATOR SOURCES — the default half of the Database tab. Fetched AFTER the
+  // scraped corpus and deliberately not awaited: it is a separate table behind
+  // its own policy, and a slow or refused read there must not hold up the rest
+  // of the app. renderSourcesAll() paints whatever came back, including the
+  // "policy probably not applied" empty state.
+  initSourcesUi();
+  renderSources();                       // paints the loading line immediately
+  fetchSources().then(renderSourcesAll);
+
   initTabs();
   initModal();
   updateSyncBadge();
