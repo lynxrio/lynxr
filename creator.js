@@ -3506,7 +3506,14 @@ function adaptationHtml(a, liveName, opts = {}) {
             </button>
           </span>`}
       </div>
-      ${reuse.length && !EDITING.has(a.id) ? `<div class="bp-heading">Also write this for</div>
+      ${/* NOT when nested. Inside a Library entry the entry itself already
+            offers the leftover brands (see `spare` in libraryEntryHtml), and
+            this block offers exactly the same list from the same source — so a
+            video with one script rendered "Also write this for + scrubdaddy"
+            twice, one under the other. The offer belongs to the VIDEO, which is
+            what the Library entry is; a script card only owns it on a brand
+            page, where there is no entry above it to carry it. */""}
+      ${reuse.length && !EDITING.has(a.id) && !nested ? `<div class="bp-heading">Also write this for</div>
         <div class="chips lib-also">${reuse.map((b) => `
           <button type="button" class="chip pick ad-also" data-adid="${id}" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>` : ""}`;

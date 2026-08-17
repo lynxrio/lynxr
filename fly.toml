@@ -1,0 +1,63 @@
+# The script worker on Fly. Built from the Dockerfile at the repo root.
+#
+# NO SECRETS IN THIS FILE — it is committed to a PUBLIC repo. The service-role
+# key and the Anthropic key go in with `fly secrets set`, which stores them
+# encrypted and injects them as environment variables at run time. worker.py
+# falls back to os.environ when there is no .env, which is exactly this case.
+#
+#   fly secrets set SUPABASE_SERVICE_ROLE_KEY=... ANTHROPIC_API_KEY=...
+#
+# Anything you put under [env] below is PUBLIC. Keep it to things you would
+# write on a postcard.
+
+app = "lynxr-worker"
+
+# SET THIS TO MATCH YOUR SUPABASE REGION. The worker makes several round trips
+# to Supabase per script — discovery, the claim, the write-back, two upserts —
+# and putting the two on opposite sides of the country adds latency to every
+# one of them for nothing. Check it in the Supabase dashboard under
+# Settings -> General -> Region, then map it:
+#
+#     Supabase (AWS)        Fly
+#     us-east-1             iad
+#     us-west-1             sjc
+#     eu-west-1             lhr  (or cdg / ams)
+#     eu-central-1          fra
+#     ap-southeast-1        sin
+#     ap-southeast-2        syd
+#
+# iad is the guess for a US-East project, which is Supabase's default.
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Deliberately NO [http_service] and no [[services]] block. This is a poller,
+# not a server — nothing listens on a port. Declaring a service would make Fly
+# health-check a port nothing answers on, and every deploy would fail waiting
+# for it to come up.
+
+[env]
+  # transcribe.py picks whichever backend imports; on this image that is
+  # faster-whisper, which wants a plain size name rather than the Mac's
+  # Apple-Silicon MLX model id. Also set in the Dockerfile — repeated here so
+  # it is visible to anyone reading the deploy config rather than the image.
+  WHISPER_MODEL = "small"
+
+# A single machine. The worker is serial by design and one instance handles
+# several hundred paying creators (~50s a script, so ~72 an hour). When that
+# stops being true, `fly scale count 2` is the whole change: process_adaptations
+# claims an adaptation before it spends, so two workers never take the same one.
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  # 4GB, not the 1GB default. Whisper `small` holds ~2GB while transcribing and
+  # an OOM here looks like a script that silently never finishes.
+  memory_mb = 4096
+
+[deploy]
+  # One machine, no health checks to roll against — replace it and move on. A
+  # few seconds of downtime mid-deploy just means a script starts a moment
+  # later; nothing is lost, because an interrupted pass leaves its adaptation
+  # claimed and the lease releases it for the next run.
+  strategy = "immediate"

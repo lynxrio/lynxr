@@ -1,0 +1,40 @@
+# What must never reach the image.
+#
+# The first entry is the one that matters: .env holds the service-role key,
+# which bypasses row-level security on every table. An image is a tarball
+# anyone who can pull it can read, so a baked .env is a published master key.
+# Secrets are injected at run time instead (see the Dockerfile header).
+.env
+*.env
+
+# 1.7GB of cover frames and the scraped corpus. Nothing in the worker reads
+# these, and copying them makes every build slow for no reason.
+output/
+data/
+
+# macOS-only virtualenv — wrong platform, wrong interpreter, and it would
+# shadow the packages pip installs in the image.
+venv/
+__pycache__/
+*.pyc
+
+# The site. The worker writes scripts; it does not serve pages.
+*.html
+*.css
+*.js
+agencyonly/
+creatorsonly/
+privacy/
+fonts/
+*.png
+*.ico
+*.svg
+
+# Repo furniture
+.git/
+.github/
+.claude/
+.vscode/
+*.md
+supabase/
+.DS_Store

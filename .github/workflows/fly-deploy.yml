@@ -1,0 +1,59 @@
+# Ships the script worker to Fly when the worker changes.
+#
+# PATH-FILTERED ON PURPOSE. Most commits here are CSS and copy — a stylesheet
+# tweak has no business rebuilding a container with 500MB of Whisper weights in
+# it. Only the things that actually go into the image trigger a deploy.
+#
+# SETUP (once, and you must run these yourself — do not paste keys into a chat):
+#
+#   1. Create the app.            fly apps create lynxr-worker
+#      The name is global to Fly, so if it is taken pick another and change
+#      `app` in fly.toml to match.
+#
+#   2. Give it its secrets.       fly secrets set \
+#                                   SUPABASE_SERVICE_ROLE_KEY=... \
+#                                   ANTHROPIC_API_KEY=...
+#      These live encrypted on Fly and are injected as env vars. They never
+#      touch this repo.
+#
+#   3. Mint a deploy token.       fly tokens create deploy -x 8760h
+#
+#   4. Put it in GitHub.          Settings -> Secrets and variables -> Actions
+#                                 -> New repository secret
+#                                 Name: FLY_API_TOKEN
+#
+#   5. Push. This runs and the worker is live.
+#
+# Then check it: `fly logs` should show "watching for queued scripts", and
+# `fly status` should show exactly one machine.
+
+name: deploy worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pipeline/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "requirements-ci.txt"
+      - "fly.toml"
+      - ".github/workflows/fly-deploy.yml"
+  workflow_dispatch:        # a Run workflow button, for redeploying unchanged code
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Two deploys at once would fight over the same machine.
+    concurrency:
+      group: fly-deploy
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # --remote-only builds on Fly's builders rather than in this runner, so
+      # the 500MB image is assembled next to where it is deployed instead of
+      # being pushed across the internet from GitHub.
+      - run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
