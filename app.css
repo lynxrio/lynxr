@@ -2591,6 +2591,10 @@
      readable. Flipping the stream itself instead would ship reversed footage. */
   .tp-stage .tp-cam { transform: scaleX(-1); }
   .tp.tp-live .tp-cam { display: block; }
+  /* A landscape stream cropped into a phone's shape throws away most of the
+     frame, so show it whole instead of cropping — the creator sees the shape is
+     wrong and turns the phone, rather than finding out in the exported file. */
+  .tp-cam.tp-cam-wide { object-fit: contain; }
   /* Full bleed, behind everything. `cover` rather than `contain` on purpose:
      letterbox bars would tell the creator their framing is safe when the
      recorded file is a different shape from what they were looking at. */

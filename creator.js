@@ -140,10 +140,6 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !document.getElementById("policy-modal")?.hidden) closePolicy();
 });
 
-// The prompter's markup is static, and this file is deferred, so the DOM is
-// ready here — no need to wait for sign-in the way the rendered views do.
-initPrompter();
-
 /** The empty-state demo: a link lands, a script draws itself underneath, on a
  *  loop. Shown where someone has nothing yet and a sentence alone leaves them
  *  guessing what "send a link" actually produces. Decorative — aria-hidden, so
@@ -2965,6 +2961,19 @@ function scriptText(a) {
    permissions, codec support, the mirrored-preview/unmirrored-output trap, and
    somewhere to put the file — and the reading half is useful on its own. */
 
+/* SHELVED — turn this back on with one line.
+
+   The whole feature is built and works (beat-timed scroll, 3-2-1 countdown,
+   full-bleed camera, mirrored preview against an unmirrored recording), but it
+   is parked while the app stays focused on the one job it launched to do: send
+   a link, get a script. Flipping this to true restores the button on every
+   script card; nothing else has to change.
+
+   Kept rather than deleted deliberately — this is a fair amount of measured
+   behaviour (the reading band's position, the pacing derived from `t`, the
+   preview/recording mirror split) that would be expensive to rediscover. */
+const TP_ENABLED = false;
+
 const TP = { raf: 0, y: 0, playing: false, pxPerSec: 0, last: 0, lock: null };
 const TP_PREFS = "lynxr.prompter";
 // Speaking pace when a script carries no usable `t` values. 140 wpm is an
@@ -3160,8 +3169,19 @@ async function tpCamera() {
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return false;
   try {
     REC.stream = await navigator.mediaDevices.getUserMedia({
-      // Portrait, front camera — this is filmed on a phone, held up.
-      video: { facingMode: "user", width: { ideal: 1080 }, height: { ideal: 1920 } },
+      /* ASK FOR 9:16, not just big numbers. width/height alone are treated as
+         a size hint and phones happily answer a portrait request with their
+         native LANDSCAPE sensor mode — 1280x720 — which then has to be cropped
+         to fit a tall screen. That crop is what reads as squished, and it also
+         means the preview is showing a different frame from the one being
+         recorded. aspectRatio is the constraint that actually asks for the
+         shape; short-form is 9:16, so that is what to film in. */
+      video: {
+        facingMode: "user",
+        aspectRatio: { ideal: 9 / 16 },
+        width: { ideal: 1080 },
+        height: { ideal: 1920 },
+      },
       audio: true,
     });
   } catch { return false; }               // denied, or no camera on this device
@@ -3169,7 +3189,38 @@ async function tpCamera() {
   v.srcObject = REC.stream;
   v.play().catch(() => { /* autoplay policy — the stream still records */ });
   tpEl("tp").classList.add("tp-live");
+  tpFitCamera();
   return true;
+}
+
+/** Make the preview the exact shape of the thing being recorded.
+
+    A camera may refuse the 9:16 request and hand back whatever it has. If that
+    happens the preview must not silently pretend otherwise: the creator frames
+    the shot against what they can see, so a preview shaped differently from the
+    file is how you end up with a head cropped out of the top of every take.
+    Reads the REAL track settings and stamps that ratio on the element (CSSOM —
+    a style attribute would be dropped by style-src 'self'). */
+function tpFitCamera() {
+  const v = tpEl("tp-cam");
+  const track = REC.stream?.getVideoTracks?.()[0];
+  if (!v || !track) return;
+  const apply = () => {
+    const s = (track.getSettings && track.getSettings()) || {};
+    const w = s.width || v.videoWidth;
+    const h = s.height || v.videoHeight;
+    if (!w || !h) return;
+    v.style.aspectRatio = `${w} / ${h}`;
+    // Portrait-ish stream: it can fill the screen with only a sliver cropped,
+    // which is what "camera fills the screen" should mean. A landscape stream
+    // cropped to a phone's shape loses most of the frame, so letterbox it and
+    // show the truth instead — the creator can see the shape is wrong and turn
+    // the phone, rather than discovering it in the exported file.
+    v.classList.toggle("tp-cam-wide", w / h > 1);
+  };
+  apply();
+  // videoWidth is 0 until the first frame decodes, so settle it again then.
+  v.addEventListener("loadedmetadata", apply, { once: true });
 }
 
 /** 3 … 2 … 1. Resolves false if the creator pressed stop while it ran. */
@@ -3272,7 +3323,10 @@ function closePrompter() {
 
 function initPrompter() {
   const wrap = tpEl("tp");
-  if (!wrap) return;
+  // Shelved: don't wire the controls or the Escape/space key handlers at all.
+  // Nothing can reach the overlay, so listening for its keys would only mean
+  // the prompter quietly eating the space bar on every page.
+  if (!wrap || !TP_ENABLED) return;
   tpEl("tp-close").addEventListener("click", closePrompter);
   tpEl("tp-play").addEventListener("click", tpMainButton);
   // Rewind only. Restart is what you press after a fluffed take, and that is
@@ -3301,6 +3355,14 @@ function initPrompter() {
     if (e.key === "ArrowDown") { e.preventDefault(); tpSeek(TP.y + 60); }
   });
 }
+
+/* Called HERE, not up with the other module-level wiring. `TP_ENABLED` is a
+   const, so calling initPrompter() before this point in the file reads it
+   inside its temporal dead zone and throws — which does not fail politely:
+   the exception stops creator.js mid-evaluation and every declaration below it
+   is left uninitialised, taking the whole app down with it. Definition and
+   call stay adjacent so they cannot drift apart again. */
+initPrompter();
 
 /** opts.open   — render already expanded. Used inside a Library entry the
  *                creator has just opened: they opened it to read the script, so
@@ -3407,7 +3469,7 @@ function adaptationHtml(a, liveName, opts = {}) {
               the thing you do WITH it. Named for what it shows — a silent
               script has no words to read aloud, so its SHOW lines are cue
               cards, the same rename the hook and CTA already take. */""}
-        ${EDITING.has(a.id) ? "" : `<button type="button" class="btn ad-prompt" data-adid="${id}"
+        ${EDITING.has(a.id) || !TP_ENABLED ? "" : `<button type="button" class="btn ad-prompt" data-adid="${id}"
           >${silent ? "Cue cards" : "Teleprompter"}</button>`}
         ${EDITING.has(a.id) ? `
           <button type="button" class="btn ad-save" data-adid="${id}">Save changes</button>
