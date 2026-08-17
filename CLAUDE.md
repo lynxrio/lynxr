@@ -68,6 +68,57 @@ the database, not the interface — verified live, see HANDOFF.md.
 - **A waitlist CSV never goes inside the repo.** One `git add -A` would publish
   every address. Export to `~/Desktop` or outside the project.
 
+## Two agents: plan on Opus, execute on Sonnet
+
+Non-trivial work is split across two subagents defined in `~/.claude/agents/`
+(user-level, so they exist in every project, not just this one):
+
+| Agent | Model | Does |
+|---|---|---|
+| `planner` | opus, xhigh effort | Reads the code, designs the change, writes a numbered plan to `~/.claude/plans/<slug>.md`. Touches no project file. |
+| `executor` | sonnet, high effort | Reads that plan file, makes the edits, verifies each step, reports per step. Does not redesign or commit. |
+
+**Start every session with the planner.** This is the default posture, not
+something to be asked for each time. Begin substantive work by launching the
+`planner` subagent rather than reading and editing files yourself — doing your
+own reconnaissance first duplicates its job and burns context. Then relay the
+plan, wait for a go-ahead, and hand the path to `executor`.
+
+**Skip the pair for work that does not earn it**: questions and explanations,
+reading or summarizing code, a typo, a rename, a one-line fix, a `?v=` bump, or
+anything the owner asked you to just do. If you are unsure which route you are
+taking, say so in one line and proceed rather than stopping to ask.
+
+**The plan file is the handoff, and it lives outside the repo** — same reason
+the waitlist CSV does. `~/.claude/plans/` cannot be caught by a `git add -A`.
+
+**The owner approves the plan between the two.** The planner returns a path and
+a summary; a subagent's report is not shown to them, so relay it. That gets
+confirmed before the executor is launched. A wrong plan is cheap to fix, wrong
+edits across four cache-stamped pages are not.
+
+The executor is told to read this file and obey it — the plan will not restate
+the `?v=` stamp rule, the CSP rule, or the `./venv/bin/python -m pip` rule, but
+they still bind. If a plan step conflicts with this file, this file wins and
+the executor stops rather than following it.
+
+**Local preview opens itself.** A `SessionStart` hook in
+`.claude/settings.local.json` serves the repo at **http://localhost:8811/** on
+every new session and opens it in the default browser, so changes are visible
+without starting anything by hand. Same port as the existing
+`.claude/launch.json` config; logs go to `/tmp/lynxr-preview-8811.log`.
+
+- It checks the port before starting and **never spawns a second server**, so
+  additional sessions reuse the one already running.
+- It **waits for the port to bind before calling `open`** — without that poll
+  the browser races the interpreter and lands on connection-refused. Cold start
+  measures ~0.4s.
+- The browser tab opens on *every* session, including ones that reused an
+  existing server. Two sessions in this project means two tabs.
+
+Note the HTML is not cache-stamped, so a markup change still needs a hard
+reload — and TikTok oEmbed does not work from `localhost`.
+
 ## Working style
 
 Verify with real data or in the browser rather than assuming — several bugs

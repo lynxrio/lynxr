@@ -790,9 +790,17 @@
      ~31x56 inside this box and a 4:3 YouTube one ~40x30, both whole and
      neither stretched. The box only has to be big enough, not the same shape
      as every source. */
+  /* NO FRAME AROUND THE COVER. The fixed 40x56 stays — a row with no cover must
+     be exactly as tall as one that has it — but the box is not PAINTED any
+     more: no background, no border. It used to have both and nobody could see
+     them, because the thumbnail was stretched to fill every pixel of it; the
+     moment `object-fit: contain` stopped the distortion, the letterbox gaps
+     exposed that background and the whole thing read as a separate panel drawn
+     around the image. The placeholder below keeps the box, because initials
+     floating on the card with nothing behind them is not a thumbnail. */
   .bp-thumb {
     flex: 0 0 auto; width: 40px; height: 56px; border-radius: 6px;
-    overflow: hidden; background: var(--surface-2); border: 1px solid var(--line);
+    overflow: hidden; background: none; border: 0;
     display: grid; place-items: center;
   }
   .bp-thumb .vthumb { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -805,8 +813,14 @@
      all 9:16 — every YouTube one is 4:3, because ytimg publishes only a
      letterboxed hqdefault — and `cover` crops those to a middle strip. */
   img.bp-thumb { object-fit: contain; }
+  /* The placeholder keeps the frame the image gave up — it is a stand-in FOR a
+     thumbnail, so it has to occupy the same shape rather than read as two loose
+     letters beside the title. Only the agency app renders these: creator.js's
+     thumbHtml returns nothing at all when there is no cover. */
   .bp-thumb .vthumb-none, .bp-thumb .vthumb-pending {
     font-size: 9px; color: var(--text-3); font-family: var(--mono); letter-spacing: .04em;
+    width: 100%; height: 100%; display: grid; place-items: center;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
   }
   .bp-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bp-when { color: var(--text-3); font-size: 11px; white-space: nowrap; }

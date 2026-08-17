@@ -457,6 +457,56 @@ what you just asked for is the first thing on screen. The tab deliberately shows
 is original — a video can be written for a company and still have its own words
 kept.
 
+### Original scripts now exist for videos you scripted FOR A BRAND
+
+Owner's ask: picking a brand must still work, and the video's own words must
+still be kept — that is what the Original scripts tab is for.
+
+**This cost nothing to build, because the words were already stored.** Verified
+on the live DB: all 13 adaptations are brand-tied and *all 13* carry
+`source.script.segments`, `source.shots`, `source.tags` and `format` alongside
+their rewritten `adaptation.beats`. The pipeline extracts the source first and
+rewrites second, onto the same record. Nothing is queued, nothing is re-read,
+no allowance is spent — the Original scripts tab just renders a field that was
+always there and never displayed.
+
+What changed:
+
+- **`hasSourceScript(a)`** — does this record carry the video's own transcript
+  or shot list? A silent video has no segments but still has shots, so either
+  counts.
+- **`adaptationHtml(a, name, { asOriginal: true })`** — forces the source branch
+  on a record that *also* has a brand rewrite. The branch order is
+  `isWriting → ad → !brandId → failed`, so without this a brand record could
+  never reach the original renderer.
+- **The tab's filter was `.some((a) => !a.brandId)`** — which matched only
+  videos sent with NO company. The comment above it already claimed the wider
+  behaviour ("A video can be scripted for a company AND have the video's own
+  words kept"), so **the intent was written but never true**. Now
+  `!a.brandId || hasSourceScript(a)`.
+- **One card per VIDEO, not per brand.** A video scripted for three companies is
+  three records carrying the *same* transcript, so `libraryItemHtml` prefers a
+  genuine no-brand record and otherwise borrows the source off whichever brand
+  record has it. Without this the tab showed three identical originals.
+- **"Write this for a brand" is suppressed on a brand-tied record.** That button
+  turns an original INTO a brand script; on a record that already is one it is
+  nonsense. The entry's own "Also write this for" chips are the right control.
+
+**There is no test setup in this repo, so one was built to check this.**
+`scratchpad/lib-test.js` loads the real `creatorsonly/index.html` and the real
+`creator.js` into jsdom and drives `libraryItemHtml` with record shapes copied
+from the live DB — 16 assertions, including regressions on the brand view, the
+all-videos view, the platform gate and the thumbnail link. **16/16.**
+
+**The trap that harness hit, worth knowing before writing another:**
+`creator.js` is a CLASSIC script, so its top-level `let ME` / `const
+SCOPE_ORIGINAL` live in the context's global **lexical** environment and are
+**never window properties**. Setting `window.ME` from outside creates a
+different, unrelated binding — every assertion then passes or fails against
+nothing. The test bodies must run as a sibling script in the same vm context and
+reach the real bindings by bare name. The first version of that harness scored
+3/12 purely from this.
+
 ### Smaller
 
 - **The ETA is reactive now.** `etaFor()` takes the median of this account's last
@@ -1059,7 +1109,7 @@ tail; 50/month is the natural number because `SCRIPT_CAP` already is 50.
   `creator.js` needs resolve — but if something obscure is missing from that
   page, this is why. Never back up two same-named files into one folder.
 - **Cache stamps.** Every page carries `?v=YYYYMMDDx` on css/js. Bump on EVERY
-  css/js change or browsers serve stale files. **Currently `20260821e`** — note
+  css/js change or browsers serve stale files. **Currently `20260821g`** — note
   it rolled past `z` on the 19th into the next day's letters, so carry on from
   `20260820j`.
   The HTML documents themselves are NOT stamped, so markup changes — including

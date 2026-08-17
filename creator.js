@@ -755,6 +755,23 @@ function libScripts(item) {
     || (!a.libraryId && a.sourceUrl && canonUrl(a.sourceUrl) === item.canon));
 }
 
+/** Does this record carry the VIDEO'S OWN script — the verbatim transcript or
+    the shot list?
+    EVERY finished adaptation does, brand-tied or not. The pipeline extracts the
+    source first and rewrites second, storing both on the same record: verified
+    on the live data, where all 13 adaptations are brand-tied and all 13 carry
+    segments, shots, tags and format alongside their rewritten beats.
+    That is what lets "Original scripts" show the video's own words for a video
+    you scripted FOR A BRAND, at no extra cost — nothing is queued, nothing is
+    re-read, no allowance is spent. The words were already in the record.
+    A silent video has no segments but still has shots, so either one counts. */
+function hasSourceScript(a) {
+  const src = a.source || {};
+  const segs = (src.script || {}).segments;
+  return (Array.isArray(segs) && segs.length > 0)
+      || (Array.isArray(src.shots) && src.shots.length > 0);
+}
+
 const brandById = (id) => ME.brands.find((b) => b.id === id);
 
 /* Brands a script can actually be written FOR. A brand with no name gives the
@@ -1596,12 +1613,19 @@ function paintLibraryList() {
        its job is to catch what no company block would show.)
        SCOPE_ORIGINAL then hides the brand scripts inside the card, so the tab
        shows what it says it shows. */
-    const items = shown.filter((it) => libScripts(it).some((a) => !a.brandId));
+    /* WIDENED 2026-08-17. This used to read `.some((a) => !a.brandId)`, which
+       matched only videos sent with NO company — so the intent described above
+       was written but never true, and picking a company meant the video's own
+       words were never shown anywhere. Every finished adaptation stores the
+       source transcript and shot list next to its rewrite (hasSourceScript), so
+       a video scripted for a company belongs here too, at no extra cost. */
+    const items = shown.filter((it) =>
+      libScripts(it).some((a) => !a.brandId || hasSourceScript(a)));
     host.innerHTML = items.length
       ? `<div class="bp-list">${items.map((it) => libraryItemHtml(it, SCOPE_ORIGINAL)).join("")}</div>`
       : `<div class="empty"><p><strong>No original scripts yet.</strong></p>
-          <p>Send a link without picking a company and you'll get the video's own
-          words, shots and structure back.</p></div>`;
+          <p>Every video you send keeps its own words, shots and structure — send one
+          for a company or for none, and the untouched version shows up here.</p></div>`;
   } else {
     host.innerHTML = `<div class="bp-list">${shown.map((it) => libraryItemHtml(it)).join("")}</div>`;
   }
@@ -1676,7 +1700,21 @@ function paintLibraryList() {
  *  answer, answered wrongly. */
 function libraryItemHtml(item, scopeBrandId) {
   const all = libScripts(item);
-  const made = scopeBrandId === SCOPE_ORIGINAL ? all.filter((a) => !a.brandId)
+  const asOriginal = scopeBrandId === SCOPE_ORIGINAL;
+  /* THE ORIGINAL SCRIPT BELONGS TO THE VIDEO, NOT TO A BRAND. One video
+     scripted for three companies is three records carrying the SAME transcript
+     and shot list, so this tab shows ONE card per video rather than three
+     identical ones.
+     Prefer a record genuinely sent with no company — it may still be writing,
+     and it owns its own delete button. Failing that, borrow the source off
+     whichever brand record has one. */
+  const originals = () => {
+    const own = all.filter((a) => !a.brandId);
+    if (own.length) return own;
+    const carrier = all.find(hasSourceScript);
+    return carrier ? [carrier] : [];
+  };
+  const made = asOriginal ? originals()
     : scopeBrandId ? all.filter((a) => a.brandId === scopeBrandId)
     : all;
   const spare = brandsWithout(item);
@@ -1715,7 +1753,7 @@ function libraryItemHtml(item, scopeBrandId) {
             directly under it. The scripts are self-evidently the scripts. */""}
       ${made.length ? `<div class="bp-list lib-scripts">${made.map((a) => adaptationHtml(
             a, a.brandId ? (brandById(a.brandId) || {}).name : null,
-            { nested: true, bare: made.length === 1 }
+            { nested: true, bare: made.length === 1, asOriginal }
           )).join("")}</div>`
         : `<p class="bp-hint">No script from this one yet.</p>`}
 
@@ -3483,7 +3521,12 @@ initPrompter();
  *                each was written for — and drop the thumbnail.
  */
 function adaptationHtml(a, liveName, opts = {}) {
-  const { open: forceOpen = false, nested = false, bare = false } = opts;
+  /* `asOriginal` renders the VIDEO'S OWN script off a record that also holds a
+     brand rewrite. Both live on the same record (see hasSourceScript), so the
+     Original scripts tab can show the untouched transcript for a video you
+     scripted for a company — without queueing anything or spending a script. */
+  const { open: forceOpen = false, nested = false, bare = false,
+          asOriginal = false } = opts;
   const prevSeen = SEEN.get(a.id);
   const justReady = (prevSeen === "queued" || prevSeen === "running") && a.status === "done";
   if (justReady) FLASH.add(a.id);
@@ -3500,6 +3543,7 @@ function adaptationHtml(a, liveName, opts = {}) {
         && ad.beats.every((b) => !(b.say || "").trim())));
   const chip = a.status === "error" ? `<span class="chip bad">couldn't fetch</span>`
     : a.status !== "done" ? `<span class="chip bp-wait"><i class="bp-dot"></i>writing your script</span>`
+    : asOriginal ? `<span class="chip good">original script</span>`
     : lowFit ? `<span class="chip">poor fit</span>`
     : ad ? `<span class="chip good">script ready</span>`
     : !a.brandId ? `<span class="chip good">original script</span>`
@@ -3541,7 +3585,7 @@ function adaptationHtml(a, liveName, opts = {}) {
   } else if (a.status === "error") {
     body = `<p class="bp-hint bad">${escapeHtml(a.note || "That video couldn't be downloaded.")}</p>
       <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
-  } else if (ad) {
+  } else if (ad && !asOriginal) {
     const carry = { do: "", show: "" };
     body = `
       ${/* A good score explains nothing the script itself doesn't say better, and
@@ -3626,12 +3670,15 @@ function adaptationHtml(a, liveName, opts = {}) {
         <div class="chips lib-also">${reuse.map((b) => `
           <button type="button" class="chip pick ad-also" data-adid="${id}" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>` : ""}`;
-  } else if (!a.brandId) {
+  } else if (asOriginal || !a.brandId) {
     /* THE ORIGINAL SCRIPT — a finished result, not a failure.
        This branch used to be shared with "the rewrite failed", so a creator who
        asked for the original got "Read, but not written yet" and a Try again
        button that would spend another script and produce the same answer. The
-       two cases are opposites and are told apart by brandId. */
+       two cases are opposites and are told apart by brandId.
+       `asOriginal` reaches this branch from a record that DOES have a brand
+       rewrite, which is how the Original scripts tab shows the video's own
+       words for a video you scripted for a company. */
     const src = a.source || {};
     const scr = src.script || {};
     const segs = Array.isArray(scr.segments) ? scr.segments : [];
@@ -3662,7 +3709,12 @@ function adaptationHtml(a, liveName, opts = {}) {
         ${/* No rewrite here either — same reason as on a brand script. This is
               the video's own transcript, so "ask again" would return the same
               words anyway. */""}
-        <button type="button" class="btn ad-brandify" data-adid="${id}">Write this for a brand</button>
+        ${/* "Write this for a brand" turns an original INTO a brand script, so
+              it makes no sense on a record that already is one — this card is
+              only borrowing that record's source to show the video's own words.
+              The entry's own "Also write this for" chips are the right control
+              there, and they already offer the brands it is NOT written for. */""}
+        ${a.brandId ? "" : `<button type="button" class="btn ad-brandify" data-adid="${id}">Write this for a brand</button>`}
       </div>`;
   } else {
     body = `<p class="bp-hint">Read, but not written yet. ${escapeHtml(a.note || "")}</p>
@@ -3704,8 +3756,11 @@ function adaptationHtml(a, liveName, opts = {}) {
       ${nested ? "" : thumbHtml((a.source || {}).cover, entryLabel(a), a.sourceUrl)}
       ${/* Same resolver the Trash view uses: prefers the live library entry's
             caption, falls back to the platform wording, never a permalink. */""}
+      ${/* Under `asOriginal` the record's brand is irrelevant — the card is
+            showing the video's own words, not that brand's rewrite — so it must
+            not be labelled with the brand name. */""}
       <span class="bp-name">${escapeHtml(nested
-        ? (a.brandId ? brandNow : "Original script")
+        ? (a.brandId && !asOriginal ? brandNow : "Original script")
         : entryLabel(a))}</span>
       ${/* Nested, a green "script ready" sits next to the finished script it is
             describing, under an entry whose own chip already counts it — three
