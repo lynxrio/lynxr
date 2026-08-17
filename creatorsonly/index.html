@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- Same strict CSP as the agency app: no inline script or style, nothing
      off-origin, native form posts blocked. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co; media-src 'self' blob:; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
@@ -24,7 +24,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260820m">
+<link rel="stylesheet" href="/app.css?v=20260820t">
 </head>
 <body>
 
@@ -186,7 +186,97 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260820m" defer></script>
-<script src="/creator.js?v=20260820m" defer></script>
+<!-- THE TELEPROMPTER. The reading band is first and pinned to the top of the
+     viewport on purpose: the front camera sits above the screen, so text read
+     from the middle produces footage of someone looking down. Controls go at
+     the bottom, out of frame and within thumb reach.
+     Everything here is empty — creator.js fills it. No ${...} in this file. -->
+<div class="tp" id="tp" hidden>
+  <div class="tp-band" id="tp-band">
+    <div class="tp-scroll" id="tp-scroll"></div>
+    <div class="tp-mark" aria-hidden="true"></div>
+  </div>
+
+  <!-- The camera fills the gap between the reading band and the controls. It is
+       muted and playsinline on purpose: an unmuted preview feeds the mic back
+       through the speaker, and without playsinline iOS takes the video
+       fullscreen and covers the teleprompter with it. -->
+  <div class="tp-stage" id="tp-stage">
+    <video class="tp-cam" id="tp-cam" muted playsinline autoplay></video>
+    <span class="tp-dot" id="tp-dot">rec</span>
+    <div class="tp-count" id="tp-count" role="status" aria-live="assertive" hidden></div>
+  </div>
+
+  <div class="tp-foot">
+    <div class="tp-meta">
+      <span class="tp-brand" id="tp-brand"></span>
+      <!-- Appears once a take exists. A plain download link, not an upload:
+           the file goes straight to the device and never touches a server. -->
+      <a class="tp-save" id="tp-save" download hidden>save take</a>
+      <span class="tp-len" id="tp-len"></span>
+    </div>
+
+    <!-- Icon-only, so every aria-label carries the entire meaning: with no text
+         inside, a screen reader would announce these as just "button".
+         Speed uses chevrons and text size uses the two A's, deliberately NOT
+         two identical minus/plus pairs — side by side those are impossible to
+         tell apart at a glance, which is the one thing that matters when you
+         are reaching for one mid-take. -->
+    <div class="tp-row">
+      <button type="button" class="ghost icon-only" id="tp-slower" aria-label="Slower" title="Slower">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          ><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
+      </button>
+      <span class="tp-rate" id="tp-rate">1.0&#215;</span>
+      <button type="button" class="ghost icon-only" id="tp-faster" aria-label="Faster" title="Faster">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          ><path d="M13 17l5-5-5-5M6 17l5-5-5-5"/></svg>
+      </button>
+
+      <span class="tp-gap"></span>
+
+      <button type="button" class="ghost icon-only" id="tp-smaller" aria-label="Smaller text" title="Smaller text">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          ><path d="M7.5 17l4.5-9 4.5 9M9.4 13.6h5.2"/></svg>
+      </button>
+      <button type="button" class="ghost icon-only" id="tp-bigger" aria-label="Bigger text" title="Bigger text">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          ><path d="M4 19l8-14 8 14M7.6 13.5h8.8"/></svg>
+      </button>
+    </div>
+
+    <div class="tp-row tp-main">
+      <button type="button" class="ghost icon-only" id="tp-restart" aria-label="Start again" title="Start again">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          ><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+      </button>
+
+      <!-- Both faces live in the markup and CSS swaps them on aria-pressed, the
+           same way the password eye does. Writing textContent onto this button
+           would delete its svg outright — the bug armDelete already shipped
+           once, and it is not worth shipping twice. -->
+      <button type="button" class="btn tp-play" id="tp-play" aria-pressed="false"
+        aria-label="Start recording" title="Start recording">
+        <svg class="ico icon-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
+          ><circle cx="12" cy="12" r="8"/></svg>
+        <svg class="ico icon-off" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
+          ><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
+
+      <button type="button" class="ghost icon-only" id="tp-close" aria-label="Done" title="Done">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="/dotgrid.js?v=20260820t" defer></script>
+<script src="/creator.js?v=20260820t" defer></script>
 </body>
 </html>

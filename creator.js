@@ -140,6 +140,10 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !document.getElementById("policy-modal")?.hidden) closePolicy();
 });
 
+// The prompter's markup is static, and this file is deferred, so the DOM is
+// ready here — no need to wait for sign-in the way the rendered views do.
+initPrompter();
+
 /** The empty-state demo: a link lands, a script draws itself underneath, on a
  *  loop. Shown where someone has nothing yet and a sentence alone leaves them
  *  guessing what "send a link" actually produces. Decorative — aria-hidden, so
@@ -2942,6 +2946,362 @@ function scriptText(a) {
   return lines.join("\n");
 }
 
+/* ---------- THE TELEPROMPTER ----------
+
+   Reading a script off a phone means looking at the middle of the screen, and
+   the front camera is at the TOP — so the footage shows someone reading, eyes
+   visibly off-axis. Everything here exists to close that gap: the reading band
+   is pinned to the top of the viewport, right under the lens, and the controls
+   are pushed to the bottom where a thumb can reach them without the hand
+   crossing the frame.
+
+   It scrolls at a constant rate, the way a real teleprompter does — varying
+   speed per beat is unreadable. What the beats DO supply is the finish line:
+   `t` ("0-3s", "3-7s") gives the video's intended length, so the scroll is
+   paced to end when the video should. A generic teleprompter has to ask for a
+   words-per-minute setting; this one already knows.
+
+   No recording here, deliberately. That is a much heavier feature — camera
+   permissions, codec support, the mirrored-preview/unmirrored-output trap, and
+   somewhere to put the file — and the reading half is useful on its own. */
+
+const TP = { raf: 0, y: 0, playing: false, pxPerSec: 0, last: 0, lock: null };
+const TP_PREFS = "lynxr.prompter";
+// Speaking pace when a script carries no usable `t` values. 140 wpm is an
+// unhurried piece-to-camera; the creator can trim it live with the − / + keys.
+const TP_WPM = 140;
+
+function tpPrefs() {
+  try { return JSON.parse(localStorage.getItem(TP_PREFS)) || {}; } catch { return {}; }
+}
+function tpSavePrefs(p) {
+  try { localStorage.setItem(TP_PREFS, JSON.stringify(p)); } catch { /* private mode */ }
+}
+
+/** The video's intended length, from the beats' own `t` ranges. 0 when the
+    script predates `t` or the values don't parse — the caller falls back to
+    counting words. */
+function scriptSeconds(ad) {
+  let end = 0;
+  for (const b of (ad.beats || [])) {
+    const t = String(b.t || "");
+    const span = t.match(/(\d+(?:\.\d+)?)\s*[-–—]\s*(\d+(?:\.\d+)?)/);
+    if (span) { end = Math.max(end, parseFloat(span[2])); continue; }
+    const one = t.match(/(\d+(?:\.\d+)?)/);
+    if (one) end = Math.max(end, parseFloat(one[1]));
+  }
+  return end;
+}
+
+/** What actually gets read aloud, in order. A spoken script reads its `say`
+    lines with `do` beside them as a dim stage direction; a silent one has no
+    `say` at all, so the `show` cards become the script — the same swap the
+    card and the copied text already make. `show` is never surfaced on a spoken
+    script: it is text for the EDIT, not for the mouth, and putting it in the
+    reading lane invites people to say it out loud. */
+function prompterLines(ad, silent) {
+  const out = [];
+  if (ad.hook) out.push({ kind: silent ? "card" : "hook", text: String(ad.hook).trim(), cue: "" });
+  for (const b of (ad.beats || [])) {
+    const words = String((silent ? b.show : b.say) || "").trim();
+    const cue = String(b.do || "").trim();
+    if (words) out.push({ kind: silent ? "card" : "say", text: words, cue });
+    else if (cue) out.push({ kind: "cue", text: "", cue });
+  }
+  if (ad.cta) out.push({ kind: silent ? "card" : "cta", text: String(ad.cta).trim(), cue: "" });
+  return out.filter((l) => l.text || l.cue);
+}
+
+function tpEl(id) { return document.getElementById(id); }
+
+function openPrompter(a) {
+  const ad = a && a.adaptation;
+  const wrap = tpEl("tp");
+  if (!ad || !wrap) return;
+  const silent = ad.delivery === "silent"
+    || (Array.isArray(ad.beats) && ad.beats.length && ad.beats.every((b) => !(b.say || "").trim()));
+  const lines = prompterLines(ad, silent);
+  if (!lines.length) return;
+
+  const scroll = tpEl("tp-scroll");
+  scroll.innerHTML = lines.map((l) => `<div class="tp-line tp-${l.kind}">
+      ${l.text ? `<span class="tp-words">${escapeHtml(l.text)}</span>` : ""}
+      ${l.cue ? `<span class="tp-cue">${escapeHtml(l.cue)}</span>` : ""}
+    </div>`).join("");
+  tpEl("tp-brand").textContent = a.brandName || "your script";
+
+  const p = tpPrefs();
+  applyTpSize(p.size || 34);
+  TP.speed = p.speed || 1;
+
+  wrap.hidden = false;
+  document.body.classList.add("modal-open");
+
+  /* Rate is measured AFTER the overlay is visible: a hidden element has no
+     layout, so scrollHeight would be 0 and every script would scroll instantly.
+     Two frames — one for the unhide, one for the font metrics to settle. */
+  /* Parked at the top, NOT playing. Opening the prompter is when you get the
+     phone into position and read the first line — if the script starts moving
+     on open, the take is already behind you before you have framed yourself.
+     Nothing scrolls until the record button is pressed. */
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    tpMeasure(ad, lines);
+    tpSeek(0);
+    tpPlay(false);
+  }));
+  tpWakeLock();
+  /* Camera up front, before the script moves. Two reasons: you cannot frame a
+     shot you cannot see, and asking for the permission HERE means the prompt
+     is answered while nothing is happening — request it at record time instead
+     and the "allow camera" dialog lands on top of the 3-2-1, so the countdown
+     runs out while the creator is still tapping it. Refused or absent, this
+     quietly stays a teleprompter. */
+  tpCamera();
+}
+
+/** px/sec such that the script finishes when the video should. */
+function tpMeasure(ad, lines) {
+  const scroll = tpEl("tp-scroll");
+  const band = tpEl("tp-band");
+  // The run is the text plus one band-height of lead-out, so the last line
+  // travels up to the reading position instead of stopping at the bottom edge.
+  TP.run = Math.max(1, scroll.scrollHeight + band.clientHeight * 0.6);
+  let secs = scriptSeconds(ad);
+  if (!secs) {
+    const words = lines.reduce((n, l) => n + (l.text ? l.text.split(/\s+/).length : 0), 0);
+    secs = Math.max(4, (words / TP_WPM) * 60);
+  }
+  TP.pxPerSec = TP.run / secs;
+  TP.secs = secs;
+  tpEl("tp-len").textContent = `${Math.round(secs)}s`;
+}
+
+function applyTpSize(px) {
+  // CSSOM, not a style attribute — style-src is 'self' with no 'unsafe-inline',
+  // so an inline style attribute here is silently dropped.
+  tpEl("tp-scroll").style.fontSize = `${px}px`;
+  TP.size = px;
+}
+
+function tpSeek(y) {
+  TP.y = Math.max(0, Math.min(y, TP.run || 0));
+  tpEl("tp-scroll").style.transform = `translate3d(0, ${-TP.y}px, 0)`;
+}
+
+function tpPlay(on) {
+  TP.playing = on;
+  const btn = tpEl("tp-play");
+  if (btn) {
+    // aria-pressed ONLY — CSS swaps the two faces off it. Never write
+    // textContent here: it would replace both svgs with a word and the button
+    // would degrade to text permanently (the armDelete bug).
+    btn.setAttribute("aria-pressed", String(on));
+    // The same button records when there is a camera and merely scrolls when
+    // there is not, so it has to say which it is about to do. Calling it
+    // "Pause" while it is stopping a take would be a lie about what happens.
+    const rec = !!REC.stream;
+    const label = on ? (rec ? "Stop recording" : "Pause")
+                     : (rec ? "Start recording" : "Play");
+    btn.setAttribute("aria-label", label);
+    btn.setAttribute("title", label);
+  }
+  cancelAnimationFrame(TP.raf);
+  if (!on) return;
+  TP.last = 0;
+  const step = (ts) => {
+    if (!TP.playing) return;
+    if (TP.last) tpSeek(TP.y + TP.pxPerSec * TP.speed * ((ts - TP.last) / 1000));
+    TP.last = ts;
+    if (TP.y >= (TP.run || 0)) { tpPlay(false); return; }   // reached the end
+    TP.raf = requestAnimationFrame(step);
+  };
+  TP.raf = requestAnimationFrame(step);
+}
+
+function tpSpeed(mult) {
+  TP.speed = Math.max(0.4, Math.min(2.5, Math.round(mult * 10) / 10));
+  tpEl("tp-rate").textContent = `${TP.speed.toFixed(1)}×`;
+  tpSavePrefs({ ...tpPrefs(), speed: TP.speed });
+}
+
+/* A phone that sleeps mid-take is the one failure that costs a whole
+   performance, so hold the screen awake while the prompter is up. Progressive
+   enhancement — unsupported browsers just behave as before. */
+async function tpWakeLock() {
+  try { TP.lock = await navigator.wakeLock.request("screen"); } catch { TP.lock = null; }
+}
+
+/* ---------- RECORDING ----------
+
+   The centre button is one control with two jobs, because on a phone they are
+   the same moment: hit record and the script starts moving. Splitting them
+   would mean pressing play, then reaching for record while already on camera.
+
+   Nothing is uploaded. The recording is held in memory and handed to the
+   device — hosting creator footage means storage cost, upload waits, and a far
+   heavier privacy posture than the video LINKS this app deals in today. */
+
+const REC = { stream: null, rec: null, chunks: [], on: false, url: "", counting: false, timer: 0 };
+
+/* iOS Safari and Chrome disagree on container support, and an unsupported
+   mimeType throws rather than falling back. Ask, in order of preference, and
+   let the browser choose if it likes none of them. */
+function recMime() {
+  const want = ["video/mp4;codecs=h264,aac", "video/mp4",
+                "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+  for (const m of want) {
+    try { if (window.MediaRecorder?.isTypeSupported?.(m)) return m; } catch { /* keep looking */ }
+  }
+  return "";
+}
+
+async function tpCamera() {
+  if (REC.stream) return true;
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return false;
+  try {
+    REC.stream = await navigator.mediaDevices.getUserMedia({
+      // Portrait, front camera — this is filmed on a phone, held up.
+      video: { facingMode: "user", width: { ideal: 1080 }, height: { ideal: 1920 } },
+      audio: true,
+    });
+  } catch { return false; }               // denied, or no camera on this device
+  const v = tpEl("tp-cam");
+  v.srcObject = REC.stream;
+  v.play().catch(() => { /* autoplay policy — the stream still records */ });
+  tpEl("tp").classList.add("tp-live");
+  return true;
+}
+
+/** 3 … 2 … 1. Resolves false if the creator pressed stop while it ran. */
+function tpCountdown(from) {
+  const el = tpEl("tp-count");
+  return new Promise((done) => {
+    let n = from;
+    REC.counting = true;
+    el.hidden = false;
+    const tick = () => {
+      if (!REC.counting) { el.hidden = true; done(false); return; }
+      if (n === 0) { el.hidden = true; REC.counting = false; done(true); return; }
+      el.textContent = String(n);
+      n -= 1;
+      REC.timer = setTimeout(tick, 1000);
+    };
+    tick();
+  });
+}
+
+async function tpStartRecording() {
+  const hasCam = await tpCamera();
+  // No camera, or permission refused: fall back to being a plain teleprompter
+  // rather than refusing to do anything. Reading the script is the part that
+  // always works.
+  if (!hasCam) { tpSeek(0); tpPlay(true); return; }
+
+  tpPlay(false);
+  tpSeek(0);
+  if (!(await tpCountdown(3))) return;    // cancelled mid-count
+
+  REC.chunks = [];
+  const mime = recMime();
+  try {
+    REC.rec = new MediaRecorder(REC.stream, mime ? { mimeType: mime } : undefined);
+  } catch { REC.rec = new MediaRecorder(REC.stream); }
+  REC.rec.ondataavailable = (e) => { if (e.data && e.data.size) REC.chunks.push(e.data); };
+  REC.rec.onstop = tpFinishRecording;
+  REC.rec.start();
+  REC.on = true;
+  tpEl("tp").classList.add("tp-rec");
+  tpPlay(true);                            // script and camera start together
+}
+
+function tpStopRecording() {
+  // Cancel a countdown that has not finished — pressing stop during "3, 2, 1"
+  // should abandon the take, not queue one up.
+  if (REC.counting) {
+    REC.counting = false;
+    clearTimeout(REC.timer);
+    tpEl("tp-count").hidden = true;
+    return;
+  }
+  tpPlay(false);
+  tpEl("tp").classList.remove("tp-rec");
+  REC.on = false;
+  try { REC.rec?.state !== "inactive" && REC.rec?.stop(); } catch { /* already stopped */ }
+}
+
+/** The take is done. Hand it to the device — never to a server. */
+function tpFinishRecording() {
+  if (!REC.chunks.length) return;
+  const type = REC.rec?.mimeType || "video/mp4";
+  if (REC.url) URL.revokeObjectURL(REC.url);
+  REC.url = URL.createObjectURL(new Blob(REC.chunks, { type }));
+  REC.chunks = [];
+  const ext = /mp4/.test(type) ? "mp4" : "webm";
+  const link = tpEl("tp-save");
+  if (!link) return;
+  link.href = REC.url;
+  link.download = `lynxr-take.${ext}`;
+  link.hidden = false;
+}
+
+/** One button, two jobs. */
+function tpMainButton() {
+  if (REC.on || REC.counting) { tpStopRecording(); return; }
+  tpStartRecording();
+}
+
+function closePrompter() {
+  const wrap = tpEl("tp");
+  if (!wrap || wrap.hidden) return;
+  if (REC.on || REC.counting) tpStopRecording();
+  tpPlay(false);
+  /* Release the camera explicitly. Hiding the overlay leaves the tracks live —
+     the recording light stays on and the creator has no way to tell the app
+     let go, which is the kind of thing that costs you their trust exactly
+     once. Stop every track, then drop the element's reference to the stream. */
+  for (const t of (REC.stream?.getTracks() || [])) { try { t.stop(); } catch { /* gone */ } }
+  REC.stream = null;
+  const cam = tpEl("tp-cam");
+  if (cam) cam.srcObject = null;
+  wrap.classList.remove("tp-live", "tp-rec");
+  wrap.hidden = true;
+  document.body.classList.remove("modal-open");
+  try { TP.lock?.release(); } catch { /* already gone */ }
+  TP.lock = null;
+}
+
+function initPrompter() {
+  const wrap = tpEl("tp");
+  if (!wrap) return;
+  tpEl("tp-close").addEventListener("click", closePrompter);
+  tpEl("tp-play").addEventListener("click", tpMainButton);
+  // Rewind only. Restart is what you press after a fluffed take, and that is
+  // the moment you want to breathe and reset — not be read at again instantly.
+  tpEl("tp-restart").addEventListener("click", () => { tpPlay(false); tpSeek(0); });
+  tpEl("tp-slower").addEventListener("click", () => tpSpeed(TP.speed - 0.1));
+  tpEl("tp-faster").addEventListener("click", () => tpSpeed(TP.speed + 0.1));
+  const resize = (d) => {
+    applyTpSize(Math.max(18, Math.min(72, TP.size + d)));
+    tpSavePrefs({ ...tpPrefs(), size: TP.size });
+    // The run length depends on how tall the text is, so re-measure or the
+    // pacing silently drifts after a resize.
+    TP.run = Math.max(1, tpEl("tp-scroll").scrollHeight + tpEl("tp-band").clientHeight * 0.6);
+    TP.pxPerSec = TP.run / (TP.secs || 1);
+  };
+  tpEl("tp-smaller").addEventListener("click", () => resize(-3));
+  tpEl("tp-bigger").addEventListener("click", () => resize(3));
+  // Tapping the reading band toggles play — the controls are a thumb-stretch
+  // away at the bottom, and mid-take you want the biggest possible target.
+  tpEl("tp-band").addEventListener("click", () => tpPlay(!TP.playing));
+  document.addEventListener("keydown", (e) => {
+    if (wrap.hidden) return;
+    if (e.key === "Escape") { closePrompter(); return; }
+    if (e.key === " ") { e.preventDefault(); tpPlay(!TP.playing); }
+    if (e.key === "ArrowUp") { e.preventDefault(); tpSeek(TP.y - 60); }
+    if (e.key === "ArrowDown") { e.preventDefault(); tpSeek(TP.y + 60); }
+  });
+}
+
 /** opts.open   — render already expanded. Used inside a Library entry the
  *                creator has just opened: they opened it to read the script, so
  *                a second disclosure to reach it is the step this removes.
@@ -3042,6 +3402,13 @@ function adaptationHtml(a, liveName, opts = {}) {
             format to someone who already has the script, which is analysis nobody
             asked for at the bottom of the thing they came to film. */""}
       <div class="bp-actions">
+        ${/* The teleprompter leads this row, and is the only labelled button
+              here: copy/edit/delete are things you do TO the script, this is
+              the thing you do WITH it. Named for what it shows — a silent
+              script has no words to read aloud, so its SHOW lines are cue
+              cards, the same rename the hook and CTA already take. */""}
+        ${EDITING.has(a.id) ? "" : `<button type="button" class="btn ad-prompt" data-adid="${id}"
+          >${silent ? "Cue cards" : "Teleprompter"}</button>`}
         ${EDITING.has(a.id) ? `
           <button type="button" class="btn ad-save" data-adid="${id}">Save changes</button>
           <button type="button" class="ghost ad-cancel" data-adid="${id}">Cancel</button>`
@@ -3207,6 +3574,11 @@ function renderScripts(b) {
 function wireAdaptationCards(host) {
   if (!host) return;
   stopSummaryLinks(host);
+
+  host.querySelectorAll(".ad-prompt").forEach((btn) => btn.addEventListener("click", () => {
+    const a = (ME.adaptations || []).find((x) => x.id === btn.dataset.adid);
+    if (a) openPrompter(a);
+  }));
 
   /* ONE SCRIPT OPEN AT A TIME. A script runs to a couple of screens, so two
      expanded at once meant scrolling through the first to discover the second

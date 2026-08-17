@@ -2386,7 +2386,8 @@
                          our "not scripted yet". Only the brand one has data-bid. */
   .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title,
   .lib-group-name[data-bid], .side-item .side-label, #brand-heading,
-  .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip {
+  .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip,
+  .tp-words, .tp-cue, .tp-brand {
     text-transform: none;
   }
   /* Placeholders are ours, but they live inside an input that is not — so they
@@ -2403,3 +2404,234 @@
      footer link, a paragraph and a heading, and it has to survive whichever of
      those is lowercasing around it. Wrap the name in it wherever it appears. */
   .entity { text-transform: none; }
+
+  /* ---------- THE TELEPROMPTER ----------
+
+     Deliberately the LAST block in this file. The `@media (max-width: 640px)`
+     block sits ~1300 lines above here, so a mobile override written up there
+     would lose to these base rules on equal specificity — source order decides.
+     Everything the prompter needs, including its own phone sizing, lives here
+     together and wins by being last. (See the CSS ORDER TRAP note in HANDOFF.)
+
+     THE LAYOUT IS THE WHOLE POINT. The band is short and pinned to the top
+     because the front camera is above the screen: text read from the middle of
+     a phone produces footage of someone looking down and away. Controls are
+     pinned to the bottom, out of frame and reachable without the hand crossing
+     the shot. The gap between them is empty on purpose — that is where the
+     camera preview goes when recording lands. */
+  /* The camera is the whole screen and everything else floats on top of it, so
+     the layers are stacked rather than stroked down a column: camera at z 0,
+     reading band at 1, controls at 2, countdown above all of it. */
+  .tp {
+    position: fixed; inset: 0; z-index: 200;
+    background: #06060a;          /* what shows before/without a camera */
+  }
+  .tp[hidden] { display: none; }
+
+  .tp-band {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 1;
+    height: 46vh;
+    overflow: hidden;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+    cursor: pointer;              /* the whole band is the play/pause target */
+    /* THE SEE-THROUGH PART. The panel is translucent — you can see yourself
+       through it — while the words on it stay fully opaque. Fading the TEXT
+       instead is the obvious reading of "see-through" and the wrong one: text
+       at 60% over a moving, unpredictably-lit face is exactly the thing that
+       is hard to read, and it is being read aloud on camera. So the scrim
+       carries the transparency and the words carry none of it.
+       Heaviest at the top where the eyes should be, thinning downward so the
+       frame opens up and you can see how you are sitting in it. */
+    background: linear-gradient(to bottom,
+      rgba(0, 0, 0, .72) 0%, rgba(0, 0, 0, .62) 55%, rgba(0, 0, 0, .30) 85%, transparent 100%);
+    /* Long fade out the bottom, short one at the top. Not symmetric on
+       purpose: the top of the band is the closest the text ever gets to the
+       lens, so it stays as legible as possible right where the eyes should be. */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 74%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 74%, transparent 100%);
+  }
+  .tp-scroll {
+    padding: 0 5vw;
+    /* A READING COLUMN, not the width of the display. Measured in ch so it
+       tracks the font size the creator picks rather than a fixed pixel width:
+       on a phone this never binds and the padding governs, on a laptop it stops
+       lines running 75 characters edge to edge — which is fine for prose and
+       useless for something read aloud while looking at a lens. Teleprompters
+       run a handful of words per line for exactly this reason. */
+    max-width: 34ch;
+    margin-inline: auto;
+    /* JS overrides font-size through CSSOM (style-src is 'self', so a style
+       attribute would be dropped); this is the first-paint value. */
+    font-size: 34px;
+    line-height: 1.44;
+    font-weight: 600;
+    color: #fff;
+    /* Second half of the legibility budget. The scrim handles an averagely-lit
+       room; the shadow is what keeps the words readable when you are backlit by
+       a window and the frame behind the text goes bright. Cheap insurance —
+       without it the whole thing fails in the one lighting setup creators
+       actually shoot in. */
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .95), 0 2px 14px rgba(0, 0, 0, .8);
+    will-change: transform;
+  }
+  .tp-line { margin: 0 0 .7em; }
+  .tp-words { display: block; }
+  /* The direction, not the words. Dimmed and smaller so the eye slides past it
+     while speaking — it is a reminder of what to DO, never something to read
+     out. Same reason .bp-do is dimmed on the script card. */
+  /* Over a live camera the app's muted grey vanishes into a bright shot, so the
+     cue is dimmed with OPACITY on a white base rather than by picking a darker
+     colour — it stays subordinate to the words on any background instead of
+     only on a dark one, and keeps its own shadow. */
+  .tp-cue {
+    display: block; margin-top: .22em;
+    font-size: .5em; font-weight: 500; line-height: 1.4;
+    color: #fff; opacity: .72;
+  }
+  .tp-hook { color: #fff; }
+  .tp-cta, .tp-card { color: #e8e8ee; }
+  .tp-cue-only .tp-cue, .tp-line.tp-cue .tp-cue { font-size: .56em; }
+
+  /* Where to read from. Two ticks at the edges rather than a rule across the
+     text — a full line through the words is what makes cheap prompters hard to
+     read. Sits high in the band, near the lens. */
+  .tp-mark {
+    position: absolute; left: 0; right: 0; top: 30%;
+    height: 0; pointer-events: none;
+  }
+  .tp-mark::before, .tp-mark::after {
+    content: ""; position: absolute; top: 0; width: 12px;
+    border-top: 2px solid var(--good); opacity: .5;
+  }
+  .tp-mark::before { left: 0; }
+  .tp-mark::after { right: 0; }
+
+  .tp-foot {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 2;
+    padding: 14px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+    display: flex; flex-direction: column; gap: 10px;
+    /* Same treatment as the band: a scrim so the controls stay findable
+       against whatever the camera is showing, without boxing them in. No top
+       border any more — a hard line across a live image reads as a broken
+       layout rather than a divider. */
+    background: linear-gradient(to top,
+      rgba(0, 0, 0, .92) 0%, rgba(0, 0, 0, .82) 45%, rgba(0, 0, 0, .55) 75%, transparent 100%);
+  }
+  /* EVERYTHING IN THE FOOT GOES WHITE. These controls sit over whatever the
+     camera happens to be pointing at, so the app's greys (--text-2/--text-3,
+     tuned for a near-black page) drop to unreadable the moment someone films
+     against a window. White plus a shadow is the only pairing that holds on
+     both a dark room and a blown-out one. */
+  .tp-foot, .tp-foot .ghost { color: #fff; }
+  .tp-foot .ghost { border-color: rgba(255, 255, 255, .28); }
+  .tp-foot .ghost:hover { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .45); }
+  .tp-meta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 11px; letter-spacing: .05em;
+    color: #fff; opacity: .7;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .9);
+  }
+  .tp-row { display: flex; align-items: center; gap: 8px; }
+  .tp-gap { flex: 1 1 auto; }
+  /* Keep the controls a cluster. Pinned to the viewport edges they end up a
+     screen apart on a desktop — restart in one far corner, close in the other
+     — which reads as a broken layout rather than a control bar. Caps at a
+     hand's width; below that the rows fill as before on a phone. */
+  .tp-meta, .tp-row { width: 100%; max-width: 520px; margin-inline: auto; }
+  .tp-save {
+    color: var(--good); border: 1px solid var(--good); border-radius: 6px;
+    padding: 3px 10px; font-size: 11px; text-decoration: none;
+  }
+  .tp-save[hidden] { display: none; }
+  /* The rate stays a number, not an icon — it is a VALUE being reported, and
+     "1.2×" cannot be drawn. Tabular so the row does not jitter as it changes. */
+  .tp-rate {
+    font-size: 12px; color: #fff; opacity: .85;
+    min-width: 4ch; text-align: center; font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .9);
+  }
+  /* Three columns with the record button in the middle cell, so it is centred
+     on the SCREEN rather than centred between two buttons of whatever width —
+     `space-between` moves it every time a side control changes size. */
+  .tp-main {
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  }
+  .tp-main > :first-child { justify-self: start; }
+  .tp-main > :last-child { justify-self: end; }
+
+  /* The only control used mid-take, so it is the biggest target by a margin
+     and dead centre where a thumb lands. Its own aria-pressed swap — it must
+     NOT borrow .toggle, which is position:absolute for the password eye and
+     would tear this button out of the row entirely. */
+  .tp-play {
+    width: 74px; height: 74px; padding: 0; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--text); color: var(--bg); border: 1px solid var(--text);
+  }
+  .tp-play:hover:not(:disabled) { opacity: .85; }
+  .tp-play .ico { width: 28px; height: 28px; }
+  .tp-play .icon-off { display: none; }
+  .tp-play[aria-pressed="true"] .icon-on { display: none; }
+  .tp-play[aria-pressed="true"] .icon-off { display: block; }
+  /* Recording turns it red — the one state where the button must read as
+     "live" from the corner of an eye, not merely "pressed". */
+  .tp.tp-rec .tp-play { background: var(--bad); border-color: var(--bad); color: #fff; }
+  .tp-foot .ghost.icon-only { width: 40px; height: 40px; }
+
+  /* THE CAMERA. Fills the gap between the reading band and the controls — the
+     space that was left empty for exactly this. */
+  .tp-cam {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; display: none; background: #000;
+  }
+  /* MIRRORED PREVIEW, UNMIRRORED RECORDING. People misframe themselves against
+     an unmirrored self-view, so the preview is flipped — but this is a CSS
+     transform on the <video> only. The MediaRecorder reads the raw track, so
+     the file that comes out is the right way round and text in shot is
+     readable. Flipping the stream itself instead would ship reversed footage. */
+  .tp-stage .tp-cam { transform: scaleX(-1); }
+  .tp.tp-live .tp-cam { display: block; }
+  /* Full bleed, behind everything. `cover` rather than `contain` on purpose:
+     letterbox bars would tell the creator their framing is safe when the
+     recorded file is a different shape from what they were looking at. */
+  .tp-stage { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+
+  /* 3 … 2 … 1. Sits over the camera, large enough to read from arm's length
+     while you are getting into frame. */
+  .tp-count {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    font-size: 96px; font-weight: 700; color: #fff;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, .9);
+    background: rgba(0, 0, 0, .45);
+    z-index: 3;                   /* over the band and the controls both */
+  }
+  .tp-count[hidden] { display: none; }
+  /* Below the safe-area inset so it clears a notch, and on the right so it does
+     not sit under the first words of the script. */
+  .tp-dot {
+    position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 14px; z-index: 2;
+    display: none; align-items: center; gap: 7px;
+    font-size: 11px; letter-spacing: .08em; color: #fff;
+  }
+  .tp.tp-rec .tp-dot { display: inline-flex; }
+  .tp-dot::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--bad); animation: tp-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes tp-pulse { 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .tp-dot::before { animation: none; } }
+
+  @media (max-width: 640px) {
+    /* Shallower band on a phone: the lens is closer to the text than on a
+       laptop, and a tall band just drags the reading line back down the screen. */
+    .tp .tp-band { height: 40vh; }
+    .tp .tp-scroll { padding: 0 6vw; }
+    .tp .tp-btn { padding: 10px 12px; }
+  }
+  @media (orientation: landscape) and (max-height: 560px) {
+    /* Filming sideways: almost no vertical room, so give the band most of it
+       and let the controls collapse onto one line. */
+    .tp .tp-band { height: 58vh; }
+    .tp .tp-foot { padding-top: 8px; gap: 6px; }
+    .tp .tp-play { padding: 9px 16px; }
+  }
