@@ -2709,15 +2709,49 @@ function isWriting(a) {
   return a.status === "queued" || a.status === "running";
 }
 
-// How long a script actually takes, from measurement rather than guesswork.
-// The worker (io.lynxr.adaptations) polls every 5 minutes and takes at most 2
-// adaptations per creator per pass; the work itself came in at 49s, 55s and 78s
-// on the first live scripts. So what a creator waits for is almost entirely
-// queue position, not processing — which is why the estimate below counts
-// passes rather than pretending to know a duration.
-const POLL_MIN = 5;
-const PER_PASS = 2;
-const WORK_MIN = 2;
+/* WHAT A CREATOR ACTUALLY WAITS FOR — and it is not what it used to be.
+
+   The old estimate counted five-minute polling passes, because back when
+   GitHub Actions wrote the scripts the poll interval dwarfed everything: the
+   cron fired roughly every three hours, so the wait was queue, not work, and
+   "about 7 minutes" was the honest floor.
+
+   The worker now probes every 2 seconds. Polling has stopped mattering, and
+   the wait is very nearly just the work — measured at 48s, 55s and 60s end to
+   end. So the model inverts: count SCRIPTS AHEAD, not passes.
+
+   These are only the fallbacks. Once an account has finished a few scripts,
+   measuredWorkSec() uses its own real timings instead — the same pipeline is
+   slower on a shared Fly vCPU than on an M-series Mac, and no constant written
+   here would know that. */
+const POLL_SEC = 2;      // worker probe interval
+const WORK_SEC = 60;     // fallback until this account has its own history
+const LATE_SEC = 90;     // grace before admitting something has gone wrong
+
+/** The median seconds a script really takes on this account, newest first.
+
+    attemptedAt -> processedAt is the WORK, with the queue wait excluded —
+    addedAt would fold in however long it sat behind other scripts and would
+    inflate every future estimate with one bad afternoon. */
+function measuredWorkSec() {
+  const recent = (ME.adaptations || [])
+    .filter((a) => a.status === "done" && a.attemptedAt && a.processedAt)
+    .slice(0, 10)                    // adaptations are newest-first
+    .map((a) => (new Date(a.processedAt) - new Date(a.attemptedAt)) / 1000)
+    // Drop the impossible and the stalled: a sub-3s "script" is a failed run
+    // recorded as done, and anything past 15 minutes is a wedged pass, not a
+    // duration worth promising anyone.
+    .filter((s) => s > 3 && s < 900)
+    .sort((x, y) => x - y);
+  return recent.length ? recent[Math.floor(recent.length / 2)] : WORK_SEC;
+}
+
+/** Seconds -> something a person would say out loud. */
+function etaWords(secs) {
+  if (secs <= 75) return "about a minute";
+  if (secs < 150) return "about two minutes";
+  return `about ${Math.round(secs / 60)} minutes`;
+}
 
 /** Everything of this creator's still waiting, oldest first — the same order
     the worker now uses, so position here is position there. */
@@ -2728,15 +2762,20 @@ function writingQueue() {
 
 function etaFor(a) {
   const pos = writingQueue().findIndex((x) => x.id === a.id);
-  const passes = Math.floor((pos < 0 ? 0 : pos) / PER_PASS) + 1;
-  const est = passes * POLL_MIN + WORK_MIN;
-  const waited = a.addedAt ? (Date.now() - new Date(a.addedAt).getTime()) / 60000 : 0;
-  // Overdue is worth saying out loud. Silently showing "about 7 minutes" to
-  // someone who has been waiting half an hour is how a pilot loses trust.
-  if (waited > est + POLL_MIN) {
-    return { late: true, text: `Taking longer than usual — sent ${Math.round(waited)} minutes ago. Still queued; it'll retry on its own.` };
+  const ahead = pos < 0 ? 0 : pos;
+  const work = measuredWorkSec();
+  // Scripts ahead of this one, plus this one, plus one probe interval to be
+  // noticed at all. The worker is serial, so position maps almost directly to
+  // seconds now — which is exactly what made the old pass-counting model wrong.
+  const est = POLL_SEC + (ahead + 1) * work;
+  const waited = a.addedAt ? (Date.now() - new Date(a.addedAt).getTime()) / 1000 : 0;
+  // Overdue is worth saying out loud. Silently showing an estimate to someone
+  // who has been waiting well past it is how a pilot loses trust.
+  if (waited > est + LATE_SEC) {
+    const mins = Math.max(1, Math.round(waited / 60));
+    return { late: true, text: `Taking longer than usual — sent ${mins} minute${mins === 1 ? "" : "s"} ago. Still queued; it'll retry on its own.` };
   }
-  return { late: false, text: `Usually ready within about ${est} minutes.` };
+  return { late: false, text: `Usually ready in ${etaWords(est)}.` };
 }
 
 /** Companies that do NOT already have a script from this source video. */
