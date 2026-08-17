@@ -39,6 +39,29 @@ RUN python -c "from faster_whisper import WhisperModel; WhisperModel('small')"
 # faster-whisper, which wants a plain size name — the Mac's default
 # ("mlx-community/whisper-small-mlx") is Apple-Silicon only and would fail here.
 ENV WHISPER_MODEL=small
+
+# Don't phone home for a model that is already in the image. This removes a
+# network round-trip and a failure mode, not a minute — see below for what the
+# minute actually was.
+#
+# Trade: if the weights are ever missing this FAILS instead of downloading,
+# which is the better failure — loud at deploy rather than silent at run time.
+# Change WHISPER_MODEL and you must bake in that size above too.
+ENV HF_HUB_OFFLINE=1
+
+# ── The one-minute first script, and why it is not a bug to fix here ──────────
+# Loading the model was measured at 59.6s once and ~1.7s every time after, in
+# separate processes. That is the COLD PAGE CACHE: the first read of 464MB off
+# the machine's disk after a start. Once those pages are resident every
+# subsequent load is ~1.7s, and each pass being its own subprocess costs nothing.
+#
+# So the penalty is per MACHINE START, not per script. It only looked per-script
+# because Fly's trial tier stopped the machine every 5 minutes, making every
+# script the first one. On a machine that stays up it disappears on its own.
+#
+# If it ever needs to go away entirely: compute_type="int8" loads in ~1.0s and
+# uses less memory, at some cost to transcription quality. Not worth it yet.
+
 ENV PYTHONUNBUFFERED=1
 
 # Only the pipeline. The site, the scraped corpus and the venv are all excluded

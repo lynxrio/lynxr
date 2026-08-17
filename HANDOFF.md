@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-08-14.**
+Read this, then `README.md` for architecture. **Last updated 2026-08-17.**
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -16,6 +16,48 @@ pipeline. Three surfaces, one stylesheet (`app.css`):
 ---
 
 ## Where this left off (read this first)
+
+**2026-08-17 — scripts now arrive in about a minute instead of hours.** That is
+the headline; everything else below is detail.
+
+A new worker (`pipeline/worker.py`) runs continuously on **Fly** and replaces the
+GitHub Actions cron as the primary path. It picks up a queued script in **~2
+seconds** and finishes in **~55 seconds**. Measured end to end, on the live
+system:
+
+| | before | after |
+|---|---|---|
+| wait before a script starts | ~0–3 hours | ~2 seconds |
+| scripts processed at once | 1, globally | 1 (raise with `fly scale count N`) |
+| runs when the Mac sleeps | yes (GitHub) | yes (Fly) |
+
+Also settled today, all verified rather than assumed:
+
+- **A script costs $0.075 warm / $0.105 cold** — about a third of the earlier
+  guess. Prompt caching landed and is worth ~30%, not the 5% first estimated.
+- **The Instagram caption bug is fixed**, forward and backward: new pastes get
+  real captions, and the 13 database rows already titled `Video by <handle>`
+  were repaired.
+- **A teleprompter was built and then shelved** behind one flag — see below.
+- **The service-role key was rotated.** Old one is dead; `.env`, Fly and (check
+  this) GitHub Actions all need the new `sb_secret_…`.
+
+### Read this before touching the worker
+
+**`fly.toml` has `[[restart]] policy = "always"` and it is load-bearing.**
+`worker.py` handles SIGTERM by finishing the current script and exiting **0**.
+Fly sends that signal on every deploy and every `fly secrets set`, and under the
+default `on-failure` policy a clean exit reads as "job done" — the machine stops
+and stays stopped, silently, with nothing in the logs. This cost an hour to find.
+If scripts stop appearing and there is no error anywhere, run `fly status` and
+look for a **stopped** machine before anything else.
+
+To pick up on the worker:
+
+    fly status          # one machine "started" in iad; the standby stays stopped
+    fly logs            # want: "watching for queued scripts — probe every 2.0s"
+
+---
 
 The whole of 2026-08-14 went into the **agency app**, at the owner's direction,
 while they waited on feedback from test creators. Two things happened:
@@ -71,7 +113,12 @@ The sensor records; no dial exists. Highest-leverage unbuilt thing in the repo.
 
 ---
 
-## Verified against the live DB this session — trust these over older notes
+## Verified against the live DB — trust these over older notes
+
+**Re-verified 2026-08-17:** 9,016 rows still. `lynxr_feedback` holds 5 rows, all
+of them the owner's own test strings. `lynxr_sources` holds 17. Three creator
+records between them hold 8 scripts. Zero placeholder titles remain in
+`lynxr_videos` (`Video by *` returns `*/0`).
 
 - **9,016 videos** in `lynxr_videos` (older docs say 9,905 / 2,640 — both wrong).
 - **5 auth accounts, 1 staff row** (`lynxmedianetwork@gmail.com`).
@@ -81,11 +128,17 @@ The sensor records; no dial exists. Highest-leverage unbuilt thing in the repo.
   creator reads 0 rows from every table, cannot select/update/**delete**
   another creator's row, and cannot promote itself to staff (403).
   Re-run that probe after any RLS change; reading the .sql file is not evidence.
-- **Scripts are written by GitHub Actions** (`.github/workflows/adaptations.yml`),
-  **not** the owner's Mac. Public repo = free runners. Cron says every 15 min
-  but real firings measured ~3h apart, so each run polls for ~5h45m and the
-  concurrency group hands over run-to-run. Any push to main restarts the chain.
-  (`io.lynxr.blueprints` launchd on the Mac is legacy/backup.)
+- ~~Scripts are written by GitHub Actions~~ **Superseded 2026-08-17. Scripts are
+  written by the Fly worker** (`pipeline/worker.py`, app `lynxr-worker`, region
+  `iad`). `.github/workflows/adaptations.yml` still exists and still fires, but
+  it is now redundant and **should be turned off** — Fly is always-on, so the
+  only thing GitHub adds is runner minutes spent discovering there is nothing to
+  do. It is safe to leave running in the meantime: the worker claims an
+  adaptation (`status = "running"` + `claimedAt`, grafted back) *before* any
+  model call, and a claimed entry is invisible to other workers until its
+  25-minute lease expires, so whichever claims first wins and the other skips.
+  A Mac LaunchAgent (`pipeline/io.lynxr.worker.plist`) exists as a local
+  alternative — do not run it as well as Fly.
 - **Column fill rates** (sampled 1,000): `similar_format_count` and
   `avg_views_of_similar` 999/1000, `niche_category` 1000/1000,
   `target_audience` 999/1000, but **`creator_followers` only 467/1000** — any
@@ -96,7 +149,139 @@ The sensor records; no dial exists. Highest-leverage unbuilt thing in the repo.
 
 ---
 
-## What shipped this session
+## What shipped 2026-08-17
+
+### The worker (the big one)
+
+`pipeline/worker.py` + `Dockerfile` + `.dockerignore` + `fly.toml` +
+`.github/workflows/fly-deploy.yml`.
+
+**Why it polls cheaply.** The obvious loop — run `process_adaptations.py` every
+few seconds — does not scale, because that script's discovery step pulls *every*
+creator's whole JSON blob looking for queued work. Measured at three creators:
+**101,626 bytes, 887ms**. The worker asks a cheaper question first — JSONB
+containment (`data->adaptations=cs.[{"status":"queued"}]`), ids only —
+**2 bytes, 170ms** — and only runs the real pipeline when that finds something.
+The probe stays that size as the corpus grows because Postgres does the
+filtering.
+
+Each pass is a **subprocess**, deliberately: `process_adaptations` is long-
+running, holds temp dirs and a Whisper model, and can raise from a dozen places.
+A crash there must not take the loop down. The GitHub workflow ran it the same
+way for the same reason.
+
+Deploy is path-filtered — only `pipeline/`, `Dockerfile`, `.dockerignore`,
+`requirements-ci.txt` and `fly.toml` trigger a rebuild, so a CSS tweak does not
+rebuild a container carrying 500MB of Whisper weights.
+
+**No secrets in any committed file.** `.dockerignore` excludes `.env` first;
+`worker.py` reads `.env` itself and falls back to `os.environ`, which is what
+makes the container work with `fly secrets`.
+
+### What a script actually costs and where the time goes
+
+Measured on a real script, end to end, twice:
+
+| step | model | time |
+|---|---|---|
+| write the script | Opus 5 | 18.9s |
+| extract the format | Opus 5 | 9.4s |
+| download the video | yt-dlp | 8.2s |
+| analyse the shots | **Haiku 4.5** | 7.1s |
+| tag against the taxonomy | Opus 5 | 5.5s |
+| transcribe | Whisper | 3.1s |
+
+**$0.105 cold, $0.075 warm.** Three Opus calls and one Haiku call — shot
+analysis was *already* on Haiku, which is why earlier estimates of ~$0.25 were
+more than double the truth.
+
+Tagging is the obvious next thing to move to Haiku: 5.5s of Opus doing
+classification against a locked taxonomy.
+
+### Prompt caching, and a threshold that is not what it looks like
+
+`sys_block()` in `process_adaptations.py` marks the system prompt cacheable on
+both call sites. Worth **~30%** of a script, not the ~5% first estimated —
+the cached prefix is 5,516 tokens, a much larger share of input than assumed.
+
+**The 512-token minimum applies to the whole prefix, not the prompt.** The
+prefix is tools → system → messages, and the JSON schema passed through
+`output_config` lands in it too, worth ~190 tokens. Measured live:
+
+    TAG_SYSTEM      1848 tokens of prompt  ->  2038 cached
+    ADAPT_SYSTEM     640                   ->   830
+    FORMAT_SYSTEM    491  (under 512!)     ->   681   still caches
+
+Do not "tidy up" by removing the marker from the short one.
+
+**A metering gap was closed at the same time.** `analyze_frames()` lives in
+`analyze_visuals.py`, takes a client and returns only parsed JSON, so its call
+never reached `note_usage` and every per-script cost read low. `MeteredClient`
+wraps the client rather than touching `analyze_visuals.py`, which is shared with
+the scraping pipelines.
+
+### Instagram captions — fixed forwards and backwards
+
+Three separate bugs, all now closed:
+
+1. **The relay.** `fetchSourceMeta` asked allorigins for `/get`, which wraps the
+   page in a JSON envelope — and that envelope came back **truncated** (HTTP 200,
+   74KB, unterminated string), so `JSON.parse` threw and discarded og tags
+   already downloaded. `/raw` returns the HTML itself. Measured: `/get` unusable
+   3/3, `/raw` good 2/3 (the miss was a 522). It now retries and only accepts a
+   relay's answer if it produced a caption.
+2. **The shape.** Instagram never publishes a bare caption — it wraps the same
+   text in boilerplate on both og tags. `unwrapCaption()` lifts the quoted span,
+   matching the two known shapes specifically so a YouTube title containing a
+   colon is not sawn in half.
+3. **URLs stored *as* titles.** The brief builder set an adaptation's `title` to
+   `sourceLabel(item)` at write time, and `sourceLabel` used to return the URL
+   when nothing had hydrated. So the URL was **saved into the record**, and every
+   `title || fallback` test in the file was satisfied by it. `realTitle()` treats
+   a permalink-shaped title as absent, which is what lets those records heal.
+   Hydration also now covers `ME.trash` and runs **two passes** — one relay
+   failure used to mark an entry tried for the whole session.
+
+**And the 13 database rows** already titled `Video by <handle>` were repaired by
+`pipeline/backfill_titles.py`, which imports `fetch_meta` rather than
+re-deriving the caption so the two can never drift. `fetch_meta` itself now
+prefers `description` when yt-dlp returns its `Video by <handle>` placeholder,
+which is what Instagram always returns.
+
+### The teleprompter — built, then shelved
+
+Complete and working behind **`TP_ENABLED = false`** in `creator.js`: beat-timed
+scroll (paced from the script's own `t` values, so it finishes when the video
+should), 3-2-1 countdown, full-bleed camera with a translucent reading band,
+mirrored preview against an **unmirrored** recording, local-only download, a
+34ch reading column so desktop does not run 75-character lines.
+
+Set the flag to `true` to bring it all back. It is kept rather than deleted
+because the measured behaviour in it — band position, pacing, the mirror split —
+would be expensive to rediscover.
+
+**One trap it left behind, now fixed:** `initPrompter()` was called near the top
+of the file while `TP_ENABLED` is declared ~2,800 lines below. A `const` read in
+its temporal dead zone throws, and that exception stops `creator.js`
+mid-evaluation — every declaration below it is left uninitialised and **the whole
+app dies on load**. Definition and call now sit adjacent.
+
+### Smaller
+
+- **The ETA is reactive now.** `etaFor()` takes the median of this account's last
+  10 finished scripts (`attemptedAt` → `processedAt`, so queue wait is excluded)
+  instead of counting five-minute polling passes. It said "about 7 minutes"
+  because it was calibrated for the GitHub Actions era; it now says "about a
+  minute", and will grow on its own if Fly's shared vCPU is slower at Whisper
+  than an M-series Mac. `POLL_MIN`/`PER_PASS`/`WORK_MIN` are gone.
+- **"Also write this for" appeared twice** on any video with one script — the
+  Library entry offers the spare brands *and* each nested card offered the same
+  list. Suppressed on nested cards; the offer belongs to the video, which is what
+  the entry is.
+
+---
+
+## What shipped 2026-08-14
 
 **Wait list / public page**
 - `source` is real now: `?ref=` → `?utm_source=` → referrer hostname →
@@ -156,7 +341,11 @@ The sensor records; no dial exists. Highest-leverage unbuilt thing in the repo.
     `cover` a 4:3 image in a 9:16 frame was cropped to a middle strip; under
     `contain` it letterboxes whole. Verified painted ratio == natural ratio on
     every loaded thumbnail.
-- System code font (`ui-monospace`), base 14px. Share Tech Mono is still in
+- System code font, base 14px. **Menlo leads the stack, not `ui-monospace`** —
+  `ui-monospace` was in front, but measured against a deliberately-unavailable
+  face it returned an identical width, i.e. it was resolving to nothing and the
+  stack was falling through by accident. Naming Menlo first makes the macOS match
+  intentional. Share Tech Mono is still in
   `fonts/`; put it back at the front of `--mono` to revert.
 - **The LOGO is Share Tech Mono again (2026-08-14), and only the logo.** It
   lives in its own `--logo` variable used by `.wordmark`, `.foot-wordmark` and
@@ -582,12 +771,30 @@ whole "Suggested videos" machinery below) and the blueprint add-by-link form
 has since been deleted, so `blueprintsBoxHtml` is uncontested again, and every
 element id app.js looks up now resolves).
 
-1. **Read the test-creator feedback — nothing in the agency app shows it.**
-   Creators write to `lynxr_feedback` (`creator.js`) and the staff select
-   policy already exists (`staff_gate.sql`), but `app.js` references the table
-   **zero times**, so whatever they send is only visible in the Supabase
-   dashboard. Front-end only, no SQL. This is first because the owner is
-   waiting on exactly that feedback.
+0. **HOUSEKEEPING FROM 2026-08-17, do these first — they are minutes each.**
+   - **Update the GitHub Actions secret** `SUPABASE_SERVICE_ROLE_KEY` to the new
+     `sb_secret_…`. The key was rotated; until this is done every
+     `adaptations.yml` firing 401s.
+   - **Turn off `adaptations.yml`** (delete it, or drop its `schedule` and `push`
+     triggers). Fly is always-on now, so it only burns runner minutes.
+   - **Do not load the Mac LaunchAgent** while Fly is running.
+
+1. **THE TEST-CREATOR FEEDBACK NEVER ARRIVED — and that changes the plan.**
+   `lynxr_feedback` holds **5 rows and all five are the owner's own smoke tests**
+   (`test`, `test 2`, `test test test test lmao`, …). Zero real creator feedback
+   has ever been submitted. Usage is similarly thin: **3 creator records, 8
+   scripts total, 17 rows in `lynxr_sources`** — and each record has exactly 2
+   brands, so some or all are the owner's own test accounts.
+
+   So the app has, as far as the database can tell, never been used by anyone
+   who is not the owner. The holding pattern was waiting on feedback that was
+   never coming, and nothing surfaced that fact because `app.js` still
+   references `lynxr_feedback` **zero times**.
+
+   Still the first thing to build (front-end only, no SQL) — but build it as the
+   *instrument for the test phase*, not to read a backlog. There is no backlog.
+   Get 5–15 real creators onto the unlisted URL first; the current setup is
+   genuinely right at that scale now that scripts take a minute.
 2. **Surface `lynxr_sources`** in the agency app, ranked by `tag_count` and
    recency — still the highest-leverage unbuilt thing, see THE POINT above.
    **Needs SQL first**: the table has no `authenticated` policies at all
@@ -609,6 +816,28 @@ element id app.js looks up now resolves).
    Blocked on: linking the word "unsubscribe" to `{{{RESEND_UNSUBSCRIBE_URL}}}`
    (three braces, in the URL field) and verifying `send.lynxr.io` DNS.
    Resend's composer is a VISUAL editor — pasted markdown stays literal.
+
+### Blocking a paid public launch (2026-08-17)
+
+The owner wants to go public with pricing. Latency is solved; these are not.
+
+1. **`SCRIPT_CAP` is a LIFETIME cap, not monthly** — 50 scripts per account,
+   ever, enforced by the worker's `--cap` (the browser check can be walked
+   around from the console, so the worker's is the one that counts). Any
+   subscription needs this converted to a periodic quota **on both sides**. A
+   subscriber who hits 50 in month two is locked out while still paying.
+2. **Signup is open.** `signup_state()` returns `invite_required: false` and the
+   seat table is not enforcing. Cost per account is bounded (~$3.75 at 50
+   scripts); the number of accounts is not. The gate already exists in the code —
+   it needs switching on.
+3. **A lawyer's look before money changes hands.** Charging third parties for a
+   service built on scraped video, stored transcripts and republished cover
+   frames is a different posture from using it internally. Cheap to check now.
+
+**Pricing maths, from the measured $0.075/script:** at $20/month, break-even is
+~267 scripts/month — nine a day, every day. A creator posting daily (30/month)
+costs $2.25. So $20 "unlimited" is defensible with a fair-use ceiling for the
+tail; 50/month is the natural number because `SCRIPT_CAP` already is 50.
 
 ### Two open questions for the owner
 
@@ -634,7 +863,7 @@ element id app.js looks up now resolves).
   `creator.js` needs resolve — but if something obscure is missing from that
   page, this is why. Never back up two same-named files into one folder.
 - **Cache stamps.** Every page carries `?v=YYYYMMDDx` on css/js. Bump on EVERY
-  css/js change or browsers serve stale files. **Currently `20260820i`** — note
+  css/js change or browsers serve stale files. **Currently `20260820x`** — note
   it rolled past `z` on the 19th into the next day's letters, so carry on from
   `20260820j`.
   The HTML documents themselves are NOT stamped, so markup changes — including
