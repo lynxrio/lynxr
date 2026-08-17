@@ -338,6 +338,31 @@ def sys_block(text):
     return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
 
 
+class _Metered:
+    """A client whose calls get costed even when another module makes them.
+
+    analyze_frames() lives in analyze_visuals.py, takes a client, and returns
+    only its parsed JSON — so the shot-analysis call, which carries six images
+    and is the most expensive input in the run, never reached note_usage and the
+    per-script figure read low. Wrapping the client is the least invasive fix:
+    analyze_visuals.py is shared with the scraping pipelines and has no business
+    knowing about this one's accounting.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def create(self, **kw):
+        msg = self._inner.create(**kw)
+        note_usage(kw.get("model") or MODEL, msg)
+        return msg
+
+
+class MeteredClient:
+    def __init__(self, inner):
+        self.messages = _Metered(inner.messages)
+
+
 def note_usage(model, msg):
     u = getattr(msg, "usage", None)
     if not u:
@@ -712,7 +737,7 @@ def process_one(a, creator, aclient, key):
         frames = extract_frames(media, frame_times(t, t["duration"]), td)
         if frames:
             try:
-                src["shots"] = analyze_frames(aclient, frames)["shots"]
+                src["shots"] = analyze_frames(MeteredClient(aclient), frames)["shots"]
             except Exception as e:  # noqa: BLE001
                 notes.append(f"shot list failed: {api_reason(e)}")
         else:

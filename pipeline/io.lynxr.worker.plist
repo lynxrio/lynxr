@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keeps the script worker running on this Mac.
+
+  NO SECRETS IN THIS FILE, deliberately — it is committed to a PUBLIC repo.
+  worker.py reads .env itself (see load_env), which is gitignored, so launchd
+  only has to start the process.
+
+  INSTALL
+      cp pipeline/io.lynxr.worker.plist ~/Library/LaunchAgents/
+      launchctl load  ~/Library/LaunchAgents/io.lynxr.worker.plist
+
+  WATCH IT
+      tail -f ~/Library/Logs/lynxr-worker.log
+
+  STOP
+      launchctl unload ~/Library/LaunchAgents/io.lynxr.worker.plist
+
+  LEAVE .github/workflows/adaptations.yml ENABLED. The two coexist safely —
+  process_adaptations claims an adaptation (status="running", grafted back)
+  before it spends anything, and a claimed entry is invisible to the other
+  worker until its 25-minute lease expires. Keep GitHub as the fallback for
+  whenever this Mac is asleep, which is the one way it beats this agent.
+
+  This makes scripts arrive in seconds instead of hours, but it only runs while
+  the Mac is awake and online. A small always-on box is the real home for it,
+  and worker.py runs there unchanged.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>io.lynxr.worker</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/junsahwang/Documents/lynxrio/venv/bin/python</string>
+    <string>/Users/junsahwang/Documents/lynxrio/pipeline/worker.py</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/junsahwang/Documents/lynxrio</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Restart if it dies. The worker already survives a failing pass (each one
+       is its own subprocess), so this only catches the worker itself going
+       down — but that is exactly the case where nobody would notice. -->
+  <key>KeepAlive</key>
+  <true/>
+
+  <!-- Don't respawn faster than this if it is crash-looping. -->
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/junsahwang/Library/Logs/lynxr-worker.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/junsahwang/Library/Logs/lynxr-worker.log</string>
+
+  <!-- ffmpeg and yt-dlp are resolved from PATH by the pipeline; a LaunchAgent
+       gets a minimal one, so Homebrew's bin has to be named explicitly or
+       transcription fails with a bare "download failed". -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>
