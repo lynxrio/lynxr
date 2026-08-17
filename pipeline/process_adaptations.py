@@ -294,13 +294,62 @@ def platform_of(url):
 USAGE = {}
 
 
+# Anthropic's minimum cacheable prefix on Opus 5. Below it a cache_control block
+# is SILENTLY IGNORED — no error, no cache entry, cache_creation_input_tokens
+# just comes back 0 — so this threshold is worth knowing before assuming a
+# prompt caches.
+#
+# THE PREFIX IS NOT JUST THE SYSTEM TEXT. It is tools -> system -> messages, and
+# the json_schema passed through output_config lands in it too, worth ~190
+# tokens on these calls. That gap decides one of the three:
+#
+#                    system text   actual cached prefix
+#     TAG_SYSTEM        1848              2038
+#     ADAPT_SYSTEM       640               830
+#     FORMAT_SYSTEM      491               681   <- system alone is UNDER 512
+#
+# So FORMAT_SYSTEM caches even though its prompt is 21 tokens short of the
+# minimum on its own. Measured live, cold-then-warm, on 2026-08-16: all three
+# wrote on the first call and read back the identical token count on the second.
+# Do not "optimise" by dropping the marker from the short one — check the whole
+# prefix, not the prompt.
+CACHE_MIN_TOKENS = 512
+
+
+def sys_block(text):
+    """The system prompt, marked cacheable.
+
+    These calls all send the same system prompt every time and differ only in
+    the user turn, which is the exact shape prompt caching is for: the prefix is
+    identical, so after the first call it is read back at about a tenth of the
+    input price instead of being re-processed in full.
+
+    Worth it here because the worker drains a BATCH — several queued scripts run
+    back to back, seconds apart, well inside the 5-minute window. The default
+    TTL is deliberate: the 1-hour variant costs 2x to write instead of 1.25x and
+    only pays if scripts keep arriving 5-60 minutes apart, which is a bet on a
+    traffic pattern this app does not have yet.
+
+    Measured: the three prefixes total ~3,550 tokens per script. Warm they cost
+    a tenth of that, saving about $0.016 a script at Opus 5 input rates; cold
+    they cost 1.25x, about $0.004 more. So it pays from the second script in any
+    5-minute window and the downside on a lone script is fractions of a cent.
+    """
+    return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
+
+
 def note_usage(model, msg):
     u = getattr(msg, "usage", None)
     if not u:
         return
-    d = USAGE.setdefault(model, {"in": 0, "out": 0, "calls": 0})
+    d = USAGE.setdefault(model, {"in": 0, "out": 0, "calls": 0, "write": 0, "read": 0})
     d["in"] += getattr(u, "input_tokens", 0) or 0
     d["out"] += getattr(u, "output_tokens", 0) or 0
+    # Cached tokens are reported SEPARATELY from input_tokens, not inside it —
+    # so a run that caches well shows a small `in` and the rest here. Summing
+    # only `in` would read as a huge saving that is really just a moved number.
+    d["write"] += getattr(u, "cache_creation_input_tokens", 0) or 0
+    d["read"] += getattr(u, "cache_read_input_tokens", 0) or 0
     d["calls"] += 1
 
 
@@ -337,14 +386,22 @@ def log_usage(label):
     for model, d in USAGE.items():
         rates = price_of(model)
         if rates:
-            cost = d["in"] / 1e6 * rates[0] + d["out"] / 1e6 * rates[1]
+            # Cache writes bill at 1.25x input, reads at 0.1x. Charging both at
+            # the plain input rate would under-report a cold run and wildly
+            # over-report a warm one — the two states differ by ~12x on the
+            # cached span, which is the whole point of measuring this.
+            cost = (d["in"] / 1e6 * rates[0]
+                    + d["write"] / 1e6 * rates[0] * 1.25
+                    + d["read"] / 1e6 * rates[0] * 0.10
+                    + d["out"] / 1e6 * rates[1])
             total += cost
             money = f"  ${cost:.4f}"
         else:
             priced = False
             money = "  (no price on file)"
-        log.info("  tokens %s: %d in / %d out over %d call%s%s  [%s]",
-                 model, d["in"], d["out"], d["calls"],
+        cached = (f", cache {d['write']}w/{d['read']}r" if (d["write"] or d["read"]) else "")
+        log.info("  tokens %s: %d in / %d out%s over %d call%s%s  [%s]",
+                 model, d["in"], d["out"], cached, d["calls"],
                  "" if d["calls"] == 1 else "s", money, label)
     if len(USAGE) > 1 or not priced:
         log.info("  TOTAL %s: $%.4f%s", label, total,
@@ -396,7 +453,7 @@ def undouble(obj):
 def structured(client, system, schema, content, max_tokens=3000):
     msg = client.messages.create(
         model=MODEL, max_tokens=max_tokens,
-        system=[{"type": "text", "text": system}],
+        system=sys_block(system),
         output_config={"format": {"type": "json_schema", "schema": schema}},
         messages=[{"role": "user", "content": content}])
     note_usage(MODEL, msg)
@@ -678,7 +735,7 @@ def process_one(a, creator, aclient, key):
                 content, schema = text, TAG_SCHEMA
             msg = aclient.messages.create(
                 model=TAG_MODEL, max_tokens=2000,
-                system=[{"type": "text", "text": TAG_SYSTEM}],
+                system=sys_block(TAG_SYSTEM),
                 output_config={"format": {"type": "json_schema", "schema": schema}},
                 messages=[{"role": "user", "content": content}])
             note_usage(TAG_MODEL, msg)
