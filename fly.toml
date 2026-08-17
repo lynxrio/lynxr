@@ -61,3 +61,14 @@ primary_region = "iad"
   # later; nothing is lost, because an interrupted pass leaves its adaptation
   # claimed and the lease releases it for the next run.
   strategy = "immediate"
+
+# ALWAYS, not the default on-failure. worker.py handles SIGTERM/SIGINT by
+# finishing the script in flight and then exiting 0 — which is right for a
+# manual stop, but Fly sends exactly those signals on every deploy and every
+# `fly secrets set`. Under on-failure a clean exit reads as "the job is done",
+# so the machine stopped and stayed stopped: the worker silently parked itself
+# after the first secret update and no scripts would ever have been written
+# again. Nothing crashed and nothing logged an error, which is what makes it
+# worth a comment this long.
+[[restart]]
+  policy = "always"
