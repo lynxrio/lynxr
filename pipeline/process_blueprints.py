@@ -110,10 +110,35 @@ def now_iso():
 
 
 def platform_of(url):
-    for p in ("tiktok", "instagram", "youtube"):
+    for p in ("tiktok", "instagram", "facebook", "youtube"):
         if p in (url or ""):
             return p
     return "upload"
+
+
+# Mirrors SUPPORTED_HOSTS in process_adaptations.py and PLATFORMS in app.js —
+# duplicated for the same reason canon_url below is: importing that module runs
+# its logging setup as a side effect. Change one, change all three.
+SUPPORTED_HOSTS = ("tiktok.com", "instagram.com",
+                   "facebook.com", "fb.watch", "fb.com",
+                   "youtube.com", "youtu.be")
+
+OFF_PLATFORM_NOTE = ("Blueprints read TikTok, Instagram, Facebook and YouTube "
+                     "links only.")
+
+
+def supported_url(url):
+    """True if this is a link we accept. Matched on the HOSTNAME — platform_of
+    above is a substring test on the whole URL, fine for labelling a row we have
+    already accepted but not as a gate."""
+    from urllib.parse import urlsplit
+    try:
+        host = (urlsplit(str(url or "").strip()).hostname or "").lower()
+    except ValueError:
+        return False
+    if host.startswith("www."):
+        host = host[4:]
+    return any(host == d or host.endswith("." + d) for d in SUPPORTED_HOSTS)
 
 
 def api_reason(e):
@@ -366,6 +391,20 @@ def main():
         changed = False
         for b in data.get("blueprints") or []:
             if not wants_work(b):
+                continue
+            # An off-platform LINK is refused before anything is spent — the
+            # same allowlist app.js applies at the form, enforced here because
+            # blueprints live in a client record the browser can write.
+            # UPLOADS ARE UNAFFECTED: they carry no url at all, so the gate only
+            # ever judges links. Written once — an "error" entry is retried on
+            # the next run, and re-marking it every pass would never settle.
+            if b.get("url") and not supported_url(b["url"]):
+                if b.get("note") != OFF_PLATFORM_NOTE:
+                    b["status"] = "error"
+                    b["note"] = OFF_PLATFORM_NOTE
+                    changed = True
+                    log.info("[%s] refused off-platform link: %s",
+                             data.get("company", cid), str(b["url"])[:60])
                 continue
             log.info("[%s] %s", data.get("company", cid), b.get("name", b["id"]))
             b["attemptedAt"] = now_iso()

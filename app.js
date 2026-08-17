@@ -1707,7 +1707,7 @@ async function renderShelf(niche) {
           autocomplete="off" spellcheck="false">
         <button type="submit" class="btn" id="av-add">Add video</button>
       </form>
-      <p class="note" id="av-note">Not in the database yet? Paste any TikTok / Instagram / YouTube link. It's added
+      <p class="note" id="av-note">Not in the database yet? Paste any TikTok / Instagram / Facebook / YouTube link. It's added
         to this brief immediately with what the platform reveals, queued for full ingestion (real metrics, tags,
         verbatim script) on the next pipeline run — the brief upgrades itself when that lands.</p>
     </div>
@@ -1750,6 +1750,14 @@ async function renderShelf(niche) {
     const note = document.getElementById("av-note");
     const btn = document.getElementById("av-add");
     if (!url) { note.textContent = "That doesn't look like a video link."; return; }
+    // Same allowlist as the blueprint form — this path calls queueVideoIngest,
+    // so an off-platform link becomes a pipeline job too.
+    if (!platformOf(url)) {
+      const h = hostOf(url);
+      note.textContent = `Only ${SUPPORTED_LIST} links can be ingested`
+        + (h ? ` — that one is from ${h}.` : ".");
+      return;
+    }
     const clean = canonUrl;
     let row = [...SHELF_CTX.index.values()].find((r) => r.url && clean(r.url) === clean(url))
       || ALL.find((r) => r.url && clean(r.url) === clean(url));
@@ -2616,9 +2624,37 @@ function agoLabel(iso) {
   return String(iso).slice(0, 10);
 }
 
-const platformLabel = (u) => /tiktok\.com/.test(u) ? "TikTok"
-  : /instagram\.com/.test(u) ? "Instagram"
-  : /youtube\.com|youtu\.be/.test(u) ? "YouTube" : "Link";
+/* The same four platforms the creator app accepts, matched the same way — see
+   the long note over PLATFORMS in creator.js. Blueprints go through
+   process_blueprints.py, which downloads and transcribes exactly like the
+   creator pipeline, so an off-platform link costs the same and fails the same.
+   Kept as a copy rather than shared: these two files load on different pages
+   and have never imported each other. Change one, change the other. */
+const PLATFORMS = [
+  ["TikTok",    ["tiktok.com"]],
+  ["Instagram", ["instagram.com"]],
+  ["Facebook",  ["facebook.com", "fb.watch", "fb.com"]],
+  ["YouTube",   ["youtube.com", "youtu.be"]],
+];
+const SUPPORTED_LIST = "TikTok, Instagram, Facebook or YouTube";
+const hostOf = (raw) => {
+  try {
+    const s = String(raw || "").trim();
+    return new URL(s.includes("://") ? s : "https://" + s).hostname
+      .toLowerCase().replace(/^www\./, "");
+  } catch { return ""; }
+};
+function platformOf(raw) {
+  const host = hostOf(raw);
+  if (!host) return null;
+  for (const [label, domains] of PLATFORMS) {
+    if (domains.some((d) => host === d || host.endsWith("." + d))) return label;
+  }
+  return null;
+}
+// "Link" still has to exist: the 9,016-row database and every blueprint saved
+// before this gate carry whatever they carried, and thumbFor() keys off it.
+const platformLabel = (u) => platformOf(u) || "Link";
 
 /** A blueprint shaped just enough for thumbFor(), which keys off platform+url. */
 const bpThumbRow = (b) => ({
@@ -2638,10 +2674,23 @@ function bpThumbHtml(b) {
   const row = bpThumbRow(b);
   const thumb = thumbFor(row);
   const pending = !thumb && row.platform === "tiktok";
-  return `<span class="bp-thumb" data-url="${escapeHtml(row.url)}">${
-    thumb ? `<img class="vthumb" src="${escapeHtml(thumb)}" alt="" loading="lazy">`
+  const inner = thumb ? `<img class="vthumb" src="${escapeHtml(thumb)}" alt="" loading="lazy">`
     : pending ? `<span class="vthumb-pending"></span>`
-    : `<span class="vthumb-none">${escapeHtml(platformLabel(row.url).slice(0, 2))}</span>`}</span>`;
+    : `<span class="vthumb-none">${escapeHtml(platformLabel(row.url).slice(0, 2))}</span>`;
+  // Clicking the frame opens the original post, same as the ↗ at the end of the
+  // row — the thumbnail is the bigger target and is what looks like the video.
+  // The ELEMENT STAYS `.bp-thumb`, an anchor instead of a span, so every layout
+  // rule keeps applying and `[data-url] .vthumb-pending` still finds its slot
+  // when a cover arrives late. Uploads have no url and stay a plain span.
+  // An UPLOAD has no url, and safeUrl("") is not empty — it resolves against
+  // location.origin and returns the current page — so the emptiness has to be
+  // tested before safeUrl, not after, or every upload row would link to the app.
+  const href = row.url ? safeUrl(row.url) : "";
+  const tag = href
+    ? `a class="bp-thumb" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
+         aria-label="Open the original post"`
+    : `span class="bp-thumb"`;
+  return `<${tag} data-url="${escapeHtml(row.url)}">${inner}</${href ? "a" : "span"}>`;
 }
 
 /** One beat, split into the three things a creator actually needs:
@@ -2888,7 +2937,7 @@ function blueprintsBoxHtml(client) {
           The outer sticky .composer wrapper is deliberately NOT used: that one
           pins to the foot of the creator's scrolling pane. */""}
     <form class="composer-row bp-form" id="bp-form" hidden>
-      <input type="url" id="bp-url" placeholder="Paste a TikTok / Instagram / YouTube link"
+      <input type="url" id="bp-url" placeholder="Paste a TikTok / Instagram / Facebook / YouTube link"
         autocomplete="off" spellcheck="false" aria-label="Paste a video link">
       <span class="bp-plat" id="bp-plat"></span>
       <button type="submit" class="composer-send" aria-label="Get the script">
@@ -2929,6 +2978,16 @@ function renderBriefsKeepScroll() {
 }
 
 function bindBlueprints(host, client) {
+  // A link inside a <summary> would also toggle the card: the disclosure flip is
+  // the summary's own activation behaviour, so the click has to be stopped at
+  // the anchor. Its navigation is a default action and still happens.
+  // This covers the thumbnail AND the ↗ beside it — the ↗ has always opened the
+  // post and flipped the card open behind the new tab, which is the same bug
+  // creator.js fixed with stopSummaryLinks(). Re-run on every render; the rows
+  // are rebuilt, so the old listeners go with them.
+  host.querySelectorAll("summary a").forEach((el) =>
+    el.addEventListener("click", (e) => e.stopPropagation()));
+
   // Covers arrive asynchronously and drop into the pending slots bpThumbHtml
   // left behind. The hosted pass is what can fill an INSTAGRAM row: if the same
   // video was ever turned into a creator script, process_adaptations.py already
@@ -2961,8 +3020,9 @@ function bindBlueprints(host, client) {
     if (!urlEl || !platEl) return;
     const raw = (urlEl.value || "").trim();
     const u = raw ? normalizeClientUrl(raw) : null;
-    platEl.textContent = u ? platformLabel(u) : "";
-    platEl.className = "bp-plat" + (u ? " on" : "");
+    const plat = u ? platformOf(u) : null;
+    platEl.textContent = u ? (plat || "not supported") : "";
+    platEl.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
   };
   if (urlEl) { urlEl.addEventListener("input", showPlat); showPlat(); }
 
@@ -2973,6 +3033,13 @@ function bindBlueprints(host, client) {
     const url = rawUrl ? normalizeClientUrl(rawUrl) : null;
     if (!rawUrl) { bpMsg("Paste a video link first.", "bad"); urlEl.focus(); return; }
     if (!url) { bpMsg("That doesn't look like a video link.", "bad"); urlEl.select(); return; }
+    if (!platformOf(url)) {
+      const h = hostOf(url);
+      bpMsg(`Blueprints read ${SUPPORTED_LIST} links`
+        + (h ? ` — that one is from ${h}.` : "."), "bad");
+      urlEl.select();
+      return;
+    }
     const fresh = loadClients();
     const c = fresh.find((x) => x.id === client.id);
     if (!c) return;

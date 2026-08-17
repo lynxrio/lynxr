@@ -54,6 +54,7 @@ except ImportError:
     SSL_CTX = ssl.create_default_context()
 
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from transcribe import MODEL as WHISPER_MODEL
@@ -282,10 +283,40 @@ def api_reason(e):
 
 
 def platform_of(url):
-    for p in ("tiktok", "instagram", "youtube"):
+    for p in ("tiktok", "instagram", "facebook", "youtube"):
         if p in (url or ""):
             return p
     return "other"
+
+
+# THE FOUR PLATFORMS. Mirrors PLATFORMS in creator.js — change one, change the
+# other. This is the copy that counts: the queue is a field inside a row the
+# creator owns, so the browser check can be walked around from the console, and
+# an off-platform link otherwise costs a download, a Whisper pass and four model
+# calls before failing on something unrelated.
+# Matched on the HOSTNAME. `platform_of` above is a substring test on the whole
+# URL and is fine for LABELLING a row we already accepted, but it would let
+# `evil.com/?ref=tiktok.com` through as a gate.
+SUPPORTED_HOSTS = ("tiktok.com", "instagram.com",
+                   "facebook.com", "fb.watch", "fb.com",
+                   "youtube.com", "youtu.be")
+
+# Shown to the creator in the app, so it reads as an answer rather than a fault.
+OFF_PLATFORM_NOTE = ("lynxr only reads TikTok, Instagram, Facebook and YouTube "
+                     "links. Nothing was used from your allowance.")
+
+
+def supported_url(url):
+    """True if this is a link we accept. Subdomains count (vm.tiktok.com,
+    m.facebook.com); a domain that merely ends in one of these words does not."""
+    try:
+        host = urllib.parse.urlsplit(str(url or "").strip()).hostname or ""
+    except ValueError:
+        return False
+    host = host.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return any(host == d or host.endswith("." + d) for d in SUPPORTED_HOSTS)
 
 
 # Tokens spent this run, per model. Cost per script is the number that decides
@@ -1046,8 +1077,28 @@ def main():
                          data.get("name") or cid[:8], len(over), args.cap)
                 graft_adaptations(key, cid, over)
 
+        # OFF-PLATFORM LINKS, refused before anything is spent — the same
+        # allowlist creator.js applies at the paste box, enforced here because
+        # that one lives in a row the creator owns and the console can walk
+        # around it. A Netflix or news URL otherwise costs a download, a Whisper
+        # pass and four model calls before failing on something unrelated.
+        # Only WRITTEN when the note is not already there: an "error" entry
+        # becomes eligible again once it cools, and re-marking it every pass
+        # would be an endless write loop for no change.
+        off = [a for a in (data.get("adaptations") or [])
+               if wants_work(a) and not supported_url(a.get("sourceUrl"))]
+        fresh_off = [a for a in off if a.get("note") != OFF_PLATFORM_NOTE]
+        if fresh_off:
+            for a in fresh_off:
+                a["status"] = "error"
+                a["note"] = OFF_PLATFORM_NOTE
+            log.info("[%s] refusing %d off-platform link(s)",
+                     data.get("name") or cid[:8], len(fresh_off))
+            graft_adaptations(key, cid, fresh_off)
+
         ready = sorted((a for a in (data.get("adaptations") or [])
-                        if wants_work(a) and (not args.cap or id(a) in allowed)),
+                        if wants_work(a) and supported_url(a.get("sourceUrl"))
+                        and (not args.cap or id(a) in allowed)),
                        key=lambda a: a.get("addedAt") or "")
         batch = ready[:args.max_per_creator] if args.max_per_creator else ready
         if not batch:

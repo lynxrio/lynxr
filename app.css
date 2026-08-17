@@ -726,6 +726,27 @@
     transition: opacity .16s var(--ease);
   }
   .bp-plat.on { opacity: 1; }
+  /* An off-platform link reads as refused in the field itself, before anyone
+     reaches the button. Both apps set `on bad` together — `on` carries the
+     opacity, so a bare `.bad` would be invisible. */
+  .bp-plat.bad { color: var(--bad); border-color: var(--bad); }
+
+  /* THE THUMBNAIL OPENS THE ORIGINAL VIDEO.
+     Two shapes, because the two apps build the cell differently (see the
+     bp-thumb note in HANDOFF): creator.js puts .bp-thumb on a bare <img> and
+     wraps it in .bp-thumb-link, while app.js puts .bp-thumb on the wrapper
+     itself, which simply becomes an <a>. So the wrapper here must carry NO
+     sizing of its own — .bp-thumb is still what sizes the cell in both — and
+     only has to avoid stretching as a flex item. */
+  .bp-thumb-link { display: flex; flex: none; align-items: center; text-decoration: none; }
+  a.bp-thumb, .bp-thumb-link { cursor: pointer; }
+  a.bp-thumb:hover, .bp-thumb-link:hover { opacity: .78; }
+  a.bp-thumb, .bp-thumb-link { transition: opacity .14s var(--ease); }
+  /* Keyboard users get the same target, and it must not be invisible against
+     the row — the frame is dark and so is the card behind it. */
+  a.bp-thumb:focus-visible, .bp-thumb-link:focus-visible {
+    outline: 2px solid var(--text-2); outline-offset: 2px; border-radius: 3px;
+  }
 
   .bp-msg {
     font-size: 12px; margin: 8px 0 0; color: var(--text-2);
@@ -775,6 +796,15 @@
     display: grid; place-items: center;
   }
   .bp-thumb .vthumb { width: 100%; height: 100%; object-fit: contain; display: block; }
+  /* THE SAME RULE FOR THE OTHER SHAPE. The line above is a DESCENDANT selector,
+     so it only ever reached app.js's wrapper-span form. creator.js puts
+     .bp-thumb on the <img> ITSELF, which therefore took the 40x56 box with no
+     object-fit at all — and the default is `fill`, i.e. distort to fit. Every
+     creator thumbnail was stretched horizontally.
+     `contain`, not `cover`, for the reason recorded in HANDOFF: covers are not
+     all 9:16 — every YouTube one is 4:3, because ytimg publishes only a
+     letterboxed hqdefault — and `cover` crops those to a middle strip. */
+  img.bp-thumb { object-fit: contain; }
   .bp-thumb .vthumb-none, .bp-thumb .vthumb-pending {
     font-size: 9px; color: var(--text-3); font-family: var(--mono); letter-spacing: .04em;
   }

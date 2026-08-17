@@ -293,6 +293,91 @@ its temporal dead zone throws, and that exception stops `creator.js`
 mid-evaluation — every declaration below it is left uninitialised and **the whole
 app dies on load**. Definition and call now sit adjacent.
 
+### Links are now restricted to four platforms
+
+TikTok, Instagram, **Facebook** (new) and YouTube. Anything else — a Netflix
+title, a news article, a Drive file, Vimeo, X — is refused at the paste box.
+The reason is spend: an off-platform link still cost a download, a Whisper pass
+and four model calls (~$0.105) before failing somewhere deep and unrelated,
+with the creator watching "writing your script" for a minute to get nothing.
+
+**Enforced in four places, and the browser ones are the courtesy — the pipeline
+ones are what count**, same split as `SCRIPT_CAP`: the queue is a field inside a
+row the creator owns, so the console can walk around anything the browser
+decides.
+
+| where | what it does |
+|---|---|
+| `creator.js` `platformOf()` | refuses on submit; the badge reads "not supported" as you type |
+| `app.js` `platformOf()` | same, on the blueprint form **and** the New Client add-by-link |
+| `process_adaptations.py` `supported_url()` | marks the entry `error` before spending, allowance untouched |
+| `process_blueprints.py` `supported_url()` | same; **uploads are unaffected** — they carry no url, so the gate only judges links |
+
+**Matched on the HOSTNAME, not as a substring.** The old
+`/instagram\.com/.test(url)` passed two things it should not have:
+`instagram.com.evil.net/p/x` (lookalike parent domain) and
+`evil.com/?ref=tiktok.com` (the word in a query string). Both are now refused;
+subdomains that are genuinely the platform (`vm.tiktok.com`, `m.facebook.com`,
+`music.youtube.com`) still pass. Verified in the live page — 9/9 cases in
+`creator.js`, 4/4 in `app.js`, 20/20 against the Python copy.
+
+`platformLabel()` still answers `"Link"` for anything unrecognised and must keep
+doing so: the 9,016-row database and every blueprint saved before this gate
+carry whatever they carried, and `thumbFor()` keys off it.
+
+**The allowlist is duplicated four times on purpose** — `creator.js` and
+`app.js` load on different pages and have never imported each other, and
+importing `process_adaptations` into `process_blueprints` would run its logging
+setup as a side effect (`canon_url` is already duplicated for that reason).
+Change one, change all four.
+
+**FACEBOOK HAS NEVER BEEN RUN THROUGH THE PIPELINE.** It is accepted at the
+door because it was asked for, and `platform_of` now labels it, but no Facebook
+URL has ever been downloaded, transcribed or scripted here. yt-dlp supports
+Facebook and often wants cookies for it. **Paste one real Facebook reel and
+watch `fly logs` before telling any creator it works** — if it fails, the honest
+fix is dropping `facebook.com`/`fb.watch`/`fb.com` from the four lists rather
+than leaving a platform advertised in the placeholder that cannot deliver.
+
+The badge's refused state is `.bp-plat.bad` in app.css, following `.chip.bad`
+directly above it. It is set as `on bad` — `on` carries the opacity, so a bare
+`.bad` would compute correctly and paint nothing. Verified painted:
+`rgb(224,108,108)` on colour and border at opacity 1, against the neutral
+`rgb(107,107,118)` of a supported link.
+
+### The thumbnail opens the original video
+
+Clicking the frame now opens the source post in a new tab, everywhere a
+thumbnail stands for a video: the creator Library entry, the trash row, a
+standalone script card, and the agency blueprint row. The ↗ at the end of the
+row still does the same thing — the thumbnail is simply the bigger target and
+the thing that looks like the video.
+
+`thumbHtml(url, label, href)` in `creator.js` wraps the `<img>` in
+`.bp-thumb-link`; `bpThumbHtml` in `app.js` turns its wrapper span **into the
+anchor**, keeping the class `bp-thumb`. That asymmetry is not sloppiness — the
+two apps build the cell differently and always have (see the two-competing-
+`.bp-thumb`-rules note above), so `.bp-thumb` is on a bare `<img>` in one and on
+the wrapper in the other. Keeping `.bp-thumb` on the agency wrapper is also what
+keeps `[data-url="…"] .vthumb-pending` matching when a cover arrives late.
+
+**`safeUrl("")` IS NOT EMPTY.** It is `new URL(String(u), location.origin)`, so
+an empty string resolves to the *current page* and comes back truthy — a
+thumbnail with no source url would have linked to the app itself. Test the url
+before calling `safeUrl`, never the result after. Both copies do now; the
+`.bp-open` ↗ links still read `safeUrl(x || "")` and would render an arrow
+pointing at the app if the url were ever missing. It never is today, which is
+why nobody has seen it.
+
+**`app.js` had no `stopSummaryLinks` and now does.** A link inside a `<summary>`
+also flips the disclosure open, because that toggle is the summary's own
+activation behaviour. The agency ↗ has always opened the post *and* left the
+card open behind the new tab — the exact bug `creator.js` fixed. `bindBlueprints`
+installs the stopper on every render, so the ↗ is fixed along with the
+thumbnail. Verified on both apps: the frame click opens the link and leaves the
+card shut, clicking the name still toggles it, and uploads (no url) stay an
+inert span.
+
 ### Smaller
 
 - **The ETA is reactive now.** `etaFor()` takes the median of this account's last
@@ -895,7 +980,7 @@ tail; 50/month is the natural number because `SCRIPT_CAP` already is 50.
   `creator.js` needs resolve — but if something obscure is missing from that
   page, this is why. Never back up two same-named files into one folder.
 - **Cache stamps.** Every page carries `?v=YYYYMMDDx` on css/js. Bump on EVERY
-  css/js change or browsers serve stale files. **Currently `20260820x`** — note
+  css/js change or browsers serve stale files. **Currently `20260821b`** — note
   it rolled past `z` on the 19th into the next day's letters, so carry on from
   `20260820j`.
   The HTML documents themselves are NOT stamped, so markup changes — including

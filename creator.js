@@ -198,12 +198,25 @@ function coverUrl({ libraryId, canon } = {}) {
   return hit ? hit.source.cover : "";
 }
 
-/** The thumbnail cell, or nothing at all. */
-function thumbHtml(url, label) {
-  return url
-    ? `<img class="bp-thumb" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async"
-         title="${escapeHtml(label || "")}">`
-    : "";
+/** The thumbnail cell, or nothing at all.
+ *  Given `href`, the frame becomes a link to the original video. The ↗ at the
+ *  end of the row already goes there, but the thumbnail is the far bigger
+ *  target and is the thing that LOOKS like the video, so it is what people
+ *  reach for. Inside a <summary> the anchor would also flip the card open
+ *  behind the new tab — stopSummaryLinks() is what prevents that, and it
+ *  already covers every `summary a`, so this needs no wiring of its own. */
+function thumbHtml(url, label, href) {
+  if (!url) return "";
+  const img = `<img class="bp-thumb" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async"
+         title="${escapeHtml(label || "")}">`;
+  // safeUrl("") is NOT empty — it resolves against location.origin and hands
+  // back the current page, so an entry with no sourceUrl would render a
+  // thumbnail linking to the app itself. Ask whether there is a url first.
+  const safe = href ? safeUrl(href) : "";
+  return safe
+    ? `<a class="bp-thumb-link" href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer"
+         aria-label="Open the original video">${img}</a>`
+    : img;
 }
 
 /** Keep a click on a link inside a <summary> from also toggling the card.
@@ -275,9 +288,44 @@ function canonUrl(raw) {
     return host + path + key;
   } catch { return String(raw || "").trim().replace(/\/$/, ""); }
 }
-const platformLabel = (u) => /tiktok\.com/.test(u) ? "TikTok"
-  : /instagram\.com/.test(u) ? "Instagram"
-  : /youtube\.com|youtu\.be/.test(u) ? "YouTube" : "Link";
+/* THE FOUR PLATFORMS, and nothing else. yt-dlp will happily fetch a great deal
+   more than this, but the rest is not remakeable short-form video — a Netflix
+   title, a news article, a Drive file, a podcast page. Every one of those still
+   costs a download, a transcription and four model calls before it fails
+   somewhere deep in the pipeline, and the creator watches "writing your script"
+   for a minute to be told nothing useful. Refusing at the paste box is cheaper
+   and is the only place that can say WHY.
+   Matched on the HOSTNAME, never as a substring of the whole URL. The old
+   /instagram\.com/ test also passed `instagram.com.example.net/x` and
+   `evil.com/?from=tiktok.com` — both a plain lookalike and a query string. */
+const PLATFORMS = [
+  ["TikTok",    ["tiktok.com"]],
+  ["Instagram", ["instagram.com"]],
+  ["Facebook",  ["facebook.com", "fb.watch", "fb.com"]],
+  ["YouTube",   ["youtube.com", "youtu.be"]],
+];
+const SUPPORTED_LIST = "TikTok, Instagram, Facebook or YouTube";
+const hostOf = (raw) => {
+  try {
+    const s = String(raw || "").trim();
+    return new URL(s.includes("://") ? s : "https://" + s).hostname
+      .toLowerCase().replace(/^www\./, "");
+  } catch { return ""; }
+};
+/** The platform's display name, or null if the link is not one we accept.
+    Subdomains count — vm.tiktok.com, m.facebook.com, music.youtube.com are all
+    the platform — but a domain that merely ENDS in one of these words is not. */
+function platformOf(raw) {
+  const host = hostOf(raw);
+  if (!host) return null;
+  for (const [label, domains] of PLATFORMS) {
+    if (domains.some((d) => host === d || host.endsWith("." + d))) return label;
+  }
+  return null;
+}
+// Unsupported links are now refused before anything stores them, so "Link" is
+// only ever seen on rows saved before this gate existed.
+const platformLabel = (u) => platformOf(u) || "Link";
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 const listOf = (xs) => xs.length < 2 ? (xs[0] || "")
   : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1];
@@ -785,7 +833,7 @@ function renderNewScript(head, body) {
       <div class="composer composer-inline" id="composer">
         <div class="composer-for" id="composer-for"></div>
         <form class="composer-row" id="composer-form">
-          <input type="url" id="composer-url" placeholder="Paste a TikTok / Instagram / YouTube link"
+          <input type="url" id="composer-url" placeholder="Paste a TikTok / Instagram / Facebook / YouTube link"
             autocomplete="off" spellcheck="false" aria-label="Paste a video link">
           <span class="bp-plat" id="composer-plat"></span>
           <button type="submit" class="composer-send" id="composer-send" aria-label="Get the script">
@@ -1643,7 +1691,7 @@ function libraryItemHtml(item, scopeBrandId) {
   return `<details class="bp-item lib-item" data-lid="${escapeHtml(item.id)}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
-      ${thumbHtml(coverUrl({ libraryId: item.id, canon: item.canon }), sourceLabel(item))}
+      ${thumbHtml(coverUrl({ libraryId: item.id, canon: item.canon }), sourceLabel(item), item.url)}
       <span class="bp-name">${escapeHtml(sourceLabel(item))}</span>
       <span class="chip lib-plat">${escapeHtml(item.platform || "Link")}</span>
       ${chip}
@@ -1903,7 +1951,7 @@ function renderTrash() {
     const cover = (a.source || {}).cover
       || coverUrl({ libraryId: a.libraryId, canon: a.sourceUrl ? canonUrl(a.sourceUrl) : "" });
     return `<div class="bp-item trash-row" data-adid="${escapeHtml(a.id)}">
-      ${thumbHtml(cover, a.title || "")}
+      ${thumbHtml(cover, a.title || "", a.sourceUrl)}
       ${/* .trash-main is a toggle on a phone only: the meta line is hidden there
             and tapping the title drops it down. On desktop the meta is always
             visible and the class this sets does nothing. */""}
@@ -2235,8 +2283,12 @@ function wireComposer() {
   if (!input || !badge) return;
   const showPlat = () => {
     const u = normalizeUrl(input.value);
-    badge.textContent = u ? platformLabel(u) : "";
-    badge.className = "bp-plat" + (u ? " on" : "");
+    const plat = u ? platformOf(u) : null;
+    // Say no while they are still typing, not on submit. The badge already sits
+    // in the paste field and is where the eye is, so an unsupported link reads
+    // as refused before anyone reaches for the button.
+    badge.textContent = u ? (plat || "not supported") : "";
+    badge.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
   };
   input.addEventListener("input", showPlat);
 
@@ -2246,6 +2298,18 @@ function wireComposer() {
     if (!raw) { say("Paste a video link first.", "bad"); input.focus(); return; }
     const url = normalizeUrl(raw);
     if (!url) { say("That doesn't look like a video link.", "bad"); input.select(); return; }
+
+    // Refuse an off-platform link BEFORE the cap check and before any library
+    // entry exists. The worker enforces the same allowlist — this row belongs to
+    // the creator, so the console can walk around anything decided here — but
+    // this is the one that explains itself.
+    if (!platformOf(url)) {
+      const h = hostOf(url);
+      say(`lynxr only reads ${SUPPORTED_LIST} links`
+        + (h ? ` — that one is from ${h}.` : "."), "bad");
+      input.select();
+      return;
+    }
 
     // Refuse before making anything — a company created and then blocked by
     // the cap would leave an empty folder behind.
@@ -3631,7 +3695,7 @@ function adaptationHtml(a, liveName, opts = {}) {
   return `<details class="bp-item ${statusClass}"${justReady || forceOpen ? " open" : ""} data-adid="${id}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
-      ${nested ? "" : thumbHtml((a.source || {}).cover, entryLabel(a))}
+      ${nested ? "" : thumbHtml((a.source || {}).cover, entryLabel(a), a.sourceUrl)}
       ${/* Same resolver the Trash view uses: prefers the live library entry's
             caption, falls back to the platform wording, never a permalink. */""}
       <span class="bp-name">${escapeHtml(nested
