@@ -1155,13 +1155,13 @@ element id app.js looks up now resolves).
 
 The owner wants to go public with pricing. Latency is solved; these are not.
 
-1. **`SCRIPT_CAP` is a LIFETIME cap, not monthly** — 50 scripts per account,
+1. **`SCRIPT_CAP` is a LIFETIME cap, not monthly** — 25 scripts per account,
    ever, enforced by the worker's `--cap` (the browser check can be walked
    around from the console, so the worker's is the one that counts). Any
    subscription needs this converted to a periodic quota **on both sides**. A
-   subscriber who hits 50 in month two is locked out while still paying.
+   subscriber who hits 25 is locked out while still paying.
 2. **Signup is open.** `signup_state()` returns `invite_required: false` and the
-   seat table is not enforcing. Cost per account is bounded (~$3.75 at 50
+   seat table is not enforcing. Cost per account is bounded (~$1.88 at 25
    scripts); the number of accounts is not. The gate already exists in the code —
    it needs switching on.
 3. **A lawyer's look before money changes hands.** Charging third parties for a
@@ -1171,7 +1171,9 @@ The owner wants to go public with pricing. Latency is solved; these are not.
 **Pricing maths, from the measured $0.075/script:** at $20/month, break-even is
 ~267 scripts/month — nine a day, every day. A creator posting daily (30/month)
 costs $2.25. So $20 "unlimited" is defensible with a fair-use ceiling for the
-tail; 50/month is the natural number because `SCRIPT_CAP` already is 50.
+tail. Note `SCRIPT_CAP` was cut to **25 lifetime** on 2026-08-17 — that is a
+trial-sized allowance, not a subscription quota, so a monthly number still has
+to be chosen when pricing lands.
 
 ### Two open questions for the owner
 

@@ -1517,7 +1517,7 @@ def main():
                          "only has to be recovered, not survived for 25 minutes)")
     ap.add_argument("--backfill-covers", action="store_true",
                     help="give existing scripts a cover frame and exit. No model calls.")
-    ap.add_argument("--cap", type=int, default=int(os.environ.get("SCRIPT_CAP", 50)),
+    ap.add_argument("--cap", type=int, default=int(os.environ.get("SCRIPT_CAP", 25)),
                     help="most scripts one creator may ever have written (0 = unlimited). "
                          "Keep in step with SCRIPT_CAP in creator.js")
     ap.add_argument("--concurrency", type=int,

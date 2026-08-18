@@ -2467,7 +2467,7 @@ let COMPOSE_FOR = null;      // Set of brand ids; null means "just this brand"
 // The WORKER enforces the same number (--cap / SCRIPT_CAP) and that is the one
 // that counts — this row belongs to the creator, so the check below can be
 // walked around from the browser console. Keep the two in step.
-const SCRIPT_CAP = 50;
+const SCRIPT_CAP = 25;
 // Counted against the allowance whether or not the creator still has it. Every
 // one of these was four model calls that were actually paid for, so deleting a
 // script must not hand the money back — otherwise 50 is not a limit, it is a
