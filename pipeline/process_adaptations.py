@@ -76,7 +76,6 @@ from transcribe import MODEL as WHISPER_MODEL
 from transcribe import fetch_audio, transcribe
 from analyze_visuals import analyze as analyze_frames
 from analyze_visuals import download_video, extract_frames, frame_times, yt_dlp_bin
-from retag_with_audio import MODEL as TAG_MODEL
 from retag_with_audio import SYSTEM as TAG_SYSTEM
 from retag_with_audio import user_content
 from taxonomy import TAG_SCHEMA, TAG_SCHEMA_VISION, length_bucket
@@ -84,6 +83,21 @@ from taxonomy import TAG_SCHEMA, TAG_SCHEMA_VISION, length_bucket
 ROOT = Path(__file__).parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
 MODEL = "claude-opus-5"
+# The creator path's tagger is declared HERE, not imported from
+# retag_with_audio, because that module's MODEL also drives the bulk
+# re-tag of the 9,016-row lynxr_videos corpus (Batch API, latency
+# irrelevant). Those two want different answers: this one is on a
+# creator's critical path, that one is not.
+TAG_MODEL = os.environ.get("TAG_MODEL", "claude-opus-5")
+# Claude Opus 5 runs ADAPTIVE THINKING BY DEFAULT at effort "high" —
+# unlike Opus 4.8/4.7, which stay off unless asked. This call is
+# classification against a locked taxonomy whose decision procedure is
+# spelled out line by line in TAG_SYSTEM; it is the least appropriate
+# place in the pipeline for depth, and it is the only unbounded term in
+# the call. "low" is not "off": disabling thinking on Opus 5 has two
+# documented failure modes (a tool call written into visible text, and
+# <thinking> tags leaking into the response), so cap the effort instead.
+TAG_EFFORT = os.environ.get("TAG_EFFORT", "low")
 
 (ROOT / "output").mkdir(exist_ok=True)   # gitignored: absent in a fresh CI checkout
 
@@ -617,6 +631,50 @@ def sys_block(text):
     return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
 
 
+def warm_prefixes(aclient):
+    """Write the three cached prefixes before anyone is waiting on them.
+
+    Sibling of worker.py's warm_whisper(), same reason: the creator who
+    happens to paste first after a deploy should not pay for the machine
+    being new.
+
+    NOT the documented max_tokens=0 pre-warm. That form is an
+    invalid_request_error when the request carries output_config.format —
+    and all three of these calls do, and the json_schema LANDS IN THE
+    CACHED PREFIX (it is what pushes FORMAT_SYSTEM's 491 tokens over the
+    512 minimum). Dropping the schema to satisfy max_tokens=0 would warm a
+    prefix the real calls never send, i.e. warm nothing. So: the real
+    shape, max_tokens=16, answer discarded.
+
+    Honest limit: the default cache TTL is 5 minutes. This helps the paste
+    that follows a deploy; it does nothing for the first paste of a quiet
+    day, and a keep-warm on an interval would cost more per day than the
+    scripts do.
+    """
+    t0 = time.time()
+
+    def warm(label, model, system, schema, effort=None):
+        try:
+            out_cfg = {"format": {"type": "json_schema", "schema": schema}}
+            if effort and not model.startswith("claude-haiku"):
+                out_cfg["effort"] = effort
+            msg = aclient.messages.create(
+                model=model, max_tokens=16,
+                system=sys_block(system),
+                output_config=out_cfg,
+                messages=[{"role": "user", "content": "warm"}])
+            u = getattr(msg, "usage", None)
+            log.info("  warmed %s: cache_creation_input_tokens=%d", label,
+                     getattr(u, "cache_creation_input_tokens", 0) or 0)
+        except Exception as e:  # noqa: BLE001 — a failed warm-up must never stop the worker
+            log.warning("  prefix warm (%s) skipped: %s", label, str(e)[:90])
+
+    warm("tags", TAG_MODEL, TAG_SYSTEM, TAG_SCHEMA_VISION, TAG_EFFORT)
+    warm("format", MODEL, FORMAT_SYSTEM, FORMAT_SCHEMA)
+    warm("adapt", MODEL, ADAPT_SYSTEM, ADAPT_SCHEMA)
+    log.info("prefix warm-up done in %.1fs", time.time() - t0)
+
+
 class _Metered:
     """A client whose calls get costed even when another module makes them.
 
@@ -1040,7 +1098,7 @@ def upsert_video(key, a):
 # ============================================================================
 
 
-def fill_source(a, aclient, key, notes, timings):
+def fill_source(a, aclient, key, notes, timings, publish=None):
     """The video-dependent half of a script: download, transcribe, cover,
     frames, shots, tags. Populates a["source"]. Independent of brand, so
     main() runs this ONCE per distinct video and deep-copies the result onto
@@ -1049,6 +1107,10 @@ def fill_source(a, aclient, key, notes, timings):
     `notes` and `timings` are the CALLING entry's lists/dicts — appended to in
     place, same as the old process_one, so a partial failure here still lets
     the entry land with whatever it managed.
+
+    `publish`, when given, is called with a phase name as each one starts —
+    see publish_phase(). Optional and trailing so ab_format_adapt.py's
+    positional calls stay untouched and its arm timings stay comparable.
 
     Returns True if there is a usable source to proceed with; False only for
     the "no ANTHROPIC_API_KEY" case, where the transcript is all there ever
@@ -1063,6 +1125,9 @@ def fill_source(a, aclient, key, notes, timings):
         with stage(timings, "source_cache"):
             cached = cached_source(key, url)
         if cached:
+            # A cache hit skips both "reading" and "watching" outright — there
+            # is nothing left mid-run for a phase to describe, and publishing
+            # one here would cost a graft to say something already over.
             timings["source_cache"] = "hit"
             a["source"] = {
                 "platform": cached.get("platform") or platform_of(url),
@@ -1079,6 +1144,9 @@ def fill_source(a, aclient, key, notes, timings):
             }
             a["format"] = cached.get("format")
             return True
+
+    if publish:
+        publish("reading")
 
     with tempfile.TemporaryDirectory() as td_s:
         td = Path(td_s)
@@ -1114,6 +1182,8 @@ def fill_source(a, aclient, key, notes, timings):
             notes.append("transcript only — format + script need ANTHROPIC_API_KEY")
             return False
 
+        if publish:
+            publish("watching")
         with stage(timings, "frames"):
             frames = extract_frames(media, frame_times(t, t["duration"]), td)
 
@@ -1124,10 +1194,27 @@ def fill_source(a, aclient, key, notes, timings):
             try:
                 with stage(timings, "shots"):
                     src["shots"] = analyze_frames(MeteredClient(aclient), frames)["shots"]
+                log.info("  shot list: %d frame(s)", len(frames))
             except Exception as e:  # noqa: BLE001
                 notes.append(f"shot list failed: {api_reason(e)}")
                 mark_ai_fail(a, api_reason(e))
 
+        # WHY TAGGING IS NOT DEFERRED PAST THE SCRIPT (asked 2026-08-17, measured,
+        # declined). Two real pastes minutes apart: tags 57.28s then 7.05s, no code
+        # change. At 7s it is not the bottleneck — and it is not even ON the
+        # critical path, because it runs CONCURRENTLY with the shot list in the pool
+        # below, and on the second script shots took 16.64s. Deferring tags would
+        # have saved that script exactly ZERO seconds.
+        #
+        # The cost of deferring is not zero: source_digest() puts the tags in front
+        # of BOTH the format extraction and the adaptation, so moving them out
+        # changes what the model sees when it writes the script — the deliverable.
+        # It would also need a second graft, a re-entrant upsert_source/upsert_video,
+        # and group-level sequencing after run_entry's per-entry pool.
+        #
+        # The remaining levers are the ~25s of strictly sequential Opus
+        # (format 8.1s + adapt 16.7s — that is what FUSE_FORMAT_ADAPT targets) and
+        # the shot list's own variance. Not this.
         def do_tags():
             # Locked-taxonomy tags — the FAMILY half of spec §4.1.
             try:
@@ -1144,13 +1231,27 @@ def fill_source(a, aclient, key, notes, timings):
                     schema = TAG_SCHEMA_VISION
                 else:
                     content, schema = text, TAG_SCHEMA
+                # `effort` lives INSIDE output_config, beside `format` — not
+                # as a top-level parameter. Haiku 4.5 REJECTS it (400), so a
+                # TAG_MODEL of claude-haiku-4-5 must not carry one; Opus 5
+                # takes low/medium/high/xhigh/max and defaults to high.
+                out_cfg = {"format": {"type": "json_schema", "schema": schema}}
+                if TAG_EFFORT and not TAG_MODEL.startswith("claude-haiku"):
+                    out_cfg["effort"] = TAG_EFFORT
                 with stage(timings, "tags"):
                     msg = aclient.messages.create(
                         model=TAG_MODEL, max_tokens=2000,
                         system=sys_block(TAG_SYSTEM),
-                        output_config={"format": {"type": "json_schema", "schema": schema}},
+                        output_config=out_cfg,
                         messages=[{"role": "user", "content": content}])
                 note_usage(TAG_MODEL, msg)
+                u = getattr(msg, "usage", None)
+                log.info("  tag call: %d frame(s), %d out, cache %dw/%dr, thinking=%s",
+                         len(frames),
+                         getattr(u, "output_tokens", 0) or 0,
+                         getattr(u, "cache_creation_input_tokens", 0) or 0,
+                         getattr(u, "cache_read_input_tokens", 0) or 0,
+                         any(getattr(b, "type", None) == "thinking" for b in msg.content))
                 src["tags"] = undouble(json.loads(first_text(msg)))
             except Exception as e:  # noqa: BLE001
                 notes.append(f"tags failed: {api_reason(e)}")
@@ -1166,7 +1267,7 @@ def fill_source(a, aclient, key, notes, timings):
     return True
 
 
-def extract_format(aclient, a, notes, timings):
+def extract_format(aclient, a, notes, timings, publish=None):
     """The topic-stripped format extraction call, on its own.
 
     Used whenever FUSE_FORMAT_ADAPT does not (or cannot) fold this into the
@@ -1174,6 +1275,8 @@ def extract_format(aclient, a, notes, timings):
     since there is no adaptation to fuse it into, and a multi-sibling group
     always extracts it once here rather than per-brand (Step 7c).
     """
+    if publish:
+        publish("structure")
     try:
         with stage(timings, "format"):
             a["format"] = structured(
@@ -1190,7 +1293,7 @@ def extract_format(aclient, a, notes, timings):
         return False
 
 
-def fill_adaptation(a, creator, aclient, notes, timings, fuse=False):
+def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=None):
     """The per-brand rewrite (or the no-brand "here is your script" finish).
 
     Assumes fill_source() already ran (a["source"] is populated, possibly
@@ -1232,6 +1335,8 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False):
             a["note"] = "; ".join(notes)
             return
 
+    if publish and a.get("brandId"):
+        publish("writing")
     try:
         if fuse and not a.get("format"):
             with stage(timings, "format_adapt_fused"):
@@ -1334,7 +1439,8 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
     timings = a.setdefault("timings", {})
     with claim_heartbeat(key, cid, a.get("id")):
         try:
-            fill_adaptation(a, data, aclient, notes, timings, fuse=fuse)
+            fill_adaptation(a, data, aclient, notes, timings, fuse=fuse,
+                             publish=lambda phase: publish_phase(key, [(cid, a)], phase))
             # Nothing failed this time round, so drop any marker an earlier
             # attempt left — otherwise a healed entry keeps being reopened.
             if (a.get("aiFail") or {}).get("attempt") != a.get("attemptedAt"):
@@ -1403,11 +1509,15 @@ def process_group(key, aclient, group):
     # steps are default-off/on respectively, so in practice this only matters
     # once the owner turns FUSE_FORMAT_ADAPT on.
     fuse = FUSE_FORMAT_ADAPT and len(group) == 1 and bool(rep.get("brandId"))
+    # The whole group shares one source pass, so every sibling must get the
+    # phase, not just the representative — otherwise a two-brand send shows
+    # one card moving and one frozen.
+    pub = lambda phase: publish_phase(key, [(c, e) for c, _d, e in group], phase)  # noqa: E731
     try:
         with claim_heartbeat(key, cid0, rep.get("id")):
-            ok = fill_source(rep, aclient, key, source_notes, rep_timings)
+            ok = fill_source(rep, aclient, key, source_notes, rep_timings, publish=pub)
             if ok and not fuse and not rep.get("format"):
-                extract_format(aclient, rep, source_notes, rep_timings)
+                extract_format(aclient, rep, source_notes, rep_timings, publish=pub)
     except Exception as e:  # noqa: BLE001
         # No sibling in this group has a source either — all fail alike.
         for cid, data, a in group:
@@ -1498,6 +1608,35 @@ def graft_adaptations(key, cid, touched):
         sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}", method="PATCH", body={"data": fresh})
 
 
+# THE FOUR THINGS A CREATOR CAN SEE HAPPENING. Deliberately coarser than
+# `timings`: that has eleven keys because it exists to attribute a
+# regression, this has four because it exists to tell someone staring at
+# a phone that their script is moving. Each one costs a graft — a read of
+# this creator's row and a write back — so the count is the cost, and
+# four is the most that earns its round trip.
+#
+#   reading   download + Whisper + cover     ~11s
+#   watching  frames + shot list + tags      ~18s
+#   structure format extraction              ~8s
+#   writing   the adaptation                 ~17s
+#
+# Best-effort in the strongest sense: a creator waiting is a UI problem,
+# a creator losing their script is not. Nothing here may raise.
+def publish_phase(key, jobs, phase):
+    """Stamp `phase` on each (cid, adaptation) and graft it back now."""
+    stamp = now_iso()
+    by_cid = collections.defaultdict(list)
+    for cid, a in jobs:
+        a["phase"] = phase
+        a["phaseAt"] = stamp
+        by_cid[cid].append(a)
+    for cid, entries in by_cid.items():
+        try:
+            graft_adaptations(key, cid, entries)
+        except Exception as e:  # noqa: BLE001
+            log.warning("  phase %s not published: %s", phase, str(e)[:90])
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-ai", action="store_true",
@@ -1517,6 +1656,9 @@ def main():
                          "only has to be recovered, not survived for 25 minutes)")
     ap.add_argument("--backfill-covers", action="store_true",
                     help="give existing scripts a cover frame and exit. No model calls.")
+    ap.add_argument("--warm-prefixes", action="store_true",
+                    help="write the three cached prefixes and exit. Fired by worker.py in a "
+                         "daemon thread at boot, before any discovery or database read.")
     ap.add_argument("--cap", type=int, default=int(os.environ.get("SCRIPT_CAP", 25)),
                     help="most scripts one creator may ever have written (0 = unlimited). "
                          "Keep in step with SCRIPT_CAP in creator.js")
@@ -1552,6 +1694,15 @@ def main():
         aclient = anthropic.Anthropic(api_key=api_key)
     else:
         log.info("AI steps OFF (%s)", "--no-ai" if args.no_ai else "no ANTHROPIC_API_KEY")
+
+    if args.warm_prefixes:
+        # Returns BEFORE any discovery or database read — this is a boot-time
+        # side task, not a pass over queued work.
+        if aclient:
+            warm_prefixes(aclient)
+        else:
+            log.info("skipping prefix warm — no ANTHROPIC_API_KEY")
+        return
 
     def cooled(a):
         last = a.get("attemptedAt") or ""

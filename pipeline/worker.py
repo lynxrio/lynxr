@@ -215,6 +215,11 @@ def main():
     # 2 seconds and just pays the cold cost once, rather than waiting for the
     # warm-up to finish. Daemon so it never blocks process exit either.
     threading.Thread(target=warm_whisper, daemon=True).start()
+    # A subprocess, not an import, for the reason run_pass()'s own docstring
+    # gives — and because importing process_adaptations into another module
+    # runs its logging setup as a side effect, the trap already recorded for
+    # process_blueprints.
+    threading.Thread(target=lambda: run_pass(["--warm-prefixes"]), daemon=True).start()
 
     log.info("watching for queued scripts — probe every %.1fs, full sweep every %.0fs",
              args.poll, args.sweep)

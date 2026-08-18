@@ -11,8 +11,18 @@ so the next regression is a command instead of a rediscovery.
 It splits every finished adaptation into three stages instead of one number:
 
     addedAt -> claimedAt      queue        (waiting for a worker to pick it up)
-    claimedAt -> attemptedAt  claim lag    (claimed, not yet actually started)
-    attemptedAt -> processedAt work        (download, transcribe, model calls)
+    claimedAt -> attemptedAt  source       (download, transcribe, cover, frames,
+                                            shots, tags AND format extraction)
+    attemptedAt -> processedAt adapt       (the per-brand rewrite, and only that)
+
+    CAUTION, this bucket was mislabelled until 2026-08-17. The middle stage was
+    called "claim lag (claimed, not yet actually started)", which reads as dead
+    queueing time. It is not. `attemptedAt` is stamped immediately before
+    fill_adaptation(), so everything fill_source() does — plus format
+    extraction, which is shared across a video's brands — lands inside it. On a
+    measured 56s script that bucket was 37s of productive work and the queue
+    was 1.7s; the old label made the pipeline look like a queueing problem and
+    made `work` look like 17s when the real work was 54s.
 
 plus the end-to-end total, addedAt -> processedAt. That split is what turned
 "p90 is 2050s" into "the tail is entirely queue" on 2026-08-17, and it must
@@ -144,9 +154,9 @@ def build_report(rows, since_arg, sla, now=None):
                     "status": status,
                     "total": (processed - added).total_seconds(),
                     "queue": (claimed - added).total_seconds() if claimed else None,
-                    "claim_lag": (attempted - claimed).total_seconds()
-                                if (attempted and claimed) else None,
-                    "work": (processed - attempted).total_seconds() if attempted else None,
+                    "source": (attempted - claimed).total_seconds()
+                              if (attempted and claimed) else None,
+                    "adapt": (processed - attempted).total_seconds() if attempted else None,
                     "timings": a.get("timings") or {},
                 })
             elif status in ("queued", "running"):
@@ -166,7 +176,7 @@ def build_report(rows, since_arg, sla, now=None):
             "p50": pct(totals, 50), "p90": pct(totals, 90), "p95": pct(totals, 95),
             "under_sla": under, "under_sla_pct": round(100 * under / len(totals), 1),
         })
-        for stage in ("queue", "claim_lag", "work"):
+        for stage in ("queue", "source", "adapt"):
             vals = sorted(v[stage] for v in samples if v[stage] is not None)
             result[f"{stage}_median"] = median(vals)
 
@@ -186,7 +196,7 @@ def build_report(rows, since_arg, sla, now=None):
     else:
         result.update({"min": None, "max": None, "p50": None, "p90": None, "p95": None,
                        "under_sla": 0, "under_sla_pct": None, "stage_medians": {},
-                       "queue_median": None, "claim_lag_median": None, "work_median": None})
+                       "queue_median": None, "source_median": None, "adapt_median": None})
 
     result["breach"] = bool(inflight) or (result["p95"] is not None and result["p95"] > sla)
     return result
@@ -203,8 +213,8 @@ def print_report(r):
             return f"{val:.0f}s" if val is not None else "—"
 
         print(f"  stage split (median): queue {fmt(r.get('queue_median'))}, "
-              f"claim lag {fmt(r.get('claim_lag_median'))}, "
-              f"work {fmt(r.get('work_median'))}")
+              f"source+format {fmt(r.get('source_median'))}, "
+              f"adapt {fmt(r.get('adapt_median'))}")
         if r["stage_medians"]:
             print("  per-stage medians (from `timings`):")
             for name, val in r["stage_medians"].items():

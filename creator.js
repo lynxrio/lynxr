@@ -957,7 +957,100 @@ const namedBrands = () => ME.brands.filter((b) => (b.name || "").trim());
 // One rail, one pane. VIEW says what the pane is showing; nothing else does.
 let VIEW = { kind: "new" };      // opening the app starts a fresh script
 
+/* THE SEND CONFIRMATION, AND WHY IT OUTLIVES THE SCRIPT.
+   Owner, 2026-08-17: "when i paste a link have it open so the lynxr loading
+   logo is there and dont close it unless the user presses to close it."
+   So there is no timer, no auto-close on arrival, and no backdrop close —
+   the X, Escape and "Read it" are the only three exits, and all three are a
+   press. In memory only: a reload drops it, which is right, because the
+   library card underneath carries the same state durably. */
+let SEND_WATCH = null;   // { lid, adIds: [...], settled: false }
+
+/* THE LIBRARY ENTRY A SEND IS ABOUT. An id, not a node: the poll re-renders
+   the whole list every 2.5s while a script is being written, so any node
+   captured here is detached within seconds. */
+let FOCUS_LID = null;
+
+function focusLibraryEntry({ scroll = false } = {}) {
+  if (!FOCUS_LID || VIEW.kind !== "library") return;
+  const el = document.querySelector(`.lib-item[data-lid="${CSS.escape(FOCUS_LID)}"]`);
+  if (!el) return;
+  el.open = true;                       // idempotent: safe on every repaint
+  if (!scroll) return;
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+}
+
+/** Open the send overlay for one or more just-queued adaptations from the
+    same paste. Never closes on its own — see the comment on SEND_WATCH. */
+function openSendOverlay(lid, adIds) {
+  SEND_WATCH = { lid, adIds, settled: false };
+  const modal = document.getElementById("send-modal");
+  if (!modal) return;
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+  renderSendOverlay();
+  document.getElementById("send-close")?.focus();
+}
+
+/** Repaint #send-body from the current state of SEND_WATCH.adIds — called on
+    open and on every live-sync tick while anything is writing. Rewrites
+    #send-body ONLY, never #send-head, so the close button never loses focus
+    mid-poll. A no-op once settled, so a finished state can't be repainted out
+    from under someone reading it. */
+function renderSendOverlay() {
+  const modal = document.getElementById("send-modal");
+  if (!SEND_WATCH || !modal || modal.hidden || SEND_WATCH.settled) return;
+  const body = document.getElementById("send-body");
+  if (!body) return;
+
+  const entries = SEND_WATCH.adIds
+    .map((id) => ME.adaptations.find((a) => a.id === id))
+    .filter(Boolean);
+  const writing = entries.filter(isWriting);
+
+  let html;
+  if (writing.length) {
+    // Oldest still-writing entry, so a two-brand send shows one honest clock
+    // rather than two racing ones.
+    const oldest = writing.slice()
+      .sort((a, b) => String(a.addedAt || "").localeCompare(String(b.addedAt || "")))[0];
+    const names = entries.filter((a) => a.brandId)
+      .map((a) => (brandById(a.brandId) || {}).name || a.brandName || "this brand");
+    const stage = names.length
+      ? `Writing it for ${escapeHtml(listOf(names))}`
+      : "Reading the video for its original script";
+    html = etaBlockHtml(oldest, stage);
+  } else if (entries.length && entries.every((a) => a.status === "done")) {
+    SEND_WATCH.settled = true;
+    html = `<p class="bp-hint good">Your script is ready.</p>
+      <div class="sendbox-actions"><button type="button" class="btn" id="send-read">Read it</button></div>`;
+  } else {
+    // At least one status === "error" — a failure must not spin forever.
+    SEND_WATCH.settled = true;
+    html = `<p class="bp-hint bad">Something went wrong writing this one.</p>
+      <div class="sendbox-actions"><button type="button" class="btn" id="send-read">Read it</button></div>`;
+  }
+  body.innerHTML = html;
+  document.getElementById("send-read")?.addEventListener("click", closeSendOverlay);
+}
+
+/** The only way the overlay closes: the X, Escape, or "Read it" — never the
+    backdrop, never a timer, never the script arriving on its own. Closing is
+    what scrolls to the library entry: landing underneath a still-open overlay
+    would be invisible. */
+function closeSendOverlay() {
+  const modal = document.getElementById("send-modal");
+  if (modal) modal.hidden = true;
+  document.body.classList.remove("modal-open");
+  SEND_WATCH = null;
+  focusLibraryEntry({ scroll: true });
+}
+
 function go(view) {
+  // Leaving the Library abandons whatever entry a send was pointed at —
+  // switching views by hand is a deliberate move elsewhere.
+  if (view.kind !== "library") FOCUS_LID = null;
   VIEW = view;
   document.body.classList.remove("side-open");
   renderSide();
@@ -1693,7 +1786,7 @@ function renderLibrary(head, body) {
     </div>`;
 
   document.getElementById("lib-add").addEventListener("click", () => go({ kind: "new" }));
-  const setMode = (m) => { LIB_MODE = m; renderLibrary(head, body); };
+  const setMode = (m) => { LIB_MODE = m; FOCUS_LID = null; renderLibrary(head, body); };
   document.getElementById("lib-mode-brand").addEventListener("click", () => setMode("brand"));
   document.getElementById("lib-mode-all").addEventListener("click", () => setMode("all"));
   document.getElementById("lib-mode-original").addEventListener("click", () => setMode("original"));
@@ -1877,6 +1970,10 @@ function paintLibraryList() {
       save(); renderSide(); renderPane();
     });
   });
+
+  // Keeps a send's target open across every poll repaint without moving the
+  // page under anyone — the scroll itself only happens on the overlay's close.
+  focusLibraryEntry();
 }
 
 /** One saved video as a card.
@@ -2589,7 +2686,9 @@ function wireComposer() {
       // which is where it goes to be missed. What you just asked for should be
       // the first thing on screen.
       LIB_MODE = "original";
+      FOCUS_LID = item.id;
       go({ kind: "library" });
+      openSendOverlay(item.id, [res.id]);
       say("Reading it now — you'll get the video's own script.", "good");
       return;
     }
@@ -2628,7 +2727,9 @@ function wireComposer() {
       renderComposeFor();
       say("On it — reading the video for its original script.", "good");
       LIB_MODE = "original";   // same reason as the no-brand branch above
+      FOCUS_LID = solo.id;
       go({ kind: "library" });
+      openSendOverlay(solo.id, [res.id]);
       return;
     }
 
@@ -2642,10 +2743,11 @@ function wireComposer() {
 
     // One library entry however many companies it is written for.
     const { item } = ensureLibraryItem(url);
-    const queued = [], skipped = [];
+    const queued = [], skipped = [], queuedIds = [];
     for (const target of targets) {
       const res = queueAdaptation(item, target);
       (res.ok ? queued : skipped).push(target.name || "that brand");
+      if (res.ok) queuedIds.push(res.id);
     }
     if (!queued.length) {
       say(skipped.length === 1
@@ -2663,12 +2765,19 @@ function wireComposer() {
     const msg = `On it — ${listOf(queued)} ${queued.length > 1 ? "scripts are" : "script is"} being written.`
       + `${skipped.length ? ` (${listOf(skipped)} already had one.)` : ""}`;
 
+    // ALL VIDEOS, not whatever was open last: By brand renders the same video
+    // once per brand ticked, where All videos renders one card per video — the
+    // shape a batch send needs to land on.
+    LIB_MODE = "all";
+    FOCUS_LID = item.id;
+
     // Sending from the New script page moves you to the Library, where the new
     // entry is already sitting with its "writing your script" chip and its
     // estimate. Staying on an emptied composer would look like nothing
     // happened — the confirmation belongs next to the thing it created.
     if (VIEW.kind === "new") {
       go({ kind: "library" });
+      openSendOverlay(item.id, queuedIds);
       flashMsg("lib-flash", msg, "good");
     } else {
       paintLibraryList();
@@ -3043,9 +3152,40 @@ function isWriting(a) {
    measuredWorkSec() uses its own real timings instead — the same pipeline is
    slower on a shared Fly vCPU than on an M-series Mac, and no constant written
    here would know that. */
-const POLL_SEC = 2;      // worker probe interval
-const WORK_SEC = 60;     // fallback until this account has its own history
-const LATE_SEC = 90;     // grace before admitting something has gone wrong
+const POLL_SEC = 2;       // worker probe interval
+const LATE_SEC = 90;      // grace before admitting something has gone wrong
+/* THE FALLBACK BAND, FROM TWO REAL PHONE PASTES (2026-08-17): 56s warm
+   and 105s cold. A single number cannot describe that, and a countdown
+   built on one would run out in front of the creator on every cold run —
+   which is worse for retention than saying nothing. So: a range until
+   this account has its own history, then this account's own observed
+   median and max. */
+const ETA_LO = 50, ETA_HI = 110;
+const ETA_MIN_HISTORY = 5;   // finished scripts before we trust an account's own numbers
+/* SECONDS STILL TO GO once a phase is known, from the warm run's per-stage
+   split (download 2.7 + transcribe 8.0 + cover 0.3 | frames 1.0 + shots/tags
+   16.6 | format 8.1 | adapt 16.7). The remaining-time distribution is much
+   tighter than the whole-run one, which is why a point estimate is honest
+   here and dishonest at the top. */
+const PHASE_LEFT = { reading: 45, watching: 27, structure: 19, writing: 17 };
+const PHASE_WORDS = {
+  reading: "reading the video",
+  watching: "watching it",
+  structure: "finding the format",
+  writing: "writing your script",
+};
+const PHASE_ORDER = ["reading", "watching", "structure", "writing"];
+// Scripts ahead of this one in THIS account's queue, plus this one, divided
+// by how many the worker takes per pass. Ticking two companies is one wave,
+// not two scripts' worth of waiting: process_group runs their adaptations
+// concurrently off one shared source pass.
+const WORKER_BATCH = 2;   // keep in step with --max-per-creator
+
+// Only a defensive fallback for measuredWorkSec()'s empty-list case below,
+// which etaFor() never reaches in practice — it only calls measuredWorkSec()
+// once hasEtaHistory() is already true. Kept so that function's own body
+// needs no change.
+const WORK_SEC = 60;
 
 /** The median seconds a script really takes on this account, newest first.
 
@@ -3065,11 +3205,44 @@ function measuredWorkSec() {
   return recent.length ? recent[Math.floor(recent.length / 2)] : WORK_SEC;
 }
 
-/** Seconds -> something a person would say out loud. */
+/** The max of the same finished-script durations measuredWorkSec() medians —
+    the worst that has actually happened on this account lately, not a
+    formula. */
+function measuredMaxSec() {
+  const recent = (ME.adaptations || [])
+    .filter((a) => a.status === "done" && a.attemptedAt && a.processedAt)
+    .slice(0, 10)
+    .map((a) => (new Date(a.processedAt) - new Date(a.attemptedAt)) / 1000)
+    .filter((s) => s > 3 && s < 900);
+  return recent.length ? Math.max(...recent) : ETA_HI;
+}
+
+/** Whether this account has finished enough scripts to trust its own numbers
+    over the fallback band. */
+function hasEtaHistory() {
+  const recent = (ME.adaptations || [])
+    .filter((a) => a.status === "done" && a.attemptedAt && a.processedAt)
+    .slice(0, 10)
+    .map((a) => (new Date(a.processedAt) - new Date(a.attemptedAt)) / 1000)
+    .filter((s) => s > 3 && s < 900);
+  return recent.length >= ETA_MIN_HISTORY;
+}
+
+/** Seconds -> something a person would say out loud, for the whole-run band. */
 function etaWords(secs) {
   if (secs <= 75) return "about a minute";
   if (secs < 150) return "about two minutes";
   return `about ${Math.round(secs / 60)} minutes`;
+}
+
+/** Seconds -> something a person would say out loud, for TIME LEFT in a
+    phase. Deliberately not etaWords(): that rounds everything under 75s to
+    "about a minute", which would erase the progress this exists to show. */
+function secWords(n) {
+  const s = Math.max(5, Math.round(n));
+  if (s < 60) return `${s} seconds`;
+  const mins = Math.round(s / 60);
+  return mins === 1 ? "a minute" : `${mins} minutes`;
 }
 
 /** Everything of this creator's still waiting, oldest first — the same order
@@ -3080,14 +3253,6 @@ function writingQueue() {
 }
 
 function etaFor(a) {
-  const pos = writingQueue().findIndex((x) => x.id === a.id);
-  const ahead = pos < 0 ? 0 : pos;
-  const work = measuredWorkSec();
-  // Scripts ahead of this one, plus this one, plus one probe interval to be
-  // noticed at all. The worker is serial, so position maps almost directly to
-  // seconds now — which is exactly what made the old pass-counting model wrong.
-  const est = POLL_SEC + (ahead + 1) * work;
-  const waited = a.addedAt ? (Date.now() - new Date(a.addedAt).getTime()) / 1000 : 0;
   /* A send the server has never acknowledged is NOT queued — no worker can see
      it, so no amount of waiting will produce a script. Saying "it's picked up
      whenever the worker next runs" to someone in this state is the exact lie
@@ -3095,15 +3260,64 @@ function etaFor(a) {
      retrying; what this has to do is stop promising a queue position that does
      not exist. */
   if (!landed(a)) {
-    return { late: true, text: "Still on this device — your connection dropped on the way out. Retrying automatically; leave this page open." };
+    return {
+      late: true,
+      text: "Still on this device — your connection dropped on the way out. Retrying automatically; leave this page open.",
+      phase: null, step: 0, steps: PHASE_ORDER.length,
+    };
   }
+  const pos = writingQueue().findIndex((x) => x.id === a.id);
+  const ahead = pos < 0 ? 0 : pos;
+  // Ticking two brands is one wave, not two scripts' worth of waiting — see
+  // WORKER_BATCH above.
+  const waves = Math.ceil((ahead + 1) / WORKER_BATCH);
+  const hist = hasEtaHistory();
+  const lo = hist ? measuredWorkSec() : ETA_LO;   // raw band low, not wave-scaled
+  const hi = hist ? measuredMaxSec() : ETA_HI;    // raw band high, not wave-scaled
+  const phase = PHASE_ORDER.includes(a.phase) ? a.phase : null;
+  const step = phase ? PHASE_ORDER.indexOf(phase) + 1 : 0;
+  const steps = PHASE_ORDER.length;
+  const waited = a.addedAt ? (Date.now() - new Date(a.addedAt).getTime()) / 1000 : 0;
+  // The band's high end, not the median — a normal cold run must not trip the
+  // overrun wording just because it landed on the slow side of typical.
+  const est = hi * waves;
   // Overdue is worth saying out loud. Silently showing an estimate to someone
   // who has been waiting well past it is how a pilot loses trust.
   if (waited > est + LATE_SEC) {
     const mins = Math.max(1, Math.round(waited / 60));
-    return { late: true, text: `Taking longer than usual — sent ${mins} minute${mins === 1 ? "" : "s"} ago. Still queued; it's picked up whenever the worker next runs.` };
+    const text = phase
+      ? `Still ${PHASE_WORDS[phase]} — longer than usual…`
+      : `Taking longer than usual — sent ${mins} minute${mins === 1 ? "" : "s"} ago. Still queued; it's picked up whenever the worker next runs.`;
+    return { late: true, text, phase, step, steps };
   }
-  return { late: false, text: `Usually ready in ${etaWords(est)}.` };
+  if (phase) {
+    const left = Math.max(5, PHASE_LEFT[phase] + (waves - 1) * hi);
+    return { late: false, text: `${PHASE_WORDS[phase]} · about ${secWords(left)} left`, phase, step, steps };
+  }
+  return { late: false, text: `usually ${Math.round(lo * waves)}–${Math.round(hi * waves)} seconds`, phase, step, steps };
+}
+
+/* The loader, the phase and the estimate as one block. Two callers —
+   the send overlay and adaptationHtml's writing branch — and one
+   definition, because two copies of a progress indicator will disagree
+   the first time either is touched. `stage` is HTML already safe to drop
+   in as-is (any user data inside it, e.g. a brand name, is escaped by the
+   caller) — this only escapes eta.text, which it builds itself. */
+function etaBlockHtml(a, stage) {
+  const eta = etaFor(a);
+  const rail = eta.step > 0
+    ? `<div class="eta-rail" aria-hidden="true">` +
+        PHASE_ORDER.map((_, i) => `<i class="eta-seg${i < eta.step ? " on" : ""}"></i>`).join("") +
+      `</div>`
+    : "";
+  return `<div class="loader" role="status" aria-live="polite">
+      ${loaderMark()}
+      <div class="loader-text">
+        <div class="loader-stage">${stage}</div>
+        <div class="loader-sub bp-eta${eta.late ? " bp-partial" : ""}">${escapeHtml(eta.text)}</div>
+        ${rail}
+      </div>
+    </div>`;
 }
 
 /** Companies that do NOT already have a script from this source video. */
@@ -3807,7 +4021,6 @@ function adaptationHtml(a, liveName, opts = {}) {
 
   let body;
   if (isWriting(a)) {
-    const eta = etaFor(a);
     /* The same mark the brand lookup uses. This is the longest wait in the app
        — a link goes off to be transcribed, watched and rewritten — and it used
        to be two lines of grey text, which reads the same whether the worker is
@@ -3815,18 +4028,9 @@ function adaptationHtml(a, liveName, opts = {}) {
        The small "writing" chips in the library lists stay as dots: a 46px
        animation inside a status chip would be noise, and those are glanced at
        rather than waited on. */
-    body = `<div class="loader" role="status" aria-live="polite">
-        ${loaderMark()}
-        <div class="loader-text">
-          <div class="loader-stage">${a.brandId
-            ? `Writing it for ${escapeHtml(brandNow)}`
-            : "Reading the video for its original script"}</div>
-          ${/* .bp-eta carries the colour and size; .bp-hint is deliberately NOT
-                here, because its `margin: 6px 0 10px` overrides .loader-sub's
-                tighter 2px and pushes the ETA off the mark it belongs to. */""}
-          <div class="loader-sub bp-eta${eta.late ? " bp-partial" : ""}">${escapeHtml(eta.text)}</div>
-        </div>
-      </div>`;
+    body = etaBlockHtml(a, a.brandId
+      ? `Writing it for ${escapeHtml(brandNow)}`
+      : "Reading the video for its original script");
   } else if (a.status === "error") {
     body = `<p class="bp-hint bad">${escapeHtml(a.note || "That video couldn't be downloaded.")}</p>
       <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
@@ -4276,6 +4480,7 @@ function startLiveSync() {
       // late branch gets a chance to fire on its own, no navigation needed.
       renderPane();
     }
+    renderSendOverlay();
     schedule();
   };
   const schedule = () => {
@@ -4608,6 +4813,14 @@ document.addEventListener("click", (e) => {
 document.getElementById("nav-library").addEventListener("click", () => go({ kind: "library" }));
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
 document.getElementById("nav-feedback").addEventListener("click", () => go({ kind: "feedback" }));
+
+// The send overlay's only three exits — the X, Escape, and "Read it" (wired
+// inside renderSendOverlay() itself, since that node is rebuilt on every
+// repaint). No backdrop handler: it does not close on a click outside it.
+document.getElementById("send-close")?.addEventListener("click", closeSendOverlay);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.getElementById("send-modal")?.hidden) closeSendOverlay();
+});
 
 /** A confirmation (or recovery) link comes back here with the session in the
     URL fragment. Take it, strip it out of the address bar so the tokens never

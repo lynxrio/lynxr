@@ -375,6 +375,31 @@
        wastes the only dimension that matters on a 375px screen. */
     .modal-card { max-width: none; max-height: 100%; height: 100%; border: 0; border-radius: 0; }
   }
+  /* ---------- The send confirmation ----------
+     Its own class names on purpose. `.modal-card` is declared TWICE in this
+     file — once for the policy modal directly above, and again for the
+     agency app's video detail modal further down (~line 1094) — and the
+     later one wins on equal specificity, on every page, including this one.
+     Reusing it here would inherit the agency modal's 880px width, 22px
+     padding and var(--surface) background without asking. */
+  .sendmodal { z-index: 110; }
+  .sendbox {
+    background: var(--bg); border: 1px solid var(--line-2); border-radius: 14px;
+    width: 100%; max-width: 460px; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sendbox-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 16px 12px; border-bottom: 1px solid var(--line); flex: none;
+  }
+  .sendbox-title { font-size: var(--fs-13); color: var(--text); letter-spacing: .04em; }
+  .sendbox-body { padding: 4px 20px 20px; }
+  .sendbox-body .loader { padding: 22px 0; }
+  .sendbox-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+  /* The policy modal goes full-bleed on a phone because it is a long
+     document. This is a short status card and looks broken edge-to-edge, so
+     give the backdrop its padding back. Declared AFTER the .modal rule it
+     overrides — source order decides here, not the media query. */
+  @media (max-width: 560px) { .sendmodal { padding: 18px; } }
   /* A .ghost that is the one thing to press: solid fill at the header's own
      proportions, because .btn's 15px/11px stands a head taller than everything
      else in a title row. The hover override is not optional — .ghost:hover
@@ -579,6 +604,18 @@
      as a blob. 20px keeps the gap visible, which is the whole point of using
      this shape instead of a dot. */
   .loader.inline .loader-mark { width: 20px; height: 20px; }
+
+  /* Four segments, one per published phase. A rail rather than a spinner
+     because a spinner says "busy" and this has to say "moving" — a creator
+     who cannot see progress leaves. Widths come from flex, not from an
+     inline style: `style-src 'self'` discards those silently. */
+  .eta-rail { display: flex; gap: 3px; margin-top: 8px; max-width: 180px; }
+  .eta-seg {
+    flex: 1 1 0; height: 3px; border-radius: 2px;
+    background: var(--line-2); transition: background .3s var(--ease);
+  }
+  .eta-seg.on { background: var(--text-2); }
+  @media (prefers-reduced-motion: reduce) { .eta-seg { transition: none; } }
 
   /* Client brief: site analysis */
   .progress { color: var(--text-3); font-size: var(--fs-14); padding: 18px 0; }
