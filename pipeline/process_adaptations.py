@@ -409,6 +409,62 @@ def api_reason(e):
     return (m[1].split("'")[0] if len(m) > 1 else s)[:90]
 
 
+# ---------- WHEN THE VIDEO CANNOT BE FETCHED ----------
+#
+# yt-dlp's stderr is written for someone at a terminal. Stored raw on the
+# entry it becomes the creator's error message, and the first one we hit in
+# the wild read:
+#
+#   download failed: ERROR: [TikTok] 7524866777004723486: This post may not be
+#   comfortable for some audiences. Log in for access. Use --cookies-from-browser
+#
+# A creator reads that, taps Try again, gets the identical failure, and
+# concludes the product is broken. It is not — that video is age-gated and no
+# number of retries will ever open it. Two things are wrong: the words, and
+# offering a retry for something that cannot succeed.
+#
+# So classify. `retryable` False means the answer will not change on its own,
+# and the card must not show a Try again button (creator.js reads it).
+# Anything unrecognised stays retryable — a network blip must not be
+# mistaken for a permanent wall.
+FETCH_FAILURES = (
+    (False, "This video is age-restricted, so we can't open it. Try another link.",
+     ("may not be comfortable", "log in for access", "age-restricted",
+      "sign in to confirm your age")),
+    (False, "This video is private, so we can't open it. Try another link.",
+     ("private video", "this video is private", "is private")),
+    (False, "This video has been deleted or made unavailable. Try another link.",
+     ("video unavailable", "has been removed", "no longer available",
+      "content isn't available", "http error 404", "not found")),
+    (False, "That link isn't a video we can read. Check it and try again.",
+     ("unsupported url", "is not a valid url", "unable to extract")),
+    (False, "This video isn't available in the region our servers run from.",
+     # yt-dlp's real wording is "The uploader has not made this video available
+     # in your country", so match the tail rather than a phrasing that never
+     # appears — the first draft used "not available in your country" and
+     # silently matched nothing.
+     ("available in your country", "geo restricted", "geo-restricted",
+      "blocked in your country", "not available from your location")),
+    (False, "The platform is asking us to prove we're not a bot on this one. "
+            "Try another link.",
+     ("sign in to confirm you", "confirm you're not a bot", "captcha")),
+)
+
+
+def fetch_failure(err):
+    """(human sentence, retryable) for a yt-dlp/download error.
+
+    Unrecognised errors keep the generic wording and STAY retryable. Guessing
+    "permanent" on an unknown string would hide a transient outage behind a
+    card with no way forward, which is worse than one pointless retry.
+    """
+    low = str(err).lower()
+    for retryable, message, needles in FETCH_FAILURES:
+        if any(n in low for n in needles):
+            return message, retryable
+    return "We couldn't read that video. It may be a temporary problem — try again.", True
+
+
 # ---------- WHEN THE MODEL STEPS FAIL ----------
 #
 # An entry whose AI steps failed used to end up status "done" with a note, and
@@ -1561,6 +1617,11 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
         except Exception as e:  # noqa: BLE001
             a["status"] = "error"
             a["note"] = str(e)[:200]
+            # Everything reaching here got past the download, so it is a model
+            # or write failure — those do clear on their own, and ai_retry_due()
+            # already schedules them. Explicitly retryable so a card that
+            # failed here never inherits a stale False from an earlier attempt.
+            a["retryable"] = True
             log.error("  -> FAILED: %s", e)
             graft_adaptations(key, cid, [a])
 
@@ -1594,11 +1655,18 @@ def process_group(key, aclient, group):
                 extract_format(aclient, rep, source_notes, rep_timings, publish=pub)
     except Exception as e:  # noqa: BLE001
         # No sibling in this group has a source either — all fail alike.
+        message, retryable = fetch_failure(e)
         for cid, data, a in group:
             a["status"] = "error"
-            a["note"] = str(e)[:200]
-            log.error("  -> FAILED (source): %s", e)
+            a["note"] = message
+            # False means Try again is pointless and creator.js hides it. Only
+            # ever written here, and only False for a recognised permanent
+            # wall — see FETCH_FAILURES.
+            a["retryable"] = retryable
             graft_adaptations(key, cid, [a])
+        # The raw stderr stays in the log, where whoever is debugging can see
+        # it, and out of the row, where a creator would.
+        log.error("  -> FAILED (source): %s%s", e, "" if retryable else "  [permanent]")
         return
 
     for cid, data, a in group[1:]:

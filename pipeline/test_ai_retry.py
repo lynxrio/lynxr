@@ -144,6 +144,33 @@ try:
 finally:
     P.sb = _ORIG_SB
 
+# ---- fetch_failure(): human wording, and what must NOT offer a retry -------
+# The wall cases must come back retryable=False so creator.js hides Try again.
+# The DEFAULT matters more than any of them: an unrecognised error has to stay
+# retryable, or a transient outage becomes a card with no way forward.
+check("age-gated is permanent",
+      P.fetch_failure("ERROR: [TikTok] 752: This post may not be comfortable "
+                      "for some audiences. Log in for access.")[1], False)
+check("private is permanent",
+      P.fetch_failure("ERROR: [youtube] x: Private video. Sign in if you have access")[1], False)
+check("deleted is permanent",
+      P.fetch_failure("ERROR: Video unavailable")[1], False)
+check("404 is permanent",
+      P.fetch_failure("ERROR: unable to download: HTTP Error 404: Not Found")[1], False)
+check("unsupported link is permanent",
+      P.fetch_failure("ERROR: Unsupported URL: https://example.com/nope")[1], False)
+check("geo block is permanent",
+      P.fetch_failure("ERROR: The uploader has not made this video available "
+                      "in your country")[1], False)
+check("a timeout is NOT permanent",
+      P.fetch_failure("HTTPSConnectionPool(host='x'): Read timed out.")[1], True)
+check("an unknown error is NOT permanent",
+      P.fetch_failure("ERROR: something nobody has seen before")[1], True)
+check("the age-gated message carries no yt-dlp jargon",
+      any(j in P.fetch_failure("This post may not be comfortable for some "
+                               "audiences. Log in for access.")[0].lower()
+          for j in ("cookies", "yt-dlp", "--", "error:")), False)
+
 # ---- graft_adaptations' per-cid lock ---------------------------------------
 # Step 7b: two threads grafting the SAME creator must not run their
 # read-modify-write concurrently (one write would be lost); two threads on

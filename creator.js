@@ -4148,8 +4148,18 @@ function adaptationHtml(a, liveName, opts = {}) {
       ? `Writing it for ${escapeHtml(brandNow)}`
       : "Reading the video for its original script");
   } else if (a.status === "error") {
+    /* NO RETRY BUTTON ON A WALL. `retryable: false` is written by the worker
+       (see FETCH_FAILURES in process_adaptations.py) for the failures whose
+       answer cannot change — age-gated, private, deleted, geo-blocked, or a
+       link that was never a video. Offering Try again there sends the creator
+       round a loop that fails identically every time, which is what makes a
+       limitation read as a bug. Undefined counts as retryable: entries written
+       before this shipped, and every model-side failure, still get the button. */
+    const canRetry = a.retryable !== false;
     body = `<p class="bp-hint bad">${escapeHtml(a.note || "That video couldn't be downloaded.")}</p>
-      <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
+      ${canRetry
+        ? `<div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`
+        : ""}`;
   } else if (ad && !asOriginal) {
     const carry = { do: "", show: "" };
     body = `
