@@ -731,21 +731,56 @@ function renderSyncBadge(state) {
 
 // ---------- transient messages ----------
 const MSG_T = new Map();
+// Elements that render as the always-visible composer-note style rather than
+// the bp-msg fade widget — keyed by id because #lib-flash and #brand-flash
+// carry that class in markup (1508, 1195) even though they aren't literally
+// #composer-note. Anything not listed here defaults to bp-msg, same as today.
+const FLASH_STYLE = { "composer-note": "composer-note", "lib-flash": "composer-note", "brand-flash": "composer-note" };
 function flashMsg(elId, text, tone) {
   const el = document.getElementById(elId);
   if (!el) return;
   el.textContent = text;
-  el.className = `${el.id === "composer-note" ? "composer-note" : "bp-msg"} show${tone ? " " + tone : ""}`;
+  el.className = `${FLASH_STYLE[elId] || "bp-msg"} show${tone ? " " + tone : ""}`;
   clearTimeout(MSG_T.get(elId));
   MSG_T.set(elId, setTimeout(() => {
     const e2 = document.getElementById(elId);
-    if (e2) e2.className = e2.id === "composer-note" ? "composer-note" : "bp-msg";
+    if (e2) e2.className = FLASH_STYLE[elId] || "bp-msg";
   }, 5000));
 }
-const say = (text, tone) => flashMsg("composer-note", text, tone);
+// #composer-note only exists on the New script view; the rest are the same
+// flash element on every other view. Picking the target inside a microtask —
+// rather than at the moment say() is called — means it doesn't matter whether
+// a go() elsewhere in the same handler runs before or after this line: by the
+// time the lookup runs, any synchronous view change in the same call stack
+// (including go()) has already happened, so the message lands on whichever of
+// these is actually on screen.
+const SAY_TARGETS = ["composer-note", "lib-flash", "brand-flash", "me-msg", "fb-out"];
+function say(text, tone) {
+  queueMicrotask(() => {
+    for (const id of SAY_TARGETS) {
+      if (document.getElementById(id)) { flashMsg(id, text, tone); return; }
+    }
+  });
+}
 
 // ---------- slices ----------
 const brandScripts = (b) => ME.adaptations.filter((a) => a.brandId === b.id);
+
+/** THE RAIL'S COUNTER — scripts, not videos.
+ *  A video scripted for five brands counts five. Each script is its own piece
+ *  of work, and the rail only reads as one scale if the Library's number and
+ *  the brands' numbers are the same unit: `library 6` sitting above `4` and
+ *  `4` invites the arithmetic 4+4=8 and then looks broken when it does not
+ *  land. Brand-less "original" scripts are counted here too, which is why this
+ *  is the adaptation count rather than a sum over brands.
+ *
+ *  The Library LIST is still ONE ROW PER VIDEO — only the counter changed. So
+ *  this number can legitimately exceed the number of rows below it. The three
+ *  places that size the list itself (the search threshold, the empty state and
+ *  the "n of m" filter tally) stay on ME.library.length on purpose; swapping
+ *  them here would hide the search box at the wrong moment and make the tally
+ *  compare a script count against a row count. */
+const scriptCount = () => ME.adaptations.length;
 
 /** Every script written from one saved video, across all brands. Matched on
     libraryId, falling back to canonical URL for rows backfilled from before
@@ -801,6 +836,11 @@ function go(view) {
   renderPane();
   const s = document.getElementById("pane-scroll");
   if (s) s.scrollTop = 0;
+  // go() replaces #pane-head/#pane-body wholesale, so focus falls to <body>
+  // and a keyboard user restarts from the top of the document on every
+  // navigation. #pane-head carries tabindex="-1" in index.html so it can take
+  // focus programmatically without joining the tab order itself.
+  document.getElementById("pane-head")?.focus({ preventScroll: true });
 }
 
 // ---------- New script ----------
@@ -811,9 +851,11 @@ function renderNewScript(head, body) {
   // No page title — the greeting below is the title, and repeating it twice
   // above a one-field form is exactly the clutter this view is avoiding.
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>`;
-  document.getElementById("side-open").addEventListener("click", () =>
-    document.body.classList.toggle("side-open"));
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>`;
+  document.getElementById("side-open").addEventListener("click", (e) => {
+    const open = document.body.classList.toggle("side-open");
+    e.currentTarget.setAttribute("aria-expanded", open);
+  });
 
   // A brand-new account used to hit a wall here — "Add a company first", with
   // no composer on the page at all. Someone who signs up, pastes the link they
@@ -858,7 +900,7 @@ function renderNewScript(head, body) {
               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
           </button>
         </form>
-        <p class="composer-note" id="composer-note"></p>
+        <p class="composer-note" id="composer-note" role="status" aria-live="polite"></p>
       </div>
     </div>`;
 
@@ -915,7 +957,7 @@ function renderSide() {
   // this exact mistake once shipped bar charts that rendered as nothing.
   document.getElementById("side-quota-fill").style.width = `${(used / SCRIPT_CAP) * 100}%`;
   quota.classList.toggle("spent", used >= SCRIPT_CAP);
-  document.getElementById("nav-library-n").textContent = ME.library.length || "";
+  document.getElementById("nav-library-n").textContent = scriptCount();
   document.getElementById("nav-new").classList.toggle("on", VIEW.kind === "new");
   document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library");
   document.getElementById("nav-you").classList.toggle("on", VIEW.kind === "you");
@@ -933,9 +975,13 @@ function renderSide() {
   host.innerHTML = ME.brands.map((b) => {
     const n = brandScripts(b).length;
     const on = VIEW.kind === "brand" && VIEW.id === b.id;
+    // A zero PRINTS. `n || ""` used to blank it, and an empty slot beside a
+    // company that has 4 next to it does not read as "none yet" — it reads as
+    // a number that failed to arrive. A brand with no scripts is a normal
+    // state (you add the company before you script for it), so say so.
     return `<button type="button" class="side-item${on ? " on" : ""}" data-bid="${escapeHtml(b.id)}">
       <span class="side-label">${escapeHtml(b.name || "Untitled brand")}</span>
-      <span class="side-count">${n || ""}</span>
+      <span class="side-count">${n}</span>
     </button>`;
   }).join("");
   host.querySelectorAll(".side-item").forEach((el) =>
@@ -1148,7 +1194,7 @@ function renderBrand(head, body, b) {
   const writing = scripts.filter(isWriting).length;
 
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="pane-title">
       <div class="bcard-title" id="brand-heading">${escapeHtml(b.name || "Untitled brand")}</div>
       ${/* No standing script COUNT here any more — the list of scripts is
@@ -1198,7 +1244,7 @@ function renderBrand(head, body, b) {
       <p class="lookup-label">Brand website</p>
       <input type="text" class="b-lookup" autocomplete="off" spellcheck="false"
         value="${escapeHtml(b.site || "")}" placeholder="lynxr.io">
-      <p class="lookup-hint" id="lookup-msg"></p>
+      <p class="lookup-hint" id="lookup-msg" role="status" aria-live="polite"></p>
       ${/* The app's established loading mark, not a second invention: the X
             split into four arms that scale out of the centre in clockwise
             turn. Same markup and animation the agency app uses while it reads
@@ -1252,8 +1298,10 @@ function renderBrand(head, body, b) {
     </div>
     <div id="ad-list"></div>` : ""}`;
 
-  document.getElementById("side-open").addEventListener("click", () =>
-    document.body.classList.toggle("side-open"));
+  document.getElementById("side-open").addEventListener("click", (e) => {
+    const open = document.body.classList.toggle("side-open");
+    e.currentTarget.setAttribute("aria-expanded", open);
+  });
 
   const editor = document.getElementById("brand-editor");
   const toggle = document.getElementById("brand-details");
@@ -1472,13 +1520,13 @@ const SCOPE_ORIGINAL = Symbol("original scripts only");
 
 function renderLibrary(head, body) {
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     ${/* The + sits on the title row, not down with the tabs. On a phone it had
           a line of its own between the tabs and the first video, which read as
           a stray control belonging to neither. Up here it pairs with the
           heading it acts on, and the tabs get the full width back. */""}
     <div class="pane-title"><div class="bcard-title">Library</div>
-      <span class="pill">${ME.library.length}</span>
+      <span class="pill">${scriptCount()}</span>
       <div class="spacer"></div>
       <button type="button" class="lib-plus" id="lib-add" title="New script" aria-label="New script">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
@@ -1486,8 +1534,10 @@ function renderLibrary(head, body) {
       </button></div>
     <p class="pane-sub">Every video you've sent.</p>`;
 
-  document.getElementById("side-open").addEventListener("click", () =>
-    document.body.classList.toggle("side-open"));
+  document.getElementById("side-open").addEventListener("click", (e) => {
+    const open = document.body.classList.toggle("side-open");
+    e.currentTarget.setAttribute("aria-expanded", open);
+  });
 
   body.innerHTML = `
     <div class="section">
@@ -1661,7 +1711,7 @@ function paintLibraryList() {
     card.querySelectorAll(".lib-also-b").forEach((btn) => btn.addEventListener("click", async () => {
       btn.disabled = true;
       const co = brandById(btn.dataset.bid);
-      await alsoWriteFor(item, [btn.dataset.bid], () => {
+      const { queued, skipped } = await alsoWriteFor(item, [btn.dataset.bid], () => {
         paintLibraryList();
         // By company mode renders the same video under every company that has a
         // script from it, so there can be several copies of this card. Reopen
@@ -1670,7 +1720,18 @@ function paintLibraryList() {
         document.querySelectorAll(`.lib-item[data-lid="${CSS.escape(item.id)}"]`)
           .forEach((el) => { el.open = true; });
       });
-      flashMsg("lib-flash", `Writing it for ${co ? co.name : "that company"} — it'll appear here.`, "good");
+      if (queued.length) {
+        flashMsg("lib-flash", `Writing it for ${co ? co.name : "that company"} — it'll appear here.`, "good");
+        return;
+      }
+      // Nothing queued — paintLibraryList() above never ran, so this button is
+      // still the one on screen. Re-enable it rather than leaving it stuck
+      // disabled, and only add a message of our own for the dupe case: a cap
+      // refusal already flashed its own explanation inside alsoWriteFor.
+      btn.disabled = false;
+      if (skipped.length) {
+        flashMsg("lib-flash", `You've already got a ${co ? co.name : "that company"} script from that video.`, "bad");
+      }
     }));
     /* Delete the video and everything written from it. Scoped to `card`, not
        the document: in "by brand" mode one video renders under every company
@@ -1801,11 +1862,13 @@ function libraryItemHtml(item, scopeBrandId) {
 // ---------- you ----------
 function renderYou(head, body) {
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="pane-title"><div class="bcard-title">Settings</div></div>
     <p class="pane-sub">Goes into every script, so it sounds like you.</p>`;
-  document.getElementById("side-open").addEventListener("click", () =>
-    document.body.classList.toggle("side-open"));
+  document.getElementById("side-open").addEventListener("click", (e) => {
+    const open = document.body.classList.toggle("side-open");
+    e.currentTarget.setAttribute("aria-expanded", open);
+  });
 
   body.innerHTML = `
     <div class="section">
@@ -1880,7 +1943,11 @@ function renderYou(head, body) {
         </span>
       </div>
       <p class="note" id="del-msg" role="status" aria-live="polite"></p>
-    </div>`;
+    </div>
+
+    <p class="you-foot">&copy;
+      <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a>
+      2026</p>`;
 
   renderTrash();
 
@@ -1907,26 +1974,27 @@ function renderYou(head, body) {
     btn.disabled = true;
     flashMsg("del-msg", "Deleting your account…");
     try {
-      const res = await sbFetch("/rest/v1/rpc/delete_own_account", { method: "POST" });
-      // PGRST202 is "function not found" — supabase/delete_account.sql has not
-      // been run in this project. Name it precisely: everything else here looks
-      // identical to a network failure from the browser, and "try again" would
-      // be wrong advice for a deployment step that will never fix itself.
-      if (!res.ok) {
-        const why = await res.text();
-        flashMsg("del-msg", why.includes("PGRST202")
-          ? "Account deletion isn't switched on yet — email us and we'll do it by hand."
-          : "That didn't go through. Try again, or email us.", "bad");
-        btn.disabled = false;
-        return;
-      }
+      // sbFetch does not return a Response — it throws on !res.ok and otherwise
+      // returns the parsed body, or null for the empty body PostgREST sends back
+      // for a `returns void` function. A resolved await here IS the success
+      // path; there is no .ok to read off it.
+      await sbFetch("/rest/v1/rpc/delete_own_account", { method: "POST" });
       // The account is gone, so the session it belongs to is meaningless. Clear
       // it locally before reloading, or the app boots holding a token for a
       // user that no longer exists.
       clearSession();
       location.reload();
-    } catch {
-      flashMsg("del-msg", "That didn't go through — check your connection.", "bad");
+    } catch (ex) {
+      // PGRST202 is "function not found" — supabase/delete_account.sql has not
+      // been run in this project. Name it precisely: everything else here looks
+      // identical to a network failure from the browser, and "try again" would
+      // be wrong advice for a deployment step that will never fix itself. Same
+      // shape as signupError() / accountLoadError(): read the code off the
+      // thrown error's message, which is where sbFetch puts it.
+      const why = String(ex?.message || "");
+      flashMsg("del-msg", /PGRST202/i.test(why)
+        ? "Account deletion isn't switched on yet — email us and we'll do it by hand."
+        : "That didn't go through. Try again, or email us.", "bad");
       btn.disabled = false;
     }
   });
@@ -2008,7 +2076,7 @@ function renderTrash() {
         ${/* Icon + word. The phone hides the word (see .trash-restore-txt) so all
               three controls fit on the thumbnail's line instead of costing a
               whole extra row. */""}
-        <button type="button" class="ghost trash-restore" data-adid="${escapeHtml(a.id)}" title="Restore">
+        <button type="button" class="ghost trash-restore" data-adid="${escapeHtml(a.id)}" aria-label="Restore" title="Restore">
           ${/* A bin with an arrow lifting out of it — "take this back out of the
                 trash", rather than the generic undo curl, which reads as
                 "revert an edit". Same 24-box and 1.8 stroke as the delete icon
@@ -2072,11 +2140,13 @@ function renderTrash() {
 
 function renderFeedback(head, body) {
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="pane-title"><div class="bcard-title">Feedback</div></div>
     <p class="pane-sub">Early software — tell us what's broken.</p>`;
-  document.getElementById("side-open").addEventListener("click", () =>
-    document.body.classList.toggle("side-open"));
+  document.getElementById("side-open").addEventListener("click", (e) => {
+    const open = document.body.classList.toggle("side-open");
+    e.currentTarget.setAttribute("aria-expanded", open);
+  });
 
   body.innerHTML = `
     <div class="section">
@@ -2308,6 +2378,11 @@ function renderComposeFor() {
     // rather than silently guessing a brand for you.
     COMPOSE_FOR = next;
     renderComposeFor();
+    // renderComposeFor() rebuilds the whole row, so the chip just pressed no
+    // longer exists — a keyboard user ticking three brands would otherwise
+    // make three round-trips from the top of the document. Re-find it by
+    // data-bid and put focus back where the press landed.
+    document.querySelector(`.for-chip[data-bid="${CSS.escape(id)}"]`)?.focus();
   }));
 }
 
@@ -2371,6 +2446,7 @@ function wireComposer() {
       input.value = "";
       showPlat();
       await save({ now: true });
+      kickLiveSync?.();   // don't leave the poll idling at 60s on the send it exists to catch
       renderSide();
       // The Library is where it lands, same as any other send — the entry is
       // already there with its "writing" chip. LAND ON THE ORIGINAL SCRIPTS
@@ -2380,8 +2456,7 @@ function wireComposer() {
       // the first thing on screen.
       LIB_MODE = "original";
       go({ kind: "library" });
-      flashMsg("composer-note",
-        "Reading it now — you'll get the video's own script.", "good");
+      say("Reading it now — you'll get the video's own script.", "good");
       return;
     }
 
@@ -2414,6 +2489,7 @@ function wireComposer() {
       input.value = "";
       showPlat();
       await save({ now: true });
+      kickLiveSync?.();
       renderSide();
       renderComposeFor();
       say("On it — reading the video for its original script.", "good");
@@ -2446,6 +2522,7 @@ function wireComposer() {
     input.value = "";
     showPlat();
     await save({ now: true });
+    kickLiveSync?.();
     renderSide();
     renderComposeFor();
 
@@ -2881,7 +2958,7 @@ function etaFor(a) {
   // who has been waiting well past it is how a pilot loses trust.
   if (waited > est + LATE_SEC) {
     const mins = Math.max(1, Math.round(waited / 60));
-    return { late: true, text: `Taking longer than usual — sent ${mins} minute${mins === 1 ? "" : "s"} ago. Still queued; it'll retry on its own.` };
+    return { late: true, text: `Taking longer than usual — sent ${mins} minute${mins === 1 ? "" : "s"} ago. Still queued; it's picked up whenever the worker next runs.` };
   }
   return { late: false, text: `Usually ready in ${etaWords(est)}.` };
 }
@@ -2895,18 +2972,43 @@ function brandsWithout(item) {
 /** Queue the same saved video for more companies, from wherever it's shown.
     This is the whole point of the library holding one entry per video: a
     source worth remaking is usually worth remaking for more than one client,
-    and re-pasting the link to do it was busywork. */
+    and re-pasting the link to do it was busywork.
+
+    This is the ONLY cap check queueAdaptation() itself doesn't make — the
+    composer submit handler enforces SCRIPT_CAP on its own two paths (2374,
+    2423), but both entry points here (the Library's + Brand chips and
+    ad-brandify) called straight into queueAdaptation with nothing stopping
+    them, which could push an account past 50 from the browser. Refuse the
+    whole call rather than partially queueing some of `brandIds`, matching the
+    composer's own "not enough room for all of them" refusal at 2427-2431 —
+    that one doesn't trim either.
+
+    Returns what it queued and what it skipped so the caller can re-enable
+    whatever UI it disabled and choose its own message — this function has no
+    view of what that control is. */
 async function alsoWriteFor(item, brandIds, afterRender) {
+  const room = SCRIPT_CAP - scriptsUsed();
+  if (room <= 0) {
+    say(`That's all ${SCRIPT_CAP} scripts. Ask for more from Feedback in the menu.`, "bad");
+    return { queued: [], skipped: [] };
+  }
+  if (brandIds.length > room) {
+    say(`That's ${brandIds.length} scripts and you have ${room} left of ${SCRIPT_CAP}. `
+      + `Untick ${brandIds.length - room} to send it.`, "bad");
+    return { queued: [], skipped: [] };
+  }
   const queued = [], skipped = [];
   for (const id of brandIds) {
     const co = brandById(id);
     if (!co) continue;
     (queueAdaptation(item, co).ok ? queued : skipped).push(co.name || "that company");
   }
-  if (!queued.length) return;
+  if (!queued.length) return { queued, skipped };
   await save({ now: true });
+  kickLiveSync?.();
   renderSide();
   if (afterRender) afterRender();
+  return { queued, skipped };
 }
 
 /** The one place a saved video becomes a queued script. Caller saves. */
@@ -3793,7 +3895,14 @@ function renderScripts(b) {
       <p><strong>No scripts yet.</strong></p>
       <div class="bp-actions"><button type="button" class="btn" id="brand-empty-cta">Create first script</button></div>
     </div>`;
-    host.querySelector("#brand-empty-cta").addEventListener("click", () => go({ kind: "new" }));
+    // Carries the brand through, the same way the + in the Scripts header does:
+    // standing in a company is already the answer to "who is this for", so the
+    // composer should not ask again. Sent with nothing ticked, an account with
+    // more than one named brand met a refusal on its very first send.
+    host.querySelector("#brand-empty-cta").addEventListener("click", () => {
+      COMPOSE_FOR = new Set([b.id]);
+      go({ kind: "new" });
+    });
     return;
   }
   host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a, b.name)).join("")}</div>`;
@@ -3988,23 +4097,50 @@ function unlock() {
 }
 
 /** Scripts are written off-page, so poll while the tab is visible and repaint
-    only when something actually changed — and never mid-keystroke. */
+    only when something actually changed — and never mid-keystroke.
+
+    The interval is adaptive: while this creator has something in the worker's
+    queue, checking is cheap and the payoff (surfacing a finished script) is
+    high, so poll every ~5s. Once the queue drains, back off to 60s — nothing
+    is waiting to be noticed. A successful send kicks the loop immediately
+    (each send site calls kickLiveSync() once its save() lands) rather than
+    leaving it on whatever cadence it was idling at, which is what used to
+    hand back 60–120s on the very send this exists to catch. The kick fires
+    only after save() resolves, not from queueAdaptation itself — pull()
+    replaces ME wholesale, and firing it while the new item is still
+    unsaved would race the save and drop the item from local state. */
 let LIVE_STARTED = false;
+let liveTimer = null;
+let kickLiveSync = null;   // set once started; each successful send calls this after its save() lands
 function startLiveSync() {
   if (LIVE_STARTED) return;
   LIVE_STARTED = true;
   const tick = async () => {
-    if (!SB_TOKEN || document.hidden) return;
-    if (SAVE_PENDING) return;          // never pull over an unsaved edit
+    clearTimeout(liveTimer);
+    if (!SB_TOKEN || document.hidden) { schedule(); return; }
+    if (SAVE_PENDING) { schedule(); return; }   // never pull over an unsaved edit
     const before = JSON.stringify(ME.adaptations);
     try { await pull(); } catch { SYNC_OK = false; }
     renderSyncBadge();
-    if (JSON.stringify(ME.adaptations) === before) return;
     const editing = document.activeElement
       && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
-    if (!editing) { renderSide(); renderPane(); }   // counts and scripts move together
+    if (JSON.stringify(ME.adaptations) !== before) {
+      if (!editing) { renderSide(); renderPane(); }   // counts and scripts move together
+    } else if (writingQueue().length && !editing) {
+      // Nothing changed server-side, but a waiting card's ETA is a function of
+      // elapsed time, not of ME.adaptations — left alone it sits on "usually
+      // ready in about a minute" forever if the worker stalls. Repaint so the
+      // late branch gets a chance to fire on its own, no navigation needed.
+      renderPane();
+    }
+    schedule();
   };
-  setInterval(tick, 60000);
+  const schedule = () => {
+    clearTimeout(liveTimer);
+    liveTimer = setTimeout(tick, writingQueue().length ? 5000 : 60000);
+  };
+  kickLiveSync = () => { clearTimeout(liveTimer); tick(); };
+  schedule();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
 }
 

@@ -40,6 +40,47 @@
        into --mono, that is the site-wide revert. */
     --logo: "Share Tech Mono", var(--mono);
     --ease: cubic-bezier(.22, .61, .2, 1);
+
+    /* ---------- FLUID TYPE ----------
+       Every font-size on the site reads from one of these. A token is named
+       after its DESKTOP size (--fs-125 is 12.5px at >=1440px), so a rule's old
+       px value and its token are the same number — that is what makes the
+       conversion checkable.
+
+       --fs-d is the single driver: 0px at a 360px viewport, 100px at 1440px,
+       flat outside that. A token is min + driver * f where f = (max-min)/100,
+       so at >=1440px every token is EXACTLY its old px value and the wide
+       desktop rendering is unchanged by construction.
+
+       The mins are NOT a uniform multiple of the maxes. A single root-level
+       scale factor was rejected for exactly that reason: this file has labels
+       down to 9px, and 0.84 x 9px is not readable. Big steps compress hard
+       (-17%), body copy moderately (-11%), micro-labels barely (-5%). 9px and
+       9.5px have no token and stay literal — they are already at the floor.
+
+       The ramp tops out at 1440px, not 1200px, so a NARROW DESKTOP WINDOW gets
+       a visible reduction too — that was half the original complaint. */
+    --fs-d: clamp(0px, calc((100vw - 360px) / 10.8), 100px);
+    --fs-10:  calc(9.5px  + var(--fs-d) * 0.005);
+    --fs-105: calc(10px   + var(--fs-d) * 0.005);
+    --fs-11:  calc(10.5px + var(--fs-d) * 0.005);
+    --fs-115: calc(11px   + var(--fs-d) * 0.005);
+    --fs-12:  calc(11px   + var(--fs-d) * 0.010);
+    --fs-125: calc(11.5px + var(--fs-d) * 0.010);
+    --fs-13:  calc(12px   + var(--fs-d) * 0.010);
+    --fs-135: calc(12.5px + var(--fs-d) * 0.010);
+    --fs-14:  calc(12.5px + var(--fs-d) * 0.015);
+    --fs-145: calc(13px   + var(--fs-d) * 0.015);
+    --fs-15:  calc(13.5px + var(--fs-d) * 0.015);
+    --fs-155: calc(14px   + var(--fs-d) * 0.015);
+    --fs-16:  calc(14px   + var(--fs-d) * 0.020);
+    --fs-18:  calc(15.5px + var(--fs-d) * 0.025);
+    --fs-19:  calc(16.5px + var(--fs-d) * 0.025);
+    --fs-21:  calc(18px   + var(--fs-d) * 0.030);
+    --fs-26:  calc(22px   + var(--fs-d) * 0.040);
+    --fs-27:  calc(22.5px + var(--fs-d) * 0.045);
+    --fs-30:  calc(25px   + var(--fs-d) * 0.050);
+    --fs-32:  calc(26.5px + var(--fs-d) * 0.055);
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; scroll-padding-top: 76px; /* anchors land below the sticky header */ }
@@ -85,7 +126,13 @@
        Mono, which runs narrow and small — the system mono is wider and taller
        at the same size, so it is stepped down a touch to keep line lengths and
        the header from growing. */
-    font: 14px/1.6 var(--mono);
+    /* Split out of the `font:` shorthand deliberately. A var() inside a
+       shorthand is resolved at computed-value time, so ONE bad token would
+       invalidate the WHOLE shorthand — including font-family — and drop the
+       entire site to Times. Longhands fail one property at a time. */
+    font-family: var(--mono);
+    font-size: var(--fs-14);
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
   }
@@ -103,7 +150,7 @@
      thin even ones. Negative tracking goes too: it was tuned for a
      proportional face and cramps a monospace one. */
   .wordmark {
-    font-family: var(--logo); font-size: 21px; font-weight: 400;
+    font-family: var(--logo); font-size: var(--fs-21); font-weight: 400;
     letter-spacing: 0; margin: 0;
     display: inline-flex; align-items: center; gap: 9px;
   }
@@ -117,8 +164,8 @@
   .gate-card { width: 100%; max-width: 340px; text-align: center; }
   #gate { transition: opacity .16s ease; }
   #gate.leaving { opacity: 0; }
-  .gate-card .wordmark { font-size: 32px; margin-bottom: 34px; }
-  .tagline { color: var(--text-3); margin: 0 0 36px; font-size: 14px; }
+  .gate-card .wordmark { font-size: var(--fs-32); margin-bottom: 34px; }
+  .tagline { color: var(--text-3); margin: 0 0 36px; font-size: var(--fs-14); }
   .field { display: flex; gap: 8px; }
   /* Required, not tidiness: setGateMode hides the whole gate form with
      `.hidden = true` after signup, and the UA stylesheet's [hidden] is a weaker
@@ -129,7 +176,7 @@
   .pw-wrap input {
     width: 100%; padding: 11px 42px 11px 13px;
     background: var(--surface); border: 1px solid var(--line);
-    border-radius: 8px; color: var(--text); font-size: 15px;
+    border-radius: 8px; color: var(--text); font-size: var(--fs-15);
     font-family: var(--mono); letter-spacing: 0.02em;
   }
   .pw-wrap input::placeholder { font-family: inherit; letter-spacing: 0; color: var(--text-3); }
@@ -146,16 +193,16 @@
   .toggle[aria-pressed="true"] .icon-off { display: block; }
   .btn {
     padding: 11px 18px; background: var(--text); color: var(--bg);
-    border: 1px solid var(--text); border-radius: 8px; font-weight: 600; font-size: 15px;
+    border: 1px solid var(--text); border-radius: 8px; font-weight: 600; font-size: var(--fs-15);
     transition: opacity .12s;
   }
   .btn:hover:not(:disabled) { opacity: .85; }
   .btn:disabled { opacity: .45; cursor: default; }
-  .err { color: var(--text-2); font-size: 13px; margin-top: 14px; min-height: 18px; }
+  .err { color: var(--text-2); font-size: var(--fs-13); margin-top: 14px; min-height: 18px; }
 
   /* Sign in ⇄ create an account (creator app). A button, not a link, because
      it changes this form rather than going anywhere. */
-  .gate-switch { color: var(--text-3); font-size: 13px; margin: 18px 0 0; }
+  .gate-switch { color: var(--text-3); font-size: var(--fs-13); margin: 18px 0 0; }
   .linkish {
     background: none; border: 0; padding: 0; color: var(--text);
     font-size: inherit; border-bottom: 1px solid var(--line-2);
@@ -180,7 +227,7 @@
   @media (max-width: 980px) { .sync-mail { display: none; } }
   .tab {
     background: none; border: 0; color: var(--text-3);
-    padding: 6px 12px; border-radius: 7px; font-size: 14px; font-weight: 500;
+    padding: 6px 12px; border-radius: 7px; font-size: var(--fs-14); font-weight: 500;
     white-space: nowrap;
   }
   .tab:hover { color: var(--text-2); background: var(--surface); }
@@ -188,7 +235,7 @@
   .spacer { flex: 1; }
   .ghost {
     background: none; border: 1px solid var(--line); color: var(--text-2);
-    padding: 7px 13px; border-radius: 8px; font-size: 13.5px; font-weight: 500;
+    padding: 7px 13px; border-radius: 8px; font-size: var(--fs-135); font-weight: 500;
   }
   .ghost:hover:not(:disabled) { color: var(--text); border-color: var(--line-2); background: var(--surface); }
   .ghost:disabled { opacity: .35; cursor: default; }
@@ -219,7 +266,7 @@
        lands under DETAILS rather than under Delete — pointing at the wrong
        button would be worse than not pointing at all. */
     margin: 8px 0 0; padding-right: 74px;
-    font-size: 12.5px; color: var(--good);
+    font-size: var(--fs-125); color: var(--good);
     animation: fade-in .3s;
   }
   .detail-point[hidden] { display: none; }
@@ -250,11 +297,11 @@
      form. */
   .ed { margin-top: 4px; }
   .ed-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
-  .ed-field .lbl { font-size: 11px; color: var(--text-3); letter-spacing: .06em; }
+  .ed-field .lbl { font-size: var(--fs-11); color: var(--text-3); letter-spacing: .06em; }
   .ed-input {
     width: 100%; padding: 9px 11px; background: var(--surface-2); color: var(--text);
     border: 1px solid var(--line); border-radius: 8px;
-    font: inherit; font-size: 13px; line-height: 1.5; resize: vertical;
+    font: inherit; font-size: var(--fs-13); line-height: 1.5; resize: vertical;
   }
   .ed-input:focus { outline: none; border-color: var(--line-2); }
   .ed-beats { list-style: none; margin: 0 0 10px; padding: 0; }
@@ -265,10 +312,10 @@
     align-items: start; padding: 12px 0; border-top: 1px solid var(--line);
   }
   .ed-beat:first-child { border-top: 0; }
-  .ed-n { font-size: 11px; color: var(--text-3); padding-top: 10px; }
+  .ed-n { font-size: var(--fs-11); color: var(--text-3); padding-top: 10px; }
   .ed-beat-fields { min-width: 0; }
   .ed-beat-fields .ed-field:last-child { margin-bottom: 0; }
-  .ed-add { font-size: 12.5px; }
+  .ed-add { font-size: var(--fs-125); }
   /* Edit and delete, at the foot of a script card. Pushed right so they sit
      away from Copy and Rewrite — those make another version, these act on the
      one you are reading. */
@@ -305,15 +352,15 @@
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 14px 16px 12px; border-bottom: 1px solid var(--line); flex: none;
   }
-  .modal-title { font-size: 13px; color: var(--text); letter-spacing: .04em; }
+  .modal-title { font-size: var(--fs-13); color: var(--text); letter-spacing: .04em; }
   /* The scrolling half. .legal's own page padding would double up inside a card
      that already has its own, so the prose styles are reused and the box model
      is not. */
   .modal-body {
     overflow-y: auto; padding: 4px 20px 24px;
-    font-size: 13.5px; line-height: 1.7; color: var(--text-2);
+    font-size: var(--fs-135); line-height: 1.7; color: var(--text-2);
   }
-  .modal-body h2 { font-size: 12.5px; margin: 26px 0 8px; color: var(--text); letter-spacing: .04em; }
+  .modal-body h2 { font-size: var(--fs-125); margin: 26px 0 8px; color: var(--text); letter-spacing: .04em; }
   .modal-body h2::before { display: none; }
   .modal-body p { margin: 0 0 12px; }
   .modal-body ul { margin: 0 0 12px; padding-left: 18px; }
@@ -321,7 +368,7 @@
   .modal-body strong { color: var(--text); font-weight: 600; }
   .modal-body a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
   .modal-body a:hover { color: var(--text); }
-  .modal-body .legal-date { color: var(--text-3); font-size: 12px; margin: 8px 0 20px; }
+  .modal-body .legal-date { color: var(--text-3); font-size: var(--fs-12); margin: 8px 0 20px; }
   @media (max-width: 560px) {
     .modal { padding: 0; }
     /* Full-bleed on a phone: a floating card with 24px of backdrop either side
@@ -343,14 +390,14 @@
 
 
   h2 {
-    font-size: 12px; font-weight: 600; margin: 0 0 14px;
+    font-size: var(--fs-12); font-weight: 600; margin: 0 0 14px;
     color: var(--text-3); text-transform: lowercase; letter-spacing: 0.09em;
     display: flex; align-items: center; gap: 10px;
   }
   /* The agency site's eyebrow rule — "— SECTION" — inverted to monochrome. */
   h2::before { content: ""; width: 22px; height: 2px; background: var(--line-2); border-radius: 1px; flex: none; }
   .section { margin-bottom: 40px; }
-  .lede { color: var(--text-2); font-size: 14px; margin: -6px 0 20px; max-width: 62ch; }
+  .lede { color: var(--text-2); font-size: var(--fs-14); margin: -6px 0 20px; max-width: 62ch; }
 
   /* ---------- Stats ---------- */
   /* Explicit columns so rows always fill — auto-fit left blank cells when
@@ -359,9 +406,9 @@
            background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
   @media (max-width: 880px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .stat { background: var(--surface); padding: 18px 20px; }
-  .stat .label { color: var(--text-3); font-size: 11px; text-transform: lowercase; letter-spacing: .08em; margin-bottom: 7px; }
-  .stat .value { font-size: 27px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
-  .stat .sub { color: var(--text-3); font-size: 12px; margin-top: 3px; }
+  .stat .label { color: var(--text-3); font-size: var(--fs-11); text-transform: lowercase; letter-spacing: .08em; margin-bottom: 7px; }
+  .stat .value { font-size: var(--fs-27); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+  .stat .sub { color: var(--text-3); font-size: var(--fs-12); margin-top: 3px; }
 
   /* ---------- Saturation meter ----------
      One row per format: name and median reach on top, the crowding bar under
@@ -375,8 +422,8 @@
   }
   .sat-row:hover, .sat-row:focus-visible { background: var(--surface); outline: none; }
   .sat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-  .sat-name { font-size: 14px; color: var(--text); }
-  .sat-reach { font-family: var(--mono); font-size: 12.5px; color: var(--text-2); white-space: nowrap; }
+  .sat-name { font-size: var(--fs-14); color: var(--text); }
+  .sat-reach { font-family: var(--mono); font-size: var(--fs-125); color: var(--text-2); white-space: nowrap; }
   .sat-meter {
     height: 5px; border-radius: 3px; background: var(--surface-2);
     margin: 7px 0 5px; overflow: hidden;
@@ -388,11 +435,11 @@
   .sat-warm { background: #b08a3e; }
   .sat-hot  { background: var(--bad); }
   .sat-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-  .sat-word { font-size: 11.5px; letter-spacing: .04em; }
+  .sat-word { font-size: var(--fs-115); letter-spacing: .04em; }
   .sat-open-t { color: var(--good); }
   .sat-warm-t { color: #c79a45; }
   .sat-hot-t  { color: var(--bad); }
-  .sat-share { color: var(--text-3); font-size: 11.5px; white-space: nowrap; }
+  .sat-share { color: var(--text-3); font-size: var(--fs-115); white-space: nowrap; }
   @media (max-width: 560px) {
     .sat-head, .sat-foot { flex-wrap: wrap; row-gap: 2px; }
   }
@@ -403,21 +450,21 @@
      actual database — isn't pushed four screens down. */
   .bars-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px 32px; }
   .bars { display: flex; flex-direction: column; gap: 5px; }
-  .bar-row { display: grid; grid-template-columns: 1fr 96px; align-items: center; gap: 12px; font-size: 13px; }
+  .bar-row { display: grid; grid-template-columns: 1fr 96px; align-items: center; gap: 12px; font-size: var(--fs-13); }
   .bar-track { position: relative; background: var(--surface); border-radius: 6px; height: 26px; overflow: hidden; }
   .bar-fill { position: absolute; inset: 0 auto 0 0; background: #ffffff2b; border-radius: 6px 0 0 6px; width: 0; transition: width .7s var(--ease), background .35s ease; }
   /* Hover: the fill brightens a couple of steps — enough to read as selected,
      not enough to flashbang the row. Label stays put and stays readable. */
   .bar-row.drill:hover .bar-fill { background: #ffffff59; }
   .bar-label { position: relative; padding: 4px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bar-count { color: var(--text-2); font-size: 12.5px; text-align: right; font-family: var(--mono); white-space: nowrap; }
-  .bar-pct { color: var(--text-3); font-size: 11px; }
+  .bar-count { color: var(--text-2); font-size: var(--fs-125); text-align: right; font-family: var(--mono); white-space: nowrap; }
+  .bar-pct { color: var(--text-3); font-size: var(--fs-11); }
 
   /* ---------- Controls ---------- */
   .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
   input[type="search"], input[type="url"], select, textarea {
     padding: 9px 12px; background: var(--surface); border: 1px solid var(--line);
-    border-radius: 8px; color: var(--text); font-size: 14px;
+    border-radius: 8px; color: var(--text); font-size: var(--fs-14);
   }
   textarea { resize: vertical; min-height: 58px; line-height: 1.5; }
   .ce-avatar-grid {
@@ -436,17 +483,17 @@
   .pill {
     display: inline-block; margin-left: 8px; padding: 2px 9px;
     background: var(--surface-2); border: 1px solid var(--line); color: var(--text-2);
-    border-radius: 4px; font-size: 11.5px; letter-spacing: 0; text-transform: none; vertical-align: middle;
+    border-radius: 4px; font-size: var(--fs-115); letter-spacing: 0; text-transform: none; vertical-align: middle;
   }
 
   /* ---------- Table ---------- */
   /* The table scrolls inside its own container so the sticky header pins to the
      wrapper, not the page — rows can never bleed through above it. */
   .table-wrap { overflow: auto; max-height: 72vh; border: 1px solid var(--line); border-radius: var(--radius); }
-  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13.5px; }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: var(--fs-135); }
   th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th {
-    background: #131316; color: var(--text-3); font-weight: 600; font-size: 11px;
+    background: #131316; color: var(--text-3); font-weight: 600; font-size: var(--fs-11);
     text-transform: lowercase; letter-spacing: .07em; position: sticky; top: 0; z-index: 5;
     box-shadow: 0 1px 0 var(--line-2);
   }
@@ -459,9 +506,9 @@
   td.title { max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
   td.title a { border: 0; color: var(--text); }
   td.title a:hover { color: var(--text); border-bottom: 1px solid var(--text-3); }
-  td.num { text-align: right; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
-  td.dim { color: var(--text-2); font-size: 12.5px; }
-  .pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; color: var(--text-3); font-size: 13.5px; }
+  td.num { text-align: right; font-family: var(--mono); font-size: var(--fs-125); font-variant-numeric: tabular-nums; }
+  td.dim { color: var(--text-2); font-size: var(--fs-125); }
+  .pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; color: var(--text-3); font-size: var(--fs-135); }
   .no-results, .empty { padding: 34px; text-align: center; color: var(--text-3); }
   .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius); }
   code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 4px; }
@@ -470,29 +517,29 @@
 
   .brief-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
   .brief-form input[type="url"] { flex: 1 1 320px; min-width: 0; }
-  .note { color: var(--text-3); font-size: 12.5px; margin: 10px 0 0; max-width: 70ch; }
-  .lbl { color: var(--text-3); font-size: 12.5px; }
+  .note { color: var(--text-3); font-size: var(--fs-125); margin: 10px 0 0; max-width: 70ch; }
+  .lbl { color: var(--text-3); font-size: var(--fs-125); }
   .warn {
     border: 1px solid var(--line-2); background: var(--surface); border-radius: var(--radius);
-    padding: 13px 16px; color: var(--text-2); font-size: 13.5px; margin: 16px 0 0;
+    padding: 13px 16px; color: var(--text-2); font-size: var(--fs-135); margin: 16px 0 0;
   }
   .plays { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
   .play { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
   .play-head { display: flex; align-items: flex-start; gap: 15px; padding: 16px 18px; }
-  .rank { font-family: var(--mono); font-size: 12px; color: var(--text-3); padding-top: 4px; min-width: 22px; }
-  .play-title { font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 3px; }
-  .play-why { color: var(--text-2); font-size: 13.5px; margin: 0; }
+  .rank { font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); padding-top: 4px; min-width: 22px; }
+  .play-title { font-size: var(--fs-155); font-weight: 600; letter-spacing: -0.01em; margin: 0 0 3px; }
+  .play-why { color: var(--text-2); font-size: var(--fs-135); margin: 0; }
   .metrics { display: flex; gap: 20px; flex-wrap: wrap; margin-left: auto; text-align: right; padding-top: 2px; }
-  .metric .m-val { font-family: var(--mono); font-size: 15px; font-weight: 600; }
-  .metric .m-lbl { color: var(--text-3); font-size: 10.5px; text-transform: lowercase; letter-spacing: .07em; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10.5px;
+  .metric .m-val { font-family: var(--mono); font-size: var(--fs-15); font-weight: 600; }
+  .metric .m-lbl { color: var(--text-3); font-size: var(--fs-105); text-transform: lowercase; letter-spacing: .07em; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: var(--fs-105);
            text-transform: lowercase; letter-spacing: .07em; border: 1px solid var(--line-2); color: var(--text-3); }
   .badge.strong { color: var(--text); border-color: var(--text-3); }
   .examples { border-top: 1px solid var(--line); background: var(--surface-2); padding: 4px 18px 10px; }
-  .ex { display: flex; align-items: baseline; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .ex { display: flex; align-items: baseline; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-13); }
   .ex:last-child { border-bottom: 0; }
   .ex-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
-  .ex-meta { font-family: var(--mono); font-size: 12px; color: var(--text-3); white-space: nowrap; }
+  .ex-meta { font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; }
   .ex a { border: 0; color: var(--text-3); }
   .ex a:hover { color: var(--text); }
 
@@ -521,7 +568,7 @@
   .loader-mark .a3 { animation-delay: .26s; }
   .loader-mark .a4 { animation-delay: .39s; }
   .loader-text { min-width: 0; }
-  .loader-stage { font-size: 15px; }
+  .loader-stage { font-size: var(--fs-15); }
   .loader-sub { margin-top: 2px; }
   /* The same mark on a line of text — the sign-in gate's status line has no
      room for the 46px block form, but "Loading database…" is a long enough
@@ -534,21 +581,21 @@
   .loader.inline .loader-mark { width: 20px; height: 20px; }
 
   /* Client brief: site analysis */
-  .progress { color: var(--text-3); font-size: 14px; padding: 18px 0; }
+  .progress { color: var(--text-3); font-size: var(--fs-14); padding: 18px 0; }
   @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
   .site-card {
     background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
     padding: 16px 18px; margin: 18px 0 6px;
   }
   .site-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .site-desc { color: var(--text-2); font-size: 14px; margin: 8px 0 0; max-width: 70ch; }
+  .site-desc { color: var(--text-2); font-size: var(--fs-14); margin: 8px 0 0; max-width: 70ch; }
 
   /* Client details editor */
   .client-editor {
     background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
     padding: 16px 18px; margin: 14px 0 4px;
   }
-  .ce-title { font-size: 14px; margin: 0 0 12px; color: var(--text-2); text-transform: lowercase; letter-spacing: .05em; }
+  .ce-title { font-size: var(--fs-14); margin: 0 0 12px; color: var(--text-2); text-transform: lowercase; letter-spacing: .05em; }
   .ce-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
   .ce-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .ce-wide { grid-column: 1 / -1; }
@@ -558,7 +605,7 @@
      <input> stacked above it. */
   .ce-field input, .ce-field select {
     background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
-    color: var(--text); font: inherit; font-size: 14px; padding: 9px 11px; min-width: 0;
+    color: var(--text); font: inherit; font-size: var(--fs-14); padding: 9px 11px; min-width: 0;
     max-width: none; width: 100%;
   }
   .ce-field input:focus, .ce-field select:focus { outline: none; border-color: var(--line-2); }
@@ -582,7 +629,7 @@
      creator side's rule — it must not restyle them. */
   .ce-field textarea.grow {
     background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
-    color: var(--text); font: inherit; font-size: 14px; padding: 9px 11px; min-width: 0;
+    color: var(--text); font: inherit; font-size: var(--fs-14); padding: 9px 11px; min-width: 0;
     resize: none; overflow: hidden; min-height: 0; line-height: 1.5; display: block;
   }
   .ce-field textarea.grow:focus {
@@ -596,9 +643,9 @@
     margin: 14px 0; padding: 10px 14px;
   }
   .tray-inner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .tray-count { font-size: 14px; }
-  .tray-count strong { font-family: var(--mono); font-size: 16px; }
-  .tray-hint { color: var(--text-3); font-size: 13px; }
+  .tray-count { font-size: var(--fs-14); }
+  .tray-count strong { font-family: var(--mono); font-size: var(--fs-16); }
+  .tray-hint { color: var(--text-3); font-size: var(--fs-13); }
   .tray.shake { animation: shake .4s; }
   @keyframes shake { 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
 
@@ -628,9 +675,9 @@
   .vframe.vf-wide { aspect-ratio: 16 / 9; }
   .vframe iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
   .vmeta { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
-  .vtitle { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .vstats { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); }
-  .vtags { font-size: 12px; color: var(--text-2); }
+  .vtitle { font-size: var(--fs-13); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vstats { font-family: var(--mono); font-size: var(--fs-115); color: var(--text-3); }
+  .vtags { font-size: var(--fs-12); color: var(--text-2); }
   .vtags a { border: 0; color: var(--text-3); }
   .vtags a:hover { color: var(--text); }
   /* "Add" is a pill chip, not a raw checkbox: + Add → ✓ Added (filled). The
@@ -639,7 +686,7 @@
   .vpick {
     display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
     padding: 5px 13px; border: 1px solid var(--line); border-radius: 999px;
-    font-size: 12.5px; font-weight: 500; color: var(--text-2);
+    font-size: var(--fs-125); font-weight: 500; color: var(--text-2);
     cursor: pointer; user-select: none;
     transition: background .15s, color .15s, border-color .15s;
   }
@@ -654,13 +701,13 @@
 
   /* Tailored script on a picked card */
   .vscript { border-top: 1px dashed var(--line-2); padding: 12px 14px; }
-  .vs-hook { font-size: 13px; font-style: italic; margin: 6px 0 8px; }
-  .vs-beat { font-size: 12.5px; color: var(--text-2); margin: 0 0 6px; white-space: pre-line; }
+  .vs-hook { font-size: var(--fs-13); font-style: italic; margin: 6px 0 8px; }
+  .vs-beat { font-size: var(--fs-125); color: var(--text-2); margin: 0 0 6px; white-space: pre-line; }
   .vs-cta { color: var(--text); }
 
   /* Collapsed scoreboard */
   .playbook { margin: 8px 0 20px; }
-  .playbook summary { color: var(--text-3); font-size: 13px; cursor: pointer; padding: 8px 0; }
+  .playbook summary { color: var(--text-3); font-size: var(--fs-13); cursor: pointer; padding: 8px 0; }
   .playbook summary:hover { color: var(--text-2); }
 
   /* Static video frames: thumbnail + play button; iframe only after a click */
@@ -668,7 +715,7 @@
   .vthumb { width: 100%; height: 100%; object-fit: cover; display: block; }
   .vthumb-pending, .vthumb-none {
     width: 100%; height: 100%; display: grid; place-items: center;
-    color: var(--text-3); font-size: 12px; text-transform: capitalize;
+    color: var(--text-3); font-size: var(--fs-12); text-transform: capitalize;
     background: linear-gradient(160deg, var(--surface-2), var(--surface));
   }
   .vplay {
@@ -693,12 +740,12 @@
   /* Collapsible client editor */
   .ce-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .ce-head .ce-title { margin: 0; }
-  .ce-toggle { margin-left: auto; padding: 5px 11px; font-size: 12.5px; }
+  .ce-toggle { margin-left: auto; padding: 5px 11px; font-size: var(--fs-125); }
   .ce-body { margin-top: 14px; }
   .client-editor.collapsed .ce-body { display: none; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip {
-    font-size: 12px; color: var(--text-2); background: var(--surface-2);
+    font-size: var(--fs-12); color: var(--text-2); background: var(--surface-2);
     border: 1px solid var(--line); border-radius: 4px; padding: 3px 9px; white-space: nowrap;
   }
   .chip.good { color: var(--good); border-color: var(--good); }
@@ -720,7 +767,7 @@
   .bp-form[hidden] ~ #bp-note { display: none; }
   .bp-plat {
     position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
+    font-family: var(--mono); font-size: var(--fs-105); letter-spacing: .04em;
     color: var(--text-3); border: 1px solid var(--line); border-radius: 4px;
     padding: 2px 6px; pointer-events: none; opacity: 0;
     transition: opacity .16s var(--ease);
@@ -749,7 +796,7 @@
   }
 
   .bp-msg {
-    font-size: 12px; margin: 8px 0 0; color: var(--text-2);
+    font-size: var(--fs-12); margin: 8px 0 0; color: var(--text-2);
     max-height: 0; opacity: 0; overflow: hidden;
     transition: opacity .18s var(--ease), max-height .18s var(--ease);
   }
@@ -766,14 +813,14 @@
   .bp-item:hover { border-color: var(--line-2); }
   .bp-item > summary {
     cursor: pointer; display: flex; align-items: center; gap: 10px;
-    padding: 11px 14px; font-size: 13px; list-style: none;
+    padding: 11px 14px; font-size: var(--fs-13); list-style: none;
   }
   .bp-item > summary::-webkit-details-marker { display: none; }
   /* A frame from the source video. Portrait, because short-form is, and a
      square crop of a 9:16 frame throws away the part with the face in it.
      The surface-2 background means a slow or missing image leaves a neutral
      tile rather than a flash of nothing that reflows the row. */
-  .bp-caret { color: var(--text-3); font-size: 10px; transition: transform .18s var(--ease); }
+  .bp-caret { color: var(--text-3); font-size: var(--fs-10); transition: transform .18s var(--ease); }
   .bp-item[open] .bp-caret { transform: rotate(90deg); }
   /* Cover art on a blueprint row. Fixed box so a missing cover leaves the row
      exactly as tall as one that has it — Instagram never resolves a thumbnail
@@ -823,8 +870,8 @@
     background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
   }
   .bp-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bp-when { color: var(--text-3); font-size: 11px; white-space: nowrap; }
-  .bp-open { color: var(--text-3); text-decoration: none; font-size: 12px; }
+  .bp-when { color: var(--text-3); font-size: var(--fs-11); white-space: nowrap; }
+  .bp-open { color: var(--text-3); text-decoration: none; font-size: var(--fs-12); }
   .bp-open:hover { color: var(--text); }
   /* Opening drops the body down out of its own summary; closing lifts it back
      up into it. The pair is what makes a card read as a drawer belonging to the
@@ -852,21 +899,21 @@
     100% { border-color: var(--line); background: var(--surface); }
   }
 
-  .bp-hint { font-size: 12px; color: var(--text-3); margin: 6px 0 10px; line-height: 1.5; }
+  .bp-hint { font-size: var(--fs-12); color: var(--text-3); margin: 6px 0 10px; line-height: 1.5; }
   .bp-hint.bad { color: var(--bad); }
   /* Half a blueprint — flag it, don't let it read as the whole thing. */
   .bp-partial { border-left: 2px solid var(--line-2); padding-left: 10px; }
   .bp-tags { margin: 4px 0 10px; }
   .bp-hook {
-    font-size: 13.5px; font-style: italic; line-height: 1.5;
+    font-size: var(--fs-135); font-style: italic; line-height: 1.5;
     border-left: 2px solid var(--good); padding: 4px 0 4px 12px; margin: 0 0 12px;
   }
   .bp-hook-lbl {
-    display: block; font-style: normal; font-size: 10px; letter-spacing: .1em;
+    display: block; font-style: normal; font-size: var(--fs-10); letter-spacing: .1em;
     text-transform: lowercase; color: var(--text-3); margin-bottom: 3px;
   }
   .bp-heading {
-    font-size: 10.5px; letter-spacing: .08em; text-transform: lowercase;
+    font-size: var(--fs-105); letter-spacing: .08em; text-transform: lowercase;
     color: var(--text-3); margin-bottom: 4px;
   }
 
@@ -880,7 +927,7 @@
     display: inline-flex; align-items: center; gap: 8px;
     background: var(--surface); border: 1px solid var(--line);
     border-radius: var(--radius); padding: 8px 12px; color: var(--text-2);
-    font-size: 12.5px; cursor: pointer;
+    font-size: var(--fs-125); cursor: pointer;
     transition: border-color .14s var(--ease), color .14s var(--ease);
   }
   .db-mode:hover { border-color: var(--line-2); color: var(--text); }
@@ -894,21 +941,21 @@
   .src-tag {
     display: inline-flex; align-items: baseline; gap: 6px;
     border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px;
-    font-size: 11.5px; color: var(--text-2);
+    font-size: var(--fs-115); color: var(--text-2);
   }
-  .src-tag i { font-style: normal; color: var(--text-3); font-size: 10px; letter-spacing: .06em; }
+  .src-tag i { font-style: normal; color: var(--text-3); font-size: var(--fs-10); letter-spacing: .06em; }
   /* "views —" means NEVER FETCHED, not zero. Muted so it reads as absent data
      rather than a measurement of nothing. */
   .src-nodata { color: var(--text-3); }
-  .src-fname { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; }
+  .src-fname { margin: 0 0 8px; font-size: var(--fs-135); line-height: 1.5; }
   .src-beats { margin: 8px 0 0; padding-left: 0; list-style: none; counter-reset: b; }
   .src-beats li {
     display: grid; grid-template-columns: 4ch 1fr; gap: 10px;
     padding: 6px 0; border-top: 1px solid var(--line);
-    font-size: 12.5px; line-height: 1.55; color: var(--text-2);
+    font-size: var(--fs-125); line-height: 1.55; color: var(--text-2);
   }
   .src-beats li:first-child { border-top: 0; }
-  .src-bt { font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+  .src-bt { font-family: var(--mono); font-size: var(--fs-11); color: var(--text-3); }
   /* Each beat answers three questions in its own labelled row: what to SAY,
      what to DO, what to SHOW on screen. Time in column one, label in two. */
   .bp-beats { list-style: none; margin: 0; padding: 0; }
@@ -923,7 +970,7 @@
     padding: 9px 0; border-top: 1px solid var(--line);
   }
   .bp-beat:first-child { border-top: 0; }
-  .bp-t { font-family: var(--mono); font-size: 11px; color: var(--text-3); padding-top: 3px; }
+  .bp-t { font-family: var(--mono); font-size: var(--fs-11); color: var(--text-3); padding-top: 3px; }
   /* Creator scripts drop the timing column (creator.js emits no .bp-t and no
      spacer spans). Scoped so the agency blueprints, which share .bp-beat and
      DO show timings against a specific video, are untouched. */
@@ -935,8 +982,8 @@
   /* SHOW lines are literal on-screen text cards and routinely arrive with
      line breaks ("59 questions\n6 minutes each"). Collapsing them lost the
      card layout the creator is supposed to reproduce. */
-  .bp-val { font-size: 13px; line-height: 1.5; white-space: pre-line; }
-  .bp-val.bp-dim { font-size: 12.5px; color: var(--text-2); }
+  .bp-val { font-size: var(--fs-13); line-height: 1.5; white-space: pre-line; }
+  .bp-val.bp-dim { font-size: var(--fs-125); color: var(--text-2); }
 
   /* A beat can hold one, two or three lines, in any combination — say+do,
      do+show, say+show, all three. Whatever the combination, the FIRST line is
@@ -972,15 +1019,15 @@
      three items is noise. */
   .lib-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
   .lib-tools input[type="search"] { flex: 1 1 220px; }
-  .lib-shown { color: var(--text-3); font-size: 12px; white-space: nowrap; }
-  .lib-plat { font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; }
+  .lib-shown { color: var(--text-3); font-size: var(--fs-12); white-space: nowrap; }
+  .lib-plat { font-family: var(--mono); font-size: var(--fs-105); letter-spacing: .04em; }
   .lib-item > summary .chip { flex: none; }
   .lib-cap {
     color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3;
     -webkit-box-orient: vertical; overflow: hidden;
   }
   .lib-item .bp-heading { margin-top: 16px; }
-  .lib-item .bp-actions .btn { padding: 9px 16px; font-size: 14px; }
+  .lib-item .bp-actions .btn { padding: 9px 16px; font-size: var(--fs-14); }
   /* Scripts nested inside a Library entry. (These replaced .lib-made, a list of
      links out to other pages — the script is rendered here now.)
 
@@ -1031,10 +1078,10 @@
 
   /* Compact shelf card row */
   .vrow { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
-  .vstat { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
+  .vstat { font-family: var(--mono); font-size: var(--fs-115); color: var(--text-3); white-space: nowrap; }
   .vdetails {
     background: none; border: 1px solid var(--line); border-radius: 6px;
-    color: var(--text-2); font: inherit; font-size: 12px; padding: 3px 10px; cursor: pointer;
+    color: var(--text-2); font: inherit; font-size: var(--fs-12); padding: 3px 10px; cursor: pointer;
   }
   .vdetails:hover { color: var(--text); border-color: var(--line-2); }
   .vpick { margin-left: auto; margin-top: 0; }
@@ -1058,7 +1105,7 @@
   .modal-player.vf-short { aspect-ratio: 9 / 16; }
   .modal-player.vf-wide { aspect-ratio: 16 / 9; grid-column: 1 / -1; }
   .modal-info { min-width: 0; }
-  .modal-title { font-size: 15px; margin: 0 0 6px; padding-right: 40px; }
+  .modal-title { font-size: var(--fs-15); margin: 0 0 6px; padding-right: 40px; }
   .modal-metrics { display: flex; gap: 18px; margin: 14px 0; flex-wrap: wrap; }
   .modal-info .chips { margin: 4px 0 12px; }
   .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
@@ -1084,7 +1131,7 @@
   /* Buttons inside a clickable card keep their own cursor. */
   .bcard.opens button { cursor: pointer; }
   .bcard-main { min-width: 0; flex: 1; }
-  .bcard-title { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bcard-title { font-size: var(--fs-15); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .b-del.armed { color: #f0b3b3; border-color: #6b3a3a; background: #2a1414; }
 
   /* Brief viewer: video up top, script + details, flip-through */
@@ -1101,11 +1148,11 @@
   }
   .crumb-link {
     background: none; border: none; padding: 2px 4px; cursor: pointer;
-    color: var(--text-3); font: inherit; font-size: 13px; border-radius: 6px;
+    color: var(--text-3); font: inherit; font-size: var(--fs-13); border-radius: 6px;
   }
   .crumb-link:hover { color: var(--text); background: var(--surface); }
-  .crumb-sep { color: var(--text-3); opacity: .5; font-size: 13px; }
-  .crumb-here { color: var(--text); font-size: 13px; font-weight: 600; padding: 2px 4px; }
+  .crumb-sep { color: var(--text-3); opacity: .5; font-size: var(--fs-13); }
+  .crumb-here { color: var(--text); font-size: var(--fs-13); font-weight: 600; padding: 2px 4px; }
   .crumbs .spacer { flex: 1; }
   /* Title on the left, Details on the right — the same shape as .sec-head, but
      this row carries a two-line title so it aligns to the top rather than the
@@ -1113,7 +1160,7 @@
   .page-head { margin-bottom: 18px; display: flex; align-items: flex-start; gap: 12px; }
   .page-head .minw0 { flex: 1 1 auto; min-width: 0; }
   .page-head #cl-details { flex: 0 0 auto; }
-  .page-head .bcard-title { font-size: 19px; }
+  .page-head .bcard-title { font-size: var(--fs-19); }
 
   /* Everything recorded about a client, behind the Details button. */
   .client-details {
@@ -1141,7 +1188,7 @@
      mode this codebase has been bitten by before. A plain attribute toggle
      cannot do that. */
   .sug-hint {
-    color: var(--bad); margin: 0 0 10px; font-size: 12.5px;
+    color: var(--bad); margin: 0 0 10px; font-size: var(--fs-125);
     animation: hint-shake .45s var(--ease);
   }
   .sug-hint[hidden] { display: none; }
@@ -1161,7 +1208,7 @@
 
   /* Performance tracking: green = beating benchmark, red = under it */
   :root { --good: #57c98a; --bad: #e06c6c; --even: #d8a657; }
-  .verdict { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  .verdict { font-family: var(--mono); font-size: var(--fs-12); white-space: nowrap; }
   .verdict.good { color: var(--good); }
   .verdict.bad { color: var(--bad); }
   .verdict.even { color: var(--even); }
@@ -1170,12 +1217,12 @@
   .fmt-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
   .fmt-card.good { border-color: #2c4a39; }
   .fmt-card.bad { border-color: #4a2c2c; }
-  .fmt-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; font-size: 13.5px; }
+  .fmt-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; font-size: var(--fs-135); }
   .fmt-card.expandable .fmt-head { cursor: pointer; border-radius: 6px; }
   .fmt-card.expandable .fmt-head:hover strong { color: var(--text); }
   .fmt-card.expandable .fmt-head:hover .caret { color: var(--text); }
   .fmt-head-right { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
-  .caret { color: var(--text-3); font-size: 12px; transition: color .12s; }
+  .caret { color: var(--text-3); font-size: var(--fs-12); transition: color .12s; }
   .fmt-card.expanded { grid-column: 1 / -1; }
   .card-detail {
     display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start;
@@ -1191,7 +1238,7 @@
     header .wordmark span { display: none; }   /* keep the ✕ mark, drop the text */
     header nav { margin-left: 0; overflow-x: auto; scrollbar-width: none; }
     header nav::-webkit-scrollbar { display: none; }
-    .tab { padding: 6px 10px; font-size: 13.5px; }
+    .tab { padding: 6px 10px; font-size: var(--fs-135); }
     header .sync-state { display: none; }      /* no room for the sync signal here */
     main { padding: 24px 14px 60px; }
     .metrics { margin-left: 0; text-align: left; width: 100%; }
@@ -1201,7 +1248,7 @@
        its content without this, so at 375px the three tabs pushed Sign out
        43px off-screen and the whole page scrolled sideways. */
     header nav { flex: 1 1 auto; min-width: 0; }
-    header #signout { flex: 0 0 auto; padding: 6px 10px; font-size: 12.5px; }
+    header #signout { flex: 0 0 auto; padding: 6px 10px; font-size: var(--fs-125); }
 
     /* A section title and its action share one line until the action grows a
        label ("Build brief 2 with 3 picked"), which does not fit beside a title
@@ -1284,7 +1331,7 @@
        the media query, when a mobile override silently does nothing. */
     .trash-row .trash-caret {
       display: inline-block; margin-right: 7px; color: var(--text-3);
-      font-size: 10px; transition: transform .18s var(--ease);
+      font-size: var(--fs-10); transition: transform .18s var(--ease);
     }
     .trash-row.open .trash-caret { transform: rotate(90deg); }
 
@@ -1314,7 +1361,7 @@
   .week-head { flex: 1; min-width: 0; text-align: center; }
   .week-arrow {
     width: 34px; height: 34px; padding: 0; flex: none;
-    display: grid; place-items: center; font-size: 15px;
+    display: grid; place-items: center; font-size: var(--fs-15);
   }
   .week-arrow:disabled { opacity: .22; cursor: default; }
 
@@ -1335,7 +1382,7 @@
   .field.login { flex-direction: column; gap: 8px; }
   .field.login input[type="email"] {
     width: 100%; padding: 11px 13px; background: var(--surface);
-    border: 1px solid var(--line); border-radius: 8px; color: var(--text); font-size: 15px;
+    border: 1px solid var(--line); border-radius: 8px; color: var(--text); font-size: var(--fs-15);
     font-family: var(--mono); letter-spacing: 0.02em;
   }
   .field.login input[type="email"]::placeholder { font-family: inherit; letter-spacing: 0; color: var(--text-3); }
@@ -1343,7 +1390,7 @@
   .field.login .pw-wrap { width: 100%; }
   .field.login .btn { width: 100%; }
   .sync-state {
-    font-size: 12px; color: var(--text-3); font-family: var(--mono);
+    font-size: var(--fs-12); color: var(--text-3); font-family: var(--mono);
     display: inline-flex; align-items: center; gap: 6px;
     min-width: 0;
   }
@@ -1408,7 +1455,7 @@
      the footer scrolls in — all settled by the bottom of the page. Monospace
      means every glyph has the same advance, so nothing jitters. */
   .foot-wordmark {
-    font-family: var(--logo); font-size: clamp(44px, 7.5vw, 76px);
+    font-family: var(--logo); font-size: clamp(30px, 7.5vw, 76px);
     line-height: 1.1; text-align: center; margin: 0 auto 44px;
     user-select: none; pointer-events: none; color: var(--text);
   }
@@ -1421,19 +1468,19 @@
     gap: 40px; padding-bottom: 36px; border-bottom: 1px solid var(--line);
   }
   .foot-brand .mark { width: 40px; height: 40px; margin-bottom: 14px; }
-  .foot-brand p { margin: 0; color: var(--text-2); font-size: 14px; max-width: 44ch; }
+  .foot-brand p { margin: 0; color: var(--text-2); font-size: var(--fs-14); max-width: 44ch; }
   .foot-label {
-    color: var(--text-3); font-size: 11px; font-weight: 600;
+    color: var(--text-3); font-size: var(--fs-11); font-weight: 600;
     text-transform: lowercase; letter-spacing: .09em; margin-bottom: 12px;
   }
   .foot-col { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
   .foot-link {
     background: none; border: 0; padding: 0; color: var(--text-2);
-    font-size: 14px; cursor: pointer; border-bottom: 1px solid transparent;
+    font-size: var(--fs-14); cursor: pointer; border-bottom: 1px solid transparent;
   }
   .foot-link:hover { color: var(--text); border-bottom-color: var(--line-2); }
   a.foot-link { text-decoration: none; }
-  .foot-legal { padding-top: 22px; color: var(--text-3); font-size: 12.5px; }
+  .foot-legal { padding-top: 22px; color: var(--text-3); font-size: var(--fs-125); }
   @media (max-width: 700px) {
     .foot-grid { grid-template-columns: 1fr; gap: 28px; }
     .foot-wordmark { margin-bottom: 36px; }
@@ -1446,10 +1493,10 @@
   .ce-body { font-family: inherit; }
   .ce-body .lbl {
     font-family: inherit;
-    text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text-2);
+    text-transform: none; letter-spacing: 0; font-size: var(--fs-13); color: var(--text-2);
   }
   .ce-body input, .ce-body select, .ce-body textarea {
-    font-family: inherit; font-size: 14px; line-height: 1.5;
+    font-family: inherit; font-size: var(--fs-14); line-height: 1.5;
   }
   .ce-body ::placeholder { color: var(--text-3); opacity: .8; }
   .ce-grid { gap: 16px 18px; }
@@ -1462,14 +1509,14 @@
     gap: 14px 22px; padding: 2px 14px 14px;
   }
   .avatar-grid .av-label {
-    font-size: 11px; color: var(--text-3); text-transform: lowercase;
+    font-size: var(--fs-11); color: var(--text-3); text-transform: lowercase;
     letter-spacing: .07em; margin-bottom: 3px;
   }
-  .avatar-grid .av-text { font-size: 13.5px; color: var(--text-2); line-height: 1.55; }
+  .avatar-grid .av-text { font-size: var(--fs-135); color: var(--text-2); line-height: 1.55; }
 
   /* Reach-confidence tier chip on shelf cards (SCRAPING_SPEC) */
   .tier-chip {
-    font-family: var(--mono); font-size: 10.5px; padding: 1px 7px;
+    font-family: var(--mono); font-size: var(--fs-105); padding: 1px 7px;
     border-radius: 4px; border: 1px solid var(--line-2); color: var(--text-2);
     white-space: nowrap;
   }
@@ -1485,7 +1532,7 @@
     display: block; width: 100%; box-sizing: border-box; resize: vertical;
     min-height: 62px; padding: 10px 12px;
     background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
-    color: var(--text); font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+    color: var(--text); font-family: var(--mono); font-size: var(--fs-125); line-height: 1.6;
   }
   .bp-editor textarea.bp-beat-edit:focus { border-color: var(--line-2); outline: none; }
   .bp-editor .bp-actions { margin-top: 6px; }
@@ -1496,7 +1543,7 @@
   .post-form input[type="url"] { flex: 1 1 260px; }
   .post-form input, .post-form select {
     padding: 9px 12px; background: var(--surface); border: 1px solid var(--line);
-    border-radius: 8px; color: var(--text); font: inherit; font-size: 14px; min-width: 0;
+    border-radius: 8px; color: var(--text); font: inherit; font-size: var(--fs-14); min-width: 0;
   }
 
   /* A section title with its action pinned to the far right, flush with the
@@ -1543,11 +1590,11 @@
      7+ green (go), 5-6 amber (workable), under 5 red (crowded or weak). */
   .sug-score {
     display: inline-flex; align-items: baseline; gap: 1px;
-    font-family: var(--mono); font-size: 15px; font-weight: 600;
+    font-family: var(--mono); font-size: var(--fs-15); font-weight: 600;
     border: 1px solid var(--line); border-radius: 4px;
     padding: 1px 7px; white-space: nowrap; color: var(--text-2);
   }
-  .sug-score i { font-style: normal; font-size: 10px; font-weight: 400; color: var(--text-3); }
+  .sug-score i { font-style: normal; font-size: var(--fs-10); font-weight: 400; color: var(--text-3); }
   .sug-score.good { color: var(--good); border-color: #2c4a39; }
   .sug-score.even { color: var(--even); border-color: #4a412c; }
   .sug-score.bad  { color: var(--bad);  border-color: #4a2c2c; }
@@ -1565,7 +1612,7 @@
     animation: soft-in .12s var(--ease);
   }
   .score-tip[hidden] { display: none; }
-  .st-foot { margin: 0; color: var(--text-2); font-size: 11.5px; line-height: 1.5; }
+  .st-foot { margin: 0; color: var(--text-2); font-size: var(--fs-115); line-height: 1.5; }
   /* The pointer: a rotated square borrowing the panel's own border and fill, so
      only its two outer edges show. Its left is set from the CHIP's centre in JS,
      because the panel gets clamped at the viewport edges and the two centres
@@ -1602,13 +1649,13 @@
     width: 100%; height: 100%; object-fit: contain; align-self: stretch; justify-self: stretch;
   }
   .sug-card .vrow { flex-wrap: wrap; gap: 8px; }
-  .sug-card .vstat { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); }
+  .sug-card .vstat { font-family: var(--mono); font-size: var(--fs-115); color: var(--text-3); }
   .sug-card .vtitle { white-space: normal; display: -webkit-box;
     -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .sug-acts { justify-content: space-between; }
   .sug-more {
     background: none; border: 0; padding: 0; cursor: pointer;
-    font: inherit; font-size: 12px; color: var(--text-3);
+    font: inherit; font-size: var(--fs-12); color: var(--text-3);
     border-bottom: 1px solid var(--line-2);
   }
   .sug-more:hover { color: var(--text); }
@@ -1620,13 +1667,13 @@
     margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line);
   }
   .sug-detail[hidden] { display: none; }
-  .sug-drow { display: flex; gap: 12px; align-items: baseline; font-size: 11.5px; line-height: 1.55; }
+  .sug-drow { display: flex; gap: 12px; align-items: baseline; font-size: var(--fs-115); line-height: 1.55; }
   /* Sized in ch, not px: at 62px the longest label ("engagement") overflowed
      its own column and collided with its value. ch tracks the font, so the
      column stays correct if the base size ever changes. */
   .sug-dk { flex: 0 0 12ch; color: var(--text-3); }
   .sug-dv { flex: 1 1 auto; min-width: 0; color: var(--text-2); overflow-wrap: anywhere; }
-  .sug-open { display: inline-block; margin-top: 6px; font-size: 11.5px; border: 0; color: var(--text-3); }
+  .sug-open { display: inline-block; margin-top: 6px; font-size: var(--fs-115); border: 0; color: var(--text-3); }
   .sug-open:hover { color: var(--text); }
 
 
@@ -1651,13 +1698,13 @@
     background: var(--surface); position: sticky; top: 0; height: 100svh;
   }
   .side-brand { display: flex; align-items: center; gap: 9px; padding: 6px 8px 14px; }
-  .side-brand .wordmark { font-size: 18px; }
+  .side-brand .wordmark { font-size: var(--fs-18); }
 
   .side-new {
     display: flex; align-items: center; gap: 9px; width: 100%;
     padding: 9px 10px; margin-bottom: 6px; text-align: left;
     background: var(--text); color: var(--bg); border: 1px solid var(--text);
-    border-radius: 8px; font-weight: 600; font-size: 13.5px;
+    border-radius: 8px; font-weight: 600; font-size: var(--fs-135);
   }
   .side-new:hover { opacity: .85; }
 
@@ -1665,26 +1712,26 @@
     display: flex; align-items: center; gap: 9px; width: 100%;
     padding: 8px 10px; text-align: left; border-radius: 8px;
     background: none; border: 1px solid transparent;
-    color: var(--text-2); font-size: 13.5px; min-width: 0;
+    color: var(--text-2); font-size: var(--fs-135); min-width: 0;
   }
   .side-link:hover, .side-item:hover { background: var(--hover); color: var(--text); }
   .side-link.on, .side-item.on { background: var(--surface-2); color: var(--text); border-color: var(--line); }
   .side-ico { flex: none; width: 15px; height: 15px; opacity: .8; }
   .side-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .side-count { flex: none; font-size: 11px; color: var(--text-3); font-family: var(--mono); }
+  .side-count { flex: none; font-size: var(--fs-11); color: var(--text-3); font-family: var(--mono); }
   .side-item.on .side-count { color: var(--text-2); }
 
   .side-head {
-    font-size: 10px; letter-spacing: .1em; text-transform: lowercase;
+    font-size: var(--fs-10); letter-spacing: .1em; text-transform: lowercase;
     color: var(--text-3); padding: 16px 10px 6px;
   }
   .side-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
-  .side-empty { color: var(--text-3); font-size: 12.5px; padding: 4px 10px; line-height: 1.5; }
+  .side-empty { color: var(--text-3); font-size: var(--fs-125); padding: 4px 10px; line-height: 1.5; }
   .side-foot { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px; }
-  .side-who { color: var(--text-3); font-size: 11.5px; padding: 0 10px 8px; overflow: hidden; text-overflow: ellipsis; }
+  .side-who { color: var(--text-3); font-size: var(--fs-115); padding: 0 10px 8px; overflow: hidden; text-overflow: ellipsis; }
   /* Scripts used / allowed. Quiet until it is spent, then it is the answer to
      "why won't it send" and needs to be the thing you notice. */
-  .side-quota { color: var(--text-3); font-size: 11.5px; padding: 0 10px 8px; }
+  .side-quota { color: var(--text-3); font-size: var(--fs-115); padding: 0 10px 8px; }
   .side-quota.spent { color: var(--bad); }
   .quota-bar {
     display: block; height: 3px; margin-top: 5px; border-radius: 2px;
@@ -1731,8 +1778,8 @@
      uppercase + dash marker. */
   .pane-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
   .pane-title .bcard-title { min-width: 0; }
-  .pane-title .bcard-title { font-size: 19px; }
-  .pane-sub { color: var(--text-3); font-size: 12.5px; margin: 5px 0 0; }
+  .pane-title .bcard-title { font-size: var(--fs-19); }
+  .pane-sub { color: var(--text-3); font-size: var(--fs-125); margin: 5px 0 0; }
   .pane-body { flex: 1 1 auto; padding: 20px var(--gutter) 8px; width: 100%; }
   .pane-scroll { flex: 1 1 auto; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; }
 
@@ -1750,7 +1797,7 @@
   .composer-row:focus-within { border-color: var(--text-3); }
   .composer-row input {
     flex: 1 1 auto; background: none; border: 0; color: var(--text);
-    font-size: 14.5px; padding: 8px 0; min-width: 0;
+    font-size: var(--fs-145); padding: 8px 0; min-width: 0;
   }
   .composer-row input:focus { outline: none; }
   /* .bp-plat is absolutely positioned inside the old paste field; in the
@@ -1772,17 +1819,17 @@
   }
   .composer-for .lbl { margin-right: 2px; }
   .for-chip {
-    font-size: 12px; color: var(--text-3); background: var(--surface);
+    font-size: var(--fs-12); color: var(--text-3); background: var(--surface);
     border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
     display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
   }
   .for-chip:hover { color: var(--text-2); border-color: var(--line-2); }
   .for-chip.on { color: var(--text); border-color: var(--text-3); background: var(--surface-2); }
-  .for-chip .tick { opacity: 0; font-size: 10px; margin-left: -2px; transition: opacity .12s; }
+  .for-chip .tick { opacity: 0; font-size: var(--fs-10); margin-left: -2px; transition: opacity .12s; }
   .for-chip.on .tick { opacity: 1; }
   @media (prefers-reduced-motion: reduce) { .for-chip .tick { transition: none; } }
 
-  .composer-note { color: var(--text-3); font-size: 11.5px; margin: 8px 2px 0; position: relative; }
+  .composer-note { color: var(--text-3); font-size: var(--fs-115); margin: 8px 2px 0; position: relative; }
 
   /* The brand editor is revealed by the header's Details button, so when it is
      collapsed it must vanish entirely — the shared .client-editor rule only
@@ -1827,8 +1874,8 @@
      quiet line under the composer rather than a panel — the composer is what
      they came to use, and a boxed notice with an icon and a filled button
      competed with it for the eye. */
-  .nobrand { margin: 0; text-align: center; font-size: 13px; color: var(--text-3); }
-  .nobrand .linkish { font-size: 13px; }
+  .nobrand { margin: 0; text-align: center; font-size: var(--fs-13); color: var(--text-3); }
+  .nobrand .linkish { font-size: var(--fs-13); }
   /* First run only: the two fields a script cannot be written without, sitting
      directly above the composer so signing up and sending a link is one screen
      rather than a form you are sent away to fill in. */
@@ -1839,7 +1886,7 @@
   .composer-first .ce-grid { margin-bottom: 10px; }
   .composer-first .bp-hint { margin: 0 0 12px; }
   .newscript-mark { width: 28px; height: 28px; color: var(--text-3); margin-bottom: 14px; }
-  .newscript-h { font-size: 26px; line-height: 1.2; margin: 0; letter-spacing: -.01em; }
+  .newscript-h { font-size: var(--fs-26); line-height: 1.2; margin: 0; letter-spacing: -.01em; }
   /* (.newscript-sub lived here — the small line under the greeting. The
      greeting says it all in one line now, so there is nothing to sub-title.) */
 
@@ -1858,15 +1905,15 @@
   }
   /* Matches .ce-body .lbl — a field label above its input, not a question
      addressed to the reader. */
-  .lookup-label { margin: 0; font-size: 13px; color: var(--text-2); }
+  .lookup-label { margin: 0; font-size: var(--fs-13); color: var(--text-2); }
   .lookup input[type="text"] {
     width: 100%; padding: 11px 13px;
     background: var(--surface-2); color: var(--text);
     border: 1px solid var(--line); border-radius: var(--radius);
-    font: inherit; font-size: 14px;
+    font: inherit; font-size: var(--fs-14);
   }
   .lookup input[type="text"]:focus { outline: none; border-color: var(--line-2); }
-  .lookup-hint { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-3); }
+  .lookup-hint { margin: 0; font-size: var(--fs-125); line-height: 1.5; color: var(--text-3); }
   .lookup-hint:empty { display: none; }
   /* The primary sits at its natural width and the escape hatch is a text link,
      so the two never read as an equal pair of choices. */
@@ -1875,7 +1922,7 @@
      match "use their website instead" on the manual form.) */
   @media (max-width: 560px) {
     .newscript { min-height: calc(100dvh - 120px); gap: 14px; }
-    .newscript-h { font-size: 21px; }
+    .newscript-h { font-size: var(--fs-21); }
   }
 
   /* New script lives in the Library's own toolbar, top-right — the one place
@@ -1915,10 +1962,10 @@
   .lib-modes { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-2); }
   .lib-mode {
     border: 0; background: none; color: var(--text-2); cursor: pointer;
-    font: inherit; font-size: 12.5px; padding: 7px 12px; border-radius: 8px;
+    font: inherit; font-size: var(--fs-125); padding: 7px 12px; border-radius: 8px;
   }
   .lib-mode.on { background: var(--surface); color: var(--text); }
-  .lib-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; font-size: 13px; }
+  .lib-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; font-size: var(--fs-13); }
   .lib-add svg { width: 15px; height: 15px; }
 
   .lib-group { margin-bottom: 22px; }
@@ -1926,8 +1973,8 @@
     display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
     padding: 0 2px 7px; border-bottom: 1px solid var(--line); margin-bottom: 9px;
   }
-  .lib-group-name { font-size: 14px; color: var(--text); text-align: left; }
-  .lib-group-meta { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+  .lib-group-name { font-size: var(--fs-14); color: var(--text); text-align: left; }
+  .lib-group-meta { font-size: var(--fs-12); color: var(--text-2); white-space: nowrap; }
   .lib-empty { text-align: center; }
   .lib-empty .bp-actions { justify-content: center; }
 
@@ -1949,14 +1996,14 @@
     display: inline-flex; align-items: center; gap: 7px;
     padding: 7px 12px; border: 1px solid var(--line-2); border-radius: 999px;
     background: var(--surface-2); color: var(--text-2);
-    font-family: var(--mono); font-size: 11.5px;
+    font-family: var(--mono); font-size: var(--fs-115);
     animation: demo-link-in 5.5s var(--ease) infinite;
   }
   .demo-link .demo-dot {
     width: 5px; height: 5px; border-radius: 50%; background: var(--good); flex: none;
   }
   .demo-arrow {
-    color: var(--text-3); font-size: 13px; line-height: 1;
+    color: var(--text-3); font-size: var(--fs-13); line-height: 1;
     animation: demo-arrow 5.5s var(--ease) infinite;
   }
   .demo-card {
@@ -2027,7 +2074,7 @@
   }
   .chip.pick:hover { background: var(--surface-2); border-style: solid; }
   .chip.pick:disabled { opacity: .5; cursor: default; }
-  .bp-eta { color: var(--text-2); font-size: 12.5px; }
+  .bp-eta { color: var(--text-2); font-size: var(--fs-125); }
 
   /* Destructive actions look destructive. Two-click arming still guards the
      press; the colour is what stops the press being casual. */
@@ -2054,11 +2101,21 @@
      --------------------------------------------------------------------- */
   @media (max-width: 820px) {
     .shell { flex-direction: column; }
+    /* visibility, not just the transform: translateX alone hides the drawer
+       visually but leaves its eight-plus controls in the tab order and the
+       accessibility tree — a keyboard user tabbing forward from the pane
+       walked straight through a menu they cannot see. The 0s duration on a
+       .2s delay means CLOSING waits for the slide-out to finish before it
+       actually leaves (visibility interpolates as "stay visible until the
+       end" when animating toward hidden); OPENING flips to visible at t=0
+       (the same property interpolates as "become visible immediately" when
+       animating toward visible), so the slide-in is never clipped. */
     .side {
       position: fixed; z-index: 40; left: 0; top: 0; width: min(84vw, 300px); flex-basis: auto;
-      transform: translateX(-100%); transition: transform .2s var(--ease);
+      transform: translateX(-100%); visibility: hidden;
+      transition: transform .2s var(--ease), visibility 0s .2s;
     }
-    body.side-open .side { transform: none; }
+    body.side-open .side { transform: none; visibility: visible; }
     body.side-open::after {
       content: ""; position: fixed; inset: 0; z-index: 30; background: #0009;
     }
@@ -2104,36 +2161,25 @@
     .pane-head { position: static; }
     /* Comfortable thumb targets in the drawer. */
     .side-item, .side-link, .side-new { min-height: 46px; }
-  }
 
-  /* Phone: the chat-app shape. The greeting takes the empty middle, the
-     composer rests on the bottom edge. 100dvh (not vh) so the browser's own
-     collapsing chrome doesn't push the composer off-screen. */
-  @media (max-width: 560px) {
-    /* 16px is the threshold below which iOS Safari zooms the page on focus —
-       and once it zooms, it does not zoom back out. Every text input in this
-       app therefore stays at 16px on phones. */
+    /* Promoted from the 560px block below (C3): the drawer engaging at 820px
+       IS "this is a touch device" — a phone in LANDSCAPE is 844px and was
+       getting the full desktop layout, including the input sizing below.
+       Rescoped to the same breakpoint as the drawer rather than a second,
+       narrower one. */
+    /* LITERAL 16px, never a token. iOS Safari zooms the page in when a field
+       under 16px takes focus and does NOT zoom back out when it blurs — the
+       creator is left on a page scrolled sideways. 16px is the documented
+       threshold and the only reliable way to stop it.
+       Do NOT "fix" this to match the 11.5-12.5px page text around it, and do
+       NOT reach for `maximum-scale=1` in the viewport meta instead: Safari has
+       ignored that since iOS 10 so pinch-zoom cannot be taken away from people
+       who need it, so it does not suppress this and only costs accessibility.
+       That swap was tried on 2026-08-17 and measured at 13.54px on a 390px
+       viewport — under the threshold, so the zoom was still live.
+       See the end of this file for the rest of it. */
     .composer-row input,
     .lib-tools input, .ce-field input, .ce-field select, .ce-field textarea { font-size: 16px; }
-
-    .lib-head { gap: 8px; }
-    /* `flex: 1 1 0` here forced the three tabs to equal widths, which is fine
-       until one of them is two words: "original scripts" wrapped onto a second
-       line and made the whole control a squat two-row block. Sizing to content
-       and scrolling sideways if they overflow keeps every tab on one line at
-       any width — a tab that wraps looks broken, one that scrolls does not. */
-    .lib-modes {
-      flex: 1 1 auto; max-width: 100%; overflow-x: auto;
-      scrollbar-width: none;                       /* the tabs are the affordance */
-    }
-    .lib-modes::-webkit-scrollbar { display: none; }
-    /* `1 1 auto`, not `0 0 auto`: sizing purely to content left a strip of dead
-       space to the right of the control. Growing from a content-sized basis
-       fills the row, and `nowrap` is what stops that turning back into the
-       two-line wrap — the original bug was `flex: 1 1 0`, whose ZERO basis
-       ignored the text and squeezed "original scripts" onto two lines. */
-    .lib-mode { flex: 1 1 auto; white-space: nowrap; text-align: center; padding: 9px 11px; }
-    .lib-add { width: 100%; justify-content: center; padding: 12px 14px; }
 
     /* Title row stays on ONE line: the heading takes the slack and truncates,
        the controls keep their size. Wrapping put the bin on a line by itself
@@ -2154,20 +2200,82 @@
        count further from its word than the "scripts [1]" heading does. */
     .pane-title .pill { margin-left: 0; }
 
+    .bp-actions { flex-wrap: wrap; }
+    .bp-actions .ghost { flex: 1 1 auto; min-height: 42px; }
+    /* ...but an icon button is a square, not a row-filler. */
+    .bp-actions .ghost.icon-only { flex: 0 0 auto; }
+
+    /* C5: #sync-state (inside .side-foot, in the drawer above) is the only
+       signal that a save failed — ME is never queued or retried, just left in
+       tab memory — and the drawer hides it from view at this width. :has()
+       mirrors the class JS already sets onto a small fixed badge outside the
+       drawer, rather than duplicating renderSyncBadge's render logic into a
+       second live element. Suppressed while the drawer is open: the real
+       widget is already on screen then. A retry/queue fallback is a bigger
+       change and stays out of scope here — this only surfaces the failure.
+       Lands on .shell::after, NOT body::before/after: body::before is
+       already the dot-grid backdrop (line ~61) and body.side-open::after is
+       already the drawer scrim above — either would have shared this rule's
+       generated box and lost its own `display` to whichever rule set one,
+       since a cascade only competes declarations of the SAME property. */
+    body:has(#sync-state.bad):not(.side-open) .shell::after {
+      content: "\25CF not syncing"; position: fixed; top: 10px; right: 14px; z-index: 15;
+      font-size: var(--fs-115); color: var(--bad); background: var(--surface);
+      border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px;
+      pointer-events: none;
+    }
+  }
+
+  /* Phone: the chat-app shape. The greeting takes the empty middle, the
+     composer rests on the bottom edge. 100dvh (not vh) so the browser's own
+     collapsing chrome doesn't push the composer off-screen. */
+  @media (max-width: 560px) {
+    .lib-head { gap: 8px; }
+    /* `flex: 1 1 0` here forced the three tabs to equal widths, which is fine
+       until one of them is two words: "original scripts" wrapped onto a second
+       line and made the whole control a squat two-row block. Sizing to content
+       and scrolling sideways if they overflow keeps every tab on one line at
+       any width — a tab that wraps looks broken, one that scrolls does not. */
+    .lib-modes {
+      flex: 1 1 auto; max-width: 100%; overflow-x: auto;
+      scrollbar-width: none;                       /* the tabs are the affordance */
+    }
+    .lib-modes::-webkit-scrollbar { display: none; }
+    /* `1 1 auto`, not `0 0 auto`: sizing purely to content left a strip of dead
+       space to the right of the control. Growing from a content-sized basis
+       fills the row, and `nowrap` is what stops that turning back into the
+       two-line wrap — the original bug was `flex: 1 1 0`, whose ZERO basis
+       ignored the text and squeezed "original scripts" onto two lines. */
+    .lib-mode { flex: 1 1 auto; white-space: nowrap; text-align: center; padding: 9px 11px; }
+    .lib-add { width: 100%; justify-content: center; padding: 12px 14px; }
+
     /* Card headers wrap instead of squeezing the title to a few characters. */
     .bp-item > summary { flex-wrap: wrap; row-gap: 5px; padding: 12px 12px; }
     .bp-name { flex: 1 1 100%; order: -1; white-space: normal; }
     .bp-when { margin-left: 0; }
-    .bp-actions { flex-wrap: wrap; }
-    .bp-actions .ghost { flex: 1 1 auto; min-height: 42px; }
     /* The Account row sizes to its labels instead. Growing them made "delete
        account" several times the width of "sign out" purely because its label
        is longer, which put the most emphasis on the irreversible one. */
     .me-actions .ghost { flex: 0 0 auto; }
-    /* ...but an icon button is a square, not a row-filler. */
-    .bp-actions .ghost.icon-only { flex: 0 0 auto; }
     .chip.pick { padding: 8px 12px; }
+    /* C1: same shape as .chip.pick above, same ~24px problem — the brand
+       picker is the first control on the landing screen and the one thing
+       that gates every send. */
+    .for-chip { padding: 8px 12px; }
+    /* C2: other sub-44px targets. The send button grows outright; the ↗
+       open-original link (both its base size and the denser trash-row
+       variant) and .linkish — "Add a brand", "Add manually", every gate
+       switch — grow their hit area via padding cancelled by a matching
+       negative margin, so the visible size and surrounding layout hold. */
+    .composer-send { width: 44px; height: 44px; }
+    .bp-open { padding: 6px 4px; margin: -6px -4px; }
+    .trash-actions .bp-open { padding: 6px 4px; margin: -6px -4px; }
+    .linkish { padding: 8px 0; margin: -8px 0; }
     .lib-group-head { flex-wrap: wrap; }
+    /* C4: .empty never adapted — 34px of padding on a 320px-wide phone left
+       ~290px, and this and .no-results are exactly the two states a new
+       creator lands on first. */
+    .no-results, .empty { padding: 24px 16px; }
   }
   @media (prefers-reduced-motion: reduce) { .side { transition: none; } }
 
@@ -2182,22 +2290,22 @@
     align-items: center; justify-content: center;
     padding: 56px 24px; text-align: center; max-width: 720px; margin: 0 auto;
   }
-  .home .wordmark { font-size: 30px; gap: 12px; margin-bottom: 44px; }
+  .home .wordmark { font-size: var(--fs-30); gap: 12px; margin-bottom: 44px; }
   .home .mark { width: 32px; height: 32px; }
   .home-lead {
-    font-size: clamp(28px, 6vw, 44px); font-weight: 600; line-height: 1.18;
+    font-size: clamp(22px, 6vw, 44px); font-weight: 600; line-height: 1.18;
     letter-spacing: -0.03em; color: var(--text); margin: 0 0 20px;
     text-transform: none; display: block;
   }
   .home-lead::before { display: none; }
   .home-cta { display: flex; flex-direction: column; align-items: center; gap: 14px; }
   .home-go {
-    padding: 14px 30px; font-size: 15.5px; text-decoration: none;
+    padding: 14px 30px; font-size: var(--fs-155); text-decoration: none;
     border-bottom: 1px solid var(--text);      /* beat the global `a` underline */
     transition: opacity .12s, transform .18s var(--ease);
   }
   .home-go:hover { opacity: .88; transform: translateY(-1px); }
-  .home-alt { color: var(--text-3); font-size: 13px; border-bottom-color: var(--line); }
+  .home-alt { color: var(--text-3); font-size: var(--fs-13); border-bottom-color: var(--line); }
   .home-alt:hover { color: var(--text-2); }
 
   /* (.home-sub, .home-how and .home-n lived here — the explanatory paragraph
@@ -2213,10 +2321,10 @@
     border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
   }
   .wait-h {
-    font-size: 16px; font-weight: 600; color: var(--text); margin: 0 0 8px;
+    font-size: var(--fs-16); font-weight: 600; color: var(--text); margin: 0 0 8px;
     letter-spacing: -0.01em;
   }
-  .wait-sub { color: var(--text-2); font-size: 13.5px; line-height: 1.6; margin: 0 0 18px; }
+  .wait-sub { color: var(--text-2); font-size: var(--fs-135); line-height: 1.6; margin: 0 0 18px; }
   .wait-form { display: flex; gap: 8px; flex-wrap: wrap; }
   /* Required, not tidiness: home.js hides this form on success with
      `.hidden = true`, and the UA stylesheet's [hidden] { display: none } is a
@@ -2225,7 +2333,7 @@
      that could only ever 409. Same pattern as .lookup-loader[hidden]. */
   .wait-form[hidden] { display: none; }
   .wait-form input {
-    flex: 1 1 260px; min-width: 0; padding: 12px 14px; font: inherit; font-size: 14px;
+    flex: 1 1 260px; min-width: 0; padding: 12px 14px; font: inherit; font-size: var(--fs-14);
     background: var(--surface-2); border: 1px solid var(--line);
     border-radius: 9px; color: var(--text);
   }
@@ -2259,13 +2367,13 @@
      alone is a 13px target on a phone. */
   .gate-agree {
     display: flex; align-items: flex-start; gap: 9px; margin: 2px 0 4px;
-    font-size: 12px; color: var(--text-2); line-height: 1.5; cursor: pointer;
+    font-size: var(--fs-12); color: var(--text-2); line-height: 1.5; cursor: pointer;
   }
   .gate-agree[hidden] { display: none; }
   .gate-agree input { margin: 2px 0 0; flex: none; accent-color: var(--text); cursor: pointer; }
   .gate-agree a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
   .gate-agree a:hover { color: var(--text); }
-  .gate-fine { margin: 20px 0 0; font-size: 11.5px; color: var(--text-3); line-height: 1.6; }
+  .gate-fine { margin: 20px 0 0; font-size: var(--fs-115); color: var(--text-3); line-height: 1.6; }
   /* Settings footer: the signed-in account on the left, where to find us and
      the privacy policy on the right, one line. */
   /* The links now live inside the Account button row. `margin-left: auto` pushes
@@ -2275,12 +2383,12 @@
   .me-actions { flex-wrap: wrap; align-items: center; }
   .me-actions .me-links {
     margin-left: auto; align-self: flex-end; padding-bottom: 2px;
-    font-size: 11.5px; color: var(--text-3); line-height: 1.6;
+    font-size: var(--fs-115); color: var(--text-3); line-height: 1.6;
   }
   /* The signed-in address, above the buttons that act on it. */
   .me-who {
     min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    margin: 0 0 10px; font-size: 12.5px;
+    margin: 0 0 10px; font-size: var(--fs-125);
   }
   .me-links { display: inline-flex; align-items: center; gap: 7px; flex: none; }
   /* ONE underline. .gate-fine sets border-bottom on its links and the phone
@@ -2300,7 +2408,7 @@
       flex-basis: 100%; margin-left: 0; align-self: stretch;
       gap: 2px; border-top: 1px solid var(--line);
       margin-top: 16px; padding-top: 6px; padding-bottom: 6px;
-      font-size: 12.5px;
+      font-size: var(--fs-125);
     }
     /* The rest keep their padding as tap target; only the first loses its left
        inset, so the row starts flush with everything above it. */
@@ -2316,9 +2424,16 @@
     }
     .me-links a:active { color: var(--text); }
   }
+  /* The Lynx Media Group line, below the Account block on Settings. Its own
+     class rather than .home-foot, which is styled for the landing page's
+     layout — this one is centred inside the pane at any width, so it needs
+     no breakpoint of its own. */
+  .you-foot { margin: 24px 0 0; text-align: center; color: var(--text-3); font-size: var(--fs-125); }
+  .you-foot a { color: var(--text-3); border-bottom-color: var(--line); }
+  .you-foot a:hover { color: var(--text-2); }
   .gate-fine a { color: var(--text-3); border-bottom: 1px solid var(--line); }
   .gate-fine a:hover { color: var(--text-2); }
-  .wait-msg { min-height: 18px; margin: 12px 0 0; font-size: 13px; color: var(--text-2); }
+  .wait-msg { min-height: 18px; margin: 12px 0 0; font-size: var(--fs-13); color: var(--text-2); }
   .wait-msg.good { color: var(--good); }
   .wait-msg.bad { color: var(--bad); }
   /* The old full-width-on-phones rule (`flex: 1 1 100%`) is gone. It was right
@@ -2338,11 +2453,11 @@
      a full-width line of 13.5px text is unreadable on a desktop monitor. */
   .legal {
     max-width: 68ch; margin: 0 auto; padding: 56px 24px 96px;
-    text-align: left; font-size: 14px; line-height: 1.7; color: var(--text-2);
+    text-align: left; font-size: var(--fs-14); line-height: 1.7; color: var(--text-2);
   }
-  .legal h1 { font-size: 30px; font-weight: 600; margin: 0 0 4px; color: var(--text); }
+  .legal h1 { font-size: var(--fs-30); font-weight: 600; margin: 0 0 4px; color: var(--text); }
   .legal h2 {
-    font-size: 13px; margin: 40px 0 10px; color: var(--text);
+    font-size: var(--fs-13); margin: 40px 0 10px; color: var(--text);
     letter-spacing: .04em;
   }
   /* h2::before is the agency site's dash marker, which belongs on a dashboard
@@ -2354,15 +2469,15 @@
   .legal li { margin: 0 0 7px; }
   .legal a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
   .legal a:hover { color: var(--text); }
-  .legal-date { color: var(--text-3); font-size: 12.5px; margin: 0 0 28px; }
-  .legal-back, .legal-foot a { color: var(--text-3); font-size: 12.5px; border-bottom: 0; }
+  .legal-date { color: var(--text-3); font-size: var(--fs-125); margin: 0 0 28px; }
+  .legal-back, .legal-foot a { color: var(--text-3); font-size: var(--fs-125); border-bottom: 0; }
   /* This back-link IS the wordmark on the privacy page — it just isn't marked
      up with .wordmark — so it carries the logo face like every other instance. */
   .legal-back { display: inline-block; margin-bottom: 32px; font-family: var(--logo); }
   .legal-back:hover, .legal-foot a:hover { color: var(--text-2); }
   .legal-foot { margin-top: 48px; }
 
-  .home-foot { margin: 52px 0 0; color: var(--text-3); font-size: 12.5px; }
+  .home-foot { margin: 52px 0 0; color: var(--text-3); font-size: var(--fs-125); }
   .home-foot a { color: var(--text-3); border-bottom-color: var(--line); }
   .home-foot a:hover { color: var(--text-2); }
 
@@ -2370,7 +2485,7 @@
 
   /* Landed on the wrong door: each gate points at the other one rather than
      leaving you to guess the URL. */
-  .gate-other { color: var(--text-3); font-size: 12.5px; margin: 12px 0 0; }
+  .gate-other { color: var(--text-3); font-size: var(--fs-125); margin: 12px 0 0; }
   .gate-other a { color: var(--text-2); border-bottom-color: var(--line); }
   .gate-other a:hover { color: var(--text); border-bottom-color: var(--line-2); }
 
@@ -2389,11 +2504,11 @@
   .fb-tick svg { width: 22px; height: 22px; }
   .fb-thanks-h {
     display: block; text-transform: none; letter-spacing: -0.01em;
-    font-size: 19px; color: var(--text); margin: 0 0 10px;
+    font-size: var(--fs-19); color: var(--text); margin: 0 0 10px;
   }
   .fb-thanks-h::before { display: none; }
-  .fb-thanks-p { color: var(--text-2); font-size: 14px; line-height: 1.6; margin: 0 0 12px; }
-  .fb-thanks-sub { color: var(--text-3); font-size: 12.5px; line-height: 1.6; margin: 0; }
+  .fb-thanks-p { color: var(--text-2); font-size: var(--fs-14); line-height: 1.6; margin: 0 0 12px; }
+  .fb-thanks-sub { color: var(--text-3); font-size: var(--fs-125); line-height: 1.6; margin: 0; }
   .fb-thanks .bp-actions { justify-content: center; margin-top: 22px; }
   @media (prefers-reduced-motion: reduce) { .fb-thanks { animation: none; } }
 
@@ -2471,7 +2586,7 @@
   .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title,
   .lib-group-name[data-bid], .side-item .side-label, #brand-heading,
   .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip,
-  .tp-words, .tp-cue, .tp-brand {
+  .tp-words, .tp-cue, .tp-brand, .for-chip {
     text-transform: none;
   }
   /* Placeholders are ours, but they live inside an input that is not — so they
@@ -2488,6 +2603,36 @@
      footer link, a paragraph and a heading, and it has to survive whichever of
      those is lowercasing around it. Wrap the name in it wherever it appears. */
   .entity { text-transform: none; }
+
+  /* ---------- iOS INPUT FLOOR ----------
+     16px is the threshold below which iOS Safari zooms the page on focusing a
+     field — and once it has zoomed, it does not zoom back out. The fluid type
+     scale puts most inputs in the 12.5–14px range at these widths, so every
+     text-entry control gets pinned back to 16px on touch-sized viewports.
+
+     820px, matching the drawer breakpoint: a phone in LANDSCAPE is 844px wide
+     and is still a phone.
+
+     DELIBERATELY LAST IN THE FILE, and selectors are enumerated rather than
+     using a bare `input`. Both are load-bearing: `.pw-wrap input` (0,1,1) and
+     `.bp-editor textarea.bp-beat-edit` (0,3,1) BEAT a bare `input` (0,0,1) on
+     specificity, so a blanket rule would silently lose to them no matter where
+     it sat. See the CSS ORDER TRAP note in HANDOFF.md. */
+  @media (max-width: 820px) {
+    input, select, textarea,
+    .pw-wrap input,
+    .ed-input,
+    input[type="search"], input[type="url"],
+    .ce-body input, .ce-body select, .ce-body textarea,
+    .ce-field textarea.grow,
+    .field.login input[type="email"],
+    .bp-editor textarea.bp-beat-edit,
+    .post-form input, .post-form select,
+    .lookup input[type="text"],
+    .wait-form input {
+      font-size: 16px;      /* LITERAL. See the note at the 820px block above. */
+    }
+  }
 
   /* ---------- THE TELEPROMPTER ----------
 

@@ -1109,7 +1109,7 @@ tail; 50/month is the natural number because `SCRIPT_CAP` already is 50.
   `creator.js` needs resolve — but if something obscure is missing from that
   page, this is why. Never back up two same-named files into one folder.
 - **Cache stamps.** Every page carries `?v=YYYYMMDDx` on css/js. Bump on EVERY
-  css/js change or browsers serve stale files. **Currently `20260821g`** — note
+  css/js change or browsers serve stale files. **Currently `20260821n`** — note
   it rolled past `z` on the 19th into the next day's letters, so carry on from
   `20260820j`.
   The HTML documents themselves are NOT stamped, so markup changes — including
