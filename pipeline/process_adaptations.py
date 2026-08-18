@@ -25,12 +25,19 @@ Format extraction and adaptation need ANTHROPIC_API_KEY. Without it the
 transcript and shot list still land and the entry says what was skipped.
 
 Safe to re-run: only status == "queued" is touched (plus "error" after the
-cooldown). Failures mark the entry and keep going.
+cooldown, and "done" entries whose AI step failed for a reason that can clear
+on its own — a dry credit balance, a rate limit, an overloaded API). Failures
+mark the entry and keep going.
+
+A failed AI step now stamps `aiFail` on the entry and is retried automatically
+on a backoff keyed to WHY it failed. Nobody has to notice a lapsed Anthropic
+balance and run --redo-ai by hand any more; that flag is now only for forcing a
+"content" failure, which no timer can fix.
 
 Usage:
-    python process_adaptations.py             # everything queued
+    python process_adaptations.py             # everything queued, plus due retries
     python process_adaptations.py --no-ai     # transcript only, no spend
-    python process_adaptations.py --redo-ai   # retry entries whose AI step failed
+    python process_adaptations.py --redo-ai   # force EVERY failed AI step, now
 """
 
 import argparse
@@ -280,6 +287,113 @@ def api_reason(e):
     s = str(e)
     m = s.split("'message': '")
     return (m[1].split("'")[0] if len(m) > 1 else s)[:90]
+
+
+# ---------- WHEN THE MODEL STEPS FAIL ----------
+#
+# An entry whose AI steps failed used to end up status "done" with a note, and
+# nothing ever looked at it again: wants_work() only reconsidered "done" under
+# --redo-ai, a flag neither the Fly worker nor the GitHub job passes. So a
+# lapsed Anthropic balance did not produce an error anyone could see — it
+# produced scripts that simply never arrived, on rows that looked finished.
+#
+# The three reasons need three different waits, which is why this classifies
+# rather than retrying everything on one timer. A dry credit balance clears the
+# moment a human tops it up; an overloaded API clears in seconds; a model that
+# will not write beats for this particular source will not write them in six
+# hours either, and retrying that one just spends money to fail again.
+AI_FAIL_KINDS = (
+    ("billing", ("credit balance", "billing", "payment", "quota",
+                 "insufficient_quota", "insufficient credit")),
+    ("rate_limit", ("rate_limit", "rate limit", "too many requests", "429")),
+    ("transient", ("overloaded", "529", "503", "502", "500", "timed out",
+                   "timeout", "connection", "internal server", "temporarily")),
+)
+
+# Minutes before the Nth automatic retry of each kind. Billing starts short
+# because the top-up is a human action that can land at any moment, and the
+# retry that notices it is the difference between a creator waiting minutes and
+# waiting until someone thinks to look. It backs off so a genuinely dead account
+# does not re-download the same videos all night.
+AI_RETRY_MINUTES = {
+    "billing":    [15, 30, 60, 120, 240, 360],
+    "rate_limit": [5, 10, 20, 40, 60],
+    "transient":  [5, 10, 20, 40, 60],
+}
+# Only these retry on their own. "content" — a refusal, a schema the model will
+# not satisfy for this source — is left exactly as it is today: --redo-ai can
+# still force it, but a timer cannot fix it and would only burn credit.
+AI_RETRY_KINDS = tuple(AI_RETRY_MINUTES)
+AI_MAX_TRIES = 8          # ~26h of billing backoff before it gives up and says so
+
+
+def ai_failure_kind(reason):
+    r = (reason or "").lower()
+    for kind, needles in AI_FAIL_KINDS:
+        if any(n in r for n in needles):
+            return kind
+    return "content"
+
+
+def mark_ai_fail(a, reason):
+    """Stamp a machine-readable failure marker on the entry.
+
+    Deliberately its own field rather than the old `"failed" in note` test. That
+    string was unreliable in both directions: the no-brand branch in process_one
+    DELETES the note before returning, so an original script that lost its shot
+    list was unrecoverable and invisible at once; and any future note containing
+    the word would have been retried by accident.
+
+    `tries` counts ATTEMPTS, not failed steps. Three model calls failing inside
+    one pass is one attempt — keyed on attemptedAt, which main() stamps before
+    calling process_one. The last failure of an attempt wins for kind/reason,
+    which is the one that mattered: the steps run cheapest-first, so the later
+    the failure, the further the entry got."""
+    prev = a.get("aiFail") or {}
+    same_attempt = prev.get("attempt") and prev.get("attempt") == a.get("attemptedAt")
+    a["aiFail"] = {
+        "kind": ai_failure_kind(reason),
+        "reason": (reason or "")[:160],
+        "at": now_iso(),
+        "attempt": a.get("attemptedAt"),
+        "tries": int(prev.get("tries") or 0) + (0 if same_attempt else 1),
+    }
+
+
+def minutes_since(stamp):
+    if not stamp:
+        return float("inf")
+    try:
+        return (datetime.now(timezone.utc)
+                - datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))).total_seconds() / 60
+    except ValueError:
+        return float("inf")
+
+
+def ai_retry_due(a):
+    """Is this finished-but-failed entry due another go, on its own?"""
+    f = a.get("aiFail")
+    if not f or f.get("kind") not in AI_RETRY_KINDS:
+        return False
+    tries = max(1, int(f.get("tries") or 1))
+    if tries >= AI_MAX_TRIES:
+        return False                      # given up on; main() marks it error
+    sched = AI_RETRY_MINUTES[f["kind"]]
+    return minutes_since(f.get("at")) >= sched[min(tries - 1, len(sched) - 1)]
+
+
+def ai_gave_up(a):
+    """Out of automatic retries AND with nothing usable to show for it.
+
+    The second half matters. A shot list that failed on a transient blip leaves
+    an entry that still has its transcript, its format and its script — that is
+    a working result with a gap in it, and flipping it to "error" after a day of
+    quiet retries would take a card the creator is happily using and replace it
+    with a red one. Only an entry that produced NO format is actually empty."""
+    f = a.get("aiFail") or {}
+    return (f.get("kind") in AI_RETRY_KINDS
+            and int(f.get("tries") or 0) >= AI_MAX_TRIES
+            and not a.get("format"))
 
 
 def platform_of(url):
@@ -791,6 +905,7 @@ def process_one(a, creator, aclient, key):
                 src["shots"] = analyze_frames(MeteredClient(aclient), frames)["shots"]
             except Exception as e:  # noqa: BLE001
                 notes.append(f"shot list failed: {api_reason(e)}")
+                mark_ai_fail(a, api_reason(e))
         else:
             notes.append("no frames (audio-only source)")
 
@@ -818,6 +933,7 @@ def process_one(a, creator, aclient, key):
             src["tags"] = undouble(json.loads(first_text(msg)))
         except Exception as e:  # noqa: BLE001
             notes.append(f"tags failed: {api_reason(e)}")
+            mark_ai_fail(a, api_reason(e))
 
     # ---- format extraction (topic stripped) ----
     try:
@@ -826,6 +942,11 @@ def process_one(a, creator, aclient, key):
             "Extract the reusable format from this video.\n\n" + source_digest(a))
     except Exception as e:  # noqa: BLE001
         notes.append(f"format extraction failed: {api_reason(e)}")
+        # The consequential one. Without a format the entry has nothing in it a
+        # creator can use, brand or no brand — and because this returns rather
+        # than raising, it was landing as "done" with no Try again button and no
+        # retry. That is the exact shape a lapsed balance took.
+        mark_ai_fail(a, api_reason(e))
         a["note"] = "; ".join(notes)
         return
 
@@ -903,6 +1024,7 @@ def process_one(a, creator, aclient, key):
         a["adaptation"] = ad
     except Exception as e:  # noqa: BLE001
         notes.append(f"adaptation failed: {api_reason(e)}")
+        mark_ai_fail(a, api_reason(e))
 
     if notes:
         a["note"] = "; ".join(notes)[:200]
@@ -910,11 +1032,13 @@ def process_one(a, creator, aclient, key):
         a.pop("note", None)
 
     # An entry with no script is a FAILURE, not a finished job. Left as "done"
-    # it renders as a "source only" card with no Try again button, and nothing
-    # ever picks it up again: wants_work() only reconsiders "error" entries
-    # (or "done" ones under --redo-ai, which the launchd agent does not pass).
-    # Raising hands it to main(), which marks it error — so the creator gets a
-    # Try again button and the cooldown retries it on its own.
+    # it renders as a "source only" card with no Try again button. Raising hands
+    # it to main(), which marks it error — so the creator gets a Try again
+    # button and the cooldown retries it on its own.
+    # (`aiFail` was stamped at the failure site above, so wants_work() now also
+    # reopens this on the billing/rate-limit/overload schedule rather than only
+    # on the six-hour error cooldown. Raising is still right: it is what makes
+    # the failure VISIBLE to the creator rather than a quiet "done".)
     # ...but only when a rewrite was actually asked for. An ORIGINAL-script
     # entry is
     # finished the moment the source is read (see above), and has no beats by
@@ -950,7 +1074,9 @@ def main():
     ap.add_argument("--no-ai", action="store_true",
                     help="transcript only — no format extraction or adaptation (no API spend)")
     ap.add_argument("--redo-ai", action="store_true",
-                    help="also retry entries whose AI step failed (e.g. after a credit top-up)")
+                    help="force EVERY failed AI step now, including 'content' ones no "
+                         "timer retries. Billing/rate-limit/overload failures no longer "
+                         "need this — they retry on their own.")
     ap.add_argument("--cooldown-hours", type=float, default=6,
                     help="min hours between retries of the same entry")
     ap.add_argument("--max-per-creator", type=int, default=2,
@@ -1007,9 +1133,26 @@ def main():
         if a.get("status") == "running":
             return abandoned(a)
         if a.get("status") == "error":
+            # A dry balance is not the same kind of failure as a video that
+            # cannot be downloaded, and it was getting the same six-hour wait.
+            # A brand adaptation that fails on billing RAISES (no beats), so it
+            # lands here rather than in the "done" branch below — without this
+            # it would sit out the full cooldown after a top-up, which is the
+            # manual waiting this whole change exists to remove. The cooled()
+            # floor still applies to everything else, unchanged.
+            if a.get("aiFail"):
+                return ai_retry_due(a) or cooled(a)
             return cooled(a)
-        return (args.redo_ai and a.get("status") == "done"
-                and "failed" in (a.get("note") or "") and cooled(a))
+        if a.get("status") != "done":
+            return False
+        # Forced by hand. Unchanged in spirit, except it now also recognises the
+        # marker — an entry whose note was cleared (every original script) was
+        # previously unreachable even by --redo-ai.
+        if args.redo_ai and ("failed" in (a.get("note") or "") or a.get("aiFail")):
+            return cooled(a)
+        # ...and on its own, for the failures a timer can actually fix. This is
+        # the one that means nobody has to notice a lapsed balance by hand.
+        return ai_retry_due(a)
 
     if args.backfill_covers:
         # Scripts written before covers existed still show a bare URL, which is
@@ -1145,9 +1288,29 @@ def main():
             log.info("[%s] %s -> %s", data.get("name", cid[:8]),
                      (a.get("sourceUrl") or "")[:52], a.get("brandName", "?"))
             a["attemptedAt"] = now_iso()
+            was = a.get("aiFail") or {}
+            if was:
+                log.info("  retrying a failed AI step (%s, try %s of %d): %s",
+                         was.get("kind"), int(was.get("tries") or 0) + 1,
+                         AI_MAX_TRIES, was.get("reason", "")[:70])
             try:
                 process_one(a, data, aclient, key)
-                a["status"] = "done"
+                # Nothing failed this time round, so drop any marker an earlier
+                # attempt left — otherwise a healed entry keeps being reopened.
+                if (a.get("aiFail") or {}).get("attempt") != a.get("attemptedAt"):
+                    a.pop("aiFail", None)
+                if ai_gave_up(a):
+                    # Out of automatic goes with nothing usable to show. Say so
+                    # as an error: that is the one status the creator's card
+                    # renders a Try again button for, so a dead end becomes a
+                    # thing they can see and act on instead of a silent "done".
+                    a["status"] = "error"
+                    a["note"] = (f"gave up after {AI_MAX_TRIES} tries — "
+                                 f"{(a.get('aiFail') or {}).get('reason') or 'AI step failed'}")[:200]
+                    log.error("  -> GAVE UP after %d tries: %s", AI_MAX_TRIES,
+                              (a.get("aiFail") or {}).get("reason", ""))
+                else:
+                    a["status"] = "done"
                 a["processedAt"] = now_iso()
                 changed = True
                 touched.append(a)
