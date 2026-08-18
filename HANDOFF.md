@@ -1331,6 +1331,39 @@ that it stores no cover of any kind.
 
 ## Open — in the order I'd do them
 
+### BEFORE PUBLIC — decided 2026-08-18, do not do early
+
+**Drop the free tier from 25 to 5 lifetime.** Owner's decision: testers keep the
+25 default for now; 5 becomes the free tier at the moment Lynxr goes public, not
+before.
+
+**Pin the existing creators FIRST, or they silently drop to 5.** The default
+applies to anyone with no row in `lynxr_allowance`, and every current creator is
+riding on it:
+
+    insert into public.lynxr_allowance (id, granted, note)
+    select id, 25, 'founding tester, pinned <date>'
+      from public.lynxr_creators
+     on conflict (id) do nothing;
+
+**Only then** change the default. It lives in THREE places in
+`supabase/allowance_ledger.sql` — the `lynxr_allowance.granted` column default,
+and the `coalesce(..., 25)` fallback inside BOTH `my_allowance()` and
+`charge_scripts()`. Change one and miss another and the rail shows a number the
+worker does not enforce, or the reverse. Find them with:
+
+    grep -n "25" supabase/allowance_ledger.sql | grep -i "coalesce\|default"
+
+Re-run the two function definitions after editing. New signups then get 5
+lifetime; everyone pinned keeps 25.
+
+**Related, already half-built:** `period_days` exists and defaults to 0
+(lifetime). Setting it to 30 on a grant turns that account into a rolling
+monthly quota — which is most of the "SCRIPT_CAP is lifetime, not monthly"
+blocker under "Blocking a paid public launch". The plumbing is there; only the
+decision and the pricing are not.
+
+
 **Done today, kept only as pointers:** client-matched video suggestions (the
 whole "Suggested videos" machinery below) and the blueprint add-by-link form
 (landed by a separate session in commits `242b8d1` / `6a7134a`; that session

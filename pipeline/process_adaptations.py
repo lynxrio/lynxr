@@ -818,6 +818,15 @@ def wants_work(a, *, cooldown_hours, lease_minutes, min_age_seconds, redo_ai):
     return ai_retry_due(a)
 
 
+# An alias under a DIFFERENT name, for main()'s args-bound shadow to close over.
+# `def wants_work(...)` inside main() makes `wants_work` a LOCAL name for that
+# whole scope, so a default of `_w=wants_work` is resolved against the local —
+# unbound at def time — and raises UnboundLocalError on the first pass. That
+# shipped on 2026-08-18 and crashed every worker pass until this line. The
+# alias is not assigned in main(), so it resolves to the module global.
+_wants_work_impl = wants_work
+
+
 def platform_of(url):
     for p in ("tiktok", "instagram", "facebook", "youtube"):
         if p in (url or ""):
@@ -2126,7 +2135,7 @@ def main():
     # TIME, before the local name below exists to shadow it — without that,
     # the body's own reference to `wants_work` would resolve to itself and
     # recurse forever instead of calling the real one.
-    def wants_work(a, _w=wants_work):
+    def wants_work(a, _w=_wants_work_impl):
         return _w(a, cooldown_hours=args.cooldown_hours,
                   lease_minutes=args.lease_minutes,
                   min_age_seconds=args.min_age_seconds,

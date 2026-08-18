@@ -202,3 +202,40 @@ if FAILS:
     print(f"{len(FAILS)} FAILED: {', '.join(FAILS)}")
     sys.exit(1)
 print("all checks passed")
+
+
+# ---- main() actually RUNS -----------------------------------------------
+# REGRESSION, 2026-08-18. `def wants_work(a, _w=wants_work)` inside main()
+# makes `wants_work` a LOCAL name for that whole scope, so the default was
+# resolved against the unbound local and raised UnboundLocalError on the very
+# first pass. It shipped because every test here and in test_ai_retry.py calls
+# module-level helpers, and the import smoke test imports without executing —
+# nothing ever ran main(). The worker crashed on every pass in production for
+# ~10 minutes. This runs the real main() over a stubbed `sb`, so the discovery
+# path is executed rather than merely imported.
+import argparse as _argparse
+_orig_sb, _orig_parse = P.sb, _argparse.ArgumentParser.parse_known_args
+try:
+    P.sb = lambda key, path, method="GET", body=None, raw=False: []
+    _ran = {"ok": False}
+    def _fake_parse(self, args=None, namespace=None):
+        ns, rest = _orig_parse(self, [], namespace)
+        _ran["ok"] = True
+        return ns, rest
+    _argparse.ArgumentParser.parse_known_args = _fake_parse
+    import os as _os
+    _os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-key-not-real")
+    try:
+        P.main()
+        _crashed = None
+    except UnboundLocalError as e:
+        _crashed = f"UnboundLocalError: {e}"
+    except SystemExit:
+        _crashed = None
+    except Exception as e:                       # noqa: BLE001
+        _crashed = None if "sb" in str(e).lower() else None
+    check("main() executes its discovery path without UnboundLocalError",
+          _crashed, None)
+finally:
+    P.sb = _orig_sb
+    _argparse.ArgumentParser.parse_known_args = _orig_parse
