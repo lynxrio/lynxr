@@ -1,19 +1,39 @@
-# Watches paste-to-script latency and turns a red X + a GitHub notification
-# email into the only thing that reminds anyone this exists, when nothing else
-# does. See pipeline/latency_report.py for what it measures and why.
+# NO LONGER THE ALARM, and no longer goes red on a latency breach — read this
+# before assuming a red run here means anything is broken.
 #
-# THE LIMITATION, STATED HERE BECAUSE THIS REPO HAS ALREADY MEASURED IT:
-# scheduled runs on public repos are best-effort. .github/workflows/
-# adaptations.yml's "*/15 * * * *" cron was measured firing roughly every
-# THREE HOURS, not every 15 minutes. So this is a lagging, roughly-hourly-to-
-# daily check, not a pager — do not read a green run here as "nothing broke in
-# the last 15 minutes". The only REAL-TIME signal is the `SLA BREACH` line
-# pipeline/process_adaptations.py's main() writes straight into `fly logs`
-# (Step 1 of creator-latency-60s.md) the moment one script actually breaches.
+# CORRECTED 2026-08-18. This header used to say pipeline/process_adaptations.py
+# writes an `SLA BREACH` line straight into `fly logs` as "the only real-time
+# signal that exists". That line does not exist and never did — `grep 'SLA
+# BREACH'` over the whole repo returns nothing; the only log.error calls in
+# process_adaptations.py are `GAVE UP`, `FAILED` and `FAILED (source)`. A
+# documented alarm turned out never to have been built, which is exactly the
+# kind of silent failure pipeline/watchdog.py exists to stop happening again.
+#
+# This workflow's own first-ever run (2026-08-18T05:05:36Z) failed on
+# `p95 1548s > sla 60s` — from ONE double-billed sample. At n=7 samples, p95
+# IS the worst sample, so a single historical incident pinned this workflow
+# red for a full 24 hours on an otherwise healthy system. A red X in a tab
+# nobody watches, that stays red for a day off one outlier, is not a signal —
+# it is noise wearing a signal's clothes. So p95 now lives ONLY in the daily
+# digest (pipeline/watchdog.py's `digest()`), never on this pager, and this
+# step now runs the watchdog instead of latency_report.py directly. The
+# real-time latency alarm is `inflight:` at 10 minutes — a script stuck
+# queued/running that long, which is 2.6x the measured p90 (229s) and clears
+# on any genuinely healthy run.
+#
+# Kept as a THIRD caller (alongside the Fly worker and adaptations.yml's
+# fallback loop) because a Run-workflow button that evaluates every invariant
+# on demand is worth having, and a third caller of a function this cheap
+# costs nothing. Also best-effort on the cron, same limitation as always:
+# scheduled runs on public repos are measured firing roughly every three
+# hours, not every 15 minutes — do not read a run here as "nothing broke in
+# the last 15 minutes".
 #
 # SECRETS REQUIRED (Settings -> Secrets and variables -> Actions):
 #   SUPABASE_SERVICE_ROLE_KEY   read-only use here, but it is the same
 #                               bypass-RLS key adaptations.yml already uses
+#   NTFY_TOPIC                  same value as adaptations.yml and fly.toml's
+#                               secret — never a literal here or anywhere else
 
 name: latency watch
 
@@ -33,15 +53,26 @@ jobs:
           python-version: "3.12"
 
       - name: Install certifi
-        # The only dependency latency_report.py has — it makes one read-only
-        # REST call and does its own percentile math, no pandas, no pipeline
-        # deps.
+        # The only dependency latency_report.py (and watchdog.py, which
+        # imports it) has — one read-only REST call and its own percentile
+        # math, no pandas, no pipeline deps.
         run: python -m pip install certifi
 
       - name: Check paste-to-script latency
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        # 24h so one slow patch in an otherwise-quiet day does not get diluted
-        # out by --since 7d, and so a single flaky sample does not fail the
-        # whole day the way --since 1h would on a low-traffic hour.
-        run: python pipeline/latency_report.py --since 24h --sla 60
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        # Never exits non-zero on a breach — see watchdog.py's own comment on
+        # why (the p95 lesson, above). This step existing and succeeding is
+        # the "the watchdog itself is alive" signal now; the alarm is the
+        # phone notification, not this job's color.
+        run: python pipeline/watchdog.py --once
+
+      - name: Say so on the owner's phone
+        if: failure()
+        run: |
+          curl -s -m 10 \
+            -H "Title: lynxr: latency-watch FAILED" \
+            -H "Priority: 4" -H "Tags: rotating_light" \
+            -d "run ${{ github.run_number }} — github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" > /dev/null

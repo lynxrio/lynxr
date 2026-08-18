@@ -60,6 +60,14 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Safe to import at module top: watchdog.py only pulls in latency_report.py,
+# which is side-effect-free (functions, SSL_CTX, ROOT, SB_URL, main() guarded
+# behind __name__). It must NEVER pull in process_adaptations — that module
+# runs logging.basicConfig and mkdir("output/") as import-time side effects,
+# which is exactly why run_pass() below runs it as a subprocess instead.
+import watchdog
+
 ROOT = Path(__file__).resolve().parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
 
@@ -117,6 +125,11 @@ def stop(signum, _frame):
     log.info("signal %s — finishing the current script, then stopping", signum)
 
 
+# The text of the last probe failure, so the watchdog alarm raised after 30
+# consecutive misses can say WHY instead of just "it's been failing".
+_LAST_PROBE_ERROR = ""
+
+
 def queued_creators(key):
     """Ids of creators with at least one QUEUED adaptation. Cheap on purpose.
 
@@ -138,7 +151,9 @@ def queued_creators(key):
         with urllib.request.urlopen(req, timeout=20, context=SSL_CTX) as r:
             return [row["id"] for row in json.load(r)]
     except Exception as e:  # noqa: BLE001
-        log.warning("probe failed (%s) — will retry", str(e)[:90])
+        global _LAST_PROBE_ERROR
+        _LAST_PROBE_ERROR = str(e)[:90]
+        log.warning("probe failed (%s) — will retry", _LAST_PROBE_ERROR)
         return None
 
 
@@ -183,6 +198,39 @@ def warm_whisper():
         log.warning("whisper warm-up skipped: %s", str(e)[:100])
 
 
+def watchdog_loop(key):
+    """Runs the alarm checks independently of the queue probe above, on its
+    own 60s tick — daemon so it never blocks process exit, same as
+    warm_whisper's thread. Writes the heartbeat every tick and runs the full
+    watchdog.run_once() every SECOND tick (120s): the Fly worker is fast
+    (the probe above finds work in ~2s), so a 120s alarm cadence is plenty,
+    and it is what makes worker-down structurally impossible to raise from
+    THIS side (see watchdog.check_all's comment on that).
+
+    COST NOTE: run_once() re-pulls every creator's whole row (measured
+    101,626 bytes / 887ms at three creators) — the same full-sweep cost
+    --sweep's own comment above already flags. Fine at today's scale; the
+    next thing to fix, at the same time, once the creator count grows past
+    the dozens.
+
+    A watchdog failure may never stop the worker — every tick is wrapped in
+    its own try/except.
+    """
+    tick = 0
+    while not STOPPING:
+        try:
+            watchdog.beat(key)
+            if tick % 2 == 1:
+                watchdog.run_once(key, beat=True)
+        except Exception as e:  # noqa: BLE001
+            log.warning("watchdog tick failed: %s", str(e)[:120])
+        tick += 1
+        slept = 0.0
+        while slept < 60.0 and not STOPPING:
+            time.sleep(min(0.25, 60.0 - slept))
+            slept += 0.25
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--poll", type=float, default=2.0,
@@ -220,6 +268,11 @@ def main():
     # runs its logging setup as a side effect, the trap already recorded for
     # process_blueprints.
     threading.Thread(target=lambda: run_pass(["--warm-prefixes"]), daemon=True).start()
+    # Not for --once: a one-shot invocation (used by the launchd/manual paths)
+    # exits in seconds, and a 60s-ticking daemon thread has no business
+    # existing for a process that short-lived.
+    if not args.once:
+        threading.Thread(target=watchdog_loop, args=(key,), daemon=True).start()
 
     log.info("watching for queued scripts — probe every %.1fs, full sweep every %.0fs",
              args.poll, args.sweep)
@@ -228,9 +281,38 @@ def main():
 
     last_sweep = 0.0
     idle_logged = False
+    probe_fails = 0
+    # 30 consecutive failures at the default 2.0s poll is ~60s of unbroken
+    # trouble — long enough that a single blip (already handled silently,
+    # every other tick just retries) cannot trip it, and short enough to
+    # still catch the case actually measured: a rotated/expired service-role
+    # key, which fails "HTTP Error 401: Unauthorized" on every single try.
+    PROBE_FAIL_ALARM = 30
     while not STOPPING:
         due_sweep = (time.time() - last_sweep) >= args.sweep
         ids = queued_creators(key)
+
+        if ids is None:
+            probe_fails += 1
+            if probe_fails >= PROBE_FAIL_ALARM:
+                try:
+                    watchdog.raise_alarm(
+                        key, "supabase-unreachable", "worker can't reach Supabase",
+                        f"{probe_fails} consecutive probe failures. {_LAST_PROBE_ERROR}",
+                        priority=4, tags="rotating_light")
+                except Exception as e:  # noqa: BLE001
+                    log.warning("watchdog raise_alarm failed: %s", str(e)[:120])
+        elif probe_fails:
+            # Recovering from a streak that was long enough to matter — clear
+            # whatever raise_alarm may have opened above. clear_alarm() is a
+            # cheap no-op when nothing is open, but this only calls it on the
+            # recovery edge rather than on every healthy tick, so a Fly worker
+            # polling every 2s is not also hitting lynxr_ops every 2s forever.
+            try:
+                watchdog.clear_alarm(key, "supabase-unreachable", "supabase reachable again")
+            except Exception as e:  # noqa: BLE001
+                log.warning("watchdog clear_alarm failed: %s", str(e)[:120])
+            probe_fails = 0
 
         if ids:
             log.info("queued work from %d creator(s) — starting", len(ids))

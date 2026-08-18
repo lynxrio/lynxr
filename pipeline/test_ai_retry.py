@@ -209,6 +209,62 @@ try:
 finally:
     P.sb = _ORIG_SB
 
+# ---- run_entry stamps a `rerun` marker on a genuine re-run --------------
+# alarms-when-lynxr-breaks.md Step 5b: an entry that already finished (has
+# beats and a processedAt) but gets worked AGAIN is the double-bill shape
+# from 2026-08-18 (renew_claim raced the completion graft, erased the beats,
+# the lease lapsed, the same paste was re-billed). RECORD ONLY — this does
+# not change control flow, it stamps `rerun` + bumps `attempts` so
+# pipeline/watchdog.py's `rerun:<id8>` alarm can see it. --redo-ai (FORCED)
+# is a deliberate owner action and must not be flagged as this shape.
+_ORIG_SB = P.sb
+_ORIG_FETCH_META = P.fetch_meta
+_ORIG_UPSERT_SOURCE = P.upsert_source
+_ORIG_UPSERT_VIDEO = P.upsert_video
+_ORIG_FORCED = P.FORCED
+try:
+    # Fed to graft_adaptations()'s re-pull inside run_entry; an empty
+    # adaptations list is fine, graft_adaptations just appends `a` back on.
+    P.sb = lambda key, path, method="GET", body=None, raw=False: [{"data": {"adaptations": []}}]
+    # fetch_meta/upsert_source/upsert_video sit past the graft on run_entry's
+    # happy path and hit the network directly (not through P.sb) — stub them
+    # so this test makes zero real requests.
+    P.fetch_meta = lambda url: {}
+    P.upsert_source = lambda key, a: None
+    P.upsert_video = lambda key, a: None
+
+    def already_finished_entry():
+        return {
+            "id": "rerun0001",
+            # No matching brand on the creator below, so fill_adaptation bails
+            # out on its "brand not found" branch immediately — no aclient,
+            # no model call, and a["adaptation"] is left exactly as set here.
+            "brandId": "brand-does-not-exist",
+            "attempts": 1,
+            "attemptedAt": "2026-08-18T00:30:00Z",
+            "processedAt": "2026-08-18T01:00:00Z",
+            "adaptation": {"beats": [{"t": "0-3s", "say": "hi", "do": "", "show": ""}]},
+            "claimedBy": "worker-abc",
+        }
+
+    P.FORCED = False
+    a = already_finished_entry()
+    P.run_entry("fake-key", "cid-rerun-1", {"brands": []}, a, None, [], False)
+    check("rerun: beats + processedAt + no aiFail -> gets a rerun marker",
+          bool(a.get("rerun")), True)
+    check("rerun: attempts counted to 2", a.get("attempts"), 2)
+
+    P.FORCED = True
+    a2 = already_finished_entry()
+    P.run_entry("fake-key", "cid-rerun-2", {"brands": []}, a2, None, [], False)
+    check("rerun: FORCED=True (--redo-ai) -> no rerun marker", a2.get("rerun"), None)
+finally:
+    P.sb = _ORIG_SB
+    P.fetch_meta = _ORIG_FETCH_META
+    P.upsert_source = _ORIG_UPSERT_SOURCE
+    P.upsert_video = _ORIG_UPSERT_VIDEO
+    P.FORCED = _ORIG_FORCED
+
 print()
 if FAILS:
     print(f"{len(FAILS)} FAILED: {', '.join(FAILS)}")

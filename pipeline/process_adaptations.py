@@ -391,6 +391,11 @@ def stage(timings, name):
 # which needs the owner in the SQL editor and isn't built here.
 CLAIM_ID = uuid.uuid4().hex[:12]
 
+# True only inside a --redo-ai run. A hand-forced re-run of a finished entry
+# is a deliberate owner action, not the re-run SHAPE pipeline/watchdog.py's
+# `rerun:<id8>` alarm exists to catch — see run_entry's attemptedAt block.
+FORCED = False
+
 # Set to the machine count when the owner scales up (`fly scale count N`). At
 # the default of 1 there is only one claimer, so the extra GET + jittered sleep
 # in main()'s claim-verification step would cost ~1.5s on the SLA for nothing —
@@ -509,6 +514,26 @@ def ai_gave_up(a):
     return (f.get("kind") in AI_RETRY_KINDS
             and int(f.get("tries") or 0) >= AI_MAX_TRIES
             and not a.get("format"))
+
+
+def note_soft_fail(a, subsystem, reason):
+    """Record a swallowed, non-fatal failure on the entry itself.
+
+    The best-effort handlers this sits next to (upsert_source, upsert_video,
+    the cover in fill_source, fetch_meta at its call site) are correct and
+    stay exactly as they are — a failure there must never cost the creator
+    their script, so they log a warning and move on. The problem was never
+    the swallow, it was that a swallowed failure left no trace anywhere a
+    human would look. This just makes it visible: pipeline/watchdog.py's
+    `softfail:<subsystem>` alarm reads this field and pages when the SAME
+    subsystem fails on 3 of the last 5 finished scripts, which turns a
+    persistent problem loud while a single blip (1 of 5) stays quiet."""
+    (a.setdefault("softFails", {}))[subsystem] = {
+        "reason": str(reason)[:120], "at": now_iso()}
+
+
+def clear_soft_fail(a, subsystem):
+    (a.get("softFails") or {}).pop(subsystem, None)
 
 
 def too_young(a, min_age_seconds):
@@ -972,8 +997,10 @@ def upsert_source(key, a):
             req.add_header(h, v)
         req.data = json.dumps(body).encode()
         urllib.request.urlopen(req, timeout=60, context=SSL_CTX).read()
+        clear_soft_fail(a, "source_upsert")
     except Exception as e:  # noqa: BLE001
         log.warning("  source library upsert skipped: %s", str(e)[:90])
+        note_soft_fail(a, "source_upsert", e)
 
 
 def fetch_meta(url):
@@ -1078,8 +1105,10 @@ def upsert_video(key, a):
         urllib.request.urlopen(req, timeout=60, context=SSL_CTX).read()
         log.info("  -> added to the database as %s/%s (%s views)",
                  row["platform"], vid, f"{views:,}" if views else "no count")
+        clear_soft_fail(a, "video_upsert")
     except Exception as e:  # noqa: BLE001
         log.warning("  database upsert skipped: %s", str(e)[:120])
+        note_soft_fail(a, "video_upsert", e)
 
 
 # ============================================================================
@@ -1170,6 +1199,9 @@ def fill_source(a, aclient, key, notes, timings, publish=None):
                         key, hashlib.sha1(canon_url(url).encode()).hexdigest()[:20], blob)
         except Exception as e:  # noqa: BLE001
             log.warning("  -> no cover: %s", api_reason(e))
+            note_soft_fail(a, "cover", e)
+        else:
+            clear_soft_fail(a, "cover")
         src.update({
             "platform": platform_of(url),
             "duration": t["duration"],
@@ -1430,7 +1462,31 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
     """
     log.info("[%s] %s -> %s", data.get("name", cid[:8]),
              (a.get("sourceUrl") or "")[:52], a.get("brandName", "?"))
+    prev_attempt = a.get("attemptedAt")
     a["attemptedAt"] = now_iso()
+    a["attempts"] = int(a.get("attempts") or 0) + 1
+    hist = a.setdefault("attemptHistory", [])
+    if prev_attempt:
+        hist.append(prev_attempt)
+    del hist[:-5]                       # keep the last five, no more
+    # ABOUT TO PAY TWICE. Beats + a processedAt means a finished script already
+    # exists on this entry; re-running it re-bills the whole chain. This is the
+    # 2026-08-18 renew_claim race, seen from the other side. RECORD ONLY —
+    # changing control flow here is a fix, not an alarm, and is out of scope
+    # (see "Noticed, not planned" in the plan this implements). Honest gap: on
+    # 2026-08-18 the racing graft had ERASED the beats before the re-run, so
+    # this specific marker would not have caught that instance —
+    # pipeline/watchdog.py's `inflight:` alarm at 10 minutes would have, since
+    # the entry sat `running` for 1548s. This marker catches the class where
+    # the evidence survives; the stall alarm catches the class where it does
+    # not.
+    if (not FORCED and a.get("processedAt") and not a.get("aiFail")
+            and ((a.get("adaptation") or {}).get("beats") or [])):
+        a["rerun"] = {"at": a["attemptedAt"], "prevProcessedAt": a.get("processedAt"),
+                      "prevBy": a.get("claimedBy"),
+                      "beats": len((a.get("adaptation") or {}).get("beats") or [])}
+        log.error("  -> RE-RUN: this entry already finished at %s with %d beats",
+                  a.get("processedAt"), a["rerun"]["beats"])
     was = a.get("aiFail") or {}
     if was:
         log.info("  retrying a failed AI step (%s, try %s of %d): %s",
@@ -1466,8 +1522,26 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
             # business being in front of four model calls.
             with stage(timings, "meta"):
                 (a.setdefault("source", {}))["meta"] = fetch_meta(a.get("sourceUrl") or "")
+            # fetch_meta() can't be marked from inside itself — it takes a bare
+            # url, not an entry, and is shared with other callers. Marked here
+            # instead, at its one call site on the creator's critical path.
+            if not (a.get("source") or {}).get("meta") and a.get("sourceUrl"):
+                note_soft_fail(a, "meta", "yt-dlp returned nothing")
+            else:
+                clear_soft_fail(a, "meta")
             upsert_source(key, a)                  # library second — it is not their wait
             upsert_video(key, a)                   # and into the main video database
+            if a.get("softFails"):
+                # A second graft, only when something actually failed. The
+                # creator already has their script (grafted above), so this is
+                # off the SLA path and costs nothing in the happy path. Without
+                # it a softFails marker from either upsert above would never
+                # reach the database — the completion graft already ran before
+                # they were even attempted.
+                try:
+                    graft_adaptations(key, cid, [a])
+                except Exception as e:  # noqa: BLE001
+                    log.warning("  soft-fail marker not persisted: %s", str(e)[:90])
             ad = a.get("adaptation") or {}
             # An original-script entry has no fit and no beats BY DESIGN — it is
             # the source read back, not a rewrite. Logging it as "fit=—, 0
@@ -1694,6 +1768,9 @@ def main():
     global REUSE_SOURCES
     if args.reuse_sources is not None:
         REUSE_SOURCES = args.reuse_sources
+
+    global FORCED
+    FORCED = args.redo_ai
 
     log.info("worker claim id: %s (WORKER_PEERS=%d)", CLAIM_ID, WORKER_PEERS)
 

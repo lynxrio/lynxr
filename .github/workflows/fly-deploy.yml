@@ -57,3 +57,14 @@ jobs:
       - run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Say so on the owner's phone
+        # This is the one that ran red five times over two days and was only
+        # found by querying the Actions API by hand.
+        if: failure()
+        run: |
+          curl -s -m 10 \
+            -H "Title: lynxr: worker DEPLOY failed" \
+            -H "Priority: 4" -H "Tags: rotating_light" \
+            -d "run ${{ github.run_number }} — github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" > /dev/null

@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-08-17.**
+Read this, then `README.md` for architecture. **Last updated 2026-08-18.**
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -16,6 +16,77 @@ pipeline. Three surfaces, one stylesheet (`app.css`):
 ---
 
 ## Where this left off (read this first)
+
+**2026-08-18 — lynxr now tells its owner, on his phone, when it is broken.**
+`~/.claude/plans/alarms-when-lynxr-breaks.md`, 12 steps, implemented in the
+working tree. Every serious failure up to this point had been silent (the Fly
+deploy failing five runs straight, `upsert_source()` 400ing for weeks, AI
+steps writing back `status="done"` with no script, and — the trigger for this
+plan — `renew_claim()` racing the completion graft on 2026-08-18, erasing a
+finished script and re-billing the same paste). `pipeline/watchdog.py` reads
+the database (never writes anything a creator can see) and pushes a
+notification to ntfy.sh when one of seven failure SHAPES shows up:
+
+| alarm | condition | threshold, and its source |
+|---|---|---|
+| `inflight:<id8>` | queued/running, no processedAt, age > budget | 600s = 2.6x measured p90 (229s); every real failure measured (1504s, 1548s, 101171s) clears it easily |
+| `inflight:many` | more than 3 stuck at once | collapses a burst into one page instead of N |
+| `empty-script:<id8>` | done + brandId + zero beats, within 24h | live count is 0 — a tripwire on `fill_adaptation`'s no-empty-beats guard regressing |
+| `rerun:<id8>` | done, attempts >= 2, no aiFail | the exact double-bill shape from the 2026-08-18 incident |
+| `sources-stalled` | 3+ finished with a source in 6h, 0 new `lynxr_sources` rows | the weeks-long `upsert_source()` 400, now caught in hours instead of weeks |
+| `softfail:<subsystem>` | 3 of the last 5 finished scripts carry the same `softFails.<subsystem>` marker | makes a persistent failure loud, keeps one blip quiet |
+| `worker-down` | `worker.heartbeat` missing or older than 5min | tolerates 5 missed 60s heartbeats — more than `kill_timeout="300s"` plus a cold boot. Structurally can only ever be raised by the GitHub fallback loop (`adaptations.yml`), never by Fly itself, because the Fly-side caller refreshes its own heartbeat immediately before checking |
+
+**p95 latency is deliberately NOT on the pager** — it moved to a once-daily
+digest instead (priority 2, arrives silently, sent once `now.hour >=
+DIGEST_HOUR_UTC` (default 15 UTC) and not already sent today). This was a
+live lesson, not a guess: this plan's own first watchdog run failed on `p95
+1548s > sla 60s` from the ONE double-billed sample, and at n=7 samples p95
+**is** the worst sample — a single historical incident would have pinned a
+p95-based pager red for 24h on an otherwise healthy system. **The digest
+arriving daily is itself the proof the alarm system is alive** — without a
+daily "all good", silence and a dead pager look identical.
+
+A fixed condition resolves itself: `raise_alarm`/`clear_alarm` latch state in
+a new `lynxr_ops` table (`supabase/ops_table.sql` — **not yet applied, owner
+action**, see below) so an alarm pages once per episode, reminds after 24h if
+still open, and sends a quiet priority-2 "resolved" the moment `check_all()`
+stops reporting it. Missing table or missing `NTFY_TOPIC`: everything falls
+back to an in-process latch and logs a warning — verified live on 2026-08-18
+(`./venv/bin/python pipeline/watchdog.py --once --dry-run` against the real
+database, table absent, topic unset: exit 0, one alarm, `worker-down`, which
+is expected until the Fly worker carrying step 6 deploys).
+
+**Owner actions still open, in order** (`supabase/ops_table.sql` cannot be
+applied by an agent):
+
+1. Pick a long random `NTFY_TOPIC`, subscribe to it in the ntfy iPhone app.
+2. `fly secrets set NTFY_TOPIC=<topic>` (restarts the machine — expected, safe).
+3. GitHub → Settings → Secrets and variables → Actions → new repo secret
+   `NTFY_TOPIC`, same value.
+4. Append `NTFY_TOPIC=<topic>` to `.env` for local runs (gitignored already).
+5. Paste `supabase/ops_table.sql` into the Supabase SQL editor and run it.
+
+**Two corrections this plan turned up, both now fixed in this file and in the
+workflow that repeated the same claim:**
+
+- **There was never an `SLA BREACH` line.** The "What was measured" section
+  below (2026-08-17 entry) and `.github/workflows/latency-watch.yml`'s old
+  header both described `process_adaptations.py`'s `main()` as writing an
+  `SLA BREACH` line straight into `fly logs` — "the only real-time signal
+  that exists". `grep 'SLA BREACH'` over the whole repo returns nothing and
+  never did; the only `log.error` calls in that file are `GAVE UP`, `FAILED`
+  and `FAILED (source)`. Nobody had built the line. This is exactly the kind
+  of silent gap this plan exists to stop happening again — `inflight:` at 10
+  minutes is the real-time latency alarm now, and it is real, tested, and
+  proven to fire (`pipeline/test_watchdog.py`).
+- **`fly-deploy.yml` is fixed** — last three runs green (04:41, 03:27, 03:16
+  on 08-18) — so the memory note `lynxr-fly-deploy-ci-broken.md`'s "run `fly
+  deploy --remote-only` by hand" instruction, and this file's own still-open
+  "next action" language a few paragraphs down about deploying by hand, are
+  stale. A push to `pipeline/**` deploys on its own. That memory note is left
+  as-is here per the owner's own rule (only corrected on request); flagging
+  it is as far as this entry goes.
 
 **2026-08-17 (later the same session) — the "about a minute" claim below was
 wrong, and the fix for it is written but NOT YET DEPLOYED.** Read this before

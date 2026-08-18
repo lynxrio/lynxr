@@ -82,6 +82,7 @@ jobs:
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           WHISPER_MODEL: small
         # Poll for ~5h45m rather than draining the queue once and exiting.
         #
@@ -100,10 +101,37 @@ jobs:
         # first would make that creator wait on GitHub's pace, on a runner with
         # a cold Whisper — racing the very thing whose latency this plan
         # measures, instead of being the backstop it is meant to be.
+        #
+        # THIS LOOP IS ALSO THE EXTERNAL HALF OF THE WATCHDOG. Fly can die
+        # entirely and this keeps running (a GitHub Actions runner, not Fly
+        # infrastructure), which is what makes pipeline/watchdog.py's
+        # `worker-down` alarm able to fire at all — see its comment for why
+        # only THIS caller can ever raise it. `python pipeline/watchdog.py
+        # --once` after every pass, `|| true` so a watchdog problem can never
+        # fail this loop.
+        #
+        # No longer finishes green while quietly failing. 10 consecutive failed
+        # passes (~10 minutes) now fails the job — one bad pass still cannot
+        # kill a 5h45m run, that property is deliberate and stays; ten straight
+        # is a real outage. `fails=$(( fails + 1 ))`, NEVER `(( fails++ ))` —
+        # GitHub runs `run:` steps under `bash -e`, and `(( fails++ ))`
+        # evaluates to the PRE-increment value, so it returns exit 1 (killing
+        # the whole job) the moment fails goes from 0 to 1.
         run: |
           DEADLINE=$(( SECONDS + 345*60 ))
+          fails=0
           while (( SECONDS < DEADLINE )); do
-            python pipeline/process_adaptations.py --min-age-seconds 180 || echo "pass failed — retrying next minute"
+            if python pipeline/process_adaptations.py --min-age-seconds 180; then
+              fails=0
+            else
+              fails=$(( fails + 1 ))
+              echo "pass failed ($fails consecutive) — retrying next minute"
+              if (( fails >= 10 )); then
+                echo "::error::10 consecutive failed passes — failing the run so it is visible"
+                exit 1
+              fi
+            fi
+            python pipeline/watchdog.py --once || true
             if (( SECONDS < DEADLINE )); then sleep 60; fi
           done
 
@@ -115,3 +143,12 @@ jobs:
           path: output/adaptations.log
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Say so on the owner's phone
+        if: failure()
+        run: |
+          curl -s -m 10 \
+            -H "Title: lynxr: creator-scripts fallback FAILED" \
+            -H "Priority: 4" -H "Tags: rotating_light" \
+            -d "run ${{ github.run_number }} — github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" > /dev/null
