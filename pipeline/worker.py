@@ -12,17 +12,27 @@ WHY THIS EXISTS
 
 HOW IT PICKS WORK UP FAST
     The obvious loop — "call process_adaptations every few seconds" — does not
-    scale, because that script's discovery step pulls EVERY creator's whole JSON
-    blob to look for queued work. Measured at three creators that is already
-    101,626 bytes and 887ms; at a thousand it is megabytes, several times a
-    second, forever.
+    scale, because that script's discovery step used to pull EVERY creator's
+    whole JSON blob to look for queued work. Measured at three creators that
+    was already 101,626 bytes and 887ms; at a thousand it would be megabytes,
+    several times a second, forever.
 
     So this polls a much cheaper question first: JSONB containment against the
     adaptations array, returning ids only. Same three creators, 2 bytes and
     170ms — and it stays that size as the corpus grows, because Postgres does
     the filtering instead of shipping everything here to be filtered.
 
-    Only when that probe finds something does the real worker run.
+    Only when that probe finds something does the real worker run — and as of
+    the 2026-08-18 discovery-prefilter change, process_adaptations.py's own
+    periodic sweep runs the same CLASS of containment probe, generalised over
+    all four wants_work() conditions (queued, abandoned running, cooled/retry-
+    due error, and retryable done+aiFail), not just queued. Measured live:
+    214,900 bytes / 548ms -> 2 bytes / ~200ms at five creators. So the sweep
+    below is cheap too now, not just the probe here — queued_creators() stays
+    queued-only ON PURPOSE, because it is the fast LATENCY probe (this file's
+    job is picking up work in seconds), not the discovery scan (that one lives
+    in process_adaptations.py and can afford the full four-condition check
+    every 60s instead of every 2s).
 
 RUNNING IT
     set -a; source .env; set +a
@@ -207,11 +217,16 @@ def watchdog_loop(key):
     and it is what makes worker-down structurally impossible to raise from
     THIS side (see watchdog.check_all's comment on that).
 
-    COST NOTE: run_once() re-pulls every creator's whole row (measured
-    101,626 bytes / 887ms at three creators) — the same full-sweep cost
-    --sweep's own comment above already flags. Fine at today's scale; the
-    next thing to fix, at the same time, once the creator count grows past
-    the dozens.
+    COST NOTE: run_once() still re-pulls every creator's whole row (measured
+    101,626 bytes / 887ms at three creators, worse now — see
+    worker-discovery-prefilter.md's "Noticed, not planned") — unlike
+    process_adaptations.py's own sweep, which the 2026-08-18 discovery-
+    prefilter change moved onto a cheap JSONB containment probe (see --sweep's
+    comment below). watchdog.py needs timings, processedAt, softFails and
+    attempts across every creator to run its alarm checks, which a
+    containment probe cannot answer, so it cannot reuse that prefilter as-is —
+    a real fix means narrowing what it selects. Fine at today's scale; this is
+    what remains to fix once the creator count grows past the dozens.
 
     A watchdog failure may never stop the worker — every tick is wrapped in
     its own try/except.
@@ -241,9 +256,12 @@ def main():
     # process_adaptations.py: together, a death mid-script now costs the lease
     # (150s) plus at most one sweep (60s) — about 3.5 minutes, not 25.
     #
-    # Still does a full discovery pull each pass (measured 101,626 bytes / 887ms
-    # at three creators) — fine at this scale, the next thing to fix once the
-    # creator count grows into the dozens.
+    # Each pass now asks a cheap JSONB containment prefilter first (2026-08-18)
+    # instead of always doing a full discovery pull — measured live at five
+    # creators: 2 bytes on the prefilter, falling back to the old full scan
+    # (~215 KB) only when the prefilter cannot answer or its canary says the
+    # containment grammar is broken. See process_adaptations.py's
+    # "DISCOVERY PREFILTER" block for the four conditions it covers.
     ap.add_argument("--sweep", type=float, default=60.0,
                     help="seconds between full passes, which also pick up error "
                          "retries and abandoned claims (default 60)")

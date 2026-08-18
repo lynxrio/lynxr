@@ -29,6 +29,12 @@
 
 name: deploy worker
 
+# Least privilege: this job never writes to the repo, and it holds
+# FLY_API_TOKEN — a deploy token for the whole app. Without an explicit block
+# GITHUB_TOKEN gets whatever the org/repo default happens to be.
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -50,7 +56,16 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # Pinned to a commit SHA, not @master — a mutable branch ref on a
+      # third-party action in a job that holds a Fly deploy token is a
+      # supply-chain hole (a compromised master could ship anything to this
+      # job's environment). SHA below is superfly/flyctl-actions' `master`
+      # HEAD as of 2026-08-18, which the repo's own `v1`/`1.6` tags also
+      # point at (checked against the GitHub API — refs/heads/master and
+      # refs/tags/v1 both resolve to this commit). Bump deliberately by
+      # checking the new SHA against a real tag, not by pulling @master
+      # again.
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1
       # --remote-only builds on Fly's builders rather than in this runner, so
       # the 500MB image is assembled next to where it is deployed instead of
       # being pushed across the internet from GitHub.

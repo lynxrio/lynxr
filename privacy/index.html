@@ -11,7 +11,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260821w">
+<link rel="stylesheet" href="/app.css?v=20260821x">
 </head>
 <body>
 
@@ -19,7 +19,7 @@
   <a class="legal-back" href="/">&larr; lynxr</a>
 
   <h1>privacy</h1>
-  <p class="legal-date">last updated 17 august 2026</p>
+  <p class="legal-date">last updated 18 august 2026</p>
 
   <p>lynxr is run by <span class="entity">Lynx Media Group LLC</span>
     (&ldquo;we&rdquo;, &ldquo;us&rdquo;), a
@@ -111,8 +111,9 @@
   <h2>how we use AI</h2>
   <p>producing a script means sending material to an AI provider: the video's
     transcript and caption, and the text of a company's website when you add
-    that company. speech is transcribed on our own machines, so that step does
-    not involve a third party.</p>
+    that company. speech is transcribed by software we run ourselves rather
+    than sent to a transcription service, on a server we rent from
+    <strong>Fly.io</strong>.</p>
   <p>our AI provider processes this in order to return a result to us, and does
     not use it to train their models. nothing here makes an automated decision
     with a legal or similarly significant effect &mdash; it writes a draft
@@ -125,12 +126,22 @@
     <li><strong>Supabase</strong> &mdash; the database, and sign-in</li>
     <li><strong>Anthropic</strong> &mdash; the AI that reads a video and writes
       the script</li>
+    <li><strong>Fly.io</strong> &mdash; the machine that downloads a video,
+      transcribes it and runs the pipeline</li>
+    <li><strong>Resend</strong> &mdash; sends our emails</li>
     <li><strong>Apify</strong> &mdash; collecting publicly posted video data</li>
     <li><strong>Google</strong> &mdash; a copy of the wait list is mirrored into
       a private spreadsheet, so that signups land somewhere we actually look</li>
     <li><strong>GitHub</strong> &mdash; hosts this site and keeps standard
       server logs, which include visitors' IP addresses</li>
   </ul>
+  <p>to read a video&rsquo;s title and caption your browser asks a public relay
+    service (allorigins.win, or codetabs.com if the first is down) to fetch the
+    page for it, because the platforms do not allow us to fetch it directly.
+    that relay sees the link you pasted and your IP address. we have no contract
+    with them and they are not storing it for us &mdash; if you would rather
+    that did not happen, the title simply does not load, and everything else
+    about the script still works.</p>
   <p>we do not sell personal information, and we do not share it with anyone for
     advertising.</p>
 
@@ -147,8 +158,19 @@
     you can close it yourself at any time &mdash; <strong>settings &rarr; delete
     account</strong> &mdash; and it happens <strong>immediately</strong>: the
     account and everything in it goes, your companies, saved links and scripts
-    included. we do not keep a copy, and we cannot undo it for you. if you would
-    rather we did it, email us and we will action it within 30 days.</p>
+    included. we cannot undo it for you. if you would rather we did it, email us
+    and we will action it within 30 days.</p>
+  <p>one thing survives, and we want to be straight about it: the <strong>link
+    you pasted</strong>, and what we extracted from that public video &mdash;
+    its transcript, shot list and structure &mdash; stay in our shared library
+    of video formats. that record is filed under the video&rsquo;s own address,
+    not under you: it carries no name, no email and no account id, and after you
+    delete your account nothing connects it to you. your companies, your notes
+    and your scripts all go.</p>
+  <p>a single still frame from each video you paste is also stored, on a public
+    address worked out from the video&rsquo;s own link, so that the video has a
+    thumbnail. it is the same frame for everyone who pastes that video and it is
+    not filed under you either.</p>
   <p><strong>feedback</strong> you send us is kept, but is detached from your
     account when you delete it &mdash; the note survives, the link to you does
     not.</p>

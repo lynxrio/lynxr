@@ -15,7 +15,141 @@ pipeline. Three surfaces, one stylesheet (`app.css`):
 
 ---
 
+## What stage Lynxr is at (2026-08-18)
+
+Three stages, the owner's framing:
+
+**1. Test creators, improving, not public. ← you are one SQL session away.**
+**2. Public, taking payments.** Weeks. Gated more by legal and payments than code.
+**3. Self-running, maintenance only.** Months. Means surviving a week unwatched;
+the longest it has run unattended is hours.
+
+**What blocks stage 1 is not code — it is that nobody can sign up.**
+`signup_state()` returns `{"open": false, "invite_required": false}`: all four
+seats are taken and the `lynxr_signup_seats` trigger on `auth.users` refuses
+every new address. The unlisted `/creatorsonly/` URL was never the access
+control; the seat count is. To let five testers in, set `require_invite = true`
+and issue five invites — do NOT bump `seats`, which opens the door to anyone
+holding the URL, first come first served.
+
+---
+
+## How it works, end to end
+
+**Signing up.** Email + password through GoTrue (`/auth/v1/signup`), with
+`redirect_to` set per signup to `location.origin + CREATOR_PATH` — the project
+Site URL once pointed at localhost and sent real users to a page only the
+developer's laptop could serve, so the app no longer relies on it. Supabase must
+also have that URL on its **Redirect URLs allow-list** or it silently ignores
+the parameter and falls back to Site URL. Email confirmation is ON. An invite
+code, when required, rides along as signup metadata.
+
+Two independent gates sit in front of a new account, both in the database, both
+`BEFORE INSERT` on `auth.users`: a **seat count** (`lynxr_signup_gate.seats`,
+default 4) and, when `require_invite` is true, a **one-time invite code keyed to
+an email**. The browser also asks `signup_state()` so the form can say something
+useful, but that check is advisory — the database is the lock.
+
+**Signing in.** `/auth/v1/token`. Password reset is `/auth/v1/recover`, resending
+a confirmation is `/auth/v1/resend`, and `/auth/v1/user` backs the account page.
+Creators and staff share ONE auth pool, which is why nothing is gated on "any
+authenticated user": agency tables check `is_staff()`, and a creator owns exactly
+one row in `lynxr_creators` keyed on `auth.uid()`.
+
+**There is no file upload.** A creator pastes a LINK, nothing else. Accepted
+hosts are TikTok, Instagram, Facebook (`facebook.com`, `fb.watch`, `fb.com`) and
+YouTube (`youtube.com`, `youtu.be`), subdomains included, scheme restricted to
+http/https. Anything else is refused with `OFF_PLATFORM_NOTE` and **spends
+nothing from the allowance**. This is also the only gate deciding what string a
+subprocess (yt-dlp) is handed.
+
+**What happens after the paste.** The browser appends an adaptation to the
+creator's own row with `status: "queued"` and saves. The Fly worker probes
+Supabase every 2s (JSONB containment, ids only) and sweeps fully every 60s. On a
+hit it claims the entry, then: download → transcribe (Whisper) → cover frame →
+frame extraction → shot list (Haiku) ∥ tags (Opus, effort low) → format
+extraction (Opus) → one adaptation per brand (Opus). Format is extracted ONCE
+per video and reused across every brand, so sending one link to three companies
+costs roughly one extra second each, not three times the wait.
+
+Measured end to end: **queue ~2s**, work 43–70s warm, ~105s cold or on a long
+video. A cold prompt cache after any deploy adds ~50s to the next script only.
+
+**Where the creator's data lives.** One row per creator in `lynxr_creators`,
+`data` JSONB: `name`, `niches`, `brands`, `adaptations`, `library`, `trash`.
+RLS grants that creator select/insert/update/delete on their own row and nothing
+else — proven live with real accounts. The worker uses the service-role key and
+bypasses RLS by design.
+
+**What the allowance now is.** It used to be derived from that same blob —
+`sorted(adaptations + trash, key=addedAt)[:cap]` — which the creator can write,
+so there were three ways to reset it (wipe `adaptations`, wipe `trash`, or
+back-date one `addedAt` so a new entry lands inside the allowed window). It now
+lives server-side in `lynxr_script_charges` / `lynxr_allowance`, spent through a
+`charge_scripts()` RPC the creator cannot forge. `--cap` remains only as a
+fallback, and `--daily-cap` (250) is a spend circuit-breaker with its own alarm.
+
+**When something goes wrong.** A failure that cannot succeed on retry — age-gated,
+private, deleted, geo-blocked, an unsupported link — is translated to a plain
+sentence and the card shows **no Try again button**. Everything else keeps it.
+Raw yt-dlp stderr stays in the logs, never on the card.
+
+**How the owner finds out.** A watchdog runs inside the worker and pages a phone
+over ntfy on failure shapes, not on latency: worker heartbeat missing, an entry
+running too long, a script finished with a brand but zero beats, the same entry
+attempted twice, sources not growing, repeated swallowed failures, and 24h spend
+over cap. Silence means healthy.
+
+---
+
 ## Where this left off (read this first)
+
+**2026-08-18 — the worker's discovery scan stopped pulling every creator's
+whole blob to find out if anything is queued.** `~/.claude/plans/
+worker-discovery-prefilter.md`, implemented in the working tree.
+`process_adaptations.py`'s discovery step used to fetch `select=id,data` for
+every creator and filter in Python — measured live at five creators,
+214,900 bytes and 548ms, fired every 60s forever by `worker.py --sweep`.
+`candidate_creators()` now asks Postgres a JSONB containment question first
+(`prefilter_probes()` / `prefilter_url()`) — measured live, same five
+creators: **2 bytes, ~200ms.** The per-creator double fetch is gone too: a
+creator considered via the prefilter path is read once, not once in the scan
+and again per creator.
+
+The probes are a strict superset of `wants_work()`'s four conditions
+(queued; abandoned running; cooled/retry-due error; retryable done+aiFail),
+not just the `queued`-only probe `worker.py`'s `queued_creators()` already
+used for its 2-second latency check. `pipeline/test_prefilter.py` proves the
+superset property exhaustively — it brute-forces the closed `wants_work()`
+state space (4,050 combinations, 2,106 of them `wants_work()`-True) and
+asserts zero escape the probes — and separately proves the probes cannot
+just match everything (an ordinary finished script, and a `done` entry whose
+`aiFail.kind` is NOT retryable, must both stay unmatched).
+
+**A broken prefilter falls back to the full scan and logs loudly, rather
+than ever reporting an empty queue.** This mattered live: a malformed probe
+(the `[...]` array wrapper dropped from around a containment value) returns
+**HTTP 200 and zero rows** — indistinguishable from "nothing queued" with no
+error at all. `candidate_creators()` re-checks an empty answer against a `[]`
+canary (contained in every JSON array, so it must always match something)
+before trusting it; if the canary also comes back empty, that means the
+containment grammar itself is broken, not that the queue is empty, and the
+code falls back to the old full scan with a `PREFILTER CANARY MATCHED
+NOTHING` error in the logs.
+
+`--redo-ai` and `--backfill-covers` still run the old full scan, **by
+design** — `--redo-ai` widens the `done` branch to `"failed" in note`, which
+no containment probe can express without matching nearly every row, and
+`--backfill-covers` is a manual one-off across the whole corpus (including
+`trash`) that has nothing to do with discovering queued work.
+
+`supabase/creators_adaptations_gin.sql` is a new **open owner action**
+(item 6 below) — a GIN index that buys nothing at today's five rows (the
+win already measured is entirely on the wire) but keeps the prefilter cheap
+once the corpus passes the low hundreds of creators, where ~13 MB of jsonb
+per probe would otherwise become the bottleneck.
+
+---
 
 **2026-08-18 — lynxr now tells its owner, on his phone, when it is broken.**
 `~/.claude/plans/alarms-when-lynxr-breaks.md`, 12 steps, implemented in the
@@ -36,6 +170,7 @@ notification to ntfy.sh when one of seven failure SHAPES shows up:
 | `sources-stalled` | 3+ finished with a source in 6h, 0 new `lynxr_sources` rows | the weeks-long `upsert_source()` 400, now caught in hours instead of weeks |
 | `softfail:<subsystem>` | 3 of the last 5 finished scripts carry the same `softFails.<subsystem>` marker | makes a persistent failure loud, keeps one blip quiet |
 | `worker-down` | `worker.heartbeat` missing or older than 5min | tolerates 5 missed 60s heartbeats — more than `kill_timeout="300s"` plus a cold boot. Structurally can only ever be raised by the GitHub fallback loop (`adaptations.yml`), never by Fly itself, because the Fly-side caller refreshes its own heartbeat immediately before checking |
+| `spend-24h` | `lynxr_script_charges` rows in the trailing 24h >= `DAILY_SCRIPT_CAP` (default 250) | `process_adaptations.py --daily-cap`'s circuit breaker has tripped and is refusing ALL new work — a quiet queue means "capped", not "healthy". Same env var on both sides so the breaker and the alarm can never disagree |
 
 **p95 latency is deliberately NOT on the pager** — it moved to a once-daily
 digest instead (priority 2, arrives silently, sent once `now.hour >=
@@ -66,6 +201,10 @@ applied by an agent):
    `NTFY_TOPIC`, same value.
 4. Append `NTFY_TOPIC=<topic>` to `.env` for local runs (gitignored already).
 5. Paste `supabase/ops_table.sql` into the Supabase SQL editor and run it.
+6. Paste `supabase/creators_adaptations_gin.sql` into the Supabase SQL editor
+   and run it — a GIN index for the discovery prefilter's containment probes.
+   Buys nothing today (five rows, planner seq-scans regardless); insurance
+   for once the creator count passes the low hundreds. See its header.
 
 **Two corrections this plan turned up, both now fixed in this file and in the
 workflow that repeated the same claim:**
@@ -329,9 +468,16 @@ records between them hold 8 scripts. Zero placeholder titles remain in
   `avg_views_of_similar` 999/1000, `niche_category` 1000/1000,
   `target_audience` 999/1000, but **`creator_followers` only 467/1000** — any
   views-per-follower index is computable on half the corpus only.
-- `signup_state()` returns `{open: true, invite_required: false}`. The seat
-  table exists (`seats: 4`) but is not enforcing. **Owner's call: fine — the
-  URL is unlisted and handed to trusted creators.**
+- **STALE, corrected 2026-08-18: `signup_state()` returns `{open: false,
+  invite_required: false}`, not `{open: true, ...}`.** The seat counter
+  (`seats: 4`) has reached the non-internal user count and the
+  `enforce_signup_gate` trigger now refuses every new outside address —
+  signup is closed, not merely unenforced. That is NOT the same as being
+  gated: it keeps out nobody in particular, and it is what blocks testers
+  today. The unblock is `require_invite = true` plus issuing invites
+  (`supabase/invites.sql`, runbook in `supabase/allowance_ledger.sql`'s
+  header), not raising `seats` — raising it reopens the door to every
+  stranger who reads this public repo.
 
 ---
 
@@ -359,6 +505,17 @@ way for the same reason.
 Deploy is path-filtered — only `pipeline/`, `Dockerfile`, `.dockerignore`,
 `requirements-ci.txt` and `fly.toml` trigger a rebuild, so a CSS tweak does not
 rebuild a container carrying 500MB of Whisper weights.
+
+**That path filter is also why the image rots on its own** — most commits here
+are CSS and copy, so a quiet month for the pipeline is a quiet month for the
+image too, and `yt-dlp` (pinned as a floor, `>=2024.1`, not an exact version)
+breaks on a schedule as platforms change their pages, whether or not this
+repo's own code changes. `.github/workflows/fly-refresh.yml` forces a rebuild
+weekly (`cron: "17 6 * * 1"`, plus `workflow_dispatch`) using the same
+`flyctl deploy --remote-only` step, purely to keep `yt-dlp` and the
+`python:3.12-slim` base current. **A red run there means the worker is running
+a stale extractor set, not that anything is broken** — it gates nothing and
+exists only to force the rebuild.
 
 **No secrets in any committed file.** `.dockerignore` excludes `.env` first;
 `worker.py` reads `.env` itself and falls back to `os.environ`, which is what
@@ -693,6 +850,15 @@ reach the real bindings by bare name. The first version of that harness scored
   **Every export must filter `&unsubscribed_at=is.null`** — the unfiltered URL
   still returns everyone. Tested end-to-end: marking one address dropped it
   from the export, then restored.
+- **Formula injection in any CSV export of this data.** `email` is anonymous,
+  visitor-supplied text; a value beginning `=`, `+`, `-` or `@` is evaluated
+  as a formula the moment the file is opened in a spreadsheet, and
+  `=IMPORTXML(...)` can send other cells to an attacker's URL. Open an export
+  with the import wizard's column type forced to Text, or don't open it in a
+  spreadsheet at all. `supabase/waitlist-sheet.gs` carries the same fix for
+  the live mirror (`setNumberFormat('@')` before the values land) — a CSV
+  export is a separate write path and gets no benefit from either that fix
+  or `supabase/write_guards.sql`'s shape constraint.
 - Privacy policy at `/privacy/` — thorough, names every sub-processor, and
   discloses that staff can see pasted video links.
 
@@ -1226,15 +1392,27 @@ element id app.js looks up now resolves).
 
 The owner wants to go public with pricing. Latency is solved; these are not.
 
-1. **`SCRIPT_CAP` is a LIFETIME cap, not monthly** — 25 scripts per account,
-   ever, enforced by the worker's `--cap` (the browser check can be walked
-   around from the console, so the worker's is the one that counts). Any
-   subscription needs this converted to a periodic quota **on both sides**. A
-   subscriber who hits 25 is locked out while still paying.
-2. **Signup is open.** `signup_state()` returns `invite_required: false` and the
-   seat table is not enforcing. Cost per account is bounded (~$1.88 at 25
-   scripts); the number of accounts is not. The gate already exists in the code —
-   it needs switching on.
+1. **STALE as of 2026-08-18.** `SCRIPT_CAP` used to be a LIFETIME cap enforced
+   by taking the oldest `cap` entries of `data.adaptations + data.trash` by
+   `addedAt` — a design with three ways around it from the browser console
+   (wipe `adaptations`, wipe `trash`, or back-date one entry's `addedAt` to
+   sort it inside the window; see "Hard-won" below). `~/.claude/plans/
+   launch-security-privacy-trial-integrity.md` moves the ledger server-side:
+   `supabase/allowance_ledger.sql` (owner action, not yet applied) adds
+   `lynxr_script_charges` (one row per script ever charged, keyed on
+   adaptation id, no `authenticated` policies at all) and `lynxr_allowance`
+   (`granted`, `period_days` — 0 = lifetime, >0 = rolling window, present
+   from day one). Switching a paying creator to a monthly quota after that is
+   **one UPDATE**, not a code change on either side:
+   `update lynxr_allowance set granted = 200, period_days = 30 where id = '<uuid>';`
+   — this item needs converting on neither side any more, once the SQL is
+   applied and this code is deployed together (they must land as one unit;
+   see the plan's Tier A ordering note).
+2. **STALE as of 2026-08-18. Signup is not "open" — it is closed by seat
+   exhaustion,** which is not the same as being gated: it keeps out nobody in
+   particular, it just happens that all 4 seats are currently taken. See the
+   corrected note under "Verified against the live DB" above. The unblock is
+   `require_invite = true` plus issuing invites, not raising `seats`.
 3. **A lawyer's look before money changes hands.** Charging third parties for a
    service built on scraped video, stored transcripts and republished cover
    frames is a different posture from using it internally. Cheap to check now.
@@ -1270,9 +1448,9 @@ to be chosen when pricing lands.
   `creator.js` needs resolve — but if something obscure is missing from that
   page, this is why. Never back up two same-named files into one folder.
 - **Cache stamps.** Every page carries `?v=YYYYMMDDx` on css/js. Bump on EVERY
-  css/js change or browsers serve stale files. **Currently `20260821n`** — note
-  it rolled past `z` on the 19th into the next day's letters, so carry on from
-  `20260820j`.
+  css/js change or browsers serve stale files. **STALE, corrected 2026-08-18:
+  this used to say "currently `20260821n`"; the four pages actually carry
+  `20260821w`.** Carry on from there, not from `n`.
   The HTML documents themselves are NOT stamped, so markup changes — including
   `<title>` — need a hard reload; bumping `?v=` does nothing for them. This
   costs an hour if you forget it: your own CSS edits appear not to apply.
@@ -1292,6 +1470,20 @@ to be chosen when pricing lands.
   Destructive actions use the two-click armed button (`armDelete`).
 - **Tag one video per API request.** A batched design once returned a valid
   1-element array and silently tagged ~45% of rows.
+- **A cap counted inside a blob the owner of that blob can PATCH is not a
+  cap — it's a courtesy, and there were THREE ways around the old
+  `SCRIPT_CAP`, not two.** The known two: wipe `data.adaptations` and
+  `data.trash` from the console, or sign up again. The third needed no
+  deletion at all: the old allowance was the oldest `cap` entries of
+  `adaptations + trash` sorted by `addedAt`, and the creator writes
+  `addedAt` — back-dating one entry (e.g. to `"0001-01-01T00:00:00Z"`) sorts
+  it inside the allowed window and pushes an already-finished entry out.
+  Finished entries fail `wants_work()`, so nothing re-runs and nothing is
+  refused: unlimited scripts by editing one field. Do not re-derive a
+  client-writable ledger as a good design — the fix (2026-08-18) is
+  `supabase/allowance_ledger.sql`: the ledger lives in a table with no
+  `authenticated` policies at all, so there is nothing left in the creator's
+  own row for a console session to edit.
 - Repo is public. No secrets in files; the publishable key is public by design.
   **Never write a waitlist CSV inside the repo** — one `git add -A` publishes
   every address.

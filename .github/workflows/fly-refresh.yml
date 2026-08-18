@@ -1,0 +1,75 @@
+# Redeploys the worker on a schedule even when nothing in pipeline/ changed,
+# so the image itself does not rot.
+#
+# WHY THIS EXISTS. fly-deploy.yml is path-filtered to pipeline/**, Dockerfile
+# and friends ON PURPOSE — a CSS tweak has no business rebuilding a 500MB
+# image. But most commits here ARE css/copy, so a quiet month for the
+# pipeline is a quiet month for this image too, and two things age on their
+# own regardless of what this repo does:
+#
+#   - yt-dlp. requirements-ci.txt pins plain `yt-dlp>=2024.1` (a floor, not an
+#     exact version — see that file's own header for why it must stay plain
+#     `yt-dlp`, never the `[default]`/`[curl-cffi]` extras, which break every
+#     TikTok URL), so a fresh build always resolves the newest release.
+#     yt-dlp is the one dependency here that genuinely breaks on a schedule,
+#     because platforms change their pages out from under it — a stale
+#     yt-dlp is not a hypothetical risk, it is the normal failure mode of
+#     every scraper that depends on it.
+#   - python:3.12-slim, the base image. Security patches land upstream
+#     whether or not this repo's own code changes.
+#
+# Docker layer caching will not save either of these — `pip install` inside
+# the image re-resolves `yt-dlp>=2024.1` on every build regardless of layer
+# cache, which is the entire point of the floor rather than a pin.
+#
+# A RED RUN HERE MEANS THE WORKER IS RUNNING A STALE EXTRACTOR SET, not that
+# anything is broken — see HANDOFF.md. This workflow deliberately does NOT
+# gate anything; it exists purely to force the rebuild.
+#
+# SECRETS REQUIRED (Settings -> Secrets and variables -> Actions):
+#   FLY_API_TOKEN   the same deploy token fly-deploy.yml uses
+#   NTFY_TOPIC      same value as the other two workflows, only used to say
+#                   so on the owner's phone if the deploy itself fails
+
+name: refresh worker image
+
+# Least privilege: this job never writes to the repo, and it holds
+# FLY_API_TOKEN. Without an explicit block GITHUB_TOKEN gets whatever the
+# org/repo default happens to be.
+permissions:
+  contents: read
+
+on:
+  schedule:
+    # Once a week. Best-effort like every other cron in this repo — scheduled
+    # runs on public repos queue under load — but "within a few days of
+    # weekly" is plenty for a freshness job, unlike the 15-minute alarms.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:        # a Run workflow button, for forcing a rebuild now
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # Two deploys at once would fight over the same machine — same group
+    # fly-deploy.yml uses, so a push-triggered deploy and this one can never
+    # collide either.
+    concurrency:
+      group: fly-deploy
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned to a commit SHA — see fly-deploy.yml's identical step for why
+      # and what the SHA below resolves to. Keep both pins in step.
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1
+      - run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Say so on the owner's phone
+        if: failure()
+        run: |
+          curl -s -m 10 \
+            -H "Title: lynxr: weekly image refresh FAILED" \
+            -H "Priority: 4" -H "Tags: rotating_light" \
+            -d "run ${{ github.run_number }} — github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" > /dev/null

@@ -23,6 +23,9 @@ tells the owner when one of a fixed set of failure SHAPES shows up:
     softfail:<sub>    a soft failure (source_upsert/video_upsert/cover/meta)
                       hit on 3+ of the last 5 finished scripts
     worker-down       the Fly worker's heartbeat has gone quiet
+    spend-24h         process_adaptations.py's --daily-cap circuit breaker has
+                      tripped — the worker is refusing ALL new work, so a
+                      quiet queue means "capped", not "healthy"
 
 p95 latency is DELIBERATELY not here — it lives in the daily digest instead.
 The watchdog's first-ever run failed on `p95 1548s > 60s`, and at n=7 samples
@@ -107,6 +110,10 @@ WORKER_DOWN_MINUTES = 5       # heartbeat every 60s (worker.py) tolerates 5 miss
                                # more than kill_timeout="300s" plus a cold boot.
 LATCH_REMIND_HOURS = 24       # how long an open alarm stays quiet before a reminder
 DIGEST_HOUR_UTC = int(os.environ.get("DIGEST_HOUR_UTC", "15"))
+# Same default and same env var process_adaptations.py's --daily-cap reads —
+# so the breaker that refuses work and the alarm that pages about it can
+# never disagree on where the line is.
+DAILY_SCRIPT_CAP = int(os.environ.get("DAILY_SCRIPT_CAP", 250))
 
 SOFTFAIL_SUBSYSTEMS = ("source_upsert", "video_upsert", "cover", "meta")
 
@@ -271,15 +278,32 @@ def clear_alarm(key, alarm_key, note):
 # 3c. check_all() — pure, no network, no Supabase
 # =============================================================================
 
-def check_all(rows, sources_recent, worker_seen_at, now=None):
+def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
     """The list of currently-breached invariants, each a dict with keys
     "key", "title", "body", "priority", "tags". A pure function of its
     arguments — same reason LR.build_report is pure: it has to be testable
     without a network call, and this plan exists precisely because a
     documented alarm (`SLA BREACH` in fly logs) turned out never to have been
-    built, so the detector itself has to be provably real."""
+    built, so the detector itself has to be provably real.
+
+    `charges_24h` defaults to 0 (never fires) so every existing caller that
+    does not pass it keeps working unchanged."""
     now = now or datetime.now(timezone.utc)
     alarms = []
+
+    # ---- spend-24h ----------------------------------------------------------
+    # Pages the moment process_adaptations.py's --daily-cap breaker trips, so
+    # a quiet worker (queue empty because it is REFUSING work, not because
+    # there is none) does not read as healthy. No creator id, email or URL —
+    # just the two numbers, same invariant every other body here holds to.
+    if DAILY_SCRIPT_CAP and charges_24h >= DAILY_SCRIPT_CAP:
+        alarms.append({
+            "key": "spend-24h",
+            "title": f"{charges_24h} scripts charged in 24h",
+            "body": (f"{charges_24h} scripts charged in 24h (cap {DAILY_SCRIPT_CAP}) "
+                     "— worker is refusing new work"),
+            "priority": 4, "tags": "rotating_light",
+        })
 
     # ---- inflight:<id8> / inflight:many --------------------------------
     # Reuses LR.build_report so the addedAt/status parsing lives in one place.
@@ -480,6 +504,32 @@ def _sources_count(key, since=None):
         return 0
 
 
+def _charges_count(key, since):
+    """Row count of lynxr_script_charges charged_at >= `since`. Same
+    Prefer: count=exact + Range: 0-0 pattern as _sources_count above, against
+    supabase/allowance_ledger.sql's ledger table instead of lynxr_sources.
+    Returns 0 (never raises) if that table doesn't exist yet — an owner action
+    this module must keep degrading gracefully in front of, same as every
+    other table here that isn't applied yet."""
+    try:
+        iso = since.isoformat().replace("+00:00", "Z")
+        path = "/rest/v1/lynxr_script_charges?select=adaptation_id"
+        path += f"&charged_at=gte.{urllib.parse.quote(iso, safe='')}"
+        req = urllib.request.Request(f"{LR.SB_URL}{path}")
+        req.add_header("apikey", key)
+        req.add_header("Authorization", f"Bearer {key}")
+        req.add_header("Prefer", "count=exact")
+        req.add_header("Range", "0-0")
+        with urllib.request.urlopen(req, timeout=15, context=SSL_CTX) as r:
+            content_range = r.headers.get("Content-Range", "")
+            r.read()
+        total = content_range.split("/")[-1]
+        return int(total) if total.isdigit() else 0
+    except Exception as e:  # noqa: BLE001
+        log.warning("lynxr_script_charges count failed: %s", str(e)[:90])
+        return 0
+
+
 def _maybe_digest(key, rows, now, open_alarms=None, force=False):
     if not force:
         if now.hour < DIGEST_HOUR_UTC:
@@ -507,7 +557,8 @@ def run_once(key, dry_run=False, beat=False, force_digest=False):
         rows = LR.fetch_rows(key)
         sources_recent = _sources_count(key, since=now - timedelta(hours=SOURCES_STALL_WINDOW_H))
         worker_seen_at = _worker_seen_at(key)
-        alarms = check_all(rows, sources_recent, worker_seen_at, now)
+        charges_24h = _charges_count(key, since=now - timedelta(hours=24))
+        alarms = check_all(rows, sources_recent, worker_seen_at, now, charges_24h=charges_24h)
 
         if dry_run:
             return alarms

@@ -11,6 +11,13 @@
 
 name: creator scripts
 
+# Least privilege: this job never writes to the repo, and it holds
+# SUPABASE_SERVICE_ROLE_KEY and ANTHROPIC_API_KEY. Without an explicit block
+# GITHUB_TOKEN gets whatever the org/repo default happens to be, which on a
+# public repo can be broader than this job ever needs.
+permissions:
+  contents: read
+
 on:
   schedule:
     # Every 15 minutes — but MEASURED, this fires roughly every 3 hours: runs

@@ -493,10 +493,26 @@ async function sbSignUp(email, password, invite) {
    see the signup gate in supabase/schema.sql. THE DATABASE IS THE LOCK; this
    is only so a full gate can say so in words.
 
-   Fails OPEN on purpose. If the RPC is missing (a database without the
-   migration) or the network is down, the page behaves exactly as it did before
-   and the trigger still refuses the account — an unreachable check must not
-   lock out a creator who is entitled to sign up. */
+   WHICH WAY IT FAILS, AND WHY THE TWO HALVES FAIL DIFFERENT WAYS.
+
+   `open` fails OPEN. If the RPC is missing (a database without the migration)
+   or the network is down, the page behaves exactly as it did before and the
+   trigger still refuses the account — an unreachable check must not lock out a
+   creator who is entitled to sign up.
+
+   `invite_required` fails CLOSED, i.e. toward showing the field. Once invites
+   are the gate, hiding #invite-wrap on a failed RPC guarantees a refusal the
+   creator cannot fix from the screen they are looking at: they submit with no
+   code and are told "that email isn't on the invite list", with nowhere to put
+   the code sitting in their inbox. Showing an invite field to someone who does
+   not need one costs an ignorable input; hiding it from someone who does costs
+   the signup. It used to default to false, which meant a single failed fetch
+   silently removed the only control that makes signup possible.
+
+   `reached` says which of the two situations produced the answer — `true` is
+   "the server told us this", `false` is "we never heard back and these are
+   defaults". Nothing renders differently on it today; it exists so a caller
+   can never mistake a default for a fact. */
 const FULL_MSG = "lynxr is invite-only and full right now — "
   + "join the waitlist at lynxr.io and we'll come to you as we open up.";
 let SEATS_OPEN = null;                       // null = not asked yet
@@ -509,6 +525,10 @@ let INVITE_REQUIRED = false;
 const INVITE = new URLSearchParams(location.search).get("c") || "";
 const INVITED_EMAIL = new URLSearchParams(location.search).get("e") || "";
 
+// What we assume when the RPC does not answer: sign-in stays possible, and the
+// invite field is shown. See the block above for why those two go opposite ways.
+const GATE_UNKNOWN = { open: true, invite_required: true, reached: false };
+
 async function signupState() {
   try {
     const res = await fetch(`${SB_URL}/rest/v1/rpc/signup_state`, {
@@ -516,11 +536,12 @@ async function signupState() {
       headers: { apikey: SB_KEY, "Content-Type": "application/json" },
       body: "{}",
     });
-    if (!res.ok) return { open: true, invite_required: false };
+    if (!res.ok) return { ...GATE_UNKNOWN };
     const s = await res.json();
-    // A database with no gate row answers null. Treat that as "no gate".
-    return s && typeof s === "object" ? s : { open: true, invite_required: false };
-  } catch { return { open: true, invite_required: false }; }
+    // A database with no gate row answers null. That is not an answer either —
+    // it is the same "we do not know" as a 500, so it takes the same defaults.
+    return s && typeof s === "object" ? { ...s, reached: true } : { ...GATE_UNKNOWN };
+  } catch { return { ...GATE_UNKNOWN }; }
 }
 
 /* Only ever speaks up in create mode: a closed door is no reason to stop
@@ -716,9 +737,41 @@ function save({ now = false } = {}) {
       clearTimeout(RETRY_T);
       RETRY_T = null;
       saveLocalMe();                 // record that it landed
-    } catch {
+    } catch (ex) {
       SYNC_OK = false;
-      scheduleRetry();
+      /* THE ONE FAILURE RETRYING CANNOT FIX. supabase/write_guards.sql bounds
+         a creator's row at 1 MB, and a row over it is refused identically on
+         every attempt — so the outbox above would back off, retry, back off
+         and retry for as long as the tab is open, telling the creator "offline
+         — retrying" about a connection that is fine. Say what is actually
+         wrong instead, once, and name the fix.
+
+         MATCHED TWO WAYS, AND THE SECOND IS THE ONE THAT WILL ACTUALLY FIRE.
+         PostgREST returns {"code","details","hint","message"} in that key
+         order, and sbFetch keeps only the first 160 characters of the body.
+         For a check violation Postgres fills `details` with "Failing row
+         contains (…)" — around 110 characters even after it truncates each
+         column to 64 — so the constraint NAME, which lives in `message`, sits
+         at roughly character 160 and is as likely to be cut off as not.
+         `"code":"23514"` is the 3rd character of the body and always survives;
+         23514 is check_violation, and the size guard is the only check
+         constraint on lynxr_creators, so on this request it means exactly one
+         thing. The name is matched too, for the day the slice gets longer or
+         a second constraint makes the code ambiguous.
+
+         The edit is not lost — saveLocalMe() above ran before the network was
+         touched, so it is on the device, and deleting entries makes the next
+         save() smaller and dirty again, which is exactly the remedy the
+         message names. */
+      const err = String(ex?.message || "");
+      if (/lynxr_creators_data_size/.test(err) || /"code"\s*:\s*"23514"/.test(err)) {
+        DIRTY = false;               // the badge must not claim a retry we are not making
+        clearTimeout(RETRY_T);
+        RETRY_T = null;
+        say("Your library is too large to save — delete some entries.", "bad");
+      } else {
+        scheduleRetry();
+      }
     }
     SAVE_PENDING = false;
     renderSyncBadge();
@@ -1152,6 +1205,19 @@ function renderNewScript(head, body) {
           </button>
         </form>
         <p class="composer-note" id="composer-note" role="status" aria-live="polite"></p>
+        ${/* WHAT A PASTE ACTUALLY DOES, said where the paste happens. The
+              signup consent line links the policy once, months before this
+              moment; two things here would surprise someone who only read that
+              — the link leaves our origin on its way to a public relay to have
+              its title read, and it is kept in the shared format library after
+              the account is gone. Both are in the policy; neither was anywhere
+              near the box.
+              href="/privacy/" and not a new tab: the delegated handler at the
+              top of this file opens it in the modal, so reading it does not
+              navigate away from a half-filled composer. */""}
+        <p class="bp-hint composer-disclose">we fetch this video&rsquo;s title through a public relay,
+          and store the link in our shared format library &mdash;
+          <a href="/privacy/">privacy</a></p>
       </div>
     </div>`;
 
@@ -1199,15 +1265,25 @@ trackVisibleHeight();
 
 function renderSide() {
   document.getElementById("side-who").textContent = SB_EMAIL || "";
-  const used = Math.min(scriptsUsed(), SCRIPT_CAP);
+  /* THE SERVER'S NUMBER WHEN THERE IS ONE. `granted` is per-account
+     (lynxr_allowance.granted), so it is not always 25 — raising one creator's
+     limit is one UPDATE and this rail has to say the new number, not the
+     constant. ALLOWANCE null means my_allowance() has not answered: fall back
+     to the local count, which is what this rail showed before the ledger
+     existed. Wording is unchanged either way. */
+  const grant = scriptGrant();
+  const used = Math.min(ALLOWANCE ? ALLOWANCE.used : scriptsUsed(), grant);
   const quota = document.getElementById("side-quota");
   document.getElementById("side-quota-text").textContent =
-    used >= SCRIPT_CAP ? `${SCRIPT_CAP}/${SCRIPT_CAP} — none left`
-                       : `${used}/${SCRIPT_CAP} scripts · ${SCRIPT_CAP - used} left`;
+    used >= grant ? `${grant}/${grant} — none left`
+                  : `${used}/${grant} scripts · ${grant - used} left`;
   // Width via CSSOM, not a style attribute: the CSP drops inline styles, and
   // this exact mistake once shipped bar charts that rendered as nothing.
-  document.getElementById("side-quota-fill").style.width = `${(used / SCRIPT_CAP) * 100}%`;
-  quota.classList.toggle("spent", used >= SCRIPT_CAP);
+  // `grant` is guarded because a granted of 0 is a legal row — a suspended
+  // account — and 0/0 would paint the bar as NaN%, i.e. as nothing at all.
+  document.getElementById("side-quota-fill").style.width =
+    `${grant > 0 ? (used / grant) * 100 : 100}%`;
+  quota.classList.toggle("spent", used >= grant);
   document.getElementById("nav-library-n").textContent = scriptCount();
   document.getElementById("nav-new").classList.toggle("on", VIEW.kind === "new");
   document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library");
@@ -2631,18 +2707,67 @@ function sourceLabel(item) {
 // one library entry, a separate script per company.
 let COMPOSE_FOR = null;      // Set of brand ids; null means "just this brand"
 
-// How many scripts one account may ever have written. Four model calls each,
-// three of them Opus, so this is a spend limit before it is a product rule.
-// The WORKER enforces the same number (--cap / SCRIPT_CAP) and that is the one
-// that counts — this row belongs to the creator, so the check below can be
-// walked around from the browser console. Keep the two in step.
+// How many scripts a NEW account may write, and the number this page shows
+// before the server has told it otherwise. Four model calls each, three of them
+// Opus, so this is a spend limit before it is a product rule.
+// The default the database grants (lynxr_allowance.granted) is the same 25, and
+// the WORKER charges against that ledger before it spends anything — that is
+// the one that counts. Keep the two in step, and remember a single account can
+// legitimately be granted more, which is why nothing below prints this constant
+// once my_allowance() has answered.
 const SCRIPT_CAP = 25;
 // Counted against the allowance whether or not the creator still has it. Every
 // one of these was four model calls that were actually paid for, so deleting a
 // script must not hand the money back — otherwise 50 is not a limit, it is a
 // limit on how many you keep. Deleted scripts go to the trash rather than
 // vanishing, so this is just "everything ever made".
+//
+// THIS IS THE FALLBACK NOW, NOT THE NUMBER. It counts rows in ME — the blob the
+// creator owns and PATCHes whole on every save — so it can be set to anything
+// from a console, and it was three separate ways around the trial. The real
+// count lives in lynxr_script_charges, a table no creator can write, and
+// reaches this page only through my_allowance(). Use scriptRoom()/scriptGrant()
+// below rather than either of these two directly.
 const scriptsUsed = () => (ME.adaptations || []).length + (ME.trash || []).length;
+
+/* WHAT THE SERVER SAYS THIS ACCOUNT HAS SPENT.
+   `null` until my_allowance() has answered once — which is also where it stays
+   on a database that has not had supabase/allowance_ledger.sql applied yet (the
+   RPC 404s) and on a creator who is offline. Every read falls back to the local
+   count in that case, so the rail keeps working exactly as it did before rather
+   than showing a blank or a zero.
+
+   Once a real number has landed it is KEPT through a later failure: a stale
+   server number is closer to the truth than the local one, which the creator
+   can edit. */
+let ALLOWANCE = null;                        // { used, granted } or null
+
+/** How many more scripts this account may write, and out of how many.
+    A COURTESY, not the enforcement point — the worker charges against the
+    ledger before it spends anything, and refuses there. But a courtesy that
+    lies to a paying creator is worse than none, so it reads the server's
+    numbers whenever it has them. */
+const scriptGrant = () => (ALLOWANCE ? ALLOWANCE.granted : SCRIPT_CAP);
+const scriptRoom = () => (ALLOWANCE
+  ? Math.max(ALLOWANCE.granted - ALLOWANCE.used, 0)
+  : SCRIPT_CAP - scriptsUsed());
+
+/** Ask the server for the two numbers. Silent on failure by design: this runs
+    on sign-in, after every send and on tab focus, and a creator does not need
+    to be told that a counter refreshed late. */
+async function refreshAllowance() {
+  let r;
+  try {
+    r = await sbFetch("/rest/v1/rpc/my_allowance", { method: "POST", body: "{}" });
+  } catch { return; }                        // RPC not applied yet, or offline
+  const granted = Number(r?.granted);
+  const used = Number(r?.used);
+  // A half-answer is worse than no answer: keep whatever we had rather than
+  // painting NaN into the rail.
+  if (!Number.isFinite(granted) || !Number.isFinite(used)) return;
+  ALLOWANCE = { used, granted };
+  renderSide();
+}
 
 /** Which companies the pasted link is for. Links are sent from one place now,
     so there is no "current brand" to assume — the ticks are the whole answer.
@@ -2728,10 +2853,12 @@ function wireComposer() {
     }
 
     // Refuse before making anything — a company created and then blocked by
-    // the cap would leave an empty folder behind.
-    const room = SCRIPT_CAP - scriptsUsed();
+    // the cap would leave an empty folder behind. scriptRoom() is the SERVER's
+    // remaining allowance when my_allowance() has answered, and the local count
+    // only when it has not; see its definition for why this stays a courtesy.
+    const room = scriptRoom();
     if (room <= 0) {
-      say(`That's all ${SCRIPT_CAP} scripts. Ask for more from Feedback in the menu.`, "bad");
+      say(`That's all ${scriptGrant()} scripts. Ask for more from Feedback in the menu.`, "bad");
       return;
     }
 
@@ -2788,7 +2915,7 @@ function wireComposer() {
       // video's own words, shots and structure, with no rewrite. This is a
       // real result, not a fallback for a failure.
       if (room <= 0) {
-        say(`That's all ${SCRIPT_CAP} scripts. Ask for more from Feedback in the menu.`, "bad");
+        say(`That's all ${scriptGrant()} scripts. Ask for more from Feedback in the menu.`, "bad");
         return;
       }
       const { item: solo } = ensureLibraryItem(url);
@@ -2814,7 +2941,7 @@ function wireComposer() {
     // Ticking four companies is four scripts, so the cap has to be checked
     // against the number of TARGETS rather than the number of sends.
     if (targets.length > room) {
-      say(`That's ${targets.length} scripts and you have ${room} left of ${SCRIPT_CAP}. `
+      say(`That's ${targets.length} scripts and you have ${room} left of ${scriptGrant()}. `
         + `Untick ${targets.length - room} to send it.`, "bad");
       return;
     }
@@ -3460,13 +3587,13 @@ function brandsWithout(item) {
     whatever UI it disabled and choose its own message — this function has no
     view of what that control is. */
 async function alsoWriteFor(item, brandIds, afterRender) {
-  const room = SCRIPT_CAP - scriptsUsed();
+  const room = scriptRoom();
   if (room <= 0) {
-    say(`That's all ${SCRIPT_CAP} scripts. Ask for more from Feedback in the menu.`, "bad");
+    say(`That's all ${scriptGrant()} scripts. Ask for more from Feedback in the menu.`, "bad");
     return { queued: [], skipped: [] };
   }
   if (brandIds.length > room) {
-    say(`That's ${brandIds.length} scripts and you have ${room} left of ${SCRIPT_CAP}. `
+    say(`That's ${brandIds.length} scripts and you have ${room} left of ${scriptGrant()}. `
       + `Untick ${brandIds.length - room} to send it.`, "bad");
     return { queued: [], skipped: [] };
   }
@@ -4603,6 +4730,10 @@ function unlock() {
   document.getElementById("app").style.display = "block";
   renderAll();
   startLiveSync();
+  // AFTER SIGN-IN. renderAll() has already painted the rail from the local
+  // count; this repaints it with the server's the moment it answers. Not
+  // awaited — a slow or missing RPC must not hold up the app opening.
+  refreshAllowance();
 }
 
 /** Scripts are written off-page, so poll while the tab is visible and repaint
@@ -4680,9 +4811,19 @@ function startLiveSync() {
     // standing cost.
     liveTimer = setTimeout(tick, writingQueue().length ? 2500 : 60000);
   };
-  kickLiveSync = () => { clearTimeout(liveTimer); tick(); };
+  /* AFTER EVERY SUCCESSFUL SEND. All four send sites call this once their
+     save() has landed (2830, 2881, 2917, 3559), which is exactly the moment the
+     allowance can have moved, so the refresh rides along here rather than being
+     repeated four times and forgotten on the fifth. */
+  kickLiveSync = () => { clearTimeout(liveTimer); refreshAllowance(); tick(); };
   schedule();
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+  // COMING BACK TO THE TAB. The row is re-pulled here already; the allowance
+  // is the other half of the same "what changed while I was away".
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    refreshAllowance();
+    tick();
+  });
 }
 
 // The gate does double duty: sign in, or create an account. One form, one
@@ -4693,8 +4834,16 @@ function startLiveSync() {
    password, only the replacement. */
 /* Which version of the privacy policy a new account agreed to. Bump it when the
    policy changes in a way that matters — the date in privacy/index.html is the
-   human version of the same thing. Old rows keep the version they accepted. */
-const PRIVACY_VERSION = "2026-08-17";
+   human version of the same thing. Old rows keep the version they accepted.
+
+   IT DOES NOT RE-PROMPT ANYONE. This constant is read in exactly one place —
+   the signup handler, which stamps it onto a brand-new row — so bumping it
+   records the new wording for everyone who signs up FROM NOW ON and changes
+   nothing for an existing creator: no banner, no dialog, no second agreement.
+   Do not treat a bump here as consent re-taken. The policy's own "changes to
+   this policy" section promises an email for a material change, and that email
+   is the mechanism; this is only the label on it. */
+const PRIVACY_VERSION = "2026-08-18";
 
 let GATE_MODE = "in";
 function setGateMode(mode) {

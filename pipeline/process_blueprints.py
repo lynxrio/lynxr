@@ -130,11 +130,17 @@ OFF_PLATFORM_NOTE = ("Blueprints read TikTok, Instagram, Facebook and YouTube "
 def supported_url(url):
     """True if this is a link we accept. Matched on the HOSTNAME — platform_of
     above is a substring test on the whole URL, fine for labelling a row we have
-    already accepted but not as a gate."""
+    already accepted but not as a gate.
+
+    Checks the SCHEME too — mirrors process_adaptations.py:supported_url,
+    which explains why: belt and braces, not a live exploit closed."""
     from urllib.parse import urlsplit
     try:
-        host = (urlsplit(str(url or "").strip()).hostname or "").lower()
+        parts = urlsplit(str(url or "").strip())
+        host = (parts.hostname or "").lower()
     except ValueError:
+        return False
+    if parts.scheme not in ("http", "https"):
         return False
     if host.startswith("www."):
         host = host[4:]
@@ -265,7 +271,7 @@ def process_one(b, key, aclient):
     with tempfile.TemporaryDirectory() as td_s:
         td = Path(td_s)
         if b.get("url"):
-            media, err = download_video(b["url"], td)
+            media, err = download_video(str(b["url"]).strip(), td)
             if not media:
                 # Some links refuse the video variant — audio still scripts it.
                 media, err2 = fetch_audio(b["url"], td)

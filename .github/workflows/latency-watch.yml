@@ -37,6 +37,12 @@
 
 name: latency watch
 
+# Least privilege: read-only use of SUPABASE_SERVICE_ROLE_KEY and NTFY_TOPIC,
+# no repo writes. Without an explicit block GITHUB_TOKEN gets whatever the
+# org/repo default happens to be.
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: "*/15 * * * *"     # best-effort — see the note above

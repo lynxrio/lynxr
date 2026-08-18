@@ -13,6 +13,7 @@ fires when it should, or proves it stays silent when it shouldn't — never only
 one side of that.
 """
 
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -132,6 +133,22 @@ check("3 of the last 5 finished carrying softFails.source_upsert -> softfail:sou
 
 alarms = W.check_all(softfail_rows(1), sources_recent=1, worker_seen_at=NOW, now=NOW)
 check("1 of 5 -> none", "softfail:source_upsert" in keys_of(alarms), False)
+
+# ---- spend-24h ---------------------------------------------------------------
+alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW, now=NOW,
+                      charges_24h=W.DAILY_SCRIPT_CAP - 1)
+check("charges_24h one under the cap -> none", "spend-24h" in keys_of(alarms), False)
+
+alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW, now=NOW,
+                      charges_24h=W.DAILY_SCRIPT_CAP)
+check("charges_24h AT the cap -> spend-24h", "spend-24h" in keys_of(alarms), True)
+
+spend_alarm = next(a for a in alarms if a["key"] == "spend-24h")
+body = spend_alarm["body"]
+check("spend-24h body carries no @ (no email)", "@" in body, False)
+check("spend-24h body carries no http (no URL)", "http" in body, False)
+check("spend-24h body carries no uuid-shaped id (no creator id)",
+      bool(re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-", body)), False)
 
 # ---- worker-down -------------------------------------------------------------
 alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW - timedelta(minutes=6), now=NOW)

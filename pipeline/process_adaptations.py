@@ -59,7 +59,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 try:
@@ -320,6 +320,38 @@ def sb(key, path, method="GET", body=None, raw=False):
     return data if raw else (json.loads(data) if data else None)
 
 
+def count_charges(key, since_iso):
+    """Row count of lynxr_script_charges charged after `since_iso` (an ISO
+    string). Uses Prefer: count=exact + Range: 0-0 so the body stays empty and
+    the total comes off Content-Range — sb() discards headers, so this is a
+    small dedicated helper rather than a mode on it. Mirrors
+    watchdog.py:_sources_count, which uses the identical pattern against a
+    different table.
+
+    Returns 0 (never raises) on any failure, INCLUDING "the table doesn't
+    exist yet" — supabase/allowance_ledger.sql is an owner action and this
+    module must keep working, degraded, before it is applied. That makes the
+    daily cap fail OPEN, unlike charge_scripts(): this is a circuit breaker
+    bounding worst-case spend, not the per-creator control the plan forbids
+    failing open on."""
+    try:
+        q = urllib.parse.quote(since_iso, safe="")
+        req = urllib.request.Request(
+            f"{SB_URL}/rest/v1/lynxr_script_charges?charged_at=gt.{q}&select=adaptation_id")
+        req.add_header("apikey", key)
+        req.add_header("Authorization", f"Bearer {key}")
+        req.add_header("Prefer", "count=exact")
+        req.add_header("Range", "0-0")
+        with urllib.request.urlopen(req, timeout=15, context=SSL_CTX) as r:
+            content_range = r.headers.get("Content-Range", "")
+            r.read()
+        total = content_range.split("/")[-1]
+        return int(total) if total.isdigit() else 0
+    except Exception as e:  # noqa: BLE001
+        log.warning("lynxr_script_charges count failed: %s", str(e)[:90])
+        return 0
+
+
 COVER_BUCKET = "lynxr-covers"
 
 
@@ -511,6 +543,23 @@ def ai_failure_kind(reason):
     return "content"
 
 
+# WHAT THE CREATOR READS, as opposed to what fly logs gets. Reuses
+# ai_failure_kind rather than a second classifier. billing/rate_limit/
+# transient are all ours to fix, not the creator's — before this, a billing
+# failure's raw reason was Anthropic's own sentence about OUR credit balance,
+# shown on a paying (or trialing) creator's card. Only "content" is genuinely
+# about their video, so only it gets a different sentence.
+AI_FAIL_WORDING = (
+    ("billing", "something on our side went wrong — we're retrying. "
+                "Nothing was used from your allowance."),
+    ("rate_limit", "something on our side went wrong — we're retrying. "
+                   "Nothing was used from your allowance."),
+    ("transient", "something on our side went wrong — we're retrying. "
+                  "Nothing was used from your allowance."),
+    ("content", "we couldn't write a script from that video."),
+)
+
+
 def mark_ai_fail(a, reason):
     """Stamp a machine-readable failure marker on the entry.
 
@@ -572,6 +621,107 @@ def ai_gave_up(a):
             and not a.get("format"))
 
 
+# ---------------------------------------------------------------------------
+# DISCOVERY PREFILTER
+#
+# Discovery used to pull every creator's whole `data` blob and filter here.
+# Measured live 2026-08-18: 214,900 bytes / 548ms at FIVE creators, and
+# worker.py --sweep fires it every 60 seconds forever. It is linear in the
+# corpus and it degrades silently, which is the worst failure shape here.
+#
+# So ask Postgres instead, the way worker.py's queued_creators() already
+# does — JSONB containment, ids only, 2 bytes. The difference is that probe
+# asks ONLY about status:"queued" (deliberately: it is the latency probe),
+# and wants_work() accepts FOUR conditions. These probes are the union of
+# all four, and must stay a strict SUPERSET of it: over-selecting costs one
+# wasted row fetch that the per-creator pass then re-checks precisely,
+# under-selecting loses a creator's script with nothing anywhere saying so.
+#
+# `done` is the overwhelmingly common status, so it is probed only TOGETHER
+# with a concrete aiFail.kind — a bare {"status":"done"} probe would match
+# nearly every creator and buy nothing.
+#
+# THE ARRAY WRAPPER IS LOAD-BEARING. `data->adaptations` is a jsonb ARRAY,
+# so a probe must be `[{...}]`. Measured: the same probe as a bare object
+# `{...}` returns HTTP 200 and [] — no error, matching nothing. A malformed
+# probe here is indistinguishable from an empty queue, which is why
+# candidate_creators() below re-checks with a canary before believing an
+# empty answer, and why test_prefilter.py asserts the shape.
+def prefilter_probes():
+    """Containment probes whose union is a strict superset of wants_work()."""
+    probes = [[{"status": "queued"}],      # wants_work condition 1
+              [{"status": "running"}],     # condition 2, narrowed by abandoned()
+              [{"status": "error"}]]       # condition 3, narrowed by cooled()/ai_retry_due()
+    # Condition 4: done + a RETRYABLE aiFail. Keyed off AI_RETRY_KINDS so
+    # adding a kind to AI_RETRY_MINUTES cannot silently leave it unprobed —
+    # test_prefilter.py asserts these two stay in step.
+    probes += [[{"status": "done", "aiFail": {"kind": k}}]
+               for k in sorted(AI_RETRY_KINDS)]
+    return probes
+
+
+# [] is contained in EVERY json array, so this probe matches every creator
+# row that has an adaptations array (verified live: 5 of 5). Appended to the
+# real probes it proves the containment grammar still MATCHES, which is the
+# one thing an empty result cannot tell you on its own.
+PREFILTER_CANARY = []
+
+
+def prefilter_url(probes, limit=None):
+    """PostgREST or=() over JSONB containment, ids only.
+
+    Each value is wrapped in double quotes with its inner quotes
+    backslash-escaped. That is not decoration: the probes for condition 4
+    contain a comma, and PostgREST splits or=() on unquoted commas — an
+    unquoted value would be torn into two garbage conditions.
+
+    Only the joined conditions are percent-encoded; the surrounding parens
+    stay literal, because PostgREST needs to see them as syntax.
+    """
+    conds = []
+    for p in probes:
+        j = json.dumps(p, separators=(",", ":")).replace('"', '\\"')
+        conds.append(f'data->adaptations.cs."{j}"')
+    q = urllib.parse.quote(",".join(conds), safe="")
+    tail = f"&limit={limit}" if limit else ""
+    return f"/rest/v1/lynxr_creators?select=id&or=({q}){tail}"
+
+
+def candidate_creators(key):
+    """Ids of creators that MIGHT have work, or None to fall back.
+
+    None means "could not answer" and the caller must run the full scan.
+    An empty list means "asked, and there is genuinely nothing" — but that
+    is also what a broken filter returns, so it is only returned after the
+    canary proves the grammar still matches something.
+    """
+    probes = prefilter_probes()
+    try:
+        rows = sb(key, prefilter_url(probes))
+    except Exception as e:  # noqa: BLE001
+        log.warning("PREFILTER FAILED (%s) — falling back to the full scan",
+                    api_reason(e))
+        return None
+    if rows:
+        return [r["id"] for r in rows]
+    try:
+        alive = sb(key, prefilter_url(probes + [PREFILTER_CANARY], limit=1))
+    except Exception as e:  # noqa: BLE001
+        log.warning("PREFILTER CANARY FAILED (%s) — falling back to the full scan",
+                    api_reason(e))
+        return None
+    if not alive:
+        # Note: on a lynxr_creators table with ZERO rows the canary also
+        # returns nothing, so this logs every sweep. That is the safe
+        # direction (it falls back to a scan that is itself 2 bytes on an
+        # empty table) and cannot happen in production, where the table only
+        # grows.
+        log.error("PREFILTER CANARY MATCHED NOTHING — the containment filter is "
+                  "broken, not the queue empty. Falling back to the full scan.")
+        return None
+    return []
+
+
 def note_soft_fail(a, subsystem, reason):
     """Record a swallowed, non-fatal failure on the entry itself.
 
@@ -611,6 +761,63 @@ def too_young(a, min_age_seconds):
     return age < min_age_seconds
 
 
+def cooled(a, cooldown_hours):
+    last = a.get("attemptedAt") or ""
+    if not last or not cooldown_hours:
+        return True
+    try:
+        age = (datetime.now(timezone.utc)
+               - datetime.fromisoformat(last.replace("Z", "+00:00"))).total_seconds() / 3600
+    except ValueError:
+        return True
+    return age >= cooldown_hours
+
+
+def abandoned(a, lease_minutes):
+    """A run killed mid-script (job timeout, crash, laptop sleep) leaves an
+    adaptation claimed forever. Treat a claim older than the lease as dead
+    so the next run picks it up instead of it silently never finishing."""
+    held = a.get("claimedAt") or ""
+    if not held:
+        return True
+    try:
+        age = (datetime.now(timezone.utc)
+               - datetime.fromisoformat(held.replace("Z", "+00:00"))).total_seconds() / 60
+    except ValueError:
+        return True
+    return age >= lease_minutes
+
+
+def wants_work(a, *, cooldown_hours, lease_minutes, min_age_seconds, redo_ai):
+    if too_young(a, min_age_seconds):
+        return False
+    if a.get("status") == "queued":
+        return True
+    if a.get("status") == "running":
+        return abandoned(a, lease_minutes)
+    if a.get("status") == "error":
+        # A dry balance is not the same kind of failure as a video that
+        # cannot be downloaded, and it was getting the same six-hour wait.
+        # A brand adaptation that fails on billing RAISES (no beats), so it
+        # lands here rather than in the "done" branch below — without this
+        # it would sit out the full cooldown after a top-up, which is the
+        # manual waiting this whole change exists to remove. The cooled()
+        # floor still applies to everything else, unchanged.
+        if a.get("aiFail"):
+            return ai_retry_due(a) or cooled(a, cooldown_hours)
+        return cooled(a, cooldown_hours)
+    if a.get("status") != "done":
+        return False
+    # Forced by hand. Unchanged in spirit, except it now also recognises the
+    # marker — an entry whose note was cleared (every original script) was
+    # previously unreachable even by --redo-ai.
+    if redo_ai and ("failed" in (a.get("note") or "") or a.get("aiFail")):
+        return cooled(a, cooldown_hours)
+    # ...and on its own, for the failures a timer can actually fix. This is
+    # the one that means nobody has to notice a lapsed balance by hand.
+    return ai_retry_due(a)
+
+
 def platform_of(url):
     for p in ("tiktok", "instagram", "facebook", "youtube"):
         if p in (url or ""):
@@ -637,10 +844,20 @@ OFF_PLATFORM_NOTE = ("lynxr only reads TikTok, Instagram, Facebook and YouTube "
 
 def supported_url(url):
     """True if this is a link we accept. Subdomains count (vm.tiktok.com,
-    m.facebook.com); a domain that merely ends in one of these words does not."""
+    m.facebook.com); a domain that merely ends in one of these words does not.
+
+    Checks the SCHEME too, not just the hostname — belt and braces: nothing
+    reachable today exploits its absence (a leading `-` already makes
+    `hostname` None, which this already refused), but "cannot be exploited by
+    the argument we happen to pass" and "cannot be exploited" are different
+    claims, and this is the one gate here that decides what a subprocess
+    (yt-dlp) is handed."""
     try:
-        host = urllib.parse.urlsplit(str(url or "").strip()).hostname or ""
+        parts = urllib.parse.urlsplit(str(url or "").strip())
+        host = parts.hostname or ""
     except ValueError:
+        return False
+    if parts.scheme not in ("http", "https"):
         return False
     host = host.lower()
     if host.startswith("www."):
@@ -1236,7 +1453,7 @@ def fill_source(a, aclient, key, notes, timings, publish=None):
     with tempfile.TemporaryDirectory() as td_s:
         td = Path(td_s)
         with stage(timings, "download"):
-            media, err = download_video(url, td)
+            media, err = download_video(str(url).strip(), td)
             if not media:
                 media, err2 = fetch_audio(url, td)   # video refused; audio still scripts it
                 if not media:
@@ -1563,8 +1780,14 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
                 # renders a Try again button for, so a dead end becomes a
                 # thing they can see and act on instead of a silent "done".
                 a["status"] = "error"
+                # aiFail.reason stays on the record (watchdog and --redo-ai
+                # read it) — it just stops being what the creator sees. For a
+                # billing failure that reason is Anthropic's own sentence
+                # about OUR credit balance, which is not this creator's
+                # problem to read on their card.
+                fail_kind = (a.get("aiFail") or {}).get("kind", "content")
                 a["note"] = (f"gave up after {AI_MAX_TRIES} tries — "
-                             f"{(a.get('aiFail') or {}).get('reason') or 'AI step failed'}")[:200]
+                             f"{dict(AI_FAIL_WORDING).get(fail_kind, AI_FAIL_WORDING[-1][1])}")[:200]
                 log.error("  -> GAVE UP after %d tries: %s", AI_MAX_TRIES,
                           (a.get("aiFail") or {}).get("reason", ""))
             else:
@@ -1616,7 +1839,13 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
             usage().clear()
         except Exception as e:  # noqa: BLE001
             a["status"] = "error"
-            a["note"] = str(e)[:200]
+            # Classified, not the raw exception text — str(e) here could be
+            # Anthropic's own sentence about OUR credit balance or an
+            # internal stack trace, neither of which is this creator's
+            # business. The raw string still goes to log.error below,
+            # unchanged, which is where whoever is debugging looks.
+            fail_kind = ai_failure_kind(api_reason(e))
+            a["note"] = dict(AI_FAIL_WORDING).get(fail_kind, AI_FAIL_WORDING[-1][1])
             # Everything reaching here got past the download, so it is a model
             # or write failure — those do clear on their own, and ai_retry_due()
             # already schedules them. Explicitly retryable so a card that
@@ -1663,6 +1892,18 @@ def process_group(key, aclient, group):
             # ever written here, and only False for a recognised permanent
             # wall — see FETCH_FAILURES.
             a["retryable"] = retryable
+            # Reached only when fill_source raised, i.e. before extract_format
+            # and before any Anthropic call — nothing was spent on this entry,
+            # so a charge taken for it (main() charges before the claim, this
+            # exception fires after) is refunded. Best-effort: a failed
+            # refund must not cost the creator their error card, and the
+            # over-refund it would leave is bounded and visible in
+            # lynxr_script_charges, not silent.
+            try:
+                sb(key, "/rest/v1/rpc/refund_script", method="POST", body={"p_id": a["id"]})
+            except Exception as refund_err:  # noqa: BLE001
+                log.warning("  refund not recorded for %s: %s",
+                            str(a.get("id"))[:8], str(refund_err)[:90])
             graft_adaptations(key, cid, [a])
         # The raw stderr stays in the log, where whoever is debugging can see
         # it, and out of the row, where a creator would.
@@ -1816,8 +2057,24 @@ def main():
                     help="write the three cached prefixes and exit. Fired by worker.py in a "
                          "daemon thread at boot, before any discovery or database read.")
     ap.add_argument("--cap", type=int, default=int(os.environ.get("SCRIPT_CAP", 25)),
-                    help="most scripts one creator may ever have written (0 = unlimited). "
-                         "Keep in step with SCRIPT_CAP in creator.js")
+                    help="NOT the enforcement point any more — charge_scripts() "
+                         "(supabase/allowance_ledger.sql, lynxr_allowance.granted) "
+                         "is. This is now only (a) the number named in the refusal "
+                         "sentence when a creator is over allowance, and (b) an "
+                         "escape hatch for a local/--no-ai run against a database "
+                         "where that table doesn't exist yet: 0 skips the "
+                         "charge_scripts call entirely and treats every candidate "
+                         "as allowed.")
+    ap.add_argument("--daily-cap", type=int,
+                    default=int(os.environ.get("DAILY_SCRIPT_CAP", 250)),
+                    help="global circuit breaker: refuse ALL new work this pass once "
+                         "this many scripts have been charged (lynxr_script_charges) "
+                         "in the trailing 24h. 0 = unlimited. Per-account exposure is "
+                         "bounded by the allowance; this is what bounds an unattended "
+                         "night's worst case whichever gate turns out to leak. "
+                         "pipeline/watchdog.py's spend-24h alarm reads the same count "
+                         "against the same DAILY_SCRIPT_CAP so the two can never "
+                         "disagree.")
     ap.add_argument("--concurrency", type=int,
                     default=int(os.environ.get("WORKER_CONCURRENCY", 3)),
                     help="distinct videos to process at once (Step 7) — default 3, "
@@ -1863,65 +2120,26 @@ def main():
             log.info("skipping prefix warm — no ANTHROPIC_API_KEY")
         return
 
-    def cooled(a):
-        last = a.get("attemptedAt") or ""
-        if not last or not args.cooldown_hours:
-            return True
-        try:
-            age = (datetime.now(timezone.utc)
-                   - datetime.fromisoformat(last.replace("Z", "+00:00"))).total_seconds() / 3600
-        except ValueError:
-            return True
-        return age >= args.cooldown_hours
-
-    def abandoned(a):
-        """A run killed mid-script (job timeout, crash, laptop sleep) leaves an
-        adaptation claimed forever. Treat a claim older than the lease as dead
-        so the next run picks it up instead of it silently never finishing."""
-        held = a.get("claimedAt") or ""
-        if not held:
-            return True
-        try:
-            age = (datetime.now(timezone.utc)
-                   - datetime.fromisoformat(held.replace("Z", "+00:00"))).total_seconds() / 60
-        except ValueError:
-            return True
-        return age >= args.lease_minutes
-
-    def wants_work(a):
-        if too_young(a, args.min_age_seconds):
-            return False
-        if a.get("status") == "queued":
-            return True
-        if a.get("status") == "running":
-            return abandoned(a)
-        if a.get("status") == "error":
-            # A dry balance is not the same kind of failure as a video that
-            # cannot be downloaded, and it was getting the same six-hour wait.
-            # A brand adaptation that fails on billing RAISES (no beats), so it
-            # lands here rather than in the "done" branch below — without this
-            # it would sit out the full cooldown after a top-up, which is the
-            # manual waiting this whole change exists to remove. The cooled()
-            # floor still applies to everything else, unchanged.
-            if a.get("aiFail"):
-                return ai_retry_due(a) or cooled(a)
-            return cooled(a)
-        if a.get("status") != "done":
-            return False
-        # Forced by hand. Unchanged in spirit, except it now also recognises the
-        # marker — an entry whose note was cleared (every original script) was
-        # previously unreachable even by --redo-ai.
-        if args.redo_ai and ("failed" in (a.get("note") or "") or a.get("aiFail")):
-            return cooled(a)
-        # ...and on its own, for the failures a timer can actually fix. This is
-        # the one that means nobody has to notice a lapsed balance by hand.
-        return ai_retry_due(a)
+    # Shadows the module-level wants_work with one bound to this run's args, so
+    # the four call sites below keep reading wants_work(a) unchanged. `_w=`
+    # binds the module-level function as a default argument AT DEFINITION
+    # TIME, before the local name below exists to shadow it — without that,
+    # the body's own reference to `wants_work` would resolve to itself and
+    # recurse forever instead of calling the real one.
+    def wants_work(a, _w=wants_work):
+        return _w(a, cooldown_hours=args.cooldown_hours,
+                  lease_minutes=args.lease_minutes,
+                  min_age_seconds=args.min_age_seconds,
+                  redo_ai=args.redo_ai)
 
     if args.backfill_covers:
         # Scripts written before covers existed still show a bare URL, which is
         # the whole problem covers solve. Re-fetching just the video and pulling
         # one frame costs nothing but bandwidth — no model call, no cap spend,
         # and the script itself is left exactly as it is.
+        # Deliberately still a full scan over every creator, including trash —
+        # a manual one-off across the whole corpus by design, unrelated to the
+        # discovery prefilter above. Do not "fix" it onto candidate_creators().
         done = failed = 0
         for row in sb(key, "/rest/v1/lynxr_creators?select=id,data"):
             data, touched = row["data"], []
@@ -1932,7 +2150,7 @@ def main():
                 try:
                     with tempfile.TemporaryDirectory() as td_s:
                         td = Path(td_s)
-                        media, err = download_video(a["sourceUrl"], td)
+                        media, err = download_video(str(a["sourceUrl"]).strip(), td)
                         if not media:
                             raise RuntimeError(err or "download failed")
                         blob = make_cover(media, td)
@@ -1953,13 +2171,45 @@ def main():
         log.info("backfill done: %d covered, %d failed", done, failed)
         return
 
-    rows = sb(key, "/rest/v1/lynxr_creators?select=id,data")
-    todo = [r["id"] for r in rows
-            if any(wants_work(a) for a in (r["data"].get("adaptations") or []))]
+    # Ask Postgres which creators MIGHT have work (2 bytes) instead of
+    # pulling every blob and filtering here (214,900 bytes at five
+    # creators, every 60 seconds). candidate_creators() returns None when
+    # it could not answer OR when its own canary says the filter is broken;
+    # either way fall back to the full scan and say so loudly, because a
+    # permanently-failing prefilter that quietly reported an empty queue is
+    # exactly the shape this project keeps getting bitten by.
+    #
+    # --redo-ai always takes the full scan: it widens the `done` branch to
+    # `"failed" in note`, which no containment probe can express without
+    # matching nearly every row. It is a rare manual flag; the cost is fine.
+    prefetched = {}
+    todo = None if args.redo_ai else candidate_creators(key)
+    if todo is None:
+        rows = sb(key, "/rest/v1/lynxr_creators?select=id,data")
+        # Keep the blobs. On this path they have already been paid for, so
+        # re-fetching them per creator below would be the SECOND full read
+        # of the same row — the double fetch this change removes.
+        prefetched = {r["id"]: r["data"] for r in rows}
+        todo = [r["id"] for r in rows
+                if any(wants_work(a) for a in (r["data"].get("adaptations") or []))]
     if not todo:
         log.info("nothing queued")
         return
-    log.info("creators with queued adaptations: %d", len(todo))
+    log.info("creators to consider: %d", len(todo))
+
+    # THE CIRCUIT BREAKER. Per-account exposure is bounded by the allowance
+    # (charge_scripts, above), but the number of accounts is not — this is
+    # the one control that bounds an unattended night's worst-case loss
+    # whichever gate turns out to leak. Checked here, before any claim, so a
+    # tripped breaker costs nothing and claims nothing.
+    if args.daily_cap:
+        since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat().replace("+00:00", "Z")
+        spent_24h = count_charges(key, since)
+        if spent_24h >= args.daily_cap:
+            log.error("SPEND CAP REACHED: %d scripts charged in the last 24h "
+                      "(cap %d) — refusing all new work this pass",
+                      spent_24h, args.daily_cap)
+            return
 
     # Claiming (below) still happens per creator, serially, exactly as before —
     # it is cheap and the fairness/cap/off-platform logic needs each creator's
@@ -1967,8 +2217,15 @@ def main():
     # list built up across every creator (Step 7a).
     jobs = []
     for cid in todo:
-        row = sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}&select=id,data")[0]
-        data = row["data"]
+        # The ONLY full-blob read, and only for creators that might have
+        # work. On the prefilter path nothing has been read yet; on the
+        # fallback path the scan already has it. Safe to reuse a blob read a
+        # moment ago: every write below goes through graft_adaptations(),
+        # which re-pulls the row fresh and merges by adaptation id rather
+        # than writing `data` wholesale.
+        data = prefetched.get(cid)
+        if data is None:
+            data = sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}&select=id,data")[0]["data"]
 
         # FAIRNESS. The worker is serial, so draining one creator's whole queue
         # before touching the next puts everyone else behind it — 30 pasted
@@ -1982,31 +2239,54 @@ def main():
         # Sorting by addedAt makes the queue FIFO, which is both what a creator
         # expects and what makes the app's "ready in about N minutes" estimate
         # correct. Entries with no addedAt sort first — they predate the field.
-        # THE CAP, enforced where the money is spent. creator.js checks it too,
-        # but that check is a courtesy: the queue is a field inside a row the
-        # creator owns, so anyone with the browser console can append a
-        # hundred more. Four model calls each, three on Opus, ~$0.12 a script —
-        # an uncapped queue is the one thing here that can run up a real bill
-        # unattended. Allowance is the OLDEST `cap` adaptations by addedAt, so
-        # it cannot be reset by deleting finished ones.
-        allowed = set()
+        # THE ALLOWANCE, enforced server-side (supabase/allowance_ledger.sql,
+        # not yet applied — see HANDOFF) in a table this process can write and
+        # the creator cannot. There used to be a comment here calling the
+        # allowance "the OLDEST `cap` adaptations by addedAt" — that design
+        # had three walks around it (wipe `adaptations`, wipe `trash`, or
+        # back-date one entry's addedAt to sort it inside the window), all
+        # because the ledger and the data it metered lived in the same blob
+        # the creator PATCHes whole on every save. `addedAt` now decides only
+        # the FIFO order candidates are offered to charge_scripts() in, never
+        # how many are allowed.
+        candidates = sorted(
+            (a for a in (data.get("adaptations") or [])
+             if wants_work(a) and supported_url(a.get("sourceUrl"))),
+            key=lambda a: a.get("addedAt") or "")
+        ready, over = candidates, []
         if args.cap:
-            # Trashed scripts COUNT. Each was four model calls that were paid
-            # for, so deleting one must not buy another — otherwise the cap
-            # limits how many you keep, not how many you spend. The app moves
-            # deletions to `trash` rather than dropping them for this reason.
-            in_order = sorted((data.get("adaptations") or []) + (data.get("trash") or []),
-                              key=lambda a: a.get("addedAt") or "")
-            allowed = {id(a) for a in in_order[:args.cap]}
-            over = [a for a in in_order[args.cap:] if wants_work(a)]
-            if over:
-                for a in over:
+            try:
+                charged = sb(key, "/rest/v1/rpc/charge_scripts", method="POST",
+                             body={"p_creator": cid,
+                                   "p_ids": [a["id"] for a in candidates]})
+                if charged is None:
+                    raise RuntimeError("charge_scripts returned nothing")
+            except Exception as e:  # noqa: BLE001
+                # FAIL CLOSED. Every other check here fails open so a broken
+                # check cannot lock out a real creator — right for the signup
+                # gate, wrong here. A charge call that errors means "I do not
+                # know what this costs"; the answer is to wait a pass, not to
+                # spend, so this creator is skipped entirely this time round.
+                log.warning("[%s] charge_scripts failed, skipping this pass: %s",
+                            data.get("name") or cid[:8], str(e)[:120])
+                continue
+            allowed = set(charged)
+            ready = [a for a in candidates if a["id"] in allowed]
+            over = [a for a in candidates if a["id"] not in allowed]
+            cap_note = (f"This account has used its {args.cap} scripts. "
+                        "Ask us to raise the limit.")
+            fresh_over = [a for a in over if a.get("note") != cap_note]
+            if fresh_over:
+                # Written only when not already there: an "error" entry with
+                # no attemptedAt clears cooled() on every pass, so without
+                # this guard an over-allowance entry would be re-marked every
+                # pass forever instead of once.
+                for a in fresh_over:
                     a["status"] = "error"
-                    a["note"] = (f"This account has used its {args.cap} scripts. "
-                                 "Ask us to raise the limit.")
-                log.info("[%s] refusing %d over the %d-script cap",
-                         data.get("name") or cid[:8], len(over), args.cap)
-                graft_adaptations(key, cid, over)
+                    a["note"] = cap_note
+                log.info("[%s] refusing %d over the allowance",
+                         data.get("name") or cid[:8], len(fresh_over))
+                graft_adaptations(key, cid, fresh_over)
 
         # OFF-PLATFORM LINKS, refused before anything is spent — the same
         # allowlist creator.js applies at the paste box, enforced here because
@@ -2027,10 +2307,6 @@ def main():
                      data.get("name") or cid[:8], len(fresh_off))
             graft_adaptations(key, cid, fresh_off)
 
-        ready = sorted((a for a in (data.get("adaptations") or [])
-                        if wants_work(a) and supported_url(a.get("sourceUrl"))
-                        and (not args.cap or id(a) in allowed)),
-                       key=lambda a: a.get("addedAt") or "")
         batch = ready[:args.max_per_creator] if args.max_per_creator else ready
         if not batch:
             continue
