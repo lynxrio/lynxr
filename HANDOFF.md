@@ -1331,6 +1331,67 @@ that it stores no cover of any kind.
 
 ## Open — in the order I'd do them
 
+### TOMORROW (2026-08-19) — the list, after stage 1 was reached
+
+Stage 1 was reached 2026-08-18 07:33Z: `signup_state()` returns `open: true`,
+five seats free, allowance server-side, worker on v18 passing clean.
+
+**Reliability — the four that are actually engineering**
+
+1. **Atomic claim RPC.** `_GRAFT_LOCKS` is a `threading.Lock` in ONE process.
+   The GitHub fallback is a different process on a different machine and can
+   still race the same row; `--min-age-seconds 180` narrows the window, it does
+   not close it. A `SECURITY DEFINER` conditional UPDATE in Postgres closes the
+   class and is the prerequisite for `fly scale count N`.
+2. **Timeouts on every model call.** `anthropic.Anthropic(api_key=...)` sets
+   none, so the SDK default is TEN MINUTES — behind a 2.5-minute claim lease.
+   One hung call is a guaranteed double-run, no race required. Every `urllib`
+   call in this repo already sets one. Size each to a multiple of its measured
+   p50 (tags ~7s, format ~8s, adapt ~17s).
+3. **Alarm on N consecutive non-zero passes.** 2026-08-18: the worker crashed on
+   EVERY pass for ~10 minutes (`UnboundLocalError`) and the watchdog said
+   `no breaches` throughout — an entry has to exist and get stuck before
+   `inflight` fires, and the queue was empty. **A worker failing with an empty
+   queue is currently invisible.** Same shape as every other silent failure here.
+4. **`period_days = 30`** to finish lifetime → monthly. The column exists and
+   defaults to 0; most of "SCRIPT_CAP is lifetime" is already built.
+
+**UI/UX — every one of these was OBSERVED and left alone, not invented**
+
+5. **`closePolicy()` does not restore focus** (`creator.js:118`) — it drops focus
+   to `<body>`. A keyboard creator who opens the privacy modal mid-compose loses
+   their place in the form. Pre-existing, but the new paste-box disclosure link
+   makes it cost more because it is now easy to reach mid-compose.
+6. **`sbFetch` truncates error bodies to 160 characters** (`creator.js:645`).
+   This is the root cause of the row-size branch having to match on error CODE
+   rather than constraint name — PostgREST orders keys `code, details, hint,
+   message` and Postgres fills `details` with ~110 chars, so the name lands past
+   the cut. Widening it improves every error path in the file.
+7. **`.modal-card` is declared TWICE in `app.css`** (lines ~346 and ~1137) and
+   the agency copy wins on the creator page. The send overlay had to use its own
+   `.sendbox` classes to route around it.
+8. **`.composer-note` never clears its text.** `flashMsg`'s 5s timer removes
+   `.show` but not `textContent`, so a message stays painted until the next
+   render. Arguably right for a persistent instruction, wrong for a flash.
+9. **The disclosure link's tap target is 46×14 at 390px** — under the 24×24
+   guidance. Fixing it needs a scoped rule in the shared `app.css`.
+10. **Nobody has measured what a BRAND-NEW creator sees on first sign-in.** Every
+    UI check this project has run used an account with history. The empty state
+    is the first thing five testers will meet and it is unverified.
+
+**Product — the part that decides whether any of the above mattered**
+
+11. **Capture a quality signal on each script.** There is essentially none today
+    (`grep` for thumbs/rating/helpful in `creator.js` returns 1). `fit=` is the
+    model grading its own homework. One tap per script is both the cheapest
+    possible signal and a UI change — do it as part of the UI pass.
+12. **Talk to the two creators who left.** Both stopped after ONE script, during
+    a period when the engaged creator did eight. That is not a latency story.
+
+**Owner, not code:** terms of service; a lawyer's look before money changes
+hands (scraped video, stored transcripts, republished cover frames).
+
+
 ### BEFORE PUBLIC — decided 2026-08-18, do not do early
 
 **Drop the free tier from 25 to 5 lifetime.** Owner's decision: testers keep the
