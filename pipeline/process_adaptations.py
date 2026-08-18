@@ -99,6 +99,28 @@ TAG_MODEL = os.environ.get("TAG_MODEL", "claude-opus-5")
 # <thinking> tags leaking into the response), so cap the effort instead.
 TAG_EFFORT = os.environ.get("TAG_EFFORT", "low")
 
+# The SDK retries 408/409/429/5xx on its own with exponential backoff and
+# jitter, honouring retry-after. Its default of 2 spends 1.4s before handing
+# the creator a five-minute scheduled round trip; 5 spends ~14s, which covers a
+# short overload episode without hammering a struggling API. Worst case on a
+# hard-down API is ~14s per call — ~60s on a pass that fails everywhere, paid
+# only on the failure path. Measured, not assumed: pipeline/test_ai_retry.py
+# counts the requests against a local socket.
+ANTHROPIC_MAX_RETRIES = int(os.environ.get("ANTHROPIC_MAX_RETRIES", "5"))
+
+
+def anthropic_client(api_key, base_url=None):
+    """The one place the model client is built, so its retry policy is a
+    property of this pipeline rather than an SDK default — and so the test can
+    point it at a local socket and count attempts instead of taking the docs'
+    word for it."""
+    import anthropic
+    kw = {"api_key": api_key, "max_retries": ANTHROPIC_MAX_RETRIES}
+    if base_url:
+        kw["base_url"] = base_url
+    return anthropic.Anthropic(**kw)
+
+
 (ROOT / "output").mkdir(exist_ok=True)   # gitignored: absent in a fresh CI checkout
 
 logging.basicConfig(level=logging.INFO,
@@ -460,41 +482,40 @@ def api_reason(e):
 # Anything unrecognised stays retryable — a network blip must not be
 # mistaken for a permanent wall.
 FETCH_FAILURES = (
-    (False, "This video is age-restricted, so we can't open it. Try another link.",
+    (False, "fetch_age",
      ("may not be comfortable", "log in for access", "age-restricted",
       "sign in to confirm your age")),
-    (False, "This video is private, so we can't open it. Try another link.",
+    (False, "fetch_private",
      ("private video", "this video is private", "is private")),
-    (False, "This video has been deleted or made unavailable. Try another link.",
+    (False, "fetch_gone",
      ("video unavailable", "has been removed", "no longer available",
       "content isn't available", "http error 404", "not found")),
-    (False, "That link isn't a video we can read. Check it and try again.",
+    (False, "fetch_unreadable",
      ("unsupported url", "is not a valid url", "unable to extract")),
-    (False, "This video isn't available in the region our servers run from.",
+    (False, "fetch_geo",
      # yt-dlp's real wording is "The uploader has not made this video available
      # in your country", so match the tail rather than a phrasing that never
      # appears — the first draft used "not available in your country" and
      # silently matched nothing.
      ("available in your country", "geo restricted", "geo-restricted",
       "blocked in your country", "not available from your location")),
-    (False, "The platform is asking us to prove we're not a bot on this one. "
-            "Try another link.",
+    (False, "fetch_bot",
      ("sign in to confirm you", "confirm you're not a bot", "captcha")),
 )
 
 
 def fetch_failure(err):
-    """(human sentence, retryable) for a yt-dlp/download error.
+    """(CREATOR_NOTES key, retryable) for a yt-dlp/download error.
 
     Unrecognised errors keep the generic wording and STAY retryable. Guessing
     "permanent" on an unknown string would hide a transient outage behind a
     card with no way forward, which is worse than one pointless retry.
     """
     low = str(err).lower()
-    for retryable, message, needles in FETCH_FAILURES:
+    for retryable, key, needles in FETCH_FAILURES:
         if any(n in low for n in needles):
-            return message, retryable
-    return "We couldn't read that video. It may be a temporary problem — try again.", True
+            return key, retryable
+    return "fetch_generic", True
 
 
 # ---------- WHEN THE MODEL STEPS FAIL ----------
@@ -515,7 +536,8 @@ AI_FAIL_KINDS = (
                  "insufficient_quota", "insufficient credit")),
     ("rate_limit", ("rate_limit", "rate limit", "too many requests", "429")),
     ("transient", ("overloaded", "529", "503", "502", "500", "timed out",
-                   "timeout", "connection", "internal server", "temporarily")),
+                   "timeout", "connection", "internal server", "temporarily",
+                   "anthropic_api_key", "malformed model response")),
 )
 
 # Minutes before the Nth automatic retry of each kind. Billing starts short
@@ -532,7 +554,18 @@ AI_RETRY_MINUTES = {
 # not satisfy for this source — is left exactly as it is today: --redo-ai can
 # still force it, but a timer cannot fix it and would only burn credit.
 AI_RETRY_KINDS = tuple(AI_RETRY_MINUTES)
-AI_MAX_TRIES = 8          # ~26h of billing backoff before it gives up and says so
+AI_MAX_TRIES = 8          # ~5.25h of transient retrying (5+10+20+40+60x4), or
+                           # ~19.75h of billing retrying (15+30+60+120+240+360x2)
+                           # before it gives up and says so
+
+# THE UNIVERSAL BACKSTOP. Every failure class below has its own bounded
+# schedule, but `wants_work`'s error branch ends in a 6-hour cooled() floor
+# that reopens ANY error forever — including shapes nothing here enumerates
+# (an unrecognised download failure, an exception before any marker is
+# stamped). Twelve passes is ~3 days of six-hourly retrying, and it can never
+# fire before the AI schedule (8 tries) because `passes` and `tries` both
+# count one per pass.
+FINAL_MAX_PASSES = 12
 
 
 def ai_failure_kind(reason):
@@ -543,21 +576,121 @@ def ai_failure_kind(reason):
     return "content"
 
 
-# WHAT THE CREATOR READS, as opposed to what fly logs gets. Reuses
-# ai_failure_kind rather than a second classifier. billing/rate_limit/
-# transient are all ours to fix, not the creator's — before this, a billing
-# failure's raw reason was Anthropic's own sentence about OUR credit balance,
-# shown on a paying (or trialing) creator's card. Only "content" is genuinely
-# about their video, so only it gets a different sentence.
-AI_FAIL_WORDING = (
-    ("billing", "something on our side went wrong — we're retrying. "
-                "Nothing was used from your allowance."),
-    ("rate_limit", "something on our side went wrong — we're retrying. "
-                   "Nothing was used from your allowance."),
-    ("transient", "something on our side went wrong — we're retrying. "
-                  "Nothing was used from your allowance."),
-    ("content", "we couldn't write a script from that video."),
-)
+# EVERY SENTENCE A CREATOR CAN EVER READ ON A CARD, and the only source of
+# them. `kind` is the enumerated word creator.js picks its chip from — the
+# renderer must never parse the prose. Format slots take NUMBERS ONLY (see
+# set_note), so no caller can smuggle provider text in through one.
+CREATOR_NOTES = {
+    "ai_ours":      ("something on our side went wrong — we're retrying. "
+                     "Nothing was used from your allowance.", "ours"),
+    "ai_video":     ("we couldn't write a script from that video.", "video"),
+    # The allowance clause here is TRUE ONLY UNDER OPTION (b) — see the
+    # decision block. Under (a) this sentence ends at "tries." instead.
+    "gave_up":      ("something on our side went wrong and we couldn't finish this "
+                     "one after {tries} tries. Nothing was used from your allowance.", "ours"),
+    "brand_missing": ("that company isn't on your profile any more — pick another "
+                      "and send this video again.", "brand"),
+    "cap":          ("This account has used its {cap} scripts. "
+                     "Ask us to raise the limit.", "cap"),
+    "off_platform": ("lynxr only reads TikTok, Instagram, Facebook and YouTube "
+                     "links. Nothing was used from your allowance.", "platform"),
+    "fetch_age":    ("This video is age-restricted, so we can't open it. "
+                     "Try another link.", "fetch"),
+    "fetch_private": ("This video is private, so we can't open it. "
+                      "Try another link.", "fetch"),
+    "fetch_gone":   ("This video has been deleted or made unavailable. "
+                     "Try another link.", "fetch"),
+    "fetch_unreadable": ("That link isn't a video we can read. Check it and "
+                         "try again.", "fetch"),
+    "fetch_geo":    ("This video isn't available in the region our servers run from.",
+                     "fetch"),
+    "fetch_bot":    ("The platform is asking us to prove we're not a bot on this one. "
+                     "Try another link.", "fetch"),
+    "fetch_generic": ("We couldn't read that video. It may be a temporary problem — "
+                      "try again.", "fetch"),
+    # Reached only if a key is ever mistyped. set_note must never raise: it
+    # runs inside except handlers, and a KeyError there would cost the
+    # creator their error card as well as their script.
+    "fallback":     ("something on our side went wrong. "
+                     "Nothing was used from your allowance.", "ours"),
+}
+
+# Which sentence each classified AI failure gets. billing/rate_limit/
+# transient are all OURS to fix, not the creator's; only "content" is
+# genuinely about their video.
+AI_NOTE_KEY = {"billing": "ai_ours", "rate_limit": "ai_ours",
+               "transient": "ai_ours", "content": "ai_video"}
+
+# The strings that must NEVER reach a creator-visible field. Drawn from real
+# production text: Anthropic's own 529/credit-balance sentences, yt-dlp
+# stderr (two rows in live `trash` still carry
+# "download failed: ERROR: [TikTok] …Use --cookies-from-browser"), and
+# Python internals. DUPLICATED in pipeline/watchdog.py — that module may not
+# import this one (import-time logging.basicConfig + mkdir) — so change one,
+# change both; test_ai_retry.py asserts the two stay identical.
+RAW_TEXT_NEEDLES = ("overloaded", "529", "credit balance", "rate_limit", "429",
+                    "traceback", "anthropic", "error:", "yt-dlp", "--cookies",
+                    "http error", "nonetype", "exception", "failed:", "api_key")
+
+
+def note_text(key, **nums):
+    """The sentence for `key`, with number-only substitutions."""
+    text, _kind = CREATOR_NOTES.get(key) or CREATOR_NOTES["fallback"]
+    safe = {k: v for k, v in nums.items() if isinstance(v, (int, float))}
+    try:
+        return text.format(**safe)[:200]
+    except Exception:  # noqa: BLE001
+        return CREATOR_NOTES["fallback"][0]
+
+
+def set_note(a, key, **nums):
+    """THE ONLY WRITER OF a["note"] IN THIS MODULE. Takes a registry KEY,
+    never prose — which is what makes it impossible for a future failure
+    path to leak provider text by default. Raw strings go to the log and to
+    a["diag"]/a["aiFail"]["reason"], neither of which creator.js renders."""
+    if key not in CREATOR_NOTES:
+        log.error("set_note: unknown key %r — falling back", key)
+        key = "fallback"
+    a["note"] = note_text(key, **nums)
+    a["noteKind"] = CREATOR_NOTES[key][1]
+
+
+def clear_note(a):
+    a.pop("note", None)
+    a.pop("noteKind", None)
+
+
+class CreatorFacing(Exception):
+    """A failure whose creator-visible sentence is already decided. Carries a
+    CREATOR_NOTES key, never prose, so run_entry's handler can honour it
+    without classifying."""
+
+    def __init__(self, key, *, retryable=True, detail=""):
+        super().__init__(detail or key)
+        self.key, self.retryable = key, retryable
+
+
+def begin_attempt(a):
+    """Mark the start of ONE pass over this entry.
+
+    Every failure inside a pass — shot list, tags, format, adaptation —
+    belongs to one attempt, and `tries` is what the retry schedule indexes
+    on, so miscounting it is a wait the CREATOR serves. It used to be keyed
+    on `attemptedAt`, which run_entry stamps AFTER the source phase: three
+    steps failing in one pass drove tries 0->3, and on adaptation 644ba12d
+    two passes drove it to 6, moving the next retry from 5 minutes to 60.
+
+    Deliberately NOT attemptedAt and not a timestamp. attemptedAt marks the
+    source/adapt boundary latency_report.py splits every sample on
+    ("source+format" vs "adapt"); moving it to fix this would silently
+    redefine that report. This field is read by nothing else.
+    """
+    a["attemptId"] = uuid.uuid4().hex[:12]
+    a["passes"] = int(a.get("passes") or 0) + 1
+    # Last pass's verdict, cleared before this pass can fail. mark_final() is
+    # the only thing that writes it back.
+    a.pop("final", None)
+    a.pop("finalWhy", None)
 
 
 def mark_ai_fail(a, reason):
@@ -570,17 +703,22 @@ def mark_ai_fail(a, reason):
     the word would have been retried by accident.
 
     `tries` counts ATTEMPTS, not failed steps. Three model calls failing inside
-    one pass is one attempt — keyed on attemptedAt, which main() stamps before
-    calling process_one. The last failure of an attempt wins for kind/reason,
-    which is the one that mattered: the steps run cheapest-first, so the later
-    the failure, the further the entry got."""
+    one pass is one attempt — keyed on `attemptId`, a token process_group stamps
+    once per entry before any work in the pass begins (see begin_attempt). The
+    last failure of an attempt wins for kind/reason, which is the one that
+    mattered: the steps run cheapest-first, so the later the failure, the
+    further the entry got."""
     prev = a.get("aiFail") or {}
-    same_attempt = prev.get("attempt") and prev.get("attempt") == a.get("attemptedAt")
+    token = a.get("attemptId")
+    # A missing token counts as a NEW attempt. Over-counting is the safe
+    # direction — it retries sooner than ideal; under-counting would give an
+    # entry unlimited tries and it would never reach ai_gave_up().
+    same_attempt = bool(token) and prev.get("attempt") == token
     a["aiFail"] = {
         "kind": ai_failure_kind(reason),
         "reason": (reason or "")[:160],
         "at": now_iso(),
-        "attempt": a.get("attemptedAt"),
+        "attempt": token,
         "tries": int(prev.get("tries") or 0) + (0 if same_attempt else 1),
     }
 
@@ -607,6 +745,22 @@ def ai_retry_due(a):
     return minutes_since(f.get("at")) >= sched[min(tries - 1, len(sched) - 1)]
 
 
+def has_usable_result(a):
+    """Is there anything on this entry the creator can actually use?
+
+    "Usable" depends on what was ASKED FOR, which is what the old
+    `not a.get("format")` test missed. A branded entry is a request for a
+    script: a format with no beats is our working note, not their answer. A
+    no-brand entry IS the source read back, so a format — or even just the
+    transcript or shot list — is the whole deliverable.
+    """
+    if a.get("brandId"):
+        return bool((a.get("adaptation") or {}).get("beats") or [])
+    src = a.get("source") or {}
+    return bool(a.get("format") or (src.get("shots") or [])
+                or ((src.get("script") or {}).get("text") or ""))
+
+
 def ai_gave_up(a):
     """Out of automatic retries AND with nothing usable to show for it.
 
@@ -618,7 +772,40 @@ def ai_gave_up(a):
     f = a.get("aiFail") or {}
     return (f.get("kind") in AI_RETRY_KINDS
             and int(f.get("tries") or 0) >= AI_MAX_TRIES
-            and not a.get("format"))
+            and not has_usable_result(a))
+
+
+def mark_final(a, why):
+    """THE ONLY WRITER OF a["final"]. `why` is an enumerated word, never prose
+    and never provider text — nothing renders it, but the same rule that keeps
+    CREATOR_NOTES a registry applies to anything landing on a creator's row.
+
+    `final` and `retryable` are DIFFERENT QUESTIONS. `retryable` decides
+    whether creator.js paints a Try again button; `final` decides whether the
+    worker will ever pick this entry up again ON ITS OWN. A gave-up entry is
+    final and still retryable — the human can ask, the timer cannot.
+    """
+    a["final"] = True
+    a["finalWhy"] = why
+
+
+def final_reason(a, *, retryable=True):
+    """Why the automatic loop should stop with this entry, or "" to keep going.
+
+    Pure, so pipeline/test_prefilter.py can drive the whole state space through
+    it. Order matters: a recognised permanent wall wins over any counter.
+    """
+    if not retryable:
+        return "wall"                    # age-gated/private/deleted/brand gone
+    f = a.get("aiFail") or {}
+    if f and not has_usable_result(a):
+        if f.get("kind") not in AI_RETRY_KINDS:
+            return "no_script"           # a refusal; a timer cannot fix it
+        if int(f.get("tries") or 0) >= AI_MAX_TRIES:
+            return "gave_up"
+    if int(a.get("passes") or 0) >= FINAL_MAX_PASSES:
+        return "exhausted"
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -796,6 +983,15 @@ def wants_work(a, *, cooldown_hours, lease_minutes, min_age_seconds, redo_ai):
     if a.get("status") == "running":
         return abandoned(a, lease_minutes)
     if a.get("status") == "error":
+        # THE LOOP HAS A FLOOR NOW. Everything below ends in cooled(), which
+        # reopens ANY error every six hours forever — a permanent wall, a model
+        # refusal, an entry out of tries. Each of those costs a full download,
+        # Whisper pass and model chain to fail identically again, on an entry
+        # the creator has already been given the answer on. --redo-ai is
+        # deliberately still able to force it: this is the automatic loop's
+        # floor, not a lock.
+        if a.get("final") and not redo_ai:
+            return False
         # A dry balance is not the same kind of failure as a video that
         # cannot be downloaded, and it was getting the same six-hour wait.
         # A brand adaptation that fails on billing RAISES (no beats), so it
@@ -847,8 +1043,7 @@ SUPPORTED_HOSTS = ("tiktok.com", "instagram.com",
                    "youtube.com", "youtu.be")
 
 # Shown to the creator in the app, so it reads as an answer rather than a fault.
-OFF_PLATFORM_NOTE = ("lynxr only reads TikTok, Instagram, Facebook and YouTube "
-                     "links. Nothing was used from your allowance.")
+OFF_PLATFORM_NOTE = note_text("off_platform")
 
 
 def supported_url(url):
@@ -1131,7 +1326,15 @@ def structured(client, system, schema, content, max_tokens=3000):
         output_config={"format": {"type": "json_schema", "schema": schema}},
         messages=[{"role": "user", "content": content}])
     note_usage(MODEL, msg)
-    return undouble(json.loads(first_text(msg)))
+    try:
+        return undouble(json.loads(first_text(msg)))
+    except Exception as e:  # noqa: BLE001
+        # A SHAPE FLUKE IS NOT A REFUSAL. Opus 5 returns a ThinkingBlock
+        # adaptively and a body can arrive truncated; both used to classify as
+        # "content", which final_reason() now treats as terminal. Say so in a
+        # phrase ai_failure_kind() can see, so these keep the 5/10/20/40/60
+        # schedule and give up like any other transient failure.
+        raise RuntimeError(f"malformed model response: {api_reason(e)}") from e
 
 
 def source_digest(a):
@@ -1566,6 +1769,12 @@ def fill_source(a, aclient, key, notes, timings, publish=None):
                          getattr(u, "cache_creation_input_tokens", 0) or 0,
                          getattr(u, "cache_read_input_tokens", 0) or 0,
                          any(getattr(b, "type", None) == "thinking" for b in msg.content))
+                # Deliberately NOT routed through structured()'s malformed-
+                # response handling (Step 5). A tags failure is soft — the
+                # pass still delivers the script, and run_entry drops this
+                # marker once the entry has something usable — so a shape
+                # fluke here cannot strand anything the way one in
+                # structured() could. Asymmetric on purpose, not an oversight.
                 src["tags"] = undouble(json.loads(first_text(msg)))
             except Exception as e:  # noqa: BLE001
                 notes.append(f"tags failed: {api_reason(e)}")
@@ -1607,6 +1816,23 @@ def extract_format(aclient, a, notes, timings, publish=None):
         return False
 
 
+def thin_script(ad, fmt):
+    """Is this answer too short to BE the format it was told to reuse?
+
+    Empty is the extreme case and was the only one caught before. Measured on
+    the 25 branded scripts written to date: 24 have >= 1.0x their format's beat
+    count and one has 0.17x (1 beat against a 6-beat format) — so half the
+    format's beats sits far below every healthy sample and above the only
+    defect. Guarded on a format of at least 3 beats, because "half" of a
+    2-beat format is not a signal.
+    """
+    n = len((ad or {}).get("beats") or [])
+    if n == 0:
+        return True
+    nf = len((fmt or {}).get("beats") or [])
+    return nf >= 3 and n * 2 < nf
+
+
 def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=None):
     """The per-brand rewrite (or the no-brand "here is your script" finish).
 
@@ -1625,34 +1851,60 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=Non
     """
     if not a.get("brandId"):
         # Original-script entry: still needs its format even under fusion —
-        # there is no adaptation call to fuse it into.
-        if not a.get("format"):
+        # there is no adaptation call to fuse it into. Skipped when the
+        # group's own extraction already failed (the marker is copied onto
+        # siblings in process_group), so the same overloaded API is not
+        # asked twice inside one pass. Kept as a fallback for callers that
+        # do not extract first — ab_format_adapt.py does.
+        if not a.get("format") and not (a.get("aiFail") or {}).get("kind"):
             extract_format(aclient, a, notes, timings)
+        # NOT creator-visible. `notes` is raw internal text ("tags failed:
+        # Overloaded"); the original-script card renders no note at all, and
+        # this keeps the detail on the row where the owner can read it after
+        # the container's log is gone.
+        clear_note(a)
         if notes:
-            a["note"] = "; ".join(notes)[:200]
-        else:
-            a.pop("note", None)
+            a["diag"] = "; ".join(notes)[:300]
         return
 
     brand = next((b for b in (creator.get("brands") or [])
                   if b.get("id") == a.get("brandId")), None)
     if not brand:
         notes.append("brand not found on this creator profile")
-        a["note"] = "; ".join(notes)
-        return
+        a["diag"] = "; ".join(notes)[:300]
+        raise CreatorFacing("brand_missing", retryable=False)
 
     if not a.get("format") and not fuse:
-        # Fusion off, or this entry ran solo without a group's shared format
-        # (e.g. --no-reuse-sources) — extract it now, same as always. A
-        # failure here returns without raising, exactly as process_one did.
-        if not extract_format(aclient, a, notes, timings):
-            a["note"] = "; ".join(notes)
-            return
+        # ONE extraction per VIDEO, not one per brand. process_group runs
+        # extract_format() for the group's representative and deep-copies
+        # the result (or, when it failed, the failure marker) onto every
+        # sibling — so reaching here means that call already ran and failed,
+        # and re-running it asked an API that had just said "overloaded" the
+        # same question seconds later, printed the same sentence twice on
+        # the card, and paid for it. The 5/10/20/40/60-minute aiFail
+        # schedule is the retry.
+        #
+        # AND IT RAISES. The old early return left a BRANDED entry as
+        # "done" with no adaptation, which is the state that renders as a
+        # "source only" chip with raw internal notes under it (seen live,
+        # 2026-08-18). run_entry's handler owns every creator-facing failure
+        # sentence; this is how the failure gets there. Status "error" does
+        # NOT slow the retry down — wants_work()'s error branch is
+        # `ai_retry_due(a) or cooled(...)`, i.e. the faster of the two.
+        why = (a.get("aiFail") or {}).get("reason") or (
+            "no ANTHROPIC_API_KEY, so the model was never called" if not aclient
+            else "the format step did not run")
+        raise RuntimeError(f"no format for this video: {why}")
 
     if publish and a.get("brandId"):
         publish("writing")
     try:
         if fuse and not a.get("format"):
+            # FUSE_FORMAT_ADAPT is untouched by Step 7's guard: this path has
+            # no second ask on a thin result (it is a single fused call, and
+            # this is default-OFF), only the thin *marker* below still records
+            # a thin outcome here so it is not silent. Do not assume the
+            # re-ask guard covers this branch.
             with stage(timings, "format_adapt_fused"):
                 fmt, ad = fused_format_and_adapt(aclient, a, brand, creator)
             a["format"] = fmt
@@ -1686,25 +1938,37 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=Non
             # script or making them wait out the six-hour cooldown.
             with stage(timings, "adapt"):
                 ad = structured(aclient, ADAPT_SYSTEM, ADAPT_SCHEMA, prompt, max_tokens=4000)
-                if not (ad.get("beats") or []):
-                    log.warning("  -> adaptation came back with no beats; asking again")
-                    ad = structured(aclient, ADAPT_SYSTEM, ADAPT_SCHEMA,
-                                    prompt + "\n\n=== IMPORTANT ===\nYour last answer had an EMPTY "
-                                             "`beats` array, which is unusable. Write the full beat "
-                                             "list: one beat per moment of the format above, each with "
-                                             "`say`, `do` and `show` filled in as the delivery requires.",
-                                    max_tokens=4000)
+                if thin_script(ad, a.get("format")):
+                    log.warning("  -> adaptation came back thin (%d beats against a %d-beat "
+                                "format); asking again", len(ad.get("beats") or []),
+                                len((a.get("format") or {}).get("beats") or []))
+                    ad = structured(
+                        aclient, ADAPT_SYSTEM, ADAPT_SCHEMA,
+                        prompt + "\n\n=== IMPORTANT ===\nYour last answer had "
+                        f"{len(ad.get('beats') or [])} beat(s) against a "
+                        f"{len((a.get('format') or {}).get('beats') or [])}-beat format, "
+                        "which is not a usable script. Write the full beat list: one beat "
+                        "per beat of the format above, each with `say`, `do` and `show` "
+                        "filled in as the delivery requires.",
+                        max_tokens=4000)
         if not (ad.get("beats") or []):
             raise RuntimeError("the model returned a script with no beats")
         a["adaptation"] = ad
+        if thin_script(ad, a.get("format")):
+            a["thin"] = {"beats": len(ad.get("beats") or []),
+                         "formatBeats": len((a.get("format") or {}).get("beats") or []),
+                         "at": now_iso()}
+            log.warning("  -> still thin after a second ask: %d beats against %d",
+                        a["thin"]["beats"], a["thin"]["formatBeats"])
+        else:
+            a.pop("thin", None)
     except Exception as e:  # noqa: BLE001
         notes.append(f"adaptation failed: {api_reason(e)}")
         mark_ai_fail(a, api_reason(e))
 
     if notes:
-        a["note"] = "; ".join(notes)[:200]
-    else:
-        a.pop("note", None)
+        a["diag"] = "; ".join(notes)[:300]
+    clear_note(a)
 
     # An entry with no script is a FAILURE, not a finished job. Left as "done"
     # it renders as a "source only" card with no Try again button. Raising
@@ -1779,10 +2043,31 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
         try:
             fill_adaptation(a, data, aclient, notes, timings, fuse=fuse,
                              publish=lambda phase: publish_phase(key, [(cid, a)], phase))
-            # Nothing failed this time round, so drop any marker an earlier
-            # attempt left — otherwise a healed entry keeps being reopened.
-            if (a.get("aiFail") or {}).get("attempt") != a.get("attemptedAt"):
-                a.pop("aiFail", None)
+            # DID THIS PASS PRODUCE SOMETHING USABLE? — not "did anything
+            # fail", which is what the old `attemptedAt` comparison answered
+            # by accident (every source-phase marker carried a stale stamp,
+            # so it always looked like an earlier attempt's). An entry that
+            # lost its shot list to a 529 but still delivered a full script
+            # is a working result with a gap in it — the same rule
+            # ai_gave_up() applies — and reopening it would re-run and
+            # re-bill a script the creator already has. An entry with NO
+            # format has nothing, so it keeps its marker and the schedule
+            # brings it back. THAT is the case Step 3 would otherwise have
+            # broken: the duplicate format call it removes is the only
+            # reason an original-script entry's marker survives today.
+            #
+            # KEEP A BREADCRUMB when the marker does go. Popping it outright
+            # made a self-healed retry byte-identical to the 2026-08-18
+            # double-bill shape (done + attempts>=2 + no aiFail), which is
+            # what made watchdog.py's rerun: alarm page on a script that
+            # worked. kind and tries are enumerated/numeric — no provider
+            # text, and nothing renders this.
+            if a.get("format") or ((a.get("adaptation") or {}).get("beats") or []):
+                prev = a.pop("aiFail", None)
+                if prev:
+                    a["healed"] = {"kind": prev.get("kind"),
+                                   "tries": int(prev.get("tries") or 0),
+                                   "at": now_iso()}
             if ai_gave_up(a):
                 # Out of automatic goes with nothing usable to show. Say so
                 # as an error: that is the one status the creator's card
@@ -1794,25 +2079,25 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
                 # billing failure that reason is Anthropic's own sentence
                 # about OUR credit balance, which is not this creator's
                 # problem to read on their card.
-                fail_kind = (a.get("aiFail") or {}).get("kind", "content")
-                a["note"] = (f"gave up after {AI_MAX_TRIES} tries — "
-                             f"{dict(AI_FAIL_WORDING).get(fail_kind, AI_FAIL_WORDING[-1][1])}")[:200]
+                set_note(a, "gave_up", tries=AI_MAX_TRIES)
+                mark_final(a, "gave_up")
                 log.error("  -> GAVE UP after %d tries: %s", AI_MAX_TRIES,
                           (a.get("aiFail") or {}).get("reason", ""))
+                # OPTION (b) ONLY — see Step 12. This is the branch a no-brand
+                # entry reaches, since a branded one now raises into Step 7's
+                # handler instead.
+                refund(key, a, "gave up")
             else:
                 a["status"] = "done"
             a["processedAt"] = now_iso()
             with stage(timings, "graft"):
                 graft_adaptations(key, cid, [a])   # the creator has it NOW
-            # AFTER the graft. This is a second yt-dlp round trip (1.4s
-            # measured) whose only consumers are the two library upserts
-            # below. Nothing the creator sees reads source.meta, so it has no
-            # business being in front of four model calls.
-            with stage(timings, "meta"):
-                (a.setdefault("source", {}))["meta"] = fetch_meta(a.get("sourceUrl") or "")
-            # fetch_meta() can't be marked from inside itself — it takes a bare
-            # url, not an entry, and is shared with other callers. Marked here
-            # instead, at its one call site on the creator's critical path.
+            # The value here was fetched by process_group's prefetch — a
+            # thread started alongside the source pass and joined onto `rep`
+            # before this group's siblings were deep-copied, so it is already
+            # sitting on a["source"]["meta"] by the time this runs. Marked
+            # here rather than at fetch_meta's own call site, since that call
+            # no longer lives on this creator's critical path.
             if not (a.get("source") or {}).get("meta") and a.get("sourceUrl"):
                 note_soft_fail(a, "meta", "yt-dlp returned nothing")
             else:
@@ -1848,20 +2133,52 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
             usage().clear()
         except Exception as e:  # noqa: BLE001
             a["status"] = "error"
-            # Classified, not the raw exception text — str(e) here could be
-            # Anthropic's own sentence about OUR credit balance or an
-            # internal stack trace, neither of which is this creator's
-            # business. The raw string still goes to log.error below,
-            # unchanged, which is where whoever is debugging looks.
-            fail_kind = ai_failure_kind(api_reason(e))
-            a["note"] = dict(AI_FAIL_WORDING).get(fail_kind, AI_FAIL_WORDING[-1][1])
-            # Everything reaching here got past the download, so it is a model
-            # or write failure — those do clear on their own, and ai_retry_due()
-            # already schedules them. Explicitly retryable so a card that
-            # failed here never inherits a stale False from an earlier attempt.
-            a["retryable"] = True
+            # THE ONE PLACE A FAILED ENTRY GETS ITS SENTENCE. Classified, never
+            # the raw exception text — str(e) here could be Anthropic's own
+            # sentence about OUR credit balance or an internal stack trace. The
+            # raw string still goes to log.error below, unchanged.
+            if isinstance(e, CreatorFacing):
+                set_note(a, e.key)
+                a["retryable"] = e.retryable
+            elif ai_gave_up(a):
+                # Out of automatic goes with nothing usable to show. Reached
+                # here as well as on the success path below, because the
+                # branded no-format failure now raises (Step 4) — without this
+                # an exhausted entry would keep promising a retry forever.
+                set_note(a, "gave_up", tries=AI_MAX_TRIES)
+                a["retryable"] = True
+                log.error("  -> GAVE UP after %d tries: %s", AI_MAX_TRIES,
+                          (a.get("aiFail") or {}).get("reason", ""))
+            else:
+                # THE MARKER, NOT THE EXCEPTION TEXT. fill_adaptation clears the
+                # note and re-raises a generic "no script was produced", which
+                # classifies as `content` — so a 529 of ours reached the creator
+                # as "we couldn't write a script from that video". aiFail.kind is
+                # what ai_retry_due() indexes on; the sentence must match it.
+                # Falls back to the exception for failures that never marked one
+                # (a graft or upsert raising).
+                kind = (a.get("aiFail") or {}).get("kind") or ai_failure_kind(api_reason(e))
+                set_note(a, AI_NOTE_KEY.get(kind, "ai_video"))
+                # Everything reaching here got past the download, so it is a
+                # model or write failure — those do clear on their own, and
+                # ai_retry_due() already schedules them. Explicit so a card that
+                # failed here never inherits a stale False from an earlier attempt.
+                a["retryable"] = True
+            # NEVER PROMISE A RETRY WE WILL NOT MAKE. The "ours" sentence ends
+            # "— we're retrying", which becomes a lie the moment this entry
+            # stops being picked up. If the loop is finished, the sentence has
+            # to be the one that says so.
+            why = final_reason(a, retryable=a.get("retryable", True))
+            if why:
+                if a.get("noteKind") == "ours":
+                    set_note(a, "gave_up",
+                             tries=int((a.get("aiFail") or {}).get("tries") or AI_MAX_TRIES))
+                mark_final(a, why)
             log.error("  -> FAILED: %s", e)
             graft_adaptations(key, cid, [a])
+            # OPTION (b) ONLY — see Step 12. After the graft, so a slow or
+            # failing RPC can never delay the creator's error card.
+            refund(key, a, "no script was produced")
 
 
 def process_group(key, aclient, group):
@@ -1876,6 +2193,12 @@ def process_group(key, aclient, group):
     cid0, data0, rep = group[0]
     rep_timings = rep.setdefault("timings", {})
     source_notes = []
+    # ONE PASS, ONE TOKEN, stamped before fill_source can fail. Every mark
+    # below compares against it, so `tries` counts attempts rather than
+    # failed steps. process_group owns this because it owns the pass: it is
+    # the only place that runs before every failure site in one.
+    for _cid, _data, entry in group:
+        begin_attempt(entry)
     # Fuse only a SOLO branded entry (Step 13): fusing skips the separate
     # format call, so a multi-sibling group would lose Step 7c's format reuse
     # for every extra brand — a worse trade than the round trip it saves. Both
@@ -1886,6 +2209,22 @@ def process_group(key, aclient, group):
     # phase, not just the representative — otherwise a two-brand send shows
     # one card moving and one frozen.
     pub = lambda phase: publish_phase(key, [(c, e) for c, _d, e in group], phase)  # noqa: E731
+    # THE TITLE, FETCHED CONCURRENTLY WITH THE SCRIPT. This used to run in
+    # run_entry() AFTER the completion graft (1.4s of yt-dlp that the
+    # creator should not wait for), which meant source.meta was fetched,
+    # used for the two library upserts, and then dropped on the floor —
+    # verified live 2026-08-18: every record processed before a66fe51
+    # carries source.meta and every record after it carries none, and those
+    # are exactly the cards reading "Instagram reel". A daemon thread
+    # started here overlaps it with an 11s+ source pass instead, so the
+    # caption rides the completion graft at no cost to the wait.
+    # ONE call per GROUP, not per entry: the title is a property of the
+    # video, so N brands pasted for one video now cost one lookup, not N.
+    meta_box = {}
+    meta_thread = threading.Thread(
+        target=lambda: meta_box.update(m=fetch_meta(rep.get("sourceUrl") or "")),
+        daemon=True)
+    meta_thread.start()
     try:
         with claim_heartbeat(key, cid0, rep.get("id")):
             ok = fill_source(rep, aclient, key, source_notes, rep_timings, publish=pub)
@@ -1893,14 +2232,17 @@ def process_group(key, aclient, group):
                 extract_format(aclient, rep, source_notes, rep_timings, publish=pub)
     except Exception as e:  # noqa: BLE001
         # No sibling in this group has a source either — all fail alike.
-        message, retryable = fetch_failure(e)
+        note_key, retryable = fetch_failure(e)
         for cid, data, a in group:
             a["status"] = "error"
-            a["note"] = message
+            set_note(a, note_key)
             # False means Try again is pointless and creator.js hides it. Only
             # ever written here, and only False for a recognised permanent
             # wall — see FETCH_FAILURES.
             a["retryable"] = retryable
+            why = final_reason(a, retryable=retryable)
+            if why:
+                mark_final(a, why)
             # Reached only when fill_source raised, i.e. before extract_format
             # and before any Anthropic call — nothing was spent on this entry,
             # so a charge taken for it (main() charges before the claim, this
@@ -1908,21 +2250,33 @@ def process_group(key, aclient, group):
             # refund must not cost the creator their error card, and the
             # over-refund it would leave is bounded and visible in
             # lynxr_script_charges, not silent.
-            try:
-                sb(key, "/rest/v1/rpc/refund_script", method="POST", body={"p_id": a["id"]})
-            except Exception as refund_err:  # noqa: BLE001
-                log.warning("  refund not recorded for %s: %s",
-                            str(a.get("id"))[:8], str(refund_err)[:90])
+            refund(key, a, "source failed before any model call")
             graft_adaptations(key, cid, [a])
         # The raw stderr stays in the log, where whoever is debugging can see
         # it, and out of the row, where a creator would.
         log.error("  -> FAILED (source): %s%s", e, "" if retryable else "  [permanent]")
         return
 
+    # Joined here, not in the `try` above: on the failure path the group is
+    # already errored and nobody should wait on a lookup nothing will read.
+    # Daemon, so a hung yt-dlp can never hold the process open; the 20s is
+    # slack for the rare cached-source hit, where fill_source returns in
+    # under a second and this has not finished yet.
+    with stage(rep_timings, "meta"):
+        meta_thread.join(timeout=20)
+    (rep.setdefault("source", {}))["meta"] = meta_box.get("m") or {}
+
     for cid, data, a in group[1:]:
         a["source"] = copy.deepcopy(rep.get("source"))
         if rep.get("format") is not None:
             a["format"] = copy.deepcopy(rep.get("format"))
+        elif (rep.get("aiFail") or {}).get("reason"):
+            # The shared format extraction failed, so it failed for every brand
+            # in this group. Without this a sibling reaches fill_adaptation with
+            # no format AND no marker, and (before Step 4) made its own
+            # duplicate call to find that out. mark_ai_fail rather than a copy,
+            # so each sibling keeps its OWN tries bookkeeping.
+            mark_ai_fail(a, rep["aiFail"]["reason"])
 
     def run_one(job):
         cid, data, a = job
@@ -1989,6 +2343,31 @@ def heartbeat(key, cid, aid, stop_event, interval=45):
 # writes in the read-modify-write below; grafts for DIFFERENT creators still
 # run fully in parallel, since they touch different rows and different locks.
 _GRAFT_LOCKS = collections.defaultdict(threading.Lock)
+
+
+def refund(key, a, why):
+    """Give the allowance charge back for an entry that produced nothing.
+
+    Best-effort, exactly like the download-failure refund this replaces: a
+    failed refund must never cost the creator their error card, and the
+    over-refund it would leave is bounded and visible in
+    lynxr_script_charges. Idempotent server-side — refund_script is a
+    DELETE by primary key — so calling it twice for one entry is a no-op,
+    and charge_scripts re-charges the id from scratch if the entry is ever
+    picked up again.
+
+    WHY IT IS NOT ONLY FOR DOWNLOAD FAILURES ANY MORE: three of the four
+    sentences on a failed card end "Nothing was used from your allowance."
+    The charge is taken in main() before the claim, so that was false on
+    every model-side failure and flatly untrue after a give-up. The model
+    spend is OURS; the allowance is theirs, and they got nothing.
+    """
+    try:
+        sb(key, "/rest/v1/rpc/refund_script", method="POST", body={"p_id": a["id"]})
+        log.info("  refunded the allowance charge (%s)", why)
+    except Exception as e:  # noqa: BLE001
+        log.warning("  refund not recorded for %s: %s",
+                    str(a.get("id"))[:8], str(e)[:90])
 
 
 def graft_adaptations(key, cid, touched):
@@ -2115,8 +2494,7 @@ def main():
     api_key = env.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
     aclient = None
     if api_key and not args.no_ai:
-        import anthropic
-        aclient = anthropic.Anthropic(api_key=api_key)
+        aclient = anthropic_client(api_key)
     else:
         log.info("AI steps OFF (%s)", "--no-ai" if args.no_ai else "no ANTHROPIC_API_KEY")
 
@@ -2282,8 +2660,7 @@ def main():
             allowed = set(charged)
             ready = [a for a in candidates if a["id"] in allowed]
             over = [a for a in candidates if a["id"] not in allowed]
-            cap_note = (f"This account has used its {args.cap} scripts. "
-                        "Ask us to raise the limit.")
+            cap_note = note_text("cap", cap=args.cap)
             fresh_over = [a for a in over if a.get("note") != cap_note]
             if fresh_over:
                 # Written only when not already there: an "error" entry with
@@ -2292,7 +2669,7 @@ def main():
                 # pass forever instead of once.
                 for a in fresh_over:
                     a["status"] = "error"
-                    a["note"] = cap_note
+                    set_note(a, "cap", cap=args.cap)
                 log.info("[%s] refusing %d over the allowance",
                          data.get("name") or cid[:8], len(fresh_over))
                 graft_adaptations(key, cid, fresh_over)
@@ -2311,7 +2688,9 @@ def main():
         if fresh_off:
             for a in fresh_off:
                 a["status"] = "error"
-                a["note"] = OFF_PLATFORM_NOTE
+                set_note(a, "off_platform")
+                a["retryable"] = False        # a Netflix link never becomes a video
+                mark_final(a, "wall")
             log.info("[%s] refusing %d off-platform link(s)",
                      data.get("name") or cid[:8], len(fresh_off))
             graft_adaptations(key, cid, fresh_off)

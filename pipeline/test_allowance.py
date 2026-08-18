@@ -91,16 +91,25 @@ check("ftp on a supported host -> False", P.supported_url("ftp://tiktok.com/@x/v
 
 # ---- a billing/rate_limit/transient failure never reaches the creator's ---
 # ---- card as Anthropic's own sentence about OUR credit balance ------------
-_wording = dict(P.AI_FAIL_WORDING)
+# AI_FAIL_WORDING was replaced by the CREATOR_NOTES registry + AI_NOTE_KEY
+# (one sentence per key, one writer in set_note). These checks keep their
+# original intent — no vendor text on the card — against the new names.
+# The exhaustive registry sweep lives in test_ai_retry.py; this file keeps
+# only the allowance-facing half, which is why it is worth having twice.
+def _note_for(kind):
+    return P.note_text(P.AI_NOTE_KEY[kind])
+
 for kind in ("billing", "rate_limit", "transient"):
     check(f"{kind} wording carries no raw vendor text",
-          "credit balance" in _wording[kind] or "rate_limit_error" in _wording[kind], False)
+          "credit balance" in _note_for(kind) or "rate_limit_error" in _note_for(kind), False)
 check("content wording is about the video, not the vendor",
-      "video" in _wording["content"], True)
-check("every AI_FAIL_KINDS kind has a wording entry",
-      set(k for k, _ in P.AI_FAIL_KINDS) <= set(_wording), True)
-check("ai_failure_kind()'s fallback ('content') has a wording entry too",
-      "content" in _wording, True)
+      "video" in _note_for("content"), True)
+check("every AI_FAIL_KINDS kind has a note key",
+      set(k for k, _ in P.AI_FAIL_KINDS) <= set(P.AI_NOTE_KEY), True)
+check("ai_failure_kind()'s fallback ('content') has a note key too",
+      "content" in P.AI_NOTE_KEY, True)
+check("every AI_NOTE_KEY target resolves to a real CREATOR_NOTES entry",
+      set(P.AI_NOTE_KEY.values()) <= set(P.CREATOR_NOTES), True)
 
 # =============================================================================
 # TIER 2 — the actual ledger, live. Skips cleanly; see the module docstring.

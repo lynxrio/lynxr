@@ -137,8 +137,9 @@ begin
   select id from already union all select adaptation_id from ins;
 end $$;
 
--- THE REFUND. Only ever called when a download failed before any model call,
--- so nothing was actually spent. Never exposed to a creator.
+-- THE REFUND. Called whenever an entry produced no script — a failed
+-- download, or a model failure that ends in `error`. The model spend is ours;
+-- the allowance is the creator's. Never exposed to a creator.
 create or replace function public.refund_script(p_id text)
 returns void language sql volatile security definer set search_path = ''
 as $$ delete from public.lynxr_script_charges where adaptation_id = p_id; $$;

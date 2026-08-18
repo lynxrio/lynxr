@@ -82,12 +82,18 @@ FAIL_AT   = [ago(1), ago(10_000)]        # not due yet / long overdue
 CLAIMED   = [None, ago(0.1), ago(600)]   # unclaimed / fresh / lease expired
 ATTEMPTED = [None, ago(1), ago(10_000)]  # never / hot / cooled
 NOTES     = [None, "", "the AI step failed"]
+# reliability plan, Step 10.1: `final` only ever REMOVES a wants_work-True
+# case (the automatic-loop floor added in Step 3), so widening the brute
+# force with it can only shrink true_count — it cannot manufacture a miss
+# that wasn't already possible, and the probes stay a strict superset.
+FINALS    = [None, True]
+PASSES    = [0, 1, P.FINAL_MAX_PASSES]
 
 combos = 0
 true_count = 0
 misses = []
-for status, kind, tries, fail_at, claimed, attempted, note in itertools.product(
-        STATUSES, KINDS, TRIES, FAIL_AT, CLAIMED, ATTEMPTED, NOTES):
+for status, kind, tries, fail_at, claimed, attempted, note, final, passes in itertools.product(
+        STATUSES, KINDS, TRIES, FAIL_AT, CLAIMED, ATTEMPTED, NOTES, FINALS, PASSES):
     combos += 1
     a = {}
     if status is not None:
@@ -100,6 +106,10 @@ for status, kind, tries, fail_at, claimed, attempted, note in itertools.product(
         a["attemptedAt"] = attempted
     if note is not None:
         a["note"] = note
+    if final is not None:
+        a["final"] = final
+    if passes is not None:
+        a["passes"] = passes
 
     if P.wants_work(a, cooldown_hours=6, lease_minutes=2.5,
                     min_age_seconds=0, redo_ai=False):
@@ -150,6 +160,26 @@ spot4 = {"status": "done",
 check("spot 4 (done, billing aiFail, due): wants_work", wants(spot4), True)
 check("spot 4 (done, billing aiFail, due): matched", matched(spot4), True)
 
+# reliability plan, Step 10.2: the automatic-loop floor (Step 3) turns an
+# error entry with `final` into wants_work-False — but the {"status":"error"}
+# probe is deliberately UNCONDITIONAL (over-selecting costs one row fetch,
+# under-selecting loses a script), so it must still match even though
+# wants_work is now False for this shape.
+spot5 = {"status": "error", "final": True, "attemptedAt": ago(10_000)}
+check("spot 5 (error, final, cooled): wants_work is False now",
+      wants(spot5), False)
+check("spot 5 (error, final, cooled): matched — the error probe is unconditional",
+      matched(spot5), True)
+
+
+def wants_redo(a):
+    return P.wants_work(a, cooldown_hours=6, lease_minutes=2.5,
+                        min_age_seconds=0, redo_ai=True)
+
+
+check("spot 5 under --redo-ai: wants_work True (the manual escape hatch)",
+      wants_redo(spot5), True)
+
 # ---- d. non-degeneracy ------------------------------------------------------
 # Without this, the superset test is satisfied by a probe that matches
 # everything, which would restore the full scan's cost with extra steps.
@@ -196,6 +226,117 @@ check("url shape: one quoted cs.\" per probe (comma-safe quoting)",
 check("url shape: inner quotes are backslash-escaped", '\\"' in unquoted, True)
 check("url shape: stays comfortably under a URL length limit",
       len(url) < 2000, True)
+
+# ---- g. THE TERMINATION PROOF — the point of the whole plan ----------------
+# Drives the REAL process_group over four permanently-failing shapes, each
+# pass backed by an always-529 (or always-refusing, or always-walled) stub,
+# and asserts the automatic loop stops selecting the entry within
+# AI_MAX_TRIES + 2 passes. On unmodified code the branded case runs to the
+# bound and never stops — that is exactly the bug this plan closes.
+
+
+def _drive_to_termination(entry, brands, fill_source_stub, structured_stub):
+    """Repeatedly run process_group over ONE entry until wants_work(entry)
+    goes False or the bound is exceeded. Between passes, back-dates whatever
+    schedule field exists (attemptedAt / aiFail.at) far enough to be due —
+    the same "six hours later" trick the other end-to-end proofs use — so a
+    real backoff schedule doesn't make the test itself the bottleneck.
+
+    Returns (passes_taken, stopped) where `stopped` is whether wants_work is
+    False once the loop exits.
+    """
+    orig_sb, orig_fetch_meta = P.sb, P.fetch_meta
+    orig_upsert_source, orig_upsert_video = P.upsert_source, P.upsert_video
+    orig_fill_source, orig_structured = P.fill_source, P.structured
+    bound = P.AI_MAX_TRIES + 2
+    try:
+        P.sb = lambda key, path, method="GET", body=None, raw=False: [{"data": {"adaptations": []}}]
+        P.fetch_meta = lambda url: {}
+        P.upsert_source = lambda key, a: None
+        P.upsert_video = lambda key, a: None
+        P.fill_source = fill_source_stub
+        P.structured = structured_stub
+        group = [("cid-term", {"name": "t", "brands": brands}, entry)]
+
+        def wants():
+            return P.wants_work(entry, cooldown_hours=6, lease_minutes=2.5,
+                                min_age_seconds=0, redo_ai=False)
+
+        passes = 0
+        while wants() and passes < bound:
+            P.process_group("fake-key", object(), group)
+            passes += 1
+            if entry.get("attemptedAt"):
+                entry["attemptedAt"] = ago(10_000)
+            if entry.get("aiFail"):
+                entry["aiFail"]["at"] = ago(10_000)
+        return passes, not wants()
+    finally:
+        P.sb, P.fetch_meta = orig_sb, orig_fetch_meta
+        P.upsert_source, P.upsert_video = orig_upsert_source, orig_upsert_video
+        P.fill_source, P.structured = orig_fill_source, orig_structured
+
+
+def _term_fill_source_ok(a, aclient, key, notes, timings, publish=None):
+    a["source"] = {"platform": "tiktok",
+                   "script": {"has_speech": False, "text": ""}, "shots": []}
+    return True
+
+
+def _term_fill_source_wall(a, aclient, key, notes, timings, publish=None):
+    raise RuntimeError("download failed: ERROR: [TikTok] 1: This post may not be "
+                       "comfortable for some audiences. Log in for access.")
+
+
+def _term_structured_529(client, system, schema, content, max_tokens=3000):
+    raise RuntimeError("Error code: 529 - Overloaded")
+
+
+def _term_structured_content_refusal(client, system, schema, content, max_tokens=3000):
+    # The format extraction call always succeeds — only the per-brand adapt
+    # call refuses — so the shape under test is genuinely "a refusal", not
+    # "no format for this video" (a different, already-covered path).
+    if schema is P.FORMAT_SCHEMA:
+        return {"name": "fmt", "beats": [{"role": "hook", "seconds": 3}],
+                "product_entry": "early", "why_it_works": "x", "wrapper_removed": ""}
+    raise RuntimeError("the model declined: this violates content policy")
+
+
+# a. a branded entry, every pass 529ing on format extraction and the adapt call
+term_branded = {"id": "termbrd1", "brandId": "b1", "status": "queued",
+                "sourceUrl": "https://tiktok.com/@x/video/t1"}
+p_branded, stopped_branded = _drive_to_termination(
+    term_branded, [{"id": "b1", "name": "Acme"}], _term_fill_source_ok, _term_structured_529)
+check(f"termination (branded, 529): stopped within {P.AI_MAX_TRIES + 2} passes (took {p_branded})",
+      stopped_branded, True)
+check("termination (branded, 529): within the bound", p_branded <= P.AI_MAX_TRIES + 2, True)
+
+# b. a no-brand entry, same always-529 structured() — the source-read-back path
+term_nobrand = {"id": "termnob1", "status": "queued", "sourceUrl": "https://tiktok.com/@x/video/t2"}
+p_nobrand, stopped_nobrand = _drive_to_termination(
+    term_nobrand, [], _term_fill_source_ok, _term_structured_529)
+check(f"termination (no-brand, 529): stopped within {P.AI_MAX_TRIES + 2} passes (took {p_nobrand})",
+      stopped_nobrand, True)
+check("termination (no-brand, 529): within the bound", p_nobrand <= P.AI_MAX_TRIES + 2, True)
+
+# c. a branded entry whose adapt call is refused (content) — should stop fast
+term_refused = {"id": "termref1", "brandId": "b1", "status": "queued",
+                "sourceUrl": "https://tiktok.com/@x/video/t3"}
+p_refused, stopped_refused = _drive_to_termination(
+    term_refused, [{"id": "b1", "name": "Acme"}], _term_fill_source_ok,
+    _term_structured_content_refusal)
+check(f"termination (content refusal): stopped within {P.AI_MAX_TRIES + 2} passes (took {p_refused})",
+      stopped_refused, True)
+check("termination (content refusal): within the bound", p_refused <= P.AI_MAX_TRIES + 2, True)
+
+# d. a permanent fetch wall — should stop on the very first pass
+term_wall = {"id": "termwal1", "brandId": "b1", "status": "queued",
+             "sourceUrl": "https://tiktok.com/@x/video/t4"}
+p_wall, stopped_wall = _drive_to_termination(
+    term_wall, [{"id": "b1", "name": "Acme"}], _term_fill_source_wall, _term_structured_529)
+check(f"termination (fetch wall): stopped within {P.AI_MAX_TRIES + 2} passes (took {p_wall})",
+      stopped_wall, True)
+check("termination (fetch wall): within the bound", p_wall <= P.AI_MAX_TRIES + 2, True)
 
 print()
 if FAILS:

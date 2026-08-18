@@ -114,6 +114,265 @@ over cap. Silence means healthy.
 
 ## Where this left off (read this first)
 
+**2026-08-18 — a paste that stranded an entry now reaches a final answer
+instead of re-running it every six hours forever.**
+`~/.claude/plans/creator-video-to-script-reliability.md`, 12 steps,
+implemented in the working tree. The owner's directive: "make it so that
+lynxr works well, like video to script with minimal errors." Measured against
+the live database, errors are already rare — **21 of 22 distinct pasted
+videos produced a script (95.5%)**, and the single failure is an age-gate,
+closable only by authenticated fetching (below). Ranked by likelihood ×
+impact:
+
+| # | Class | Measured | Planned? |
+|---|---|---|---|
+| 1 | An entry that can never reach a final answer | 0 live, reachable from one 529 at the adapt step | **Yes — Steps 1–4** |
+| 2 | The fetch wall (age-gate) | 1 of 22 distinct videos (4.5%) | Decision required, not code — Apify ruled out (below) |
+| 3 | Silent systemic fetch breakage (yt-dlp extractor rot) | 0 so far, but nothing paged it | **Yes — Step 8** |
+| 4 | Transient Anthropic failure (529) | 1 of 30 records (3%), self-healed | **Yes — Step 6** |
+| 5 | A thin script that looks like a success | 1 of 25 branded scripts (4%): 1 beat against a 6-beat format | **Yes — Step 7** |
+| 6 | Latency | 11 of 27 over 120s | No — deprioritized by the owner |
+
+**The state machine had a hole: `not a.get("format")` was the wrong
+question.** `ai_gave_up()` used to end `and not a.get("format")` — but a
+**branded** entry that extracted its format and then keeps failing the adapt
+call always HAS a format, so it could never satisfy that test.
+`ai_retry_due()` returns False past `AI_MAX_TRIES`, so `wants_work()` fell
+through to the 6-hour `cooled()` floor and retried the entry forever, at a
+full download + Whisper + shots + tags + adapt pass each time. Measured on the
+real `run_entry` over that exact shape: `status error | final None None |
+tries 8 | wants_work (6h later) = True`. Worse than "we're retrying" forever:
+`fill_adaptation` clears the note and re-raises the generic `"no script was
+produced"`, which `run_entry` classified from the **exception text** rather
+than the `aiFail` marker on the row — so a 529 of ours read on the card as
+`we couldn't write a script from that video.`, blaming the creator's video for
+our overload, while the worker silently re-ran and re-billed it every six
+hours.
+
+**Four sites now write a `final`/`finalWhy` verdict, and one floor in
+`wants_work()` respects it.** `has_usable_result(a)` replaces the old test —
+a branded entry needs beats; a no-brand entry (the source read back) needs a
+format, shots or a transcript. `mark_final()` is the only writer of
+`a["final"]`; `final_reason()` is the pure decision function (`"wall"` for a
+recognised permanent wall, `"gave_up"` for exhausted retries with nothing
+usable, `"no_script"` for a model refusal, `"exhausted"` for
+`FINAL_MAX_PASSES` — 12 passes, ~3 days, the universal backstop for shapes
+nothing else enumerates). `wants_work()`'s error branch now returns False
+immediately when `final` is set and `--redo-ai` was not passed — the
+automatic loop's floor, not a lock: `--redo-ai` still forces it, a stale
+`final` on a `queued`/`running` entry is still ignored so Try again and claim
+recovery are never dead. `run_entry`'s except handler classifies from
+`(a.get("aiFail") or {}).get("kind")` first, falling back to the exception
+text only for failures that never marked one — so the sentence agrees with
+the marker that actually drives the retry schedule. Measured after: `final
+True gave_up | tries 8`, the gave-up sentence containing the try count,
+`wants_work` (6h later) `False`. `structured()`'s JSON-decode/text-extraction
+failures (a bare `ThinkingBlock`, a truncated body) are now classified
+`transient` via a `"malformed model response"` needle, not `content` — a
+shape fluke is not a refusal, and Step 4's terminal treatment of `content`
+would otherwise strand an entry on a one-off decode hiccup.
+
+**The Anthropic SDK's own retry budget was raised, not hand-rolled.**
+`anthropic_client()` is now the one place the client is built, with
+`max_retries=5` (was the SDK default of 2). Measured locally against a stub
+server that always returns 529: default `max_retries=2` makes **3 requests in
+1.4s** and gives up; `max_retries=5` makes **6 requests in 13.8s** (0.5/1/2/4/8s
+exponential backoff with jitter, honouring `retry-after`). A hand-rolled retry
+loop on top would have multiplied attempts (5 × 2 = 12 calls) — exactly the
+mistake the removed duplicate `extract_format` call was making. Honest
+caveat: the tester's real incident was three separate calls answering
+"overloaded" across tens of seconds, each having already retried 3× — an
+episode that outlasted even 14s. This shrinks the transient class; it does
+not remove it. The five-minute scheduled retry is still the backstop.
+
+**A script too short to be the format it reused now gets asked again.**
+`ADAPT_SCHEMA` already enforced `minItems: 1` and a total-empty response was
+already re-asked once; the gap was the one that shipped: **1 of 25 branded
+scripts** came back with 1 beat against a 6-beat extracted format, passed
+every guard, and rendered under a "script ready" chip. `thin_script(ad, fmt)`
+thresholds on `beats < format_beats / 2`, guarded on a format of at least 3
+beats. `fill_adaptation`'s re-ask condition now fires on `thin_script`, not
+just an empty list; if the second answer is still thin, it is **kept** (a
+short script beats no script) and recorded on `a["thin"]` so it is not
+silent. `FUSE_FORMAT_ADAPT`'s branch (default OFF) still records the marker
+but has no second ask — noted in a comment so the guard is never assumed to
+cover it.
+
+**Two failure shapes that were invisible to the pager now page.**
+`gave-up:<id8>` fires on `status error + final + finalWhy in (gave_up,
+no_script, exhausted)` inside 24h — scoped so a permanent platform wall
+(`finalWhy "wall"`) does NOT page, since that class is the creator's own link
+and cannot be fixed by anyone waking up. `fetch-wall:burst` fires when 3+
+**distinct** source videos (not records — a brand fan-out inflates records)
+refuse to download inside 6h, closing the gap where `sources-stalled` needs
+3+ *finished* scripts and `inflight:` needs a stall — a fast, accurate wall is
+invisible to both. `digest()` gained a quiet, no-page `quality: N thin · N
+given up (24h)` line. Neither alarm fires on the live corpus:
+`./venv/bin/python pipeline/watchdog.py --once --dry-run --json` still prints
+`[]`.
+
+**Apify is ruled out empirically, for both fetch fallback and failure
+classification — recorded here so nobody re-litigates it.** Tested against
+the exact failing URL (`https://www.tiktok.com/t/ZP8W5NcUh/`, TikTok id
+`7524866777004723486`, adaptations `60ebb1f1`/`bf6894ad`) with
+`clockworks/tiktok-scraper` — the same actor `pipeline/scrape_tiktok.py`
+already uses, already disclosed in `privacy/index.html`:
+
+    run SUCCEEDED, exit 0, 1 item:
+    {"error": "Post is sensitive content.", "errorCode": "POST_SENSITIVE",
+     "url": "https://www.tiktok.com/t/ZP8W5NcUh/"}
+    actor log: "The video is with sensitive content. The scraper is not able
+    to see posts that require login, skipping"
+
+A control URL (ordinary public TikTok `7526390954685730078`) returned a full
+record, so the integration is healthy and correctly configured — the wall is
+the wall. Apify hits the same login gate as yt-dlp. Its one typed advantage
+(`errorCode` vs. yt-dlp's regex-matched prose) was rejected as a classifier
+too: it would cost a paid Apify run per failure just to buy a better label on
+a card that is already accurate for every class seen; Step 8's alarm is what
+makes a wording drift visible, not a paid classifier.
+
+**DECISION REQUIRED, owner only — authenticated fetching is the only
+remaining route to the age-gate class**, and therefore the only thing between
+the measured 21/22 and "~99% of every paste." Nothing here implements it.
+What it would be: yt-dlp `--cookies <file>` (never `--cookies-from-browser`,
+which needs a browser profile a container doesn't have) behind an env var,
+default off. What it costs, honestly: a dedicated throwaway TikTok account
+(never the owner's, never a client's — a datacentre-IP session cookie is a
+known ban trigger); a different posture under platform terms than fetching
+public pages, which the owner takes on knowingly; the cookie file is a
+credential (`fly secrets set` + a base64'd GitHub Actions secret, never in the
+repo or a log line); cookie expiry is the normal case, not the exception, and
+must degrade to exactly today's wall (refunded, no Try again) plus one alarm,
+or the feature silently becomes an outage; and it does not close the ceiling
+— deleted and private videos stay irreducible either way. If declined, the
+wall this plan ships is accurate, fast, free (refunded), and now — new —
+*bounded*, so it stops re-downloading a video the platform will never hand
+over.
+
+Verify with:
+
+    ./venv/bin/python pipeline/test_ai_retry.py     # 200 checks (155 + 45 new)
+    ./venv/bin/python pipeline/test_prefilter.py     # 40 checks, 0 misses out of 10,854
+                                                      # wants_work-True combinations (24,300 total)
+    ./venv/bin/python pipeline/test_watchdog.py      # 44 checks (32 + 12 new)
+    ./venv/bin/python pipeline/test_allowance.py     # 13, unchanged
+    ./venv/bin/python pipeline/watchdog.py --once --dry-run --json   # []
+    ./venv/bin/python pipeline/latency_report.py --since 30d --sla 60  # medians unchanged
+
+All of it is Python in `pipeline/` — no front-end file changed, so `?v=` stays
+`20260822a`. **Not deployed** — Fly still runs the old worker.
+
+**2026-08-18 — every script and library card now carries a real title, read
+off the record with no network call.** `~/.claude/plans/creator-real-script-titles.md`,
+11 steps, implemented in the working tree. Cards had been reading "Instagram
+reel" / "Instagram post" / "TikTok video". Two stacked bugs, neither of them
+"hydration needs more retries":
+
+**The worker fetched the real caption and threw it away.** `fetch_meta()` ran
+AFTER the completion graft, and the graft is the only thing that writes to the
+creator's row — so `source.meta` was fetched, used for the two library upserts,
+and dropped. Provable by date: every record processed before 2026-08-18 03:32
+carries `source.meta`, every one after carries none. That boundary is commit
+`a66fe51`, which moved the call to keep 1.4s off the 60s SLA. It bought the
+latency and silently cost the titles. `creator.js` had never read `source.meta`
+at all. It now runs in a thread alongside the 11s source pass — one lookup per
+VIDEO, not per brand — so the caption rides the existing graft at ~0 cost.
+
+**A generated label was frozen into the record and then looked real.**
+`queueAdaptation` stored `title: sourceLabel(item)`, so a video sent before its
+caption loaded stored the literal string "Instagram reel". `realTitle()` treats
+a permalink as absent but not a platform label, so it satisfied every
+`title || fallback` test and blocked `hydrateScript`'s guard forever — 8 live
+records were stuck. It now stores `realTitle(item.title)`: only a genuine
+caption is ever written.
+
+Three divergent client label chains collapsed into one resolver (`videoTitle`,
+via `metaTitle` → `ownWordsTitle` → `handleLabel` → `platformKindLabel`) that
+reads the record and never the network. **The captionless fallback is the
+video's own opening line** (owner's decision, 2026-08-18), taken from the
+transcript already on the record. The generic platform label now survives only
+for a link the pipeline never fetched — 3 of 30 live records, 2 of which
+already show a "couldn't fetch" chip.
+
+**A LESSON, because it nearly shipped silent.** `ownWordsTitle()` first read
+transcript segments as objects (`.text`). They are TUPLES —
+`pipeline/transcribe.py` writes `[start, end, text]`, `process_adaptations.py`
+reads `for st, en, txt in script["segments"]`, and `adaptationHtml`
+destructures `([st, , txt])` two functions away in the same file. So the
+owner's chosen fallback was dead code returning `""` for every real record, and
+those cards fell straight through to "Instagram reel" — the exact string the
+work existed to remove. The step's own test harness could not catch it: two of
+its three fixtures used `segments: []`, so that rung was never exercised. Found
+only by rendering a real record shape in a browser. **Fixtures that skip a
+branch prove nothing about it.**
+
+**The paste disclosure moved out of the composer into Settings** (owner's
+decision), reworded so it stays true — the relay is still hit on a fresh paste,
+because `hydrate()` fires on every send and a new library entry has no title to
+early-return on. `privacy/index.html`'s relay sentence gained one clause
+scoping it to paste time, matching. `PRIVACY_VERSION` deliberately NOT bumped:
+narrowing an already-disclosed call adds no new data use, recipient or
+retention, so a bump would re-prompt people over nothing.
+
+Cache stamp is now `?v=20260822a` — the `20260821` letters had reached `z`.
+**Not deployed** — Fly still runs the old worker, so live creators still have
+the old titles until this is pushed.
+
+**2026-08-18 — the creator's failure card stopped leaking our internals, and
+the retry clock stopped lying.** `~/.claude/plans/creator-failure-copy-and-rerun-alarm.md`,
+19 steps, implemented in the working tree. A tester's paste hit an Anthropic
+529 and the card read `read, but not written yet. tags failed: overloaded;
+format extraction failed: overloaded; format extraction failed: overloaded`
+under a chip saying `source only`. Three separate bugs in one screenshot.
+
+**One writer owns creator-facing copy now.** `AI_FAIL_WORDING` became the
+`CREATOR_NOTES` registry (`note_text` / `set_note` / `clear_note` / the
+`CreatorFacing` exception); `a["note"]` is assigned in exactly one place and
+raw text goes to `diag` and the log instead. The leak was never one missed
+branch — six places wrote that field, so any future early return leaked by
+default. Two paths nobody had listed were leaking too: the tail of
+`fill_adaptation` wrote joined step notes onto **successful** entries, which
+`creator.js` painted under a finished script.
+
+**`done + brandId + no adaptation` is now unwritable.** The branded no-format
+path raises instead of returning early, so `run_entry`'s handler is the only
+exit. That state produced both the raw text and the wrong chip; `source only`
+is deleted from `creator.js` outright rather than merely avoided.
+
+**The retry cadence was inflated by ~12x.** `tries` counted one per failed
+STEP, not per pass, because `fill_source` and the group-level `extract_format`
+run before `run_entry` stamped `attemptedAt`. On 644ba12d that walked the
+schedule to the 60-minute rung and the tester waited 62 minutes for a retry
+that should have come in 5 — and their own Try again press made it worse, by
+clearing `attemptedAt`. A dedicated per-pass `attemptId` fixes the count.
+`attemptedAt` was deliberately NOT moved: it is the boundary
+`latency_report.py` splits `source` from `adapt` on. `AI_MAX_TRIES` stays 8,
+now meaning ~5.25h transient / ~19.75h billing.
+
+**A script that never arrived no longer costs an allowance.** `refund()` fires
+on AI give-up and on the error landing, so "Nothing was used from your
+allowance" is true when it is shown. It was not before: the charge is taken at
+claim time and only a source failure refunded it.
+
+**The per-entry `extract_format` call is gone** — one paid Opus call per video,
+not per brand. It was re-calling an API that had just answered "overloaded",
+seconds later, outside the backoff. Removing it required the `attemptId` work
+in the same change: that duplicate call was the only thing re-stamping an
+original-script entry's marker, so removing it alone would have silently
+stopped those entries retrying a failed format.
+
+Verify with:
+
+    ./venv/bin/python pipeline/watchdog.py --once --dry-run --json   # [] — was rerun:644ba12d
+    ./venv/bin/python pipeline/latency_report.py --since 30d --sla 60  # medians must not move
+    ./venv/bin/python pipeline/test_ai_retry.py                      # 155 checks
+
+`pipeline/test_allowance.py` depended on the deleted `AI_FAIL_WORDING` name and
+crashed at line 94, which silently killed the `charge_scripts` three-bypass
+proof below it; it is rewritten against the registry. **Not deployed** — Fly
+still runs the old worker.
+
 **2026-08-18 — the worker's discovery scan stopped pulling every creator's
 whole blob to find out if anything is queued.** `~/.claude/plans/
 worker-discovery-prefilter.md`, implemented in the working tree.
@@ -176,7 +435,7 @@ notification to ntfy.sh when one of seven failure SHAPES shows up:
 | `inflight:<id8>` | queued/running, no processedAt, age > budget | 600s = 2.6x measured p90 (229s); every real failure measured (1504s, 1548s, 101171s) clears it easily |
 | `inflight:many` | more than 3 stuck at once | collapses a burst into one page instead of N |
 | `empty-script:<id8>` | done + brandId + zero beats, within 24h | live count is 0 — a tripwire on `fill_adaptation`'s no-empty-beats guard regressing |
-| `rerun:<id8>` | done, attempts >= 2, no aiFail | the exact double-bill shape from the 2026-08-18 incident |
+| `rerun:<id8>` | the explicit `rerun` marker stamped at claim time, within 24h | the double-bill shape from the 2026-08-18 incident. **`done + attempts >= 2 + no aiFail` was the old condition and it false-positived on every healed retry** — a successful pass pops `aiFail`, so a self-healed entry became byte-identical to a re-run. It fired for real on 644ba12d. Honest gap: the marker requires beats, and the original incident had ERASED them, so that class is owned by `inflight:` (which the real one blew past at 1548s vs 600s) |
 | `sources-stalled` | 3+ finished with a source in 6h, 0 new `lynxr_sources` rows | the weeks-long `upsert_source()` 400, now caught in hours instead of weeks |
 | `softfail:<subsystem>` | 3 of the last 5 finished scripts carry the same `softFails.<subsystem>` marker | makes a persistent failure loud, keeps one blip quiet |
 | `worker-down` | `worker.heartbeat` missing or older than 5min | tolerates 5 missed 60s heartbeats — more than `kill_timeout="300s"` plus a cold boot. Structurally can only ever be raised by the GitHub fallback loop (`adaptations.yml`), never by Fly itself, because the Fly-side caller refreshes its own heartbeat immediately before checking |

@@ -842,6 +842,21 @@ function normalizeMe() {
     }
     if (a.libraryId !== item.id) { a.libraryId = item.id; changed = true; }
   }
+
+  // THE WORKER ALREADY KNOWS THE CAPTION. It rides in on the adaptation as
+  // source.meta.title (yt-dlp, server side) and nothing here ever read it.
+  // Copied onto the entry rather than derived every paint, because a stored
+  // caption is what makes hydrateStale() skip this row and what the card
+  // body shows under the name. Only a REAL caption is adopted — never a
+  // derived label, never source.meta.creator (a numeric uploader id).
+  for (const item of ME.library) {
+    if (realTitle(item.title)) continue;
+    const found = recordsForVideo({ item }).map(metaTitle).find(Boolean);
+    if (!found) continue;
+    item.title = found;
+    item.caption = item.caption || found;
+    changed = true;
+  }
   return changed;
 }
 
@@ -1205,19 +1220,6 @@ function renderNewScript(head, body) {
           </button>
         </form>
         <p class="composer-note" id="composer-note" role="status" aria-live="polite"></p>
-        ${/* WHAT A PASTE ACTUALLY DOES, said where the paste happens. The
-              signup consent line links the policy once, months before this
-              moment; two things here would surprise someone who only read that
-              — the link leaves our origin on its way to a public relay to have
-              its title read, and it is kept in the shared format library after
-              the account is gone. Both are in the policy; neither was anywhere
-              near the box.
-              href="/privacy/" and not a new tab: the delegated handler at the
-              top of this file opens it in the modal, so reading it does not
-              navigate away from a half-filled composer. */""}
-        <p class="bp-hint composer-disclose">we fetch this video&rsquo;s title through a public relay,
-          and store the link in our shared format library &mdash;
-          <a href="/privacy/">privacy</a></p>
       </div>
     </div>`;
 
@@ -2158,7 +2160,11 @@ function libraryItemHtml(item, scopeBrandId) {
   const chip = !made.length ? `<span class="chip">not scripted</span>`
     : waiting ? `<span class="chip bp-wait"><i class="bp-dot"></i>writing ${waiting}</span>`
     : done ? `<span class="chip good">${plural(done, "script")}</span>`
-    : `<span class="chip bad">couldn't fetch</span>`;
+    // Same two buckets as the card chip: only a source failure is a fetch
+    // failure. `noteKind` is absent on rows written before the worker stamped
+    // it, and those keep the old wording.
+    : `<span class="chip bad">${made.some((a) => a.noteKind && a.noteKind !== "fetch")
+        ? "couldn't write" : "couldn't fetch"}</span>`;
 
   return `<details class="bp-item lib-item" data-lid="${escapeHtml(item.id)}">
     <summary>
@@ -2316,6 +2322,29 @@ function renderYou(head, body) {
         </span>
       </div>
       <p class="note" id="del-msg" role="status" aria-live="polite"></p>
+      ${/* WHAT A PASTE ACTUALLY DOES. Moved here from the composer at the
+            owner's direction; the signup consent line links the policy once,
+            months earlier, and this is the page someone opens when they want
+            to know what happens to their data.
+
+            Two claims, and the ORDER is deliberate — the substantive one
+            first. The link is kept in the shared format library, filed under
+            the video's own address rather than under the creator, and it
+            survives account deletion; that is what privacy/index.html's "one
+            thing survives" paragraph says, in the same words.
+
+            The relay half is worded as what it now IS. Titles come off the
+            record the worker wrote for everything already processed, but
+            hydrate() still fires on EVERY fresh paste (creator.js's send
+            handler) because the worker's title does not exist for ~60s — so
+            "before we have processed it" is accurate and "only as a
+            fallback" would not be. No second /privacy/ link: the .me-links
+            row directly above already carries one, and the delegated handler
+            at the top of this file opens it in the modal. */""}
+      <p class="bp-hint me-disclose">Links you paste stay in our shared library of
+        video formats &mdash; filed under the video&rsquo;s own address, not under you
+        &mdash; including after you delete your account. To name a video before we have
+        processed it, your browser asks a public relay to read its title.</p>
     </div>
 
     <p class="you-foot">&copy;
@@ -2401,15 +2430,7 @@ function renderYou(head, body) {
     copy; then sourceLabel()'s platform wording. Matched on libraryId OR
     canonical URL, since a trash entry can outlive the library row it was made
     from and a sibling entry for the same video may still carry the caption. */
-function entryLabel(a) {
-  const url = a.sourceUrl || "";
-  const canon = url ? canonUrl(url) : "";
-  const item = (ME.library || []).find((l) =>
-    l.id === a.libraryId || (canon && l.canon === canon));
-  return realTitle(item && item.title) || realTitle(a.title)
-    || sourceLabel({ url, platform: platformLabel(url), title: "",
-                     creator: (item && item.creator) || "" });
-}
+function entryLabel(a) { return videoTitle({ rec: a }); }
 
 function renderTrash() {
   const host = document.getElementById("trash-list");
@@ -2436,7 +2457,7 @@ function renderTrash() {
     const cover = (a.source || {}).cover
       || coverUrl({ libraryId: a.libraryId, canon: a.sourceUrl ? canonUrl(a.sourceUrl) : "" });
     return `<div class="bp-item trash-row" data-adid="${escapeHtml(a.id)}">
-      ${thumbHtml(cover, a.title || "", a.sourceUrl)}
+      ${thumbHtml(cover, entryLabel(a), a.sourceUrl)}
       ${/* .trash-main is a toggle on a phone only: the meta line is hidden there
             and tapping the title drops it down. On desktop the meta is always
             visible and the class this sets does nothing. */""}
@@ -2658,6 +2679,17 @@ function ensureLibraryItem(url, extra = {}) {
   return { item, isNew: true };
 }
 
+/* == title resolution == */
+/* ONE chain, used by every surface: the Library card, a standalone script
+   card, and a row in the Trash. They disagreed before — three call sites,
+   three orders — which is how one video could read as its caption in the
+   Library and "Instagram post" in the bin.
+
+   NOTHING DERIVED IS EVER STORED. A label computed here is computed again
+   on the next paint; only a genuine caption is written to a record. Storing
+   a derived label is precisely what froze "Instagram reel" onto 8 live
+   records — see queueAdaptation. */
+
 /** A stored title that is really a permalink.
 
     Not a hypothetical: the brief builder sets an adaptation's `title` to
@@ -2672,33 +2704,129 @@ function ensureLibraryItem(url, extra = {}) {
     URL for good. Matched on the known video hosts only, so a caption that
     merely mentions a link is left alone. */
 const URLISH_TITLE = /^(https?:\/\/)?(www\.|m\.)?(instagram\.com|tiktok\.com|youtube\.com|youtu\.be)\//i;
+
+/** The labels this file GENERATES, recognised on the way back in.
+
+    sourceLabel() has always produced "<Platform> <kind>", "Saved <kind>" and
+    "@<handle> on <Platform>", and queueAdaptation used to write the result
+    into the record. A stored one then satisfied every `title || fallback`
+    test in this file and blocked hydrateScript()'s `!realTitle(a.title)`
+    guard for good, so the row could never heal — the same shape of bug as
+    URLISH_TITLE, one class wider. "Video by <handle>" is here too: it is
+    yt-dlp's synthesised Instagram placeholder, and it arrives on
+    source.meta.title whenever the post has no description (6 live records).
+
+    Anchored, so a caption that merely CONTAINS "instagram post" is left
+    alone. A caption that is exactly "Instagram post" is treated as absent,
+    and the chain below then shows the video's own opening line, which is a
+    better answer anyway. */
+const PLACEHOLDER_TITLE = new RegExp(
+  "^(?:(?:TikTok|Instagram|Facebook|YouTube)\\s+(?:reel|post|short|video)"
+  + "|Saved\\s+(?:reel|post|short|video)"
+  + "|@[A-Za-z0-9._]+\\s+on\\s+(?:TikTok|Instagram|Facebook|YouTube|Link)"
+  + "|Video by\\s+\\S+)$", "i");
+
 function realTitle(s) {
   const t = String(s || "").trim();
-  return URLISH_TITLE.test(t) ? "" : t;
+  return (URLISH_TITLE.test(t) || PLACEHOLDER_TITLE.test(t)) ? "" : t;
 }
 
-/** What a card is called before — or instead of — a real title. A bare URL
-    reads as a bug; "@emt.kayla on TikTok" reads as a video whose caption
-    hasn't loaded.
+/** One line, no runs of whitespace, short enough for a card. */
+const tidyTitle = (s) => String(s || "").replace(/\s+/g, " ").trim().slice(0, 90);
 
-    A URL is never the answer now, not even last. An Instagram reel URL carries
-    no handle to fall back on (`/reels/DRVQX4RAafH/`), so it used to render the
-    shortcode — which names nothing a person recognises. What is left says what
-    the entry IS, and the cover frame, the platform chip and the ↗ beside it are
-    what tell two un-hydrated rows apart. That is the job make_cover() exists
-    for. Rare either way: hydration only reaches this line when every relay
-    failed. */
-function sourceLabel(item) {
-  const named = realTitle(item.title);
-  if (named) return named;
-  const handle = (item.url.match(/(?:tiktok\.com|instagram\.com)\/@([A-Za-z0-9._]+)/) || [])[1]
-    || item.creator;
-  if (handle) return `@${handle} on ${item.platform}`;
-  const kind = /\/reels?\//.test(item.url) ? "reel"
-    : /instagram\.com\/p\//.test(item.url) ? "post"
-    : /\/shorts\//.test(item.url) ? "short" : "video";
-  return item.platform === "Link" ? `Saved ${kind}` : `${item.platform} ${kind}`;
+/** The caption the WORKER fetched, straight off the record — no network.
+    yt-dlp prefers `description` over its "Video by <handle>" placeholder,
+    but when the post has no description the placeholder survives, so it is
+    filtered here too (realTitle covers it). */
+function metaTitle(rec) {
+  return realTitle(tidyTitle((((rec || {}).source || {}).meta || {}).title));
 }
+
+/** The video's OWN first words, when it has no caption at all.
+    Costs nothing: the pipeline already stored the transcript and the shot
+    list on this record. Spoken hook first, then the first transcript
+    segment, then the first frame's on-screen text — which for a silent
+    video IS what the video says. Anything under 8 characters is not a
+    title, so it falls through rather than showing "Track". */
+function ownWordsTitle(rec) {
+  const src = (rec || {}).source || {};
+  const sc = src.script || {};
+  /* A SEGMENT IS A TUPLE, NOT AN OBJECT. pipeline/transcribe.py writes
+     `[start, end, text]` (its `segments` list comprehension), and
+     process_adaptations.py reads it back as `for st, en, txt in
+     script["segments"]` — adaptationHtml destructures it the same way,
+     `segs.map(([st, , txt]) => …)`. Reading `.text` off a tuple is undefined
+     for every segment, so this rung never fired: a record with a transcript
+     but no hook fell straight through to "Instagram reel", the exact string
+     this resolver exists to remove. The object form is still accepted so a
+     hand-built record does not silently go dark. */
+  const segText = (s) => (Array.isArray(s) ? s[2] : (s || {}).text);
+  const seg = (sc.segments || []).map(segText)
+    .find((x) => String(x || "").trim());
+  const shot = (src.shots || []).map((s) => (s || {}).onscreen_text)
+    .find((x) => String(x || "").trim());
+  const pick = tidyTitle(sc.hook) || tidyTitle(seg) || tidyTitle(shot);
+  return pick.length >= 8 ? pick : "";
+}
+
+/** Every record made from this video — live and trashed, this account.
+    Matched on libraryId OR canonical URL, because a trashed script outlives
+    the library row it was made from and a sibling scripted for another
+    brand carries the same source. The record we were handed comes first. */
+function recordsForVideo({ item, rec }) {
+  const canon = (item && item.canon)
+    || (rec && rec.sourceUrl ? canonUrl(rec.sourceUrl) : "");
+  const lid = (item && item.id) || (rec && rec.libraryId) || "";
+  const mine = [...(ME.adaptations || []), ...(ME.trash || [])].filter((a) =>
+    (lid && a.libraryId === lid)
+    || (canon && a.sourceUrl && canonUrl(a.sourceUrl) === canon));
+  return rec ? [rec, ...mine.filter((a) => a !== rec)] : mine;
+}
+
+/** "@handle on TikTok" — identity when we have no words.
+    The handle comes from the URL or from the LIBRARY entry, which hydrate()
+    fills from the page's og tags. NEVER from source.meta.creator: that is
+    yt-dlp's `uploader_id`, which on both Instagram and TikTok is a numeric
+    account id ("15453872790"), not a handle. Verified on the live rows. */
+function handleLabel(url, lib) {
+  const handle = (String(url || "")
+    .match(/(?:tiktok\.com|instagram\.com)\/@([A-Za-z0-9._]+)/) || [])[1]
+    || (lib && lib.creator) || "";
+  return handle ? `@${handle} on ${(lib && lib.platform) || platformLabel(url)}` : "";
+}
+
+/** The honest floor: what the entry IS. Only reachable for a link the
+    pipeline never fetched — a failed or still-queued send. The cover frame,
+    the platform chip and the ↗ beside it are what tell two of these apart. */
+function platformKindLabel(url, platform) {
+  const kind = /\/reels?\//.test(url) ? "reel"
+    : /instagram\.com\/p\//.test(url) ? "post"
+    : /\/shorts\//.test(url) ? "short" : "video";
+  return platform === "Link" ? `Saved ${kind}` : `${platform} ${kind}`;
+}
+
+/** THE chain. Give it a library entry, a script record, or both. */
+function videoTitle({ item, rec } = {}) {
+  const lib = item || (ME.library || []).find((l) =>
+    (rec && rec.libraryId && l.id === rec.libraryId)
+    || (rec && rec.sourceUrl && l.canon === canonUrl(rec.sourceUrl)));
+  const url = (lib && lib.url) || (rec && rec.sourceUrl) || "";
+  const recs = recordsForVideo({ item: lib, rec });
+  const first = (fn) => {
+    for (const r of recs) { const v = fn(r); if (v) return v; }
+    return "";
+  };
+  return realTitle(lib && lib.title)          // a caption hydrate() stored
+    || first((r) => realTitle(r.title))        // one a sibling record kept
+    || first(metaTitle)                        // the worker's, no network
+    || first(ownWordsTitle)                    // the video's own first words
+    || handleLabel(url, lib)
+    || platformKindLabel(url, (lib && lib.platform) || platformLabel(url));
+}
+
+/** What a saved VIDEO is called. */
+function sourceLabel(item) { return videoTitle({ item }); }
+/* == end title resolution == */
 
 // ---------- the composer ----------
 // Paste a link at the foot of a brand and it becomes that brand's next script.
@@ -3640,7 +3768,12 @@ function queueAdaptation(item, co) {
     id, libraryId: item.id, sourceUrl: item.url,
     brandId: co ? co.id : null,
     brandName: co ? (co.name || "Untitled brand") : "",
-    title: sourceLabel(item),
+    // ONLY a real caption is stored. sourceLabel() used to be written here,
+    // which froze "Instagram reel" onto the record when the caption had not
+    // loaded yet — and a stored label reads as a real title to every test in
+    // this file. The label is derived at paint time now (videoTitle), so an
+    // empty string here is correct and heals on its own.
+    title: realTitle(item.title),
     status: "queued", addedAt: new Date().toISOString(),
     code: trackCode(co ? co.name : "LYNX"),   // spec §6.2 / R3 — issued at brief time
   });
@@ -4243,13 +4376,31 @@ function adaptationHtml(a, liveName, opts = {}) {
   const silent = !!ad && (ad.delivery === "silent"
     || (Array.isArray(ad.beats) && ad.beats.length
         && ad.beats.every((b) => !(b.say || "").trim())));
-  const chip = a.status === "error" ? `<span class="chip bad">couldn't fetch</span>`
+  /* TWO BUCKETS ON A FAILURE, because "couldn't fetch" was being shown for
+     failures that had nothing to do with the fetch — a model failure on a
+     video we read fine tells the creator to go and check their link. Anything
+     the worker classified as a source failure keeps the fetch wording;
+     everything else it named (`noteKind` is stamped by
+     process_adaptations.set_note) is ours. Rows written before `noteKind`
+     existed have none, so they keep today's wording rather than silently
+     changing meaning.
+
+     THE LAST ARM IS THE LEGACY-ROW FALLBACK. It is only reachable with a
+     truthy `brandId` — the `!a.brandId` test sits directly above it — so what
+     it describes is a BRANDED entry that finished with no script, while its
+     old wording (source-only) names a no-brand ORIGINAL. That string is
+     deleted from this file rather than corrected: the pipeline no longer
+     writes that state at all (fill_adaptation raises instead of returning
+     "done"), so the only rows that can land here are ones written before that. */
+  const chip = a.status === "error"
+    ? `<span class="chip bad">${a.noteKind && a.noteKind !== "fetch"
+        ? "couldn't write" : "couldn't fetch"}</span>`
     : a.status !== "done" ? `<span class="chip bp-wait"><i class="bp-dot"></i>writing your script</span>`
     : asOriginal ? `<span class="chip good">original script</span>`
     : lowFit ? `<span class="chip">poor fit</span>`
     : ad ? `<span class="chip good">script ready</span>`
     : !a.brandId ? `<span class="chip good">original script</span>`
-    : `<span class="chip">source only</span>`;
+    : `<span class="chip bad">no script</span>`;
   const href = safeUrl(a.sourceUrl || "");
   const id = escapeHtml(a.id);
   // brandName was snapshotted when this was queued, so it goes stale the moment
@@ -4283,7 +4434,15 @@ function adaptationHtml(a, liveName, opts = {}) {
        limitation read as a bug. Undefined counts as retryable: entries written
        before this shipped, and every model-side failure, still get the button. */
     const canRetry = a.retryable !== false;
-    body = `<p class="bp-hint bad">${escapeHtml(a.note || "That video couldn't be downloaded.")}</p>
+    /* ONLY COPY THIS APP WROTE. `noteKind` is stamped by
+       process_adaptations.set_note(), which takes a registry key and never
+       prose — so its presence is the proof this sentence was written for a
+       creator. A row written before that existed (two are sitting in live
+       `trash` carrying raw yt-dlp stderr, one Restore click from a card) has
+       no kind and falls back to the generic sentence, instead of painting
+       "ERROR: [TikTok] 7524866777004723486: … Use --cookies-from-browser". */
+    const note = a.noteKind ? a.note : "";
+    body = `<p class="bp-hint bad">${escapeHtml(note || "That video couldn't be downloaded.")}</p>
       ${canRetry
         ? `<div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`
         : ""}`;
@@ -4299,7 +4458,12 @@ function adaptationHtml(a, liveName, opts = {}) {
       ${a.format?.name ? `<div class="chips bp-tags"><span class="chip">${escapeHtml(a.format.name)}</span>
         ${a.source?.tags?.format_type ? `<span class="chip">${escapeHtml(a.source.tags.format_type)}</span>` : ""}
         ${a.source?.tags?.hook_pattern ? `<span class="chip">${escapeHtml(a.source.tags.hook_pattern)}</span>` : ""}</div>` : ""}
-      ${a.note ? `<p class="bp-hint">${escapeHtml(a.note)}</p>` : ""}
+      ${/* NO NOTE UNDER A DELIVERED SCRIPT. A finished entry no longer carries
+            one at all (fill_adaptation writes its internal step failures to
+            `diag`, which nothing renders), and the only strings this line
+            could ever have painted were those internal ones — a script that
+            arrived intact but whose tag call blipped showed "tags failed:
+            Overloaded" beneath it. */""}
       ${EDITING.has(a.id) ? scriptEditor(a, ad, silent) : `
       ${ad.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">${
         silent ? "Opening card" : "Hook"}</span>“${escapeHtml(ad.hook)}”</div>` : ""}
@@ -4419,7 +4583,17 @@ function adaptationHtml(a, liveName, opts = {}) {
         ${a.brandId ? "" : `<button type="button" class="btn ad-brandify" data-adid="${id}">Write this for a brand</button>`}
       </div>`;
   } else {
-    body = `<p class="bp-hint">Read, but not written yet. ${escapeHtml(a.note || "")}</p>
+    /* BRANDED, FINISHED, NO SCRIPT — an illegal state the pipeline can no
+       longer write (fill_adaptation raises instead of returning "done"), kept
+       as defence in depth for rows written before that landed. It used to
+       print the joined internal notes: on 2026-08-18 a tester read "Read, but
+       not written yet. tags failed: overloaded; format extraction failed:
+       overloaded; format extraction failed: overloaded". Fixed copy now, and
+       no `a.note` — there is nothing here a creator can act on except the
+       retry. The allowance claim is true: lynxr_script_charges.adaptation_id
+       is a primary key, so retrying the same entry cannot charge twice. */
+    body = `<p class="bp-hint">We couldn't finish this one. Try again — it won't
+      take anything more from your allowance.</p>
       <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
   }
 
@@ -4519,6 +4693,10 @@ function renderScripts(b) {
     });
     return;
   }
+  // Same backfill the Library and Trash run — a creator sitting on a brand
+  // page never triggered it, so a standalone card could only heal by
+  // visiting another view.
+  hydrateStale();
   host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a, b.name)).join("")}</div>`;
   wireAdaptationCards(host);
   paintEta(host);          // etaBlockHtml only ships the skeleton — see paintEta
@@ -4590,7 +4768,10 @@ function wireAdaptationCards(host) {
     const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
     if (!a) return;
     a.status = "queued";
-    delete a.note; delete a.attemptedAt;
+    // `noteKind` goes with the note it classified — left behind, a re-queued
+    // card that fails a second time on a different step would show the FIRST
+    // run's chip wording.
+    delete a.note; delete a.noteKind; delete a.attemptedAt;
     // `phase` and `phaseAt` belong to the run that FAILED. Left behind, the
     // re-queued card shows that run's progress — "finding the format", with a
     // clock counting from a timestamp minutes old — until the worker happens to

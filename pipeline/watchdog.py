@@ -18,7 +18,13 @@ tells the owner when one of a fixed set of failure SHAPES shows up:
     inflight:<id8>    a script stuck queued/running past 10 minutes
     inflight:many     more than 3 stuck at once (collapsed into one page)
     empty-script:<id8> finished "done" with a brand and zero beats
-    rerun:<id8>       an entry that finished and was then worked AGAIN
+    gave-up:<id8>     the automatic retry loop stopped and the creator has no
+                      script (finalWhy gave_up/no_script/exhausted) — a
+                      permanent platform wall does NOT page here, see below
+    fetch-wall:burst  3+ DISTINCT source videos refused to download inside 6h
+                      — suspect a yt-dlp extractor break, not one bad link
+    rerun:<id8>       an entry that finished with beats and was then claimed
+                      AGAIN (explicit marker)
     sources-stalled   scripts finishing but lynxr_sources not growing
     softfail:<sub>    a soft failure (source_upsert/video_upsert/cover/meta)
                       hit on 3+ of the last 5 finished scripts
@@ -102,6 +108,10 @@ INFLIGHT_SLA = 600            # 10min = 2.6x measured p90 (229s); every real
                                # failure measured (1504s, 1548s, 101171s) clears it easily.
 INFLIGHT_MANY = 3             # more than this in one tick collapses into inflight:many
 EMPTY_SCRIPT_WINDOW_S = 24 * 3600
+GAVE_UP_WINDOW_S = 24 * 3600
+RERUN_WINDOW_S = 24 * 3600
+FETCH_WALL_MIN = 3            # this many DISTINCT source videos refusing...
+FETCH_WALL_WINDOW_H = 6       # ...inside this window = a systemic fetch break
 SOURCES_STALL_MIN = 3         # this many finished-with-source in the window...
 SOURCES_STALL_WINDOW_H = 6    # ...and zero new lynxr_sources rows = stalled
 SOFTFAIL_LAST_N = 5
@@ -116,6 +126,30 @@ DIGEST_HOUR_UTC = int(os.environ.get("DIGEST_HOUR_UTC", "15"))
 DAILY_SCRIPT_CAP = int(os.environ.get("DAILY_SCRIPT_CAP", 250))
 
 SOFTFAIL_SUBSYSTEMS = ("source_upsert", "video_upsert", "cover", "meta")
+
+# DUPLICATED from process_adaptations.RAW_TEXT_NEEDLES — this module may not
+# import that one (its import runs logging.basicConfig and mkdir("output/")).
+# Change one, change both; pipeline/test_ai_retry.py asserts they match.
+RAW_NOTE_NEEDLES = ("overloaded", "529", "credit balance", "rate_limit", "429",
+                    "traceback", "anthropic", "error:", "yt-dlp", "--cookies",
+                    "http error", "nonetype", "exception", "failed:", "api_key")
+
+
+def raw_notes(rows):
+    """id8s of live adaptations whose creator-visible note carries provider
+    or internal text. Verified live 2026-08-18: 0 of 21 adaptations carry a
+    note at all, so anything above zero is a regression in
+    process_adaptations.set_note(). Scans `adaptations` only — two rows in
+    `trash` still carry pre-FETCH_FAILURES yt-dlp stderr, and counting them
+    would pin this line permanently non-zero, which teaches the owner to
+    ignore it."""
+    hits = []
+    for row in rows:
+        for a in (row.get("data") or {}).get("adaptations") or []:
+            note = str(a.get("note") or "").lower()
+            if note and any(n in note for n in RAW_NOTE_NEEDLES):
+                hits.append(str(a.get("id") or "")[:8] or "????????")
+    return hits
 
 
 # =============================================================================
@@ -333,6 +367,7 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
     # finished-sample summary (brandId, beats, softFails, attempts, aiFail
     # never leave this function or a script).
     finished = []   # (processedAt, entry) — every "done" entry with a processedAt
+    fetch_walls = set()   # distinct sourceUrls with a fresh fetch failure (see (b) below)
     for row in rows:
         for a in (row.get("data") or {}).get("adaptations") or []:
             status = a.get("status")
@@ -354,19 +389,84 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
                     "priority": 4, "tags": "rotating_light",
                 })
 
+            # ---- gave-up:<id8> ---------------------------------------------
+            # A terminal state OF OURS — the automatic loop has stopped and the
+            # creator has no script. Scoped by finalWhy so a permanent platform
+            # wall (age-gated, deleted, off-platform) does NOT page: that class
+            # is the creator's link, is answered accurately on the card, and
+            # cannot be fixed by anyone being woken up. Live count on the
+            # corpus: 0.
+            settled = LR.parse_iso(a.get("attemptedAt") or a.get("claimedAt"))
+            if (status == "error" and a.get("final")
+                    and a.get("finalWhy") in ("gave_up", "no_script", "exhausted")
+                    and (settled is None
+                         or (now - settled).total_seconds() <= GAVE_UP_WINDOW_S)):
+                alarms.append({
+                    "key": f"gave-up:{aid8}",
+                    "title": "a script was given up on",
+                    "body": (f"adaptation {aid8} final={a.get('finalWhy')} "
+                             f"kind={(a.get('aiFail') or {}).get('kind')} "
+                             f"tries={(a.get('aiFail') or {}).get('tries')} "
+                             f"passes={a.get('passes')}. fly logs"),
+                    "priority": 4, "tags": "rotating_light",
+                })
+
+            # ---- fetch-wall:burst (accumulate; alarm raised after the loop) -
+            if status == "error" and a.get("noteKind") == "fetch":
+                claimed = LR.parse_iso(a.get("claimedAt") or a.get("addedAt"))
+                if claimed is not None and (now - claimed).total_seconds() <= FETCH_WALL_WINDOW_H * 3600:
+                    fetch_walls.add(a.get("sourceUrl"))
+
             # ---- rerun:<id8> ------------------------------------------------
-            if (status == "done" and int(a.get("attempts") or 1) >= 2
-                    and not a.get("aiFail")):
-                rerun = a.get("rerun") or {}
-                extra = (f" explicit rerun marker: prevProcessedAt={rerun.get('prevProcessedAt')} "
-                         f"beats={rerun.get('beats')}.") if rerun else ""
+            # THE EXPLICIT MARKER ONLY. This used to infer the shape from
+            # `done + attempts >= 2 + no aiFail`, which a SUCCESSFUL transient
+            # retry imitates exactly — run_entry drops the aiFail marker when
+            # an attempt succeeds, so a healed entry ends done/attempts=3/no
+            # aiFail. That fired for real on 2026-08-18 (adaptation 644ba12d,
+            # 11 beats, recovered fine) and paged at priority 4.
+            #
+            # process_adaptations.run_entry stamps a["rerun"] at claim time,
+            # BEFORE any spend, when an entry that already finished with beats
+            # is worked again — and never under --redo-ai. What that cannot
+            # see is the original incident's own shape, where the racing graft
+            # had erased the beats first; `inflight:` owns that class and
+            # catches it ~10 minutes in (the real one sat running 1548s against
+            # a 600s budget) instead of after the second bill.
+            rerun = a.get("rerun") or {}
+            rerun_at = LR.parse_iso(rerun.get("at"))
+            if rerun and (rerun_at is None
+                          or (now - rerun_at).total_seconds() <= RERUN_WINDOW_S):
                 alarms.append({
                     "key": f"rerun:{aid8}",
                     "title": "entry worked twice",
-                    "body": (f"adaptation {aid8} attempts={a.get('attempts')}.{extra} "
+                    "body": (f"adaptation {aid8} attempts={a.get('attempts')} "
+                             f"prevProcessedAt={rerun.get('prevProcessedAt')} "
+                             f"beats={rerun.get('beats')}. "
                              "./venv/bin/python pipeline/latency_report.py --since 24h --sla 60"),
                     "priority": 4, "tags": "rotating_light",
                 })
+
+    # ---- fetch-wall:burst --------------------------------------------------
+    # yt-dlp breaks on a schedule as platforms change their pages — which is
+    # why .github/workflows/fly-refresh.yml force-rebuilds the image weekly —
+    # and 17 of the 22 videos ever pasted here are Instagram, the extractor
+    # that breaks most. When it goes, EVERY paste fails FAST with an accurate
+    # wall, so nothing else here fires: sources-stalled needs 3+ FINISHED
+    # scripts and inflight: needs a stall. This is that gap.
+    #
+    # DISTINCT URLS, not entries: the only fetch failure in the corpus was one
+    # link pasted for two brands — 2 records, 1 bad video. Three distinct
+    # videos refusing inside six hours has never happened and is what a
+    # systemic break looks like.
+    if len(fetch_walls) >= FETCH_WALL_MIN:
+        alarms.append({
+            "key": "fetch-wall:burst",
+            "title": f"{len(fetch_walls)} videos refused in {FETCH_WALL_WINDOW_H}h",
+            "body": (f"{len(fetch_walls)} distinct source videos failed to download "
+                     f"in {FETCH_WALL_WINDOW_H}h — suspect a yt-dlp extractor break. "
+                     "fly logs"),
+            "priority": 4, "tags": "rotating_light",
+        })
 
     # ---- sources-stalled --------------------------------------------------
     cutoff = now - timedelta(hours=SOURCES_STALL_WINDOW_H)
@@ -448,11 +548,29 @@ def digest(rows, sources_total, worker_seen_at, now, open_alarms=None):
     worker_txt = "never seen" if worker_seen_at is None else \
         f"{(now - worker_seen_at).total_seconds():.0f}s ago"
     line3 = f"sources {sources_total} total · worker seen {worker_txt}"
+    # ---- quality: thin scripts and give-ups, quiet — a signal, not an outage.
+    # Same "fails loud" rule the alarms above use: a missing timestamp counts
+    # as inside the window rather than being silently excluded.
+    thin_hits = sum(
+        1 for row in rows
+        for a in (row.get("data") or {}).get("adaptations") or []
+        if (a.get("thin") or {}).get("at")
+        and (now - (LR.parse_iso(a["thin"]["at"]) or now)).total_seconds() <= 24 * 3600)
+    given_up_hits = sum(
+        1 for row in rows
+        for a in (row.get("data") or {}).get("adaptations") or []
+        if a.get("finalWhy") == "gave_up"
+        and (now - (LR.parse_iso(a.get("attemptedAt") or a.get("claimedAt")) or now))
+            .total_seconds() <= 24 * 3600)
+    line_quality = f"quality: {thin_hits} thin · {given_up_hits} given up (24h)"
+    hits = raw_notes(rows)
+    line3_notes = "notes: clean" if not hits else \
+        f"notes: {len(hits)} with raw text ({', '.join(hits[:5])})"
     if open_alarms:
         line4 = "open alarms: " + ", ".join(sorted(a.get("key", "?") for a in open_alarms))
     else:
         line4 = "open alarms: none"
-    return "\n".join(x for x in (line1, line2, line3, line4) if x)
+    return "\n".join(x for x in (line1, line2, line3, line_quality, line3_notes, line4) if x)
 
 
 # =============================================================================

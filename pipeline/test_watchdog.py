@@ -11,6 +11,13 @@ described as real-time) turned out never to have been built. A detector that
 cannot fail a test is decoration; every check below either proves an alarm
 fires when it should, or proves it stays silent when it shouldn't — never only
 one side of that.
+
+The `rerun:<id8>` cases were DELIBERATELY INVALIDATED and rewritten as their
+own opposite: `done + attempts >= 2 + no aiFail` used to be inferred as a
+double-bill, but it is exactly the shape a SUCCESSFUL transient retry ends in
+(proven live by adaptation 644ba12d on 2026-08-18 — attempts=3, no aiFail, 11
+beats, recovered fine — which paged for real under the old rule). The alarm
+now keys on the explicit `rerun` marker only.
 """
 
 import re
@@ -87,15 +94,128 @@ alarms = W.check_all(empty_script, sources_recent=1, worker_seen_at=NOW, now=NOW
 check("done + brandId + beats:[] -> one empty-script:",
       keys_of(alarms), {"empty-script:d4444444"})
 
-# ---- rerun: done + attempts>=2 + no aiFail ---------------------------------
-rerun_entry = [row("c5", [
+# ---- gave-up: the automatic loop stopped and the creator has nothing -------
+gave_up_rows = [row("c9", [
+    {"id": "h9999991", "status": "error", "final": True, "finalWhy": "gave_up",
+     "attemptedAt": ago(NOW, 60), "aiFail": {"kind": "transient", "tries": 8}},
+])]
+alarms = W.check_all(gave_up_rows, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("error + final + finalWhy gave_up, inside 24h -> exactly one gave-up:",
+      keys_of(alarms), {"gave-up:h9999991"})
+gave_up_alarm = next(a for a in alarms if a["key"] == "gave-up:h9999991")
+gbody = gave_up_alarm["body"]
+check("gave-up: body carries no @ (no email)", "@" in gbody, False)
+check("gave-up: body carries no http (no URL)", "http" in gbody, False)
+check("gave-up: body carries no uuid-shaped id",
+      bool(re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-", gbody)), False)
+
+gave_up_stale = [row("c9", [
+    {"id": "h9999992", "status": "error", "final": True, "finalWhy": "gave_up",
+     "attemptedAt": ago(NOW, 25 * 3600), "aiFail": {"kind": "transient", "tries": 8}},
+])]
+alarms = W.check_all(gave_up_stale, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("the same shape 25h old -> none", "gave-up:h9999992" in keys_of(alarms), False)
+
+gave_up_wall = [row("c9", [
+    {"id": "h9999993", "status": "error", "final": True, "finalWhy": "wall",
+     "attemptedAt": ago(NOW, 60), "retryable": False},
+])]
+alarms = W.check_all(gave_up_wall, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("finalWhy wall -> none (a platform wall must not page)",
+      "gave-up:h9999993" in keys_of(alarms), False)
+
+# ---- fetch-wall:burst: the download layer itself has broken ----------------
+def fetch_wall_rows(source_urls):
+    entries = [
+        {"id": f"j999999{i}", "status": "error", "noteKind": "fetch",
+         "claimedAt": ago(NOW, 60), "sourceUrl": url}
+        for i, url in enumerate(source_urls)
+    ]
+    return [row("c10", entries)]
+
+three_distinct = fetch_wall_rows([
+    "https://tiktok.com/@x/video/1", "https://tiktok.com/@x/video/2",
+    "https://tiktok.com/@x/video/3"])
+alarms = W.check_all(three_distinct, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("3 distinct sourceUrls, error+fetch inside 6h -> one fetch-wall:burst",
+      "fetch-wall:burst" in keys_of(alarms), True)
+fetch_wall_alarm = next(a for a in alarms if a["key"] == "fetch-wall:burst")
+fbody = fetch_wall_alarm["body"]
+check("fetch-wall:burst: body carries no @ (no email)", "@" in fbody, False)
+check("fetch-wall:burst: body carries no http (no URL)", "http" in fbody, False)
+check("fetch-wall:burst: body carries no uuid-shaped id",
+      bool(re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-", fbody)), False)
+
+three_same_url = fetch_wall_rows(
+    ["https://tiktok.com/@x/video/9"] * 3)   # the brand fan-out shape that actually happened
+alarms = W.check_all(three_same_url, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("3 entries sharing ONE sourceUrl -> none (one bad video, not a systemic break)",
+      "fetch-wall:burst" in keys_of(alarms), False)
+
+two_distinct = fetch_wall_rows(
+    ["https://tiktok.com/@x/video/1", "https://tiktok.com/@x/video/2"])
+alarms = W.check_all(two_distinct, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("2 distinct sourceUrls -> none (under the threshold)",
+      "fetch-wall:burst" in keys_of(alarms), False)
+
+# ---- rerun: THE EXPLICIT MARKER ONLY, not attempts >= 2 --------------------
+# DELIBERATELY INVALIDATED, and made its own opposite: `done + attempts:2 +
+# no aiFail` is exactly the shape a SUCCESSFUL transient retry ends in — proven
+# live by 644ba12d (attempts=3, no aiFail, 11 beats, recovered fine) — and the
+# old inference paged on it for real. The explicit `rerun` marker is the only
+# thing that may fire this alarm now.
+no_marker_healed = [row("c5", [
     {"id": "e5555555", "status": "done", "attempts": 2,
      "processedAt": ago(NOW, 60)},
 ])]
-alarms = W.check_all(rerun_entry, sources_recent=1, worker_seen_at=NOW, now=NOW)
-check("done + attempts:2 + no aiFail -> one rerun:",
-      keys_of(alarms), {"rerun:e5555555"})
+alarms = W.check_all(no_marker_healed, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("done + attempts:2 + no aiFail + no rerun marker -> none (self-healed retry)",
+      keys_of(alarms), set())
 
+healed_shape = [row("c5", [
+    {"id": "e5555559", "status": "done", "attempts": 3,
+     "healed": {"kind": "transient", "tries": 2, "at": ago(NOW, 30)},
+     "processedAt": ago(NOW, 60)},
+])]
+alarms = W.check_all(healed_shape, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("done + attempts:3 + healed + no aiFail -> none (the healed shape, explicitly)",
+      keys_of(alarms), set())
+
+rerun_marker = [row("c5", [
+    {"id": "e5555557", "status": "done", "attempts": 2,
+     "rerun": {"at": ago(NOW, 0), "prevProcessedAt": ago(NOW, 120), "beats": 10},
+     "processedAt": ago(NOW, 60)},
+])]
+alarms = W.check_all(rerun_marker, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("done + attempts:2 + explicit rerun marker -> exactly one rerun:",
+      keys_of(alarms), {"rerun:e5555557"})
+rerun_alarm = next(a for a in alarms if a["key"] == "rerun:e5555557")
+rbody = rerun_alarm["body"]
+check("rerun: body carries no @ (no email)", "@" in rbody, False)
+check("rerun: body carries no http (no URL — the command is a local script)",
+      "http" in rbody, False)
+check("rerun: body carries no uuid-shaped id",
+      bool(re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-", rbody)), False)
+
+rerun_stale = [row("c5", [
+    {"id": "e5555558", "status": "done", "attempts": 2,
+     "rerun": {"at": ago(NOW, 25 * 3600), "prevProcessedAt": ago(NOW, 26 * 3600), "beats": 10},
+     "processedAt": ago(NOW, 60)},
+])]
+alarms = W.check_all(rerun_stale, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("rerun marker 25h old -> none (window makes a page self-resolve)",
+      keys_of(alarms), set())
+
+rerun_no_at = [row("c5", [
+    {"id": "e5555560", "status": "done", "attempts": 2,
+     "rerun": {"prevProcessedAt": ago(NOW, 120), "beats": 10},
+     "processedAt": ago(NOW, 60)},
+])]
+alarms = W.check_all(rerun_no_at, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("rerun marker with no `at` -> one alarm (fails loud)",
+      keys_of(alarms), {"rerun:e5555560"})
+
+# Kept: proves the aiFail path is not what the alarm keys on any more.
 rerun_but_ai_retry = [row("c5", [
     {"id": "e5555556", "status": "done", "attempts": 2,
      "aiFail": {"kind": "billing"}, "processedAt": ago(NOW, 60)},
@@ -159,6 +279,31 @@ check("worker_seen_at 2 min old -> none", "worker-down" in keys_of(alarms), Fals
 
 alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=None, now=NOW)
 check("worker_seen_at never seen -> worker-down", "worker-down" in keys_of(alarms), True)
+
+# ---- raw_notes() / digest()'s "notes: clean" line ---------------------------
+# The sentence is HARD-CODED here, not imported from process_adaptations —
+# this module must not import that one (see the module docstring). Verified
+# live 2026-08-18: 0 of 21 adaptations carry a note at all, so this is the
+# regression guard, not a case list.
+raw_note_rows = [row("c8", [
+    {"id": "g8888888", "status": "error",
+     "note": "tags failed: Overloaded; format extraction failed: Overloaded"},
+])]
+check("raw_notes(): a raw provider/internal-text note is caught",
+      W.raw_notes(raw_note_rows), ["g8888888"])
+
+clean_note_rows = [row("c8", [
+    {"id": "g8888889", "status": "error",
+     "note": "something on our side went wrong — we're retrying. "
+             "Nothing was used from your allowance."},
+])]
+check("raw_notes(): a real CREATOR_NOTES-shaped sentence is NOT flagged",
+      W.raw_notes(clean_note_rows), [])
+
+check("digest(): the healthy fixture reads 'notes: clean'",
+      "notes: clean" in W.digest(healthy_rows, 1, NOW, NOW), True)
+check("digest(): a raw-note row reads the count and id8",
+      "notes: 1 with raw text (g8888888)" in W.digest(raw_note_rows, 1, NOW, NOW), True)
 
 # ---- notify() never raises, and never sends without a topic ----------------
 import os  # noqa: E402
