@@ -636,8 +636,71 @@ let SAVE_T = null;
 // edit that triggered it.
 let SAVE_PENDING = false;
 
+/* ---------- A SEND MUST SURVIVE THE NETWORK ----------
+
+   MEASURED 2026-08-17. A creator pasted a reel at 23:46:01Z. The Fly worker ran
+   a full sweep at 23:55, 23:58, 00:01, 00:05 and 00:08 and logged "nothing
+   queued" every time; it finally saw the row at 00:11:05 and had the script
+   written 45 seconds later. The worker was never down. The send had simply
+   never reached Supabase — and for those 25 minutes the card on the creator's
+   screen told them it was queued and would be picked up.
+
+   Three things made a single failed POST unrecoverable:
+
+     1. save() caught the failure, set a badge, and NEVER TRIED AGAIN.
+     2. ME lived only in a variable, so locking the phone or discarding the tab
+        took the send with it.
+     3. pull() replaced ME wholesale, so the next successful read DELETED the
+        unsent send from local state — the creator's slot spent, nothing to show.
+
+   The three matching guarantees are below and in pull(): the row is mirrored to
+   the device before the network is touched, a failed write retries until it
+   lands, and a pull merges rather than overwrites.
+
+   This is the half of the wait the poll cannot help with. The adaptive poll
+   below closes the gap between a script being FINISHED and being SEEN; nothing
+   down there can help a send that never left the building. */
+
+let DIRTY = false;      // an edit the server has not acknowledged
+let RETRY_T = null;
+let RETRY_N = 0;
+// Backoff, then a steady minute. It never gives up while the tab is open: the
+// creator has already spent a script slot, so "we stopped trying" is not an
+// outcome worth having. The reconnect handlers below jump the queue.
+const RETRY_MS = [2000, 5000, 10000, 20000, 30000, 60000];
+
+/* The device mirror. Keyed per account: a phone gets shared, and one creator's
+   library is not another's to find. Cleared on sign-out for the same reason. */
+const meKey = () => `lynxr_creator_row_${SB_UID || "anon"}`;
+function saveLocalMe() {
+  // Private mode and quota both throw. Losing the mirror is survivable — the
+  // network path still runs — so this must never take the send down with it.
+  try { localStorage.setItem(meKey(), JSON.stringify({ data: ME, dirty: DIRTY })); } catch {}
+}
+function clearLocalMe() { try { localStorage.removeItem(meKey()); } catch {} }
+/** Adopt the device mirror into ME. Returns whether there was one to adopt. */
+function restoreLocalMe() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(meKey())); } catch { return false; }
+  if (!saved?.data) return false;
+  ME = { ...BLANK_ME, ...saved.data };
+  if (saved.dirty) DIRTY = true;
+  return true;
+}
+
+function scheduleRetry() {
+  clearTimeout(RETRY_T);
+  const wait = RETRY_MS[Math.min(RETRY_N, RETRY_MS.length - 1)];
+  RETRY_N += 1;
+  RETRY_T = setTimeout(() => { if (DIRTY) save({ now: true }); }, wait);
+}
+
 function save({ now = false } = {}) {
   SAVE_PENDING = true;
+  DIRTY = true;
+  // On the device BEFORE the network is involved, so the send outlives the tab
+  // whatever the connection does next.
+  saveLocalMe();
   renderSyncBadge("saving");
   clearTimeout(SAVE_T);
   const run = async () => {
@@ -648,7 +711,15 @@ function save({ now = false } = {}) {
         body: JSON.stringify({ id: SB_UID, data: ME }),
       });
       SYNC_OK = true;
-    } catch { SYNC_OK = false; }
+      DIRTY = false;
+      RETRY_N = 0;
+      clearTimeout(RETRY_T);
+      RETRY_T = null;
+      saveLocalMe();                 // record that it landed
+    } catch {
+      SYNC_OK = false;
+      scheduleRetry();
+    }
     SAVE_PENDING = false;
     renderSyncBadge();
   };
@@ -656,6 +727,14 @@ function save({ now = false } = {}) {
   SAVE_T = setTimeout(run, 800);
   return Promise.resolve();
 }
+
+/* The two moments a dead connection actually comes back. Waiting out the rest
+   of a backoff after the phone is already on wifi again is dead time on the one
+   number that matters — how long the creator waits for their script. */
+addEventListener("online", () => { if (DIRTY) save({ now: true }); });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && DIRTY) save({ now: true });
+});
 
 /** Fill in anything a stored row predates, and return whether it changed —
     the caller saves only when it did, so a clean row costs no write. The
@@ -713,11 +792,55 @@ function normalizeMe() {
   return changed;
 }
 
+// Which adaptation ids the server was last seen holding, and whether it has
+// ever answered at all. A card can then tell "queued, the worker will get to
+// it" apart from "this never left your phone" — two waits that look identical
+// on screen and need completely different things from the creator.
+let SERVER_IDS = new Set();
+let SERVER_SEEN = false;
+
+/** Has the server acknowledged this send? False only before the first
+    successful pull, or for something still sitting in the outbox. */
+function landed(a) { return !SERVER_SEEN || SERVER_IDS.has(a.id); }
+
+/** The server copy wins for everything it knows about — the worker owns
+    status, the script, the shots, the cover, and clobbering those with a stale
+    local copy is how a finished script would flicker back to "writing".
+
+    What the server CANNOT know about is a send that never reached it. Anything
+    local whose id is absent from the server's copy is therefore carried across
+    rather than dropped. Without this, one failed write plus one successful pull
+    silently deleted the creator's send — slot spent, nothing to show for it.
+
+    A local DELETE that never synced loses to the server and comes back. That is
+    the deliberate direction: resurrecting a script someone deleted is a
+    nuisance, losing one they are waiting on is the bug this whole block exists
+    to stop. */
+function mergeUnsent(server, local) {
+  const known = new Set((server.adaptations || []).map((a) => a.id));
+  const unsent = (local.adaptations || []).filter((a) => a.id && !known.has(a.id));
+  if (!unsent.length) return server;
+  DIRTY = true;                        // there is something here to push back
+  server.adaptations = [...unsent, ...(server.adaptations || [])];
+  // Their library entries have to come too, or the card renders with no source.
+  const libKnown = new Set((server.library || []).map((l) => l.id));
+  server.library = [...(local.library || []).filter((l) => l.id && !libKnown.has(l.id)),
+                    ...(server.library || [])];
+  return server;
+}
+
 async function pull() {
   const rows = await sbFetch(`/rest/v1/lynxr_creators?id=eq.${SB_UID}&select=data`);
-  if (rows && rows[0]?.data) ME = { ...BLANK_ME, ...rows[0].data };
+  if (rows && rows[0]?.data) {
+    const server = { ...BLANK_ME, ...rows[0].data };
+    SERVER_IDS = new Set((server.adaptations || []).map((a) => a.id));
+    SERVER_SEEN = true;
+    ME = mergeUnsent(server, ME);
+  }
   SYNC_OK = true;
+  saveLocalMe();
   if (normalizeMe()) save();
+  else if (DIRTY) save({ now: true });   // an unsent send survived the merge
 }
 
 function renderSyncBadge(state) {
@@ -726,7 +849,12 @@ function renderSyncBadge(state) {
   // The rail already prints the address underneath, so the badge is just the
   // state — repeating the email there read as a second account.
   el.className = "sync-state " + (state === "saving" ? "" : SYNC_OK ? "ok" : "bad");
-  el.textContent = state === "saving" ? "● saving" : SYNC_OK ? "● synced" : "● not syncing";
+  // "not syncing" read as a dead end. There is an outbox behind this now, so
+  // say which of the two states it actually is — still trying, or nothing to do.
+  el.textContent = state === "saving" ? "● saving"
+    : SYNC_OK ? "● synced"
+    : DIRTY ? "● offline — retrying"
+    : "● not syncing";
 }
 
 // ---------- transient messages ----------
@@ -1956,6 +2084,10 @@ function renderYou(head, body) {
   // page rather than in the rail, which is the protection that matters.
   document.getElementById("signout").addEventListener("click", () => {
     clearSession();
+    // The mirror goes with the session. A phone gets handed around, and the
+    // next person to open this app should not find someone else's library
+    // sitting in it before the gate has even been answered.
+    clearLocalMe();
     location.reload();
   });
 
@@ -1981,8 +2113,10 @@ function renderYou(head, body) {
       await sbFetch("/rest/v1/rpc/delete_own_account", { method: "POST" });
       // The account is gone, so the session it belongs to is meaningless. Clear
       // it locally before reloading, or the app boots holding a token for a
-      // user that no longer exists.
+      // user that no longer exists. The device mirror is the same story — a
+      // deleted account must not leave its library cached on the phone.
       clearSession();
+      clearLocalMe();
       location.reload();
     } catch (ex) {
       // PGRST202 is "function not found" — supabase/delete_account.sql has not
@@ -2954,6 +3088,15 @@ function etaFor(a) {
   // seconds now — which is exactly what made the old pass-counting model wrong.
   const est = POLL_SEC + (ahead + 1) * work;
   const waited = a.addedAt ? (Date.now() - new Date(a.addedAt).getTime()) / 1000 : 0;
+  /* A send the server has never acknowledged is NOT queued — no worker can see
+     it, so no amount of waiting will produce a script. Saying "it's picked up
+     whenever the worker next runs" to someone in this state is the exact lie
+     that cost a creator 25 minutes on 2026-08-17. The outbox is already
+     retrying; what this has to do is stop promising a queue position that does
+     not exist. */
+  if (!landed(a)) {
+    return { late: true, text: "Still on this device — your connection dropped on the way out. Retrying automatically; leave this page open." };
+  }
   // Overdue is worth saying out loud. Silently showing an estimate to someone
   // who has been waiting well past it is how a pilot loses trust.
   if (waited > est + LATE_SEC) {
@@ -4509,14 +4652,38 @@ async function sessionFromLink() {
     return;
   }
   if (link) {
-    try { await pull(); unlock(); return; }
-    catch (ex) { document.getElementById("err").textContent = accountLoadError(ex.message || ""); return; }
+    const had = restoreLocalMe();   // same reason as the session path below
+    try { await pull(); } catch (ex) {
+      if (!had) { document.getElementById("err").textContent = accountLoadError(ex.message || ""); return; }
+      SYNC_OK = false;
+      if (DIRTY) scheduleRetry();
+    }
+    unlock();
+    return;
   }
   const sess = loadSession();
   if (!sess?.refresh_token) return;
   try { await sbRefresh(sess.refresh_token); }
   catch { clearSession(); return; }
-  try { await pull(); unlock(); }
-  catch (ex) { document.getElementById("err").textContent = accountLoadError(ex.message || ""); }
+  /* THE DEVICE MIRROR GOES IN FIRST, BEFORE THE NETWORK IS ASKED ANYTHING.
+     Two things fall out of the order. A send that never reached Supabase is
+     back in ME by the time pull() runs, so the merge carries it up instead of
+     the server's copy erasing it — which is what made a dropped write
+     permanent. And if pull() fails outright, there is still a row to open the
+     app with: a creator on a dead connection sees their library and their
+     waiting card rather than a sign-in error, and the outbox pushes whatever
+     is pending the moment the connection returns. */
+  const mirrored = restoreLocalMe();
+  try {
+    await pull();
+  } catch (ex) {
+    if (!mirrored) {
+      document.getElementById("err").textContent = accountLoadError(ex.message || "");
+      return;
+    }
+    SYNC_OK = false;
+    if (DIRTY) scheduleRetry();
+  }
+  unlock();
 })();
 
