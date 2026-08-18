@@ -610,6 +610,12 @@
      who cannot see progress leaves. Widths come from flex, not from an
      inline style: `style-src 'self'` discards those silently. */
   .eta-rail { display: flex; gap: 3px; margin-top: 8px; max-width: 180px; }
+  /* The rail is now always in the markup and hidden by attribute until a phase
+     is known — and `display: flex` above outranks the UA stylesheet's
+     [hidden] { display: none }, so without this rule a phase-less script paints
+     four dead bars. Same trap as .lookup-loader[hidden] and .wait-form[hidden]
+     further down this file. */
+  .eta-rail[hidden] { display: none; }
   .eta-seg {
     flex: 1 1 0; height: 3px; border-radius: 2px;
     background: var(--line-2); transition: background .3s var(--ease);

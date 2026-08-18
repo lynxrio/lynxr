@@ -981,10 +981,33 @@ function focusLibraryEntry({ scroll = false } = {}) {
   el.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
 }
 
+/* WHERE A SEND LANDS. Owner, 2026-08-18: "when i paste a video bring me to the
+   all videos tab with it expanded so i can see the loading logo."
+
+   The overlay below satisfied the earlier half of the same ask — a persistent
+   view of the loading mark that only a press dismisses — but it is a modal, so
+   it covered the very thing this one asks to see, and locked the page behind
+   it. The expanded library entry is persistent by the same standard: nothing
+   closes it but the creator, it survives every repaint now (restoreDisclosures),
+   and it already renders the same mark, the same phase and the same rail through
+   adaptationHtml's writing branch.
+
+   So the overlay is OFF, not deleted. Flip this to true and the send behaves
+   exactly as it did on 2026-08-17 — markup, CSS and all three exits intact. */
+const SEND_OVERLAY = false;
+
+/** What a successful send does with the Library it has just navigated to.
+    One entry point so all three send paths stay identical, and so the choice
+    above is made in one place rather than three. */
+function landOnSend(lid, adIds) {
+  if (!SEND_OVERLAY) { focusLibraryEntry({ scroll: true }); return; }
+  openSendOverlay(lid, adIds);
+}
+
 /** Open the send overlay for one or more just-queued adaptations from the
     same paste. Never closes on its own — see the comment on SEND_WATCH. */
 function openSendOverlay(lid, adIds) {
-  SEND_WATCH = { lid, adIds, settled: false };
+  SEND_WATCH = { lid, adIds, settled: false, html: "" };
   const modal = document.getElementById("send-modal");
   if (!modal) return;
   modal.hidden = false;
@@ -1031,8 +1054,15 @@ function renderSendOverlay() {
     html = `<p class="bp-hint bad">Something went wrong writing this one.</p>
       <div class="sendbox-actions"><button type="button" class="btn" id="send-read">Read it</button></div>`;
   }
-  body.innerHTML = html;
-  document.getElementById("send-read")?.addEventListener("click", closeSendOverlay);
+  /* Only rewrite when the BRANCH or the stage text changed. The estimate and
+     the rail move on their own through paintEta(), and reassigning innerHTML
+     for them restarted the loading mark's 1.9s animation on every 2.5s poll. */
+  if (SEND_WATCH.html !== html) {
+    SEND_WATCH.html = html;
+    body.innerHTML = html;
+    document.getElementById("send-read")?.addEventListener("click", closeSendOverlay);
+  }
+  paintEta(body);
 }
 
 /** The only way the overlay closes: the X, Escape, or "Read it" — never the
@@ -1217,7 +1247,46 @@ function renderSide() {
    second place with the same name, which is what made the two easy to
    confuse in the first place. */
 
+/* KEEP WHAT IS OPEN, OPEN ACROSS A REPAINT.
+   renderPane() replaces #pane-head and #pane-body wholesale, so every <details>
+   in the pane is destroyed and rebuilt closed. focusLibraryEntry() used to
+   rescue one entry — the one a send was pointed at — and nothing else, so a
+   video the creator expanded by hand, or a script card inside it, shut on any
+   repaint that happened to land.
+   Ids, never nodes: the nodes read here are detached by the time they are asked
+   for back. */
+function openDisclosures(root = document) {
+  return {
+    lids: [...root.querySelectorAll("details.lib-item[open]")]
+      .map((d) => d.dataset.lid).filter(Boolean),
+    adids: [...root.querySelectorAll("details.bp-item[open][data-adid]")]
+      .map((d) => d.dataset.adid).filter(Boolean),
+  };
+}
+function restoreDisclosures(state, root = document) {
+  if (!state) return;
+  /* Videos first, then the scripts inside them — a script re-opened inside a
+     still-shut entry is invisible, which is the exact failure keepOpen() already
+     documents. Every copy of an id, not the first match: "By brand" renders the
+     same video under every company that has a script from it. */
+  for (const lid of new Set(state.lids)) {
+    root.querySelectorAll(`details.lib-item[data-lid="${CSS.escape(lid)}"]`)
+      .forEach((d) => { d.open = true; });
+  }
+  for (const adid of new Set(state.adids)) {
+    root.querySelectorAll(`details.bp-item[data-adid="${CSS.escape(adid)}"]`)
+      .forEach((d) => { d.open = true; });
+  }
+}
+
 function renderPane() {
+  const open = openDisclosures();
+  renderPaneInner();
+  restoreDisclosures(open);
+  paintEta(document);      // every view's progress blocks, filled in one place
+}
+
+function renderPaneInner() {
   const head = document.getElementById("pane-head");
   const body = document.getElementById("pane-body");
   if (VIEW.kind === "new") return renderNewScript(head, body);
@@ -1971,9 +2040,12 @@ function paintLibraryList() {
     });
   });
 
-  // Keeps a send's target open across every poll repaint without moving the
-  // page under anyone — the scroll itself only happens on the overlay's close.
-  focusLibraryEntry();
+  /* focusLibraryEntry() was called here on every repaint, to rescue the one
+     entry a send was pointed at from a rebuild that shut everything. Both halves
+     of that are gone: repaints are now rare (paneSig) and preserve every open
+     disclosure (restoreDisclosures), so the only place a send's entry has to be
+     opened is once, at the send itself — see landOnSend(). */
+  paintEta(host);
 }
 
 /** One saved video as a card.
@@ -2685,10 +2757,16 @@ function wireComposer() {
       // no brand can only appear in the loose block under every named group,
       // which is where it goes to be missed. What you just asked for should be
       // the first thing on screen.
-      LIB_MODE = "original";
+      /* ALL VIDEOS, not Original scripts (owner, 2026-08-18: "bring me to the
+         all videos tab with it expanded"). This supersedes the 2026-08-17
+         landing but does not undo what it fixed: that decision existed because
+         "By brand" cannot show a company-less script at all, and All videos
+         renders one card per video with every script under it, so the original
+         is fully visible here. One word to revert. */
+      LIB_MODE = "all";
       FOCUS_LID = item.id;
       go({ kind: "library" });
-      openSendOverlay(item.id, [res.id]);
+      landOnSend(item.id, [res.id]);
       say("Reading it now — you'll get the video's own script.", "good");
       return;
     }
@@ -2726,10 +2804,10 @@ function wireComposer() {
       renderSide();
       renderComposeFor();
       say("On it — reading the video for its original script.", "good");
-      LIB_MODE = "original";   // same reason as the no-brand branch above
+      LIB_MODE = "all";        // same reason as the no-brand branch above
       FOCUS_LID = solo.id;
       go({ kind: "library" });
-      openSendOverlay(solo.id, [res.id]);
+      landOnSend(solo.id, [res.id]);
       return;
     }
 
@@ -2777,10 +2855,11 @@ function wireComposer() {
     // happened — the confirmation belongs next to the thing it created.
     if (VIEW.kind === "new") {
       go({ kind: "library" });
-      openSendOverlay(item.id, queuedIds);
+      landOnSend(item.id, queuedIds);
       flashMsg("lib-flash", msg, "good");
     } else {
       paintLibraryList();
+      focusLibraryEntry({ scroll: true });
       say(msg, "good");
     }
     hydrate(item);
@@ -3304,20 +3383,57 @@ function etaFor(a) {
    in as-is (any user data inside it, e.g. a brand name, is escaped by the
    caller) — this only escapes eta.text, which it builds itself. */
 function etaBlockHtml(a, stage) {
-  const eta = etaFor(a);
-  const rail = eta.step > 0
-    ? `<div class="eta-rail" aria-hidden="true">` +
-        PHASE_ORDER.map((_, i) => `<i class="eta-seg${i < eta.step ? " on" : ""}"></i>`).join("") +
-      `</div>`
-    : "";
-  return `<div class="loader" role="status" aria-live="polite">
+  /* THE SKELETON ONLY. Everything here is a function of the record, never of
+     elapsed time — the estimate, the late marker and which segments are lit are
+     written by paintEta() and by nothing else. That split is what lets the poll
+     update a waiting card without rebuilding the pane around it, and it is what
+     makes the two impossible to drift apart: there is only one writer.
+     The rail ships all four segments and starts `hidden`, so a block that never
+     reaches paintEta() shows no rail rather than four dead bars. */
+  return `<div class="loader" role="status" aria-live="polite" data-eta="${escapeHtml(a.id)}">
       ${loaderMark()}
       <div class="loader-text">
         <div class="loader-stage">${stage}</div>
-        <div class="loader-sub bp-eta${eta.late ? " bp-partial" : ""}">${escapeHtml(eta.text)}</div>
-        ${rail}
+        <div class="loader-sub bp-eta"></div>
+        <div class="eta-rail" aria-hidden="true" hidden>${
+          PHASE_ORDER.map(() => `<i class="eta-seg"></i>`).join("")}</div>
       </div>
     </div>`;
+}
+
+/* FILL IN EVERY PROGRESS BLOCK ON SCREEN, IN PLACE.
+   The only thing that moves without the data moving is the estimate, the
+   overdue warning and how much of the rail is lit — so those are the only three
+   things this writes, straight onto the nodes already on the page. Rebuilding
+   the pane for them is what destroyed and recreated every <details> in it every
+   2.5 seconds, which collapsed whatever the creator had expanded.
+
+   Idempotent and cheap — a handful of nodes — so it is safe to call after every
+   render and again on every poll. That redundancy is deliberate: a block whose
+   render site forgot to call it is filled by the next tick instead of staying
+   blank forever.
+
+   The textContent guard is not cosmetic: .loader carries aria-live="polite",
+   and writing the identical string back would make a screen reader re-announce
+   the estimate every 2.5 seconds. */
+function paintEta(root = document) {
+  if (!root) return;
+  root.querySelectorAll(".loader[data-eta]").forEach((el) => {
+    const a = (ME.adaptations || []).find((x) => x.id === el.dataset.eta);
+    if (!a) return;
+    const eta = etaFor(a);
+    const sub = el.querySelector(".bp-eta");
+    if (sub) {
+      if (sub.textContent !== eta.text) sub.textContent = eta.text;
+      sub.classList.toggle("bp-partial", !!eta.late);
+    }
+    const rail = el.querySelector(".eta-rail");
+    if (rail) {
+      rail.hidden = !(eta.step > 0);
+      [...rail.querySelectorAll(".eta-seg")].forEach((seg, i) =>
+        seg.classList.toggle("on", i < eta.step));
+    }
+  });
 }
 
 /** Companies that do NOT already have a script from this source video. */
@@ -4199,7 +4315,21 @@ function adaptationHtml(a, liveName, opts = {}) {
     </div>`;
   }
 
-  return `<details class="bp-item ${statusClass}"${justReady || forceOpen ? " open" : ""} data-adid="${id}">
+  /* A WRITING CARD OPENS ITSELF. `wireAdaptationCards` keeps one script open at
+     a time because a finished script runs to a couple of screens — a card that
+     holds nothing but a mark, a phase and an estimate is four lines, and
+     collapsing it hides the only thing it has to say. Two companies sent
+     together therefore show two honest clocks rather than two shut rows.
+     When it finishes, `justReady` holds it open, so the script appears in the
+     place the creator was already looking.
+
+     MEASURED, 2026-08-18 (Brave 151, Chromium): `open` set in the markup was
+     expected to fire no toggle event. It DOES — a <details open> inserted by
+     innerHTML fires toggle on insertion — which meant the first writing card's
+     own toggle ran the one-script-at-a-time handler and shut the second, so two
+     companies showed one clock. That handler now exempts writing cards in both
+     directions; see the comment on it. Do not re-derive this from the spec. */
+  return `<details class="bp-item ${statusClass}"${justReady || forceOpen || isWriting(a) ? " open" : ""} data-adid="${id}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
       ${nested ? "" : thumbHtml((a.source || {}).cover, entryLabel(a), a.sourceUrl)}
@@ -4254,6 +4384,7 @@ function renderScripts(b) {
   }
   host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a, b.name)).join("")}</div>`;
   wireAdaptationCards(host);
+  paintEta(host);          // etaBlockHtml only ships the skeleton — see paintEta
 }
 
 /* Everything an adaptation card can do, wired against whatever host it was
@@ -4278,11 +4409,26 @@ function wireAdaptationCards(host) {
      bubble. Scoped to [data-adid] so it closes SCRIPTS only — the Library
      entries around them are .bp-item too, and folding those would shut the
      video you are reading inside. Assigning .open re-fires toggle on the ones
-     being closed, but they exit on the !d.open guard, so there is no loop. */
+     being closed, but they exit on the !d.open guard, so there is no loop.
+
+     WRITING CARDS ARE EXEMPT, BOTH WAYS. The rule exists because a finished
+     script runs to a couple of screens. A card that is still writing holds a
+     mark, a phase and an estimate — four lines — so it crowds nothing and
+     closing it hides the only thing it has to say. Measured 2026-08-18: a
+     <details open> inserted by innerHTML DOES fire toggle on insertion, so
+     without this exemption the first writing card's own toggle shut the second
+     one, and two companies sent together showed one clock instead of two. */
   const cards = [...host.querySelectorAll("details.bp-item[data-adid]")];
+  const writing = (el) => {
+    const a = (ME.adaptations || []).find((x) => x.id === el.dataset.adid);
+    return !!(a && isWriting(a));
+  };
   cards.forEach((d) => d.addEventListener("toggle", () => {
     if (!d.open) return;
-    cards.forEach((other) => { if (other !== d) other.open = false; });
+    if (writing(d)) return;            // a clock opening must not shut your script
+    cards.forEach((other) => {         // and your script opening must not shut a clock
+      if (other !== d && !writing(other)) other.open = false;
+    });
   }));
 
   host.querySelectorAll(".ad-copy").forEach((btn) => btn.addEventListener("click", async () => {
@@ -4308,6 +4454,12 @@ function wireAdaptationCards(host) {
     if (!a) return;
     a.status = "queued";
     delete a.note; delete a.attemptedAt;
+    // `phase` and `phaseAt` belong to the run that FAILED. Left behind, the
+    // re-queued card shows that run's progress — "finding the format", with a
+    // clock counting from a timestamp minutes old — until the worker happens to
+    // overwrite it, which reads as a script already well underway when nothing
+    // has started. Clear them with the rest of the failed attempt's state.
+    delete a.phase; delete a.phaseAt;
     save(); renderSide(); renderPane();
     say("Re-queued — it'll be picked up on the next pass.", "good");
   }));
@@ -4456,6 +4608,29 @@ function unlock() {
     only after save() resolves, not from queueAdaptation itself — pull()
     replaces ME wholesale, and firing it while the new item is still
     unsaved would race the save and drop the item from local state. */
+/* WHAT A REPAINT COULD ACTUALLY SHOW.
+   While a script is in flight the worker re-stamps `claimedAt` every 45 seconds
+   (the claim heartbeat), writes `phase`/`phaseAt` four times, and sets
+   `attemptedAt`/`claimedBy` the moment it claims. Not one of those is read by
+   any render path — `phase` reaches the screen only through etaFor(), which
+   paintEta() re-runs in place — so comparing the raw JSON reported "something
+   changed" and tore the pane down for a field nobody can see.
+
+   A DENY list, not an allow list, on purpose: a field the worker starts writing
+   tomorrow defaults to triggering a repaint, which is the safe direction to be
+   wrong in. Adding a field here is a claim that no render reads it — check
+   before you do.
+
+   `status` is normalised because every render collapses queued and running
+   through isWriting(): the claim changes the status string and changes nothing
+   on screen. */
+const SIG_BLIND = new Set(["phase", "phaseAt", "claimedAt", "claimedBy", "attemptedAt"]);
+function paneSig() {
+  return JSON.stringify(
+    (ME.adaptations || []).map((a) => ({ ...a, status: isWriting(a) ? "queued" : a.status })),
+    (k, v) => (SIG_BLIND.has(k) ? undefined : v));
+}
+
 let LIVE_STARTED = false;
 let liveTimer = null;
 let kickLiveSync = null;   // set once started; each successful send calls this after its save() lands
@@ -4466,20 +4641,24 @@ function startLiveSync() {
     clearTimeout(liveTimer);
     if (!SB_TOKEN || document.hidden) { schedule(); return; }
     if (SAVE_PENDING) { schedule(); return; }   // never pull over an unsaved edit
-    const before = JSON.stringify(ME.adaptations);
+    const before = paneSig();
     try { await pull(); } catch { SYNC_OK = false; }
     renderSyncBadge();
     const editing = document.activeElement
       && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
-    if (JSON.stringify(ME.adaptations) !== before) {
+    if (paneSig() !== before) {
       if (!editing) { renderSide(); renderPane(); }   // counts and scripts move together
-    } else if (writingQueue().length && !editing) {
-      // Nothing changed server-side, but a waiting card's ETA is a function of
-      // elapsed time, not of ME.adaptations — left alone it sits on "usually
-      // ready in about a minute" forever if the worker stalls. Repaint so the
-      // late branch gets a chance to fire on its own, no navigation needed.
-      renderPane();
     }
+    /* THE `else if` THAT USED TO LIVE HERE REBUILT THE WHOLE PANE EVERY 2.5s.
+       Its job was real — the overdue warning is a function of elapsed time, not
+       of ME.adaptations, so something has to re-evaluate it — but renderPane()
+       replaces #pane-body's innerHTML, which destroys every <details> in it.
+       That was the blink, and it is why an expanded script collapsed on its
+       own. paintEta() does the same job on the nodes already on screen without
+       replacing one of them, and is cheap enough to run unconditionally.
+       It touches only .bp-eta text and .eta-seg classes, never a form control,
+       so it is safe while `editing`. */
+    paintEta(document);
     renderSendOverlay();
     schedule();
   };

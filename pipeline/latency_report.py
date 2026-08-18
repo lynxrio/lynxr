@@ -162,8 +162,17 @@ def build_report(rows, since_arg, sla, now=None):
             elif status in ("queued", "running"):
                 age = (now - added).total_seconds()
                 if age > sla:
+                    # "id" and "creator" give the watchdog a stable alarm key per
+                    # stuck paste (pipeline/watchdog.py's `inflight:<id8>`).
+                    #
+                    # NOTE for whoever reads this later: build_report skips any
+                    # entry whose addedAt is older than --since, INCLUDING
+                    # in-flight ones — a paste stuck for three days is invisible
+                    # at --since 24h. The watchdog therefore calls this with
+                    # "52w" for its stall scan and only "24h" for the digest.
                     inflight.append({"addedAt": a.get("addedAt"), "status": status,
-                                     "age": round(age, 0)})
+                                     "age": round(age, 0),
+                                     "id": a.get("id"), "creator": row.get("id")})
 
     totals = sorted(s["total"] for s in samples)
     result = {"since": since_arg, "sla": sla, "n": len(samples),
