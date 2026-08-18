@@ -73,7 +73,17 @@ per video and reused across every brand, so sending one link to three companies
 costs roughly one extra second each, not three times the wait.
 
 Measured end to end: **queue ~2s**, work 43–70s warm, ~105s cold or on a long
-video. A cold prompt cache after any deploy adds ~50s to the next script only.
+video. **A cold PROMPT cache costs ~0.1s, not the ~50s claimed earlier on
+2026-08-18 — measured directly:** two back-to-back `--warm-prefixes` runs, the
+first writing the cache (`cache_creation` 2801/1162/1553) and the second reading
+it (`0/0/0`), took **8.6s and 8.5s**. Prompt caching is a COST feature (~$0.016
+a script, roughly the 30% HANDOFF already credits it with), not a speed one. The
+105s-vs-56s gap that produced the wrong claim was one 57-second `tags` call —
+API-side latency on a warm cache, confirmed by its own diagnostic line. Do not
+build a periodic re-warm: it would cost ~$19/month in cache-read calls to save a
+tenth of a second. The boot warm-up is kept because it is harmless and saves a
+little money on the first script. (The ~2-minute cold start further down is a
+DIFFERENT thing — 464MB of Whisper weights off disk, which is real.)
 
 **Where the creator's data lives.** One row per creator in `lynxr_creators`,
 `data` JSONB: `name`, `niches`, `brands`, `adaptations`, `library`, `trash`.
@@ -1378,6 +1388,36 @@ five seats free, allowance server-side, worker on v18 passing clean.
 10. **Nobody has measured what a BRAND-NEW creator sees on first sign-in.** Every
     UI check this project has run used an account with history. The empty state
     is the first thing five testers will meet and it is unverified.
+
+11b. **Better loading UI/UX while a script is being written.** The machinery
+    landed 2026-08-18 — a persistent overlay, the four-arm lynxr mark, a phase
+    rail (`reading` / `watching` / `structure` / `writing`) fed by
+    `publish_phase()`, and an estimate reading "usually 50–110 seconds". Two
+    things are unfinished:
+    - **The rail has never been seen lighting from a REAL worker.** `ui-ux`
+      proved it with phases injected through a stubbed `pull()` — byte-identical
+      from the render's point of view, but not the worker. Verify it on a live
+      paste before trusting it in front of testers.
+    - **The estimate does not know what actually drives the number.** Measured:
+      video LENGTH dominates (transcribe 8.0s for a 59-second video, 30.6s for a
+      long one), and the cold prompt cache — which the copy was originally
+      written around — costs ~0.1s, not 50. A better estimate keys off duration
+      once the worker knows it, rather than a fixed band.
+
+12b. **LEARN THE SYSTEM DEEPLY — owner's item, deliberately on the list.**
+    The owner asked for this explicitly. Most of this codebase's expensive bugs
+    were invisible rather than hard (a lost write-back, a dead source library, a
+    documented alarm that was never built, a prefilter that returns HTTP 200 and
+    zero rows when malformed). Reading the code once, end to end, is what makes
+    those legible. Suggested route, roughly a paste's journey:
+    `creator.js` submit → `lynxr_creators.data.adaptations` → `worker.py`'s
+    probe/sweep loop → `process_adaptations.py` `main()` → `candidate_creators()`
+    → `charge_scripts()` → `process_group` → `fill_source` (download,
+    transcribe, cover, frames, shots ∥ tags) → `extract_format` →
+    `fill_adaptation` → `graft_adaptations` → the client's poll → the card.
+    Then `watchdog.py` separately, since it is the only part that runs on its own
+    schedule. The comments in these files carry the WHY — they are written for
+    exactly this read.
 
 **Product — the part that decides whether any of the above mattered**
 
