@@ -4280,7 +4280,11 @@ function startLiveSync() {
   };
   const schedule = () => {
     clearTimeout(liveTimer);
-    liveTimer = setTimeout(tick, writingQueue().length ? 5000 : 60000);
+    // 2500 while something is being written, so a finished script is visible
+    // within half the old blind spot; the idle 60000 is untouched — this only
+    // runs while a creator is actually watching a card write, not as a
+    // standing cost.
+    liveTimer = setTimeout(tick, writingQueue().length ? 2500 : 60000);
   };
   kickLiveSync = () => { clearTimeout(liveTimer); tick(); };
   schedule();

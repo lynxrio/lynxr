@@ -29,6 +29,17 @@ app = "lynxr-worker"
 # iad is the guess for a US-East project, which is Supabase's default.
 primary_region = "iad"
 
+# Fly's default is 5s. worker.py answers SIGTERM by finishing the script in
+# flight and then exiting 0 — but it cannot finish a ~60s script in 5s, so the
+# default turned every deploy into a 25-minute stall for whoever had just
+# pasted a link. 300s is Fly's maximum and comfortably covers one pass.
+#
+# Trade: strategy = "immediate" (below) plus a 300s kill_timeout means a
+# deploy may take up to five minutes to drain. That is the right side of the
+# trade. This is a top-level key — it must stay above the first [table]
+# header (TOML would otherwise attach it to whichever table came before it).
+kill_timeout = "300s"
+
 [build]
   dockerfile = "Dockerfile"
 

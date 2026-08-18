@@ -1,0 +1,47 @@
+# Watches paste-to-script latency and turns a red X + a GitHub notification
+# email into the only thing that reminds anyone this exists, when nothing else
+# does. See pipeline/latency_report.py for what it measures and why.
+#
+# THE LIMITATION, STATED HERE BECAUSE THIS REPO HAS ALREADY MEASURED IT:
+# scheduled runs on public repos are best-effort. .github/workflows/
+# adaptations.yml's "*/15 * * * *" cron was measured firing roughly every
+# THREE HOURS, not every 15 minutes. So this is a lagging, roughly-hourly-to-
+# daily check, not a pager — do not read a green run here as "nothing broke in
+# the last 15 minutes". The only REAL-TIME signal is the `SLA BREACH` line
+# pipeline/process_adaptations.py's main() writes straight into `fly logs`
+# (Step 1 of creator-latency-60s.md) the moment one script actually breaches.
+#
+# SECRETS REQUIRED (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_SERVICE_ROLE_KEY   read-only use here, but it is the same
+#                               bypass-RLS key adaptations.yml already uses
+
+name: latency watch
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"     # best-effort — see the note above
+  workflow_dispatch:            # a Run workflow button, for a check on demand
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install certifi
+        # The only dependency latency_report.py has — it makes one read-only
+        # REST call and does its own percentile math, no pandas, no pipeline
+        # deps.
+        run: python -m pip install certifi
+
+      - name: Check paste-to-script latency
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        # 24h so one slow patch in an otherwise-quiet day does not get diluted
+        # out by --since 7d, and so a single flaky sample does not fail the
+        # whole day the way --since 1h would on a low-traffic hour.
+        run: python pipeline/latency_report.py --since 24h --sla 60

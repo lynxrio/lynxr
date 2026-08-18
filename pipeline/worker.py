@@ -53,6 +53,7 @@ import signal
 import ssl
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -164,13 +165,40 @@ def run_pass(extra_args):
     return ok
 
 
+def warm_whisper():
+    """Page the model weights in before anyone is waiting on them.
+
+    Not a model download — the Dockerfile bakes the weights in and sets
+    HF_HUB_OFFLINE=1. This is the OS page cache: 464MB read cold is ~60s, warm
+    is ~1.7s, and without this the creator who happens to paste first after a
+    deploy pays the difference.
+    """
+    t0 = time.time()
+    try:
+        sys.path.insert(0, str(ROOT / "pipeline"))
+        from transcribe import MODEL, load_faster       # added in Step 6
+        load_faster(MODEL)
+        log.info("whisper warm in %.0fs", time.time() - t0)
+    except Exception as e:  # noqa: BLE001 — a cold model is slow, not fatal
+        log.warning("whisper warm-up skipped: %s", str(e)[:100])
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--poll", type=float, default=2.0,
                     help="seconds between queue probes (default 2)")
-    ap.add_argument("--sweep", type=float, default=180.0,
+    # A stale claim is invisible to the fast probe above (queued_creators() asks
+    # only status:queued, deliberately) so only the full sweep recovers it.
+    # Shortened from 180s alongside the lease going from 25 minutes to 2.5 in
+    # process_adaptations.py: together, a death mid-script now costs the lease
+    # (150s) plus at most one sweep (60s) — about 3.5 minutes, not 25.
+    #
+    # Still does a full discovery pull each pass (measured 101,626 bytes / 887ms
+    # at three creators) — fine at this scale, the next thing to fix once the
+    # creator count grows into the dozens.
+    ap.add_argument("--sweep", type=float, default=60.0,
                     help="seconds between full passes, which also pick up error "
-                         "retries and abandoned claims (default 180)")
+                         "retries and abandoned claims (default 60)")
     ap.add_argument("--once", action="store_true",
                     help="probe once, run a pass if there is work, then exit")
     args, passthrough = ap.parse_known_args()   # anything else goes to the worker
@@ -182,6 +210,11 @@ def main():
 
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
+
+    # Non-blocking: a link pasted during the warm-up must still be picked up in
+    # 2 seconds and just pays the cold cost once, rather than waiting for the
+    # warm-up to finish. Daemon so it never blocks process exit either.
+    threading.Thread(target=warm_whisper, daemon=True).start()
 
     log.info("watching for queued scripts — probe every %.1fs, full sweep every %.0fs",
              args.poll, args.sweep)

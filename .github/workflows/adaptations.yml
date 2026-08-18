@@ -95,10 +95,15 @@ jobs:
         #
         # A pass that throws must not kill the loop — the next one retries in a
         # minute, and the worker is resume-safe (it claims work before spending).
+        # --min-age-seconds 180: Fly owns the first three minutes: it picks up a
+        # queued script in ~2s. Without this, a GitHub run that claims an entry
+        # first would make that creator wait on GitHub's pace, on a runner with
+        # a cold Whisper — racing the very thing whose latency this plan
+        # measures, instead of being the backstop it is meant to be.
         run: |
           DEADLINE=$(( SECONDS + 345*60 ))
           while (( SECONDS < DEADLINE )); do
-            python pipeline/process_adaptations.py || echo "pass failed — retrying next minute"
+            python pipeline/process_adaptations.py --min-age-seconds 180 || echo "pass failed — retrying next minute"
             if (( SECONDS < DEADLINE )); then sleep 60; fi
           done
 

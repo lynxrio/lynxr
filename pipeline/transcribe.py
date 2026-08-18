@@ -35,8 +35,12 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from analyze_visuals import yt_dlp_bin  # noqa: E402 — CI has no ./venv; see fetch_audio() below
 
 ROOT = Path(__file__).parent.parent
 MASTER = ROOT / "output" / "master_video_database.csv"
@@ -86,7 +90,7 @@ def fetch_audio(url, dest_dir):
     """Audio-only download. Returns the file path, or None if unavailable."""
     out_tmpl = str(dest_dir / "%(id)s.%(ext)s")
     cmd = [
-        str(ROOT / "venv" / "bin" / "yt-dlp"),
+        yt_dlp_bin(),
         # TikTok lists every format as carrying aac, but the h265 ("bytevc1")
         # variants it actually delivers frequently contain a video stream only —
         # ffprobe then reports "unable to obtain file audio codec" and the whole
@@ -150,13 +154,37 @@ def _mlx(path, model):
     return mlx_whisper.transcribe(str(path), path_or_hf_repo=model, verbose=False)
 
 
+_MODELS = {}
+_MODELS_LOCK = threading.Lock()
+
+# Fly gives this app 2 shared vCPUs, and Whisper is the only genuinely
+# CPU-bound stage — three concurrent scripts (pipeline/process_adaptations.py
+# Step 7) transcribing at once would thrash rather than finish any of them
+# faster. Serialise the actual transcribe() call; downloading and the model
+# calls stay concurrent around it.
+TRANSCRIBE_SEM = threading.BoundedSemaphore(int(os.environ.get("WHISPER_CONCURRENCY", 1)))
+
+
+def load_faster(model):
+    """One WhisperModel per size, per process. ~1GB resident and ~1.7s to load
+    off a warm page cache — paying that once per script inside a batch is pure
+    waste, and paying it three times concurrently is 3GB on a 4GB machine."""
+    size = _size_of(model)
+    with _MODELS_LOCK:
+        if size not in _MODELS:
+            from faster_whisper import WhisperModel
+            _MODELS[size] = WhisperModel(size, device="cpu", compute_type="int8")
+        return _MODELS[size]
+
+
 def _faster(path, model):
     """CPU backend for anywhere that is not an Apple GPU — CI runners, Linux
     boxes. Same fields the MLX path returns, so `transcribe` cannot tell them
     apart."""
-    from faster_whisper import WhisperModel
-    m = WhisperModel(_size_of(model), device="cpu", compute_type="int8")
-    segs, info = m.transcribe(str(path), vad_filter=True)
+    m = load_faster(model)
+    with TRANSCRIBE_SEM:
+        segs, info = m.transcribe(str(path), vad_filter=True)
+        segs = list(segs)
     out = [{"start": sg.start, "end": sg.end, "text": sg.text,
             "no_speech_prob": getattr(sg, "no_speech_prob", 0.0)} for sg in segs]
     return {"segments": out,

@@ -152,16 +152,27 @@ def download_video(url, dest):
 
 
 def extract_frames(video, times, dest):
-    frames = []
-    for i, t in enumerate(times):
+    """Up to MAX_FRAMES ffmpeg seeks, run concurrently rather than serially —
+    each writes to its own file (f{i}.jpg), so there is no collision. Analyze
+    (below) and pipeline/process_adaptations.py's PROMPT / FORMAT_SYSTEM both
+    say "keep frame order", and the calls below finish in whatever order the
+    OS schedules the ffmpeg subprocesses, so the result is sorted back into
+    timestamp order before returning. Behaviourally identical otherwise: same
+    times, same files, same order out — this module is shared with the
+    scraping pipelines too."""
+    def grab(i, t):
         out = dest / f"f{i}.jpg"
         r = subprocess.run(
             ["ffmpeg", "-y", "-loglevel", "error", "-ss", str(t), "-i", str(video),
              "-frames:v", "1", "-vf", f"scale='min({FRAME_EDGE},iw)':-2", "-q:v", "5", str(out)],
             capture_output=True, timeout=60)
         if r.returncode == 0 and out.exists() and out.stat().st_size > 1000:
-            frames.append((t, out))
-    return frames
+            return (t, out)
+        return None
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        results = list(pool.map(lambda it: grab(*it), enumerate(times)))
+    return sorted((r for r in results if r), key=lambda r: r[0])
 
 
 def analyze(client, frames):

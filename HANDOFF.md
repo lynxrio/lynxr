@@ -17,6 +17,94 @@ pipeline. Three surfaces, one stylesheet (`app.css`):
 
 ## Where this left off (read this first)
 
+**2026-08-17 (later the same session) — the "about a minute" claim below was
+wrong, and the fix for it is written but NOT YET DEPLOYED.** Read this before
+the "scripts now arrive in about a minute" entry underneath, which is now out
+of date on the one number that matters.
+
+**`~55s` below was always `attemptedAt` → `processedAt` — the worker's own
+processing time, never the creator's wait.** Conflating the two is what let a
+25-minute stall look like a solved problem. Measured against every adaptation
+ever written this session (14 samples, `addedAt` → `processedAt`, the number
+the creator actually experiences): **min 58s, p50 121s, p90 2050s, max
+101171s — only 1 of 14 came in under 60s.** Splitting each sample into queue
+(`addedAt`→`claimedAt`), claim lag (`claimedAt`→`attemptedAt`) and work
+(`attemptedAt`→`processedAt`) showed the gap is almost entirely queue, not
+compute. `1504 = 1500 + 4` was not a coincidence: a worker claimed an entry 4
+seconds after the paste, died mid-pass, and the entry sat invisible until the
+25-minute claim lease expired — then paid for a full re-download and
+re-transcribe on top of the wait.
+
+The fix (`~/.claude/plans/creator-latency-60s.md`, 15 steps) is implemented in
+the working tree — queue tail first, then the serial work inside one script,
+then the model chain, then a permanent instrument on all of it — **but none of
+it is deployed.** `fly deploy --remote-only` (or a push once a Fly deploy
+token is set as the `FLY_API_TOKEN` GitHub secret) is the next action; nothing
+in this entry is true of the live worker yet, only of the code.
+
+What changed:
+
+- **A killed run no longer costs 25 minutes.** `fly.toml` now sets
+  `kill_timeout = "300s"` (Fly's undocumented-here default of 5s was turning
+  every deploy into an orphaned claim), the claim is heartbeat-renewed every
+  45s (`renew_claim`/`heartbeat` in `process_adaptations.py`), the lease
+  dropped from 25 minutes to 2.5, and `worker.py`'s sweep from 180s to 60s.
+  Worst case after a death mid-script: ~3.5 minutes, not 25 — and a death
+  AFTER the script is written now costs nothing at all, because the
+  write-back happens the instant one entry finishes, not once per whole
+  batch.
+- **Every stage now writes its own timing onto the adaptation** — a `timings`
+  object (`download`, `transcribe`, `cover`, `frames`, `shots`, `tags`,
+  `format`, `adapt`, `meta`, `graft`, `total`) — so the next regression is a
+  `pipeline/latency_report.py` run, not a rediscovery-by-hand. A breach also
+  writes an `SLA BREACH` line straight into `fly logs` with the full
+  breakdown attached — the only *real-time* signal that exists.
+  `.github/workflows/latency-watch.yml`'s 15-minute cron is best-effort on a
+  public repo (`adaptations.yml`'s cron is measured elsewhere in this file at
+  roughly every 3 hours) — treat it as a lagging daily-ish check, not a pager.
+- **Up to 3 scripts now process concurrently** (`--concurrency`, default 3,
+  `WORKER_CONCURRENCY` env), and N brands pasted for the SAME video share one
+  download/transcribe/shot-list/tag/format pass instead of paying for it N
+  times (`process_group()` in `process_adaptations.py`). A second creator
+  ever pasting a video already in `lynxr_sources` skips the source half
+  entirely (`cached_source()`, `--reuse-sources`, default on) — this is only
+  real now that `sources_staff_read.sql` has been applied; before that every
+  source upsert 400'd (`PGRST204`) and the cache was permanently empty.
+- **The remaining Opus chain is measured, not guessed at.** Warm, on a short
+  (~60s or under) source video:
+
+  | stage | measured |
+  |---|---|
+  | download (yt-dlp) | 8.2s |
+  | Whisper transcribe | 1.7s load + 3.1s |
+  | shot list (Haiku) + tags (Opus), now concurrent | ~7.1s (was 12.6s serial) |
+  | format extraction (Opus) | 9.4s |
+  | adaptation (Opus) | 18.9s |
+  | write-back + 2 upserts | ~1.6s |
+  | client poll (worst case, was 5s) | 2.5s |
+
+  Format extraction + adaptation is 28.3s of strictly sequential Opus 5 — the
+  largest remaining item, and untouched by everything above. Fusing them into
+  one call (`FUSE_FORMAT_ADAPT`, default **OFF** in
+  `pipeline/process_adaptations.py`; A/B it with `pipeline/ab_format_adapt.py`
+  against real sources, no database writes) is estimated to save 7-10s but is
+  a real quality trade — the two-step exists so the model strips the topic
+  before it rewrites, and leaving that unsaid makes it drift back into the
+  original's framing. Stays the owner's call.
+- **The SLA is claimed for source videos up to ~60 seconds long.** A
+  3-minute video cannot fit inside the same budget — this was never a claim
+  about arbitrary video length.
+
+**Check it with:**
+
+    ./venv/bin/python pipeline/latency_report.py --since 24h --sla 60
+
+Same split (queue / claim lag / work, per-stage medians from `timings`,
+in-flight breaches) as above, against whatever is actually live at the time.
+`--since 30d --sla 60` reproduces this session's 14-sample baseline exactly.
+
+---
+
 **2026-08-17 — scripts now arrive in about a minute instead of hours, and it
 runs without the owner's Mac.** That is the headline; everything else is detail.
 

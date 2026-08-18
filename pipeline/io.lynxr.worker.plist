@@ -2,6 +2,14 @@
 <!--
   Keeps the script worker running on this Mac.
 
+  MUST NOT BE LOADED WHILE FLY IS RUNNING. Fly (pipeline/worker.py on
+  fly.toml's lynxr-worker app) is the primary path as of 2026-08-17 and the
+  owner's requirement is that scripts arrive without any Mac of theirs being
+  involved — this file exists only as a reference / emergency fallback should
+  Fly ever need to be taken down. Loading it alongside Fly does not double-spend
+  (process_adaptations claims before it spends, see below) but it does mean the
+  Mac has to be awake for that safety margin, which defeats the point.
+
   NO SECRETS IN THIS FILE, deliberately — it is committed to a PUBLIC repo.
   worker.py reads .env itself (see load_env), which is gitignored, so launchd
   only has to start the process.

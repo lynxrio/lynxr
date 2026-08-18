@@ -12,6 +12,8 @@ The specific regression: a lapsed Anthropic balance used to land as status
 """
 
 import sys
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -97,6 +99,96 @@ orig.pop("note", None)
 check("marker outlives the popped note", bool(orig.get("aiFail")), True)
 check("...and is still due after its wait",
       P.ai_retry_due({"aiFail": {**orig["aiFail"], "at": ago(30)}}), True)
+
+# ---- stage() records a duration --------------------------------------------
+# creator-latency-60s.md Step 1: the container's log dies with the machine, so
+# per-stage timings have to live on the row, not just in fly logs.
+_timings = {}
+with P.stage(_timings, "download"):
+    time.sleep(0.01)
+check("stage() records a key", "download" in _timings, True)
+check("stage() records a positive duration", _timings.get("download", 0) > 0, True)
+
+# ---- wants_work() / too_young() respects --min-age-seconds ----------------
+# Step 11c: the GitHub fallback passes --min-age-seconds 180 so it stays a
+# genuine backstop for Fly rather than racing it for the claim.
+check("too_young: 0 threshold never withholds anything",
+      P.too_young({"addedAt": P.now_iso()}, 0), False)
+check("too_young: just-added entry, 180s threshold -> too young",
+      P.too_young({"addedAt": ago(0)}, 180), True)
+check("too_young: 5-minutes-old entry, 180s threshold -> old enough",
+      P.too_young({"addedAt": ago(5)}, 180), False)
+check("too_young: no addedAt at all -> never withheld",
+      P.too_young({}, 180), False)
+
+# ---- cached_source() returns None when the row has no format --------------
+# Step 8: the source half of a script is a property of the VIDEO, and a row
+# missing a format (or a script) is not a usable cache hit.
+_ORIG_SB = P.sb
+try:
+    P.sb = lambda key, path, method="GET", body=None, raw=False: [
+        {"platform": "tiktok", "script": {"text": "hi"}, "shots": [], "tags": {}, "format": None}]
+    check("cached_source: None when format is missing",
+          P.cached_source("fake-key", "https://tiktok.com/@x/video/1"), None)
+
+    P.sb = lambda key, path, method="GET", body=None, raw=False: []
+    check("cached_source: None when there is no row at all",
+          P.cached_source("fake-key", "https://tiktok.com/@x/video/1"), None)
+
+    P.sb = lambda key, path, method="GET", body=None, raw=False: [
+        {"platform": "tiktok", "script": {"text": "hi", "duration": 12},
+         "shots": [{"t": 0}], "tags": {"a": 1}, "format": {"name": "x"}}]
+    hit = P.cached_source("fake-key", "https://tiktok.com/@x/video/1")
+    check("cached_source: a hit when format AND script are both present",
+          bool(hit) and hit.get("format", {}).get("name"), "x")
+finally:
+    P.sb = _ORIG_SB
+
+# ---- graft_adaptations' per-cid lock ---------------------------------------
+# Step 7b: two threads grafting the SAME creator must not run their
+# read-modify-write concurrently (one write would be lost); two threads on
+# DIFFERENT creators must not block each other at all.
+#
+# The overlap has to be measured on the CRITICAL SECTION (the GET while
+# holding the lock), not on the whole graft_adaptations() call — the calling
+# thread starts its clock before it even tries to acquire the lock, so a
+# thread blocked waiting for it would still look "overlapping" by that
+# measure regardless of whether the lock did anything.
+try:
+    def make_fake_sb_graft(events, events_lock):
+        def fake_sb_graft(key, path, method="GET", body=None, raw=False):
+            if method == "GET":
+                cid = path.split("id=eq.")[1].split("&")[0]
+                t0 = time.monotonic()
+                time.sleep(0.05)          # a window wide enough to catch an overlap
+                with events_lock:
+                    events.append((cid, t0, time.monotonic()))
+                return [{"data": {"adaptations": []}}]
+            return None
+        return fake_sb_graft
+
+    def run_graft(cid):
+        P.graft_adaptations("fake-key", cid, [{"id": "a1"}])
+
+    events, events_lock = [], threading.Lock()
+    P.sb = make_fake_sb_graft(events, events_lock)
+    threads = [threading.Thread(target=run_graft, args=("cid-same-a",)) for _ in range(2)]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    (_, s1, e1), (_, s2, e2) = events
+    check("graft lock serialises two threads on ONE creator",
+          s1 < e2 and s2 < e1, False)
+
+    events.clear()
+    threads = [threading.Thread(target=run_graft, args=("cid-diff-a",)),
+               threading.Thread(target=run_graft, args=("cid-diff-b",))]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    (_, s3, e3), (_, s4, e4) = events
+    check("graft lock does NOT serialise two DIFFERENT creators",
+          s3 < e4 and s4 < e3, True)
+finally:
+    P.sb = _ORIG_SB
 
 print()
 if FAILS:
