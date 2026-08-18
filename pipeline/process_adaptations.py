@@ -1553,14 +1553,28 @@ def renew_claim(key, cid, aid):
     (measured: an entry claimed 4s after the paste, delivered 1504s after).
     With a heartbeat the lease only has to outlive one heartbeat interval.
     """
-    fresh = sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}&select=data")[0]["data"]
-    for entry in fresh.get("adaptations") or []:
-        if entry.get("id") == aid:
-            entry["claimedAt"] = now_iso()
-            break
-    else:
-        return
-    sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}", method="PATCH", body={"data": fresh})
+    # UNDER THE SAME LOCK graft_adaptations() uses, and for the same reason: this
+    # is a read-modify-write of the WHOLE row. Unlocked, it raced the completion
+    # graft and lost a finished script — measured 2026-08-18, worker log said
+    # "fit=0.62, 10 beats / done" at 04:47:11 while the row stayed status=running
+    # with beats=0, so the 2.5-minute lease lapsed and the next sweep re-ran and
+    # re-billed the same paste ($0.0539 + $0.0482 for one script, and the creator
+    # got the second, shorter version). The heartbeat renews a claim; it must
+    # never be able to write back a snapshot taken before the script landed.
+    with _GRAFT_LOCKS[cid]:
+        fresh = sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}&select=data")[0]["data"]
+        for entry in fresh.get("adaptations") or []:
+            if entry.get("id") == aid:
+                # Already finished (or failed) between the last heartbeat and
+                # this one — renewing now would re-stamp a claim on a terminal
+                # entry for no reason. Nothing to hold.
+                if entry.get("status") in ("done", "error"):
+                    return
+                entry["claimedAt"] = now_iso()
+                break
+        else:
+            return
+        sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}", method="PATCH", body={"data": fresh})
 
 
 def heartbeat(key, cid, aid, stop_event, interval=45):

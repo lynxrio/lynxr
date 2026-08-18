@@ -187,6 +187,25 @@ try:
     (_, s3, e3), (_, s4, e4) = events
     check("graft lock does NOT serialise two DIFFERENT creators",
           s3 < e4 and s4 < e3, True)
+    # ---- renew_claim must hold the SAME lock as graft_adaptations ----------
+    # REGRESSION, 2026-08-18. renew_claim() does a read-modify-write of the whole
+    # creator row and did NOT take _GRAFT_LOCKS. The heartbeat thread read the row
+    # mid-script, the worker thread grafted "done" + 10 beats, and the heartbeat
+    # then PATCHed its pre-completion snapshot back — the finished script was
+    # erased, the row stayed `running`, the 2.5-minute lease lapsed and the next
+    # sweep re-ran and re-billed the same paste. Same creator => must serialise.
+    events.clear()
+    def run_renew(cid):
+        P.renew_claim("fake-key", cid, "a1")
+    P.sb = make_fake_sb_graft(events, events_lock)
+    threads = [threading.Thread(target=run_graft, args=("cid-mixed",)),
+               threading.Thread(target=run_renew, args=("cid-mixed",))]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    (_, s1, e1), (_, s2, e2) = events
+    check("renew_claim and graft_adaptations serialise on ONE creator",
+          s1 < e2 and s2 < e1, False)
+
 finally:
     P.sb = _ORIG_SB
 
