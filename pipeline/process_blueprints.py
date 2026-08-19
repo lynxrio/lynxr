@@ -65,6 +65,7 @@ from retag_with_audio import MODEL as TAG_MODEL
 from retag_with_audio import SYSTEM as TAG_SYSTEM
 from retag_with_audio import user_content
 from taxonomy import TAG_SCHEMA, TAG_SCHEMA_VISION, length_bucket
+import envcfg  # the one place a secret or config value is read; see its docstring.
 
 ROOT = Path(__file__).parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
@@ -344,10 +345,14 @@ def main():
     args = ap.parse_args()
 
     env = load_env(ROOT / ".env")
-    key = env.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY",
+                        env.get("SUPABASE_SERVICE_ROLE_KEY"),
+                        os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
     if not key:
         sys.exit("SUPABASE_SERVICE_ROLE_KEY not set in .env")
-    api_key = env.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    api_key = envcfg.secret("ANTHROPIC_API_KEY",
+                            env.get("ANTHROPIC_API_KEY"),
+                            os.environ.get("ANTHROPIC_API_KEY"))
     aclient = None
     if api_key and not args.no_ai:
         import anthropic

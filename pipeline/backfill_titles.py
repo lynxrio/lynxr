@@ -39,6 +39,7 @@ import urllib.parse
 import urllib.request
 
 from process_adaptations import fetch_meta
+import envcfg  # the one place a secret or config value is read; see its docstring.
 
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
 TABLE = "/rest/v1/lynxr_videos"
@@ -91,7 +92,7 @@ def main():
                          "imports, a different defect from the placeholder)")
     args = ap.parse_args()
 
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY", os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
     if not key:
         sys.exit("SUPABASE_SERVICE_ROLE_KEY not set (source the .env first)")
 

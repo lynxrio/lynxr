@@ -47,6 +47,7 @@ except ImportError:
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "pipeline"))
 import process_adaptations as P  # noqa: E402 — reuses the worker's own probe/URL code
+import envcfg  # noqa: E402 — the one place a secret or config value is read; see its docstring.
 
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
 
@@ -100,7 +101,9 @@ def main():
     args = ap.parse_args()
 
     env = load_env(ROOT / ".env")
-    key = env.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY",
+                        env.get("SUPABASE_SERVICE_ROLE_KEY"),
+                        os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
     if not key:
         sys.exit("SUPABASE_SERVICE_ROLE_KEY not set (.env or environment)")
 

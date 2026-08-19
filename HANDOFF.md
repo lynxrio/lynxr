@@ -105,14 +105,203 @@ sentence and the card shows **no Try again button**. Everything else keeps it.
 Raw yt-dlp stderr stays in the logs, never on the card.
 
 **How the owner finds out.** A watchdog runs inside the worker and pages a phone
-over ntfy on failure shapes, not on latency: worker heartbeat missing, an entry
-running too long, a script finished with a brand but zero beats, the same entry
-attempted twice, sources not growing, repeated swallowed failures, and 24h spend
-over cap. Silence means healthy.
+over ntfy, but not on every failure shape any more — only when a creator is
+affected or imminently will be: an entry running too long, a script finished
+with a brand but zero beats, the automatic retry loop giving up, a systemic
+download break, 24h spend over cap, and the Fly worker's heartbeat going
+quiet (tri-state — degraded-with-fallback pages quietly, both-down pages
+loud, unknown keeps today's wording). A redundancy failure a creator never
+felt — a double-bill that still delivered a script, sources not growing,
+repeated swallowed soft failures — moves to the once-daily digest instead of
+the phone. Silence means healthy; the daily digest is what proves silence is
+real rather than a dead channel.
 
 ---
 
 ## Where this left off (read this first)
+
+**2026-08-19 — creator card view counts are real now, and a stored `0` no
+longer means "unmeasured."** `~/.claude/plans/creator-card-view-counts.md`,
+15 steps, implemented in the working tree.
+
+**The bug.** `process_adaptations.py`'s `fetch_meta()` did
+`int(d.get("view_count") or 0)`, so a platform that told yt-dlp nothing was
+stored as a measured `0` — indistinguishable from a real zero-view video, and
+the reason `lynxr_sources.views` and every creator entry's `source.meta.views`
+looked populated everywhere while being empty almost everywhere. Nothing
+re-read the number either, so it drifted: a live TikTok row stored as `27`
+read `31`; another stored as `190,500` read `191,000`.
+
+**The honest ceiling, measured 2026-08-19 (yt-dlp 2026.07.04, the pinned
+release — confirmed current on PyPI):**
+
+| platform | hands back a view count, unauthenticated? |
+|---|---|
+| tiktok | yes — drifts, hence the refresh |
+| youtube | yes — watch, youtu.be and /shorts/ all report it |
+| instagram | **no, by any route** — pinned release, the 2026-08-18 nightly, the `app_id=ios` extractor arg, the public `/embed/` page and unauthenticated oEmbed all return nothing. Needs a session; authenticated fetching was declined 2026-08-18 (below) — **re-testing this is not free, all five routes are already ruled out** |
+| facebook | returns a number, but on the one live **Facebook Reel** measured it was `407` while that same response's Facebook-written title read `"9.8K views · 343 reactions"` — 24× low on the short-form shape, which is the shape creators paste. Kept OUT of `VIEWS_TRUSTED_PLATFORMS` (`process_adaptations.py`, next to `SUPPORTED_HOSTS`) — reversible by adding `"facebook"` to that one tuple, there are zero Facebook rows in the corpus today |
+
+Instagram is 19 of 22 distinct videos creators have pasted, so **coverage
+after this plan is 3 of 22 (13.6%)** — the other 86.4% render no eye icon at
+all, permanently, unless the owner reverses the authenticated-fetching
+decision.
+
+**The fix.** `fetch_meta()` now returns `"views": trusted_views(url, raw)` —
+`None` when the platform reported nothing or the platform isn't trusted,
+the real `int` (including a genuine `0`) otherwise — plus a `metricsAt`
+stamp. `source_metrics()` is the one place that writes the `lynxr_sources`
+metric columns (from `upsert_source`, `backfill_source_metrics.py`, and the
+new refresh below), so the three can't drift. `platform_of()` was also
+matching the URL by substring, which filed `youtu.be`, `fb.watch` and
+`fb.com` under `"other"` — every trust-list and refresh query keyed on
+platform silently missed them. It now matches the hostname, same as
+`supported_url()`.
+
+**The refresh.** `refresh_views()` re-reads `lynxr_sources` rows on
+`VIEWS_TRUSTED_PLATFORMS` whose `metrics_at` is missing or older than
+`VIEWS_MAX_AGE_H` (24h), re-fetches, writes the source row, and pushes the
+number to every creator entry holding that video (`apply_views()` /
+`refresh_entry_views()`, modelled on `renew_claim()` — re-read fresh under
+the same per-creator lock, never a snapshot; skips `queued`/`running`
+entries and entries with no existing `source.meta`). Only fires from
+**`worker.py`'s periodic-sweep branch**, and only when
+`process_adaptations.py`'s own pass finds nothing queued
+(`--refresh-views`) — never from the queued-work branch, and never from
+`.github/workflows/adaptations.yml`, which runs the same script every ~60s
+in parallel and would otherwise double the requests and race the sweep on
+the same `lynxr_creators` read-modify-write. **Measured rate**: 3
+TikTok/YouTube rows today → 3 fetches/day, ~9s of yt-dlp; a second
+`--refresh-views-now` run immediately after the first considered 0 rows,
+proving the staleness gate bounds the request rate, not the per-pass
+budget.
+
+**The migration ran 2026-08-19.** `pipeline/backfill_views_null.py`
+(`--dry-run` first, matched) nulled the 19 creator entries (13
+`adaptations` + 6 `trash`, all `status: "done"`) and 7 `lynxr_sources` rows
+that were Instagram `0`s left over from the old coercion — independently
+re-verified against the live DB before running (all 19/7 were Instagram,
+all `status: "done"`, no TikTok/YouTube/Facebook row anywhere was ever 0).
+Live afterward: `lynxr_sources` reads 24 NULL / 3 measured (the TikTok rows,
+now self-refreshing — `929`, `31`, `191,000`); zero rows anywhere read `0`.
+**No new owner SQL action is needed** — `lynxr_sources.views` is already
+nullable and `sources_staff_read.sql` is already applied.
+
+Verify with:
+
+    ./venv/bin/python pipeline/test_views.py         # new, 27 checks
+    ./venv/bin/python pipeline/test_ai_retry.py       # 200 checks, unchanged
+    ./venv/bin/python pipeline/test_prefilter.py      # 40 checks, unchanged
+    ./venv/bin/python pipeline/test_watchdog.py       # 89 checks, unchanged
+    ./venv/bin/python pipeline/test_envcfg.py         # 19 checks, unchanged
+    ./venv/bin/python pipeline/watchdog.py --once --dry-run --json   # []
+
+Painted-pixels verified live in `/creatorsonly/`: the `@lynxr.io` TikTok card
+shows the eye icon at `31` (not the stale `27`); every Instagram card shows
+no eye icon at all.
+
+**2026-08-18/19 — a trailing newline on the Supabase secret killed every
+GitHub run since #168, and silenced the external half of the dead-man's
+switch at the same time. Both fixed, and the alarms rescoped to page only
+when a creator is affected.** `~/.claude/plans/alarms-creator-impact-and-secret-newline.md`,
+18 steps, implemented in the working tree.
+
+**The incident.** Every `.github/workflows/adaptations.yml` run has failed
+since run #168 (2026-08-18 07:57Z). `SUPABASE_SERVICE_ROLE_KEY` was saved as
+a GitHub repo secret with a trailing newline, and `http.client.putheader`
+refuses any header value containing one — so `sb()` died with `ValueError:
+Invalid header value b'***\n'` on the first Supabase call of every pass. Ten
+consecutive failed passes tripped the tripwire and the job's `if: failure()`
+curl paged the owner. Worse: `pipeline/watchdog.py --once` died on the
+IDENTICAL error in the same loop and then printed `no breaches` — a false
+all-clear. Because the GitHub-side caller was the only one that could
+structurally raise `worker-down`, the external half of the dead-man's switch
+was itself dead: if Fly had died at the same time, nothing would have paged.
+Verified NOT a code bug — the same command runs clean locally and Fly was
+healthy throughout.
+
+**The fix.** `pipeline/envcfg.py` (new) is now the one place a secret or
+config value is read out of the environment — `clean()`/`first()`/`get()`
+strip whitespace, `secret()` additionally refuses a value with whitespace
+left INSIDE it (an embedded newline `.strip()` cannot fix) and raises naming
+the variable, never the value. `sanitize_environ()` cleans `os.environ` in
+place for readers this repo does not own (the five scripts that build
+`anthropic.Anthropic()` with no `api_key` and let the SDK read
+`ANTHROPIC_API_KEY` straight out of the environment). Every env-read site in
+`pipeline/` — the watchdog, both workers, and thirteen other scripts — now
+goes through it; `pipeline/test_envcfg.py` (19 checks) reproduces the exact
+CI failure offline against the real `http.client`, proves it is fixed, and
+proves no secret value ever lands in a raised error's message. `.env` was
+never at fault — every `load_env()` copy already stripped what it parsed —
+so `load_env()` itself was deliberately left untouched; the newline arrives
+through `os.environ`, from GitHub.
+
+`pipeline/watchdog.py`'s `run_once()` no longer returns `[]` on a failure to
+read the database — that read as "checked, nothing wrong" to `main()`, which
+is exactly the false all-clear above. It now returns a `watchdog-blind`
+sentinel (does not page — a fresh-process GitHub loop can't dedupe, and the
+same failure trips `process_adaptations.py`'s own tripwire within ~10
+minutes anyway), and `main()` prints `CHECK FAILED — could not read the
+database` and exits 2, never `no breaches`.
+
+**The alarm rescope.** The owner's rule, in his words: *"add things that
+would need my attention, like a script didnt get back, dont ping me for
+useless things like if the backup failed but the fly worked so the creator
+got their video."* Every alarm now carries a `page` bit:
+
+| stays a page | now digest-only (`page: False`) |
+|---|---|
+| `inflight:<id8>` / `inflight:many` | `rerun:<id8>` — double-billed, creator still got their script |
+| `empty-script:<id8>` | `sources-stalled` — analytics sensor, no creator impact |
+| `gave-up:<id8>` | `softfail:<sub>` — script was still delivered |
+| `fetch-wall:burst` | |
+| `spend-24h` (reworded in creator terms) | |
+| `worker-down` (now tri-state, see below) | |
+
+`RERUN_WINDOW_S` widened 24h → 48h so a rerun 25h before the digest can never
+go unreported by anything. The digest gained a `quiet:` line — the ONLY place
+a demoted alarm is ever reported — alongside the narrowed `open alarms:`
+line, which now names paging alarms only.
+
+**`worker-down` now knows whether the GitHub fallback is covering**, via a
+new `fallback.heartbeat` key in `lynxr_ops` that `adaptations.yml`'s polling
+loop writes every ~60s (`watchdog.py --once --as-fallback`). Tri-state, one
+latch key so it stays one episode: priority 3 ("fly down, github covering" —
+degraded, not down, but no redundancy left — still makes a sound, still
+"would need attention" since the next failure is total), priority 5
+("NOTHING is writing scripts" — both down), priority 4 (cannot tell —
+today's original wording). `raise_alarm()` now re-pages immediately if an
+open episode's priority increases, so 3 → 5 can't stay silent for up to 24h
+inside the old reminder window. The workflow's own `if: failure()` curl (both
+`adaptations.yml` and `latency-watch.yml`) is retired — replaced with `python
+pipeline/watchdog.py --ci-failed`, which reads `worker.heartbeat` before
+deciding whether to page at all, and always exits 0 (the job is already red).
+
+**Verified live, 2026-08-19 ~01:23 UTC** (independently, not on the plan's
+own say-so): `lynxr_ops` holds exactly two rows, `worker.heartbeat` (~49s
+old) and `digest.last` (~10.4h old, timestamped 15:00:36 UTC — matches
+`DIGEST_HOUR_UTC`). `fly status` shows the machine last updated
+`2026-08-18T21:20:45Z`, 63 seconds after the current HEAD commit
+(`6768fc6`, pushed `2026-08-18T21:19:42Z`) — `fly releases` confirms that
+deploy is v19, the latest, and every deploy since `v9` (the first of
+2026-08-18) landed within roughly an hour of its triggering push. So Fly is
+alive, beating, and running code at least as recent as tonight's HEAD.
+
+Verify with:
+
+    ./venv/bin/python pipeline/test_watchdog.py      # 89 checks (44 + 45 new), all pass
+    ./venv/bin/python pipeline/test_ai_retry.py      # 200 checks, unchanged
+    ./venv/bin/python pipeline/test_prefilter.py     # 40 checks, unchanged
+    ./venv/bin/python pipeline/test_allowance.py     # 13, unchanged
+    ./venv/bin/python pipeline/test_envcfg.py        # new, 19 checks
+    ./venv/bin/python pipeline/watchdog.py --once --dry-run --json   # []
+
+**Not yet deployed** — Fly needs to pick up this push before its own loop
+carries the newline fix and the rescoped alarms; the GitHub workflows pick up
+the fix on their next run after push. **One belt-and-braces owner action
+remains**: re-save the GitHub `SUPABASE_SERVICE_ROLE_KEY` secret without the
+trailing newline. The code no longer needs it to be clean, but the stored
+value is still wrong and worth fixing at the source.
 
 **2026-08-18 — a paste that stranded an entry now reaches a final answer
 instead of re-running it every six hours forever.**
@@ -261,7 +450,11 @@ Verify with:
     ./venv/bin/python pipeline/latency_report.py --since 30d --sla 60  # medians unchanged
 
 All of it is Python in `pipeline/` — no front-end file changed, so `?v=` stays
-`20260822a`. **Not deployed** — Fly still runs the old worker.
+`20260822a`. **Not deployed** — Fly still runs the old worker. *[FLAG
+2026-08-19: this looks stale — see the "Where this left off" entry at the top
+of this section. Fly has redeployed repeatedly since (v9 → v19,
+`fly releases`), and the machine now running was last updated 63s after
+tonight's HEAD commit. Confirm with `fly status` before deleting this line.]*
 
 **2026-08-18 — every script and library card now carries a real title, read
 off the record with no network call.** `~/.claude/plans/creator-real-script-titles.md`,
@@ -317,7 +510,8 @@ retention, so a bump would re-prompt people over nothing.
 
 Cache stamp is now `?v=20260822a` — the `20260821` letters had reached `z`.
 **Not deployed** — Fly still runs the old worker, so live creators still have
-the old titles until this is pushed.
+the old titles until this is pushed. *[FLAG 2026-08-19: this looks stale —
+see the top of this section. Confirm with `fly status` before deleting.]*
 
 **2026-08-18 — the creator's failure card stopped leaking our internals, and
 the retry clock stopped lying.** `~/.claude/plans/creator-failure-copy-and-rerun-alarm.md`,
@@ -371,7 +565,8 @@ Verify with:
 `pipeline/test_allowance.py` depended on the deleted `AI_FAIL_WORDING` name and
 crashed at line 94, which silently killed the `charge_scripts` three-bypass
 proof below it; it is rewritten against the registry. **Not deployed** — Fly
-still runs the old worker.
+still runs the old worker. *[FLAG 2026-08-19: this looks stale — see the top
+of this section. Confirm with `fly status` before deleting.]*
 
 **2026-08-18 — the worker's discovery scan stopped pulling every creator's
 whole blob to find out if anything is queued.** `~/.claude/plans/
@@ -430,16 +625,30 @@ finished script and re-billing the same paste). `pipeline/watchdog.py` reads
 the database (never writes anything a creator can see) and pushes a
 notification to ntfy.sh when one of seven failure SHAPES shows up:
 
+**RESCOPED 2026-08-19** (`~/.claude/plans/alarms-creator-impact-and-secret-newline.md`,
+see the "Where this left off" entry at the top of this section for the full
+story): every alarm now carries a `page` bit, so only the shapes that would
+need the owner's attention reach the phone. A demoted shape still fires and
+still reaches the once-daily digest's `quiet:` line — it just never pages.
+
+**Pages the phone:**
+
 | alarm | condition | threshold, and its source |
 |---|---|---|
 | `inflight:<id8>` | queued/running, no processedAt, age > budget | 600s = 2.6x measured p90 (229s); every real failure measured (1504s, 1548s, 101171s) clears it easily |
 | `inflight:many` | more than 3 stuck at once | collapses a burst into one page instead of N |
 | `empty-script:<id8>` | done + brandId + zero beats, within 24h | live count is 0 — a tripwire on `fill_adaptation`'s no-empty-beats guard regressing |
-| `rerun:<id8>` | the explicit `rerun` marker stamped at claim time, within 24h | the double-bill shape from the 2026-08-18 incident. **`done + attempts >= 2 + no aiFail` was the old condition and it false-positived on every healed retry** — a successful pass pops `aiFail`, so a self-healed entry became byte-identical to a re-run. It fired for real on 644ba12d. Honest gap: the marker requires beats, and the original incident had ERASED them, so that class is owned by `inflight:` (which the real one blew past at 1548s vs 600s) |
-| `sources-stalled` | 3+ finished with a source in 6h, 0 new `lynxr_sources` rows | the weeks-long `upsert_source()` 400, now caught in hours instead of weeks |
-| `softfail:<subsystem>` | 3 of the last 5 finished scripts carry the same `softFails.<subsystem>` marker | makes a persistent failure loud, keeps one blip quiet |
-| `worker-down` | `worker.heartbeat` missing or older than 5min | tolerates 5 missed 60s heartbeats — more than `kill_timeout="300s"` plus a cold boot. Structurally can only ever be raised by the GitHub fallback loop (`adaptations.yml`), never by Fly itself, because the Fly-side caller refreshes its own heartbeat immediately before checking |
-| `spend-24h` | `lynxr_script_charges` rows in the trailing 24h >= `DAILY_SCRIPT_CAP` (default 250) | `process_adaptations.py --daily-cap`'s circuit breaker has tripped and is refusing ALL new work — a quiet queue means "capped", not "healthy". Same env var on both sides so the breaker and the alarm can never disagree |
+| `spend-24h` | `lynxr_script_charges` rows in the trailing 24h >= `DAILY_SCRIPT_CAP` (default 250) | `process_adaptations.py --daily-cap`'s circuit breaker has tripped and is refusing ALL new work — a quiet queue means "capped", not "healthy". Same env var on both sides so the breaker and the alarm can never disagree. Reworded in creator terms: "no new scripts — 24h cap reached" |
+| `worker-down` | `worker.heartbeat` missing/stale — now TRI-STATE on whether the GitHub fallback loop is covering | priority 3 ("fly down, github covering" — degraded, no redundancy left, still would need attention) / priority 5 ("NOTHING is writing scripts" — both down) / priority 4 (cannot tell — today's original wording). Two external callers can raise it now, not one — see below |
+| `ci-unverified` | a GitHub job that keeps lynxr running failed AND `lynxr_ops` itself was not readable | cannot tell whether Fly is covering either; saying nothing would be the same false all-clear the newline incident exposed |
+
+**Digest only (`page: False`) — reported once a day, never on the phone:**
+
+| alarm | condition | why it does not page |
+|---|---|---|
+| `rerun:<id8>` | the explicit `rerun` marker stamped at claim time, within 48h (widened from 24h so a digest a day later can't miss it) | the double-bill shape from the 2026-08-18 incident, but the creator still got their script either way — bounded by `spend-24h` (still pages) and the allowance ledger |
+| `sources-stalled` | 3+ finished with a source in 6h, 0 new `lynxr_sources` rows | costs the agency's sourcing signal, never a creator's script |
+| `softfail:<subsystem>` | 3 of the last 5 finished scripts carry the same `softFails.<subsystem>` marker | worst case is a library card with a generic title or no thumbnail, on a script that was delivered |
 
 **p95 latency is deliberately NOT on the pager** — it moved to a once-daily
 digest instead (priority 2, arrives silently, sent once `now.hour >=
@@ -469,11 +678,18 @@ applied by an agent):
 3. GitHub → Settings → Secrets and variables → Actions → new repo secret
    `NTFY_TOPIC`, same value.
 4. Append `NTFY_TOPIC=<topic>` to `.env` for local runs (gitignored already).
-5. Paste `supabase/ops_table.sql` into the Supabase SQL editor and run it.
+5. **Done, verified live** — `supabase/ops_table.sql` is applied. Confirmed
+   2026-08-19: `lynxr_ops` holds exactly two rows, `worker.heartbeat` (~49s
+   old) and `digest.last` (fired 15:00:36 UTC, matching `DIGEST_HOUR_UTC`).
 6. Paste `supabase/creators_adaptations_gin.sql` into the Supabase SQL editor
    and run it — a GIN index for the discovery prefilter's containment probes.
    Buys nothing today (five rows, planner seq-scans regardless); insurance
    for once the creator count passes the low hundreds. See its header.
+7. **New, belt-and-braces** — re-save the GitHub `SUPABASE_SERVICE_ROLE_KEY`
+   secret without the trailing newline it currently carries (see the
+   "Where this left off" entry at the top of this section). The code no
+   longer needs it clean — `pipeline/envcfg.py` strips it at every read site
+   — but the stored value is still wrong and worth fixing at the source.
 
 **Two corrections this plan turned up, both now fixed in this file and in the
 workflow that repeated the same claim:**
@@ -998,10 +1214,17 @@ all, so nothing in it could ever be ranked by reach. The same SQL file adds
 already ran for this video and its result was sitting unused in `src["meta"]`.
 
 **NULL is not zero, and that is load-bearing.** `views` is NULL when it was
-never fetched and 0 when the video genuinely has none. Folding them together
-buries every un-backfilled row at the bottom of a views sort and reads as "these
-all flopped". Test `== null`, never truthiness. The 19 existing rows are all
-NULL until you run:
+never fetched (or the platform reported nothing — Instagram, always) and 0
+only on a genuine zero-view video on a platform trusted to report one. Test
+`== null`, never truthiness. **STALE as of 2026-08-17: this used to be false**
+— `fetch_meta()` itself coerced an absent count to `0` before it ever reached
+this table, so every un-backfilled row read `0`, not NULL, and a Facebook
+Reel's count was trusted at all. Fixed 2026-08-19 (see "Where this left off"
+at the top of this section — `trusted_views()`/`source_metrics()`); the 7
+Instagram rows that had been zeroed by the old coercion were migrated back to
+NULL (`pipeline/backfill_views_null.py`), and the table today reads 24 NULL /
+3 measured (the 3 TikTok rows, self-refreshing every ≤24h). To fill the
+backlog on any platform still NULL:
 
     ./venv/bin/python pipeline/backfill_source_metrics.py
 

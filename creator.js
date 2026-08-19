@@ -205,10 +205,30 @@ function coverUrl({ libraryId, canon } = {}) {
  *  reach for. Inside a <summary> the anchor would also flip the card open
  *  behind the new tab — stopSummaryLinks() is what prevents that, and it
  *  already covers every `summary a`, so this needs no wiring of its own. */
-function thumbHtml(url, label, href) {
-  if (!url) return "";
+/*  `tile` is the grid card (see .script-grid in app.css) and changes two
+ *  things deliberately:
+ *    - the cover is NOT wrapped in a link. On a tile the cover is most of the
+ *      card, and a 300px-tall anchor to TikTok sitting exactly where the
+ *      card's own click target belongs sends people off-site when they meant
+ *      to open their own script. The ↗ in the meta row stays, and is given a
+ *      real touch target there.
+ *    - a missing cover renders a PLACEHOLDER rather than nothing. In a list a
+ *      missing thumbnail just closes the gap; in a grid it makes one card a
+ *      different height from every other, and Instagram never resolves a
+ *      thumbnail at all (no keyless endpoint, and its CDN is not in img-src),
+ *      so that is the common case there rather than the rare one. It borrows
+ *      .vthumb-none, the same placeholder the agency shelf uses. */
+function thumbHtml(url, label, href, opts = {}) {
+  const { tile = false, kind = "" } = opts;
+  if (!url) {
+    return tile
+      ? `<span class="bp-thumb" title="${escapeHtml(label || "")}"
+           ><span class="vthumb-none">${escapeHtml(kind || "no cover")}</span></span>`
+      : "";
+  }
   const img = `<img class="bp-thumb" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async"
          title="${escapeHtml(label || "")}">`;
+  if (tile) return img;
   // safeUrl("") is NOT empty — it resolves against location.origin and hands
   // back the current page, so an entry with no sourceUrl would render a
   // thumbnail linking to the app itself. Ask whether there is a url first.
@@ -1879,6 +1899,156 @@ let LIB_Q = "";
 let LIB_MODE = "brand";
 const LIB_SEARCH_AT = 4;      // searching three items is noise; the box stays hidden
 
+/* ================= FINDING A SCRIPT =================
+   One system, used by the brand pages and by the Library: a grid to scan, a
+   box to narrow it, a sort to order it. All three run over the JSONB blob the
+   app already holds — there is no network call in any of it, and there must
+   not be: the whole corpus is one row this creator owns and it is already in
+   memory.
+
+   The controls only appear once there are LIB_SEARCH_AT items. Searching three
+   things is noise, and on a phone the bar would cost a row of tiles to say so. */
+
+const SORT_LABELS = {
+  new:  "Newest first",
+  old:  "Oldest first",
+  az:   "Title A\u2013Z",
+  most: "Most scripts",
+};
+/* Newest first is the default, which IS a change: both lists used to render in
+   insertion order, i.e. oldest first. The thing you are looking for in a list
+   that has grown too long is almost always recent, and the control says which
+   order you are in, so the old order is one click away rather than gone. */
+let AD_Q = "";        // brand-page script search
+let AD_SORT = "new";
+let LIB_SORT = "new";
+
+/* A PHONE GETS A SHORTER PLACEHOLDER. "search titles, brands, captions" is a
+   useful hint at 380px of field and truncates to "search titles, h\u2026" at
+   163px, which makes the box look both oversized and broken. The full string
+   stays on anything wide enough to hold it; the accessible name (aria-label)
+   is unchanged at every width, so nothing is lost to a screen reader.
+
+   A MEDIA QUERY OBJECT, NOT A ONE-OFF READ, because a phone rotates. The list
+   is only rebuilt on a render, so without the change listener a turn to
+   landscape would keep the short string and a turn to portrait would keep the
+   truncating one. The handler re-reads the DOM each time rather than closing
+   over an element — every repaint replaces these nodes. */
+const FIND_NARROW = window.matchMedia("(max-width: 520px)");
+/* AND A THIRD RUNG FOR THE SMALLEST PHONES. Measured at 320px: the field is
+   127px wide, 103px of it usable, and even "search videos" renders 125px — so
+   the short string truncated too. One word always fits, and next to a sort
+   control reading "newest first" it is unambiguous. 360px is where
+   "search videos" (125px) starts to fit again. */
+const FIND_TINY = window.matchMedia("(max-width: 360px)");
+const findPlaceholder = (full, brief) =>
+  FIND_TINY.matches ? "search" : FIND_NARROW.matches ? brief : full;
+function applyFindPlaceholders() {
+  document.querySelectorAll("input.find-q").forEach((el) => {
+    const full = el.dataset.ph, brief = el.dataset.phShort;
+    if (full && brief) el.placeholder = findPlaceholder(full, brief);
+  });
+}
+FIND_NARROW.addEventListener("change", applyFindPlaceholders);
+FIND_TINY.addEventListener("change", applyFindPlaceholders);
+
+/** The search + sort row. `id` prefixes the three element ids so a brand page
+ *  and the Library can never collide. */
+function findBarHtml({ id, q, sort, sorts, placeholder, brief, what }) {
+  return `<div class="lib-tools find-bar">
+    <input type="search" id="${id}-q" class="find-q" value="${escapeHtml(q)}"
+      placeholder="${escapeHtml(findPlaceholder(placeholder, brief))}"
+      data-ph="${escapeHtml(placeholder)}" data-ph-short="${escapeHtml(brief)}"
+      aria-label="Search ${escapeHtml(what)}"
+      autocomplete="off" spellcheck="false">
+    <select id="${id}-sort" class="find-sort" aria-label="Sort ${escapeHtml(what)}">
+      ${sorts.map((k) => `<option value="${k}"${k === sort ? " selected" : ""}
+        >${escapeHtml(SORT_LABELS[k])}</option>`).join("")}
+    </select>
+    ${/* The live region. It is the ONLY thing that tells a screen reader the
+          grid underneath just changed shape — the grid itself is rewritten
+          without any announcement. Empty when nothing is filtered, and
+          .find-count:empty is display:none, so it says something or nothing. */""}
+    <span class="find-count" id="${id}-count" role="status" aria-live="polite"></span>
+  </div>`;
+}
+
+/** Wire one find bar. `repaint` re-renders ONLY the grid, never the bar — a
+ *  rebuilt <input> loses focus and the caret, which makes typing impossible. */
+function wireFindBar(id, repaint, setQ, setSort) {
+  applyFindPlaceholders();          // the bar was just rebuilt; re-apply the width rule
+  const qEl = document.getElementById(`${id}-q`);
+  if (qEl) qEl.addEventListener("input", (e) => { setQ(e.target.value); repaint(); });
+  const sEl = document.getElementById(`${id}-sort`);
+  if (sEl) sEl.addEventListener("change", (e) => { setSort(e.target.value); repaint(); });
+}
+
+/** Every term has to appear somewhere in the haystack — "cloey hook" finds the
+ *  Cloey script whose hook you half-remember, which a plain substring cannot. */
+function findMatch(hay, q) {
+  const terms = String(q || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return terms.every((t) => hay.includes(t));
+}
+const findNorm = (s) => String(s || "").toLowerCase();
+
+/** WHAT A SCRIPT IS SEARCHABLE BY. Everything here is either drawn on the card
+ *  or is the thing a creator would say out loud about it — the video's title
+ *  or caption, whose it was, the company it was written for, and the line it
+ *  opens on. The BEATS are deliberately NOT indexed: a hit inside the body of
+ *  a collapsed script shows a card with no visible reason to be there. */
+function scriptHay(a) {
+  const lib = ME.library.find((l) => l.id === a.libraryId)
+    || (a.sourceUrl ? ME.library.find((l) => l.canon === canonUrl(a.sourceUrl)) : null);
+  const ad = a.adaptation || {};
+  const tags = (a.source || {}).tags || {};
+  return [
+    entryLabel(a), lib && lib.title, lib && lib.caption, lib && lib.creator,
+    lib && lib.platform, (brandById(a.brandId) || {}).name, a.brandName,
+    ad.hook, ad.cta, ad.caption, (a.format || {}).name,
+    tags.format_type, tags.hook_pattern,
+  ].map(findNorm).join(" \u0001 ");
+}
+
+/** A saved VIDEO, plus everything written from it — the brands it was scripted
+ *  for are the second thing anyone remembers about a video. */
+function libHay(item) {
+  const made = libScripts(item);
+  return [
+    sourceLabel(item), item.title, item.caption, item.creator, item.url, item.platform,
+    ...made.flatMap((a) => [
+      (brandById(a.brandId) || {}).name, a.brandName,
+      (a.adaptation || {}).hook, (a.format || {}).name,
+    ]),
+  ].map(findNorm).join(" \u0001 ");
+}
+
+const findTime = (o) => Date.parse((o && o.addedAt) || "") || 0;
+
+/** Sort a copy, never the live array — ME.adaptations and ME.library are what
+ *  save() sends, and reordering them would rewrite the creator's own row to
+ *  change what a <select> shows. */
+function findSort(list, key, titleOf, countOf) {
+  const out = [...list];
+  if (key === "old") out.sort((x, y) => findTime(x) - findTime(y));
+  else if (key === "az") out.sort((x, y) =>
+    titleOf(x).localeCompare(titleOf(y), undefined, { sensitivity: "base" })
+    || findTime(y) - findTime(x));
+  else if (key === "most" && countOf) out.sort((x, y) =>
+    countOf(y) - countOf(x) || findTime(y) - findTime(x));
+  else out.sort((x, y) => findTime(y) - findTime(x));
+  return out;
+}
+
+/** Nothing matched. Says so, names what was typed, and hands back a way out —
+ *  an empty grid on its own reads as "my scripts are gone". */
+function findEmptyHtml(q, id) {
+  return `<div class="empty find-empty">
+    <p>Nothing matches <strong>${escapeHtml(String(q).trim())}</strong>.</p>
+    <div class="bp-actions"><button type="button" class="ghost" id="${id}-clear">Clear search</button></div>
+  </div>`;
+}
+/* ================= end finding ================= */
+
 /** Scope sentinel for libraryItemHtml: show only the scripts that belong to NO
  *  company. A Symbol rather than a magic string — it cannot collide with a real
  *  brand id no matter how ids are generated later, and it stays truthy, which
@@ -1924,11 +2094,11 @@ function renderLibrary(head, body) {
         </div>
       </div>
       <p class="composer-note" id="lib-flash" role="status" aria-live="polite"></p>
-      ${ME.library.length >= LIB_SEARCH_AT ? `<div class="lib-tools">
-        <input type="search" id="lib-q" placeholder="Search titles, captions, creators"
-          autocomplete="off" spellcheck="false" value="${escapeHtml(LIB_Q)}">
-        <span class="lib-shown" id="lib-shown"></span>
-      </div>` : ""}
+      ${ME.library.length >= LIB_SEARCH_AT ? findBarHtml({
+        id: "lib", q: LIB_Q, sort: LIB_SORT, sorts: ["new", "old", "az", "most"],
+        placeholder: "search titles, brands, captions", brief: "search videos",
+        what: "your library",
+      }) : ""}
       <div id="lib-list"></div>
     </div>`;
 
@@ -1938,13 +2108,9 @@ function renderLibrary(head, body) {
   document.getElementById("lib-mode-all").addEventListener("click", () => setMode("all"));
   document.getElementById("lib-mode-original").addEventListener("click", () => setMode("original"));
 
-  const qEl = document.getElementById("lib-q");
-  if (qEl) qEl.addEventListener("input", (e) => {
-    LIB_Q = e.target.value;
-    paintLibraryList();
-    const again = document.getElementById("lib-q");
-    if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
-  });
+  /* No re-focus dance any more: paintLibraryList() only ever rewrites
+     #lib-list, and the find bar is a sibling of it, so the caret never moves. */
+  wireFindBar("lib", paintLibraryList, (v) => { LIB_Q = v; }, (v) => { LIB_SORT = v; });
 
   paintLibraryList();
 }
@@ -1971,15 +2137,26 @@ function paintLibraryList() {
   // awaited: the list paints now and each name drops in as it arrives.
   hydrateStale();
 
-  const q = LIB_Q.trim().toLowerCase();
-  const shown = ME.library.filter((it) => !q || [it.title, it.caption, it.creator, it.url]
-    .some((v) => String(v || "").toLowerCase().includes(q)));
+  /* The haystack is wider than it was: it used to be title/caption/creator/url,
+     which cannot answer "the one I wrote for Cloey" or "the one that opens with
+     stop scrolling" — the two things a creator actually remembers. See libHay. */
+  const q = LIB_Q.trim();
+  const shown = findSort(
+    q ? ME.library.filter((it) => findMatch(libHay(it), q)) : ME.library,
+    LIB_SORT, (it) => sourceLabel(it), (it) => libScripts(it).length);
 
-  const tally = document.getElementById("lib-shown");
+  const tally = document.getElementById("lib-count");
   if (tally) tally.textContent = shown.length === ME.library.length ? "" : `${shown.length} of ${ME.library.length}`;
 
   if (!shown.length) {
-    host.innerHTML = `<div class="empty"><p>Nothing you've sent matches that.</p></div>`;
+    host.innerHTML = findEmptyHtml(q, "lib");
+    const clear = document.getElementById("lib-clear");
+    if (clear) clear.addEventListener("click", () => {
+      LIB_Q = "";
+      const box = document.getElementById("lib-q");
+      if (box) { box.value = ""; box.focus(); }
+      paintLibraryList();
+    });
     return;
   }
 
@@ -1998,7 +2175,7 @@ function paintLibraryList() {
             escapeHtml(b.name || "Untitled company")}</button>
           <span class="lib-group-meta">${ready} ready${busy ? ` · ${busy} writing` : ""}</span>
         </div>
-        <div class="bp-list">${items.map((it) => libraryItemHtml(it, b.id)).join("")}</div>
+        <div class="bp-list script-grid">${items.map((it) => libraryItemHtml(it, b.id)).join("")}</div>
       </section>`;
     }).filter(Boolean).join("");
 
@@ -2016,7 +2193,7 @@ function paintLibraryList() {
         <span class="lib-group-name">${title}</span>
         <span class="lib-group-meta">${items.length} ${meta}</span>
       </div>
-      <div class="bp-list">${items.map((it) => libraryItemHtml(it)).join("")}</div>
+      <div class="bp-list script-grid">${items.map((it) => libraryItemHtml(it)).join("")}</div>
     </section>` : "";
 
     host.innerHTML = (blocks + loose("Not scripted yet", orphans, "saved"))
@@ -2040,12 +2217,12 @@ function paintLibraryList() {
     const items = shown.filter((it) =>
       libScripts(it).some((a) => !a.brandId || hasSourceScript(a)));
     host.innerHTML = items.length
-      ? `<div class="bp-list">${items.map((it) => libraryItemHtml(it, SCOPE_ORIGINAL)).join("")}</div>`
+      ? `<div class="bp-list script-grid">${items.map((it) => libraryItemHtml(it, SCOPE_ORIGINAL)).join("")}</div>`
       : `<div class="empty"><p><strong>No original scripts yet.</strong></p>
           <p>Every video you send keeps its own words, shots and structure — send one
           for a company or for none, and the untouched version shows up here.</p></div>`;
   } else {
-    host.innerHTML = `<div class="bp-list">${shown.map((it) => libraryItemHtml(it)).join("")}</div>`;
+    host.innerHTML = `<div class="bp-list script-grid">${shown.map((it) => libraryItemHtml(it)).join("")}</div>`;
   }
   stopSummaryLinks(host);
   // The Library now renders real script cards inside its entries, so they need
@@ -2169,12 +2346,25 @@ function libraryItemHtml(item, scopeBrandId) {
   return `<details class="bp-item lib-item" data-lid="${escapeHtml(item.id)}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
-      ${thumbHtml(coverUrl({ libraryId: item.id, canon: item.canon }), sourceLabel(item), item.url)}
+      ${thumbHtml(coverUrl({ libraryId: item.id, canon: item.canon }), sourceLabel(item), item.url,
+        { tile: true, kind: item.platform || "link" })}
       <span class="bp-name">${escapeHtml(sourceLabel(item))}</span>
-      <span class="chip lib-plat">${escapeHtml(item.platform || "Link")}</span>
+      ${/* THE PLATFORM CHIP IS GONE, by decision, from both card kinds. It was
+            the only thing on a tile that said TikTok from Instagram; the ↗'s
+            accessible name carries that now instead, which costs no pixels.
+            See the ↗ below. */""}
+      ${/* THE STATUS CHIP. On a tile CSS lifts this onto the cover as the one
+            badge it carries, at the top RIGHT — see .script-grid in app.css.
+            It stays here in the markup, in reading order, so a screen reader
+            still meets it with the rest of the card's facts rather than losing
+            it to a decorative overlay. */""}
       ${chip}
+      ${metaFactsHtml({ item })}
+      ${/* Still rendered, hidden on the TILE only (the sort control names the
+            order the grid is in, so the date was restating it on every card);
+            an opened card runs the row layout and shows it as it always has. */""}
       <span class="bp-when">${escapeHtml(agoLabel(item.addedAt))}</span>
-      ${href ? `<a class="bp-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="Open the original">↗</a>` : ""}
+      ${href ? openOriginalHtml(href, item.platform || platformLabel(item.url || "")) : ""}
     </summary>
     <div class="bp-body">
       ${item.creator ? `<p class="bp-hint">@${escapeHtml(item.creator)}</p>` : ""}
@@ -2822,6 +3012,139 @@ function videoTitle({ item, rec } = {}) {
     || first(ownWordsTitle)                    // the video's own first words
     || handleLabel(url, lib)
     || platformKindLabel(url, (lib && lib.platform) || platformLabel(url));
+}
+
+/** THE VIDEO'S OWN LENGTH, in seconds, off whichever record for this video
+ *  kept it — same walk as videoTitle, and for the same reason: fetch_meta()
+ *  runs ONCE PER VIDEO and its result is written onto the REPRESENTATIVE
+ *  record of the group (process_adaptations.py, `rep.setdefault("source",
+ *  {})["meta"]`), so a video scripted for three companies has the number on
+ *  one of the three records and not the other two.
+ *
+ *  Three sources, best first. `source.duration` is the one that actually
+ *  covers the corpus: the pipeline writes it from the Whisper pass for every
+ *  video it transcribes (fresh or cached), so it is present whenever a script
+ *  exists at all. `meta.duration` is yt-dlp's and is missing wherever
+ *  fetch_meta failed. Measured against the live database 2026-08-18:
+ *  19 of 23 distinct videos resolve a length this way.
+ *
+ *  0 is NOT a length. A video the pipeline never read has no duration, and
+ *  "0:00" would state a measurement we do not have. */
+function videoSeconds({ item, rec } = {}) {
+  for (const r of recordsForVideo({ item, rec })) {
+    const src = r.source || {};
+    const d = Number(src.duration) || Number((src.meta || {}).duration)
+      || Number((src.script || {}).duration);
+    if (d > 0) return d;
+  }
+  return 0;
+}
+
+/** THE VIDEO'S PUBLIC VIEW COUNT, same walk as videoSeconds and for the same
+ *  reason (fetch_meta writes onto one record per video, not all of them).
+ *
+ *  READ THIS BEFORE TRUSTING THE NUMBER. It is almost never there.
+ *  pipeline/process_adaptations.py's fetch_meta does
+ *  `int(d.get("view_count") or 0)`, so a missing count is stored as 0 rather
+ *  than as nothing — the field LOOKS populated everywhere. Measured against
+ *  the live database 2026-08-18: of 23 distinct videos, 15 carry a value and
+ *  13 of those are exactly 0; 2 are non-zero and one of those two is "27".
+ *  lynxr_sources agrees, 0 non-zero across all 27 rows. yt-dlp returns no
+ *  count at all for Instagram, which is most of the corpus.
+ *
+ *  So 0 is treated as ABSENT, not as a measurement, and the card renders
+ *  nothing rather than "0" or a dash. The slot is real and will fill itself
+ *  the day the number becomes real; today it is empty on almost every card. */
+function videoViews({ item, rec } = {}) {
+  for (const r of recordsForVideo({ item, rec })) {
+    const v = Number(((r.source || {}).meta || {}).views);
+    if (v > 0) return v;
+  }
+  return 0;
+}
+
+/** THE NUMBER ONLY — "1", "27", "12k", "1.2m". Nothing at all for 0, see
+ *  videoViews.
+ *
+ *  IT BRIEFLY CARRIED ITS OWN UNIT ("27 views"), because a bare small integer
+ *  beside a timestamp is unreadable: the owner's card came back as
+ *  `script ready  27  0:17` and the honest question was "what does the 27
+ *  mean". The unit is still there twice over — an eye icon for the eye, and the
+ *  word itself in the accessible name (see metaFactsHtml) — so the visible
+ *  string no longer has to repeat it.
+ *
+ *  Worth remembering that the fixtures which missed the original defect only
+ *  ever seeded 191k and 1.2m: magnitudes that self-describe because of the
+ *  suffix, while the ONE non-zero value in the real database is 27. A fixture
+ *  that exercises only the comfortable case proves nothing about the
+ *  uncomfortable one. */
+function viewsLabel(n) {
+  const v = Number(n) || 0;
+  if (v <= 0) return "";
+  if (v < 1000) return String(v);
+  /* 999500, not 1e6: at 999,999 the `k` branch rounds to 1000 and the label
+     came out "1000k". Anything that would round past 999k belongs a unit up. */
+  if (v < 999500) return `${(v / 1000).toFixed(v < 10000 ? 1 : 0)}k`.replace(".0k", "k");
+  return `${(v / 1e6).toFixed(1)}m`.replace(".0m", "m");
+}
+
+/** THE TWO FACTS UNDER A CARD'S TITLE — views, then length — as ONE group
+ *  pushed to the right of the row, with the status chip left against the other
+ *  edge. The gap between the two does the separating: left-packed, the whole
+ *  row clumped into the first third of the card and left dead space beside it,
+ *  and `27 0:17` read as a single run of characters.
+ *
+ *  One builder for both card kinds so a library tile and a brand-page tile can
+ *  never drift. Each fact is omitted entirely when we do not have it, so the
+ *  row is short and true rather than padded with dashes; in practice views is
+ *  empty on almost every card (see videoViews) and length is present on most.
+ *
+ *  NO SEPARATOR CHARACTER between the two. A middot lived here for one
+ *  revision, back when the row was left-packed and needed it; with the row
+ *  split and the eye anchoring the views, whitespace is enough — and
+ *  punctuation the eye does not need is punctuation a screen reader has to
+ *  skip. */
+function metaFactsHtml({ item, rec } = {}) {
+  const views = videoViews({ item, rec });
+  const v = viewsLabel(views);
+  const len = lengthLabel(videoSeconds({ item, rec }));
+  if (!v && !len) return "";
+  /* THE EYE IS THE UNIT, for sighted readers. It is the same lens-and-pupil the
+     gate's show-password toggle draws, so it is a shape already in this app
+     rather than a new one — two paths, which is all that survives at 13px.
+     It is aria-hidden and the WORD goes in the accessible name instead: an icon
+     is not a label. Singular matters there and only there, because 0 never
+     reaches this function and a compacted value is never 1. */
+  const eye = `<svg class="ico-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+      ><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  return `<span class="meta-facts">`
+    + (v ? `<span class="lib-stat lib-views">${eye}${escapeHtml(v)}<span class="sr-only"> ${
+        views === 1 ? "view" : "views"}</span></span>` : "")
+    + (len ? `<span class="lib-stat lib-len"><span class="sr-only">Length </span>${escapeHtml(len)}</span>` : "")
+    + `</span>`;
+}
+
+/** THE WAY OUT TO THE ORIGINAL VIDEO. Off the cover and into the meta row, so
+ *  the cover carries exactly one badge.
+ *
+ *  The accessible name is where the platform went when the chip was removed:
+ *  "Open the original video on TikTok" costs no pixels and keeps the one fact
+ *  the card no longer states out loud. `title` matches it for a mouse. The ↗
+ *  is aria-hidden so the glyph is not read as a character on top of the name.
+ *  Its hit area is CSS's problem — see .bp-open in the grid section. */
+function openOriginalHtml(href, platform) {
+  const where = platform && platform !== "Link" ? ` on ${platform}` : "";
+  const label = `Open the original video${where}`;
+  return `<a class="bp-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
+    title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"><span aria-hidden="true">↗</span></a>`;
+}
+
+/** m:ss. Rounded BEFORE the split, or a 59.7-second video reads "0:60". */
+function lengthLabel(seconds) {
+  const t = Math.round(Number(seconds) || 0);
+  if (t <= 0) return "";
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 }
 
 /** What a saved VIDEO is called. */
@@ -4643,7 +4966,8 @@ function adaptationHtml(a, liveName, opts = {}) {
   return `<details class="bp-item ${statusClass}"${justReady || forceOpen || isWriting(a) ? " open" : ""} data-adid="${id}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
-      ${nested ? "" : thumbHtml((a.source || {}).cover, entryLabel(a), a.sourceUrl)}
+      ${nested ? "" : thumbHtml((a.source || {}).cover, entryLabel(a), a.sourceUrl,
+        { tile: true, kind: platformLabel(a.sourceUrl || "") })}
       ${/* Same resolver the Trash view uses: prefers the live library entry's
             caption, falls back to the platform wording, never a permalink. */""}
       ${/* Under `asOriginal` the record's brand is irrelevant — the card is
@@ -4656,12 +4980,20 @@ function adaptationHtml(a, liveName, opts = {}) {
             describing, under an entry whose own chip already counts it — three
             ways of saying the same thing. Writing and error chips STAY: those
             say something the collapsed card otherwise cannot. */""}
+      ${/* THE STATUS CHIP. On a tile CSS lifts this onto the cover as the one
+            badge it carries, at the top right — the same rule that does it for
+            a library card, widened rather than copied. Seven faces reach it
+            (see `chip` above): couldn't fetch / couldn't write (red), writing
+            your script (grey + dot), original script and script ready (green),
+            poor fit (plain), no script (red). All of them move together, and
+            no count is invented for a card that is one script. */""}
       ${nested && a.status === "done" ? "" : chip}
+      ${nested ? "" : metaFactsHtml({ rec: a })}
       ${/* Same for the timestamp: the entry above carries the video's own. */""}
       ${nested ? "" : `<span class="bp-when">${escapeHtml(agoLabel(a.addedAt))}</span>`}
       ${/* The ↗ is the parent entry's link too when nested — same video, same
             URL — so it only appears on a standalone card. */""}
-      ${href && !nested ? `<a class="bp-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="Open the original">↗</a>` : ""}
+      ${href && !nested ? openOriginalHtml(href, platformLabel(a.sourceUrl || "")) : ""}
     </summary>
     <div class="bp-body">${body}${deleteBtn}</div>
   </details>`;
@@ -4697,7 +5029,49 @@ function renderScripts(b) {
   // page never triggered it, so a standalone card could only heal by
   // visiting another view.
   hydrateStale();
-  host.innerHTML = `<div class="bp-list">${list.map((a) => adaptationHtml(a, b.name)).join("")}</div>`;
+  /* The bar is rendered ONCE and the grid repainted underneath it. Rebuilding
+     the <input> on every keystroke is what the Library's own re-focus dance
+     exists to paper over; not rebuilding it is better than repairing it. */
+  host.innerHTML = `
+    ${list.length >= LIB_SEARCH_AT ? findBarHtml({
+      id: "ad", q: AD_Q, sort: AD_SORT, sorts: ["new", "old", "az"],
+      placeholder: "search titles, hooks, captions", brief: "search scripts",
+      what: "scripts",
+    }) : ""}
+    <div id="ad-grid"></div>`;
+  wireFindBar("ad", () => paintScriptGrid(b),
+    (v) => { AD_Q = v; }, (v) => { AD_SORT = v; });
+  paintScriptGrid(b);
+}
+
+/** Just the grid — so a keystroke in the search box does not rebuild the box
+    underneath the cursor. Same split as renderLibrary / paintLibraryList. */
+function paintScriptGrid(b) {
+  const host = document.getElementById("ad-grid");
+  if (!host) return;
+  const all = brandScripts(b);
+  const q = AD_Q.trim();
+  const shown = findSort(
+    q ? all.filter((a) => findMatch(scriptHay(a), q)) : all,
+    AD_SORT, (a) => entryLabel(a));
+
+  const count = document.getElementById("ad-count");
+  if (count) count.textContent = shown.length === all.length ? "" : `${shown.length} of ${all.length}`;
+
+  if (!shown.length) {
+    host.innerHTML = findEmptyHtml(q, "ad");
+    const clear = document.getElementById("ad-clear");
+    if (clear) clear.addEventListener("click", () => {
+      AD_Q = "";
+      const box = document.getElementById("ad-q");
+      if (box) { box.value = ""; box.focus(); }
+      paintScriptGrid(b);
+    });
+    return;
+  }
+
+  host.innerHTML = `<div class="bp-list script-grid">${
+    shown.map((a) => adaptationHtml(a, b.name)).join("")}</div>`;
   wireAdaptationCards(host);
   paintEta(host);          // etaBlockHtml only ships the skeleton — see paintEta
 }
@@ -4706,10 +5080,86 @@ function renderScripts(b) {
    rendered into. Extracted from renderScripts because the Library renders
    cards too: an ORIGINAL script belongs to no brand, so no brand page can list
    it, and before this it was written, stored, and visible nowhere. */
+/** THE SCROLLER, found rather than assumed. It is NOT the same element at every
+ *  width: .pane-scroll carries overflow-y:auto, but on a phone .shell is a
+ *  column with no height cap, so that box never actually scrolls
+ *  (scrollHeight === clientHeight) and the DOCUMENT does — the same fact that
+ *  forced .pane-head to position:static under 820px. Testing for a box that
+ *  really scrolls covers both without hardcoding the breakpoint a third time. */
+function scrollerFor(el) {
+  for (let n = el.parentElement; n; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 1) return n;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+
+/** Bring an opened card's top edge to the top of the viewport.
+ *
+ *  Owner, 2026-08-18: "when i open a script have it auto scroll to the top of
+ *  the expanded card". It replaces a `scrollIntoView({block:"nearest"})` that
+ *  only nudged a card far enough to be visible — which left the header halfway
+ *  up the screen with the script running off the bottom.
+ *
+ *  MEASURED AFTER THE REFLOW, NEVER BEFORE. Opening a card sets
+ *  `grid-column: 1 / -1` on it, which re-flows every tile after it and changes
+ *  the card's own height and position; and the one-open-at-a-time handler may
+ *  CLOSE a card above it in the same tick, moving it up by a whole row. A
+ *  target computed at click time is wrong by more the further down the grid the
+ *  card sits. Reading the rect inside rAF forces layout first, so the number is
+ *  the post-open one.
+ *
+ *  THE STICKY HEADER IS AN OFFSET ONLY WHERE IT IS STICKY. .pane-head pins to
+ *  the top on desktop and is static under 820px, so the card lands below it on
+ *  one and flush to the viewport on the other. Asked of the computed style
+ *  rather than of the viewport width, so it cannot drift from the CSS.
+ *
+ *  A card near the bottom cannot put its top at the top — there is not enough
+ *  document beneath it. scrollTo clamps to the maximum on its own, which is
+ *  exactly "as far as possible"; no special case, and no fight with the
+ *  container. */
+function scrollCardToTop(card) {
+  const scroller = scrollerFor(card);
+  const head = document.querySelector(".pane-head");
+  const offset = head && getComputedStyle(head).position === "sticky"
+    ? Math.round(head.getBoundingClientRect().height) : 0;
+  const isDoc = scroller === document.scrollingElement || scroller === document.documentElement;
+  const base = isDoc ? 0 : scroller.getBoundingClientRect().top;
+  const top = scroller.scrollTop + card.getBoundingClientRect().top - base - offset;
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  scroller.scrollTo({ top: Math.max(0, Math.round(top)), behavior: still ? "auto" : "smooth" });
+}
+
+/** Wire that scroll onto a genuine open, and onto nothing else.
+ *
+ *  ON CLICK, NEVER ON `toggle`. A <details open> inserted by innerHTML fires
+ *  toggle on insertion — measured in this file, and the reason wireAdaptation
+ *  Cards' one-at-a-time handler is written the way it is. A toggle-based
+ *  version of this would yank the page every time the grid repainted: on every
+ *  keystroke in the search box, on every ETA tick of a writing card, and on
+ *  every restoreDisclosures() after a live-sync repaint. A click is a person.
+ *  Enter and Space on a focused <summary> dispatch one too, so the keyboard is
+ *  covered and the auto-opening writing card is not.
+ *
+ *  AND ONLY WHEN IT OPENED. The same summary click closes the card, and
+ *  collapsing must leave the page exactly where it is — so the rAF re-checks
+ *  `card.open` rather than assuming the click meant "open". */
+function keepInView(host) {
+  if (!host) return;
+  host.querySelectorAll(".script-grid > details.bp-item > summary")
+    .forEach((sum) => sum.addEventListener("click", (e) => {
+      if (e.target.closest("a")) return;            // the ↗ goes somewhere else
+      const card = sum.parentElement;
+      requestAnimationFrame(() => {
+        if (card.open) scrollCardToTop(card);
+      });
+    }));
+}
+
 function wireAdaptationCards(host) {
   if (!host) return;
+  keepInView(host);
   stopSummaryLinks(host);
-
   host.querySelectorAll(".ad-prompt").forEach((btn) => btn.addEventListener("click", () => {
     const a = (ME.adaptations || []).find((x) => x.id === btn.dataset.adid);
     if (a) openPrompter(a);

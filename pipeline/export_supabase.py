@@ -25,6 +25,8 @@ import sys
 import urllib.error
 import urllib.request
 
+import envcfg  # the one place a secret or config value is read; see its docstring.
+
 # macOS system Python often ships without a usable CA bundle, so verify against
 # certifi's instead of disabling verification.
 try:
@@ -172,8 +174,9 @@ def main():
         write_sql(rows, args.sql)
         return
 
-    key = load_env(os.path.join(ROOT, ".env")).get("SUPABASE_SERVICE_ROLE_KEY") \
-        or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY",
+                        load_env(os.path.join(ROOT, ".env")).get("SUPABASE_SERVICE_ROLE_KEY"),
+                        os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
     if not key:
         sys.exit("SUPABASE_SERVICE_ROLE_KEY not set in .env — add it (Dashboard -> "
                  "Settings -> API keys) or use --sql for a paste-into-dashboard file.")

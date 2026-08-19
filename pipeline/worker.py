@@ -77,6 +77,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # runs logging.basicConfig and mkdir("output/") as import-time side effects,
 # which is exactly why run_pass() below runs it as a subprocess instead.
 import watchdog
+import envcfg
 
 ROOT = Path(__file__).resolve().parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
@@ -215,7 +216,11 @@ def watchdog_loop(key):
     watchdog.run_once() every SECOND tick (120s): the Fly worker is fast
     (the probe above finds work in ~2s), so a 120s alarm cadence is plenty,
     and it is what makes worker-down structurally impossible to raise from
-    THIS side (see watchdog.check_all's comment on that).
+    THIS side (see watchdog.check_all's comment on that) — now ENFORCED by
+    passing role="fly" below, not merely implied by the ordering of the
+    heartbeat write. role="fly" also means this caller never reads
+    fallback.heartbeat for an alarm — only watchdog.digest() ever puts it on
+    the phone, in the daily digest's sources line.
 
     COST NOTE: run_once() still re-pulls every creator's whole row (measured
     101,626 bytes / 887ms at three creators, worse now — see
@@ -236,7 +241,7 @@ def watchdog_loop(key):
         try:
             watchdog.beat(key)
             if tick % 2 == 1:
-                watchdog.run_once(key, beat=True)
+                watchdog.run_once(key, beat=True, role="fly")
         except Exception as e:  # noqa: BLE001
             log.warning("watchdog tick failed: %s", str(e)[:120])
         tick += 1
@@ -270,7 +275,12 @@ def main():
     args, passthrough = ap.parse_known_args()   # anything else goes to the worker
 
     load_env(ROOT / ".env")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    envcfg.sanitize_environ()
+    try:
+        key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY",
+                            os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+    except ValueError as e:
+        sys.exit(str(e))
     if not key:
         sys.exit("SUPABASE_SERVICE_ROLE_KEY not set (not in the environment or .env)")
 
@@ -346,8 +356,20 @@ def main():
             # reasons to run the full pass on schedule anyway: it does its own
             # discovery, and it is what picks up error retries and claims
             # abandoned by a killed run.
+            #
+            # This sweep is now ALSO the metrics tick: --refresh-views only
+            # fires when process_adaptations.py's own pass finds nothing
+            # queued (its idle branch), so passing it here costs a busy
+            # system nothing and only ever runs on the branch that was
+            # already idle. The queued-work branch above stays plain
+            # `passthrough` on purpose — a pass triggered by a real paste
+            # must never refresh (Assumption 3): the GitHub fallback loop
+            # runs the same script every ~60s in parallel, and letting both
+            # refresh would double the requests and put two processes into
+            # the same read-modify-write on lynxr_creators. Only the Fly
+            # worker's sweep asks for it.
             log.info("periodic sweep")
-            run_pass(passthrough)
+            run_pass(passthrough + ["--refresh-views"])
             last_sweep = time.time()
             idle_logged = False
         elif ids is None:

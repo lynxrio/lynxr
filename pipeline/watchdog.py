@@ -13,7 +13,15 @@ Every one was found by a human querying by hand, usually long after it
 started costing something.
 
 This module reads the database (never writes anything a creator can see) and
-tells the owner when one of a fixed set of failure SHAPES shows up:
+tells the owner when one of a fixed set of failure SHAPES shows up. THE RULE,
+in the owner's own words: page only for something that would need his
+attention — a creator affected, or about to be. Do not page for a redundancy
+failure that a creator never felt (a double-bill that still delivered a
+script, an analytics sensor going quiet). Every alarm below therefore carries
+a `page` bit; `page: False` alarms still fire and still get carried — just
+into the once-daily digest, never onto the phone.
+
+PAGES THE PHONE (page: True):
 
     inflight:<id8>    a script stuck queued/running past 10 minutes
     inflight:many     more than 3 stuck at once (collapsed into one page)
@@ -23,21 +31,52 @@ tells the owner when one of a fixed set of failure SHAPES shows up:
                       permanent platform wall does NOT page here, see below
     fetch-wall:burst  3+ DISTINCT source videos refused to download inside 6h
                       — suspect a yt-dlp extractor break, not one bad link
-    rerun:<id8>       an entry that finished with beats and was then claimed
-                      AGAIN (explicit marker)
-    sources-stalled   scripts finishing but lynxr_sources not growing
-    softfail:<sub>    a soft failure (source_upsert/video_upsert/cover/meta)
-                      hit on 3+ of the last 5 finished scripts
-    worker-down       the Fly worker's heartbeat has gone quiet
     spend-24h         process_adaptations.py's --daily-cap circuit breaker has
                       tripped — the worker is refusing ALL new work, so a
                       quiet queue means "capped", not "healthy"
+    worker-down       tri-state, keyed on whether the github fallback loop is
+                      covering (see below) — priority 3 ("fly down, github
+                      covering" — degraded, not down, but no redundancy left),
+                      priority 5 ("nothing is writing scripts" — both down),
+                      or priority 4 ("heartbeat missing, fallback status
+                      unknown" — cannot tell, today's original wording)
+    ci-unverified     a GitHub job that keeps lynxr running failed AND
+                      lynxr_ops itself was not readable, so this module
+                      cannot tell whether Fly is covering either (see
+                      ci_failure_verdict())
+
+DIGEST ONLY (page: False) — still reported, once a day, in digest()'s
+"quiet:" line, never on the phone:
+
+    rerun:<id8>       an entry that finished with beats and was then claimed
+                      AGAIN (explicit marker) — a double-bill, but the
+                      creator still got their script either way. What goes
+                      unnoticed longer: nothing creator-facing — spend-24h
+                      (which still pages) and the per-creator allowance
+                      ledger both still bound total cost.
+    sources-stalled   scripts finishing but lynxr_sources not growing — costs
+                      the agency's sourcing signal (lynxr_sources, HANDOFF's
+                      "moat"), never a creator's script.
+    softfail:<sub>    a soft failure (source_upsert/video_upsert/cover/meta)
+                      hit on 3+ of the last 5 finished scripts — worst visible
+                      outcome is a library card with a generic title or no
+                      thumbnail, on a script that was still delivered.
 
 p95 latency is DELIBERATELY not here — it lives in the daily digest instead.
 The watchdog's first-ever run failed on `p95 1548s > 60s`, and at n=7 samples
 p95 IS the worst sample, so one historical incident would pin a p95-based
 pager red for 24h on an otherwise healthy system. A pager that is always red
 gets muted, which is worse than no pager.
+
+TWO EXTERNAL CALLERS, not one — worker-down is NOT structurally exclusive to
+the GitHub fallback loop any more. `.github/workflows/adaptations.yml`'s
+polling loop (`--as-fallback`) is the primary one, and it also writes
+`fallback.heartbeat`, which is what lets worker-down tell "fly down, github
+covering" apart from "nothing is writing scripts". `.github/workflows/
+latency-watch.yml` is a SECOND external caller (plain `--once`, no
+`--as-fallback` — an observer, not a worker, so it never claims to cover
+anything). The Fly-side caller (`role="fly"`, from worker.py) can never raise
+worker-down at all, by construction — see check_all()'s comment on that.
 
 NOTHING HERE MAY RAISE INTO A SCRIPT'S CRITICAL PATH. `notify()`, `ops_get`/
 `ops_put`/`ops_del`, and `run_once()` all catch Exception and keep going. A
@@ -62,6 +101,11 @@ Usage:
     python watchdog.py --digest          # force the daily digest now
     python watchdog.py --json            # machine-readable
     python watchdog.py --self-test       # prove the channel + latch both work
+    python watchdog.py --once --as-fallback  # THIS process IS the github fallback
+                                              # loop — writes fallback.heartbeat
+    python watchdog.py --ci-failed       # a github job that keeps lynxr running
+                                          # just failed; page only if a creator
+                                          # is actually affected (always exits 0)
 
 Never exits non-zero on a breach — see main(). A workflow that goes red on a
 single noisy sample gets muted; that is exactly the mistake latency-watch.yml
@@ -83,6 +127,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import latency_report as LR  # noqa: E402 — reused for fetch_rows/load_env/build_report/parse_iso.
+import envcfg  # noqa: E402 — the one place a secret or config value is read; see its docstring.
 # NEVER `import process_adaptations` here. That module runs logging.basicConfig
 # and mkdir("output/") as import-time side effects — the trap already recorded
 # for process_blueprints.py, and the reason canon_url is duplicated rather than
@@ -109,7 +154,10 @@ INFLIGHT_SLA = 600            # 10min = 2.6x measured p90 (229s); every real
 INFLIGHT_MANY = 3             # more than this in one tick collapses into inflight:many
 EMPTY_SCRIPT_WINDOW_S = 24 * 3600
 GAVE_UP_WINDOW_S = 24 * 3600
-RERUN_WINDOW_S = 24 * 3600
+RERUN_WINDOW_S = 48 * 3600     # widened from 24h — this is now a DIGEST line
+                               # (Step 7), and the digest fires once a day, so a
+                               # 24h window let a rerun that happened 25h before
+                               # the digest go unreported by anything at all.
 FETCH_WALL_MIN = 3            # this many DISTINCT source videos refusing...
 FETCH_WALL_WINDOW_H = 6       # ...inside this window = a systemic fetch break
 SOURCES_STALL_MIN = 3         # this many finished-with-source in the window...
@@ -118,12 +166,16 @@ SOFTFAIL_LAST_N = 5
 SOFTFAIL_THRESHOLD = 3
 WORKER_DOWN_MINUTES = 5       # heartbeat every 60s (worker.py) tolerates 5 misses —
                                # more than kill_timeout="300s" plus a cold boot.
+FALLBACK_COVER_MINUTES = 15   # a fly deploy (strategy="immediate", kill_timeout
+                               # 300s) plus a cold boot is ~3min; 15 is well
+                               # clear of that and far short of an outage worth
+                               # being woken for.
 LATCH_REMIND_HOURS = 24       # how long an open alarm stays quiet before a reminder
-DIGEST_HOUR_UTC = int(os.environ.get("DIGEST_HOUR_UTC", "15"))
+DIGEST_HOUR_UTC = int(envcfg.get("DIGEST_HOUR_UTC", "15"))
 # Same default and same env var process_adaptations.py's --daily-cap reads —
 # so the breaker that refuses work and the alarm that pages about it can
 # never disagree on where the line is.
-DAILY_SCRIPT_CAP = int(os.environ.get("DAILY_SCRIPT_CAP", 250))
+DAILY_SCRIPT_CAP = int(envcfg.get("DAILY_SCRIPT_CAP", "250"))
 
 SOFTFAIL_SUBSYSTEMS = ("source_upsert", "video_upsert", "cover", "meta")
 
@@ -164,8 +216,9 @@ def notify(title, body, priority=4, tags="rotating_light"):
     and returns False on any failure, including "no topic configured"."""
     global _warned
     env = LR.load_env(LR.ROOT / ".env")
-    topic = os.environ.get("NTFY_TOPIC") or env.get("NTFY_TOPIC")
-    server = os.environ.get("NTFY_SERVER") or env.get("NTFY_SERVER") or "https://ntfy.sh"
+    topic = envcfg.first(os.environ.get("NTFY_TOPIC"), env.get("NTFY_TOPIC"))
+    server = envcfg.first(os.environ.get("NTFY_SERVER"), env.get("NTFY_SERVER"),
+                          default="https://ntfy.sh")
     if not topic:
         if not _warned:
             log.warning("NTFY_TOPIC not set — alarms will not reach the phone")
@@ -272,7 +325,19 @@ def _list_open_alarms(key):
 
 def raise_alarm(key, alarm_key, title, body, priority=4, tags="rotating_light"):
     """Notify once per open episode; a reminder after LATCH_REMIND_HOURS if it
-    is still open; silent otherwise."""
+    is still open; an immediate re-page if it got WORSE (priority increased)
+    even inside that quiet window; silent otherwise.
+
+    The escalation branch exists because of Step 8's tri-state worker-down:
+    an open episode can silently go from priority 3 ("fly down, github
+    covering") to priority 5 ("nothing is writing scripts") while sharing one
+    latch key, and without this the phone would stay quiet for up to
+    LATCH_REMIND_HOURS while the true state got much worse.
+
+    Existing latches carry no "priority" key, so `int(None or 0)` is 0 and the
+    first tick after this deploys re-pages any alarm that is currently open —
+    a one-time, harmless cost: `--dry-run --json` prints [] today, so zero
+    alarms are open to re-page."""
     opskey = f"alarm.{alarm_key}"
     now = datetime.now(timezone.utc)
     latch = ops_get(key, opskey)
@@ -282,7 +347,15 @@ def raise_alarm(key, alarm_key, title, body, priority=4, tags="rotating_light"):
     if not value.get("open"):
         notify(title, body, priority=priority, tags=tags)
         ops_put(key, opskey, {"open": True, "opened_at": now_s,
-                              "notified_at": now_s, "reminders": 0})
+                              "notified_at": now_s, "reminders": 0,
+                              "priority": priority})
+        return
+
+    if priority > int(value.get("priority") or 0):
+        notify(f"worse — {title}", body, priority=priority, tags=tags)
+        value["notified_at"] = now_s
+        value["priority"] = priority
+        ops_put(key, opskey, value)
         return
 
     notified_at = LR.parse_iso(value.get("notified_at"))
@@ -312,16 +385,22 @@ def clear_alarm(key, alarm_key, note):
 # 3c. check_all() — pure, no network, no Supabase
 # =============================================================================
 
-def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
+def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
+              role="external", fallback_alive=None):
     """The list of currently-breached invariants, each a dict with keys
-    "key", "title", "body", "priority", "tags". A pure function of its
-    arguments — same reason LR.build_report is pure: it has to be testable
-    without a network call, and this plan exists precisely because a
+    "key", "title", "body", "priority", "tags", "page". A pure function of
+    its arguments — same reason LR.build_report is pure: it has to be
+    testable without a network call, and this plan exists precisely because a
     documented alarm (`SLA BREACH` in fly logs) turned out never to have been
     built, so the detector itself has to be provably real.
 
     `charges_24h` defaults to 0 (never fires) so every existing caller that
-    does not pass it keeps working unchanged."""
+    does not pass it keeps working unchanged.
+
+    `role` and `fallback_alive` default to today's behaviour too (every
+    existing test call and latency-watch.yml's plain `--once` unaffected):
+    `role="external"` runs the worker-down check as before, and
+    `fallback_alive=None` produces the "fallback status unknown" wording."""
     now = now or datetime.now(timezone.utc)
     alarms = []
 
@@ -333,10 +412,10 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
     if DAILY_SCRIPT_CAP and charges_24h >= DAILY_SCRIPT_CAP:
         alarms.append({
             "key": "spend-24h",
-            "title": f"{charges_24h} scripts charged in 24h",
-            "body": (f"{charges_24h} scripts charged in 24h (cap {DAILY_SCRIPT_CAP}) "
-                     "— worker is refusing new work"),
-            "priority": 4, "tags": "rotating_light",
+            "title": "no new scripts — 24h cap reached",
+            "body": (f"{charges_24h} scripts charged in 24h (cap {DAILY_SCRIPT_CAP}). "
+                     "the worker is refusing every new paste until this clears."),
+            "priority": 4, "tags": "rotating_light", "page": True,
         })
 
     # ---- inflight:<id8> / inflight:many --------------------------------
@@ -351,7 +430,7 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
             "title": f"{len(breaches)} scripts stuck over {INFLIGHT_SLA}s",
             "body": (f"{len(breaches)} entries queued/running past {INFLIGHT_SLA}s. "
                      "./venv/bin/python pipeline/latency_report.py --since 24h --sla 60"),
-            "priority": 4, "tags": "rotating_light",
+            "priority": 4, "tags": "rotating_light", "page": True,
         })
     else:
         for b in breaches:
@@ -360,7 +439,7 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
                 "key": f"inflight:{id8}",
                 "title": f"script stuck {b['age']:.0f}s",
                 "body": f"status={b['status']} age={b['age']:.0f}s (budget {INFLIGHT_SLA}s). fly logs",
-                "priority": 4, "tags": "rotating_light",
+                "priority": 4, "tags": "rotating_light", "page": True,
             })
 
     # ---- everything else needs the raw entries, not just build_report's
@@ -386,7 +465,7 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
                     "key": f"empty-script:{aid8}",
                     "title": "done with zero beats",
                     "body": f"adaptation {aid8} finished with a brand and no beats. fly logs",
-                    "priority": 4, "tags": "rotating_light",
+                    "priority": 4, "tags": "rotating_light", "page": True,
                 })
 
             # ---- gave-up:<id8> ---------------------------------------------
@@ -408,7 +487,7 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
                              f"kind={(a.get('aiFail') or {}).get('kind')} "
                              f"tries={(a.get('aiFail') or {}).get('tries')} "
                              f"passes={a.get('passes')}. fly logs"),
-                    "priority": 4, "tags": "rotating_light",
+                    "priority": 4, "tags": "rotating_light", "page": True,
                 })
 
             # ---- fetch-wall:burst (accumulate; alarm raised after the loop) -
@@ -434,6 +513,11 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
             # a 600s budget) instead of after the second bill.
             rerun = a.get("rerun") or {}
             rerun_at = LR.parse_iso(rerun.get("at"))
+            # DIGEST ONLY (Step 7): a double-bill, but the creator still got
+            # their script either way — not the "would need my attention"
+            # shape. Still bounded by spend-24h (which still pages) and the
+            # per-creator allowance ledger; still visible daily in the
+            # digest's "quiet:" line.
             if rerun and (rerun_at is None
                           or (now - rerun_at).total_seconds() <= RERUN_WINDOW_S):
                 alarms.append({
@@ -443,7 +527,7 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
                              f"prevProcessedAt={rerun.get('prevProcessedAt')} "
                              f"beats={rerun.get('beats')}. "
                              "./venv/bin/python pipeline/latency_report.py --since 24h --sla 60"),
-                    "priority": 4, "tags": "rotating_light",
+                    "priority": 2, "tags": "heavy_dollar_sign", "page": False,
                 })
 
     # ---- fetch-wall:burst --------------------------------------------------
@@ -465,10 +549,14 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
             "body": (f"{len(fetch_walls)} distinct source videos failed to download "
                      f"in {FETCH_WALL_WINDOW_H}h — suspect a yt-dlp extractor break. "
                      "fly logs"),
-            "priority": 4, "tags": "rotating_light",
+            "priority": 4, "tags": "rotating_light", "page": True,
         })
 
     # ---- sources-stalled --------------------------------------------------
+    # DIGEST ONLY (Step 7): the analytics sensor going quiet costs the agency's
+    # sourcing signal (lynxr_sources, HANDOFF's "moat"), not any creator — no
+    # script is affected. Still visible daily via the digest's "quiet:" line
+    # and the "sources N total" count flatlining across consecutive digests.
     cutoff = now - timedelta(hours=SOURCES_STALL_WINDOW_H)
     finished_with_source = sum(
         1 for processed, a in finished if processed >= cutoff and a.get("sourceUrl"))
@@ -479,10 +567,13 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
             "body": (f"{finished_with_source} adaptations finished in "
                      f"{SOURCES_STALL_WINDOW_H}h with a source, 0 new lynxr_sources rows. "
                      "flyctl logs"),
-            "priority": 4, "tags": "rotating_light",
+            "priority": 2, "tags": "chart_with_downwards_trend", "page": False,
         })
 
     # ---- softfail:<subsystem> ---------------------------------------------
+    # DIGEST ONLY (Step 7): the script was still delivered — worst case is a
+    # library card with a generic title or no thumbnail. Still visible daily
+    # via the digest's "quiet:" line.
     finished.sort(key=lambda t: t[0])
     last_n = [a for _, a in finished[-SOFTFAIL_LAST_N:]]
     if last_n:
@@ -494,25 +585,61 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0):
                     "title": f"{subsystem} failing repeatedly",
                     "body": (f"{hits}/{len(last_n)} of the last finished scripts carry "
                              f"softFails.{subsystem}. fly logs"),
-                    "priority": 4, "tags": "rotating_light",
+                    "priority": 2, "tags": "warning", "page": False,
                 })
 
     # ---- worker-down --------------------------------------------------------
-    # STRUCTURALLY, only the GitHub-side caller can ever fire this one: the
-    # Fly-side caller writes worker.heartbeat immediately before checking
-    # (run_once(beat=True)), so it can never observe its own heartbeat as
-    # stale. That is the single most important property of the whole design —
-    # the dead-man's switch has to live somewhere Fly dying cannot silence it.
-    stale = worker_seen_at is None or (now - worker_seen_at).total_seconds() > WORKER_DOWN_MINUTES * 60
-    if stale:
-        age = "never seen" if worker_seen_at is None else \
-            f"{(now - worker_seen_at).total_seconds():.0f}s ago"
-        alarms.append({
-            "key": "worker-down",
-            "title": "worker heartbeat missing",
-            "body": f"worker.heartbeat last seen {age} (budget {WORKER_DOWN_MINUTES}min). flyctl status",
-            "priority": 4, "tags": "rotating_light",
-        })
+    # Evaluated only when role != "fly". The Fly-side caller writes
+    # worker.heartbeat immediately before checking (run_once(beat=True)), so
+    # it can never observe its own heartbeat as stale — that property is the
+    # whole dead-man's switch, and this now enforces it with `role` instead of
+    # relying on the ordering to make it accidental.
+    #
+    # ONE KEY for all three variants below, deliberately: the latch is one
+    # episode and self-resolves the moment Fly comes back, rather than three
+    # keys that could each be independently open. raise_alarm's escalation
+    # branch (Step 9) is what keeps a worsening state audible even though the
+    # key never changes.
+    if role != "fly":
+        stale = worker_seen_at is None or (now - worker_seen_at).total_seconds() > WORKER_DOWN_MINUTES * 60
+        if stale:
+            age = "never seen" if worker_seen_at is None else \
+                f"{(now - worker_seen_at).total_seconds():.0f}s ago"
+            if fallback_alive is True:
+                # Degraded, not down: scripts are still written, just slower
+                # (cold Whisper, ~3h best-effort scheduling, a 180s hand-off) —
+                # and there is no second worker left, so the next failure is a
+                # total outage. That is "would need my attention", but a
+                # priority-3 page still makes a sound rather than the full
+                # rotating_light treatment.
+                alarms.append({
+                    "key": "worker-down",
+                    "title": "fly worker down — github fallback covering",
+                    "body": (f"worker.heartbeat last seen {age} (budget {WORKER_DOWN_MINUTES}min). "
+                             "scripts still get written, but slower — cold whisper, "
+                             "best-effort scheduling measured at ~3h gaps, and a 180s "
+                             "hand-off. no second worker left. flyctl status"),
+                    "priority": 3, "tags": "warning", "page": True,
+                })
+            elif fallback_alive is False:
+                alarms.append({
+                    "key": "worker-down",
+                    "title": "NOTHING is writing scripts",
+                    "body": (f"worker.heartbeat last seen {age} (budget {WORKER_DOWN_MINUTES}min), "
+                             "and the github fallback has not checked in either. every "
+                             "pasted link is stuck. flyctl status + github actions"),
+                    "priority": 5, "tags": "rotating_light", "page": True,
+                })
+            else:
+                # fallback_alive is None — cannot tell. Today's wording,
+                # extended to say so, rather than guessing either direction.
+                alarms.append({
+                    "key": "worker-down",
+                    "title": "worker heartbeat missing",
+                    "body": (f"worker.heartbeat last seen {age} (budget {WORKER_DOWN_MINUTES}min). "
+                             "fallback status unknown. flyctl status"),
+                    "priority": 4, "tags": "rotating_light", "page": True,
+                })
 
     return alarms
 
@@ -525,15 +652,19 @@ def _fmt_s(val):
     return f"{val:.0f}s" if val is not None else "—"
 
 
-def digest(rows, sources_total, worker_seen_at, now, open_alarms=None):
+def digest(rows, sources_total, worker_seen_at, now, open_alarms=None, fallback_seen_at=None):
     """One daily message, priority 2 (arrives without a sound). THE DIGEST IS
     WHAT MAKES SILENCE MEAN SOMETHING — without a daily "all good" the owner
     cannot tell a healthy system from a dead alarm.
 
-    `open_alarms`, when given, is the list check_all() returned this tick —
-    it is what lets the digest say "open alarms: none" instead of just
-    latency numbers, so a quiet system reads as verifiably quiet rather than
-    merely unmeasured.
+    `open_alarms`, when given, is the FULL list check_all() returned this
+    tick — paging AND digest-only. Line 4 narrows to paging alarms (what the
+    owner already knows about, since those already paged); the new line 5 is
+    the ONLY place a digest-only alarm (rerun:*, sources-stalled, softfail:*)
+    is ever reported, so it must not be dropped.
+
+    `fallback_seen_at`, when given, extends the sources line with the
+    GitHub-fallback heartbeat alongside the Fly one.
     """
     report = LR.build_report(rows, "24h", 60, now=now)
     if report["n"]:
@@ -547,7 +678,9 @@ def digest(rows, sources_total, worker_seen_at, now, open_alarms=None):
         line1, line2 = "24h: 0 scripts", ""
     worker_txt = "never seen" if worker_seen_at is None else \
         f"{(now - worker_seen_at).total_seconds():.0f}s ago"
-    line3 = f"sources {sources_total} total · worker seen {worker_txt}"
+    fallback_txt = "fallback never seen" if fallback_seen_at is None else \
+        f"fallback {(now - fallback_seen_at).total_seconds():.0f}s ago"
+    line3 = f"sources {sources_total} total · worker seen {worker_txt} · {fallback_txt}"
     # ---- quality: thin scripts and give-ups, quiet — a signal, not an outage.
     # Same "fails loud" rule the alarms above use: a missing timestamp counts
     # as inside the window rather than being silently excluded.
@@ -567,10 +700,14 @@ def digest(rows, sources_total, worker_seen_at, now, open_alarms=None):
     line3_notes = "notes: clean" if not hits else \
         f"notes: {len(hits)} with raw text ({', '.join(hits[:5])})"
     if open_alarms:
-        line4 = "open alarms: " + ", ".join(sorted(a.get("key", "?") for a in open_alarms))
+        paging = sorted(a["key"] for a in open_alarms if a.get("page", True))
+        line4 = "open alarms: " + ", ".join(paging) if paging else "open alarms: none"
+        quiet = sorted(a["key"] for a in open_alarms if not a.get("page", True))
+        line5 = "quiet: " + ", ".join(quiet) if quiet else ""
     else:
         line4 = "open alarms: none"
-    return "\n".join(x for x in (line1, line2, line3, line_quality, line3_notes, line4) if x)
+        line5 = ""
+    return "\n".join(x for x in (line1, line2, line3, line_quality, line3_notes, line4, line5) if x)
 
 
 # =============================================================================
@@ -595,6 +732,28 @@ def _worker_seen_at(key):
     if not latch:
         return None
     return LR.parse_iso(latch.get("updated_at"))
+
+
+def _fallback_seen_at(key):
+    """Mirrors _worker_seen_at, against the second lynxr_ops key the
+    fallback loop (--as-fallback) writes every ~60s."""
+    latch = ops_get(key, "fallback.heartbeat")
+    return LR.parse_iso(latch.get("updated_at")) if latch else None
+
+
+def _fallback_alive(seen_at, now, role):
+    """Tri-state, and the third state matters. True: covering. False:
+    measured quiet. None: cannot tell — no row, or lynxr_ops unreadable.
+    None must never escalate to the both-down page, because "I have not
+    looked" and "it is dead" are opposite claims."""
+    if role == "fallback":
+        return True     # THIS process is the fallback loop's own check.
+                        # Directly observable, not self-certifying: it
+                        # asserts its own presence and Fly's absence, never
+                        # its own health.
+    if seen_at is None:
+        return None
+    return (now - seen_at).total_seconds() <= FALLBACK_COVER_MINUTES * 60
 
 
 def _sources_count(key, since=None):
@@ -656,37 +815,59 @@ def _maybe_digest(key, rows, now, open_alarms=None, force=False):
         if latch and (latch.get("value") or {}).get("date") == now.date().isoformat():
             return False
     worker_seen_at = _worker_seen_at(key)
+    fallback_seen_at = _fallback_seen_at(key)
     sources_total = _sources_count(key)
-    body = digest(rows, sources_total, worker_seen_at, now, open_alarms=open_alarms)
+    body = digest(rows, sources_total, worker_seen_at, now, open_alarms=open_alarms,
+                  fallback_seen_at=fallback_seen_at)
     notify("daily digest", body, priority=2, tags="chart_with_upwards_trend")
     ops_put(key, "digest.last", {"date": now.date().isoformat()})
     return True
 
 
-def run_once(key, dry_run=False, beat=False, force_digest=False):
+def run_once(key, dry_run=False, beat=False, force_digest=False, role="external"):
     """Fetch, check, latch, notify, and send the daily digest when due.
     Wraps the whole body in try/except — run_once may not raise, ever, no
-    matter what the database or the network are doing."""
+    matter what the database or the network are doing.
+
+    `role`: "fly" (the Fly-side worker's own loop, via worker.py), "fallback"
+    (the GitHub `adaptations.yml` polling loop, via --as-fallback), or the
+    default "external" (any other caller, e.g. latency-watch.yml's plain
+    --once — an observer, not a worker, so it never claims to be covering
+    anything)."""
     try:
         if beat:
             _write_heartbeat(key)
+        if role == "fallback":
+            # Written before anything else — same ordering `beat=True` uses
+            # for Fly's own heartbeat, and for the same reason: this loop
+            # must never observe its own presence as stale.
+            ops_put(key, "fallback.heartbeat", {"note": "alive"})
 
         now = datetime.now(timezone.utc)
         rows = LR.fetch_rows(key)
         sources_recent = _sources_count(key, since=now - timedelta(hours=SOURCES_STALL_WINDOW_H))
         worker_seen_at = _worker_seen_at(key)
         charges_24h = _charges_count(key, since=now - timedelta(hours=24))
-        alarms = check_all(rows, sources_recent, worker_seen_at, now, charges_24h=charges_24h)
+        fallback_seen_at = _fallback_seen_at(key)
+        fallback_alive = _fallback_alive(fallback_seen_at, now, role)
+        alarms = check_all(rows, sources_recent, worker_seen_at, now, charges_24h=charges_24h,
+                            role=role, fallback_alive=fallback_alive)
 
         if dry_run:
             return alarms
 
-        alarm_keys = {a["key"] for a in alarms}
-        for a in alarms:
+        # Only paging alarms latch/notify/clear here — a digest-only alarm
+        # (rerun:*, sources-stalled, softfail:*) is reported exclusively by
+        # _maybe_digest's "quiet:" line below, never by raise_alarm/notify.
+        paging = [a for a in alarms if a.get("page", True)]
+        alarm_keys = {a["key"] for a in paging}
+        for a in paging:
             raise_alarm(key, a["key"], a["title"], a["body"],
                         a.get("priority", 4), a.get("tags", "rotating_light"))
 
-        # Anything latched open that ISN'T in this tick's list has cleared.
+        # Anything latched open that ISN'T in this tick's PAGING list has
+        # cleared — including a key that was latched open under the old rules
+        # and is now demoted: it gets one quiet "resolved" here, correctly.
         # "selftest" is excluded — it is only ever opened/closed by --self-test
         # itself, never by check_all, so a --self-test interrupted mid-way
         # must stay open until deliberately cleared (see verification step 5).
@@ -698,7 +879,14 @@ def run_once(key, dry_run=False, beat=False, force_digest=False):
         return alarms
     except Exception as e:  # noqa: BLE001
         log.warning("run_once() failed: %s", str(e)[:160])
-        return []
+        # NOT `return []` — that read as "checked, nothing wrong" to main(),
+        # which is exactly the false all-clear that let this module go quiet
+        # on run #168's header ValueError while it had not read a single row.
+        # A blind run and a healthy run must never look the same.
+        return [{"key": "watchdog-blind", "page": False, "priority": 2,
+                "tags": "warning",
+                "title": "watchdog could not read the database",
+                "body": str(e)[:160]}]
 
 
 def _self_test(key):
@@ -716,10 +904,69 @@ def _self_test(key):
 
 
 # =============================================================================
-# 3f. CLI
+# 3f. ci_failure_verdict() — the workflow's page decision, moved into Python
+# =============================================================================
+#
+# A shell-level `if: failure()` curl cannot make this judgement: deciding
+# whether a creator is affected requires reading worker.heartbeat out of
+# lynxr_ops, and distinguishing "the table answered and there is no
+# heartbeat" from "I could not read the table at all" — which ops_get()
+# cannot express, since it returns None for both and they mean opposite
+# things. Hence _ops_probe() below, instead of ops_get().
+
+def _ops_probe(key):
+    """(readable, worker_seen_at). One direct GET of
+    lynxr_ops?key=eq.worker.heartbeat&select=updated_at&limit=1, so a
+    successful read with no rows is distinguishable from a failed read.
+    Returns (False, None) on any exception, and logs it."""
+    try:
+        req = urllib.request.Request(
+            f"{LR.SB_URL}/rest/v1/lynxr_ops?key=eq.worker.heartbeat&select=updated_at&limit=1")
+        req.add_header("apikey", key)
+        req.add_header("Authorization", f"Bearer {key}")
+        with urllib.request.urlopen(req, timeout=10, context=SSL_CTX) as r:
+            rows = json.load(r)
+        seen_at = LR.parse_iso(rows[0].get("updated_at")) if rows else None
+        return True, seen_at
+    except Exception as e:  # noqa: BLE001
+        log.warning("_ops_probe failed: %s", str(e)[:120])
+        return False, None
+
+
+def ci_failure_verdict(worker_seen_at, ops_readable, now):
+    """Pure. What to do when a GitHub job that keeps lynxr running has just
+    failed. Returns {"page", "priority", "alarm_key", "title", "body", "why"}.
+
+    Both-down reuses the "worker-down" latch key deliberately, so a later
+    --once from latency-watch.yml that still sees Fly stale keeps the SAME
+    episode open rather than sending a "resolved" into a live outage, and
+    clears it the moment Fly returns. "ci-unverified" is its own key and
+    clears on the first healthy run_once."""
+    if not ops_readable:
+        return {"page": True, "priority": 4, "alarm_key": "ci-unverified",
+                "title": "could not verify whether a creator is affected",
+                "body": "lynxr_ops was not readable — cannot tell whether Fly is covering.",
+                "why": "unknown"}
+
+    stale = worker_seen_at is None or (now - worker_seen_at).total_seconds() > FALLBACK_COVER_MINUTES * 60
+    if not stale:
+        return {"page": False, "priority": 0, "alarm_key": None,
+                "title": None, "body": None, "why": "fly-covering"}
+
+    age = "never seen" if worker_seen_at is None else \
+        f"{(now - worker_seen_at).total_seconds():.0f}s ago"
+    return {"page": True, "priority": 5, "alarm_key": "worker-down",
+            "title": "NOTHING is writing scripts",
+            "body": f"worker.heartbeat last seen {age} — and this fallback job just failed too.",
+            "why": "both-down"}
+
+
+# =============================================================================
+# 3g. CLI
 # =============================================================================
 
 def main():
+    envcfg.sanitize_environ()
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--once", action="store_true", help="run one check (the default)")
@@ -729,10 +976,25 @@ def main():
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ap.add_argument("--self-test", action="store_true",
                     help="raise then clear one alarm under the reserved key 'selftest'")
+    ap.add_argument("--as-fallback", action="store_true",
+                    help="this IS the GitHub fallback loop (adaptations.yml's polling "
+                         "step) — writes fallback.heartbeat every call, which is the "
+                         "signal every other caller reads to decide whether the "
+                         "fallback is covering for Fly")
+    ap.add_argument("--ci-failed", action="store_true",
+                    help="a GitHub job that keeps lynxr running just went red. Decide "
+                         "whether a creator is actually affected (reading "
+                         "worker.heartbeat out of lynxr_ops) before paging — always "
+                         "exits 0, since the job is already red")
     args = ap.parse_args()
 
     env = LR.load_env(LR.ROOT / ".env")
-    key = env.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    try:
+        key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY",
+                            env.get("SUPABASE_SERVICE_ROLE_KEY"),
+                            os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+    except ValueError as e:
+        sys.exit(str(e))
     if not key:
         sys.exit("SUPABASE_SERVICE_ROLE_KEY not set (.env or environment)")
 
@@ -741,7 +1003,29 @@ def main():
         print("self-test: alarm raised, then cleared — check the phone for two messages")
         return
 
-    alarms = run_once(key, dry_run=args.dry_run, force_digest=args.digest)
+    if args.ci_failed:
+        ops_readable, worker_seen_at = _ops_probe(key)
+        now = datetime.now(timezone.utc)
+        v = ci_failure_verdict(worker_seen_at, ops_readable, now)
+        print(f"why: {v['why']}")
+        if v["page"]:
+            repo = os.environ.get("GITHUB_REPOSITORY", "")
+            run_id = os.environ.get("GITHUB_RUN_ID", "")
+            run_no = os.environ.get("GITHUB_RUN_NUMBER", "")
+            ref = f"{repo}#{run_no} ({run_id})" if repo else f"run {run_id}"
+            body = f"{v['body']} {ref}"
+            raise_alarm(key, v["alarm_key"], v["title"], body, v["priority"], "rotating_light")
+            print(f"paged: {v['alarm_key']} (priority {v['priority']})")
+        else:
+            print("no page — fly is covering")
+        # ALWAYS exit 0: the job is already red, and a second failure mode
+        # here would only obscure it.
+        return
+
+    role = "fallback" if args.as_fallback else "external"
+    alarms = run_once(key, dry_run=args.dry_run, force_digest=args.digest, role=role)
+
+    blind = any(a["key"] == "watchdog-blind" for a in alarms)
 
     if args.json:
         print(json.dumps(alarms, indent=2))
@@ -751,10 +1035,20 @@ def main():
         for a in alarms:
             print(f"{a['key']}: {a['title']}")
             print(f"  {a['body']}")
+        if blind:
+            print("CHECK FAILED — could not read the database, so this is NOT an all-clear")
 
-    # Never exit non-zero on a breach — that is what pinned latency-watch.yml
+    # Never exit non-zero ON A BREACH — that is what pinned latency-watch.yml
     # permanently red off one 1548s sample. This module's whole point is a
     # notification the owner sees on their phone, not a red X nobody watches.
+    #
+    # Exit 2 is different: it means "I could not check", not "something is
+    # broken". A green run must never be allowed to mean "I looked and it was
+    # fine" when it actually means "I never looked" — that is the false
+    # all-clear that let run #168 onward look healthy while dying on the
+    # first Supabase call of every pass.
+    if blind:
+        sys.exit(2)
 
 
 if __name__ == "__main__":

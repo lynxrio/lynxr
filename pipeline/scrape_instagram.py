@@ -33,6 +33,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from apify_client import ApifyClient
+import envcfg  # the one place a secret or config value is read; see its docstring.
 
 # Instagram accounts to pull Reels from — bare usernames, no "@". Replace these
 # with the creators you actually want in the database (e.g. your Sideshift
@@ -144,7 +145,7 @@ def scrape_handle(client, handle):
 
 
 def main():
-    token = os.environ.get("APIFY_API_TOKEN")
+    token = envcfg.secret("APIFY_API_TOKEN", os.environ.get("APIFY_API_TOKEN"))
     if not token:
         raise SystemExit("Set APIFY_API_TOKEN first.")
     if not HANDLES:

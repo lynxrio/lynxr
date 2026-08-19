@@ -534,6 +534,13 @@
   td.num { text-align: right; font-family: var(--mono); font-size: var(--fs-125); font-variant-numeric: tabular-nums; }
   td.dim { color: var(--text-2); font-size: var(--fs-125); }
   .pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; color: var(--text-3); font-size: var(--fs-135); }
+  /* Available to a screen reader, drawn nowhere. Used where a glyph or a bare
+     number is unambiguous by position but not by itself — "0:27" reads as a
+     time of day without the word "length" in front of it. */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
   .no-results, .empty { padding: 34px; text-align: center; color: var(--text-3); }
   .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius); }
   code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 4px; }
@@ -1061,9 +1068,10 @@
      Search appears only once the shelf is big enough to need it — filtering
      three items is noise. */
   .lib-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
-  .lib-tools input[type="search"] { flex: 1 1 220px; }
-  .lib-shown { color: var(--text-3); font-size: var(--fs-12); white-space: nowrap; }
-  .lib-plat { font-family: var(--mono); font-size: var(--fs-105); letter-spacing: .04em; }
+  /* The two children are sized by .find-bar near the end of this file, with the
+     rest of the grid it belongs to. .lib-tools stays as the container class
+     because the iOS 16px floor at the bottom of the file names `.lib-tools
+     input`, and that rule must keep reaching this box. */
   .lib-item > summary .chip { flex: none; }
   .lib-cap {
     color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3;
@@ -1110,7 +1118,7 @@
       flex: 1 1 calc(100% - 26px);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .lib-item > summary .lib-plat, .pane .bp-item > summary .chip:first-of-type { margin-left: 20px; }
+    .pane .bp-item > summary .chip:first-of-type { margin-left: 20px; }
     .lib-item > summary .bp-when, .pane .bp-item > summary .bp-when { margin-left: auto; }
   }
 
@@ -2646,6 +2654,347 @@
      footer link, a paragraph and a heading, and it has to survive whichever of
      those is lowercasing around it. Wrap the name in it wherever it appears. */
   .entity { text-transform: none; }
+
+
+  /* ---------- CREATOR: THE SCRIPT GRID, AND FINDING ONE ----------
+
+     CREATOR PAGES ONLY. The classes below are only ever emitted by creator.js
+     (renderScripts, paintLibraryList). The agency app's blueprint lists keep
+     .bp-list on its own and are untouched — every rule here is gated behind
+     .script-grid or .find-bar.
+
+     WHY A GRID. A vertical list of 66px rows is dense but anonymous: at twenty
+     scripts you are reading titles to find the one you remember by its FRAME.
+     The tile is the same object the agency's suggestion grid uses (.sug-card)
+     — cover on top, two lines of title, then the small facts — so a script and
+     a suggestion read as one product.
+
+     PLACED HERE, near the end of the file, ON PURPOSE. The
+     `@media (max-width: 640px)` block sits ~350 lines above and restyles
+     `.bp-item > summary`, `.bp-name` and `.bp-when` for phones; those rules
+     would otherwise beat these on source order. Every tile rule below is also
+     written at higher specificity than that block so the win does not depend
+     on position alone. See the CSS ORDER TRAP note in HANDOFF.md. */
+
+  /* The search + sort row. Deliberately ONE line at every width: on a phone the
+     whole point of the grid is seeing more scripts at once, and a filter bar
+     that wraps to two rows takes ~80px of that back. 150px is the smallest
+     basis that still shows a few typed characters; the select sizes to its
+     longest option and never grows past half the viewport. */
+  /* WHERE THE FIND BAR BELONGS. Measured before this rule, on the "by brand"
+     tab at 1440px: 14px between the mode tabs and the bar, and **0px** between
+     the bar and the first brand heading — the bar was touching `scrubdaddy`
+     and standing apart from the tabs. Proximity is grouping, so the spacing
+     said the search box filters that one company, when it filters every group
+     on the page. Nothing about the box itself was wrong.
+
+     Fixed with asymmetry rather than a rule line. A hairline under the bar was
+     the obvious alternative and is worse here: .lib-group-head already draws
+     one under the brand name, so a second one 28px above it would leave the
+     company name sitting in a band between two rules — a different wrong
+     grouping, and two parallel hairlines that close on nothing.
+
+     `--lib-band` is the ONE distance between a page-level control or a card
+     grid and the heading of the section beneath it, so the first group
+     boundary and every later one are identical — the gap between groups was
+     22px, i.e. the first boundary was the tightest on the page rather than the
+     clearest. It shrinks on a phone, where vertical space is the scarce thing
+     the grid exists to save, but never below 2x the gap above the bar. */
+  .pane { --lib-band: clamp(20px, 4vw, 28px); }
+  .find-bar { align-items: center; flex-wrap: nowrap; }
+  .find-bar { margin-top: 8px; margin-bottom: var(--lib-band); }
+  .lib-group { margin-bottom: var(--lib-band); }
+  .find-bar input[type="search"] { flex: 1 1 150px; min-width: 0; max-width: 380px; }
+  .find-bar select { flex: 0 0 auto; min-width: 0; max-width: 46vw; }
+  /* The count is the live region — it is the only thing that tells a screen
+     reader the grid underneath just changed. Hidden when nothing is filtered,
+     so it says something or says nothing. */
+  .find-count { color: var(--text-3); font-size: var(--fs-12); white-space: nowrap; margin-left: auto; }
+  .find-count:empty { display: none; }
+  @media (max-width: 420px) {
+    /* Measured at 320px: a 150px basis plus a 148px select plus the gap is
+       306px inside a 288px column, so the select wrapped and the bar cost 88px
+       of a screen the grid needs. Shrinking the box keeps them on one line; the
+       count, which only exists while a search is narrowing something, takes a
+       line of its own rather than squeezing either control. */
+    .find-bar { flex-wrap: wrap; }
+    .find-bar input[type="search"] { flex: 1 1 110px; }
+    .find-bar select { max-width: 44vw; padding-left: 8px; padding-right: 8px; }
+    .find-count { flex: 1 1 100%; margin-left: 0; }
+  }
+  /* MOBILE: THE CONTROLS KEEP 16px AND LOSE THEIR WEIGHT INSTEAD.
+
+     MEASURED AT 375px, which is what makes this a real complaint rather than an
+     impression — the owner's words were "these inputs look too big compared to
+     the rest of the screen text sizes":
+
+       search input   16px      select   16px
+       mode tabs    11.51px     card title  11.51px
+       chip         10.51px     meta row    10.51px
+
+     So the controls are 1.39x the card title and 1.52x the chip. On desktop the
+     same comparison is 14px against 12.5px — 1.12x — which is why this only
+     shows up on a phone.
+
+     THE 16px IS NOT THE FLUID SCALE OVERSHOOTING, so there is nothing to clamp:
+     it is the iOS floor, set deliberately at the bottom of this file. Mobile
+     Safari zooms the viewport when a control smaller than 16px takes focus and
+     does not zoom back out, and it applies to <select> as well as <input>. A
+     page that zooms on every tap of the search box is a worse daily experience
+     than a control that reads a little heavy, so the size stays and the WEIGHT
+     goes instead: the outlined-slab treatment becomes a quiet fill with no
+     border, which is exactly what .lib-modes above it already is — so the find
+     bar now reads as the same class of object as the tabs it sits under, and
+     the only difference left between them is type size.
+
+     Bounded at 820px, matching the floor itself, so the lighter treatment
+     applies exactly where the 16px applies and nowhere else. Desktop is
+     untouched and measures identical. */
+  @media (max-width: 820px) {
+    .find-bar input[type="search"], .find-bar select {
+      background: var(--surface-2); border-color: transparent;
+      padding-top: 8px; padding-bottom: 8px;
+    }
+    /* Lightening the border costs the focus state its only signal — the global
+       input:focus rule works by swapping exactly the two things this rule has
+       already swapped — so focus gets a ring of its own. Keyboard focus on
+       these was previously a 1px colour change; it is now unmistakable. */
+    .find-bar input[type="search"]:focus-visible, .find-bar select:focus-visible {
+      outline: 2px solid var(--text-2); outline-offset: -1px;
+    }
+  }
+
+  /* A search that matches nothing must not read as data loss, so it says what
+     it did and offers the way back. */
+  .find-empty .bp-actions { justify-content: center; margin-top: 12px; }
+  .find-empty strong { color: var(--text-2); }
+
+  /* INTRINSIC, NOT A BREAKPOINT LADDER. auto-fill + minmax reflows at every
+     width — 1 column at 320px, 2 on a phone, 3 on tablet portrait, 4-5 on a
+     small laptop, 6 at the 1180px content cap the pane's gutter imposes — with
+     no media query in it. `min(160px, 100%)` is what stops the track from
+     overflowing a container narrower than the minimum, which a bare
+     minmax(160px, 1fr) does. */
+  /* SCROLL ANCHORING IS DELIBERATELY LEFT ON here, unlike .suggest-grid a
+     thousand lines up — worth saying, because the two look like the same
+     situation and are not. Measured at 390px with the scroll helper stubbed out
+     and never called: typing one character grows the find bar by exactly 26px
+     (the "5 of 14" count takes its own line under 420px) and the browser adds
+     exactly 26px to scrollTop, leaving the first card's top at -324px, the same
+     pixel it was on before the keystroke. That is anchoring holding the grid
+     still while the toolbar above it grows. Turning it off would make every
+     card jump 26px on the first keystroke. .suggest-grid's case is the opposite
+     — there the anchor pinned a button that was supposed to move. */
+  .script-grid {
+    display: grid;
+    /* The `46%` half of that min() is what guarantees TWO columns at every
+       width, with no media query: at a 288px column (a 320px phone) 46% is
+       132px, so two tracks plus the gap always fit, while anywhere past ~350px
+       the flat 160px takes over and the count grows on its own. A bare
+       min(160px, 100%) measured 1 column and a 491px-tall cover at 320px —
+       1.2 cards a screen, which is the opposite of the point. */
+    grid-template-columns: repeat(auto-fill, minmax(min(160px, 46%), 1fr));
+    gap: 12px;
+  }
+  /* .bp-item carries margin-top: 8px for the list layout; inside a grid that
+     is a second, uneven gutter. */
+  .script-grid > .bp-item { margin-top: 0; min-width: 0; }
+
+  /* AN OPEN CARD TAKES THE WHOLE ROW, and reverts to the list layout it has
+     always had. A script runs to a couple of screens and cannot be read in a
+     170px column; the tile is for FINDING one, the row is for READING it.
+     Source order is untouched (no `dense`), so the card opens where it sat. */
+  .script-grid > .bp-item[open] { grid-column: 1 / -1; }
+
+  /* ---- the tile ---- */
+  /* Wrapping flex rather than grid areas: a library entry carries two chips and
+     a script card one, so a fixed template would have to know which. Cover and
+     title each take 100% and therefore a line of their own; the chips, the age
+     and the ↗ flow after them and wrap only if they must. */
+  .script-grid > .bp-item:not([open]) > summary {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 6px 8px; padding: 10px; font-size: var(--fs-125);
+    position: relative;                 /* the ↗ badge below anchors to this */
+  }
+  .script-grid > .bp-item:not([open]) > summary > .bp-caret { display: none; }
+  /* Full-bleed cover: negative margins take it back out of the summary's own
+     padding, and .bp-item's overflow: hidden clips it to the card's radius.
+     9/16 and `contain` are the agency grid's treatment verbatim — nothing is
+     cropped, and a 4:3 YouTube cover letterboxes instead of becoming a strip. */
+  .script-grid > .bp-item:not([open]) > summary > .bp-thumb {
+    /* The basis, not `width`: flex-basis wins over width on a flex item, so a
+       `flex: 0 0 100%` + `width: calc(100% + 20px)` pair measured 155px inside a
+       175px card — the negative margins pulled it left and nothing filled the
+       right. Measured after the fix at 1440px: 175px wide in a 177px card. */
+    flex: 0 0 calc(100% + 20px); order: 0;
+    width: auto; height: auto; aspect-ratio: 9 / 16;
+    margin: -10px -10px 4px; border-radius: 0;
+    background: var(--surface-2); border-bottom: 1px solid var(--line);
+  }
+  .script-grid > .bp-item:not([open]) > summary > img.bp-thumb { object-fit: contain; }
+  /* The no-cover tile. Instagram never resolves a thumbnail, so this is the
+     common case there, not the rare one — it keeps the card the same height as
+     every other and names the platform, which is one more thing to recognise
+     it by. .vthumb-none already paints it; only the type size changes. */
+  .script-grid > .bp-item:not([open]) > summary > .bp-thumb > .vthumb-none {
+    font-size: var(--fs-12); border: 0; border-radius: 0;
+  }
+  /* …and it goes away again once the card opens. The placeholder exists to keep
+     the TILES a uniform height; in the row layout there was never anything
+     there (creator.js's thumbHtml returned "" with no cover), and "YouTube" at
+     9px does not fit a 40px box — it painted clipped. `:has` is already used in
+     this file for .vpick, so the support floor is unchanged. */
+  .script-grid > .bp-item[open] > summary > .bp-thumb:has(> .vthumb-none) { display: none; }
+  /* Two lines, always two lines: a one-line title next to a two-line one made
+     every row of the grid ragged. `order: 0` puts back what the 640px block's
+     `.bp-name { order: -1 }` takes away — on a phone that rule lifts the title
+     above the thumbnail, which in a tile means above the cover. */
+  .script-grid > .bp-item:not([open]) > summary > .bp-name {
+    flex: 1 1 100%; order: 0; min-width: 0; margin: 0;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    white-space: normal; overflow: hidden; text-overflow: clip;
+    line-height: 1.35; min-height: 2.7em; font-size: var(--fs-125);
+  }
+  /* NOTHING IN THE META ROW IS PUSHED RIGHT. In the list layout .bp-when
+     carries `margin-left: auto`; on a 170px tile that stranded whatever
+     followed it, and every card's foot came out a different shape. Packed
+     left, the row wraps as one group. (.bp-when is hidden on tiles now — see
+     the meta-row note further down — but the packing rule still governs the
+     platform chip and the length that replaced it.) */
+  /* THE ↗ SITS ON THE COVER, top right, and is the only thing overlaid there.
+     It spent one revision down in the meta row and is back where it started:
+     the cover is the biggest thing on the card, and the affordance for "go and
+     watch the real video" belongs on the picture of the video.
+
+     A REAL TARGET, which is the whole reason it is a badge and not a glyph.
+     Before this redesign it was a bare inline ↗ measuring 7x20 — which is what
+     an inline arrow decays into if nobody sizes it. 30x30 painted, with a
+     translucent ground so it reads over a bright frame as well as a dark one.
+     stopSummaryLinks() already stops it toggling the card open. */
+  .script-grid > .bp-item:not([open]) > summary > .bp-open {
+    position: absolute; top: 6px; right: 6px; z-index: 1;
+    width: 30px; height: 30px; display: grid; place-items: center;
+    border-radius: 7px; line-height: 1; font-size: var(--fs-13);
+    background: var(--badge-ground); border: 1px solid #ffffff3d; color: #fff;
+    transition: background .14s var(--ease), border-color .14s var(--ease);
+  }
+  .script-grid > .bp-item:not([open]) > summary > .bp-open:hover {
+    background: #0a0a0bf5; border-color: #ffffff85; color: #fff;
+  }
+  .script-grid > .bp-item:not([open]) > summary > .bp-open:focus-visible {
+    outline: 2px solid var(--text); outline-offset: 2px;
+  }
+  /* THE SCRIM THE ↗ SITS ON. 0.79 — the same value the agency's .vplay uses,
+     so the two read as one family again.
+
+     IT WAS 0.90 FOR ONE REVISION, and the number is worth keeping the history
+     of rather than leaving unexplained. While the STATUS chip lived on the
+     cover it carried --bad #e06c6c for the "couldn't write" state, which by
+     definition has a cover because the video was fetched; measured off the
+     painted screenshot over a pure-white cover, 0.79 composites to
+     rgb(61,61,62) and --bad on it is 3.4:1, under AA. 0.90 composites to
+     rgb(34,34,35) and lifted it to 4.9:1. The status chip is now in the meta
+     row, so the only thing on this ground is the ↗'s white — 10.9:1 at 0.79,
+     15.9:1 at 0.90 — and the constraint that bought the darker value is gone
+     with it. Kept as a variable, not inlined, because that history is the
+     point: put coloured text back on this ground and 0.79 is not enough. */
+  .script-grid { --badge-ground: #0a0a0bc9; }
+
+  /* THE STATUS CHIP, in the meta row under the title, leading the two facts
+     beside it. It spent a revision as a badge on the cover; the row is where it
+     ended up, and it is the right place — status is a fact about the script
+     like the views and the length, and the cover is left carrying exactly one
+     thing.
+
+     WHAT IT IS, because "script count" undersells it: this is the card's STATUS
+     field, and a count is only its healthy face. A library entry has four —
+     "not scripted" (grey), "writing N" (grey, pulsing dot), "N scripts" (GREEN,
+     .chip.good: every script from this video is finished), "couldn't
+     fetch"/"couldn't write" (RED, .chip.bad). A brand-page card has seven
+     wordings across the same four colour treatments, and no count in any of
+     them — a card that is one script has nothing to count, and nothing is
+     invented for it. One rule for both surfaces rather than two that can
+     drift, which is the reason --lib-band exists.
+
+     Sized down a shade from a list-row chip: three items share a 113px row at
+     320px. Measured there — status + length is 103px and sits on one line,
+     which is the COMMON case because views is empty on nearly every real card
+     (see videoViews); status + views + length is 137px and wraps to a second
+     line, deliberately, since every item keeps the row's own 6px/8px gaps and a
+     wrapped row reads as a row rather than as an accident. */
+  .script-grid > .bp-item:not([open]) > summary > .chip {
+    flex: 0 0 auto; order: 0; margin-left: 0; max-width: 100%;
+    font-size: var(--fs-11); padding: 2px 7px; white-space: normal;
+  }
+  /* ONE COLOUR CHANGES, AND ONLY ON A TILE. .bp-wait paints --text-3 on the
+     chip's --surface-2, which measures 3.39:1 — under AA, and it was under AA
+     before any of this work. This is the state a creator stares at while they
+     wait, and on a tile it is the only thing saying the card is alive, so it
+     should not be the least legible thing on the card. --text-2 on the same
+     --surface-2 measures 7.17:1. Scoped to the tile: .bp-wait in an opened row
+     and inside a library card keeps the colour it has always had, and still
+     measures 3.39:1 — a real, pre-existing failure this change does not widen
+     and does not fix. The dot inherits currentColor and lifts with the text. */
+  .script-grid > .bp-item:not([open]) > summary > .chip.bp-wait { color: var(--text-2); }
+
+  /* WHAT IS LEFT IN THE META ROW. The owner asked for views and video length
+     in place of the platform and the date. Only one of the two exists:
+
+       LENGTH — real. 19 of 23 distinct videos on the live database resolve
+       one (source.duration, written from the Whisper pass).
+       VIEWS — not built, and it would have been a lie. fetch_meta() coerces
+       yt-dlp's missing view_count to 0 (`int(d.get("view_count") or 0)`), so
+       the field LOOKS populated: 15 of 23 videos carry a number and 13 of
+       those are 0. Two are non-zero and one of those two is "27".
+       lynxr_sources agrees — 0 non-zero views across all 27 rows. Instagram
+       never yields a count at all. A views line would read "0" or "—" on
+       essentially every card. See the report.
+
+     The date goes, the platform stays: the sort control already names the
+     order the grid is in, but nothing else on a tile says where a video came
+     from — the cover does not, and the platform only appears in the
+     placeholder when there is NO cover. A brand card had neither chip before
+     and now carries both, so the two grids read as one thing.
+
+     HIDDEN, NOT REMOVED. An opened card runs the list layout and shows its
+     date exactly as it always has; only the tile drops it. */
+  .script-grid > .bp-item:not([open]) > summary > .bp-when { display: none; }
+  /* THE RIGHT-HAND GROUP. `margin-left: auto` is the whole split: the status
+     chip keeps the left edge, these take the right, and the space between them
+     separates the signal from the supporting facts without a rule or a middot
+     doing it. Scoped to a TILE — in the list layout .bp-when already carries an
+     auto margin, and two of them would share the free space between rather than
+     pushing to the edge. */
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts {
+    display: inline-flex; align-items: center; gap: 10px;
+    margin-left: auto; min-width: 0;
+  }
+  .meta-facts { display: inline-flex; align-items: center; gap: 10px; }
+  /* Each fact. Mono and tabular so a column of tiles lines up rather than
+     shimmering as the digits change; inline-flex so the eye is optically
+     centred against the digits instead of dropped to their baseline. */
+  .lib-stat {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--mono); font-size: var(--fs-11); color: var(--text-3);
+    white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+  /* Sized in em so it tracks the fluid type scale rather than pinning itself to
+     one viewport, and kept at the meta row's own muted weight — this row is
+     supporting information and must not compete with the status chip, which is
+     the signal. */
+  .ico-eye { width: 1.15em; height: 1.15em; flex: none; opacity: .9; }
+
+  /* The badge's hover fade is the only transition this section adds, so it is
+     the only thing this section has to turn off. The block ~1500 lines above
+     that does this for .bp-item cannot reach a rule written below it. */
+  @media (prefers-reduced-motion: reduce) {
+    .script-grid > .bp-item:not([open]) > summary > .bp-open { transition: none; }
+  }
+  /* Keyboard: <summary> is the tile's control, and the UA ring sits outside a
+     card that clips its own overflow, so it is drawn inset instead. */
+  .script-grid > .bp-item > summary:focus-visible {
+    outline: 2px solid var(--text-2); outline-offset: -3px; border-radius: 9px;
+  }
 
   /* ---------- iOS INPUT FLOOR ----------
      16px is the threshold below which iOS Safari zooms the page on focusing a

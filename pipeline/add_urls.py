@@ -32,6 +32,7 @@ from apify_client import ApifyClient
 sys.path.insert(0, str(Path(__file__).parent))
 from process_scraped import normalize_tiktok, normalize_instagram
 from merge_data import MASTER_FIELDS
+import envcfg  # the one place a secret or config value is read; see its docstring.
 
 ROOT = Path(__file__).parent.parent
 MASTER = ROOT / "output" / "master_video_database.csv"
@@ -146,7 +147,7 @@ def main():
     if not tt and not ig and not yt:
         raise SystemExit("No usable TikTok/Instagram/YouTube URLs.")
 
-    token = os.environ.get("APIFY_API_TOKEN")
+    token = envcfg.secret("APIFY_API_TOKEN", os.environ.get("APIFY_API_TOKEN"))
     if not token:
         raise SystemExit("Set APIFY_API_TOKEN first.")
     client = ApifyClient(token)

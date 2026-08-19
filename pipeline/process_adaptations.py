@@ -79,6 +79,7 @@ from analyze_visuals import download_video, extract_frames, frame_times, yt_dlp_
 from retag_with_audio import SYSTEM as TAG_SYSTEM
 from retag_with_audio import user_content
 from taxonomy import TAG_SCHEMA, TAG_SCHEMA_VISION, length_bucket
+import envcfg  # the one place a secret or config value is read; see its docstring.
 
 ROOT = Path(__file__).parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
@@ -88,7 +89,7 @@ MODEL = "claude-opus-5"
 # re-tag of the 9,016-row lynxr_videos corpus (Batch API, latency
 # irrelevant). Those two want different answers: this one is on a
 # creator's critical path, that one is not.
-TAG_MODEL = os.environ.get("TAG_MODEL", "claude-opus-5")
+TAG_MODEL = envcfg.get("TAG_MODEL", "claude-opus-5")
 # Claude Opus 5 runs ADAPTIVE THINKING BY DEFAULT at effort "high" —
 # unlike Opus 4.8/4.7, which stay off unless asked. This call is
 # classification against a locked taxonomy whose decision procedure is
@@ -97,7 +98,7 @@ TAG_MODEL = os.environ.get("TAG_MODEL", "claude-opus-5")
 # the call. "low" is not "off": disabling thinking on Opus 5 has two
 # documented failure modes (a tool call written into visible text, and
 # <thinking> tags leaking into the response), so cap the effort instead.
-TAG_EFFORT = os.environ.get("TAG_EFFORT", "low")
+TAG_EFFORT = envcfg.get("TAG_EFFORT", "low")
 
 # The SDK retries 408/409/429/5xx on its own with exponential backoff and
 # jitter, honouring retry-after. Its default of 2 spends 1.4s before handing
@@ -106,7 +107,7 @@ TAG_EFFORT = os.environ.get("TAG_EFFORT", "low")
 # hard-down API is ~14s per call — ~60s on a pass that fails everywhere, paid
 # only on the failure path. Measured, not assumed: pipeline/test_ai_retry.py
 # counts the requests against a local socket.
-ANTHROPIC_MAX_RETRIES = int(os.environ.get("ANTHROPIC_MAX_RETRIES", "5"))
+ANTHROPIC_MAX_RETRIES = int(envcfg.get("ANTHROPIC_MAX_RETRIES", "5"))
 
 
 def anthropic_client(api_key, base_url=None):
@@ -266,7 +267,7 @@ Rules:
 # unsaid makes the model drift back into the original's framing. So this stays
 # OFF by default; pipeline/ab_format_adapt.py is how the owner judges it
 # without spending anything for real. Do not flip FUSE_FORMAT_ADAPT's default.
-FUSE_FORMAT_ADAPT = os.environ.get("FUSE_FORMAT_ADAPT", "0") not in ("0", "", "false", "False")
+FUSE_FORMAT_ADAPT = envcfg.get("FUSE_FORMAT_ADAPT", "0") not in ("0", "", "false", "False")
 
 FUSED_SCHEMA = {
     "type": "object",
@@ -454,7 +455,7 @@ FORCED = False
 # the default of 1 there is only one claimer, so the extra GET + jittered sleep
 # in main()'s claim-verification step would cost ~1.5s on the SLA for nothing —
 # skip it entirely below that.
-WORKER_PEERS = int(os.environ.get("WORKER_PEERS", "1"))
+WORKER_PEERS = int(envcfg.get("WORKER_PEERS", "1"))
 
 
 def api_reason(e):
@@ -1023,9 +1024,33 @@ def wants_work(a, *, cooldown_hours, lease_minutes, min_age_seconds, redo_ai):
 _wants_work_impl = wants_work
 
 
+# Maps a HOSTNAME to its platform label. Used by platform_of() below, matched
+# the same way supported_url() matches SUPPORTED_HOSTS: an exact host or a
+# subdomain of one, after stripping a leading "www.". youtu.be, fb.watch and
+# fb.com are separate keys because they are separate hosts a creator can paste
+# (all three are on SUPPORTED_HOSTS) that resolve to the same platform.
+PLATFORM_HOSTS = {"tiktok.com": "tiktok", "instagram.com": "instagram",
+                  "facebook.com": "facebook", "fb.watch": "facebook",
+                  "fb.com": "facebook", "youtube.com": "youtube",
+                  "youtu.be": "youtube"}
+
+
 def platform_of(url):
-    for p in ("tiktok", "instagram", "facebook", "youtube"):
-        if p in (url or ""):
+    """Which platform a URL belongs to, matched on the HOSTNAME — not a
+    substring test, which used to file youtu.be, fb.watch and fb.com under
+    "other" (verified: platform_of("https://youtu.be/aqz-KE-bpKQ") returned
+    "other", and so did fb.watch/... and fb.com/...). All three are accepted
+    creator links (see SUPPORTED_HOSTS), so every one of them silently missed
+    every trust-list and refresh query keyed on platform. supported_url() is
+    still the ACCEPT gate; this is only the LABEL, but a label that misfiles
+    an accepted host is still wrong."""
+    try:
+        host = (urllib.parse.urlsplit(str(url or "").strip()).hostname or "").lower()
+    except ValueError:
+        return "other"
+    host = host.removeprefix("www.")
+    for d, p in PLATFORM_HOSTS.items():
+        if host == d or host.endswith("." + d):
             return p
     return "other"
 
@@ -1035,12 +1060,33 @@ def platform_of(url):
 # creator owns, so the browser check can be walked around from the console, and
 # an off-platform link otherwise costs a download, a Whisper pass and four model
 # calls before failing on something unrelated.
-# Matched on the HOSTNAME. `platform_of` above is a substring test on the whole
-# URL and is fine for LABELLING a row we already accepted, but it would let
-# `evil.com/?ref=tiktok.com` through as a gate.
+# Matched on the HOSTNAME. `platform_of` above is now also a hostname match
+# (it used to be a substring test on the whole URL, which was wrong even as a
+# label — see its docstring); this remains the one that must never regress to
+# a substring test, because it would let `evil.com/?ref=tiktok.com` through as
+# a gate, not merely mislabel a row we already accepted.
 SUPPORTED_HOSTS = ("tiktok.com", "instagram.com",
                    "facebook.com", "fb.watch", "fb.com",
                    "youtube.com", "youtu.be")
+
+# WHICH PLATFORMS ACTUALLY HAND OVER A VIEW COUNT, without signing in.
+# Measured 2026-08-19 against live URLs — see the plan's Appendix A.
+#   tiktok     yes   191,000 on a real corpus video
+#   youtube    yes   watch, youtu.be and /shorts/ all report it
+#   instagram  NO    pinned 2026.07.04, nightly 2026.08.18, app_id=ios,
+#                    the public /embed/ page and unauthenticated oEmbed
+#                    ALL return nothing. Not a bug we can fix: it needs a
+#                    session, and authenticated fetching was declined
+#                    2026-08-18 (HANDOFF).
+#   facebook   NOT TRUSTED — it returns a number, and on the one live
+#                    Facebook Reel measured that number was 407 while the
+#                    same response's Facebook-written title said
+#                    "9.8K views". Wrong on the short-form shape is worse
+#                    than blank. Add "facebook" here to reverse.
+VIEWS_TRUSTED_PLATFORMS = ("tiktok", "youtube")
+VIEWS_REFRESH_PLATFORMS = VIEWS_TRUSTED_PLATFORMS
+VIEWS_MAX_AGE_H  = float(envcfg.get("VIEWS_MAX_AGE_H", "24"))
+VIEWS_PER_PASS   = int(envcfg.get("VIEWS_PER_PASS", "3"))
 
 # Shown to the creator in the app, so it reads as an answer rather than a fault.
 OFF_PLATFORM_NOTE = note_text("off_platform")
@@ -1403,7 +1449,7 @@ def canon_url(u):
 
 
 # Default ON, per Step 8 — an off switch for when a re-read is actually wanted.
-REUSE_SOURCES = os.environ.get("REUSE_SOURCES", "1") not in ("0", "false", "False")
+REUSE_SOURCES = envcfg.get("REUSE_SOURCES", "1") not in ("0", "false", "False")
 
 
 def cached_source(key, url):
@@ -1460,18 +1506,14 @@ def upsert_source(key, a):
     # Only written when the fetch actually SUCCEEDED. fetch_meta returns {} on
     # any failure, and writing zeros from that would be a lie the app cannot
     # tell apart from a video that genuinely has no views — the column is
-    # nullable precisely so "unknown" stays distinguishable from "none".
+    # nullable precisely so "unknown" stays distinguishable from "none". That
+    # promise used to be false: fetch_meta itself coerced an absent count to
+    # 0 before it ever got here. It is true now — source_metrics() writes
+    # `views: None` straight through as SQL NULL when the platform reported
+    # nothing (see trusted_views).
     meta = src.get("meta") or {}
     if meta:
-        body.update({
-            "views":      meta.get("views"),
-            "likes":      meta.get("likes"),
-            "comments":   meta.get("comments"),
-            "duration":   meta.get("duration") or src.get("duration"),
-            "creator":    meta.get("creator") or "",
-            "title":      meta.get("title") or "",
-            "metrics_at": now_iso(),
-        })
+        body.update(source_metrics(meta, src.get("duration")))
     try:
         # merge-duplicates so a re-tag refreshes the extraction rather than 409ing
         req = urllib.request.Request(
@@ -1486,6 +1528,25 @@ def upsert_source(key, a):
     except Exception as e:  # noqa: BLE001
         log.warning("  source library upsert skipped: %s", str(e)[:90])
         note_soft_fail(a, "source_upsert", e)
+
+
+def trusted_views(url, raw):
+    """int(raw) when `raw` is a real number AND platform_of(url) is one this
+    project trusts to hand back a view count at all — None otherwise. The
+    single place the Facebook decision lives, so no caller downstream of
+    fetch_meta can accidentally trust a number this plan does not.
+
+    Facebook DOES return a view_count for ordinary videos (744,188 and
+    19,571,910 measured on two live URLs) — but on the one live Facebook
+    Reel measured, yt-dlp reported `view_count: 407` while that same
+    response's own title, written by Facebook, read "9.8K views · 343
+    reactions | ...". Stable across two runs and across both the /reel/ and
+    m.facebook.com/watch forms. Short-form is the shape creators paste, so
+    the shape that is wrong is the shape that would land on a card — 24x off
+    is worse than blank. See VIEWS_TRUSTED_PLATFORMS."""
+    if raw is None or platform_of(url) not in VIEWS_TRUSTED_PLATFORMS:
+        return None
+    return int(raw)
 
 
 def fetch_meta(url):
@@ -1513,14 +1574,43 @@ def fetch_meta(url):
     title = str(d.get("title") or "").strip()
     if not title or re.fullmatch(r"video by \S+", title, re.I):
         title = str(d.get("description") or "").strip()
+    # ABSENT IS NOT ZERO. `int(x or 0)` turned "this platform told us nothing"
+    # into "this video has no views" — indistinguishable in the row, and the
+    # reason the views field looked populated on every record while being
+    # empty on ~86% of them. Measured 2026-08-19: yt-dlp returns no
+    # view_count at all for Instagram (see VIEWS_TRUSTED_PLATFORMS), which
+    # is 19 of the 22 distinct videos creators have pasted.
+    raw_views = d.get("view_count")
     return {
         "video_id": str(d.get("id") or ""),
         "creator": str(d.get("uploader_id") or d.get("uploader") or d.get("channel") or "").lstrip("@"),
         "title": title[:300],
-        "views": int(d.get("view_count") or 0),
+        "views": trusted_views(url, raw_views),
         "likes": int(d.get("like_count") or 0),
         "comments": int(d.get("comment_count") or 0),
         "duration": float(d.get("duration") or 0),
+        "metricsAt": now_iso(),
+    }
+
+
+def source_metrics(meta, fallback_duration=None):
+    """The lynxr_sources metric columns for a SUCCESSFUL fetch_meta result.
+
+    `views` may be None, and None is written through as SQL NULL on
+    purpose — supabase/sources_staff_read.sql's own comment on that column
+    says NULL means never-measured and is NOT the same as 0. Callers must
+    not call this with a falsy `meta`: {} means "could not ask", and
+    blanking a good number over a transport hiccup is the mistake this
+    whole plan exists to stop.
+    """
+    return {
+        "views":      meta.get("views"),
+        "likes":      meta.get("likes"),
+        "comments":   meta.get("comments"),
+        "duration":   meta.get("duration") or fallback_duration,
+        "creator":    meta.get("creator") or "",
+        "title":      meta.get("title") or "",
+        "metrics_at": now_iso(),
     }
 
 
@@ -2323,6 +2413,132 @@ def renew_claim(key, cid, aid):
         sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}", method="PATCH", body={"data": fresh})
 
 
+def apply_views(entries, canon, views, at):
+    """Set source.meta.views/metricsAt on every entry for one video.
+    Returns the number of entries actually changed. Pure — no I/O.
+
+    - Matches on canon_url(entry.sourceUrl) == canon, not raw string
+      equality — two creators paste the same video with different query
+      strings.
+    - Skips any entry whose status is "queued" or "running" — that entry is
+      in flight and something else owns it; the same guard renew_claim uses
+      when it refuses to re-stamp a terminal entry, for the same reason
+      (HANDOFF, 2026-08-18: an unlocked read-modify-write raced the
+      completion graft and erased a finished script).
+    - Skips any entry with no existing source.meta dict — never invent a
+      source object on an entry the pipeline never fetched; has_usable_result()
+      and the title resolvers both read that shape.
+    - Skips when the value is already what it would be set to, so an
+      unchanged refresh writes nothing.
+    """
+    changed = 0
+    for entry in entries:
+        if canon_url(entry.get("sourceUrl") or "") != canon:
+            continue
+        if entry.get("status") in ("queued", "running"):
+            continue
+        source = entry.get("source")
+        if not isinstance(source, dict):
+            continue
+        meta = source.get("meta")
+        if not isinstance(meta, dict):
+            continue
+        if meta.get("views") == views:
+            continue
+        meta["views"] = views
+        meta["metricsAt"] = at
+        changed += 1
+    return changed
+
+
+def refresh_entry_views(key, cid, canon, views, at):
+    """Re-read this creator's row and update only source.meta.views on the
+    entries for one video. Modelled on renew_claim(): under the SAME
+    _GRAFT_LOCKS[cid] lock and mutating the FRESHLY read row, never a
+    snapshot — see renew_claim's docstring for the script that was lost the
+    one time this was done without both. Deliberately does NOT touch
+    updatedAt, claimedAt, status, phase or anything else. Returns the number
+    of entries apply_views actually changed."""
+    with _GRAFT_LOCKS[cid]:
+        fresh = sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}&select=data")[0]["data"]
+        changed = apply_views(fresh.get("adaptations") or [], canon, views, at)
+        if changed:
+            sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}", method="PATCH", body={"data": fresh})
+        return changed
+
+
+def refresh_views(key, limit):
+    """Refresh stale lynxr_sources view counts for the trusted platforms
+    (VIEWS_REFRESH_PLATFORMS) and propagate the new number to every creator
+    entry holding that video. Never raises — a failure here must never fail
+    the pass it rides on.
+
+    Steady-state rate: a row is re-selected only once its metrics_at is
+    older than VIEWS_MAX_AGE_H, so this is one fetch per views-capable video
+    per VIEWS_MAX_AGE_H, not one per pass.
+    """
+    considered = fetched = entries_updated = 0
+    try:
+        threshold = (datetime.now(timezone.utc) - timedelta(hours=VIEWS_MAX_AGE_H)) \
+            .isoformat().replace("+00:00", "Z")
+        platforms = ",".join(VIEWS_REFRESH_PLATFORMS)
+        q = ("/rest/v1/lynxr_sources?select=canonical_url,url,platform,views,metrics_at"
+             f"&platform=in.({platforms})"
+             f"&or=(metrics_at.is.null,metrics_at.lt.{urllib.parse.quote(threshold, safe='')})"
+             f"&order=metrics_at.asc.nullsfirst&limit={limit}")
+        rows = sb(key, q) or []
+    except Exception as e:  # noqa: BLE001
+        log.warning("refresh_views: selection failed: %s", str(e)[:120])
+        return
+    considered = len(rows)
+    for row in rows:
+        url = row.get("url") or ""
+        try:
+            # {} means "could not ask" — deleted, private, rate-limited, a
+            # transport failure. Write nothing at all; blanking a good
+            # number on a hiccup is the mistake source_metrics()'s docstring
+            # names.
+            meta = fetch_meta(url)
+            if not meta:
+                log.info("  refresh: no metadata — %s", url[:60])
+                continue
+            fetched += 1
+            # metrics_at moves whether or not a count came back, which is
+            # what stops a views-less row being re-selected every pass.
+            target = "/rest/v1/lynxr_sources?canonical_url=eq." + urllib.parse.quote(
+                row.get("canonical_url") or canon_url(url), safe="")
+            sb(key, target, method="PATCH", body=source_metrics(meta))
+
+            canon = canon_url(url)
+            try:
+                probe_rows = sb(key, prefilter_url([[{"sourceUrl": url}]])) or []
+            except Exception as e:  # noqa: BLE001
+                log.warning("  refresh: creator probe failed for %s: %s", url[:50], str(e)[:90])
+                continue
+            # An empty probe means "nobody holds it", and must NOT trigger
+            # candidate_creators()'s canary/full-scan fallback. That
+            # machinery exists because an empty queue and a broken filter
+            # were indistinguishable and the consequence was "no scripts get
+            # written". Here the consequence is "a number stays a day old" —
+            # not worth importing a 215 KB full scan to protect a decoration.
+            if not probe_rows:
+                log.info("  refresh: no creator holds %s", url[:60])
+                continue
+            at = now_iso()
+            for r in probe_rows:
+                try:
+                    entries_updated += refresh_entry_views(
+                        key, r["id"], canon, meta.get("views"), at)
+                except Exception as e:  # noqa: BLE001
+                    log.warning("  refresh: creator %s not updated: %s",
+                                str(r.get("id"))[:8], str(e)[:90])
+        except Exception as e:  # noqa: BLE001
+            log.warning("  refresh: row failed (%s): %s", url[:50], str(e)[:90])
+
+    log.info("refresh_views: %d row(s) considered, %d fetched, %d creator entr%s updated",
+              considered, fetched, entries_updated, "y" if entries_updated == 1 else "ies")
+
+
 def heartbeat(key, cid, aid, stop_event, interval=45):
     """Run renew_claim every `interval` seconds until `stop_event` is set.
 
@@ -2423,6 +2639,7 @@ def publish_phase(key, jobs, phase):
 
 
 def main():
+    envcfg.sanitize_environ()
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-ai", action="store_true",
                     help="transcript only — no format extraction or adaptation (no API spend)")
@@ -2444,7 +2661,7 @@ def main():
     ap.add_argument("--warm-prefixes", action="store_true",
                     help="write the three cached prefixes and exit. Fired by worker.py in a "
                          "daemon thread at boot, before any discovery or database read.")
-    ap.add_argument("--cap", type=int, default=int(os.environ.get("SCRIPT_CAP", 25)),
+    ap.add_argument("--cap", type=int, default=int(envcfg.get("SCRIPT_CAP", "25")),
                     help="NOT the enforcement point any more — charge_scripts() "
                          "(supabase/allowance_ledger.sql, lynxr_allowance.granted) "
                          "is. This is now only (a) the number named in the refusal "
@@ -2454,7 +2671,7 @@ def main():
                          "charge_scripts call entirely and treats every candidate "
                          "as allowed.")
     ap.add_argument("--daily-cap", type=int,
-                    default=int(os.environ.get("DAILY_SCRIPT_CAP", 250)),
+                    default=int(envcfg.get("DAILY_SCRIPT_CAP", "250")),
                     help="global circuit breaker: refuse ALL new work this pass once "
                          "this many scripts have been charged (lynxr_script_charges) "
                          "in the trailing 24h. 0 = unlimited. Per-account exposure is "
@@ -2464,7 +2681,7 @@ def main():
                          "against the same DAILY_SCRIPT_CAP so the two can never "
                          "disagree.")
     ap.add_argument("--concurrency", type=int,
-                    default=int(os.environ.get("WORKER_CONCURRENCY", 3)),
+                    default=int(envcfg.get("WORKER_CONCURRENCY", "3")),
                     help="distinct videos to process at once (Step 7) — default 3, "
                          "comfortable on Fly's 2 shared vCPUs since almost all of a "
                          "script's time is waiting on yt-dlp or the model API, not compute")
@@ -2476,6 +2693,17 @@ def main():
                     help="use lynxr_sources as a cross-paste cache for the source half "
                          "(Step 8). Default: on (REUSE_SOURCES env, else on)")
     ap.add_argument("--no-reuse-sources", dest="reuse_sources", action="store_false")
+    ap.add_argument("--refresh-views", action="store_true",
+                    help="refresh stale view counts when this pass finds nothing queued. "
+                         "Only worker.py's periodic-sweep branch passes this — see Assumption 3 "
+                         "in the plan for why the queued-work branch and the GitHub fallback "
+                         "loop must not.")
+    ap.add_argument("--refresh-views-now", action="store_true",
+                    help="refresh now and exit, whatever is queued. For manual runs and "
+                         "verification — bypasses the idle-only gate on --refresh-views.")
+    ap.add_argument("--views-per-pass", type=int, default=VIEWS_PER_PASS,
+                    help="most lynxr_sources rows to refresh per pass (default VIEWS_PER_PASS "
+                         "env, else 3)")
     args = ap.parse_args()
 
     global REUSE_SOURCES
@@ -2488,10 +2716,17 @@ def main():
     log.info("worker claim id: %s (WORKER_PEERS=%d)", CLAIM_ID, WORKER_PEERS)
 
     env = load_env(ROOT / ".env")
-    key = env.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    try:
+        key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY",
+                            env.get("SUPABASE_SERVICE_ROLE_KEY"),
+                            os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+        api_key = envcfg.secret("ANTHROPIC_API_KEY",
+                                env.get("ANTHROPIC_API_KEY"),
+                                os.environ.get("ANTHROPIC_API_KEY"))
+    except ValueError as e:
+        sys.exit(str(e))
     if not key:
         sys.exit("SUPABASE_SERVICE_ROLE_KEY not set in .env")
-    api_key = env.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
     aclient = None
     if api_key and not args.no_ai:
         aclient = anthropic_client(api_key)
@@ -2505,6 +2740,13 @@ def main():
             warm_prefixes(aclient)
         else:
             log.info("skipping prefix warm — no ANTHROPIC_API_KEY")
+        return
+
+    if args.refresh_views_now:
+        # Returns BEFORE any discovery or database read, same as
+        # --warm-prefixes above and for the same reason: this is a side
+        # task, not a pass over queued work.
+        refresh_views(key, args.views_per_pass)
         return
 
     # Shadows the module-level wants_work with one bound to this run's args, so
@@ -2581,6 +2823,11 @@ def main():
                 if any(wants_work(a) for a in (r["data"].get("adaptations") or []))]
     if not todo:
         log.info("nothing queued")
+        if args.refresh_views:
+            try:
+                refresh_views(key, args.views_per_pass)
+            except Exception as e:  # noqa: BLE001
+                log.warning("refresh_views failed: %s", str(e)[:120])
         return
     log.info("creators to consider: %d", len(todo))
 

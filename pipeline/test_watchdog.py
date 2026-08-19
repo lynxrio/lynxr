@@ -197,13 +197,26 @@ check("rerun: body carries no http (no URL — the command is a local script)",
 check("rerun: body carries no uuid-shaped id",
       bool(re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-", rbody)), False)
 
-rerun_stale = [row("c5", [
+rerun_25h = [row("c5", [
     {"id": "e5555558", "status": "done", "attempts": 2,
      "rerun": {"at": ago(NOW, 25 * 3600), "prevProcessedAt": ago(NOW, 26 * 3600), "beats": 10},
      "processedAt": ago(NOW, 60)},
 ])]
+alarms = W.check_all(rerun_25h, sources_recent=1, worker_seen_at=NOW, now=NOW)
+# RERUN_WINDOW_S is 48h now, not 24h (Step 7) — a rerun is a DIGEST line, the
+# digest fires once a day, and a 24h window let a rerun 25h before the digest
+# go unreported by anything at all. So 25h old still fires (as a digest-only,
+# non-paging alarm; see the page:False check below).
+check("rerun marker 25h old -> STILL present (window widened to 48h so the "
+      "digest can never miss it)", "rerun:e5555558" in keys_of(alarms), True)
+
+rerun_stale = [row("c5", [
+    {"id": "e5555561", "status": "done", "attempts": 2,
+     "rerun": {"at": ago(NOW, 49 * 3600), "prevProcessedAt": ago(NOW, 50 * 3600), "beats": 10},
+     "processedAt": ago(NOW, 60)},
+])]
 alarms = W.check_all(rerun_stale, sources_recent=1, worker_seen_at=NOW, now=NOW)
-check("rerun marker 25h old -> none (window makes a page self-resolve)",
+check("rerun marker 49h old -> none (past the 48h window)",
       keys_of(alarms), set())
 
 rerun_no_at = [row("c5", [
@@ -269,6 +282,13 @@ check("spend-24h body carries no @ (no email)", "@" in body, False)
 check("spend-24h body carries no http (no URL)", "http" in body, False)
 check("spend-24h body carries no uuid-shaped id (no creator id)",
       bool(re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-", body)), False)
+# ---- spend-24h wording: creator terms, not a billing note (Step 7) --------
+check("spend-24h title reframed in creator terms",
+      spend_alarm["title"], "no new scripts — 24h cap reached")
+check("spend-24h body still carries both numbers (charged count)",
+      str(W.DAILY_SCRIPT_CAP) in body, True)
+check("spend-24h body says new pastes are refused until it clears",
+      "refusing every new paste" in body, True)
 
 # ---- worker-down -------------------------------------------------------------
 alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW - timedelta(minutes=6), now=NOW)
@@ -279,6 +299,157 @@ check("worker_seen_at 2 min old -> none", "worker-down" in keys_of(alarms), Fals
 
 alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=None, now=NOW)
 check("worker_seen_at never seen -> worker-down", "worker-down" in keys_of(alarms), True)
+
+# ---- "page" is on every alarm — a structural guard -------------------------
+# An alarm added later without it defaults to paging (check_all's own dict
+# construction never sets a default; run_once() reads a.get("page", True),
+# which pages on a missing key) — so this fixture trips several alarms at
+# once and asserts NONE of the dicts omit "page".
+kitchen_sink_rows = [
+    row("kx", [
+        {"id": "kx000001", "status": "running", "addedAt": ago(NOW, 700)},
+        {"id": "kx000002", "status": "done", "brandId": "b1",
+         "adaptation": {"beats": []}, "processedAt": ago(NOW, 60)},
+        {"id": "kx000003", "status": "error", "final": True, "finalWhy": "gave_up",
+         "attemptedAt": ago(NOW, 60), "aiFail": {"kind": "transient", "tries": 8}},
+        {"id": "kx000004", "status": "done", "attempts": 2,
+         "rerun": {"at": ago(NOW, 0), "prevProcessedAt": ago(NOW, 120), "beats": 10},
+         "processedAt": ago(NOW, 60)},
+    ] + [
+        {"id": f"kx0001{i:02d}", "status": "error", "noteKind": "fetch",
+         "claimedAt": ago(NOW, 60), "sourceUrl": f"https://tiktok.com/@x/video/{i}"}
+        for i in range(3)
+    ]),
+]
+kitchen_sink_alarms = W.check_all(
+    kitchen_sink_rows, sources_recent=1, worker_seen_at=None, now=NOW,
+    charges_24h=W.DAILY_SCRIPT_CAP)
+check("kitchen-sink fixture actually trips several alarms (guard against a "
+      "degenerate empty-list pass)", len(kitchen_sink_alarms) >= 4, True)
+check("every alarm dict carries a 'page' key",
+      all("page" in a for a in kitchen_sink_alarms), True)
+
+# ---- demotions, both sides: still reported, but page:False ----------------
+rerun_page = next(a for a in W.check_all(rerun_marker, sources_recent=1, worker_seen_at=NOW, now=NOW)
+                  if a["key"] == "rerun:e5555557")
+check("rerun:<id8> still present (reaches the digest)", rerun_page is not None, True)
+check("rerun:<id8> is page:False", rerun_page["page"], False)
+
+sources_stalled_page = next(
+    a for a in W.check_all(four_with_source, sources_recent=0, worker_seen_at=NOW, now=NOW)
+    if a["key"] == "sources-stalled")
+check("sources-stalled still present (reaches the digest)", sources_stalled_page is not None, True)
+check("sources-stalled is page:False", sources_stalled_page["page"], False)
+
+softfail_page = next(
+    a for a in W.check_all(softfail_rows(3), sources_recent=1, worker_seen_at=NOW, now=NOW)
+    if a["key"] == "softfail:source_upsert")
+check("softfail:<sub> still present (reaches the digest)", softfail_page is not None, True)
+check("softfail:<sub> is page:False", softfail_page["page"], False)
+
+# ---- kept pages: page:True on every one of these -----------------------------
+kept_page_cases = [
+    (stuck_700, "inflight:b1111111"),
+    (five_stuck, "inflight:many"),
+    (empty_script, "empty-script:d4444444"),
+    (gave_up_rows, "gave-up:h9999991"),
+    (three_distinct, "fetch-wall:burst"),
+]
+for fixture_rows, wanted_key in kept_page_cases:
+    got = W.check_all(fixture_rows, sources_recent=1, worker_seen_at=NOW, now=NOW)
+    a = next((x for x in got if x["key"] == wanted_key), None)
+    check(f"{wanted_key} is page:True", a is not None and a.get("page"), True)
+
+spend_kept = next(
+    a for a in W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW, now=NOW,
+                           charges_24h=W.DAILY_SCRIPT_CAP)
+    if a["key"] == "spend-24h")
+check("spend-24h is page:True", spend_kept["page"], True)
+
+# ---- role="fly" cannot raise worker-down (the self-certifying-watchdog guard,
+# the single most important new check here) ----------------------------------
+fly_alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=None, now=NOW,
+                         role="fly")
+check("role='fly' + worker_seen_at=None -> no worker-down key at all",
+      "worker-down" in keys_of(fly_alarms), False)
+
+# ---- the three worker-down variants, keyed on priority ----------------------
+wd_true = next(
+    a for a in W.check_all(healthy_rows, sources_recent=1, worker_seen_at=None, now=NOW,
+                           role="external", fallback_alive=True)
+    if a["key"] == "worker-down")
+check("fallback_alive=True -> worker-down present, priority 3", wd_true["priority"], 3)
+
+wd_false = next(
+    a for a in W.check_all(healthy_rows, sources_recent=1, worker_seen_at=None, now=NOW,
+                           role="external", fallback_alive=False)
+    if a["key"] == "worker-down")
+check("fallback_alive=False -> worker-down present, priority 5 (both-down)",
+      wd_false["priority"], 5)
+check("...and the title says nothing is writing scripts",
+      "NOTHING is writing scripts" in wd_false["title"], True)
+
+wd_none = next(
+    a for a in W.check_all(healthy_rows, sources_recent=1, worker_seen_at=None, now=NOW,
+                           role="external", fallback_alive=None)
+    if a["key"] == "worker-down")
+check("fallback_alive=None -> worker-down present, priority 4 (today's default)",
+      wd_none["priority"], 4)
+
+# ---- _fallback_alive() directly ---------------------------------------------
+check("_fallback_alive(role='fallback') -> True regardless of seen_at",
+      W._fallback_alive(None, NOW, "fallback"), True)
+check("_fallback_alive(fresh) -> True",
+      W._fallback_alive(NOW - timedelta(seconds=5), NOW, "external"), True)
+check("_fallback_alive(FALLBACK_COVER_MINUTES + 1 old) -> False",
+      W._fallback_alive(NOW - timedelta(minutes=W.FALLBACK_COVER_MINUTES + 1), NOW, "external"),
+      False)
+check("_fallback_alive(None) -> None",
+      W._fallback_alive(None, NOW, "external"), None)
+
+# ---- ci_failure_verdict(): all four rows of the Step 11 table --------------
+v = W.ci_failure_verdict(NOW - timedelta(minutes=1), True, NOW)
+check("readable, heartbeat fresh -> no page (fly-covering)", v["page"], False)
+check("...why == fly-covering", v["why"], "fly-covering")
+
+v = W.ci_failure_verdict(NOW - timedelta(minutes=W.FALLBACK_COVER_MINUTES + 1), True, NOW)
+check("readable, heartbeat stale -> page, priority 5, both-down", v["page"], True)
+check("...priority 5", v["priority"], 5)
+check("...alarm_key worker-down", v["alarm_key"], "worker-down")
+check("...why both-down", v["why"], "both-down")
+
+v = W.ci_failure_verdict(None, True, NOW)
+check("readable, no heartbeat row at all -> page, priority 5, both-down", v["page"], True)
+check("...priority 5", v["priority"], 5)
+check("...alarm_key worker-down", v["alarm_key"], "worker-down")
+check("...why both-down", v["why"], "both-down")
+
+v = W.ci_failure_verdict(None, False, NOW)
+check("not readable -> page, priority 4, ci-unverified", v["page"], True)
+check("...priority 4", v["priority"], 4)
+check("...alarm_key ci-unverified", v["alarm_key"], "ci-unverified")
+check("...why unknown", v["why"], "unknown")
+
+# ---- digest(): demoted-only conditions, fallback timestamp ------------------
+digest_alarms = [
+    {"key": "sources-stalled", "page": False, "priority": 2,
+     "tags": "chart_with_downwards_trend", "title": "x", "body": "x"},
+    {"key": "softfail:meta", "page": False, "priority": 2,
+     "tags": "warning", "title": "x", "body": "x"},
+]
+digest_body = W.digest(healthy_rows, 1, NOW, NOW, open_alarms=digest_alarms)
+check("digest() with only demoted conditions -> 'open alarms: none'",
+      "open alarms: none" in digest_body, True)
+check("...and carries a 'quiet:' line naming them",
+      "quiet: softfail:meta, sources-stalled" in digest_body, True)
+
+digest_body_fb = W.digest(healthy_rows, 1, NOW, NOW, fallback_seen_at=NOW - timedelta(seconds=30))
+check("digest() sources line carries the fallback timestamp",
+      re.search(r"fallback \d+s ago", digest_body_fb) is not None, True)
+
+digest_body_no_fb = W.digest(healthy_rows, 1, NOW, NOW, fallback_seen_at=None)
+check("digest() with fallback_seen_at=None -> 'fallback never seen'",
+      "fallback never seen" in digest_body_no_fb, True)
 
 # ---- raw_notes() / digest()'s "notes: clean" line ---------------------------
 # The sentence is HARD-CODED here, not imported from process_adaptations —

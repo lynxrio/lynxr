@@ -41,6 +41,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import process_adaptations as P  # noqa: E402
+import envcfg  # noqa: E402 — the one place a secret or config value is read; see its docstring.
 
 # Force a fresh extraction every time. Left on, a --reuse-sources cache hit
 # would skip real work for a URL already in lynxr_sources — fine for a real
@@ -132,8 +133,12 @@ def show(label, entry, secs):
 
 def main():
     env = P.load_env(P.ROOT / ".env")
-    key = env.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    api_key = env.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY",
+                        env.get("SUPABASE_SERVICE_ROLE_KEY"),
+                        os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+    api_key = envcfg.secret("ANTHROPIC_API_KEY",
+                            env.get("ANTHROPIC_API_KEY"),
+                            os.environ.get("ANTHROPIC_API_KEY"))
     if not key or not api_key:
         sys.exit("need SUPABASE_SERVICE_ROLE_KEY and ANTHROPIC_API_KEY (.env or environment)")
     import anthropic

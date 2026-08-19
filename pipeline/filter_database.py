@@ -32,6 +32,8 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
+import envcfg  # the one place a secret or config value is read; see its docstring.
+
 ROOT = Path(__file__).parent.parent
 MASTER = ROOT / "output" / "master_video_database.csv"
 TRANSCRIPTS = ROOT / "output" / "transcripts.jsonl"
@@ -183,7 +185,7 @@ def main():
         w.writerows(keep)
     print(f"master rewritten: {len(keep)} rows")
 
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY", os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
     if not key:
         sys.exit("Set SUPABASE_SERVICE_ROLE_KEY to also delete from Supabase.")
     base = "https://esakjfogplfszievvabi.supabase.co/rest/v1/lynxr_videos"

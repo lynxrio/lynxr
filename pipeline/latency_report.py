@@ -57,6 +57,8 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import envcfg  # the one place a secret or config value is read; see its docstring.
+
 try:
     import certifi
     SSL_CTX = ssl.create_default_context(cafile=certifi.where())
@@ -261,7 +263,9 @@ def main():
     args = ap.parse_args()
 
     env = load_env(ROOT / ".env")
-    key = env.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY",
+                        env.get("SUPABASE_SERVICE_ROLE_KEY"),
+                        os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
     if not key:
         sys.exit("SUPABASE_SERVICE_ROLE_KEY not set (.env or environment)")
 

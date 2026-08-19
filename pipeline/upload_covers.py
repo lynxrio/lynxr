@@ -52,6 +52,8 @@ from pathlib import Path
 
 from PIL import Image
 
+import envcfg  # the one place a secret or config value is read; see its docstring.
+
 ROOT = Path(__file__).resolve().parent.parent
 COVERS = ROOT / "data" / "covers"
 MASTER = ROOT / "output" / "master_video_database.csv"
@@ -133,7 +135,7 @@ def main():
     ap.add_argument("--workers", type=int, default=8)
     args = ap.parse_args()
 
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY", os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
     if not key and not args.dry_run:
         sys.exit("SUPABASE_SERVICE_ROLE_KEY not set (source the .env first)")
 

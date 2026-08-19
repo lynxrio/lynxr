@@ -26,13 +26,13 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 
 import certifi
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from process_adaptations import fetch_meta  # noqa: E402  (same source of truth)
+from process_adaptations import fetch_meta, source_metrics  # noqa: E402  (same source of truth)
+import envcfg  # noqa: E402 — the one place a secret or config value is read; see its docstring.
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger("backfill-metrics")
@@ -59,8 +59,9 @@ def load_key():
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
                 env[k.strip()] = v.strip().strip('"').strip("'")
-    return (env.get("SUPABASE_SERVICE_ROLE_KEY")
-            or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "")
+    return envcfg.secret("SUPABASE_SERVICE_ROLE_KEY",
+                         env.get("SUPABASE_SERVICE_ROLE_KEY"),
+                         os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
 
 
 def sb(url, key, path, method="GET", body=None, extra=None):
@@ -123,15 +124,10 @@ def main():
             failed += 1
             log.warning("  no metadata: %s", src[:64])
             continue
-        patch = {
-            "views": meta.get("views"),
-            "likes": meta.get("likes"),
-            "comments": meta.get("comments"),
-            "duration": meta.get("duration"),
-            "creator": meta.get("creator") or "",
-            "title": meta.get("title") or "",
-            "metrics_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        }
+        # source_metrics() rather than a hand-built patch, so this script and
+        # the pipeline cannot drift — the same reason this file imports
+        # fetch_meta instead of re-implementing it.
+        patch = source_metrics(meta)
         # Keyed on the primary key, so this can only ever touch the one row.
         target = "/rest/v1/lynxr_sources?canonical_url=eq." + urllib.parse.quote(
             r["canonical_url"], safe="")
@@ -139,7 +135,9 @@ def main():
             sb(url, key, target, method="PATCH", body=patch,
                extra={"Prefer": "return=minimal"})
             done += 1
-            log.info("  %8s views  %s", f"{meta.get('views', 0):,}", src[:58])
+            views = meta.get("views")
+            views_s = f"{views:,}" if views is not None else "no count"
+            log.info("  %8s views  %s", views_s, src[:58])
         except urllib.error.HTTPError as e:
             failed += 1
             log.warning("  write failed: %s — %s", src[:48], e.read().decode()[:120])

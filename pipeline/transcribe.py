@@ -41,6 +41,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from analyze_visuals import yt_dlp_bin  # noqa: E402 — CI has no ./venv; see fetch_audio() below
+import envcfg  # noqa: E402 — the one place a secret or config value is read; see its docstring.
 
 ROOT = Path(__file__).parent.parent
 MASTER = ROOT / "output" / "master_video_database.csv"
@@ -51,7 +52,7 @@ OUT = ROOT / "output" / "transcripts.jsonl"
 # "mlx-community/whisper-large-v3-mlx" if you want maximum fidelity.
 # Overridable so CI can name a faster-whisper size ("small") while the Mac
 # keeps the MLX repo id. _size_of() maps between them either way.
-MODEL = os.environ.get("WHISPER_MODEL") or "mlx-community/whisper-small-mlx"
+MODEL = envcfg.first(os.environ.get("WHISPER_MODEL"), default="mlx-community/whisper-small-mlx")
 HOOK_SECONDS = 3.0
 
 (ROOT / "output").mkdir(exist_ok=True)   # gitignored: absent in a fresh CI checkout
@@ -162,7 +163,7 @@ _MODELS_LOCK = threading.Lock()
 # Step 7) transcribing at once would thrash rather than finish any of them
 # faster. Serialise the actual transcribe() call; downloading and the model
 # calls stay concurrent around it.
-TRANSCRIBE_SEM = threading.BoundedSemaphore(int(os.environ.get("WHISPER_CONCURRENCY", 1)))
+TRANSCRIBE_SEM = threading.BoundedSemaphore(int(envcfg.first(os.environ.get("WHISPER_CONCURRENCY"), default="1")))
 
 
 def load_faster(model):

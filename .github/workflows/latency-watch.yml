@@ -74,11 +74,17 @@ jobs:
         # phone notification, not this job's color.
         run: python pipeline/watchdog.py --once
 
-      - name: Say so on the owner's phone
+      - name: Page only if a creator is actually affected
         if: failure()
-        run: |
-          curl -s -m 10 \
-            -H "Title: lynxr: latency-watch FAILED" \
-            -H "Priority: 4" -H "Tags: rotating_light" \
-            -d "run ${{ github.run_number }} — github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" > /dev/null
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        # Forced by watchdog.py's Step 6: `--once` now exits 2 when it could
+        # not read the database, which turns this job red. The old step here
+        # was an unconditional curl titled "latency-watch FAILED" that said
+        # nothing about whether a creator was affected. The decision needs
+        # worker.heartbeat out of lynxr_ops, so it lives in Python now — same
+        # as adaptations.yml's failure step. Plain --once above (no
+        # --as-fallback): this workflow is an observer, not a worker, and
+        # must not claim to be covering anything.
+        run: python pipeline/watchdog.py --ci-failed

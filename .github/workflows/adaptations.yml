@@ -112,10 +112,15 @@ jobs:
         # THIS LOOP IS ALSO THE EXTERNAL HALF OF THE WATCHDOG. Fly can die
         # entirely and this keeps running (a GitHub Actions runner, not Fly
         # infrastructure), which is what makes pipeline/watchdog.py's
-        # `worker-down` alarm able to fire at all — see its comment for why
-        # only THIS caller can ever raise it. `python pipeline/watchdog.py
-        # --once` after every pass, `|| true` so a watchdog problem can never
-        # fail this loop.
+        # `worker-down` alarm able to fire at all. It is NOT the only caller
+        # that can raise it any more — .github/workflows/latency-watch.yml
+        # also runs `watchdog.py --once` on its own cron and is a second
+        # external caller. `python pipeline/watchdog.py --once --as-fallback`
+        # after every pass, `|| true` so a watchdog problem can never fail
+        # this loop. `--as-fallback` is what writes `fallback.heartbeat` every
+        # ~60s — the signal every other caller reads to decide whether this
+        # loop is covering for Fly, instead of paging over a redundancy
+        # failure nobody needed to hear about.
         #
         # No longer finishes green while quietly failing. 10 consecutive failed
         # passes (~10 minutes) now fails the job — one bad pass still cannot
@@ -138,7 +143,7 @@ jobs:
                 exit 1
               fi
             fi
-            python pipeline/watchdog.py --once || true
+            python pipeline/watchdog.py --once --as-fallback || true
             if (( SECONDS < DEADLINE )); then sleep 60; fi
           done
 
@@ -151,11 +156,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Say so on the owner's phone
+      - name: Page only if a creator is actually affected
         if: failure()
-        run: |
-          curl -s -m 10 \
-            -H "Title: lynxr: creator-scripts fallback FAILED" \
-            -H "Priority: 4" -H "Tags: rotating_light" \
-            -d "run ${{ github.run_number }} — github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            "https://ntfy.sh/${{ secrets.NTFY_TOPIC }}" > /dev/null
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        # The old step here was an unconditional curl titled "creator-scripts
+        # fallback FAILED". It fired whenever this job went red — including
+        # when Fly was healthy and every creator had their script, which is the
+        # exact page the owner called useless. The decision needs
+        # worker.heartbeat out of lynxr_ops, so it lives in Python now.
+        run: python pipeline/watchdog.py --ci-failed

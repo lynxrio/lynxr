@@ -15,6 +15,8 @@ import ssl
 import urllib.request
 from datetime import datetime, timezone
 
+import envcfg
+
 try:
     import certifi
     CTX = ssl.create_default_context(cafile=certifi.where())
@@ -26,7 +28,7 @@ SB = "https://esakjfogplfszievvabi.supabase.co"
 
 
 def env(name):
-    v = os.environ.get(name)
+    v = envcfg.get(name)
     if v:
         return v
     for line in (ROOT / ".env").read_text().splitlines():
@@ -34,7 +36,7 @@ def env(name):
         if line and not line.startswith("#") and "=" in line:
             k, val = line.split("=", 1)
             if k.strip() == name:
-                return val.strip().strip('"').strip("'")
+                return envcfg.clean(val.strip().strip('"').strip("'"))
     raise SystemExit(f"{name} not set")
 
 

@@ -16,6 +16,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from apify_client import ApifyClient
+import envcfg  # the one place a secret or config value is read; see its docstring.
 
 HASHTAGS = [
     "outfitideas",
@@ -80,7 +81,7 @@ def scrape_hashtag(client, hashtag):
 
 
 def main():
-    token = os.environ.get("APIFY_API_TOKEN")
+    token = envcfg.secret("APIFY_API_TOKEN", os.environ.get("APIFY_API_TOKEN"))
     if not token:
         raise SystemExit("Set APIFY_API_TOKEN first.")
     PARTS_DIR.mkdir(parents=True, exist_ok=True)
