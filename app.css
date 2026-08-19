@@ -17,7 +17,53 @@
     --text:      #ededf0;
     --text-2:    #a3a3ad;
     --text-3:    #6b6b76;
-    --radius:    8px;
+
+    /* ---------- SHAPE ----------
+       ONE scale, four tokens, and every border-radius in this file reads from
+       it. Before this there were 94 border-radius declarations across 15
+       distinct values (8/10/6/4/12/50%/9/999/14/3/0/7/5/2/1px) and only 8 of
+       them went through a token, so "make the buttons rounder" was a
+       ninety-line edit. It is now a one-line edit per token.
+
+       The house shape is a CAPSULE for anything you operate and a generously
+       rounded rectangle for anything that HOLDS something. That distinction is
+       the whole system: a control is as round as its own height allows, a
+       container is not, because a capsule container has no straight edge for
+       its contents to line up against.
+
+       --r-pill   999px, so it always resolves to half the element's height
+                  whatever that height turns out to be. Buttons, tabs, chips,
+                  status badges, selects, single-line text fields, segmented
+                  controls, and every meter/progress bar (a 3px-tall bar with
+                  this radius is a capsule, which is the same language at a
+                  smaller scale). On a SQUARE element it renders a circle for
+                  free — which is why an icon button uses this and not
+                  --r-round: .ghost.icon-only is 34x34 until it arms itself and
+                  grows into a worded button, and 999px degrades to a capsule
+                  where 50% would degrade to an ellipse.
+       --r-round  50%, reserved for elements that are square BY CONSTRUCTION
+                  and are conceptually a circle: the play buttons, the record
+                  dot, the tick in the feedback panel, the ↗ on a cover.
+       --r-card   the container corner. Cards, modals, panels, the table
+                  wrapper, the waitlist box, the terms banner.
+       --r-inner  a surface nested INSIDE a container, which must read as
+                  subordinate to it: video players, thumbnails, tooltips,
+                  textareas (a capsule textarea is unreadable — the first and
+                  last line lose their indent), and hover grounds on rows.
+
+       Deliberately NOT tokenised: the four `border-radius: 0` declarations
+       (the full-screen modal on a phone, the full-bleed cover on a tile, its
+       placeholder, and a script row nested inside a library card). Those are
+       "no corner at all" because something else owns the clip, not a value on
+       this scale. */
+    --r-pill:    999px;
+    --r-round:   50%;
+    --r-card:    16px;
+    --r-inner:   10px;
+    /* Legacy alias. Nothing in this file or in any .js reads it any more —
+       kept so a stray `var(--radius)` written from memory lands on the
+       container token rather than resolving to nothing and painting a square. */
+    --radius:    var(--r-card);
     /* The system's own code font — SF Mono on macOS, Consolas on Windows, the
        distro default on Linux. `ui-monospace` asks for exactly the face the OS
        uses in its editors and terminals, which is the look this is after.
@@ -40,6 +86,11 @@
        into --mono, that is the site-wide revert. */
     --logo: "Share Tech Mono", var(--mono);
     --ease: cubic-bezier(.22, .61, .2, 1);
+    /* Soft at BOTH ends. --ease above is an ease-OUT: it leaves immediately and
+       settles gently, which is right for a small state change and wrong for a
+       large object sliding out of view, where the abrupt start is the whole of
+       what reads as "not smooth". Used by the public pages' top bar. */
+    --ease-bar: cubic-bezier(.42, 0, .22, 1);
 
     /* ---------- FLUID TYPE ----------
        Every font-size on the site reads from one of these. A token is named
@@ -91,7 +142,7 @@
      prefers-reduced-motion. */
   @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 6px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: var(--r-pill); border: 2px solid var(--bg); }
   ::-webkit-scrollbar-track { background: transparent; }
   /* ---------- Dot-grid backdrop ----------
      The same evenly spaced lattice the Lynx Media Group site uses, retuned
@@ -143,7 +194,7 @@
   a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--line-2); }
   a:hover { border-bottom-color: var(--text-2); }
   button { font: inherit; cursor: pointer; transition: background .12s, color .12s, border-color .12s, opacity .12s; }
-  :focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; border-radius: 4px; }
+  :focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; border-radius: var(--r-pill); }
 
   /* Share Tech Mono ships a single 400 weight, so the old 600 would have been
      a synthesised bold — smeared strokes on a face whose whole character is
@@ -174,9 +225,9 @@
   .field[hidden] { display: none; }
   .pw-wrap { position: relative; flex: 1; min-width: 0; }
   .pw-wrap input {
-    width: 100%; padding: 11px 42px 11px 13px;
+    width: 100%; padding: 11px 44px 11px 15px;
     background: var(--surface); border: 1px solid var(--line);
-    border-radius: 8px; color: var(--text); font-size: var(--fs-15);
+    border-radius: var(--r-pill); color: var(--text); font-size: var(--fs-15);
     font-family: var(--mono); letter-spacing: 0.02em;
   }
   .pw-wrap input::placeholder { font-family: inherit; letter-spacing: 0; color: var(--text-3); }
@@ -184,7 +235,7 @@
   .toggle {
     position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
     display: grid; place-items: center; width: 30px; height: 30px; padding: 0;
-    background: none; border: 0; border-radius: 6px; color: var(--text-3);
+    background: none; border: 0; border-radius: var(--r-pill); color: var(--text-3);
   }
   .toggle:hover { color: var(--text); background: var(--hover); }
   .toggle svg { width: 17px; height: 17px; display: block; }
@@ -193,7 +244,7 @@
   .toggle[aria-pressed="true"] .icon-off { display: block; }
   .btn {
     padding: 11px 18px; background: var(--text); color: var(--bg);
-    border: 1px solid var(--text); border-radius: 8px; font-weight: 600; font-size: var(--fs-15);
+    border: 1px solid var(--text); border-radius: var(--r-pill); font-weight: 600; font-size: var(--fs-15);
     transition: opacity .12s;
   }
   .btn:hover:not(:disabled) { opacity: .85; }
@@ -227,7 +278,7 @@
   @media (max-width: 980px) { .sync-mail { display: none; } }
   .tab {
     background: none; border: 0; color: var(--text-3);
-    padding: 6px 12px; border-radius: 7px; font-size: var(--fs-14); font-weight: 500;
+    padding: 6px 12px; border-radius: var(--r-pill); font-size: var(--fs-14); font-weight: 500;
     white-space: nowrap;
   }
   .tab:hover { color: var(--text-2); background: var(--surface); }
@@ -235,7 +286,7 @@
   .spacer { flex: 1; }
   .ghost {
     background: none; border: 1px solid var(--line); color: var(--text-2);
-    padding: 7px 13px; border-radius: 8px; font-size: var(--fs-135); font-weight: 500;
+    padding: 7px 13px; border-radius: var(--r-pill); font-size: var(--fs-135); font-weight: 500;
   }
   .ghost:hover:not(:disabled) { color: var(--text); border-color: var(--line-2); background: var(--surface); }
   .ghost:disabled { opacity: .35; cursor: default; }
@@ -300,7 +351,7 @@
   .ed-field .lbl { font-size: var(--fs-11); color: var(--text-3); letter-spacing: .06em; }
   .ed-input {
     width: 100%; padding: 9px 11px; background: var(--surface-2); color: var(--text);
-    border: 1px solid var(--line); border-radius: 8px;
+    border: 1px solid var(--line); border-radius: var(--r-inner);
     font: inherit; font-size: var(--fs-13); line-height: 1.5; resize: vertical;
   }
   .ed-input:focus { outline: none; border-color: var(--line-2); }
@@ -344,7 +395,7 @@
   .modal[hidden] { display: none; }
   body.modal-open { overflow: hidden; }
   .modal-card {
-    background: var(--bg); border: 1px solid var(--line-2); border-radius: 14px;
+    background: var(--bg); border: 1px solid var(--line-2); border-radius: var(--r-card);
     width: 100%; max-width: 640px; max-height: 82vh;
     display: flex; flex-direction: column; overflow: hidden;
   }
@@ -384,7 +435,7 @@
      padding and var(--surface) background without asking. */
   .sendmodal { z-index: 110; }
   .sendbox {
-    background: var(--bg); border: 1px solid var(--line-2); border-radius: 14px;
+    background: var(--bg); border: 1px solid var(--line-2); border-radius: var(--r-card);
     width: 100%; max-width: 460px; display: flex; flex-direction: column; overflow: hidden;
   }
   .sendbox-head {
@@ -420,7 +471,7 @@
     display: flex; align-items: center; gap: 10px;
   }
   /* The agency site's eyebrow rule — "— SECTION" — inverted to monochrome. */
-  h2::before { content: ""; width: 22px; height: 2px; background: var(--line-2); border-radius: 1px; flex: none; }
+  h2::before { content: ""; width: 22px; height: 2px; background: var(--line-2); border-radius: var(--r-pill); flex: none; }
   .section { margin-bottom: 40px; }
   .lede { color: var(--text-2); font-size: var(--fs-14); margin: -6px 0 20px; max-width: 62ch; }
 
@@ -428,7 +479,7 @@
   /* Explicit columns so rows always fill — auto-fit left blank cells when
      four cards wrapped 3+1 and the seam background showed through. */
   .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px;
-           background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+           background: var(--line); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
   @media (max-width: 880px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .stat { background: var(--surface); padding: 18px 20px; }
   .stat .label { color: var(--text-3); font-size: var(--fs-11); text-transform: lowercase; letter-spacing: .08em; margin-bottom: 7px; }
@@ -442,7 +493,7 @@
      what to do ("room to run") rather than repeating the number. */
   .sat-list { display: flex; flex-direction: column; gap: 2px; }
   .sat-row {
-    padding: 11px 12px; border-radius: 8px; cursor: pointer;
+    padding: 11px 12px; border-radius: var(--r-inner); cursor: pointer;
     transition: background .15s var(--ease);
   }
   .sat-row:hover, .sat-row:focus-visible { background: var(--surface); outline: none; }
@@ -450,10 +501,10 @@
   .sat-name { font-size: var(--fs-14); color: var(--text); }
   .sat-reach { font-family: var(--mono); font-size: var(--fs-125); color: var(--text-2); white-space: nowrap; }
   .sat-meter {
-    height: 5px; border-radius: 3px; background: var(--surface-2);
+    height: 5px; border-radius: var(--r-pill); background: var(--surface-2);
     margin: 7px 0 5px; overflow: hidden;
   }
-  .sat-fill { display: block; height: 100%; width: 0; border-radius: 3px; transition: width .5s var(--ease); }
+  .sat-fill { display: block; height: 100%; width: 0; border-radius: var(--r-pill); transition: width .5s var(--ease); }
   /* Green where there is room, amber filling up, red crowded — the one place
      in this app colour carries meaning rather than decoration. */
   .sat-open { background: var(--good); }
@@ -476,8 +527,8 @@
   .bars-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px 32px; }
   .bars { display: flex; flex-direction: column; gap: 5px; }
   .bar-row { display: grid; grid-template-columns: 1fr 96px; align-items: center; gap: 12px; font-size: var(--fs-13); }
-  .bar-track { position: relative; background: var(--surface); border-radius: 6px; height: 26px; overflow: hidden; }
-  .bar-fill { position: absolute; inset: 0 auto 0 0; background: #ffffff2b; border-radius: 6px 0 0 6px; width: 0; transition: width .7s var(--ease), background .35s ease; }
+  .bar-track { position: relative; background: var(--surface); border-radius: var(--r-pill); height: 26px; overflow: hidden; }
+  .bar-fill { position: absolute; inset: 0 auto 0 0; background: #ffffff2b; border-radius: var(--r-pill) 0 0 var(--r-pill); width: 0; transition: width .7s var(--ease), background .35s ease; }
   /* Hover: the fill brightens a couple of steps — enough to read as selected,
      not enough to flashbang the row. Label stays put and stays readable. */
   .bar-row.drill:hover .bar-fill { background: #ffffff59; }
@@ -488,10 +539,17 @@
   /* ---------- Controls ---------- */
   .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
   input[type="search"], input[type="url"], select, textarea {
-    padding: 9px 12px; background: var(--surface); border: 1px solid var(--line);
-    border-radius: 8px; color: var(--text); font-size: var(--fs-14);
+    padding: 9px 14px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-pill); color: var(--text); font-size: var(--fs-14);
   }
-  textarea { resize: vertical; min-height: 58px; line-height: 1.5; }
+  /* The one control that is NOT a capsule. It shares the block above for
+     padding and colour, then takes the container-inner corner back: a
+     multi-line box with a 999px radius pushes the first and last line of text
+     inward by half its own height, so the left edge of the copy stops being a
+     left edge. Written as its own rule rather than by splitting the selector
+     list, because the padding/background/border-colour treatment genuinely is
+     shared and duplicating it is how the two drift apart. */
+  textarea { resize: vertical; min-height: 58px; line-height: 1.5; border-radius: var(--r-inner); }
   .ce-avatar-grid {
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px 14px; margin-top: 6px;
@@ -508,13 +566,13 @@
   .pill {
     display: inline-block; margin-left: 8px; padding: 2px 9px;
     background: var(--surface-2); border: 1px solid var(--line); color: var(--text-2);
-    border-radius: 4px; font-size: var(--fs-115); letter-spacing: 0; text-transform: none; vertical-align: middle;
+    border-radius: var(--r-pill); font-size: var(--fs-115); letter-spacing: 0; text-transform: none; vertical-align: middle;
   }
 
   /* ---------- Table ---------- */
   /* The table scrolls inside its own container so the sticky header pins to the
      wrapper, not the page — rows can never bleed through above it. */
-  .table-wrap { overflow: auto; max-height: 72vh; border: 1px solid var(--line); border-radius: var(--radius); }
+  .table-wrap { overflow: auto; max-height: 72vh; border: 1px solid var(--line); border-radius: var(--r-card); }
   table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: var(--fs-135); }
   th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th {
@@ -542,8 +600,8 @@
     overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
   }
   .no-results, .empty { padding: 34px; text-align: center; color: var(--text-3); }
-  .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius); }
-  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 6px; border-radius: 4px; }
+  .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r-card); }
+  code { font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: 2px 8px; border-radius: var(--r-pill); }
 
   /* ---------- Client brief ---------- */
 
@@ -552,11 +610,11 @@
   .note { color: var(--text-3); font-size: var(--fs-125); margin: 10px 0 0; max-width: 70ch; }
   .lbl { color: var(--text-3); font-size: var(--fs-125); }
   .warn {
-    border: 1px solid var(--line-2); background: var(--surface); border-radius: var(--radius);
+    border: 1px solid var(--line-2); background: var(--surface); border-radius: var(--r-card);
     padding: 13px 16px; color: var(--text-2); font-size: var(--fs-135); margin: 16px 0 0;
   }
   .plays { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
-  .play { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+  .play { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); overflow: hidden; }
   .play-head { display: flex; align-items: flex-start; gap: 15px; padding: 16px 18px; }
   .rank { font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); padding-top: 4px; min-width: 22px; }
   .play-title { font-size: var(--fs-155); font-weight: 600; letter-spacing: -0.01em; margin: 0 0 3px; }
@@ -564,7 +622,7 @@
   .metrics { display: flex; gap: 20px; flex-wrap: wrap; margin-left: auto; text-align: right; padding-top: 2px; }
   .metric .m-val { font-family: var(--mono); font-size: var(--fs-15); font-weight: 600; }
   .metric .m-lbl { color: var(--text-3); font-size: var(--fs-105); text-transform: lowercase; letter-spacing: .07em; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: var(--fs-105);
+  .badge { display: inline-block; padding: 2px 8px; border-radius: var(--r-pill); font-size: var(--fs-105);
            text-transform: lowercase; letter-spacing: .07em; border: 1px solid var(--line-2); color: var(--text-3); }
   .badge.strong { color: var(--text); border-color: var(--text-3); }
   .examples { border-top: 1px solid var(--line); background: var(--surface-2); padding: 4px 18px 10px; }
@@ -624,7 +682,7 @@
      further down this file. */
   .eta-rail[hidden] { display: none; }
   .eta-seg {
-    flex: 1 1 0; height: 3px; border-radius: 2px;
+    flex: 1 1 0; height: 3px; border-radius: var(--r-pill);
     background: var(--line-2); transition: background .3s var(--ease);
   }
   .eta-seg.on { background: var(--text-2); }
@@ -634,7 +692,7 @@
   .progress { color: var(--text-3); font-size: var(--fs-14); padding: 18px 0; }
   @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
   .site-card {
-    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
     padding: 16px 18px; margin: 18px 0 6px;
   }
   .site-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -642,7 +700,7 @@
 
   /* Client details editor */
   .client-editor {
-    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
     padding: 16px 18px; margin: 14px 0 4px;
   }
   .ce-title { font-size: var(--fs-14); margin: 0 0 12px; color: var(--text-2); text-transform: lowercase; letter-spacing: .05em; }
@@ -654,7 +712,7 @@
      here — it left the one <select> in this form visibly narrower than every
      <input> stacked above it. */
   .ce-field input, .ce-field select {
-    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-pill);
     color: var(--text); font: inherit; font-size: var(--fs-14); padding: 9px 11px; min-width: 0;
     max-width: none; width: 100%;
   }
@@ -678,7 +736,7 @@
      app's client editor has four plain textareas in .ce-field, and this is the
      creator side's rule — it must not restyle them. */
   .ce-field textarea.grow {
-    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-inner);
     color: var(--text); font: inherit; font-size: var(--fs-14); padding: 9px 11px; min-width: 0;
     resize: none; overflow: hidden; min-height: 0; line-height: 1.5; display: block;
   }
@@ -689,7 +747,7 @@
   /* Brief tray (the cart) */
   .tray {
     position: sticky; top: 57px; z-index: 5;
-    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-card);
     margin: 14px 0; padding: 10px 14px;
   }
   .tray-inner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -705,7 +763,7 @@
     gap: 14px; margin: 6px 0 20px;
   }
   .vcard {
-    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
     overflow: hidden; display: flex; flex-direction: column;
   }
   .vcard { transition: border-color .12s; }
@@ -735,7 +793,7 @@
      still see a real checkbox. */
   .vpick {
     display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
-    padding: 5px 13px; border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 13px; border: 1px solid var(--line); border-radius: var(--r-pill);
     font-size: var(--fs-125); font-weight: 500; color: var(--text-2);
     cursor: pointer; user-select: none;
     transition: background .15s, color .15s, border-color .15s;
@@ -771,7 +829,7 @@
   .vplay {
     position: absolute; inset: 0; margin: auto; width: 52px; height: 52px;
     display: grid; place-items: center; padding: 0;
-    background: #0a0a0bc9; border: 1px solid #ffffff3d; border-radius: 50%;
+    background: #0a0a0bc9; border: 1px solid #ffffff3d; border-radius: var(--r-round);
     color: var(--text); cursor: pointer; transition: transform .12s, background .12s;
   }
   .vplay svg { width: 22px; height: 22px; margin-left: 3px; }
@@ -781,7 +839,7 @@
   .vframe.playing .vplay { display: none; }
 
   /* Clickable Overview bars */
-  .bar-row.drill { cursor: pointer; border-radius: 6px; }
+  .bar-row.drill { cursor: pointer; border-radius: var(--r-inner); }
   .bar-row.drill .bar-count::after { content: "→"; display: inline-block; margin-left: 6px; opacity: 0; transform: translateX(-4px); transition: opacity .15s, transform .15s; }
   .bar-row.drill:hover .bar-count::after { opacity: 1; transform: none; }
   .bar-row.drill:hover .bar-track { background: var(--surface-2); }
@@ -796,7 +854,7 @@
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip {
     font-size: var(--fs-12); color: var(--text-2); background: var(--surface-2);
-    border: 1px solid var(--line); border-radius: 4px; padding: 3px 9px; white-space: nowrap;
+    border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px 9px; white-space: nowrap;
   }
   .chip.good { color: var(--good); border-color: var(--good); }
   .chip.bad { color: var(--bad); border-color: var(--bad); }
@@ -818,8 +876,8 @@
   .bp-plat {
     position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
     font-family: var(--mono); font-size: var(--fs-105); letter-spacing: .04em;
-    color: var(--text-3); border: 1px solid var(--line); border-radius: 4px;
-    padding: 2px 6px; pointer-events: none; opacity: 0;
+    color: var(--text-3); border: 1px solid var(--line); border-radius: var(--r-pill);
+    padding: 2px 9px; pointer-events: none; opacity: 0;
     transition: opacity .16s var(--ease);
   }
   .bp-plat.on { opacity: 1; }
@@ -842,7 +900,7 @@
   /* Keyboard users get the same target, and it must not be invisible against
      the row — the frame is dark and so is the card behind it. */
   a.bp-thumb:focus-visible, .bp-thumb-link:focus-visible {
-    outline: 2px solid var(--text-2); outline-offset: 2px; border-radius: 3px;
+    outline: 2px solid var(--text-2); outline-offset: 2px; border-radius: var(--r-inner);
   }
 
   .bp-msg {
@@ -856,7 +914,7 @@
 
   .bp-list { margin-top: 12px; }
   .bp-item {
-    border: 1px solid var(--line); border-radius: 10px; margin-top: 8px;
+    border: 1px solid var(--line); border-radius: var(--r-card); margin-top: 8px;
     background: var(--surface); overflow: hidden;
     transition: border-color .18s var(--ease);
   }
@@ -896,7 +954,7 @@
      around the image. The placeholder below keeps the box, because initials
      floating on the card with nothing behind them is not a thumbnail. */
   .bp-thumb {
-    flex: 0 0 auto; width: 40px; height: 56px; border-radius: 6px;
+    flex: 0 0 auto; width: 40px; height: 56px; border-radius: var(--r-inner);
     overflow: hidden; background: none; border: 0;
     display: grid; place-items: center;
   }
@@ -917,7 +975,7 @@
   .bp-thumb .vthumb-none, .bp-thumb .vthumb-pending {
     font-size: 9px; color: var(--text-3); font-family: var(--mono); letter-spacing: .04em;
     width: 100%; height: 100%; display: grid; place-items: center;
-    background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-inner);
   }
   .bp-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bp-when { color: var(--text-3); font-size: var(--fs-11); white-space: nowrap; }
@@ -938,7 +996,7 @@
 
   .bp-wait { color: var(--text-3); }
   .bp-dot {
-    width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+    width: 5px; height: 5px; border-radius: var(--r-round); background: currentColor;
     display: inline-block; margin-right: 6px; vertical-align: middle;
     animation: bp-pulse 1.8s ease-in-out infinite;
   }
@@ -976,7 +1034,7 @@
   .db-mode {
     display: inline-flex; align-items: center; gap: 8px;
     background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--radius); padding: 8px 12px; color: var(--text-2);
+    border-radius: var(--r-pill); padding: 8px 12px; color: var(--text-2);
     font-size: var(--fs-125); cursor: pointer;
     transition: border-color .14s var(--ease), color .14s var(--ease);
   }
@@ -990,7 +1048,7 @@
   .src-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .src-tag {
     display: inline-flex; align-items: baseline; gap: 6px;
-    border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px;
+    border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px 8px;
     font-size: var(--fs-115); color: var(--text-2);
   }
   .src-tag i { font-style: normal; color: var(--text-3); font-size: var(--fs-10); letter-spacing: .06em; }
@@ -1131,7 +1189,7 @@
   .vrow { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
   .vstat { font-family: var(--mono); font-size: var(--fs-115); color: var(--text-3); white-space: nowrap; }
   .vdetails {
-    background: none; border: 1px solid var(--line); border-radius: 6px;
+    background: none; border: 1px solid var(--line); border-radius: var(--r-pill);
     color: var(--text-2); font: inherit; font-size: var(--fs-12); padding: 3px 10px; cursor: pointer;
   }
   .vdetails:hover { color: var(--text); border-color: var(--line-2); }
@@ -1145,11 +1203,11 @@
   .modal-card {
     position: relative; margin: 4vh auto; width: min(880px, calc(100vw - 32px));
     max-height: 92vh; overflow: auto; background: var(--surface);
-    border: 1px solid var(--line-2); border-radius: 14px; padding: 22px;
+    border: 1px solid var(--line-2); border-radius: var(--r-card); padding: 22px;
   }
   .modal-x { position: absolute; top: 12px; right: 12px; padding: 5px 10px; z-index: 2; }
   .modal-grid { display: grid; grid-template-columns: 300px 1fr; gap: 22px; }
-  .modal-player { border-radius: 10px; overflow: hidden; background: #000; align-self: start; }
+  .modal-player { border-radius: var(--r-inner); overflow: hidden; background: #000; align-self: start; }
   .modal-player iframe { width: 100%; height: 100%; border: 0; display: block; }
   .modal-player.vf-tiktok { aspect-ratio: 9 / 19.8; }
   .modal-player.vf-insta { aspect-ratio: 9 / 19; }
@@ -1170,7 +1228,7 @@
   .bcard {
     transition: border-color .12s;
     display: flex; align-items: center; gap: 12px;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
     padding: 16px 18px;
   }
   .bcard:hover { border-color: var(--line-2); }
@@ -1198,8 +1256,8 @@
     margin-bottom: 6px; min-height: 34px;
   }
   .crumb-link {
-    background: none; border: none; padding: 2px 4px; cursor: pointer;
-    color: var(--text-3); font: inherit; font-size: var(--fs-13); border-radius: 6px;
+    background: none; border: none; padding: 2px 9px; cursor: pointer;
+    color: var(--text-3); font: inherit; font-size: var(--fs-13); border-radius: var(--r-pill);
   }
   .crumb-link:hover { color: var(--text); background: var(--surface); }
   .crumb-sep { color: var(--text-3); opacity: .5; font-size: var(--fs-13); }
@@ -1215,7 +1273,7 @@
 
   /* Everything recorded about a client, behind the Details button. */
   .client-details {
-    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
     padding: 16px 18px; margin-bottom: 22px;
   }
   .client-details[hidden] { display: none; }
@@ -1245,7 +1303,7 @@
   .sug-hint[hidden] { display: none; }
   .viewer { display: grid; grid-template-columns: 360px 1fr; gap: 26px; align-items: start; }
 
-  .viewer-player { border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--line); }
+  .viewer-player { border-radius: var(--r-inner); overflow: hidden; background: #000; border: 1px solid var(--line); }
   .viewer-player.vf-tiktok { aspect-ratio: 9 / 19.8; }
   .viewer-player.vf-insta { aspect-ratio: 9 / 19; }
   .viewer-player.vf-short { aspect-ratio: 9 / 16; }
@@ -1265,11 +1323,11 @@
   .verdict.even { color: var(--even); }
 
   .fmt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 30px; }
-  .fmt-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .fmt-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 14px 16px; }
   .fmt-card.good { border-color: #2c4a39; }
   .fmt-card.bad { border-color: #4a2c2c; }
   .fmt-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; font-size: var(--fs-135); }
-  .fmt-card.expandable .fmt-head { cursor: pointer; border-radius: 6px; }
+  .fmt-card.expandable .fmt-head { cursor: pointer; border-radius: var(--r-inner); }
   .fmt-card.expandable .fmt-head:hover strong { color: var(--text); }
   .fmt-card.expandable .fmt-head:hover .caret { color: var(--text); }
   .fmt-head-right { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
@@ -1392,6 +1450,79 @@
     .chip { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
   }
 
+  /* ==========================================================================
+     MOTION, ROUND TWO — owner, 2026-08-19: "add smooth animations where ever
+     you see fit"
+     ==========================================================================
+     A licence, not a blank cheque, and this file already had a motion system
+     (bp-open/bp-close, bp-pulse, rise-in, soft-in, the modal fades). What is
+     added here is the gaps in it, to one policy:
+
+     MOTION IS ADDED FOR — a state change the user just caused; something
+     arriving that was not there before; hover and focus feedback on a control.
+     MOTION IS REFUSED FOR — anything that fires on a grid repaint, anything on
+     first paint, anything that delays a click, and the meta row and status
+     chips.
+
+     WHAT IS DELIBERATELY LEFT STATIC, and why, because "you missed some" is the
+     obvious reading otherwise:
+
+       .chip / .bp-dur / .meta-facts / .lib-stat — these report real state, and
+         a card whose status fades every time the worker writes a number looks
+         busy while nothing is happening. The one exception already exists and
+         is honest: .bp-dot pulses while a script is genuinely being written.
+       .script-grid tiles have NO entrance animation. The grid is rewritten on
+         every keystroke in the find bar and repaints on a timer while a script
+         is being written, so an entrance would turn typing into a slot machine
+         and would never stop while work is in flight. Same hazard family as the
+         auto-scroll that had to be restricted to deliberate opens.
+       The card BODY keeps its existing bp-open/bp-close and gains nothing: it
+         is a height reveal, and a height transition on a list item lays out the
+         whole column every frame.
+
+     Everything below is transform/opacity/colour only, 120–200ms, plain ease.
+     The blanket `animation: none !important; transition: none !important` in
+     the reduced-motion block directly underneath cancels all of it. */
+
+  /* PRESS FEEDBACK. The click is already registered by the time this paints —
+     it is a transition on transform, so it can never delay the handler. 0.97
+     and 90ms: enough to feel, not enough to see as an animation. */
+  .btn, .ghost, .tab, .lib-mode, .for-chip, .vpick, .vdetails, .crumb-link,
+  .side-new, .side-link, .side-item, .composer-send, .lib-plus, .db-mode, .tp-save {
+    transition: background .14s var(--ease), color .14s var(--ease),
+                border-color .14s var(--ease), opacity .12s, transform .09s var(--ease);
+  }
+  .btn:active:not(:disabled), .ghost:active:not(:disabled), .tab:active,
+  .lib-mode:active, .for-chip:active, .vpick:active, .vdetails:active,
+  .crumb-link:active, .side-new:active, .side-link:active, .side-item:active,
+  .composer-send:active:not(:disabled), .lib-plus:active, .db-mode:active {
+    transform: scale(.97);
+  }
+
+  /* SOMETHING ARRIVED. Keyed on :not(:empty) rather than a class, so the
+     animation starts the moment the element first has something to say and —
+     this is the part that matters — does NOT restart when the same text is
+     written again, because the element never stopped matching. A repaint that
+     re-sets identical copy therefore animates nothing. */
+  .wait-msg:not(:empty), .composer-note:not(:empty), .find-count:not(:empty) {
+    animation: rise-in .18s var(--ease);
+  }
+
+  /* A TILE UNDER THE POINTER. Transform only, one pixel, and it needs a pointer
+     to fire — so it cannot be triggered by a repaint. Not on an open card: that
+     one is a full-width reading surface, not a target. */
+  .script-grid > .bp-item:not([open]) { transition: transform .14s var(--ease), border-color .18s var(--ease); }
+  .script-grid > .bp-item:not([open]):hover { transform: translateY(-1px); }
+  /* A device with no hover has no hover STATE either — it has a stuck one. */
+  @media (hover: none) {
+    .script-grid > .bp-item:not([open]):hover { transform: none; }
+  }
+
+  /* The copied tick, which is the app's one "it worked" confirmation and was
+     swapping colour instantly. Colour only; the button must not move under the
+     finger that is still on it. */
+  .ghost.ok { transition: color .14s var(--ease), border-color .14s var(--ease); }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
     html { scroll-behavior: auto; }
@@ -1407,7 +1538,7 @@
   .week-nav {
     display: flex; align-items: center; gap: 16px;
     background: var(--surface); border: 1px solid var(--line);
-    border-radius: 12px; padding: 14px 18px; margin-bottom: 20px;
+    border-radius: var(--r-card); padding: 14px 18px; margin-bottom: 20px;
   }
   .week-head { flex: 1; min-width: 0; text-align: center; }
   .week-arrow {
@@ -1420,7 +1551,7 @@
   .nextweek {
     display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
     background: var(--surface); border: 1px solid var(--line);
-    border-radius: 12px; padding: 18px 20px; margin-top: 30px;
+    border-radius: var(--r-card); padding: 18px 20px; margin-top: 30px;
   }
   .nextweek h2 { margin-bottom: 4px; }
   .nextweek .lbl { max-width: 68ch; }
@@ -1432,8 +1563,8 @@
   /* Login (email + password stacked) */
   .field.login { flex-direction: column; gap: 8px; }
   .field.login input[type="email"] {
-    width: 100%; padding: 11px 13px; background: var(--surface);
-    border: 1px solid var(--line); border-radius: 8px; color: var(--text); font-size: var(--fs-15);
+    width: 100%; padding: 11px 15px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--text); font-size: var(--fs-15);
     font-family: var(--mono); letter-spacing: 0.02em;
   }
   .field.login input[type="email"]::placeholder { font-family: inherit; letter-spacing: 0; color: var(--text-3); }
@@ -1567,8 +1698,8 @@
 
   /* Reach-confidence tier chip on shelf cards (SCRAPING_SPEC) */
   .tier-chip {
-    font-family: var(--mono); font-size: var(--fs-105); padding: 1px 7px;
-    border-radius: 4px; border: 1px solid var(--line-2); color: var(--text-2);
+    font-family: var(--mono); font-size: var(--fs-105); padding: 1px 9px;
+    border-radius: var(--r-pill); border: 1px solid var(--line-2); color: var(--text-2);
     white-space: nowrap;
   }
   .tier-chip.t1 { color: var(--good); border-color: #2c4a39; }
@@ -1582,7 +1713,7 @@
   .bp-editor textarea.bp-beat-edit {
     display: block; width: 100%; box-sizing: border-box; resize: vertical;
     min-height: 62px; padding: 10px 12px;
-    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-inner);
     color: var(--text); font-family: var(--mono); font-size: var(--fs-125); line-height: 1.6;
   }
   .bp-editor textarea.bp-beat-edit:focus { border-color: var(--line-2); outline: none; }
@@ -1593,8 +1724,8 @@
   .post-form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
   .post-form input[type="url"] { flex: 1 1 260px; }
   .post-form input, .post-form select {
-    padding: 9px 12px; background: var(--surface); border: 1px solid var(--line);
-    border-radius: 8px; color: var(--text); font: inherit; font-size: var(--fs-14); min-width: 0;
+    padding: 9px 14px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-pill); color: var(--text); font: inherit; font-size: var(--fs-14); min-width: 0;
   }
 
   /* A section title with its action pinned to the far right, flush with the
@@ -1642,8 +1773,8 @@
   .sug-score {
     display: inline-flex; align-items: baseline; gap: 1px;
     font-family: var(--mono); font-size: var(--fs-15); font-weight: 600;
-    border: 1px solid var(--line); border-radius: 4px;
-    padding: 1px 7px; white-space: nowrap; color: var(--text-2);
+    border: 1px solid var(--line); border-radius: var(--r-pill);
+    padding: 1px 9px; white-space: nowrap; color: var(--text-2);
   }
   .sug-score i { font-style: normal; font-size: var(--fs-10); font-weight: 400; color: var(--text-3); }
   .sug-score.good { color: var(--good); border-color: #2c4a39; }
@@ -1658,7 +1789,7 @@
   .score-tip {
     position: fixed; z-index: 60; width: max-content; max-width: min(300px, calc(100vw - 16px));
     background: var(--surface-2); border: 1px solid var(--line-2);
-    border-radius: 9px; padding: 9px 12px;
+    border-radius: var(--r-inner); padding: 9px 12px;
     box-shadow: 0 10px 26px #00000080;
     animation: soft-in .12s var(--ease);
   }
@@ -1755,13 +1886,13 @@
     display: flex; align-items: center; gap: 9px; width: 100%;
     padding: 9px 10px; margin-bottom: 6px; text-align: left;
     background: var(--text); color: var(--bg); border: 1px solid var(--text);
-    border-radius: 8px; font-weight: 600; font-size: var(--fs-135);
+    border-radius: var(--r-pill); font-weight: 600; font-size: var(--fs-135);
   }
   .side-new:hover { opacity: .85; }
 
   .side-link, .side-item {
     display: flex; align-items: center; gap: 9px; width: 100%;
-    padding: 8px 10px; text-align: left; border-radius: 8px;
+    padding: 8px 10px; text-align: left; border-radius: var(--r-pill);
     background: none; border: 1px solid transparent;
     color: var(--text-2); font-size: var(--fs-135); min-width: 0;
   }
@@ -1785,7 +1916,7 @@
   .side-quota { color: var(--text-3); font-size: var(--fs-115); padding: 0 10px 8px; }
   .side-quota.spent { color: var(--bad); }
   .quota-bar {
-    display: block; height: 3px; margin-top: 5px; border-radius: 2px;
+    display: block; height: 3px; margin-top: 5px; border-radius: var(--r-pill);
     background: var(--surface-2); overflow: hidden;
   }
   .quota-bar > i { display: block; height: 100%; width: 0; background: var(--text-3); }
@@ -1840,10 +1971,23 @@
     content: ""; position: absolute; inset: -28px 0 0; pointer-events: none;
     background: linear-gradient(to bottom, transparent, var(--bg) 40%);
   }
+  /* A CAPSULE, with a circular send button inside it (shape pass). Its height
+     is fixed by the 34px button plus 7px of padding either side, and it never
+     wraps — align-items:center, no flex-wrap — so 999px resolves to a stable
+     24px and cannot turn into a lozenge if the row grows a line.
+
+     THE LEFT PADDING IS THE CARET'S CLEARANCE, and it went 15 → 18 in the
+     interior-space pass. The caret is the tallest thing in the box — ~19px
+     against a 24px end cap, so ~2px of real intrusion, where a lowercase
+     glyph's is 0.5px — and it is the one piece of "text" that is genuinely cut
+     rather than merely close to the curve. It grows again on a phone, where a
+     44px send button makes the capsule 58px tall. Do not drop it back to match
+     the right side: the right side ends in a circular button, not a curve, and
+     needs nothing. */
   .composer-row {
     position: relative; display: flex; gap: 8px; align-items: center;
     background: var(--surface); border: 1px solid var(--line-2);
-    border-radius: 14px; padding: 7px 7px 7px 15px;
+    border-radius: var(--r-pill); padding: 7px 7px 7px 18px;
   }
   .composer-row:focus-within { border-color: var(--text-3); }
   .composer-row input {
@@ -1857,7 +2001,7 @@
   .composer-row .bp-plat { position: static; transform: none; flex: none; }
 
   .composer-send {
-    flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+    flex: none; width: 34px; height: 34px; border-radius: var(--r-pill); display: grid; place-items: center;
     background: var(--text); color: var(--bg); border: 0;
   }
   .composer-send:disabled { opacity: .3; }
@@ -1871,7 +2015,7 @@
   .composer-for .lbl { margin-right: 2px; }
   .for-chip {
     font-size: var(--fs-12); color: var(--text-3); background: var(--surface);
-    border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
+    border: 1px solid var(--line); border-radius: var(--r-pill); padding: 4px 11px;
     display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
   }
   .for-chip:hover { color: var(--text-2); border-color: var(--line-2); }
@@ -1932,7 +2076,7 @@
      rather than a form you are sent away to fill in. */
   .composer-first {
     background: var(--surface); border: 1px solid var(--line);
-    border-radius: 12px; padding: 16px 16px 4px;
+    border-radius: var(--r-card); padding: 16px 16px 4px;
   }
   .composer-first .ce-grid { margin-bottom: 10px; }
   .composer-first .bp-hint { margin: 0 0 12px; }
@@ -1951,16 +2095,16 @@
      like different kinds of step rather than a choice. */
   .lookup {
     display: flex; flex-direction: column; gap: 8px; align-items: stretch;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
     padding: 16px 18px; margin: 14px 0 4px;
   }
   /* Matches .ce-body .lbl — a field label above its input, not a question
      addressed to the reader. */
   .lookup-label { margin: 0; font-size: var(--fs-13); color: var(--text-2); }
   .lookup input[type="text"] {
-    width: 100%; padding: 11px 13px;
+    width: 100%; padding: 11px 15px;
     background: var(--surface-2); color: var(--text);
-    border: 1px solid var(--line); border-radius: var(--radius);
+    border: 1px solid var(--line); border-radius: var(--r-pill);
     font: inherit; font-size: var(--fs-14);
   }
   .lookup input[type="text"]:focus { outline: none; border-color: var(--line-2); }
@@ -1982,9 +2126,12 @@
   .lib-plus {
     margin-left: auto; flex: 0 0 auto;
     width: 38px; height: 38px; display: grid; place-items: center;
-    /* Rounded square, matching .btn / .ghost / .side-link — a pill here was the
-       only circular control on the page and read as borrowed from elsewhere. */
-    border: 1px solid var(--line); border-radius: var(--radius);
+    /* A CIRCLE now, and for the same reason it was a rounded square before:
+       it matches .btn / .ghost / .side-link. Those are capsules as of the
+       shape pass at the top of this file, and 38x38 + --r-pill is a circle, so
+       this control still reads as one of the family rather than borrowed from
+       elsewhere — the family just moved. */
+    border: 1px solid var(--line); border-radius: var(--r-pill);
     background: var(--surface); color: var(--text-2); cursor: pointer;
     transition: background .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
   }
@@ -2010,12 +2157,92 @@
      Inside this row the row owns that spacing, and the leftover margin drags
      the heading half a line above the + it sits beside. */
   .lib-head h2 { margin: 0; }
-  .lib-modes { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-2); }
-  .lib-mode {
-    border: 0; background: none; color: var(--text-2); cursor: pointer;
-    font: inherit; font-size: var(--fs-125); padding: 7px 12px; border-radius: 8px;
+  /* ---------- THE LIBRARY MODE SWITCHER ----------
+
+     TWO COMPLAINTS, ONE COMPONENT (owner, 2026-08-19): "make the color more
+     obvious of which one im on, and then add a smooth animation between those".
+
+     WHAT WAS WRONG WITH THE COLOUR. The active tab painted var(--surface)
+     #121214 on a var(--surface-2) #17171a container — a fill DARKER than the
+     thing it sits in, and 1.19:1 against it. That is not a weak signal, it is
+     no signal: at a glance the strip read as three identical tabs.
+
+     A HAIRLINE WAS TRIED FIRST AND MEASURED TOO WEAK TO SHIP: --line-2 fill
+     with a --text-3 border cleared the 3:1 floor on its BORDER (3.40:1) but the
+     FILL itself was still 1.45:1 against the container, and the fill is what
+     the owner is looking at. The pill is now --text on --bg text — 15.19:1
+     against the container, the same "this is the one" treatment .btn,
+     .side-new and .tp-play already use, so the strip borrows a vocabulary the
+     app has rather than inventing a fourth grey. Inactive labels stay --text-2
+     (7.16:1 on the container, comfortably readable and clearly secondary).
+
+     Colour is not the only signal: role="tab" + aria-selected was already on
+     these and is untouched, so the state survives without any of it.
+
+     WHY AN INDICATOR ELEMENT RATHER THAN A BACKGROUND ON .on. A background
+     cannot travel — it disappears from one tab and appears on another, which is
+     the flicker the owner is asking to replace. One absolutely-positioned
+     element that moves is the only shape this animation has.
+
+     TRANSFORM *AND* WIDTH, WHICH IS NORMALLY THE WRONG ANSWER. The three tabs
+     are different widths ("By brand" / "All videos" / "Original scripts"), so a
+     translate-only indicator would either not hug the narrow tabs or would have
+     to scaleX — and scaleX on a capsule stretches its end caps into ovals, so
+     the shape stops being a pill exactly while it is most visible. Width is
+     transitioned instead. It is affordable HERE and nowhere else in this file:
+     the indicator is out of flow and childless, so a width change lays out one
+     empty box and touches no sibling. Do not copy this onto a list item.
+
+     THE TRANSITION IS OFF UNTIL JS SAYS OTHERWISE. `.ind-live` is added a frame
+     after the indicator is first placed (see syncLibModes in creator.js), so
+     the strip never animates itself into position on load or on a repaint —
+     the same first-paint trap that made the loading mark invisible. */
+  .lib-modes {
+    position: relative; display: inline-flex; gap: 2px; padding: 3px;
+    border-radius: var(--r-pill); background: var(--surface-2);
   }
-  .lib-mode.on { background: var(--surface); color: var(--text); }
+  .lib-modes-ind {
+    position: absolute; left: 0; top: 3px; bottom: 3px; width: 0;
+    border-radius: var(--r-pill); pointer-events: none; z-index: 0;
+    background: var(--text);
+  }
+  /* Nothing to show until JS has measured a tab — a 0-width pill parked at the
+     left edge would be a stray dot on any page where the script did not run. */
+  .lib-modes-ind[hidden] { display: none; }
+  .lib-modes.ind-live .lib-modes-ind {
+    transition: transform .18s var(--ease), width .18s var(--ease);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lib-modes.ind-live .lib-modes-ind { transition: none; }
+  }
+  .lib-mode {
+    position: relative; z-index: 1;
+    border: 0; background: none; color: var(--text-2); cursor: pointer;
+    font: inherit; font-size: var(--fs-125); padding: 7px 12px; border-radius: var(--r-pill);
+    transition: color .18s var(--ease);
+  }
+  @media (prefers-reduced-motion: reduce) { .lib-mode { transition: none; } }
+  /* :not(.on) is load-bearing, not tidiness — the active label is --bg now, so
+     a blanket hover rule would paint it --text while it sits on a --text pill
+     and the word would vanish under the pointer. */
+  .lib-mode:not(.on):hover { color: var(--text); }
+  /* No background here any more: the indicator IS the fill, and a second one on
+     the button would double up during the slide. The two labels cross over on
+     the same .18s the pill travels on, so the arriving one darkens as it is
+     covered and the leaving one lifts as it is uncovered. */
+  .lib-mode.on { color: var(--bg); }
+  @media (max-width: 820px) {
+    /* 36.4px was under the 44px target these are, on the surface where the
+       whole strip is thumb-driven. min-height rather than more padding, because
+       padding has to be guessed against a line box that moves with the fluid
+       type scale and 44 is a number, not a guess; inline-flex is what makes the
+       label sit in the middle of the taller box instead of at the top of it.
+       Vertical only — the strip already measures 288px at 320px with 16px to
+       spare, and it must stay one line. */
+    .lib-mode {
+      min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    }
+  }
   .lib-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; font-size: var(--fs-13); }
   .lib-add svg { width: 15px; height: 15px; }
 
@@ -2045,13 +2272,13 @@
   }
   .demo-link {
     display: inline-flex; align-items: center; gap: 7px;
-    padding: 7px 12px; border: 1px solid var(--line-2); border-radius: 999px;
+    padding: 7px 12px; border: 1px solid var(--line-2); border-radius: var(--r-pill);
     background: var(--surface-2); color: var(--text-2);
     font-family: var(--mono); font-size: var(--fs-115);
     animation: demo-link-in 5.5s var(--ease) infinite;
   }
   .demo-link .demo-dot {
-    width: 5px; height: 5px; border-radius: 50%; background: var(--good); flex: none;
+    width: 5px; height: 5px; border-radius: var(--r-round); background: var(--good); flex: none;
   }
   .demo-arrow {
     color: var(--text-3); font-size: var(--fs-13); line-height: 1;
@@ -2059,11 +2286,11 @@
   }
   .demo-card {
     width: min(230px, 100%); display: flex; flex-direction: column; gap: 7px;
-    padding: 12px 13px; border: 1px solid var(--line); border-radius: 9px;
+    padding: 12px 13px; border: 1px solid var(--line); border-radius: var(--r-inner);
     background: var(--surface-2);
   }
   .demo-row {
-    display: block; height: 6px; border-radius: 3px; background: var(--line-2);
+    display: block; height: 6px; border-radius: var(--r-pill); background: var(--line-2);
     width: var(--w); animation: demo-draw 5.5s var(--ease) infinite;
   }
   .demo-row.r1 { --w: 92%; animation-delay: .35s; }
@@ -2272,7 +2499,7 @@
     body:has(#sync-state.bad):not(.side-open) .shell::after {
       content: "\25CF not syncing"; position: fixed; top: 10px; right: 14px; z-index: 15;
       font-size: var(--fs-115); color: var(--bad); background: var(--surface);
-      border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px;
+      border: 1px solid var(--line); border-radius: var(--r-pill); padding: 4px 10px;
       pointer-events: none;
     }
   }
@@ -2297,6 +2524,10 @@
        fills the row, and `nowrap` is what stops that turning back into the
        two-line wrap — the original bug was `flex: 1 1 0`, whose ZERO basis
        ignored the text and squeezed "original scripts" onto two lines. */
+    /* 11px vertical, not 9: this block is BELOW the 820px one that raises the
+       tabs to a 44px target, so it would otherwise silently put them back to
+       36px on exactly the narrowest screens — the ones where the target
+       matters most. Same trap as the CSS ORDER note in HANDOFF.md. */
     .lib-mode { flex: 1 1 auto; white-space: nowrap; text-align: center; padding: 9px 11px; }
     .lib-add { width: 100%; justify-content: center; padding: 12px 14px; }
 
@@ -2319,6 +2550,9 @@
        switch — grow their hit area via padding cancelled by a matching
        negative margin, so the visible size and surrounding layout hold. */
     .composer-send { width: 44px; height: 44px; }
+    /* A 44px button makes the capsule 58px tall, so its end cap is a 29px
+       radius and the caret needs the extra inset here more than anywhere. */
+    .composer-row { padding-left: 21px; }
     .bp-open { padding: 6px 4px; margin: -6px -4px; }
     .trash-actions .bp-open { padding: 6px 4px; margin: -6px -4px; }
     .linkish { padding: 8px 0; margin: -8px 0; }
@@ -2365,24 +2599,113 @@
      target — .home-go comes later in the file, so its padding and font-size
      win over .btn's on equal specificity. inline-flex is what makes the
      padding real on an <a>. */
+  /* THE PRIMARY CALL TO ACTION, AND IT IS ON ITS OWN PADDING TIER.
+     Owner, 2026-08-19: "add some more padding here so it doesnt look so
+     sofficated".
+
+     THREE TIERS, not one number, because the capsule pass showed the same rule
+     does not fit every size of control. Stated as horizontal padding over the
+     end-cap radius (which on a capsule is half the height):
+
+       prominent  ~1.6x radius   this button, and only this button. It is the
+                                 single funnel for the whole product, it sits in
+                                 a hero with room to spare, and it should read as
+                                 deliberately large rather than merely
+                                 uncramped. 56px against a ~35px radius — the
+                                 first pass at 42px was still called "smushed"
+                                 and this is the second.
+       standard   ~0.8x radius   .btn, .ghost, .tab, the text fields. Comfortable
+                                 without taking space the layout needs.
+       inline     ~0.7x radius   .chip, .badge, .src-tag, the tile status chip.
+                                 The restrained increase — these live in rows
+                                 where horizontal space is genuinely scarce, and
+                                 the tile chip's row has 3.2px of slack at 320px.
+
+     Vertical went up with it (14 -> 18): growing only the horizontal turns a pill
+     into a lozenge, and this one has to read as a comfortable capsule.
+
+     nowrap is not decoration. The wait-list submit shipped with "join wait list"
+     breaking across two lines at a narrow width and had to become an icon; a
+     two-word label on the page's one button must not repeat that. Measured at
+     320px: it does not.
+
+     .home-go comes later in the file than .btn, so its padding and font-size
+     win on equal specificity. inline-flex is what makes padding real on an <a>. */
   .home-go {
-    padding: 14px 30px; font-size: var(--fs-155); text-decoration: none;
-    display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+    padding: 22px 56px; font-size: var(--fs-155); text-decoration: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    white-space: nowrap;
     border-bottom: 1px solid var(--text);      /* beat the global `a` underline */
     transition: opacity .12s, transform .18s var(--ease);
   }
   .home-go svg { width: 15px; height: 15px; flex: none; }
   .home-go:hover { opacity: .88; transform: translateY(-1px); }
+
+  /* THE ONE LOOPING ANIMATION ON A NON-PROGRESS ELEMENT IN THIS FILE.
+     Owner, 2026-08-19: "have this have a slight pulsing effect", then — with a
+     reference screenshot — "this is the pulse i was talking about". It is a
+     HALO, not the button moving. A first pass scaled the button itself 1 → 1.02
+     and that was the wrong reading: the button stays exactly where it is and a
+     soft ring radiates out of it and fades.
+
+     A PSEUDO-ELEMENT BEHIND THE BUTTON, so nothing about the button changes.
+     `inset: 0` + `border-radius: inherit` makes the ring the button's own
+     capsule rather than a rounded rectangle or, worse, the ellipse a percentage
+     radius would give on a non-square box. It cannot affect layout — an
+     absolutely positioned pseudo is out of flow — and `pointer-events: none`
+     keeps it out of hit testing, so the 198x72 target is untouched at every
+     point in the cycle. Measured: one layout box across the whole animation.
+
+     DO NOT PUT `overflow: hidden` ON .btn. It would clip the ring to the
+     button's own box and the effect would silently become nothing at all, which
+     is the single most common way this shape of animation ships broken.
+
+     z-index: -1 paints it behind the button's opaque fill, so only the part
+     that has grown past the edge is ever visible — which is what makes it read
+     as something leaving the button rather than a shape sitting under it.
+
+     THE COLOUR IS THE BUTTON'S OWN FILL at low alpha. No new token, and no grey:
+     the "no grey" rule is about page and section GROUNDS, and this is light on
+     black.
+
+     EASE-OUT, NOT EASE-IN-OUT: it has to leave quickly and settle as it fades,
+     which is what reads as a ping. A symmetric curve reads as a throb. It is
+     fully gone by 70% of the cycle, so there is roughly a second of stillness
+     between pings — that is what keeps it "slight".
+
+     PAUSED ON HOVER AND FOCUS: the ring exists to catch an eye before anyone
+     has reached the button. `animation: none` rather than `play-state: paused`,
+     which would freeze a half-grown ring on screen. */
+  .home-go { position: relative; }
+  .home-go::after {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    border-radius: inherit; background: var(--text);
+    opacity: 0; pointer-events: none;
+    animation: cta-ping 2.2s var(--ease) infinite;
+  }
+  @keyframes cta-ping {
+    0%   { transform: scale(1);    opacity: .45; }
+    70%  { transform: scale(1.16); opacity: 0; }
+    100% { transform: scale(1.16); opacity: 0; }
+  }
+  .home-go:hover::after, .home-go:focus-visible::after, .home-go:active::after { animation: none; }
+  /* THE GUARD LIVES IN THIS BLOCK ON PURPOSE. A continuous loop is the single
+     strongest vestibular trigger on the site — unlike a one-shot transition it
+     never ends — and a guard 1,300 lines away is one that gets separated from
+     its rule in the next edit. (The blanket `animation: none !important` further
+     down would also catch it; this is the one place belt and braces is worth
+     it.) */
+  @media (prefers-reduced-motion: reduce) {
+    .home-go::after { animation: none; opacity: 0; }
+  }
+
   .home-alt { color: var(--text-3); font-size: var(--fs-13); border-bottom-color: var(--line); }
   .home-alt:hover { color: var(--text-2); }
-  /* Directly under the button, because it is the honest half of "try it": the
-     app is invitation-only, so the button leads to a wait list and says so
-     before it is pressed rather than after. */
-  /* --text-2, not --text-3 like the footer beside it: this line is the honest
-     half of the button ("try it" leads to a wait list, not to the app), so it
-     has to be readable rather than decorative. Measured 7.92:1 on --bg against
-     --text-3's 3.80:1, which fails AA at this size. */
-  .home-note { color: var(--text-2); font-size: var(--fs-125); line-height: 1.55; margin: 0; max-width: 46ch; }
+  /* (.home-note lived here — the "invitation-only while it is early" line under
+     the hero button. Removed with the paragraph on 2026-08-19: the owner cut it
+     from the page, and /waitlist/ says the same thing where it belongs. The rule
+     went with it rather than being left as dead CSS. .home-alt above is still
+     used nowhere either — left alone, because it is not this change's to remove.) */
 
   /* HOW IT WORKS. Three lines, left-aligned inside a centred column: a numbered
      step reads as a sequence only if the numbers line up, which centring
@@ -2398,7 +2721,7 @@
     color: var(--text-2); font-size: var(--fs-14); line-height: 1.55;
   }
   .home-n {
-    width: 22px; height: 22px; border: 1px solid var(--line); border-radius: 999px;
+    width: 22px; height: 22px; border: 1px solid var(--line); border-radius: var(--r-pill);
     display: inline-flex; align-items: center; justify-content: center;
     color: var(--text-3); font-size: var(--fs-115); flex: none;
   }
@@ -2417,7 +2740,7 @@
      was filling most of the field before a real one was even entered. */
   .wait {
     margin: 52px 0 0; padding: 26px 24px; width: 100%; max-width: 60ch;
-    border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface);
   }
   /* An <h2> on /waitlist/, because the page's <h1> is the headline above it.
      That means it inherits the site-wide h2 rule — the agency dashboard's
@@ -2436,7 +2759,20 @@
      sets display beats the UA's [hidden], and this one is one edit away from
      acquiring one. */
   .wait-sub[hidden] { display: none; }
-  .wait-form { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* ONE CONTROL, NOT TWO (owner, 2026-08-19: "connect the two"). The field and
+     the submit used to be two capsules with an 8px gap between them, which read
+     as two objects rather than as one thing you fill in and send. The button
+     now sits INSIDE the field's right end, the way a search bar with an inline
+     submit does.
+
+     `position: relative` here and the button taken OUT OF FLOW — not a flex row
+     with a negative margin, which would have left the input's own box ending
+     where the button starts and the caret free to run underneath it. The input
+     reserves the button's width in its own padding-right instead, so a long
+     address scrolls to a stop before the circle rather than under it.
+
+     flex-wrap goes with the gap: there is nothing left to wrap. */
+  .wait-form { display: flex; position: relative; }
   /* Required, not tidiness: home.js hides this form on success with
      `.hidden = true`, and the UA stylesheet's [hidden] { display: none } is a
      weaker selector than the .wait-form rule above — so the form stayed on
@@ -2446,9 +2782,18 @@
   /* flex-grow 100 against the button's 1 — see the button rule below for why
      that number, and not 1, is what makes this form need no breakpoint. */
   .wait-form input {
-    flex: 100 1 240px; min-width: 0; padding: 12px 14px; font: inherit; font-size: var(--fs-14);
+    /* The basis is the whole form now: the button is out of flow, so there is
+       no second item to share the row with and no breakpoint to need. (The old
+       `flex: 100 1 240px` existed only to out-grow that button.)
+       min-height 52 is what keeps the button a REAL 44px target with 4px of
+       inset above and below it.
+       padding-right = 4 (inset) + 44 (button) + 8 (clear of the text) = 56.
+       padding-left 14 → 16: the interior-space pass, same reason as every
+       other capsule — see the note at the top of this file. */
+    flex: 1 1 auto; min-width: 0; min-height: 52px;
+    padding: 12px 56px 12px 16px; font: inherit; font-size: var(--fs-14);
     background: var(--surface-2); border: 1px solid var(--line);
-    border-radius: 9px; color: var(--text);
+    border-radius: var(--r-pill); color: var(--text);
   }
   .wait-form input:focus { outline: none; border-color: var(--line-2); }
   /* KEYBOARD focus is not the same thing as focus, and this rule was giving
@@ -2471,9 +2816,16 @@
      changes. flex:none keeps it square while the input takes all the slack
      and shrinks (min-width:0) on a narrow card, so the pair never wraps. */
   .wait-form .btn {
-    flex: none; align-self: stretch; width: 52px; min-height: 44px; padding: 0;
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 44px; padding: 0; flex: none;
     display: inline-flex; align-items: center; justify-content: center;
   }
+  /* The button's ring is drawn INSIDE the field it now sits in, so it goes
+     inward: at the default +2px offset it would be painted across the field's
+     own border and the two would read as one smeared outline. -2px traces the
+     circle itself, which is what "this button is focused" has to mean when the
+     button is nested inside another control that has a ring of its own. */
+  .wait-form .btn:focus-visible { outline-offset: -2px; }
   .wait-form .btn svg { width: 15px; height: 15px; display: block; flex: none; }
   /* (.wait-fine lived here — the "one email, at launch" line under the form,
      which also carried a privacy link. Removed from index.html; the policy is
@@ -2593,7 +2945,7 @@
      past. Deliberately not red: it is a status, not an error, and a red panel
      above a terms page reads as "this site is broken". */
   .legal-flag {
-    border: 1px solid var(--line-2); border-radius: 10px;
+    border: 1px solid var(--line-2); border-radius: var(--r-card);
     padding: 15px 17px; margin: 0 0 30px; background: var(--surface);
     color: var(--text-2);
   }
@@ -2615,6 +2967,490 @@
 
   @media (prefers-reduced-motion: reduce) { .home-go:hover { transform: none; } }
 
+  /* ==========================================================================
+     THE MARKETING PAGE (index.html) — `.lp-` = landing page
+     ==========================================================================
+     `/` USED TO BE THE SAME 720px CENTRED COLUMN AS /waitlist/, and on a wide
+     screen that is a strip of content with two thirds of the display empty
+     either side, which is what the owner was reacting to ("lets have it utilize
+     the whole page for desktop").
+
+     THE SHAPE, and it is the resolution of an apparent contradiction in the
+     brief — the reference site (lynxmediagroup.org) is itself a centred column,
+     yet the ask was to use the whole width. Both are satisfied by the way
+     marketing sites actually do it: SECTIONS span the full viewport and carry
+     their own background, and the CONTENT inside each one sits in a contained
+     column. The page fills the screen; the prose does not run to 1900px, which
+     is unreadable at any size.
+
+     `.lp-in` is that column and is the ONLY thing that sets a max-width. Every
+     section is `.lp-sec` or `.lp-band`; the two differ only in whether a
+     hairline is drawn above them. NEITHER PAINTS A BACKGROUND — see the note at
+     the section rules below.
+
+     SCOPED, because app.css is global across six surfaces. Every selector below
+     is prefixed `.lp-` except where it deliberately reuses an existing
+     component (.btn, .ghost, .wordmark, .home-go, .home-n, .entity). Nothing
+     here can reach /waitlist/, the two apps, or the legal pages. */
+
+  /* THE <main> ON THESE PAGES CARRIES NOTHING. There is a bare
+     `main { padding: 32px 24px 72px; max-width: 1180px; margin: 0 auto }` rule
+     further up this file for the two apps, and it was the reason the "full
+     width" sections measured 1132px inside a 1440px window with a 154px margin
+     either side — the sections were full-bleed inside a container that was not.
+     Unset it here, where the SECTION is the full-bleed thing and .lp-in is the
+     only max-width on the page. Scoped to a body class so the apps keep theirs;
+     `main` (0,0,1) loses to `.lp main` (0,1,1) regardless of order. */
+  .lp main { padding: 0; max-width: none; margin: 0; }
+  .lp-in { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  @media (max-width: 560px) { .lp-in { padding: 0 18px; } }
+
+  /* The header. `header` has a bare element rule further up this file for the
+     agency app's 56px bar — a class beats it on specificity wherever they
+     disagree, which is everything except sticky + the translucent ground. */
+  /* A FLOATING CAPSULE, not a bar welded to the top of the window (owner,
+     2026-08-19, pointing at lynxmediagroup.org's header). The WRAPPER is the
+     sticky, transparent thing that holds it away from the viewport edges; the
+     capsule is .lp-bar-in inside it, and the page scrolls visibly through the
+     gap around it, which is what makes it read as floating.
+
+     THE GROUND IS STILL THE PAGE'S BLACK — #0a0a0bd9 is --bg at 85%, not a grey
+     — and the definition comes from a --line hairline around the capsule. That
+     is not a return of the divider rule the owner had removed: that was a line
+     spanning the viewport BETWEEN sections, this is an outline around an
+     object. The page is still one uninterrupted black surface with something
+     floating on it.
+
+     The wrapper carries `background: none` explicitly because the bare
+     `header` rule further up this file sets a translucent one for the agency
+     app, and inheriting it here would paint a full-width band behind the
+     capsule — exactly the thing being avoided. */
+  .lp-bar {
+    height: auto; gap: 0;
+    padding: 14px 24px 0;
+    background: none; backdrop-filter: none;
+    display: block;                       /* .lp-bar-in does the layout */
+    /* NO RULE UNDER THE BAR. The bare `header` rule further up this file draws
+       one for the agency app; on the marketing pages it is the last drawn
+       horizontal line on a page the owner has asked to read as one
+       uninterrupted black surface, so it goes the same way as the section
+       dividers and the footer rule. The translucent ground plus the blur is
+       what still separates the bar from the content scrolling under it. */
+    border-bottom: 0;
+    /* HIDES ON THE WAY DOWN, SLIDES BACK ON THE WAY UP (site.js toggles the
+       class; owner, 2026-08-19: "have the top bar slide back from the top or
+       something smoothly").
+
+       IT IS A SLIDE, AND THAT IS ALSO WHY IT IS SIMPLE. A first pass faded it,
+       which meant an opacity-0 bar was still sitting over the content and
+       hit-testable, which meant pointer-events juggling, which meant a
+       `visibility` transition to stop the fade leaving an invisible click trap
+       — and a `visibility 0s 300ms` delay is the classic reveal-pops bug,
+       because the delay applies in BOTH directions unless it is written
+       per-state. A bar that translates off the top of the viewport is not over
+       the content at all: nothing to click, nothing to hide, no delay to get
+       directional. Transform only. Fewer moving parts is the point.
+
+       `calc(-100% - 16px)`, NOT `-100%`. This is a floating capsule inset 14px
+       from the top edge, so its own height is capsule + inset and -100% lands
+       its bottom edge exactly on y=0 — where a 1px border and a sub-pixel
+       rounding leave a hairline peeking, and where a soft shadow would show if
+       one is ever added. The extra 16px clears it with room. Measured at 1440
+       and 390: nothing remains on screen.
+
+       TIMING IS A DELIBERATE EXCEPTION TO THE MOTION POLICY'S 120-200ms — that
+       range suits a small state change, not a 72px object crossing its own
+       height. ASYMMETRIC: 340ms out, 260ms back. Leaving is incidental; coming
+       back answers a scroll-up that was a deliberate reach for the nav. The
+       transition on each side belongs to the state being ENTERED, so this rule
+       governs the return and .lp-bar-away governs the departure. --ease-bar is
+       soft at both ends, unlike --ease, which is an ease-out and leaves
+       abruptly.
+
+       UNDER REDUCED MOTION THE BAR SIMPLY STAYS. Not "the same behaviour with
+       the transition removed" — a header popping in and out instantly is worse
+       than one that does not move, and the feature is a convenience. */
+    transition: transform .26s var(--ease-bar);
+  }
+  .lp-bar-away {
+    transform: translateY(calc(-100% - 16px));
+    transition: transform .34s var(--ease-bar);
+  }
+  /* THE BAR NEVER HIDES WHILE ITS MENU IS OPEN. The panel is a child of the
+     bar, so a bar that slid away would take the open menu with it. Belt to
+     site.js's braces — the script also refuses to set the class while the menu
+     is open, and this makes a stale class impossible to matter. */
+  .lp-bar.lp-menu-live.lp-bar-away { transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .lp-bar { transition: none; }
+    .lp-bar-away { transform: none; }
+  }
+  .lp-bar-in {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    align-items: center; gap: 18px; min-height: 58px;
+    /* THE INTERIOR INSETS ARE ON THE ITEMS, NOT ON THIS CONTAINER, and that is
+       the difference between a nav that is centred and one that is 8px off.
+       The insets are asymmetric on purpose — 24px on the left, because the end
+       cap is a 29px radius and the wordmark has to clear it; 8px on the right,
+       because what sits there is a pill BUTTON inset inside the capsule rather
+       than text against a curve, the same relationship as the wait-list submit
+       inside its field. Put that asymmetry in the container's PADDING and the
+       grid's content box stops being concentric with the capsule, so the middle
+       track — and the nav in it — lands (24 − 8) / 2 = 8px right of centre.
+       Measured exactly that before this change. As margins on the two outer
+       items instead, the content box is the border box and the middle track's
+       centre is the capsule's centre. */
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    background: #0a0a0bd9;
+    backdrop-filter: blur(10px);
+  }
+  .lp-bar .wordmark { justify-self: start; margin-left: 24px; }
+  .lp-nav { justify-self: center; }
+  .lp-bar .btn { justify-self: end; margin-right: 8px; }
+  /* No margin shorthand here. It used to read `margin: 0` and it sits BELOW the
+     rule that gives the wordmark its 24px inset from the capsule's end cap, so
+     it silently reset it and the wordmark painted 1px from the curve. */
+  .lp-bar .wordmark { font-size: var(--fs-19); gap: 9px; margin-block: 0; flex: none; }
+  .lp-bar a.wordmark { border-bottom: 0; }
+  /* `margin: 0` is the whole fix for a 4px miscentring, and it is worth the
+     comment because the cause is invisible: the bare `nav { display: flex;
+     gap: 2px; margin-left: 8px }` rule further up this file (the agency app's
+     tab strip) also matches this element. justify-self centres the MARGIN box,
+     so an 8px left margin put the links 4px right of centre — measured 724.0
+     against a bar centre of 720.0, which is exactly half of it. */
+  .lp-nav { display: flex; align-items: center; gap: 22px; min-width: 0; margin: 0; }
+  .lp-nav a {
+    color: var(--text-3); font-size: var(--fs-13); border-bottom: 0; white-space: nowrap;
+    transition: color .14s var(--ease);
+  }
+  .lp-nav a:hover { color: var(--text); }
+  /* The header CTA is the same button as everywhere else, one size down. */
+  /* The header's copy of the CTA: the standard tier, not the prominent one.
+     Two of the same button at hero size on one screen is one too many. */
+  .lp-bar .btn { flex: none; padding: 10px 22px; font-size: var(--fs-13); white-space: nowrap; }
+  /* NARROW: THE NAV WRAPS TO ITS OWN CENTRED LINE rather than being hidden or
+     crushed. Measured at 414px the three links plus the wordmark plus the
+     button need ~410px of a 366px content width, so they cannot share a row —
+     and hiding them (the previous answer) is no longer right now that the owner
+     has asked for them to be centred. Two rows: brand and button on the first,
+     the nav centred under them on the second. It reads as a deliberate stacked
+     header rather than as something that ran out of room. */
+  /* ---- THE MENU, UNDER 760px ----
+     THE BREAKPOINT IS MEASURED, not chosen. The desktop row needs
+     24 (wordmark inset) + 93 (wordmark) + 18 + 224 (nav) + 18 + 93 (CTA) + 8 =
+     478px of capsule interior, plus 48px of wrapper inset, so it physically
+     fits to about 530px — but "fits" is not "reads well": at 560-700px the three
+     zones are shoulder to shoulder with nothing between them. 760 is where the
+     row still has real air in it and is also the breakpoint the rest of this
+     block already used, so there is one number rather than two.
+
+     THE CTA IS NOT IN THE COLLAPSED BAR, and that is safe here specifically:
+     the hero's own large `try it` button is on screen at first paint on a
+     phone, so the funnel is visible, not hidden — it is simply not duplicated.
+     It is the last item in the panel, styled as the pill, so it reads as the
+     action rather than a fourth link. */
+  .lp-burger { display: none; }
+  .lp-menu { display: none; }
+  @media (max-width: 760px) {
+    .lp-bar { padding: 10px 14px 0; }
+    .lp-bar-in {
+      grid-template-columns: 1fr auto;
+      row-gap: 0; min-height: 0; padding: 9px 0 9px;
+      /* Still one row, so it is still a capsule. */
+      border-radius: var(--r-pill);
+    }
+    .lp-bar .wordmark { margin-left: 20px; }
+    .lp-nav, .lp-bar-in > .btn { display: none; }
+    .lp-burger {
+      display: grid; place-items: center; justify-self: end; margin-right: 9px;
+      width: 40px; height: 40px; padding: 0;
+      background: none; border: 1px solid var(--line); border-radius: var(--r-pill);
+      color: var(--text-2);
+      transition: color .14s var(--ease), border-color .14s var(--ease),
+                  background .14s var(--ease), transform .09s var(--ease);
+    }
+    .lp-burger:hover { color: var(--text); border-color: var(--line-2); background: var(--surface); }
+    .lp-burger:active { transform: scale(.94); }
+    .lp-burger svg { width: 18px; height: 18px; display: block; }
+    /* One glyph at a time, driven by the same aria-expanded that carries the
+       state to a screen reader — so the drawn state cannot disagree with the
+       announced one. */
+    .lp-burger .ico-close { display: none; }
+    .lp-burger[aria-expanded="true"] .ico-open { display: none; }
+    .lp-burger[aria-expanded="true"] .ico-close { display: block; }
+
+    .lp-menu {
+      display: block; margin: 10px auto 0; max-width: 1120px;
+      background: #0a0a0bf2; backdrop-filter: blur(10px);
+      border: 1px solid var(--line); border-radius: var(--r-card);
+      padding: 10px;
+      transform: translateY(-8px); opacity: 0;
+      transition: opacity .18s var(--ease), transform .18s var(--ease);
+    }
+    .lp-menu[hidden] { display: none; }
+    .lp-menu.is-open { transform: none; opacity: 1; }
+    .lp-menu a {
+      display: block; padding: 13px 18px; border-radius: var(--r-pill);
+      color: var(--text-2); font-size: var(--fs-145); border-bottom: 0;
+      transition: color .14s var(--ease), background .14s var(--ease);
+    }
+    /* --surface-2 is the fill cards and chips already use. No new grey. */
+    .lp-menu a:hover, .lp-menu a:focus-visible { color: var(--text); background: var(--surface-2); }
+    .lp-menu .btn {
+      display: flex; justify-content: center; margin-top: 8px;
+      padding: 14px 24px; font-size: var(--fs-145);
+    }
+    .lp-menu .btn:hover { background: var(--text); }
+    @media (prefers-reduced-motion: reduce) {
+      .lp-menu { transition: none; }
+    }
+  }
+  /* The page behind an open panel does not scroll. position:fixed rather than
+     overflow:hidden because iOS ignores the latter on <body>; site.js restores
+     the exact scroll offset on close. */
+  body.lp-menu-open { position: fixed; width: 100%; overflow: hidden; }
+
+  /* ---- sections ---- */
+  /* NO SECTION FILLS. Alternating light/dark bands is the standard way to
+     delineate full-bleed sections and it is what this shipped with for one
+     revision — the owner's answer was "keep the black background the same, dont
+     add gray". The page is ONE continuous black surface top to bottom.
+
+     AND NOTHING IS DRAWN BETWEEN THEM EITHER. A hairline in --line was the
+     first answer and the owner rejected that too ("remove this horizontal
+     line"), so the separator is SPACE and only space: 104px between sections,
+     the same on every boundary. The rhythm had to grow when the rule came out —
+     72px worked with a line above it and read as two sections touching without
+     one. On a page this short (a hero, how it works, our team) the spacing IS
+     the structure, so it is deliberately generous rather than economical.
+
+     Scoped to the marketing pages. --line borders everywhere else in this file
+     — card frames, table rules, the group heading in the library, the find bar,
+     form fields — are a different thing entirely and are untouched.
+
+     The CARDS inside these sections still carry --surface / --surface-2. Those
+     are the app's existing component fills, not a page background, and they are
+     what was already there. */
+  .lp-sec, .lp-band, .lp-hero, .lp-final {
+    width: 100%; padding: 104px 0; background: none; border: 0;
+  }
+  /* THE TOP OF THE HERO IS THE FIRST THING A STRANGER SEES, and 88px put the
+     headline almost against the bar. 136px is what opens it. The bottom stays
+     shorter than the top on purpose: the space under the button belongs to the
+     next section's own 104px, and doubling up there is what left a dead band
+     before the fold on a tall desktop window. */
+  .lp-hero { padding: 136px 0 88px; text-align: center; }
+  .lp-final { padding: 96px 0 104px; text-align: center; }
+  @media (max-width: 760px) {
+    /* Still the biggest gap on the page, but a phone cannot spend 104px twice
+       and still show two sections in a scroll. */
+    .lp-sec, .lp-band { padding: 72px 0; }
+    .lp-hero { padding: 72px 0 56px; }
+    .lp-final { padding: 64px 0 76px; }
+  }
+
+  /* ---- type ---- */
+  /* h1/h2 here are their own scale, not the app's: the bare `h2` rule in this
+     file is the agency dashboard's 12px eyebrow with a dash drawn before it,
+     which is the wrong object entirely on a marketing page. ::before is turned
+     off for the same reason .wait-h turns it off. */
+  .lp-h1 {
+    font-size: clamp(30px, 6.4vw, 58px); font-weight: 600; line-height: 1.1;
+    letter-spacing: -0.035em; color: var(--text); margin: 0 auto 22px; max-width: 16ch;
+  }
+  .lp-h2 {
+    font-size: clamp(21px, 3.2vw, 32px); font-weight: 600; line-height: 1.2;
+    letter-spacing: -0.025em; color: var(--text); margin: 0 0 16px;
+    display: block; text-transform: lowercase;
+  }
+  .lp-h2::before { display: none; }
+  .lp-hero .lp-h2, .lp-final .lp-h2 { margin-inline: auto; }
+  .lp-h3 { font-size: var(--fs-16); font-weight: 600; color: var(--text); margin: 0 0 7px; }
+  .lp-lede {
+    color: var(--text-2); font-size: var(--fs-16); line-height: 1.65;
+    margin: 0 auto 32px; max-width: 56ch;
+  }
+  .lp-p { color: var(--text-2); font-size: var(--fs-145); line-height: 1.7; margin: 0 0 14px; max-width: 62ch; }
+  .lp-p:last-child { margin-bottom: 0; }
+  .lp-sec .lp-p, .lp-band .lp-p { max-width: 68ch; }
+  .lp-hero .lp-p, .lp-final .lp-p { margin-inline: auto; }
+  .lp-eyebrow {
+    font-size: var(--fs-11); letter-spacing: .12em; color: var(--text-3);
+    margin: 0 0 12px; display: block;
+  }
+
+  /* ---- the three steps ---- */
+  /* EXPLICIT COLUMNS, NOT auto-fit — measured, not assumed: with three items
+     and `repeat(auto-fit, minmax(240px, 1fr))` the grid reported FOUR tracks at
+     1440px, so the three cards sized to a quarter of the row and left a hole on
+     the right. Same lesson .stats up this file already records ("auto-fit left
+     blank cells when four cards wrapped 3+1"). Three items, three columns, and
+     one breakpoint where three no longer fit. */
+  .lp-steps {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px; list-style: none; margin: 30px 0 0; padding: 0;
+  }
+  @media (max-width: 860px) { .lp-steps { grid-template-columns: 1fr; } }
+  /* --surface, unconditionally. It used to be --bg here and --surface inside a
+     .lp-sec, which only existed to stay a step off whichever band it sat on;
+     with the bands gone there is one ground and therefore one card fill — the
+     same one .bp-item, .vcard and .site-card already use. */
+  .lp-step {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
+    padding: 22px 22px 24px;
+  }
+  .lp-step .home-n { margin-bottom: 14px; }
+  .lp-step .lp-p { font-size: var(--fs-135); margin: 0; }
+
+  /* ---- a two-column section: prose on the left, a list on the right ---- */
+  .lp-split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 44px; align-items: start; }
+  @media (max-width: 860px) { .lp-split { grid-template-columns: 1fr; gap: 26px; } }
+  .lp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px;
+             background: var(--line); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+  .lp-list li { background: var(--surface); padding: 15px 18px; font-size: var(--fs-14); color: var(--text-2); line-height: 1.55; }
+  .lp-list b { color: var(--text); font-weight: 600; }
+
+  /* ---- the platforms row ---- */
+  .lp-plats { display: flex; flex-wrap: wrap; gap: 10px; list-style: none; margin: 26px 0 20px; padding: 0; }
+  .lp-plat {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 10px 18px; border: 1px solid var(--line-2); border-radius: var(--r-pill);
+    background: var(--surface-2); color: var(--text); font-size: var(--fs-14);
+  }
+  .lp-plat svg { width: 17px; height: 17px; flex: none; opacity: .85; }
+
+  /* ---- the founders ---- */
+  /* Two founders, two columns — same reason as .lp-steps: auto-fit gave three
+     tracks for two cards at 1440px. */
+  .lp-people {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px; margin-top: 30px;
+  }
+  @media (max-width: 760px) { .lp-people { grid-template-columns: 1fr; } }
+  .lp-person {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
+    padding: 24px 24px 22px;
+  }
+  /* THE HEAD OF THE CARD: avatar on the left, name and role beside it. A grid
+     rather than a flex row so the two text lines stack against a fixed avatar
+     column and the card's own padding is the only thing that moves. */
+  .lp-person-head { display: grid; grid-template-columns: 84px 1fr; gap: 16px; align-items: center; margin-bottom: 16px; }
+  /* CIRCULAR, because the shape language is, and because a square-cropped
+     headshot is exactly what a circle wants. `cover` on a 1:1 source is a
+     no-op — it is there so a source that is not square is still not stretched.
+     No filter, no duotone, no vignette: these are two real people and how they
+     look is not a design surface. */
+  .lp-avatar {
+    width: 84px; height: 84px; border-radius: var(--r-round);
+    object-fit: cover; display: block; background: var(--surface-2);
+    border: 1px solid var(--line);
+  }
+  /* THE MISSING-PHOTO CASE, and it is the common one right now: only one of the
+     two headshots exists. A neutral initial in the same circle, so the card is
+     the same shape and the same height either way and nothing reads as a broken
+     image. Same box, same border, same radius — only the contents differ. */
+  .lp-avatar-none {
+    width: 84px; height: 84px; border-radius: var(--r-round);
+    display: grid; place-items: center; background: var(--surface-2);
+    border: 1px solid var(--line); color: var(--text-3);
+    font-size: var(--fs-21); font-family: var(--mono); letter-spacing: .02em;
+    /* It is somebody's INITIAL. The house lowercase rule drew it as "g". */
+    text-transform: none;
+  }
+  .lp-person-name { font-size: var(--fs-16); font-weight: 600; color: var(--text); margin: 0; }
+  .lp-person-role { font-size: var(--fs-125); color: var(--text-3); margin: 2px 0 0; }
+  /* Their own words, so this is CONTENT and keeps its capitals — see the
+     house-style block further down, where the class is named in the exclusion
+     list beside .bp-hook and .tp-words. */
+  .lp-bio { color: var(--text-2); font-size: var(--fs-14); line-height: 1.7; margin: 0 0 16px; }
+  .lp-person-link {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 14px; border: 1px solid var(--line); border-radius: var(--r-pill);
+    color: var(--text-2); font-size: var(--fs-125); border-bottom: 1px solid var(--line);
+    transition: color .14s var(--ease), border-color .14s var(--ease), background .14s var(--ease);
+  }
+  .lp-person-link:hover { color: var(--text); border-color: var(--line-2); background: var(--surface-2); }
+  .lp-person-link svg { width: 15px; height: 15px; flex: none; }
+
+  /* ---- the footer ---- */
+  /* NO RULE ABOVE THE FOOTER EITHER. The owner asked for the hairline between
+     two sections to go; a drawn line across the page immediately above the
+     footer is the same object doing the same job, so it goes with it and the
+     separation is space. Reverting is one border declaration if that reads as
+     too loose. */
+  .lp-foot { width: 100%; padding: 96px 0 44px; }
+  .lp-foot-in {
+    display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+    gap: 32px; align-items: start;
+  }
+  @media (max-width: 700px) { .lp-foot-in { grid-template-columns: 1fr 1fr; gap: 26px; } 
+                              .lp-foot-brand { grid-column: 1 / -1; } }
+  .lp-foot .wordmark { font-size: var(--fs-18); margin: 0 0 10px; }
+  .lp-foot a.wordmark { border-bottom: 0; }
+  .lp-foot-line { color: var(--text-3); font-size: var(--fs-125); line-height: 1.6; margin: 0 0 16px; max-width: 34ch; }
+  .lp-foot-h { font-size: var(--fs-11); letter-spacing: .12em; color: var(--text-3); margin: 0 0 12px; display: block; }
+  .lp-foot-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .lp-foot-links a { color: var(--text-2); font-size: var(--fs-125); border-bottom: 0; transition: color .14s var(--ease); }
+  .lp-foot-links a:hover { color: var(--text); }
+  /* Socials. Icon plus an accessible name, never an icon alone — and never an
+     icon font or a CDN sprite: img-src/font-src are 'self', and a remote sprite
+     would be a request to somebody else on a page that currently makes none. */
+  .lp-social { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .lp-social a {
+    display: grid; place-items: center; width: 38px; height: 38px;
+    border: 1px solid var(--line); border-radius: var(--r-pill);
+    color: var(--text-3); border-bottom: 1px solid var(--line);
+    transition: color .14s var(--ease), border-color .14s var(--ease), background .14s var(--ease), transform .09s var(--ease);
+  }
+  .lp-social a:hover { color: var(--text); border-color: var(--line-2); background: var(--surface); }
+  .lp-social a:active { transform: scale(.94); }
+  .lp-social svg { width: 17px; height: 17px; display: block; }
+  .lp-foot-legal {
+    margin-top: 44px;                  /* space, not a rule — see .lp-foot */
+    color: var(--text-3); font-size: var(--fs-12); line-height: 1.7;
+  }
+  .lp-foot-legal a { color: var(--text-3); border-bottom-color: var(--line); }
+  .lp-foot-legal a:hover { color: var(--text-2); }
+
+  /* ---- the FAQ page (/faq/) ---- */
+  /* <details>, not a stack of headings: the point of an FAQ is scanning the
+     questions, and twenty open answers is a wall. The JSON-LD in the page head
+     carries every answer in full regardless of what is open, so nothing a
+     crawler or a model reads depends on this. */
+  .lp-faq { list-style: none; margin: 26px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .lp-q {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
+    transition: border-color .18s var(--ease);
+  }
+  .lp-q:hover { border-color: var(--line-2); }
+  .lp-q > summary {
+    cursor: pointer; list-style: none; padding: 17px 20px;
+    font-size: var(--fs-145); color: var(--text); font-weight: 600;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .lp-q > summary::-webkit-details-marker { display: none; }
+  .lp-q > summary::after {
+    content: "+"; margin-left: auto; flex: none; color: var(--text-3);
+    font-weight: 400; font-size: var(--fs-19); line-height: 1;
+    transition: transform .18s var(--ease);
+  }
+  .lp-q[open] > summary::after { content: "\2212"; }
+  .lp-q > summary:focus-visible { outline: 2px solid var(--text-2); outline-offset: -3px; border-radius: calc(var(--r-card) - 3px); }
+  /* 78ch, because the card is 1120px on a laptop and an answer set edge to edge
+     across it runs ~150 characters a line — measurably past the point where the
+     eye stops finding the start of the next one. The CARD stays full width; only
+     the text is measured. */
+  .lp-a { padding: 0 20px 18px; margin: 0; max-width: 78ch; color: var(--text-2); font-size: var(--fs-14); line-height: 1.75; }
+  .lp-a + .lp-a { padding-top: 0; }
+  .lp-a a { color: var(--text); border-bottom-color: var(--line-2); }
+  .lp-q[open] .lp-a { animation: rise-in .18s var(--ease); }
+  @media (prefers-reduced-motion: reduce) {
+    .lp-q[open] .lp-a { animation: none; }
+    .lp-q > summary::after { transition: none; }
+  }
+
   /* Landed on the wrong door: each gate points at the other one rather than
      leaving you to guess the URL. */
   .gate-other { color: var(--text-3); font-size: var(--fs-125); margin: 12px 0 0; }
@@ -2625,11 +3461,11 @@
      should not have to wonder whether it sent. */
   .fb-thanks {
     text-align: center; padding: 40px 28px 34px; max-width: 52ch; margin: 0 auto;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
     animation: rise-in .25s var(--ease) backwards;
   }
   .fb-tick {
-    width: 46px; height: 46px; margin: 0 auto 18px; border-radius: 50%;
+    width: 46px; height: 46px; margin: 0 auto 18px; border-radius: var(--r-round);
     display: grid; place-items: center;
     color: var(--good); border: 1px solid var(--good);
   }
@@ -2715,10 +3551,16 @@
                          Only the latter carries #brand-heading.
        .lib-group-name — a brand heading its group in "by brand" mode, and also
                          our "not scripted yet". Only the brand one has data-bid. */
+  /* .lp-bio and .lp-person-name are the marketing page's founder section: two
+     real people's own published description of themselves, and their names.
+     Lowercasing either would be editing somebody's words and misspelling
+     somebody's name, which is the same category as a creator's script — not
+     our copy to style. */
   .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title,
   .lib-group-name[data-bid], .side-item .side-label, #brand-heading,
   .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip,
-  .tp-words, .tp-cue, .tp-brand, .for-chip {
+  .tp-words, .tp-cue, .tp-brand, .for-chip,
+  .lp-bio, .lp-person-name {
     text-transform: none;
   }
   /* Placeholders are ours, but they live inside an input that is not — so they
@@ -2800,41 +3642,71 @@
        line of its own rather than squeezing either control. */
     .find-bar { flex-wrap: wrap; }
     .find-bar input[type="search"] { flex: 1 1 110px; }
-    .find-bar select { max-width: 44vw; padding-left: 8px; padding-right: 8px; }
+    /* 8px was the pre-capsule value and it is the one place in the file where
+       a control's own text ran into its curve: at 16px type this select is
+       39px tall, so its end caps are 19.5px of radius against an 8px inset.
+       12px is the floor that keeps the option text visibly clear of the curve
+       and the bar still measures one line at 320px. */
+    .find-bar select { max-width: 44vw; padding-left: 12px; padding-right: 12px; }
     .find-count { flex: 1 1 100%; margin-left: 0; }
   }
-  /* MOBILE: THE CONTROLS KEEP 16px AND LOSE THEIR WEIGHT INSTEAD.
+  /* THE FIND BAR IS NO LONGER PINNED TO 16px. Owner's decision, 2026-08-19,
+     taken with the downside in front of them.
 
-     MEASURED AT 375px, which is what makes this a real complaint rather than an
-     impression — the owner's words were "these inputs look too big compared to
-     the rest of the screen text sizes":
+     THE COMPLAINT, MEASURED AT 375px — which is what made it a real complaint
+     rather than an impression:
 
        search input   16px      select   16px
        mode tabs    11.51px     card title  11.51px
        chip         10.51px     meta row    10.51px
 
-     So the controls are 1.39x the card title and 1.52x the chip. On desktop the
-     same comparison is 14px against 12.5px — 1.12x — which is why this only
-     shows up on a phone.
+     The controls were 1.39x the card title and 1.52x the chip. On desktop the
+     same comparison is 14px against 12.5px — 1.12x — which is why it only
+     showed up on a phone.
 
-     THE 16px IS NOT THE FLUID SCALE OVERSHOOTING, so there is nothing to clamp:
-     it is the iOS floor, set deliberately at the bottom of this file. Mobile
-     Safari zooms the viewport when a control smaller than 16px takes focus and
-     does not zoom back out, and it applies to <select> as well as <input>. A
-     page that zooms on every tap of the search box is a worse daily experience
-     than a control that reads a little heavy, so the size stays and the WEIGHT
-     goes instead: the outlined-slab treatment becomes a quiet fill with no
-     border, which is exactly what .lib-modes above it already is — so the find
-     bar now reads as the same class of object as the tabs it sits under, and
-     the only difference left between them is type size.
+     THE 16px WAS NEVER THE FLUID SCALE OVERSHOOTING. It was the iOS floor,
+     set deliberately at the bottom of this file: mobile Safari zooms the
+     viewport when a control smaller than 16px takes focus, does not zoom back
+     out, and applies the rule to <select> as well as <input>. The first
+     attempt at this kept the 16px and took the WEIGHT out instead. The owner
+     has now chosen the other trade: the type comes down to --fs-135 (1.09x the
+     card title at 375px, essentially the desktop relationship), and the
+     focus-zoom is suppressed by a `maximum-scale=1` viewport meta added to
+     creatorsonly/index.html and agencyonly/index.html ONLY — not to /,
+     /waitlist/, /privacy/ or /terms/, where blocking pinch-zoom would cost a
+     low-vision reader something and buy nothing, because the find bar does not
+     exist on those pages.
 
-     Bounded at 820px, matching the floor itself, so the lighter treatment
-     applies exactly where the 16px applies and nowhere else. Desktop is
-     untouched and measures identical. */
+     THIS IS UNVERIFIED ON THE TARGET PLATFORM and cannot be verified here: it
+     needs a real iPhone. Safari has ignored `user-scalable=no` since iOS 10 to
+     preserve pinch-zoom, and whether `maximum-scale=1` still suppresses the
+     focus-zoom varies by version. IF IT DOES NOT WORK, the fallback is the
+     option that was passed over: rebuild the sort control as a button plus a
+     menu rather than a <select>. The zoom rule applies only to real form
+     controls, so a custom menu can use any type size with no viewport tag at
+     all.
+
+     THE TYPE SHRANK, THE TARGET DID NOT. Losing font-size on a control that is
+     the app's primary findability tool must not lose its tap target with it, so
+     the vertical padding goes UP by exactly what the smaller line box gave
+     back. Measured painted heights are recorded in the report.
+
+     The quiet-fill treatment from the first attempt is kept — it is what makes
+     the bar read as the same class of object as the .lib-modes tabs above it —
+     and stays bounded at 820px, matching the drawer breakpoint. */
+  /* Not inside a media query: the proportion was wrong at every width, it was
+     merely worst on a phone. (0,2,1) beats both the base control rule and the
+     iOS-floor block at the foot of this file, so neither can put 16px back. */
+  .find-bar input[type="search"], .find-bar select { font-size: var(--fs-135); }
   @media (max-width: 820px) {
     .find-bar input[type="search"], .find-bar select {
       background: var(--surface-2); border-color: transparent;
-      padding-top: 8px; padding-bottom: 8px;
+      /* 13px, not the 8px the 16px version used: the line box lost ~4px when
+         the type came down and the target has to keep it. min-height is the
+         belt to that braces: a <select> and an <input> do not compute the same
+         height from the same padding (measured 45 vs 43 at 375px), and 44 is
+         the number that matters. */
+      padding-top: 13px; padding-bottom: 13px; min-height: 44px;
     }
     /* Lightening the border costs the focus state its only signal — the global
        input:focus rule works by swapping exactly the two things this rule has
@@ -2909,8 +3781,17 @@
     /* Padding 10 → 8 on a TILE. Four more pixels of meta row at every width,
        and the width is the whole problem here; the cover's full bleed follows
        it (the negative margins and the flex basis below are the same number,
-       and have to stay that way). */
-    gap: 6px 5px; padding: 8px; font-size: var(--fs-125);
+       and have to stay that way).
+
+       IT STOPS AT 8 AND DOES NOT GO TO 6, which the capsule pass measured and
+       rejected: the card's own corner is 16px now, so at 6px of padding the
+       status chip's bottom-left corner sits 2.5px from the card's curving
+       border (16 − √(16² − 10²) = 3.5px of intrusion against a 6px inset) and
+       the chip reads crushed into the corner — the SAME optical defect one
+       level up. At 8px the intrusion is 2.1px and the gap 5.9px. The row got
+       its width back from the chip's own type size and the facts group
+       instead. Column gap 5 → 4 as part of that. */
+    gap: 6px 4px; padding: 8px; font-size: var(--fs-125);
     position: relative;                 /* the ↗ badge below anchors to this */
   }
   .script-grid > .bp-item:not([open]) > summary > .bp-caret { display: none; }
@@ -2954,7 +3835,7 @@
      nothing is announced twice. */
   .bp-dur {
     position: absolute; right: 6px; bottom: 6px; z-index: 1;
-    padding: 1px 5px; border-radius: 5px; line-height: 1.5;
+    padding: 1px 5px; border-radius: var(--r-pill); line-height: 1.5;
     background: var(--badge-ground); border: 1px solid #ffffff3d; color: #fff;
     font-family: var(--mono); font-size: var(--fs-105); font-variant-numeric: tabular-nums;
   }
@@ -3000,11 +3881,17 @@
      Before this redesign it was a bare inline ↗ measuring 7x20 — which is what
      an inline arrow decays into if nobody sizes it. 30x30 painted, with a
      translucent ground so it reads over a bright frame as well as a dark one.
-     stopSummaryLinks() already stops it toggling the card open. */
+     stopSummaryLinks() already stops it toggling the card open.
+
+     ROUND, not a rounded square (shape pass, --r-round). It is square by
+     construction — 30x30 is set right here — and it sits on a photograph,
+     where a circle is the one shape that never argues with whatever is behind
+     it. It also puts it in the same family as .vplay and .tp-play, the two
+     other controls that float on a frame. */
   .script-grid > .bp-item:not([open]) > summary > .bp-open {
     position: absolute; top: 6px; right: 6px; z-index: 1;
     width: 30px; height: 30px; display: grid; place-items: center;
-    border-radius: 7px; line-height: 1; font-size: var(--fs-13);
+    border-radius: var(--r-round); line-height: 1; font-size: var(--fs-13);
     background: var(--badge-ground); border: 1px solid #ffffff3d; color: #fff;
     transition: background .14s var(--ease), border-color .14s var(--ease);
   }
@@ -3058,7 +3945,7 @@
      width on the row: it costs nothing legible and buys most of a character. */
   .script-grid > .bp-item:not([open]) > summary > .chip {
     flex: 0 0 auto; order: 0; margin-left: 0; max-width: 100%;
-    font-size: var(--fs-11); padding: 2px 4px; white-space: nowrap;
+    font-size: var(--fs-105); padding: 2px 8px; white-space: nowrap;
   }
   /* THE SHORT FACE OF A STATUS, on tiles only.
      `script ready` is 12 characters saying what the green already says; the
@@ -3118,11 +4005,21 @@
      number comes down with it (4 → 3) and the lens from 1.15em to 1.05em —
      together ~7px, which is a whole character of chip. */
   .script-grid > .bp-item:not([open]) > summary > .meta-facts {
-    display: inline-flex; align-items: center; gap: 6px;
+    display: inline-flex; align-items: center; gap: 4px;
     margin-left: auto; min-width: 0; flex: 0 0 auto;
   }
-  .script-grid > .bp-item:not([open]) > summary > .meta-facts .lib-stat { gap: 2px; }
-  .script-grid > .bp-item:not([open]) > summary > .meta-facts .ico-eye { width: 1em; height: 1em; }
+  /* THE FACTS PAY FOR THE CHIP'S PADDING. The capsule pass needed 4px more of
+     horizontal padding on each end of the status chip (see the note there),
+     which is 8px off a row that had 4.0px of slack at 320px. It came from
+     here, not from the chip's wording and not from the card's own padding:
+     the facts are supporting information and the chip is the signal, so the
+     facts are the right thing to make quieter. Both drop one type step
+     together (--fs-11 → --fs-105) so their relative weight is unchanged; the
+     eye comes down with them and its gap to the digits goes 2 → 1. Measured
+     at 320px on the full 13-status x 5-fact matrix: worst-case slack 4.0px
+     before, 3.2px after, zero wrapped rows at any width. */
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts .lib-stat { gap: 1px; font-size: var(--fs-105); }
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts .ico-eye { width: .95em; height: .95em; }
   .meta-facts { display: inline-flex; align-items: center; gap: 10px; }
   /* Each fact. Mono and tabular so a column of tiles lines up rather than
      shimmering as the digits change; inline-flex so the eye is optically
@@ -3147,7 +4044,7 @@
   /* Keyboard: <summary> is the tile's control, and the UA ring sits outside a
      card that clips its own overflow, so it is drawn inset instead. */
   .script-grid > .bp-item > summary:focus-visible {
-    outline: 2px solid var(--text-2); outline-offset: -3px; border-radius: 9px;
+    outline: 2px solid var(--text-2); outline-offset: -3px; border-radius: calc(var(--r-card) - 3px);
   }
 
   /* ---------- iOS INPUT FLOOR ----------
@@ -3155,6 +4052,18 @@
      field — and once it has zoomed, it does not zoom back out. The fluid type
      scale puts most inputs in the 12.5–14px range at these widths, so every
      text-entry control gets pinned back to 16px on touch-sized viewports.
+
+     ONE DELIBERATE EXCEPTION, AND IT IS NOT AN OVERSIGHT. The find bar's
+     search input and sort select are NOT held to this floor any more: the
+     owner traded the floor away on 2026-08-19 for type that is proportional to
+     the cards it sits over, and the compensation is a `maximum-scale=1`
+     viewport meta on creatorsonly/index.html and agencyonly/index.html only.
+     `.find-bar input[type="search"]` (0,2,1) beats the bare selectors below, so
+     the exception holds no matter where this block sits. The full reasoning,
+     the numbers, the pages the viewport meta was deliberately kept OFF, and the
+     fallback if iOS ignores it, are all at the .find-bar block further up.
+     Every OTHER control in the list below still keeps the floor — the trade was
+     scoped to the two controls that prompted it, not to the file.
 
      820px, matching the drawer breakpoint: a phone in LANDSCAPE is 844px wide
      and is still a phone.
@@ -3179,6 +4088,52 @@
       font-size: 16px;      /* LITERAL. See the note at the 820px block above. */
     }
   }
+
+  /* ---------- KEYBOARD FOCUS ON TEXT CONTROLS ----------
+     FOUND WHILE WRITING /accessibility/, and it is why that page could not have
+     claimed what it wanted to. Measured on every text control in the app: the
+     ring was ABSENT on all of them. Sixteen rules in this file do
+     `:focus { outline: none; border-color: var(--line-2); background: var(--surface-2) }`
+     — a border moving from #26262b to #34343c, which is 1.19:1 against itself.
+     That is not a focus indicator, it is a rumour of one, and it is the exact
+     defect the wait-list field was fixed for earlier tonight; the fix simply
+     never generalised. WCAG 2.4.7.
+
+     ONLY :focus-visible, so nothing changes for a mouse — the quiet border swap
+     is still what a click gets, which is what those rules were for. Arriving by
+     Tab now gets the same 2px --text-2 ring (7.92:1 on the page) every button
+     on the site already had, and it takes the control's own border-radius, so
+     on a capsule it draws a capsule.
+
+     THE SELECTORS ARE ENUMERATED, and that is load-bearing rather than verbose:
+     `.bp-editor textarea.bp-beat-edit:focus` is (0,3,1) and `.pw-wrap
+     input:focus` is (0,2,1), so a bare `input:focus-visible` (0,1,1) would lose
+     to them silently and those two fields would still have no ring. Each
+     selector below beats its own `outline: none` counterpart. Same trap, and
+     the same list, as the iOS floor block above. Deliberately NOT extended to
+     `.find-bar` — that pair has its own inset ring already, at higher
+     specificity, and this must not overwrite its offset. */
+  input:focus-visible, select:focus-visible, textarea:focus-visible,
+  .pw-wrap input:focus-visible,
+  .ed-input:focus-visible,
+  .ce-body input:focus-visible, .ce-body select:focus-visible, .ce-body textarea:focus-visible,
+  .ce-field input:focus-visible, .ce-field select:focus-visible,
+  .ce-field textarea.grow:focus-visible,
+  .field.login input[type="email"]:focus-visible,
+  .bp-editor textarea.bp-beat-edit:focus-visible,
+  .post-form input:focus-visible, .post-form select:focus-visible,
+  .lookup input[type="text"]:focus-visible,
+  .composer-row input:focus-visible {
+    outline: 2px solid var(--text-2); outline-offset: 2px;
+  }
+  /* The composer's field has no box of its own — the capsule around it is
+     .composer-row — so its ring is drawn on the capsule instead, or it would
+     paint a rectangle through the middle of one. */
+  .composer-row input:focus-visible { outline: none; }
+  .composer-row:focus-within { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  /* A CLICK must not draw it: :focus-within has no keyboard-only variant, so
+     the ring is suppressed unless the field inside is keyboard-focused. */
+  .composer-row:focus-within:not(:has(input:focus-visible)) { outline: none; }
 
   /* ---------- THE TELEPROMPTER ----------
 
@@ -3314,7 +4269,7 @@
      hand's width; below that the rows fill as before on a phone. */
   .tp-meta, .tp-row { width: 100%; max-width: 520px; margin-inline: auto; }
   .tp-save {
-    color: var(--good); border: 1px solid var(--good); border-radius: 6px;
+    color: var(--good); border: 1px solid var(--good); border-radius: var(--r-pill);
     padding: 3px 10px; font-size: 11px; text-decoration: none;
   }
   .tp-save[hidden] { display: none; }
@@ -3339,7 +4294,7 @@
      NOT borrow .toggle, which is position:absolute for the password eye and
      would tear this button out of the row entirely. */
   .tp-play {
-    width: 74px; height: 74px; padding: 0; border-radius: 50%;
+    width: 74px; height: 74px; padding: 0; border-radius: var(--r-round);
     display: inline-flex; align-items: center; justify-content: center;
     background: var(--text); color: var(--bg); border: 1px solid var(--text);
   }
@@ -3394,7 +4349,7 @@
   }
   .tp.tp-rec .tp-dot { display: inline-flex; }
   .tp-dot::before {
-    content: ""; width: 9px; height: 9px; border-radius: 50%;
+    content: ""; width: 9px; height: 9px; border-radius: var(--r-round);
     background: var(--bad); animation: tp-pulse 1.4s ease-in-out infinite;
   }
   @keyframes tp-pulse { 50% { opacity: .25; } }

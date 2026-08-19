@@ -414,6 +414,53 @@ finally:
 
 
 print()
+def _urllib_unquote(s):
+    import urllib.parse
+    return urllib.parse.unquote(s)
+
+
+# ---------------------------------------------------------------------------
+# views_or_clause: the selection rule that hid fresh pastes for a week.
+#
+# fetch_meta stamps metrics_at at PASTE time while leaving views None (the
+# paste path never pays for Apify), so a brand-new Instagram row was neither
+# null nor older than 168h and the sweep could not see it until 2026-08-26.
+# These lock in the bounded retry that fixes it.
+# ---------------------------------------------------------------------------
+import re as _re
+from datetime import datetime as _dt, timezone as _tz
+
+_NOW = _dt(2026, 8, 19, 12, 0, 0, tzinfo=_tz.utc)
+_free = P.views_or_clause(_NOW, 24)
+_paid = P.views_or_clause(_NOW, 168, 2, 24)
+
+check("free pool: no retry branch (yt-dlp costs nothing to re-ask)",
+      "and(" in _free, False)
+check("free pool: still selects never-fetched rows",
+      "metrics_at.is.null" in _free, True)
+check("paid pool: retry branch present", "and(" in _paid, True)
+check("paid pool: retry branch keys on views IS NULL",
+      "views.is.null" in _paid, True)
+check("paid pool: retry branch bounded by row age",
+      "first_seen_at.gt." in _paid, True)
+check("paid pool: three distinct windows (stale, age-bound, retry)",
+      len(set(_re.findall(r"(?:lt|gt)\.([^,)]+)", _paid))), 3)
+check("paid pool: ordinary staleness clause survives",
+      "metrics_at.is.null" in _paid, True)
+
+# The retry window must be the LONGER of the two short windows — a row is
+# eligible while it is younger than the window and its last attempt is older
+# than the retry clock. Getting these backwards would retry nothing.
+_stamps = _re.findall(r"(?:lt|gt)\.([^,)]+)", _paid)
+_dec = sorted(_urllib_unquote(s) for s in _stamps)
+check("paid pool: staleness stamp is the oldest of the three",
+      _dec[0].startswith("2026-08-12"), True)
+
+# Zero/absent retry config must degrade to the plain two-clause form, so a
+# platform can be moved between pools without a silent behaviour change.
+check("retry config of 0 degrades to the free form",
+      P.views_or_clause(_NOW, 168, 0, 0), P.views_or_clause(_NOW, 168))
+
 if FAILS:
     print(f"{len(FAILS)} FAILED: {', '.join(FAILS)}")
     sys.exit(1)

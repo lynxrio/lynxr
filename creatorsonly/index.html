@@ -7,7 +7,25 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co; media-src 'self' blob:; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<!-- maximum-scale=1 SUPPRESSES iOS SAFARI'S FOCUS-ZOOM, and it is here in
+     exchange for the find bar's type size: the search and sort controls came
+     off the 16px floor on 2026-08-19 (owner's call) so they sit proportionally
+     with the cards they filter, and this is what is meant to stop Safari
+     zooming the page when one of them takes focus.
+
+     ON THE TWO APP PAGES ONLY. It is deliberately absent from /, /waitlist/,
+     /privacy/ and /terms/ — the find bar does not exist there, and a scale cap
+     on a public marketing or legal page costs a low-vision reader their
+     pinch-zoom for nothing. `user-scalable=no` is deliberately NOT used:
+     Safari has ignored it since iOS 10 and it would only ever have blocked
+     zoom on Android.
+
+     UNVERIFIED ON A REAL iPHONE — it cannot be tested from here. If Safari
+     still zooms on focus, the fallback is to rebuild the sort control as a
+     button plus a menu instead of a <select>: the zoom rule applies only to
+     real form controls, so a custom menu can use any type size with no
+     viewport tag at all. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content">
 <title>lynxr — creators</title>
 <!-- Link previews. This URL is handed out by hand, so the preview's only job
      is telling the sender which of the two apps they just pasted — the agency
@@ -24,7 +42,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260822f">
+<link rel="stylesheet" href="/app.css?v=20260822h">
 </head>
 <body>
 
@@ -295,7 +313,7 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260822f" defer></script>
-<script src="/creator.js?v=20260822f" defer></script>
+<script src="/dotgrid.js?v=20260822h" defer></script>
+<script src="/creator.js?v=20260822h" defer></script>
 </body>
 </html>

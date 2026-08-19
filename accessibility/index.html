@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Static prose. No scripts, no network calls of any kind, so the CSP is the
+     tightest on the site: stylesheet and font from self, nothing else. Same as
+     /privacy/ and /terms/, which this page is the third of. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<!-- No maximum-scale. This page is one of the ones that stays fully zoomable,
+     and it says so below. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lynxr — accessibility</title>
+<meta name="description" content="What lynxr does for accessibility, what it aims at, and the specific things it does not do yet — including where it falls short of WCAG 2.2 AA today.">
+<meta property="og:title" content="lynxr — accessibility">
+<meta property="og:description" content="What lynxr does for accessibility, what it aims at, and the specific things it does not do yet.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="lynxr">
+<meta property="og:url" content="https://lynxr.io/accessibility/">
+<meta property="og:image" content="https://lynxr.io/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://lynxr.io/og.png">
+<link rel="canonical" href="https://lynxr.io/accessibility/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="stylesheet" href="/app.css?v=20260822h">
+</head>
+<body>
+
+<main class="legal">
+  <a class="legal-back" href="/">&larr; lynxr</a>
+
+  <h1>accessibility</h1>
+  <p class="legal-date">last updated 19 august 2026</p>
+
+  <!-- The banner is the same object /terms/ uses for its "not reviewed by a
+       lawyer" flag, and it is here for the same reason: the honest state of the
+       document belongs where nobody can miss it, not three screens down. -->
+  <p class="legal-flag">this describes lynxr <strong>as it is on the date
+    above</strong>, not a permanent claim. it has not been audited by anyone
+    outside the team, and it does not claim conformance with any standard &mdash;
+    <span class="legal-todo">an independent audit has not been done</span>.
+    what it does instead is name the specific things that work and the specific
+    things that do not, so you can tell before you sign up whether lynxr is
+    usable for you.</p>
+
+  <h2>what we aim at</h2>
+  <p>lynxr aims at <strong>WCAG 2.2 level AA</strong>. that is the target, not a
+    claim that we have reached it &mdash; the known gaps are listed further down, and
+    they are listed rather than summarised because a general phrase like
+    &ldquo;we take accessibility seriously&rdquo; tells you nothing you can act
+    on.</p>
+
+  <h2>what works today</h2>
+  <p>each of these was measured on the built pages rather than assumed from the
+    code:</p>
+  <ul>
+    <li><strong>keyboard.</strong> every button, link, tab, disclosure and text
+      field can be reached and operated with a keyboard alone, and every one of
+      them draws a visible focus ring when you arrive by tab &mdash; a 2px outline
+      that measures 7.9:1 against the page and follows the control's own shape,
+      so it traces a capsule around a capsule rather than a rectangle. sixteen
+      text fields had no ring at all until 19 august 2026; that is fixed.</li>
+    <li><strong>controls that are only an icon still have names.</strong> the
+      wait&#8209;list submit is announced as &ldquo;join wait list&rdquo;, the
+      arrow on a video card as &ldquo;open the original video on
+      TikTok&rdquo; (or whichever platform it is), and a status chip that shows
+      a short word on a small card keeps its full wording as its accessible
+      name &mdash; a chip drawn as &ldquo;ready&rdquo; is still announced as
+      &ldquo;script ready&rdquo;.</li>
+    <li><strong>state is never carried by colour alone.</strong> the library's
+      mode switcher sets <code>aria-selected</code> as well as painting the
+      selected tab, and a video's status is a word as well as a colour.</li>
+    <li><strong>things that change without a click announce themselves.</strong>
+      the wait&#8209;list result, the search result count and the app's status
+      messages are live regions, so a screen reader is told when the page
+      changes underneath it.</li>
+    <li><strong>motion respects your system setting.</strong> if your device is
+      set to reduce motion, every animation and transition on the site is turned
+      off, including the sliding tab indicator and the card and panel
+      transitions. nothing is left mid&#8209;animation and nothing becomes
+      invisible as a result &mdash; the loading mark in particular is drawn in its
+      assembled state rather than disappearing.</li>
+    <li><strong>type scales with the page.</strong> text is set in relative
+      units against the viewport, and the public pages can be pinch&#8209;zoomed
+      and browser&#8209;zoomed without content being cut off or overlapping.</li>
+    <li><strong>structure.</strong> real headings in order, real form labels,
+      real lists, and one main landmark per page.</li>
+  </ul>
+
+  <h2>what does not work yet</h2>
+  <p>this list is the point of the page. it is complete as far as we know on the
+    date above, and anything found later gets added here rather than quietly
+    fixed and forgotten.</p>
+  <ul>
+    <li><strong>pinch&#8209;zoom is switched off inside the two signed&#8209;in
+      apps.</strong> the creator app and the agency app cap page scale, which
+      fails <span class="legal-todo">WCAG 1.4.4 (resize text)</span>. it is a
+      deliberate trade made on 19 august 2026: it is what allows the search and
+      sort controls to be the same size as the text around them instead of
+      looming over it. <strong>it affects the signed&#8209;in apps only.</strong>
+      this page, the home page, the wait list, the privacy policy and the terms
+      are all unaffected and stay fully zoomable. browser zoom is not affected
+      anywhere. if this stops you using lynxr, tell us and we will change
+      it &mdash; it is one line.</li>
+    <li><strong>one status colour is below the contrast floor.</strong> the
+      &ldquo;writing your script&rdquo; label, on a list row and inside a
+      library card, measures <span class="legal-todo">3.4:1 against its own
+      background where 4.5:1 is the AA floor</span>. the same label on a video
+      card was raised to 7.2:1; the other two places were not, and this is a
+      known, unfixed gap rather than something we have overlooked. the word
+      itself is still readable, and a pulsing dot beside it carries the same
+      meaning.</li>
+    <li><strong>nothing here has been tested with a real screen reader or on a
+      real assistive device.</strong> the checks above are measurements of the
+      rendered pages &mdash; focus rings, contrast ratios, accessible names,
+      keyboard order. that is not the same as somebody using VoiceOver or NVDA
+      to get through a task, and we are not going to imply that it is.</li>
+    <li><strong>the video player inside the app is the platform's own
+      embed.</strong> when you watch a source video in lynxr, that frame is
+      TikTok's, Instagram's or YouTube's, and its accessibility is theirs. we do
+      not control it and cannot fix it.</li>
+    <li><strong>captions and transcripts of the videos you paste come from
+      automatic transcription</strong> and are not checked by a person, so they
+      carry the errors that any automatic transcript carries.</li>
+  </ul>
+
+  <h2>telling us about a problem</h2>
+  <p>email <a href="mailto:lynxrnetwork@gmail.com">lynxrnetwork@gmail.com</a>.
+    it goes to the two people who build lynxr. we are not going to promise a
+    response time we cannot keep &mdash; there are two of us &mdash; but a specific
+    report (what you were doing, what happened, what you use) is the thing most
+    likely to get fixed, and the two gaps above are both listed because somebody
+    measured them and wrote them down.</p>
+
+  <h2>contact</h2>
+  <p><span class="entity">Lynx Media Group LLC</span><br>
+    15 Farrington Ave, Allston MA 02134, USA<br>
+    <a href="mailto:lynxrnetwork@gmail.com">lynxrnetwork@gmail.com</a></p>
+
+  <p class="legal-foot"><a href="/">back to lynxr</a> &middot;
+    <a href="/privacy/">privacy</a> &middot;
+    <a href="/terms/">terms</a> &middot;
+    <a href="/faq/">faq</a></p>
+</main>
+
+</body>
+</html>

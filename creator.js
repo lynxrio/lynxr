@@ -1965,6 +1965,20 @@ const SORT_LABELS = {
   az:   "Title A\u2013Z",
   most: "Most scripts",
 };
+/* THE SAME RUNG THE PLACEHOLDER ALREADY HAS. The sort control sizes itself to
+   its longest option, so "Newest first" is what sets its width at every
+   viewport — and on a phone that is width the search field wanted. The short
+   face drops the word that the control's own presence already implies: you are
+   looking at a SORT control, so "first" is redundant.
+   Only the drawn text changes. The <select>'s aria-label ("Sort your scripts")
+   is untouched, and each <option>'s value is the key, never the label, so
+   nothing that reads state is affected. */
+const SORT_LABELS_SHORT = {
+  new:  "Newest",
+  old:  "Oldest",
+  az:   "A\u2013Z",
+  most: "Most",
+};
 /* Newest first is the default, which IS a change: both lists used to render in
    insertion order, i.e. oldest first. The thing you are looking for in a list
    that has grown too long is almost always recent, and the control says which
@@ -1999,8 +2013,76 @@ function applyFindPlaceholders() {
     if (full && brief) el.placeholder = findPlaceholder(full, brief);
   });
 }
-FIND_NARROW.addEventListener("change", applyFindPlaceholders);
+/* Same width rung, same reason, same re-application on rotate. Rewrites the
+   option TEXT only — never the value, and never the selected index, so calling
+   this can not change what the list is sorted by. */
+function applyFindSortLabels() {
+  const short = FIND_NARROW.matches;
+  document.querySelectorAll("select.find-sort option").forEach((op) => {
+    const k = op.value;
+    const label = (short ? SORT_LABELS_SHORT[k] : SORT_LABELS[k]) || SORT_LABELS[k];
+    if (label && op.textContent !== label) op.textContent = label;
+  });
+}
+function applyFindWidthRungs() { applyFindPlaceholders(); applyFindSortLabels(); }
+FIND_NARROW.addEventListener("change", applyFindWidthRungs);
 FIND_TINY.addEventListener("change", applyFindPlaceholders);
+
+/* ---------- THE LIBRARY MODE SWITCHER'S TRAVELLING FILL ----------
+
+   syncLibModes() moves it; placeLibModes() is what you call after the strip is
+   (re)built. The split matters:
+
+   NOTHING ANIMATES ON FIRST PAINT. placeLibModes() positions the indicator with
+   the transition still disabled, then turns it on one frame later by adding
+   .ind-live. Without that split the pill would slide in from x=0 every time the
+   Library is rendered — on load, on every navigation back to it, and after
+   every save — which is the same class of bug as an entrance animation that
+   fires on a grid repaint. A MODE CLICK does not go through here; it calls
+   syncLibModes() directly, on a strip that is already live, so that one moves.
+
+   IT IS RE-MEASURED AFTER THE FONTS LOAD. The tabs are text, so their widths
+   change the moment the real face swaps in for the fallback — an indicator
+   sized against the fallback silently ends up a few pixels wrong and stays that
+   way. document.fonts.ready is the hook. Resize is the other one.
+
+   The listeners are attached ONCE, at module scope, and re-read the DOM each
+   time rather than closing over an element: every render replaces these nodes.
+   Both handlers no-op when the strip is not on screen. */
+function syncLibModes() {
+  const wrap = document.querySelector(".lib-modes");
+  if (!wrap) return;
+  const ind = wrap.querySelector(".lib-modes-ind");
+  const on = wrap.querySelector(".lib-mode.on");
+  if (!ind || !on) return;
+  const wr = wrap.getBoundingClientRect(), ar = on.getBoundingClientRect();
+  if (!ar.width) return;                       // not laid out yet; nothing to measure
+  ind.hidden = false;
+  /* + scrollLeft, and it is not optional: under 560px .lib-modes is
+     overflow-x:auto so the strip scrolls sideways, and two client rects
+     subtracted give a VIEWPORT offset that is wrong by however far it has been
+     scrolled. The indicator lives in the scrolled content, so it has to be
+     placed in content coordinates. Rects rather than offsetLeft/offsetWidth
+     because those round to integers and the tabs are sub-pixel. */
+  /* CSSOM, never a style attribute — style-src is 'self' with no
+     'unsafe-inline', so an inline style="" is dropped on the floor silently. */
+  ind.style.width = ar.width + "px";
+  ind.style.transform = `translateX(${ar.left - wr.left + wrap.scrollLeft}px)`;
+}
+function placeLibModes() {
+  const wrap = document.querySelector(".lib-modes");
+  if (!wrap) return;
+  wrap.classList.remove("ind-live");           // park it, do not slide it
+  syncLibModes();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const w = document.querySelector(".lib-modes");
+      if (w) w.classList.add("ind-live");
+    });
+  });
+}
+window.addEventListener("resize", syncLibModes);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncLibModes);
 
 /** The search + sort row. `id` prefixes the three element ids so a brand page
  *  and the Library can never collide. */
@@ -2026,7 +2108,7 @@ function findBarHtml({ id, q, sort, sorts, placeholder, brief, what }) {
 /** Wire one find bar. `repaint` re-renders ONLY the grid, never the bar — a
  *  rebuilt <input> loses focus and the caret, which makes typing impossible. */
 function wireFindBar(id, repaint, setQ, setSort) {
-  applyFindPlaceholders();          // the bar was just rebuilt; re-apply the width rule
+  applyFindWidthRungs();            // the bar was just rebuilt; re-apply the width rules
   const qEl = document.getElementById(`${id}-q`);
   if (qEl) qEl.addEventListener("input", (e) => { setQ(e.target.value); repaint(); });
   const sEl = document.getElementById(`${id}-sort`);
@@ -2131,6 +2213,11 @@ function renderLibrary(head, body) {
     <div class="section">
       <div class="lib-head">
         <div class="lib-modes" role="tablist" aria-label="How to group the library">
+          ${/* The travelling fill. aria-hidden and hidden-until-measured: it
+                carries no meaning a screen reader needs (aria-selected on the
+                tabs already does), and a 0-width pill parked at the left edge
+                would be a stray dot if this script never ran. */""}
+          <span class="lib-modes-ind" id="lib-modes-ind" aria-hidden="true" hidden></span>
           <button type="button" class="lib-mode${LIB_MODE === "brand" ? " on" : ""}"
             id="lib-mode-brand" role="tab" aria-selected="${LIB_MODE === "brand"}">By brand</button>
           <button type="button" class="lib-mode${LIB_MODE === "all" ? " on" : ""}"
@@ -2153,10 +2240,29 @@ function renderLibrary(head, body) {
     </div>`;
 
   document.getElementById("lib-add").addEventListener("click", () => go({ kind: "new" }));
-  const setMode = (m) => { LIB_MODE = m; FOCUS_LID = null; renderLibrary(head, body); };
+  /* SWITCHING MODE NO LONGER REBUILDS THIS VIEW. It used to call
+     renderLibrary(), which rewrites body.innerHTML — so the tab strip, the
+     indicator and the search field were all destroyed and recreated on every
+     click, and an indicator cannot travel between two different elements.
+     Nothing in the markup above depends on LIB_MODE except the three tabs'
+     own `on` / aria-selected, so the mode change updates those in place and
+     repaints only the list. Side effect worth having: typing a filter, then
+     switching mode, no longer throws away the caret. */
+  const setMode = (m) => {
+    if (LIB_MODE === m) return;
+    LIB_MODE = m; FOCUS_LID = null;
+    document.querySelectorAll(".lib-modes .lib-mode").forEach((b) => {
+      const on = b.id === `lib-mode-${m}`;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", String(on));
+    });
+    syncLibModes();
+    paintLibraryList();
+  };
   document.getElementById("lib-mode-brand").addEventListener("click", () => setMode("brand"));
   document.getElementById("lib-mode-all").addEventListener("click", () => setMode("all"));
   document.getElementById("lib-mode-original").addEventListener("click", () => setMode("original"));
+  placeLibModes();
 
   /* No re-focus dance any more: paintLibraryList() only ever rewrites
      #lib-list, and the find bar is a sibling of it, so the caret never moves. */
@@ -2567,29 +2673,20 @@ function renderYou(head, body) {
         </span>
       </div>
       <p class="note" id="del-msg" role="status" aria-live="polite"></p>
-      ${/* WHAT A PASTE ACTUALLY DOES. Moved here from the composer at the
-            owner's direction; the signup consent line links the policy once,
-            months earlier, and this is the page someone opens when they want
-            to know what happens to their data.
+      ${/* (.me-disclose lived here — the two-sentence inline notice about the
+            shared format library surviving account deletion, and about the
+            public relay that reads a title before the worker has. Removed at
+            the owner's direction on 2026-08-19.
 
-            Two claims, and the ORDER is deliberate — the substantive one
-            first. The link is kept in the shared format library, filed under
-            the video's own address rather than under the creator, and it
-            survives account deletion; that is what privacy/index.html's "one
-            thing survives" paragraph says, in the same words.
-
-            The relay half is worded as what it now IS. Titles come off the
-            record the worker wrote for everything already processed, but
-            hydrate() still fires on EVERY fresh paste (creator.js's send
-            handler) because the worker's title does not exist for ~60s — so
-            "before we have processed it" is accurate and "only as a
-            fallback" would not be. No second /privacy/ link: the .me-links
-            row directly above already carries one, and the delegated handler
-            at the top of this file opens it in the modal. */""}
-      <p class="bp-hint me-disclose">Links you paste stay in our shared library of
-        video formats &mdash; filed under the video&rsquo;s own address, not under you
-        &mdash; including after you delete your account. To name a video before we have
-        processed it, your browser asks a public relay to read its title.</p>
+            IT WAS REDUNDANT, NOT UNDISCLOSED, and that is why removing it was
+            safe: both facts are in privacy/index.html — the surviving library
+            under "one thing survives, and we want to be straight about it",
+            and the relay by name (allorigins.win, codetabs.com) including that
+            it sees the pasted link and the IP. The "privacy policy" link in
+            the .me-links row directly above opens that policy IN A MODAL via
+            the delegated handler at the top of this file, so both facts are
+            one click away from this exact screen. Do not weaken either passage
+            in the policy: they are now the only place either is stated. */""}
     </div>
 
     <p class="you-foot">&copy;
@@ -2716,8 +2813,13 @@ function renderTrash() {
       </div>
       <span class="trash-actions">
         ${(() => { const href = safeUrl(a.sourceUrl || "");
+          /* aria-label, not just title: the link's own content is the "↗"
+             character, and content beats title in the accessible-name
+             calculation — so without this a screen reader announced the arrow.
+             The other .bp-open (see openLinkHtml) already names its platform. */
           return href ? `<a class="bp-open" href="${escapeHtml(href)}" target="_blank"
-            rel="noopener noreferrer" title="Open the original video">\u2197</a>` : ""; })()}
+            rel="noopener noreferrer" aria-label="Open the original video"
+            title="Open the original video"><span aria-hidden="true">\u2197</span></a>` : ""; })()}
         ${/* Icon + word. The phone hides the word (see .trash-restore-txt) so all
               three controls fit on the thumbnail's line instead of costing a
               whole extra row. */""}

@@ -1112,6 +1112,17 @@ VIEWS_MAX_AGE_H  = float(envcfg.get("VIEWS_MAX_AGE_H", "24"))
 # today's paste rate; weekly is ~$5. Set VIEWS_PAID_MAX_AGE_H=24 to reverse.
 VIEWS_PAID_MAX_AGE_H = float(envcfg.get("VIEWS_PAID_MAX_AGE_H", "168"))
 VIEWS_PER_PASS   = int(envcfg.get("VIEWS_PER_PASS", "3"))
+# A row that has NEVER got a number is a different case from a stale one, and
+# the 168h clock hid it: fetch_meta stamps metrics_at at PASTE time while
+# leaving views None (the paste path never pays), so a fresh Instagram paste
+# was neither null nor stale and sat blank for a week — the exact shape that
+# stranded 7 rows on 2026-08-19. So: retry an absent value on a SHORT clock,
+# but only while the row is young. A real paste succeeds on its first retry; a
+# genuinely dead post (deleted, private) costs ~12 lookups over the window
+# (~$0.03) and then falls back to the weekly clock forever, rather than being
+# retried every sweep at $0.0023 a time until someone notices.
+VIEWS_PAID_RETRY_H        = float(envcfg.get("VIEWS_PAID_RETRY_H", "2"))
+VIEWS_PAID_RETRY_WINDOW_H = float(envcfg.get("VIEWS_PAID_RETRY_WINDOW_H", "24"))
 
 APIFY_VIEWS_ACTOR    = "apify~instagram-scraper"   # actor id shu8hvrXbJbY3Eb9W
 APIFY_RUN_TIMEOUT_S  = int(envcfg.get("APIFY_RUN_TIMEOUT_S", "60"))
@@ -2699,6 +2710,31 @@ def refresh_entry_views(key, cid, canon, views, at):
         return changed
 
 
+def views_or_clause(now, max_age_h, retry_h=0, retry_window_h=0):
+    """The PostgREST `or=(...)` body selecting rows due a view refresh.
+
+    Pure and separate from refresh_views() for the same reason too_young() is:
+    the selection rule is the thing that was wrong, so it has to be testable
+    without a database. Returns the clause body WITHOUT the wrapping parens.
+
+    Three ways a row qualifies:
+      * metrics_at IS NULL          — never fetched at all
+      * metrics_at older than max_age_h  — the ordinary staleness clock
+      * (paid pools only) views IS NULL AND the row is younger than
+        retry_window_h AND metrics_at older than retry_h — the never-succeeded
+        case, retried fast but only for a bounded window.
+    """
+    def stamp(hours):
+        return urllib.parse.quote(
+            (now - timedelta(hours=hours)).isoformat().replace("+00:00", "Z"), safe="")
+    clauses = ["metrics_at.is.null", f"metrics_at.lt.{stamp(max_age_h)}"]
+    if retry_h and retry_window_h:
+        clauses.append("and(views.is.null,"
+                       f"first_seen_at.gt.{stamp(retry_window_h)},"
+                       f"metrics_at.lt.{stamp(retry_h)})")
+    return ",".join(clauses)
+
+
 def refresh_views(key, limit):
     """Refresh stale lynxr_sources view counts and propagate the new number
     to every creator entry holding that video. Never raises — a failure
@@ -2722,18 +2758,22 @@ def refresh_views(key, limit):
     considered = fetched = entries_updated = 0
     calls_before = _APIFY_CALLS
     try:
-        pools = ((VIEWS_TRUSTED_PLATFORMS, VIEWS_MAX_AGE_H),
-                 (VIEWS_PAID_PLATFORMS,    VIEWS_PAID_MAX_AGE_H))
+        # (platforms, staleness clock, short retry clock, retry window).
+        # Only the PAID pool gets the retry pair — a free yt-dlp platform that
+        # returns nothing is answered on the ordinary clock and costs nothing
+        # to ask again, so it needs no bounded window.
+        pools = ((VIEWS_TRUSTED_PLATFORMS, VIEWS_MAX_AGE_H, 0, 0),
+                 (VIEWS_PAID_PLATFORMS,    VIEWS_PAID_MAX_AGE_H,
+                  VIEWS_PAID_RETRY_H, VIEWS_PAID_RETRY_WINDOW_H))
         rows = []
-        for pool_platforms, pool_max_age_h in pools:
+        now = datetime.now(timezone.utc)
+        for pool_platforms, pool_max_age_h, retry_h, retry_window_h in pools:
             if not pool_platforms:
                 continue
-            threshold = (datetime.now(timezone.utc) - timedelta(hours=pool_max_age_h)) \
-                .isoformat().replace("+00:00", "Z")
             platforms = ",".join(pool_platforms)
             q = ("/rest/v1/lynxr_sources?select=canonical_url,url,platform,views,metrics_at"
                  f"&platform=in.({platforms})"
-                 f"&or=(metrics_at.is.null,metrics_at.lt.{urllib.parse.quote(threshold, safe='')})"
+                 f"&or=({views_or_clause(now, pool_max_age_h, retry_h, retry_window_h)})"
                  f"&order=metrics_at.asc.nullsfirst&limit={limit}")
             rows.extend(sb(key, q) or [])
     except Exception as e:  # noqa: BLE001

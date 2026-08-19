@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lynxr — questions and answers</title>
+<meta name="description" content="What lynxr is, who it is for, what a video format is, what happens to a link you paste, which platforms work, what it costs, and how access works while it is invitation-only.">
+<meta property="og:title" content="lynxr — questions and answers">
+<meta property="og:description" content="Straight answers about lynxr: what it does with a video link, which platforms it reads, what it costs, and how to get in while it is invitation-only.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="lynxr">
+<meta property="og:url" content="https://lynxr.io/faq/">
+<meta property="og:image" content="https://lynxr.io/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="lynxr — questions and answers">
+<meta name="twitter:description" content="Straight answers about lynxr: what it does with a video link, which platforms it reads, what it costs, and how to get in while it is invitation-only.">
+<meta name="twitter:image" content="https://lynxr.io/og.png">
+<link rel="canonical" href="https://lynxr.io/faq/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="stylesheet" href="/app.css?v=20260822h">
+
+<!-- FAQPage STRUCTURED DATA.
+     This is what makes the answers eligible for a rich result in Google and
+     what makes the page legible to a model that is answering a question about
+     lynxr rather than rendering it.
+
+     EVERY answer below is byte-for-byte the same claim as the visible answer in
+     the page body — Google requires the marked-up content to be present and
+     visible on the page, and marking up an answer the reader cannot see is the
+     kind of thing that gets structured data ignored sitewide.
+
+     NOTHING HERE IS ASPIRATIONAL. Every number and every promise is one the
+     system actually keeps today: free in early access, invitation-only, link
+     only, no upload, no platform password, a refusal costs nothing. If a claim
+     changes, change it in BOTH places or delete it from both. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is lynxr?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "lynxr turns a short-form video into a script. You send it a public link to a TikTok, Instagram, YouTube or Facebook video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for. It is built by Lynx Media Group LLC, a short-form video agency."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Who is lynxr for?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Creators who make short-form video for brands, and the people who brief them. If your job is to look at a video that worked and produce something in that shape for a different company, that is the job lynxr does. You must be 18 or older to use it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does \"format\" mean in lynxr?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A format is the shape of a video rather than its subject: the hook and the job it is doing, the beats and their order, the turn where the video becomes something else, and the close. Two videos about completely different products can run the same format. That is why a format travels between brands when a topic does not — copying the topic gets you a video about somebody else's product, copying the format gets you the thing that made it work."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens to a link I paste into lynxr?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The link is queued against your own account, then a worker downloads the video, transcribes the audio, takes a cover frame and a handful of stills, extracts the format, and writes one script per company you sent it to. The script, the transcript and the details of the source video are saved to your own row in our database so the video appears in your library. Nothing is posted anywhere and nothing is shared with other users. The full detail is in the privacy policy."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which platforms does lynxr work with?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "TikTok, Instagram, YouTube and Facebook, including youtu.be, fb.watch and fb.com short links. A link on any other host is refused before anything is downloaded, and refusing it costs you nothing from your allowance."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I have to upload a file or connect my accounts?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. There is no file upload anywhere in lynxr — a public link is the only thing it takes. It never asks for your password to any platform, it is not connected to your accounts, and it never posts anything on your behalf."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How long does a script take?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A pasted link is usually picked up within a couple of seconds, and a short video — around a minute long or less — is typically written within a minute or two of that. A longer video takes longer, and the first script after the worker has been idle is slower than the ones after it because the transcription model has to load. We do not show a countdown, because a countdown that reaches zero while you are still waiting is worse than no countdown."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does lynxr cost?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nothing during early access. lynxr is free while it is invitation-only, there is no card on file and nothing to cancel. Pricing does not exist yet; if and when it does, it will be published before anyone is charged."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I get access to lynxr?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "By joining the wait list and waiting for a place. lynxr is invitation-only while it is early: there is a fixed number of seats and the limit is enforced in the database, not by the address of the page, so knowing the URL does not get you in. We open it up a few people at a time and email you when a place opens."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can one link become more than one script?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Pick several companies when you send the link and you get one script per company. The video is only downloaded, transcribed and read once no matter how many companies you send it to, so the second and third scripts cost roughly a second each rather than a full pass."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens if lynxr cannot open my video?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You get a plain sentence saying why — private, deleted, age-restricted, blocked in our region, or an unsupported link — and it costs you nothing from your allowance. Where the problem could not be fixed by trying again, no retry button is offered, because offering one would only waste your time."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Who makes lynxr?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Lynx Media Group LLC, a short-form video agency based in Allston, Massachusetts, founded by Gawin Hsu and Junsa Hwang. lynxr is the agency's own tool, which is why it is aimed at the job the agency actually does. There is more about both founders on the home page."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<!-- .lp unsets the app's bare main{} container so the sections below can be
+     full-bleed. See the marketing-page block in app.css. -->
+<body class="lp">
+
+<header class="lp-bar">
+  <div class="lp-in lp-bar-in">
+    <a class="wordmark" href="/"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></a>
+    <nav class="lp-nav" aria-label="Main">
+      <a href="/#how">how it works</a>
+      <a href="/#team">our team</a>
+    </nav>
+    <a class="btn" href="/waitlist/">try it</a>
+  </div>
+</header>
+
+<main>
+
+  <section class="lp-hero">
+    <div class="lp-in">
+      <h1 class="lp-h1">questions and answers</h1>
+      <p class="lp-lede">what lynxr is, what it does with a link, what it keeps,
+        and how to get in while it is invitation&#8209;only. if something here is not
+        answered, the <a href="/privacy/">privacy policy</a> and the
+        <a href="/terms/">terms</a> go further.</p>
+    </div>
+  </section>
+
+  <section class="lp-band">
+    <div class="lp-in">
+      <!-- Answers are byte-for-byte the claims in the JSON-LD above. Change one,
+           change the other, or the structured data stops matching the page and
+           becomes worse than not having it. -->
+      <div class="lp-faq">
+
+        <details class="lp-q" open>
+          <summary>what is lynxr?</summary>
+          <p class="lp-a">lynxr turns a short&#8209;form video into a script. you send it
+            a public link to a TikTok, Instagram, YouTube or Facebook video; it
+            watches the video, transcribes what is said, works out the format
+            underneath &mdash; the hook, the beats, the order they come in &mdash; and
+            rewrites that format as a script for the company you are making
+            content for. it is built by <span class="entity">Lynx Media Group LLC</span>,
+            a short&#8209;form video agency.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>who is lynxr for?</summary>
+          <p class="lp-a">creators who make short&#8209;form video for brands, and the
+            people who brief them. if your job is to look at a video that worked
+            and produce something in that shape for a different company, that is
+            the job lynxr does. you must be 18 or older to use it.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>what does &ldquo;format&rdquo; mean in lynxr?</summary>
+          <p class="lp-a">a format is the shape of a video rather than its
+            subject: the hook and the job it is doing, the beats and their
+            order, the turn where the video becomes something else, and the
+            close. two videos about completely different products can run the
+            same format. that is why a format travels between brands when a
+            topic does not &mdash; copying the topic gets you a video about somebody
+            else's product, copying the format gets you the thing that made it
+            work.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>what happens to a link i paste into lynxr?</summary>
+          <p class="lp-a">the link is queued against your own account, then a
+            worker downloads the video, transcribes the audio, takes a cover
+            frame and a handful of stills, extracts the format, and writes one
+            script per company you sent it to. the script, the transcript and
+            the details of the source video are saved to your own row in our
+            database so the video appears in your library. nothing is posted
+            anywhere and nothing is shared with other users. the full detail is
+            in the <a href="/privacy/">privacy policy</a>.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>which platforms does lynxr work with?</summary>
+          <p class="lp-a">TikTok, Instagram, YouTube and Facebook, including
+            youtu.be, fb.watch and fb.com short links. a link on any other host
+            is refused before anything is downloaded, and refusing it costs you
+            nothing from your allowance.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>do i have to upload a file or connect my accounts?</summary>
+          <p class="lp-a">no. there is no file upload anywhere in lynxr &mdash; a
+            public link is the only thing it takes. it never asks for your
+            password to any platform, it is not connected to your accounts, and
+            it never posts anything on your behalf.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>how long does a script take?</summary>
+          <p class="lp-a">a pasted link is usually picked up within a couple of
+            seconds, and a short video &mdash; around a minute long or less &mdash; is
+            typically written within a minute or two of that. a longer video
+            takes longer, and the first script after the worker has been idle is
+            slower than the ones after it because the transcription model has to
+            load. we do not show a countdown, because a countdown that reaches
+            zero while you are still waiting is worse than no countdown.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>what does lynxr cost?</summary>
+          <p class="lp-a">nothing during early access. lynxr is free while it is
+            invitation&#8209;only, there is no card on file and nothing to cancel.
+            pricing does not exist yet; if and when it does, it will be published
+            before anyone is charged.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>how do i get access to lynxr?</summary>
+          <p class="lp-a">by joining the <a href="/waitlist/">wait list</a> and
+            waiting for a place. lynxr is invitation&#8209;only while it is early:
+            there is a fixed number of seats and the limit is enforced in the
+            database, not by the address of the page, so knowing the URL does not
+            get you in. we open it up a few people at a time and email you when a
+            place opens.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>can one link become more than one script?</summary>
+          <p class="lp-a">yes. pick several companies when you send the link and
+            you get one script per company. the video is only downloaded,
+            transcribed and read once no matter how many companies you send it
+            to, so the second and third scripts cost roughly a second each rather
+            than a full pass.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>what happens if lynxr cannot open my video?</summary>
+          <p class="lp-a">you get a plain sentence saying why &mdash; private,
+            deleted, age&#8209;restricted, blocked in our region, or an unsupported
+            link &mdash; and it costs you nothing from your allowance. where the
+            problem could not be fixed by trying again, no retry button is
+            offered, because offering one would only waste your time.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>who makes lynxr?</summary>
+          <p class="lp-a"><span class="entity">Lynx Media Group LLC</span>, a
+            short&#8209;form video agency based in Allston, Massachusetts, founded by
+            Gawin Hsu and Junsa Hwang. lynxr is the agency's own tool, which is
+            why it is aimed at the job the agency actually does. there is more
+            about both founders <a href="/#team">on the home page</a>.</p>
+        </details>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-final">
+    <div class="lp-in">
+      <h2 class="lp-h2">still want in?</h2>
+      <p class="lp-p">leave your email and we will tell you when a place opens.</p>
+      <div class="home-cta">
+        <a class="btn home-go" href="/waitlist/">try it<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="lp-foot">
+  <div class="lp-in lp-foot-in">
+    <div class="lp-foot-brand">
+      <p class="wordmark"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></p>
+      <p class="lp-foot-line">format intelligence for short&#8209;form video, built by
+        a short&#8209;form video agency.</p>
+      <ul class="lp-social">
+        <li><a href="https://www.instagram.com/lynxmediagroup/" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.4"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.15" fill="currentColor" stroke="none"/></svg></a></li>
+        <li><a href="https://www.tiktok.com/@lynxmediagroup" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on TikTok"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 2h-3v13.4a2.7 2.7 0 1 1-2.7-2.7c.2 0 .4 0 .6.1V9.7a5.9 5.9 0 1 0 5.1 5.8V9.1a7 7 0 0 0 4 1.3V7.3a4.1 4.1 0 0 1-4-4.1V2z"/></svg></a></li>
+        <li><a href="https://www.linkedin.com/company/lynxmediagroup" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3.1 9.2h3.8V21H3.1zM10 9.2h3.6v1.6h.05c.5-.92 1.75-1.9 3.6-1.9 3.85 0 4.56 2.2 4.56 5.05V21h-3.8v-5.35c0-1.28-.02-2.92-1.8-2.92-1.8 0-2.08 1.38-2.08 2.83V21H10z"/></svg></a></li>
+      </ul>
+    </div>
+    <div>
+      <span class="lp-foot-h">lynxr</span>
+      <ul class="lp-foot-links">
+        <li><a href="/">home</a></li>
+        <li><a href="/#how">how it works</a></li>
+        <li><a href="/#team">our team</a></li>
+        <li><a href="/waitlist/">try it<span class="sr-only"> &mdash; join the wait list</span></a></li>
+      </ul>
+    </div>
+    <div>
+      <span class="lp-foot-h">company</span>
+      <ul class="lp-foot-links">
+        <li><a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a></li>
+        <li><a href="/privacy/">privacy policy</a></li>
+        <li><a href="/terms/">terms of service</a></li>
+        <li><a href="/accessibility/">accessibility</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="lp-in lp-foot-legal">
+    &copy; <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a> 2026
+  </div>
+</footer>
+
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
+<script src="/site.js?v=20260822h" defer></script>
+
+</body>
+</html>
