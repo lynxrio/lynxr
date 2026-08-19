@@ -2349,21 +2349,69 @@
     text-transform: none; display: block;
   }
   .home-lead::before { display: none; }
-  .home-cta { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+  /* ONE paragraph, and only one. This is the entire explanation a stranger gets
+     before the button, so it says what you hand lynxr and what comes back —
+     nothing about the company, and no claim (speed, quality, results) the
+     measured system cannot back up. 48ch because a centred line longer than
+     that stops being read and starts being skimmed. */
+  .home-sub {
+    color: var(--text-2); font-size: var(--fs-155); line-height: 1.65;
+    margin: 0 auto 30px; max-width: 48ch;
+  }
+
+  .home-cta { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 0 0 44px; }
+  /* Worn together with .btn, so this is the solid fill plus a larger tap
+     target — .home-go comes later in the file, so its padding and font-size
+     win over .btn's on equal specificity. inline-flex is what makes the
+     padding real on an <a>. */
   .home-go {
     padding: 14px 30px; font-size: var(--fs-155); text-decoration: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 9px;
     border-bottom: 1px solid var(--text);      /* beat the global `a` underline */
     transition: opacity .12s, transform .18s var(--ease);
   }
+  .home-go svg { width: 15px; height: 15px; flex: none; }
   .home-go:hover { opacity: .88; transform: translateY(-1px); }
   .home-alt { color: var(--text-3); font-size: var(--fs-13); border-bottom-color: var(--line); }
   .home-alt:hover { color: var(--text-2); }
+  /* Directly under the button, because it is the honest half of "try it": the
+     app is invitation-only, so the button leads to a wait list and says so
+     before it is pressed rather than after. */
+  /* --text-2, not --text-3 like the footer beside it: this line is the honest
+     half of the button ("try it" leads to a wait list, not to the app), so it
+     has to be readable rather than decorative. Measured 7.92:1 on --bg against
+     --text-3's 3.80:1, which fails AA at this size. */
+  .home-note { color: var(--text-2); font-size: var(--fs-125); line-height: 1.55; margin: 0; max-width: 46ch; }
 
-  /* (.home-sub, .home-how and .home-n lived here — the explanatory paragraph
-     and the three numbered steps. Both are gone from index.html.) */
+  /* HOW IT WORKS. Three lines, left-aligned inside a centred column: a numbered
+     step reads as a sequence only if the numbers line up, which centring
+     destroys. (.home-how and .home-n were removed once before, when this page
+     was cut back to a bare email box; they are back because the page is a
+     marketing page again and the box moved to /waitlist/.) */
+  .home-how {
+    display: grid; gap: 13px; width: 100%; max-width: 46ch;
+    margin: 0 0 8px; padding: 0; list-style: none; text-align: left;
+  }
+  .home-how li {
+    display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start;
+    color: var(--text-2); font-size: var(--fs-14); line-height: 1.55;
+  }
+  .home-n {
+    width: 22px; height: 22px; border: 1px solid var(--line); border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--text-3); font-size: var(--fs-115); flex: none;
+  }
+  .home-how b { color: var(--text); font-weight: 600; }
 
-  /* Waitlist. The one interactive thing on the public page, so it gets a card
-     of its own rather than floating in the middle column. */
+  /* The wordmark is a LINK back to / on /waitlist/, and a heading on /. The
+     global `a` rule would draw an underline the whole width of the logo. */
+  .home a.wordmark { border-bottom: 0; }
+
+  /* Waitlist. Its own page now (/waitlist/), reached from the "try it" button
+     on /. Still a card rather than a bare form: the border is what makes it
+     read as one object — heading, promise, field — instead of three stacked
+     paragraphs. */
   /* 60ch, not 52: the button is flex:none, so every character of card width
      goes to the input. The address is the thing being typed and "you@example.com"
      was filling most of the field before a real one was even entered. */
@@ -2371,11 +2419,23 @@
     margin: 52px 0 0; padding: 26px 24px; width: 100%; max-width: 60ch;
     border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
   }
+  /* An <h2> on /waitlist/, because the page's <h1> is the headline above it.
+     That means it inherits the site-wide h2 rule — the agency dashboard's
+     eyebrow: a flex row with a dash drawn before it — which left-packed the
+     text inside a centred card and hung a stray "—" off the front of it.
+     Same override .home-lead already carries for the same reason. */
   .wait-h {
     font-size: var(--fs-16); font-weight: 600; color: var(--text); margin: 0 0 8px;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.01em; display: block; text-transform: lowercase;
   }
+  .wait-h::before { display: none; }
   .wait-sub { color: var(--text-2); font-size: var(--fs-135); line-height: 1.6; margin: 0 0 18px; }
+  /* home.js hides this on a successful signup along with the form — leaving
+     "leave your email" above "you're on the list" reads as a failed submit.
+     Explicit, for the same reason .wait-form[hidden] below is: a rule that
+     sets display beats the UA's [hidden], and this one is one edit away from
+     acquiring one. */
+  .wait-sub[hidden] { display: none; }
   .wait-form { display: flex; gap: 8px; flex-wrap: wrap; }
   /* Required, not tidiness: home.js hides this form on success with
      `.hidden = true`, and the UA stylesheet's [hidden] { display: none } is a
@@ -2383,28 +2443,44 @@
      screen under the "you're on the list" message, inviting a second submit
      that could only ever 409. Same pattern as .lookup-loader[hidden]. */
   .wait-form[hidden] { display: none; }
+  /* flex-grow 100 against the button's 1 — see the button rule below for why
+     that number, and not 1, is what makes this form need no breakpoint. */
   .wait-form input {
-    flex: 1 1 260px; min-width: 0; padding: 12px 14px; font: inherit; font-size: var(--fs-14);
+    flex: 100 1 240px; min-width: 0; padding: 12px 14px; font: inherit; font-size: var(--fs-14);
     background: var(--surface-2); border: 1px solid var(--line);
     border-radius: 9px; color: var(--text);
   }
   .wait-form input:focus { outline: none; border-color: var(--line-2); }
+  /* KEYBOARD focus is not the same thing as focus, and this rule was giving
+     the page's one field no visible indicator at all: `outline: none` above
+     removed the global :focus-visible ring, and what replaced it was a border
+     moving from #26262b to #34343c — measured 1.19:1 against each other, which
+     is not a focus indicator, it is a rumour of one. Clicking still gets the
+     quiet border; arriving by Tab gets the same ring as every other control on
+     the site. */
+  .wait-form input:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
   /* Icon-only. align-self:stretch rather than a fixed height, so it always
      matches the input beside it — the input's height comes from its own
      padding and font-size, and hardcoding a number here goes wrong the moment
      either changes. */
-  /* Solid .btn, deliberately — an outline version was tried and read too quiet
-     for the page's only action. It keeps its fill and earns its weight by being
-     small: 44px square, which is the floor for a tap target and where this
-     stops rather than shrinking to fit the arrow.
+  /* THE BUTTON HAS ITS WORDS BACK. It was an icon-only 44px square, which is
+     legible in an app where the surrounding screen explains itself and not on
+     a page a stranger opens cold from a link — an unlabelled arrow next to an
+     email field is the single most "internal tool" thing that was on it. The
+     arrow stays, after the words.
 
-     align-self:center rather than stretch — stretching tied it to the input's
-     48px, so it could never sit shorter than the field beside it. */
+     NO BREAKPOINT, deliberately, and this is the whole trick: input is
+     `flex: 100 1 240px`, button `flex: 1 1 150px`. Side by side, the input
+     takes 100/101 of the slack so the button stays its natural size. When the
+     card is too narrow for 240 + 8 + 150, the flex line wraps and each item is
+     alone on its line — where grow makes it exactly full width. That is the
+     stacked phone layout, arrived at by measurement rather than by guessing a
+     pixel width for a card whose own width is in `ch`. */
   .wait-form .btn {
-    flex: none; align-self: center; width: 44px; height: 44px; padding: 0;
-    display: inline-flex; align-items: center; justify-content: center;
+    flex: 1 1 150px; align-self: center; min-height: 44px; padding: 0 18px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 9px;
   }
-  .wait-form .btn svg { width: 16px; height: 16px; display: block; }
+  .wait-form .btn svg { width: 15px; height: 15px; display: block; flex: none; }
   /* (.wait-fine lived here — the "one email, at launch" line under the form,
      which also carried a privacy link. Removed from index.html; the policy is
      still linked from the page footer.) */
@@ -2487,16 +2563,12 @@
   .wait-msg { min-height: 18px; margin: 12px 0 0; font-size: var(--fs-13); color: var(--text-2); }
   .wait-msg.good { color: var(--good); }
   .wait-msg.bad { color: var(--bad); }
-  /* The old full-width-on-phones rule (`flex: 1 1 100%`) is gone. It was right
-     for a button that said "join the list" and wrong the moment the label
-     became an arrow: flex-basis beats width, so the 44px square stretched the
-     full card and became the largest object on the page.
-     The row now holds at any width — input plus a 44px square is ~110px, so
-     there is nothing left to wrap. */
-  @media (max-width: 460px) {
-    .wait-form { flex-wrap: nowrap; }
-    .wait-form input { flex: 1 1 auto; min-width: 0; }
-  }
+  /* The `@media (max-width: 460px)` block that used to sit here (`flex-wrap:
+     nowrap` plus `flex: 1 1 auto` on the input) is gone. It existed to keep an
+     arrow-only 44px square on the same line as the field at any width; with a
+     labelled button, nowrap is exactly wrong — it would squeeze the input to
+     nothing on a phone instead of letting the two stack. The flex bases above
+     do the whole job, at every width, with no breakpoint to keep in sync. */
 
   /* ---------- Legal pages (privacy) ----------
      Left-aligned and top-aligned, unlike .home which centres everything: this
@@ -2521,6 +2593,21 @@
   .legal a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
   .legal a:hover { color: var(--text); }
   .legal-date { color: var(--text-3); font-size: var(--fs-125); margin: 0 0 28px; }
+  /* THE UNREVIEWED-DOCUMENT BANNER (/terms/). A drafted legal document that has
+     not been through a lawyer has to say so where nobody can miss it, so it is
+     a box at the top rather than a sentence in the prose that the eye slides
+     past. Deliberately not red: it is a status, not an error, and a red panel
+     above a terms page reads as "this site is broken". */
+  .legal-flag {
+    border: 1px solid var(--line-2); border-radius: 10px;
+    padding: 15px 17px; margin: 0 0 30px; background: var(--surface);
+    color: var(--text-2);
+  }
+  .legal-flag strong { color: var(--text); }
+  /* AN UNMADE DECISION, inline. Marked so that it can never be read as a term —
+     a blank left in a contract looks like an oversight, this looks like what it
+     is. --bad on --bg measures 5.56:1, above the 4.5:1 floor for body text. */
+  .legal-todo { color: var(--bad); border-bottom: 1px dashed var(--bad); }
   .legal-back, .legal-foot a { color: var(--text-3); font-size: var(--fs-125); border-bottom: 0; }
   /* This back-link IS the wordmark on the privacy page — it just isn't marked
      up with .wordmark — so it carries the logo face like every other instance. */

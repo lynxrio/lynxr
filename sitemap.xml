@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Only the four genuinely public pages. The creator and agency apps are
+     deliberately absent: they carry `noindex` and listing them here would
+     advertise them, which is the same mistake as a Disallow line in
+     robots.txt. See the comment at the top of robots.txt. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://lynxr.io/</loc>
+    <lastmod>2026-08-19</lastmod>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/waitlist/</loc>
+    <lastmod>2026-08-19</lastmod>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/privacy/</loc>
+    <lastmod>2026-08-18</lastmod>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/terms/</loc>
+    <lastmod>2026-08-19</lastmod>
+    <priority>0.3</priority>
+  </url>
+</urlset>

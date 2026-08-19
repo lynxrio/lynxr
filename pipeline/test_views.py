@@ -238,6 +238,181 @@ check("apply_views: returns the count of entries ACTUALLY changed "
       changed, 2)
 
 
+# =============================================================================
+# apify_item_views — the response contract, off the real recorded shapes
+# measured 2026-08-19 (plan Appendix A)
+# =============================================================================
+
+check("apify_item_views: videoPlayCount off a real item",
+      P.apify_item_views([{"shortCode": "DVbnHPhju5V", "videoPlayCount": 1757994,
+                            "likesCount": 70233, "type": "Video"}]),
+      1757994)
+check("apify_item_views: an 'error' item is a refusal, not a measurement — "
+      "the measured not-found shape, still billed",
+      P.apify_item_views([{"error": "not_found",
+                            "errorDescription": "Post does not exist",
+                            "url": "..."}]),
+      None)
+check("apify_item_views: videoPlayCount None falls back to videoViewCount",
+      P.apify_item_views([{"videoPlayCount": None, "videoViewCount": 1234}]),
+      1234)
+check("apify_item_views: a genuine 0 does NOT fall through to the fallback — "
+      "the deliberate divergence from process_scraped.py:70's `or`",
+      P.apify_item_views([{"videoPlayCount": 0, "videoViewCount": 999}]),
+      0)
+check("apify_item_views: -1 (hidden count) is ABSENT, mirroring likesCount == -1",
+      P.apify_item_views([{"videoPlayCount": -1}]), None)
+check("apify_item_views: a photo post carries no count field -> None",
+      P.apify_item_views([{"type": "Image", "likesCount": 5}]), None)
+check("apify_item_views: [] -> None", P.apify_item_views([]), None)
+check("apify_item_views: None -> None", P.apify_item_views(None), None)
+
+
+# =============================================================================
+# video_views — the spend gate
+# =============================================================================
+
+class _FakeApify:
+    """Stands in for P.apify_views. Records whether it was called, because
+    half these checks are about money NOT being spent."""
+
+    def __init__(self, value):
+        self.value = value
+        self.called = False
+
+    def __call__(self, url):
+        self.called = True
+        return self.value
+
+
+IG_URL = "https://instagram.com/reel/DVbnHPhju5V/"
+TT_URL2 = "https://tiktok.com/@x/video/1"
+FB_URL2 = "https://facebook.com/reel/1"
+
+_ORIG_APIFY_VIEWS = P.apify_views
+try:
+    stub = _FakeApify(184221)
+    P.apify_views = stub
+    check("video_views: instagram + raw=None + paid=True -> the stub's value",
+          P.video_views(IG_URL, None, paid=True), 184221)
+    check("video_views: ...stub WAS called", stub.called, True)
+
+    stub = _FakeApify(184221)
+    P.apify_views = stub
+    check("video_views: instagram + raw=None + paid=False -> None (default is free)",
+          P.video_views(IG_URL, None, paid=False), None)
+    check("video_views: ...stub was NOT called", stub.called, False)
+
+    stub = _FakeApify(None)
+    P.apify_views = stub
+    check("video_views: instagram + paid=True, stub returns None -> None, not 0",
+          P.video_views(IG_URL, None, paid=True), None)
+
+    stub = _FakeApify(0)
+    P.apify_views = stub
+    check("video_views: instagram + paid=True, stub returns 0 -> 0 survives",
+          P.video_views(IG_URL, None, paid=True), 0)
+
+    stub = _FakeApify(999)
+    P.apify_views = stub
+    check("video_views: tiktok + raw=5 + paid=True -> 5, stub NOT called "
+          "(free platform, no Apify)",
+          P.video_views(TT_URL2, 5, paid=True), 5)
+    check("video_views: ...stub was NOT called", stub.called, False)
+
+    stub = _FakeApify(999)
+    P.apify_views = stub
+    check("video_views: tiktok + raw=None + paid=True -> None, stub NOT called",
+          P.video_views(TT_URL2, None, paid=True), None)
+    check("video_views: ...stub was NOT called", stub.called, False)
+
+    stub = _FakeApify(999)
+    P.apify_views = stub
+    check("video_views: facebook + raw=407 + paid=True -> None, stub NOT called "
+          "(Facebook suppression still holds through the new path)",
+          P.video_views(FB_URL2, 407, paid=True), None)
+    check("video_views: ...stub was NOT called", stub.called, False)
+finally:
+    P.apify_views = _ORIG_APIFY_VIEWS
+
+
+# =============================================================================
+# fetch_meta — through the existing Instagram fixture, with the paid kwarg
+# =============================================================================
+
+P.subprocess = _FakeSubprocess({INSTAGRAM_URL: _FakeCompleted(0, INSTAGRAM_JSON)})
+try:
+    no_kwarg = P.fetch_meta(INSTAGRAM_URL)
+    check("fetch_meta(INSTAGRAM_URL) with no kwarg: views is None",
+          no_kwarg["views"], None)
+
+    stub = _FakeApify(184221)
+    P.apify_views = stub
+    try:
+        P.fetch_meta(INSTAGRAM_URL)
+        check("fetch_meta(INSTAGRAM_URL) with no kwarg: stub NOT called",
+              stub.called, False)
+    finally:
+        P.apify_views = _ORIG_APIFY_VIEWS
+
+    stub = _FakeApify(184221)
+    P.apify_views = stub
+    try:
+        paid = P.fetch_meta(INSTAGRAM_URL, paid=True)
+        check("fetch_meta(INSTAGRAM_URL, paid=True): views == stub's value",
+              paid["views"], 184221)
+        check("fetch_meta(INSTAGRAM_URL, paid=True): likes still real — the "
+              "enrichment adds a field and changes nothing else",
+              paid["likes"], 70234)
+        check("fetch_meta(INSTAGRAM_URL, paid=True): 'views' key still present",
+              "views" in paid, True)
+    finally:
+        P.apify_views = _ORIG_APIFY_VIEWS
+finally:
+    P.subprocess = _ORIG_SUBPROCESS
+
+
+# =============================================================================
+# apify_budget_ok — fail-closed, no real network call
+# =============================================================================
+
+class _FakeHTTPResponse:
+    def __init__(self, payload):
+        self._payload = json.dumps(payload).encode()
+
+    def read(self):
+        return self._payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+_ORIG_URLOPEN = P.urllib.request.urlopen
+try:
+    def _raise(*a, **kw):
+        raise OSError("simulated network failure")
+
+    P.urllib.request.urlopen = _raise
+    P._APIFY_BUDGET = {"at": 0.0, "ok": None}
+    check("apify_budget_ok: limits call fails -> False (fails closed)",
+          P.apify_budget_ok("fake-token"), False)
+
+    def _ok(*a, **kw):
+        return _FakeHTTPResponse({"data": {"current": {"monthlyUsageUsd": 1},
+                                            "limits": {"maxMonthlyUsageUsd": 50}}})
+
+    P.urllib.request.urlopen = _ok
+    P._APIFY_BUDGET = {"at": 0.0, "ok": None}
+    check("apify_budget_ok: under ceiling -> True",
+          P.apify_budget_ok("fake-token"), True)
+finally:
+    P.urllib.request.urlopen = _ORIG_URLOPEN
+    P._APIFY_BUDGET = {"at": 0.0, "ok": None}
+
+
 print()
 if FAILS:
     print(f"{len(FAILS)} FAILED: {', '.join(FAILS)}")

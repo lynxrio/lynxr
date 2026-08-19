@@ -1,9 +1,18 @@
-/* lynxr — the public landing page.
-   One job: take an email for the waitlist.
+/* lynxr — the public pages. One script, two of them:
 
-   Neither app is mentioned here. Both live on unlisted paths handed out by
-   invitation, and a link on the public homepage would undo that. A returning
-   creator has the URL already; the page does not need to help them. */
+     /            the marketing page. No form. All this file does there is
+                  carry a ?ref= / ?utm_ campaign tag onto the "try it" link so
+                  attribution survives the hop.
+     /waitlist/   the form. Takes an email, writes it to Supabase, mirrors it
+                  to a Google Sheet.
+
+   Every wiring below is guarded on its element existing, which is what lets
+   one file serve both pages — and what stops a missing element on one of them
+   throwing before the other page's wiring has run.
+
+   Neither app is mentioned on either page. Both live on unlisted paths handed
+   out by invitation, and a link on a public page would undo that. A returning
+   creator has the URL already; these pages do not need to help them. */
 
 const SB_URL = "https://esakjfogplfszievvabi.supabase.co";
 // Public by design — the repo is public. It is safe only because the waitlist
@@ -124,7 +133,34 @@ function say(text, kind) {
    turning away a real creator is the whole point of the page. */
 const looksLikeEmail = (s) => /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(s);
 
-$("wait-form").addEventListener("submit", async (e) => {
+/* THE "TRY IT" BUTTON, on / only.
+
+   The wait list is a separate page now, so a campaign tag put on the link that
+   was shared — lynxr.io/?ref=tiktokbio — sits in the URL of the page BEFORE the
+   form and would be dropped at the hop. Every signup would then read "landing",
+   which is the exact blindness the source column was added to fix.
+
+   Only the two keys signupSource() actually reads are carried (`ref`, and
+   anything utm_*): forwarding the whole query string would drag arbitrary
+   visitor-supplied junk onto our own URL for no gain. An existing key on the
+   href always wins, so a hand-written link cannot be overridden by a query
+   param. Failure here must never break the link — it is wrapped, and the
+   plain href is a working navigation on its own with JS off entirely. */
+const tryIt = $("try-it");
+if (tryIt) {
+  try {
+    const from = new URLSearchParams(location.search);
+    const to = new URL(tryIt.getAttribute("href"), location.href);
+    for (const [k, v] of from) {
+      if ((k === "ref" || k.startsWith("utm_")) && !to.searchParams.has(k)) {
+        to.searchParams.set(k, v);
+      }
+    }
+    if (to.search) tryIt.setAttribute("href", to.pathname + to.search);
+  } catch { /* a malformed query is not worth breaking the only button on */ }
+}
+
+if ($("wait-form")) $("wait-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = $("wait-email");
   const email = input.value.trim().toLowerCase();
@@ -179,6 +215,10 @@ $("wait-form").addEventListener("submit", async (e) => {
       // someone who simply submitted twice.
       if (res.ok) mirrorToSheet(email);
       $("wait-form").hidden = true;
+      // The promise line goes with the form. Leaving "leave your email for
+      // launch news" sitting above "you're on the list" reads as a submit that
+      // did not take — the card has to end in ONE state, not two.
+      if ($("wait-sub")) $("wait-sub").hidden = true;
       // Restates the promise rather than widening it. The confirmation is the
       // last thing they read, so it must not quietly enlarge the consent —
       // anything vaguer ("we'll be in touch", "expect news") would claim more

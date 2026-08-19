@@ -120,6 +120,71 @@ real rather than a dead channel.
 
 ## Where this left off (read this first)
 
+**2026-08-19 — Instagram now has real view counts too, paid for through the
+agency's own Apify actor, riding the idle sweep and nowhere near the paste
+path.** `~/.claude/plans/instagram-view-counts-via-apify.md`, 10 steps,
+implemented in the working tree.
+
+**Why this exists.** The plan above (`creator-card-view-counts.md`) shipped
+the honest `None`-not-`0` slot but measured yt-dlp's ceiling: it returns no
+view/play count for Instagram on any unauthenticated route, ever — 19 of 22
+distinct pasted videos. The owner's answer: **the agency side has had
+Instagram view counts all along**, via `apify/instagram-scraper` in
+`pipeline/scrape_instagram.py`. This plan extends the existing
+`video_views()` chokepoint with that same actor as a second, paid source.
+
+**The measured facts (2026-08-19, live API, $0.0138 spent investigating).**
+Actor `apify/instagram-scraper` (id `shu8hvrXbJbY3Eb9W`, path form
+`apify~instagram-scraper`), one POST to `run-sync-get-dataset-items`:
+
+    {"directUrls": ["<post url>"], "resultsType": "posts",
+     "resultsLimit": 1, "addParentData": false}
+
+returns `videoPlayCount` for a single direct post URL, on `/reel/`,
+`/reels/` and `/p/` alike, at **$0.0023/lookup, 7–23s** (33.7s on a
+not-found — **also billed**, and why this never rides the paste path: the
+`meta_thread.join(timeout=20)` budget can't absorb it, and losing the box
+loses the title too). Same actor and input shape `pipeline/add_urls.py`
+already uses by hand via the `apify_client` SDK — confirmed independently,
+not reused directly, because that script runs on the Mac and pulls in a
+dependency (`apify-client`) that is deliberately absent from
+`requirements-ci.txt` and the Fly image; the new code speaks the same REST
+endpoint over plain `urllib` instead. Failure shape: `{"error": "not_found",
+"errorDescription": "Post does not exist"}`, no count field, still billed —
+`apify_item_views()` treats any `error` key as absent.
+
+**The refresh clock: 7 days, not 24h — chosen for cost, not accuracy.**
+Refresh cost scales with the cumulative corpus × frequency:
+
+| staleness | today (24 rows) | +6mo (534) |
+|---|---|---|
+| 24h | $1.66/mo | **$36.85** |
+| **168h — chosen** | **$0.24/mo** | **$5.26** |
+
+`VIEWS_PAID_MAX_AGE_H` (default `168`) is the env var that reverses it to
+24 if the owner ever wants that. **The account was at $36.37 of its hard
+$50/month ceiling** (shared with the agency's `clockworks/tiktok-scraper`,
+`apify/instagram-reel-scraper` and `streamers/youtube-shorts-scraper`
+actors — four actors, six files, on one pool) when this plan was written;
+re-checked live before this session's spend, unchanged at $36.38.
+`apify_budget_ok()` reads Apify's own `/v2/users/me/limits` ledger (not a
+local counter — the agency scrapes and `add_urls.py` spend from the same
+pool and a local counter would not see them) and **fails closed at $45**,
+leaving $5 of the account's own $50 headroom for the agency. Every single
+`apify_views()` call passes through this check unconditionally — there is
+no second path to the network call.
+
+**No owner SQL action needed.** `lynxr_sources.views` was already nullable
+and already carries `metrics_at`, same as the previous plan left it.
+
+**Superseded and abandoned:** the cookie/session plan
+(`~/.claude/plans/instagram-authenticated-view-counts.md`) — this route
+needs no session and is a paid public API used exactly as sold. One
+conflict flagged, not edited: `~/.claude/memory/lynxr-age-gate-auth-declined.md`
+says "Apify tested and also blocked, so don't re-propose it" — that is
+about the *age gate* (a different, tested-and-rejected use of Apify, see
+"ruled out" below) and is still correct there.
+
 **2026-08-19 — creator card view counts are real now, and a stored `0` no
 longer means "unmeasured."** `~/.claude/plans/creator-card-view-counts.md`,
 15 steps, implemented in the working tree.
@@ -139,13 +204,14 @@ release — confirmed current on PyPI):**
 |---|---|
 | tiktok | yes — drifts, hence the refresh |
 | youtube | yes — watch, youtu.be and /shorts/ all report it |
-| instagram | **no, by any route** — pinned release, the 2026-08-18 nightly, the `app_id=ios` extractor arg, the public `/embed/` page and unauthenticated oEmbed all return nothing. Needs a session; authenticated fetching was declined 2026-08-18 (below) — **re-testing this is not free, all five routes are already ruled out** |
+| instagram | **no, by any UNAUTHENTICATED yt-dlp route** — pinned release, the 2026-08-18 nightly, the `app_id=ios` extractor arg, the public `/embed/` page and unauthenticated oEmbed all return nothing. Needs a session for yt-dlp specifically; authenticated fetching (cookies/session) was declined 2026-08-18 (below) — **re-testing yt-dlp routes is not free, all five are already ruled out**. That is NOT the end of the story, though: **the count now comes from a PAID route instead** — see the 2026-08-19 "Instagram now has real view counts" entry at the top of this section. `apify/instagram-scraper`, $0.0023/lookup, no session, no cookies — a paid public API used as sold, not a reopening of the declined authenticated-fetching route |
 | facebook | returns a number, but on the one live **Facebook Reel** measured it was `407` while that same response's Facebook-written title read `"9.8K views · 343 reactions"` — 24× low on the short-form shape, which is the shape creators paste. Kept OUT of `VIEWS_TRUSTED_PLATFORMS` (`process_adaptations.py`, next to `SUPPORTED_HOSTS`) — reversible by adding `"facebook"` to that one tuple, there are zero Facebook rows in the corpus today |
 
-Instagram is 19 of 22 distinct videos creators have pasted, so **coverage
-after this plan is 3 of 22 (13.6%)** — the other 86.4% render no eye icon at
-all, permanently, unless the owner reverses the authenticated-fetching
-decision.
+Instagram is 19 of 22 distinct videos creators have pasted. Coverage
+**as of this plan alone was 3 of 22 (13.6%)** free via yt-dlp — but as of
+the 2026-08-19 Apify plan at the top of this section, coverage is **22 of 22
+distinct videos on a views-capable source: 3 free via yt-dlp, 19 paid via
+Apify** (subject to the 168h staleness clock and the $45 spend breaker).
 
 **The fix.** `fetch_meta()` now returns `"views": trusted_views(url, raw)` —
 `None` when the platform reported nothing or the platform isn't trusted,
@@ -420,6 +486,18 @@ the wall. Apify hits the same login gate as yt-dlp. Its one typed advantage
 too: it would cost a paid Apify run per failure just to buy a better label on
 a card that is already accurate for every class seen; Step 8's alarm is what
 makes a wording drift visible, not a paid classifier.
+
+> **2026-08-19 — this ruling is correct in its own scope and wrong as a
+> general claim about Apify.** It rules out Apify for the age-gated TikTok
+> *download* wall and for *failure classification* — both tested against
+> the exact failing URL above, both still correctly rejected. It does
+> **not** rule out Apify for **view counts**, which is a different question
+> with a different, measured answer: `apify/instagram-scraper` returns a
+> real `videoPlayCount` for a public Instagram post URL, no session needed,
+> because a view count is public post metadata the actor is sold to return —
+> not a login-gated download. See the "Instagram now has real view counts"
+> entry at the top of this section. Do not read this paragraph as grounds to
+> re-reject that work.
 
 **DECISION REQUIRED, owner only — authenticated fetching is the only
 remaining route to the age-gate class**, and therefore the only thing between

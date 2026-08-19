@@ -1069,24 +1069,58 @@ SUPPORTED_HOSTS = ("tiktok.com", "instagram.com",
                    "facebook.com", "fb.watch", "fb.com",
                    "youtube.com", "youtu.be")
 
-# WHICH PLATFORMS ACTUALLY HAND OVER A VIEW COUNT, without signing in.
+# WHICH PLATFORMS ACTUALLY HAND OVER A VIEW COUNT, without signing in, via
+# yt-dlp specifically (this list is about the FREE route only — see
+# VIEWS_PAID_PLATFORMS below for the paid one).
 # Measured 2026-08-19 against live URLs — see the plan's Appendix A.
 #   tiktok     yes   191,000 on a real corpus video
 #   youtube    yes   watch, youtu.be and /shorts/ all report it
-#   instagram  NO    pinned 2026.07.04, nightly 2026.08.18, app_id=ios,
-#                    the public /embed/ page and unauthenticated oEmbed
-#                    ALL return nothing. Not a bug we can fix: it needs a
-#                    session, and authenticated fetching was declined
-#                    2026-08-18 (HANDOFF).
+#   instagram  NO, via yt-dlp — pinned 2026.07.04, nightly 2026.08.18,
+#                    app_id=ios, the public /embed/ page and unauthenticated
+#                    oEmbed ALL return nothing on the anonymous surface
+#                    yt-dlp reads. That is NOT the end of the story: the
+#                    count now comes from VIEWS_PAID_PLATFORMS / apify_views()
+#                    instead, a paid API, not a session — this does NOT
+#                    reopen the cookie/session route declined 2026-08-18.
+#                    Do not "fix" this by adding "instagram" to the trust
+#                    list below — there is still no yt-dlp number to trust.
 #   facebook   NOT TRUSTED — it returns a number, and on the one live
 #                    Facebook Reel measured that number was 407 while the
 #                    same response's Facebook-written title said
 #                    "9.8K views". Wrong on the short-form shape is worse
 #                    than blank. Add "facebook" here to reverse.
 VIEWS_TRUSTED_PLATFORMS = ("tiktok", "youtube")
-VIEWS_REFRESH_PLATFORMS = VIEWS_TRUSTED_PLATFORMS
+
+# WHICH PLATFORMS WE PAY FOR A COUNT. Instagram DOES publish a play count —
+# it is simply not on the anonymous surface yt-dlp reads. The agency scrape
+# has had it all along (pipeline/scrape_instagram.py -> videoPlayCount,
+# read at pipeline/process_scraped.py:70), and 985 of 986 scraped Instagram
+# rows in lynxr_videos carry a real number because of it.
+#
+# Measured 2026-08-19 against the live Apify API: apify/instagram-scraper
+# with directUrls returns videoPlayCount for ONE direct post URL, on
+# /reel/, /reels/ and /p/ alike, for $0.0023 a lookup. See apify_views().
+# This does NOT reopen the cookie/session route — that stays declined and
+# is not needed; this is a paid public API doing what it is sold to do.
+VIEWS_PAID_PLATFORMS = ("instagram",)
+
+VIEWS_REFRESH_PLATFORMS = tuple(VIEWS_TRUSTED_PLATFORMS) + VIEWS_PAID_PLATFORMS
 VIEWS_MAX_AGE_H  = float(envcfg.get("VIEWS_MAX_AGE_H", "24"))
+# 7 days, not 24h. Refresh cost scales with the CUMULATIVE corpus times the
+# frequency, and the account's hard Apify ceiling is $50/month shared with
+# the agency scrapes. Daily refresh reaches ~$37/month within six months at
+# today's paste rate; weekly is ~$5. Set VIEWS_PAID_MAX_AGE_H=24 to reverse.
+VIEWS_PAID_MAX_AGE_H = float(envcfg.get("VIEWS_PAID_MAX_AGE_H", "168"))
 VIEWS_PER_PASS   = int(envcfg.get("VIEWS_PER_PASS", "3"))
+
+APIFY_VIEWS_ACTOR    = "apify~instagram-scraper"   # actor id shu8hvrXbJbY3Eb9W
+APIFY_RUN_TIMEOUT_S  = int(envcfg.get("APIFY_RUN_TIMEOUT_S", "60"))
+APIFY_MAX_CHARGE_USD = float(envcfg.get("APIFY_MAX_CHARGE_USD", "0.05"))
+APIFY_MAX_MONTHLY_USD = float(envcfg.get("APIFY_MAX_MONTHLY_USD", "45"))
+APIFY_BUDGET_TTL_S   = int(envcfg.get("APIFY_BUDGET_TTL_S", "600"))
+APIFY_PRICE_PER_LOOKUP_USD = 0.0023  # BRONZE tier, measured 2026-08-19 — for
+# the refresh_views() summary log line ONLY; not authoritative for spend
+# decisions, apify_budget_ok() reads Apify's own ledger for that.
 
 # Shown to the creator in the app, so it reads as an answer rather than a fault.
 OFF_PLATFORM_NOTE = note_text("off_platform")
@@ -1530,6 +1564,170 @@ def upsert_source(key, a):
         note_soft_fail(a, "source_upsert", e)
 
 
+_APIFY_TOKEN = None   # None = not looked yet; "" = looked, none there
+
+
+def apify_token():
+    """The Apify token, read through envcfg like every other secret here.
+
+    Same source order as main()'s SUPABASE_SERVICE_ROLE_KEY read: .env
+    first (a hand-run pass), then os.environ (Fly secrets, and worker.py's
+    load_env, which subprocesses inherit). envcfg.secret() refuses a value
+    with whitespace left inside it and names the VARIABLE, never the
+    value — that refusal is caught here and turned into "no token", because
+    a bad secret must cost a view count and never a script.
+
+    NEVER log, print or include this value in an exception message.
+    """
+    global _APIFY_TOKEN
+    if _APIFY_TOKEN is None:
+        env = load_env(ROOT / ".env")
+        try:
+            _APIFY_TOKEN = envcfg.secret(
+                "APIFY_API_TOKEN",
+                env.get("APIFY_API_TOKEN"),
+                os.environ.get("APIFY_API_TOKEN"))
+        except Exception:  # noqa: BLE001
+            log.warning("APIFY_API_TOKEN unusable — paid view lookups disabled")
+            _APIFY_TOKEN = ""
+    return _APIFY_TOKEN
+
+
+_APIFY_BUDGET = {"at": 0.0, "ok": None}
+
+
+def apify_budget_ok(token):
+    """False when this Apify account is at or past its spend ceiling.
+
+    Reads Apify's OWN ledger (current.monthlyUsageUsd against
+    limits.maxMonthlyUsageUsd) rather than counting our calls, because the
+    agency scrapes spend from the same account and a count we keep here
+    would not see them. Cached APIFY_BUDGET_TTL_S so a long-lived worker
+    asks about once every 10 minutes, not once per lookup.
+
+    FAILS CLOSED. If the limits call itself fails we refuse to spend: the
+    cost of being wrong that way is a stale view count, and the cost of
+    being wrong the other way is exhausting the account ceiling, which
+    stops the agency scrapes too.
+    """
+    now = time.time()
+    if _APIFY_BUDGET["ok"] is not None and now - _APIFY_BUDGET["at"] < APIFY_BUDGET_TTL_S:
+        return _APIFY_BUDGET["ok"]
+    try:
+        req = urllib.request.Request("https://api.apify.com/v2/users/me/limits")
+        req.add_header("Authorization", f"Bearer {token}")
+        with urllib.request.urlopen(req, timeout=15, context=SSL_CTX) as r:
+            d = json.loads(r.read()).get("data") or {}
+        current = float((d.get("current") or {}).get("monthlyUsageUsd") or 0)
+        account_limit = (d.get("limits") or {}).get("maxMonthlyUsageUsd")
+        ceiling = min(APIFY_MAX_MONTHLY_USD, float(account_limit)) \
+            if account_limit is not None else APIFY_MAX_MONTHLY_USD
+        ok = current < ceiling
+        if not ok:
+            log.warning("apify_budget_ok: $%.2f spent of $%.2f ceiling (account "
+                        "cap $%s) — paid view lookups paused, scripts unaffected",
+                        current, ceiling, account_limit)
+    except Exception as e:  # noqa: BLE001
+        log.warning("apify_budget_ok: limits check failed (%s) — failing closed, "
+                    "scripts unaffected", str(e)[:90])
+        ok = False
+    _APIFY_BUDGET["at"] = now
+    _APIFY_BUDGET["ok"] = ok
+    return ok
+
+
+def apify_item_views(items):
+    """The play count out of an apify/instagram-scraper dataset, or None.
+
+    Field precedence mirrors pipeline/process_scraped.py:70, which is how
+    the agency side has read this actor's siblings all along:
+    videoPlayCount first, videoViewCount as the fallback.
+
+    ONE DELIBERATE DIVERGENCE: process_scraped uses `a or b`, which turns a
+    genuine 0 into the fallback and then into 0 anyway. Here 0 is a real
+    measurement and absent is None, so the precedence is written as an
+    explicit `is None` test. Same rule as trusted_views.
+
+    A negative count is treated as ABSENT, not as a number — Instagram
+    returns -1 for a count the creator has hidden (process_scraped.py:71
+    already handles exactly that for likesCount).
+
+    An item carrying an `error` key is a refusal, not a measurement:
+    measured 2026-08-19, a post that does not exist comes back as
+    {"error": "not_found", "errorDescription": "Post does not exist"} with
+    no count field at all. It still costs $0.0023 — failures are billed.
+    """
+    for item in (items or []):
+        if not isinstance(item, dict) or item.get("error"):
+            continue
+        raw = item.get("videoPlayCount")
+        if raw is None:
+            raw = item.get("videoViewCount")
+        if raw is None:
+            continue
+        try:
+            v = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if v < 0:
+            continue
+        return v
+    return None
+
+
+_APIFY_CALLS = 0   # paid lookups attempted this process; read by refresh_views
+
+
+def apify_views(url):
+    """The Instagram play count for ONE post URL, via the Apify actor the
+    agency scrape already uses. Returns an int, or None. NEVER raises, and
+    never returns 0 to mean failure — absent is None everywhere in this
+    file (see trusted_views / source_metrics).
+
+    Measured live 2026-08-19 (plan Appendix A): apify/instagram-scraper,
+    directUrls with a single post URL, returns videoPlayCount for /reel/,
+    /reels/ and /p/ shapes alike, at $0.0023 a lookup and 7-23s. Scope is
+    public post metadata and nothing else.
+
+    Called over plain urllib rather than the apify_client SDK ON PURPOSE:
+    apify-client is NOT in requirements-ci.txt, so it is in neither the Fly
+    image nor GitHub CI, and adding an import that can fail at module load
+    to the file every test and backfill imports is a worse trade than one
+    HTTP request. run-sync-get-dataset-items does the whole thing in a
+    single POST — no run id, no polling, no dataset read.
+
+    The token goes in an Authorization header, NEVER in the query string,
+    so it cannot reach a log line or an exception message.
+    """
+    global _APIFY_CALLS
+    token = apify_token()
+    if not token:
+        return None
+    if not apify_budget_ok(token):
+        return None
+    q = urllib.parse.urlencode({"timeout": APIFY_RUN_TIMEOUT_S,
+                                "maxItems": 1,
+                                "maxTotalChargeUsd": APIFY_MAX_CHARGE_USD,
+                                "format": "json"})
+    ep = (f"https://api.apify.com/v2/acts/{APIFY_VIEWS_ACTOR}"
+          f"/run-sync-get-dataset-items?{q}")
+    body = {"directUrls": [url], "resultsType": "posts",
+            "resultsLimit": 1, "addParentData": False}
+    _APIFY_CALLS += 1
+    try:
+        req = urllib.request.Request(ep, method="POST")
+        req.add_header("Authorization", f"Bearer {token}")
+        req.add_header("Content-Type", "application/json")
+        req.data = json.dumps(body).encode()
+        with urllib.request.urlopen(
+                req, timeout=APIFY_RUN_TIMEOUT_S + 15, context=SSL_CTX) as r:
+            items = json.loads(r.read())
+    except Exception as e:  # noqa: BLE001
+        log.info("  apify_views failed: %s — %s", str(url)[:60], str(e)[:90])
+        return None
+    return apify_item_views(items)
+
+
 def trusted_views(url, raw):
     """int(raw) when `raw` is a real number AND platform_of(url) is one this
     project trusts to hand back a view count at all — None otherwise. The
@@ -1549,10 +1747,38 @@ def trusted_views(url, raw):
     return int(raw)
 
 
-def fetch_meta(url):
+def video_views(url, raw, paid=False):
+    """THE single place a view count is decided, whatever its source.
+
+    Free first: trusted_views() reads what yt-dlp already handed back, for
+    tiktok and youtube. Only when that is absent AND the caller has opted
+    in to spending does a paid platform fall through to Apify. The card
+    does not care which source answered — both return an int or None, and
+    None means absent, never zero.
+
+    `paid` defaults to FALSE so a caller can only spend money on purpose.
+    backfill_titles.py and backfill_source_metrics.py both import
+    fetch_meta and run over the whole corpus; neither wants a view count
+    and neither should ever be able to run up a bill by omission. Fail
+    closed on spend.
+    """
+    v = trusted_views(url, raw)
+    if v is not None:
+        return v
+    if paid and platform_of(url) in VIEWS_PAID_PLATFORMS:
+        return apify_views(url)
+    return None
+
+
+def fetch_meta(url, paid=False):
     """Public counts and the platform's own id, straight from yt-dlp. Free — no
     API, no scrape — and it is what lets a creator-submitted video sit in
-    lynxr_videos as a real row rather than one with zeroed metrics."""
+    lynxr_videos as a real row rather than one with zeroed metrics.
+
+    `paid=True` lets the Instagram slot fall through to a paid Apify lookup
+    (see video_views) when yt-dlp itself hands back nothing — the caller
+    opts in on purpose; the default stays free. Only refresh_views() passes
+    paid=True; the paste path never does (see Assumption 1 in the plan)."""
     try:
         r = subprocess.run(
             [yt_dlp_bin(), "-q", "--no-warnings", "--skip-download",
@@ -1564,6 +1790,9 @@ def fetch_meta(url):
     except Exception as e:  # noqa: BLE001
         log.info("  metadata lookup skipped: %s", str(e)[:80])
         return {}
+    # This return-{}-on-failure happens BEFORE the dict below is ever built,
+    # so a video yt-dlp itself cannot see (deleted, private, wrong URL)
+    # costs no Apify money at all — video_views(paid=True) never runs.
     # yt-dlp has no real title to report for an Instagram post, so it
     # SYNTHESISES one — "Video by stephyapps" — and puts the actual caption in
     # `description`. Preferring `title` blindly filed every creator-submitted
@@ -1579,13 +1808,16 @@ def fetch_meta(url):
     # reason the views field looked populated on every record while being
     # empty on ~86% of them. Measured 2026-08-19: yt-dlp returns no
     # view_count at all for Instagram (see VIEWS_TRUSTED_PLATFORMS), which
-    # is 19 of the 22 distinct videos creators have pasted.
+    # is 19 of the 22 distinct videos creators have pasted. That Instagram
+    # blank is now filled from VIEWS_PAID_PLATFORMS / apify_views() when the
+    # caller passes paid=True (video_views handles the fallthrough below),
+    # and stays blank otherwise.
     raw_views = d.get("view_count")
     return {
         "video_id": str(d.get("id") or ""),
         "creator": str(d.get("uploader_id") or d.get("uploader") or d.get("channel") or "").lstrip("@"),
         "title": title[:300],
-        "views": trusted_views(url, raw_views),
+        "views": video_views(url, raw_views, paid=paid),
         "likes": int(d.get("like_count") or 0),
         "comments": int(d.get("comment_count") or 0),
         "duration": float(d.get("duration") or 0),
@@ -2468,25 +2700,42 @@ def refresh_entry_views(key, cid, canon, views, at):
 
 
 def refresh_views(key, limit):
-    """Refresh stale lynxr_sources view counts for the trusted platforms
-    (VIEWS_REFRESH_PLATFORMS) and propagate the new number to every creator
-    entry holding that video. Never raises — a failure here must never fail
-    the pass it rides on.
+    """Refresh stale lynxr_sources view counts and propagate the new number
+    to every creator entry holding that video. Never raises — a failure
+    here must never fail the pass it rides on.
+
+    Two pools, each on its own staleness clock: VIEWS_TRUSTED_PLATFORMS
+    (tiktok/youtube, free via yt-dlp) at VIEWS_MAX_AGE_H, and
+    VIEWS_PAID_PLATFORMS (instagram, paid via Apify) at the much longer
+    VIEWS_PAID_MAX_AGE_H — see the plan's Assumption 2 for why weekly, not
+    daily. `limit` is per pool, so a pass does at most `limit` free fetches
+    and at most `limit` PAID ones — default 3, i.e. $0.0069 a pass, worst
+    case.
 
     Steady-state rate: a row is re-selected only once its metrics_at is
-    older than VIEWS_MAX_AGE_H, so this is one fetch per views-capable video
-    per VIEWS_MAX_AGE_H, not one per pass.
+    older than its pool's staleness window, so this is one fetch per
+    views-capable video per that window, not one per pass. In paid terms:
+    one Apify lookup per Instagram video per VIEWS_PAID_MAX_AGE_H (7 days
+    by default), which at today's 24 Instagram rows in lynxr_sources is
+    ~3.4 lookups a day, ~$0.24 a month.
     """
     considered = fetched = entries_updated = 0
+    calls_before = _APIFY_CALLS
     try:
-        threshold = (datetime.now(timezone.utc) - timedelta(hours=VIEWS_MAX_AGE_H)) \
-            .isoformat().replace("+00:00", "Z")
-        platforms = ",".join(VIEWS_REFRESH_PLATFORMS)
-        q = ("/rest/v1/lynxr_sources?select=canonical_url,url,platform,views,metrics_at"
-             f"&platform=in.({platforms})"
-             f"&or=(metrics_at.is.null,metrics_at.lt.{urllib.parse.quote(threshold, safe='')})"
-             f"&order=metrics_at.asc.nullsfirst&limit={limit}")
-        rows = sb(key, q) or []
+        pools = ((VIEWS_TRUSTED_PLATFORMS, VIEWS_MAX_AGE_H),
+                 (VIEWS_PAID_PLATFORMS,    VIEWS_PAID_MAX_AGE_H))
+        rows = []
+        for pool_platforms, pool_max_age_h in pools:
+            if not pool_platforms:
+                continue
+            threshold = (datetime.now(timezone.utc) - timedelta(hours=pool_max_age_h)) \
+                .isoformat().replace("+00:00", "Z")
+            platforms = ",".join(pool_platforms)
+            q = ("/rest/v1/lynxr_sources?select=canonical_url,url,platform,views,metrics_at"
+                 f"&platform=in.({platforms})"
+                 f"&or=(metrics_at.is.null,metrics_at.lt.{urllib.parse.quote(threshold, safe='')})"
+                 f"&order=metrics_at.asc.nullsfirst&limit={limit}")
+            rows.extend(sb(key, q) or [])
     except Exception as e:  # noqa: BLE001
         log.warning("refresh_views: selection failed: %s", str(e)[:120])
         return
@@ -2497,8 +2746,11 @@ def refresh_views(key, limit):
             # {} means "could not ask" — deleted, private, rate-limited, a
             # transport failure. Write nothing at all; blanking a good
             # number on a hiccup is the mistake source_metrics()'s docstring
-            # names.
-            meta = fetch_meta(url)
+            # names. paid=True: this is the sweep, the one caller allowed to
+            # spend — video_views() still refuses to spend on anything
+            # outside VIEWS_PAID_PLATFORMS, so a tiktok/youtube row here
+            # never reaches Apify. No per-row platform branch is needed.
+            meta = fetch_meta(url, paid=True)
             if not meta:
                 log.info("  refresh: no metadata — %s", url[:60])
                 continue
@@ -2535,8 +2787,11 @@ def refresh_views(key, limit):
         except Exception as e:  # noqa: BLE001
             log.warning("  refresh: row failed (%s): %s", url[:50], str(e)[:90])
 
-    log.info("refresh_views: %d row(s) considered, %d fetched, %d creator entr%s updated",
-              considered, fetched, entries_updated, "y" if entries_updated == 1 else "ies")
+    paid_calls = _APIFY_CALLS - calls_before
+    log.info("refresh_views: %d row(s) considered, %d fetched, %d creator entr%s updated, "
+              "%d paid lookup(s) (~$%.4f)",
+              considered, fetched, entries_updated, "y" if entries_updated == 1 else "ies",
+              paid_calls, paid_calls * APIFY_PRICE_PER_LOOKUP_USD)
 
 
 def heartbeat(key, cid, aid, stop_event, interval=45):

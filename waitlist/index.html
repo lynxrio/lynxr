@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Strict CSP. This page makes exactly TWO kinds of network call — the
+     Supabase waitlist insert, and the fire-and-forget mirror into the Google
+     Sheet — so those are the only connect-src hosts. This is the page that used
+     to be the bottom half of /; the allow-list moved with the form. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lynxr — join the wait list</title>
+<meta name="description" content="lynxr is invitation-only while it is early. Leave your email and we will tell you when a place opens.">
+<meta property="og:title" content="lynxr — join the wait list">
+<meta property="og:description" content="Send a link. Get it back as a script written for whichever company you make videos for. Invitation-only while it is early.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://lynxr.io/waitlist/">
+<meta property="og:image" content="https://lynxr.io/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://lynxr.io/og.png">
+<link rel="canonical" href="https://lynxr.io/waitlist/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="stylesheet" href="/app.css?v=20260822e">
+</head>
+<body>
+
+<main class="home">
+  <a class="wordmark" href="/"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></a>
+
+  <h1 class="home-lead">get early access</h1>
+
+  <p class="home-sub">lynxr is invitation-only while it is early, and we open it
+    up a few people at a time. leave your email and we will tell you when a
+    place opens.</p>
+
+  <section class="wait" id="wait">
+    <h2 class="wait-h">join the wait list</h2>
+    <!-- This line is also the CONSENT statement — it is the only place a visitor
+         is told what their address will be used for, so it defines what you are
+         allowed to send. Keep it specific: "launch news and the occasional
+         update on what we're shipping" is a real limit. Widening it further
+         ("news", "offers", "from our partners") would quietly turn it into
+         marketing nobody agreed to.
+         CHANGING THE MEANING HERE MEANS BUMPING `CONSENT` IN home.js. Rows
+         carry the tag they were signed up under, and older, narrower tags are
+         held to their narrower promise — see the privacy page.
+         It is byte-identical to the sentence that lived on / before the form
+         moved here, which is exactly why the tag is still
+         launch-and-updates-v2: the page moved, the promise did not. -->
+    <p class="wait-sub" id="wait-sub">we're still building. leave your email for launch news and
+      the occasional update on what we're shipping 🚀</p>
+    <form class="wait-form" id="wait-form" novalidate>
+      <input type="email" id="wait-email" placeholder="you@example.com" aria-label="Your email"
+             autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+      <!-- The words are the accessible name now. It was an icon-only button
+           carrying an aria-label, which is fine inside an app and wrong on a
+           page a stranger opens cold: a bare arrow beside an email field does
+           not say what pressing it does, and a label that is only announced to
+           screen readers helps exactly the people who were not confused. -->
+      <button type="submit" class="btn" id="wait-go">join wait list<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </form>
+    <p class="wait-msg" id="wait-msg" role="status" aria-live="polite"></p>
+  </section>
+
+  <p class="home-foot">&copy;
+    <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a>
+    2026 &middot; <a href="/privacy/">privacy</a> &middot; <a href="/terms/">terms</a></p>
+</main>
+
+<script src="/dotgrid.js?v=20260822e" defer></script>
+<script src="/home.js?v=20260822e" defer></script>
+</body>
+</html>

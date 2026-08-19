@@ -2,9 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Strict CSP, same as both apps. This page makes exactly ONE kind of network
-     call — the waitlist insert — so Supabase is the only connect-src host. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<!-- Strict CSP, same as every other page. This one is now TIGHTER than it was:
+     the email form moved to /waitlist/, so this page makes no network call at
+     all and needs no connect-src. Do not paste Supabase back in here without a
+     reason — an allow-list entry that nothing uses is a hole nobody is
+     watching. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lynxr — turn any video into your script</title>
@@ -18,10 +21,11 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://lynxr.io/og.png">
+<link rel="canonical" href="https://lynxr.io/">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="favicon.png">
 <link rel="shortcut icon" href="favicon.ico">
-<link rel="stylesheet" href="app.css?v=20260822d">
+<link rel="stylesheet" href="app.css?v=20260822e">
 </head>
 <body>
 
@@ -30,46 +34,46 @@
 
   <h2 class="home-lead">turn any video<br>into your script</h2>
 
-  <!-- The one thing this page is for, and now the only thing on it. The
-       explanatory paragraph and the three numbered steps were removed: this
-       page's whole job is taking an email, and everything else was reading
-       between someone and the box. The pitch still travels — it is the og:
-       description that shows in a link preview, which is where people who have
-       not heard of lynxr actually meet it.
-       The app itself is invitation-only while it is early, so there is no
-       sign-up link anywhere on the public site. -->
-  <section class="wait" id="wait">
-    <h3 class="wait-h">join wait list</h3>
-    <!-- This line is also the CONSENT statement — it is the only place a visitor
-         is told what their address will be used for, so it defines what you are
-         allowed to send. Keep it specific: "launch news and the occasional
-         update on what we're shipping" is a real limit. Widening it further
-         ("news", "offers", "from our partners") would quietly turn it into
-         marketing nobody agreed to.
-         CHANGING THE MEANING HERE MEANS BUMPING `CONSENT` IN home.js. Rows
-         carry the tag they were signed up under, and older, narrower tags are
-         held to their narrower promise — see the privacy page. -->
-    <p class="wait-sub">we're still building. leave your email for launch news and
-      the occasional update on what we're shipping 🚀</p>
-    <form class="wait-form" id="wait-form" novalidate>
-      <input type="email" id="wait-email" placeholder="you@example.com" aria-label="Your email"
-             autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" required>
-      <!-- Icon-only, so aria-label carries the whole meaning: with no text
-           inside, a screen reader would otherwise announce this as just
-           "button". The heading above already says what pressing it does. -->
-      <button type="submit" class="btn" id="wait-go" aria-label="join the wait list" title="join the wait list">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </button>
-    </form>
-    <p class="wait-msg" id="wait-msg" role="status" aria-live="polite"></p>
-  </section>
+  <!-- The only explanation on the page, and it is here because this page is
+       now the marketing page: the email box moved to /waitlist/, so a stranger
+       arriving from a shared link has to be able to tell what lynxr is before
+       they are asked for anything. Say what you hand it and what comes back.
+       Nothing about speed — the measured end-to-end median is ~2 minutes and a
+       cold start is longer, so a "in seconds" line would be a lie the very
+       first time someone timed it. -->
+  <p class="home-sub">send a link to a TikTok, Instagram or YouTube video. lynxr
+    pulls out the format underneath it — the hook, the beats, the order they
+    come in — and rewrites it as a script for the company you make content
+    for.</p>
+
+  <div class="home-cta">
+    <!-- THE PRIMARY CALL TO ACTION, and it goes to the WAIT LIST on purpose.
+         Signup is closed — signup_state() returns {"open": false} and every
+         seat is taken — so a "try it" that pointed at /creatorsonly/ would
+         walk a stranger straight into a door that cannot open. Neither app is
+         linked from any public page; both live on unlisted paths handed out by
+         hand. The note underneath says where the button goes BEFORE it is
+         pressed, which is the difference between a call to action and a bait. -->
+    <a class="btn home-go" id="try-it" href="/waitlist/">try it<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    <p class="home-note">invitation-only while it is early &mdash; the button goes to the wait list.</p>
+  </div>
+
+  <ol class="home-how">
+    <li><span class="home-n">1</span><span><b>paste</b> the link to a video you already believe in.</span></li>
+    <li><span class="home-n">2</span><span>lynxr watches it and reads it back, then works out the <b>format</b> — not the topic.</span></li>
+    <li><span class="home-n">3</span><span>you get that format rewritten as a <b>script</b> for the company you are making content for.</span></li>
+  </ol>
 
   <p class="home-foot">&copy;
     <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a>
-    2026 &middot; <a href="/privacy/">privacy</a></p>
+    2026 &middot; <a href="/privacy/">privacy</a> &middot; <a href="/terms/">terms</a></p>
 </main>
 
-<script src="dotgrid.js?v=20260822d" defer></script>
-<script src="home.js?v=20260822d" defer></script>
+<script src="dotgrid.js?v=20260822e" defer></script>
+<!-- home.js does two things here and neither of them is the form (which now
+     lives on /waitlist/): it carries a ?ref= / ?utm_ campaign tag across to
+     the wait list page, and it no-ops on everything else. Every wiring in it
+     is guarded on the element existing, so one file serves both pages. -->
+<script src="home.js?v=20260822e" defer></script>
 </body>
 </html>

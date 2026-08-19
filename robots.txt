@@ -1,0 +1,23 @@
+# lynxr.io
+#
+# DO NOT ADD A Disallow LINE FOR /creatorsonly/ OR /agencyonly/.
+#
+# robots.txt is a public file served to anyone who asks for it, so a Disallow
+# line publishes the exact path it is meant to hide — it is the first place
+# anyone looks for the interesting URLs on a site. Worse, a blocked crawler
+# never fetches the page, so it never reads the `noindex` meta tag on it, and
+# the URL can still end up listed from an external link with nothing to say it
+# should not be.
+#
+# Both apps already carry `<meta name="robots" content="noindex, nofollow">`,
+# which is the correct and stronger control: the crawler is allowed in, reads
+# the instruction, and drops the page.
+#
+# None of this is access control. The repository is public and both paths are
+# in it; the real gates are the signup seat counter and row-level security in
+# the database. This file is discoverability hygiene and nothing more.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://lynxr.io/sitemap.xml
