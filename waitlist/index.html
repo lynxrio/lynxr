@@ -24,7 +24,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260822e">
+<link rel="stylesheet" href="/app.css?v=20260822f">
 </head>
 <body>
 
@@ -56,12 +56,7 @@
     <form class="wait-form" id="wait-form" novalidate>
       <input type="email" id="wait-email" placeholder="you@example.com" aria-label="Your email"
              autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" required>
-      <!-- The words are the accessible name now. It was an icon-only button
-           carrying an aria-label, which is fine inside an app and wrong on a
-           page a stranger opens cold: a bare arrow beside an email field does
-           not say what pressing it does, and a label that is only announced to
-           screen readers helps exactly the people who were not confused. -->
-      <button type="submit" class="btn" id="wait-go">join wait list<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <button type="submit" class="btn" id="wait-go"><span class="sr-only">join wait list</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     </form>
     <p class="wait-msg" id="wait-msg" role="status" aria-live="polite"></p>
   </section>
@@ -71,7 +66,7 @@
     2026 &middot; <a href="/privacy/">privacy</a> &middot; <a href="/terms/">terms</a></p>
 </main>
 
-<script src="/dotgrid.js?v=20260822e" defer></script>
-<script src="/home.js?v=20260822e" defer></script>
+<script src="/dotgrid.js?v=20260822f" defer></script>
+<script src="/home.js?v=20260822f" defer></script>
 </body>
 </html>

@@ -218,17 +218,33 @@ function coverUrl({ libraryId, canon } = {}) {
  *      thumbnail at all (no keyless endpoint, and its CDN is not in img-src),
  *      so that is the common case there rather than the rare one. It borrows
  *      .vthumb-none, the same placeholder the agency shelf uses. */
+/*  `dur` is the video's length, already formatted ("0:17"), and on a TILE it is
+ *  drawn bottom-right ON the cover rather than in the meta row — the place
+ *  every video app puts a duration, and the only way the meta row fits on one
+ *  line at 320px (see .bp-dur in app.css for the measurement that forced it).
+ *  It is still emitted in the meta row too; CSS shows exactly one of the two,
+ *  so an opened card reads as it always has and nothing is announced twice.
+ *
+ *  A tile's frame is therefore a WRAPPER span with the image inside it as
+ *  .vthumb — the shape app.js already uses, which is why `.bp-thumb .vthumb`
+ *  was already in app.css — instead of .bp-thumb on the <img> itself. The
+ *  badge needs a box to be positioned in; an <img> cannot hold one. */
 function thumbHtml(url, label, href, opts = {}) {
-  const { tile = false, kind = "" } = opts;
+  const { tile = false, kind = "", dur = "" } = opts;
+  const durBadge = tile && dur
+    ? `<span class="bp-dur"><span class="sr-only">Length </span>${escapeHtml(dur)}</span>` : "";
   if (!url) {
     return tile
       ? `<span class="bp-thumb" title="${escapeHtml(label || "")}"
-           ><span class="vthumb-none">${escapeHtml(kind || "no cover")}</span></span>`
+           ><span class="vthumb-none">${escapeHtml(kind || "no cover")}</span>${durBadge}</span>`
       : "";
+  }
+  if (tile) {
+    return `<span class="bp-thumb" title="${escapeHtml(label || "")}"
+      ><img class="vthumb" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async">${durBadge}</span>`;
   }
   const img = `<img class="bp-thumb" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async"
          title="${escapeHtml(label || "")}">`;
-  if (tile) return img;
   // safeUrl("") is NOT empty — it resolves against location.origin and hands
   // back the current page, so an entry with no sourceUrl would render a
   // thumbnail linking to the app itself. Ask whether there is a url first.
@@ -237,6 +253,40 @@ function thumbHtml(url, label, href, opts = {}) {
     ? `<a class="bp-thumb-link" href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer"
          aria-label="Open the original video">${img}</a>`
     : img;
+}
+
+/** A STATUS CHIP WITH TWO FACES.
+ *
+ *  A tile is 138px wide at 320px and its meta row has 116px to hold a status
+ *  and the facts beside it, so a twelve-to-nineteen character status wrapped
+ *  the row onto a second line — which the owner looked at and rejected
+ *  (2026-08-19: "the script status and the other details arent in line with
+ *  each other"). Every other lever was measured first: the card is wider now
+ *  (180px floor), the chip's padding and the facts' gaps are tighter, and the
+ *  duration moved onto the cover. Wording was the last of them, not the first.
+ *
+ *  BOTH strings are always in the DOM. `.st-full` is the real one — it is what
+ *  a list row and an opened card draw, and on a tile it is still there,
+ *  visually hidden, so it remains the chip's accessible name. `.st-tile` is
+ *  the short face, aria-hidden, drawn only on a closed tile. So the accessible
+ *  name never shortens, and nowhere with room for the full wording loses it.
+ *
+ *    couldn't fetch       -> no video     writing your script -> writing
+ *    couldn't write       -> no script    original script     -> original
+ *    script ready         -> ready        not scripted        -> not made
+ *    writing N            -> writing
+ *    poor fit / no script / N script(s)   -> unchanged, they already fit
+ *
+ *  `no script` is the tile face of BOTH "couldn't write" and the legacy
+ *  branded-but-scriptless row, deliberately: to a creator they are the same
+ *  sentence, both are red, and the two full wordings are one Tab away in the
+ *  accessible name and one click away in the opened card. */
+function statusChip(cls, full, short, dot = false) {
+  const mark = dot ? `<i class="bp-dot"></i>` : "";
+  const klass = cls ? `chip ${cls}` : "chip";
+  if (!short || short === full) return `<span class="${klass}">${mark}${escapeHtml(full)}</span>`;
+  return `<span class="${klass}">${mark}<span class="st-tile" aria-hidden="true">${escapeHtml(short)}</span>`
+    + `<span class="st-full">${escapeHtml(full)}</span></span>`;
 }
 
 /** Keep a click on a link inside a <summary> from also toggling the card.
@@ -2334,20 +2384,25 @@ function libraryItemHtml(item, scopeBrandId) {
   const href = safeUrl(item.url || "");
   const waiting = made.filter(isWriting).length;
   const done = made.filter((a) => a.status === "done").length;
-  const chip = !made.length ? `<span class="chip">not scripted</span>`
-    : waiting ? `<span class="chip bp-wait"><i class="bp-dot"></i>writing ${waiting}</span>`
-    : done ? `<span class="chip good">${plural(done, "script")}</span>`
+  // The second argument is the full wording, the third the short face a TILE
+  // draws — see statusChip. The full string is what the accessible name and an
+  // opened card still carry, so nothing here changes meaning.
+  const chip = !made.length ? statusChip("", "not scripted", "not made")
+    : waiting ? statusChip("bp-wait", `writing ${waiting}`, "writing", true)
+    : done ? statusChip("good", plural(done, "script"), "")
     // Same two buckets as the card chip: only a source failure is a fetch
     // failure. `noteKind` is absent on rows written before the worker stamped
     // it, and those keep the old wording.
-    : `<span class="chip bad">${made.some((a) => a.noteKind && a.noteKind !== "fetch")
-        ? "couldn't write" : "couldn't fetch"}</span>`;
+    : made.some((a) => a.noteKind && a.noteKind !== "fetch")
+      ? statusChip("bad", "couldn't write", "no script")
+      : statusChip("bad", "couldn't fetch", "no video");
 
   return `<details class="bp-item lib-item" data-lid="${escapeHtml(item.id)}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
       ${thumbHtml(coverUrl({ libraryId: item.id, canon: item.canon }), sourceLabel(item), item.url,
-        { tile: true, kind: item.platform || "link" })}
+        // The duration rides on the cover on a tile (see thumbHtml/.bp-dur).
+        { tile: true, kind: item.platform || "link", dur: lengthLabel(videoSeconds({ item })) })}
       <span class="bp-name">${escapeHtml(sourceLabel(item))}</span>
       ${/* THE PLATFORM CHIP IS GONE, by decision, from both card kinds. It was
             the only thing on a tile that said TikTok from Instagram; the ↗'s
@@ -4716,14 +4771,15 @@ function adaptationHtml(a, liveName, opts = {}) {
      writes that state at all (fill_adaptation raises instead of returning
      "done"), so the only rows that can land here are ones written before that. */
   const chip = a.status === "error"
-    ? `<span class="chip bad">${a.noteKind && a.noteKind !== "fetch"
-        ? "couldn't write" : "couldn't fetch"}</span>`
-    : a.status !== "done" ? `<span class="chip bp-wait"><i class="bp-dot"></i>writing your script</span>`
-    : asOriginal ? `<span class="chip good">original script</span>`
-    : lowFit ? `<span class="chip">poor fit</span>`
-    : ad ? `<span class="chip good">script ready</span>`
-    : !a.brandId ? `<span class="chip good">original script</span>`
-    : `<span class="chip bad">no script</span>`;
+    ? (a.noteKind && a.noteKind !== "fetch"
+        ? statusChip("bad", "couldn't write", "no script")
+        : statusChip("bad", "couldn't fetch", "no video"))
+    : a.status !== "done" ? statusChip("bp-wait", "writing your script", "writing", true)
+    : asOriginal ? statusChip("good", "original script", "original")
+    : lowFit ? statusChip("", "poor fit", "")
+    : ad ? statusChip("good", "script ready", "ready")
+    : !a.brandId ? statusChip("good", "original script", "original")
+    : statusChip("bad", "no script", "");
   const href = safeUrl(a.sourceUrl || "");
   const id = escapeHtml(a.id);
   // brandName was snapshotted when this was queued, so it goes stale the moment
@@ -4967,7 +5023,7 @@ function adaptationHtml(a, liveName, opts = {}) {
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
       ${nested ? "" : thumbHtml((a.source || {}).cover, entryLabel(a), a.sourceUrl,
-        { tile: true, kind: platformLabel(a.sourceUrl || "") })}
+        { tile: true, kind: platformLabel(a.sourceUrl || ""), dur: lengthLabel(videoSeconds({ rec: a })) })}
       ${/* Same resolver the Trash view uses: prefers the live library entry's
             caption, falls back to the platform wording, never a permalink. */""}
       ${/* Under `asOriginal` the record's brand is irrelevant — the card is

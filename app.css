@@ -2459,26 +2459,20 @@
      quiet border; arriving by Tab gets the same ring as every other control on
      the site. */
   .wait-form input:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
-  /* Icon-only. align-self:stretch rather than a fixed height, so it always
-     matches the input beside it — the input's height comes from its own
-     padding and font-size, and hardcoding a number here goes wrong the moment
-     either changes. */
-  /* THE BUTTON HAS ITS WORDS BACK. It was an icon-only 44px square, which is
-     legible in an app where the surrounding screen explains itself and not on
-     a page a stranger opens cold from a link — an unlabelled arrow next to an
-     email field is the single most "internal tool" thing that was on it. The
-     arrow stays, after the words.
+  /* ICON-ONLY, owner's call 2026-08-19. It briefly carried the words "join
+     wait list"; at the card's real width those two words wrapped to two lines
+     and the button grew into a tall slab beside a single-line field. The words
+     survive as .sr-only, so the accessible name is still "join wait list" —
+     what changed is what is painted, not what is announced.
 
-     NO BREAKPOINT, deliberately, and this is the whole trick: input is
-     `flex: 100 1 240px`, button `flex: 1 1 150px`. Side by side, the input
-     takes 100/101 of the slack so the button stays its natural size. When the
-     card is too narrow for 240 + 8 + 150, the flex line wraps and each item is
-     alone on its line — where grow makes it exactly full width. That is the
-     stacked phone layout, arrived at by measurement rather than by guessing a
-     pixel width for a card whose own width is in `ch`. */
+     align-self:stretch rather than a fixed height, so it always matches the
+     input beside it: the input's height comes from its own padding and
+     font-size, and hardcoding a number here goes wrong the moment either
+     changes. flex:none keeps it square while the input takes all the slack
+     and shrinks (min-width:0) on a narrow card, so the pair never wraps. */
   .wait-form .btn {
-    flex: 1 1 150px; align-self: center; min-height: 44px; padding: 0 18px;
-    display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+    flex: none; align-self: stretch; width: 52px; min-height: 44px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
   }
   .wait-form .btn svg { width: 15px; height: 15px; display: block; flex: none; }
   /* (.wait-fine lived here — the "one email, at launch" line under the form,
@@ -2880,7 +2874,15 @@
        the flat 160px takes over and the count grows on its own. A bare
        min(160px, 100%) measured 1 column and a 491px-tall cover at 320px —
        1.2 cards a screen, which is the opposite of the point. */
-    grid-template-columns: repeat(auto-fill, minmax(min(160px, 46%), 1fr));
+    /* 160px → 180px (owner, 2026-08-19: "make each card just slightly wider"
+       so the meta row is not smushed). It changes nothing at 320-414px, where
+       the 46% branch is what wins and the column is 138/165/185px either way;
+       it is at 768px and up that it pays — measured, the column ladder went
+       2/2/2/4/6 to 2/2/2/3/5 and the tile's usable row width from
+       116/144/163/153/157px to 116/144/163/210/195px. Deliberately NOT solved
+       by width alone: at 320px there is no extra width to be had, which is why
+       the duration moved onto the cover below. */
+    grid-template-columns: repeat(auto-fill, minmax(min(180px, 46%), 1fr));
     gap: 12px;
   }
   /* .bp-item carries margin-top: 8px for the list layout; inside a grid that
@@ -2900,7 +2902,15 @@
      and the ↗ flow after them and wrap only if they must. */
   .script-grid > .bp-item:not([open]) > summary {
     display: flex; flex-wrap: wrap; align-items: center;
-    gap: 6px 8px; padding: 10px; font-size: var(--fs-125);
+    /* column gap 8 → 5: it is only ever between the status chip and the facts
+       beside it, and 5px still separates two groups that are already told
+       apart by colour and by weight. Row gap stays 6 — that one is between the
+       cover, the title and the meta row, where it is doing real work. */
+    /* Padding 10 → 8 on a TILE. Four more pixels of meta row at every width,
+       and the width is the whole problem here; the cover's full bleed follows
+       it (the negative margins and the flex basis below are the same number,
+       and have to stay that way). */
+    gap: 6px 5px; padding: 8px; font-size: var(--fs-125);
     position: relative;                 /* the ↗ badge below anchors to this */
   }
   .script-grid > .bp-item:not([open]) > summary > .bp-caret { display: none; }
@@ -2913,12 +2923,45 @@
        `flex: 0 0 100%` + `width: calc(100% + 20px)` pair measured 155px inside a
        175px card — the negative margins pulled it left and nothing filled the
        right. Measured after the fix at 1440px: 175px wide in a 177px card. */
-    flex: 0 0 calc(100% + 20px); order: 0;
+    flex: 0 0 calc(100% + 16px); order: 0;
     width: auto; height: auto; aspect-ratio: 9 / 16;
-    margin: -10px -10px 4px; border-radius: 0;
+    margin: -8px -8px 4px; border-radius: 0;
     background: var(--surface-2); border-bottom: 1px solid var(--line);
   }
-  .script-grid > .bp-item:not([open]) > summary > img.bp-thumb { object-fit: contain; }
+  /* The cover is a WRAPPER span on a tile now, with the frame inside it as
+     .vthumb — the shape app.js has always used, and the reason `.bp-thumb
+     .vthumb` at the top of this file already sizes it. It was a bare <img
+     class="bp-thumb"> before; it needed a box to hang the duration badge in,
+     and creator.js's own comment at .bp-thumb-link already calls the two forms
+     out as a known divergence. `position: relative` is that hook. */
+  .script-grid > .bp-item:not([open]) > summary > .bp-thumb { position: relative; }
+  /* THE DURATION, ON THE COVER — where every video app puts it, and no longer
+     in the meta row.
+
+     THIS IS THE ONE STRUCTURAL CHANGE, and it is here because the row cannot
+     be made to fit by tightening. Measured at 320px: the tile is 138px wide,
+     which leaves 116px of row. Views (eye + a compacted count) plus a duration
+     is 64px of that on their own, so a status chip has 44px — 4.7 characters
+     at the chip's own font. "couldn't fetch" needs 104px. No combination of
+     padding, gap and font-size closes a 60px gap on a 116px row, and the two
+     columns at 320px are not negotiable (see the 46% note above). Moving ONE
+     of the three items out is the only thing that does, and the duration is
+     the one with a conventional home: bottom-right of the frame.
+
+     It is still in the meta row in the markup (.lib-len, hidden on tiles
+     below) so an OPENED card — which runs the list layout — reads exactly as
+     it always has. Exactly one of the two is display:none in each state, so
+     nothing is announced twice. */
+  .bp-dur {
+    position: absolute; right: 6px; bottom: 6px; z-index: 1;
+    padding: 1px 5px; border-radius: 5px; line-height: 1.5;
+    background: var(--badge-ground); border: 1px solid #ffffff3d; color: #fff;
+    font-family: var(--mono); font-size: var(--fs-105); font-variant-numeric: tabular-nums;
+  }
+  /* An open card is the list row again: its thumbnail is 40x56 and the badge
+     would cover it. The duration comes back in the meta row there. */
+  .script-grid > .bp-item[open] .bp-dur { display: none; }
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts > .lib-len { display: none; }
   /* The no-cover tile. Instagram never resolves a thumbnail, so this is the
      common case there, not the rare one — it keeps the card the same height as
      every other and names the platform, which is one more thing to recognise
@@ -3009,9 +3052,27 @@
      (see videoViews); status + views + length is 137px and wraps to a second
      line, deliberately, since every item keeps the row's own 6px/8px gaps and a
      wrapped row reads as a row rather than as an accident. */
+  /* Padding 7px → 5px on a TILE only. The chip keeps its font size and its
+     border — the border is where .chip.good / .chip.bad put the state colour,
+     so it is not decoration — and 4px of horizontal padding is the cheapest
+     width on the row: it costs nothing legible and buys most of a character. */
   .script-grid > .bp-item:not([open]) > summary > .chip {
     flex: 0 0 auto; order: 0; margin-left: 0; max-width: 100%;
-    font-size: var(--fs-11); padding: 2px 7px; white-space: normal;
+    font-size: var(--fs-11); padding: 2px 4px; white-space: nowrap;
+  }
+  /* THE SHORT FACE OF A STATUS, on tiles only.
+     `script ready` is 12 characters saying what the green already says; the
+     tile shows `ready`. The full wording is still in the DOM as .st-full,
+     visually hidden but READ — it is the chip's accessible name in both
+     states, and it is what the opened card and every list row still show. So
+     nothing a screen reader hears changed, and nothing changed anywhere the
+     row has the width for it. See statusChip() in creator.js for the table of
+     which string becomes which. */
+  .st-tile { display: none; }
+  .script-grid > .bp-item:not([open]) > summary > .chip > .st-tile { display: inline; }
+  .script-grid > .bp-item:not([open]) > summary > .chip > .st-full {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
   }
   /* ONE COLOUR CHANGES, AND ONLY ON A TILE. .bp-wait paints --text-3 on the
      chip's --surface-2, which measures 3.39:1 — under AA, and it was under AA
@@ -3052,10 +3113,16 @@
      doing it. Scoped to a TILE — in the list layout .bp-when already carries an
      auto margin, and two of them would share the free space between rather than
      pushing to the edge. */
+  /* gap 10 → 6 on a tile: with the duration on the cover this group is usually
+     one item, and the 10px was tuned when it was two. The eye's own gap to its
+     number comes down with it (4 → 3) and the lens from 1.15em to 1.05em —
+     together ~7px, which is a whole character of chip. */
   .script-grid > .bp-item:not([open]) > summary > .meta-facts {
-    display: inline-flex; align-items: center; gap: 10px;
-    margin-left: auto; min-width: 0;
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-left: auto; min-width: 0; flex: 0 0 auto;
   }
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts .lib-stat { gap: 2px; }
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts .ico-eye { width: 1em; height: 1em; }
   .meta-facts { display: inline-flex; align-items: center; gap: 10px; }
   /* Each fact. Mono and tabular so a column of tiles lines up rather than
      shimmering as the digits change; inline-flex so the eye is optically
