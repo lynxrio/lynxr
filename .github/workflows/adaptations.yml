@@ -53,9 +53,21 @@ jobs:
     timeout-minutes: 350
 
     steps:
+      # BOUNDED 2026-08-19 — every step before "Write queued scripts" now
+      # carries its own timeout. Run #191 proved this is a CLASS of failure,
+      # not one bad apt mirror: ANY setup step that hangs holds the
+      # concurrency group for the job's whole ~6h ceiling and takes the
+      # GitHub fallback worker down with it. See "Install ffmpeg" below for
+      # the numbers. Only "Write queued scripts" is meant to run for hours —
+      # that is exactly what `timeout-minutes: 350` on the job above is for,
+      # and it stays unbounded at the step level on purpose. Every number
+      # here is far above what its step has ever measured over the last 18
+      # runs.
       - uses: actions/checkout@v4
+        timeout-minutes: 5          # measured max 2s
 
       - uses: actions/setup-python@v5
+        timeout-minutes: 5          # measured max 9s
         with:
           python-version: "3.12"
           cache: pip
@@ -66,6 +78,31 @@ jobs:
           cache-dependency-path: requirements-ci.txt
 
       - name: Install ffmpeg
+        # THE STEP THAT ATE SIX HOURS. Run #191 (2026-08-19) entered this
+        # step at 08:55:56Z and never left it: `sudo apt-get update` hung,
+        # GitHub killed the job 5h55m01s later at 14:50:51Z, and the
+        # conclusion was `cancelled` — NOT `failure`, so neither of the two
+        # `if: failure()` steps at the bottom of this job ever started and
+        # nothing ever decided whether to page. Because
+        # `cancel-in-progress: false`, the hung run held the concurrency
+        # group the whole time: #192, #193 and #194 were cancelled while
+        # pending, and the GitHub fallback worker was dark from 08:41Z (when
+        # #183 finished normally at its 350-minute budget) to 14:51Z (when
+        # #195 finally took over) — a 6h10m hole in the redundancy. Fly was
+        # healthy throughout, which is the only reason no creator felt it.
+        #
+        # 10 minutes, NOT the 5 that looked obvious. MEASURED over the 17
+        # most recent runs that reached this step: 15s min, 29s median,
+        # 138s p90 — but 218s on #170 and 406s on #174, both of which went
+        # on to finish healthy runs. A 5-minute cap would have killed #174
+        # for being slow. 10 minutes is 1.5x the worst real run and about a
+        # thirty-fifth of what the hang cost.
+        #
+        # Tripping this wrongly is cheap: the job goes red, the concurrency
+        # group frees at once, and the pending run takes over — #195's job
+        # started 4 seconds after #191 was killed. Not tripping costs six
+        # hours.
+        timeout-minutes: 10
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
@@ -73,6 +110,7 @@ jobs:
       - name: Install Python deps
         # faster-whisper replaces mlx-whisper here: MLX is Apple-Silicon only,
         # and pipeline/transcribe.py falls back to it automatically.
+        timeout-minutes: 10         # measured max 17s; generous for a cold pip cache
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-ci.txt
@@ -80,6 +118,7 @@ jobs:
       - name: Cache the Whisper weights
         # ~500MB for `small`; downloading it every 15 minutes would dominate
         # the run time and hammer the model host for no reason.
+        timeout-minutes: 10         # measured max 12s, but it restores ~500MB
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
@@ -166,4 +205,14 @@ jobs:
         # when Fly was healthy and every creator had their script, which is the
         # exact page the owner called useless. The decision needs
         # worker.heartbeat out of lynxr_ops, so it lives in Python now.
+        #
+        # Reachable from a SETUP failure now, not just a worker failure. The
+        # step timeouts above turn a hung apt into a step `failure` instead
+        # of a job `cancelled`, so this step actually runs — on run #191 it
+        # did not, conclusion `None`, never started. That also means it can
+        # run BEFORE "Install Python deps", so it has to keep working on a
+        # bare setup-python with nothing installed. watchdog.py does: it is
+        # stdlib-only plus latency_report and envcfg, and its certifi import
+        # is already guarded, falling back to the system CA store that
+        # ubuntu-latest always has. DO NOT give this step a dependency.
         run: python pipeline/watchdog.py --ci-failed

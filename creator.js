@@ -228,20 +228,34 @@ function coverUrl({ libraryId, canon } = {}) {
  *  A tile's frame is therefore a WRAPPER span with the image inside it as
  *  .vthumb — the shape app.js already uses, which is why `.bp-thumb .vthumb`
  *  was already in app.css — instead of .bp-thumb on the <img> itself. The
- *  badge needs a box to be positioned in; an <img> cannot hold one. */
+ *  badge needs a box to be positioned in; an <img> cannot hold one.
+ *
+ *  `stamp` is the same bottom-right badge slot, but for a trash tile, which
+ *  has no duration worth showing and every use for "when did I delete this" —
+ *  pass one or the other, never both, or the two badges would sit on top of
+ *  each other. */
 function thumbHtml(url, label, href, opts = {}) {
-  const { tile = false, kind = "", dur = "" } = opts;
+  const { tile = false, kind = "", dur = "", stamp = "" } = opts;
   const durBadge = tile && dur
     ? `<span class="bp-dur"><span class="sr-only">Length </span>${escapeHtml(dur)}</span>` : "";
+  /* THE SAME BADGE, A DIFFERENT FACT. A trash tile has no use for a duration
+     and every use for "when did I delete this", so it passes `stamp` INSTEAD
+     of `dur` and the bottom-right badge says that instead. `bp-dur` is kept on
+     the class list on purpose: it is the entire visual definition (position,
+     ground, mono, and the `[open]` rule that hides it once the card becomes a
+     row), and `bp-stamp` is only a semantic hook. Pass one or the other, never
+     both — they would sit on top of each other. */
+  const stampBadge = tile && stamp
+    ? `<span class="bp-dur bp-stamp"><span class="sr-only">Deleted </span>${escapeHtml(stamp)}</span>` : "";
   if (!url) {
     return tile
       ? `<span class="bp-thumb" title="${escapeHtml(label || "")}"
-           ><span class="vthumb-none">${escapeHtml(kind || "no cover")}</span>${durBadge}</span>`
+           ><span class="vthumb-none">${escapeHtml(kind || "no cover")}</span>${durBadge}${stampBadge}</span>`
       : "";
   }
   if (tile) {
     return `<span class="bp-thumb" title="${escapeHtml(label || "")}"
-      ><img class="vthumb" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async">${durBadge}</span>`;
+      ><img class="vthumb" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async">${durBadge}${stampBadge}</span>`;
   }
   const img = `<img class="bp-thumb" src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async"
          title="${escapeHtml(label || "")}">`;
@@ -1965,14 +1979,16 @@ const SORT_LABELS = {
   az:   "Title A\u2013Z",
   most: "Most scripts",
 };
-/* THE SAME RUNG THE PLACEHOLDER ALREADY HAS. The sort control sizes itself to
-   its longest option, so "Newest first" is what sets its width at every
-   viewport — and on a phone that is width the search field wanted. The short
-   face drops the word that the control's own presence already implies: you are
-   looking at a SORT control, so "first" is redundant.
-   Only the drawn text changes. The <select>'s aria-label ("Sort your scripts")
-   is untouched, and each <option>'s value is the key, never the label, so
-   nothing that reads state is affected. */
+/* THE SAME RUNG THE PLACEHOLDER ALREADY HAS. The trigger is a <button> now, so
+   it sizes to its CURRENT label, not its longest one — but at the default
+   ("Newest first" / "Newest") that is at or near the longest label on both
+   rungs, so on a phone this is still the width the search field wanted. The
+   short face drops the word that the control's own presence already implies:
+   you are looking at a SORT control, so "first" is redundant.
+   Only the drawn text of the trigger's face changes. Its `aria-label` always
+   carries the FULL label plus the control's purpose ("Sort your scripts:
+   Newest first"), and the menu rows are always full — see `applyFindSortLabels`
+   and `commit()` in `wireFindBar`. */
 const SORT_LABELS_SHORT = {
   new:  "Newest",
   old:  "Oldest",
@@ -2013,20 +2029,85 @@ function applyFindPlaceholders() {
     if (full && brief) el.placeholder = findPlaceholder(full, brief);
   });
 }
-/* Same width rung, same reason, same re-application on rotate. Rewrites the
-   option TEXT only — never the value, and never the selected index, so calling
-   this can not change what the list is sorted by. */
+/* Same width rung, same reason, same re-application on rotate. Rewrites only
+   the CLOSED control's face — the menu rows keep the full label at every
+   width, and this never touches the value or the accessible name: `data-sort`
+   and `aria-label` are owned by `commit()` in `wireFindBar`. */
 function applyFindSortLabels() {
   const short = FIND_NARROW.matches;
-  document.querySelectorAll("select.find-sort option").forEach((op) => {
-    const k = op.value;
+  document.querySelectorAll("button.find-sort").forEach((btn) => {
+    const k = btn.dataset.sort;
     const label = (short ? SORT_LABELS_SHORT[k] : SORT_LABELS[k]) || SORT_LABELS[k];
-    if (label && op.textContent !== label) op.textContent = label;
+    const val = btn.querySelector(".find-sort-val");
+    if (label && val && val.textContent !== label) val.textContent = label;
   });
 }
 function applyFindWidthRungs() { applyFindPlaceholders(); applyFindSortLabels(); }
 FIND_NARROW.addEventListener("change", applyFindWidthRungs);
 FIND_TINY.addEventListener("change", applyFindPlaceholders);
+
+/* ---------- THE SORT MENU ----------
+   A button plus a listbox, not a <select>. macOS draws a native select's popup
+   at the SELECT'S OWN font-size, and the find bar came off the 16px pin on
+   2026-08-19 (see the long note at the .find-bar block in app.css) — so the
+   popup inherited 12.5px type and was unreadable. A <select> cannot size its
+   popup independently of its closed control; this can. The closed control keeps
+   --fs-135 exactly; only the open menu is bigger.
+
+   FOCUS MOVES INTO THE MENU. role="listbox" supports aria-activedescendant and
+   a plain button does not, so the <ul> takes focus and the highlighted row is
+   named by aria-activedescendant. Escape and a pick both hand focus back to the
+   button; tabbing away just closes it (see focusout).
+
+   ONE document-level pointerdown listener, at module scope, not one per bar:
+   go() replaces #pane-body wholesale on every navigation, so a per-instance
+   document listener would leak one closure per view change. It also gives
+   "opening one closes the other" for free. */
+function sortMenuParts(wrap) {
+  return {
+    btn:  wrap.querySelector(".find-sort"),
+    menu: wrap.querySelector(".find-sort-menu"),
+    opts: [...wrap.querySelectorAll(".find-sort-opt")],
+  };
+}
+function setSortActive(wrap, k) {
+  const { menu, opts } = sortMenuParts(wrap);
+  opts.forEach((li) => li.classList.toggle("active", li.dataset.k === k));
+  const on = opts.find((li) => li.dataset.k === k) || opts[0];
+  if (!on) return;
+  menu.setAttribute("aria-activedescendant", on.id);
+  /* block:"nearest" scrolls the minimum and does nothing at all when the row is
+     already visible, so this cannot jog the page. It only earns its keep if the
+     option list ever outgrows the menu's max-height. */
+  on.scrollIntoView({ block: "nearest" });
+}
+function closeSortMenu(wrap, refocus) {
+  const { btn, menu, opts } = sortMenuParts(wrap);
+  if (!menu || menu.hidden) return;
+  menu.hidden = true;
+  menu.removeAttribute("aria-activedescendant");
+  btn.setAttribute("aria-expanded", "false");
+  opts.forEach((li) => li.classList.remove("active"));
+  if (refocus) btn.focus();
+}
+function closeSortMenus(except) {
+  document.querySelectorAll(".find-sort-wrap").forEach((w) => {
+    if (w !== except) closeSortMenu(w, false);
+  });
+}
+function openSortMenu(wrap) {
+  closeSortMenus(wrap);
+  const { btn, menu } = sortMenuParts(wrap);
+  btn.setAttribute("aria-expanded", "true");
+  menu.hidden = false;
+  setSortActive(wrap, btn.dataset.sort);
+  /* focus() scrolls the menu into view by itself; no second scroll call. */
+  menu.focus();
+}
+document.addEventListener("pointerdown", (e) => {
+  const t = e.target;
+  closeSortMenus(t && t.closest ? t.closest(".find-sort-wrap") : null);
+});
 
 /* ---------- THE LIBRARY MODE SWITCHER'S TRAVELLING FILL ----------
 
@@ -2093,10 +2174,22 @@ function findBarHtml({ id, q, sort, sorts, placeholder, brief, what }) {
       data-ph="${escapeHtml(placeholder)}" data-ph-short="${escapeHtml(brief)}"
       aria-label="Search ${escapeHtml(what)}"
       autocomplete="off" spellcheck="false">
-    <select id="${id}-sort" class="find-sort" aria-label="Sort ${escapeHtml(what)}">
-      ${sorts.map((k) => `<option value="${k}"${k === sort ? " selected" : ""}
-        >${escapeHtml(SORT_LABELS[k])}</option>`).join("")}
-    </select>
+    <div class="find-sort-wrap">
+      <button type="button" id="${id}-sort" class="find-sort"
+        aria-haspopup="listbox" aria-expanded="false" aria-controls="${id}-sort-menu"
+        aria-label="Sort ${escapeHtml(what)}: ${escapeHtml(SORT_LABELS[sort] || SORT_LABELS.new)}"
+        data-sort="${escapeHtml(sort)}" data-what="${escapeHtml(what)}">
+        <span class="find-sort-val">${escapeHtml(SORT_LABELS[sort] || SORT_LABELS.new)}</span>
+        <svg class="find-sort-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <ul class="find-sort-menu" id="${id}-sort-menu" role="listbox" tabindex="-1"
+        aria-label="Sort ${escapeHtml(what)}" hidden>
+        ${sorts.map((k) => `<li role="option" class="find-sort-opt" id="${id}-sort-opt-${k}"
+          data-k="${k}" aria-selected="${k === sort}">${escapeHtml(SORT_LABELS[k])}</li>`).join("")}
+      </ul>
+    </div>
     ${/* The live region. It is the ONLY thing that tells a screen reader the
           grid underneath just changed shape — the grid itself is rewritten
           without any announcement. Empty when nothing is filtered, and
@@ -2111,8 +2204,58 @@ function wireFindBar(id, repaint, setQ, setSort) {
   applyFindWidthRungs();            // the bar was just rebuilt; re-apply the width rules
   const qEl = document.getElementById(`${id}-q`);
   if (qEl) qEl.addEventListener("input", (e) => { setQ(e.target.value); repaint(); });
-  const sEl = document.getElementById(`${id}-sort`);
-  if (sEl) sEl.addEventListener("change", (e) => { setSort(e.target.value); repaint(); });
+  const btn = document.getElementById(`${id}-sort`);
+  const wrap = btn && btn.closest(".find-sort-wrap");
+  if (!wrap) return;
+  const { menu, opts } = sortMenuParts(wrap);
+  const keys = opts.map((li) => li.dataset.k);
+  const activeKey = () => (wrap.querySelector(".find-sort-opt.active") || {}).dataset?.k
+    || btn.dataset.sort;
+
+  const commit = (k) => {
+    if (!k) return;
+    btn.dataset.sort = k;
+    btn.setAttribute("aria-label", `Sort ${btn.dataset.what}: ${SORT_LABELS[k]}`);
+    opts.forEach((li) => li.setAttribute("aria-selected", String(li.dataset.k === k)));
+    applyFindWidthRungs();          // redraws the trigger's face at the right rung
+    closeSortMenu(wrap, true);
+    setSort(k); repaint();
+  };
+
+  /* Enter and Space on a <button> already dispatch click, so opening by
+     keyboard needs no extra branch — only the arrow/Home/End keys do. */
+  btn.addEventListener("click", () => {
+    if (btn.getAttribute("aria-expanded") === "true") closeSortMenu(wrap, true);
+    else openSortMenu(wrap);
+  });
+  btn.addEventListener("keydown", (e) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    openSortMenu(wrap);
+    if (e.key === "Home") setSortActive(wrap, keys[0]);
+    else if (e.key === "End") setSortActive(wrap, keys[keys.length - 1]);
+  });
+  menu.addEventListener("keydown", (e) => {
+    const i = keys.indexOf(activeKey());
+    if (e.key === "ArrowDown")      { e.preventDefault(); setSortActive(wrap, keys[Math.min(i + 1, keys.length - 1)]); }
+    else if (e.key === "ArrowUp")   { e.preventDefault(); setSortActive(wrap, keys[Math.max(i - 1, 0)]); }
+    else if (e.key === "Home")      { e.preventDefault(); setSortActive(wrap, keys[0]); }
+    else if (e.key === "End")       { e.preventDefault(); setSortActive(wrap, keys[keys.length - 1]); }
+    else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); commit(activeKey()); }
+    else if (e.key === "Escape")    { e.preventDefault(); closeSortMenu(wrap, true); }
+  });
+  menu.addEventListener("click", (e) => {
+    const li = e.target.closest(".find-sort-opt");
+    if (li) commit(li.dataset.k);
+  });
+  /* Tab out. focusout fires with relatedTarget outside the wrapper (or null),
+     which covers Tab, Shift-Tab and a click that lands on another control —
+     so there is no separate Tab branch above. Deliberately does NOT commit:
+     changing the sort as a side effect of navigating away is worse than losing
+     an uncommitted highlight. */
+  wrap.addEventListener("focusout", (e) => {
+    if (!wrap.contains(e.relatedTarget)) closeSortMenu(wrap, false);
+  });
 }
 
 /** Every term has to appear somewhere in the haystack — "cloey hook" finds the
@@ -2774,6 +2917,117 @@ function renderYou(head, body) {
     from and a sibling entry for the same video may still carry the caption. */
 function entryLabel(a) { return videoTitle({ rec: a }); }
 
+/** ONE DELETED SCRIPT AS A TILE — the same `<details class="bp-item">` the
+ *  Library and the brand pages render, so every rule in the .script-grid block
+ *  applies to it unchanged. It was a `<div class="bp-item trash-row">` toggling
+ *  an `.open` CLASS until 2026-08-19; nothing in that block could reach it,
+ *  because all forty-odd of those selectors are written against
+ *  `<details>`/`<summary>` and `[open]`. Converting the markup was cheaper and
+ *  safer than loosening the selectors — see the plan.
+ *
+ *  NOT built out of libraryItemHtml() or adaptationHtml(). A trash entry is an
+ *  ADAPTATION record that can outlive the library row it was made from, and
+ *  adaptationHtml's body is wired by wireAdaptationCards() against
+ *  ME.adaptations — which a trashed record is not in, so Copy, Edit,
+ *  Teleprompter and Try again would all be silently inert. Everything one
+ *  level down IS shared: thumbHtml, statusChip, openOriginalHtml, entryLabel,
+ *  agoLabel, coverUrl. */
+function trashItemHtml(a) {
+  const id = escapeHtml(a.id);
+  const ad = a.adaptation || {};
+  /* The frame, same as everywhere else. Deciding what to restore off eight
+     near-identical instagram.com/p/… URLs meant reading permalinks; the
+     thumbnail is how you actually recognise which video it was.
+     Falls back to coverUrl() because a trash entry keeps its own copy of
+     `source` — if that copy predates covers, a sibling of the same video
+     still has one (coverUrl already searches the trash as well as the live
+     list), and thumbHtml renders a placeholder when neither does. */
+  const cover = (a.source || {}).cover
+    || coverUrl({ libraryId: a.libraryId, canon: a.sourceUrl ? canonUrl(a.sourceUrl) : "" });
+  const href = safeUrl(a.sourceUrl || "");
+  const plat = platformLabel(a.sourceUrl || "");
+  const when = agoLabel(a.deletedAt);
+  const gone = !!a.brandId && !brandById(a.brandId);
+
+  /* WHICH COMPANY, in the chip slot — the card's one prominent field.
+     On a tile the cover and the title are the VIDEO, and one video scripted
+     for three companies is three identical tiles; the company is the only
+     thing that tells them apart, so it gets the chip rather than the status
+     (a deleted script has no status worth a colour).
+
+     Three faces. A record with no brandId is the video's own script and says
+     so. A company that has since been deleted keeps its name, turns red, and
+     carries the explanation in statusChip's `.st-full` — the same two-face
+     mechanism that draws "ready" on a tile and "script ready" everywhere
+     else, so the accessible name and the opened card both say the whole
+     thing. Otherwise: the name. */
+  const chip = !a.brandId
+    ? statusChip("", "original script", "original")
+    : gone
+      ? statusChip("bad trash-brand", `${a.brandName || "its company"} — company deleted`,
+                   a.brandName || "company deleted")
+      : statusChip("trash-brand", a.brandName || "—", "");
+
+  return `<details class="bp-item trash-card" data-adid="${id}">
+    <summary>
+      <span class="bp-caret" aria-hidden="true">▸</span>
+      ${/* `stamp` INSTEAD of `dur`: see thumbHtml. A trash tile's bottom-right
+            badge says when it was thrown away, which is the one fact a
+            library tile does not have and the one this screen is scanned
+            for. */""}
+      ${thumbHtml(cover, entryLabel(a), a.sourceUrl, { tile: true, kind: plat, stamp: when })}
+      <span class="bp-name">${escapeHtml(entryLabel(a))}</span>
+      ${chip}
+      ${/* No metaFactsHtml here, unlike a library tile: views is empty on
+            nearly every record (see videoViews) and the length would be
+            competing with the deleted stamp for a 116px row at 320px. */""}
+      ${href ? openOriginalHtml(href, plat) : ""}
+      ${/* THE TWO ACTIONS, INSIDE THE SUMMARY. Restore is the whole point of
+            this screen, so it must not be behind a disclosure. Both controls
+            stop the click reaching the summary — armDelete already does it
+            for the bin, and the restore handler does it explicitly — so
+            pressing one never also flips the card open. */""}
+      <span class="trash-acts">
+        <button type="button" class="ghost trash-restore" data-adid="${id}" aria-label="Restore" title="Restore">
+          ${/* A bin with an arrow lifting out of it — "take this back out of the
+                trash", rather than the generic undo curl, which reads as
+                "revert an edit". Same 24-box and 1.8 stroke as the delete icon
+                beside it, so the pair looks like a set. */""}
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+            ><path d="M12 9V2"/><path d="M9 5l3-3 3 3"/><path d="M4 11h16"/><path
+              d="M6 11l1 9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-9"/></svg>
+          ${/* The word survives on the OPEN card, where the row is full width.
+                A tile hides it and squares the button off — see .trash-acts in
+                app.css. */""}
+          <span class="trash-restore-txt">Restore</span>
+        </button>
+        ${/* Removes the script from YOUR trash only. The pasted video itself
+              stays in lynxr_sources — that table is keyed by canonical URL and
+              shared across every creator, so one person emptying their bin must
+              never take a source row out from under the others. Same rule
+              delete_account.sql already follows. */""}
+        <button type="button" class="ghost danger icon-only trash-purge" data-adid="${id}"
+          aria-label="Delete permanently" title="Delete permanently — the video stays in the shared library">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+            ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+        </button>
+      </span>
+    </summary>
+    ${/* THE BODY CARRIES INFORMATION, NOT A SECOND COPY OF THE BUTTONS. Two
+          controls that do the same thing on one card is the trap the Library
+          entry's own comment records — there it was two trash icons, and
+          nobody could tell which took what. */""}
+    <div class="bp-body">
+      <p class="bp-hint">${when ? `Deleted ${escapeHtml(when)}` : "Deleted"}${
+        a.brandId ? ` · written for ${escapeHtml(a.brandName || "a company")}` : ""}${
+        gone ? " · that company has been deleted since, so Restore files this under your first one" : ""}</p>
+      ${ad.hook ? `<p class="bp-hint trash-hook">“${escapeHtml(ad.hook)}”</p>` : ""}
+    </div>
+  </details>`;
+}
+
 function renderTrash() {
   const host = document.getElementById("trash-list");
   if (!host) return;
@@ -2786,78 +3040,30 @@ function renderTrash() {
   // side effect of visiting another view, and hydrate() now writes through to
   // ME.trash, so asking here is what makes these rows name themselves.
   hydrateStale();
-  host.innerHTML = `<div class="bp-list">${items.map((a) => {
-    const gone = !brandById(a.brandId);
-    const ad = a.adaptation || {};
-    /* The frame, same as everywhere else. Deciding what to restore off eight
-       near-identical instagram.com/p/… URLs meant reading permalinks; the
-       thumbnail is how you actually recognise which video it was.
-       Falls back to coverUrl() because a trash entry keeps its own copy of
-       `source` — if that copy predates covers, a sibling of the same video
-       still has one (coverUrl already searches the trash as well as the live
-       list), and thumbHtml renders nothing at all when neither does. */
-    const cover = (a.source || {}).cover
-      || coverUrl({ libraryId: a.libraryId, canon: a.sourceUrl ? canonUrl(a.sourceUrl) : "" });
-    return `<div class="bp-item trash-row" data-adid="${escapeHtml(a.id)}">
-      ${thumbHtml(cover, entryLabel(a), a.sourceUrl)}
-      ${/* .trash-main is a toggle on a phone only: the meta line is hidden there
-            and tapping the title drops it down. On desktop the meta is always
-            visible and the class this sets does nothing. */""}
-      <div class="trash-main" data-adid="${escapeHtml(a.id)}">
-        <div class="bp-name"><span class="trash-caret" aria-hidden="true">\u25b8</span>${escapeHtml(entryLabel(a))}</div>
-        ${/* The hook is wrapped so the phone can drop it: it is the longest part
-              of this line and the least useful when you are deciding whether to
-              restore something. Brand and age stay. */""}
-        <p class="bp-hint">${escapeHtml(a.brandName || "—")}${gone ? " · company deleted" : ""}
-          · deleted ${escapeHtml(agoLabel(a.deletedAt))}${ad.hook ? `<span class="trash-hook"> · “${escapeHtml(ad.hook.slice(0, 60))}”</span>` : ""}</p>
-      </div>
-      <span class="trash-actions">
-        ${(() => { const href = safeUrl(a.sourceUrl || "");
-          /* aria-label, not just title: the link's own content is the "↗"
-             character, and content beats title in the accessible-name
-             calculation — so without this a screen reader announced the arrow.
-             The other .bp-open (see openLinkHtml) already names its platform. */
-          return href ? `<a class="bp-open" href="${escapeHtml(href)}" target="_blank"
-            rel="noopener noreferrer" aria-label="Open the original video"
-            title="Open the original video"><span aria-hidden="true">\u2197</span></a>` : ""; })()}
-        ${/* Icon + word. The phone hides the word (see .trash-restore-txt) so all
-              three controls fit on the thumbnail's line instead of costing a
-              whole extra row. */""}
-        <button type="button" class="ghost trash-restore" data-adid="${escapeHtml(a.id)}" aria-label="Restore" title="Restore">
-          ${/* A bin with an arrow lifting out of it — "take this back out of the
-                trash", rather than the generic undo curl, which reads as
-                "revert an edit". Same 24-box and 1.8 stroke as the delete icon
-                beside it, so the pair looks like a set. */""}
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-            ><path d="M12 9V2"/><path d="M9 5l3-3 3 3"/><path d="M4 11h16"/><path
-              d="M6 11l1 9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-9"/></svg>
-          <span class="trash-restore-txt">Restore</span>
-        </button>
-        ${/* Removes the script from YOUR trash only. The pasted video itself
-              stays in lynxr_sources — that table is keyed by canonical URL and
-              shared across every creator, so one person emptying their bin must
-              never take a source row out from under the others. Same rule
-              delete_account.sql already follows. */""}
-        <button type="button" class="ghost danger icon-only trash-purge" data-adid="${escapeHtml(a.id)}"
-          aria-label="Delete permanently" title="Delete permanently \u2014 the video stays in the shared library">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-            ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
-        </button>
-      </span>
-    </div>`;
-  }).join("")}</div>`;
+  host.innerHTML = `<div class="bp-list script-grid">${items.map(trashItemHtml).join("")}</div>`;
+
+  // The ↗ lives inside the <summary> and would otherwise open the video AND
+  // flip the card open behind it.
+  stopSummaryLinks(host);
+  // Animate the card shut as well as open, same as every other disclosure here.
+  wireDisclosureMotion(host);
+
+  /* ONE OPEN AT A TIME. An open card takes `grid-column: 1 / -1`, so three at
+     once cut the grid into stripes and everything the creator was comparing
+     moves. Same shape as the Library's handler. Safe on `toggle` here — unlike
+     an adaptation card, a trash card is never rendered already `open`, so the
+     insertion-time toggle that <details open> fires cannot reach this. */
+  const cards = [...host.querySelectorAll("details.trash-card")];
+  cards.forEach((d) => d.addEventListener("toggle", () => {
+    if (!d.open) return;
+    cards.forEach((other) => { if (other !== d) other.open = false; });
+  }));
 
   /* Permanent delete drops the entry from ME.trash and nothing else. It does
      NOT touch lynxr_sources: that row describes a public video, is keyed by
      canonical URL and is shared by every creator, so emptying one bin must not
      remove it for anyone else. Two-click armed, like every other destructive
-     control here. */
-  host.querySelectorAll(".trash-main").forEach((main) => main.addEventListener("click", () => {
-    main.closest(".trash-row")?.classList.toggle("open");
-  }));
-
+     control here — armDelete already stops the click reaching the summary. */
   host.querySelectorAll(".trash-purge").forEach((btn) => armDelete(btn, "Delete permanently", () => {
     const i = (ME.trash || []).findIndex((x) => x.id === btn.dataset.adid);
     if (i < 0) return;
@@ -2866,7 +3072,13 @@ function renderTrash() {
     renderSide(); renderPane();
   }));
 
-  host.querySelectorAll(".trash-restore").forEach((btn) => btn.addEventListener("click", () => {
+  host.querySelectorAll(".trash-restore").forEach((btn) => btn.addEventListener("click", (e) => {
+    /* The button sits INSIDE the <summary> now, and a click that reaches the
+       summary is the disclosure's activation behaviour — so without this,
+       restoring would also flip the card open on its way out. The bin beside
+       it gets the same treatment from inside armDelete, and the ↗ from
+       stopSummaryLinks. */
+    e.stopPropagation();
     const i = (ME.trash || []).findIndex((x) => x.id === btn.dataset.adid);
     if (i < 0) return;
     const [a] = ME.trash.splice(i, 1);

@@ -20,11 +20,17 @@
      Safari has ignored it since iOS 10 and it would only ever have blocked
      zoom on Android.
 
-     UNVERIFIED ON A REAL iPHONE — it cannot be tested from here. If Safari
-     still zooms on focus, the fallback is to rebuild the sort control as a
-     button plus a menu instead of a <select>: the zoom rule applies only to
-     real form controls, so a custom menu can use any type size with no
-     viewport tag at all. -->
+     UNVERIFIED ON A REAL iPHONE — it cannot be tested from here.
+
+     THE FALLBACK WAS TAKEN ON 2026-08-23, for the popup-size reason rather
+     than this one: the sort control is now a `<button>` plus a `.find-sort-
+     menu` listbox, not a `<select>`, because macOS was drawing the native
+     popup at the select's own --fs-135 and it was unreadable. This tag SURVIVES
+     that change and stays on this page regardless: the search input is still a
+     real `<input type="search">` at --fs-135, under the 16px floor, and is
+     still a focus-zoom trigger exactly like the select was. Retiring the tag
+     needed both controls off the floor, and only the sort control left. See
+     the .find-bar block in app.css for the full history. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content">
 <title>lynxr — creators</title>
 <!-- Link previews. This URL is handed out by hand, so the preview's only job
@@ -42,7 +48,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260823a">
+<link rel="stylesheet" href="/app.css?v=20260823d">
 </head>
 <body>
 
@@ -313,7 +319,7 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260823a" defer></script>
-<script src="/creator.js?v=20260823a" defer></script>
+<script src="/dotgrid.js?v=20260823d" defer></script>
+<script src="/creator.js?v=20260823d" defer></script>
 </body>
 </html>

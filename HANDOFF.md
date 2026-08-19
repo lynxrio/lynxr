@@ -128,6 +128,76 @@ real rather than a dead channel.
 
 ## Where this left off (read this first)
 
+**2026-08-23 — the creator find bar's sort control is a button + listbox now,
+not a `<select>`.** Plan: `~/.claude/plans/creator-sort-button-menu.md`.
+
+The owner opened the sort dropdown on the Library and said it was too small.
+Not fixable by raising the `<select>`'s own font-size: macOS draws a native
+select's popup at the select's own size, and the find bar came off the 16px
+iOS floor on 2026-08-19 down to `--fs-135` (12.5–13.5px) — so a bigger popup
+needs a popup that isn't a `<select>` at all. `app.css:3877`'s long decision
+comment had already named this exact fallback ("rebuild the sort control as a
+button plus a menu") as the passed-over option; this is that fallback, taken
+for the popup-size reason rather than the iOS-zoom reason it was written down
+for.
+
+**The closed control is measurably unchanged.** Same `--fs-135`, same 13px
+mobile padding, same `min-height: 44px` at ≤820px. Only `line-height` on
+`.find-bar .find-sort` moved (1.35 → 1.3) to hold its painted height within a
+fraction of a px of the old `<select>`'s:
+
+| width | font-size (before = after) | height before | height after |
+|---|---|---|---|
+| 320px | 12.5px | 44.5px | 44.25px |
+| 390px | 12.5278px | 44.5px | 44.29px |
+| 1440px | 13.5px | 37.5px | 37.55px |
+
+**The open menu is `--fs-18`** (15.5px at ≤360px, 18px at ≥1440px — one rung
+above the `--fs-16` the plan first specced, at the owner's request for
+"slightly bigger"), against the trigger's 12.5–13.5px: 1.24× on a phone, 1.33×
+on desktop. Row height is `min-height: 42px` on desktop, 44px at ≤820px —
+`.find-sort-opt` needed an explicit `line-height: 1.3` of its own, because the
+body's inherited 1.6 alone pushed a bare row to 44.8px before `min-height`
+ever got a say.
+
+**ARIA pattern:** button (`aria-haspopup="listbox"`, `aria-expanded`) plus
+`role="listbox"` popup, roving `aria-activedescendant`, focus moved INTO the
+menu on open. Not the ARIA 1.2 select-only combobox — a combobox's value is
+inferred from its text content, which has uneven screen-reader support; here
+the accessible name carries the current value explicitly instead
+(`"Sort your library: Newest first"`). Two native affordances deliberately
+dropped: type-ahead (four options, all visible, not needed), and commit-on-Tab
+(APG says commit; here Tab out closes the menu WITHOUT committing — changing
+the sort as a side effect of leaving is worse than losing an uncommitted
+highlight).
+
+**Viewport tag outcome.** `creatorsonly/index.html` KEEPS `maximum-scale=1` —
+`.find-bar input[type="search"]` is still under 16px and still a focus-zoom
+trigger, so retiring the tag needed both controls off the floor and only the
+sort control left. `agencyonly/index.html` LOSES it — `.find-bar`/`.find-sort`
+never appear in `app.js`, so the tag was never justified there; verified
+nothing else on that page sits under the 16px iOS floor. `/accessibility/`'s
+"what does not work yet" list is narrowed to name the creator app alone.
+
+Verified in a credential-free harness (`/tmp/lynxr-findbar-harness/`, not in
+the repo) using same-origin iframes at fixed CSS widths as a stand-in for a
+real viewport resize — the sandbox's browser window would not actually resize
+to 320/390/1440 (`resize_window` reported success but `innerWidth` never
+moved), so each width was measured via an iframe of that exact width instead,
+which gets its own independent CSS viewport. Confirmed there: painted
+font-size and height deltas above, no `style="…"` attribute ever written, zero
+CSP console violations, keyboard-only operation (Enter/Space/Arrow/Home/End
+open, arrows stop at the ends with no wrap, Enter commits and returns focus to
+the trigger, Escape cancels without changing the value, Tab closes without
+committing), and opening one bar's menu closes the other's. **Not verified
+live in the real signed-in app** — no credentials were available in this
+session; the harness proves geometry and behaviour, not integration. Also not
+verified: VoiceOver's literal announcement (checked structurally via the
+accessibility tree instead — `aria-haspopup="listbox"`, name carries the
+current value) and `prefers-reduced-motion` under live emulation (no CDP
+emulation tool in this session; the `@media (prefers-reduced-motion: reduce)`
+rules are in place and reviewed, not exercised).
+
 **2026-08-19 (later) — the public site became a real site, the paid-views sweep
 learned to see a fresh paste, and the legal set got written.** No plan file:
 this was a long interactive session, driven by the owner reviewing the preview
