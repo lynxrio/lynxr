@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-08-18.**
+Read this, then `README.md` for architecture. **Last updated 2026-08-19.**
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -8,10 +8,18 @@ pipeline. Three surfaces, one stylesheet (`app.css`):
 
 | path | file | who |
 |---|---|---|
-| `/` | `index.html` + `home.js` | public — wait list capture only |
+| `/` | `index.html` + `site.js` | public — marketing page. hero, how it works, our team |
+| `/waitlist/` | `waitlist/` + `home.js` | public — the only funnel. every CTA lands here |
+| `/faq/` | static + `FAQPage` JSON-LD | public — the SEO/GEO page |
+| `/privacy/` `/terms/` `/accessibility/` | static | public — the legal set, linked from every footer |
 | `/creatorsonly/` | `creator.js` | creators — paste a link, get a script |
 | `/agencyonly/` | `app.js` | staff — database, briefs, clients |
-| `/privacy/` | static | the privacy policy, linked from all three |
+
+`site.js` carries the shared chrome (floating bar, mobile menu, smooth scroll)
+on the **six public pages only** — never the two apps. `img/` holds the founder
+headshots. `robots.txt` + `sitemap.xml` cover the public set; **neither names
+the two app paths, not even in a comment** — robots.txt is served to anyone, so
+naming a path there publishes it.
 
 ---
 
@@ -119,6 +127,140 @@ real rather than a dead channel.
 ---
 
 ## Where this left off (read this first)
+
+**2026-08-19 (later) — the public site became a real site, the paid-views sweep
+learned to see a fresh paste, and the legal set got written.** No plan file:
+this was a long interactive session, driven by the owner reviewing the preview
+and correcting it.
+
+### The bug that made the Apify work nearly useless
+
+`fetch_meta` stamps `metrics_at` at **paste** time while leaving `views` as
+`None` — the paste path never pays. So a brand-new Instagram row was neither
+null nor older than `VIEWS_PAID_MAX_AGE_H` (168h), and **`refresh_views()`
+could not see it for a week**. A creator pasting a reel would have watched a
+blank where the count goes until the following Tuesday. This is the same
+mechanism that stranded 7 rows earlier the same day.
+
+Fixed with `views_or_clause(now, max_age_h, retry_h, retry_window_h)` — pure and
+top-level, for the same reason `too_young()` is: the *selection rule* was the
+thing that was wrong, so it has to be testable without a database. Paid pools
+get a third way to qualify: `views IS NULL` **and** `first_seen_at` younger than
+`VIEWS_PAID_RETRY_WINDOW_H` (24h) **and** `metrics_at` older than
+`VIEWS_PAID_RETRY_H` (2h). A real paste succeeds on its first retry, ~2h in. A
+genuinely dead post (deleted, private) costs ~12 lookups over the window,
+about **$0.03**, then falls back to the weekly clock forever instead of being
+retried every sweep at $0.0023 a time until somebody notices.
+
+**No schema change** — `lynxr_sources.first_seen_at` already existed. The naive
+fix (just select `views IS NULL`) is the trap: unbounded spend on dead posts.
+
+Proven three ways, because `refresh_views()` swallows exceptions and a
+malformed query would have **silently stopped all refreshing forever**:
+PostgREST accepts the nested `and(...)`; the retry branch positively selects an
+absent row and no row that already has a number; `test_views.py` is at 63
+checks. Coverage after the backfill: **23 of 24 Instagram rows carry a real
+count**, 15 creator cards show one.
+
+### The public site
+
+`/` is now **hero → how it works → our team → footer** and nothing else. Case
+studies, testimonials, explainers, video demos, metrics and a client-logo strip
+were all considered and cut. Lynxr presents as its own product; the Lynx Media
+Group affiliation is carried by the footer credit alone.
+
+New: `/waitlist/` (the form moved off `/` onto its own URL), `/faq/` with
+`FAQPage` JSON-LD, `/accessibility/`, `robots.txt`, `sitemap.xml`, and one
+shared floating-capsule bar + footer spliced from a single definition onto all
+six public pages. Nav centring measured at **0.00px off** on every page.
+
+Shape language is **capsules for controls, circles for small affordances,
+generous corners but not capsules for containers**. Two padding tiers: generous
+for primary CTAs, slight for chips. **The caret clearance rule is optical, not
+`padding ≥ radius`** — on a capsule the curve reaches the edge at mid-height and
+only intrudes near top and bottom (~0.7px for text, ~2.4px for a caret), so
+`padding ≥ radius` would produce absurdly chunky pills. Measured clearance on
+the wait-list field: 12.63px at 390px.
+
+The bar **slides** out and back rather than fading — which also deleted the
+`visibility`-delay machinery whose directional bug made the reveal pop. Mobile
+hamburger below 760px. The hero ring pulse animates **`inset`, not
+`transform: scale()`**: scale is proportional, so on a 199×70.8 capsule it added
+15.6px at the ends and only 5.6px top and bottom, a 2.8× asymmetry that read as
+a horizontal halo.
+
+**Two bugs that would have shipped silently.** `site.js` was **CSP-blocked on
+`/privacy/`, `/terms/` and `/accessibility/`** — those three had
+`default-src 'none'` with no `script-src`, so the bar and burger were dead on
+all three and the only trace was one console line. And the **wordmark text
+vanished under 640px on all six public pages**, because a `max-width: 640px`
+rule written for the *agency app's* header matched the new `.lp-bar`, which is
+also a `<header>`. Exactly the shared-stylesheet trap this file keeps warning
+about.
+
+`--text-3` (3.76:1) was painting the site nav, footer tagline and © credit —
+fine for an icon, fails AA for text. Those three text uses moved to `--text-2`
+(**7.92:1**). Icons and the `aria-current` dot stay at `--text-3` deliberately.
+
+### The legal set
+
+Terms of service written and published. **Both `/terms/` and `/privacy/` now
+say 18 or older** — for a while they contradicted each other, terms at 18 and
+the privacy policy's children section still at 13. Massachusetts law, Suffolk
+County venue. The registration-number line was deleted rather than filled: it
+is not required on a terms page.
+
+**Four `.legal-todo` red flags remain on purpose** and must stay visibly red:
+billing (to be completed when pricing exists), the liability cap (drafted, not
+reviewed), governing law (drafted, not reviewed), and the banner that explains
+the convention. The two "drafted, not reviewed" clauses stop being theoretical
+**the moment a payment is taken** — that is a stage-2 prerequisite, not a
+stage-1 one.
+
+`/accessibility/` names two real gaps rather than claiming conformance:
+pinch-zoom is suppressed on the two signed-in app pages (a WCAG 1.4.4 trade the
+owner accepted so the find-bar type could match its surroundings; the public
+pages stay fully zoomable), and `.bp-wait` measures 3.39:1 in list rows.
+
+### Decisions from this session — do not re-litigate
+
+- **Tagging stays on Opus 5.** The swap to Haiku 4.5 was made, verified live
+  (HTTP 200, effort correctly omitted), and then **reverted** — unmeasured, and
+  the whole creator-path saving is under $1 across every script ever written.
+  It buys no latency either: tags run in parallel with the shot list and shots
+  are the longer of the two.
+- **The $11 Opus-vs-Haiku tagging A/B was declined**, correctly — it settles a
+  question worth well under a dollar on the creator path.
+- **The ~9,000 previously scraped `lynxr_videos` rows are out of scope**, by
+  standing instruction. Do not propose re-tagging, re-scraping or refreshing
+  them; scope any migration to `data_source = 'Creator'`. They are **not** to be
+  deleted — they back the agency app's database view.
+- **Haiku 4.5 cannot cache the tag prefix.** Its minimum cacheable prefix is
+  4,096 tokens and the tag prefix is ~1,978, measured `cache_creation = 0`
+  against 1162/1553 for the two Opus calls. That compresses the headline 5×
+  price gap to about 3× and is worth knowing before anyone re-proposes the swap.
+
+### Still open
+
+- **`upsert_video()` still writes `views = meta.get("views") or 0`**
+  (`process_adaptations.py`), so every creator-pasted Instagram video enters
+  `lynxr_videos` with a fake zero. It was deliberately not fixed:
+  `lynxr_videos.views` is `bigint not null default 0`, so absent-as-absent needs
+  a **schema change** on a table the owner has put out of scope. Owner's call.
+- **`SUPABASE_SERVICE_ROLE_KEY` in GitHub Actions still has a trailing
+  newline.** `envcfg` strips it so CI is green, but the secret itself is
+  malformed and should be re-saved.
+- **Nothing iOS is verified.** No iPhone available and the automation browser is
+  Chromium — so the pinch-zoom suppression, the literal 16px behaviour, iOS
+  rubber-band clamping and the `position: fixed` body-lock restore are all
+  reasoned, coded, and unproven on the target platform.
+- **The card meta-row one-line matrix was not re-measured** after the capsule
+  padding work; it needs a signed-in session and the real `pingo ai` TikTok
+  record (`script ready` + eye + `31` + `0:17`, the only row in the corpus with
+  both a view count and a brand-page chip). Every creator-app component
+  measured byte-identical to HEAD, so it cannot have moved — but the previous
+  worst case of **4.0px at 320px** stands unchecked.
+
 
 **2026-08-19 — Instagram now has real view counts too, paid for through the
 agency's own Apify actor, riding the idle sweep and nowhere near the paste

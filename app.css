@@ -2575,6 +2575,17 @@
     align-items: center; justify-content: center;
     padding: 56px 24px; text-align: center; max-width: 720px; margin: 0 auto;
   }
+  /* /waitlist/ GREW A BAR AND A FOOTER (2026-08-19), so its <main> is no longer
+     the whole page and `min-height: 100svh` no longer means "one screen". Left
+     alone it measured 1.7 screens of scroll for a page with one field on it: a
+     72px sticky bar, then a full viewport of centred main, then a ~330px footer.
+     min-height comes off and the vertical rhythm becomes padding — still
+     generous, still comfortably above the fold at 390px and 1440px, and the
+     footer now lands just under the fold instead of a screen below it.
+     The class is on the element rather than on <body> so nothing else that
+     wears .home is affected. */
+  .home-chrome { min-height: 0; padding: 52px 24px 76px; }
+  @media (max-width: 560px) { .home-chrome { padding: 34px 18px 56px; } }
   .home .wordmark { font-size: var(--fs-30); gap: 12px; margin-bottom: 44px; }
   .home .mark { width: 32px; height: 32px; }
   .home-lead {
@@ -2594,7 +2605,12 @@
     margin: 0 auto 30px; max-width: 48ch;
   }
 
-  .home-cta { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 0 0 44px; }
+  /* NO BOTTOM MARGIN. There used to be a note paragraph under this button and
+     the 44px separated the two; the note is gone, so the margin was 44px of
+     nothing stacking on top of the hero's own 56px bottom padding and the next
+     section's 104px — measured 204px between the button and "how it works",
+     which is the dead band the owner reported. 160px now. */
+  .home-cta { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 0; }
   /* Worn together with .btn, so this is the solid fill plus a larger tap
      target — .home-go comes later in the file, so its padding and font-size
      win over .btn's on equal specificity. inline-flex is what makes the
@@ -2676,17 +2692,36 @@
      PAUSED ON HOVER AND FOCUS: the ring exists to catch an eye before anyone
      has reached the button. `animation: none` rather than `play-state: paused`,
      which would freeze a half-grown ring on screen. */
+  /* IT GROWS BY EQUAL PIXELS ON ALL FOUR SIDES, AND THAT IS WHY IT IS `inset`
+     AND NOT `transform: scale()`.
+
+     The first version scaled the pseudo-element 1 → 1.16, and the owner's report
+     was that the pulse was "missing above and below". It was not missing — scale
+     is PROPORTIONAL, and this button is a wide short capsule. Measured on the
+     real element (198x72 at the time): scale(1.16) adds 0.16 x 198 / 2 = 15.8px
+     at each END and 0.16 x 72 / 2 = 5.8px at the top and bottom. Nearly three
+     times as much ring off the ends as off the faces, which is exactly what
+     "there is nothing above and below" looks like.
+
+     Animating `inset` from 0 to -14px adds 14px on every side by construction,
+     whatever the button's aspect ratio turns out to be. It is four length
+     interpolations instead of one matrix, which is a slightly more expensive
+     animation — worth it, because the cheap version was drawing the wrong shape.
+
+     border-radius is the pill token EXPLICITLY, not `inherit`: a ring that grows
+     14px taller needs its corners to stay half its own height, and 999px always
+     resolves to that. A fixed radius would square off as the ring grows. */
   .home-go { position: relative; }
   .home-go::after {
     content: ""; position: absolute; inset: 0; z-index: -1;
-    border-radius: inherit; background: var(--text);
+    border-radius: var(--r-pill); background: var(--text);
     opacity: 0; pointer-events: none;
     animation: cta-ping 2.2s var(--ease) infinite;
   }
   @keyframes cta-ping {
-    0%   { transform: scale(1);    opacity: .45; }
-    70%  { transform: scale(1.16); opacity: 0; }
-    100% { transform: scale(1.16); opacity: 0; }
+    0%   { inset: 0;      opacity: .40; }
+    70%  { inset: -14px;  opacity: 0; }
+    100% { inset: -14px;  opacity: 0; }
   }
   .home-go:hover::after, .home-go:focus-visible::after, .home-go:active::after { animation: none; }
   /* THE GUARD LIVES IN THIS BLOCK ON PURPOSE. A continuous loop is the single
@@ -2697,6 +2732,42 @@
      it.) */
   @media (prefers-reduced-motion: reduce) {
     .home-go::after { animation: none; opacity: 0; }
+  }
+
+  /* ---- THE ROCKET ON `try it` (owner, 2026-08-19) ----
+     It REPLACES the → arrow on the hero CTA, the header CTA and the footer
+     link, and it is deliberately NOT on the wait-list form's circular submit —
+     that button is 44px of circle with a 15px glyph in it and an emoji there
+     reads as a sticker.
+
+     ARIA-HIDDEN IN THE MARKUP, so every one of those controls still announces
+     as "try it" rather than "try it rocket". The visible label is the only thing
+     that changed.
+
+     HOVER AND FOCUS ONLY, never a loop. The hero button already carries the
+     page's one resting animation (the ring below), and a second continuous
+     thing next to it would be two animations competing for the same eye.
+     Transform only — a translate on an out-of-flow-neutral inline-block cannot
+     move anything else on the row, so the label does not shift under it.
+
+     .96em, not 1em: the emoji's own em box is taller than the Latin cap height
+     it sits beside, so at 1em it stands a pixel proud of the label. */
+  .rk {
+    display: inline-block; flex: none; font-size: .96em; line-height: 1;
+    transform: translate(0, 0);
+    transition: transform .2s var(--ease);
+  }
+  .btn:hover .rk, .btn:focus-visible .rk,
+  .lp-foot-links a:hover .rk, .lp-foot-links a:focus-visible .rk {
+    transform: translate(2px, -3px);
+  }
+  /* The guard sits in the same block as the rule it disables, per the motion
+     policy — a guard 1,000 lines away is one that gets orphaned by the next
+     edit. */
+  @media (prefers-reduced-motion: reduce) {
+    .rk { transition: none; }
+    .btn:hover .rk, .btn:focus-visible .rk,
+    .lp-foot-links a:hover .rk, .lp-foot-links a:focus-visible .rk { transform: none; }
   }
 
   .home-alt { color: var(--text-3); font-size: var(--fs-13); border-bottom-color: var(--line); }
@@ -2772,7 +2843,14 @@
      address scrolls to a stop before the circle rather than under it.
 
      flex-wrap goes with the gap: there is nothing left to wrap. */
-  .wait-form { display: flex; position: relative; }
+  /* THE RING BELONGS TO THE WHOLE UNIT, and `border-radius` on the FORM is what
+     makes it trace a capsule rather than a rectangle: an outline takes the
+     radius of the box it is drawn on, and this box had none, so a ring here
+     would have been a rounded-rectangle sleeve around a pill. The form's border
+     box is exactly the input's border box (measured 304x52 at 390px, identical
+     x/y), so this is the same shape at the same place — it just belongs to the
+     pair now instead of to one half of it. */
+  .wait-form { display: flex; position: relative; border-radius: var(--r-pill); }
   /* Required, not tidiness: home.js hides this form on success with
      `.hidden = true`, and the UA stylesheet's [hidden] { display: none } is a
      weaker selector than the .wait-form rule above — so the form stayed on
@@ -2803,7 +2881,18 @@
      is not a focus indicator, it is a rumour of one. Clicking still gets the
      quiet border; arriving by Tab gets the same ring as every other control on
      the site. */
-  .wait-form input:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  /* :focus-within ON THE FORM, not :focus-visible on the input. The field and
+     the submit are ONE control now, so "you are in here" has to be one ring
+     around the pair — two independent rings on two halves of a single capsule is
+     what it looked like before, and the button's ring is drawn INSIDE (see
+     below) precisely so the two never read as one smeared outline.
+     This does mean a MOUSE click now gets the ring too, where before a click got
+     only the quiet border swap. That is the trade for the ring belonging to the
+     unit; it is one field on one page and the louder indicator is the safer
+     side to err on. The quiet border swap above still fires underneath it. */
+  .wait-form:focus-within { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  /* The input no longer draws its own — it would double up inside the unit's. */
+  .wait-form input:focus-visible { outline: none; }
   /* ICON-ONLY, owner's call 2026-08-19. It briefly carried the words "join
      wait list"; at the card's real width those two words wrapped to two lines
      and the button grew into a tall slab beside a single-line field. The words
@@ -3001,6 +3090,42 @@
      Unset it here, where the SECTION is the full-bleed thing and .lp-in is the
      only max-width on the page. Scoped to a body class so the apps keep theirs;
      `main` (0,0,1) loses to `.lp main` (0,1,1) regardless of order. */
+  /* ---- SMOOTH SCROLL TO A SECTION (owner, 2026-08-19: "when i click on a
+     section like how it works, have a scroll animation to that section") ----
+
+     THE CLASS IS THE SCOPE. `scroll-behavior: smooth` on a bare `html` would
+     reach BOTH APPS, and the creator app's scrollCardIntoView already animates a
+     card to the top itself — two animations on the same scroll container fight,
+     and the visible result is a card that overshoots and drifts back. site.js
+     adds `lp-smooth` and site.js is on the six public pages only, so the apps
+     cannot inherit it. (A class, added from JS, rather than a style attribute:
+     style-src is 'self'.)
+
+     THE GUARD IS IN CSS, IN THIS BLOCK, not in the script. A media query cannot
+     be forgotten the way a JS branch can, and it responds live when someone
+     turns the setting on with the page already open.
+
+     THE ANCHOR OFFSET IS ALREADY HANDLED, AND ADDING ONE AGAIN WAS A BUG. A
+     first pass put `scroll-margin-top: 88px` on the sections here, and the
+     landing came out at 164px instead — because `html { scroll-padding-top:
+     76px }` (line ~137, written for the app's 56px sticky header) applies to the
+     scroll CONTAINER and STACKS with a scroll-margin on the target. Measured:
+     #how landed at y=163.6 = 76 + 88, leaving 88px of the hero's tail on screen
+     above it, which reads as "not quite arrived". The rule was removed; the
+     existing 76px is already >= this bar's 72px visible height, so a section
+     lands 4px clear of the capsule with its own 104px of top padding under
+     that. Do not re-add one without subtracting the other.
+
+     THERE IS ALSO A `@media (prefers-reduced-motion) { html { scroll-behavior:
+     auto } }` further up this file — it does NOT cover the rule below, because
+     `html` is (0,0,1) and `html.lp-smooth` is (0,1,1) and would win inside that
+     query. Hence the explicit guard here. Verified: reduced motion reports
+     `scroll-behavior: auto` and the jump samples one scrollY value, not ten. */
+  html.lp-smooth { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html.lp-smooth { scroll-behavior: auto; }
+  }
+
   .lp main { padding: 0; max-width: none; margin: 0; }
   .lp-in { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 24px; }
   @media (max-width: 560px) { .lp-in { padding: 0 18px; } }
@@ -3121,15 +3246,49 @@
      so an 8px left margin put the links 4px right of centre — measured 724.0
      against a bar centre of 720.0, which is exactly half of it. */
   .lp-nav { display: flex; align-items: center; gap: 22px; min-width: 0; margin: 0; }
+  /* ---- CONTRAST ON THE SHARED CHROME, RAISED 2026-08-19 ----
+     Measured on the live pages: --text-3 (#6b6b76) on --bg (#0a0a0b) is
+     **3.76:1**. That is fine for an ICON (the 3:1 non-text threshold) and fine
+     for the 3px aria-current dot, and it fails WCAG AA's 4.5:1 for TEXT. It was
+     painting the main site navigation, the footer tagline and the © credit —
+     and this chrome was about to go onto four more pages, one of which is the
+     accessibility statement. So the three TEXT uses move to --text-2
+     (#a3a3ad), **7.92:1**, which is still visibly a step below --text
+     (16.94:1) and still reads as secondary. The icons and the dot stay at
+     --text-3 deliberately. */
   .lp-nav a {
-    color: var(--text-3); font-size: var(--fs-13); border-bottom: 0; white-space: nowrap;
+    color: var(--text-2); font-size: var(--fs-13); border-bottom: 0; white-space: nowrap;
     transition: color .14s var(--ease);
   }
   .lp-nav a:hover { color: var(--text); }
+  /* THE PAGE YOU ARE ON, QUIETLY. aria-current="page" is what a screen reader
+     reads; this is what an eye sees — the label at full brightness (the rest sit
+     at --text-3) plus a 3px dot under it.
+
+     THE DOT IS ABSOLUTELY POSITIONED, and that is the whole reason it is a
+     pseudo-element rather than a border-bottom: .lp-nav is align-items:center,
+     so anything that adds height to ONE link re-centres that link against the
+     others and the nav's baseline goes ragged by ~3px. Out of flow, it cannot.
+     Colour on top of a dot, not colour alone: :hover already reaches --text, so
+     brightness by itself would make "current" and "hovered" indistinguishable. */
+  .lp-nav a { position: relative; }
+  .lp-nav a[aria-current="page"] { color: var(--text); }
+  .lp-nav a[aria-current="page"]::after {
+    content: ""; position: absolute; left: 50%; bottom: -7px;
+    width: 3px; height: 3px; margin-left: -1.5px;
+    border-radius: var(--r-round); background: var(--text-3);
+  }
   /* The header CTA is the same button as everywhere else, one size down. */
   /* The header's copy of the CTA: the standard tier, not the prominent one.
      Two of the same button at hero size on one screen is one too many. */
-  .lp-bar .btn { flex: none; padding: 10px 22px; font-size: var(--fs-13); white-space: nowrap; }
+  /* inline-flex (blockified to flex by the grid) so the rocket is a flex item
+     centred against the label rather than an inline glyph sitting on a baseline
+     the emoji does not share — measured before this: the emoji's ink sat 2px low
+     and pushed the button 1px taller. */
+  .lp-bar .btn {
+    flex: none; padding: 10px 22px; font-size: var(--fs-13); white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
   /* NARROW: THE NAV WRAPS TO ITS OWN CENTRED LINE rather than being hidden or
      crushed. Measured at 414px the three links plus the wordmark plus the
      button need ~410px of a 366px content width, so they cannot share a row —
@@ -3162,10 +3321,22 @@
       border-radius: var(--r-pill);
     }
     .lp-bar .wordmark { margin-left: 20px; }
+    /* THE WORD "lynxr." WAS DISAPPEARING UNDER 640px ON ALL SIX PUBLIC PAGES,
+       and nothing in this block did it: `@media (max-width: 640px) { header
+       .wordmark span { display: none } }` further up the file is the AGENCY
+       APP's rule — it drops the text to make room for that header's tab strip —
+       and `.lp-bar` is a <header>, so it matched here too. The public bar has
+       one other item on it (a 44px burger), so there is room for the name of the
+       product. (0,2,1) beats (0,1,2). This is exactly the class of bug the "one
+       global stylesheet" note at the top of this block warns about. */
+    .lp-bar .wordmark span { display: inline; }
     .lp-nav, .lp-bar-in > .btn { display: none; }
     .lp-burger {
       display: grid; place-items: center; justify-self: end; margin-right: 9px;
-      width: 40px; height: 40px; padding: 0;
+      /* 44x44, not 40: this is the ONLY way to reach the nav on a phone, and 40
+         is the classic near-miss. The capsule grows 58px -> 62px to hold it,
+         which is still one row and still a capsule. */
+      width: 44px; height: 44px; padding: 0;
       background: none; border: 1px solid var(--line); border-radius: var(--r-pill);
       color: var(--text-2);
       transition: color .14s var(--ease), border-color .14s var(--ease),
@@ -3181,8 +3352,35 @@
     .lp-burger[aria-expanded="true"] .ico-open { display: none; }
     .lp-burger[aria-expanded="true"] .ico-close { display: block; }
 
+    /* OUT OF FLOW, AND THAT IS A CORRECTNESS FIX, NOT A LAYOUT PREFERENCE.
+
+       In flow, this panel is 220.5px tall inside the sticky bar, so OPENING it
+       grew the bar — and therefore the document — by 230.5px and pushed every
+       section down by that much. Two things went wrong that nobody would connect
+       to a menu:
+
+         1. Chromium's SCROLL ANCHORING compensated by adding 231px to scrollY,
+            so the offset site.js stored for the scroll lock was wrong. Measured:
+            the page was at 250, and `body { top }` was written as -481px.
+         2. Clicking "how it works" in the panel scrolled to the section's
+            position IN THE SHIFTED LAYOUT (documentH 3035 while open), and 190ms
+            later the panel went `hidden`, the page shrank back, and the section
+            ended up 154.7px ABOVE the top of the window. The smooth scroll
+            worked perfectly and landed in the wrong place.
+
+       `position: absolute` inside a bar that is already `position: sticky`
+       resolves against the bar's PADDING box — which INCLUDES the padding, so
+       `left: 0` is the viewport edge, not the capsule edge. Measured that
+       directly: the panel came out 390 wide at x=0 against a capsule of 362 at
+       x=14. So left/right repeat the bar's own 14px horizontal padding. If that
+       padding ever changes, these change with it — there is no way to say
+       "the content box" to an absolutely positioned child.
+       `top: 100%` is the bar's full height (74px at 390), which is the capsule's
+       bottom edge, because the bar has no bottom padding. The document height is
+       now identical open and closed. */
     .lp-menu {
-      display: block; margin: 10px auto 0; max-width: 1120px;
+      display: block; position: absolute; left: 14px; right: 14px; top: 100%;
+      margin: 10px 0 0;
       background: #0a0a0bf2; backdrop-filter: blur(10px);
       border: 1px solid var(--line); border-radius: var(--r-card);
       padding: 10px;
@@ -3198,11 +3396,29 @@
     }
     /* --surface-2 is the fill cards and chips already use. No new grey. */
     .lp-menu a:hover, .lp-menu a:focus-visible { color: var(--text); background: var(--surface-2); }
+    /* THREE THINGS HERE ARE FIXES, NOT STYLE, and each was measured broken:
+       — `width: 100%`. Without it the pill shrink-to-fit to 121x50 and sat hard
+         right inside a 340px panel, reading as a stray chip rather than as the
+         panel's action. A block-level flex container does NOT stretch here
+         because .lp-menu is a block, so the width has to be said.
+       — `color: var(--bg)`. `.lp-menu a` (0,1,1) out-specifies `.btn` (0,1,0),
+         so the pill was painting --text-2 text on the --text fill — measured
+         1.77:1, i.e. the label on the one action in the mobile menu was
+         effectively unreadable. 15.9:1 with this line.
+       — `gap`. The rocket is a flex item now; with no gap it butted straight
+         against the "t" of "try it". */
     .lp-menu .btn {
-      display: flex; justify-content: center; margin-top: 8px;
-      padding: 14px 24px; font-size: var(--fs-145);
+      display: flex; width: 100%; justify-content: center; align-items: center;
+      /* `margin: 8px 0 0`, NOT `margin-top`. The panel is inside .lp-bar, so
+         `.lp-bar .btn { margin-right: 8px }` (0,2,0, the desktop header's inset
+         from the capsule's end cap) also matches this element — and with
+         `width: 100%` that over-constrains the block, which Chromium resolved by
+         sliding the pill 8px LEFT of the links above it. Measured x=17 against
+         x=25; equal now. */
+      gap: 8px; margin: 8px 0 0;
+      padding: 14px 24px; font-size: var(--fs-145); color: var(--bg);
     }
-    .lp-menu .btn:hover { background: var(--text); }
+    .lp-menu .btn:hover { background: var(--text); color: var(--bg); }
     @media (prefers-reduced-motion: reduce) {
       .lp-menu { transition: none; }
     }
@@ -3237,11 +3453,17 @@
     width: 100%; padding: 104px 0; background: none; border: 0;
   }
   /* THE TOP OF THE HERO IS THE FIRST THING A STRANGER SEES, and 88px put the
-     headline almost against the bar. 136px is what opens it. The bottom stays
-     shorter than the top on purpose: the space under the button belongs to the
-     next section's own 104px, and doubling up there is what left a dead band
-     before the fold on a tall desktop window. */
-  .lp-hero { padding: 136px 0 88px; text-align: center; }
+     headline almost against the bar. 136px opened it and 168px is where the
+     owner wanted it (2026-08-19, "add more space above the headline") —
+     measured, the h1's top edge moves from y=208 to y=240 at 1440x900, which is
+     168px of air below a 72px bar.
+
+     THE BOTTOM CAME DOWN AT THE SAME TIME, 88 → 56, and the two go together.
+     The gap under the button is this padding PLUS the next section's own 104px,
+     so 88 was really 192px of nothing between the CTA and "how it works" — the
+     dead band the owner saw on a tall window. 56 makes it 160 and keeps the
+     hero's own weight above its centre line, where the content is. */
+  .lp-hero { padding: 168px 0 56px; text-align: center; }
   .lp-final { padding: 96px 0 104px; text-align: center; }
   @media (max-width: 760px) {
     /* Still the biggest gap on the page, but a phone cannot spend 104px twice
@@ -3260,6 +3482,14 @@
     font-size: clamp(30px, 6.4vw, 58px); font-weight: 600; line-height: 1.1;
     letter-spacing: -0.035em; color: var(--text); margin: 0 auto 22px; max-width: 16ch;
   }
+  /* THE ARROW IN THE HEADLINE. One notch down from the words either side of it,
+     because it is punctuation doing the work of a verb, not a third noun. It is
+     aria-hidden in the markup with an .sr-only "becomes" beside it, so the
+     announced headline is a sentence.
+
+     No margin: the glyph already carries its own side bearings, and the markup
+     puts a real space before it. */
+  .lp-h1 .lp-arrow { color: var(--text-2); font-weight: 500; }
   .lp-h2 {
     font-size: clamp(21px, 3.2vw, 32px); font-weight: 600; line-height: 1.2;
     letter-spacing: -0.025em; color: var(--text); margin: 0 0 16px;
@@ -3380,7 +3610,12 @@
      footer is the same object doing the same job, so it goes with it and the
      separation is space. Reverting is one border declaration if that reads as
      too loose. */
-  .lp-foot { width: 100%; padding: 96px 0 44px; }
+  /* 96 -> 68 on top. The last section already ends with its own 104px of bottom
+     padding, so 96 here made a 200px empty band above the footer — measured, and
+     the same "dead space" shape the owner flagged under the hero button. 172px
+     is still the largest gap on the page and still separates by space alone,
+     with no rule drawn. */
+  .lp-foot { width: 100%; padding: 68px 0 44px; }
   .lp-foot-in {
     display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
     gap: 32px; align-items: start;
@@ -3389,11 +3624,22 @@
                               .lp-foot-brand { grid-column: 1 / -1; } }
   .lp-foot .wordmark { font-size: var(--fs-18); margin: 0 0 10px; }
   .lp-foot a.wordmark { border-bottom: 0; }
-  .lp-foot-line { color: var(--text-3); font-size: var(--fs-125); line-height: 1.6; margin: 0 0 16px; max-width: 34ch; }
+  /* --text-2, not --text-3: 7.92:1 rather than 3.76:1. See the note in the bar. */
+  .lp-foot-line { color: var(--text-2); font-size: var(--fs-125); line-height: 1.6; margin: 0 0 16px; max-width: 34ch; }
   .lp-foot-h { font-size: var(--fs-11); letter-spacing: .12em; color: var(--text-3); margin: 0 0 12px; display: block; }
   .lp-foot-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
   .lp-foot-links a { color: var(--text-2); font-size: var(--fs-125); border-bottom: 0; transition: color .14s var(--ease); }
   .lp-foot-links a:hover { color: var(--text); }
+  /* Same "you are here" treatment as the nav, one notch quieter: the footer is
+     already a list of places you are not, so full-brightness text is enough and
+     a second dot down here would be noise. */
+  .lp-foot-links a[aria-current="page"] { color: var(--text); }
+  /* THE ONE PLACE THE ROCKET NEEDS ITS OWN MARGIN. Every other `try it` is a
+     flex row (.lp-bar .btn, .lp-menu .btn, .home-go) and the row's `gap` does
+     the spacing; this one is a plain inline <a> in a list, so the glyph butted
+     straight against the "t" — measured 0px, painted as "try it🚀". em, not px,
+     so it tracks the label if the footer type ever changes. */
+  .lp-foot-links .rk { margin-left: .55em; }
   /* Socials. Icon plus an accessible name, never an icon alone — and never an
      icon font or a CDN sprite: img-src/font-src are 'self', and a remote sprite
      would be a request to somebody else on a page that currently makes none. */
@@ -3407,12 +3653,17 @@
   .lp-social a:hover { color: var(--text); border-color: var(--line-2); background: var(--surface); }
   .lp-social a:active { transform: scale(.94); }
   .lp-social svg { width: 17px; height: 17px; display: block; }
+  /* THIS LINE IS THE AFFILIATION. There is no second "lynxr is part of…"
+     sentence anywhere in the footer — the credit carries it, so there is only
+     one place to keep correct. --text-2 for the same 3.76 -> 7.92:1 reason as
+     the tagline and the nav; it is the smallest type in the footer, which is
+     exactly the wrong place to be under AA. */
   .lp-foot-legal {
     margin-top: 44px;                  /* space, not a rule — see .lp-foot */
-    color: var(--text-3); font-size: var(--fs-12); line-height: 1.7;
+    color: var(--text-2); font-size: var(--fs-12); line-height: 1.7;
   }
-  .lp-foot-legal a { color: var(--text-3); border-bottom-color: var(--line); }
-  .lp-foot-legal a:hover { color: var(--text-2); }
+  .lp-foot-legal a { color: var(--text-2); border-bottom-color: var(--line-2); }
+  .lp-foot-legal a:hover { color: var(--text); }
 
   /* ---- the FAQ page (/faq/) ---- */
   /* <details>, not a stack of headings: the point of an FAQ is scanning the

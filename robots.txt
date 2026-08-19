@@ -1,6 +1,6 @@
 # lynxr.io
 #
-# DO NOT ADD A Disallow LINE FOR /creatorsonly/ OR /agencyonly/.
+# DO NOT ADD A Disallow LINE FOR EITHER OF THE UNLISTED APP PATHS.
 #
 # robots.txt is a public file served to anyone who asks for it, so a Disallow
 # line publishes the exact path it is meant to hide — it is the first place

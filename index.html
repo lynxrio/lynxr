@@ -16,9 +16,9 @@
      scale on a public marketing page costs a low-vision reader their
      pinch-zoom for nothing. -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>lynxr — turn any video into your script</title>
-<meta name="description" content="Send any TikTok, Instagram or YouTube link. lynxr pulls out the format underneath it — the hook, the beats, the order they come in — and rewrites it as a script for the brand you make content for.">
-<meta property="og:title" content="lynxr — turn any video into your script">
+<title>lynxr — any video becomes tailored scripts</title>
+<meta name="description" content="Any video becomes tailored scripts. Send a TikTok, Instagram or YouTube link; lynxr pulls out the format underneath it — the hook, the beats, the order they come in — and rewrites it as a script for the brand you make content for.">
+<meta property="og:title" content="lynxr — any video becomes tailored scripts">
 <meta property="og:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="lynxr">
@@ -27,14 +27,14 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="lynxr — turn any video into your script">
+<meta name="twitter:title" content="lynxr — any video becomes tailored scripts">
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og.png">
 <link rel="canonical" href="https://lynxr.io/">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="favicon.png">
 <link rel="shortcut icon" href="favicon.ico">
-<link rel="stylesheet" href="app.css?v=20260822h">
+<link rel="stylesheet" href="app.css?v=20260823a">
 </head>
 <!-- .lp unsets the app's bare main{} container so the sections below can be
      full-bleed. See the marketing-page block in app.css. -->
@@ -43,22 +43,45 @@
 <header class="lp-bar">
   <div class="lp-in lp-bar-in">
     <a class="wordmark" href="/"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></a>
-    <nav class="lp-nav" aria-label="Sections of this page">
-      <a href="#how">how it works</a>
-      <a href="#team">our team</a>
+    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+         fragment does nothing from /faq/ or /privacy/ — it appends a hash to
+         the current URL and stays put. -->
+    <nav class="lp-nav" aria-label="Main">
+      <a href="/#how">how it works</a>
+      <a href="/#team">our team</a>
       <a href="/faq/">faq</a>
     </nav>
-    <!-- ONE call to action on this site and this is it. "try it" is the owner's
-         word; where it leads is said in the hero, before it is pressed. -->
-    <a class="btn" href="/waitlist/">try it</a>
+    <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <!-- Under 760px the nav and the CTA above are display:none and this takes
+         their place. aria-expanded carries the state to a screen reader AND
+         drives which glyph is drawn, so the two cannot disagree. -->
+    <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
+            aria-expanded="false" aria-controls="lp-menu">
+      <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
   </div>
+  <!-- Inside the bar on purpose: the bar is the sticky element, so a panel
+       parented anywhere else would scroll away from the burger that opened it.
+       `hidden` — not opacity — is what takes these links out of the tab order
+       when it is closed. -->
+  <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
+    <a href="/#how">how it works</a>
+    <a href="/#team">our team</a>
+    <a href="/faq/">faq</a>
+    <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
+  </nav>
 </header>
 
 <main>
 
   <section class="lp-hero">
     <div class="lp-in">
-      <h1 class="lp-h1">turn any video into your script</h1>
+      <!-- The arrow is a GLYPH, not a word, so it is aria-hidden and an
+           .sr-only word stands in its place: the headline announces as "any
+           video becomes tailored scripts". Reading "any video right arrow
+           tailored scripts" aloud is the failure this avoids. -->
+      <h1 class="lp-h1">any video <span class="lp-arrow" aria-hidden="true">&rarr;</span><span class="sr-only">becomes</span> tailored scripts</h1>
       <!-- The whole explanation a stranger gets before the button: what you
            hand lynxr and what comes back. Nothing about speed — the measured
            end-to-end median is around two minutes and a cold start is longer,
@@ -75,7 +98,11 @@
              any public page. The note underneath says where the button goes
              BEFORE it is pressed, which is the difference between a call to
              action and a bait. -->
-        <a class="btn home-go" id="try-it" href="/waitlist/">try it<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <!-- THE ROCKET REPLACES THE ARROW here (owner, 2026-08-19). One glyph,
+             aria-hidden, so the accessible name stays exactly "try it"; it
+             nudges up and right on hover/focus only, never on a loop — the ring
+             behind this button is the page's one resting animation. -->
+        <a class="btn home-go" id="try-it" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
       </div>
     </div>
   </section>
@@ -176,8 +203,8 @@
   <div class="lp-in lp-foot-in">
     <div class="lp-foot-brand">
       <p class="wordmark"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></p>
-      <p class="lp-foot-line">turn any video into your script. lynxr is part of
-        <span class="entity">Lynx Media Group</span>.</p>
+      <p class="lp-foot-line">format intelligence for short&#8209;form video, built by
+        a short&#8209;form video agency.</p>
       <ul class="lp-social">
         <li><a href="https://www.instagram.com/lynxmediagroup/" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.4"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.15" fill="currentColor" stroke="none"/></svg></a></li>
         <li><a href="https://www.tiktok.com/@lynxmediagroup" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on TikTok"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 2h-3v13.4a2.7 2.7 0 1 1-2.7-2.7c.2 0 .4 0 .6.1V9.7a5.9 5.9 0 1 0 5.1 5.8V9.1a7 7 0 0 0 4 1.3V7.3a4.1 4.1 0 0 1-4-4.1V2z"/></svg></a></li>
@@ -187,10 +214,14 @@
     <div>
       <span class="lp-foot-h">lynxr</span>
       <ul class="lp-foot-links">
-        <li><a href="#how">how it works</a></li>
-        <li><a href="#team">our team</a></li>
+        <li><a href="/" aria-current="page">home</a></li>
+        <li><a href="/#how">how it works</a></li>
+        <li><a href="/#team">our team</a></li>
         <li><a href="/faq/">faq</a></li>
-        <li><a href="/waitlist/">try it<span class="sr-only"> &mdash; join the wait list</span></a></li>
+        <!-- Visible label "try it", accessible name "try it — join the wait
+             list". The .sr-only tail is inside the <a>, so it is part of the
+             name computation rather than a title attribute nobody hears. -->
+        <li><a href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span><span class="sr-only"> &mdash; join the wait list</span></a></li>
       </ul>
     </div>
     <div>
@@ -203,6 +234,8 @@
       </ul>
     </div>
   </div>
+  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+       of the sitewide lowercase text-transform. -->
   <div class="lp-in lp-foot-legal">
     &copy; <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a> 2026
   </div>
@@ -210,12 +243,12 @@
 
 <!-- The top bar's hide-on-scroll. Public pages only — see the file's
      own header for why it must never reach either app. -->
-<script src="site.js?v=20260822h" defer></script>
-<script src="dotgrid.js?v=20260822h" defer></script>
+<script src="site.js?v=20260823a" defer></script>
+<script src="dotgrid.js?v=20260823a" defer></script>
 <!-- home.js does two things here and neither of them is the form (which lives
      on /waitlist/): it carries a ?ref= / ?utm_ campaign tag across to the wait
      list page, and it no-ops on everything else. Every wiring in it is guarded
      on the element existing, so one file serves both pages. -->
-<script src="home.js?v=20260822h" defer></script>
+<script src="home.js?v=20260823a" defer></script>
 </body>
 </html>

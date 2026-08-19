@@ -28,7 +28,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260822h">
+<link rel="stylesheet" href="/app.css?v=20260823a">
 
 <!-- FAQPage STRUCTURED DATA.
      This is what makes the answers eligible for a rich result in Google and
@@ -156,12 +156,34 @@
 <header class="lp-bar">
   <div class="lp-in lp-bar-in">
     <a class="wordmark" href="/"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></a>
+    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+         fragment does nothing from /faq/ or /privacy/ — it appends a hash to
+         the current URL and stays put. -->
     <nav class="lp-nav" aria-label="Main">
       <a href="/#how">how it works</a>
       <a href="/#team">our team</a>
+      <a href="/faq/" aria-current="page">faq</a>
     </nav>
-    <a class="btn" href="/waitlist/">try it</a>
+    <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <!-- Under 760px the nav and the CTA above are display:none and this takes
+         their place. aria-expanded carries the state to a screen reader AND
+         drives which glyph is drawn, so the two cannot disagree. -->
+    <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
+            aria-expanded="false" aria-controls="lp-menu">
+      <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
   </div>
+  <!-- Inside the bar on purpose: the bar is the sticky element, so a panel
+       parented anywhere else would scroll away from the burger that opened it.
+       `hidden` — not opacity — is what takes these links out of the tab order
+       when it is closed. -->
+  <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
+    <a href="/#how">how it works</a>
+    <a href="/#team">our team</a>
+    <a href="/faq/" aria-current="page">faq</a>
+    <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
+  </nav>
 </header>
 
 <main>
@@ -332,7 +354,11 @@
         <li><a href="/">home</a></li>
         <li><a href="/#how">how it works</a></li>
         <li><a href="/#team">our team</a></li>
-        <li><a href="/waitlist/">try it<span class="sr-only"> &mdash; join the wait list</span></a></li>
+        <li><a href="/faq/" aria-current="page">faq</a></li>
+        <!-- Visible label "try it", accessible name "try it — join the wait
+             list". The .sr-only tail is inside the <a>, so it is part of the
+             name computation rather than a title attribute nobody hears. -->
+        <li><a href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span><span class="sr-only"> &mdash; join the wait list</span></a></li>
       </ul>
     </div>
     <div>
@@ -345,6 +371,8 @@
       </ul>
     </div>
   </div>
+  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+       of the sitewide lowercase text-transform. -->
   <div class="lp-in lp-foot-legal">
     &copy; <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a> 2026
   </div>
@@ -352,7 +380,7 @@
 
 <!-- The top bar's hide-on-scroll. Public pages only — see the file's
      own header for why it must never reach either app. -->
-<script src="/site.js?v=20260822h" defer></script>
+<script src="/site.js?v=20260823a" defer></script>
 
 </body>
 </html>

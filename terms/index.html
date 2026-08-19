@@ -5,7 +5,14 @@
 <!-- Static prose. No scripts, no network calls of any kind, so the CSP is the
      tightest on the site: stylesheet and font from self, nothing else. Same as
      /privacy/, which this page is the pair to. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<!-- `script-src 'self'` was ADDED 2026-08-19, and it is the narrowest thing
+     that makes this page's own top bar work. These three legal pages carried no
+     script at all, so `default-src 'none'` covered script-src by fallback — and
+     when the shared bar and its burger menu arrived, site.js was silently
+     BLOCKED here and nowhere else. It failed exactly the way CSP failures fail:
+     the markup was right, the file 200'd, and the only trace was one console
+     line. No 'unsafe-inline', no host: one same-origin file. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lynxr — terms of service</title>
 <meta name="description" content="The terms you agree to when you use lynxr: what the app does, what you are responsible for, and what we do and do not promise.">
@@ -13,12 +20,44 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260822h">
+<link rel="stylesheet" href="/app.css?v=20260823a">
 </head>
 <body>
 
+<header class="lp-bar">
+  <div class="lp-in lp-bar-in">
+    <a class="wordmark" href="/"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></a>
+    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+         fragment does nothing from /faq/ or /privacy/ — it appends a hash to
+         the current URL and stays put. -->
+    <nav class="lp-nav" aria-label="Main">
+      <a href="/#how">how it works</a>
+      <a href="/#team">our team</a>
+      <a href="/faq/">faq</a>
+    </nav>
+    <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <!-- Under 760px the nav and the CTA above are display:none and this takes
+         their place. aria-expanded carries the state to a screen reader AND
+         drives which glyph is drawn, so the two cannot disagree. -->
+    <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
+            aria-expanded="false" aria-controls="lp-menu">
+      <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <!-- Inside the bar on purpose: the bar is the sticky element, so a panel
+       parented anywhere else would scroll away from the burger that opened it.
+       `hidden` — not opacity — is what takes these links out of the tab order
+       when it is closed. -->
+  <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
+    <a href="/#how">how it works</a>
+    <a href="/#team">our team</a>
+    <a href="/faq/">faq</a>
+    <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
+  </nav>
+</header>
+
 <main class="legal">
-  <a class="legal-back" href="/">&larr; lynxr</a>
 
   <h1>terms of service</h1>
   <p class="legal-date">last updated 19 august 2026</p>
@@ -302,11 +341,53 @@
     15 Farrington Ave, Allston MA 02134, USA<br>
     <a href="mailto:lynxrnetwork@gmail.com">lynxrnetwork@gmail.com</a></p>
 
-  <p class="legal-foot"><a href="/">back to lynxr</a> &middot;
-    <a href="/privacy/">privacy</a> &middot;
-    <a href="/faq/">faq</a> &middot;
-    <a href="/accessibility/">accessibility</a></p>
 </main>
+
+<footer class="lp-foot">
+  <div class="lp-in lp-foot-in">
+    <div class="lp-foot-brand">
+      <p class="wordmark"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></p>
+      <p class="lp-foot-line">format intelligence for short&#8209;form video, built by
+        a short&#8209;form video agency.</p>
+      <ul class="lp-social">
+        <li><a href="https://www.instagram.com/lynxmediagroup/" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.4"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.15" fill="currentColor" stroke="none"/></svg></a></li>
+        <li><a href="https://www.tiktok.com/@lynxmediagroup" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on TikTok"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 2h-3v13.4a2.7 2.7 0 1 1-2.7-2.7c.2 0 .4 0 .6.1V9.7a5.9 5.9 0 1 0 5.1 5.8V9.1a7 7 0 0 0 4 1.3V7.3a4.1 4.1 0 0 1-4-4.1V2z"/></svg></a></li>
+        <li><a href="https://www.linkedin.com/company/lynxmediagroup" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3.1 9.2h3.8V21H3.1zM10 9.2h3.6v1.6h.05c.5-.92 1.75-1.9 3.6-1.9 3.85 0 4.56 2.2 4.56 5.05V21h-3.8v-5.35c0-1.28-.02-2.92-1.8-2.92-1.8 0-2.08 1.38-2.08 2.83V21H10z"/></svg></a></li>
+      </ul>
+    </div>
+    <div>
+      <span class="lp-foot-h">lynxr</span>
+      <ul class="lp-foot-links">
+        <li><a href="/">home</a></li>
+        <li><a href="/#how">how it works</a></li>
+        <li><a href="/#team">our team</a></li>
+        <li><a href="/faq/">faq</a></li>
+        <!-- Visible label "try it", accessible name "try it — join the wait
+             list". The .sr-only tail is inside the <a>, so it is part of the
+             name computation rather than a title attribute nobody hears. -->
+        <li><a href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span><span class="sr-only"> &mdash; join the wait list</span></a></li>
+      </ul>
+    </div>
+    <div>
+      <span class="lp-foot-h">company</span>
+      <ul class="lp-foot-links">
+        <li><a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a></li>
+        <li><a href="/privacy/">privacy policy</a></li>
+        <li><a href="/terms/" aria-current="page">terms of service</a></li>
+        <li><a href="/accessibility/">accessibility</a></li>
+      </ul>
+    </div>
+  </div>
+  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+       of the sitewide lowercase text-transform. -->
+  <div class="lp-in lp-foot-legal">
+    &copy; <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a> 2026
+  </div>
+</footer>
+
+<!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
+     see the file's own header for why it must never reach either app. -->
+<script src="/site.js?v=20260823a" defer></script>
 
 </body>
 </html>
