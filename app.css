@@ -994,7 +994,23 @@
   .bp-body.bp-closing { animation: bp-close .16s var(--ease) forwards; }
   @keyframes bp-close { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-6px); } }
 
-  .bp-wait { color: var(--text-3); }
+  /* THE WAITING STATUS, AT --text-2, IN EVERY PLACE IT IS DRAWN.
+     It was --text-3, which on the chip's own --surface-2 measures 3.40:1 —
+     under AA's 4.5:1 for text, and under it everywhere the chip appeared. On
+     2026-08-18 the closed TILE alone was lifted to --text-2 (7.16:1) and the
+     four other places were left failing and disclosed as such on
+     /accessibility/. They are fixed here, with the SAME treatment rather than
+     a second one, so the tile, the open list row, the open library entry, the
+     nested script row inside a library card and the brand header's "N writing"
+     chip all measure 7.16:1 — as does the agency app's own "waiting for
+     pipeline" chip, which carries the same class off the same rule.
+
+     Measured painted, not computed (Chromium 151, dsf 2, pulse paused): the
+     brightest glyph pixel is rgb(163,163,173) on a ground of rgb(23,23,26).
+     The .bp-dot inherits currentColor and lifts with the text, so its 5px
+     circle clears 3:1 for a non-text graphic at the peak of bp-pulse — and it
+     is redundant with the word beside it at the trough. */
+  .bp-wait { color: var(--text-2); }
   .bp-dot {
     width: 5px; height: 5px; border-radius: var(--r-round); background: currentColor;
     display: inline-block; margin-right: 6px; vertical-align: middle;
@@ -4276,16 +4292,15 @@
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
   }
-  /* ONE COLOUR CHANGES, AND ONLY ON A TILE. .bp-wait paints --text-3 on the
-     chip's --surface-2, which measures 3.39:1 — under AA, and it was under AA
-     before any of this work. This is the state a creator stares at while they
-     wait, and on a tile it is the only thing saying the card is alive, so it
-     should not be the least legible thing on the card. --text-2 on the same
-     --surface-2 measures 7.17:1. Scoped to the tile: .bp-wait in an opened row
-     and inside a library card keeps the colour it has always had, and still
-     measures 3.39:1 — a real, pre-existing failure this change does not widen
-     and does not fix. The dot inherits currentColor and lifts with the text. */
-  .script-grid > .bp-item:not([open]) > summary > .chip.bp-wait { color: var(--text-2); }
+  /* THE WAITING COLOUR IS NO LONGER A TILE-ONLY OVERRIDE, and there is
+     deliberately no rule here any more. .bp-wait painted --text-3 on the
+     chip's --surface-2 at 3.40:1 — under AA — and for a while this block was
+     the only place that fixed it, scoped to the closed tile, leaving the open
+     list row, the open library entry, the nested script row inside a library
+     card and the brand header's "N writing" chip failing. The lift now lives
+     on .bp-wait itself (search for it, next to .bp-dot), so all five measure
+     7.16:1 and a tile-scoped override would only be a second place for the
+     same decision to drift. Do not reintroduce one. */
 
   /* WHAT IS LEFT IN THE META ROW. The owner asked for views and video length
      in place of the platform and the date. Only one of the two exists:

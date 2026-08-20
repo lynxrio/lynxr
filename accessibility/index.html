@@ -30,7 +30,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260823d">
+<link rel="stylesheet" href="/app.css?v=20260823e">
 </head>
 <body>
 
@@ -110,6 +110,16 @@
     <li><strong>state is never carried by colour alone.</strong> the library's
       mode switcher sets <code>aria-selected</code> as well as painting the
       selected tab, and a video's status is a word as well as a colour.</li>
+    <li><strong>the waiting status clears the contrast floor now.</strong> the
+      &ldquo;writing your script&rdquo; label measured 3.4:1 against the chip it
+      sits on, under the 4.5:1 AA floor for text, in every place it is drawn but
+      one: a closed video card had been raised to 7.2:1 and the rest had not. on
+      19 august 2026 the rest were raised the same way &mdash; the open row, the
+      library entry, a script nested inside one, the count in a brand's header,
+      and the agency app's own waiting chip &mdash; and every one of them measures
+      7.2:1. the word holds that ratio through the whole of its pulse. the dot
+      beside it does not: at the bottom of the pulse it is 1.8:1, which is why
+      the dot is never the only thing saying a script is being written.</li>
     <li><strong>things that change without a click announce themselves.</strong>
       the wait&#8209;list result, the search result count and the app's status
       messages are live regions, so a screen reader is told when the page
@@ -142,14 +152,6 @@
       are all unaffected and stay fully zoomable. browser zoom is not affected
       anywhere. if this stops you using lynxr, tell us and we will change
       it &mdash; it is one line.</li>
-    <li><strong>one status colour is below the contrast floor.</strong> the
-      &ldquo;writing your script&rdquo; label, on a list row and inside a
-      library card, measures <span class="legal-todo">3.4:1 against its own
-      background where 4.5:1 is the AA floor</span>. the same label on a video
-      card was raised to 7.2:1; the other two places were not, and this is a
-      known, unfixed gap rather than something we have overlooked. the word
-      itself is still readable, and a pulsing dot beside it carries the same
-      meaning.</li>
     <li><strong>nothing here has been tested with a real screen reader or on a
       real assistive device.</strong> the checks above are measurements of the
       rendered pages &mdash; focus rings, contrast ratios, accessible names,
@@ -169,7 +171,7 @@
     it goes to the two people who build lynxr. we are not going to promise a
     response time we cannot keep &mdash; there are two of us &mdash; but a specific
     report (what you were doing, what happened, what you use) is the thing most
-    likely to get fixed, and the two gaps above are both listed because somebody
+    likely to get fixed, and the gaps above are listed because somebody
     measured them and wrote them down.</p>
 
   <h2>contact</h2>
@@ -223,7 +225,7 @@
 
 <!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
      see the file's own header for why it must never reach either app. -->
-<script src="/site.js?v=20260823d" defer></script>
+<script src="/site.js?v=20260823e" defer></script>
 
 </body>
 </html>
