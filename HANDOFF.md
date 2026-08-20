@@ -190,8 +190,22 @@ that window** — handshake failure at the edge while HTTP still 301'd to it. If
 this ever recurs, grey-cloud the five records to restore service instantly
 (GitHub's own cert is valid) and re-proxy once the cert shows Active.
 
-**Still open on D1:** HSTS (1-day ramp, `includeSubDomains` and `preload`
-both OFF) and Page Shield script monitoring — both owner toggles.
+**HSTS is ON** — `max-age=2592000` (30 days), verified painted on the apex,
+`www`, deep pages and assets. `includeSubDomains` OFF (it would pre-commit a
+future `api.lynxr.io` before it exists) and **`preload` OFF, deliberately**:
+preload is compiled into browser binaries and removal takes browser release
+cycles to reach users, so it is the one setting here that does not open from
+the inside. Cloudflare's shortest option is 1 month, not the 1 day the plan
+assumed. **Raise to 12 months after a clean week — that is the only remaining
+D1 action.**
+
+Final state, 6 of 6 headers on `/`, `/faq/`, `/privacy/`, `/glossary/`,
+`/app.css`, `/robots.txt`, `/creatorsonly/` and `/agencyonly/`.
+
+**Page Shield was assessed and NOT enabled, on purpose.** It reports
+third-party scripts, but `script-src 'self'` with no `'unsafe-inline'` already
+prevents one executing, and the Free tier gives a dashboard inventory rather
+than reliable alerting — a control nobody looks at. Not a gap; a decision.
 
 ### The first backup this project has ever had
 
