@@ -1316,6 +1316,11 @@ PRICES = {
     "claude-haiku-4-5": (1.00, 5.00),
 }
 
+# Which price list the numbers above came from. Written onto every lynxr_costs
+# row so a later re-price can be applied to history instead of silently
+# invalidating it. Change this whenever PRICES changes.
+PRICES_REV = "2026-08-12"
+
 
 def price_of(model):
     """Rates for a model id, tolerating a dated suffix (…-20251001)."""
@@ -1323,6 +1328,71 @@ def price_of(model):
         if model.startswith(name):
             return rates
     return None
+
+
+def cost_of(model, d):
+    """USD for one model's tally out of a usage() dict — None when no price is
+    on file for that model.
+
+    THE ONE COST FORMULA. log_usage() prints it and cost_rows() persists it, so
+    a log line and a ledger row can never disagree. Cache writes bill at 1.25x
+    input and reads at 0.1x; charging both at the plain input rate would
+    under-report a cold run and wildly over-report a warm one, and the two
+    states differ by ~12x on the cached span."""
+    rates = price_of(model)
+    if not rates:
+        return None
+    return (d["in"] / 1e6 * rates[0]
+            + d["write"] / 1e6 * rates[0] * 1.25
+            + d["read"] / 1e6 * rates[0] * 0.10
+            + d["out"] / 1e6 * rates[1])
+
+
+def cost_rows(u, id8, ok):
+    """The lynxr_costs rows for one pass. PURE — no network, no clock (the
+    table stamps `at` itself with `default now()`), so it is testable without
+    either.
+
+    ONE ROW PER MODEL, not one blended row per script: a script uses two
+    (Opus for format/tags/adapt, Haiku for the shot list via analyze_visuals),
+    and a model-mix change is one of exactly two ways the cost number moves.
+    A blended row would hide it.
+
+    NO CREATOR ID, NO URL, NO TITLE, NO SCRIPT. `id8` only — the same eight
+    characters watchdog.py already puts in an alarm body.
+
+    An unpriced model gets usd 0 and an EMPTY price_rev. That pair means "not
+    measured", never "free", and the reader must treat it that way."""
+    rows = []
+    for model, d in (u or {}).items():
+        usd = cost_of(model, d)
+        rows.append({
+            "id8": str(id8 or "")[:8],
+            "ok": bool(ok),
+            "model": model,
+            "calls": int(d.get("calls") or 0),
+            "tokens_in": int(d.get("in") or 0),
+            "tokens_out": int(d.get("out") or 0),
+            "tokens_cache_write": int(d.get("write") or 0),
+            "tokens_cache_read": int(d.get("read") or 0),
+            "usd": round(usd, 6) if usd is not None else 0,
+            "price_rev": PRICES_REV if usd is not None else "",
+        })
+    return rows
+
+
+def record_cost(key, id8, ok, u):
+    """Persist one pass's spend. Best-effort, exactly like refund(): it may
+    never raise, and a missing table (supabase/costs_table.sql is an owner
+    action) degrades to one warning line. Losing a cost row must never cost a
+    creator their script."""
+    rows = cost_rows(u, id8, ok)
+    if not rows:
+        return
+    try:
+        sb(key, "/rest/v1/lynxr_costs", method="POST", body=rows)
+    except Exception as e:  # noqa: BLE001
+        log.warning("  cost not recorded for %s: %s", str(id8 or "")[:8], str(e)[:90])
 
 
 def log_usage(label, u):
@@ -1344,16 +1414,8 @@ def log_usage(label, u):
     total = 0.0
     priced = True
     for model, d in u.items():
-        rates = price_of(model)
-        if rates:
-            # Cache writes bill at 1.25x input, reads at 0.1x. Charging both at
-            # the plain input rate would under-report a cold run and wildly
-            # over-report a warm one — the two states differ by ~12x on the
-            # cached span, which is the whole point of measuring this.
-            cost = (d["in"] / 1e6 * rates[0]
-                    + d["write"] / 1e6 * rates[0] * 1.25
-                    + d["read"] / 1e6 * rates[0] * 0.10
-                    + d["out"] / 1e6 * rates[1])
+        cost = cost_of(model, d)
+        if cost is not None:
             total += cost
             money = f"  ${cost:.4f}"
         else:
@@ -2462,8 +2524,6 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
                 log.info("  -> fit=%s, %d beats%s", ad.get("fit", "—"),
                          len(ad.get("beats") or []),
                          f", note: {a['note']}" if a.get("note") else "")
-            log_usage("this script", usage())
-            usage().clear()
         except Exception as e:  # noqa: BLE001
             a["status"] = "error"
             # THE ONE PLACE A FAILED ENTRY GETS ITS SENTENCE. Classified, never
@@ -2512,6 +2572,19 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
             # OPTION (b) ONLY — see Step 12. After the graft, so a slow or
             # failing RPC can never delay the creator's error card.
             refund(key, a, "no script was produced")
+        finally:
+            # BOTH PATHS, DELIBERATELY. A pass that failed still spent — three
+            # Opus calls before a 529 cost exactly what three that worked cost —
+            # and a cost history that only counts successes is blind to the one
+            # failure shape that is also expensive.
+            #
+            # It also closes a real leak: usage() is threading.local and
+            # process_group's pool REUSES threads, so before this a failed
+            # entry left its tally in the dict and the next script on that
+            # thread was billed for both. Clearing here is unconditional.
+            log_usage("this script", usage())
+            record_cost(key, a.get("id"), a.get("status") == "done", usage())
+            usage().clear()
 
 
 def process_group(key, aclient, group):

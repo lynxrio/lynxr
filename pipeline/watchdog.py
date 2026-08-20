@@ -177,6 +177,12 @@ DIGEST_HOUR_UTC = int(envcfg.get("DIGEST_HOUR_UTC", "15"))
 # never disagree on where the line is.
 DAILY_SCRIPT_CAP = int(envcfg.get("DAILY_SCRIPT_CAP", "250"))
 
+COST_APIFY_TTL_S = int(envcfg.get("COST_APIFY_TTL_S", "900"))
+# Reads the SAME env var process_adaptations.APIFY_MAX_MONTHLY_USD reads, with
+# the same default, so the breaker that stops paid lookups and the line the Ops
+# tab draws can never disagree — even when the owner overrides it.
+APIFY_BREAKER_USD = float(envcfg.get("APIFY_MAX_MONTHLY_USD", "45"))
+
 SOFTFAIL_SUBSYSTEMS = ("source_upsert", "video_upsert", "cover", "meta")
 
 # DUPLICATED from process_adaptations.RAW_TEXT_NEEDLES — this module may not
@@ -807,6 +813,53 @@ def _charges_count(key, since):
         return 0
 
 
+_APIFY_METER = {"at": 0.0, "value": None}
+
+
+def _apify_spend():
+    """This month's Apify spend, off Apify's OWN ledger — or None.
+
+    DUPLICATED from process_adaptations.apify_budget_ok(). This module may not
+    import that one (its import runs logging.basicConfig and mkdir("output/")).
+    Same endpoint, same two fields. Change one, change both — the same house
+    rule RAW_NOTE_NEEDLES above already follows.
+
+    READS APIFY_METER_TOKEN FIRST, APIFY_API_TOKEN ONLY AS A FALLBACK, AND THAT
+    ORDER IS THE POINT. process_adaptations.apify_token() reads
+    APIFY_API_TOKEN and nothing else, and having it set is what ENABLES paid
+    Instagram view lookups. A machine holding only APIFY_METER_TOKEN therefore
+    meters and never spends. A dashboard must not switch on spending as a side
+    effect of being installed.
+
+    Returns None on anything at all — no token, a failed call, a malformed
+    body. None means the caller writes nothing, which leaves the previous
+    reading and its own updated_at in place rather than clobbering a good
+    number with a null from a caller that has no token (the GitHub loop)."""
+    now = time.time()
+    if _APIFY_METER["value"] is not None and now - _APIFY_METER["at"] < COST_APIFY_TTL_S:
+        return _APIFY_METER["value"]
+    env = LR.load_env(LR.ROOT / ".env")
+    token = envcfg.first(os.environ.get("APIFY_METER_TOKEN"), env.get("APIFY_METER_TOKEN"),
+                         os.environ.get("APIFY_API_TOKEN"), env.get("APIFY_API_TOKEN"))
+    if not token:
+        return None
+    try:
+        req = urllib.request.Request("https://api.apify.com/v2/users/me/limits")
+        req.add_header("Authorization", f"Bearer {token}")
+        with urllib.request.urlopen(req, timeout=15, context=SSL_CTX) as r:
+            d = json.loads(r.read()).get("data") or {}
+        account_limit = (d.get("limits") or {}).get("maxMonthlyUsageUsd")
+        value = {"spent_usd": float((d.get("current") or {}).get("monthlyUsageUsd") or 0),
+                 "account_ceiling_usd": (float(account_limit) if account_limit is not None else None),
+                 "breaker_usd": APIFY_BREAKER_USD}
+    except Exception as e:  # noqa: BLE001
+        log.warning("_apify_spend: limits check failed (%s)", str(e)[:90])
+        return None
+    _APIFY_METER["at"] = now
+    _APIFY_METER["value"] = value
+    return value
+
+
 def _maybe_digest(key, rows, now, open_alarms=None, force=False):
     if not force:
         if now.hour < DIGEST_HOUR_UTC:
@@ -874,6 +927,24 @@ def run_once(key, dry_run=False, beat=False, force_digest=False, role="external"
         for ak in _list_open_alarms(key):
             if ak != "selftest" and ak not in alarm_keys:
                 clear_alarm(key, ak, f"{ak} resolved")
+
+        # The Ops tab's whole feed, written once per completed check. AFTER the
+        # dry-run return on purpose. It carries no new decision — it is this
+        # tick's findings, verbatim.
+        #
+        # NOTE FOR THE READER OF A STALE ONE: beat() writes worker.heartbeat
+        # BEFORE anything is checked and this row is written only by a pass that
+        # got all the way here, so a fresh heartbeat beside a stale snapshot
+        # means the worker is alive and the CHECKER is blind — which is exactly
+        # the false all-clear run #168 produced. Deliberately not written on the
+        # blind path: the write needs the same database the check just failed on,
+        # and staleness is the more honest signal than a marker that may not
+        # land.
+        ops_put(key, "ops.snapshot",
+                ops_snapshot_value(alarms, charges_24h, sources_recent, role, now))
+        spend = _apify_spend()
+        if spend is not None:
+            ops_put(key, "cost.apify", spend)
 
         _maybe_digest(key, rows, now, open_alarms=alarms, force=force_digest)
         return alarms
@@ -959,6 +1030,45 @@ def ci_failure_verdict(worker_seen_at, ops_readable, now):
             "title": "NOTHING is writing scripts",
             "body": f"worker.heartbeat last seen {age} — and this fallback job just failed too.",
             "why": "both-down"}
+
+
+def ops_snapshot_value(alarms, charges_24h, sources_recent, role, now):
+    """The lynxr_ops `ops.snapshot` row — everything one tick found, for the
+    agency app's Ops tab to read. PURE, for the same reason check_all() is:
+    the shape a dashboard depends on has to be testable without a network.
+
+    WHY IT CARRIES THE FULL LIST, PAGING AND QUIET ALIKE. A digest-only alarm
+    (rerun:, sources-stalled, softfail:) never latches and never pages, so
+    until now it existed only in memory between this tick and the 15:00 UTC
+    digest. This row is the only place it is visible in between, and that is
+    the whole reason the Ops tab beats the digest.
+
+    THIS IS NOT A SECOND ALERTING CHANNEL. Nothing here notifies. The row is
+    written and sits there; something has to come and look.
+
+    Alarm bodies are safe to expose here by construction — watchdog.py's own
+    invariant is that no body carries an email, a source URL, a brand name or
+    an id longer than 8 characters, because the ntfy topic is a bearer secret
+    on a public server. Staff are strictly more trusted than that. Bodies are
+    still capped at 300 characters so one long exception string cannot bloat
+    the row."""
+    return {
+        "at": now.isoformat().replace("+00:00", "Z"),
+        "role": role,
+        "inflight_sla_s": INFLIGHT_SLA,
+        "daily_script_cap": DAILY_SCRIPT_CAP,
+        "charges_24h": int(charges_24h or 0),
+        "sources_recent": int(sources_recent or 0),
+        "sources_stall_window_h": SOURCES_STALL_WINDOW_H,
+        "alarms": [{
+            "key": a.get("key") or "",
+            "title": str(a.get("title") or "")[:200],
+            "body": str(a.get("body") or "")[:300],
+            "priority": int(a.get("priority") or 0),
+            "tags": a.get("tags") or "",
+            "page": bool(a.get("page", True)),
+        } for a in (alarms or [])],
+    }
 
 
 # =============================================================================

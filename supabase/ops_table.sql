@@ -16,6 +16,13 @@
 --                       alarm.inflight:a1b2c3d4), so raise_alarm() pages once
 --                       per episode instead of once per tick, and clear_alarm()
 --                       can send a quiet "resolved" the moment it clears.
+--   ops.snapshot        one row, rewritten by every completed watchdog check,
+--                       holding that tick's full alarm list (paging AND
+--                       digest-only) plus charges_24h — read by the agency
+--                       app's Ops tab. A STALE one next to a fresh
+--                       worker.heartbeat means the checker is blind.
+--   cost.apify          this month's Apify spend off Apify's own ledger,
+--                       written only when the reading succeeded.
 --
 -- DEGRADES SAFELY IF THIS TABLE DOES NOT EXIST YET. watchdog.py's ops_get /
 -- ops_put / ops_del all catch the failure and fall back to an in-process

@@ -476,6 +476,61 @@ check("digest(): the healthy fixture reads 'notes: clean'",
 check("digest(): a raw-note row reads the count and id8",
       "notes: 1 with raw text (g8888888)" in W.digest(raw_note_rows, 1, NOW, NOW), True)
 
+# ---- ops_snapshot_value(): the Ops tab's whole feed, written once per tick -
+check("empty alarms -> ['alarms'] == []", W.ops_snapshot_value([], 0, 0, "fly", NOW)["alarms"], [])
+check("role is carried through verbatim", W.ops_snapshot_value([], 0, 0, "fly", NOW)["role"], "fly")
+
+# A mixed tick — one paging alarm (inflight:), one digest-only (sources-stalled)
+# — must carry BOTH. This is the regression that would silently undo the only
+# reason ops.snapshot exists: a digest-only alarm never latches, so this row
+# is the only place it is visible between one tick and the 15:00 UTC digest.
+mixed_rows = [row("c-mix", [
+    {"id": "m1111111", "status": "running", "addedAt": ago(NOW, 700)},
+] + [
+    {"id": f"m222222{i}", "status": "done", "processedAt": ago(NOW, 1000),
+     "sourceUrl": f"https://tiktok.com/@x/video/{i}"}
+    for i in range(4)
+])]
+mixed_alarms = W.check_all(mixed_rows, sources_recent=0, worker_seen_at=NOW, now=NOW)
+mixed_snap = W.ops_snapshot_value(mixed_alarms, 0, 0, "fly", NOW)
+mixed_keys = {a["key"] for a in mixed_snap["alarms"]}
+check("mixed tick: the paging alarm (inflight:) is in the snapshot",
+      "inflight:m1111111" in mixed_keys, True)
+check("mixed tick: the digest-only alarm (sources-stalled) is ALSO in the snapshot",
+      "sources-stalled" in mixed_keys, True)
+mixed_by_key = {a["key"]: a for a in mixed_snap["alarms"]}
+check("...and each keeps its own page flag (inflight: pages)",
+      mixed_by_key["inflight:m1111111"]["page"], True)
+check("...sources-stalled stays page:False", mixed_by_key["sources-stalled"]["page"], False)
+
+# ---- the panel labels its thresholds off these — a drift here relabels the UI
+snap = W.ops_snapshot_value([], 0, 0, "fly", NOW)
+check("inflight_sla_s == W.INFLIGHT_SLA", snap["inflight_sla_s"], W.INFLIGHT_SLA)
+check("daily_script_cap == W.DAILY_SCRIPT_CAP", snap["daily_script_cap"], W.DAILY_SCRIPT_CAP)
+
+# ---- truncation: one long exception string must not bloat the row ----------
+long_body_snap = W.ops_snapshot_value(
+    [{"key": "k", "title": "t" * 400, "body": "b" * 900, "priority": 1, "page": True}],
+    0, 0, "fly", NOW)
+long_alarm = long_body_snap["alarms"][0]
+check("a 900-character body is truncated to 300", len(long_alarm["body"]), 300)
+check("a 400-character title is truncated to 200", len(long_alarm["title"]), 200)
+
+# ---- None inputs come out as 0, never as None -------------------------------
+none_snap = W.ops_snapshot_value([], None, None, "fly", NOW)
+check("charges_24h=None -> 0, not None", none_snap["charges_24h"], 0)
+check("sources_recent=None -> 0, not None", none_snap["sources_recent"], 0)
+
+# ---- pure: same inputs -> equal output, and the input list is not mutated --
+pure_alarms = [{"key": "k1", "title": "t", "body": "b", "priority": 2, "page": True}]
+pure_alarms_copy = [dict(a) for a in pure_alarms]
+first_call = W.ops_snapshot_value(pure_alarms, 5, 2, "fly", NOW)
+second_call = W.ops_snapshot_value(pure_alarms, 5, 2, "fly", NOW)
+check("ops_snapshot_value is pure: calling it twice with the same inputs agrees",
+      first_call, second_call)
+check("ops_snapshot_value does not mutate the input alarms list",
+      pure_alarms, pure_alarms_copy)
+
 # ---- notify() never raises, and never sends without a topic ----------------
 import os  # noqa: E402
 

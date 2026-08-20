@@ -128,6 +128,130 @@ real rather than a dead channel.
 
 ## Where this left off (read this first)
 
+**2026-08-20 — the Ops dashboard's backend landed; the tab itself has not.**
+`~/.claude/plans/agency-ops-dashboard.md`, 14 steps, run as two phases because
+a second agent was editing `app.css`, `creator.js` and all twelve cache-stamped
+HTML pages at the same time (a status-chip and focus-ring change). **This
+entry covers phase one only** — persistence, not the tab. Phase two (Steps
+7–13: `agencyonly/index.html`'s Ops panel, `app.js`'s render functions, the
+`renderBars` chronological-series fix, the twelve-page `?v=` bump, and the
+credential-free harness proof) has not run as of this entry — there is no
+visible Ops tab yet.
+
+**What shipped in phase one, all in `pipeline/` and `supabase/`:**
+`supabase/costs_table.sql` (new, not yet run — see owner actions below) adds
+`lynxr_costs`: one row per model per pass, `staff read` only, no write policy
+from the browser at all. It deliberately is **not** a column on
+`lynxr_script_charges`, because `refund_script()` deletes that row on a failed
+pass and a failed pass is exactly the one whose cost matters most. Its header
+also states plainly that it redefines nothing — it only *calls*
+`public.is_staff()` inside a policy, never `create or replace`s it, so it
+cannot be shadowed by (or shadow) anything `allowance_ledger.sql` defines; the
+header names the one-line proof (`select prosrc from pg_proc where proname =
+'is_staff'`) to check which version is live if that's ever in doubt.
+`supabase/ops_table.sql`'s header comment gained two lines documenting the two
+new `lynxr_ops` keys below — that file itself needed no re-run, it already
+existed.
+
+`pipeline/process_adaptations.py` gained `PRICES_REV = "2026-08-12"`,
+`cost_of()` (the one formula — extracted out of `log_usage()`'s inline
+arithmetic so the log line and the ledger can never disagree), `cost_rows()`
+(pure row builder, no creator id/url/title, `id8` only), and `record_cost()`
+(best-effort POST to `lynxr_costs`, catches everything, warns and moves on).
+`run_entry()`'s trailing `log_usage(...); usage().clear()` became a `finally:`
+that runs `log_usage`, then `record_cost`, then the unconditional clear — on
+**both** the success path and the exception handler, deliberately: a failed
+pass still spent money (three Opus calls before a 529 costs what three
+working ones cost), and the old success-only placement of `usage().clear()`
+was a real leak, since `usage()` is `threading.local` and `process_group`'s
+pool reuses threads — a failed entry used to leave its tally sitting in the
+dict for the next script on that thread to inherit. **The cost write cannot
+break a script**: `record_cost` only ever warns and returns; nothing between
+it and the creator's already-grafted script can fail because of it, and a
+missing/broken `lynxr_costs` table degrades to "no cost data," never to a
+stuck or lost adaptation.
+
+`pipeline/watchdog.py` gained `COST_APIFY_TTL_S` and `APIFY_BREAKER_USD` (the
+latter reading the *same* `APIFY_MAX_MONTHLY_USD` env var and default as
+`process_adaptations.py`, so the breaker and the dashboard line can't
+disagree), `_apify_spend()` (Apify's own `/v2/users/me/limits`, reading
+`APIFY_METER_TOKEN` before falling back to `APIFY_API_TOKEN` — see the
+`APIFY_API_TOKEN` finding below for why that order matters), the pure
+`ops_snapshot_value()`, and the `run_once()` wiring: after the dry-run return
+and after the alarm-clear loop, every completed check now writes
+`ops.snapshot` (that tick's full alarm list, paging **and** digest-only —
+the whole reason this beats the daily digest) and, when the meter answered,
+`cost.apify`.
+
+**The cost decision: measured, not estimated, and there is no backfill.**
+Token counts were never stored before 2026-08-16 and Fly logs don't survive a
+deploy, so the panel (once phase two ships it) will say "measuring since
+&lt;first row&gt;" and show nothing before it. This gives up almost nothing —
+the entire creator-path spend to date is roughly 30 records × $0.075 ≈ $2.25,
+already noted elsewhere in this file as "under $1 across every script ever
+written" — and a fabricated $2.25 historical line was judged not worth the
+credibility. Every dollar figure the panel will show carries one of three
+provenance tiers (measured / metered / entered by hand); an unpriced model
+writes `usd = 0` with an **empty** `price_rev`, and phase two's panel is
+specified to count those separately rather than silently adding them in as
+free.
+
+**Sibling, not a merge, with `~/.claude/plans/agency-usage-visibility.md`**
+(written, not executed). That plan's Usage tab is about people; this Ops tab
+reads no creator data at all — zero privacy surface, no `security definer`
+needed. The one real overlap: that plan's Step 10 ("Needs a look") and its
+`stuck`/`failed` blocks in `usage_overview()` re-derive from the creator blob
+what this Ops tab reads straight off the watchdog's own latch.
+**Recommendation carried over from the plan, awaiting the owner's approval:**
+drop that plan's Step 10 and its `usage-trouble` markup, keep only its
+per-creator `errors`/`stuck` table columns. Not acted on from here.
+
+**Verified in this session, all read-only:** `./venv/bin/python
+pipeline/test_costs.py` (new file, 18 checks, all pass — the formula agreement
+between `log_usage` and `cost_rows`, the dated-suffix pricing
+`analyze_visuals.MODEL` actually sends, the id8/no-creator-data key-set
+check). `./venv/bin/python pipeline/test_watchdog.py` now carries 103 checks
+(89 existing + 14 new for `ops_snapshot_value`), all pass. `test_ai_retry.py`,
+`test_prefilter.py`, `test_views.py`, `test_envcfg.py` unchanged and passing;
+`test_allowance.py` passing with its usual 2 skips (no
+`LYNXR_TEST_CREATOR_ID`). `pipeline/watchdog.py --once --dry-run --json` still
+prints `[]`. A throwaway `/tmp/lynxr-ops-check/read_ops.py` (outside the repo,
+never committed) read `lynxr_ops`'s keys before and after that dry run: no
+`ops.snapshot` appeared either time, confirming the dry-run return still
+precedes the new write. (`fallback.heartbeat`'s own timestamp moved between
+the two reads — that's the live production fallback loop touching the same
+project, not this session's dry run, which never passed `--as-fallback`.)
+
+**What still needs a signed-in staff session and a Fly deploy — not provable
+from here:** everything server-side is unreachable from the browser until two
+owner actions run, in this order: (1) `supabase/costs_table.sql` in the SQL
+editor — the `lynxr_staff is empty` guard should not fire; (2) deploy this
+pipeline change to Fly (not mid-script), then confirm with `fly status` and,
+after one script runs, `select model, calls, usd, price_rev from
+public.lynxr_costs order by at desc limit 4` should show **two** rows
+(`claude-opus-5`, `claude-haiku-4-5-*`) both at `price_rev = '2026-08-12'`
+summing near $0.075 — one row would mean the shot-list call stopped being
+metered. No SQL was run and nothing was deployed from this session.
+
+**`APIFY_API_TOKEN` is set on neither Fly nor GitHub** (carried over from the
+plan's "Noticed, not planned," not fixed here): `fly secrets list -a
+lynxr-worker` shows only `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and
+`NTFY_TOPIC`, so `apify_token()` returns `""` everywhere except the owner's
+Mac and the paid Instagram view-count refresh that shipped 2026-08-19 has
+never actually run in production. This is also why `cost.apify` will read
+absent (phase two's panel: "meter not configured") until the owner separately
+sets `APIFY_METER_TOKEN` — a metering-only token, deliberately read before
+`APIFY_API_TOKEN` so installing the dashboard can never itself turn on paid
+lookups.
+
+**Phase two, not run here:** the Ops tab markup in `agencyonly/index.html`,
+its rendering in `app.js` (including the `renderBars` chronological-series /
+formatter fix and the four cost tiles), and the `?v=` bump across all twelve
+pages — assigned to whichever agent is free once the concurrent status-chip
+work lands, since both touch the same files.
+
+---
+
 **2026-08-19 — the SEO/GEO programme landed in two phases, split so it would
 not collide with the motion pass editing the same eight files.**
 `~/.claude/plans/lynxr-seo-geo-programme.md`, 20 steps. **This entry covers
