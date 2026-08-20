@@ -1486,6 +1486,15 @@ function openDisclosures(root = document) {
       .map((d) => d.dataset.lid).filter(Boolean),
     adids: [...root.querySelectorAll("details.bp-item[open][data-adid]")]
       .map((d) => d.dataset.adid).filter(Boolean),
+    /* THE ORIGINAL-SCRIPT ROW inside a card. Keyed on the LIBRARY ENTRY, not
+       on the record it borrows: there is one row per card, and "By brand"
+       renders the same video under every company that has a script from it,
+       so every copy reopens together exactly as the entry itself does.
+       Deliberately not data-adid — that id is already on the brand script's
+       own <details> in the same card, and restoring it would spring the
+       original open every time the brand script was open. */
+    oids: [...root.querySelectorAll("details.lib-orig[open]")]
+      .map((d) => d.dataset.oid).filter(Boolean),
   };
 }
 function restoreDisclosures(state, root = document) {
@@ -1500,6 +1509,10 @@ function restoreDisclosures(state, root = document) {
   }
   for (const adid of new Set(state.adids)) {
     root.querySelectorAll(`details.bp-item[data-adid="${CSS.escape(adid)}"]`)
+      .forEach((d) => { d.open = true; });
+  }
+  for (const oid of new Set(state.oids || [])) {
+    root.querySelectorAll(`details.lib-orig[data-oid="${CSS.escape(oid)}"]`)
       .forEach((d) => { d.open = true; });
   }
 }
@@ -2706,12 +2719,42 @@ function libraryItemHtml(item, scopeBrandId) {
   const href = safeUrl(item.url || "");
   const waiting = made.filter(isWriting).length;
   const done = made.filter((a) => a.status === "done").length;
+  /* THE ORIGINAL, REACHABLE FROM A BRAND SCRIPT. Owner, 2026-08-23: "even in
+     the branded scripts, add an option to see the original within the same
+     expanded card."
+     ONE PER CARD, not one per nested script: the transcript belongs to the
+     VIDEO. A video scripted for three companies is three records carrying the
+     same source.script.segments and source.shots, so three toggles would all
+     reveal the same words.
+     It costs nothing — the source is already on the record (hasSourceScript),
+     so nothing is queued, nothing is re-read and no allowance is spent.
+     NOT OFFERED WHEN THE CARD IS ALREADY SHOWING IT. Two ways that happens:
+     the Original scripts tab (asOriginal), where the whole card IS the
+     original; and All videos mode on a video that was also sent with no
+     company, where that no-brand record is inside `made` and adaptationHtml
+     renders it in full. Either way a second copy would be a duplicate.
+     THE CARRIER MUST HOLD A FINISHED REWRITE (`a.adaptation`). That is what
+     keeps the borrowed card on the one branch of adaptationHtml that draws no
+     delete button of its own — see `deleteBtn`, which is `ad ? "" : …`. Two
+     armed trash cans for one record inside one card is exactly the confusion
+     the entry-level delete was removed for.
+     Prefer a record already on this card, then borrow off any record for this
+     video — the same fallback originals() uses, and the words are identical
+     either way. */
+  const origCarrier = (a) => a.brandId && a.status === "done" && a.adaptation && hasSourceScript(a);
+  const orig = (!asOriginal && made.length && !made.some((a) => !a.brandId))
+    ? (made.find(origCarrier) || all.find(origCarrier) || null)
+    : null;
   // The second argument is the full wording, the third the short face a TILE
   // draws — see statusChip. The full string is what the accessible name and an
   // opened card still carry, so nothing here changes meaning.
   const chip = !made.length ? statusChip("", "not scripted", "not made")
-    : waiting ? statusChip("bp-wait", `writing ${waiting}`, "writing", true)
-    : done ? statusChip("good", plural(done, "script"), "")
+    : waiting ? statusChip("bp-wait", asOriginal ? "writing" : `writing ${waiting}`, "writing", true)
+    // A COUNT WHERE COUNTING MEANS NOTHING. In the Original scope `made` is
+    // at most one record (see originals() above), so this arm could only
+    // ever paint "1 script" — the owner's complaint, 2026-08-23. Everywhere
+    // else the count is a real fact about the video and stays.
+    : done ? statusChip("good", asOriginal ? "ready" : plural(done, "script"), "")
     // Same two buckets as the card chip: only a source failure is a fetch
     // failure. `noteKind` is absent on rows written before the worker stamped
     // it, and those keep the old wording.
@@ -2758,10 +2801,39 @@ function libraryItemHtml(item, scopeBrandId) {
       ${/* No "N scripts from this" heading: the entry's own summary already
             carries a "1 script" chip, so the heading restated the count
             directly under it. The scripts are self-evidently the scripts. */""}
+      ${/* THE ORIGINAL SITS INSIDE .lib-scripts, as its last row — a peer of
+            the brand scripts, because that is what it is: another version of
+            this one video. Three rules already in app.css then do all the
+            styling for free: .lib-scripts .bp-item strips the frame so it
+            does not read as a card inside a card, its > summary rule flushes
+            it with the caption above, and .bp-item + .bp-item draws the rule
+            between it and the last script.
+            A NATIVE <details>, not a custom toggle: keyboard operation and
+            the expanded state come from the element, it inherits the caret
+            rotation and the bp-open/bp-close reveal every other card in this
+            app uses, and wireDisclosureMotion() picks it up unchanged.
+            NO data-adid ON IT, deliberately. That attribute is what enrols a
+            card in wireAdaptationCards' one-script-open-at-a-time rule, and
+            the whole point here is that the original opens ALONGSIDE the
+            brand script rather than instead of it. It would also collide in
+            restoreDisclosures with the brand card's own id. It is keyed on
+            the library entry instead — see openDisclosures.
+            ORDER MATTERS: adaptationHtml() consumes the SEEN/FLASH
+            just-finished bookkeeping for a record on its first call, so the
+            brand card must be built before the borrowed one or the green
+            arrival flash lands on the wrong card. made.map() is to the left
+            of this expression, so it already is. */""}
       ${made.length ? `<div class="bp-list lib-scripts">${made.map((a) => adaptationHtml(
             a, a.brandId ? (brandById(a.brandId) || {}).name : null,
             { nested: true, bare: made.length === 1, asOriginal }
-          )).join("")}</div>`
+          )).join("")}${orig ? `<details class="bp-item lib-orig" data-oid="${escapeHtml(item.id)}">
+            <summary aria-label="Original script — the words and shots from the video itself">
+              <span class="bp-caret" aria-hidden="true">▸</span>
+              <span class="bp-name">Original script</span>
+            </summary>
+            <div class="bp-body">${adaptationHtml(orig, null,
+              { nested: true, bare: true, asOriginal: true })}</div>
+          </details>` : ""}</div>`
         : `<p class="bp-hint">No script from this one yet.</p>`}
 
       ${spare.length ? `<div class="bp-heading">Also write this for</div>
@@ -4695,6 +4767,38 @@ function scriptText(a) {
   return lines.join("\n");
 }
 
+/** THE VIDEO'S OWN WORDS, for the clipboard. scriptText() above builds from
+ *  `a.adaptation`, which is the BRAND REWRITE — so it was the wrong function
+ *  for an original card in both of that card's shapes: on a branded record
+ *  borrowed by the Original scripts tab it copied the brand script under a
+ *  "<BrandName> — from <url>" header, and on a genuine no-brand record
+ *  (`a.adaptation` absent) it copied a header line and nothing else.
+ *  Reads only `a.source`, the same place adaptationHtml's asOriginal branch
+ *  reads, so what is copied is what is on screen.
+ *  Source casing is preserved on purpose — lowercase is a text-transform in
+ *  app.css and must never reach a clipboard. */
+function originalText(a) {
+  const src = a.source || {};
+  const segs = Array.isArray((src.script || {}).segments) ? src.script.segments : [];
+  const shots = Array.isArray(src.shots) ? src.shots : [];
+  const t = (n) => `${Math.round(Number(n) || 0)}s`;
+  const lines = [`Original — from ${a.sourceUrl || ""}`, ""];
+  if (segs.length) {
+    lines.push("WHAT THEY SAY", "");
+    for (const [st, , txt] of segs) lines.push(`  ${t(st)}  ${String(txt || "").trim()}`);
+  } else {
+    lines.push("No speech — this one is carried by what's on screen.");
+  }
+  if (shots.length) {
+    lines.push("", "WHAT'S ON SCREEN", "");
+    for (const sh of shots) {
+      lines.push(`  ${t(sh.t)}  ${sh.visual || ""}`);
+      if ((sh.onscreen_text || "").trim()) lines.push(`          “${sh.onscreen_text.trim()}”`);
+    }
+  }
+  return lines.join("\n");
+}
+
 /* ---------- THE TELEPROMPTER ----------
 
    Reading a script off a phone means looking at the middle of the screen, and
@@ -5343,7 +5447,13 @@ function adaptationHtml(a, liveName, opts = {}) {
             <span class="bp-lbl bp-lbl-show">SHOW</span><span class="bp-val bp-show bp-dim">${escapeHtml(sh.visual || "")}${
               (sh.onscreen_text || "").trim() ? `\n“${escapeHtml(sh.onscreen_text.trim())}”` : ""}</span></li>`).join("")}</ol>` : ""}
       <div class="bp-actions">
-        <button type="button" class="ghost ad-copy" data-adid="${id}">Copy</button>
+        ${/* data-orig marks WHICH script this button copies, and it has to be
+              on the BUTTON rather than looked up from the record: after this
+              change the same record can render twice inside one Library card
+              — once as its brand rewrite, once as the video's own words — so
+              two .ad-copy buttons can carry the same data-adid and mean
+              different things. See originalText. */""}
+        <button type="button" class="ghost ad-copy" data-adid="${id}" data-orig="1">Copy</button>
         ${/* No rewrite here either — same reason as on a brand script. This is
               the video's own transcript, so "ask again" would return the same
               words anyway. */""}
@@ -5649,7 +5759,7 @@ function wireAdaptationCards(host) {
     const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
     if (!a) return;
     try {
-      await navigator.clipboard.writeText(scriptText(a));
+      await navigator.clipboard.writeText(btn.dataset.orig ? originalText(a) : scriptText(a));
       /* Swap the ICON, not the text. This button used to say "Copy script" and
          confirmed by setting textContent — which on an icon button replaces the
          svg with a word and leaves it permanently wrong, because the restore

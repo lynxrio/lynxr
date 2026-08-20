@@ -1192,6 +1192,20 @@
   .lib-scripts .bp-body { padding-left: 0; padding-right: 0; }
   /* A rule between scripts, not around them. */
   .lib-scripts .bp-item + .bp-item { border-top: 1px solid var(--line); }
+  /* THE ORIGINAL, INSIDE A CARD THAT IS SHOWING A BRAND REWRITE. Owner,
+     2026-08-23. The row itself needs no rules of its own — the three above
+     already give it a stripped frame, flush padding and a rule above it,
+     which is the whole reason it is rendered inside .lib-scripts rather
+     than as a sibling below it.
+     What it does need is this: the borrowed card is rendered `bare`, so it
+     brings a second .bp-body inside this one. Left alone, the reveal plays
+     bp-open on both — 12px of travel instead of 6 — and pays the vertical
+     padding twice. No new animation and no height transition is added here;
+     the outer .bp-body's existing bp-open/bp-close is the entire reveal,
+     which is the pattern the motion policy further down already names as
+     the one this card kind uses. */
+  .lib-orig > .bp-body { padding-bottom: 0; }
+  .lib-orig .lib-bare > .bp-body { animation: none; padding-top: 0; }
   /* A library row carries two chips, a date and a link, which on a phone leaves
      the title — the only part worth reading — squeezed to "Why…". Give it the
      whole first line and let the rest wrap underneath, indented past the
