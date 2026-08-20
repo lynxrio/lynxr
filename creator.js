@@ -288,18 +288,29 @@ function thumbHtml(url, label, href, opts = {}) {
  *    couldn't fetch       -> no video     writing your script -> writing
  *    couldn't write       -> no script    original script     -> original
  *    script ready         -> ready        not scripted        -> not made
- *    writing N            -> writing
- *    poor fit / no script / N script(s)   -> unchanged, they already fit
+ *    writing N            -> writing      N scripts ready     -> ready + N
+ *    poor fit / no script / ready         -> unchanged, they already fit
  *
  *  `no script` is the tile face of BOTH "couldn't write" and the legacy
  *  branded-but-scriptless row, deliberately: to a creator they are the same
  *  sentence, both are red, and the two full wordings are one Tab away in the
  *  accessible name and one click away in the opened card. */
-function statusChip(cls, full, short, dot = false) {
+function statusChip(cls, full, short, dot = false, count = 0) {
   const mark = dot ? `<i class="bp-dot"></i>` : "";
   const klass = cls ? `chip ${cls}` : "chip";
+  /* THE COUNT RIDES INSIDE THE SHORT FACE, and only there — .st-n is styled in
+     the .script-grid block next to .st-tile.
+     `full` already states the number in words ("3 scripts ready"), which is
+     what the accessible name and an opened card carry. A second copy of it
+     alongside that sentence would paint "3 scripts ready · 3" in the list
+     layout. Putting the figure INSIDE .st-tile makes that impossible by
+     construction rather than by a second visibility rule that can drift from
+     the one .st-tile already has.
+     Nothing is emitted at 1: one script has no count worth drawing, and the
+     tile face is the whole word. */
+  const n = count > 1 ? `<i class="st-n">${escapeHtml(String(count))}</i>` : "";
   if (!short || short === full) return `<span class="${klass}">${mark}${escapeHtml(full)}</span>`;
-  return `<span class="${klass}">${mark}<span class="st-tile" aria-hidden="true">${escapeHtml(short)}</span>`
+  return `<span class="${klass}">${mark}<span class="st-tile" aria-hidden="true">${escapeHtml(short)}${n}</span>`
     + `<span class="st-full">${escapeHtml(full)}</span></span>`;
 }
 
@@ -2750,11 +2761,20 @@ function libraryItemHtml(item, scopeBrandId) {
   // opened card still carry, so nothing here changes meaning.
   const chip = !made.length ? statusChip("", "not scripted", "not made")
     : waiting ? statusChip("bp-wait", asOriginal ? "writing" : `writing ${waiting}`, "writing", true)
-    // A COUNT WHERE COUNTING MEANS NOTHING. In the Original scope `made` is
-    // at most one record (see originals() above), so this arm could only
-    // ever paint "1 script" — the owner's complaint, 2026-08-23. Everywhere
-    // else the count is a real fact about the video and stays.
-    : done ? statusChip("good", asOriginal ? "ready" : plural(done, "script"), "")
+    /* THE STATUS IS `ready`; THE COUNT IS A FOOTNOTE ON IT. Owner, 2026-08-23:
+       "for all scripts have them all just say ready and then if there's
+       multiple have it just say ready with some tastefully indicator that
+       there are N number of scripts for this one format."
+       This deliberately OVERRULES the earlier, narrower decision that only the
+       Original scope would drop its count (`creator-original-inside-branded-
+       card.md`): a chip whose job is to say what state the video is in was
+       reporting a quantity instead, and "2 scripts" never actually said
+       "finished" out loud — the green did. It applies in all three views.
+       The wording stays a SENTENCE — "3 scripts ready", never "ready 3" — so
+       the accessible name and the opened card read as English. Only the tile's
+       short face swaps the words for the figure; see statusChip and .st-n. */
+    : done ? statusChip("good", done > 1 ? `${plural(done, "script")} ready` : "ready",
+        "ready", false, done)
     // Same two buckets as the card chip: only a source failure is a fetch
     // failure. `noteKind` is absent on rows written before the worker stamped
     // it, and those keep the old wording.
@@ -2773,11 +2793,13 @@ function libraryItemHtml(item, scopeBrandId) {
             the only thing on a tile that said TikTok from Instagram; the ↗'s
             accessible name carries that now instead, which costs no pixels.
             See the ↗ below. */""}
-      ${/* THE STATUS CHIP. On a tile CSS lifts this onto the cover as the one
-            badge it carries, at the top RIGHT — see .script-grid in app.css.
-            It stays here in the markup, in reading order, so a screen reader
-            still meets it with the rest of the card's facts rather than losing
-            it to a decorative overlay. */""}
+      ${/* THE STATUS CHIP. On a tile it LEADS THE META ROW under the title,
+            with the facts pushed to the right of it — see .script-grid in
+            app.css. (It spent a revision as a badge on the cover; the two
+            comments here and in adaptationHtml still said so until 2026-08-23,
+            long after the CSS had moved it. The cover carries the duration and
+            nothing else.) It is here in the markup, in reading order, so a
+            screen reader meets it with the rest of the card's facts. */""}
       ${chip}
       ${metaFactsHtml({ item })}
       ${/* Still rendered, hidden on the TILE only (the sort control names the
@@ -5536,12 +5558,13 @@ function adaptationHtml(a, liveName, opts = {}) {
         ? (a.brandId && !asOriginal ? brandNow : "Original script")
         : entryLabel(a))}</span>
       ${/* Nested, a green "script ready" sits next to the finished script it is
-            describing, under an entry whose own chip already counts it — three
-            ways of saying the same thing. Writing and error chips STAY: those
+            describing, under an entry whose own chip already says ready —
+            three ways of saying the same thing. Writing and error chips STAY: those
             say something the collapsed card otherwise cannot. */""}
-      ${/* THE STATUS CHIP. On a tile CSS lifts this onto the cover as the one
-            badge it carries, at the top right — the same rule that does it for
-            a library card, widened rather than copied. Seven faces reach it
+      ${/* THE STATUS CHIP. On a tile it leads the META ROW under the title —
+            the same rule that places a library card's, widened rather than
+            copied. (Both comments claimed the cover until 2026-08-23; the CSS
+            had moved the chip into the row long before.) Seven faces reach it
             (see `chip` above): couldn't fetch / couldn't write (red), writing
             your script (grey + dot), original script and script ready (green),
             poor fit (plain), no script (red). All of them move together, and

@@ -194,7 +194,34 @@
   a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--line-2); }
   a:hover { border-bottom-color: var(--text-2); }
   button { font: inherit; cursor: pointer; transition: background .12s, color .12s, border-color .12s, opacity .12s; }
-  :focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; border-radius: var(--r-pill); }
+  /* THE ONE KEYBOARD FOCUS INDICATOR ON ALL THREE FRONT-ENDS. 2px of --text-2
+     at +2px, which is 7.92:1 against the page — see the block at the very
+     bottom of this file for why every text control had to be re-given it, and
+     /accessibility/ for what is claimed publicly about it. It does not get
+     removed; the last time it was, what replaced it measured 1.19:1.
+
+     `border-radius: var(--r-pill)` USED TO BE THE THIRD DECLARATION HERE AND IS
+     GONE, 2026-08-23. It was not a property of the ring: `border-radius` is a
+     real property, so at (0,1,0) it beat `textarea` (0,0,1) and turned the
+     FIELD ITSELF into a 999px capsule for as long as it had keyboard focus.
+     Measured on the feedback textarea at 900px: 582 x 119.4, corners resolving
+     to a 59.7px capsule, the placeholder's first character sliced by the curve.
+     That is what the owner reported as "input areas cut off" — and it was real
+     clipping of the control, not the outline, which takes part in no layout at
+     all. An outline already follows its element's own border-radius natively;
+     this rule was overriding that everywhere to fix nothing.
+
+     WHAT CHANGES SHAPE NOW, measured by tabbing every focusable element on all
+     twelve pages and on a fixture of the signed-in creator surfaces: textareas
+     (999px -> 10px, the fix); bare <a> in prose, footers, the floating bar,
+     .entity and .wordmark; the .linkish buttons; and #policy-body. All of
+     those have no radius of their own and so go from a capsule ring to a
+     rectangular one, which is the browser default and correct for a
+     rectangular thing. Everything with a radius of its own is untouched, which
+     is nearly the whole UI: every .btn/.ghost/.chip/.side-* pill keeps 999px,
+     .bp-open keeps 50%, a tile's <summary> keeps the 13px its own
+     :focus-visible rule gives it, and the checkbox was already square. */
+  :focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
 
   /* Share Tech Mono ships a single 400 weight, so the old 600 would have been
      a synthesised bold — smeared strokes on a face whose whole character is
@@ -4407,13 +4434,14 @@
      like the views and the length, and the cover is left carrying exactly one
      thing.
 
-     WHAT IT IS, because "script count" undersells it: this is the card's STATUS
-     field, and a count is only its healthy face. A library entry has four —
-     "not scripted" (grey), "writing N" (grey, pulsing dot), "N scripts" (GREEN,
-     .chip.good: every script from this video is finished), "couldn't
-     fetch"/"couldn't write" (RED, .chip.bad). A brand-page card has seven
-     wordings across the same four colour treatments, and no count in any of
-     them — a card that is one script has nothing to count, and nothing is
+     WHAT IT IS: this is the card's STATUS field, and as of 2026-08-23 it says
+     a state and never a quantity. A library entry has four — "not scripted"
+     (grey), "writing N" (grey, pulsing dot), "ready" (GREEN, .chip.good: every
+     script from this video is finished) and "couldn't fetch"/"couldn't write"
+     (RED, .chip.bad). More than one finished script adds the figure as a
+     footnote on `ready` (.st-n, below) rather than replacing the word with it.
+     A brand-page card has seven wordings across the same four colour
+     treatments, and no count in any of them — a card that is one script has nothing to count, and nothing is
      invented for it. One rule for both surfaces rather than two that can
      drift, which is the reason --lib-band exists.
 
@@ -4441,6 +4469,45 @@
      which string becomes which. */
   .st-tile { display: none; }
   .script-grid > .bp-item:not([open]) > summary > .chip > .st-tile { display: inline; }
+  /* HOW MANY, WHEN "READY" IS THE ANSWER. Owner, 2026-08-23: a finished video
+     says `ready`, and if it holds more than one script that fact rides along
+     as a figure rather than replacing the word ("2 scripts" never actually
+     said finished — the green did).
+
+     IT LIVES INSIDE .st-tile, so it is drawn on a closed tile and nowhere
+     else, by the one rule directly above rather than by a second one that
+     could drift from it. The list layout and the opened card show .st-full,
+     which says "3 scripts ready" in words; that is also the accessible name,
+     and it is why nothing here is announced twice.
+
+     NO NEW VISUAL DEVICE, which is the whole of "tastefully" here. Every other
+     count in this app is a bare mono figure, quieter than the label beside it,
+     with no box of its own — the rail's .side-count and this same row's
+     .lib-stat. A nested pill (.pill's treatment) inside a chip that is already
+     a pill is one shape too many at 10px, and a coloured dot would be a second
+     state signal next to the one the border is already carrying.
+
+     THE MIDDOT IS THE HOUSE SEPARATOR (the brand sub-line uses it) and it is
+     what stops `ready 3` reading as a version number. Drawn in CSS, not baked
+     into the string, so it can never reach the accessible name.
+
+     COLOUR INHERITS THE CHIP — the state lives in the chip's colour, and a
+     grey figure inside a green chip would read as a third thing. On .chip.good
+     that is --good on --surface-2, 8.63:1; at .85 it measures 6.54:1, past the
+     4.5:1 floor for small text while still reading as supporting rather than
+     as a second signal. THE MIDDOT TAKES THE SAME .85 AND NO EXTRA DIMMING —
+     an `opacity: .65` on the ::before was drafted and measured 3.47:1, which
+     is under the floor for a glyph a screen reader can still pick up out of
+     CSS content. It is 3px of punctuation; the 0.5px of extra restraint was
+     not worth an unreadable one.
+     NOT ANIMATED, and it must not become so: this is inside .chip, which is on
+     the do-not-animate list ~3000 lines above, because the worker rewrites
+     this number while a creator is looking at it. */
+  .st-n {
+    font-family: var(--mono); font-style: normal; font-variant-numeric: tabular-nums;
+    opacity: .85;
+  }
+  .st-n::before { content: "·"; margin: 0 3px 0 4px; }
   .script-grid > .bp-item:not([open]) > summary > .chip > .st-full {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
