@@ -128,6 +128,107 @@ real rather than a dead channel.
 
 ## Where this left off (read this first)
 
+**2026-08-20 (evening) — Cloudflare is live in front of lynxr.io (Track D1), and
+the site has real security headers for the first time.** Also shipped: the
+nightly Supabase backup, which is the first backup this project has ever had.
+
+### Cloudflare — done, verified through the edge
+
+Nameservers moved Namecheap -> `nick`/`sydney.ns.cloudflare.com`; the `.io`
+registry flipped at ~20:40 UTC. Free plan. All six DNS records imported
+unchanged, four apex A + `www` proxied, `_dmarc` DNS-only.
+
+**Before (measured 19:52 UTC): `server: github.com` and NOT ONE security
+header.** After, on `/`, `/faq/`, `/app.css`, `/robots.txt`, `/privacy/` and
+**both app paths** — 5 of 5, HTTP 200, `server: cloudflare`, `cf-ray` present:
+
+    x-frame-options: deny
+    content-security-policy: frame-ancestors 'none'
+    x-content-type-options: nosniff
+    referrer-policy: strict-origin-when-cross-origin
+    permissions-policy: accelerometer=(), browsing-topics=(), camera=(self), ...
+
+One Transform Rule, "security headers", matching **All incoming requests** —
+deliberately not path-scoped, because a rule naming `/creatorsonly/` is
+externally observable. All twelve meta CSPs verified unchanged (1 each); one
+301 -> 200 on both hostnames, no chain, no 526.
+
+**SSL/TLS is `Full` and MUST NOT be changed to `Full (strict)`.** This is the
+entry a future editor will otherwise "fix". GitHub Pages cannot renew its
+origin certificate while Cloudflare proxies the domain — its health check
+resolves the domain and expects its own IPs, sees Cloudflare's, and refuses.
+Under `Full` an expired origin cert is invisible (visitors get Cloudflare's
+edge cert, renewed by Cloudflare). Under `Full (strict)` the same expiry is
+**HTTP 526 on every request** ~90 days later. The origin cert is currently
+valid to 2026-10-28; to un-proxy later, grey-cloud for an hour and let GitHub
+renew first.
+
+**THE TRAP, and it fired: Cloudflare rewrites `robots.txt`.** The setup
+wizard's "Block training in robots.txt" toggle was turned OFF and it was NOT
+enough — a *separate* feature under **AI Crawl Control -> robots.txt**
+(Content Signals Policy) prepended a "Cloudflare Managed Content" block that
+served **27 user-agent groups and 9 `Disallow: /` lines** against GPTBot,
+ClaudeBot, Google-Extended, CCBot, Applebot-Extended, meta-externalagent,
+Bytespider, Amazonbot and CloudflareBrowserRenderingCrawler — above our own
+`User-agent: *  Allow: /`, where a named group beats the wildcard. That is the
+exact inverse of the deliberate 17-group zero-`Disallow` policy the file
+documents in its own comments, and it silently undoes the GEO pages. Turned
+off; the served file is now **byte-identical to the repo**. **Re-verify with a
+diff after any Cloudflare change** — the dashboard settings said "allow" the
+whole time the file said "deny".
+
+Also off, and each for a reason: Email Address Obfuscation (five real
+`mailto:` links, verified still painted as real addresses — 5/3/5 with zero
+Cloudflare decoders), Rocket Loader (rewrites `<script>` under
+`script-src 'self'`), Bot Fight Mode (cannot be exempted, would challenge the
+17 allowed crawlers), AI Labyrinth (injects markup), and the "mixed purpose
+crawlers will be blocked on September 15" radio — a dated auto-change armed in
+a dashboard nobody re-reads.
+
+**Universal SSL took a few minutes to issue and HTTPS was genuinely broken in
+that window** — handshake failure at the edge while HTTP still 301'd to it. If
+this ever recurs, grey-cloud the five records to restore service instantly
+(GitHub's own cert is valid) and re-proxy once the cert shows Active.
+
+**Still open on D1:** HSTS (1-day ramp, `includeSubDomains` and `preload`
+both OFF) and Page Shield script monitoring — both owner toggles.
+
+### The first backup this project has ever had
+
+`pipeline/backup_supabase.py` + `pipeline/test_backup.py` (31 checks, all
+passing, no network or credentials) + `pipeline/io.lynxr.backup.plist`.
+Read-only by construction; GET and nothing else.
+
+First real run: **11 tables + the auth roster, 580,879 bytes**, into
+`~/Lynxr-backups/20260820T204034Z/`. Tiers are load-bearing — tier 1
+(`lynxr_creators`, `lynxr_script_charges`, `lynxr_allowance`, `lynxr_clients`,
+`lynxr_staff`) is a hard non-zero exit, tier 2 warns, tier 3 (`lynxr_costs`)
+treats `PGRST205` as skipped. `unsafe_git_ancestor()` refuses any `--dest`
+with a `.git` at or above it: `--dest .` exits 1. That makes CLAUDE.md's
+"a waitlist CSV never goes inside the repo" structural instead of a habit.
+
+**It cannot capture password hashes** — the admin API does not return them —
+so a restore from this alone forces every creator to reset. That sentence is
+in the written file's `_note` key. Layer 2 (weekly `pg_dump`) and the restore
+script are NOT built. **A backup you have not restored is a hypothesis.**
+
+Owner action to schedule it (04:15 local, launchd fires a missed run on next
+wake):
+
+    cp pipeline/io.lynxr.backup.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/io.lynxr.backup.plist
+
+### Corrections the backup run proved against live data (2026-08-20)
+
+- **`lynxr_costs` EXISTS** — HTTP 200, currently 0 rows. The entry below
+  saying `costs_table.sql` is unapplied is wrong.
+- **9 auth users, not 8.**
+- **`lynxr_creators` is 342,775 bytes, not 274 KB.** `lynxr_sources` 175,074.
+- **`lynxr_allowance` has 0 rows and that is CORRECT** — it is an override
+  table, read through `coalesce(..., 25)` at `allowance_ledger.sql:91`. Empty
+  means every creator gets the default. Do not "fix" it.
+
+
 **2026-08-20 (late) — session close. The Ops tab shipped, three focus-ring
 defects are fixed, and a six-track hardening programme is planned but NOT
 started.** Read the two "before anything" checks below before touching Supabase.

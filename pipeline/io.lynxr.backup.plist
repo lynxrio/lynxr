@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Runs the nightly Supabase backup on this Mac.
+
+  WHY A LAPTOP IS AN ACCEPTABLE HOST, honestly stated. launchd fires a missed
+  StartCalendarInterval when the Mac next wakes, so a closed lid at 04:15
+  costs a delay, not a backup. But if this Mac is off for a week, so is the
+  backup — there is no second host and nothing alarms on a missed run. That is
+  the real limit of this layer and it should not be papered over.
+
+  WHY NOT GITHUB ACTIONS. The job would pull every creator's scripts onto a
+  hosted runner and the only way to keep the result would be an artifact —
+  creator data at rest in a system whose access model is "anyone with repo
+  access", for a public repo. Local is the weaker schedule and the far better
+  place for the data.
+
+  NO SECRETS IN THIS FILE, deliberately — it is committed to a PUBLIC repo.
+  backup_supabase.py reads .env itself (gitignored), so launchd only has to
+  start the process.
+
+  WHERE IT WRITES: ~/Lynxr-backups/<UTC timestamp>/, which is outside every
+  git checkout. The script refuses to run if its destination sits under one.
+
+  INSTALL
+      cp pipeline/io.lynxr.backup.plist ~/Library/LaunchAgents/
+      launchctl load  ~/Library/LaunchAgents/io.lynxr.backup.plist
+
+  CONFIRM IT IS SCHEDULED
+      launchctl list | grep io.lynxr.backup
+
+  WATCH IT
+      tail -f ~/Library/Logs/lynxr-backup.log
+
+  RUN ONE NOW, WITHOUT WAITING FOR 04:15
+      launchctl start io.lynxr.backup
+
+  STOP
+      launchctl unload ~/Library/LaunchAgents/io.lynxr.backup.plist
+
+  This is Layer 1. It cannot capture password hashes — the admin API does not
+  return them — so a Layer-1-only restore forces every creator to reset their
+  password. Layer 2 is a weekly pg_dump and is an owner action; see RECOVERY.md.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>io.lynxr.backup</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/junsahwang/Documents/lynxrio/venv/bin/python</string>
+    <string>/Users/junsahwang/Documents/lynxrio/pipeline/backup_supabase.py</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/junsahwang/Documents/lynxrio</string>
+
+  <!-- 04:15 local. Off the hour on purpose: every other cron on the planet
+       fires at :00, and Supabase is shared infrastructure. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>4</integer>
+    <key>Minute</key>
+    <integer>15</integer>
+  </dict>
+
+  <!-- A backup at every login is noise, and the daily run already covers the
+       churn. Use `launchctl start io.lynxr.backup` for an on-demand run. -->
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/junsahwang/Library/Logs/lynxr-backup.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/junsahwang/Library/Logs/lynxr-backup.log</string>
+</dict>
+</plist>
