@@ -542,7 +542,20 @@
     padding: 11px 12px; border-radius: var(--r-inner); cursor: pointer;
     transition: background .15s var(--ease);
   }
-  .sat-row:hover, .sat-row:focus-visible { background: var(--surface); outline: none; }
+  /* `outline: none` USED TO BE THE SECOND DECLARATION HERE AND IS GONE.
+     `.sat-row:focus-visible` is (0,2,0) and beat the global (0,1,0)
+     `:focus-visible` ring near the top of this file, so this row — role=button,
+     tabindex=0, a real keyboard target that filters the table — drew NO ring at
+     all when tabbed to. What it drew instead was this background, transparent
+     -> --surface on the page's own --bg: measured 1.06:1, which is the same
+     defect recorded at the .wait-form block and worse than the 1.19:1 there.
+     The fill still runs, and now keeps hover and keyboard looking like one
+     state while the ring is what says "you are here". Removing the declaration
+     rather than restating the ring is deliberate: with nothing declared for
+     `outline` at this specificity the global rule applies untouched, so this
+     row gets the same 2px --text-2 at +2px as every other control and cannot
+     drift from it. */
+  .sat-row:hover, .sat-row:focus-visible { background: var(--surface); }
   .sat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
   .sat-name { font-size: var(--fs-14); color: var(--text); }
   .sat-reach { font-family: var(--mono); font-size: var(--fs-125); color: var(--text-2); white-space: nowrap; }
@@ -4796,6 +4809,30 @@
   /* A CLICK must not draw it: :focus-within has no keyboard-only variant, so
      the ring is suppressed unless the field inside is keyboard-focused. */
   .composer-row:focus-within:not(:has(input:focus-visible)) { outline: none; }
+  /* ONE RING, NOT TWO, and this is the rule that makes it one. The capsule was
+     carrying both indicators at once: the outline above, AND the border
+     brightening from `.composer-row:focus-within` ~2800 lines up (--line-2
+     #34343c -> --text-3 #6b6b76). A text input matches :focus-visible on a
+     plain MOUSE CLICK as well as on Tab, so the ordinary case fired both.
+     Measured at 1440px before this rule: a 640x50 capsule with a 1px
+     rgb(107,107,118) border and a 2px rgb(163,163,173) outline 2px outside it
+     — two concentric pills with a visible gap between them, which is what the
+     owner reported.
+
+     THE OUTLINE IS THE INDICATOR, so the border holds its resting colour
+     underneath it. Same shape as .wait-form ~1800 lines up, where the quiet
+     border swap under the ring is #26262b -> #34343c, measures 1.19:1, and is
+     therefore invisible; this one was --line-2 -> --text-3 and was not.
+
+     THE BRIGHTENING IS NOT REMOVED, for two reasons. It is still the only
+     signal in the one case the ring is suppressed — focus inside the capsule
+     that is NOT the field, i.e. the send button reached by mouse. And it could
+     not carry the indicator alone even if it were: measured, --text-3 on
+     --surface is 3.55:1 absolute, but the STATE CHANGE from --line-2 to
+     --text-3 is 2.34:1, under the 3:1 floor, and /accessibility/ claims a 2px
+     ring at 7.9:1 for every control. Dropping the outline would make that
+     sentence untrue. */
+  .composer-row:focus-within:has(input:focus-visible) { border-color: var(--line-2); }
 
   /* ---------- THE TELEPROMPTER ----------
 

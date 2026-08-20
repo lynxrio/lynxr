@@ -299,10 +299,18 @@ function formatSaturation(rows) {
    rows "53%" is one video's worth of movement per 5.3 points, and a percentage
    invites a confidence the sample cannot support. The scraped corpus keeps its
    percentages — 9,016 rows can carry them. */
-function renderBars(hostId, pairs, limit = 8, drillSelectId = null, { pct = true } = {}) {
+function renderBars(hostId, pairs, limit = 8, drillSelectId = null, { pct = true, format = null } = {}) {
   const host = document.getElementById(hostId);
   const shown = pairs.slice(0, limit);
-  const max = shown.length ? shown[0][1] : 1;
+  // The TALLEST bar, not the first one. Every caller before the Ops tab passes
+  // pairs sorted descending (countBy, and the audio majors sort), so shown[0][1]
+  // WAS the max and this is a no-op for all of them — but a chronological series
+  // is not sorted, and under the old line every day taller than day one rendered
+  // over 100% and was clipped flat by .bar-track's overflow, so several days all
+  // looked identical. It also removes a latent NaN: an all-zero first entry made
+  // count/0 NaN, Math.max(NaN, 1) is NaN, and the width came out "NaN%" — which
+  // paints nothing at all.
+  const max = shown.reduce((m, [, n]) => Math.max(m, n), 0) || 1;
   const total = pairs.reduce((a, [, n]) => a + n, 0) || 1;
   host.innerHTML = shown.map(([label, count]) => `
     <div class="bar-row${drillSelectId && !label.startsWith("(") ? " drill" : ""}" data-val="${escapeHtml(label)}"
@@ -311,7 +319,7 @@ function renderBars(hostId, pairs, limit = 8, drillSelectId = null, { pct = true
         <div class="bar-fill"></div>
         <div class="bar-label">${escapeHtml(label)}</div>
       </div>
-      <div class="bar-count"><span class="bar-n">${fmt(count)}</span>${pct
+      <div class="bar-count"><span class="bar-n">${escapeHtml(format ? format(count) : fmt(count))}</span>${pct
         ? ` <span class="bar-pct">${(count / total * 100).toFixed(count / total >= 0.1 ? 0 : 1)}%</span>`
         : ""}</div>
     </div>`).join("");
@@ -329,7 +337,7 @@ function renderBars(hostId, pairs, limit = 8, drillSelectId = null, { pct = true
     });
     // Counts climb with their bars, on the same stagger.
     [...host.querySelectorAll(".bar-n")].forEach((el, i) =>
-      setTimeout(() => animateCount(el, shown[i][1], (v) => fmt(Math.round(v)), 650), i * 45));
+      setTimeout(() => animateCount(el, shown[i][1], format || ((v) => fmt(Math.round(v))), 650), i * 45));
   }, 30);
   // Overview shows the split; clicking a bar drills into those exact videos.
   if (drillSelectId) {
@@ -386,6 +394,7 @@ const TABS = [
   ["tab-database", "panel-database"],
   ["tab-brief", "panel-brief"],
   ["tab-briefs", "panel-briefs"],
+  ["tab-ops", "panel-ops"],
 ];
 function activateTab(tabId) {
   for (const [t, p] of TABS) {
@@ -394,6 +403,11 @@ function activateTab(tabId) {
     document.getElementById(p).hidden = !on;
   }
   window.scrollTo({ top: 0 });
+  // Lazy, and refreshed on re-entry when what we hold is over a minute old —
+  // an alarm board showing five-minute-old state is worse than one that says
+  // it is loading. NOT a setInterval: this is a look-when-I-want surface, and a
+  // background poller in a tab left open all day is a database bill for nobody.
+  if (tabId === "tab-ops") ensureOps();
 }
 function initTabs() {
   for (const [tabId] of TABS) {
@@ -4230,6 +4244,393 @@ function initBrief() {
   });
 }
 
+// ---------- Ops ----------
+/* IS ANYTHING LATE, IS ANYTHING BROKEN, WHAT IS IT COSTING.
+
+   Two reads, both plain PostgREST selects behind is_staff():
+     lynxr_ops    — the watchdog's alarm latch, its heartbeats, and the
+                    ops.snapshot row it writes at the end of every completed
+                    check. `staff read ops` is applied (supabase/ops_table.sql).
+     lynxr_costs  — one row per model per pass, written by
+                    process_adaptations.record_cost(). `staff read costs` comes
+                    from supabase/costs_table.sql, an owner action.
+
+   NO CREATOR DATA IS READ HERE AT ALL, which is why this needs none of the
+   security definer machinery supabase/usage_overview.sql needs.
+
+   READ-ONLY, and not merely by convention: neither table has an insert, update
+   or delete policy. Do not add a clear-alarm or retry button — the watchdog
+   owns alarm state, and two systems deciding what "open" means is how a
+   dashboard starts lying. */
+let OPS = null;             // { ops: {key: {value, updated_at}}, costs: [...] }
+let OPS_STATE = "idle";     // idle | loading | ready | error
+let OPS_ERR = "";
+let OPS_AT = 0;             // when the current OPS was fetched
+const OPS_STALE_MS = 60_000;
+const OPS_COST_DAYS = 30;
+const OPS_SPEND_DAYS = 14;
+
+async function fetchOps() {
+  OPS_STATE = "loading";
+  renderOps();
+  try {
+    const since = new Date(Date.now() - OPS_COST_DAYS * 86400000).toISOString();
+    const [opsRows, costRows] = await Promise.all([
+      // The whole table: heartbeats, digest.last, ops.snapshot, cost.apify and
+      // one row per open alarm. Under a dozen rows by construction.
+      sbFetch("/rest/v1/lynxr_ops?select=key,value,updated_at"),
+      sbFetch("/rest/v1/lynxr_costs?select=at,model,usd,ok,price_rev"
+        + `&at=gte.${encodeURIComponent(since)}&order=at.desc&limit=5000`),
+    ]);
+    const byKey = {};
+    for (const r of opsRows || []) byKey[r.key] = { value: r.value || {}, updated_at: r.updated_at };
+    OPS = { ops: byKey, costs: costRows || [] };
+    OPS_AT = Date.now();
+    OPS_STATE = "ready";
+  } catch (ex) {
+    OPS = null;
+    OPS_ERR = (ex && ex.message) || "";
+    OPS_STATE = "error";
+  }
+  renderOps();
+}
+
+function ensureOps() {
+  if (OPS_STATE === "loading") return;
+  if (OPS_STATE === "idle" || Date.now() - OPS_AT > OPS_STALE_MS) fetchOps();
+}
+
+function initOpsUi() {
+  document.getElementById("ops-refresh")?.addEventListener("click", fetchOps);
+}
+
+/** Three causes, three different fixes, and "no data" is none of them — that
+    case (an empty lynxr_ops, or an empty lynxr_costs beside a non-empty
+    lynxr_ops) is handled where the data is read, not here, because "no rows"
+    reads as a genuinely different situation from each of the three below. */
+function opsErrorHtml(m) {
+  if (/PGRST205|Could not find the table|schema cache/i.test(m)) {
+    return `<div class="empty">
+      <p><strong>The cost table is not installed.</strong></p>
+      <p>Run <code>supabase/costs_table.sql</code> in the Supabase SQL editor,
+         then reload.</p></div>`;
+  }
+  if (/^401|^403|JWT|not authorized/i.test(m)) {
+    return `<div class="empty">
+      <p><strong>This account is not staff.</strong></p>
+      <p><code>lynxr_ops</code> and <code>lynxr_costs</code> are gated on
+         <code>is_staff()</code>.</p></div>`;
+  }
+  return `<div class="empty">
+    <p><strong>Could not load ops.</strong></p>
+    <p>Check your connection and press Refresh.</p></div>`;
+}
+
+/** The state machine. loading/error/ready mirror SOURCES_STATE exactly, for
+    the same reason: a look-when-I-want panel has to say plainly which of the
+    three it is in, because an empty table and a blocked read look identical
+    in the DOM otherwise. */
+function renderOps() {
+  const alarmsHost = document.getElementById("ops-alarms");
+  const at = document.getElementById("ops-at");
+  if (!alarmsHost) return;
+
+  if (OPS_STATE === "loading") {
+    alarmsHost.innerHTML = `<p class="bp-hint">Reading ops…</p>`;
+    return;
+  }
+  if (OPS_STATE === "error" || !OPS) {
+    alarmsHost.innerHTML = opsErrorHtml(OPS_ERR);
+    // A stale render must never sit above an error — clear every other
+    // section rather than leaving whatever the last good fetch painted.
+    for (const id of ["ops-late", "ops-running", "ops-stats", "ops-spend", "ops-spend-note", "ops-fixed"]) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = "";
+    }
+    if (at) at.textContent = "";
+    return;
+  }
+
+  renderOpsAlarms();
+  renderOpsLate();
+  renderOpsRunning();
+  renderOpsStats();
+  renderOpsSpend();
+  renderOpsFixed();
+
+  const snapshot = OPS.ops["ops.snapshot"]?.value;
+  if (at) at.textContent = snapshot ? agoLabel(snapshot.at) : "never checked";
+}
+
+function renderOpsAlarms() {
+  const host = document.getElementById("ops-alarms");
+  if (!host) return;
+
+  // AN EMPTY lynxr_ops IS ALMOST CERTAINLY THE POLICY, NOT AN EMPTY TABLE —
+  // same reasoning as renderSources(). The watchdog has written a heartbeat
+  // every minute since day one; a signed-in staff browser getting [] back
+  // means supabase/ops_table.sql's staff-read policy probably is not applied.
+  if (!Object.keys(OPS.ops).length) {
+    host.innerHTML = `<div class="empty">
+      <p><strong>No ops data readable.</strong></p>
+      <p>If you expected rows, the staff read policy is probably not applied yet:
+         run <code>supabase/ops_table.sql</code> in the Supabase SQL editor,
+         then reload.</p></div>`;
+    return;
+  }
+
+  const snapEntry = OPS.ops["ops.snapshot"];
+  if (!snapEntry) {
+    host.innerHTML = `<div class="empty">
+      <p><strong>No check has completed yet.</strong></p>
+      <p>The worker has not picked up the deploy that writes
+         <code>ops.snapshot</code>. It runs every ~120 seconds once it does.</p></div>`;
+    return;
+  }
+  const snapshot = snapEntry.value || {};
+  const alarms = [...(snapshot.alarms || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+  // A stale snapshot beside a fresh worker.heartbeat means the worker is alive
+  // but the CHECKER is blind — the false all-clear the 2026-08-18 newline
+  // incident produced. beat() writes worker.heartbeat before anything is
+  // checked; this row is written only by a run_once() that got all the way
+  // through, so the two staleness clocks answer different questions.
+  const hbEntry = OPS.ops["worker.heartbeat"];
+  const hbAgeMin = hbEntry ? (Date.now() - new Date(hbEntry.updated_at).getTime()) / 60000 : Infinity;
+  const snapAgeMin = (Date.now() - new Date(snapshot.at || 0).getTime()) / 60000;
+  let freshness = "";
+  if (snapAgeMin > 10) {
+    freshness = hbAgeMin < 5
+      ? `<p class="bp-hint bad">The worker is alive but the checker has not completed
+          a pass in ${Math.round(snapAgeMin)} min — this is not an all-clear.</p>`
+      : `<p class="bp-hint bad">Nothing has checked in for ${Math.round(snapAgeMin)} min.</p>`;
+  }
+
+  if (!alarms.length) {
+    host.innerHTML = freshness + `<p class="bp-hint">Nothing is broken. Last full check
+      ${escapeHtml(agoLabel(snapshot.at))} by the ${escapeHtml(snapshot.role || "")} checker.</p>`;
+    return;
+  }
+
+  const rows = alarms.map((a) => {
+    const latch = OPS.ops["alarm." + a.key];
+    const openFor = latch
+      ? escapeHtml(agoLabel(latch.value?.opened_at))
+        + (latch.value?.reminders > 0 ? ` · ${fmt(latch.value.reminders)} reminders` : "")
+      : "—";
+    return `<tr>
+      <td>${escapeHtml(a.key)}<br>${escapeHtml(a.title)}</td>
+      <td>${a.page ? `<span class="chip bad">pages</span>` : `<span class="chip">quiet</span>`}
+        <span class="chip">p${escapeHtml(String(a.priority))}</span></td>
+      <td>${openFor}</td>
+      <td class="dim">${escapeHtml(a.body)}</td>
+    </tr>`;
+  }).join("");
+
+  host.innerHTML = freshness + `<div class="table-wrap"><table>
+    <thead><tr><th>alarm</th><th>state</th><th>open for</th><th>detail</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function renderOpsLate() {
+  const host = document.getElementById("ops-late");
+  if (!host) return;
+  const snapshot = OPS.ops["ops.snapshot"]?.value;
+  if (!snapshot) { host.innerHTML = ""; return; }
+
+  // The `inflight:` family is what watchdog.check_all() already decided is
+  // late, against INFLIGHT_SLA — read straight off the snapshot, never
+  // re-derived, so this can never disagree with the pager.
+  const sla = Math.round((snapshot.inflight_sla_s || 0) / 60);
+  const inflight = (snapshot.alarms || []).filter((a) => (a.key || "").startsWith("inflight:"));
+
+  if (!inflight.length) {
+    host.innerHTML = `<p class="bp-hint">No paste has been in flight longer than ${sla} minutes.</p>`;
+    return;
+  }
+  const many = inflight.find((a) => a.key === "inflight:many");
+  if (many) {
+    host.innerHTML = `<p class="bp-hint">${escapeHtml(many.title)}</p>`;
+    return;
+  }
+  host.innerHTML = inflight
+    .map((a) => `<p class="bp-hint">${escapeHtml(a.key)} · ${escapeHtml(a.body)}</p>`)
+    .join("");
+}
+
+function renderOpsRunning() {
+  const host = document.getElementById("ops-running");
+  if (!host) return;
+  const now = Date.now();
+  const hb = OPS.ops["worker.heartbeat"];
+  const fb = OPS.ops["fallback.heartbeat"];
+  const snap = OPS.ops["ops.snapshot"];
+  const digest = OPS.ops["digest.last"];
+
+  // Budgets read off pipeline/watchdog.py's own thresholds — WORKER_DOWN_MINUTES
+  // = 5, FALLBACK_COVER_MINUTES = 15 — so this table can't relabel "fresh"
+  // differently from the checker that decides it.
+  const rows = [
+    ["Fly worker", hb?.updated_at, 5],
+    ["GitHub fallback", fb?.updated_at, 15],
+    ["Last full check", snap?.value?.at, 10],
+  ].map(([what, iso, budgetMin]) => {
+    if (!iso) return `<tr><td>${escapeHtml(what)}</td><td class="dim">—</td>
+      <td><span class="chip">never seen</span></td></tr>`;
+    const ageMin = (now - new Date(iso).getTime()) / 60000;
+    const chip = ageMin <= budgetMin ? `<span class="chip good">ok</span>` : `<span class="chip bad">stale</span>`;
+    return `<tr><td>${escapeHtml(what)}</td><td>${escapeHtml(agoLabel(iso))}</td><td>${chip}</td></tr>`;
+  }).join("");
+
+  // The digest carries a calendar date, not a timestamp — "today or yesterday
+  // (UTC)" is fresh, matching the 15:00 UTC cadence.
+  const digestDate = digest?.value?.date;
+  let digestRow;
+  if (!digestDate) {
+    digestRow = `<tr><td>Last daily digest</td><td class="dim">—</td>
+      <td><span class="chip">never seen</span></td></tr>`;
+  } else {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(now - 86400000).toISOString().slice(0, 10);
+    const fresh = digestDate === today || digestDate === yesterday;
+    digestRow = `<tr><td>Last daily digest</td><td>${escapeHtml(digestDate)}</td>
+      <td>${fresh ? `<span class="chip good">ok</span>` : `<span class="chip bad">stale</span>`}</td></tr>`;
+  }
+
+  host.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>what</th><th>last seen</th><th>state</th></tr></thead>
+    <tbody>${rows}${digestRow}</tbody></table></div>`;
+}
+
+/** Sums OPS.costs. A row with an EMPTY price_rev is a model with no price on
+    file: its usd is a placeholder 0, NOT a measurement of zero, so it is
+    counted separately and never added in. Money we did not measure must never
+    render as $0 — PRICES' own comment says a stale number "reads as measured
+    when it isn't", and an unmeasured one reads worse. */
+function opsCostSummary() {
+  const rows = OPS.costs || [];
+  const byDay = new Map();
+  let usd30 = 0, usdFail = 0, unpriced = 0, since = null;
+  for (const r of rows) {
+    const usd = Number(r.usd) || 0;
+    const day = String(r.at || "").slice(0, 10);
+    usd30 += usd;
+    if (day) byDay.set(day, (byDay.get(day) || 0) + usd);
+    if (r.ok === false) usdFail += usd;
+    if (r.price_rev === "") unpriced++;
+    if (day && (since === null || day < since)) since = day;
+  }
+  return { usd30, usdFail, passes: rows.length, unpriced, since, byDay };
+}
+
+// Matches pipeline/process_adaptations.py's PRICES_REV. NOT derived from the
+// rows: an empty lynxr_costs would then render a blank provenance label,
+// which is the one thing this panel cannot do. Change both together.
+const PRICES_REV_LABEL = "2026-08-12";
+
+function renderOpsStats() {
+  const host = document.getElementById("ops-stats");
+  if (!host) return;
+  const snapshot = OPS.ops["ops.snapshot"]?.value || {};
+
+  // Ops itself demonstrably answered (renderOpsAlarms already ruled out an
+  // unreadable lynxr_ops) — so an empty lynxr_costs means the SQL or the
+  // deploy is missing, not that this account can't see it. Say the other
+  // thing, per the plan's provenance rule.
+  if (!(OPS.costs || []).length) {
+    host.innerHTML = `<div class="empty">
+      <p><strong>No cost rows yet.</strong></p>
+      <p>Either <code>supabase/costs_table.sql</code> has not been run, or the
+         pipeline carrying <code>record_cost()</code> has not been deployed to Fly.</p></div>`;
+    return;
+  }
+
+  const { usd30, usdFail, passes } = opsCostSummary();
+  const apify = OPS.ops["cost.apify"]?.value;
+  const cards = [
+    ["Model spend, 30d", usd30, (v) => "$" + Number(v).toFixed(2),
+      "measured · list prices " + PRICES_REV_LABEL],
+    ["Apify this month", apify ? apify.spent_usd : null,
+      apify ? (v) => "$" + Number(v).toFixed(2) : () => "—",
+      apify ? "of $" + apify.breaker_usd + " before the breaker" : "meter not configured"],
+    ["Scripts charged, 24h", snapshot.charges_24h ?? 0, (v) => fmt(Math.round(v)),
+      "cap " + fmt(snapshot.daily_script_cap ?? 0)],
+    ["Spent on failures, 30d", usdFail, (v) => "$" + Number(v).toFixed(2),
+      `${fmt(passes)} passes recorded`],
+  ];
+  host.innerHTML = cards.map(([label, , , sub]) => `
+    <div class="stat"><div class="label">${escapeHtml(label)}</div><div class="value"></div>
+      <div class="sub">${escapeHtml(sub)}</div></div>`).join("");
+  host.querySelectorAll(".value").forEach((el, i) =>
+    animateCount(el, cards[i][1] ?? NaN, cards[i][2]));
+}
+
+function renderOpsSpend() {
+  const noteEl = document.getElementById("ops-spend-note");
+  const { unpriced, since, byDay } = opsCostSummary();
+
+  // Fourteen UTC days including empty ones — a day with no spend is
+  // information, not a gap. renderBars, not a new chart: it already draws
+  // through CSSOM (a style="" attribute is silently dropped by the strict CSP,
+  // which shipped invisible bar charts here once) and it already has the
+  // setTimeout reflow dance that exists because rAF never fires in a hidden tab
+  // — and #panel-ops IS hidden until its tab is activated.
+  const days = [];
+  for (let i = OPS_SPEND_DAYS - 1; i >= 0; i--) {
+    days.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10));
+  }
+  const pairs = days.map((d) => [d.slice(5), byDay.get(d) || 0]);
+  renderBars("ops-spend", pairs, OPS_SPEND_DAYS, null,
+             { pct: false, format: (v) => "$" + Number(v).toFixed(2) });
+
+  if (noteEl) {
+    let note = `Measuring since ${since || "nothing recorded yet"}.`;
+    if (unpriced > 0) {
+      note += ` ${fmt(unpriced)} pass${unpriced === 1 ? "" : "es"} ran on a model with no`
+        + ` price on file and ${unpriced === 1 ? "is" : "are"} not counted.`;
+    }
+    noteEl.textContent = note;
+  }
+}
+
+/* NOT MEASURED. Typed in from an invoice, and only as good as its check date —
+   which is why `checked` is rendered next to every figure. A null amount prints
+   "— not entered" and is EXCLUDED from the total; inventing a plausible number
+   here would be the exact failure this panel exists to avoid, because a guess
+   sitting beside two measured figures reads as a third measured figure.
+
+   To fill one in: set `usd`, set `checked` to today, and bump the ?v= stamp on
+   all twelve pages. */
+const FIXED_COSTS = [
+  { name: "Fly — lynxr-worker", usd: null, checked: "",
+    source: "1 machine, shared 2 vCPU / 4096 MB, iad, always on, plus a stopped standby (fly.toml)" },
+  { name: "Supabase — esakjfogplfszievvabi", usd: null, checked: "",
+    source: "plan not recorded in this repo" },
+  { name: "Resend", usd: null, checked: "",
+    source: "wait-list and transactional mail; plan not recorded in this repo" },
+  { name: "lynxr.io", usd: null, checked: "",
+    source: "annual registration — divide by 12" },
+  { name: "GitHub Actions", usd: 0, checked: "2026-08-20",
+    source: "free minutes on a public repo — see .github/workflows/adaptations.yml's header" },
+];
+
+function renderOpsFixed() {
+  const host = document.getElementById("ops-fixed");
+  if (!host) return;
+  const rows = FIXED_COSTS.map((c) => `
+    <tr><td>${escapeHtml(c.name)}</td>
+      <td class="num">${c.usd == null ? "—" : "$" + Number(c.usd).toFixed(2)}</td>
+      <td class="dim">${escapeHtml(c.checked || "—")}</td>
+      <td class="dim">${escapeHtml(c.source)}</td></tr>`).join("");
+  const entered = FIXED_COSTS.filter((c) => c.usd != null);
+  const sum = entered.reduce((a, c) => a + Number(c.usd), 0);
+  host.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>what</th><th>$ per month</th><th>checked</th><th>what it is</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <p class="bp-hint">${fmt(entered.length)} of ${fmt(FIXED_COSTS.length)} entered
+      · $${sum.toFixed(2)} a month accounted for.</p>`;
+}
+
 // ---------- Footer ----------
 /** The giant footer wordmark fills left-to-right as the footer scrolls into
     view, completing exactly at the bottom of the page. Width is set through
@@ -4329,6 +4730,7 @@ function renderApp(rows) {
   // of the app. renderSourcesAll() paints whatever came back, including the
   // "policy probably not applied" empty state.
   initSourcesUi();
+  initOpsUi();
   renderSources();                       // paints the loading line immediately
   fetchSources().then(renderSourcesAll);
 

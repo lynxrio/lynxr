@@ -23,7 +23,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260823j">
+<link rel="stylesheet" href="/app.css?v=20260823k">
 </head>
 <body>
 
@@ -65,6 +65,7 @@
       <button class="tab" role="tab" id="tab-briefs" aria-controls="panel-briefs" aria-selected="true">Clients</button>
       <button class="tab" role="tab" id="tab-brief" aria-controls="panel-brief" aria-selected="false">New Client</button>
       <button class="tab" role="tab" id="tab-database" aria-controls="panel-database" aria-selected="false">Database</button>
+      <button class="tab" role="tab" id="tab-ops" aria-controls="panel-ops" aria-selected="false">Ops</button>
     </nav>
     <div class="spacer"></div>
     <span class="sync-state" id="sync-state"></span>
@@ -186,6 +187,71 @@
     <section class="panel" id="panel-briefs" role="tabpanel" aria-labelledby="tab-briefs">
       <div id="briefs-host"></div>
     </section>
+
+    <!-- Ops — is anything late, is anything broken, what is it costing.
+         Staff only, and READ-ONLY in the database rather than by convention:
+         lynxr_ops and lynxr_costs both carry a select policy and no insert,
+         update or delete policy at all. Nothing on this tab clears an alarm,
+         retries a job or writes a row.
+
+         It reads NO creator data. Not a name, not a link, not a script — the
+         numbers come from the watchdog's own alarm latch and from our model
+         spend. That is why it needs none of the security definer machinery
+         supabase/usage_overview.sql needs, and why it can ship independently
+         of it.
+
+         It is a PULL surface. pipeline/watchdog.py's daily ntfy digest is
+         still the push, and the standing rule that the phone only rings when
+         a creator actually lost something is unchanged by anything here. -->
+    <section class="panel" id="panel-ops" role="tabpanel" aria-labelledby="tab-ops" hidden>
+      <div class="section">
+        <h2>Needs attention <span class="pill" id="ops-at"></span></h2>
+        <p class="lede">Everything the watchdog found on its last pass — including the
+          quiet ones it would otherwise hold back for the daily digest. Nothing here
+          rings a phone; the digest still does that.</p>
+        <div class="controls">
+          <button type="button" class="ghost" id="ops-refresh">Refresh</button>
+        </div>
+        <div id="ops-alarms"></div>
+      </div>
+
+      <div class="section">
+        <h2>Late scripts</h2>
+        <p class="lede">A paste still queued or running past the same budget the pager
+          uses. The 60-second promise is measured in the daily digest, not here.</p>
+        <div id="ops-late"></div>
+      </div>
+
+      <div class="section">
+        <h2>Still running</h2>
+        <p class="lede">The Fly worker beats every minute and the GitHub fallback every
+          minute it is awake. A fresh heartbeat beside a stale check means the worker
+          is alive and the checker is blind, which is not the same thing as healthy.</p>
+        <div id="ops-running"></div>
+      </div>
+
+      <div class="section">
+        <h2>What it costs</h2>
+        <p class="lede">Model spend is measured from real token counts. Apify is Apify's
+          own meter. Everything under Fixed is typed in by hand and is only as current
+          as its check date — nothing on this page guesses a number.</p>
+        <div class="stats" id="ops-stats"></div>
+      </div>
+
+      <div class="section">
+        <h2>Model spend by day</h2>
+        <p class="lede">UTC days, last 14. Measured tokens at list prices.</p>
+        <div class="bars" id="ops-spend"></div>
+        <p class="bp-hint" id="ops-spend-note"></p>
+      </div>
+
+      <div class="section">
+        <h2>Fixed, every month</h2>
+        <p class="lede">Not measured — entered by hand. A blank is honest; a made-up
+          number is not.</p>
+        <div id="ops-fixed"></div>
+      </div>
+    </section>
   </main>
 
   <footer id="site-footer">
@@ -201,6 +267,7 @@
         <button type="button" class="foot-link" data-tab="tab-database">Database</button>
         <button type="button" class="foot-link" data-tab="tab-brief">New Client</button>
         <button type="button" class="foot-link" data-tab="tab-briefs">Clients</button>
+        <button type="button" class="foot-link" data-tab="tab-ops">Ops</button>
       </div>
       <div class="foot-col">
         <div class="foot-label">Socials</div>
@@ -225,8 +292,8 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260823j" defer></script>
-<script src="/app.js?v=20260823j" defer></script>
+<script src="/dotgrid.js?v=20260823k" defer></script>
+<script src="/app.js?v=20260823k" defer></script>
 </body>
 </html>
 
