@@ -4436,10 +4436,12 @@
 
      WHAT IT IS: this is the card's STATUS field, and as of 2026-08-23 it says
      a state and never a quantity. A library entry has four — "not scripted"
-     (grey), "writing N" (grey, pulsing dot), "ready" (GREEN, .chip.good: every
+     (grey), "writing" (grey, pulsing dot), "ready" (GREEN, .chip.good: every
      script from this video is finished) and "couldn't fetch"/"couldn't write"
-     (RED, .chip.bad). More than one finished script adds the figure as a
-     footnote on `ready` (.st-n, below) rather than replacing the word with it.
+     (RED, .chip.bad). BOTH live states take a count the same way when there is
+     more than one script: the figure rides on the word as .st-n (below) rather
+     than replacing it, and the spoken wording stays a sentence — "writing 2
+     scripts", "3 scripts ready".
      A brand-page card has seven wordings across the same four colour
      treatments, and no count in any of them — a card that is one script has nothing to count, and nothing is
      invented for it. One rule for both surfaces rather than two that can

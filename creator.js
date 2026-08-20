@@ -288,8 +288,8 @@ function thumbHtml(url, label, href, opts = {}) {
  *    couldn't fetch       -> no video     writing your script -> writing
  *    couldn't write       -> no script    original script     -> original
  *    script ready         -> ready        not scripted        -> not made
- *    writing N            -> writing      N scripts ready     -> ready + N
- *    poor fit / no script / ready         -> unchanged, they already fit
+ *    writing N scripts    -> writing + N  N scripts ready     -> ready + N
+ *    poor fit / no script / writing / ready -> unchanged, they already fit
  *
  *  `no script` is the tile face of BOTH "couldn't write" and the legacy
  *  branded-but-scriptless row, deliberately: to a creator they are the same
@@ -2760,7 +2760,26 @@ function libraryItemHtml(item, scopeBrandId) {
   // draws — see statusChip. The full string is what the accessible name and an
   // opened card still carry, so nothing here changes meaning.
   const chip = !made.length ? statusChip("", "not scripted", "not made")
-    : waiting ? statusChip("bp-wait", asOriginal ? "writing" : `writing ${waiting}`, "writing", true)
+    /* WRITING, THE SAME SHAPE AS `ready`. Owner, 2026-08-23: "fix the writing
+       one too." It was the one arm still putting a bare quantity in the full
+       wording (`writing 2`, which is not a sentence) and then dropping it
+       entirely on the tile, so a video with three scripts in flight looked
+       exactly like a video with one.
+       THE PARALLEL WITH THE DONE ARM IS BROKEN ON PURPOSE, and it is grammar,
+       not taste. "2 scripts ready" works because `ready` is an adjective sitting
+       on the subject. "2 scripts writing" puts a present participle there
+       instead, which reads as the scripts doing the writing. The full string is
+       the ONLY face that is ever spoken — it is the accessible name, and the
+       opened card — so it is written to be heard: "writing 2 scripts".
+       Same mechanism as the done arm and deliberately no second one: the count
+       goes to statusChip's 5th argument and comes out as .st-n inside the tile
+       face, so it is drawn on a closed tile and never beside the sentence.
+       The `asOriginal` guard is gone for the same reason it went from the done
+       arm — Original scope resolves to at most one record per video, so it can
+       only reach the singular branch anyway, and if it ever does hold two the
+       count is a true fact about that video rather than a "1" worth hiding. */
+    : waiting ? statusChip("bp-wait", waiting > 1 ? `writing ${waiting} scripts` : "writing",
+        "writing", true, waiting)
     /* THE STATUS IS `ready`; THE COUNT IS A FOOTNOTE ON IT. Owner, 2026-08-23:
        "for all scripts have them all just say ready and then if there's
        multiple have it just say ready with some tastefully indicator that
