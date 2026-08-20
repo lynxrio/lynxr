@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-08-19.**
+Read this, then `README.md` for architecture. **Last updated 2026-08-20.**
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -127,6 +127,126 @@ real rather than a dead channel.
 ---
 
 ## Where this left off (read this first)
+
+**2026-08-20 (late) — session close. The Ops tab shipped, three focus-ring
+defects are fixed, and a six-track hardening programme is planned but NOT
+started.** Read the two "before anything" checks below before touching Supabase.
+
+### Still in flight at session close — ONE uncommitted change
+
+A `ui-ux` agent was reworking the Ops tab's emphasis when the session ended:
+the owner asked for **issues and costs to own the first screen, with the six
+detail sections below the fold**. It touches `app.js`, `agencyonly/index.html`
+and the twelve `?v=` stamps (`k` -> `l`). If `git status` is dirty on those
+files, that is what it is. Verify against the five fixtures in
+`/tmp/lynxr-ops-harness/` before committing — healthy, three alarms, watchdog
+stale, no ops table, no cost table. The rule it must satisfy: **a summary tile
+must never say "all good" while a panel below it says the query failed**, which
+matters more now that the panels are off-screen.
+
+### Shipped today, all committed
+
+`7ec8c68` **the Ops tab** (phase two of `agency-ops-dashboard.md`) and **three
+focus-ring fixes**. `a8a8574` **cost persistence** (`lynxr_costs`, written in a
+`finally:` so a failed pass still records; a missing table degrades to no cost
+data, never to a dropped script). `4dc7f99`, `007e911`, `441dde0` the creator-app
+work: see-the-original inside a branded card, `originalText()` fixing a Copy
+button that returned the brand rewrite on the Original tab, `ready` / `ready . N`
+chips replacing counts, and the trash-arming bug where `stopPropagation` does not
+stop a `<details>` toggling so "are you sure?" jumped ~890px from the finger that
+pressed it.
+
+**The focus-ring root cause is worth remembering: a global rule meeting a
+component that has its own.** Three instances, failing two opposite ways.
+`:focus-visible` carried `border-radius: var(--r-pill)` -- and because
+`border-radius` is a real property and `:focus-visible` (0,1,0) beats `textarea`
+(0,0,1), **a focused textarea became a capsule and clipped its own first
+character by 6.5px**. Separately `.composer-row` drew ring *and* brightened
+border (two rings), and `.sat-row`'s own (0,2,0) rule carried `outline: none`
+and erased the ring entirely on a `role="button" tabindex="0"` element -- a
+1.06:1 indicator, worse than the 1.19:1 this file already calls "a rumour of
+one". 741 focusable elements across twelve pages, before and after: zero
+differences outside the three fixed.
+
+### The hardening programme — PLANNED, NOT STARTED
+
+Seven files, none executed, nothing approved:
+
+    ~/.claude/plans/lynxr-hardening-roadmap.md      <- start here
+    ~/.claude/plans/hardening-a-security-core.md    A1 data race, A2 auth, A3 secrets
+    ~/.claude/plans/hardening-b-verification.md     B1 staging, B2 JS tests, B3 RLS suite
+    ~/.claude/plans/hardening-c-resilience.md       C1 migrations, C2 backup, C3 continuity
+    ~/.claude/plans/hardening-d-perimeter.md        D1 headers, D2 abuse, D3 paid
+    ~/.claude/plans/hardening-e-maintainability.md  E1 modules, E2 CSS, E3 cache-bust
+    ~/.claude/plans/hardening-f-observability.md    F1 audit, F2 anomaly, F3 deps, F4 proxies
+
+~22.5 agent-days for all of it, 17.5 without E1. The roadmap's own top three:
+**E3** (2-3h, catches a stamp miss that happened today), **~30 minutes of
+account-level clicks** (MFA on the Supabase and GitHub accounts, push
+protection, a branch ruleset on `main`, and re-saving
+`SUPABASE_SERVICE_ROLE_KEY` without its trailing newline), and **C2's nightly
+backup** -- the only item whose absence is unrecoverable.
+
+**Declined outright, with reasons: F1b read auditing** (pgAudit cannot tell you
+*who* -- every signed-in session arrives on the one `authenticated` role),
+**F4 the CORS relays** (self-hosting opens the first public port on the machine
+holding the service-role key), and **all of D3, $0 recommended** -- not one
+request in this system both accepts attacker input and passes through
+Cloudflare.
+
+### TWO OWNER CHECKS BEFORE ANY SQL WORK
+
+**1. Run this. It settles a three-way contradiction:**
+
+    select tgname, tgenabled from pg_trigger
+     where tgrelid = 'auth.users'::regclass and not tgisinternal;
+
+Expect one row, `lynxr_signup_gate`. **Zero rows means nothing is enforcing
+signup at all.** Two rows means `signup_gate.sql` has been re-run since
+`invites.sql` -- it recreates `lynxr_signup_seats` at :141 and never drops
+`lynxr_signup_gate`, leaving a second BEFORE INSERT trigger that knows nothing
+about `require_invite`.
+
+**2. DO NOT re-run `supabase/schema.sql`.** Its staff seed at :63-65 is
+`insert into lynxr_staff ... select id from auth.users` with **no WHERE**. There
+are 8 auth users today, 4 of them non-internal creators. `on conflict do nothing`
+protects the existing staff rows and does nothing to stop the other four being
+promoted. Every SQL file here is described as safe to re-run; this one is safe
+to re-run exactly once, and nothing said so until now.
+
+### Cloudflare — started, unfinished
+
+The owner is mid-way through Cloudflare's add-a-zone flow (Track D1). Order
+matters: **SSL/TLS to `Full` BEFORE changing nameservers, and never
+`Full (strict)`** -- GitHub Pages cannot renew its origin cert behind a proxy
+and strict mode becomes HTTP 526 about ninety days later. On the "AI training &
+search policies" screen, **"Block training in robots.txt" must be OFF**: our
+`robots.txt` carries 17 `User-agent` groups and zero `Disallow` lines,
+deliberately, and letting Cloudflare manage that file undoes it. Same reason
+**Bot Fight Mode** must be off. Also off: Email Address Obfuscation (five real
+`mailto:` links would render as `[email protected]`) and Rocket Loader (it
+rewrites `<script>` tags).
+
+### Corrections to entries below this one
+
+- **`lynxr_videos` is 9,028 rows, not 9,016.** Verified live.
+- **Fly is at v23**, deployed 2026-08-20. Entries claiming nothing deployed are stale.
+- **`supabase/ops_table.sql` IS applied** -- an entry below says it is not.
+- **The rotated `SUPABASE_SERVICE_ROLE_KEY` Actions secret IS updated** -- runs authenticate.
+- **`CLAUDE.md` said "bump the stamp on all four pages". There are twelve.** Fixed today.
+- **12 of 15 `supabase/*.sql` files are applied**; `costs_table.sql` is not.
+  `creators_adaptations_gin.sql` and `write_guards.sql` are invisible to a
+  PostgREST probe because they are an index and constraints.
+
+### Owner actions outstanding
+
+Run `supabase/costs_table.sql`, then deploy the pipeline to Fly (not mid-script)
+-- until both, the Ops tab's cost panels say so rather than showing numbers.
+Optionally set `APIFY_METER_TOKEN` on Fly for the Apify gauge; note
+`APIFY_API_TOKEN` is still **local-only**, so the Instagram view refresh has
+never run in production. Fill the four blank figures in `FIXED_COSTS`.
+
+---
 
 **2026-08-20 — the Ops dashboard's backend landed; the tab itself has not.**
 `~/.claude/plans/agency-ops-dashboard.md`, 14 steps, run as two phases because
