@@ -4471,10 +4471,11 @@
      which string becomes which. */
   .st-tile { display: none; }
   .script-grid > .bp-item:not([open]) > summary > .chip > .st-tile { display: inline; }
-  /* HOW MANY, WHEN "READY" IS THE ANSWER. Owner, 2026-08-23: a finished video
+  /* HOW MANY, WHEN THE WORD IS THE ANSWER. Owner, 2026-08-23: a finished video
      says `ready`, and if it holds more than one script that fact rides along
      as a figure rather than replacing the word ("2 scripts" never actually
-     said finished — the green did).
+     said finished — the green did). Extended the same day, same instruction
+     ("fix the writing one too"), to the WAITING state: `writing · 3`.
 
      IT LIVES INSIDE .st-tile, so it is drawn on a closed tile and nowhere
      else, by the one rule directly above rather than by a second one that
@@ -4494,17 +4495,57 @@
      into the string, so it can never reach the accessible name.
 
      COLOUR INHERITS THE CHIP — the state lives in the chip's colour, and a
-     grey figure inside a green chip would read as a third thing. On .chip.good
-     that is --good on --surface-2, 8.63:1; at .85 it measures 6.54:1, past the
-     4.5:1 floor for small text while still reading as supporting rather than
-     as a second signal. THE MIDDOT TAKES THE SAME .85 AND NO EXTRA DIMMING —
-     an `opacity: .65` on the ::before was drafted and measured 3.47:1, which
-     is under the floor for a glyph a screen reader can still pick up out of
-     CSS content. It is 3px of punctuation; the 0.5px of extra restraint was
-     not worth an unreadable one.
+     grey figure inside a green chip would read as a third thing. currentColor
+     means .85 of two DIFFERENT colours, so both were measured against the
+     chip's real ground of rgb(23,23,26):
+
+       .chip.good  --good  rgb(87,201,138)  label 8.63:1  ->  .st-n 6.54:1
+       .chip.bp-wait --text-2 rgb(163,163,173) label 7.16:1 -> .st-n 5.51:1
+
+     Both clear the 4.5:1 floor for small text, so the dimmer wait chip needs
+     no variant of its own — which is the point of inheriting rather than
+     naming a colour here. THE MIDDOT TAKES THE SAME .85 AND NO EXTRA DIMMING —
+     an `opacity: .65` on the ::before was drafted and measured 3.47:1 on the
+     green, which is under the floor for a glyph a screen reader can still pick
+     up out of CSS content. It is 3px of punctuation; the 0.5px of extra
+     restraint was not worth an unreadable one.
+
      NOT ANIMATED, and it must not become so: this is inside .chip, which is on
      the do-not-animate list ~3000 lines above, because the worker rewrites
-     this number while a creator is looking at it. */
+     this number while a creator is looking at it. The wait chip is the case
+     that has to be checked rather than assumed, because .bp-dot pulses inside
+     the same chip: with bp-pulse frozen at each end of its 1.8s cycle (dot
+     opacity .3 and 1) .st-n measured byte-identical at 19.656x12.000 @580.063,
+     691.469 with its own opacity fixed at .85 and getAnimations().length 0,
+     and the chip's own width identical to 3dp (92.922). The pulse is on the
+     dot's opacity alone; it neither inherits nor reflows.
+
+     ONE MEASURED COST, AT 320px ONLY, AND IT IS THE WAIT CHIP'S. The tile's
+     usable meta row is 115px at 320px. Measured there with a view count
+     present (the facts group is 34.59px, plus the row's 4px gap):
+
+       ready   · 2   chip 67.17  -> 9.24px spare   one line
+       ready   · 12  chip 73.19  -> 3.22px spare   one line   (tightest)
+       writing · 2   chip 90.22  -> 13.81px OVER   WRAPS below ~346px
+       writing · 12  chip 96.23  -> 19.83px OVER   WRAPS below ~360px
+
+     The wait chip is 23px wider than the ready chip for the same count: 11px
+     of that is .bp-dot and its margin, 12px is `writing` against `ready`. So
+     there is no tuning that fixes it — the count is 19.06px and the row had
+     5.25px spare before it existed. It degrades cleanly (measured: nothing
+     spills the card, spillRight and spillBottom both 0, the facts land
+     right-aligned on a second line at the row's own 6px row-gap), but it does
+     cost 22px of GRID ROW height at 320-359px, which every other tile in that
+     row inherits as empty space because grid items stretch.
+
+     WHAT WAS REJECTED, so it is not re-proposed as an oversight: dropping
+     .bp-dot on a counted wait tile buys exactly the 11px needed, and is wrong
+     — it would remove the only motion that says work is happening precisely
+     when there is MORE of it happening. Redrawing the middot as a 2px shape
+     instead of a glyph buys 5.03px of the 13.03px the separator costs, which
+     is not enough on its own and is not worth the inconsistency. Reducing the
+     chip's 8px horizontal padding re-litigates the capsule pass, which the
+     facts already paid for with a type step. */
   .st-n {
     font-family: var(--mono); font-style: normal; font-variant-numeric: tabular-nums;
     opacity: .85;
