@@ -232,6 +232,47 @@ wake):
     cp pipeline/io.lynxr.backup.plist ~/Library/LaunchAgents/
     launchctl load ~/Library/LaunchAgents/io.lynxr.backup.plist
 
+### The account-level hardening is DONE (2026-08-20)
+
+All five, **reported complete by the owner**. Say plainly what that means:
+none of these is verifiable from a shell — there is no API token here with the
+scope to read them — so this entry records a claim, not a measurement. Every
+other claim in this file that says "verified" was measured. These are not.
+
+1. **MFA on the Supabase account.**
+2. **MFA on the GitHub account** (`lynxrio`).
+3. **Secret scanning + push protection** on `lynxrio/lynxr`. Push protection is
+   the valuable half: it refuses a recognised secret at `git push` rather than
+   reporting it after publication.
+4. **A branch ruleset on `main`** — restrict deletions, block force pushes,
+   Enforcement Active, **bypass list deliberately empty** so it binds the owner
+   too. Watch for the trap this one has: a freshly created ruleset targets
+   nothing and shows "Applies to 0 targets" until `Include default branch` is
+   added. Created-but-inert looks identical to done in the ruleset list.
+5. **`SUPABASE_SERVICE_ROLE_KEY` re-saved without its trailing newline** —
+   open since 2026-08-19, the cause of every `adaptations.yml` failure from run
+   #168. **Unproven until the next workflow run authenticates.** If a run fails
+   with `ValueError: Invalid header value`, the newline is still there.
+
+That closes the roadmap's item 2 of "if you only do three" — the best
+value-per-minute in the programme.
+
+### The backup schedule and the commit hook are LIVE and PROVEN
+
+Both were installed AND exercised, because "installed but inert" is this
+project's signature failure and an install that has never fired proves nothing.
+
+- **`~/Library/LaunchAgents/io.lynxr.backup.plist` is loaded.** `launchctl
+  start io.lynxr.backup` produced a second run directory and a correct log at
+  `~/Library/Logs/lynxr-backup.log`. Nightly at 04:15 from here.
+- **`core.hooksPath = .githooks`.** Proven by staging a real `app.css` change
+  with no stamp bump: the hook **refused the commit**, named the file, printed
+  the fix, and `HEAD` never moved. Reverted, then the real commit went through
+  with `ok -- 12 staged page(s)`.
+
+Run 2 also showed the pipeline working while all this happened:
+`lynxr_costs` 0 -> 4 rows, `lynxr_sources` 28 -> 31, total 665,057 bytes.
+
 ### Corrections the backup run proved against live data (2026-08-20)
 
 - **`lynxr_costs` EXISTS** — HTTP 200, currently 0 rows. The entry below
