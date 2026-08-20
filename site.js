@@ -25,6 +25,69 @@
      apps (whose own scrollCardIntoView would fight a smooth container). */
   document.documentElement.classList.add("lp-smooth");
 
+  /* ---- A LINK STRAIGHT TO ONE ANSWER: /faq/#who-owns-the-scripts ----
+
+     WHAT THE BROWSER DOES UNAIDED, MEASURED (Chromium, 1440x900, on a first
+     navigation and on a same-document hash change alike): it DOES open the
+     <details> the target sits inside, and it DOES scroll — but it parks that
+     block ~12.6px from the top of the viewport, ignoring the
+     `html { scroll-padding-top: 76px }` near the top of app.css. Every other
+     anchor on this site honours that padding (the homepage's /#how lands at
+     75.6px), so this is specific to the auto-expand-a-details path, and it is
+     not cosmetic: the floating capsule's bottom edge sits at y=72, so on a jump
+     that scrolls UPWARD — the direction that leaves the bar on screen — the
+     QUESTION is entirely behind the capsule and the answer's first line starts
+     0.8px above its bottom edge. An answer arriving with its own question
+     invisible is exactly what a citable anchor must not do.
+
+     Verified NOT to be `html.lp-smooth`: with the class suppressed, and with
+     scripting disabled altogether, the landing is byte-identical (y=1765,
+     block top 12.6). The smooth rule is innocent here.
+
+     SCOPED TO A TARGET INSIDE A <details>, deliberately. An ordinary section
+     anchor already lands correctly on the native path and is left on it —
+     re-implementing the homepage's section scroll here would be a second
+     mechanism to keep in step with the first.
+
+     THE ELEMENT SCROLLED IS THE <details>, NOT THE <p> CARRYING THE id. These
+     ids exist to be cited; an answer whose question is off the top of the
+     screen is a quote with nothing to attach it to. block:"start" against the
+     existing scroll-padding puts the question 4px clear of the capsule.
+
+     NO scroll-margin-top, ON EITHER ELEMENT. scroll-padding on the container
+     STACKS with a scroll-margin on the target — the decision note above
+     `html.lp-smooth` in app.css records the 164px landing that mistake already
+     produced once on the homepage sections.
+
+     `behavior` IS PASSED EXPLICITLY, WHICH IS WHY `reduced` IS READ HERE. An
+     omitted behavior inherits the CSS scroll-behavior, and that is precisely
+     what app.css's prefers-reduced-motion guard flips to `auto`; hard-coding
+     "smooth" would drive straight through the guard. The MediaQueryList is
+     live, so turning the setting on mid-visit is honoured on the next jump. */
+  const jumpToAnswer = () => {
+    const raw = location.hash.slice(1);
+    if (!raw) return;
+    let id = raw;
+    try { id = decodeURIComponent(raw); } catch { /* a stray % — use it raw */ }
+    const el = document.getElementById(id) || document.getElementById(raw);
+    const box = el && el.closest("details");
+    if (!box) return;                 // a section anchor, or nothing: leave it alone
+    box.open = true;
+    /* TWO FRAMES, not none. The block has only just been expanded and its own
+       height decides where it lands, so scrolling in this same task would
+       measure the collapsed box. The second frame is also what puts this AFTER
+       the browser's own fragment scroll — this file is deferred, so it runs
+       BEFORE that — and landing last is what makes the position deterministic
+       instead of a race between the two. */
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      box.scrollIntoView({ block: "start", behavior: reduced.matches ? "auto" : "smooth" });
+    }));
+  };
+  /* Both entry points: a fresh navigation carrying a fragment, and a fragment
+     that changes with the document already open. */
+  addEventListener("hashchange", jumpToAnswer);
+  jumpToAnswer();
+
   /* ------------------------------------------------------------------ menu --
      Declared BEFORE the scroll logic because setHidden() consults it: an open
      panel is a child of the bar, so a bar that slid away would take the menu

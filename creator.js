@@ -1057,21 +1057,73 @@ function say(text, tone) {
 // ---------- slices ----------
 const brandScripts = (b) => ME.adaptations.filter((a) => a.brandId === b.id);
 
-/** THE RAIL'S COUNTER — scripts, not videos.
- *  A video scripted for five brands counts five. Each script is its own piece
- *  of work, and the rail only reads as one scale if the Library's number and
- *  the brands' numbers are the same unit: `library 6` sitting above `4` and
- *  `4` invites the arithmetic 4+4=8 and then looks broken when it does not
- *  land. Brand-less "original" scripts are counted here too, which is why this
- *  is the adaptation count rather than a sum over brands.
+/** Does this script carry TAGS? They are an OBJECT the pipeline writes onto
+ *  `source` (format_type, hook_pattern, ...), not an array, so "has tags" is
+ *  "has at least one key" — `Object.keys` answers that correctly for either
+ *  shape, and for a record that has no `source` at all (a queued send). */
+function hasTags(a) {
+  const t = (a && a.source || {}).tags;
+  return !!t && typeof t === "object" && Object.keys(t).length > 0;
+}
+
+/** THE RAIL'S COUNTER — TAGGED VIDEOS, not scripts. Changed 2026-08-19 on the
+ *  owner's instruction: "count videos and their tags for the real library not
+ *  the archive one", then, asked what the tags clause meant, "only count videos
+ *  that have tags". So: library rows — one per video, account-wide — that have
+ *  at least one script carrying `source.tags`.
  *
- *  The Library LIST is still ONE ROW PER VIDEO — only the counter changed. So
- *  this number can legitimately exceed the number of rows below it. The three
- *  places that size the list itself (the search threshold, the empty state and
- *  the "n of m" filter tally) stay on ME.library.length on purpose; swapping
+ *  WHY THIS IS A JOIN AND NOT A FIELD READ. Nothing writes tags onto a library
+ *  row. Measured against the live database: all 20 library rows across every
+ *  creator carry exactly [addedAt, canon, caption, creator, id, platform,
+ *  title, url] and not one has tags, while 23 of 23 adaptations have
+ *  `source.tags` populated. A video is therefore tagged when its FIRST SCRIPT
+ *  is written, never when it is saved. Reuse libScripts() for the join rather
+ *  than writing a second one — it already handles rows from before the library
+ *  existed, which match on canonical URL instead of libraryId. If the pipeline
+ *  is ever changed to tag on save, this number simply rises to include those
+ *  videos and nothing here has to change.
+ *
+ *  WHAT "ARCHIVED OR DELETED" MEANS HERE — CONCRETELY, NOTHING EXTRA TO FILTER.
+ *  A library row has no archived flag and no hidden state; there is no way to
+ *  keep a video and take it off the list. Removing a video splices the row out
+ *  of ME.library outright and sends its scripts to the trash (the `.l-del`
+ *  handler in paintLibraryList), and ME.trash holds deleted ADAPTATIONS, never
+ *  library rows. So "in ME.library" already means "not deleted, not archived",
+ *  and libScripts() reads ME.adaptations only — a video whose every script was
+ *  deleted correctly stops being tagged and stops being counted.
+ *
+ *  THE TRADEOFF, ACCEPTED KNOWINGLY. The brand rows below this in the rail
+ *  still count SCRIPTS (brandScripts), so the rail now mixes two units: `4` and
+ *  `4` under two brands can sit under a library count of `5` and 4+4 will not
+ *  reconcile with it. That arithmetic is exactly why this counter used to be
+ *  scripts. It lost to a stronger complaint — the rail's number and the number
+ *  of rows the Library shows disagreed, and the badge is named after the
+ *  Library. The original reasoning is kept verbatim below rather than deleted,
+ *  because it is real and someone will re-propose it.
+ *
+ *  IT IS STILL NOT THE ROW COUNT, AND THE LIBRARY SAYS SO. A saved-but-never
+ *  scripted video has no script, so no tags, so it is not counted — that is
+ *  precisely the `orphans` set the Library draws in its own "Not scripted yet"
+ *  block, whose heading now reads "N saved, not tagged yet" so the shortfall is
+ *  named on screen instead of being a silent mismatch. The Library's own
+ *  heading pill was moved onto this same count, so the two numbers a creator
+ *  can see at once always agree.
+ *
+ *  ORIGINAL REASONING, SUPERSEDED — do not restore it without the owner:
+ *    "THE RAIL'S COUNTER — scripts, not videos. A video scripted for five
+ *     brands counts five. Each script is its own piece of work, and the rail
+ *     only reads as one scale if the Library's number and the brands' numbers
+ *     are the same unit: `library 6` sitting above `4` and `4` invites the
+ *     arithmetic 4+4=8 and then looks broken when it does not land. Brand-less
+ *     'original' scripts are counted here too, which is why this is the
+ *     adaptation count rather than a sum over brands."
+ *
+ *  STILL ON ME.library.length, ON PURPOSE — do not swap these: the search
+ *  threshold, the empty state, and the "n of m" filter tally. All three size
+ *  the LIST, which is every saved video including the untagged ones. Pointing
  *  them here would hide the search box at the wrong moment and make the tally
- *  compare a script count against a row count. */
-const scriptCount = () => ME.adaptations.length;
+ *  compare a tagged count against a row count. */
+const taggedVideoCount = () => ME.library.filter((it) => libScripts(it).some(hasTags)).length;
 
 /** Every script written from one saved video, across all brands. Matched on
     libraryId, falling back to canonical URL for rows backfilled from before
@@ -1381,7 +1433,7 @@ function renderSide() {
   document.getElementById("side-quota-fill").style.width =
     `${grant > 0 ? (used / grant) * 100 : 100}%`;
   quota.classList.toggle("spent", used >= grant);
-  document.getElementById("nav-library-n").textContent = scriptCount();
+  document.getElementById("nav-library-n").textContent = taggedVideoCount();
   document.getElementById("nav-new").classList.toggle("on", VIEW.kind === "new");
   document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library");
   document.getElementById("nav-you").classList.toggle("on", VIEW.kind === "you");
@@ -2350,13 +2402,19 @@ function renderLibrary(head, body) {
           a stray control belonging to neither. Up here it pairs with the
           heading it acts on, and the tabs get the full width back. */""}
     <div class="pane-title"><div class="bcard-title">Library</div>
-      <span class="pill">${scriptCount()}</span>
+      <span class="pill">${taggedVideoCount()}</span>
       <div class="spacer"></div>
       <button type="button" class="lib-plus" id="lib-add" title="New script" aria-label="New script">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
           aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       </button></div>
-    <p class="pane-sub">Every video you've sent.</p>`;
+    ${/* The sub-line is where the pill above it is explained. It has to be:
+          the pill counts TAGGED videos and the list below counts every saved
+          one, so without a sentence naming the difference the two disagree on
+          screen with no reason given — which is the complaint that started
+          this. See taggedVideoCount. */""}
+    <p class="pane-sub">Every video you've sent. The number counts the tagged ones — a video
+      is tagged when its first script is written.</p>`;
 
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
@@ -2506,7 +2564,11 @@ function paintLibraryList() {
       <div class="bp-list script-grid">${items.map((it) => libraryItemHtml(it)).join("")}</div>
     </section>` : "";
 
-    host.innerHTML = (blocks + loose("Not scripted yet", orphans, "saved"))
+    /* "not tagged yet" is not decoration: these are exactly the videos the
+       rail's count leaves out (no script, so no tags), and this is the one
+       place on screen where that shortfall can be named next to the rows
+       causing it. */
+    host.innerHTML = (blocks + loose("Not scripted yet", orphans, "saved, not tagged yet"))
       || `<div class="empty"><p>No scripts yet. Send a link and they'll group by brand here.</p></div>`;
     host.querySelectorAll(".lib-group-name[data-bid]").forEach((el) =>
       el.addEventListener("click", () => go({ kind: "brand", id: el.dataset.bid })));
@@ -5785,13 +5847,23 @@ function unlock() {
    on screen. */
 const SIG_BLIND = new Set(["phase", "phaseAt", "claimedAt", "claimedBy", "attemptedAt"]);
 function paneSig() {
-  return JSON.stringify(
-    (ME.adaptations || []).map((a) => ({ ...a, status: isWriting(a) ? "queued" : a.status })),
-    (k, v) => (SIG_BLIND.has(k) ? undefined : v));
+  return JSON.stringify({
+    a: (ME.adaptations || []).map((a) => ({ ...a, status: isWriting(a) ? "queued" : a.status })),
+    /* WHICH VIDEOS EXIST — ids only. Added 2026-08-19 alongside the
+       tagged-video counter. pull() replaces ME wholesale, so a library row
+       added or removed on another device moves nothing in ME.adaptations when
+       that video has no scripts of its own; the rail's count, the Library list
+       and its "Not scripted yet" block all read off exactly those rows, and
+       none of them would have repainted. Ids rather than whole rows on
+       purpose: a caption hydrating on another device still must not tear this
+       pane down, and a title is not part of any count. */
+    lib: (ME.library || []).map((l) => l.id),
+  }, (k, v) => (SIG_BLIND.has(k) ? undefined : v));
 }
 
 let LIVE_STARTED = false;
 let liveTimer = null;
+let PANE_STALE = false;   // something changed while the creator was typing; repaint when they stop
 let kickLiveSync = null;   // set once started; each successful send calls this after its save() lands
 function startLiveSync() {
   if (LIVE_STARTED) return;
@@ -5805,9 +5877,24 @@ function startLiveSync() {
     renderSyncBadge();
     const editing = document.activeElement
       && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    /* THE RAIL REPAINTS EVEN MID-KEYSTROKE; THE PANE WAITS ITS TURN.
+       `editing` is only ever true for an INPUT/TEXTAREA/SELECT, and every one
+       of those lives in the pane or the sign-in gate — the rail is buttons and
+       text — so renderSide() cannot take the caret, the selection or the focus
+       ring away from anything. It used to sit inside the guard with
+       renderPane(), and that STRANDED the counts: `before` is re-read from the
+       already-changed state on the next tick, so a script that finished while
+       someone was typing in the search box was never re-detected and the rail
+       stayed wrong until some unrelated render happened to run.
+       renderPane() genuinely cannot run while editing — it replaces
+       #pane-body and would destroy the field being typed in — so it keeps the
+       guard, but the fact that it OWES a repaint is now remembered rather than
+       forgotten, and it lands on the first tick after the caret leaves. */
     if (paneSig() !== before) {
-      if (!editing) { renderSide(); renderPane(); }   // counts and scripts move together
+      PANE_STALE = true;
+      renderSide();                                  // counts, editing or not
     }
+    if (PANE_STALE && !editing) { PANE_STALE = false; renderPane(); }
     /* THE `else if` THAT USED TO LIVE HERE REBUILT THE WHOLE PANE EVERY 2.5s.
        Its job was real — the overdue warning is a function of elapsed time, not
        of ME.adaptations, so something has to re-evaluate it — but renderPane()
@@ -5827,7 +5914,11 @@ function startLiveSync() {
     // within half the old blind spot; the idle 60000 is untouched — this only
     // runs while a creator is actually watching a card write, not as a
     // standing cost.
-    liveTimer = setTimeout(tick, writingQueue().length ? 2500 : 60000);
+    // PANE_STALE borrows the same 2500: a repaint that was held back because
+    // the creator was typing has to land soon after they stop, and on the idle
+    // clock alone it could sit there for a full minute. The fast cadence ends
+    // the moment the repaint lands, so it costs nothing once nobody is typing.
+    liveTimer = setTimeout(tick, (writingQueue().length || PANE_STALE) ? 2500 : 60000);
   };
   /* AFTER EVERY SUCCESSFUL SEND. All four send sites call this once their
      save() has landed (2830, 2881, 2917, 3559), which is exactly the moment the
