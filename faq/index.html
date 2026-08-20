@@ -10,9 +10,9 @@
      'unsafe-inline'. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>lynxr — questions and answers</title>
+<title>What lynxr does with a video link — questions and answers</title>
 <meta name="description" content="What lynxr is, who it is for, what a video format is, what happens to a link you paste, which platforms work, what it costs, and how access works while it is invitation-only.">
-<meta property="og:title" content="lynxr — questions and answers">
+<meta property="og:title" content="What lynxr does with a video link — questions and answers">
 <meta property="og:description" content="Straight answers about lynxr: what it does with a video link, which platforms it reads, what it costs, and how to get in while it is invitation-only.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="lynxr">
@@ -21,7 +21,7 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="lynxr — questions and answers">
+<meta name="twitter:title" content="What lynxr does with a video link — questions and answers">
 <meta name="twitter:description" content="Straight answers about lynxr: what it does with a video link, which platforms it reads, what it costs, and how to get in while it is invitation-only.">
 <meta name="twitter:image" content="https://lynxr.io/og.png">
 <link rel="canonical" href="https://lynxr.io/faq/">
@@ -29,11 +29,96 @@
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
 <link rel="stylesheet" href="/app.css?v=20260823f">
+<!-- BEGIN SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://lynxr.io/#organization",
+      "name": "Lynx Media Group",
+      "legalName": "Lynx Media Group LLC",
+      "url": "https://lynxmediagroup.org/",
+      "description": "A short-form video agency. lynxr is its own format-intelligence tool.",
+      "email": "lynxrnetwork@gmail.com",
+      "sameAs": [
+        "https://lynxmediagroup.org/",
+        "https://www.instagram.com/lynxmediagroup/",
+        "https://www.tiktok.com/@lynxmediagroup",
+        "https://www.linkedin.com/company/lynxmediagroup"
+      ],
+      "founder": [
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": ["https://www.instagram.com/junsahwang/"]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": ["https://www.instagram.com/gawinhsu/"]
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://lynxr.io/#website",
+      "url": "https://lynxr.io/",
+      "name": "lynxr",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://lynxr.io/#organization" },
+      "about": { "@id": "https://lynxr.io/#lynxr" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://lynxr.io/#lynxr",
+      "name": "lynxr",
+      "url": "https://lynxr.io/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "lynxr turns a short-form video into a script. You send it a public link to a TikTok, Instagram, YouTube or Facebook video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "featureList": [
+        "Reads a public TikTok, Instagram, YouTube or Facebook link. There is no file upload.",
+        "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
+        "Writes one script per company from a single link, reading the video only once.",
+        "Never asks for a platform password and never posts anything on your behalf."
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "Short-form video creators who make content for brands, and the people who brief them"
+      },
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/LimitedAvailability",
+        "url": "https://lynxr.io/waitlist/",
+        "description": "Free during invitation-only early access. Pricing does not exist yet."
+      },
+      "publisher": { "@id": "https://lynxr.io/#organization" }
+    }
+  ]
+}
+</script>
+<!-- END SHARED ENTITY JSON-LD -->
 
 <!-- FAQPage STRUCTURED DATA.
-     This is what makes the answers eligible for a rich result in Google and
-     what makes the page legible to a model that is answering a question about
-     lynxr rather than rendering it.
+     Google RETIRED FAQ rich results on 7 May 2026 — restricted to government
+     and health sites in August 2023, then removed from every surface. This
+     markup therefore buys no rich result and is not here for one. It is here
+     because Google still parses it to understand the page, Bing still reads
+     it, and it gives a model answering a question about lynxr a clean,
+     properly-cased twin of every answer below. If anyone proposes deleting it
+     on the grounds that "FAQ schema is dead", that is the distinction they
+     have missed.
 
      EVERY answer below is byte-for-byte the same claim as the visible answer in
      the page body — Google requires the marked-up content to be present and
@@ -48,6 +133,11 @@
 {
   "@context": "https://schema.org",
   "@type": "FAQPage",
+  "@id": "https://lynxr.io/faq/#faqpage",
+  "url": "https://lynxr.io/faq/",
+  "isPartOf": { "@id": "https://lynxr.io/#website" },
+  "about": { "@id": "https://lynxr.io/#lynxr" },
+  "publisher": { "@id": "https://lynxr.io/#organization" },
   "mainEntity": [
     {
       "@type": "Question",
@@ -62,7 +152,7 @@
       "name": "Who is lynxr for?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Creators who make short-form video for brands, and the people who brief them. If your job is to look at a video that worked and produce something in that shape for a different company, that is the job lynxr does. You must be 18 or older to use it."
+        "text": "lynxr is for creators who make short-form video for brands, and the people who brief them. If your job is to look at a video that worked and produce something in that shape for a different company, that is the job lynxr does. You must be 18 or older to use it."
       }
     },
     {
@@ -75,10 +165,26 @@
     },
     {
       "@type": "Question",
+      "name": "How is lynxr different from asking ChatGPT to write a script?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "lynxr starts from a specific video rather than from a prompt. It downloads the video you chose, transcribes what is actually said in it, takes frames from it, and works out the format that video is running before it writes anything, so the script you get has the shape of a video that already worked. A general chat assistant is writing from a description of a video it has not seen. lynxr also writes one script per company you picked, from that same single read of the video."
+      }
+    },
+    {
+      "@type": "Question",
       "name": "What happens to a link I paste into lynxr?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "The link is queued against your own account, then a worker downloads the video, transcribes the audio, takes a cover frame and a handful of stills, extracts the format, and writes one script per company you sent it to. The script, the transcript and the details of the source video are saved to your own row in our database so the video appears in your library. Nothing is posted anywhere and nothing is shared with other users. The full detail is in the privacy policy."
+        "text": "A link you paste into lynxr is queued against your own account, then a worker downloads the video, transcribes the audio, takes a cover frame and a handful of stills, extracts the format, and writes one script per company you sent it to. The script, the transcript and the details of the source video are saved to your own row in our database so the video appears in your library. Nothing is posted anywhere and nothing is shared with other users. The full detail is in the privacy policy."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can other people see the scripts I make?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. What you make in lynxr is yours, and other creators cannot see it — that is enforced by the database rather than by the interface, so having an account is not the same as being able to read somebody else's work. Nothing you make is published anywhere. The detail is in the privacy policy."
       }
     },
     {
@@ -86,7 +192,15 @@
       "name": "Which platforms does lynxr work with?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "TikTok, Instagram, YouTube and Facebook, including youtu.be, fb.watch and fb.com short links. A link on any other host is refused before anything is downloaded, and refusing it costs you nothing from your allowance."
+        "text": "lynxr works with TikTok, Instagram, YouTube and Facebook, including youtu.be, fb.watch and fb.com short links. A link on any other host is refused before anything is downloaded, and refusing it costs you nothing from your allowance."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does lynxr work with YouTube Shorts and Instagram reels?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. A YouTube Shorts link, an Instagram reel, a TikTok, an ordinary YouTube watch link, a Facebook video, and the youtu.be, fb.watch and fb.com short forms are all accepted. lynxr is built for short-form video, so a short one is the case it handles best; a longer video still works and simply takes longer."
       }
     },
     {
@@ -94,7 +208,15 @@
       "name": "Do I have to upload a file or connect my accounts?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "No. There is no file upload anywhere in lynxr — a public link is the only thing it takes. It never asks for your password to any platform, it is not connected to your accounts, and it never posts anything on your behalf."
+        "text": "No — lynxr never asks you to upload a file or connect an account. There is no file upload anywhere in lynxr — a public link is the only thing it takes. It never asks for your password to any platform, it is not connected to your accounts, and it never posts anything on your behalf."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does lynxr post anything to my accounts?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. lynxr is not connected to any of your accounts, it never asks for your password to any platform, and it has no way to post anything anywhere. The only thing it hands back is your own script, in your own library."
       }
     },
     {
@@ -103,22 +225,6 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "A pasted link is usually picked up within a couple of seconds, and a short video — around a minute long or less — is typically written within a minute or two of that. A longer video takes longer, and the first script after the worker has been idle is slower than the ones after it because the transcription model has to load. We do not show a countdown, because a countdown that reaches zero while you are still waiting is worse than no countdown."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What does lynxr cost?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Nothing during early access. lynxr is free while it is invitation-only, there is no card on file and nothing to cancel. Pricing does not exist yet; if and when it does, it will be published before anyone is charged."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How do I get access to lynxr?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "By joining the wait list and waiting for a place. lynxr is invitation-only while it is early: there is a fixed number of seats and the limit is enforced in the database, not by the address of the page, so knowing the URL does not get you in. We open it up a few people at a time and email you when a place opens."
       }
     },
     {
@@ -139,12 +245,46 @@
     },
     {
       "@type": "Question",
+      "name": "Who owns the scripts lynxr writes?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You do. The scripts are yours to use, edit, publish and be paid for; lynxr claims no ownership of them and needs no licence to publish them, because it never publishes them. One honest caveat, which is a fact about the law rather than a term we set: a machine-generated script may not be protected by copyright the way something you wrote yourself is. The full wording is in the terms."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does lynxr cost?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "lynxr costs nothing during early access. lynxr is free while it is invitation-only, there is no card on file and nothing to cancel. Pricing does not exist yet; if and when it does, it will be published before anyone is charged."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I get access to lynxr?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You get access to lynxr by joining the wait list and waiting for a place. lynxr is invitation-only while it is early: there is a fixed number of seats and the limit is enforced in the database, not by the address of the page, so knowing the URL does not get you in. We open it up a few people at a time and email you when a place opens."
+      }
+    },
+    {
+      "@type": "Question",
       "name": "Who makes lynxr?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Lynx Media Group LLC, a short-form video agency based in Allston, Massachusetts, founded by Gawin Hsu and Junsa Hwang. lynxr is the agency's own tool, which is why it is aimed at the job the agency actually does. There is more about both founders on the home page."
+        "text": "lynxr is made by Lynx Media Group LLC, a short-form video agency based in Allston, Massachusetts, founded by Gawin Hsu and Junsa Hwang. lynxr is the agency's own tool, which is why it is aimed at the job the agency actually does. There is more about both founders on the home page."
       }
     }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "lynxr", "item": "https://lynxr.io/" },
+    { "@type": "ListItem", "position": 2, "name": "questions and answers", "item": "https://lynxr.io/faq/" }
   ]
 }
 </script>
@@ -207,7 +347,7 @@
 
         <details class="lp-q" open>
           <summary>what is lynxr?</summary>
-          <p class="lp-a">lynxr turns a short&#8209;form video into a script. you send it
+          <p class="lp-a" id="what-is-lynxr">lynxr turns a short&#8209;form video into a script. you send it
             a public link to a TikTok, Instagram, YouTube or Facebook video; it
             watches the video, transcribes what is said, works out the format
             underneath &mdash; the hook, the beats, the order they come in &mdash; and
@@ -218,7 +358,7 @@
 
         <details class="lp-q">
           <summary>who is lynxr for?</summary>
-          <p class="lp-a">creators who make short&#8209;form video for brands, and the
+          <p class="lp-a" id="who-is-lynxr-for">lynxr is for creators who make short&#8209;form video for brands, and the
             people who brief them. if your job is to look at a video that worked
             and produce something in that shape for a different company, that is
             the job lynxr does. you must be 18 or older to use it.</p>
@@ -226,7 +366,7 @@
 
         <details class="lp-q">
           <summary>what does &ldquo;format&rdquo; mean in lynxr?</summary>
-          <p class="lp-a">a format is the shape of a video rather than its
+          <p class="lp-a" id="what-is-a-format">a format is the shape of a video rather than its
             subject: the hook and the job it is doing, the beats and their
             order, the turn where the video becomes something else, and the
             close. two videos about completely different products can run the
@@ -237,8 +377,20 @@
         </details>
 
         <details class="lp-q">
+          <summary>how is lynxr different from asking ChatGPT to write a script?</summary>
+          <p class="lp-a" id="lynxr-vs-chatgpt">lynxr starts from a specific video rather than from a
+            prompt. it downloads the video you chose, transcribes what is
+            actually said in it, takes frames from it, and works out the format
+            that video is running before it writes anything, so the script you
+            get has the shape of a video that already worked. a general chat
+            assistant is writing from a description of a video it has not seen.
+            lynxr also writes one script per company you picked, from that same
+            single read of the video.</p>
+        </details>
+
+        <details class="lp-q">
           <summary>what happens to a link i paste into lynxr?</summary>
-          <p class="lp-a">the link is queued against your own account, then a
+          <p class="lp-a" id="what-happens-to-a-link">a link you paste into lynxr is queued against your own account, then a
             worker downloads the video, transcribes the audio, takes a cover
             frame and a handful of stills, extracts the format, and writes one
             script per company you sent it to. the script, the transcript and
@@ -249,24 +401,50 @@
         </details>
 
         <details class="lp-q">
+          <summary>can other people see the scripts i make?</summary>
+          <p class="lp-a" id="who-can-see-my-scripts">no. what you make in lynxr is yours, and other
+            creators cannot see it &mdash; that is enforced by the database rather
+            than by the interface, so having an account is not the same as being
+            able to read somebody else's work. nothing you make is published
+            anywhere. the detail is in the <a href="/privacy/">privacy policy</a>.</p>
+        </details>
+
+        <details class="lp-q">
           <summary>which platforms does lynxr work with?</summary>
-          <p class="lp-a">TikTok, Instagram, YouTube and Facebook, including
+          <p class="lp-a" id="supported-platforms">lynxr works with TikTok, Instagram, YouTube and Facebook, including
             youtu.be, fb.watch and fb.com short links. a link on any other host
             is refused before anything is downloaded, and refusing it costs you
             nothing from your allowance.</p>
         </details>
 
         <details class="lp-q">
+          <summary>does lynxr work with YouTube Shorts and Instagram reels?</summary>
+          <p class="lp-a" id="shorts-and-reels">yes. a YouTube Shorts link, an Instagram reel, a
+            TikTok, an ordinary YouTube watch link, a Facebook video, and the
+            youtu.be, fb.watch and fb.com short forms are all accepted. lynxr is
+            built for short&#8209;form video, so a short one is the case it handles
+            best; a longer video still works and simply takes longer.</p>
+        </details>
+
+        <details class="lp-q">
           <summary>do i have to upload a file or connect my accounts?</summary>
-          <p class="lp-a">no. there is no file upload anywhere in lynxr &mdash; a
+          <p class="lp-a" id="no-upload">no &mdash; lynxr never asks you to upload a file or connect an account. there is no file upload anywhere in lynxr &mdash; a
             public link is the only thing it takes. it never asks for your
             password to any platform, it is not connected to your accounts, and
             it never posts anything on your behalf.</p>
         </details>
 
         <details class="lp-q">
+          <summary>does lynxr post anything to my accounts?</summary>
+          <p class="lp-a" id="does-not-post">no. lynxr is not connected to any of your accounts, it
+            never asks for your password to any platform, and it has no way to
+            post anything anywhere. the only thing it hands back is your own
+            script, in your own library.</p>
+        </details>
+
+        <details class="lp-q">
           <summary>how long does a script take?</summary>
-          <p class="lp-a">a pasted link is usually picked up within a couple of
+          <p class="lp-a" id="how-long">a pasted link is usually picked up within a couple of
             seconds, and a short video &mdash; around a minute long or less &mdash; is
             typically written within a minute or two of that. a longer video
             takes longer, and the first script after the worker has been idle is
@@ -276,26 +454,8 @@
         </details>
 
         <details class="lp-q">
-          <summary>what does lynxr cost?</summary>
-          <p class="lp-a">nothing during early access. lynxr is free while it is
-            invitation&#8209;only, there is no card on file and nothing to cancel.
-            pricing does not exist yet; if and when it does, it will be published
-            before anyone is charged.</p>
-        </details>
-
-        <details class="lp-q">
-          <summary>how do i get access to lynxr?</summary>
-          <p class="lp-a">by joining the <a href="/waitlist/">wait list</a> and
-            waiting for a place. lynxr is invitation&#8209;only while it is early:
-            there is a fixed number of seats and the limit is enforced in the
-            database, not by the address of the page, so knowing the URL does not
-            get you in. we open it up a few people at a time and email you when a
-            place opens.</p>
-        </details>
-
-        <details class="lp-q">
           <summary>can one link become more than one script?</summary>
-          <p class="lp-a">yes. pick several companies when you send the link and
+          <p class="lp-a" id="one-link-many-scripts">yes. pick several companies when you send the link and
             you get one script per company. the video is only downloaded,
             transcribed and read once no matter how many companies you send it
             to, so the second and third scripts cost roughly a second each rather
@@ -304,7 +464,7 @@
 
         <details class="lp-q">
           <summary>what happens if lynxr cannot open my video?</summary>
-          <p class="lp-a">you get a plain sentence saying why &mdash; private,
+          <p class="lp-a" id="when-a-video-cannot-be-opened">you get a plain sentence saying why &mdash; private,
             deleted, age&#8209;restricted, blocked in our region, or an unsupported
             link &mdash; and it costs you nothing from your allowance. where the
             problem could not be fixed by trying again, no retry button is
@@ -312,8 +472,37 @@
         </details>
 
         <details class="lp-q">
+          <summary>who owns the scripts lynxr writes?</summary>
+          <p class="lp-a" id="who-owns-the-scripts">you do. the scripts are yours to use, edit, publish
+            and be paid for; lynxr claims no ownership of them and needs no
+            licence to publish them, because it never publishes them. one honest
+            caveat, which is a fact about the law rather than a term we set: a
+            machine&#8209;generated script may not be protected by copyright the way
+            something you wrote yourself is. the full wording is in the
+            <a href="/terms/">terms</a>.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>what does lynxr cost?</summary>
+          <p class="lp-a" id="what-it-costs">lynxr costs nothing during early access. lynxr is free while it is
+            invitation&#8209;only, there is no card on file and nothing to cancel.
+            pricing does not exist yet; if and when it does, it will be published
+            before anyone is charged.</p>
+        </details>
+
+        <details class="lp-q">
+          <summary>how do i get access to lynxr?</summary>
+          <p class="lp-a" id="how-to-get-access">you get access to lynxr by joining the <a href="/waitlist/">wait list</a> and
+            waiting for a place. lynxr is invitation&#8209;only while it is early:
+            there is a fixed number of seats and the limit is enforced in the
+            database, not by the address of the page, so knowing the URL does not
+            get you in. we open it up a few people at a time and email you when a
+            place opens.</p>
+        </details>
+
+        <details class="lp-q">
           <summary>who makes lynxr?</summary>
-          <p class="lp-a"><span class="entity">Lynx Media Group LLC</span>, a
+          <p class="lp-a" id="who-makes-lynxr">lynxr is made by <span class="entity">Lynx Media Group LLC</span>, a
             short&#8209;form video agency based in Allston, Massachusetts, founded by
             Gawin Hsu and Junsa Hwang. lynxr is the agency's own tool, which is
             why it is aimed at the job the agency actually does. there is more
@@ -321,6 +510,19 @@
         </details>
 
       </div>
+    </div>
+  </section>
+
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2">more on how this works</h2>
+      <p class="lp-p">four short guides that go deeper into the mechanics lynxr is built on.</p>
+      <ul class="lp-list">
+        <li><b><a href="/what-is-a-video-format/">what a video format is</a></b> &mdash; the difference between a video's shape and its subject.</li>
+        <li><b><a href="/turn-a-video-into-a-script/">how to turn a video into a script for a brand</a></b> &mdash; the step-by-step method, by hand and with lynxr.</li>
+        <li><b><a href="/short-form-script-structure/">the parts of a short-form video script</a></b> &mdash; hook, beats, turn and close, and what each part is doing.</li>
+        <li><b><a href="/glossary/">short-form video glossary</a></b> &mdash; plain definitions of the terms lynxr uses.</li>
+      </ul>
     </div>
   </section>
 

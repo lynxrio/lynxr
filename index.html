@@ -35,6 +35,105 @@
 <link rel="alternate icon" type="image/png" sizes="32x32" href="favicon.png">
 <link rel="shortcut icon" href="favicon.ico">
 <link rel="stylesheet" href="app.css?v=20260823f">
+<!-- BEGIN SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://lynxr.io/#organization",
+      "name": "Lynx Media Group",
+      "legalName": "Lynx Media Group LLC",
+      "url": "https://lynxmediagroup.org/",
+      "description": "A short-form video agency. lynxr is its own format-intelligence tool.",
+      "email": "lynxrnetwork@gmail.com",
+      "sameAs": [
+        "https://lynxmediagroup.org/",
+        "https://www.instagram.com/lynxmediagroup/",
+        "https://www.tiktok.com/@lynxmediagroup",
+        "https://www.linkedin.com/company/lynxmediagroup"
+      ],
+      "founder": [
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": ["https://www.instagram.com/junsahwang/"]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": ["https://www.instagram.com/gawinhsu/"]
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://lynxr.io/#website",
+      "url": "https://lynxr.io/",
+      "name": "lynxr",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://lynxr.io/#organization" },
+      "about": { "@id": "https://lynxr.io/#lynxr" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://lynxr.io/#lynxr",
+      "name": "lynxr",
+      "url": "https://lynxr.io/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "lynxr turns a short-form video into a script. You send it a public link to a TikTok, Instagram, YouTube or Facebook video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "featureList": [
+        "Reads a public TikTok, Instagram, YouTube or Facebook link. There is no file upload.",
+        "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
+        "Writes one script per company from a single link, reading the video only once.",
+        "Never asks for a platform password and never posts anything on your behalf."
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "Short-form video creators who make content for brands, and the people who brief them"
+      },
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/LimitedAvailability",
+        "url": "https://lynxr.io/waitlist/",
+        "description": "Free during invitation-only early access. Pricing does not exist yet."
+      },
+      "publisher": { "@id": "https://lynxr.io/#organization" }
+    }
+  ]
+}
+</script>
+<!-- END SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": "https://lynxr.io/#webpage",
+  "url": "https://lynxr.io/",
+  "name": "lynxr — any video becomes tailored scripts",
+  "description": "Any video becomes tailored scripts. Send a TikTok, Instagram or YouTube link; lynxr pulls out the format underneath it — the hook, the beats, the order they come in — and rewrites it as a script for the brand you make content for.",
+  "inLanguage": "en",
+  "isPartOf": { "@id": "https://lynxr.io/#website" },
+  "about": { "@id": "https://lynxr.io/#lynxr" },
+  "primaryImageOfPage": {
+    "@type": "ImageObject",
+    "url": "https://lynxr.io/og.png",
+    "width": 1200,
+    "height": 630
+  }
+}
+</script>
 </head>
 <!-- .lp unsets the app's bare main{} container so the sections below can be
      full-bleed. See the marketing-page block in app.css. -->
@@ -81,7 +180,7 @@
            .sr-only word stands in its place: the headline announces as "any
            video becomes tailored scripts". Reading "any video right arrow
            tailored scripts" aloud is the failure this avoids. -->
-      <h1 class="lp-h1">any video <span class="lp-arrow" aria-hidden="true">&rarr;</span><span class="sr-only">becomes</span> tailored scripts</h1>
+      <h1 class="lp-h1">any video <span class="lp-arrow" aria-hidden="true">&rarr;</span><span class="sr-only">&#32;becomes&#32;</span> tailored scripts</h1>
       <!-- The whole explanation a stranger gets before the button: what you
            hand lynxr and what comes back. Nothing about speed — the measured
            end-to-end median is around two minutes and a cold start is longer,

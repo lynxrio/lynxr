@@ -16,21 +16,128 @@
 <!-- No maximum-scale. This page is one of the ones that stays fully zoomable,
      and it says so below. -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>lynxr — accessibility</title>
+<title>Accessibility at lynxr — what works and what does not yet</title>
 <meta name="description" content="What lynxr does for accessibility, what it aims at, and the specific things it does not do yet — including where it falls short of WCAG 2.2 AA today.">
-<meta property="og:title" content="lynxr — accessibility">
+<meta property="og:title" content="Accessibility at lynxr — what works and what does not yet">
 <meta property="og:description" content="What lynxr does for accessibility, what it aims at, and the specific things it does not do yet.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="lynxr">
 <meta property="og:url" content="https://lynxr.io/accessibility/">
 <meta property="og:image" content="https://lynxr.io/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Accessibility at lynxr — what works and what does not yet">
+<meta name="twitter:description" content="What lynxr does for accessibility, what it aims at, and the specific things it does not do yet — including where it falls short of WCAG 2.2 AA today.">
 <meta name="twitter:image" content="https://lynxr.io/og.png">
 <link rel="canonical" href="https://lynxr.io/accessibility/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
 <link rel="stylesheet" href="/app.css?v=20260823f">
+<!-- BEGIN SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://lynxr.io/#organization",
+      "name": "Lynx Media Group",
+      "legalName": "Lynx Media Group LLC",
+      "url": "https://lynxmediagroup.org/",
+      "description": "A short-form video agency. lynxr is its own format-intelligence tool.",
+      "email": "lynxrnetwork@gmail.com",
+      "sameAs": [
+        "https://lynxmediagroup.org/",
+        "https://www.instagram.com/lynxmediagroup/",
+        "https://www.tiktok.com/@lynxmediagroup",
+        "https://www.linkedin.com/company/lynxmediagroup"
+      ],
+      "founder": [
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": ["https://www.instagram.com/junsahwang/"]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": ["https://www.instagram.com/gawinhsu/"]
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://lynxr.io/#website",
+      "url": "https://lynxr.io/",
+      "name": "lynxr",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://lynxr.io/#organization" },
+      "about": { "@id": "https://lynxr.io/#lynxr" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://lynxr.io/#lynxr",
+      "name": "lynxr",
+      "url": "https://lynxr.io/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "lynxr turns a short-form video into a script. You send it a public link to a TikTok, Instagram, YouTube or Facebook video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "featureList": [
+        "Reads a public TikTok, Instagram, YouTube or Facebook link. There is no file upload.",
+        "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
+        "Writes one script per company from a single link, reading the video only once.",
+        "Never asks for a platform password and never posts anything on your behalf."
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "Short-form video creators who make content for brands, and the people who brief them"
+      },
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/LimitedAvailability",
+        "url": "https://lynxr.io/waitlist/",
+        "description": "Free during invitation-only early access. Pricing does not exist yet."
+      },
+      "publisher": { "@id": "https://lynxr.io/#organization" }
+    }
+  ]
+}
+</script>
+<!-- END SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": "https://lynxr.io/accessibility/#webpage",
+  "url": "https://lynxr.io/accessibility/",
+  "name": "Accessibility at lynxr — what works and what does not yet",
+  "description": "What lynxr does for accessibility, what it aims at, and the specific things it does not do yet — including where it falls short of WCAG 2.2 AA today.",
+  "inLanguage": "en",
+  "isPartOf": { "@id": "https://lynxr.io/#website" },
+  "about": { "@id": "https://lynxr.io/#lynxr" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "lynxr", "item": "https://lynxr.io/" },
+    { "@type": "ListItem", "position": 2, "name": "accessibility", "item": "https://lynxr.io/accessibility/" }
+  ]
+}
+</script>
 </head>
 <body>
 
