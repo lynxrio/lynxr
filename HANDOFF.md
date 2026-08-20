@@ -128,9 +128,38 @@ real rather than a dead channel.
 
 ## Where this left off (read this first)
 
-**2026-08-20 (evening) — Cloudflare is live in front of lynxr.io (Track D1), and
-the site has real security headers for the first time.** Also shipped: the
-nightly Supabase backup, which is the first backup this project has ever had.
+**2026-08-20 (evening) — SESSION CLOSE. Cloudflare is live in front of
+lynxr.io (Track D1), the site has real security headers for the first time,
+and there is now a backup — the first this project has ever had.** The
+account-level hardening is done too. Nothing is mid-flight.
+
+### START HERE NEXT SESSION
+
+**Two commits may be unpushed: `6d99a11` and `27e324c`, both HANDOFF.md only.**
+Check `git log origin/main..HEAD` first. Pushing them fires `adaptations.yml`,
+which is the ONLY way to prove the `SUPABASE_SERVICE_ROLE_KEY` newline fix
+actually took — a run that dies with `ValueError: Invalid header value` means
+it did not. They do NOT touch `pipeline/**`, so no Fly redeploy.
+
+**Then: write the restore.** `pipeline/restore_supabase.py`, Steps 14–15 and
+20–22 of `~/.claude/plans/hardening-c-resilience.md`. There is now data on
+disk and no tested way to put it back, which means today's recovery story is
+"every creator resets their password and we find out whether the files even
+load". A backup you have not restored is a hypothesis. This is the highest
+item on the list and it is the natural next step from what shipped today.
+
+**Also near the top: the Supabase Free egress quota is at 107%** and the cause
+is measured — see the egress entry below. Trim and cache `app.js:2251` before
+paying for a bigger quota.
+
+**After that, in order:** timeouts on every model call (the SDK default is TEN
+MINUTES behind a 2.5-minute claim lease — one hung call is a guaranteed
+double-run, no race required), the A1 atomic claim RPC, `period_days = 30`
+(you cannot bill monthly against a lifetime cap), and D2a's waitlist rate
+limit.
+
+**Do not re-run `supabase/schema.sql`** and **run the `pg_trigger` query
+first** — both checks below are still unperformed and still binding.
 
 ### Cloudflare — done, verified through the edge
 
@@ -232,6 +261,37 @@ wake):
     cp pipeline/io.lynxr.backup.plist ~/Library/LaunchAgents/
     launchctl load ~/Library/LaunchAgents/io.lynxr.backup.plist
 
+### THE FREE PLAN'S EGRESS QUOTA IS BLOWN — 107%, found 2026-08-20
+
+`supabase.com/dashboard/org/.../usage`: **Egress 5.351 / 5 GB (107%)** for the
+31 Jul – 31 Aug cycle. Overages are not billed on Free; the project gets
+**restricted** instead. Everything else is idle — Database 0.074/0.5 GB (15%),
+Storage 0.065/1 GB (6%), MAU 23/50,000 (<1%), Realtime and Edge Functions
+zero. **One number is over and it is egress alone.**
+
+**The cause, measured:** `app.js:2251` reads the whole of `lynxr_videos` to
+populate the agency database view. It pages politely with `Range` headers, but
+it still pulls all 9,028 rows every time the tab is opened. Measured live:
+**3,111,650 bytes for 1,000 rows -> ~26 MB per full load.** 5 GB is therefore
+roughly 200 agency-app loads in a month, which is entirely plausible for
+normal use by one or two staff.
+
+**So the fix is cheaper than the upgrade, and it is a real fix:** trim the
+`select=` field list to what the table view actually renders, cache the result
+in localStorage keyed on a row count or max `updated_at`, and only re-fetch on
+change. Nothing about this needs a paid plan. Do this BEFORE deciding on Pro,
+or Pro's 250 GB simply hides it for a while.
+
+**Separately, Pro IS right at launch, and this settles the plan's Step 0.2
+("which Supabase plan, and does it back anything up"): the Free plan takes NO
+automatic backups.** That is the answer, and it is why the C2 work today was
+not optional — until 2026-08-20 this project had no backup of any kind, from
+any source. Pro adds daily backups with 7-day retention, removes the
+inactivity pause, and gives egress headroom. It does not replace
+`backup_supabase.py`: a provider-held backup you cannot read is not a backup
+you control, and Layer 2 (`pg_dump`) is still the only thing that captures
+password hashes.
+
 ### The account-level hardening is DONE (2026-08-20)
 
 All five, **reported complete by the owner**. Say plainly what that means:
@@ -288,7 +348,14 @@ Run 2 also showed the pipeline working while all this happened:
 defects are fixed, and a six-track hardening programme is planned but NOT
 started.** Read the two "before anything" checks below before touching Supabase.
 
-### Still in flight at session close — ONE uncommitted change
+### ~~Still in flight at session close — ONE uncommitted change~~ SUPERSEDED
+
+**This was committed as `8a01369` on 2026-08-20. The working tree is clean.**
+Kept for the reasoning about the Ops tab's emphasis rule, which still binds:
+a summary tile must never say "all good" while a panel below it says the query
+failed. The `/tmp/lynxr-ops-harness/` fixtures it names are **gone** — /tmp was
+cleared — so regenerate them before the next Ops verification pass.
+
 
 A `ui-ux` agent was reworking the Ops tab's emphasis when the session ended:
 the owner asked for **issues and costs to own the first screen, with the six
@@ -370,7 +437,13 @@ protects the existing staff rows and does nothing to stop the other four being
 promoted. Every SQL file here is described as safe to re-run; this one is safe
 to re-run exactly once, and nothing said so until now.
 
-### Cloudflare — started, unfinished
+### ~~Cloudflare — started, unfinished~~ SUPERSEDED — IT IS DONE
+
+**Completed 2026-08-20 evening; see the Cloudflare entry at the top of this
+section for the verified state.** Everything below was correct guidance and is
+kept because the reasoning still binds — especially `Full` vs `Full (strict)`
+— but read it as history, not as a to-do.
+
 
 The owner is mid-way through Cloudflare's add-a-zone flow (Track D1). Order
 matters: **SSL/TLS to `Full` BEFORE changing nameservers, and never
@@ -394,7 +467,20 @@ rewrites `<script>` tags).
   `creators_adaptations_gin.sql` and `write_guards.sql` are invisible to a
   PostgREST probe because they are an index and constraints.
 
-### Owner actions outstanding
+### Owner actions outstanding — PARTLY DONE, read the corrections
+
+**`supabase/costs_table.sql` HAS been run** — `lynxr_costs` exists and is
+populating (0 rows at 20:40 UTC, 4 rows by 21:02). The line below saying it is
+not yet run is wrong. **The five account-level actions are also done** (MFA on
+both accounts, push protection, the `main` ruleset, the secret newline) — see
+the entry at the top of this section, and note none of them was independently
+verified from a shell.
+
+Still genuinely outstanding from this list: `APIFY_METER_TOKEN` on Fly, the
+fact that `APIFY_API_TOKEN` remains **local-only** so the Instagram view
+refresh has never run in production, and the four blank figures in
+`FIXED_COSTS`.
+
 
 Run `supabase/costs_table.sql`, then deploy the pipeline to Fly (not mid-script)
 -- until both, the Ops tab's cost panels say so rather than showing numbers.
