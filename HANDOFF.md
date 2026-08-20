@@ -158,6 +158,11 @@ double-run, no race required), the A1 atomic claim RPC, `period_days = 30`
 (you cannot bill monthly against a lifetime cap), and D2a's waitlist rate
 limit.
 
+**Before any launch work, read "BEFORE SHIPPING: what to upgrade, and what
+breaks as we scale"** below — it names the one paid upgrade that is actually
+required (Supabase Pro, because Free takes no backups), and the JSONB blob
+that is the real scaling wall.
+
 **Do not re-run `supabase/schema.sql`** and **run the `pg_trigger` query
 first** — both checks below are still unperformed and still binding.
 
@@ -260,6 +265,83 @@ wake):
 
     cp pipeline/io.lynxr.backup.plist ~/Library/LaunchAgents/
     launchctl load ~/Library/LaunchAgents/io.lynxr.backup.plist
+
+### BEFORE SHIPPING: what to upgrade, and what breaks as we scale
+
+Written 2026-08-20 from measured numbers, not estimates. Every figure below
+came from the live database or the first backup run; where something is
+unverified it says so.
+
+#### Paid upgrades, each with the trigger that justifies it
+
+| service | now | change to | when | why |
+|---|---|---|---|---|
+| **Supabase** | Free | **Pro, $25/mo** | **before public launch** | **Free takes no automatic backups at all.** That is the decisive reason, not egress. Also removes the inactivity pause and raises egress 5 GB -> 250 GB and DB 0.5 -> 8 GB. |
+| **Fly** | 1 machine, v23 | `scale count 2+` | **only after A1** | Scaling out is BLOCKED, not merely unwise — see below. |
+| **Anthropic** | pay-as-you-go | unchanged | — | ~$0.016 a script with caching. At the decided fair-use cap of 300 scripts / 30 days that is **~$4.80 per subscriber per month against $24.99 revenue**. The margin is fine; the risk is a runaway loop, which `--daily-cap 250` already bounds. |
+| **Cloudflare** | Free | **stay Free** | — | Track D3 evaluated the paid tiers and recommended **$0**: not one request in this system both accepts attacker input and passes through Cloudflare. Do not re-litigate this without new evidence. |
+| **Resend** | free tier | **verify before launch** | before launch | Free-tier send limits are **UNVERIFIED here**. Signup confirmation, password reset and resend all depend on it; hitting a daily cap means new creators silently cannot confirm an account. Check the actual limit against expected signup volume. |
+| **Apify** | local only | move token to Fly | before launch | `APIFY_API_TOKEN` is **local-only**, so the Instagram view refresh has never run in production. Either ship it or stop showing view counts as if they are fresh. |
+
+**Do not upgrade Supabase to fix egress.** Fix `app.js:2251` first (see the
+egress entry below). Pro's 250 GB would hide a 26 MB-per-page-load query for
+about a year, and it would still be there when it finally matters.
+
+#### What breaks first as creators multiply, in the order it will happen
+
+**1. `lynxr_creators.data` — the JSONB blob. This is the real wall, and it is
+architectural, not a knob.** One row per creator holds `adaptations`,
+`library` and `trash` together, and **the client reads and rewrites the WHOLE
+blob on every save.** Measured from the 2026-08-20 backup:
+
+    54,015 bytes    5 adaptations,  0 trash
+   256,697 bytes   17 adaptations, 19 trash   <- heaviest creator today
+     ~7 KB per adaptation, 67 KB average per creator
+
+At the decided fair-use cap of **300 scripts / 30 days**, that is ~2.1 MB
+added per creator per month. A single active subscriber after a year holds a
+**~25 MB blob that is downloaded, modified and uploaded on every single
+save** — every paste, every rename, every trash. That is a latency problem, an
+egress problem, and it widens the A1 data-race window in direct proportion to
+its size. **Trash is the cheap half of the fix** (it is 19 of one creator's 36
+entries); the real fix is moving adaptations to their own table with one row
+per script. Do not start this at the point where it hurts — it is a migration
+of the only irreplaceable table in the system.
+
+**2. Agency-app egress** — `app.js:2251`, ~26 MB per load. Bites at roughly
+200 loads a month, which is where it already is.
+
+**3. The single Fly machine, and why `scale count 2` is not the fix.**
+`_GRAFT_LOCKS` is a `threading.Lock` in ONE process. A second machine shares
+no lock and will race the same row; `--min-age-seconds 180` narrows that
+window, it does not close it. **A1's `SECURITY DEFINER` conditional UPDATE is
+the prerequisite for horizontal scale**, and until it lands, more machines
+means more double-billing, not more throughput. Related and cheaper: the
+Anthropic SDK's default timeout is **ten minutes** sitting behind a
+2.5-minute claim lease, so one slow call double-runs with no race at all.
+
+**4. `period_days = 30`.** The allowance is still lifetime (`granted` defaults
+to 25, `period_days` to 0, `allowance_ledger.sql:91`). **You cannot bill a
+monthly subscription against a lifetime cap.** Cheap — the column exists.
+
+**5. The waitlist has no rate limit** and is a public POST straight to
+Supabase that Cloudflare never sees. D2a puts the limit in Postgres, where the
+traffic actually lands. Fine at 29 rows; not fine on a launch day.
+
+**6. The signup gate is still a 4-seat counter.** Opening to the public means
+deciding seats vs invites deliberately. **Do not just raise `seats`** — that
+opens the door to anyone holding the URL, first come first served.
+
+**7. Whisper's cold start (~2 min for 464 MB of weights) is per-machine.**
+Every machine added pays it once. Real, but it is a scale-out cost, not a
+scale-up one — and it is far behind items 1-3.
+
+#### What does NOT need to change, so nobody spends time on it
+
+Auth (23 of 50,000 MAU), storage (6% of 1 GB), Realtime (unused), Edge
+Functions (unused), GitHub Actions (public repos get free minutes), and the
+Cloudflare plan. The database itself is 15% of the Free ceiling — **only
+egress is under pressure, and only because of one query.**
 
 ### THE FREE PLAN'S EGRESS QUOTA IS BLOWN — 107%, found 2026-08-20
 
