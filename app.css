@@ -391,8 +391,27 @@
     display: flex; align-items: center; justify-content: center;
     padding: 24px; background: rgba(0, 0, 0, .72);
     animation: fade-in .16s var(--ease);
+    /* THE WAY OUT, which this did not have: it arrived on a .16s fade and then
+       a full-screen black sheet vanished between two frames. Closing is as
+       deliberate an act as opening and gets the same length back.
+
+       DELIBERATELY ONE-DIRECTIONAL. There is no @starting-style here, and that
+       is the mechanism, not an omission: an element leaving display:none has
+       no before-change style to transition FROM unless @starting-style
+       supplies one, so the opening still belongs entirely to `fade-in` above
+       and to .modal-card's rise-in. Only the exit — which has a real
+       before-change style — runs through this transition. Entry animation and
+       exit transition, each doing one job.
+
+       `display` in the list with allow-discrete is what holds the sheet on
+       screen for the 160ms; closePolicy() only sets modal.hidden and needs no
+       change. pointer-events on the closed state so the fading sheet is not
+       still swallowing clicks after it has been dismissed. */
+    opacity: 1;
+    transition: opacity .16s var(--ease), display .16s allow-discrete;
   }
-  .modal[hidden] { display: none; }
+  .modal[hidden] { display: none; opacity: 0; pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { .modal { transition: none; } }
   body.modal-open { overflow: hidden; }
   .modal-card {
     background: var(--bg); border: 1px solid var(--line-2); border-radius: var(--r-card);
@@ -1213,8 +1232,17 @@
 
   /* Detail modal */
   .no-scroll { overflow: hidden; }
-  #modal { position: fixed; inset: 0; z-index: 100; }
-  #modal[hidden] { display: none; }
+  /* Same one-directional exit as the creator app's .modal — see the long note
+     in that block for why there is no @starting-style. In: .modal-back's
+     dot-in and .modal-card's rise-in, untouched. Out: this. closeModal() in
+     app.js sets modal.hidden and nothing else, exactly as before. */
+  #modal {
+    position: fixed; inset: 0; z-index: 100;
+    opacity: 1;
+    transition: opacity .16s var(--ease), display .16s allow-discrete;
+  }
+  #modal[hidden] { display: none; opacity: 0; pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { #modal { transition: none; } }
   .modal-back { position: absolute; inset: 0; background: #000000c4; }
   .modal-card {
     position: relative; margin: 4vh auto; width: min(880px, calc(100vw - 32px));
@@ -2325,9 +2353,31 @@
       transition: transform .2s var(--ease), visibility 0s .2s;
     }
     body.side-open .side { transform: none; visibility: visible; }
-    body.side-open::after {
+    /* THE SCRIM TRAVELS WITH THE DRAWER. It used to appear and disappear
+       between two frames while the drawer beside it took 200ms to slide, so
+       the two halves of one object moved at different speeds — the drawer
+       glided and the page went black under it in an instant. Same .2s, same
+       curve, so it reads as one thing arriving.
+
+       It has to EXIST when closed for that to be possible, which is what the
+       `display: none` plus `display .2s allow-discrete` pair buys: no box at
+       all while the drawer is shut (this is a full-viewport fixed layer on a
+       phone and it does not get to sit there permanently), a box for exactly
+       as long as the fade takes on the way out. @starting-style is needed on
+       this one — unlike the modals, the scrim wants to fade in as well as out.
+
+       pointer-events follows the same discrete switch, so the scrim is a click
+       target only while it is opaque. The document handler that closes the
+       drawer sees the click as landing on <body> either way — a pseudo-element
+       is never itself an event target — so nothing about dismissing changes. */
+    body::after {
       content: ""; position: fixed; inset: 0; z-index: 30; background: #0009;
+      display: none; opacity: 0; pointer-events: none;
+      transition: opacity .2s var(--ease), display .2s allow-discrete;
     }
+    body.side-open::after { display: block; opacity: 1; pointer-events: auto; }
+    @starting-style { body.side-open::after { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { body::after { transition: none; } }
     /* Icon only, no chrome: a bordered box holding one glyph was the heaviest
        thing on the page and the label said nothing the icon doesn't. */
     .side-toggle {
@@ -2336,6 +2386,22 @@
       border: 0; background: none; color: var(--text-2); cursor: pointer;
     }
     .side-toggle:hover { color: var(--text); background: none; }
+    /* THE ONE BUTTON IN EITHER APP THAT ACKNOWLEDGED NOTHING. It is not in the
+       press-feedback list ~950 lines up (it has no border and no background,
+       so it never needed that rule's colour half), and the result was that the
+       primary navigation control on a phone was the only control that did not
+       move under a finger — while .lp-burger, the identical hamburger on the
+       six public pages, already presses to .94. Same gesture, same feedback.
+       .92 rather than .94 because this one is chromeless: with no border or
+       fill to compress, a 20px glyph inside a 40px box needs slightly more
+       travel to register at all. Transform and colour only, and the transform
+       is a transition, so it can never sit between the tap and the drawer. */
+    .side-toggle { transition: color .14s var(--ease), transform .09s var(--ease); }
+    .side-toggle:active { transform: scale(.92); }
+    @media (prefers-reduced-motion: reduce) {
+      .side-toggle { transition: none; }
+      .side-toggle:active { transform: none; }
+    }
 
     .pane-mark {
       display: block; position: absolute; top: 24px; right: 18px; z-index: 6;
@@ -3984,10 +4050,16 @@
   /* THE SORT MENU. Our own popup, because a native <select>'s is drawn by macOS
      at the select's font-size and the find bar is deliberately at --fs-135 —
      see the long note above. The CLOSED control is unchanged; this is the only
-     thing that got bigger. --fs-18 (15.5px at <=360px, 18px at >=1440px)
-     against the trigger's 12.5-13.5px: 1.24x on a phone, 1.33x on desktop —
-     the owner asked for the menu "slightly bigger" than the first pass at
-     --fs-16 (14-16px, 1.12-1.19x), so this rung goes one step up.
+     thing that got bigger. --fs-16 (14px at <=360px, 16px at >=1440px)
+     against the trigger's 12.5-13.5px: 1.12x on a phone, 1.19x on desktop.
+
+     THAT RUNG WAS --fs-18 FOR ONE DAY AND IT WAS TOO BIG. The owner asked for
+     "slightly bigger" than the --fs-16 the plan specified, the answer moved a
+     full rung to --fs-18 (15.5-18px, 1.24-1.33x), and seeing it live the owner
+     said the rows were too big — so this is back at the plan's value. The
+     point of leaving the native <select> was that its popup could not be
+     sized independently of its closed control; 1.19x is that point made, and
+     1.33x was overshooting it.
 
      RIGHT-ANCHORED, and that is what makes it safe with no JS positioning at
      all. The trigger's right edge is always inside the page gutter, so a menu
@@ -4003,29 +4075,80 @@
      this. */
   .find-sort-menu {
     position: absolute; top: calc(100% + 6px); right: 0; z-index: 7;
+    /* 6px OF PANEL PADDING IS ARITHMETIC, NOT TASTE, and it survived the rows
+       coming down from 42px to 34.8px unchanged for that reason: --r-card
+       (16) minus this padding (6) is exactly --r-inner (10), so a row's corner
+       is concentric with the panel's. Any other number leaves the two curves
+       fighting at all four corners. */
     margin: 0; padding: 6px; list-style: none;
     min-width: 100%; width: max-content; max-width: min(280px, calc(100vw - 32px));
     max-height: min(60vh, 320px); overflow-y: auto;
     background: var(--surface-2); border: 1px solid var(--line-2);
     border-radius: var(--r-card); box-shadow: 0 10px 26px #00000080;
-    font-size: var(--fs-18);
+    font-size: var(--fs-16);
+    /* IT GROWS OUT OF THE TRIGGER, because that is where the click was. The
+       panel is anchored top/right to the button, so top right is the one
+       origin that keeps its top-right corner pinned to the control while the
+       rest of it unfolds down and to the left — any other origin slides the
+       corner away from the thing that was pressed.
+
+       TWO DURATIONS ON PURPOSE, the lesson from the CTA halo: opacity lands
+       at 110ms and the transform keeps going to 160ms, so the type is fully
+       opaque before it has finished settling and never reads as a blurry
+       fade-up. Compositor-only — transform and opacity, never width/height.
+
+       `display` IS IN THE TRANSITION LIST, and that is what buys the exit for
+       free. openSortMenu()/closeSortMenu() only toggle the `hidden`
+       attribute; `allow-discrete` holds `display: block` for the length of the
+       transition on the way out and flips it at 0% on the way in, and
+       @starting-style supplies the from-state an element coming out of
+       display:none has no other way to get. No JS timer, no .closing class,
+       nothing that can strand the menu visible if an animationend is missed.
+
+       A browser too old for allow-discrete drops this whole shorthand as
+       invalid and gets exactly today's behaviour: the menu appears and
+       disappears instantly. That is the correct degradation for a menu. */
+    opacity: 1; transform: none; transform-origin: top right;
+    transition: opacity .11s var(--ease), transform .16s var(--ease),
+                display .16s allow-discrete;
+  }
+  @starting-style {
+    .find-sort-menu:not([hidden]) { opacity: 0; transform: scale(.96) translateY(-6px); }
   }
   /* Needed because this rule sets a display-affecting layout above: the UA's
      own [hidden] { display: none } would otherwise be outranked. Same reason
-     .lib-modes-ind[hidden] and #modal[hidden] exist. */
-  .find-sort-menu[hidden] { display: none; }
+     .lib-modes-ind[hidden] and #modal[hidden] exist.
+     The other three declarations are the closed END state the exit runs
+     toward — and `pointer-events: none` is not decoration: `display` is the
+     last thing to flip, so without it the invisible panel is still a click
+     target for 160ms after it was dismissed. */
+  .find-sort-menu[hidden] {
+    display: none;
+    opacity: 0; transform: scale(.96) translateY(-6px); pointer-events: none;
+  }
+  /* THE GUARD LIVES HERE, beside the rule it guards, per the motion policy.
+     Not just `transition: none` — the closed state also has to stop being a
+     scaled-down one, or the first frame of a reduced-motion open would paint
+     the panel 4% small and then jump. */
+  @media (prefers-reduced-motion: reduce) {
+    .find-sort-menu { transition: none; }
+    .find-sort-menu[hidden] { transform: none; }
+  }
   /* The <ul> takes focus so it can own aria-activedescendant, but the ring
      belongs on the highlighted ROW, not around the whole panel — two rings
      would be worse than one in the wrong place. */
   .find-sort-menu:focus, .find-sort-menu:focus-visible { outline: none; }
   .find-sort-opt {
     display: flex; align-items: center; gap: 8px;
-    min-height: 42px; padding: 8px 12px; border-radius: var(--r-inner);
+    min-height: 34px; padding: 7px 12px; border-radius: var(--r-inner);
     color: var(--text-2); cursor: pointer; white-space: nowrap;
-    /* line-height: 1.3, not the body's inherited 1.6 — at --fs-18 (18px on
-       desktop) the inherited value alone gives a 28.8px line box, which pushes
-       the row to 44.8px before min-height ever gets a say. 1.3 hands the row
-       back to min-height/padding: 42px on desktop, 44px at <=820px (below). */
+    /* line-height: 1.3, not the body's inherited 1.6 — at --fs-16 (16px on
+       desktop) the inherited value alone gives a 25.6px line box, which pushes
+       the row to 39.6px before min-height ever gets a say, and the whole point
+       of this pass was to bring the row DOWN. 1.3 hands the row back to
+       min-height/padding: 34.8px on desktop, 44px on a coarse pointer (below).
+       Re-derived for --fs-16, not inherited from the --fs-18 version: the two
+       happen to agree on 1.3, and the arithmetic above is the reason. */
     line-height: 1.3;
     transition: background .12s, color .12s;
   }
@@ -4040,13 +4163,29 @@
   /* KEYBOARD HIGHLIGHT. --hover on --surface-2 is #1d1d21 on #17171a, which is
      not a focus indicator, it is a rumour of one — the same defect the find
      bar's own focus ring was written to fix. The ring is the signal; the fill
-     just keeps hover and keyboard looking like one state. */
+     just keeps hover and keyboard looking like one state.
+
+     1.5px INSET BY 1, NOT 2px INSET BY 2. openSortMenu() puts .active on the
+     CURRENTLY SELECTED row, so this ring is on screen the instant the menu
+     opens, mouse or keyboard — and at 2px/-2px it drew a second rounded box
+     floating inside the row, which was the loudest thing in the panel and the
+     owner said so. Pulled flush to the row's own edge it reads as the row
+     being lit rather than as a box drawn on top of it, while still being a
+     continuous enclosing ring in a colour that measures 7.9:1 on this ground.
+     It got lighter because the rows got shorter: 1.5px of 34.8 is the same
+     share of the row that 2px of 42 was. */
   .find-sort-opt.active {
     background: var(--hover); color: var(--text);
-    outline: 2px solid var(--text-2); outline-offset: -2px;
+    outline: 1.5px solid var(--text-2); outline-offset: -1px;
   }
   @media (prefers-reduced-motion: reduce) { .find-sort-opt { transition: none; } }
-  @media (max-width: 820px) { .find-sort-opt { min-height: 44px; padding: 11px 13px; } }
+  /* THE 44px TOUCH FLOOR, and it is a floor, not a size preference — so it is
+     keyed on the pointer as well as on the width. ≤820px is what the rest of
+     this find bar already uses; `pointer: coarse` catches the tablet that is
+     wider than that and still being tapped, which the width alone missed. */
+  @media (max-width: 820px), (pointer: coarse) {
+    .find-sort-opt { min-height: 44px; padding: 11px 13px; }
+  }
 
   /* A search that matches nothing must not read as data loss, so it says what
      it did and offers the way back. */

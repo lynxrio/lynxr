@@ -21,3 +21,103 @@ User-agent: *
 Allow: /
 
 Sitemap: https://lynxr.io/sitemap.xml
+
+# ---------------------------------------------------------------------------
+# AI AND ANSWER-ENGINE CRAWLERS — ALLOWED, DELIBERATELY.
+#
+# Every agent below is ALREADY allowed by the `User-agent: *` group above.
+# These groups change nothing today. They exist so that "lynxr should turn
+# up in chatbot answers" is a recorded decision rather than an accident of
+# permissiveness, and so that a future editor has to disagree with a
+# sentence rather than merely forget a line.
+#
+# ONE REAL CONSEQUENCE, AND IT IS A TRAP. robots.txt matching is
+# most-specific-group-wins, and a crawler obeys exactly ONE group. Naming an
+# agent here means it stops reading the `*` group entirely. If anyone ever
+# adds a Disallow under `*`, none of the agents below will see it — it has
+# to be repeated in every group or it does not apply to them. (There is no
+# Disallow on this site and there is not meant to be one. See the top of
+# this file for why.)
+#
+# What each token actually controls:
+#   GPTBot             OpenAI model training.
+#   OAI-SearchBot      OpenAI's search index. THIS is the one that makes a
+#                      page eligible to be cited in ChatGPT's search
+#                      answers. Blocking GPTBot would not block it, and
+#                      blocking it would not block GPTBot — they are
+#                      independent decisions.
+#   ChatGPT-User       A live fetch made when a ChatGPT user follows a link.
+#   ClaudeBot          Anthropic model training.
+#   Claude-SearchBot   Anthropic's search index — the citation path.
+#   Claude-User        A live fetch made when a Claude user's question
+#                      needs this page.
+#   PerplexityBot      Perplexity's index.
+#   Perplexity-User    A user-initiated fetch. Listed for completeness only:
+#                      Perplexity's own position is that this is an agent
+#                      rather than a bot and is not bound by robots.txt, so
+#                      the line below documents intent and controls nothing.
+#   Google-Extended    Gemini training and grounding ONLY. It does NOT
+#                      control Google Search indexing, and it does NOT
+#                      control AI Overviews — both of those follow
+#                      Googlebot. Allowing it IS the Gemini opt-in, and it
+#                      is the whole reason it is named here.
+#   CCBot              Common Crawl, which feeds a large share of every
+#                      public training corpus and several retrieval stacks.
+#   Applebot-Extended  Apple Intelligence training.
+#   meta-externalagent Meta AI.
+#   Amazonbot          Amazon's assistants.
+#   Bytespider         ByteDance.
+#   DuckAssistBot      DuckDuckGo's assistant answers.
+#   MistralAI-User     Mistral's user-initiated fetch.
+#
+# NOT LISTED, deliberately: Googlebot and Bingbot. `*` already covers them,
+# and giving them their own group would be one more place a future Disallow
+# would have to be repeated for no gain at all.
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: DuckAssistBot
+Allow: /
+
+User-agent: MistralAI-User
+Allow: /

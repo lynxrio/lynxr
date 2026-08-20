@@ -1,0 +1,32 @@
+# lynxr
+
+> lynxr turns a short-form video into a script. You send it a public link to
+> a TikTok, Instagram, YouTube or Facebook video; it watches the video,
+> transcribes what is said, works out the format underneath — the hook, the
+> beats, the order they come in — and rewrites that format as a script for
+> the company you are making content for.
+
+lynxr is made by Lynx Media Group LLC, a short-form video agency in Allston,
+Massachusetts. It is free and invitation-only during early access. There is
+no file upload: a public video link is the only input. It never asks for a
+platform password and it never posts anything on your behalf. You must be 18
+or older to use it.
+
+## Pages
+
+- [lynxr](https://lynxr.io/): What lynxr is, how it works in three steps, and who builds it.
+- [Questions and answers](https://lynxr.io/faq/): Straight answers about what lynxr does with a link, which platforms it reads, what it costs, who owns the scripts, and how access works.
+- [Join the wait list](https://lynxr.io/waitlist/): The only way in while lynxr is invitation-only.
+
+## Guides
+
+- [What a video format is](https://lynxr.io/what-is-a-video-format/): The difference between a video's format and its topic, and why a format travels between brands when a topic does not.
+- [How to turn a video into a script for a brand](https://lynxr.io/turn-a-video-into-a-script/): The step-by-step method, by hand and with lynxr.
+- [The parts of a short-form video script](https://lynxr.io/short-form-script-structure/): Hook, setup, beats, turn, close, and what each one is doing.
+- [Short-form video glossary](https://lynxr.io/glossary/): Plain definitions of the terms lynxr uses.
+
+## Policies
+
+- [Privacy policy](https://lynxr.io/privacy/): What lynxr collects, why, who it is shared with, how long it is kept, and how to have it deleted.
+- [Terms of service](https://lynxr.io/terms/): What lynxr does, what you are responsible for, who owns the scripts, and what is and is not promised.
+- [Accessibility](https://lynxr.io/accessibility/): What works, and the specific things that do not work yet.

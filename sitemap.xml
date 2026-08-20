@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Only the six genuinely public pages. The creator and agency apps are
+<!-- Only the ten genuinely public pages. The creator and agency apps are
      deliberately absent: they carry `noindex` and listing them here would
      advertise them, which is the same mistake as a Disallow line in
      robots.txt. See the comment at the top of robots.txt. -->
@@ -21,6 +21,27 @@
     <loc>https://lynxr.io/faq/</loc>
     <lastmod>2026-08-19</lastmod>
     <priority>0.8</priority>
+  </url>
+  <!-- The four content/GEO guides — below /faq/, above the legal set. -->
+  <url>
+    <loc>https://lynxr.io/what-is-a-video-format/</loc>
+    <lastmod>2026-08-19</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/turn-a-video-into-a-script/</loc>
+    <lastmod>2026-08-19</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/short-form-script-structure/</loc>
+    <lastmod>2026-08-19</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/glossary/</loc>
+    <lastmod>2026-08-19</lastmod>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/privacy/</loc>

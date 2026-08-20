@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Short-form video glossary — the terms lynxr uses</title>
+<meta name="description" content="Plain definitions of the words that come up around short-form video and lynxr: format, topic, hook, beat, turn, close, script, brief, and the rest.">
+<meta property="og:title" content="Short-form video glossary — the terms lynxr uses">
+<meta property="og:description" content="Plain definitions of the words that come up around short-form video and lynxr: format, topic, hook, beat, turn, close, script, brief, and the rest.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="lynxr">
+<meta property="og:url" content="https://lynxr.io/glossary/">
+<meta property="og:image" content="https://lynxr.io/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Short-form video glossary — the terms lynxr uses">
+<meta name="twitter:description" content="Plain definitions of the words that come up around short-form video and lynxr: format, topic, hook, beat, turn, close, script, brief, and the rest.">
+<meta name="twitter:image" content="https://lynxr.io/og.png">
+<link rel="canonical" href="https://lynxr.io/glossary/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="stylesheet" href="/app.css?v=20260823f">
+<!-- BEGIN SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://lynxr.io/#organization",
+      "name": "Lynx Media Group",
+      "legalName": "Lynx Media Group LLC",
+      "url": "https://lynxmediagroup.org/",
+      "description": "A short-form video agency. lynxr is its own format-intelligence tool.",
+      "email": "lynxrnetwork@gmail.com",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "15 Farrington Ave",
+        "addressLocality": "Allston",
+        "addressRegion": "MA",
+        "postalCode": "02134",
+        "addressCountry": "US"
+      },
+      "sameAs": [
+        "https://lynxmediagroup.org/",
+        "https://www.instagram.com/lynxmediagroup/",
+        "https://www.tiktok.com/@lynxmediagroup",
+        "https://www.linkedin.com/company/lynxmediagroup"
+      ],
+      "founder": [
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": ["https://www.instagram.com/junsahwang/"]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": ["https://www.instagram.com/gawinhsu/"]
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://lynxr.io/#website",
+      "url": "https://lynxr.io/",
+      "name": "lynxr",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://lynxr.io/#organization" },
+      "about": { "@id": "https://lynxr.io/#lynxr" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://lynxr.io/#lynxr",
+      "name": "lynxr",
+      "url": "https://lynxr.io/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "lynxr turns a short-form video into a script. You send it a public link to a TikTok, Instagram, YouTube or Facebook video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "featureList": [
+        "Reads a public TikTok, Instagram, YouTube or Facebook link. There is no file upload.",
+        "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
+        "Writes one script per company from a single link, reading the video only once.",
+        "Never asks for a platform password and never posts anything on your behalf."
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "Short-form video creators who make content for brands, and the people who brief them"
+      },
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/LimitedAvailability",
+        "url": "https://lynxr.io/waitlist/",
+        "description": "Free during invitation-only early access. Pricing does not exist yet."
+      },
+      "publisher": { "@id": "https://lynxr.io/#organization" }
+    }
+  ]
+}
+</script>
+<!-- END SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "@id": "https://lynxr.io/glossary/#article",
+  "headline": "Short-form video glossary",
+  "description": "Plain definitions of the words that come up around short-form video and lynxr: format, topic, hook, beat, turn, close, script, brief, and the rest.",
+  "inLanguage": "en",
+  "datePublished": "2026-08-19",
+  "dateModified": "2026-08-19",
+  "author": { "@id": "https://lynxr.io/#organization" },
+  "publisher": { "@id": "https://lynxr.io/#organization" },
+  "isPartOf": { "@id": "https://lynxr.io/#website" },
+  "about": { "@id": "https://lynxr.io/#lynxr" },
+  "mainEntityOfPage": "https://lynxr.io/glossary/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "lynxr", "item": "https://lynxr.io/" },
+    { "@type": "ListItem", "position": 2, "name": "Short-form video glossary", "item": "https://lynxr.io/glossary/" }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "DefinedTermSet",
+  "@id": "https://lynxr.io/glossary/#termset",
+  "name": "Short-form video glossary",
+  "url": "https://lynxr.io/glossary/",
+  "inLanguage": "en",
+  "publisher": { "@id": "https://lynxr.io/#organization" },
+  "hasDefinedTerm": [
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#format",
+      "name": "Format",
+      "description": "Format is the shape of a video rather than its subject: the hook and the job it is doing, the beats and their order, the turn where the video becomes something else, and the close.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#topic",
+      "name": "Topic",
+      "description": "Topic is what a video is about — the product, the place, or the story — as distinct from its format, which is how the video is put together to get there.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#hook",
+      "name": "Hook",
+      "description": "Hook is the opening of a short-form video, the first thing it says or shows, and its job is to stop someone from scrolling past.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#beat",
+      "name": "Beat",
+      "description": "Beat is one step a video moves through on its way to delivering what the hook promised, and a format is made of several beats in a specific order.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#the-turn",
+      "name": "The turn",
+      "description": "The turn is the point in a video where it becomes something other than what it looked like it was going to be — a reveal, a reversal, or a shift from problem to solution.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#the-close",
+      "name": "The close",
+      "description": "The close is the last part of a video, the point where it wraps up once the turn has landed and hands off to whatever comes next.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#script",
+      "name": "Script",
+      "description": "Script is the written version of a video's format, rewritten with a new subject — the words and beats a creator or lynxr produces before anything is filmed.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#short-form-video",
+      "name": "Short-form video",
+      "description": "Short-form video is video made to be watched quickly on a vertical, mobile feed rather than a longer, sit-down format — the kind of video lynxr reads and the agency behind it makes for brands.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#creator",
+      "name": "Creator",
+      "description": "Creator is a person who makes short-form video for a company — the audience lynxr is built for, alongside the people who brief them.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#brand",
+      "name": "Brand",
+      "description": "Brand is the company a creator is making a video for — the company whose product, subject or message a script or format is written around.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#brief",
+      "name": "Brief",
+      "description": "Brief is the instructions a company gives a creator before a video gets made — what they want covered, and what they want left out.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#transcript",
+      "name": "Transcript",
+      "description": "Transcript is the written record of everything said in a video, produced automatically when lynxr or a creator reads a video's audio.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://lynxr.io/glossary/#shot-list",
+      "name": "Shot list",
+      "description": "Shot list is a record of a video's individual shots — what the camera shows and in what order — used alongside the transcript to work out a video's structure.",
+      "inDefinedTermSet": { "@id": "https://lynxr.io/glossary/#termset" }
+    }
+  ]
+}
+</script>
+</head>
+<!-- This page's visible copy is written in normal sentence case in the
+     source, unlike the lowercase-with-exceptions convention the rest of the
+     site uses. Painted output is identical either way — text-transform:
+     lowercase in app.css flattens all of it — but a model reading the source
+     sees real casing here, because this page carries no JSON-LD twin of its
+     prose the way /faq/ does, so the body text is the only machine-readable
+     copy there is. Every definition below is byte-for-byte the same claim as
+     the matching "description" in the DefinedTermSet block above — change
+     one, change the other. .lp unsets the app's bare main{} container so the
+     sections below can be full-bleed. See the marketing-page block in
+     app.css. -->
+<body class="lp">
+
+<header class="lp-bar">
+  <div class="lp-in lp-bar-in">
+    <a class="wordmark" href="/"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></a>
+    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+         fragment does nothing from /faq/ or /privacy/ — it appends a hash to
+         the current URL and stays put. -->
+    <nav class="lp-nav" aria-label="Main">
+      <a href="/#how">how it works</a>
+      <a href="/#team">our team</a>
+      <a href="/faq/">faq</a>
+    </nav>
+    <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <!-- Under 760px the nav and the CTA above are display:none and this takes
+         their place. aria-expanded carries the state to a screen reader AND
+         drives which glyph is drawn, so the two cannot disagree. -->
+    <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
+            aria-expanded="false" aria-controls="lp-menu">
+      <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <!-- Inside the bar on purpose: the bar is the sticky element, so a panel
+       parented anywhere else would scroll away from the burger that opened it.
+       `hidden` — not opacity — is what takes these links out of the tab order
+       when it is closed. -->
+  <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
+    <a href="/#how">how it works</a>
+    <a href="/#team">our team</a>
+    <a href="/faq/">faq</a>
+    <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="lp-hero">
+    <div class="lp-in">
+      <h1 class="lp-h1">Short-form video glossary</h1>
+      <p class="lp-lede">Plain definitions of the words that come up around short-form video and lynxr — each one written to stand on its own, without needing the rest of the page for context.</p>
+    </div>
+  </section>
+
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2">Format</h2>
+      <p class="lp-p">Format is the shape of a video rather than its subject: the hook and the job it is doing, the beats and their order, the turn where the video becomes something else, and the close.</p>
+
+      <h2 class="lp-h2">Topic</h2>
+      <p class="lp-p">Topic is what a video is about — the product, the place, or the story — as distinct from its format, which is how the video is put together to get there.</p>
+
+      <h2 class="lp-h2">Hook</h2>
+      <p class="lp-p">Hook is the opening of a short-form video, the first thing it says or shows, and its job is to stop someone from scrolling past.</p>
+
+      <h2 class="lp-h2">Beat</h2>
+      <p class="lp-p">Beat is one step a video moves through on its way to delivering what the hook promised, and a format is made of several beats in a specific order.</p>
+
+      <h2 class="lp-h2">The turn</h2>
+      <p class="lp-p">The turn is the point in a video where it becomes something other than what it looked like it was going to be — a reveal, a reversal, or a shift from problem to solution.</p>
+
+      <h2 class="lp-h2">The close</h2>
+      <p class="lp-p">The close is the last part of a video, the point where it wraps up once the turn has landed and hands off to whatever comes next.</p>
+    </div>
+  </section>
+
+  <section class="lp-band">
+    <div class="lp-in">
+      <h2 class="lp-h2">Script</h2>
+      <p class="lp-p">Script is the written version of a video's format, rewritten with a new subject — the words and beats a creator or lynxr produces before anything is filmed.</p>
+
+      <h2 class="lp-h2">Short-form video</h2>
+      <p class="lp-p">Short-form video is video made to be watched quickly on a vertical, mobile feed rather than a longer, sit-down format — the kind of video lynxr reads and the agency behind it makes for brands.</p>
+
+      <h2 class="lp-h2">Creator</h2>
+      <p class="lp-p">Creator is a person who makes short-form video for a company — the audience lynxr is built for, alongside the people who brief them.</p>
+
+      <h2 class="lp-h2">Brand</h2>
+      <p class="lp-p">Brand is the company a creator is making a video for — the company whose product, subject or message a script or format is written around.</p>
+    </div>
+  </section>
+
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2">Brief</h2>
+      <p class="lp-p">Brief is the instructions a company gives a creator before a video gets made — what they want covered, and what they want left out.</p>
+
+      <h2 class="lp-h2">Transcript</h2>
+      <p class="lp-p">Transcript is the written record of everything said in a video, produced automatically when lynxr or a creator reads a video's audio.</p>
+
+      <h2 class="lp-h2">Shot list</h2>
+      <p class="lp-p">Shot list is a record of a video's individual shots — what the camera shows and in what order — used alongside the transcript to work out a video's structure.</p>
+
+      <p class="lp-p">See <a href="/what-is-a-video-format/">what a video format is</a> for how these terms fit together, <a href="/faq/">questions and answers</a> for what lynxr costs and how access works, or <a href="/waitlist/">join the wait list</a> to try it.</p>
+    </div>
+  </section>
+
+  <section class="lp-final">
+    <div class="lp-in">
+      <h2 class="lp-h2">still want in?</h2>
+      <p class="lp-p">leave your email and we will tell you when a place opens.</p>
+      <div class="home-cta">
+        <a class="btn home-go" href="/waitlist/">try it<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="lp-foot">
+  <div class="lp-in lp-foot-in">
+    <div class="lp-foot-brand">
+      <p class="wordmark"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></p>
+      <p class="lp-foot-line">format intelligence for short&#8209;form video, built by
+        a short&#8209;form video agency.</p>
+      <ul class="lp-social">
+        <li><a href="https://www.instagram.com/lynxmediagroup/" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.4"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.15" fill="currentColor" stroke="none"/></svg></a></li>
+        <li><a href="https://www.tiktok.com/@lynxmediagroup" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on TikTok"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.6 2h-3v13.4a2.7 2.7 0 1 1-2.7-2.7c.2 0 .4 0 .6.1V9.7a5.9 5.9 0 1 0 5.1 5.8V9.1a7 7 0 0 0 4 1.3V7.3a4.1 4.1 0 0 1-4-4.1V2z"/></svg></a></li>
+        <li><a href="https://www.linkedin.com/company/lynxmediagroup" target="_blank" rel="noopener noreferrer" aria-label="Lynx Media Group on LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3.1 9.2h3.8V21H3.1zM10 9.2h3.6v1.6h.05c.5-.92 1.75-1.9 3.6-1.9 3.85 0 4.56 2.2 4.56 5.05V21h-3.8v-5.35c0-1.28-.02-2.92-1.8-2.92-1.8 0-2.08 1.38-2.08 2.83V21H10z"/></svg></a></li>
+      </ul>
+    </div>
+    <div>
+      <span class="lp-foot-h">lynxr</span>
+      <ul class="lp-foot-links">
+        <li><a href="/">home</a></li>
+        <li><a href="/#how">how it works</a></li>
+        <li><a href="/#team">our team</a></li>
+        <li><a href="/faq/">faq</a></li>
+        <!-- Visible label "try it", accessible name "try it — join the wait
+             list". The .sr-only tail is inside the <a>, so it is part of the
+             name computation rather than a title attribute nobody hears. -->
+        <li><a href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span><span class="sr-only"> &mdash; join the wait list</span></a></li>
+      </ul>
+    </div>
+    <div>
+      <span class="lp-foot-h">company</span>
+      <ul class="lp-foot-links">
+        <li><a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a></li>
+        <li><a href="/privacy/">privacy policy</a></li>
+        <li><a href="/terms/">terms of service</a></li>
+        <li><a href="/accessibility/">accessibility</a></li>
+      </ul>
+    </div>
+  </div>
+  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+       of the sitewide lowercase text-transform. -->
+  <div class="lp-in lp-foot-legal">
+    &copy; <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a> 2026
+  </div>
+</footer>
+
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
+<script src="/site.js?v=20260823f" defer></script>
+
+</body>
+</html>

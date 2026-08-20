@@ -128,6 +128,122 @@ real rather than a dead channel.
 
 ## Where this left off (read this first)
 
+**2026-08-19 — the SEO/GEO programme landed in two phases, split so it would
+not collide with the motion pass editing the same eight files.**
+`~/.claude/plans/lynxr-seo-geo-programme.md`, 20 steps. **This entry covers
+phase one only** — everything that creates a new file or edits a non-HTML
+one. Phase two (the six existing public HTML pages: `index.html`,
+`waitlist/`, `faq/`, `privacy/`, `terms/`, `accessibility/`) is a separate
+pass, not yet run as of this entry.
+
+**What actually shipped in phase one:** `robots.txt` gained an explicit,
+purely-documentary AI-crawler policy (Step 4) — every group added
+(`GPTBot`, `OAI-SearchBot`, `ClaudeBot`, `Claude-SearchBot`,
+`PerplexityBot`, `Google-Extended`, `CCBot`, `Applebot-Extended`,
+`meta-externalagent`, `Amazonbot`, `Bytespider`, `DuckAssistBot`, and the
+`-User` variants) was **already allowed** by the pre-existing `User-agent: *`
+/ `Allow: /`, so nothing about crawl access changed. **One real
+consequence, and it is a trap worth remembering**: robots.txt matching is
+most-specific-group-wins, so any of those named agents now reads *only its
+own* group — a `Disallow` added under `*` in the future will not reach them
+unless it is repeated in every named group too. There is no `Disallow`
+anywhere on this site and none is planned; see the file's own top comment
+for why one would publish the exact path it means to hide.
+
+`llms.txt` (new, root) lists the six existing public URLs plus the four new
+guides below. **Expect it to do nothing measurable** — adoption is ~10% of
+domains, Google states it ignores the file, and no major AI lab has
+committed to reading it. It cost about ten minutes and cannot hurt; it is
+not a GEO win and should not be reported as one.
+
+**Four new content/GEO pages, live at the root:** `/what-is-a-video-format/`,
+`/turn-a-video-into-a-script/`, `/short-form-script-structure/`,
+`/glossary/`. Each is a draft, not a finished page — every fact in them
+traces back to `index.html`, `faq/index.html`, `terms/index.html` or
+`privacy/index.html`; nothing is invented, no case studies, no numbers with
+no source. Each carries the **shared entity JSON-LD block** (`Organization`
++ `WebSite` + `SoftwareApplication`, byte-identical across all four) plus
+its own `Article` and `BreadcrumbList` blocks; `/glossary/` additionally
+carries a `DefinedTermSet` with one `DefinedTerm` per term. Visible copy on
+all four is written in **normal sentence case in the source** — a deliberate
+break from the rest of the site's lowercase-with-exceptions convention,
+made because these four pages carry no JSON-LD twin of their prose the way
+`/faq/` does, so the body text is the only machine-readable copy there is.
+Painted output is unchanged either way: `text-transform: lowercase` in
+`app.css` flattens it regardless of source casing.
+
+**The audience decision, made by the owner during planning: lynxr.io targets
+the creator**, specifically the UGC creator who makes short-form video for
+brands — not the agency/brand buyer, which belongs to
+`lynxmediagroup.org`. This is why the four new pages are written the way
+they are (Steps 13 and 15 assume a creator reader) rather than being
+brief-writing or creator-management content for an agency reader.
+
+**The shared entity JSON-LD block currently lives on only 4 of the 10 public
+pages** — the four new ones. It is specified for the six existing pages too
+(plan Steps 6–8), but adding it there is phase two's job, since it means
+editing files the motion pass has open. Until phase two runs, the
+drift-check in the plan's Verification section
+
+    for f in index.html faq/index.html waitlist/index.html privacy/index.html \
+             terms/index.html accessibility/index.html \
+             what-is-a-video-format/index.html turn-a-video-into-a-script/index.html \
+             short-form-script-structure/index.html glossary/index.html; do
+      awk '/BEGIN SHARED ENTITY JSON-LD/,/END SHARED ENTITY JSON-LD/' "$f" | shasum
+    done | sort -u
+
+will correctly print **two** lines, not one (the four new pages hash
+together; the six existing ones have no block yet to hash at all, so they
+print nothing and are absent from the count). It is meant to print exactly
+one line only once phase two has run.
+
+**Also still pending from phase two**, all specified in the plan and not
+done here because each touches one of the six existing public HTML files:
+metadata gaps on `/privacy/`, `/terms/`, `/accessibility/`, `/waitlist/`
+(Step 2); retitling `/faq/`, `/waitlist/`, `/accessibility/` away from a
+brand-first title (Step 3); the shared entity + page-level JSON-LD on all
+six existing pages (Steps 6–8); the stale "eligible for a rich result"
+claim in `faq/index.html`'s own comment — **FAQ rich results were retired
+by Google on 2026-05-07**, restricted to government/health sites back in
+2023, then removed entirely; the markup is kept because Google still parses
+it for understanding and Bing still reads it, not for a rich result (Step
+8); making every FAQ answer stand alone out of context and adding five new
+Q&As (Steps 9–10); citable per-answer anchor ids on `/faq/`, verified by
+loading `/faq/#<id>` and confirming the accordion opens (Step 11); a
+whitespace fix so the homepage H1 stops extracting as `any video
+→becomes tailored scripts` (Step 12); and linking the four new pages from
+`/faq/` (Step 17, whose new-page half — the four pages linking each other,
+`/faq/` and `/waitlist/` in prose — is already done; only the `/faq/`-side
+insert remains).
+
+**Verified in phase one:** `git diff --name-only` touched no `.css` and no
+`.js` file, so the sitewide `?v=` stamp was not bumped — it stayed
+`20260823f` (the value read live at execution time). No `${` in any new
+`.html` file. `robots.txt`, `sitemap.xml` and `llms.txt` name neither
+unlisted app path, not even in a comment. Every JSON-LD block in the four
+new pages parses as JSON and contains no HTML entity. `sitemap.xml` lists
+exactly the ten public URLs, `<lastmod>` set to the real edit date on every
+entry. **Not verified**: painted-pixel checks in a browser (Steps 11, 12,
+20's browser section are all on files phase one did not touch or could not
+fully exercise), and the end-to-end fetch-and-ask proof, which needs the
+site live and phase two complete first.
+
+**Owner actions still open**, from the bottom of the plan, roughly by
+leverage: get third-party mentions (Crunchbase/Product Hunt, founders'
+Instagram/LinkedIn linking to lynxr.io, a link from
+`lynxmediagroup.org`) — nothing in either phase substitutes for this;
+verify lynxr.io in Google Search Console and Bing Webmaster Tools and
+submit the sitemap; supply a square logo ≥112×112 for `Organization.logo`
+(currently correctly omitted); decide whether `15 Farrington Ave, Allston
+MA 02134` belongs in structured data (the plan includes it in the shared
+block as drafted — flagged, not yet contested); decide the author of the
+four content pages (currently credited to the organisation, not a named
+person); supply concrete examples (a real reused format, a real hook
+rewritten for two brands) to replace the generic drafting in the four new
+pages; confirm a founding date if `Organization` should carry one.
+
+---
+
 **2026-08-23 — the creator find bar's sort control is a button + listbox now,
 not a `<select>`.** Plan: `~/.claude/plans/creator-sort-button-menu.md`.
 

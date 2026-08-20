@@ -447,7 +447,18 @@ function armDelete(btn, label, onConfirm) {
   let armedAt = 0;
   const SETTLE_MS = 450;
   btn.addEventListener("click", (e) => {
+    /* BOTH, and stopPropagation alone was not enough — measured 2026-08-23.
+       Since the Trash became a .script-grid, the bin lives INSIDE a <summary>,
+       and a <details> opens on the click's DEFAULT ACTION, not on a bubbling
+       listener. stopPropagation stops listeners; only preventDefault stops the
+       disclosure. So arming the bin also flipped the tile open into a
+       full-width row and threw "Are you sure?" to the far right of the screen,
+       out from under the finger that had just pressed it — on the one control
+       in the app that deletes something permanently.
+       Safe on every other call site: these are all `type="button"`, which has
+       no default action of its own to cancel. */
     e.stopPropagation();
+    e.preventDefault();
     if (!btn.classList.contains("armed")) {
       btn.classList.add("armed");
       btn.innerHTML = "Are you sure?";
@@ -3077,8 +3088,14 @@ function renderTrash() {
        summary is the disclosure's activation behaviour — so without this,
        restoring would also flip the card open on its way out. The bin beside
        it gets the same treatment from inside armDelete, and the ↗ from
-       stopSummaryLinks. */
+       stopSummaryLinks.
+       preventDefault is the half that actually does it: the disclosure toggle
+       is the click's DEFAULT ACTION, which stopPropagation does not touch.
+       Measured 2026-08-23 — with stopPropagation alone the card flipped every
+       time. stopPropagation stays, so the summary's own closing-animation
+       handler never runs on a click that was not aimed at it. */
     e.stopPropagation();
+    e.preventDefault();
     const i = (ME.trash || []).findIndex((x) => x.id === btn.dataset.adid);
     if (i < 0) return;
     const [a] = ME.trash.splice(i, 1);
