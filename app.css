@@ -4720,10 +4720,21 @@
      between the two faces, which is a move as well, just a smaller one. It is
      safe here where a bare 34px was not: with a full-width line and nowrap the
      string has nowhere to wrap to, and the three clipped lines that rule was
-     written against needed a 34px WIDTH, not a 34px height. */
+     written against needed a 34px WIDTH, not a 34px height.
+
+     THE PADDING IS 8px, NOT 12px, AND THAT IS THE WHOLE FIX AT 320px.
+     `flex: 1 0 100%` reserves the line, but min-width on a flex item is `auto`
+     — it will not go under its own max-content — so a label wider than the line
+     pushes the box out anyway. Measured 2026-08-20 at 320px: the line is 120px,
+     and "Are you sure?" at 12.5px Menlo is 97.84px of text, so 12px each side
+     came to 123.84px and the bin grew 3.84px the moment it armed, dragging
+     Restore 3.84px right with it. At 8px it measures 115.84px and the rect is
+     identical in both states — 0.00px on x, y, width and height at 320, 360,
+     375, 390 and 1440. The padding is invisible either way: .ghost.icon-only is
+     a centred inline-flex, so it only ever shows up as overflow. */
   .script-grid > .bp-item:not([open]) > summary > .trash-acts .trash-purge,
   .script-grid > .bp-item:not([open]) > summary > .trash-acts .ghost.icon-only.armed {
-    flex: 1 0 100%; width: auto; height: 34px; padding: 0 12px; white-space: nowrap;
+    flex: 1 0 100%; width: auto; height: 34px; padding: 0 8px; white-space: nowrap;
   }
 
   /* A COMPANY NAME IS ARBITRARY TEXT IN A CHIP ON A 116px ROW. nowrap is right
