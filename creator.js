@@ -1133,7 +1133,14 @@ function hasTags(a) {
  *  threshold, the empty state, and the "n of m" filter tally. All three size
  *  the LIST, which is every saved video including the untagged ones. Pointing
  *  them here would hide the search box at the wrong moment and make the tally
- *  compare a tagged count against a row count. */
+ *  compare a tagged count against a row count.
+ *
+ *  ONE DELIBERATE EXCEPTION, ADDED 2026-08-20: with no search running, All
+ *  videos and Original scripts print `N tagged of M saved` on that same tally
+ *  line. That is not the filter tally comparing two units by accident — it is
+ *  the shortfall stated in words, in the two modes that draw no "Not scripted
+ *  yet" block to state it. The moment a query narrows the list the line goes
+ *  back to `n of m`, rows both sides. See paintLibraryList. */
 const taggedVideoCount = () => ME.library.filter((it) => libScripts(it).some(hasTags)).length;
 
 /** Every script written from one saved video, across all brands. Matched on
@@ -1387,8 +1394,33 @@ function renderNewScript(head, body) {
   // Focus on desktop only — on a phone the keyboard would spring up and cover
   // the company picker before you've chosen who the script is for.
   if (window.matchMedia("(min-width: 761px)").matches) {
-    document.getElementById("composer-url")?.focus();
+    focusComposer();
   }
+}
+
+/** Move focus into the composer AND leave a visible mark that we did.
+
+    :focus-visible is a heuristic about how focus ARRIVED, and a script moving
+    it onto a freshly rendered view is neither a keypress nor a click — so the
+    field matches :focus-within and nothing else, and app.css's
+    `.composer-row:focus-within:not(:has(input:focus-visible))` correctly took
+    the ring away. What was left was the border swap alone, --line-2 to
+    --text-3, measured 2.34:1 as a state change: under the 3:1 floor, on the
+    first thing a creator sees on this screen.
+
+    The class is the missing signal — "focus is here because we put it here" —
+    and app.css draws the ordinary 2px ring for it. Dropped on the first blur
+    so it can never outlive the state it describes; the node itself is thrown
+    away on the next render, which takes the listener with it. */
+function focusComposer() {
+  const input = document.getElementById("composer-url");
+  const row = input?.closest(".composer-row");
+  if (!input) return;
+  if (row) {
+    row.classList.add("autofocused");
+    input.addEventListener("blur", () => row.classList.remove("autofocused"), { once: true });
+  }
+  input.focus();
 }
 
 /* KEYBOARD-AWARE HEIGHT ------------------------------------------------------
@@ -2537,8 +2569,33 @@ function paintLibraryList() {
     q ? ME.library.filter((it) => findMatch(libHay(it), q)) : ME.library,
     LIB_SORT, (it) => sourceLabel(it), (it) => libScripts(it).length);
 
+  /* Two different questions, one line, and never both at once.
+
+     WHILE A SEARCH IS NARROWING THE LIST the only useful number is how much of
+     the library the query matched — unchanged, `3 of 5`, sized on rows both
+     sides as it always has been.
+
+     UNFILTERED, IN ALL VIDEOS AND ORIGINAL SCRIPTS, it answers the other
+     question: why the rail's `library` badge reads lower than the rows on
+     screen. It reads lower because it counts TAGGED videos and a saved-but-
+     never-scripted one has no script, so no tags (see taggedVideoCount). By
+     company mode already names that shortfall next to the rows causing it, in
+     the "Not scripted yet" block's own `N saved, not tagged yet` heading; these
+     two modes draw no such block, so the tally is the only place the two units
+     can be reconciled. Same two words, deliberately, so the three readings are
+     recognisably one sentence.
+
+     Silent when the two agree — there is nothing to explain then. */
   const tally = document.getElementById("lib-count");
-  if (tally) tally.textContent = shown.length === ME.library.length ? "" : `${shown.length} of ${ME.library.length}`;
+  if (tally) {
+    const saved = ME.library.length;
+    const tagged = taggedVideoCount();
+    tally.textContent =
+      shown.length !== saved ? `${shown.length} of ${saved}`
+      : (LIB_MODE === "all" || LIB_MODE === "original") && tagged !== saved
+        ? `${tagged} tagged of ${saved} saved`
+        : "";
+  }
 
   if (!shown.length) {
     host.innerHTML = findEmptyHtml(q, "lib");

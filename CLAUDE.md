@@ -27,8 +27,8 @@ Three separate front-ends share one stylesheet. Know which one you are in —
 Sign-in is **email + password** via Supabase Auth (project
 `esakjfogplfszievvabi`). The publishable key is public by design — this repo is
 public — and is safe only because row-level security grants access to
-signed-in users and nothing to anonymous ones. The video database (**9,016
-rows**, verified 2026-08-19) lives in `lynxr_videos`: signed-in staff read it,
+signed-in users and nothing to anonymous ones. The video database (**9,028
+rows**, verified 2026-08-20) lives in `lynxr_videos`: signed-in staff read it,
 only the pipeline (service-role key) writes it. The old encrypted `data.enc`
 blob is retired.
 

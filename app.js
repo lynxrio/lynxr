@@ -4301,29 +4301,51 @@ function ensureOps() {
 }
 
 function initOpsUi() {
+  // Two buttons, one handler. The section Refresh below is unchanged; the hero
+  // needs its own because it is now the only thing on screen and a first screen
+  // you cannot re-read is a worse dashboard than a duplicated control.
   document.getElementById("ops-refresh")?.addEventListener("click", fetchOps);
+  document.getElementById("ops-hero-refresh")?.addEventListener("click", fetchOps);
 }
 
 /** Three causes, three different fixes, and "no data" is none of them — that
     case (an empty lynxr_ops, or an empty lynxr_costs beside a non-empty
     lynxr_ops) is handled where the data is read, not here, because "no rows"
     reads as a genuinely different situation from each of the three below. */
-function opsErrorHtml(m) {
+function opsErrorKind(m) {
   if (/PGRST205|Could not find the table|schema cache/i.test(m)) {
-    return `<div class="empty">
-      <p><strong>The cost table is not installed.</strong></p>
-      <p>Run <code>supabase/costs_table.sql</code> in the Supabase SQL editor,
-         then reload.</p></div>`;
+    return {
+      title: "The cost table is not installed.",
+      fix: "Run supabase/costs_table.sql in the Supabase SQL editor, then reload.",
+      fixHtml: `Run <code>supabase/costs_table.sql</code> in the Supabase SQL editor,
+         then reload.`,
+    };
   }
   if (/^401|^403|JWT|not authorized/i.test(m)) {
-    return `<div class="empty">
-      <p><strong>This account is not staff.</strong></p>
-      <p><code>lynxr_ops</code> and <code>lynxr_costs</code> are gated on
-         <code>is_staff()</code>.</p></div>`;
+    return {
+      title: "This account is not staff.",
+      fix: "lynxr_ops and lynxr_costs are gated on is_staff().",
+      fixHtml: `<code>lynxr_ops</code> and <code>lynxr_costs</code> are gated on
+         <code>is_staff()</code>.`,
+    };
   }
+  return {
+    title: "Could not load ops.",
+    fix: "Check your connection and press Refresh.",
+    fixHtml: "Check your connection and press Refresh.",
+  };
+}
+
+/* One sentence per cause, in two renderings, from ONE decision — because the
+   Issues tile on the first screen has to say the same thing as the panel below
+   it, and the panel is off-screen when the tile is read. `fix` is the plain
+   sentence for the tile; `fixHtml` is the same words with the <code> spans the
+   panel has always had. Change a cause here and both move together. */
+function opsErrorHtml(m) {
+  const k = opsErrorKind(m);
   return `<div class="empty">
-    <p><strong>Could not load ops.</strong></p>
-    <p>Check your connection and press Refresh.</p></div>`;
+    <p><strong>${k.title}</strong></p>
+    <p>${k.fixHtml}</p></div>`;
 }
 
 /** The state machine. loading/error/ready mirror SOURCES_STATE exactly, for
@@ -4334,6 +4356,13 @@ function renderOps() {
   const alarmsHost = document.getElementById("ops-alarms");
   const at = document.getElementById("ops-at");
   if (!alarmsHost) return;
+
+  // The two hero tiles are painted in EVERY branch, including the two that
+  // return early below. They are the whole first screen now, so a branch that
+  // left them holding the last good fetch would be exactly the "all good" over
+  // a failed query that this panel is built not to say — and worse than before,
+  // because the contradiction underneath is off-screen.
+  renderOpsHero();
 
   if (OPS_STATE === "loading") {
     alarmsHost.innerHTML = `<p class="bp-hint">Reading ops…</p>`;
@@ -4390,21 +4419,11 @@ function renderOpsAlarms() {
   const snapshot = snapEntry.value || {};
   const alarms = [...(snapshot.alarms || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
-  // A stale snapshot beside a fresh worker.heartbeat means the worker is alive
-  // but the CHECKER is blind — the false all-clear the 2026-08-18 newline
-  // incident produced. beat() writes worker.heartbeat before anything is
-  // checked; this row is written only by a run_once() that got all the way
-  // through, so the two staleness clocks answer different questions.
-  const hbEntry = OPS.ops["worker.heartbeat"];
-  const hbAgeMin = hbEntry ? (Date.now() - new Date(hbEntry.updated_at).getTime()) / 60000 : Infinity;
-  const snapAgeMin = (Date.now() - new Date(snapshot.at || 0).getTime()) / 60000;
-  let freshness = "";
-  if (snapAgeMin > 10) {
-    freshness = hbAgeMin < 5
-      ? `<p class="bp-hint bad">The worker is alive but the checker has not completed
-          a pass in ${Math.round(snapAgeMin)} min — this is not an all-clear.</p>`
-      : `<p class="bp-hint bad">Nothing has checked in for ${Math.round(snapAgeMin)} min.</p>`;
-  }
+  // See opsFreshness() for why a fresh heartbeat beside a stale snapshot is not
+  // an all-clear. Read from there rather than recomputed, so the Issues tile on
+  // the first screen and this panel can never disagree about it.
+  const fresh = opsFreshness();
+  const freshness = fresh.stale ? `<p class="bp-hint bad">${escapeHtml(fresh.text)}</p>` : "";
 
   if (!alarms.length) {
     host.innerHTML = freshness + `<p class="bp-hint">Nothing is broken. Last full check
@@ -4528,20 +4547,73 @@ function opsCostSummary() {
 // which is the one thing this panel cannot do. Change both together.
 const PRICES_REV_LABEL = "2026-08-12";
 
+/** THE OTHER EMPTY CASE: the read SUCCEEDED and came back with nothing.
+
+    Reaching this branch is itself the proof that lynxr_costs exists and that
+    this account can read it — a missing table throws PGRST205 and lands in
+    opsErrorKind() instead, which is where the "run supabase/costs_table.sql"
+    sentence belongs and where it is correct. Saying it here too cost the owner
+    a real evening: he ran the SQL, saw this panel repeat that it might not be
+    installed, and concluded the SQL had failed. Never restate a cause the code
+    has already disproven by getting this far.
+
+    WHERE THE ACTIVITY LINE COMES FROM, AND WHY NOT FROM THE OBVIOUS PLACE.
+    lynxr_script_charges would date the last script exactly, and it is NOT
+    readable here: supabase/allowance_ledger.sql gives it no policy for
+    `authenticated` at all, service role only. Adding it to fetchOps() would
+    return a silent [] from RLS and read as "no script has ever run", which is
+    a worse lie than the one being fixed. The watchdog already counts that
+    table with the service-role key and publishes the number as
+    ops.snapshot.charges_24h, so the line is read from there and dated by the
+    snapshot's own timestamp. Do not hard-code a date in here.
+
+    Two renderings from one decision, same contract as opsErrorKind(): `fix` is
+    the plain sentence the hero tile shows, `fixHtml` the same words with the
+    <code> spans the panel has always had. */
+function opsCostEmptyKind() {
+  const snap = OPS?.ops?.["ops.snapshot"]?.value;
+  const charged = Number(snap?.charges_24h);
+  const title = "No cost rows in the last "
+    + OPS_COST_DAYS + " days. The table is installed and waiting.";
+  const lead = " answered this read, so it exists and this account can see it."
+    + " A row is written when the worker finishes a script.";
+  const leadTxt = "lynxr_costs" + lead;
+  const leadHtml = "<code>lynxr_costs</code>" + lead;
+
+  let when;
+  if (!snap || !snap.at) {
+    when = " No completed check has been written yet, so there is nothing here to"
+      + " date the last script by.";
+  } else if (Number.isFinite(charged) && charged > 0) {
+    // Reported, not diagnosed. From the browser these two are indistinguishable:
+    // a pass that predates the deploy carrying record_cost() legitimately wrote
+    // nothing, and a current worker failing to write is a real fault. Naming
+    // both is the honest reading; picking one would be the old bug again.
+    when = " " + fmt(charged) + " script" + (charged === 1 ? " was" : "s were")
+      + " charged in the 24 hours before the last check (" + agoLabel(snap.at)
+      + "), and none recorded a cost. A pass that ran before the worker carrying"
+      + " record_cost() was deployed writes no row; if it has been deployed"
+      + " longer than that, the worker's log will say why.";
+  } else {
+    when = " No script has been charged in the 24 hours before the last check ("
+      + agoLabel(snap.at) + "), so nothing has run for this to record.";
+  }
+  return { title, fix: leadTxt + when, fixHtml: leadHtml + when };
+}
+
 function renderOpsStats() {
   const host = document.getElementById("ops-stats");
   if (!host) return;
   const snapshot = OPS.ops["ops.snapshot"]?.value || {};
 
   // Ops itself demonstrably answered (renderOpsAlarms already ruled out an
-  // unreadable lynxr_ops) — so an empty lynxr_costs means the SQL or the
-  // deploy is missing, not that this account can't see it. Say the other
-  // thing, per the plan's provenance rule.
+  // unreadable lynxr_ops) and so did lynxr_costs — see opsCostEmptyKind(),
+  // which is shared with the hero tile so the two cannot word this two ways.
   if (!(OPS.costs || []).length) {
+    const k = opsCostEmptyKind();
     host.innerHTML = `<div class="empty">
-      <p><strong>No cost rows yet.</strong></p>
-      <p>Either <code>supabase/costs_table.sql</code> has not been run, or the
-         pipeline carrying <code>record_cost()</code> has not been deployed to Fly.</p></div>`;
+      <p><strong>${escapeHtml(k.title)}</strong></p>
+      <p>${k.fixHtml}</p></div>`;
     return;
   }
 
@@ -4630,6 +4702,325 @@ function renderOpsFixed() {
     <p class="bp-hint">${fmt(entered.length)} of ${fmt(FIXED_COSTS.length)} entered
       · $${sum.toFixed(2)} a month accounted for.</p>`;
 }
+
+/* ---------- Ops: the first screen ----------
+   Owner, 2026-08-20, on the dashboard that shipped the day before: "for the
+   dashboard just highlight the status of issues and costs", then "yes just show
+   issues and costs and then when i scroll have the other details."
+
+   So the two tiles below own the viewport on entry and the six detail sections
+   start under the fold. NOTHING WAS DELETED to make room — every section, every
+   degraded state and every provenance label above is untouched; this is put in
+   front of them, not instead of them.
+
+   THE TILES ARE NOT A SECOND SOURCE OF TRUTH, and that is the whole design:
+
+     * opsIssuesState() runs the same four questions renderOpsAlarms() runs, in
+       the same order — is the table readable, has a check ever completed, is
+       that check current, what did it find — and reads the third from the one
+       opsFreshness() the panel reads it from.
+     * opsCostState() reads opsCostSummary() and FIXED_COSTS, the same two the
+       panels below read; no figure is recomputed here.
+     * renderOpsHero() is called from renderOps() only, in the same tick and off
+       the same OPS object as the six sections. There is no timer, no partial
+       update path, and no branch that repaints one without the other, so there
+       is nothing for the two to drift on.
+
+   WHY THAT IS WORTH THE PARAGRAPH. A tile reading "nothing is broken" over a
+   panel reading "the query failed" was always worse than no tile. Now that the
+   panel begins below the fold, a reader can be shown the reassuring half and
+   never scroll far enough to find the contradiction. Every case where we cannot
+   establish the state therefore says so, in words, on the first screen: an
+   unreadable ops table, a check that has never completed, a check that has gone
+   stale, and a missing cost table are four DIFFERENT sentences, none of them
+   green.
+
+   NO MOTION. These tiles repaint whenever the worker writes a number, which is
+   the surface app.css's motion policy explicitly refuses — no animation, no
+   transition, and deliberately no animateCount() on the figures either, unlike
+   the .stat cards further down the panel. */
+
+/** Is the watchdog's own picture current? Shared by the Issues tile and the
+    Needs-attention panel so the two can never disagree.
+
+    A stale snapshot beside a fresh worker.heartbeat means the worker is alive
+    but the CHECKER is blind — the false all-clear the 2026-08-18 newline
+    incident produced. beat() writes worker.heartbeat before anything is
+    checked; ops.snapshot is written only by a run_once() that got all the way
+    through, so the two staleness clocks answer different questions. The 10 and
+    5 minute budgets are the ones renderOpsRunning() already labels rows with. */
+function opsFreshness() {
+  const snapshot = OPS?.ops?.["ops.snapshot"]?.value || {};
+  const hbEntry = OPS?.ops?.["worker.heartbeat"];
+  const hbAgeMin = hbEntry ? (Date.now() - new Date(hbEntry.updated_at).getTime()) / 60000 : Infinity;
+  const snapAgeMin = (Date.now() - new Date(snapshot.at || 0).getTime()) / 60000;
+  const stale = snapAgeMin > 10;
+  return {
+    snapAgeMin, hbAgeMin, stale,
+    text: !stale
+      ? ""
+      : hbAgeMin < 5
+        ? `The worker is alive but the checker has not completed a pass in `
+          + `${Math.round(snapAgeMin)} min — this is not an all-clear.`
+        : `Nothing has checked in for ${Math.round(snapAgeMin)} min.`,
+  };
+}
+
+/** The Issues tile's verdict, as data rather than markup. Four levels, and only
+    one of them is reassuring:
+
+      unknown — we could not establish the state. Never reads as green.
+      clear   — a completed, CURRENT check found nothing.
+      quiet   — open alarms, none of which ring a phone.
+      paging  — at least one alarm the pager has already rung for.
+
+    Severity is not flattened into a count: the watchdog's own `page` bit is
+    what separates "a creator lost something" from "the daily digest will
+    mention it", and the tile keeps that split in both the chips and the list. */
+function opsIssuesState() {
+  const unknown = (caveat) => ({
+    level: "unknown", head: "Can't tell", chips: [{ text: "unknown", tone: "bad" }],
+    why: "", caveat, rows: [],
+  });
+
+  if (OPS_STATE === "loading") {
+    return { level: "unknown", head: "Reading…", chips: [], why: "", caveat: "", rows: [] };
+  }
+  if (OPS_STATE === "error" || !OPS) {
+    // fetchOps() issues both reads in one Promise.all, so either one failing
+    // discards both — including a cost-table error, which is why an issues
+    // verdict is unavailable for a reason that sounds like it is about money.
+    const k = opsErrorKind(OPS_ERR);
+    return unknown(k.title + " " + k.fix
+      + " Ops and costs are read together, so this left nothing to judge issues by either.");
+  }
+  // Same reading as renderOpsAlarms(): the watchdog has written a heartbeat
+  // every minute since day one, so [] almost certainly means the staff read
+  // policy is not applied — not that the table is genuinely empty.
+  if (!Object.keys(OPS.ops).length) {
+    return unknown("No ops data readable. If you expected rows, run "
+      + "supabase/ops_table.sql in the Supabase SQL editor, then reload.");
+  }
+  const snapEntry = OPS.ops["ops.snapshot"];
+  if (!snapEntry) {
+    return unknown("No check has completed yet. The worker has not picked up the "
+      + "deploy that writes ops.snapshot; it runs every ~120 seconds once it does.");
+  }
+
+  const snapshot = snapEntry.value || {};
+  const fresh = opsFreshness();
+  const alarms = [...(snapshot.alarms || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  const paging = alarms.filter((a) => a.page).length;
+  const quiet = alarms.length - paging;
+
+  // A STALE CHECK WITH AN EMPTY LIST IS THE ONE CASE THAT MUST NOT READ AS AN
+  // ALL-CLEAR — the list is simply old news, and this is the shape the newline
+  // incident produced. With alarms in it the list is still true (something WAS
+  // found), so the count stands and the staleness rides along as a caveat.
+  if (!alarms.length) {
+    return fresh.stale ? unknown(fresh.text) : {
+      level: "clear", head: "Nothing is broken",
+      chips: [{ text: "all clear", tone: "good" }],
+      why: `Last full check ${agoLabel(snapshot.at)} by the ${snapshot.role || "unnamed"} checker.`,
+      caveat: "", rows: [],
+      // What "nothing is broken" does and does not cover, said on the first
+      // screen rather than left for the lede of a section below the fold.
+      note: "This is the watchdog's whole last pass, paging alarms and"
+        + " digest-only ones alike. The phone only rings for the first kind.",
+    };
+  }
+
+  const chips = [];
+  if (paging) chips.push({ text: `${fmt(paging)} paging`, tone: "bad" });
+  if (quiet) chips.push({ text: `${fmt(quiet)} quiet`, tone: "" });
+  return {
+    level: paging ? "paging" : "quiet",
+    head: `${fmt(alarms.length)} open issue${alarms.length === 1 ? "" : "s"}`,
+    chips,
+    why: paging
+      ? "The pager has already rung for these."
+      : "None of these ring a phone — the daily digest is where they get reported.",
+    caveat: fresh.stale ? fresh.text : "",
+    rows: alarms,
+    note: "Read straight off the watchdog's own latch, not re-derived here."
+      + " Nothing on this page can clear an alarm or retry a job — the watchdog owns that.",
+  };
+}
+
+/** Rising or not, across the two 7-day windows the measurement actually covers.
+    Says "not enough history" rather than a percentage when the earlier window
+    starts before the first recorded row: a percentage computed against days
+    that were never measured would read as a fall from a number that never
+    existed, which is the same lie as presenting an estimate as a measurement. */
+function opsSpendTrend(byDay, since) {
+  const day = (i) => new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+  let recent = 0, prior = 0;
+  for (let i = 0; i < 7; i++) recent += byDay.get(day(i)) || 0;
+  for (let i = 7; i < 14; i++) prior += byDay.get(day(i)) || 0;
+  if (!since || since > day(13)) {
+    return { tone: "", text: `$${recent.toFixed(2)} in 7 days · too little history to compare` };
+  }
+  if (prior === 0) {
+    return recent === 0
+      ? { tone: "", text: "no spend in 14 days" }
+      : { tone: "bad", text: `$${recent.toFixed(2)} in 7 days · nothing in the 7 before` };
+  }
+  const pct = Math.round(((recent - prior) / prior) * 100);
+  if (Math.abs(pct) < 5) return { tone: "", text: `flat vs the 7 days before ($${prior.toFixed(2)})` };
+  return {
+    tone: pct > 0 ? "bad" : "good",
+    text: `${pct > 0 ? "up" : "down"} ${fmt(Math.abs(pct))}% vs the 7 days before`
+      + ` ($${prior.toFixed(2)} → $${recent.toFixed(2)})`,
+  };
+}
+
+/** What the Costs tile says.
+
+    THE HEADLINE IS MEASURED MODEL SPEND AND NOTHING ELSE, and the tile says so
+    in words. The three provenance tiers — measured (Anthropic tokens), metered
+    (Apify's own ledger), entered by hand (Fly / Supabase / Resend / the domain)
+    — stay three separate lines and are NEVER added together, here or anywhere
+    else on this page, because four of the five fixed costs have never been
+    entered. A grand total that quietly treated those four as zero would be a
+    fabricated figure sitting in the place a measured one is expected, which is
+    the exact failure this panel exists to avoid. */
+function opsCostState() {
+  const fixedEntered = FIXED_COSTS.filter((c) => c.usd != null);
+  const fixedMissing = FIXED_COSTS.length - fixedEntered.length;
+  const fixedSum = fixedEntered.reduce((a, c) => a + Number(c.usd), 0);
+  // FIXED_COSTS is a constant in this file, not a query, so this line is the
+  // one thing the tile can still state truthfully when every read has failed.
+  const fixedLine = {
+    k: "fixed, monthly", v: "$" + fixedSum.toFixed(2), tier: "entered by hand",
+    note: fixedMissing
+      ? `only ${fmt(fixedEntered.length)} of ${fmt(FIXED_COSTS.length)} entered —`
+        + ` ${fmt(fixedMissing)} unknown, so this is a floor, not the bill`
+      : `all ${fmt(FIXED_COSTS.length)} entered`,
+  };
+
+  if (OPS_STATE === "loading") {
+    return { level: "unknown", head: "Reading…", chips: [], why: "", caveat: "",
+             lines: [fixedLine], note: "" };
+  }
+  if (OPS_STATE === "error" || !OPS) {
+    const k = opsErrorKind(OPS_ERR);
+    return { level: "unknown", head: "Can't tell", chips: [{ text: "unknown", tone: "bad" }],
+             why: "", caveat: k.title + " " + k.fix, lines: [fixedLine], note: "" };
+  }
+
+  const opsReadable = Object.keys(OPS.ops).length > 0;
+  const apify = OPS.ops["cost.apify"]?.value;
+  const apifyLine = apify
+    ? { k: "apify, this month", v: "$" + Number(apify.spent_usd).toFixed(2), tier: "metered",
+        note: `apify's own meter · of $${apify.breaker_usd} before the breaker` }
+    : {
+        k: "apify, this month", v: "—", tier: "metered",
+        // Two different absences. "Not configured" would be a claim we cannot
+        // make when the whole table came back empty.
+        note: opsReadable
+          ? "meter not configured — no token is set, so nothing reads apify's spend"
+          : "not readable — the ops table returned nothing",
+      };
+
+  if (!opsReadable) {
+    return {
+      level: "unknown", head: "Can't tell", chips: [{ text: "unknown", tone: "bad" }], why: "",
+      caveat: "No ops data readable. If you expected rows, run supabase/ops_table.sql "
+        + "in the Supabase SQL editor, then reload.",
+      lines: [{ k: "model, 30 days", v: "—", tier: "measured", note: "not readable" }, apifyLine, fixedLine],
+      note: "",
+    };
+  }
+
+  if (!(OPS.costs || []).length) {
+    // Same sentence as the panel below the fold, from the same function.
+    const k = opsCostEmptyKind();
+    return {
+      level: "unknown", head: "Not measured",
+      // Neutral, not bad: the read worked and the table is fine. Nothing here
+      // is proven broken, and a red chip on a waiting table is the same
+      // overstatement in a different colour.
+      chips: [{ text: "no cost rows", tone: "" }], why: "",
+      caveat: k.title + " " + k.fix,
+      lines: [{ k: "model, 30 days", v: "—", tier: "measured", note: "nothing recorded" },
+              apifyLine, fixedLine],
+      note: "",
+    };
+  }
+
+  const { usd30, usdFail, passes, unpriced, since, byDay } = opsCostSummary();
+  const trend = opsSpendTrend(byDay, since);
+  let note = "That headline is model spend only — the three lines above are three"
+    + " different kinds of number and are never added up on this page.";
+  if (usdFail > 0) note += ` $${usdFail.toFixed(2)} of it went on passes that failed.`;
+  if (unpriced > 0) {
+    note += ` ${fmt(unpriced)} pass${unpriced === 1 ? "" : "es"} ran on a model with no price`
+      + ` on file and ${unpriced === 1 ? "is" : "are"} not counted.`;
+  }
+  return {
+    level: "ready", head: "$" + usd30.toFixed(2), chips: [{ text: trend.text, tone: trend.tone }],
+    why: `Measured model spend, 30 days — real token counts at list prices ${PRICES_REV_LABEL},`
+      + ` over ${fmt(passes)} recorded pass${passes === 1 ? "" : "es"}. Measuring since ${since}.`,
+    caveat: "", lines: [
+      { k: "model, 30 days", v: "$" + usd30.toFixed(2), tier: "measured", note: "real token counts" },
+      apifyLine, fixedLine,
+    ], note,
+  };
+}
+
+/** Paints both tiles. Called from renderOps() in every branch — never on its
+    own, and never on a timer. Head and body are separate hosts because the head
+    carries aria-live: it is the sentence worth announcing when a Refresh lands,
+    and the alarm list underneath is not. */
+function renderOpsHero() {
+  const hosts = {
+    ih: document.getElementById("ops-issues-head"),
+    ib: document.getElementById("ops-issues-body"),
+    ch: document.getElementById("ops-costs-head"),
+    cb: document.getElementById("ops-costs-body"),
+  };
+  if (!hosts.ih || !hosts.ib || !hosts.ch || !hosts.cb) return;
+
+  const TONE = { clear: "good", paging: "bad", quiet: "", unknown: "unknown", ready: "" };
+  const chips = (list) => (list || [])
+    .filter((c) => c && c.text)
+    .map((c) => `<span class="chip${c.tone ? " " + c.tone : ""}">${escapeHtml(c.text)}</span>`)
+    .join(" ");
+  const head = (st) =>
+    `<div class="ops-big ${TONE[st.level] || ""}">${escapeHtml(st.head)}</div>`
+    + (st.chips?.length ? `<div class="ops-chips">${chips(st.chips)}</div>` : "")
+    + (st.why ? `<p class="ops-why">${escapeHtml(st.why)}</p>` : "")
+    + (st.caveat ? `<p class="ops-why bad">${escapeHtml(st.caveat)}</p>` : "");
+
+  const iSt = opsIssuesState();
+  hosts.ih.innerHTML = head(iSt);
+  // Six is not a page size — a dozen rows is the whole table by construction.
+  // It is the point past which the tile would push its own costs twin off the
+  // first screen, which is the one thing this layout may not do.
+  const shown = (iSt.rows || []).slice(0, 6);
+  hosts.ib.innerHTML = shown.map((a) => `
+    <div class="ops-alarm">
+      <span class="chip${a.page ? " bad" : ""}">${a.page ? "pages" : "quiet"}</span>
+      <span class="ops-alarm-t">${escapeHtml(a.title || a.key || "")}</span>
+      <span class="ops-alarm-b">${escapeHtml(a.body || "")}</span>
+    </div>`).join("")
+    + ((iSt.rows || []).length > shown.length
+      ? `<p class="ops-note">${fmt(iSt.rows.length - shown.length)} more in
+           needs attention, below.</p>`
+      : "")
+    + (iSt.note ? `<p class="ops-note">${escapeHtml(iSt.note)}</p>` : "");
+
+  const cSt = opsCostState();
+  hosts.ch.innerHTML = head(cSt);
+  hosts.cb.innerHTML = (cSt.lines || []).map((l) => `
+    <div class="ops-line">
+      <span class="ops-line-k">${escapeHtml(l.k)}</span>
+      <span class="ops-line-v">${escapeHtml(l.v)}</span>
+      <span class="ops-line-n">${escapeHtml(l.tier)} · ${escapeHtml(l.note)}</span>
+    </div>`).join("")
+    + (cSt.note ? `<p class="ops-note">${escapeHtml(cSt.note)}</p>` : "");
+}
+
 
 // ---------- Footer ----------
 /** The giant footer wordmark fills left-to-right as the footer scrolls into

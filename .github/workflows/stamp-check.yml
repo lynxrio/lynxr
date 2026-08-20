@@ -1,0 +1,54 @@
+# Cache-bust stamp guard, CI half. See tools/check_stamp.py's own header for
+# the full story: commit 4dc7f99 (2026-08-20) changed app.css and left every
+# page's ?v= stamp untouched, and nothing caught it. .githooks/pre-commit is
+# the local half -- but it only runs once an owner has done
+# `git config core.hooksPath .githooks` in their clone, and it does nothing
+# for a commit made with --no-verify or pushed directly. This job is the
+# belt-and-braces that catches both of those.
+#
+# No secrets, no network beyond checkout, nothing this job could leak.
+permissions:
+  contents: read
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-stamp:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history, not a shallow clone -- the check needs to diff two
+      # real commits. Pinned to a commit SHA rather than a floating tag,
+      # matching this repo's convention for third-party actions in a CI job
+      # (see .github/workflows/fly-deploy.yml's comment on the same
+      # decision). SHA below is actions/checkout's v4.4.0 release tag.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - name: resolve the range
+        id: range
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            before="${{ github.event.pull_request.base.sha }}"
+            after="${{ github.event.pull_request.head.sha }}"
+          else
+            before="${{ github.event.before }}"
+            after="${{ github.event.after || github.sha }}"
+          fi
+          zero="0000000000000000000000000000000000000000"
+          # A brand-new branch's `before` is all zeros; a force-push's
+          # `before` can point at a commit that no longer exists on this
+          # ref. tools/check_stamp.py --range already falls back to HEAD^
+          # and, failing that, runs Checks A and B only -- this step just
+          # has to hand it something that at least parses as a range.
+          if [ -z "$before" ] || [ "$before" = "$zero" ] || ! git cat-file -e "$before" 2>/dev/null; then
+            before="${after}^"
+          fi
+          echo "before=$before" >> "$GITHUB_OUTPUT"
+          echo "after=$after" >> "$GITHUB_OUTPUT"
+
+      - name: check_stamp.py --range
+        run: |
+          python3 tools/check_stamp.py --range "${{ steps.range.outputs.before }}..${{ steps.range.outputs.after }}"

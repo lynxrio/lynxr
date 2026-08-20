@@ -1,0 +1,24 @@
+# Lynxr — gitleaks configuration. See .github/workflows/secret-scan.yml.
+[extend]
+useDefault = true
+
+# The Supabase PUBLISHABLE key is public by design — it is in twelve HTML
+# pages, app.js, creator.js and this repo's README, and it grants an
+# anonymous visitor nothing (row-level security is the gate; see
+# README.md's security model). gitleaks' default `generic-api-key` rule
+# matches it on entropy. Allowlisted BY PREFIX, never by literal value, so
+# a real `sb_secret_…` is still caught.
+[[allowlists]]
+description = "Supabase publishable (anon) key — public by design"
+regexes = ['''sb_publishable_[A-Za-z0-9_-]{20,}''']
+
+# `gate13-probe-deliberately-unusable-key` — a literal, non-functional
+# placeholder string committed in 6291e28 ("gate 13: throwaway probe for
+# the CI paging path") and removed in 5ce9fbb ("remove the gate 13 probe
+# workflow"), both on main. It stood in for SUPABASE_SERVICE_ROLE_KEY in a
+# throwaway CI job that asserted secrets reach a step — never a real key,
+# never usable against the Supabase API. Allowlisted by the exact literal,
+# not a prefix, so nothing else is masked.
+[[allowlists]]
+description = "gate13 probe's deliberately-fake env value — not real key material"
+regexes = ['''gate13-probe-deliberately-unusable-key''']

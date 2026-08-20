@@ -4699,13 +4699,31 @@
   .script-grid > .bp-item:not([open]) > summary > .trash-acts .trash-restore {
     width: 34px; padding: 0;
   }
-  /* ARMED, the bin becomes the words "Are you sure?" — ~108px at 320px against
-     122px of row, so it holds its own line but not a line shared with Restore;
-     the wrap above is what lets it take one. The base .ghost.icon-only.armed
-     rule frees the WIDTH only, and a fixed 34px height crushed that string
-     into three clipped lines the last time this was not written down. */
+  /* THE BIN OWNS A WHOLE LINE, ARMED OR NOT, AND THAT IS THE POINT.
+     Armed, it becomes the words "Are you sure?" — ~108px at 320px against
+     122px of row, which does not fit beside Restore. It used to earn that room
+     by wrapping AT THE MOMENT IT WAS PRESSED: the target moved ~41px down and
+     ~98px left between the two clicks of a two-click confirm, on the one
+     control in the app that deletes permanently. A confirmation that walks
+     away from the finger is not a confirmation.
+
+     So the second line is reserved rather than found. `flex: 1 0 100%` on the
+     button itself makes the flex line the reserved space — the box is the full
+     width of the row in BOTH states, so its rect cannot change when the label
+     does, and it stays right by construction at any viewport and any font size
+     rather than by a magic min-width that would need re-measuring. Restore
+     keeps the line above it.
+
+     THE COST, ACCEPTED BY THE OWNER: every trash tile is one line taller than
+     it was, whether or not anyone ever arms it. Height is pinned at 34px in
+     both states too (the icon's own square) — `height: auto` differed by ~3px
+     between the two faces, which is a move as well, just a smaller one. It is
+     safe here where a bare 34px was not: with a full-width line and nowrap the
+     string has nowhere to wrap to, and the three clipped lines that rule was
+     written against needed a 34px WIDTH, not a 34px height. */
+  .script-grid > .bp-item:not([open]) > summary > .trash-acts .trash-purge,
   .script-grid > .bp-item:not([open]) > summary > .trash-acts .ghost.icon-only.armed {
-    width: auto; height: auto; padding: 7px 12px; white-space: nowrap;
+    flex: 1 0 100%; width: auto; height: 34px; padding: 0 12px; white-space: nowrap;
   }
 
   /* A COMPANY NAME IS ARBITRARY TEXT IN A CHIP ON A 116px ROW. nowrap is right
@@ -4807,8 +4825,27 @@
   .composer-row input:focus-visible { outline: none; }
   .composer-row:focus-within { outline: 2px solid var(--text-2); outline-offset: 2px; }
   /* A CLICK must not draw it: :focus-within has no keyboard-only variant, so
-     the ring is suppressed unless the field inside is keyboard-focused. */
-  .composer-row:focus-within:not(:has(input:focus-visible)) { outline: none; }
+     the ring is suppressed unless the field inside is keyboard-focused —
+     EXCEPT when we put focus there ourselves, see .autofocused below. */
+  .composer-row:focus-within:not(.autofocused):not(:has(input:focus-visible)) { outline: none; }
+  /* AUTO-FOCUS ARRIVES BY NEITHER ROUTE, AND IT IS THE FIRST THING A CREATOR
+     SEES. The New script view calls .focus() on #composer-url as it renders.
+     :focus-visible is a heuristic about how focus ARRIVED, and a script moving
+     it on a freshly rendered view is not a keyboard interaction — so the field
+     is focused, matches :focus-within, matches neither :focus-visible nor the
+     mouse case the border swap was written for, and the suppression rule above
+     used to take the ring away and leave the swap alone as the only signal:
+     --line-2 -> --text-3, measured 2.34:1, under the 3:1 floor, on the one
+     control the whole screen exists for.
+
+     creator.js adds the class when it moves focus and drops it on blur, so it
+     never outlives the state it names. Same 2px --text-2 ring as every other
+     control, on the capsule rather than the field, for the same reason as
+     above — and the border is pinned back to its resting colour in the same
+     rule, so this cannot reintroduce the two-concentric-pills bug. */
+  .composer-row.autofocused:focus-within {
+    outline: 2px solid var(--text-2); outline-offset: 2px; border-color: var(--line-2);
+  }
   /* ONE RING, NOT TWO, and this is the rule that makes it one. The capsule was
      carrying both indicators at once: the outline above, AND the border
      brightening from `.composer-row:focus-within` ~2800 lines up (--line-2
@@ -5067,4 +5104,145 @@
     .tp .tp-band { height: 58vh; }
     .tp .tp-foot { padding-top: 8px; gap: 6px; }
     .tp .tp-play { padding: 9px 16px; }
+  }
+
+  /* ==========================================================================
+     OPS: THE FIRST SCREEN                       (agency app only, #panel-ops)
+     ==========================================================================
+     Owner, 2026-08-20, on the Ops dashboard that shipped the day before: "for
+     the dashboard just highlight the status of issues and costs", then "yes
+     just show issues and costs and then when i scroll have the other details."
+     Two tiles own the viewport on entry; the six detail sections start below
+     the fold. Nothing was deleted to make room.
+
+     EVERY SELECTOR IN THIS BLOCK IS PREFIXED #panel-ops. This file is one
+     stylesheet for three front-ends and ten public pages, and the rest of the
+     Ops tab was deliberately built out of classes that already existed so it
+     could not reach any of them. These rules cannot either: #panel-ops appears
+     in agencyonly/index.html and nowhere else, so the creator app, the landing
+     page and the eight other public pages are untouchable from here.
+
+     THEY ARE NEW CLASSES BECAUSE THERE WAS NOTHING TO REUSE. .stats/.stat is
+     the closest existing two-up, and it carries the rise-in cascade under
+     "Stat cards cascade on first paint" — which is precisely what the MOTION,
+     ROUND TWO policy above forbids on a surface that repaints whenever the
+     worker writes a number. A status tile that fades in every sixty seconds
+     looks busy while nothing is happening. So: no animation, no transition, and
+     no animateCount() on the figures in the JS either. The one control in here,
+     the Refresh button, keeps .ghost's press feedback — that is a control, not
+     a status surface, and the policy allows it explicitly.
+
+     THE FOLD IS ARITHMETIC, NOT A GUESS. The sticky header is 56px and sits in
+     flow; main adds 32px of top padding; so #panel-ops starts at y=88. A hero
+     of calc(100vh - 88px) therefore ends exactly at the bottom of the viewport
+     and its 40px margin (the same .section rhythm as everything below) puts the
+     first detail heading at viewport height + 40. Measured at 1440x900: hero
+     bottom 900.0, first detail section top 940.0. The 100svh line that follows
+     wins wherever it is understood, so a phone's retracting toolbar cannot
+     shrink the promise mid-scroll. At <=640px main's padding drops to 24px, so
+     the offset there is 80.
+     ========================================================================== */
+  #panel-ops .ops-hero {
+    display: flex; flex-direction: column; gap: 12px; margin-bottom: 40px;
+    min-height: calc(100vh - 88px);
+    min-height: calc(100svh - 88px);
+  }
+  #panel-ops .ops-hero-grid {
+    flex: 1 1 auto;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px;
+    background: var(--line); border: 1px solid var(--line);
+    border-radius: var(--r-card); overflow: hidden;
+  }
+  #panel-ops .ops-tile {
+    background: var(--surface); padding: 22px 24px; min-width: 0;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  #panel-ops .ops-tile > h2 { margin: 0; }
+
+  /* The verdict. One line, big enough to read across a desk, and coloured only
+     by what it actually is — grey for "can't tell" is deliberate: an unknown
+     state must not borrow either the green or the red. */
+  #panel-ops .ops-big {
+    font-size: var(--fs-32); font-weight: 600; letter-spacing: -0.02em;
+    line-height: 1.12; overflow-wrap: anywhere; font-variant-numeric: tabular-nums;
+  }
+  #panel-ops .ops-big.good    { color: var(--good); }   /* 8.99:1 on --surface */
+  #panel-ops .ops-big.bad     { color: var(--bad); }    /* 5.85:1 on --surface */
+  #panel-ops .ops-big.unknown { color: var(--text-2); } /* 7.92:1 on --surface */
+  #panel-ops .ops-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -4px; }
+  #panel-ops .ops-why {
+    color: var(--text-2); font-size: var(--fs-14); line-height: 1.5;
+    margin: 0; max-width: 52ch;
+  }
+  #panel-ops .ops-why.bad { color: var(--bad); }
+
+  /* The body takes the slack, and .ops-note's margin-top:auto rides it to the
+     bottom edge. A full-height tile whose content all sits in the top third
+     reads as a rendering failure; a tile with a header block and a footer block
+     reads as a tile. When the content is tall enough to fill it — a phone, or
+     several open alarms — the auto margin collapses to nothing and the note
+     simply follows the last row. */
+  #panel-ops .ops-tile-body {
+    flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+  }
+  /* One provenance tier per row: what it is, the figure, and where the figure
+     came from. The third column is not optional decoration — it is the only
+     thing separating a measured dollar from a typed-in one. */
+  #panel-ops .ops-line {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    padding-top: 10px; border-top: 1px solid var(--line);
+  }
+  /* --text-2 (7.55:1 on --surface), not the --text-3 (3.59:1) this file uses
+     for most micro-labels. Everything in these two tiles is now the whole of
+     what a reader who never scrolls will see, and the caveats are the part that
+     most has to be legible — "only 1 of 5 entered" failing AA would be the
+     honesty equivalent of hiding it. Hierarchy comes from size and weight here
+     instead of from contrast. */
+  #panel-ops .ops-line-k {
+    flex: none; color: var(--text-2); font-size: var(--fs-12); letter-spacing: .07em;
+    min-width: 12ch;
+  }
+  #panel-ops .ops-line-v {
+    font-family: var(--mono); font-size: var(--fs-16); font-variant-numeric: tabular-nums;
+  }
+  #panel-ops .ops-line-n {
+    flex: 1 1 22ch; min-width: 0; color: var(--text-2); font-size: var(--fs-125); line-height: 1.45;
+  }
+  #panel-ops .ops-alarm {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    padding-top: 10px; border-top: 1px solid var(--line);
+  }
+  #panel-ops .ops-alarm .chip { flex: none; }
+  #panel-ops .ops-alarm-t { font-size: var(--fs-145); }
+  #panel-ops .ops-alarm-b {
+    flex: 1 1 20ch; min-width: 0; color: var(--text-2); font-size: var(--fs-125);
+    overflow-wrap: anywhere;
+  }
+  #panel-ops .ops-note {
+    color: var(--text-2); font-size: var(--fs-12); line-height: 1.5;
+    margin: auto 0 0; padding-top: 14px; max-width: 56ch;
+  }
+  /* Two notes in a row (the "N more below" line and the standing one) must not
+     both claim the slack, or the first one floats in the middle of the tile. */
+  #panel-ops .ops-note + .ops-note { margin-top: 0; padding-top: 8px; }
+  #panel-ops .ops-hero-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap;
+  }
+  #panel-ops .ops-hero-more {
+    margin: 0; min-width: 0; color: var(--text-2); font-size: var(--fs-12); line-height: 1.5;
+  }
+
+  @media (max-width: 880px) {
+    /* Two full-height tiles side by side stop being two tiles below this and
+       become two slivers, so they stack. The fold promise is a desktop promise
+       — on a phone the honest outcome is that the costs tile starts partway
+       down the second screen, which is reported rather than papered over by
+       stretching either tile past its content. */
+    #panel-ops .ops-hero-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    #panel-ops .ops-hero { min-height: calc(100vh - 80px); min-height: calc(100svh - 80px); }
+    #panel-ops .ops-tile { padding: 18px 16px; }
+    #panel-ops .ops-line-k { min-width: 0; }
   }

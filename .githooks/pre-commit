@@ -1,0 +1,36 @@
+#!/bin/sh
+# Cache-bust stamp guard. Runs tools/check_stamp.py against what is actually
+# STAGED (not the working tree, and not HEAD), so partial `git add` is
+# checked honestly.
+#
+# This exists because commit 4dc7f99 (2026-08-20) changed app.css and left
+# every page's ?v= stamp untouched, and nothing caught it -- see
+# tools/check_stamp.py's own header for the full story and the regression
+# test that proves this would have failed here.
+#
+# NEVER rewrites the commit. On failure it prints the fix; you run it, you
+# `git add` the twelve pages again, you commit again.
+#
+# This hook only fires once `git config core.hooksPath .githooks` has been
+# run in this clone -- an OWNER action, on purpose, not done by this hook or
+# by any script. Until it's run, `.github/workflows/stamp-check.yml` is the
+# net that still catches a miss, after the fact, in CI.
+#
+# `[skip stamp]` in the commit message does NOT work here -- git has not
+# captured a commit message yet at pre-commit time (verified: even under
+# `git commit -m "..."`, `.git/COMMIT_EDITMSG` does not exist when this
+# runs). To deliberately skip a stamp bump, use `git commit --no-verify`
+# and put `[skip stamp]` in the message so CI honours it instead.
+
+set -e
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+if [ -x "./venv/bin/python" ]; then
+  PY="./venv/bin/python"
+else
+  PY="python3"
+fi
+
+exec "$PY" tools/check_stamp.py --staged

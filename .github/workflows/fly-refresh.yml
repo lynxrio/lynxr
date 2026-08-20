@@ -57,7 +57,15 @@ jobs:
       group: fly-deploy
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      # Pinned to a commit SHA, not the mutable @v4 tag — a mutable version
+      # tag on a third-party action in a job that holds FLY_API_TOKEN — the
+      # same deploy token fly-deploy.yml uses — is a supply-chain hole (a
+      # compromised v4 tag could ship anything to this job's environment).
+      # SHA below is actions/checkout's v4.4.0 release tag, resolved from
+      # the GitHub API on 2026-08-20 (refs/tags/v4.4.0 points at this
+      # commit). Bump deliberately by checking the new SHA against a real
+      # tag, not by pulling @v4 again.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # Pinned to a commit SHA — see fly-deploy.yml's identical step for why
       # and what the SHA below resolves to. Keep both pins in step.
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1

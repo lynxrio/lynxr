@@ -23,7 +23,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260823k">
+<link rel="stylesheet" href="/app.css?v=20260823m">
 </head>
 <body>
 
@@ -204,6 +204,45 @@
          still the push, and the standing rule that the phone only rings when
          a creator actually lost something is unchanged by anything here. -->
     <section class="panel" id="panel-ops" role="tabpanel" aria-labelledby="tab-ops" hidden>
+
+      <!-- THE FIRST SCREEN. Owner, 2026-08-20: "just show issues and costs and
+           then when i scroll have the other details." These two tiles fill the
+           viewport on entry and the six detail sections below start under the
+           fold; .ops-hero's min-height in app.css is what enforces that, and
+           the arithmetic behind the number is written down there.
+
+           NOTHING BELOW WAS DELETED to make room. Every section, every degraded
+           state and every provenance label is exactly as it shipped.
+
+           Both tiles are painted by renderOpsHero() from the same OPS object,
+           in the same renderOps() call, as the six sections — see the long note
+           over that function for why a summary tile that could disagree with
+           the panel underneath it would be worse than no tile, and worse still
+           now that the panel is off-screen.
+
+           The head hosts carry aria-live: the verdict and the number are what a
+           Refresh should announce. The bodies do not — a list of alarms read
+           aloud on every repaint is noise. -->
+      <div class="ops-hero" id="ops-hero">
+        <div class="ops-hero-grid">
+          <section class="ops-tile" aria-labelledby="ops-issues-h">
+            <h2 id="ops-issues-h">Issues</h2>
+            <div class="ops-tile-head" id="ops-issues-head" aria-live="polite"></div>
+            <div class="ops-tile-body" id="ops-issues-body"></div>
+          </section>
+          <section class="ops-tile" aria-labelledby="ops-costs-h">
+            <h2 id="ops-costs-h">Costs</h2>
+            <div class="ops-tile-head" id="ops-costs-head" aria-live="polite"></div>
+            <div class="ops-tile-body" id="ops-costs-body"></div>
+          </section>
+        </div>
+        <div class="ops-hero-foot">
+          <p class="ops-hero-more">Scroll for the detail — needs attention, late scripts,
+            still running, what it costs, spend by day, fixed costs.</p>
+          <button type="button" class="ghost" id="ops-hero-refresh">Refresh</button>
+        </div>
+      </div>
+
       <div class="section">
         <h2>Needs attention <span class="pill" id="ops-at"></span></h2>
         <p class="lede">Everything the watchdog found on its last pass — including the
@@ -292,8 +331,8 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260823k" defer></script>
-<script src="/app.js?v=20260823k" defer></script>
+<script src="/dotgrid.js?v=20260823m" defer></script>
+<script src="/app.js?v=20260823m" defer></script>
 </body>
 </html>
 
