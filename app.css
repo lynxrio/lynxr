@@ -3544,7 +3544,7 @@
      line"), so the separator is SPACE and only space: 104px between sections,
      the same on every boundary. The rhythm had to grow when the rule came out —
      72px worked with a line above it and read as two sections touching without
-     one. On a page this short (a hero, how it works, our team) the spacing IS
+     one. On a page this short (a hero and how it works) the spacing IS
      the structure, so it is deliberately generous rather than economical.
 
      Scoped to the marketing pages. --line borders everywhere else in this file
@@ -3655,59 +3655,6 @@
     background: var(--surface-2); color: var(--text); font-size: var(--fs-14);
   }
   .lp-plat svg { width: 17px; height: 17px; flex: none; opacity: .85; }
-
-  /* ---- the founders ---- */
-  /* Two founders, two columns — same reason as .lp-steps: auto-fit gave three
-     tracks for two cards at 1440px. */
-  .lp-people {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px; margin-top: 30px;
-  }
-  @media (max-width: 760px) { .lp-people { grid-template-columns: 1fr; } }
-  .lp-person {
-    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
-    padding: 24px 24px 22px;
-  }
-  /* THE HEAD OF THE CARD: avatar on the left, name and role beside it. A grid
-     rather than a flex row so the two text lines stack against a fixed avatar
-     column and the card's own padding is the only thing that moves. */
-  .lp-person-head { display: grid; grid-template-columns: 84px 1fr; gap: 16px; align-items: center; margin-bottom: 16px; }
-  /* CIRCULAR, because the shape language is, and because a square-cropped
-     headshot is exactly what a circle wants. `cover` on a 1:1 source is a
-     no-op — it is there so a source that is not square is still not stretched.
-     No filter, no duotone, no vignette: these are two real people and how they
-     look is not a design surface. */
-  .lp-avatar {
-    width: 84px; height: 84px; border-radius: var(--r-round);
-    object-fit: cover; display: block; background: var(--surface-2);
-    border: 1px solid var(--line);
-  }
-  /* THE MISSING-PHOTO CASE, and it is the common one right now: only one of the
-     two headshots exists. A neutral initial in the same circle, so the card is
-     the same shape and the same height either way and nothing reads as a broken
-     image. Same box, same border, same radius — only the contents differ. */
-  .lp-avatar-none {
-    width: 84px; height: 84px; border-radius: var(--r-round);
-    display: grid; place-items: center; background: var(--surface-2);
-    border: 1px solid var(--line); color: var(--text-3);
-    font-size: var(--fs-21); font-family: var(--mono); letter-spacing: .02em;
-    /* It is somebody's INITIAL. The house lowercase rule drew it as "g". */
-    text-transform: none;
-  }
-  .lp-person-name { font-size: var(--fs-16); font-weight: 600; color: var(--text); margin: 0; }
-  .lp-person-role { font-size: var(--fs-125); color: var(--text-3); margin: 2px 0 0; }
-  /* Their own words, so this is CONTENT and keeps its capitals — see the
-     house-style block further down, where the class is named in the exclusion
-     list beside .bp-hook and .tp-words. */
-  .lp-bio { color: var(--text-2); font-size: var(--fs-14); line-height: 1.7; margin: 0 0 16px; }
-  .lp-person-link {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 7px 14px; border: 1px solid var(--line); border-radius: var(--r-pill);
-    color: var(--text-2); font-size: var(--fs-125); border-bottom: 1px solid var(--line);
-    transition: color .14s var(--ease), border-color .14s var(--ease), background .14s var(--ease);
-  }
-  .lp-person-link:hover { color: var(--text); border-color: var(--line-2); background: var(--surface-2); }
-  .lp-person-link svg { width: 15px; height: 15px; flex: none; }
 
   /* ---- the footer ---- */
   /* NO RULE ABOVE THE FOOTER EITHER. The owner asked for the hairline between
@@ -3907,11 +3854,6 @@
                          Only the latter carries #brand-heading.
        .lib-group-name — a brand heading its group in "by brand" mode, and also
                          our "not scripted yet". Only the brand one has data-bid. */
-  /* .lp-bio and .lp-person-name are the marketing page's founder section: two
-     real people's own published description of themselves, and their names.
-     Lowercasing either would be editing somebody's words and misspelling
-     somebody's name, which is the same category as a creator's script — not
-     our copy to style. */
   /* .chip.trash-brand is the Trash tile's company chip — a company's name is
      content, same as everywhere else it appears; trashItemHtml only puts the
      class on the chip when it carries a company name, so the "original
@@ -3919,8 +3861,7 @@
   .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title,
   .lib-group-name[data-bid], .side-item .side-label, #brand-heading,
   .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip, .chip.trash-brand,
-  .tp-words, .tp-cue, .tp-brand, .for-chip,
-  .lp-bio, .lp-person-name {
+  .tp-words, .tp-cue, .tp-brand, .for-chip {
     text-transform: none;
   }
   /* Placeholders are ours, but they live inside an input that is not — so they

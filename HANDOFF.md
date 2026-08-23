@@ -8,7 +8,7 @@ pipeline. Three surfaces, one stylesheet (`app.css`):
 
 | path | file | who |
 |---|---|---|
-| `/` | `index.html` + `site.js` | public — marketing page. hero, how it works, our team |
+| `/` | `index.html` + `site.js` | public — marketing page. hero, how it works |
 | `/waitlist/` | `waitlist/` + `home.js` | public — the only funnel. every CTA lands here |
 | `/faq/` | static + `FAQPage` JSON-LD | public — the SEO/GEO page |
 | `/privacy/` `/terms/` `/accessibility/` | static | public — the legal set, linked from every footer |
@@ -16,8 +16,8 @@ pipeline. Three surfaces, one stylesheet (`app.css`):
 | `/agencyonly/` | `app.js` | staff — database, briefs, clients |
 
 `site.js` carries the shared chrome (floating bar, mobile menu, smooth scroll)
-on the **six public pages only** — never the two apps. `img/` holds the founder
-headshots. `robots.txt` + `sitemap.xml` cover the public set; **neither names
+on the **six public pages only** — never the two apps. `robots.txt` +
+`sitemap.xml` cover the public set; **neither names
 the two app paths, not even in a comment** — robots.txt is served to anyone, so
 naming a path there publishes it.
 
