@@ -14,7 +14,7 @@ or older to use it.
 
 ## Pages
 
-- [lynxr](https://lynxr.io/): What lynxr is, how it works in three steps, and who builds it.
+- [lynxr](https://lynxr.io/): What lynxr is and how it works in three steps.
 - [Questions and answers](https://lynxr.io/faq/): Straight answers about what lynxr does with a link, which platforms it reads, what it costs, who owns the scripts, and how access works.
 - [Join the wait list](https://lynxr.io/waitlist/): The only way in while lynxr is invitation-only.
 

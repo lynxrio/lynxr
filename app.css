@@ -16,7 +16,14 @@
     --line-2:    #34343c;
     --text:      #ededf0;
     --text-2:    #a3a3ad;
-    --text-3:    #6b6b76;
+    /* RAISED 2026-08-23 from #6b6b76, which measured 3.55:1 on --surface and
+       FAILED WCAG AA's 4.5:1 floor for body text. It was not decorative: it
+       painted .nobrand, .composer-note, .stat .label and .gate-switch, all of
+       which are real copy. #7c7c87 measures 4.54:1 on --surface and 4.80:1 on
+       --bg, and stays in the same neutral family, so the scheme is unchanged
+       to the eye. Do not lower it again without re-measuring against
+       --surface, which is the tighter of the two backgrounds. */
+    --text-3:    #7c7c87;
 
     /* ---------- SHAPE ----------
        ONE scale, four tokens, and every border-radius in this file reads from
@@ -3352,9 +3359,13 @@
      against a bar centre of 720.0, which is exactly half of it. */
   .lp-nav { display: flex; align-items: center; gap: 22px; min-width: 0; margin: 0; }
   /* ---- CONTRAST ON THE SHARED CHROME, RAISED 2026-08-19 ----
-     Measured on the live pages: --text-3 (#6b6b76) on --bg (#0a0a0b) is
+     Measured on the live pages: --text-3, then #6b6b76, on --bg (#0a0a0b) was
      **3.76:1**. That is fine for an ICON (the 3:1 non-text threshold) and fine
-     for the 3px aria-current dot, and it fails WCAG AA's 4.5:1 for TEXT. It was
+     for the 3px aria-current dot, and it failed WCAG AA's 4.5:1 for TEXT.
+     (--text-3 was itself raised to #7c7c87 on 2026-08-23 and now measures
+     4.80:1 on --bg, so it would clear the floor today. The three TEXT uses
+     stay on --text-2 anyway: this was always a hierarchy decision as well as
+     a contrast one, and reverting it would flatten the chrome.) It was
      painting the main site navigation, the footer tagline and the © credit —
      and this chrome was about to go onto four more pages, one of which is the
      accessibility statement. So the three TEXT uses move to --text-2
@@ -3676,7 +3687,7 @@
                               .lp-foot-brand { grid-column: 1 / -1; } }
   .lp-foot .wordmark { font-size: var(--fs-18); margin: 0 0 10px; }
   .lp-foot a.wordmark { border-bottom: 0; }
-  /* --text-2, not --text-3: 7.92:1 rather than 3.76:1. See the note in the bar. */
+  /* --text-2, not --text-3: 7.92:1 rather than 4.80:1. See the note in the bar. */
   .lp-foot-line { color: var(--text-2); font-size: var(--fs-125); line-height: 1.6; margin: 0 0 16px; max-width: 34ch; }
   .lp-foot-h { font-size: var(--fs-11); letter-spacing: .12em; color: var(--text-3); margin: 0 0 12px; display: block; }
   .lp-foot-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
@@ -4801,8 +4812,9 @@
   /* ONE RING, NOT TWO, and this is the rule that makes it one. The capsule was
      carrying both indicators at once: the outline above, AND the border
      brightening from `.composer-row:focus-within` ~2800 lines up (--line-2
-     #34343c -> --text-3 #6b6b76). A text input matches :focus-visible on a
-     plain MOUSE CLICK as well as on Tab, so the ordinary case fired both.
+     #34343c -> --text-3, then #6b6b76, now #7c7c87). A text input matches
+     :focus-visible on a plain MOUSE CLICK as well as on Tab, so the ordinary
+     case fired both.
      Measured at 1440px before this rule: a 640x50 capsule with a 1px
      rgb(107,107,118) border and a 2px rgb(163,163,173) outline 2px outside it
      — two concentric pills with a visible gap between them, which is what the
