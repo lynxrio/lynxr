@@ -1538,6 +1538,14 @@ function openDisclosures(root = document) {
        original open every time the brand script was open. */
     oids: [...root.querySelectorAll("details.lib-orig[open]")]
       .map((d) => d.dataset.oid).filter(Boolean),
+    /* THE REFERENCE PANEL, keyed on the ADAPTATION it belongs to — one per
+       script card, and unlike `oids` it is genuinely per-record, because two
+       brand scripts from one video each carry their own. Deliberately
+       data-refid rather than data-adid: that attribute is already on the
+       script's own <details> in the same card, and reusing it would spring the
+       panel open every time the script was open. */
+    refs: [...root.querySelectorAll("details.ref-panel[open]")]
+      .map((d) => d.dataset.refid).filter(Boolean),
   };
 }
 function restoreDisclosures(state, root = document) {
@@ -1558,6 +1566,16 @@ function restoreDisclosures(state, root = document) {
     root.querySelectorAll(`details.lib-orig[data-oid="${CSS.escape(oid)}"]`)
       .forEach((d) => { d.open = true; });
   }
+  /* The panel ships `open` by default, so unlike the loops above this one must
+     also be able to CLOSE it — but only for a panel that existed in the
+     captured state. A card opened for the first time after a repaint has no
+     entry in state.refs and would otherwise be shut by this loop despite
+     never having been on screen. */
+  const wantRef = new Set(state.refs || []);
+  const known = new Set([...(state.refs || []), ...(state.adids || [])]);
+  root.querySelectorAll("details.ref-panel[data-refid]").forEach((d) => {
+    if (known.has(d.dataset.refid)) d.open = wantRef.has(d.dataset.refid);
+  });
 }
 
 function renderPane() {
@@ -4865,6 +4883,121 @@ function scriptText(a) {
   return lines.join("\n");
 }
 
+/** THE ORIGINAL AS SECTIONS, off data the record already carries.
+ *  Costs nothing: source.shots and source.script.segments were grafted onto
+ *  this record by the worker and are already in memory. Nothing is fetched,
+ *  nothing is queued, no allowance is spent.
+ *  Shots are the section markers — they are the only per-moment VISUAL fact
+ *  stored — and transcript segments file under the shot whose window they
+ *  start in. Both carry real seconds: shots[].t is the ffmpeg seek that
+ *  produced the frame, segments are Whisper's [start, end, text]. */
+function refSections(a) {
+  const src = a.source || {};
+  const segs = (Array.isArray((src.script || {}).segments) ? src.script.segments : [])
+    .filter((s) => Array.isArray(s) && s.length >= 3)
+    .map(([st, , txt]) => ({ t: Number(st) || 0, text: String(txt || "").trim() }))
+    .filter((s) => s.text)
+    .sort((x, y) => x.t - y.t);
+  const shots = (Array.isArray(src.shots) ? src.shots : [])
+    .filter(Boolean)
+    .map((s) => ({ t: Number(s.t) || 0, visual: String(s.visual || "").trim(),
+                   text: String(s.onscreen_text || "").trim() }))
+    .sort((x, y) => x.t - y.t);
+  if (!segs.length && !shots.length) return [];
+  // NO SHOTS: one section per spoken line, which is exactly the timed
+  // transcript the Original scripts tab already draws. Folding them into a
+  // single section would turn a script into a paragraph.
+  if (!shots.length) return segs.map((s) => ({ t: s.t, visual: "", text: "", says: [s.text] }));
+  const secs = [];
+  // Speech BEFORE the first frame gets its own opening section. Measured: one
+  // live row has its first frame at 4.7s, so 4.7 seconds of words would
+  // otherwise be filed under a direction that had not happened yet.
+  if (segs.length && segs[0].t < shots[0].t - 0.05) {
+    secs.push({ t: segs[0].t, visual: "", text: "", says: [] });
+  }
+  for (const sh of shots) secs.push({ t: sh.t, visual: sh.visual, text: sh.text, says: [] });
+  for (const sg of segs) {
+    let i = secs.length - 1;
+    while (i > 0 && secs[i].t > sg.t + 0.05) i--;
+    secs[i].says.push(sg.text);
+  }
+  return secs.filter((s) => s.visual || s.text || s.says.length);
+}
+
+/** "Frames were read up to 0:09 of 1:33." — a FACT, drawn only when it is
+ *  needed. analyze_visuals.frame_times() takes the first six Whisper segment
+ *  starts, so on a talky video every frame lands in the opening seconds:
+ *  measured across the 23 videos in the 2026-08-23 backup the shot list
+ *  covers a median 60% of the video and under half of it on 10 of 23. Without
+ *  this line the panel would imply the video ends where the directions do. */
+function refFramesNote(a) {
+  const shots = (a.source || {}).shots || [];
+  if (!Array.isArray(shots) || !shots.length) return "";
+  const last = Math.max(...shots.map((s) => Number(s.t) || 0));
+  const dur = videoSeconds({ rec: a });
+  if (!(dur > 0) || last >= dur * 0.8) return "";
+  return `Frames were read up to ${lengthLabel(last)} of ${lengthLabel(dur)}.`;
+}
+
+/** THE PANEL ITSELF — the original's sections, rendered beside/under the
+ *  script inside the same card. Returns "" when there is nothing to show
+ *  (refSplitHtml then leaves the script exactly as it was).
+ *  `data-refid`, never `data-adid`: wireAdaptationCards enrols
+ *  `details.bp-item[data-adid]` in the one-script-open-at-a-time rule, and
+ *  this panel must open ALONGSIDE the script, not instead of it — the same
+ *  decision `.lib-orig` records for its `data-oid`.
+ *  `class="bp-item ref-panel"` on purpose: it inherits the caret rotation,
+ *  the bp-open/bp-close reveal and wireDisclosureMotion's close animation
+ *  for free — no new motion is introduced.
+ *  `open` is always emitted; openDisclosures/restoreDisclosures (below)
+ *  preserve whatever the creator does to it across a repaint. */
+function referenceHtml(a) {
+  const secs = refSections(a);
+  if (!secs.length) return "";
+  const src = a.source || {};
+  const cover = thumbHtml(
+    coverUrl({ libraryId: a.libraryId, canon: canonUrl(a.sourceUrl || "") }),
+    entryLabel(a), a.sourceUrl);
+  const note = refFramesNote(a);
+  const noSpeechHint = !(src.script || {}).has_speech && Array.isArray(src.shots) && src.shots.length
+    ? `<p class="bp-hint">No speech &mdash; this one is carried by what's on screen.</p>` : "";
+  const secsHtml = secs.map((sec) => `
+      <li class="ref-sec">
+        <span class="ref-t">${escapeHtml(lengthLabel(sec.t) || "0:00")}</span>
+        <div class="ref-sec-body">
+          ${sec.visual ? `<p class="ref-do">${escapeHtml(sec.visual)}</p>` : ""}
+          ${sec.text ? `<p class="ref-text">“${escapeHtml(sec.text)}”</p>` : ""}
+          ${sec.says.length ? `<p class="ref-say">${escapeHtml(sec.says.join(" "))}</p>` : ""}
+        </div>
+      </li>`).join("");
+  return `<details class="bp-item ref-panel" open data-refid="${escapeHtml(a.id)}">
+    <summary>
+      <span class="bp-caret" aria-hidden="true">▸</span>
+      <span class="bp-name">The original</span>
+    </summary>
+    <div class="bp-body">
+      <div class="ref-head">${cover}${note ? `<p class="ref-note">${escapeHtml(note)}</p>` : ""}</div>
+      ${noSpeechHint}
+      <ol class="ref-secs">${secsHtml}</ol>
+      <div class="bp-actions">
+        <button type="button" class="ghost ad-copy" data-adid="${escapeHtml(a.id)}" data-ref="1">Copy</button>
+      </div>
+    </div>
+  </details>`;
+}
+
+/** The script, with the original beside it when there is one to show.
+ *  Returns the script UNCHANGED when the record carries no source — an
+ *  errored entry, or one written before the worker stored a shot list. The
+ *  card then looks exactly as it does today; an empty panel would read as a
+ *  broken one. Measured on the 2026-08-23 backup: 5 of 47 records carry no
+ *  `source` at all. */
+function refSplitHtml(a, scriptHtml) {
+  const ref = referenceHtml(a);
+  if (!ref) return scriptHtml;
+  return `<div class="ref-split"><div class="ref-main">${scriptHtml}</div>${ref}</div>`;
+}
+
 /** THE VIDEO'S OWN WORDS, for the clipboard. scriptText() above builds from
  *  `a.adaptation`, which is the BRAND REWRITE — so it was the wrong function
  *  for an original card in both of that card's shapes: on a branded record
@@ -4894,6 +5027,29 @@ function originalText(a) {
       if ((sh.onscreen_text || "").trim()) lines.push(`          “${sh.onscreen_text.trim()}”`);
     }
   }
+  return lines.join("\n");
+}
+
+/** THE PANEL'S OWN CLIPBOARD TEXT — plain text in the SAME section order the
+ *  panel paints, per originalText()'s own docstring contract ("what is
+ *  copied is what is on screen"): the panel is a different screen from the
+ *  one originalText() serves, so it gets its own function rather than a
+ *  second wording jammed into that one. Does not modify originalText() —
+ *  that one is still the Original scripts tab's Copy button.
+ *  Source casing is preserved on purpose, same reason as originalText(). */
+function referenceText(a) {
+  const secs = refSections(a);
+  const lines = [`Original — from ${a.sourceUrl || ""}`];
+  const note = refFramesNote(a);
+  if (note) lines.push(note);
+  lines.push("");
+  const t = (n) => lengthLabel(n) || "0:00";
+  secs.forEach((sec, i) => {
+    if (i) lines.push("");
+    lines.push(`  ${t(sec.t)}  ${sec.visual || ""}`.replace(/\s+$/, ""));
+    if (sec.text) lines.push(`        “${sec.text}”`);
+    if (sec.says.length) lines.push(`        ${sec.says.join(" ")}`);
+  });
   return lines.join("\n");
 }
 
@@ -5422,7 +5578,7 @@ function adaptationHtml(a, liveName, opts = {}) {
         : ""}`;
   } else if (ad && !asOriginal) {
     const carry = { do: "", show: "" };
-    body = `
+    const script = `
       ${/* A good score explains nothing the script itself doesn't say better, and
             it pushed the hook — the thing you came for — below the fold. Only the
             poor-fit warning still shows: that one changes what you'd do next. */""}
@@ -5510,6 +5666,7 @@ function adaptationHtml(a, liveName, opts = {}) {
         <div class="chips lib-also">${reuse.map((b) => `
           <button type="button" class="chip pick ad-also" data-adid="${id}" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>` : ""}`;
+    body = refSplitHtml(a, script);
   } else if (asOriginal || !a.brandId) {
     /* THE ORIGINAL SCRIPT — a finished result, not a failure.
        This branch used to be shared with "the rewrite failed", so a creator who
@@ -5858,7 +6015,9 @@ function wireAdaptationCards(host) {
     const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
     if (!a) return;
     try {
-      await navigator.clipboard.writeText(btn.dataset.orig ? originalText(a) : scriptText(a));
+      await navigator.clipboard.writeText(
+        btn.dataset.ref ? referenceText(a)
+        : btn.dataset.orig ? originalText(a) : scriptText(a));
       /* Swap the ICON, not the text. This button used to say "Copy script" and
          confirmed by setting textContent — which on an icon button replaces the
          svg with a word and leaves it permanently wrong, because the restore

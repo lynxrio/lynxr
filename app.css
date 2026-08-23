@@ -981,7 +981,7 @@
   .bp-list { margin-top: 12px; }
   .bp-item {
     border: 1px solid var(--line); border-radius: var(--r-card); margin-top: 8px;
-    background: var(--surface); overflow: hidden;
+    background: var(--surface); overflow: clip;
     transition: border-color .18s var(--ease);
   }
   .bp-item:hover { border-color: var(--line-2); }
@@ -1253,6 +1253,78 @@
      the one this card kind uses. */
   .lib-orig > .bp-body { padding-bottom: 0; }
   .lib-orig .lib-bare > .bp-body { animation: none; padding-top: 0; }
+
+  /* ---------- THE REFERENCE PANEL ----------
+     The original's own sections, beside the script inside the same card, so a
+     creator does not have to leave the card to check what the video actually
+     showed. Stacked (one column) below, side-by-side above the breakpoint in
+     the next block. See creator.js's refSplitHtml/referenceHtml for what
+     builds the markup this styles.
+     SPECIFICITY TRAP: .lib-scripts .bp-item (above) is (0,2,0) and strips
+     border/background/border-radius from any .bp-item descendant of
+     .lib-scripts — including a panel nested inside a Library entry's script
+     card. A bare .ref-panel is (0,1,0) and loses that fight, so the panel's
+     own rule is written as .bp-item.ref-panel — (0,2,0), later in source
+     order — so it wins on order rather than a specificity race. */
+  .ref-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .ref-main { min-width: 0; }
+  /* --surface-2, not --surface, so the reference reads as a different object
+     from the card holding it. Palette tokens only. */
+  .bp-item.ref-panel {
+    margin-top: 0; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: var(--r-card);
+  }
+  /* The cover already has fixed box rules from .bp-thumb; not restated here. */
+  .ref-head { display: flex; gap: 12px; align-items: flex-start; }
+  .ref-note { font-size: var(--fs-115); color: var(--text-3); margin: 0; }
+  .ref-secs { list-style: none; margin: 10px 0 0; padding: 0; }
+  /* Same rhythm as .bp-beat above — a deliberate echo so the reference and the
+     script read as one system. */
+  .ref-sec {
+    display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 10px;
+    padding: 9px 0; border-top: 1px solid var(--line);
+  }
+  .ref-sec:first-child { border-top: 0; }
+  .ref-t { font-family: var(--mono); font-size: var(--fs-11); color: var(--text-3); padding-top: 3px; }
+  .ref-do { font-size: var(--fs-125); line-height: 1.5; color: var(--text); margin: 0; }
+  /* pre-line: on-screen text routinely arrives with real line breaks, and
+     collapsing them loses the card layout the creator is reproducing — same
+     reason .bp-val has it. */
+  .ref-text { font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); margin: 4px 0 0; white-space: pre-line; }
+  /* The words are the thing you came to read, so they are the undimmed line
+     and the direction above them is the annotation — the same weighting the
+     asOriginal branch applies (.bp-show gets .bp-dim, .bp-say does not). */
+  .ref-say { font-size: var(--fs-13); line-height: 1.55; color: var(--text); margin: 4px 0 0; }
+  @media (max-width: 560px) {
+    /* Mirrors what .bp-beat already does at this width. */
+    .ref-sec { grid-template-columns: minmax(0, 1fr); }
+    .ref-t { grid-column: 1 / -1; }
+  }
+  /* Geometry measured from this file: .side is flex: 0 0 252px at >=821px,
+     .pane sets --gutter: max(28px, (100% - 1180px) / 2) and .pane-body pays
+     it left and right — so the content column is
+     viewport - 252 - 2*gutter, which stays too narrow for two readable
+     columns below ~1180px and workable at and above it. No container query:
+     there are zero @container rules in this file today. */
+  @media (min-width: 1180px) {
+    .ref-split { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 22px; }
+    /* align-self: start so the panel does not stretch to the script's height.
+       position: sticky holds it in place while the script scrolls past it —
+       see the .bp-item overflow: clip change above, which is what makes a
+       sticky descendant here possible at all (overflow: hidden would have made
+       .bp-item itself the scroll container and sticky would silently do
+       nothing). top is measured, not guessed: .pane-head's own painted height
+       on a brand page at desktop widths is ~96px, plus 12px clearance, since
+       .pane-head is itself position: sticky; top: 0 in the same scroller.
+       z-index: 1 keeps the panel passing under that header rather than over
+       it (the header is z-index: 5). max-height keeps a long shot list
+       scrolling inside the panel rather than running off the bottom of the
+       viewport. */
+    .bp-item.ref-panel {
+      align-self: start; position: sticky; top: 108px;
+      max-height: calc(100svh - 132px); overflow-y: auto; z-index: 1;
+    }
+  }
   /* A library row carries two chips, a date and a link, which on a phone leaves
      the title — the only part worth reading — squeezed to "Why…". Give it the
      whole first line and let the rest wrap underneath, indented past the
@@ -1704,6 +1776,15 @@
     display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     gap: 40px; padding-bottom: 36px; border-bottom: 1px solid var(--line);
   }
+  /* The ten public pages carry a FOURTH link column (the guides) that neither
+     signed-in app has, so they opt in rather than everyone sharing five tracks:
+     an app rendering four children into five would just hold an empty one.
+     Explicit counts, not auto-fit — auto-fit already sized two cards as three
+     elsewhere in this file. */
+  .foot-grid-wide {
+    grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
+    gap: 32px;
+  }
   .foot-brand .mark { width: 40px; height: 40px; margin-bottom: 14px; }
   .foot-brand p { margin: 0; color: var(--text-2); font-size: var(--fs-14); max-width: 44ch; }
   .foot-label {
@@ -1724,9 +1805,18 @@
      every footer link a flex container to space one glyph is the wrong trade. */
   #site-footer .foot-link .rk { margin-left: 8px; }
   .foot-legal { padding-top: 22px; color: var(--text-3); font-size: var(--fs-125); }
+  /* TWO columns on a phone, not one. At a single column the public footer was
+     sixteen links in an unbroken vertical run — the owner's words were "clean
+     this shit up" beside a screenshot of it. The groups are short enough to sit
+     side by side once the guide links stopped being full page titles; the brand
+     blurb spans both. Below 400px there is no room for two, so it collapses. */
   @media (max-width: 700px) {
-    .foot-grid { grid-template-columns: 1fr; gap: 28px; }
+    .foot-grid, .foot-grid-wide { grid-template-columns: 1fr 1fr; gap: 30px 20px; }
+    .foot-brand { grid-column: 1 / -1; }
     .foot-wordmark { margin-bottom: 36px; }
+  }
+  @media (max-width: 400px) {
+    .foot-grid, .foot-grid-wide { grid-template-columns: 1fr; }
   }
 
   /* ---------- Client editor readability ----------
@@ -3830,7 +3920,8 @@
   .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title,
   .lib-group-name[data-bid], .side-item .side-label, #brand-heading,
   .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip, .chip.trash-brand,
-  .tp-words, .tp-cue, .tp-brand, .for-chip {
+  .tp-words, .tp-cue, .tp-brand, .for-chip,
+  .ref-do, .ref-text, .ref-say {
     text-transform: none;
   }
   /* Placeholders are ours, but they live inside an input that is not — so they
