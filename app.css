@@ -1672,7 +1672,20 @@
     border-top: 1px solid var(--line);
     margin-top: 72px;
     padding: 48px 24px 28px;
-    max-width: 1180px; margin-left: auto; margin-right: auto;
+    /* Default measure matches .lp-in, so the border lines up with the bar
+       above it on the public pages — the surface with no gutter or max-width
+       of its own to inherit. The two signed-in apps override this below. */
+    max-width: 1120px; margin-left: auto; margin-right: auto;
+  }
+  /* Agency: `main` already caps width to 1180px and supplies its own 24px
+     padding, so the footer just fills that box rather than applying a
+     second, narrower measure on top of it. */
+  #app #site-footer { max-width: none; margin-left: 0; margin-right: 0; }
+  /* Creator app: .pane-scroll has no max-width of its own — .pane-body and
+     .composer both align to --gutter instead of centering a narrower box —
+     so the footer matches them rather than capping independently. */
+  .pane-scroll #site-footer {
+    padding-left: var(--gutter, 24px); padding-right: var(--gutter, 24px);
   }
   /* Slot-machine wordmark: JS splits "lynxr." into one span per character;
      unlocked positions spin through random glyphs and lock left-to-right as
@@ -1704,6 +1717,12 @@
   }
   .foot-link:hover { color: var(--text); border-bottom-color: var(--line-2); }
   a.foot-link { text-decoration: none; }
+  /* .rk carries `flex: none`, which only does anything inside a flex parent.
+     .btn is one and gives it an 8px gap; .foot-link is display:block, so when
+     the wait-list link moved into this footer the rocket ended up flush against
+     the label ("try it&#128640;"). Same 8px, stated as a margin because making
+     every footer link a flex container to space one glyph is the wrong trade. */
+  #site-footer .foot-link .rk { margin-left: 8px; }
   .foot-legal { padding-top: 22px; color: var(--text-3); font-size: var(--fs-125); }
   @media (max-width: 700px) {
     .foot-grid { grid-template-columns: 1fr; gap: 28px; }
@@ -2870,7 +2889,7 @@
     transition: transform .2s var(--ease);
   }
   .btn:hover .rk, .btn:focus-visible .rk,
-  .lp-foot-links a:hover .rk, .lp-foot-links a:focus-visible .rk {
+  .foot-link:hover .rk, .foot-link:focus-visible .rk {
     transform: translate(2px, -3px);
   }
   /* The guard sits in the same block as the rule it disables, per the motion
@@ -2879,7 +2898,7 @@
   @media (prefers-reduced-motion: reduce) {
     .rk { transition: none; }
     .btn:hover .rk, .btn:focus-visible .rk,
-    .lp-foot-links a:hover .rk, .lp-foot-links a:focus-visible .rk { transform: none; }
+    .foot-link:hover .rk, .foot-link:focus-visible .rk { transform: none; }
   }
 
   .home-alt { color: var(--text-3); font-size: var(--fs-13); border-bottom-color: var(--line); }
@@ -3666,67 +3685,6 @@
     background: var(--surface-2); color: var(--text); font-size: var(--fs-14);
   }
   .lp-plat svg { width: 17px; height: 17px; flex: none; opacity: .85; }
-
-  /* ---- the footer ---- */
-  /* NO RULE ABOVE THE FOOTER EITHER. The owner asked for the hairline between
-     two sections to go; a drawn line across the page immediately above the
-     footer is the same object doing the same job, so it goes with it and the
-     separation is space. Reverting is one border declaration if that reads as
-     too loose. */
-  /* 96 -> 68 on top. The last section already ends with its own 104px of bottom
-     padding, so 96 here made a 200px empty band above the footer — measured, and
-     the same "dead space" shape the owner flagged under the hero button. 172px
-     is still the largest gap on the page and still separates by space alone,
-     with no rule drawn. */
-  .lp-foot { width: 100%; padding: 68px 0 44px; }
-  .lp-foot-in {
-    display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
-    gap: 32px; align-items: start;
-  }
-  @media (max-width: 700px) { .lp-foot-in { grid-template-columns: 1fr 1fr; gap: 26px; } 
-                              .lp-foot-brand { grid-column: 1 / -1; } }
-  .lp-foot .wordmark { font-size: var(--fs-18); margin: 0 0 10px; }
-  .lp-foot a.wordmark { border-bottom: 0; }
-  /* --text-2, not --text-3: 7.92:1 rather than 4.80:1. See the note in the bar. */
-  .lp-foot-line { color: var(--text-2); font-size: var(--fs-125); line-height: 1.6; margin: 0 0 16px; max-width: 34ch; }
-  .lp-foot-h { font-size: var(--fs-11); letter-spacing: .12em; color: var(--text-3); margin: 0 0 12px; display: block; }
-  .lp-foot-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
-  .lp-foot-links a { color: var(--text-2); font-size: var(--fs-125); border-bottom: 0; transition: color .14s var(--ease); }
-  .lp-foot-links a:hover { color: var(--text); }
-  /* Same "you are here" treatment as the nav, one notch quieter: the footer is
-     already a list of places you are not, so full-brightness text is enough and
-     a second dot down here would be noise. */
-  .lp-foot-links a[aria-current="page"] { color: var(--text); }
-  /* THE ONE PLACE THE ROCKET NEEDS ITS OWN MARGIN. Every other `try it` is a
-     flex row (.lp-bar .btn, .lp-menu .btn, .home-go) and the row's `gap` does
-     the spacing; this one is a plain inline <a> in a list, so the glyph butted
-     straight against the "t" — measured 0px, painted as "try it🚀". em, not px,
-     so it tracks the label if the footer type ever changes. */
-  .lp-foot-links .rk { margin-left: .55em; }
-  /* Socials. Icon plus an accessible name, never an icon alone — and never an
-     icon font or a CDN sprite: img-src/font-src are 'self', and a remote sprite
-     would be a request to somebody else on a page that currently makes none. */
-  .lp-social { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .lp-social a {
-    display: grid; place-items: center; width: 38px; height: 38px;
-    border: 1px solid var(--line); border-radius: var(--r-pill);
-    color: var(--text-3); border-bottom: 1px solid var(--line);
-    transition: color .14s var(--ease), border-color .14s var(--ease), background .14s var(--ease), transform .09s var(--ease);
-  }
-  .lp-social a:hover { color: var(--text); border-color: var(--line-2); background: var(--surface); }
-  .lp-social a:active { transform: scale(.94); }
-  .lp-social svg { width: 17px; height: 17px; display: block; }
-  /* THIS LINE IS THE AFFILIATION. There is no second "lynxr is part of…"
-     sentence anywhere in the footer — the credit carries it, so there is only
-     one place to keep correct. --text-2 for the same 3.76 -> 7.92:1 reason as
-     the tagline and the nav; it is the smallest type in the footer, which is
-     exactly the wrong place to be under AA. */
-  .lp-foot-legal {
-    margin-top: 44px;                  /* space, not a rule — see .lp-foot */
-    color: var(--text-2); font-size: var(--fs-12); line-height: 1.7;
-  }
-  .lp-foot-legal a { color: var(--text-2); border-bottom-color: var(--line-2); }
-  .lp-foot-legal a:hover { color: var(--text); }
 
   /* ---- the FAQ page (/faq/) ---- */
   /* <details>, not a stack of headings: the point of an FAQ is scanning the

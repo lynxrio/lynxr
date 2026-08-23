@@ -5023,64 +5023,16 @@ function renderOpsHero() {
 
 
 // ---------- Footer ----------
-/** The giant footer wordmark fills left-to-right as the footer scrolls into
-    view, completing exactly at the bottom of the page. Width is set through
-    element.style (CSSOM) — allowed under the strict CSP, unlike style="". */
+/** Agency-only footer concerns: the live #foot-count and the .foot-link
+    [data-tab] wiring to activateTab(). The split-flap wordmark itself is
+    shared across all three surfaces and lives in footer.js, self-initialised
+    from the DOM rather than called in from here. */
 function initFooter(rows) {
   const count = document.getElementById("foot-count");
   if (count) count.textContent = fmt(rows.length);
 
   document.querySelectorAll(".foot-link[data-tab]").forEach((b) =>
     b.addEventListener("click", () => activateTab(b.dataset.tab)));
-
-  // Slot-machine wordmark: each character spins through random glyphs and
-  // locks in left-to-right as the footer scrolls into view. At the bottom of
-  // the page every slot has stopped on its letter: l y n x r .
-  const mark = document.getElementById("foot-wordmark");
-  const foot = document.getElementById("site-footer");
-  if (!mark || !foot) return;
-  const FINAL = mark.textContent.trim() || "lynxr.";
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;  // static text stays
-  // Split-flap, not slot machine: each reel walks the alphabet TOWARD its
-  // letter and arrives exactly as it locks — convergence, not noise.
-  const REEL = "abcdefghijklmnopqrstuvwxyz.";
-  mark.replaceChildren(...[...FINAL].map((ch) => {
-    const s = document.createElement("span");
-    s.className = "fw-ch spin";
-    s.textContent = ch;
-    return s;
-  }));
-  const chars = [...mark.children];
-  const N = FINAL.length;
-  const update = () => {
-    const r = foot.getBoundingClientRect();
-    // 0 as the footer's top crosses the viewport bottom → 1 when the footer is
-    // fully on screen (it's the last element, so that IS the bottom of page).
-    const p = Math.min(1, Math.max(0, (innerHeight - r.top) / r.height));
-    chars.forEach((s, i) => {
-      const lockP = (i + 1) / (N + 1);        // slots lock left-to-right
-      if (p >= lockP) {
-        if (s.classList.contains("spin")) {   // just arrived: settle in place
-          s.classList.remove("spin");
-          void s.offsetWidth;
-          s.classList.add("settled");
-        }
-        s.textContent = FINAL[i];
-      } else {
-        s.classList.add("spin");
-        s.classList.remove("settled");
-        // Scrubbed by scroll: N flips remain proportional to the distance
-        // from this slot's lock point; stationary = frozen.
-        const target = Math.max(0, REEL.indexOf(FINAL[i]));
-        const total = 6 + i * 2;              // later slots travel further
-        const remaining = Math.max(1, Math.ceil(total * (lockP - p) / lockP));
-        s.textContent = REEL[(target - (remaining % REEL.length) + REEL.length) % REEL.length];
-      }
-    });
-  };
-  addEventListener("scroll", update, { passive: true });
-  addEventListener("resize", update, { passive: true });
-  update();
 }
 
 // ---------- Boot ----------

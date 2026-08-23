@@ -31,18 +31,32 @@
   const chars = [...mark.children];
   const N = FINAL.length;
 
-  // Discover the scroll source rather than assume `window`. The creator app's
+  // Discover scroll sources rather than assume `window`. The creator app's
   // .pane-scroll carries overflow-y: auto and is the element that actually
   // scrolls at desktop widths — the document itself never does there — so a
   // listener bound only to `window` would leave the wordmark frozen on that
-  // surface while looking correct everywhere else. Walk up from the footer to
-  // the nearest ancestor whose computed overflow-y is auto/scroll; fall back
-  // to `window` when nothing qualifies (the public pages and the agency app,
-  // both document-scrolled).
-  let scrollSource = window;
+  // surface while looking correct everywhere else.
+  //
+  // NOT "pick the one nearest ancestor with overflow-y:auto, else window":
+  // .pane-scroll carries overflow-y:auto UNCONDITIONALLY (app.css:2021, no
+  // media query), including under 820px where .shell has no height cap and
+  // .pane-scroll's own scrollHeight equals its clientHeight — measured live,
+  // confirmed by app.css's own comment at 2499. A `scroll` listener bound
+  // only to .pane-scroll there would simply never fire, because there is
+  // nothing inside it to scroll; the DOCUMENT is what moves. The same gap
+  // bites at init time too: the creator and agency apps start with #app
+  // display:none, so whichever element "wins" the walk at script-parse time
+  // may not be the one that ends up scrollable after sign-in reveals it.
+  // Rather than get that single choice right for every width and every
+  // moment, listen on `window` AND every ancestor whose computed overflow-y
+  // is auto/scroll — update() is pure and idempotent (it just re-reads
+  // getBoundingClientRect(), which is viewport-relative regardless of what
+  // scrolled), so a listener that never fires costs nothing, and whichever
+  // element turns out to be the real scroller is always covered.
+  const scrollSources = [window];
   for (let el = foot.parentElement; el; el = el.parentElement) {
     const oy = getComputedStyle(el).overflowY;
-    if (oy === "auto" || oy === "scroll") { scrollSource = el; break; }
+    if (oy === "auto" || oy === "scroll") scrollSources.push(el);
   }
 
   const update = () => {
@@ -77,7 +91,7 @@
       }
     });
   };
-  scrollSource.addEventListener("scroll", update, { passive: true });
+  scrollSources.forEach((s) => s.addEventListener("scroll", update, { passive: true }));
   addEventListener("resize", update, { passive: true });
   // Covers both the creator app's sign-in reveal and the agency app's tab
   // switches — the footer goes from zero-size to real size in both cases,

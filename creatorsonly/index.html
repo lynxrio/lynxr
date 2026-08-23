@@ -48,7 +48,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260823p">
+<link rel="stylesheet" href="/app.css?v=20260823r">
 </head>
 <body>
 
@@ -186,6 +186,41 @@
       <div class="pane-scroll" id="pane-scroll">
         <div class="pane-head" id="pane-head" tabindex="-1"></div>
         <div class="pane-body" id="pane-body"></div>
+
+        <!-- Placed inside .pane-scroll, not after .shell: this is the element
+             that actually scrolls at desktop widths (.shell is min-height:
+             100svh and never scrolls itself), so it is both where the footer
+             belongs visually and what makes the wordmark animate. -->
+        <footer id="site-footer">
+          <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr.</div>
+          <div class="foot-grid">
+            <div class="foot-brand">
+              <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+              <p>The format intelligence behind <span class="entity">Lynx Media Group</span>,
+                turned into a script for the brand you're writing for.</p>
+            </div>
+            <div class="foot-col">
+              <div class="foot-label">lynxr</div>
+              <!-- Feedback is a view, not a URL — wired in creator.js exactly
+                   like nav-feedback, rather than navigating. -->
+              <button type="button" class="foot-link" id="foot-feedback">Feedback</button>
+              <a class="foot-link" href="/privacy/">privacy policy</a>
+              <a class="foot-link" href="/terms/">terms of service</a>
+              <a class="foot-link" href="/accessibility/">accessibility</a>
+            </div>
+            <div class="foot-col">
+              <div class="foot-label">socials</div>
+              <a class="foot-link" href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">Instagram</a>
+              <a class="foot-link" href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">TikTok</a>
+              <a class="foot-link" href="https://www.linkedin.com/company/lynxr" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            </div>
+            <div class="foot-col">
+              <div class="foot-label"><span class="entity">Lynx Media Group</span></div>
+              <a class="foot-link" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">lynxmediagroup.org</a>
+            </div>
+          </div>
+          <div class="foot-legal">&copy; <span class="entity">Lynx Media Group LLC</span> 2026. All rights reserved.</div>
+        </footer>
       </div>
     </main>
 
@@ -319,7 +354,8 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260823p" defer></script>
-<script src="/creator.js?v=20260823p" defer></script>
+<script src="/dotgrid.js?v=20260823r" defer></script>
+<script src="/footer.js?v=20260823r" defer></script>
+<script src="/creator.js?v=20260823r" defer></script>
 </body>
 </html>

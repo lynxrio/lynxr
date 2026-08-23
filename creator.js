@@ -6469,6 +6469,9 @@ document.addEventListener("click", (e) => {
 document.getElementById("nav-library").addEventListener("click", () => go({ kind: "library" }));
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
 document.getElementById("nav-feedback").addEventListener("click", () => go({ kind: "feedback" }));
+// The footer's Feedback link is a view, not a URL, exactly like nav-feedback
+// above — it stays inside the app instead of navigating anywhere.
+document.getElementById("foot-feedback")?.addEventListener("click", () => go({ kind: "feedback" }));
 
 // The send overlay's only three exits — the X, Escape, and "Read it" (wired
 // inside renderSendOverlay() itself, since that node is rebuilt on every
