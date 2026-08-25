@@ -3,8 +3,18 @@
 <head>
 <meta charset="utf-8">
 <!-- Same strict CSP as the agency app: no inline script or style, nothing
-     off-origin, native form posts blocked. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co; media-src 'self' blob:; form-action 'none'; base-uri 'none'; object-src 'none'">
+     off-origin, native form posts blocked.
+     media-src, CHANGED 2026-08-24: the original video used to play in a
+     cross-origin iframe (frame-src, below, removed the same day). It is now a
+     self-hosted 480p proxy played in a native <video>, so media-src gains the
+     Supabase origin — already trusted in img-src and connect-src for the
+     cover frame — and no third-party frame origin remains at all.
+     blob: stays for the teleprompter's MediaRecorder preview (creator.js).
+     ONE PLAIN LINE ON WHAT THAT MEANS: the clip lives in a PUBLIC storage
+     bucket at an unguessable, content-hashed path — anyone holding the URL
+     can fetch the video bytes with no sign-in. Row-level security protects
+     which creator can see which row, not the file once its URL is known. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co; media-src 'self' blob: https://esakjfogplfszievvabi.supabase.co; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <!-- maximum-scale=1 SUPPRESSES iOS SAFARI'S FOCUS-ZOOM, and it is here in
@@ -48,7 +58,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260823t">
+<link rel="stylesheet" href="/app.css?v=20260824c">
 </head>
 <body>
 
@@ -354,8 +364,8 @@
   </div>
 </div>
 
-<script src="/dotgrid.js?v=20260823t" defer></script>
-<script src="/footer.js?v=20260823t" defer></script>
-<script src="/creator.js?v=20260823t" defer></script>
+<script src="/dotgrid.js?v=20260824c" defer></script>
+<script src="/footer.js?v=20260824c" defer></script>
+<script src="/creator.js?v=20260824c" defer></script>
 </body>
 </html>

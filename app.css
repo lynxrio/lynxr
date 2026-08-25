@@ -1268,6 +1268,36 @@
      order — so it wins on order rather than a specificity race. */
   .ref-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .ref-main { min-width: 0; }
+  /* ---------- THE ORIGINAL, PLAYING ----------
+     Owner, 2026-08-23: the shot list was not what was asked for — "the orignal
+     video play on the side so i can watch the video and then see the lynxr
+     scrpt". The player therefore leads the panel and the sections follow it.
+     Owner, 2026-08-24: "make the video play... and have it just be the video,
+     no need for the frame for the video (like the different thing for each
+     platform)". ONE FIXED 9:16 BOX **IS** THE UNIFORM FRAME THAT ASKS FOR —
+     a native <video> with the browser's own controls, no vf-* aspect class,
+     no per-platform chrome. `object-fit: contain` letterboxes a non-portrait
+     source rather than distorting it (all 8 measured live videos are 9:16,
+     but a stray 16:9 source must not stretch). `aspect-ratio` is what
+     reserves the box before metadata arrives, so the card does not jump —
+     without it the frame collapses to zero height until the video loads.
+     320px because at >=1180px the panel column is ~324-432px inside
+     .bp-body's padding (measured; see the sticky-block comment below), and
+     320 leaves the same breathing room the old 300px frame did.
+     Left-aligned rather than centred, so its edge lines up with the .ref-secs
+     beneath it. */
+  .ref-play { margin: 0 0 12px; }
+  .ref-video {
+    width: min(100%, 320px); display: block; background: #000;
+    aspect-ratio: 9 / 16; object-fit: contain;
+    border: 1px solid var(--line); border-radius: var(--r-inner);
+  }
+  .ref-watch {
+    display: inline-block; margin-top: 8px; font-size: var(--fs-12);
+    color: var(--text-3); text-decoration: none;
+  }
+  .ref-watch:hover { color: var(--text); }
+  .ref-play-none .bp-hint { margin: 0 0 2px; }
   /* --surface-2, not --surface, so the reference reads as a different object
      from the card holding it. Palette tokens only. */
   .bp-item.ref-panel {
@@ -1285,7 +1315,32 @@
     padding: 9px 0; border-top: 1px solid var(--line);
   }
   .ref-sec:first-child { border-top: 0; }
-  .ref-t { font-family: var(--mono); font-size: var(--fs-11); color: var(--text-3); padding-top: 3px; }
+  /* THE SECTION THE VIDEO IS ON. A left rail plus a lifted ground, not a
+     colour swap — these lines are already three weights of --text and
+     re-colouring them would fight that. Palette tokens only, and measured:
+     .bp-item.ref-panel's own background is --surface-2 (#17171a); --surface
+     itself is DARKER than that (#121214) and reads as a recess, not a lift —
+     measured contrast against the panel is only 1.05:1, this project's exact
+     invisible-highlight failure mode. --line-2 is used instead: 1.45:1
+     against the panel. box-shadow inset, not border-left/padding, so the
+     highlight adds no layout shift on the row it lands on up to 4x a second
+     while the video plays. */
+  .ref-sec.on {
+    background: var(--line-2); border-radius: var(--r-inner);
+    box-shadow: inset 2px 0 0 0 var(--good);
+  }
+  .ref-sec.on .ref-t { color: var(--text); }
+  .ref-sec { transition: background .18s ease; }
+  @media (prefers-reduced-motion: reduce) { .ref-sec { transition: none; } }
+  /* .ref-t is now a <button> (2026-08-24, so a section timestamp can seek the
+     video) — these resets make the button visually inert; the font/color/
+     padding rules after them are unchanged from when it was a <span>. */
+  .ref-t {
+    background: none; border: 0; padding: 0; font: inherit; color: inherit;
+    text-align: left; cursor: pointer;
+    font-family: var(--mono); font-size: var(--fs-11); color: var(--text-3); padding-top: 3px;
+  }
+  .ref-seek:hover { color: var(--text); }
   .ref-do { font-size: var(--fs-125); line-height: 1.5; color: var(--text); margin: 0; }
   /* pre-line: on-screen text routinely arrives with real line breaks, and
      collapsing them loses the card layout the creator is reproducing — same
@@ -1323,6 +1378,23 @@
     .bp-item.ref-panel {
       align-self: start; position: sticky; top: 108px;
       max-height: calc(100svh - 132px); overflow-y: auto; z-index: 1;
+    }
+    /* THE PLAYER STAYS PUT WHILE THE SECTIONS SCROLL UNDER IT. The panel is
+       already its own scroll container at this width (max-height + overflow-y
+       above), so `top: 0` sticks to the top of THAT box, not to the page.
+       ONLY AT THIS WIDTH. Below the breakpoint the panel is not a scroll
+       container, the nearest one is #pane-scroll, and a sticky player would
+       pin itself under the sticky .pane-head and float over the script.
+       KNOWN, AND NOT A BUG TO FIX: .bp-body runs `bp-open`, a 190ms transform
+       animation, and a live transform makes .bp-body a containing block — so
+       for the first 190ms after the card opens the player sticks to .bp-body
+       instead of the panel. It settles when the animation ends. Do not remove
+       the reveal to "fix" it.
+       The background is the panel's own --surface-2, so the sections pass
+       behind the player rather than showing through it. */
+    .ref-play {
+      position: sticky; top: 0; z-index: 1;
+      background: var(--surface-2); margin: 0; padding-bottom: 12px;
     }
   }
   /* A library row carries two chips, a date and a link, which on a phone leaves

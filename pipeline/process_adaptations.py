@@ -419,6 +419,68 @@ def upload_cover(key, name, blob):
     return f"{SB_URL}/storage/v1/object/public/{path}"
 
 
+CLIP_BUCKET = "lynxr-clips"
+CLIP_WIDTH = int(envcfg.get("CLIP_WIDTH", "480"))
+CLIP_CRF = int(envcfg.get("CLIP_CRF", "30"))
+CLIP_MAXRATE = envcfg.get("CLIP_MAXRATE", "700k")
+
+
+def make_clip(media, dest):
+    """A downscaled, self-hosted copy of the source video, so the creator app
+    can play the original beside its script in one native <video> instead of
+    a cross-origin embed carrying the platform's own chrome.
+
+    480p / CRF 30 / 700kbps was chosen after measuring real creator videos:
+    it is 32% of the original's size and the painted player is only
+    ~300-430 CSS px wide, where 480x854 is ample. `-movflags +faststart`
+    is load-bearing — it moves the moov atom to the front of the file, which
+    is what makes `preload="metadata"` cheap and lets playback start before
+    the whole file has arrived. Do not drop it.
+    """
+    out = dest / "clip.mp4"
+    r = subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", str(media),
+         "-vf", f"scale='min({CLIP_WIDTH},iw)':-2:flags=bicubic",
+         "-c:v", "libx264", "-profile:v", "main", "-preset", "veryfast",
+         "-crf", str(CLIP_CRF), "-maxrate", CLIP_MAXRATE, "-bufsize", "1400k", "-g", "60",
+         "-c:a", "aac", "-b:a", "64k", "-ac", "1",
+         "-movflags", "+faststart", str(out)],
+        capture_output=True, timeout=300)
+    if r.returncode != 0 or not out.exists() or out.stat().st_size < 10000:
+        return None
+    return out.read_bytes()
+
+
+def upload_clip(key, name, blob):
+    """Put the clip in a PUBLIC bucket and return its URL.
+
+    Public for the same reason as upload_cover(): a signed URL would expire
+    and leave the row blank later, and this repo's posture is unauthenticated-
+    by-design for content-hashed object keys — see clips_bucket.sql. The
+    object key is `sha1(canon_url)[:20]`, the same content-address scheme the
+    cover uses, so the bytes at a given path never change meaning — which is
+    what makes the long cache-control below safe.
+
+    Measured 2026-08-24: Supabase's Smart CDN caches these objects and
+    returns `cf-cache-status: HIT` even when the origin says
+    `cache-control: no-cache` (the covers do exactly that today), so the
+    *cached* egress quota is what gets spent either way. This header's job is
+    the extra step: making the BROWSER reuse the file so a second view of the
+    same script costs zero requests, not just zero body bytes.
+    """
+    path = f"{CLIP_BUCKET}/{name}.mp4"
+    req = urllib.request.Request(f"{SB_URL}/storage/v1/object/{path}", method="POST")
+    req.add_header("apikey", key)
+    req.add_header("Authorization", f"Bearer {key}")
+    req.add_header("Content-Type", "video/mp4")
+    req.add_header("x-upsert", "true")     # a re-run should replace, not 409
+    req.add_header("cache-control", "public, max-age=31536000, immutable")
+    req.data = blob
+    with urllib.request.urlopen(req, timeout=120, context=SSL_CTX) as r:
+        r.read()
+    return f"{SB_URL}/storage/v1/object/public/{path}"
+
+
 def now_iso():
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -1574,7 +1636,7 @@ def cached_source(key, url):
     """
     q = urllib.parse.quote(canon_url(url), safe="")
     rows = sb(key, f"/rest/v1/lynxr_sources?canonical_url=eq.{q}"
-                   "&select=platform,script,shots,tags,format&limit=1")
+                   "&select=platform,script,shots,tags,format,clip&limit=1")
     r = (rows or [None])[0]
     if not r or not r.get("format") or not r.get("script"):
         return None
@@ -1604,6 +1666,7 @@ def upsert_source(key, a):
         "shots": src.get("shots"),
         "tags": src.get("tags"),
         "format": a.get("format"),
+        "clip": src.get("clip"),
     }
     # METRICS. fetch_meta() already ran for this video — its result is sitting in
     # src["meta"], fetched for lynxr_videos — so this costs nothing extra: no
@@ -2050,6 +2113,10 @@ def fill_source(a, aclient, key, notes, timings, publish=None):
                 "duration": (cached.get("script") or {}).get("duration"),
                 "cover": (f"{SB_URL}/storage/v1/object/public/{COVER_BUCKET}/"
                          + hashlib.sha1(canon_url(url).encode()).hexdigest()[:20] + ".jpg"),
+                # Read from the row, NOT synthesised from the hash like `cover`
+                # above — an older row genuinely has no clip, and a guessed
+                # URL would 404 into a broken player.
+                "clip": cached.get("clip"),
             }
             a["format"] = cached.get("format")
             return True
@@ -2175,12 +2242,32 @@ def fill_source(a, aclient, key, notes, timings, publish=None):
                 notes.append(f"tags failed: {api_reason(e)}")
                 mark_ai_fail(a, api_reason(e))
 
+        # THE CLIP HIDES BEHIND THE MODEL CALLS. do_shots/do_tags are 7-57s of
+        # API latency (measured); make_clip is 0.2-1.6s of local CPU on the
+        # same `media`/`td` this pool already has open. Encoding it here costs
+        # the creator's wait nothing in the normal case. Putting it beside the
+        # cover above — before this pool — would put it on the critical path
+        # instead. Do not move it there.
+        def do_clip():
+            try:
+                with stage(timings, "clip"):
+                    blob = make_clip(media, td)
+                    if blob:
+                        src["clip"] = upload_clip(
+                            key, hashlib.sha1(canon_url(url).encode()).hexdigest()[:20], blob)
+            except Exception as e:  # noqa: BLE001
+                log.warning("  -> no clip: %s", api_reason(e))
+                note_soft_fail(a, "clip", e)
+            else:
+                clear_soft_fail(a, "clip")
+
         # Independent of each other: analyze_frames reads `frames`; the tag
-        # call reads user_content(row, t) plus frames[0]. Neither reads the
-        # other's output — only source_digest(), which runs after both, needs
-        # them together. Saves ~5.5s outright, no model or prompt change.
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            list(pool.map(lambda f: f(), (do_shots, do_tags)))
+        # call reads user_content(row, t) plus frames[0]; do_clip reads only
+        # `media`/`td`. None reads another's output — only source_digest(),
+        # which runs after all three, needs shots+tags together. Saves ~5.5s
+        # outright on shots/tags alone, no model or prompt change.
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            list(pool.map(lambda f: f(), (do_shots, do_tags, do_clip)))
 
     return True
 
@@ -3026,6 +3113,8 @@ def main():
                          "only has to be recovered, not survived for 25 minutes)")
     ap.add_argument("--backfill-covers", action="store_true",
                     help="give existing scripts a cover frame and exit. No model calls.")
+    ap.add_argument("--backfill-clips", action="store_true",
+                    help="give existing scripts a playable clip and exit. No model calls.")
     ap.add_argument("--warm-prefixes", action="store_true",
                     help="write the three cached prefixes and exit. Fired by worker.py in a "
                          "daemon thread at boot, before any discovery or database read.")
@@ -3166,6 +3255,46 @@ def main():
                 # matches on id and leaves everything it does not recognise.
                 graft_adaptations(key, row["id"], touched)
         log.info("backfill done: %d covered, %d failed", done, failed)
+        return
+
+    if args.backfill_clips:
+        # Scripts written before clips existed still fall back to the
+        # embedded/cross-platform player, which is the whole problem clips
+        # solve. Re-fetching just the video and transcoding one proxy costs
+        # nothing but bandwidth and local CPU — no model call, no cap spend,
+        # and the script itself is left exactly as it is. Same full-scan
+        # shape as --backfill-covers above, including trash: a manual one-off
+        # across the whole corpus by design, unrelated to the discovery
+        # prefilter above. Do not "fix" it onto candidate_creators().
+        done = failed = 0
+        for row in sb(key, "/rest/v1/lynxr_creators?select=id,data"):
+            data, touched = row["data"], []
+            for a in (data.get("adaptations") or []) + (data.get("trash") or []):
+                src = a.get("source") or {}
+                if src.get("clip") or not a.get("sourceUrl"):
+                    continue
+                try:
+                    with tempfile.TemporaryDirectory() as td_s:
+                        td = Path(td_s)
+                        media, err = download_video(str(a["sourceUrl"]).strip(), td)
+                        if not media:
+                            raise RuntimeError(err or "download failed")
+                        blob = make_clip(media, td)
+                        if not blob:
+                            raise RuntimeError("no clip")
+                        a.setdefault("source", {})["clip"] = upload_clip(
+                            key, hashlib.sha1(canon_url(a["sourceUrl"]).encode()).hexdigest()[:20], blob)
+                    touched.append(a)
+                    done += 1
+                    log.info("  clip: %s", a["sourceUrl"][:60])
+                except Exception as e:  # noqa: BLE001
+                    failed += 1
+                    log.warning("  no clip for %s — %s", a["sourceUrl"][:50], api_reason(e))
+            if touched:
+                # Trash entries are grafted by id the same way; graft_adaptations
+                # matches on id and leaves everything it does not recognise.
+                graft_adaptations(key, row["id"], touched)
+        log.info("backfill done: %d clipped, %d failed", done, failed)
         return
 
     # Ask Postgres which creators MIGHT have work (2 bytes) instead of

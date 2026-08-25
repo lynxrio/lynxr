@@ -1198,6 +1198,11 @@ function frameHtml(row) {
       </button>` : ""}
     </div>`;
 }
+// The creator twin of this function, embedForUrl(), was removed 2026-08-24
+// when the creator app moved to self-hosted 480p clips played in a native
+// <video> — see creator.js's refPlayHtml(). No file needs to be kept in sync
+// with this one any more; the agency shelf, modal and viewer below still use
+// embeds and this function is unchanged.
 function embedFor(row) {
   const url = String(row.url || "");
   const p = (row.platform || "").toLowerCase();

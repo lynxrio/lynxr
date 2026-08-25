@@ -1546,6 +1546,17 @@ function openDisclosures(root = document) {
        panel open every time the script was open. */
     refs: [...root.querySelectorAll("details.ref-panel[open]")]
       .map((d) => d.dataset.refid).filter(Boolean),
+    /* THE PLAYHEAD OF EVERY ORIGINAL STILL PLAYING (or paused mid-way).
+       renderPane() replaces #pane-body wholesale, so the <video> element is
+       destroyed either way — but unlike the iframe this replaced, a <video>
+       reports where it was, so playback survives a repaint instead of
+       restarting at 0:00. A repaint is not on a clock: it only runs when
+       paneSig() actually changed (see startLiveSync), i.e. a script finished
+       or a sync landed, which is a moment the pane is expected to move
+       anyway. */
+    plays: [...root.querySelectorAll("video.ref-video[data-refvid]")]
+      .filter((v) => v.currentTime > 0 || !v.paused)
+      .map((v) => ({ id: v.dataset.refvid, t: v.currentTime, playing: !v.paused })),
   };
 }
 function restoreDisclosures(state, root = document) {
@@ -1576,6 +1587,26 @@ function restoreDisclosures(state, root = document) {
   root.querySelectorAll("details.ref-panel[data-refid]").forEach((d) => {
     if (known.has(d.dataset.refid)) d.open = wantRef.has(d.dataset.refid);
   });
+  /* LAST, so it runs against the open/closed state the loops above just set.
+     A video inside a <details> that ended up shut is skipped rather than
+     started invisibly. Navigating to another view goes through renderPane()
+     too, but the state is captured from the OLD pane and none of these ids
+     exist in the new one — so this restores a video, it never starts one. */
+  for (const p of state.plays || []) {
+    root.querySelectorAll(`video.ref-video[data-refvid="${CSS.escape(p.id)}"]`).forEach((v) => {
+      if (v.closest("details:not([open])")) return;   // never start one invisibly
+      const put = () => {
+        try { v.currentTime = p.t; } catch { /* ignore */ }
+        /* play() without a fresh gesture may be refused. It usually is not —
+           the creator pressed play in this document already — but a refusal
+           leaves it paused at the right frame, which is the acceptable
+           outcome and better than the 0:00 restart this replaces. */
+        if (p.playing) v.play().catch(() => {});
+      };
+      if (v.readyState >= 1) put();
+      else v.addEventListener("loadedmetadata", put, { once: true });
+    });
+  }
 }
 
 function renderPane() {
@@ -4951,9 +4982,130 @@ function refFramesNote(a) {
  *  for free — no new motion is introduced.
  *  `open` is always emitted; openDisclosures/restoreDisclosures (below)
  *  preserve whatever the creator does to it across a repaint. */
+/** THE PLAYER, OR AN HONEST WAY TO WATCH IT ANYWAY.
+ *  The "watch on <platform>" link is drawn in BOTH cases, deliberately — it is
+ *  the same rule the agency app records ("every card keeps an open-on-platform
+ *  link as the fallback"), and it is the only recovery this page can offer for
+ *  the failures it cannot see: a private, deleted, age-gated or geo-blocked
+ *  video is unreachable from a self-hosted proxy just as it was from an embed.
+ *  SELF-HOSTED, 2026-08-24: pipeline/process_adaptations.py downloads the
+ *  source with yt-dlp already (fill_source) and now keeps a downscaled 480p
+ *  copy of it in the public lynxr-clips bucket instead of throwing it away —
+ *  see clips_bucket.sql's header for what "public" means here. One native
+ *  <video> replaces the three per-platform iframes: it is inherently uniform
+ *  (no platform chrome, no per-platform aspect class) and `timeupdate` gives
+ *  the section highlight a real playhead, which a cross-origin frame never
+ *  could (measured 2026-08-24: TikTok's undocumented embed bus posts one,
+ *  Instagram's does not, and 24 of 32 live source URLs are Instagram). */
+function refPlayHtml(a) {
+  const clip = (a.source || {}).clip;
+  const href = safeUrl(a.sourceUrl || "");
+  const plat = platformLabel(a.sourceUrl || "");
+  // "Link" is platformLabel's fallback for rows saved before the paste gate
+  // existed. Zero in live data, but "Watch it on Link" must never paint.
+  const named = plat !== "Link";
+  const watch = href ? `<a class="ref-watch" href="${escapeHtml(href)}"
+      target="_blank" rel="noopener noreferrer"
+      >${named ? `Watch it on ${escapeHtml(plat)}` : "Watch the original"} <span aria-hidden="true">↗</span></a>` : "";
+  if (!clip) {
+    // No clip for this entry — it predates the backfill, the transcode
+    // failed (a soft fail, never a lost script), or the source is a shape
+    // fill_source never got media for. Say so plainly rather than drawing a
+    // dead player; the card must not look broken.
+    return href ? `<div class="ref-play ref-play-none">
+      <p class="bp-hint">${named ? `This one can only be watched on ${escapeHtml(plat)}.`
+        : "This one can only be watched where it came from."}</p>${watch}
+    </div>` : "";
+  }
+  const cover = coverUrl({ libraryId: a.libraryId, canon: canonUrl(a.sourceUrl || "") });
+  return `<div class="ref-play">
+    <video class="ref-video" data-refvid="${escapeHtml(a.id)}"
+      src="${escapeHtml(safeUrl(clip))}"
+      ${cover ? `poster="${escapeHtml(cover)}"` : ""}
+      preload="metadata" playsinline controls
+      aria-label="The original video"></video>
+    ${watch}
+  </div>`;
+}
+
+/** PAUSE EVERY OTHER PLAYER — one at a time, across the whole pane.
+ *  Called on a new play, and whenever a card or the panel is collapsed —
+ *  <details> hides its content with display:none and a <video> hidden that
+ *  way KEEPS PLAYING AUDIO, exactly as an iframe did. No `innerHTML` rebuild
+ *  and nothing to reconstruct: a native <video> just pauses in place. */
+function stopRefVideos(root = document, except = null) {
+  root.querySelectorAll("video.ref-video").forEach((v) => {
+    if (v !== except && !v.paused) v.pause();
+  });
+}
+
+/** WHICH SECTION IS PLAYING. Sections are [t, next.t); the last one is
+ *  open-ended. Anything before the first section's t is clamped to 0 —
+ *  refSections already gives speech before the first frame its own opening
+ *  section, but a video whose first shot is at 4.7s with no earlier speech has
+ *  4.7 real seconds belonging to nothing, and a dark list is worse than an
+ *  early one. */
+function refIndexAt(times, t) {
+  if (!times || !times.length) return -1;
+  let i = 0;
+  while (i + 1 < times.length && times[i + 1] <= t) i++;
+  return i;
+}
+
+let REF_HANDS_OFF = 0;
+const HANDS_OFF_MS = 6000;
+
+/** THE ACTIVE SECTION STAYS ON SCREEN — but only where the panel scrolls
+ *  itself. At >=1180px app.css makes .bp-item.ref-panel a scroll container
+ *  (max-height + overflow-y: auto). Below that it is not one, and the
+ *  nearest scroller is #pane-scroll — following the playhead there would
+ *  yank the whole page under the thumb of someone reading. scrollerFor()
+ *  (below) already answers "which ancestor is actually scrolling", so the
+ *  test is one comparison. */
+function followRefSection(li) {
+  if (Date.now() < REF_HANDS_OFF) return;
+  const panel = li.closest("details.ref-panel");
+  if (!panel || scrollerFor(li) !== panel) return;
+  const pr = panel.getBoundingClientRect();
+  const lr = li.getBoundingClientRect();
+  /* .ref-play is position: sticky; top: 0 inside this same box at this width,
+     so a section scrolled to panel.scrollTop exactly would sit UNDERNEATH the
+     player. Same class of bug scrollCardToTop() solves for the sticky
+     .pane-head, and the same fix: measure the sticky element and subtract it. */
+  const play = panel.querySelector(".ref-play");
+  const pad = (play && getComputedStyle(play).position === "sticky"
+    ? Math.round(play.getBoundingClientRect().height) : 0) + 8;
+  if (lr.top >= pr.top + pad && lr.bottom <= pr.bottom) return;   // already visible
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  panel.scrollTo({ top: Math.max(0, Math.round(panel.scrollTop + (lr.top - pr.top) - pad)),
+                   behavior: still ? "auto" : "smooth" });
+}
+
+function seekRefTo(vid, t) {
+  if (!vid || !(t >= 0)) return;
+  REF_HANDS_OFF = 0;                    // an explicit "take me there" re-arms follow
+  const go = () => {
+    try { vid.currentTime = t; } catch { /* seek refused, leave it be */ }
+    if (vid.paused) vid.play().catch(() => { /* autoplay policy said no */ });
+  };
+  /* currentTime before metadata is loaded is a no-op or a throw. preload
+     ="metadata" usually has it by the time a card is readable, but a click one
+     tick after open would otherwise land nowhere and look broken. */
+  if (vid.readyState >= 1) go();
+  else vid.addEventListener("loadedmetadata", go, { once: true });
+}
+
 function referenceHtml(a) {
   const secs = refSections(a);
-  if (!secs.length) return "";
+  const clip = (a.source || {}).clip;
+  /* A PLAYABLE VIDEO IS ENOUGH ON ITS OWN. This used to return "" whenever
+     there were no sections, which was right when the panel was only a shot
+     list — an empty panel reads as a broken one. Now a record with a video but
+     no shots and no transcript (a silent clip the visual pass never got to)
+     still has something worth showing. Measured 2026-08-23: 0 of 27 live
+     adaptations are in that state, so this closes a latent gap rather than
+     changing what anyone sees today. */
+  if (!secs.length && !clip) return "";
   const src = a.source || {};
   const cover = thumbHtml(
     coverUrl({ libraryId: a.libraryId, canon: canonUrl(a.sourceUrl || "") }),
@@ -4961,27 +5113,36 @@ function referenceHtml(a) {
   const note = refFramesNote(a);
   const noSpeechHint = !(src.script || {}).has_speech && Array.isArray(src.shots) && src.shots.length
     ? `<p class="bp-hint">No speech &mdash; this one is carried by what's on screen.</p>` : "";
-  const secsHtml = secs.map((sec) => `
-      <li class="ref-sec">
-        <span class="ref-t">${escapeHtml(lengthLabel(sec.t) || "0:00")}</span>
+  const secsHtml = secs.map((sec, i) => `
+      <li class="ref-sec" data-i="${i}" data-t="${Number(sec.t) || 0}">
+        <button type="button" class="ref-t ref-seek" data-t="${Number(sec.t) || 0}"
+          >${escapeHtml(lengthLabel(sec.t) || "0:00")}<span class="sr-only"> — jump the video here</span></button>
         <div class="ref-sec-body">
           ${sec.visual ? `<p class="ref-do">${escapeHtml(sec.visual)}</p>` : ""}
           ${sec.text ? `<p class="ref-text">“${escapeHtml(sec.text)}”</p>` : ""}
           ${sec.says.length ? `<p class="ref-say">${escapeHtml(sec.says.join(" "))}</p>` : ""}
         </div>
       </li>`).join("");
+  /* THE 40x56 COVER GOES AWAY WHEN THE PLAYER IS THERE. It is the same frame,
+     from the same file — .ref-head's thumbnail and the player's poster — and
+     two copies of one image stacked on top of each other is noise. Without a
+     player it stays exactly as it shipped this morning. */
+  const headBits = (clip ? "" : cover)
+    + (note ? `<p class="ref-note">${escapeHtml(note)}</p>` : "");
+  const head = headBits ? `<div class="ref-head">${headBits}</div>` : "";
   return `<details class="bp-item ref-panel" open data-refid="${escapeHtml(a.id)}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
       <span class="bp-name">The original</span>
     </summary>
     <div class="bp-body">
-      <div class="ref-head">${cover}${note ? `<p class="ref-note">${escapeHtml(note)}</p>` : ""}</div>
+      ${refPlayHtml(a)}
+      ${head}
       ${noSpeechHint}
-      <ol class="ref-secs">${secsHtml}</ol>
-      <div class="bp-actions">
+      ${secsHtml ? `<ol class="ref-secs">${secsHtml}</ol>` : ""}
+      ${secsHtml ? `<div class="bp-actions">
         <button type="button" class="ghost ad-copy" data-adid="${escapeHtml(a.id)}" data-ref="1">Copy</button>
-      </div>
+      </div>` : ""}
     </div>
   </details>`;
 }
@@ -4992,10 +5153,17 @@ function referenceHtml(a) {
  *  card then looks exactly as it does today; an empty panel would read as a
  *  broken one. Measured on the 2026-08-23 backup: 5 of 47 records carry no
  *  `source` at all. */
-function refSplitHtml(a, scriptHtml) {
+function refSplitHtml(a, scriptHtml, footHtml = "") {
   const ref = referenceHtml(a);
-  if (!ref) return scriptHtml;
-  return `<div class="ref-split"><div class="ref-main">${scriptHtml}</div>${ref}</div>`;
+  if (!ref) return scriptHtml + footHtml;
+  /*  The foot goes UNDER the split, never inside .ref-main. At >=1180px
+      app.css turns .ref-split into minmax(0,1.4fr) minmax(0,1fr), so an
+      actions row rendered inside the left column right-aligns to 58% of the
+      card — which is exactly what put copy/edit/delete mid-card from the day
+      the reference panel shipped (2026-08-23). .bp-icons { margin-left: auto }
+      was never at fault; its container was. Held out here the row spans both
+      columns and the icons return to the card's own right edge. */
+  return `<div class="ref-split"><div class="ref-main">${scriptHtml}</div>${ref}</div>${footHtml}`;
 }
 
 /** THE VIDEO'S OWN WORDS, for the clipboard. scriptText() above builds from
@@ -5611,7 +5779,11 @@ function adaptationHtml(a, liveName, opts = {}) {
       ${/* format.why_it_works is still extracted and stored — it is useful to the
             model and to step 2's clustering — it just isn't shown. It explains the
             format to someone who already has the script, which is analysis nobody
-            asked for at the bottom of the thing they came to film. */""}
+            asked for at the bottom of the thing they came to film. */""}`;
+    /*  Everything from here down is the card's FOOTER, held in its own literal
+        so refSplitHtml can place it under both columns rather than inside the
+        script column. See the comment on refSplitHtml for why. */
+    const foot = `
       <div class="bp-actions">
         ${/* The teleprompter leads this row, and is the only labelled button
               here: copy/edit/delete are things you do TO the script, this is
@@ -5666,7 +5838,10 @@ function adaptationHtml(a, liveName, opts = {}) {
         <div class="chips lib-also">${reuse.map((b) => `
           <button type="button" class="chip pick ad-also" data-adid="${id}" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>` : ""}`;
-    body = refSplitHtml(a, script);
+    /*  While EDITING the row holds Save changes / Cancel, which belong beside
+        the textarea they act on — those stay inside .ref-main. Only a finished
+        card's icon row moves under the split. */
+    body = EDITING.has(a.id) ? refSplitHtml(a, script + foot) : refSplitHtml(a, script, foot);
   } else if (asOriginal || !a.brandId) {
     /* THE ORIGINAL SCRIPT — a finished result, not a failure.
        This branch used to be shared with "the rewrite failed", so a creator who
@@ -6004,7 +6179,7 @@ function wireAdaptationCards(host) {
     return !!(a && isWriting(a));
   };
   cards.forEach((d) => d.addEventListener("toggle", () => {
-    if (!d.open) return;
+    if (!d.open) { stopRefVideos(d); return; }   // a collapsed card must not keep talking
     if (writing(d)) return;            // a clock opening must not shut your script
     cards.forEach((other) => {         // and your script opening must not shut a clock
       if (other !== d && !writing(other)) other.open = false;
@@ -6031,6 +6206,92 @@ function wireAdaptationCards(host) {
       setTimeout(() => { btn.innerHTML = face; btn.classList.remove("ok"); }, 1400);
     } catch { /* clipboard denied */ }
   }));
+
+  /* THE ORIGINAL, PLAYING: follow the playhead, keep it in view, and let a
+     click on a section jump the video there. One block because all three
+     read the same `vid`/`lis`/`times` per panel. */
+  host.querySelectorAll("video.ref-video[data-refvid]").forEach((vid) => {
+    const panel = vid.closest("details.ref-panel");
+    const lis = panel ? [...panel.querySelectorAll("li.ref-sec")] : [];
+    const times = lis.map((li) => Number(li.dataset.t) || 0);
+    vid._refIdx = -1;
+
+    /* timeupdate fires ~4x a second. MOVE A CLASS, never re-render: this list
+       is built by innerHTML and rebuilding it four times a second would
+       destroy the focus ring, any live text selection and every seek
+       handler. */
+    const mark = () => {
+      const i = refIndexAt(times, vid.currentTime);
+      if (i === vid._refIdx) return;
+      if (lis[vid._refIdx]) {
+        lis[vid._refIdx].classList.remove("on");
+        lis[vid._refIdx].removeAttribute("aria-current");
+      }
+      vid._refIdx = i;
+      if (lis[i]) {
+        lis[i].classList.add("on");
+        lis[i].setAttribute("aria-current", "true");
+        followRefSection(lis[i]);
+      }
+    };
+    vid.addEventListener("timeupdate", mark);
+    /* A seek can land between two timeupdates, and `play` after a repaint-
+       restored currentTime fires no timeupdate until the first frame
+       decodes. `ended` deliberately does NOT clear the highlight — the last
+       section staying lit reads better than everything going dark at 0:00
+       of nothing. */
+    vid.addEventListener("seeked", mark);
+    vid.addEventListener("play", mark);
+    vid.addEventListener("loadedmetadata", mark);
+
+    /* ONE AT A TIME, across the whole pane — the rule the iframe player
+       already had. A second video starting must silence the first. */
+    vid.addEventListener("play", () => stopRefVideos(document, vid));
+  });
+
+  /* AUTO-SCROLL, hands off when a person is scrolling themselves. wheel /
+     touchmove / pointerdown are the three gestures that are unambiguously a
+     person, and none of them fires for a programmatic scrollTo — which is
+     why this needs no is-it-me flag. pointerdown covers the scrollbar drag,
+     which fires neither of the other two. */
+  host.querySelectorAll("details.ref-panel[data-refid]").forEach((panel) => {
+    const off = () => { REF_HANDS_OFF = Date.now() + HANDS_OFF_MS; };
+    panel.addEventListener("wheel", off, { passive: true });
+    panel.addEventListener("touchmove", off, { passive: true });
+    panel.addEventListener("pointerdown", off);
+    panel.addEventListener("keydown", (e) => {
+      if (/^(Arrow|Page|Home|End)/.test(e.key) || e.key === " ") off();
+    });
+
+    const vid = panel.querySelector("video.ref-video");
+    if (!vid) return;
+    // The keyboard/AT route: a real button on each timestamp.
+    panel.querySelectorAll("button.ref-seek").forEach((b) =>
+      b.addEventListener("click", () => seekRefTo(vid, Number(b.dataset.t) || 0)));
+    /* The pointer route: the owner asked for the SECTION to be clickable, not
+       just its timestamp. Delegated, and guarded on the selection — these
+       sections are text a creator copies by hand, and a drag-select that
+       ended inside a section must not also jump the video. Note the
+       ordering that makes hands-off work: `pointerdown` above sets the
+       hands-off window, then this `click` clears it — a click on a section
+       therefore always ends with follow re-armed. */
+    panel.addEventListener("click", (e) => {
+      if (e.target.closest("button, a")) return;              // already handled
+      const li = e.target.closest("li.ref-sec");
+      if (!li) return;
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) return;                    // they were selecting text
+      seekRefTo(vid, Number(li.dataset.t) || 0);
+    });
+  });
+
+  /* CLOSING "The original" STOPS ITS VIDEO. Wired per-element because `toggle`
+     does not bubble — the same reason the one-script-at-a-time rule below is.
+     data-refid, matching openDisclosures: this panel is keyed separately from
+     the script card it sits beside. */
+  host.querySelectorAll("details.ref-panel[data-refid]").forEach((d) =>
+    d.addEventListener("toggle", () => { if (!d.open) stopRefVideos(d); }));
+
   host.querySelectorAll(".ad-retry").forEach((btn) => btn.addEventListener("click", () => {
     const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
     if (!a) return;
