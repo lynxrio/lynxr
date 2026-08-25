@@ -1556,7 +1556,11 @@ function openDisclosures(root = document) {
        anyway. */
     plays: [...root.querySelectorAll("video.ref-video[data-refvid]")]
       .filter((v) => v.currentTime > 0 || !v.paused)
-      .map((v) => ({ id: v.dataset.refvid, t: v.currentTime, playing: !v.paused })),
+      /* `muted` rides along for the same reason `t` does: it is a state the
+         creator set by hand, and a repaint that discards it turns the sound
+         back on under them. */
+      .map((v) => ({ id: v.dataset.refvid, t: v.currentTime, playing: !v.paused,
+                     muted: v.muted })),
   };
 }
 function restoreDisclosures(state, root = document) {
@@ -1596,6 +1600,7 @@ function restoreDisclosures(state, root = document) {
     root.querySelectorAll(`video.ref-video[data-refvid="${CSS.escape(p.id)}"]`).forEach((v) => {
       if (v.closest("details:not([open])")) return;   // never start one invisibly
       const put = () => {
+        v.muted = !!p.muted;
         try { v.currentTime = p.t; } catch { /* ignore */ }
         /* play() without a fresh gesture may be refused. It usually is not —
            the creator pressed play in this document already — but a refusal
@@ -1611,6 +1616,11 @@ function restoreDisclosures(state, root = document) {
 
 function renderPane() {
   const open = openDisclosures();
+  /* Let anything holding a document-level listener on behalf of a node that is
+     about to be destroyed take it off again — see wireRefControls' fullscreen
+     block. renderPaneInner() replaces #pane-body wholesale. */
+  document.querySelectorAll(".ref-media").forEach((m) =>
+    m.dispatchEvent(new Event("ref-teardown")));
   renderPaneInner();
   restoreDisclosures(open);
   paintEta(document);      // every view's progress blocks, filled in one place
@@ -4853,6 +4863,25 @@ function scriptEditor(a, ad, silent) {
     </div>`;
 }
 
+/** THE SECOND A BEAT STARTS, off the `t` string the model already writes.
+ *  NOTHING NEW IS FETCHED, QUEUED OR STORED — this value has been on every
+ *  beat since the adaptation shipped; the UI simply never read it.
+ *
+ *  MEASURED, 2026-08-24, across all 27 live scripts / 225 beats in the
+ *  production backup: 223 are "0-4.4s" (start-end) and 2 are a bare "23s" /
+ *  "91s", both the LAST beat of their script. Starts never go backwards in any
+ *  script, which is what makes the start-based lookup in refIndexAt correct
+ *  even for the one row whose ENDS overlap ("27-33s" then "30-33s").
+ *
+ *  FAILS SOFT, DELIBERATELY. Anything else returns null, the beat gets no
+ *  data-t, and it simply never lights up — a beat that never highlights is
+ *  honest, a beat that highlights at the wrong moment is a lie about the
+ *  video the creator is watching. */
+function beatStart(t) {
+  const m = /^\s*(\d+(?:\.\d+)?)\s*(?:-\s*\d+(?:\.\d+)?\s*)?s\s*$/.exec(String(t ?? ""));
+  return m ? Number(m[1]) : null;
+}
+
 function beatRow(bt, carry, silent) {
   let say = (bt.say || "").trim();
   let doIt = (bt.do || "").trim();
@@ -4894,7 +4923,14 @@ function beatRow(bt, carry, silent) {
   const rows = [row("SAY", say), row("DO", doIt, !silent),
                 silent ? row("SHOW", show, false) : ""].filter(Boolean);
   if (!rows.length) return "";
-  return `<li class="bp-beat">${rows.join("")}</li>`;
+  /* data-t IS THE MAPPING THE OWNER ASKED FOR — "it should match up the
+     equivilent of the original video". wireAdaptationCards reads it off the
+     RENDERED <li>s rather than off ad.beats, so a beat that renders no row at
+     all (every line blank, or every line carried over from the beat before)
+     cannot slide the whole list out of step with the playhead. Absent when
+     beatStart() could not parse `t`; see beatStart. */
+  const st = beatStart(bt.t);
+  return `<li class="bp-beat"${st === null ? "" : ` data-t="${st}"`}>${rows.join("")}</li>`;
 }
 
 function scriptText(a) {
@@ -4914,62 +4950,6 @@ function scriptText(a) {
   return lines.join("\n");
 }
 
-/** THE ORIGINAL AS SECTIONS, off data the record already carries.
- *  Costs nothing: source.shots and source.script.segments were grafted onto
- *  this record by the worker and are already in memory. Nothing is fetched,
- *  nothing is queued, no allowance is spent.
- *  Shots are the section markers — they are the only per-moment VISUAL fact
- *  stored — and transcript segments file under the shot whose window they
- *  start in. Both carry real seconds: shots[].t is the ffmpeg seek that
- *  produced the frame, segments are Whisper's [start, end, text]. */
-function refSections(a) {
-  const src = a.source || {};
-  const segs = (Array.isArray((src.script || {}).segments) ? src.script.segments : [])
-    .filter((s) => Array.isArray(s) && s.length >= 3)
-    .map(([st, , txt]) => ({ t: Number(st) || 0, text: String(txt || "").trim() }))
-    .filter((s) => s.text)
-    .sort((x, y) => x.t - y.t);
-  const shots = (Array.isArray(src.shots) ? src.shots : [])
-    .filter(Boolean)
-    .map((s) => ({ t: Number(s.t) || 0, visual: String(s.visual || "").trim(),
-                   text: String(s.onscreen_text || "").trim() }))
-    .sort((x, y) => x.t - y.t);
-  if (!segs.length && !shots.length) return [];
-  // NO SHOTS: one section per spoken line, which is exactly the timed
-  // transcript the Original scripts tab already draws. Folding them into a
-  // single section would turn a script into a paragraph.
-  if (!shots.length) return segs.map((s) => ({ t: s.t, visual: "", text: "", says: [s.text] }));
-  const secs = [];
-  // Speech BEFORE the first frame gets its own opening section. Measured: one
-  // live row has its first frame at 4.7s, so 4.7 seconds of words would
-  // otherwise be filed under a direction that had not happened yet.
-  if (segs.length && segs[0].t < shots[0].t - 0.05) {
-    secs.push({ t: segs[0].t, visual: "", text: "", says: [] });
-  }
-  for (const sh of shots) secs.push({ t: sh.t, visual: sh.visual, text: sh.text, says: [] });
-  for (const sg of segs) {
-    let i = secs.length - 1;
-    while (i > 0 && secs[i].t > sg.t + 0.05) i--;
-    secs[i].says.push(sg.text);
-  }
-  return secs.filter((s) => s.visual || s.text || s.says.length);
-}
-
-/** "Frames were read up to 0:09 of 1:33." — a FACT, drawn only when it is
- *  needed. analyze_visuals.frame_times() takes the first six Whisper segment
- *  starts, so on a talky video every frame lands in the opening seconds:
- *  measured across the 23 videos in the 2026-08-23 backup the shot list
- *  covers a median 60% of the video and under half of it on 10 of 23. Without
- *  this line the panel would imply the video ends where the directions do. */
-function refFramesNote(a) {
-  const shots = (a.source || {}).shots || [];
-  if (!Array.isArray(shots) || !shots.length) return "";
-  const last = Math.max(...shots.map((s) => Number(s.t) || 0));
-  const dur = videoSeconds({ rec: a });
-  if (!(dur > 0) || last >= dur * 0.8) return "";
-  return `Frames were read up to ${lengthLabel(last)} of ${lengthLabel(dur)}.`;
-}
-
 /** THE PANEL ITSELF — the original's sections, rendered beside/under the
  *  script inside the same card. Returns "" when there is nothing to show
  *  (refSplitHtml then leaves the script exactly as it was).
@@ -4983,11 +4963,13 @@ function refFramesNote(a) {
  *  `open` is always emitted; openDisclosures/restoreDisclosures (below)
  *  preserve whatever the creator does to it across a repaint. */
 /** THE PLAYER, OR AN HONEST WAY TO WATCH IT ANYWAY.
- *  The "watch on <platform>" link is drawn in BOTH cases, deliberately — it is
- *  the same rule the agency app records ("every card keeps an open-on-platform
- *  link as the fallback"), and it is the only recovery this page can offer for
- *  the failures it cannot see: a private, deleted, age-gated or geo-blocked
- *  video is unreachable from a self-hosted proxy just as it was from an embed.
+ *  THE "watch on <platform>" LINK IS THE NO-CLIP FALLBACK, AND ONLY THAT.
+ *  Owner, 2026-08-24: "you can remove this", pointing at it under a working
+ *  player — where the clip plays right here it was a second route to what the
+ *  player already does. With NO clip it stays, because it is the only recovery
+ *  this page can offer for the failures it cannot see: a private, deleted,
+ *  age-gated or geo-blocked video is unreachable from a self-hosted copy just
+ *  as it was from an embed, and the card would otherwise be a dead end.
  *  SELF-HOSTED, 2026-08-24: pipeline/process_adaptations.py downloads the
  *  source with yt-dlp already (fill_source) and now keeps a downscaled 480p
  *  copy of it in the public lynxr-clips bucket instead of throwing it away —
@@ -5000,14 +4982,14 @@ function refFramesNote(a) {
 function refPlayHtml(a) {
   const clip = (a.source || {}).clip;
   const href = safeUrl(a.sourceUrl || "");
-  const plat = platformLabel(a.sourceUrl || "");
-  // "Link" is platformLabel's fallback for rows saved before the paste gate
-  // existed. Zero in live data, but "Watch it on Link" must never paint.
-  const named = plat !== "Link";
-  const watch = href ? `<a class="ref-watch" href="${escapeHtml(href)}"
+  if (!clip) {
+    const plat = platformLabel(a.sourceUrl || "");
+    // "Link" is platformLabel's fallback for rows saved before the paste gate
+    // existed. Zero in live data, but "Watch it on Link" must never paint.
+    const named = plat !== "Link";
+    const watch = href ? `<a class="ref-watch" href="${escapeHtml(href)}"
       target="_blank" rel="noopener noreferrer"
       >${named ? `Watch it on ${escapeHtml(plat)}` : "Watch the original"} <span aria-hidden="true">↗</span></a>` : "";
-  if (!clip) {
     // No clip for this entry — it predates the backfill, the transcode
     // failed (a soft fail, never a lost script), or the source is a shape
     // fill_source never got media for. Say so plainly rather than drawing a
@@ -5018,13 +5000,79 @@ function refPlayHtml(a) {
     </div>` : "";
   }
   const cover = coverUrl({ libraryId: a.libraryId, canon: canonUrl(a.sourceUrl || "") });
+  /* LYNXR'S OWN CONTROLS, 2026-08-24. `controls` is gone: the browser's default
+     chrome was the one part of this card that did not look like the app, and it
+     looked different on every browser.
+     THE STRUCTURE IS LOAD-BEARING, not decoration:
+       .ref-dock   keeps the layout box. When .ref-media goes position: fixed as
+                   the mini-player, this is the element that still occupies the
+                   space, and it is the IntersectionObserver's target — observing
+                   .ref-media itself would make it permanently "visible" the
+                   instant it docked and flutter forever.
+       .ref-media  the thing that floats. Video + bar, so the corner box gets
+                   controls without a second implementation of them.
+       .ref-bar    ONE bar with two states. Below the video normally; absolutely
+                   positioned over its foot, with the scrubber/time/mute/full
+                   dropped and Close added, in the mini state (see app.css).
+     data-refvid stays on the <video> and only there — stopRefVideos,
+     openDisclosures/restoreDisclosures and wireAdaptationCards all key on it. */
   return `<div class="ref-play">
-    <video class="ref-video" data-refvid="${escapeHtml(a.id)}"
-      src="${escapeHtml(safeUrl(clip))}"
-      ${cover ? `poster="${escapeHtml(cover)}"` : ""}
-      preload="metadata" playsinline controls
-      aria-label="The original video"></video>
-    ${watch}
+    <div class="ref-dock">
+      <div class="ref-media">
+        <video class="ref-video" data-refvid="${escapeHtml(a.id)}"
+          src="${escapeHtml(safeUrl(clip))}"
+          ${cover ? `poster="${escapeHtml(cover)}"` : ""}
+          preload="metadata" playsinline
+          aria-label="The original video"></video>
+        <span class="ref-badge" aria-hidden="true"><svg viewBox="0 0 24 24"
+          fill="currentColor"><path d="M9 6.5l9 5.5-9 5.5z"/></svg></span>
+        <div class="ref-bar">
+          <div class="ref-scrub">
+            <div class="ref-rail" aria-hidden="true"><i class="ref-rail-fill"></i></div>
+            <input class="ref-seek" type="range" min="0" max="100" step="0.01" value="0"
+              disabled aria-label="Seek through the original"
+              aria-valuetext="0:00 of unknown length">
+          </div>
+          <div class="ref-btns">
+            <button type="button" class="ghost icon-only ref-btn ref-toggle"
+              aria-label="Play the original" title="Play">
+              <svg class="ico icon-play" viewBox="0 0 24 24" fill="currentColor"
+                aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+              <svg class="ico icon-pause" viewBox="0 0 24 24" fill="currentColor"
+                aria-hidden="true"><path d="M7 5h3.4v14H7zm6.6 0H17v14h-3.4z"/></svg>
+              <svg class="ico icon-wait spin" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/></svg>
+            </button>
+            <span class="ref-time">0:00 / --:--</span>
+            <button type="button" class="ghost icon-only ref-btn ref-mute"
+              aria-label="Mute the original" title="Mute">
+              <svg class="ico icon-loud" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zM17 9.5a3.5 3.5 0 0 1 0 5"/></svg>
+              <svg class="ico icon-quiet" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zM17 10l4 4m0-4l-4 4"/></svg>
+            </button>
+            <button type="button" class="ghost icon-only ref-btn ref-full" hidden
+              aria-label="Full screen" title="Full screen">
+              <svg class="ico icon-in" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+              <svg class="ico icon-out" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+            </button>
+            <button type="button" class="ghost icon-only ref-btn ref-close" hidden
+              aria-label="Close the mini player" title="Close">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" aria-hidden="true"
+                ><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -5041,10 +5089,8 @@ function stopRefVideos(root = document, except = null) {
 
 /** WHICH SECTION IS PLAYING. Sections are [t, next.t); the last one is
  *  open-ended. Anything before the first section's t is clamped to 0 —
- *  refSections already gives speech before the first frame its own opening
- *  section, but a video whose first shot is at 4.7s with no earlier speech has
- *  4.7 real seconds belonging to nothing, and a dark list is worse than an
- *  early one. */
+ *  Every live script's first beat starts at 0.0s (measured, 27 of 27), so the
+ *  clamp is defence in depth rather than a case that fires today. */
 function refIndexAt(times, t) {
   if (!times || !times.length) return -1;
   let i = 0;
@@ -5055,34 +5101,80 @@ function refIndexAt(times, t) {
 let REF_HANDS_OFF = 0;
 const HANDS_OFF_MS = 6000;
 
-/** THE ACTIVE SECTION STAYS ON SCREEN — but only where the panel scrolls
- *  itself. At >=1180px app.css makes .bp-item.ref-panel a scroll container
- *  (max-height + overflow-y: auto). Below that it is not one, and the
- *  nearest scroller is #pane-scroll — following the playhead there would
- *  yank the whole page under the thumb of someone reading. scrollerFor()
- *  (below) already answers "which ancestor is actually scrolling", so the
- *  test is one comparison. */
-function followRefSection(li) {
+let HANDS_OFF_WIRED = false;
+/** wheel / touchmove / pointerdown are the three gestures that are
+ *  unambiguously a person, and none of them fires for a programmatic
+ *  scrollTo — which is why this needs no is-it-me flag. pointerdown covers the
+ *  scrollbar drag, which fires neither of the other two.
+ *
+ *  THE PLAYER IS EXEMPT. Dragging the <video>'s own scrubber is not "leave me
+ *  alone", it is an explicit "take me there" — and suppressing follow for six
+ *  seconds after a scrub is exactly when the creator most wants the matching
+ *  beat brought into view. Shadow-DOM retargeting puts e.target on the
+ *  <video> element itself for a control press, so one closest() covers it. */
+function wireHandsOff() {
+  if (HANDS_OFF_WIRED) return;
+  HANDS_OFF_WIRED = true;
+  const off = (e) => {
+    const t = e.target;
+    if (t && t.closest && t.closest(".ref-play")) return;
+    REF_HANDS_OFF = Date.now() + HANDS_OFF_MS;
+  };
+  document.addEventListener("wheel", off, { passive: true, capture: true });
+  document.addEventListener("touchmove", off, { passive: true, capture: true });
+  document.addEventListener("pointerdown", off, true);
+  document.addEventListener("keydown", (e) => {
+    if (/^(Arrow|Page|Home|End)/.test(e.key) || e.key === " ") off(e);
+  }, true);
+}
+
+/** THE PLAYING BEAT STAYS ON SCREEN — but only where the PLAYER holds its
+ *  place, and never anywhere else.
+ *
+ *  At >=1180px app.css makes .bp-item.ref-panel position: sticky, so the video
+ *  is pinned beside the script for the whole card and following the playhead
+ *  moves only what the creator is reading. Below that the panel is static, the
+ *  player scrolls away with everything else, and following would yank the
+ *  whole page under the thumb of someone reading — the same conclusion the
+ *  section version reached, for the same reason.
+ *
+ *  ASKED OF THE COMPUTED STYLE, NOT OF THE VIEWPORT WIDTH, so it cannot drift
+ *  from the CSS — the idiom scrollCardToTop() already uses for .pane-head.
+ *
+ *  THE SCROLLER IS FOUND, NOT ASSUMED: it is #pane-scroll at desktop widths
+ *  and the document on a phone (see scrollerFor). The sticky .pane-head is
+ *  subtracted the same way scrollCardToTop() subtracts it, so the lit beat
+ *  lands just below the header rather than underneath it. */
+function followScriptBeat(li) {
   if (Date.now() < REF_HANDS_OFF) return;
-  const panel = li.closest("details.ref-panel");
-  if (!panel || scrollerFor(li) !== panel) return;
-  const pr = panel.getBoundingClientRect();
+  const split = li.closest(".ref-split");
+  const panel = split && split.querySelector("details.ref-panel");
+  if (!panel || getComputedStyle(panel).position !== "sticky") return;
+  const scroller = scrollerFor(li);
+  const isDoc = scroller === document.scrollingElement || scroller === document.documentElement;
+  const box = isDoc
+    ? { top: 0, bottom: window.innerHeight || document.documentElement.clientHeight }
+    : scroller.getBoundingClientRect();
+  const head = document.querySelector(".pane-head");
+  const pad = (head && getComputedStyle(head).position === "sticky"
+    ? Math.round(head.getBoundingClientRect().height) : 0) + 12;
   const lr = li.getBoundingClientRect();
-  /* .ref-play is position: sticky; top: 0 inside this same box at this width,
-     so a section scrolled to panel.scrollTop exactly would sit UNDERNEATH the
-     player. Same class of bug scrollCardToTop() solves for the sticky
-     .pane-head, and the same fix: measure the sticky element and subtract it. */
-  const play = panel.querySelector(".ref-play");
-  const pad = (play && getComputedStyle(play).position === "sticky"
-    ? Math.round(play.getBoundingClientRect().height) : 0) + 8;
-  if (lr.top >= pr.top + pad && lr.bottom <= pr.bottom) return;   // already visible
+  if (lr.top >= box.top + pad && lr.bottom <= box.bottom) return;   // already visible
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  panel.scrollTo({ top: Math.max(0, Math.round(panel.scrollTop + (lr.top - pr.top) - pad)),
-                   behavior: still ? "auto" : "smooth" });
+  scroller.scrollTo({ top: Math.max(0, Math.round(scroller.scrollTop + (lr.top - box.top) - pad)),
+                     behavior: still ? "auto" : "smooth" });
 }
 
 function seekRefTo(vid, t) {
   if (!vid || !(t >= 0)) return;
+  /* NOT INTO A PANEL THAT IS SHUT. <details> hides its content with
+     display: none and a <video> hidden that way KEEPS PLAYING AUDIO — the same
+     fact stopRefVideos exists for — so a beat click with "The original"
+     collapsed started a clip nobody could see, and the only bar that could
+     pause it was inside the very panel that was closed. Owner, 2026-08-24:
+     "when i close it, dont allow the video the play". Same guard and the same
+     reading as restoreDisclosures': never start one invisibly. */
+  if (vid.closest("details:not([open])")) return;
   REF_HANDS_OFF = 0;                    // an explicit "take me there" re-arms follow
   const go = () => {
     try { vid.currentTime = t; } catch { /* seek refused, leave it be */ }
@@ -5095,41 +5187,476 @@ function seekRefTo(vid, t) {
   else vid.addEventListener("loadedmetadata", go, { once: true });
 }
 
+/** THE CONTROL BAR'S BEHAVIOUR. One call per <video>, from the loop in
+ *  wireAdaptationCards that already walks video.ref-video[data-refvid].
+ *  wireAdaptationCards runs on every repaint and the <video> is a brand-new
+ *  element each time, so every listener attached here dies with it — nothing
+ *  here may attach to `document` or `window` permanently.
+ *
+ *  THE BUTTON NEVER DRIVES THE STATE, THE VIDEO DOES. Every visible state is
+ *  written from the element's own play/pause/volumechange/waiting events, never
+ *  from the click that caused them — because stopRefVideos() pauses this video
+ *  from somewhere else entirely (another card starting), and a button that
+ *  believed its own click would then be lying. */
+function wireRefControls(vid) {
+  const media = vid.closest(".ref-media");
+  if (!media) return;
+  const seek = media.querySelector(".ref-seek");
+  const fill = media.querySelector(".ref-rail-fill");
+  const time = media.querySelector(".ref-time");
+  const toggle = media.querySelector(".ref-toggle");
+  const mute = media.querySelector(".ref-mute");
+  if (!seek || !fill || !time || !toggle || !mute) return;
+
+  let dragging = false;
+  let waitTimer = 0;
+
+  const dur = () => (Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : 0);
+  /* m:ss, via the same formatter the cards already use. lengthLabel returns ""
+     at 0, and a scrubber at 0:00 must say 0:00, not nothing. */
+  const clock = (s) => lengthLabel(s) || "0:00";
+
+  /* THE ONE WRITER. Called from the element's own events; writes the painted
+     fill, the readout, and (conditionally) the range's value. */
+  const sync = () => {
+    const d = dur();
+    media.classList.toggle("is-idle", !d);
+    seek.disabled = !d;
+    if (d && Number(seek.max) !== d) seek.max = String(d);
+    const t = Math.min(vid.currentTime || 0, d || 0);
+    /* WIDTH VIA CSSOM. A style="…" attribute is silently discarded under
+       style-src 'self' and this is exactly the shape that once shipped bar
+       charts that painted as nothing. Never write the attribute. */
+    fill.style.width = d ? `${(t / d) * 100}%` : "0%";
+    const label = `${clock(t)} / ${d ? clock(d) : "--:--"}`;
+    /* Guarded, the same way paintEta guards its own textContent write. */
+    if (time.textContent !== label) time.textContent = label;
+    media.classList.toggle("has-played", (vid.currentTime || 0) > 0 || !vid.paused);
+    /* THE ARIA VALUE FOLLOWS THE USER WHILE THE USER HOLDS THE CONTROL, AND
+       FOLLOWS THE VIDEO OTHERWISE. Writing seek.value four times a second while
+       the slider has focus makes a screen reader re-announce the position four
+       times a second; freezing it while focused costs nothing, because the
+       painted fill above is a separate element and still glides, and every
+       keyboard seek below computes from vid.currentTime rather than from
+       seek.value. One catch-up sync runs on blur. */
+    if (dragging || document.activeElement === seek) return;
+    if (d) seek.value = String(t);
+    const vt = d ? `${clock(t)} of ${clock(d)}` : "0:00 of unknown length";
+    if (seek.getAttribute("aria-valuetext") !== vt) seek.setAttribute("aria-valuetext", vt);
+  };
+
+  const paint = () => {
+    media.classList.toggle("is-playing", !vid.paused && !vid.ended);
+    toggle.setAttribute("aria-label", vid.paused ? "Play the original" : "Pause the original");
+    toggle.title = vid.paused ? "Play" : "Pause";
+    media.classList.toggle("is-muted", vid.muted);
+    mute.setAttribute("aria-label", vid.muted ? "Unmute the original" : "Mute the original");
+    mute.title = vid.muted ? "Unmute" : "Mute";
+  };
+
+  /* A SEEK FROM THE CREATOR IS AN EXPLICIT "TAKE ME THERE", so it clears the
+     hands-off window exactly as seekRefTo does — this is when the creator most
+     wants the matching beat scrolled into view. It deliberately does NOT call
+     seekRefTo: that function also starts playback, and dragging a scrubber on a
+     paused video must leave it paused. */
+  const seekTo = (t) => {
+    const d = dur();
+    if (!d) return;
+    REF_HANDS_OFF = 0;
+    try { vid.currentTime = Math.max(0, Math.min(t, d)); } catch { /* refused */ }
+  };
+
+  vid.addEventListener("loadedmetadata", sync);
+  vid.addEventListener("durationchange", sync);
+  vid.addEventListener("timeupdate", sync);
+  vid.addEventListener("seeked", sync);
+  vid.addEventListener("ended", () => { paint(); sync(); });
+  vid.addEventListener("play", () => { paint(); sync(); });
+  vid.addEventListener("pause", () => { paint(); sync(); });
+  vid.addEventListener("volumechange", paint);
+
+  /* BUFFERING, DEBOUNCED. `waiting` fires on any momentary stall, including
+     ones that resolve inside a frame, so swapping the icon on it directly
+     flickers. 300ms is long enough that only a real stall shows. */
+  const clearWait = () => {
+    clearTimeout(waitTimer); waitTimer = 0;
+    media.classList.remove("is-waiting");
+  };
+  vid.addEventListener("waiting", () => {
+    clearTimeout(waitTimer);
+    waitTimer = setTimeout(() => media.classList.add("is-waiting"), 300);
+  });
+  ["playing", "canplay", "seeked", "pause", "error"].forEach((e) =>
+    vid.addEventListener(e, clearWait));
+
+  toggle.addEventListener("click", () => {
+    if (vid.paused) vid.play().catch(() => { /* autoplay policy said no */ });
+    else vid.pause();
+  });
+  mute.addEventListener("click", () => { vid.muted = !vid.muted; });
+
+  /* TAP THE FRAME TO PLAY OR PAUSE. With `controls` gone the <video> does
+     nothing on its own. .ref-play is exempt from wireHandsOff, so this never
+     arms the hands-off window; and wireAdaptationCards' beat-click delegation
+     already ignores anything inside .ref-play, so it cannot also seek. */
+  vid.addEventListener("click", () => {
+    if (vid.paused) vid.play().catch(() => {});
+    else vid.pause();
+  });
+
+  seek.addEventListener("pointerdown", () => {
+    dragging = true;
+    window.addEventListener("pointerup", () => { dragging = false; sync(); },
+      { once: true, capture: true });
+  });
+  seek.addEventListener("input", () => seekTo(Number(seek.value)));
+  seek.addEventListener("change", () => { dragging = false; sync(); });
+  seek.addEventListener("blur", sync);
+  /* ARROWS SEEK FIVE SECONDS, PAGE KEYS TEN — the step people expect from a
+     media scrubber. The native step is 0.01s so that a pointer drag is smooth,
+     which would make one arrow press move the playhead by a hundredth of a
+     second. Home/End are left native: they land on 0 and on the duration, which
+     is already right, and `input` fires so the seek happens anyway. */
+  seek.addEventListener("keydown", (e) => {
+    const step = /^(ArrowLeft|ArrowRight|ArrowUp|ArrowDown)$/.test(e.key) ? 5
+      : /^(PageUp|PageDown)$/.test(e.key) ? 10 : 0;
+    if (!step || !dur()) return;
+    const back = e.key === "ArrowLeft" || e.key === "ArrowDown" || e.key === "PageDown";
+    e.preventDefault();
+    seekTo((vid.currentTime || 0) + (back ? -step : step));
+    seek.value = String(vid.currentTime || 0);
+    seek.setAttribute("aria-valuetext", `${clock(vid.currentTime || 0)} of ${clock(dur())}`);
+  });
+
+  /* ONE MINI AT A TIME. Playing a second card's clip claims the corner and
+     evicts the first — stopRefVideos(document, vid) has already paused it, and
+     leaving a paused ghost floating over the script while a different video
+     plays in its card is exactly the clutter this avoids. */
+  vid.addEventListener("play", () => {
+    REF_MINI_ID = vid.dataset.refvid;
+    document.querySelectorAll(".ref-play.is-mini").forEach((p) => {
+      if (!p.contains(vid)) p.classList.remove("is-mini");
+    });
+  });
+  /* Pausing does NOT release the corner — the box must not vanish from under
+     the finger that just pressed pause, and resuming from the corner is the
+     point. Finishing does: there is nothing left to watch. */
+  vid.addEventListener("ended", () => {
+    if (REF_MINI_ID === vid.dataset.refvid) REF_MINI_ID = null;
+    undockRefMini(media.closest(".ref-play") || document);
+  });
+  const close = media.querySelector(".ref-close");
+  if (close) close.addEventListener("click", () => {
+    /* CLOSE MEANS STOP WATCHING. Pausing is the only reading that cannot leave
+       audio coming out of a box the creator just dismissed. It does not come
+       back on the next scroll; it comes back when play is pressed again. */
+    vid.pause();
+    REF_MINI_ID = null;
+    undockRefMini(media.closest(".ref-play") || document);
+  });
+  /* IN THE CORNER, A TAP ON THE FRAME TAKES YOU BACK TO THE CARD instead of
+     toggling playback — the play button is right there and is unambiguous, and
+     "tap the mini to expand it" is the idiom everyone already has. Guarded
+     first, so it wins over the play/pause click handler above. */
+  vid.addEventListener("click", (e) => {
+    const play = media.closest(".ref-play");
+    if (!play || !play.classList.contains("is-mini")) return;
+    e.stopImmediatePropagation();
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    play.querySelector(".ref-dock")
+      .scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+  }, true);
+
+  /* DRAG THE CORNER BOX, AND LET GO INTO A CORNER. Free while the finger is
+     down, snapped to the nearest corner on release — the iPhone picture-in-
+     picture gesture, which is the one every creator already has.
+     ONLY IN THE MINI STATE, and the guard is read per gesture rather than
+     captured: this is the same element that is the panel's full-size player at
+     another scroll position, and dragging THAT around would be nonsense.
+     app.css's touch-action: none is what keeps the page from taking the
+     gesture; see the note on the rule. */
+  let drag = null;
+  media.addEventListener("pointerdown", (e) => {
+    const play = media.closest(".ref-play");
+    if (!play || !play.classList.contains("is-mini")) return;
+    if (e.target.closest("button")) return;                    // play and × stay buttons
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    /* The offsets are DERIVED from the parked corner, not read back off the
+       element: the box is always at a corner when a drag starts, and deriving
+       them cannot drift from a resize that re-parked it since. */
+    const span = refMiniSpan(media);
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, span,
+             dx: REF_MINI_CORNER.x === "left" ? -span.x : 0,
+             dy: REF_MINI_CORNER.y === "top" ? -span.y : 0 };
+    media.setPointerCapture(e.pointerId);
+  });
+  media.addEventListener("pointermove", (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const mx = e.clientX - drag.x, my = e.clientY - drag.y;
+    if (!drag.moved) {
+      /* 6px of slop, so a tap that wobbles is still a tap — tap-to-expand and
+         tap-to-pause both live on this same surface. */
+      if (Math.abs(mx) < 6 && Math.abs(my) < 6) return;
+      drag.moved = true;
+      media.classList.remove("is-snapping");     // a new grab cancels the old snap
+      media.classList.add("is-dragging");
+    }
+    /* Clamped to the travel measured at pointerdown, so the box stays whole and
+       on screen for the whole drag — which is also what keeps the corner it
+       lands in unambiguous. */
+    paintRefMini(media, Math.max(-drag.span.x, Math.min(0, drag.dx + mx)),
+                        Math.max(-drag.span.y, Math.min(0, drag.dy + my)));
+  });
+  const dropRefMini = () => {
+    if (!drag) return;
+    const moved = drag.moved;
+    drag = null;
+    media.classList.remove("is-dragging");
+    if (!moved) return;                          // it was a tap; leave it alone
+    /* THE CORNER IS DECIDED BY THE BOX'S CENTRE, not by the finger — the finger
+       can be anywhere on a 112px box, and what the eye judges is where the box
+       itself came to rest. */
+    const r = media.getBoundingClientRect();
+    REF_MINI_CORNER = {
+      x: r.left + r.width / 2 < document.documentElement.clientWidth / 2 ? "left" : "right",
+      y: r.top + r.height / 2 < document.documentElement.clientHeight / 2 ? "top" : "bottom",
+    };
+    /* .is-snapping carries the transition and nothing else does. Taken off on a
+       timer rather than on transitionend, because a drop that lands in the
+       corner it started from changes no value and fires no transitionend. */
+    media.classList.add("is-snapping");
+    parkRefMini(media);
+    setTimeout(() => media.classList.remove("is-snapping"), 300);
+    /* Swallow the click this gesture is about to fire. The timer clears it for
+       the case where the drag ended off the box and no click ever comes. */
+    REF_MINI_DRAGGED = true;
+    setTimeout(() => { REF_MINI_DRAGGED = false; }, 0);
+  };
+  media.addEventListener("pointerup", dropRefMini);
+  media.addEventListener("pointercancel", dropRefMini);
+  /* CAPTURE, ON THE WRAPPER, so it lands before the frame's own capture-phase
+     tap-to-expand (an ancestor's capture listener runs first) and before the
+     bubbling play/pause. */
+  media.addEventListener("click", (e) => {
+    if (!REF_MINI_DRAGGED) return;
+    REF_MINI_DRAGGED = false;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+  }, true);
+
+  /* FULLSCREEN, AND ONLY WHERE IT EXISTS. The button ships hidden and is only
+     revealed when a route is actually available — a dead control is worse than
+     no control.
+     THE WRAPPER GOES FULLSCREEN, NOT THE <video>, so this bar goes with it;
+     fullscreening the element itself would produce a video with no controls at
+     all, since `controls` is gone.
+     iPHONE HAS NO ELEMENT FULLSCREEN AT ALL — Safari on iPhone exposes no
+     Fullscreen API for elements, only HTMLVideoElement.webkitEnterFullscreen(),
+     which hands over to the system player with its own native controls. That is
+     the platform-native behaviour every iPhone user expects, and it is the
+     honest fallback rather than a broken button. It needs metadata first. */
+  const full = media.querySelector(".ref-full");
+  const docFS = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+  const elFS = !!(media.requestFullscreen || media.webkitRequestFullscreen)
+    && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  const vidFS = typeof vid.webkitEnterFullscreen === "function";
+  if (full && (elFS || vidFS)) {
+    full.hidden = false;
+    full.addEventListener("click", () => {
+      if (docFS() === media) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        return;
+      }
+      if (elFS) {
+        (media.requestFullscreen || media.webkitRequestFullscreen).call(media)
+          .catch(() => { /* refused; the panel player still works */ });
+      } else if (vid.readyState >= 1) {
+        vid.webkitEnterFullscreen();
+      }
+    });
+    const fsPaint = () => {
+      const on = docFS() === media;
+      media.classList.toggle("is-full", on);
+      full.setAttribute("aria-label", on ? "Exit full screen" : "Full screen");
+      full.title = on ? "Exit full screen" : "Full screen";
+    };
+    document.addEventListener("fullscreenchange", fsPaint);
+    document.addEventListener("webkitfullscreenchange", fsPaint);
+    /* Those two DO hang off `document`, so they must be removed when this
+       element dies — wireAdaptationCards runs again on every repaint and would
+       otherwise stack one pair per repaint forever. `pagehide` is not enough;
+       the element's own removal is the signal, so watch for it. */
+    media.addEventListener("ref-teardown", () => {
+      document.removeEventListener("fullscreenchange", fsPaint);
+      document.removeEventListener("webkitfullscreenchange", fsPaint);
+    });
+  }
+
+  paint();
+  sync();
+}
+
+/** WHICH VIDEO MAY FLOAT — at most one, ever. Module-level so it survives a
+ *  repaint: renderPane() rebuilds every node, and a clip that was floating and
+ *  is restored playing must dock again on the fresh observer's first callback.
+ *  It is the adaptation id from data-refvid, never a node — the node it names
+ *  is detached within milliseconds of any repaint. */
+let REF_MINI_ID = null;
+let REF_MINI_IO = null;
+
+function undockRefMini(root = document) {
+  /*  ROOT ITSELF COUNTS. `is-mini` lives ON the .ref-play element, and
+      querySelectorAll only searches DESCENDANTS — so the two call sites that
+      hand this the .ref-play element (the `ended` and close-button handlers,
+      which reach it via media.closest(".ref-play")) would search inside the
+      very node carrying the class and find nothing. Measured live: the × paused
+      the video and cleared REF_MINI_ID, but the corner box stayed frozen on
+      screen. The card-collapse call sites pass a <details> ancestor and were
+      never affected, which is why this only ever showed on dismiss and on a
+      clip running to its end. */
+  if (root.matches && root.matches(".ref-play.is-mini")) root.classList.remove("is-mini");
+  root.querySelectorAll(".ref-play.is-mini").forEach((p) => p.classList.remove("is-mini"));
+}
+
+/** WHERE THE CORNER BOX IS PARKED — a CORNER, never a pixel pair. Module-level
+ *  for the same reason REF_MINI_ID is: renderPane() rebuilds the node, and the
+ *  box has to come back where the creator left it rather than at the factory
+ *  corner. Storing the corner rather than the offsets is what makes a rotation
+ *  or a window resize land somewhere sensible — the offsets are re-measured
+ *  from the viewport as it is every time it parks. */
+let REF_MINI_CORNER = { x: "right", y: "bottom" };
+/** True for exactly one click: the one a finished drag is about to fire on
+ *  whatever sat under the finger — the frame's play/pause, or tap-to-expand. */
+let REF_MINI_DRAGGED = false;
+/** The right/bottom inset in app.css's .ref-play.is-mini .ref-media rule. The
+ *  two are written from each other; change them together or not at all. */
+const REF_MINI_EDGE = 12;
+
+/** HOW FAR THE BOX CAN TRAVEL from its bottom-right home, measured now rather
+ *  than assumed — .ref-media is 112px wide by CSS and 16/9 of that tall, and
+ *  neither number belongs in here. Both spans are >= 0; the offsets applied are
+ *  their negatives, because the home corner IS the origin. */
+function refMiniSpan(media) {
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  return { x: Math.max(0, vw - media.offsetWidth - REF_MINI_EDGE * 2),
+           y: Math.max(0, vh - media.offsetHeight - REF_MINI_EDGE * 2) };
+}
+function paintRefMini(media, dx, dy) {
+  /* Custom properties through CSSOM, never a style attribute — style-src is
+     'self' with no 'unsafe-inline', and an inline style="" is discarded
+     silently. app.css reads these two into `translate`. */
+  media.style.setProperty("--ref-mini-dx", `${Math.round(dx)}px`);
+  media.style.setProperty("--ref-mini-dy", `${Math.round(dy)}px`);
+}
+/** Put it in the corner it belongs to, for the viewport as it is right now. */
+function parkRefMini(media) {
+  if (!media) return;
+  const span = refMiniSpan(media);
+  paintRefMini(media, REF_MINI_CORNER.x === "left" ? -span.x : 0,
+                      REF_MINI_CORNER.y === "top" ? -span.y : 0);
+}
+/*  A ROTATION MUST NOT LEAVE IT HALF OFF THE SCREEN. One listener for the whole
+    module, attached once at load and holding no node — it asks the document for
+    whatever is floating at the moment it fires, so it can never pin a detached
+    element from a repaint ago. */
+window.addEventListener("resize", () => {
+  parkRefMini(document.querySelector(".ref-play.is-mini .ref-media"));
+});
+
+/** THE FLOATING CORNER PLAYER, BELOW 1180px ONLY.
+ *
+ *  IT OBSERVES .ref-dock, NOT .ref-media, AND THAT IS THE WHOLE TRICK. Once
+ *  .ref-media is position: fixed it is permanently inside the viewport, so
+ *  observing it would undock on the very next callback and flutter forever.
+ *  .ref-dock stays in flow and keeps the player's original box (reserved purely
+ *  in CSS — see the app.css block), so it reports honestly where the player
+ *  WOULD be.
+ *
+ *  THE BREAKPOINT IS ASKED OF THE COMPUTED STYLE, never of window.innerWidth,
+ *  so it cannot drift from the CSS — the same idiom followScriptBeat and
+ *  scrollCardToTop already use. At >=1180px .bp-item.ref-panel is
+ *  position: sticky, the player is already pinned beside the script, and a
+ *  floating box would be redundant and in the way.
+ *
+ *  THRESHOLDS, WITH HYSTERESIS. Dock when the dock's box is fully out of the
+ *  visible area (ratio 0); undock only once 35% of it is back. The dead band
+ *  between them is what stops a one-pixel scroll oscillating the state.
+ *  rootMargin subtracts the height of whatever is genuinely sticky above the
+ *  content — the 56px app header always, plus .pane-head where it is sticky
+ *  (it is static below 820px, so on a phone that term is 0). Measured, not
+ *  hardcoded, for the same reason as everything else here.
+ *
+ *  ONE OBSERVER PER REPAINT, and the previous one is disconnected first —
+ *  otherwise every repaint would leave an observer holding a detached node. */
+function wireRefMini(host) {
+  if (REF_MINI_IO) { REF_MINI_IO.disconnect(); REF_MINI_IO = null; }
+  const docks = [...host.querySelectorAll(".ref-play > .ref-dock")];
+  if (!docks.length) return;
+  const stickyH = (sel) => {
+    const el = document.querySelector(sel);
+    return el && getComputedStyle(el).position === "sticky"
+      ? Math.round(el.getBoundingClientRect().height) : 0;
+  };
+  const top = stickyH("header") + stickyH(".pane-head");
+  REF_MINI_IO = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const play = e.target.closest(".ref-play");
+      const media = e.target.querySelector(".ref-media");
+      const vid = e.target.querySelector("video.ref-video");
+      if (!play || !media || !vid) continue;
+      const panel = play.closest("details.ref-panel");
+      const pinned = panel && getComputedStyle(panel).position === "sticky";
+      /* Never float when the panel is already pinned (>=1180px), when this is
+         not the video that earned the corner, or while it is fullscreen — a
+         fullscreen element lives in the top layer and position: fixed would
+         fight it. */
+      if (pinned || REF_MINI_ID !== vid.dataset.refvid || document.fullscreenElement) {
+        play.classList.remove("is-mini");
+        continue;
+      }
+      if (e.intersectionRatio <= 0) {
+        /* Hiding .ref-scrub with display:none while it holds focus would drop
+           focus to <body>. Move it to the one control that survives the
+           compact state instead. */
+        if (media.contains(document.activeElement)
+            && !media.querySelector(".ref-toggle").contains(document.activeElement)) {
+          media.querySelector(".ref-toggle").focus();
+        }
+        play.classList.add("is-mini");
+        /* IN THE CORNER IT WAS LEFT IN. Measured after the class, because the
+           box is only 112px wide once .is-mini has been applied. */
+        parkRefMini(media);
+      } else if (e.intersectionRatio >= 0.35) {
+        play.classList.remove("is-mini");
+      }
+    }
+  }, { root: null, rootMargin: `${-top}px 0px 0px 0px`, threshold: [0, 0.35] });
+  docks.forEach((d) => REF_MINI_IO.observe(d));
+}
+
 function referenceHtml(a) {
-  const secs = refSections(a);
   const clip = (a.source || {}).clip;
-  /* A PLAYABLE VIDEO IS ENOUGH ON ITS OWN. This used to return "" whenever
-     there were no sections, which was right when the panel was only a shot
-     list — an empty panel reads as a broken one. Now a record with a video but
-     no shots and no transcript (a silent clip the visual pass never got to)
-     still has something worth showing. Measured 2026-08-23: 0 of 27 live
-     adaptations are in that state, so this closes a latent gap rather than
-     changing what anyone sees today. */
-  if (!secs.length && !clip) return "";
-  const src = a.source || {};
+  const href = safeUrl(a.sourceUrl || "");
+  /* THE PANEL IS THE PLAYER NOW. The shot-list/transcript sections it used to
+     hold were removed 2026-08-24 at the owner's request — the highlight that
+     followed the playhead moved onto the lynxr script's own beats in
+     .ref-main, which is the script the creator actually films from.
+     Still drawn with NO clip, so the one age-gated live record keeps its
+     honest "this one can only be watched on TikTok" line and its link; that
+     was the whole point of refPlayHtml's no-clip branch and it is the only
+     recovery this page can offer for a private/deleted/geo-blocked source.
+     Returns "" only when there is neither a clip nor a usable link, i.e.
+     nothing to put in the panel at all — refSplitHtml then leaves the script
+     exactly as it was. */
+  if (!clip && !href) return "";
   const cover = thumbHtml(
     coverUrl({ libraryId: a.libraryId, canon: canonUrl(a.sourceUrl || "") }),
     entryLabel(a), a.sourceUrl);
-  const note = refFramesNote(a);
-  const noSpeechHint = !(src.script || {}).has_speech && Array.isArray(src.shots) && src.shots.length
-    ? `<p class="bp-hint">No speech &mdash; this one is carried by what's on screen.</p>` : "";
-  const secsHtml = secs.map((sec, i) => `
-      <li class="ref-sec" data-i="${i}" data-t="${Number(sec.t) || 0}">
-        <button type="button" class="ref-t ref-seek" data-t="${Number(sec.t) || 0}"
-          >${escapeHtml(lengthLabel(sec.t) || "0:00")}<span class="sr-only"> — jump the video here</span></button>
-        <div class="ref-sec-body">
-          ${sec.visual ? `<p class="ref-do">${escapeHtml(sec.visual)}</p>` : ""}
-          ${sec.text ? `<p class="ref-text">“${escapeHtml(sec.text)}”</p>` : ""}
-          ${sec.says.length ? `<p class="ref-say">${escapeHtml(sec.says.join(" "))}</p>` : ""}
-        </div>
-      </li>`).join("");
-  /* THE 40x56 COVER GOES AWAY WHEN THE PLAYER IS THERE. It is the same frame,
-     from the same file — .ref-head's thumbnail and the player's poster — and
-     two copies of one image stacked on top of each other is noise. Without a
-     player it stays exactly as it shipped this morning. */
-  const headBits = (clip ? "" : cover)
-    + (note ? `<p class="ref-note">${escapeHtml(note)}</p>` : "");
-  const head = headBits ? `<div class="ref-head">${headBits}</div>` : "";
+  /* THE 40x56 COVER GOES AWAY WHEN THE PLAYER IS THERE — same frame, same
+     file, and two copies of one image stacked is noise. Without a player it is
+     the only image the panel has, so it stays. */
+  const head = clip ? "" : `<div class="ref-head">${cover}</div>`;
   return `<details class="bp-item ref-panel" open data-refid="${escapeHtml(a.id)}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
@@ -5138,11 +5665,6 @@ function referenceHtml(a) {
     <div class="bp-body">
       ${refPlayHtml(a)}
       ${head}
-      ${noSpeechHint}
-      ${secsHtml ? `<ol class="ref-secs">${secsHtml}</ol>` : ""}
-      ${secsHtml ? `<div class="bp-actions">
-        <button type="button" class="ghost ad-copy" data-adid="${escapeHtml(a.id)}" data-ref="1">Copy</button>
-      </div>` : ""}
     </div>
   </details>`;
 }
@@ -5195,29 +5717,6 @@ function originalText(a) {
       if ((sh.onscreen_text || "").trim()) lines.push(`          “${sh.onscreen_text.trim()}”`);
     }
   }
-  return lines.join("\n");
-}
-
-/** THE PANEL'S OWN CLIPBOARD TEXT — plain text in the SAME section order the
- *  panel paints, per originalText()'s own docstring contract ("what is
- *  copied is what is on screen"): the panel is a different screen from the
- *  one originalText() serves, so it gets its own function rather than a
- *  second wording jammed into that one. Does not modify originalText() —
- *  that one is still the Original scripts tab's Copy button.
- *  Source casing is preserved on purpose, same reason as originalText(). */
-function referenceText(a) {
-  const secs = refSections(a);
-  const lines = [`Original — from ${a.sourceUrl || ""}`];
-  const note = refFramesNote(a);
-  if (note) lines.push(note);
-  lines.push("");
-  const t = (n) => lengthLabel(n) || "0:00";
-  secs.forEach((sec, i) => {
-    if (i) lines.push("");
-    lines.push(`  ${t(sec.t)}  ${sec.visual || ""}`.replace(/\s+$/, ""));
-    if (sec.text) lines.push(`        “${sec.text}”`);
-    if (sec.says.length) lines.push(`        ${sec.says.join(" ")}`);
-  });
   return lines.join("\n");
 }
 
@@ -5306,6 +5805,12 @@ function openPrompter(a) {
   const ad = a && a.adaptation;
   const wrap = tpEl("tp");
   if (!ad || !wrap) return;
+  /* The teleprompter covers the whole screen at z-index 200, so a clip left
+     playing underneath it is audible and unreachable — including the corner
+     mini-player. Stop everything on the way in. */
+  stopRefVideos(document);
+  REF_MINI_ID = null;
+  undockRefMini(document);
   const silent = ad.delivery === "silent"
     || (Array.isArray(ad.beats) && ad.beats.length && ad.beats.every((b) => !(b.say || "").trim()));
   const lines = prompterLines(ad, silent);
@@ -6179,7 +6684,7 @@ function wireAdaptationCards(host) {
     return !!(a && isWriting(a));
   };
   cards.forEach((d) => d.addEventListener("toggle", () => {
-    if (!d.open) { stopRefVideos(d); return; }   // a collapsed card must not keep talking
+    if (!d.open) { stopRefVideos(d); undockRefMini(d); return; }   // a collapsed card must not keep talking, or keep floating
     if (writing(d)) return;            // a clock opening must not shut your script
     cards.forEach((other) => {         // and your script opening must not shut a clock
       if (other !== d && !writing(other)) other.open = false;
@@ -6191,8 +6696,7 @@ function wireAdaptationCards(host) {
     if (!a) return;
     try {
       await navigator.clipboard.writeText(
-        btn.dataset.ref ? referenceText(a)
-        : btn.dataset.orig ? originalText(a) : scriptText(a));
+        btn.dataset.orig ? originalText(a) : scriptText(a));
       /* Swap the ICON, not the text. This button used to say "Copy script" and
          confirmed by setting textContent — which on an icon button replaces the
          svg with a word and leaves it permanently wrong, because the restore
@@ -6211,8 +6715,20 @@ function wireAdaptationCards(host) {
      click on a section jump the video there. One block because all three
      read the same `vid`/`lis`/`times` per panel. */
   host.querySelectorAll("video.ref-video[data-refvid]").forEach((vid) => {
-    const panel = vid.closest("details.ref-panel");
-    const lis = panel ? [...panel.querySelectorAll("li.ref-sec")] : [];
+    /* THE LYNXR SCRIPT'S OWN BEATS, not the original's sections. The player
+       lives in the panel; the beats live in .ref-main, its SIBLING inside
+       .ref-split — so the scope is the split, not the panel.
+       Read off the rendered <li>s, and only the ones that actually carry a
+       data-t: a beat whose `t` would not parse simply is not a target, and its
+       seconds fold into the beat before it. That is a highlight that lingers,
+       never one that lands in the wrong place.
+       .bp-notime is on the lynxr script's <ol> and on nothing else in this
+       app — the asOriginal branch's two <ol class="bp-beats"> lists (the
+       video's own transcript and shot list) must NOT light up. */
+    const split = vid.closest(".ref-split");
+    const lis = split
+      ? [...split.querySelectorAll(".ref-main ol.bp-beats.bp-notime > li.bp-beat[data-t]")]
+      : [];
     const times = lis.map((li) => Number(li.dataset.t) || 0);
     vid._refIdx = -1;
 
@@ -6231,7 +6747,7 @@ function wireAdaptationCards(host) {
       if (lis[i]) {
         lis[i].classList.add("on");
         lis[i].setAttribute("aria-current", "true");
-        followRefSection(lis[i]);
+        followScriptBeat(lis[i]);
       }
     };
     vid.addEventListener("timeupdate", mark);
@@ -6247,40 +6763,51 @@ function wireAdaptationCards(host) {
     /* ONE AT A TIME, across the whole pane — the rule the iframe player
        already had. A second video starting must silence the first. */
     vid.addEventListener("play", () => stopRefVideos(document, vid));
+
+    /* The bar. Last, so the highlight wiring above is attached first; order
+       does not affect correctness, only readability. */
+    wireRefControls(vid);
   });
 
-  /* AUTO-SCROLL, hands off when a person is scrolling themselves. wheel /
-     touchmove / pointerdown are the three gestures that are unambiguously a
-     person, and none of them fires for a programmatic scrollTo — which is
-     why this needs no is-it-me flag. pointerdown covers the scrollbar drag,
-     which fires neither of the other two. */
-  host.querySelectorAll("details.ref-panel[data-refid]").forEach((panel) => {
-    const off = () => { REF_HANDS_OFF = Date.now() + HANDS_OFF_MS; };
-    panel.addEventListener("wheel", off, { passive: true });
-    panel.addEventListener("touchmove", off, { passive: true });
-    panel.addEventListener("pointerdown", off);
-    panel.addEventListener("keydown", (e) => {
-      if (/^(Arrow|Page|Home|End)/.test(e.key) || e.key === " ") off();
-    });
+  /* AUTO-SCROLL, HANDS OFF WHEN A PERSON IS SCROLLING THEMSELVES — wired ONCE,
+     on the document, in the capture phase. It used to hang off each
+     details.ref-panel, which was right while the thing being followed lived
+     inside that panel. The beats live in .ref-main and the box that actually
+     scrolls them is #pane-scroll (or, on a phone, the document itself — see
+     scrollerFor). A wheel over the card header would otherwise move the beat
+     out of view without arming hands-off, and follow would yank it back.
+     Once, because wireAdaptationCards runs on every repaint and #pane-scroll
+     and document both outlive every one of them. */
+  wireHandsOff();
 
-    const vid = panel.querySelector("video.ref-video");
-    if (!vid) return;
-    // The keyboard/AT route: a real button on each timestamp.
-    panel.querySelectorAll("button.ref-seek").forEach((b) =>
-      b.addEventListener("click", () => seekRefTo(vid, Number(b.dataset.t) || 0)));
-    /* The pointer route: the owner asked for the SECTION to be clickable, not
-       just its timestamp. Delegated, and guarded on the selection — these
-       sections are text a creator copies by hand, and a drag-select that
-       ended inside a section must not also jump the video. Note the
-       ordering that makes hands-off work: `pointerdown` above sets the
-       hands-off window, then this `click` clears it — a click on a section
-       therefore always ends with follow re-armed. */
-    panel.addEventListener("click", (e) => {
-      if (e.target.closest("button, a")) return;              // already handled
-      const li = e.target.closest("li.ref-sec");
+  /* The floating corner player. Rebuilt per repaint, and it disconnects the
+     previous observer itself — see wireRefMini. */
+  wireRefMini(host);
+
+  /* CLICK A BEAT, JUMP THE VIDEO THERE. Delegated on the split, guarded on the
+     selection — these are lines a creator copies by hand, and a drag-select
+     that ends inside a beat must not also move the video.
+     ORDERING THAT MAKES HANDS-OFF WORK, unchanged from the section version:
+     the document pointerdown above arms the hands-off window, then seekRefTo
+     clears it — so a click on a beat always ends with follow re-armed. */
+  host.querySelectorAll(".ref-split").forEach((split) => {
+    const vid = split.querySelector("video.ref-video");
+    if (!vid) return;              // no clip: nothing to seek, no affordance
+    /* The affordance is added HERE rather than in beatRow, because beatRow
+       cannot know whether this card has a playable clip — one live record is
+       age-gated and has none, and "Jump the video to 0:04" on a card with no
+       video is a lie. Class and title only; no inline style (CSP). */
+    split.querySelectorAll(".ref-main ol.bp-beats.bp-notime > li.bp-beat[data-t]")
+      .forEach((li) => {
+        li.classList.add("bp-seekable");
+        li.title = `Jump the video to ${lengthLabel(Number(li.dataset.t) || 0) || "0:00"}`;
+      });
+    split.addEventListener("click", (e) => {
+      if (e.target.closest("button, a, textarea, input, .ref-play")) return;
+      const li = e.target.closest("li.bp-beat[data-t]");
       if (!li) return;
       const sel = window.getSelection();
-      if (sel && !sel.isCollapsed) return;                    // they were selecting text
+      if (sel && !sel.isCollapsed) return;
       seekRefTo(vid, Number(li.dataset.t) || 0);
     });
   });
@@ -6290,7 +6817,7 @@ function wireAdaptationCards(host) {
      data-refid, matching openDisclosures: this panel is keyed separately from
      the script card it sits beside. */
   host.querySelectorAll("details.ref-panel[data-refid]").forEach((d) =>
-    d.addEventListener("toggle", () => { if (!d.open) stopRefVideos(d); }));
+    d.addEventListener("toggle", () => { if (!d.open) { stopRefVideos(d); undockRefMini(d); } }));
 
   host.querySelectorAll(".ad-retry").forEach((btn) => btn.addEventListener("click", () => {
     const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);

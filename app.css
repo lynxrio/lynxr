@@ -141,7 +141,24 @@
     --fs-32:  calc(26.5px + var(--fs-d) * 0.055);
   }
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; scroll-padding-top: 76px; /* anchors land below the sticky header */ }
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 76px;      /* anchors land below the sticky header */
+    /* THE GUTTER IS ALWAYS RESERVED, SO THE SCROLLBAR CANNOT ARGUE WITH ITSELF.
+       The ::-webkit-scrollbar rule below gives every scroller a classic 10px
+       bar that takes REAL WIDTH — styling the pseudo-element is what turns
+       macOS's overlay scrollbars off — and the creator app's player is
+       width-driven (.ref-video is aspect-ratio: 9/16 inside a 100%-wide dock),
+       so 10px of lost width is ~18px of lost height. On any page whose content
+       lands within that 18px of the viewport it becomes a loop: the bar
+       appears, the box narrows, the page shortens, the bar goes, the box
+       widens, the bar appears — forever, at frame rate. Owner, 2026-08-24:
+       "the scroll bar keeps appearing and disappearing".
+       Reserving the gutter costs 10px on a page that never scrolls and ends
+       the oscillation for good. It also stops the sideways jump when
+       body.modal-open takes the document's scrollbar away. */
+    scrollbar-gutter: stable;
+  }
 
   /* ---------- Motion system ----------
      Small, purposeful, directional: things enter from where they belong,
@@ -1165,6 +1182,45 @@
      spacer spans). Scoped so the agency blueprints, which share .bp-beat and
      DO show timings against a specific video, are untouched. */
   .bp-notime .bp-beat { grid-template-columns: 42px 1fr; }
+  /* THE BEAT THE VIDEO IS ON (2026-08-24). Same recipe as the section
+     highlight it replaces — a lifted ground plus a left rail, never a colour
+     swap, because these rows already carry three weights of --text.
+
+     MEASURED, AND AGAINST THE RIGHT BACKGROUND. The script sits on the CARD,
+     whose background is --surface (#121214) — not the panel's --surface-2.
+     --line-2 (#34343c) on --surface is 1.53:1. --surface-2 on --surface would
+     be 1.03:1, which is this project's exact invisible-highlight failure mode
+     and is why the token is named here rather than reused from the panel. The
+     --good rail (#57c98a) is 9.1:1 on the same ground.
+
+     SCOPED TO .bp-notime, which creator.js puts on the lynxr script's <ol> and
+     which appears NOWHERE in app.js — the agency blueprints share .bp-beat and
+     must not gain a highlight, a cursor or a transition from this block. Same
+     scoping decision, and the same reason, as the grid rule above.
+
+     The 10px side padding is on EVERY creator beat, not only the lit one, so
+     toggling .on up to four times a second moves nothing: the inset rail needs
+     room, and a padding that arrived with the class would shift the row. The
+     border-top and the .on ground still span the full column, because padding
+     sits inside the border box. */
+  .bp-notime .bp-beat { padding-left: 10px; padding-right: 10px; }
+  .bp-notime .bp-beat.on {
+    background: var(--line-2); border-radius: var(--r-inner);
+    box-shadow: inset 2px 0 0 0 var(--good);
+  }
+  /* --text-3 measures 4.54:1 on --surface and only 2.99:1 on --line-2, so the
+     9.5px SAY / DO labels would drop under the AA floor on the one row the
+     creator is actually reading. --text-2 puts them at 4.93:1 there, and reads
+     as emphasis, which is what the row is for. (0,4,0), so it beats
+     `.bp-beat .bp-lbl ~ .bp-lbl` (0,3,0) on the continuation rows too. */
+  .bp-notime .bp-beat.on .bp-lbl { color: var(--text-2); }
+  .bp-notime .bp-beat { transition: background .18s ease; }
+  @media (prefers-reduced-motion: reduce) { .bp-notime .bp-beat { transition: none; } }
+  /* Only where a click can do something: wireAdaptationCards adds .bp-seekable
+     per split, and only when that split holds a <video>. NO hover ground —
+     --hover (#1d1d21) is 1.13:1 on --surface, a whisper, and hovering the lit
+     beat would DARKEN it from 1.53:1 to 1.13:1, which is worse than nothing. */
+  .bp-notime .bp-beat.bp-seekable { cursor: pointer; }
   .bp-lbl {
     font-size: 9.5px; letter-spacing: .1em; color: var(--text-3);
     padding-top: 4px; user-select: none;
@@ -1284,11 +1340,10 @@
      320px because at >=1180px the panel column is ~324-432px inside
      .bp-body's padding (measured; see the sticky-block comment below), and
      320 leaves the same breathing room the old 300px frame did.
-     Left-aligned rather than centred, so its edge lines up with the .ref-secs
-     beneath it. */
+     Left-aligned rather than centred, matching the panel's own left edge. */
   .ref-play { margin: 0 0 12px; }
   .ref-video {
-    width: min(100%, 320px); display: block; background: #000;
+    width: 100%; display: block; background: #000;
     aspect-ratio: 9 / 16; object-fit: contain;
     border: 1px solid var(--line); border-radius: var(--r-inner);
   }
@@ -1298,63 +1353,281 @@
   }
   .ref-watch:hover { color: var(--text); }
   .ref-play-none .bp-hint { margin: 0 0 2px; }
+  /* ---------- LYNXR'S OWN CONTROLS (2026-08-24) ----------
+     `controls` came off the <video> in creator.js's refPlayHtml. Everything
+     below is the replacement. Read the refPlayHtml comment for why the markup
+     is three boxes deep — .ref-dock holds the space, .ref-media is what floats,
+     .ref-bar is one bar with a full and a compact state.
+
+     --ref-bar-h IS THE WHOLE BAR'S BOX, top gap included, and .ref-dock's
+     placeholder reserve in the mini state is written from the same variable —
+     that is the only thing keeping the two in sync, so change them together
+     or not at all. */
+  .ref-play {
+    --ref-bar-h: calc(8px + 32px + 8px + 34px);   /* gap + scrub + gap + buttons */
+    --ref-mini-w: 112px;
+  }
+  .ref-dock { width: min(100%, 320px); }
+  .ref-media { position: relative; width: 100%; }
+  /* THE PLAY BADGE, and only before the first frame is played. Decorative and
+     pointer-events: none — the real control is the button directly beneath it,
+     and a tap on the frame is handled by the <video> itself. A token cannot be
+     used for the disc: it sits on an arbitrary video frame, so the ground is
+     unknowable and the only safe answer is an opaque-enough scrim. Measured
+     against the worst case (a pure-white poster): the composite ground reads
+     ~#4e4e4e and the --text glyph on it is 7.1:1. On a dark frame it is 16:1. */
+  .ref-badge {
+    position: absolute; left: 50%; top: 50%; width: 46px; height: 46px;
+    margin: -23px 0 0 -23px; border-radius: var(--r-round);
+    background: rgba(10, 10, 11, .72); color: var(--text);
+    display: grid; place-items: center; pointer-events: none;
+  }
+  .ref-badge svg { width: 22px; height: 22px; }
+  .ref-media.has-played .ref-badge { display: none; }
+
+  .ref-bar { height: var(--ref-bar-h); padding-top: 8px; }
+  /* THE SCRUB STRIP IS THE HIT AREA, not the rail. 32px desktop, 44px at <=820px
+     where the rest of this app's touch targets already go to 44 — the rail
+     itself stays 4px and is centred inside it, so the target grows without the
+     bar growing a heavier line. */
+  .ref-scrub { position: relative; height: 32px; display: flex; align-items: center; }
+  /* CONTRAST, MEASURED AGAINST THE PANEL'S OWN GROUND (--surface-2, #17171a),
+     not against the card's --surface. Two plans in this project have shipped a
+     token darker than its own background, so these are computed, not copied:
+        --line    #26262b  1.19:1   REJECTED  (this file's own "rumour of an
+        --line-2  #34343c  1.45:1   REJECTED   indicator" band)
+        --text-3  #7c7c87  4.34:1   the track
+        --text    #ededf0 15.31:1   the fill and the thumb
+     Fill against track is 3.53:1, which clears SC 1.4.11's 3:1 for the part of
+     a graphical object that carries the value. The track is deliberately
+     BRIGHTER than a passive hairline because a scrubber is an operable control:
+     at currentTime 0 the fill is zero-width and the track is the only thing
+     proving the control exists. Every quieter token in this palette measures
+     1.19-1.52:1 there, which is the exact band this project has twice shipped
+     as invisible.
+     --good was tried for the fill and rejected: #57c98a is 8.63:1 on the panel
+     but only 1.99:1 on a --text-3 track, i.e. the value would vanish into the
+     rail it sits in. Do not "brand" this bar green. */
+  .ref-rail {
+    position: relative; width: 100%; height: 4px;
+    border-radius: var(--r-pill); background: var(--text-3);
+  }
+  /* Width is written by CSSOM in creator.js (el.style.width), never by a
+     style="…" attribute — strict CSP, style-src 'self', drops the attribute
+     silently and this is precisely the shape that once shipped bar charts that
+     painted as nothing. Same idiom as .quota-bar > i, deliberately. */
+  .ref-rail-fill {
+    display: block; position: relative; height: 100%; width: 0;
+    border-radius: var(--r-pill); background: var(--text);
+  }
+  .ref-rail-fill::after {
+    content: ""; position: absolute; right: 0; top: 50%;
+    width: 12px; height: 12px; margin: -6px -6px 0 0;
+    border-radius: var(--r-round); background: var(--text);
+  }
+  /* THE REAL CONTROL. A native <input type="range"> with a transparent track
+     and a transparent thumb, laid over the rail above: role, value, arrow keys,
+     Home/End and every screen-reader behaviour stay exactly native, and the
+     sibling paints. touch-action: pan-y lets a vertical page scroll started on
+     the strip still scroll the page while a horizontal drag goes to the slider. */
+  .ref-seek {
+    position: absolute; inset: 0; width: 100%; height: 100%; margin: 0;
+    appearance: none; -webkit-appearance: none; background: transparent;
+    touch-action: pan-y; cursor: pointer;
+  }
+  .ref-seek::-webkit-slider-runnable-track { height: 100%; background: transparent; }
+  .ref-seek::-webkit-slider-thumb {
+    appearance: none; -webkit-appearance: none;
+    width: 16px; height: 16px; border-radius: var(--r-round); background: transparent;
+  }
+  .ref-seek::-moz-range-track { height: 100%; background: transparent; }
+  .ref-seek::-moz-range-thumb { width: 16px; height: 16px; border: 0; background: transparent; }
+  .ref-seek:disabled { cursor: default; }
+  /* NOTHING READY YET: no duration, so no position to state. The fill stays at
+     zero width AND the thumb is removed, so the strip reads as inert rather
+     than as "0% played, drag me". The readout says --:-- in the same beat. */
+  .ref-media.is-idle .ref-rail { background: var(--line-2); }
+  .ref-media.is-idle .ref-rail-fill::after { display: none; }
+
+  .ref-btns { display: flex; align-items: center; gap: 8px; }
+  /* A VALUE BEING REPORTED, so it is --text-2 (7.15:1 on the panel) rather than
+     --text-3 (4.34:1 there, under the 4.5:1 floor for body text). Tabular
+     figures come from body; nowrap so 0:00 / --:-- never breaks in two.
+     NO aria-live: this changes about four times a second. */
+  .ref-time {
+    margin-right: auto; white-space: nowrap;
+    font-size: var(--fs-115); color: var(--text-2);
+  }
+  /* .ghost.icon-only sets display: inline-flex, which OUTRANKS the UA [hidden]
+     rule — the same trap this file already records against .composer-row. The
+     fullscreen and close buttons both ship hidden, so without this they would
+     paint. */
+  .ref-btn[hidden] { display: none; }
+  .ref-toggle .icon-pause, .ref-toggle .icon-wait { display: none; }
+  .ref-media.is-playing .ref-toggle .icon-play { display: none; }
+  .ref-media.is-playing .ref-toggle .icon-pause { display: block; }
+  .ref-media.is-waiting .ref-toggle .icon-play,
+  .ref-media.is-waiting .ref-toggle .icon-pause { display: none; }
+  .ref-media.is-waiting .ref-toggle .icon-wait { display: block; }
+  .ref-mute .icon-quiet { display: none; }
+  .ref-media.is-muted .ref-mute .icon-loud { display: none; }
+  .ref-media.is-muted .ref-mute .icon-quiet { display: block; }
+  .ref-full .icon-out { display: none; }
+  .ref-media.is-full .ref-full .icon-in { display: none; }
+  .ref-media.is-full .ref-full .icon-out { display: block; }
+  /* FULLSCREEN. :fullscreen and :-webkit-full-screen must be SEPARATE rules —
+     an engine that does not know one of them throws away the whole selector
+     list, which would silently drop the other. */
+  .ref-media:fullscreen {
+    width: 100vw; height: 100vh; background: #000;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .ref-media:-webkit-full-screen {
+    width: 100vw; height: 100vh; background: #000;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .ref-media:fullscreen .ref-video {
+    flex: 1 1 auto; min-height: 0; width: 100%; height: auto;
+    aspect-ratio: auto; border: 0; border-radius: 0;
+  }
+  .ref-media:-webkit-full-screen .ref-video {
+    flex: 1 1 auto; min-height: 0; width: 100%; height: auto;
+    aspect-ratio: auto; border: 0; border-radius: 0;
+  }
+  .ref-media:fullscreen .ref-bar { flex: none; padding: 8px 16px 16px; height: auto; }
+  .ref-media:-webkit-full-screen .ref-bar { flex: none; padding: 8px 16px 16px; height: auto; }
+  /* REAL TOUCH TARGETS, at the same width the rest of this app already uses. */
+  @media (max-width: 820px) {
+    .ref-play { --ref-bar-h: calc(8px + 44px + 8px + 44px); }
+    .ref-scrub { height: 44px; }
+    .ref-rail-fill::after { width: 16px; height: 16px; margin: -8px -8px 0 0; }
+    .ref-btns .ghost.icon-only { width: 44px; height: 44px; }
+  }
+  /* ---------- THE MOBILE MINI-PLAYER (2026-08-24) ----------
+     Owner: "for mobile when i scroll and the video is not on the screen have it
+     be the small and floating like when im watching a youtube video".
+
+     BELOW THE BREAKPOINT ONLY, AND TWICE OVER. creator.js refuses to add
+     .is-mini when the panel's computed position is `sticky` (i.e. at >=1180px,
+     where the player is already pinned beside the script and a floating box
+     would be redundant AND intrusive); this media query refuses to paint it
+     even if the class ever leaked. Two independent guards, both derived from
+     the same 1180px line, and the CSS one is authoritative for paint.
+
+     .ref-dock KEEPS THE SPACE, IN CSS, WITH NO MEASUREMENT. A ::before with
+     aspect-ratio 9/16 reserves exactly the video's box (the frame is always
+     9:16 — .ref-video sets it, object-fit: contain letterboxes anything else),
+     and padding-bottom reserves the bar from the same --ref-bar-h the bar
+     itself is sized from. Without this reserve the page jumps ~660px the
+     instant the player docks, which re-enters the observer and flutters
+     forever. It is the whole reason the placeholder exists.
+
+     z-index 25: above .pane-head (5) and the page, BELOW the mobile drawer
+     scrim (30) and drawer (40), the modals (100) and the teleprompter (200) —
+     so anything that takes the screen covers this rather than fighting it. */
+  @media (max-width: 1179.98px) {
+    .ref-play.is-mini .ref-dock { padding-bottom: var(--ref-bar-h); }
+    .ref-play.is-mini .ref-dock::before {
+      content: ""; display: block; aspect-ratio: 9 / 16;
+    }
+    /* MOVABLE, AND IT LETS GO INTO A CORNER — the iPhone's picture-in-picture
+       gesture, because that is the one every creator already has. Owner,
+       2026-08-24: "for mobiel have the smaller view movable" / "have it
+       suggested to a corner like on iphone".
+
+       right/bottom STAY THE ANCHOR and the offsets are a `translate`, so the
+       home corner is the origin and every parked position is a negative pair —
+       creator.js measures the travel from the live viewport rather than
+       remembering pixels, which is what makes a rotation land somewhere
+       sensible. The 12px here is the same 12 REF_MINI_EDGE holds; change them
+       together.
+
+       `translate` RATHER THAN `transform`, deliberately: ref-mini-in animates
+       transform, and the two are independent properties that compose, so the
+       slide-in cannot stamp on a dragged position (or vice versa).
+
+       touch-action: none is load-bearing. Without it the browser claims the
+       gesture as a page scroll and pointermove stops firing mid-drag, which
+       reads as the box sticking to the screen. */
+    .ref-play.is-mini .ref-media {
+      position: fixed; right: 12px; bottom: 12px; z-index: 25;
+      width: var(--ref-mini-w);
+      translate: var(--ref-mini-dx, 0px) var(--ref-mini-dy, 0px);
+      touch-action: none; cursor: grab;
+      -webkit-user-select: none; user-select: none;
+      border-radius: var(--r-inner); overflow: clip;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .55);
+      animation: ref-mini-in .18s var(--ease);
+    }
+    /* Lifted while it is under the finger — the one motion cue that says the
+       box is held rather than merely tapped. */
+    .ref-play.is-mini .ref-media.is-dragging {
+      cursor: grabbing; animation: none;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, .62);
+    }
+    /* THE SNAP, AND ONLY THE SNAP. The transition lives on a class creator.js
+       adds for the length of one release, never on the rule above: parking on
+       dock and re-parking after a rotation must be instant, or the box would be
+       seen sliding in from a corner it was never in. */
+    .ref-play.is-mini .ref-media.is-snapping { transition: translate .24s var(--ease); }
+    /* The corner box is small enough that a bar UNDER the frame would double
+       its footprint, so this is the one place an overlay is right. It is always
+       painted — never on hover — because a phone has no hover to depend on. */
+    .ref-play.is-mini .ref-bar {
+      position: absolute; left: 0; right: 0; bottom: 0; height: auto;
+      padding: 24px 4px 4px;
+      display: flex; align-items: flex-end; justify-content: space-between;
+      background: linear-gradient(to top, rgba(10, 10, 11, .85), rgba(10, 10, 11, 0));
+    }
+    /* Dropped in the compact state: there is no room, and the panel a scroll
+       away has all of them. Close replaces them, because a floating box that
+       cannot be closed is the worst version of this feature. */
+    .ref-play.is-mini .ref-scrub,
+    .ref-play.is-mini .ref-time,
+    .ref-play.is-mini .ref-mute,
+    .ref-play.is-mini .ref-full { display: none; }
+    .ref-play.is-mini .ref-close { display: inline-flex; }
+    .ref-play.is-mini .ref-btns {
+      width: 100%; display: flex; justify-content: space-between; gap: 0;
+    }
+    /* Over an arbitrary video frame plus the scrim above: --text measures
+       11.5:1 on the worst case (a white frame at 85% scrim) and 16.9:1 on a
+       dark one. --text-2, which .ghost gives it, would be 5.4:1 — passing, but
+       this is a 44px control on a 112px box and it has to read at a glance. */
+    .ref-play.is-mini .ref-btn { border-color: transparent; color: var(--text); }
+    .ref-play.is-mini .ref-badge { display: none; }
+    /* THE LAST BEATS MUST BE SCROLLABLE CLEAR OF THE BOX. Without this the
+       final rows of the last card can sit permanently underneath it.
+       .ref-play only ever exists in the creator app (grep -c 'ref-' app.js is
+       0), so this :has() can never fire on the agency or public pages. */
+    body:has(.ref-play.is-mini) .pane-body {
+      padding-bottom: calc(var(--ref-mini-w, 112px) * 16 / 9 + 36px);
+    }
+  }
+  @keyframes ref-mini-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
   /* --surface-2, not --surface, so the reference reads as a different object
      from the card holding it. Palette tokens only. */
   .bp-item.ref-panel {
     margin-top: 0; background: var(--surface-2); border: 1px solid var(--line);
     border-radius: var(--r-card);
+    /* THE PLAYER LEADS WHEN THE SPLIT IS STACKED. Below the breakpoint
+       .ref-split is one column, and DOM order puts the panel under the WHOLE
+       script — so playing the video would light a beat the creator cannot see,
+       which is the invisible-bar-chart failure in another costume. The owner's
+       own framing of this panel, 2026-08-23: "the orignal video play on the
+       side so i can watch the video and then see the lynxr scrpt". On a phone
+       "on the side" is "above". `order` on a two-item grid is the whole fix and
+       no markup moves. Reset to 0 at >=1180px, where the columns sit side by
+       side and DOM order is already correct.
+       KNOWN AND ACCEPTED: below the breakpoint tab order (script, then video)
+       no longer matches paint order (video, then script). Both regions name
+       themselves out loud — "The original" against "Your script" — so the
+       divergence is legible rather than disorienting, and it is confined to
+       one container holding exactly two children. */
+    order: -1;
   }
   /* The cover already has fixed box rules from .bp-thumb; not restated here. */
   .ref-head { display: flex; gap: 12px; align-items: flex-start; }
-  .ref-note { font-size: var(--fs-115); color: var(--text-3); margin: 0; }
-  .ref-secs { list-style: none; margin: 10px 0 0; padding: 0; }
-  /* Same rhythm as .bp-beat above — a deliberate echo so the reference and the
-     script read as one system. */
-  .ref-sec {
-    display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 10px;
-    padding: 9px 0; border-top: 1px solid var(--line);
-  }
-  .ref-sec:first-child { border-top: 0; }
-  /* THE SECTION THE VIDEO IS ON. A left rail plus a lifted ground, not a
-     colour swap — these lines are already three weights of --text and
-     re-colouring them would fight that. Palette tokens only, and measured:
-     .bp-item.ref-panel's own background is --surface-2 (#17171a); --surface
-     itself is DARKER than that (#121214) and reads as a recess, not a lift —
-     measured contrast against the panel is only 1.05:1, this project's exact
-     invisible-highlight failure mode. --line-2 is used instead: 1.45:1
-     against the panel. box-shadow inset, not border-left/padding, so the
-     highlight adds no layout shift on the row it lands on up to 4x a second
-     while the video plays. */
-  .ref-sec.on {
-    background: var(--line-2); border-radius: var(--r-inner);
-    box-shadow: inset 2px 0 0 0 var(--good);
-  }
-  .ref-sec.on .ref-t { color: var(--text); }
-  .ref-sec { transition: background .18s ease; }
-  @media (prefers-reduced-motion: reduce) { .ref-sec { transition: none; } }
-  /* .ref-t is now a <button> (2026-08-24, so a section timestamp can seek the
-     video) — these resets make the button visually inert; the font/color/
-     padding rules after them are unchanged from when it was a <span>. */
-  .ref-t {
-    background: none; border: 0; padding: 0; font: inherit; color: inherit;
-    text-align: left; cursor: pointer;
-    font-family: var(--mono); font-size: var(--fs-11); color: var(--text-3); padding-top: 3px;
-  }
-  .ref-seek:hover { color: var(--text); }
-  .ref-do { font-size: var(--fs-125); line-height: 1.5; color: var(--text); margin: 0; }
-  /* pre-line: on-screen text routinely arrives with real line breaks, and
-     collapsing them loses the card layout the creator is reproducing — same
-     reason .bp-val has it. */
-  .ref-text { font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); margin: 4px 0 0; white-space: pre-line; }
-  /* The words are the thing you came to read, so they are the undimmed line
-     and the direction above them is the annotation — the same weighting the
-     asOriginal branch applies (.bp-show gets .bp-dim, .bp-say does not). */
-  .ref-say { font-size: var(--fs-13); line-height: 1.55; color: var(--text); margin: 4px 0 0; }
-  @media (max-width: 560px) {
-    /* Mirrors what .bp-beat already does at this width. */
-    .ref-sec { grid-template-columns: minmax(0, 1fr); }
-    .ref-t { grid-column: 1 / -1; }
-  }
   /* Geometry measured from this file: .side is flex: 0 0 252px at >=821px,
      .pane sets --gutter: max(28px, (100% - 1180px) / 2) and .pane-body pays
      it left and right — so the content column is
@@ -1362,7 +1635,16 @@
      columns below ~1180px and workable at and above it. No container query:
      there are zero @container rules in this file today. */
   @media (min-width: 1180px) {
-    .ref-split { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 22px; }
+    /*  THE PANEL IS PINNED TO THE PLAYER, NOT TO A RATIO. At 1.4fr/1fr the
+        panel measured ~450px while .ref-dock caps the video at 320px, so ~130px
+        of the column was dead margin beside the video while the script — the
+        thing actually being read, and the thing the highlight moves through —
+        was squeezed. 350px is the 320px cap plus .bp-body's 14px of side
+        padding and the panel's 1px borders, so the column ends flush with the
+        player and every reclaimed pixel goes to the script. Track is fixed, not
+        fr: the video's width is fixed, so a ratio would only reintroduce the
+        gap at another window size. */
+    .ref-split { grid-template-columns: minmax(0, 1fr) 350px; gap: 22px; }
     /* align-self: start so the panel does not stretch to the script's height.
        position: sticky holds it in place while the script scrolls past it —
        see the .bp-item overflow: clip change above, which is what makes a
@@ -1372,16 +1654,18 @@
        on a brand page at desktop widths is ~96px, plus 12px clearance, since
        .pane-head is itself position: sticky; top: 0 in the same scroller.
        z-index: 1 keeps the panel passing under that header rather than over
-       it (the header is z-index: 5). max-height keeps a long shot list
-       scrolling inside the panel rather than running off the bottom of the
-       viewport. */
+       it (the header is z-index: 5). max-height keeps the panel inside the
+       viewport on a short screen; with only a player in it the box rarely
+       reaches that limit, but a 9:16 video on a 700px-tall window does. */
     .bp-item.ref-panel {
-      align-self: start; position: sticky; top: 108px;
+      align-self: start; position: sticky; top: 108px; order: 0;
       max-height: calc(100svh - 132px); overflow-y: auto; z-index: 1;
     }
-    /* THE PLAYER STAYS PUT WHILE THE SECTIONS SCROLL UNDER IT. The panel is
-       already its own scroll container at this width (max-height + overflow-y
-       above), so `top: 0` sticks to the top of THAT box, not to the page.
+    /* THE PLAYER STAYS PUT INSIDE ITS OWN BOX. The panel is its own scroll
+       container at this width, so `top: 0` sticks to the top of THAT box. With
+       the sections gone this is no longer load-bearing — the panel is barely
+       taller than the player — but it is correct and it is what holds the
+       player in place on a short window.
        ONLY AT THIS WIDTH. Below the breakpoint the panel is not a scroll
        container, the nearest one is #pane-scroll, and a sticky player would
        pin itself under the sticky .pane-head and float over the script.
@@ -2186,7 +2470,13 @@
   .pane-title .bcard-title { font-size: var(--fs-19); }
   .pane-sub { color: var(--text-3); font-size: var(--fs-125); margin: 5px 0 0; }
   .pane-body { flex: 1 1 auto; padding: 20px var(--gutter) 8px; width: 100%; }
-  .pane-scroll { flex: 1 1 auto; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; }
+  /* scrollbar-gutter, for the reason spelled out on `html` above: this is the
+     box that actually scrolls at desktop widths, so it is the one whose width
+     would otherwise flicker under the player. */
+  .pane-scroll {
+    flex: 1 1 auto; min-width: 0; overflow-y: auto; display: flex; flex-direction: column;
+    scrollbar-gutter: stable;
+  }
 
   /* The composer — paste a link, get a script for the brand you're inside. */
   .composer { position: sticky; bottom: 0; padding: 12px var(--gutter) 20px; width: 100%; }
@@ -3992,8 +4282,7 @@
   .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title,
   .lib-group-name[data-bid], .side-item .side-label, #brand-heading,
   .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip, .chip.trash-brand,
-  .tp-words, .tp-cue, .tp-brand, .for-chip,
-  .ref-do, .ref-text, .ref-say {
+  .tp-words, .tp-cue, .tp-brand, .for-chip {
     text-transform: none;
   }
   /* Placeholders are ours, but they live inside an input that is not — so they

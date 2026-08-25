@@ -6,7 +6,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://lynxr.io/</loc>
-    <lastmod>2026-08-23</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
@@ -19,43 +19,43 @@
        rather than with the legal pages. -->
   <url>
     <loc>https://lynxr.io/faq/</loc>
-    <lastmod>2026-08-23</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <priority>0.8</priority>
   </url>
   <!-- The four content/GEO guides — below /faq/, above the legal set. -->
   <url>
     <loc>https://lynxr.io/what-is-a-video-format/</loc>
-    <lastmod>2026-08-23</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/turn-a-video-into-a-script/</loc>
-    <lastmod>2026-08-23</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/short-form-script-structure/</loc>
-    <lastmod>2026-08-23</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/glossary/</loc>
-    <lastmod>2026-08-23</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/privacy/</loc>
-    <lastmod>2026-08-23</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://lynxr.io/terms/</loc>
-    <lastmod>2026-08-23</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://lynxr.io/accessibility/</loc>
-    <lastmod>2026-08-23</lastmod>
+    <lastmod>2026-08-24</lastmod>
     <priority>0.3</priority>
   </url>
 </urlset>
