@@ -757,19 +757,78 @@
      because a spinner says "busy" and this has to say "moving" — a creator
      who cannot see progress leaves. Widths come from flex, not from an
      inline style: `style-src 'self'` discards those silently. */
-  .eta-rail { display: flex; gap: 3px; margin-top: 8px; max-width: 180px; }
+  /* WIDER AND THICKER THAN IT WAS AT 180x3. That size was right for four step
+     markers read at a glance; this is a bar someone watches for a minute while
+     deciding whether the app works, and a hairline the width of a thumbnail
+     does not hold anyone. Still capped rather than full-bleed — a bar running
+     the whole width of a desktop pane exaggerates every pixel of movement and
+     makes the slow phases look stalled. */
+  .eta-rail { display: flex; gap: 3px; margin-top: 10px; max-width: 340px; }
   /* The rail is now always in the markup and hidden by attribute until a phase
      is known — and `display: flex` above outranks the UA stylesheet's
      [hidden] { display: none }, so without this rule a phase-less script paints
      four dead bars. Same trap as .lookup-loader[hidden] and .wait-form[hidden]
      further down this file. */
   .eta-rail[hidden] { display: none; }
+  /* flex-grow is set per segment by paintEta, in proportion to how long that
+     phase really takes — hence `flex-grow: 1` here as the pre-paint default
+     rather than a fixed basis. `overflow: hidden` is what clips the fill to
+     the pill, so the fill needs no radius of its own on its leading edge. */
   .eta-seg {
-    flex: 1 1 0; height: 3px; border-radius: var(--r-pill);
-    background: var(--line-2); transition: background .3s var(--ease);
+    flex: 1 1 0; height: 4px; border-radius: var(--r-pill);
+    background: var(--line-2); overflow: hidden;
   }
-  .eta-seg.on { background: var(--text-2); }
-  @media (prefers-reduced-motion: reduce) { .eta-seg { transition: none; } }
+  /* THE PART THAT MOVES. Width is written by paintEta through CSSOM (an inline
+     style attribute would be dropped by `style-src 'self'` without a word), and
+     the transition is what turns a 600ms sample into something continuous —
+     linear, and slightly longer than the tick, so the bar glides rather than
+     arriving early and waiting. */
+  .eta-fill {
+    display: block; height: 100%; width: 0;
+    background: var(--text-2); transition: width .7s linear;
+  }
+  /* Overdue. Matches .bp-partial on the sentence above it, so the bar and the
+     words say the same thing rather than one reassuring and one warning. */
+  .eta-fill.stalled { background: var(--text-3); }
+  /* The bar still ADVANCES here — it is information, not decoration, and
+     someone who has turned motion down still needs to see the wait moving.
+     What goes is the tween: it snaps to each 600ms sample instead of sliding. */
+  @media (prefers-reduced-motion: reduce) { .eta-fill { transition: none; } }
+
+  /* THE QUESTION ASKED WHILE A SCRIPT IS BEING WRITTEN — see ASK_QS.
+     Deliberately quiet: a surface tint and a rule above it, no border box and
+     no accent colour. It sits under the progress bar on a card someone is
+     watching, and anything louder would compete with the thing they are
+     actually waiting for. */
+  .askbox {
+    border-top: 1px solid var(--line); margin-top: 4px; padding: 16px 0 4px;
+    max-width: 62ch;
+  }
+  .askbox-lead {
+    margin: 0 0 8px; color: var(--text-3); font-size: var(--fs-11);
+    letter-spacing: .06em; text-transform: lowercase;
+  }
+  .askbox-q { margin: 0 0 4px; font-size: var(--fs-15); color: var(--text); }
+  .askbox-why { margin: 0 0 12px; color: var(--text-3); font-size: var(--fs-12); line-height: 1.5; }
+  .askbox-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  /* Takes the room and lets the button keep its own — a one-line answer box
+     that collapses to a stub next to Save is the reason people skip it. */
+  .askbox-input {
+    flex: 1 1 260px; min-width: 0; max-width: none;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-pill);
+    color: var(--text); font: inherit; font-size: var(--fs-14); padding: 9px 11px;
+  }
+  .askbox-input:focus { outline: none; border-color: var(--line-2); }
+  /* BACK INTO THE HOUSE LOWERCASE. `.chip.pick` sits on the content-exclusion
+     list at the end of this file because it normally holds a COMPANY NAME, and
+     a brand's capitals are theirs. These chips hold our own two words, so they
+     follow the same rule as every other button in the app. */
+  .askbox .chip.pick { text-transform: lowercase; }
+  .askbox-skip { font-size: var(--fs-12); color: var(--text-3); }
+  .askbox-done { margin: 0; color: var(--text-3); font-size: var(--fs-13); }
+  /* The card is the full width of the pane on a phone, so the answer box gets
+     its own line rather than fighting Save for a shared one. */
+  @media (max-width: 560px) { .askbox-input { flex-basis: 100%; } }
 
   /* Client brief: site analysis */
   .progress { color: var(--text-3); font-size: var(--fs-14); padding: 18px 0; }
@@ -800,6 +859,10 @@
     max-width: none; width: 100%;
   }
   .ce-field input:focus, .ce-field select:focus { outline: none; border-color: var(--line-2); }
+  /* Under the input, not beside the label: these two fields need a sentence of
+     explanation each ("a script can only claim what you put here") and a label
+     that long stops scanning as a label. */
+  .ce-hint { color: var(--text-3); font-size: var(--fs-12); line-height: 1.5; }
   /* A field the Save press found empty. Border only — no red fill and no shake:
      this fires on a form someone is part-way through, so it is a marker of what
      is left rather than a scolding. Cleared the moment the field has content.

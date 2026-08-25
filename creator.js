@@ -519,8 +519,13 @@ let SYNC_OK = false;
 // adaptations[] are the scripts — kept as a flat top-level array because that
 // is exactly what the worker iterates; nesting them inside brands would break
 // pipeline/process_adaptations.py.
+// `about` / `never` are the creator's own words about themselves, and the only
+// biography ADAPT_SYSTEM rule 8 lets a script use. `askDone` records which of
+// those questions have been put to them — answered or skipped alike, so the
+// card asks once and then stops. See ASK_QS.
 const BLANK_ME = { name: "", niches: [], brands: [], adaptations: [], library: [],
-                   trash: [], contactEmail: "", emailOptIn: false };
+                   trash: [], contactEmail: "", emailOptIn: false,
+                   about: "", never: "", askDone: [] };
 
 /** Delete a script the recoverable way: it moves to the trash with a stamp and
  *  the name of the company it was written for, so Settings can offer it back.
@@ -903,7 +908,7 @@ document.addEventListener("visibilitychange", () => {
 function normalizeMe() {
   ME = { ...BLANK_ME, ...ME };
   let changed = false;
-  for (const k of ["niches", "brands", "adaptations", "library", "trash"]) {
+  for (const k of ["niches", "brands", "adaptations", "library", "trash", "askDone"]) {
     if (!Array.isArray(ME[k])) { ME[k] = []; changed = true; }
   }
 
@@ -3053,6 +3058,20 @@ function renderYou(head, body) {
         <label class="ce-field"><span class="lbl">Your niches (comma-separated)</span>
           <input type="text" id="me-niches" value="${escapeHtml((ME.niches || []).join(", "))}"
             placeholder="e.g. EMT education, study, fitness"></label>
+        ${/* THE ANSWER TO "the ai made things up about me". A script may only
+              claim a job, a qualification or a timespan that it was given, and
+              this pair is where it is given — the questions asked during the
+              wait write to these same two fields, so whichever way a creator
+              fills them in they end up in one place they can edit. */""}
+        <label class="ce-field ce-wide"><span class="lbl">True about you</span>
+          <input type="text" id="me-about" value="${escapeHtml(ME.about || "")}"
+            placeholder="e.g. esthetician, three years behind the chair">
+          <span class="ce-hint">A script can only claim what you put here. Left
+            empty, it leaves you a blank to fill in rather than inventing one.</span></label>
+        <label class="ce-field ce-wide"><span class="lbl">Never say</span>
+          <input type="text" id="me-never" value="${escapeHtml(ME.never || "")}"
+            placeholder="e.g. never call myself an expert">
+          <span class="ce-hint">Claims you won't make, words that aren't yours.</span></label>
         ${/* No "best email" field: the address is already collected at sign-in,
               and asking again produced a second address to keep in step with
               the first for no benefit. `contactEmail` stays in the record —
@@ -3198,6 +3217,12 @@ function renderYou(head, body) {
     ME.name = document.getElementById("me-name").value.trim();
     ME.niches = document.getElementById("me-niches").value.split(",").map((x) => x.trim()).filter(Boolean);
     ME.emailOptIn = document.getElementById("me-optin").value === "yes";
+    ME.about = document.getElementById("me-about").value.trim();
+    ME.never = document.getElementById("me-never").value.trim();
+    // Editing these by hand answers the questions too — otherwise the wait
+    // card would go on asking for something already sitting in Settings.
+    ME.askDone = [...new Set([...(ME.askDone || []),
+      ...(ME.about ? ["about"] : []), ...(ME.never ? ["never"] : [])])];
     save({ now: true });
     flashMsg("me-msg", "Saved.", "good");
   });
@@ -4509,6 +4534,107 @@ const PHASE_WORDS = {
   writing: "writing your script",
 };
 const PHASE_ORDER = ["reading", "watching", "structure", "writing"];
+
+/* HOW LONG EACH PHASE ACTUALLY TAKES, which is not a quarter of the run each.
+   Straight from the warm run's per-stage split that PHASE_LEFT above was
+   derived from — download 2.7 + transcribe 8.0 + cover 0.3 | frames 1.0 +
+   shots/tags 16.6 | format 8.1 | adapt 16.7 — grouped into the four phases the
+   worker publishes. Four equal segments would stall visibly through "watching"
+   (the longest) and race through "finding the format" (the shortest), which
+   reads as a bar that is guessing. Sized in proportion instead, the bar moves
+   at ONE speed from end to end and every segment tells the truth about how
+   much of the wait it is. */
+const PHASE_SEC = { reading: 11, watching: 18, structure: 8, writing: 17 };
+const PHASE_BASE_SEC = 54;   // the run those seconds were measured on
+
+/* THE STRETCH BEFORE ANY PHASE IS KNOWN — sent, not yet claimed. It is short
+   in practice (the worker probes every 2s) but it is the single worst moment
+   to show nothing: the creator has just pasted and is deciding whether this
+   app works. So the bar starts here rather than at zero-width, and creeps
+   across this much while it waits to be picked up. */
+const QUEUE_HEAD = 0.06;
+const QUEUE_HEAD_SEC = 8;
+
+/** Where each phase begins and ends on the bar, 0–1, in proportion to how long
+    it really takes. Computed once — PHASE_SEC is a constant. */
+const ETA_SPANS = (() => {
+  const total = PHASE_ORDER.reduce((n, p) => n + PHASE_SEC[p], 0);
+  const out = {};
+  let at = QUEUE_HEAD;
+  for (const p of PHASE_ORDER) {
+    const w = (PHASE_SEC[p] / total) * (1 - QUEUE_HEAD);
+    out[p] = [at, at + w];
+    at += w;
+  }
+  return out;
+})();
+
+/* NOTHING ON THIS BAR EVER GOES BACKWARDS. The fraction is a function of the
+   clock AND of this account's measured pace, and that pace changes underfoot:
+   a script finishing mid-wait re-medians measuredWorkSec(), which can shorten
+   the scale and pull a phase's fill back. A bar that retreats is worse than no
+   bar — it reads as the thing having failed. So the highest fraction ever
+   painted for an id is kept and never given up.
+   Keyed by adaptation id, pruned against the live queue below rather than on a
+   done/error event, because there is no event: a finished script simply stops
+   rendering a .loader for paintEta to visit. */
+const ETA_HIGH = new Map();
+
+/** The fraction of a span covered after `t` seconds of an expected `d`, easing
+    out and never arriving. At t = d it is 85% of the way across, and it keeps
+    creeping after that instead of stopping — which is what makes a phase that
+    runs long still look alive rather than hung. */
+const approach = (t, d) => 1 - Math.exp(-1.897 * Math.max(0, t) / Math.max(1, d));
+
+/** HOW FAR ALONG THE BAR THIS SCRIPT IS, 0–1, plus the per-segment fills that
+    implies. The only place the bar's position is decided.
+
+    Time-driven within a phase, phase-driven between them: the published phase
+    snaps the bar to that segment's start and the clock carries it across.
+    That pairing is what makes it both smooth and honest — it moves every tick
+    without the data moving, and it cannot drift far from reality because the
+    next phase report pulls it back onto a known anchor. */
+function etaProgress(a, eta) {
+  // This account's pace against the run PHASE_SEC was measured on. Bounded:
+  // one pathological 12-minute script must not stretch every future bar into
+  // stillness, and a cached-source run finishing in 4s must not make the next
+  // one sprint to the end and sit there.
+  const scale = hasEtaHistory()
+    ? Math.min(4, Math.max(0.5, measuredWorkSec() / PHASE_BASE_SEC)) : 1;
+  const since = (iso) => (iso ? (Date.now() - new Date(iso).getTime()) / 1000 : 0);
+
+  let frac;
+  if (!eta.phase) {
+    /* Queued, or sent and not yet acknowledged. A send still sitting in the
+       outbox (eta.late with no phase) is NOT progressing and must not creep:
+       there is no worker that can see it, and a moving bar would be the same
+       lie the "still queued" wording was fixed to stop telling. */
+    frac = eta.late ? QUEUE_HEAD * 0.5
+      : QUEUE_HEAD * approach(since(a.addedAt), QUEUE_HEAD_SEC * (eta.waves || 1));
+  } else {
+    const [lo, hi] = ETA_SPANS[eta.phase];
+    // phaseAt is stamped by publish_phase when the phase begins; without it
+    // (an older row, or a graft that did not land) the segment sits at its
+    // start rather than guessing an elapsed time.
+    frac = lo + (hi - lo) * approach(since(a.phaseAt), PHASE_SEC[eta.phase] * scale);
+  }
+
+  /* NEVER 100% BEFORE IT IS DONE. The bar arriving while the card still says
+     "writing your script" is the one thing that would make it untrustworthy —
+     and a done script does not render a loader at all, so nothing here ever
+     needs to paint the last 3%. The asymptote already keeps it under 1; this
+     is the guard that survives someone retuning the numbers above. */
+  frac = Math.min(0.97, Math.max(0, frac));
+
+  const held = ETA_HIGH.get(a.id) || 0;
+  if (frac < held) frac = held; else ETA_HIGH.set(a.id, frac);
+
+  const fills = PHASE_ORDER.map((p) => {
+    const [lo, hi] = ETA_SPANS[p];
+    return Math.min(1, Math.max(0, (frac - lo) / (hi - lo)));
+  });
+  return { frac, fills };
+}
 // Scripts ahead of this one in THIS account's queue, plus this one, divided
 // by how many the worker takes per pass. Ticking two companies is one wave,
 // not two scripts' worth of waiting: process_group runs their adaptations
@@ -4597,7 +4723,7 @@ function etaFor(a) {
     return {
       late: true,
       text: "Still on this device — your connection dropped on the way out. Retrying automatically; leave this page open.",
-      phase: null, step: 0, steps: PHASE_ORDER.length,
+      phase: null, step: 0, steps: PHASE_ORDER.length, waves: 1,
     };
   }
   const pos = writingQueue().findIndex((x) => x.id === a.id);
@@ -4622,13 +4748,13 @@ function etaFor(a) {
     const text = phase
       ? `Still ${PHASE_WORDS[phase]} — longer than usual…`
       : `Taking longer than usual — sent ${mins} minute${mins === 1 ? "" : "s"} ago. Still queued; it's picked up whenever the worker next runs.`;
-    return { late: true, text, phase, step, steps };
+    return { late: true, text, phase, step, steps, waves };
   }
   if (phase) {
     const left = Math.max(5, PHASE_LEFT[phase] + (waves - 1) * hi);
-    return { late: false, text: `${PHASE_WORDS[phase]} · about ${secWords(left)} left`, phase, step, steps };
+    return { late: false, text: `${PHASE_WORDS[phase]} · about ${secWords(left)} left`, phase, step, steps, waves };
   }
-  return { late: false, text: `usually ${Math.round(lo * waves)}–${Math.round(hi * waves)} seconds`, phase, step, steps };
+  return { late: false, text: `usually ${Math.round(lo * waves)}–${Math.round(hi * waves)} seconds`, phase, step, steps, waves };
 }
 
 /* The loader, the phase and the estimate as one block. Two callers —
@@ -4650,8 +4776,14 @@ function etaBlockHtml(a, stage) {
       <div class="loader-text">
         <div class="loader-stage">${stage}</div>
         <div class="loader-sub bp-eta"></div>
+        ${/* A segment per phase, each with its own fill — see etaProgress.
+              Still ships `hidden`: paintEta unhides it, so a block that never
+              reaches the painter shows nothing rather than four dead bars.
+              aria-hidden because .loader's own aria-live already announces the
+              phase and the estimate in words; a percentage read out every
+              second on top of that is noise, not access. */""}
         <div class="eta-rail" aria-hidden="true" hidden>${
-          PHASE_ORDER.map(() => `<i class="eta-seg"></i>`).join("")}</div>
+          PHASE_ORDER.map(() => `<i class="eta-seg"><b class="eta-fill"></b></i>`).join("")}</div>
       </div>
     </div>`;
 }
@@ -4684,12 +4816,219 @@ function paintEta(root = document) {
     }
     const rail = el.querySelector(".eta-rail");
     if (rail) {
-      rail.hidden = !(eta.step > 0);
-      [...rail.querySelectorAll(".eta-seg")].forEach((seg, i) =>
-        seg.classList.toggle("on", i < eta.step));
+      /* SHOWN FROM THE FIRST TICK, not from the first phase. This used to be
+         `!(eta.step > 0)`, which hid the whole rail until the worker published
+         a phase — so the seconds right after a paste, the ones that decide
+         whether someone stays, were the seconds with no progress on screen at
+         all. There is always something honest to draw now: the queue head. */
+      rail.hidden = false;
+      const { fills } = etaProgress(a, eta);
+      [...rail.querySelectorAll(".eta-seg")].forEach((seg, i) => {
+        /* Widths in proportion to how long each phase takes — see PHASE_SEC.
+           Written through CSSOM, never an inline style attribute: `style-src
+           'self'` drops those silently and the bar would look uniform without
+           one thing in the console to say why. Guarded because this runs
+           several times a second and an identical write is still a write. */
+        const grow = String(PHASE_SEC[PHASE_ORDER[i]]);
+        if (seg.style.flexGrow !== grow) seg.style.flexGrow = grow;
+        const fill = seg.querySelector(".eta-fill");
+        if (!fill) return;
+        const w = `${(fills[i] * 100).toFixed(1)}%`;
+        if (fill.style.width !== w) fill.style.width = w;
+        fill.classList.toggle("stalled", !!eta.late);
+      });
     }
   });
+  /* The bar has to move BETWEEN polls or it is four steps in a minute wearing
+     a bar's clothing — so painting is also what keeps the ticker alive. Called
+     last, and idempotent, so the ticker only ever exists while something on
+     screen is actually writing. */
+  if (root.querySelector(".loader[data-eta]")) startEtaTicker();
 }
+
+/* WHAT MAKES IT A PROGRESS BAR RATHER THAN A PROGRESS STAIRCASE.
+   The live sync polls every 2.5s, and the phase behind the bar changes four
+   times in a minute; neither is a frame rate. This repaints the fraction on
+   its own clock, off the same paintEta the poll uses, so there is still only
+   one writer and no second copy of the arithmetic.
+
+   Stops itself the moment nothing on the page is writing — a finished script
+   renders no .loader[data-eta], so there is nothing to look for and no
+   teardown to remember at any of the render sites. 600ms rather than a frame
+   loop because the CSS transition below carries the eye between ticks; this
+   only has to keep the target honest. */
+let ETA_TICK = null;
+function startEtaTicker() {
+  if (ETA_TICK) return;
+  ETA_TICK = setInterval(() => {
+    if (!document.querySelector(".loader[data-eta]")) {
+      clearInterval(ETA_TICK);
+      ETA_TICK = null;
+      return;
+    }
+    paintEta(document);
+    /* Bounded, and pruned here because there is no completion event to prune
+       on. Anything not currently in the queue has either finished or failed,
+       and either way its high-water mark is dead weight. */
+    if (ETA_HIGH.size > 8) {
+      const live = new Set(writingQueue().map((x) => x.id));
+      [...ETA_HIGH.keys()].forEach((k) => { if (!live.has(k)) ETA_HIGH.delete(k); });
+    }
+  }, 600);
+}
+
+/* ---------- what we ask while the script is being written ----------
+
+   THE PROBLEM THIS EXISTS TO FIX, from a creator reading their own script on
+   2026-08-25: "there were some parts to it that the ai seemed to have made up
+   like this sentence — 'I've been testing skincare for a living for six
+   years'". Nobody had told the model that, because there was nowhere to tell
+   it. ADAPT_SYSTEM rule 8 now forbids inventing a life; these questions are
+   where the true version comes from, and without them rule 8 just produces
+   blanker scripts.
+
+   ASKED DURING THE WAIT BECAUSE THE WAIT IS ALREADY BEING SPENT. A minute of
+   watching a bar is the one moment in this app with nothing else to do in it,
+   and a question answered there costs the creator nothing. It is also the
+   moment they are most likely to answer honestly — they are thinking about
+   this exact video.
+
+   NEVER BLOCKING, AND NEVER PRETENDING. Every question is skippable, the card
+   never covers the progress bar, and nothing here is required to get a script.
+   It also does NOT claim to change the script now being written: the worker
+   read this creator's row when it claimed the job and does not read it again,
+   so an answer typed now lands on the NEXT script. Saying otherwise would be
+   the same kind of lie as a bar that fills to 100% before the work is done. */
+const ASK_QS = [
+  {
+    id: "tried",
+    q: (name) => `Have you actually used ${name}?`,
+    why: "So a script never puts a review in your mouth that isn't yours.",
+    opts: [{ v: "yes", label: "Yes, I use it" }, { v: "no", label: "Not yet" }],
+  },
+  {
+    id: "about",
+    q: () => "Anything true about you a script can lean on?",
+    why: "Your job, your training, how long you've done this. This is the only "
+       + "place a script is allowed to get that from — left empty, it has to "
+       + "leave you a blank to fill in instead.",
+    placeholder: "e.g. esthetician, three years behind the chair",
+  },
+  {
+    id: "never",
+    q: () => "Anything you'd never say on camera?",
+    why: "Claims you won't make, words that aren't yours.",
+    placeholder: "e.g. never call myself an expert",
+  },
+];
+
+/* The half-typed answer, kept out of the DOM so a repaint cannot eat it. The
+   pane rebuilds on any material change to a script, and someone mid-sentence
+   when their card changes state would otherwise watch their words vanish.
+   One variable, not a map: exactly one question is on screen at a time. */
+let ASK_DRAFT = "";
+
+/** The first question this creator still owes an answer to, or null.
+ *  `tried` is brand-scoped — the same person genuinely uses one client's
+ *  product and has never touched another's — so it is asked once per company
+ *  rather than once per account. The other two are about them, and are asked
+ *  once ever. */
+function nextAsk(a) {
+  const brand = a.brandId ? brandById(a.brandId) : null;
+  if (brand && !brand.tried) return ASK_QS[0];
+  const done = ME.askDone || [];
+  return ASK_QS.slice(1).find((q) => !done.includes(q.id)) || null;
+}
+
+/** Mark a question answered — or skipped, which is also an answer for our
+ *  purposes: asking again next time would turn a courtesy into nagging. */
+function answerAsk(a, id, value) {
+  if (id === "tried") {
+    const brand = a.brandId ? brandById(a.brandId) : null;
+    if (brand) brand.tried = value || "skip";
+  } else {
+    if (value) ME[id] = value;
+    ME.askDone = [...new Set([...(ME.askDone || []), id])];
+  }
+  ASK_DRAFT = "";
+  save();
+}
+
+function askInnerHtml(a) {
+  const q = nextAsk(a);
+  if (!q) {
+    return `<p class="askbox-done">Thanks — that goes into your scripts from here on.</p>`;
+  }
+  const brand = a.brandId ? brandById(a.brandId) : null;
+  const title = q.q(escapeHtml((brand || {}).name || "this brand"));
+  const row = q.opts
+    ? `<div class="askbox-row">${q.opts.map((o) =>
+        `<button type="button" class="chip pick" data-askv="${o.v}">${escapeHtml(o.label)}</button>`
+      ).join("")}</div>`
+    /* A form, so Enter sends it — the handler preventDefaults, and `form-action
+       'none'` in the CSP is the backstop if it ever does not. */
+    : `<form class="askbox-row" data-askform="1">
+         <input type="text" class="askbox-input" value="${escapeHtml(ASK_DRAFT)}"
+           placeholder="${escapeHtml(q.placeholder)}" autocomplete="off"
+           aria-label="${escapeHtml(String(title).replace(/<[^>]*>/g, ""))}">
+         <button type="submit" class="btn">Save</button>
+       </form>`;
+  return `<p class="askbox-lead">While you wait</p>
+    <p class="askbox-q">${title}</p>
+    <p class="askbox-why">${escapeHtml(q.why)}</p>
+    ${row}
+    <button type="button" class="linkish askbox-skip">Skip this</button>`;
+}
+
+/** The question card that sits UNDER the progress bar on a writing card.
+ *
+ *  ONE CARD ON SCREEN AT A TIME, on the oldest thing being written. Two
+ *  companies sent together are two writing cards, and two copies of the same
+ *  question stacked down the page would read as a bug — and answering one
+ *  would silently answer the other. */
+function askCardHtml(a) {
+  if ((writingQueue()[0] || {}).id !== a.id) return "";
+  if (!nextAsk(a)) return "";           // nothing left to ask: draw nothing
+  return `<div class="askbox" data-askhost="${escapeHtml(a.id)}">${askInnerHtml(a)}</div>`;
+}
+
+/* Delegated on the document, once, because the card it belongs to is rebuilt
+   by every repaint of the pane — a listener bound to the node would be lost
+   with it, and re-binding at each render site is how the other half of this
+   file grew its wiring functions. */
+document.addEventListener("click", (e) => {
+  const host = e.target.closest?.(".askbox[data-askhost]");
+  if (!host) return;
+  const a = (ME.adaptations || []).find((x) => x.id === host.dataset.askhost);
+  if (!a) return;
+  const chip = e.target.closest("[data-askv]");
+  const skip = e.target.closest(".askbox-skip");
+  if (!chip && !skip) return;
+  /* THE CARD CAN OUTLIVE THE QUESTION. Settings can answer the same two fields,
+     and a sync from another tab lands straight on ME — either way the buttons
+     on screen may be asking something already answered. Repaint rather than
+     dereference a null question. */
+  const q = nextAsk(a);
+  if (!q) { host.innerHTML = askInnerHtml(a); return; }
+  answerAsk(a, q.id, chip ? chip.dataset.askv : "");
+  host.innerHTML = askInnerHtml(a);
+});
+
+document.addEventListener("submit", (e) => {
+  const host = e.target.closest?.(".askbox[data-askhost]");
+  if (!host || !e.target.matches("[data-askform]")) return;
+  e.preventDefault();
+  const a = (ME.adaptations || []).find((x) => x.id === host.dataset.askhost);
+  if (!a) return;
+  const q = nextAsk(a);                       // see the click handler above
+  if (q) answerAsk(a, q.id, host.querySelector(".askbox-input").value.trim());
+  host.innerHTML = askInnerHtml(a);
+});
+
+// Half a sentence is worth keeping; see ASK_DRAFT.
+document.addEventListener("input", (e) => {
+  if (e.target.classList?.contains("askbox-input")) ASK_DRAFT = e.target.value;
+});
 
 /** Companies that do NOT already have a script from this source video. */
 function brandsWithout(item) {
@@ -6227,7 +6566,11 @@ function adaptationHtml(a, liveName, opts = {}) {
        rather than waited on. */
     body = etaBlockHtml(a, a.brandId
       ? `Writing it for ${escapeHtml(brandNow)}`
-      : "Reading the video for its original script");
+      : "Reading the video for its original script")
+      /* UNDER the bar, never over it. The wait is the thing the creator came
+         to watch; the questions are what we do with the wait, not instead of
+         it. See askCardHtml. */
+      + askCardHtml(a);
   } else if (a.status === "error") {
     /* NO RETRY BUTTON ON A WALL. `retryable: false` is written by the worker
        (see FETCH_FAILURES in process_adaptations.py) for the failures whose
@@ -7058,8 +7401,9 @@ function startLiveSync() {
        That was the blink, and it is why an expanded script collapsed on its
        own. paintEta() does the same job on the nodes already on screen without
        replacing one of them, and is cheap enough to run unconditionally.
-       It touches only .bp-eta text and .eta-seg classes, never a form control,
-       so it is safe while `editing`. */
+       It touches only .bp-eta text and the rail's own widths, never a form
+       control, so it is safe while `editing` — and `editing` is what protects
+       the answer someone is typing into an .askbox-input from the repaint. */
     paintEta(document);
     renderSendOverlay();
     schedule();

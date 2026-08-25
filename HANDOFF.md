@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-08-20.**
+Read this, then `README.md` for architecture. **Last updated 2026-08-25.**
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -127,6 +127,92 @@ real rather than a dead channel.
 ---
 
 ## Where this left off (read this first)
+
+**2026-08-25 — the wait is a real progress bar, and a script can no longer
+invent who the creator is. UNCOMMITTED: 15 files modified, nothing staged.**
+The `?v=` stamp is already bumped to `20260825a` on all twelve pages and
+`tools/check_stamp.py` passes, so this commits as one piece.
+
+A test creator read their own script and found a sentence nobody had told us
+was true — *"I've been testing skincare for a living for six years."* Nothing
+in the prompt forbade it, and there was nowhere for the truth to have come
+from. Three changes, in the order they matter.
+
+**1. `ADAPT_SYSTEM` gained rule 8: never invent the creator's life.** No job,
+qualification, timespan, routine, ownership, purchase, result or personal
+story unless the BRAND block states it. Where a beat needs a detail it was not
+given, the model now leaves a **square-bracket slot** — `[how long you've used
+it]` — with the beat's structure, length and role intact, instead of filling
+it with fiction. Rule 3 ("write words the creator actually says") was what
+invited this: it asks for a real voice and nothing said the model does not get
+to decide whose. ADAPT_SYSTEM grew 640 -> ~815 tokens; it was clear of
+`CACHE_MIN_TOKENS` before and is further clear now, but **the number in the
+cached-prefix table is an estimate, not a re-measure.**
+
+**2. The creator's own facts now reach the prompt.** `brand_digest()` emits
+three new lines when they exist: `creator.about` ("TRUE ABOUT THE CREATOR, in
+their own words"), `creator.never` ("THE CREATOR WILL NOT SAY THIS"), and a
+per-brand `brand.tried` — where `"no"` becomes a hard *"THE CREATOR HAS NEVER
+USED THIS PRODUCT. Write no first-hand experience, no results, no before/after,
+no testimony."* An account that has filled in none of them produces a digest
+**byte-identical to the old one**, so nothing changes for existing rows until
+someone answers something.
+
+Two ways in, one destination. Settings has "True about you" / "Never say"
+fields; and the app now asks during the wait — `ASK_QS` in `creator.js`, one
+question at a time under the progress bar, every one skippable, answered-or-
+skipped recorded in `ME.askDone` so it asks once and stops. `.chip.pick` is on
+the lowercase content-exclusion list (it normally holds a company name), so
+`.askbox .chip.pick` puts these two-word answers back in house lowercase.
+
+**3. The four-segment rail became a bar that actually moves.** It was four
+discrete steps over 60–110s, hidden entirely until the worker published a
+phase — so the seconds right after a paste, the ones that decide whether
+someone stays, had nothing on screen. Now:
+
+- **Segment widths are proportional to real phase duration** (11 / 18 / 8 /
+  17s, `PHASE_SEC`, from the same warm-run split `PHASE_LEFT` came from), so
+  the bar moves at one speed end to end instead of stalling through "watching"
+  and racing through "finding the format". Painted widths measured
+  34.8 / 57 / 25.3 / 53.8px — exactly 11:18:8:17.
+- **Time-driven within a phase, phase-driven between them.** Each segment
+  fills asymptotically against its own expected duration (scaled by
+  `measuredWorkSec()`); the published phase snaps the bar to a known anchor.
+  Smooth without being able to drift far from the truth.
+- **It shows from second zero** — a `QUEUE_HEAD` of 6% covers sent-but-not-
+  claimed. A send still sitting in the outbox (`!landed(a)`) deliberately does
+  **not** creep: no worker can see it, and a moving bar there is the same lie
+  the "still queued" wording was fixed to stop telling.
+- **It never reaches 100% before done** (hard cap 0.97) and **never goes
+  backwards** — a script finishing mid-wait re-medians the pace and can shorten
+  the scale, so `ETA_HIGH` keeps the high-water mark per id. Verified by
+  winding the clock backwards: held.
+- **`startEtaTicker()`, 600ms**, off the same `paintEta` so there is still one
+  writer and no second copy of the arithmetic. Sampled with zero data change:
+  15.9 -> 26.3 -> 38 -> 47.8 -> 56.1%. It stops itself when nothing on the page
+  is writing.
+
+Widths go through CSSOM, never an inline `style` attribute — `style-src 'self'`
+would have dropped them silently and the bar would have looked uniform with
+nothing in the console to say why.
+
+**WHAT IS NOT DONE, AND THE CARD SAYS SO.** The worker reads the creator row
+when it claims the job (`process_group` holds `data` in memory) and does not
+read it again, so an answer typed during the wait lands on the **NEXT** script,
+not the one being written. The card's closing line is therefore *"that goes
+into your scripts from here on"* — not "this one". Closing that gap is a
+re-read in `fill_adaptation` just before the prompt is built; see Open below.
+
+**HOW FAR THIS WAS VERIFIED.** Browser, against injected records in a harness:
+the progression across all four phases, the 97% cap, the monotonic guard, the
+600ms ticker starting and stopping, the three questions advancing and
+persisting, the stale-card guard, and Settings rendering both fields.
+`brand_digest` exercised directly in Python for all three shapes. The five
+pipeline tests that touch `process_adaptations` pass. **It has NOT been seen
+against a real paste on a signed-in account** — no live writing script was
+available. That is the first thing to do next.
+
+The 2026-08-20 priorities below are untouched and still the queue.
 
 **2026-08-20 (evening) — SESSION CLOSE. Cloudflare is live in front of
 lynxr.io (Track D1), the site has real security headers for the first time,
@@ -996,6 +1082,24 @@ pages stay fully zoomable), and `.bp-wait` measures 3.39:1 in list rows.
 
 ### Still open
 
+- **Answers given during the wait do not reach the script being written.**
+  `process_group` reads the creator row when it claims the job and passes that
+  in-memory `data` down to `fill_adaptation`, which builds the prompt ~35–40s
+  later (right after `publish("writing")`). So a creator who answers "no, I
+  have not used this" while watching the bar still gets a script written
+  without that fact. The fix is one re-read of the row in `fill_adaptation`
+  immediately before `brand_digest()` — `graft_adaptations` already does a
+  locked whole-row read-modify-write, so the pattern exists — but it puts a
+  network call on the hottest path in the pipeline and adds a race worth
+  thinking about, which is why it was split out rather than shipped with the
+  rest on 2026-08-25. Until it lands, the wait card must go on saying "from
+  here on" rather than "this one".
+- **The estimate does not count down inside a phase.** `PHASE_LEFT` is a
+  constant per phase, so `etaFor()` says "about 17 seconds left" for the whole
+  of `writing` — at 3 seconds in and at 60. The progress bar now covers for it
+  (it moves continuously off `phaseAt`), which is why this was left alone, but
+  the sentence and the bar disagree by the end of a long phase and the
+  arithmetic to fix it is already sitting in `etaProgress`.
 - **`upsert_video()` still writes `views = meta.get("views") or 0`**
   (`process_adaptations.py`), so every creator-pasted Instagram video enters
   `lynxr_videos` with a fake zero. It was deliberately not fixed:

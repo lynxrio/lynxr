@@ -251,7 +251,25 @@ Rules:
    product does not have — a visible before/after, a physical object, a
    dramatic reveal — score it BELOW 0.45 and say why in fit_reason. A forced
    adaptation produces a bad video and poisons the format's performance record.
-   Refusing is the correct answer more often than people expect."""
+   Refusing is the correct answer more often than people expect.
+8. NEVER INVENT THE CREATOR'S LIFE. Rule 3 asks you to write words a real
+   person says; it does not license you to decide who that person is. Do not
+   write a job, a qualification, a timespan, a routine, ownership, a purchase,
+   a result, or a personal story unless the BRAND block states it. "I've been
+   testing skincare for a living for six years", "as a nurse", "I've used this
+   every morning for three months" — none of that is voice, it is biography,
+   and the creator finds out it was invented in the comments.
+   WHERE A BEAT NEEDS A DETAIL YOU WERE NOT GIVEN, LEAVE A SLOT: write it in
+   square brackets — "[how long you've used it]", "[your own before/after]",
+   "[what you did before this]" — and keep the beat's structure, length and
+   role intact. A slot takes the creator ten seconds to fill and is the only
+   honest way to write a beat whose content only they know.
+   A slot is a last resort, not a shortcut: if the BRAND block gives you the
+   fact, use the fact. Never leave a slot for something about the PRODUCT —
+   that is what the brand description is for.
+   If the block says the creator has NOT used the product, the script may not
+   claim or imply that they have: no results, no before/after, no "I", no
+   testimony. Write it as interest, curiosity or demonstration instead."""
 
 
 # ---------------------------------------------------------- fused (Step 13)
@@ -1253,12 +1271,15 @@ def usage():
 #
 #                    system text   actual cached prefix
 #     TAG_SYSTEM        1848              2038
-#     ADAPT_SYSTEM       640               830
+#     ADAPT_SYSTEM      ~815             ~1005   <- rule 8, 2026-08-25; est.
 #     FORMAT_SYSTEM      491               681   <- system alone is UNDER 512
 #
 # So FORMAT_SYSTEM caches even though its prompt is 21 tokens short of the
 # minimum on its own. Measured live, cold-then-warm, on 2026-08-16: all three
 # wrote on the first call and read back the identical token count on the second.
+# ADAPT_SYSTEM's row is an ESTIMATE since rule 8 grew it from 640 — it was well
+# clear of the threshold before and is further clear now, so the conclusion
+# holds without a re-measure, but do not quote that number as observed.
 # Do not "optimise" by dropping the marker from the short one — check the whole
 # prefix, not the prompt.
 CACHE_MIN_TOKENS = 512
@@ -1589,6 +1610,34 @@ def brand_digest(brand, creator, code=""):
         parts.append(f"Creator delivering it: {creator['name']}")
     if creator.get("niches"):
         parts.append(f"Creator's usual niches: {', '.join(creator['niches'])}")
+
+    # THE CREATOR'S OWN FACTS, AND THE ONLY ONES RULE 8 LETS THE MODEL USE.
+    # Collected in Settings and by the questions the app asks during the wait
+    # (creator.js, askCardHtml) — which exist because a live script opened with
+    # "I've been testing skincare for a living for six years" about someone who
+    # had told us nothing of the kind. Everything here is typed by the creator,
+    # so it is the one place biography can legitimately come from. Trimmed
+    # because it is free text going into a cached-prefix-adjacent prompt.
+    if (creator.get("about") or "").strip():
+        parts.append("TRUE ABOUT THE CREATOR, in their own words — you may use "
+                     f"these, and nothing beyond them: {creator['about'].strip()[:400]}")
+    if (creator.get("never") or "").strip():
+        parts.append("THE CREATOR WILL NOT SAY THIS — do not write it, or anything "
+                     f"close to it: {creator['never'].strip()[:400]}")
+
+    # Per-brand, because using the product is a fact about this pairing rather
+    # than about the creator: the same person genuinely uses one client's
+    # product and has never touched another's.
+    tried = brand.get("tried")
+    if tried == "yes":
+        parts.append("The creator personally uses this product. First-hand "
+                     "experience is fair to write, but keep it to what is stated "
+                     "above — invented specifics are still rule 8.")
+    elif tried == "no":
+        parts.append("THE CREATOR HAS NEVER USED THIS PRODUCT. Write no first-hand "
+                     "experience, no results, no before/after, no testimony. "
+                     "Curiosity, demonstration and what the brand claims are open "
+                     "to you; 'I use this' is not.")
     # Tracking codes are PARKED, not deleted (owner, 2026-08-12). The model is
     # no longer told about one, so scripts stop ending in "use code ABCD1234"
     # while the product is still about proving the scripts are any good.
