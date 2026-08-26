@@ -325,8 +325,17 @@
      and the brief top-align only while the caret is in the box. */
   const heroInput = document.getElementById("lp-composer-url");
   if (heroInput) {
+    /* PHONE ONLY, decided AT EVENT TIME (owner, after the CSS-only scoping:
+       "still isnt fixed") — scoping just the CSS left the JS running on
+       desktop, where the focus scrollTo(0,0) glided the page and the pin
+       locked scrolling while the caret was in the box. A desktop has no
+       software keyboard; a desktop focus must do NOTHING. matchMedia is read
+       inside the handlers so a resized window obeys its current width, not
+       the width it loaded at. */
+    const phone = matchMedia("(max-width: 760px)");
     const pin = () => { if (scrollY !== 0) scrollTo(0, 0); };
     heroInput.addEventListener("focus", () => {
+      if (!phone.matches) return;
       document.documentElement.classList.add("lp-composing");
       scrollTo(0, 0);
       addEventListener("scroll", pin);
