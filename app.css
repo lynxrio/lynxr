@@ -2725,6 +2725,13 @@
      down doesnt work" (the burger flipped to X over a menu nobody could see).
      z-index because the panel must overlay the hero that now scrolls past. */
   body.home .lp-bar { padding: 0; position: relative; z-index: 30; background: transparent; }
+  /* The capsule pages' hide-on-scroll-down / reveal-on-scroll-up machinery
+     still fires on home (site.js toggles .lp-bar-away everywhere), but this
+     bar is IN FLOW — it leaves the screen by scrolling like any content, and
+     the reveal transition played as a slow slide-back near the top (owner:
+     "the top bar scrolls back down slowly, just have it stay there"). On home
+     the bar simply sits in the flow: no transform, no transition, ever. */
+  body.home .lp-bar, body.home .lp-bar.lp-bar-away { transform: none; transition: none; }
   body.home .lp-bar-in {
     /* Capped, not edge-to-edge (owner: "make this less spread out") — on a
        wide monitor the three groups drifted to the viewport's corners. 1200px
@@ -2752,9 +2759,14 @@
   }
   body.home .lp-hero .newscript-greet { margin-bottom: 48px; }
   /* While the caret is in the paste box the hero group rides at the top of
-     the screen — see the lp-composing comment in site.js. */
-  html.lp-composing body.home .lp-hero { align-items: flex-start; }
-  html.lp-composing body.home .lp-hero .lp-in { padding-top: 9svh; }
+     the screen — see the lp-composing comment in site.js. UNDER 760px ONLY
+     (owner: "the whole thing not move on desktop"): this shift exists to
+     clear the software keyboard, and a desktop has none — there the click
+     changes nothing and the group stays put. */
+  @media (max-width: 760px) {
+    html.lp-composing body.home .lp-hero { align-items: flex-start; }
+    html.lp-composing body.home .lp-hero .lp-in { padding-top: 9svh; }
+  }
 
   .lp-sub {
     margin: 12px 0 0; color: var(--text-2);
