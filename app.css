@@ -1336,6 +1336,38 @@
     color: var(--text-3); font-size: var(--fs-115);
   }
   .bp-addbeat:hover { color: var(--text-2); }
+
+  /* ---- the per-line confirm ----
+     A GRID ROW, NOT AN OVERLAY. Two earlier shapes were both wrong:
+     absolutely positioning it needed `padding-right` reserved on the value to
+     stop it covering the words, and that reservation re-wrapped the line —
+     MEASURED at +102.75px on a long one, which is precisely the "expands too
+     much" this whole editor exists to fix. Overlaying without the reservation
+     does not reflow but hides the tail of a long line instead.
+     So it is a real grid item spanning both columns, adding ~26px UNDER the
+     one line being edited: local, predictable, and it can neither cover text
+     nor re-wrap it. */
+  .edit-confirm {
+    grid-column: 1 / -1; justify-self: end;
+    display: inline-flex; gap: 2px; margin-top: 4px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-pill); padding: 2px;
+  }
+  .edit-confirm button {
+    display: grid; place-items: center; width: 22px; height: 22px;
+    border: 0; border-radius: var(--r-round); background: transparent;
+    color: var(--text-3); cursor: pointer; padding: 0;
+  }
+  .edit-confirm button svg { width: 13px; height: 13px; display: block; }
+  .edit-ok:hover { color: var(--good); background: var(--surface-2); }
+  .edit-no:hover { color: var(--bad); background: var(--surface-2); }
+  .edit-confirm button:focus-visible { outline: 2px solid var(--text-3); outline-offset: 1px; }
+  /* An unconfirmed line reads as unfinished rather than saved. Inset, like the
+     focus shadow, so it costs no layout. */
+  .bp-val.is-pending {
+    background: var(--surface-2);
+    box-shadow: inset 2px 0 0 var(--good);
+  }
   @media (prefers-reduced-motion: reduce) {
     .bp-val[contenteditable] { transition: none; }
   }

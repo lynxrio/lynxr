@@ -305,6 +305,57 @@ with a 399px cover. Verified as painted pixels at a 1900px viewport, not DOM
 state — the browser simplifies the calc to `20% - 9.6px`, which is the same
 number.
 
+**AN EDITED LINE IS NOT SAVED UNTIL IT IS CONFIRMED, AND A SCRIPT CAN BE PUT
+BACK.** Owner, 2026-08-25: *"after i edit the script add a confirm button or
+somehting only on the part that i edited"* and *"at the btton near the other
+buttons add a revert back to first script given."*
+
+**Per-line confirm.** Changing a line marks it pending and puts a ✓/✕ pair on
+THAT line only. Blur no longer commits — leaving a changed line keeps the
+change on screen, pending, tick still showing. Only ✓ or Enter writes it; only
+✕ or Escape puts it back.
+
+**THE CONTROL IS A GRID ROW, AND TWO EARLIER SHAPES WERE BOTH WRONG.**
+Absolutely positioning it needed `padding-right` reserved on the value so it
+would not cover the words — and that reservation RE-WRAPPED the line:
+**measured +102.75px on a long one**, which is precisely the "expands too much"
+this editor exists to fix. Overlaying without the reservation does not reflow
+but hides the tail of a long line instead. It is now a real grid item spanning
+both columns: **40px of growth under the one line being edited, text width
+unchanged, nothing covered** — local and predictable instead of a reflow.
+
+**`editInFlight()` replaced `isTyping()` in all three repaint guards.** A
+pending line waits for its tick and waiting does not require the caret: click
+away from a line you have edited and it sits there changed with NOTHING
+focused. A repaint at that moment would rebuild the card from the record and
+throw the change away silently — no error, nothing to undo. A pending line now
+blocks a repaint exactly as a caret does.
+
+**Revert to the script as written.** Nothing upstream stored a pristine copy —
+the worker writes `adaptation` and an edit overwrites it — so
+`a.adaptationOrig` is snapshotted at the LAST moment before the FIRST
+confirmed mutation, making it the delivered script rather than a half-edited
+one. The button sits in `.bp-icons` beside copy and delete, armed like every
+destructive control here (`armDelete`, never `confirm()`).
+
+**It requires BOTH `adaptationOrig` AND `editedAt`.** The snapshot is kept
+after a revert on purpose, so reverting twice cannot lose the original — but
+then there is nothing left to undo, and a button offering to undo nothing is a
+lie. It disappears on revert and returns on the next confirmed edit, injected
+live by `refreshRevertBtn()` because commit deliberately does not repaint.
+
+Verified: pending survives blur without committing; ✓ commits and clears; ✕ and
+Escape revert; the long-line case grows 40px with the text unwrapped; the
+snapshot is taken once; revert restores hook AND beats exactly, clears
+`editedAt`, and removes its own button. **One test failure was mine, not the
+code's** — clicking the armed button twice instantly did nothing because
+`armDelete` has a 450ms `SETTLE_MS` that ignores a fast second click, which is
+the safeguard working.
+
+Stamp `20260825g`.
+
+---
+
 **SCRIPT LINES ARE EDITED IN PLACE. The Edit button and the whole editor form
 are gone.** Owner, 2026-08-25: *"have it just be they click on the line and
 edit it directly, right now the edit button expands it too much and it looks

@@ -4553,7 +4553,7 @@ async function hydrate(item) {
     if (a.libraryId === live.id && live.title) a.title = live.title;
   }
   save();
-  const editing = isTyping();
+  const editing = editInFlight();
   if (!editing) { renderSide(); renderPane(); }   // titles land in both views
 }
 
@@ -4609,7 +4609,7 @@ async function hydrateScript(rec) {
     item.creator = item.creator || meta.creator || "";
   }
   save();
-  const editing = isTyping();
+  const editing = editInFlight();
   if (!editing) { renderSide(); renderPane(); }
 }
 
@@ -5292,6 +5292,19 @@ const FLASH = new Set();
 function isTyping() {
   const el = document.activeElement;
   return !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
+}
+
+/* IS THERE AN EDIT THE CREATOR HAS NOT FINISHED WITH?
+
+   isTyping() is not enough on its own any more. A changed line waits for its
+   tick, and waiting does not require the caret: click away from a line you
+   have edited and it stays on screen, changed, pending, with NOTHING focused.
+   A repaint at that moment would rebuild the card from the record and throw
+   the change away silently — the creator would watch their edit vanish with no
+   error and nothing to undo. So a pending line blocks a repaint exactly as a
+   caret does. */
+function editInFlight() {
+  return isTyping() || !!document.querySelector("[data-edit].is-pending");
 }
 
 /** THE SECOND A BEAT STARTS, off the `t` string the model already writes.
@@ -6783,6 +6796,21 @@ function adaptationHtml(a, liveName, opts = {}) {
                 same as before. Pushed right by .bp-icons so the destructive
                 one is not adjacent to the one you press most. */""}
           <span class="bp-icons">
+            ${/* ONLY ONCE THERE IS SOMETHING TO GO BACK TO. `adaptationOrig` is
+                  written the first time a line is confirmed, and `editedAt`
+                  says edits are actually outstanding. BOTH are required: after
+                  a revert the snapshot is deliberately kept (so reverting
+                  twice cannot lose it) but there is nothing left to undo, and
+                  a button offering to undo nothing is a lie. refreshRevertBtn() injects it live the
+                  moment that first edit lands, so it does not take a repaint
+                  to appear. Armed like every destructive control here — no
+                  confirm(), which browsers suppress on repeat. */""}
+            ${a.adaptationOrig && a.editedAt ? `<button type="button" class="ghost icon-only ad-revert" data-adid="${id}"
+              aria-label="Revert to the script as written" title="Revert to the script as written">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                ><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/></svg>
+            </button>` : ""}
             <button type="button" class="ghost icon-only ad-copy" data-adid="${id}"
               aria-label="Copy this script" title="Copy this script">
               <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -7314,13 +7342,23 @@ function wireAdaptationCards(host) {
      queueAdaptation, which now enforces one script per video per brand with no
      way around it. */
 
-  /* EDITING, IN PLACE. The creator's own words, not another model run —
-     nothing here calls the API, spends from the allowance, or can fail.
+  /* EDITING, IN PLACE, CONFIRMED PER LINE.
 
-     COMMIT ON BLUR, NOT ON INPUT. Writing to ME on every keystroke would
-     change paneSig() and let the 2.5s live-sync rebuild the card mid-word;
-     isTyping() guards that too, but not writing until the field is left means
-     there is nothing to guard against in the first place. */
+     Nothing here calls the API, spends from the allowance, or can fail.
+
+     A CHANGED LINE IS NOT SAVED UNTIL IT IS CONFIRMED. Owner, 2026-08-25:
+     "after i edit the script add a confirm button or something only on the
+     part that i edited." So blur does NOT commit — leaving a line you have
+     changed keeps the change on screen, pending, with its tick still showing.
+     Only the tick, or Enter, writes it to the record; only the cross, or
+     Escape, puts it back.
+
+     THE TICK IS POSITIONED ABSOLUTELY, and that is not cosmetic. `.bp-beat` is
+     a `42px 1fr` grid whose children are label, value, label, value — putting
+     a third element in that flow would make every row a different shape the
+     moment it was touched, which is the exact thing the in-place editor exists
+     to avoid. It is anchored to the row instead and takes no layout space. */
+  let refreshRevertBtn = () => {};   // replaced below, once host is known
   const beatsOf = (adid) => {
     const a = ME.adaptations.find((x) => x.id === adid);
     return a && a.adaptation ? a : null;
@@ -7330,70 +7368,106 @@ function wireAdaptationCards(host) {
       if (d.querySelector(`[data-adid="${CSS.escape(adid)}"]`)) d.open = true;
     });
   };
+  const norm = (v) => (v || "").replace(/\s+/g, " ").trim();
+  const rowOf = (el) => el.closest("li.bp-beat, .bp-hook, .bp-hint") || el.parentElement;
+
+  /* THE SCRIPT AS IT WAS WRITTEN, kept the first time a line is confirmed and
+     never again. Nothing upstream stores one — the worker writes `adaptation`
+     and an edit overwrites it in place — so without this snapshot "revert to
+     the original" has nothing to revert to. Taken at the LAST moment before
+     the first mutation, so it is the delivered script, not a half-edited one.
+     Its presence is also what decides whether the revert button is offered at
+     all: a script nobody has edited needs no way back. */
+  const keepPristine = (a) => {
+    if (!a.adaptationOrig) a.adaptationOrig = JSON.parse(JSON.stringify(a.adaptation));
+  };
+
+  const clearPending = (el) => {
+    el.classList.remove("is-pending");
+    rowOf(el).querySelector(".edit-confirm")?.remove();
+  };
+
+  const revertEdit = (el) => {
+    if (el.dataset.was !== undefined) el.textContent = el.dataset.was;
+    clearPending(el);
+  };
+
+  const commitEdit = (el) => {
+    const a = beatsOf(el.dataset.adid);
+    if (!a) return;
+    const val = norm(el.textContent);
+    if (val === norm(el.dataset.was)) { clearPending(el); return; }   // nothing to save
+    keepPristine(a);
+    el.textContent = val;                                // normalise what is shown
+    if (el.dataset.edit === "beat") {
+      const b = (a.adaptation.beats || [])[Number(el.dataset.beat)];
+      if (!b) return;
+      b[el.dataset.field] = val;
+      /* A beat confirmed empty is one the creator deleted by clearing it — the
+         same rule the old Save button applied. Repaint, because the row goes. */
+      if (!norm(b.say) && !norm(b.do) && !norm(b.show)) {
+        a.adaptation.beats = a.adaptation.beats.filter((x) => x !== b);
+        a.editedAt = new Date().toISOString();
+        save({ now: true });
+        renderPane(); keepOpenAll(a.id);
+        return;
+      }
+    } else {
+      a.adaptation[el.dataset.field] = val;
+    }
+    a.editedAt = new Date().toISOString();
+    el.dataset.was = val;                  // the new baseline for the next Escape
+    clearPending(el);
+    save({ now: true });
+    /* No repaint. The DOM already shows exactly what was typed, and rebuilding
+       the card here is what used to snap it shut on save. Only the footer
+       needs a nudge, because confirming the FIRST edit is what brings the
+       revert button into existence. */
+    refreshRevertBtn(a);
+  };
+
+  const showPending = (el) => {
+    if (el.classList.contains("is-pending")) return;
+    el.classList.add("is-pending");
+    const row = rowOf(el);
+    const wrap = document.createElement("span");
+    wrap.className = "edit-confirm";
+    wrap.innerHTML =
+      `<button type="button" class="edit-ok" aria-label="Save this line" title="Save this line (Enter)">` +
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg></button>` +
+      `<button type="button" class="edit-no" aria-label="Discard this change" title="Discard this change (Esc)">` +
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+    // mousedown, not click: the field blurs on mousedown and a click listener
+    // would fire after the caret had already left, which is fine here but
+    // reads as a frame of lag on the button you just pressed.
+    wrap.querySelector(".edit-ok").addEventListener("mousedown", (e) => { e.preventDefault(); commitEdit(el); });
+    wrap.querySelector(".edit-no").addEventListener("mousedown", (e) => { e.preventDefault(); revertEdit(el); });
+    row.appendChild(wrap);
+  };
 
   host.querySelectorAll("[data-edit]").forEach((el) => {
-    /* THE UNDO VALUE IS CAPTURED AT WIRE TIME, not on focus.
-       It hung off a focus listener first, which is one event away from never
-       having run — a programmatic focus does not fire one in an unfocused tab,
-       and neither does restoring focus after a repaint. Escape then had no
-       original to restore. Capturing here means every editable line has its
-       undo value from the moment it is on screen, whatever route the caret
-       took to get there. Refreshed on focus and again after each commit so it
-       always describes the last saved state, not the first one. */
+    /* THE UNDO VALUE IS CAPTURED AT WIRE TIME, not on focus. A focus listener
+       is one event away from never having run — a programmatic focus does not
+       fire one in an unfocused tab, and neither does restoring focus after a
+       repaint — and Escape then had no original to restore. */
     el.dataset.was = el.textContent;
-    el.addEventListener("focus", () => { el.dataset.was = el.textContent; });
 
-    // plaintext-only is not honoured everywhere; force plain text on paste so
-    // pasted markup can never enter a script that gets copied out verbatim.
     el.addEventListener("paste", (e) => {
       e.preventDefault();
       const t = (e.clipboardData || window.clipboardData).getData("text/plain");
-      document.execCommand("insertText", false, (t || "").replace(/\s+/g, " "));
+      document.execCommand("insertText", false, norm(t));
+    });
+
+    // The tick appears the moment the line differs from what is saved, and
+    // disappears again if the creator types it back to how it was.
+    el.addEventListener("input", () => {
+      if (norm(el.textContent) === norm(el.dataset.was)) clearPending(el);
+      else showPending(el);
     });
 
     el.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); el.blur(); }        // commit
-      if (e.key === "Escape") {                                        // revert
-        e.preventDefault();
-        /* ONLY revert to a value we actually recorded. `el.dataset.was || ""`
-           looked equivalent and was destructive: any path that reaches Escape
-           without the focus handler having run — a programmatic focus, a
-           re-render mid-edit — wiped the line to empty on screen while the
-           record still held the real text, so the creator saw their line
-           vanish and had nothing to undo it with. */
-        if (el.dataset.was !== undefined) el.textContent = el.dataset.was;
-        el.blur();
-      }
-    });
-
-    el.addEventListener("blur", () => {
-      const a = beatsOf(el.dataset.adid);
-      if (!a) return;
-      const val = (el.textContent || "").replace(/\s+/g, " ").trim();
-      if (val === (el.dataset.was || "").replace(/\s+/g, " ").trim()) return;  // untouched
-      el.textContent = val;                                            // normalise what is shown
-      if (el.dataset.edit === "beat") {
-        const b = (a.adaptation.beats || [])[Number(el.dataset.beat)];
-        if (!b) return;
-        b[el.dataset.field] = val;
-        /* A beat cleared to nothing is one the creator deleted by emptying it
-           — the same rule the old Save button applied, now applied the moment
-           it happens. Repaint, because the row has to disappear. */
-        if (!(b.say || "").trim() && !(b.do || "").trim() && !(b.show || "").trim()) {
-          a.adaptation.beats = a.adaptation.beats.filter((x) => x !== b);
-          a.editedAt = new Date().toISOString();
-          save({ now: true });
-          renderPane(); keepOpenAll(a.id);
-          return;
-        }
-      } else {
-        a.adaptation[el.dataset.field] = val;
-      }
-      a.editedAt = new Date().toISOString();
-      el.dataset.was = val;              // the new baseline for the next Escape
-      save({ now: true });
-      // No repaint: the DOM already shows exactly what was typed, and
-      // rebuilding the card here is what used to snap it shut on save.
+      if (e.key === "Enter") { e.preventDefault(); commitEdit(el); el.blur(); }
+      if (e.key === "Escape") { e.preventDefault(); revertEdit(el); el.blur(); }
     });
   });
 
@@ -7407,6 +7481,43 @@ function wireAdaptationCards(host) {
     // Land the caret in the line just added rather than making them find it.
     document.querySelector(`[data-adid="${CSS.escape(a.id)}"][data-beat="${a.adaptation.beats.length - 1}"]`)?.focus();
   }));
+
+  /* Bring the revert button into being the moment the first edit is confirmed,
+     rather than waiting for a repaint that deliberately does not happen. */
+  refreshRevertBtn = (a) => {
+    if (!a.adaptationOrig) return;
+    host.querySelectorAll(`.bp-icons`).forEach((row) => {
+      if (!row.querySelector(`[data-adid="${CSS.escape(a.id)}"]`)) return;
+      if (row.querySelector(".ad-revert")) return;
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ghost icon-only ad-revert";
+      b.dataset.adid = a.id;
+      b.setAttribute("aria-label", "Revert to the script as written");
+      b.title = "Revert to the script as written";
+      b.innerHTML = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/></svg>`;
+      row.prepend(b);
+      wireRevert(b);
+    });
+  };
+
+  /* THROWS AWAY EVERY EDIT ON THIS SCRIPT, so it is armed rather than instant —
+     the same two-click pattern as delete, and for the same reason (no
+     confirm(): browsers suppress a repeated one and it returns false at once).
+     `adaptationOrig` is kept afterwards, not cleared: reverting twice is a
+     no-op rather than a way to lose the original. */
+  function wireRevert(btn) {
+    armDelete(btn, "Revert edits", () => {
+      const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
+      if (!a || !a.adaptationOrig) return;
+      a.adaptation = JSON.parse(JSON.stringify(a.adaptationOrig));
+      delete a.editedAt;
+      save({ now: true });
+      renderPane(); keepOpenAll(a.id);
+      say("Back to the script as written.", "good");
+    });
+  }
+  host.querySelectorAll(".ad-revert").forEach(wireRevert);
 
   host.querySelectorAll(".ad-del").forEach((btn) => armDelete(btn, "Delete script", () => {
     trashAdaptations((x) => x.id === btn.dataset.adid);
@@ -7534,7 +7645,7 @@ function startLiveSync() {
     const before = paneSig();
     try { await pull(); } catch { SYNC_OK = false; }
     renderSyncBadge();
-    const editing = isTyping();
+    const editing = editInFlight();
     /* THE RAIL REPAINTS EVEN MID-KEYSTROKE; THE PANE WAITS ITS TURN.
        `editing` is only ever true for an INPUT/TEXTAREA/SELECT, and every one
        of those lives in the pane or the sign-in gate — the rail is buttons and
