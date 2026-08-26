@@ -51,7 +51,14 @@
      still a focus-zoom trigger exactly like the select was. Retiring the tag
      needed both controls off the floor, and only the sort control left. See
      the .find-bar block in app.css for the full history. -->
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content">
+<!-- overlays-content, NOT resizes-content, while this page is the marketing
+     hero: the hero is 100svh, and a keyboard that RESIZES the layout viewport
+     re-solves that height and re-centers the group — the "it scrolls down on
+     mobile" the owner reported when tapping the paste box. The signed-in app
+     needs the opposite (its composer must ride ABOVE the keyboard), so
+     enterApp() in creator.js rewrites this meta to resizes-content when the
+     app takes the page. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=overlays-content">
 <title>lynxr — any video becomes tailored scripts</title>
 <meta name="description" content="Any video becomes tailored scripts. Send a TikTok or Instagram link; lynxr pulls out the format underneath it — the hook, the beats, the order they come in — and rewrites it as a script for the brand you make content for.">
 <meta property="og:title" content="lynxr — any video becomes tailored scripts">
@@ -70,8 +77,8 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260826v">
-<script src="/theme.js?v=20260826v"></script>
+<link rel="stylesheet" href="/app.css?v=20260826w">
+<script src="/theme.js?v=20260826w"></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -713,10 +720,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20260826v" defer></script>
-<script src="/footer.js?v=20260826v" defer></script>
-<script src="/dotgrid.js?v=20260826v" defer></script>
-<script src="/home.js?v=20260826v" defer></script>
-<script src="/creator.js?v=20260826v" defer></script>
+<script src="/site.js?v=20260826w" defer></script>
+<script src="/footer.js?v=20260826w" defer></script>
+<script src="/dotgrid.js?v=20260826w" defer></script>
+<script src="/home.js?v=20260826w" defer></script>
+<script src="/creator.js?v=20260826w" defer></script>
 </body>
 </html>

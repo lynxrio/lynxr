@@ -7762,6 +7762,14 @@ function unlock() {
    hidden #lp-main still answers document.querySelector. Removing `home` also
    drops `.lp` semantics we never took on — see the Do-not list. */
 function enterApp() {
+  /* The marketing hero ships `interactive-widget=overlays-content` so a tap
+     on the paste box cannot reflow the 100svh hero (see the meta's own
+     comment in index.html). The APP needs `resizes-content` — it is what
+     keeps the composer above the keyboard — so the handover is exactly here.
+     A live setAttribute on the viewport meta applies immediately in every
+     engine this app supports. */
+  document.querySelector('meta[name="viewport"]')?.setAttribute("content",
+    "width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content");
   document.body.classList.remove("home", "gate-on");
   window.LP_TEARDOWN?.();
   document.getElementById("lp-main")?.remove();
