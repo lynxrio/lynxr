@@ -1518,8 +1518,19 @@ function consumePendingPaste() {
   if (!input) return;
   input.value = p.url;
   input.dispatchEvent(new Event("input"));   // paints the platform badge
-  focusComposer();
-  say("your link is ready — press send when you are.", "good");
+  /* AUTO-SEND, not "press send when you are": the press on the landing hero
+     WAS the send gesture, and the signup gate promised the script starts
+     writing the second they are in — this is what makes that sentence true.
+     The composer's own submit path runs in full, so the allowance courtesy
+     check, the platform gate and every failure message behave exactly as a
+     hand-pressed send. */
+  const form = document.getElementById("composer-form");
+  if (form) {
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  } else {
+    focusComposer();
+    say("your link is ready — press send when you are.", "good");
+  }
 }
 
 /* KEYBOARD-AWARE HEIGHT ------------------------------------------------------
@@ -4444,7 +4455,7 @@ function wireHeroComposer() {
   };
   input.addEventListener("input", showPlat);
 
-  document.getElementById("lp-composer-form").addEventListener("submit", (e) => {
+  document.getElementById("lp-composer-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const raw = (input.value || "").trim();
     if (!raw) { say("Paste a video link first.", "bad"); input.focus(); return; }
@@ -4470,7 +4481,42 @@ function wireHeroComposer() {
       u.searchParams.set("ref", "composer:" + plat.toLowerCase());
       link.setAttribute("href", u.pathname + u.search);
     }
+
+    /* THE LOADING BEAT (owner: "add a bit of loading time, making it look
+       like its loading" — and it is not only looking: the dwell is spent on a
+       REAL oEmbed read, which is why the gate can greet them with their own
+       video's title). ~1.7s minimum so the beat registers, 2.4s cap so a slow
+       relay cannot hold the signup hostage. The gate's banner never says the
+       script is ready — it is not; it says what is TRUE and about to happen:
+       consumePendingPaste() auto-sends the moment they are in, because the
+       press that landed them here WAS the send gesture. */
+    const send = document.getElementById("lp-composer-send");
+    const face = send ? send.innerHTML : "";
+    input.disabled = true;
+    if (send) { send.disabled = true; send.innerHTML = loaderMark(); }
+    say("reading the video…", "good");
+    const t0 = Date.now();
+    let m = null;
+    try {
+      m = await Promise.race([fetchSourceMeta(url),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("slow")), 2400))]);
+    } catch { /* no metadata is fine; the beat still paces */ }
+    await new Promise((r) => setTimeout(r, Math.max(0, 1700 - (Date.now() - t0))));
+
+    const banner = document.getElementById("gate-paste");
+    if (banner) {
+      const title = (m && m.caption ? m.caption : "").replace(/\s+/g, " ").trim().slice(0, 80);
+      banner.textContent = title
+        ? `got your ${plat.toLowerCase()} video — “${title}”. your script starts writing the second you're in.`
+        : `got your ${plat.toLowerCase()} video. your script starts writing the second you're in.`;
+    }
     showGate("up");
+    if (banner && banner.textContent) banner.hidden = false;
+    /* The composer restores UNDER the gate, so Back lands on a usable hero
+       rather than a dead spinner. */
+    input.disabled = false;
+    if (send) { send.disabled = false; send.innerHTML = face; }
+    say("", "");
   });
 }
 wireHeroComposer();
@@ -7980,6 +8026,11 @@ function setGateMode(mode) {
    layer among three, so opening and closing it are real actions. */
 function showGate(mode) {
   if (!HOME) return;
+  /* A banner about a paste belongs only to the paste path — "sign in" or a
+     bare get-started must not inherit one from an abandoned earlier paste.
+     The submit path un-hides it again right after calling this. */
+  const gp = document.getElementById("gate-paste");
+  if (gp) gp.hidden = true;
   document.body.classList.add("gate-on");
   setGateMode(mode);
   // A real history entry, so the browser Back button closes the card. The

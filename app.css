@@ -4094,6 +4094,14 @@
   body.home.gate-on .lp-bar { display: none; }
   .gate-back { display: block; margin: 0 0 22px; color: var(--text-3); border-bottom: 0; }
   .gate-back:hover { color: var(--text); }
+  /* The paste banner on the gate — the visitor's own video named back to
+     them, above the form that unlocks it. */
+  .gate-paste {
+    margin: 4px 0 14px; padding: 9px 12px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: var(--r-inner);
+    color: var(--text-2); font-size: var(--fs-125); line-height: 1.5;
+  }
   body:not(.home) .gate-back { display: none; }
 
   /* THE <main> ON THESE PAGES CARRIES NOTHING. There is a bare

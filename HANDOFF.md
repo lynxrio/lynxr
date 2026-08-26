@@ -163,6 +163,28 @@ Stamp `20260826a`. Nine directives applied in sequence, each verified painted:
 - **A `${...}`-in-HTML violation was written and caught mid-edit** — the exact
   mistake CLAUDE.md warns about; it became an HTML comment before ever
   painting. The rule earns its place.
+- **Fifth round, stamps `20260827c`→`f` — light-mode color debts + the
+  anonymous paste flow:** the current-beat highlight abused `--line-2` as a
+  background (imperceptible in dark, khaki mud in light) → a pale wash of the
+  row's own --good green (#eaf3ec, labels ~7:1); "The original" ref-panel's
+  --surface-2 well read two-tone on white → light matches the card ground
+  (the hairline still draws the edge), mirroring dark's visual behavior;
+  the agency's TIMED beat rows never had the 10px inset the creator rows
+  carry → base rule padded; the in-place editor's focus wash hugged the
+  glyphs → padding cancelled by equal negative margin, so the wash grew and
+  the text moved 0.0px (the no-reflow rule survives).
+  **THE ANONYMOUS PASTE FLOW (owner asked for "loading + script is ready on
+  the signup page" — shipped with the claim made TRUE instead of false):**
+  hero submit runs a ~1.7s loading beat (send disc becomes the loader mark,
+  input locks) spent on a REAL oEmbed read; the gate then opens with
+  #gate-paste: "got your tiktok video — [title]. your script starts writing
+  the second you're in." — never "ready", because it is not; and
+  consumePendingPaste() now AUTO-SENDS on entry (the landing press WAS the
+  send gesture), which is what makes the sentence true: verified queued
+  adaptation + library entry appear without a second press. The banner is
+  cleared by showGate() for every non-paste path so sign-in never inherits a
+  stale one; the composer restores under the gate so Back lands usable.
+  2.4s cap on the metadata race so a slow relay cannot hold signup hostage.
 - **Fourth round, stamps `20260826v`→`20260827b` — the scroll-behavior arc:**
   the CTA grew to 28px ("slightly" more top/bottom; mobile keeps its 44px
   touch floor). Then three distinct unwanted-scroll bugs, each with a
