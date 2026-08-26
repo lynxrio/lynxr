@@ -536,7 +536,7 @@ let SYNC_OK = false;
 // card asks once and then stops. See ASK_QS.
 const BLANK_ME = { name: "", niches: [], brands: [], adaptations: [], library: [],
                    trash: [], contactEmail: "", emailOptIn: false,
-                   about: "", never: "", askDone: [] };
+                   about: "", never: "", askDone: [], theme: "" };
 
 /** Delete a script the recoverable way: it moves to the trash with a stamp and
  *  the name of the company it was written for, so Settings can offer it back.
@@ -821,6 +821,41 @@ function saveLocalMe() {
   try { localStorage.setItem(meKey(), JSON.stringify({ data: ME, dirty: DIRTY })); } catch {}
 }
 function clearLocalMe() { try { localStorage.removeItem(meKey()); } catch {} }
+
+/* APPEARANCE. Two stores on purpose, and they answer different questions.
+
+   localStorage is authoritative for THIS BROWSER: it is readable by theme.js
+   before the first paint, before Supabase has been asked anything and before
+   anyone has signed in, which is what stops the sign-in gate flashing dark on
+   its way to light. It is also the key the twelve public pages and the agency
+   app read, so one choice covers the whole origin.
+
+   ME.theme is the copy that TRAVELS. A creator who signs in on a new laptop
+   has no localStorage there, so pull() adopts ME.theme once the row lands.
+   The device copy wins where both exist — it is the more recent deliberate
+   act, and it is the only one that could have been set while signed out. */
+const THEME_KEY = "lynxr_theme";
+const THEMES = ["dark", "light"];
+
+function storedTheme() {
+  try { const t = localStorage.getItem(THEME_KEY); return THEMES.includes(t) ? t : ""; }
+  catch { return ""; }
+}
+/** What is on screen right now. */
+function currentTheme() {
+  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+}
+/** Paint it, and remember it on this device. Dark is the absence of the
+    attribute rather than data-theme="dark", so the default state of the
+    document and the default state of the stylesheet are the same thing. */
+function applyTheme(t) {
+  const want = THEMES.includes(t) ? t : "dark";
+  if (want === "light") document.documentElement.setAttribute("data-theme", "light");
+  else document.documentElement.removeAttribute("data-theme");
+  try { localStorage.setItem(THEME_KEY, want); } catch {}
+  return want;
+}
+
 /** Adopt the device mirror into ME. Returns whether there was one to adopt. */
 function restoreLocalMe() {
   let saved = null;
@@ -1026,6 +1061,8 @@ async function pull() {
     SERVER_IDS = new Set((server.adaptations || []).map((a) => a.id));
     SERVER_SEEN = true;
     ME = mergeUnsent(server, ME);
+    // A new device has no local choice; the row's is the only one there is.
+    if (!storedTheme() && ME.theme) applyTheme(ME.theme);
   }
   SYNC_OK = true;
   saveLocalMe();
@@ -3207,6 +3244,14 @@ function renderYou(head, body) {
           <input type="text" id="me-never" value="${escapeHtml(ME.never || "")}"
             placeholder="e.g. never call myself an expert">
           <span class="ce-hint">Claims you won't make, words that aren't yours.</span></label>
+        ${/* The one setting that takes effect before you press Save — see the
+              change listener below for why that is deliberate rather than an
+              inconsistency. */""}
+        <label class="ce-field"><span class="lbl">Appearance</span>
+          <select id="me-theme">
+            <option value="dark"${currentTheme() === "light" ? "" : " selected"}>Dark — the default</option>
+            <option value="light"${currentTheme() === "light" ? " selected" : ""}>Light</option>
+          </select></label>
         ${/* No "best email" field: the address is already collected at sign-in,
               and asking again produced a second address to keep in step with
               the first for no benefit. `contactEmail` stays in the record —
@@ -3354,12 +3399,26 @@ function renderYou(head, body) {
     ME.emailOptIn = document.getElementById("me-optin").value === "yes";
     ME.about = document.getElementById("me-about").value.trim();
     ME.never = document.getElementById("me-never").value.trim();
+    ME.theme = currentTheme();
     // Editing these by hand answers the questions too — otherwise the wait
     // card would go on asking for something already sitting in Settings.
     ME.askDone = [...new Set([...(ME.askDone || []),
       ...(ME.about ? ["about"] : []), ...(ME.never ? ["never"] : [])])];
     save({ now: true });
     flashMsg("me-msg", "Saved.", "good");
+  });
+
+  /* APPLIES ON CHANGE, NOT ON SAVE. Every other field in this pane waits for
+     the button, and this one deliberately does not: a colour scheme you cannot
+     see until you press Save is a preview you have to guess at, and a theme
+     that reverts on reload because Save was never pressed is worse than one
+     that never changed. The device copy is written here, which is the store
+     that actually decides what paints. Save still runs — it is what puts the
+     choice in the row so it reaches the creator's other devices. */
+  document.getElementById("me-theme").addEventListener("change", (e) => {
+    const t = applyTheme(e.currentTarget.value);
+    ME.theme = t;
+    save();
   });
 
 }
@@ -8030,6 +8089,16 @@ document.addEventListener("click", (e) => {
 document.getElementById("nav-library").addEventListener("click", () => go({ kind: "library" }));
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
 document.getElementById("nav-plan").addEventListener("click", () => go({ kind: "plan" }));
+/* THE RAIL TOGGLE AND SETTINGS STAY ONE FACT. theme.js owns the flip and
+   announces it; this mirrors the choice into ME so it reaches the creator's
+   other devices (same job as Settings' own change handler), and keeps the
+   Settings select honest if it is on screen when the rail toggle is pressed. */
+document.addEventListener("lynxr-theme", (e) => {
+  ME.theme = e.detail.theme;
+  save();
+  const sel = document.getElementById("me-theme");
+  if (sel) sel.value = e.detail.theme;
+});
 document.getElementById("nav-feedback").addEventListener("click", () => go({ kind: "feedback" }));
 // The footer's Feedback link is a view, not a URL, exactly like nav-feedback
 // above — it stays inside the app instead of navigating anywhere.

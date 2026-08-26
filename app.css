@@ -25,6 +25,35 @@
        --surface, which is the tighter of the two backgrounds. */
     --text-3:    #7c7c87;
 
+    /* ---------- THEME SURFACES ----------
+       Everything below is a colour that used to be a literal somewhere in this
+       file. The VALUES HERE ARE THE EXACT DARK VALUES THAT WERE ALREADY BEING
+       PAINTED — this group changes nothing on its own; it exists so the light
+       block at the end of the file has one place to override. Anything that
+       sits on top of MEDIA (a video frame, a cover, the camera) is deliberately
+       NOT in this group: its ground is an arbitrary image, so it is dark in
+       both themes and stays a literal. See the light block for the list. */
+    --glass:        #0a0a0bd9;   /* translucent chrome over blur: header, .lp-bar-in */
+    --glass-solid:  #0a0a0bf2;   /* the same, near-opaque: .lp-menu */
+    --th-bg:        #131316;     /* the sticky table header in the agency app */
+    --row-alt:      #ffffff04;   /* table zebra; was rgba(255,255,255,.015) */
+    --bar-fill:     #ffffff2b;   /* agency bar charts — the fill */
+    --bar-fill-hov: #ffffff59;   /* ...and the drillable row's hover */
+    --filter-on:    #4d4d58;     /* a <select> that is actually narrowing the table */
+    --selection:    #ffffff26;   /* ::selection */
+    --armed-fg:     #f0b3b3;     /* a destructive button that has been armed */
+    --armed-line:   #6b3a3a;
+    --armed-bg:     #2a1414;
+    --good-line:    #2c4a39;     /* the tinted BORDER that pairs with --good */
+    --bad-line:     #4a2c2c;
+    --even-line:    #4a412c;
+    --warm-bar:     #b08a3e;     /* .sat-warm, a bar; not text */
+    --warm-t:       #c79a45;     /* .sat-warm-t, which IS text */
+    --dot-rgb:      255, 255, 255;  /* the lattice, CSS side and canvas side */
+    --shadow-card:  none;        /* dark has no card shadow; light does */
+    --shadow-pop:   0 10px 26px #00000080;   /* menus and tooltips */
+    color-scheme: dark;
+
     /* ---------- SHAPE ----------
        ONE scale, four tokens, and every border-radius in this file reads from
        it. Before this there were 94 border-radius declarations across 15
@@ -181,7 +210,7 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(rgba(255, 255, 255, .06) 1.3px, transparent 1.4px) 0 0/34px 34px,
+      radial-gradient(rgba(var(--dot-rgb), .06) 1.3px, transparent 1.4px) 0 0/34px 34px,
       var(--bg);
   }
   /* Once the canvas is live it IS the grid — retire the CSS one so there is
@@ -214,7 +243,7 @@
   /* Form controls don't inherit the page font by default — force the page
      face everywhere so nothing falls back to the system sans. */
   input, select, textarea { font-family: inherit; }
-  ::selection { background: #ffffff26; }
+  ::selection { background: var(--selection); }
   a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--line-2); }
   a:hover { border-bottom-color: var(--text-2); }
   button { font: inherit; cursor: pointer; transition: background .12s, color .12s, border-color .12s, opacity .12s; }
@@ -318,7 +347,7 @@
     position: sticky; top: 0; z-index: 20;
     display: flex; align-items: center; gap: 22px;
     padding: 0 24px; height: 56px;
-    background: #0a0a0bd9; backdrop-filter: blur(10px);
+    background: var(--glass); backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--line);
   }
   nav { display: flex; gap: 2px; margin-left: 8px; flex: none; }
@@ -591,12 +620,12 @@
   /* Green where there is room, amber filling up, red crowded — the one place
      in this app colour carries meaning rather than decoration. */
   .sat-open { background: var(--good); }
-  .sat-warm { background: #b08a3e; }
+  .sat-warm { background: var(--warm-bar); }
   .sat-hot  { background: var(--bad); }
   .sat-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
   .sat-word { font-size: var(--fs-115); letter-spacing: .04em; }
   .sat-open-t { color: var(--good); }
-  .sat-warm-t { color: #c79a45; }
+  .sat-warm-t { color: var(--warm-t); }
   .sat-hot-t  { color: var(--bad); }
   .sat-share { color: var(--text-3); font-size: var(--fs-115); white-space: nowrap; }
   @media (max-width: 560px) {
@@ -611,10 +640,10 @@
   .bars { display: flex; flex-direction: column; gap: 5px; }
   .bar-row { display: grid; grid-template-columns: 1fr 96px; align-items: center; gap: 12px; font-size: var(--fs-13); }
   .bar-track { position: relative; background: var(--surface); border-radius: var(--r-pill); height: 26px; overflow: hidden; }
-  .bar-fill { position: absolute; inset: 0 auto 0 0; background: #ffffff2b; border-radius: var(--r-pill) 0 0 var(--r-pill); width: 0; transition: width .7s var(--ease), background .35s ease; }
+  .bar-fill { position: absolute; inset: 0 auto 0 0; background: var(--bar-fill); border-radius: var(--r-pill) 0 0 var(--r-pill); width: 0; transition: width .7s var(--ease), background .35s ease; }
   /* Hover: the fill brightens a couple of steps — enough to read as selected,
      not enough to flashbang the row. Label stays put and stays readable. */
-  .bar-row.drill:hover .bar-fill { background: #ffffff59; }
+  .bar-row.drill:hover .bar-fill { background: var(--bar-fill-hov); }
   .bar-label { position: relative; padding: 4px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bar-count { color: var(--text-2); font-size: var(--fs-125); text-align: right; font-family: var(--mono); white-space: nowrap; }
   .bar-pct { color: var(--text-3); font-size: var(--fs-11); }
@@ -644,7 +673,7 @@
   input:focus, select:focus { outline: none; border-color: var(--line-2); background: var(--surface-2); }
   /* A filter that's actually narrowing the table reads differently from an
      idle one — otherwise "Bold Claim" and "All formats" look identical. */
-  .controls select.active { border-color: #4d4d58; background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px #4d4d58; }
+  .controls select.active { border-color: var(--filter-on); background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--filter-on); }
   input::placeholder { color: var(--text-3); }
   .pill {
     display: inline-block; margin-left: 8px; padding: 2px 9px;
@@ -659,14 +688,14 @@
   table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: var(--fs-135); }
   th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   th {
-    background: #131316; color: var(--text-3); font-weight: 600; font-size: var(--fs-11);
+    background: var(--th-bg); color: var(--text-3); font-weight: 600; font-size: var(--fs-11);
     text-transform: lowercase; letter-spacing: .07em; position: sticky; top: 0; z-index: 5;
     box-shadow: 0 1px 0 var(--line-2);
   }
   th.sortable { cursor: pointer; user-select: none; }
   th.sortable:hover { color: var(--text); }
   th .arrow { color: var(--text); }
-  tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.015); }
+  tbody tr:nth-child(even) td { background: var(--row-alt); }
   tbody tr:hover td { background: var(--surface); }
   tbody tr:last-child td { border-bottom: 0; }
   td.title { max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
@@ -1900,7 +1929,7 @@
   .bcard.opens button { cursor: pointer; }
   .bcard-main { min-width: 0; flex: 1; }
   .bcard-title { font-size: var(--fs-15); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .b-del.armed { color: #f0b3b3; border-color: #6b3a3a; background: #2a1414; }
+  .b-del.armed { color: var(--armed-fg); border-color: var(--armed-line); background: var(--armed-bg); }
 
   /* Brief viewer: video up top, script + details, flip-through */
   .viewer-top {
@@ -1983,8 +2012,8 @@
 
   .fmt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 30px; }
   .fmt-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 14px 16px; }
-  .fmt-card.good { border-color: #2c4a39; }
-  .fmt-card.bad { border-color: #4a2c2c; }
+  .fmt-card.good { border-color: var(--good-line); }
+  .fmt-card.bad { border-color: var(--bad-line); }
   .fmt-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; font-size: var(--fs-135); }
   .fmt-card.expandable .fmt-head { cursor: pointer; border-radius: var(--r-inner); }
   .fmt-card.expandable .fmt-head:hover strong { color: var(--text); }
@@ -2335,7 +2364,7 @@
     border-radius: var(--r-pill); border: 1px solid var(--line-2); color: var(--text-2);
     white-space: nowrap;
   }
-  .tier-chip.t1 { color: var(--good); border-color: #2c4a39; }
+  .tier-chip.t1 { color: var(--good); border-color: var(--good-line); }
 
   /* ---------- Blueprint beat editor ----------
      One beat per row, top to bottom, so editing reads in the same chronological
@@ -2410,9 +2439,9 @@
     padding: 1px 9px; white-space: nowrap; color: var(--text-2);
   }
   .sug-score i { font-style: normal; font-size: var(--fs-10); font-weight: 400; color: var(--text-3); }
-  .sug-score.good { color: var(--good); border-color: #2c4a39; }
-  .sug-score.even { color: var(--even); border-color: #4a412c; }
-  .sug-score.bad  { color: var(--bad);  border-color: #4a2c2c; }
+  .sug-score.good { color: var(--good); border-color: var(--good-line); }
+  .sug-score.even { color: var(--even); border-color: var(--even-line); }
+  .sug-score.bad  { color: var(--bad);  border-color: var(--bad-line); }
   .sug-score.s-none { color: var(--text-3); }
   .sug-score { cursor: help; }
   .sug-score:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
@@ -2423,7 +2452,7 @@
     position: fixed; z-index: 60; width: max-content; max-width: min(300px, calc(100vw - 16px));
     background: var(--surface-2); border: 1px solid var(--line-2);
     border-radius: var(--r-inner); padding: 9px 12px;
-    box-shadow: 0 10px 26px #00000080;
+    box-shadow: var(--shadow-pop);
     animation: soft-in .12s var(--ease);
   }
   .score-tip[hidden] { display: none; }
@@ -2592,6 +2621,49 @@
     border: 1px dashed var(--line-2); color: var(--text-3); font-size: var(--fs-125);
   }
   .plan-msg { margin: 10px 0 0; font-size: var(--fs-125); min-height: 1em; }
+
+  /* ---- the theme toggle ----
+     One component, three homes: the public bar (inside .lp-actions), the
+     creator rail (.side-brand) and the agency header. The capsule stays INK IN
+     BOTH THEMES — that is the owner's mockup, and it makes the control read as
+     a fixed object rather than a themed surface, so the literals here are
+     deliberate (same precedent as the badge grounds over video).
+
+     STATE IS THE html[data-theme] ATTRIBUTE AND NOTHING ELSE. The knob's
+     position derives from it, so every instance on a page — bar and burger
+     menu, rail and header — is correct without any JS bookkeeping, including
+     instances rendered after load. theme.js owns the flip; this file only
+     draws it. Both icons are always present: the knob simply COVERS the
+     inactive one, which is how the mockup works and needs no visibility
+     switching at all. */
+  .theme-toggle {
+    position: relative; flex: none; width: 46px; height: 24px; padding: 0;
+    border-radius: var(--r-pill); background: #1c1b18; border: 1px solid #ffffff2b;
+    cursor: pointer;
+  }
+  .theme-toggle .tt-moon, .theme-toggle .tt-sun {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; color: #e8a33d;
+  }
+  .theme-toggle .tt-moon { left: 5px; }
+  .theme-toggle .tt-sun { right: 5px; }
+  .tt-knob {
+    position: absolute; top: 2px; left: 24px; width: 18px; height: 18px;
+    border-radius: var(--r-round); background: #fff;
+    transition: left .16s var(--ease);
+  }
+  html[data-theme="light"] .tt-knob { left: 2px; }
+  .theme-toggle:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .tt-knob { transition: none; } }
+
+  /* The bar's third grid cell. The capsule's grid is a strict 1fr auto 1fr —
+     a fourth child would wrap to a second row — so the CTA, the burger and the
+     toggle share one cell as a flex row. The old `justify-self` rules on .btn
+     and .lp-burger go inert (they are no longer grid items) rather than being
+     fought; the margins they carry still apply inside the flex row. */
+  .lp-actions { justify-self: end; display: flex; align-items: center; gap: 10px; }
+  .side-brand .theme-toggle { margin-left: auto; }
+  header .theme-toggle { margin-left: auto; }
 
   /* Main pane: a column that scrolls, with the composer pinned at its foot. */
   /* max-width matters as much as min-width here: in the mobile column layout
@@ -3975,7 +4047,7 @@
     padding: 0;
     border: 1px solid var(--line);
     border-radius: var(--r-pill);
-    background: #0a0a0bd9;
+    background: var(--glass);
     backdrop-filter: blur(10px);
   }
   .lp-bar .wordmark { justify-self: start; margin-left: 24px; }
@@ -4081,7 +4153,13 @@
        product. (0,2,1) beats (0,1,2). This is exactly the class of bug the "one
        global stylesheet" note at the top of this block warns about. */
     .lp-bar .wordmark span { display: inline; }
-    .lp-nav, .lp-bar-in > .btn { display: none; }
+    /* `.lp-actions > .btn`, not `.lp-bar-in > .btn`: the CTA moved one level
+       down when the toggle arrived (the bar's grid is a strict three columns,
+       so the CTA, toggle and burger share one cell in a .lp-actions flex row)
+       — and the old CHILD selector silently stopped matching, which put the
+       full "try it" capsule back in a phone bar and overflowed the page
+       sideways. Owner caught it live, 2026-08-26. */
+    .lp-nav, .lp-actions > .btn { display: none; }
     .lp-burger {
       display: grid; place-items: center; justify-self: end; margin-right: 9px;
       /* 44x44, not 40: this is the ONLY way to reach the nav on a phone, and 40
@@ -4132,7 +4210,7 @@
     .lp-menu {
       display: block; position: absolute; left: 14px; right: 14px; top: 100%;
       margin: 10px 0 0;
-      background: #0a0a0bf2; backdrop-filter: blur(10px);
+      background: var(--glass-solid); backdrop-filter: blur(10px);
       border: 1px solid var(--line); border-radius: var(--r-card);
       padding: 10px;
       transform: translateY(-8px); opacity: 0;
@@ -4664,7 +4742,7 @@
     min-width: 100%; width: max-content; max-width: min(280px, calc(100vw - 32px));
     max-height: min(60vh, 320px); overflow-y: auto;
     background: var(--surface-2); border: 1px solid var(--line-2);
-    border-radius: var(--r-card); box-shadow: 0 10px 26px #00000080;
+    border-radius: var(--r-card); box-shadow: var(--shadow-pop);
     font-size: var(--fs-16);
     /* IT GROWS OUT OF THE TRIGGER, because that is where the click was. The
        panel is anchored top/right to the button, so top right is the one
@@ -5799,3 +5877,138 @@
     #panel-ops .ops-tile { padding: 18px 16px; }
     #panel-ops .ops-line-k { min-width: 0; }
   }
+
+  /* =====================================================================
+     LIGHT MODE
+     ---------------------------------------------------------------------
+     ONE block. Every light value lives here and nowhere else, so "make the
+     paper warmer" is a one-line edit rather than a hunt.
+
+     `html[data-theme="light"]` and NOT `[data-theme="light"]`, deliberately.
+     A bare attribute selector is (0,1,0) — the SAME specificity as `:root`,
+     so it would win only by sitting later in the file, and this file has a
+     SECOND `:root` block at line ~1978. Adding the element selector makes it
+     (0,1,1) and the override is true regardless of source order.
+
+     THE TASTE: near-white with a whisper of warmth. The first cut landed at
+     #f6f3ec — between lovable.dev's cream and twelvelabs.io's neutral — and
+     the owner, looking at it live on 2026-08-26, said "this background is too
+     yellow." The ground now sits beside lynxmediagroup.org's pure-white body
+     (the brand anchor), keeping only a trace of warmth. Cards are WHITE on that paper and lift off
+     it with a soft shadow (--shadow-card) as well as the hairline border —
+     the border stays because half a dozen state rules (.plan-now.spent,
+     .ce-missing, .fmt-card.good) say what they say by changing border-color,
+     and removing the border would silently mute all of them.
+
+     MEASURED, not eyeballed. Ratios are WCAG 2.x contrast against the two
+     grounds this file has always measured against plus the two it did not,
+     and every one of them MEETS OR BEATS its dark counterpart:
+
+                         --bg    --surface  --surface-2  --hover   (dark --bg / --surface)
+       --text            16.88     17.78       15.59      14.49    (16.94 / 16.01)
+       --text-2           7.61      8.01        7.02       6.53    ( 7.92 /  7.48)
+       --text-3           5.42      5.71        5.01       4.66    ( 4.80 /  4.54)
+       --good             5.44      5.73        5.03       4.67
+       --bad              6.49      6.83        5.99       5.57
+       --even             5.67      5.97        5.23       4.86
+
+     --text-3 is the one with history: it was raised on 2026-08-23 because
+     #6b6b76 measured 3.55:1 and failed AA for body text. The light value
+     clears 4.5:1 on ALL FOUR grounds, which the dark one does not (4.07 on
+     --hover). Do not lighten it without re-measuring.
+
+     The ink button (`background: var(--text); color: var(--bg)`) needs no
+     rule: it inverts for free and paints #191813 with #faf9f6 text at
+     16.88:1 — the solid ink capsule both reference sites use.
+     ===================================================================== */
+  html[data-theme="light"] {
+    color-scheme: light;
+
+    --bg:        #faf9f6;
+    --surface:   #ffffff;
+    --surface-2: #f1f0ec;   /* a WELL, not a lift: nested surfaces recede on paper */
+    --hover:     #e9e8e3;
+    --line:      #e5e3dc;   /* 1.22:1 on --bg — a hairline, same whisper as dark's --line */
+    --line-2:    #d1cfc6;
+    --text:      #191813;
+    --text-2:    #555046;
+    --text-3:    #6b665b;
+
+    --good:      #177544;
+    --bad:       #a92c24;
+    --even:      #7d5f15;
+    --good-line: #b7d3c1;
+    --bad-line:  #e8bdb9;
+    --even-line: #ded0a6;
+    --warm-bar:  #b8892f;
+    --warm-t:    #7d5f15;
+
+    /* Chrome follows the theme. Owner, after seeing the dark bar survive on a
+       light page: "make this also match, the black stands out too much."
+       --glass is white at 72% over the paper — composited rgb(254, 253, 252),
+       --text on it 17.3:1, --text-3 5.56:1 — and .lp-bar-in's existing
+       `border: 1px solid var(--line)` is what gives it its edge. */
+    --glass:        #ffffffb8;
+    --glass-solid:  #faf9f6f7;
+    --th-bg:        #efeee9;   /* --text-3 on it: 4.92:1 */
+    --row-alt:      #19181307; /* paints rgb(244, 243, 240) on the paper */
+    /* MATCHED TO THE DARK BARS BY RATIO, NOT BY ALPHA. Dark's fill is 1.65:1
+       against its track and the hover is 3.21:1; these are 1.61 and 3.40, so
+       the chart reads with the same weight in both themes. This is the
+       invisible-bar-chart spot — verify the painted pixel, not the rule. */
+    --bar-fill:     #19181338; /* paints rgb(204, 204, 203) on a white track */
+    --bar-fill-hov: #19181380; /* paints rgb(140, 139, 137) */
+    --filter-on:    #8c8375;
+    --selection:    #19181326; /* paints rgb(221, 221, 220) on white */
+    --armed-fg:     #8a1d18;   /* 8.35:1 on --bg */
+    --armed-line:   #e3b3ae;
+    --armed-bg:     #fdeceb;
+
+    --dot-rgb:      25, 24, 19;
+    --shadow-card:  0 1px 2px rgba(52, 50, 44, .06), 0 8px 24px rgba(52, 50, 44, .07);
+    --shadow-pop:   0 12px 30px rgba(52, 50, 44, .18);
+  }
+
+  /* MEDIA STAYS DARK — the twelvelabs.io inset-panel move, and the reason this
+     plan is small. Video is dark media; a video rectangle inside a light page
+     reads as deliberate rather than as something that was missed, and it saves
+     re-theming the fiddliest components in the file.
+
+     This is done by RE-DECLARING THE DARK TOKENS ON THE SUBTREE, not by
+     writing new rules: every descendant of these three already reads palette
+     tokens (`.bp-item.ref-panel`'s own comment says "Palette tokens only"), so
+     one block re-themes the scrub rail, the transport buttons, the play disc,
+     the teleprompter's chips and its record dot together.
+
+     .ref-media is the VIDEO PLUS ITS TRANSPORT BAR and nothing else — the
+     panel around it (.bp-item.ref-panel: the heading, the cover, the meta) is
+     chrome and follows the theme like everything else. It is also what goes
+     position: fixed in the mini state, and a fixed element is still a DOM
+     descendant, so the corner player stays dark too.
+     (0,2,1) beats the block above it at (0,1,1). */
+  html[data-theme="light"] :is(.ref-media, .tp, .vplay) {
+    color-scheme: dark;
+    --bg:        #0a0a0b;
+    --surface:   #121214;
+    --surface-2: #17171a;
+    --hover:     #1d1d21;
+    --line:      #26262b;
+    --line-2:    #34343c;
+    --text:      #ededf0;
+    --text-2:    #a3a3ad;
+    --text-3:    #7c7c87;
+    --good:      #57c98a;
+    --bad:       #e06c6c;
+    --even:      #d8a657;
+  }
+
+  /* Cards lift off the paper. Applied HERE rather than by adding
+     `box-shadow: var(--shadow-card)` to twenty base rules, so dark mode's
+     output is provably unchanged by this whole feature — --shadow-card is
+     `none` there and this rule never fires. Checked: not one of these
+     selectors sets box-shadow in the base sheet, so nothing is clobbered. */
+  html[data-theme="light"] :is(
+    .bp-item, .plan-now, .vcard, .site-card, .client-editor, .bcard,
+    .client-details, .fmt-card, .table-wrap, .tray, .empty, .lp-step, .lp-q,
+    .sendbox, .wait, .composer-first, .lookup, .modal-card
+  ) { box-shadow: var(--shadow-card); }

@@ -19,7 +19,7 @@
   const GAP = 34;      // matches the CSS lattice spacing
   const REACH = 78;    // px of influence around the cursor
   const DOT_R = 1.3;   // resting radius, matches the CSS lattice
-  const DOT_A = 0.06;  // resting alpha — light dots, this theme is dark
+  const DOT_A = 0.06;  // resting alpha; the COLOUR comes from --dot-rgb, see readDot()
 
   const canvas = document.createElement("canvas");
   canvas.className = "dot-fx";
@@ -28,6 +28,19 @@
   document.body.classList.add("dots-live");   // retires the CSS lattice
 
   const ctx = canvas.getContext("2d");
+
+  /* The one colour in this file, and it is not a literal: --dot-rgb is
+     declared in app.css (`255, 255, 255` dark, `25, 24, 19` light) so the
+     canvas lattice and the CSS lattice in `body::before` can never disagree
+     about what a dot is. Read from documentElement because that is where the
+     theme attribute lives and where :root's custom properties resolve. */
+  let dotRgb = "255,255,255";
+  const readDot = () => {
+    const v = getComputedStyle(document.documentElement)
+      .getPropertyValue("--dot-rgb").trim();
+    if (v) dotRgb = v;
+  };
+  readDot();
   let viewW = 0, viewH = 0, dpr = 1, px = -9999, py = -9999, queued = false;
 
   // Drawn in device pixels and snapped to the device grid, so the dots stay
@@ -47,7 +60,7 @@
         }
         ctx.beginPath();
         ctx.arc(Math.round(x * dpr), Math.round(y * dpr), r * dpr, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
+        ctx.fillStyle = `rgba(${dotRgb},${a.toFixed(3)})`;
         ctx.fill();
       }
     }
@@ -83,4 +96,13 @@
   const rest = () => { px = -9999; py = -9999; queue(); };
   document.addEventListener("pointerleave", rest);
   window.addEventListener("blur", rest);
+
+  /* The theme can flip while the page is open — the Settings control does it
+     live, without a reload. A canvas keeps whatever was last painted into it,
+     so without this the old dots would sit there permanently: white dots
+     invisible on paper, and the swell under the cursor drawing in the wrong
+     ink. An attribute observer rather than a custom event keeps this file
+     independent of creator.js, which is the whole reason it is shared. */
+  new MutationObserver(() => { readDot(); draw(); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 })();

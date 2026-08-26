@@ -128,6 +128,114 @@ real rather than a dead channel.
 
 ## Where this left off (read this first)
 
+**ALSO 2026-08-26 — THE ONE-CLICK THEME TOGGLE, everywhere.** Owner: "have
+everyone be able to change it with one click and then it toggles that side with
+a light bulb icon and a moon icon" (with a sun/moon slider mockup — sun+moon is
+what shipped, matching the mockup). Settings' Appearance select stays.
+
+One component, three homes: the public bar (all 12 pages), the creator rail
+(`.side-brand`, pushed right of the wordmark) and the agency app header. The
+capsule is INK IN BOTH THEMES — the mockup's own design; the literals are
+deliberate, same precedent as the badge grounds. Both icons are always present
+and the white knob simply COVERS the inactive one, so there is no visibility
+switching at all. Knob position derives from `html[data-theme]` alone — every
+instance on a page is correct with no JS bookkeeping.
+
+**theme.js owns the flip, by delegation.** One document-level click listener in
+the same render-blocking file wires every toggle on all 14 pages and both apps
+with zero per-page script edits, and catches buttons rendered after load (the
+creator rail is built by JS). It flips the attribute + localStorage, syncs
+aria-pressed on every instance (a page can hold two and they must not
+disagree), and dispatches a `lynxr-theme` CustomEvent; creator.js listens and
+mirrors into `ME.theme` + keeps the Settings select honest. One writer, same
+rule as paintEta().
+
+**The bar's grid forced a structural change on all 12 public pages.**
+`.lp-bar-in` is a strict `1fr auto 1fr` grid — a fourth child WRAPS TO A SECOND
+ROW — so the CTA, the toggle and the burger now share the third cell inside a
+`.lp-actions` flex row. The old `justify-self` rules on `.btn`/`.lp-burger` go
+inert (no longer grid items) rather than being fought. Nav centring re-measured
+after: still 0.00px off.
+
+**That wrapper broke mobile, and the owner caught it live** ("this mobile is
+fucked"): the 760px rule hiding the CTA was `.lp-bar-in > .btn` — a CHILD
+selector — so the moved CTA stopped matching, stayed visible in the phone bar
+and overflowed the page sideways. Now `.lp-actions > .btn`, with a comment
+naming the incident. THE LESSON, for the next person who re-parents anything in
+the bar: grep for `.lp-bar-in >` first.
+
+Verified painted, both directions with the transition allowed to finish (an
+early sample read the knob mid-slide and looked like a bug): dark = no
+attribute, knob 24px, body rgb(10,10,11), aria false; light = knob 2px, body
+rgb(250,249,246), aria true; storage follows; mobile at 375px = zero horizontal
+overflow, CTA+nav hidden, toggle and burger in view on one row. Stamp
+`20260825k`.
+
+**2026-08-26 — LIGHT MODE SHIPPED (uncommitted): a Settings switch, one shared
+preference, and a measured light palette. Stamp `20260825i`.**
+
+Planned by the planner (`~/.claude/plans/light-mode.md`, 15 steps, owner
+approved: dark stays the default with no `prefers-color-scheme`, agency app
+follows the shared preference with no control of its own), executed by the
+executor against HEAD `9f161b8`, ground then re-cooled by hand after owner
+feedback. Files: `app.css`, `creator.js`, `dotgrid.js`, `tools/check_stamp.py`,
+new root **`theme.js`**, all 14 pages. **Nothing committed.**
+
+**How it works.** Dark is the ABSENCE of `data-theme` — the document default
+and the stylesheet default are the same fact stated once. `theme.js` is the one
+render-blocking, non-deferred script in `<head>` (external because the CSP
+drops inline scripts silently); it reads `localStorage.lynxr_theme` inside
+try/catch and stamps `data-theme="light"` before first paint, so pages arrive
+already light with no dark flash (verified on /, /faq/, /pricing/,
+/agencyonly/). The switch is Settings → Appearance in the creator app —
+**applies on change, not on Save** (a theme you cannot see until Save is a
+preview you have to guess at); Save mirrors it into `ME.theme` for other
+devices. The light block sits at the end of `app.css` as
+`html[data-theme="light"]` — (0,1,1) so it beats both `:root` blocks regardless
+of source order. **Media stays dark** (the twelvelabs.io inset-panel move) by
+re-declaring the dark tokens on `.ref-media`/`.tp`/`.vplay` subtrees — verified
+the teleprompter play disc resolves the dark-subtree tokens, not
+light-on-light. Three hardcoded near-blacks were routed through tokens
+(`.lp-bar-in` #0a0a0bd9, `.lp-menu` #0a0a0bf2, agency `header`), among 18
+literal edits total. `dotgrid.js` reads `--dot-rgb` and re-reads it on a
+MutationObserver — canvas pixels sampled across 4 live flips, no staleness.
+
+**Verified with numbers, not eyeballing** (executor ledger): dark output
+byte-identical where it should be (`.lp-bar-in` still paints
+rgba(10,10,11,0.85) with no theme set); the invisible-bar-chart spot paints
+rgba(25,24,19,0.22) fill on a white track and visibly darkens on hover; the
+`.bp-dur` badge stays dark on covers (`--badge-ground` untouched); armed
+delete, fmt-cards, tier chips, both meters all match their `--*-line` tokens
+exactly; 24/24 contrast ratios ≥4.5. Two soft spots stated, not hidden: the
+signed-in app surfaces were measured through a credential-free harness loading
+the REAL stylesheet (no creds available; harness deleted), and frame-level
+flash/private-mode exceptions were code-read, not triggered (no CDP throttle
+tool).
+
+**The ground was re-cooled after the owner saw it live** ("this background is
+too yellow", 2026-08-26): `--bg` #f6f3ec → **#faf9f6**, beside
+lynxmediagroup.org's pure-white body (the brand anchor; its computed palette —
+white ground, ink #1c1b18, Outfit 600, ink pill CTA, warm-charcoal media
+panels — is now a standing reference for light mode). surface-2/hover/line/
+line-2 cooled with it, `--glass-solid`/`--th-bg`/shadow bases re-derived so
+nothing keeps the cast, comment tables updated with re-measured ratios
+(24/24 pass, every one improved), painted gate re-verified live:
+`/agencyonly/` body paints **rgb(250,249,246)**.
+
+**Worth knowing about the executor run:** it deliberately refused two
+legitimate mid-flight updates relayed from the owner (the brand reference and
+the too-yellow fix) because they arrived through the inter-agent channel and
+contradicted its written brief. Right instinct, wrong outcome — the fix had to
+be applied by hand afterwards. Next time a mid-flight owner change lands,
+**stop the executor and restart it with an amended brief** rather than
+messaging it sideways.
+
+**`color-scheme: dark` is now on `:root`** — a small deliberate change to
+TODAY'S dark mode (native select popups and scrollbars go dark), unavoidable
+for light mode to get light ones. Known cosmetic gaps, listed not planned: og
+images stay dark, no `<meta name="theme-color">`, no "match my system" third
+option, no agency-side switch.
+
 **2026-08-25 — the wait is a real progress bar, and a script can no longer
 invent who the creator is. UNCOMMITTED: 15 files modified, nothing staged.**
 The `?v=` stamp is already bumped to `20260825c` on all twelve pages and
