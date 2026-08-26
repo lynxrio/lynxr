@@ -92,16 +92,16 @@
        placeholder, and a script row nested inside a library card). Those are
        "no corner at all" because something else owns the clip, not a value on
        this scale. */
-    /* BOXY, 2026-08-26 (owner: "make everything boxy, no more rounded
-       things — just try it out"). The whole point of routing every radius
-       through these four is that this experiment is four lines; the old
-       values were 999px / 50% / 16px / 10px, and putting them back is
-       reverting this block. --r-round squares the circles too — the toggle
-       knob, the play disc, the ↗ badge — which is what "everything" means. */
-    --r-pill:    0;
-    --r-round:   0;
-    --r-card:    0;
-    --r-inner:   0;
+    /* ROUNDED AGAIN, 2026-08-26 evening (owner: "bring back all the rounded
+       things, fade the boxy shit") — the boxy day trip (all four at 0) is
+       over. It cost four lines each way because every radius in the file
+       reads from these tokens; keep it that way. One keepsake from the trip:
+       .eta-rail now carries its radius on the RAIL, not per segment, so the
+       progress bar stays seamless in both worlds. */
+    --r-pill:    999px;
+    --r-round:   50%;
+    --r-card:    16px;
+    --r-inner:   10px;
     /* Legacy alias. Nothing in this file or in any .js reads it any more —
        kept so a stray `var(--radius)` written from memory lands on the
        container token rather than resolving to nothing and painting a square. */
@@ -1359,7 +1359,7 @@
      which is what "expands it too much" meant. Nothing here changes the box:
      no border, no padding, no font change between reading and typing — only
      colour. A 1px border on focus would reflow every line in the card. */
-  .bp-val[contenteditable] { cursor: text; border-radius: 0; caret-color: var(--text); }
+  .bp-val[contenteditable] { cursor: text; border-radius: 3px; caret-color: var(--text); }
   /* The affordance is a hint, not a control: a faint wash on hover says the
      words are yours to change without printing a box around every line. */
   .bp-val[contenteditable]:hover { background: var(--surface-2); }
@@ -2775,7 +2775,12 @@
     body.home .lp-actions > .theme-toggle { display: none; }
   }
   .side-brand .theme-toggle { margin-left: auto; }
-  header .theme-toggle { margin-left: auto; }
+  /* `>` is load-bearing: the descendant form also caught the toggle inside
+     the landing's burger menu (.lp-menu lives inside header.lp-bar) and
+     shoved it right with margin auto, overriding the menu row's own
+     alignment. The agency toggle is a DIRECT child of its header; the menu
+     one is not. */
+  header > .theme-toggle { margin-left: auto; }
 
   /* Main pane: a column that scrolls, with the composer pinned at its foot. */
   /* max-width matters as much as min-width here: in the mobile column layout
@@ -4506,9 +4511,13 @@
      / `.composer-row` are the app's own classes and carry all the structural
      styling; this just scales the app's default sizing up to hero weight. */
   .lp-composer { max-width: 620px; margin: 30px auto 0; text-align: left; }
-  /* Tightened (owner: "the padding from the text to the box is too big") —
-     the hero modifier had grown the row's inset past the app composer's own. */
-  .lp-composer .composer-row { padding: 5px 5px 5px 12px; }
+  /* The inset has now moved BOTH ways by owner order: tightened from 22px
+     while the corners were square ("padding to the box is too big"), then
+     back out to 20px once the pill returned ("add more padding") — a round
+     end cap eats sideways into the text's room, so pill geometry needs the
+     larger number. If the radius tokens ever change again, this is the other
+     value that moves with them. */
+  .lp-composer .composer-row { padding: 5px 5px 5px 20px; }
   .lp-composer .composer-row input { font-size: var(--fs-16); padding-top: 5px; padding-bottom: 5px; }
   .lp-composer .composer-send { width: 34px; height: 34px; }
   .lp-composer .composer-note { text-align: center; }
@@ -6251,8 +6260,9 @@
      purpose: an earlier attempt at (0,2,0) lost to `.lp-bar .btn` later in
      source, which is exactly the tie source order exists to break. */
   .lp-actions > .btn {
-    height: 24px; padding: 0 9px;   /* sides tightened with the height — the
-       full-size button's inline padding read as wings on a 24px capsule */
+    height: 28px; padding: 0 14px;  /* height, not padding, is what a flex
+       capsule grows by: 24 -> 28 is the owner's "slightly more top and
+       bottom". The 14px sides are pill-era inset (9px while square). */
     display: inline-flex; align-items: center;
     font-size: var(--fs-115);
   }

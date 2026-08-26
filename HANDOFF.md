@@ -274,6 +274,14 @@ the flip. Links work; only attribution is affected. Plan-intended.
 Not verifiable without live signup state: the seats-full fallback copy and a
 real end-to-end signup. Everything else in Stage A is measured and green.
 
+**ALSO 2026-08-26 evening — ROUNDED IS BACK.** The boxy experiment below was
+reverted the same day by owner order ("bring back all the rounded things") —
+the four tokens are 999px/50%/16px/10px again, the `.bp-val` literal is 3px,
+stamp `20260826r`. Verified painted: composer/CTA/toggle at 999px, knob 50%.
+One keepsake: `.eta-rail` keeps its radius on the RAIL (not per segment), so
+the progress bar stays seamless under any radius regime. The entry below
+stands as history of the day trip.
+
 **ALSO 2026-08-26 — BOXY (kept, revert-ready), platforms cut to TikTok +
 Instagram everywhere, dark stays default.** Stamp `20260825s`.
 
