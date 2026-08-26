@@ -84,9 +84,24 @@
     }));
   };
   /* Both entry points: a fresh navigation carrying a fragment, and a fragment
-     that changes with the document already open. */
-  addEventListener("hashchange", jumpToAnswer);
+     that changes with the document already open.
+
+     THE FRAGMENT IS STRIPPED AFTER THE RIDE (owner: "sometimes lynxr just
+     autoscrolls down") — a #how left in the address bar re-runs the browser's
+     own fragment scroll on EVERY later load, refresh and back-navigation,
+     smooth-gliding the page down with nobody touching it. The jump still
+     works on first arrival (deep links included); replaceState then clears
+     the fragment so the state cannot replay. history.state is preserved —
+     the gate's pushState rides in it. The 120ms is deliberate: replacing the
+     URL the same tick as a native fragment scroll can cancel it mid-flight
+     in Safari. */
+  const stripFragment = () => {
+    if (!location.hash) return;
+    setTimeout(() => history.replaceState(history.state, "", location.pathname + location.search), 120);
+  };
+  addEventListener("hashchange", () => { jumpToAnswer(); stripFragment(); });
   jumpToAnswer();
+  stripFragment();
 
   /* ------------------------------------------------------------------ menu --
      Declared BEFORE the scroll logic because setHidden() consults it: an open

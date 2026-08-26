@@ -1281,7 +1281,11 @@
      gap is unchanged; only the vertical one moved. */
   .bp-beat {
     display: grid; grid-template-columns: 72px 42px 1fr; gap: 8px 10px;
-    padding: 9px 0; border-top: 1px solid var(--line);
+    /* 10px of horizontal inset — the timed (agency) rows painted their
+       timestamps flush on the card edge (owner: "this is too much on the
+       edge"); the creator's .bp-notime variant already carried the same 10px
+       and now simply agrees with the base. */
+    padding: 9px 10px; border-top: 1px solid var(--line);
   }
   .bp-beat:first-child { border-top: 0; }
   .bp-t { font-family: var(--mono); font-size: var(--fs-11); color: var(--text-3); padding-top: 3px; }
@@ -1359,7 +1363,16 @@
      which is what "expands it too much" meant. Nothing here changes the box:
      no border, no padding, no font change between reading and typing — only
      colour. A 1px border on focus would reflow every line in the card. */
-  .bp-val[contenteditable] { cursor: text; border-radius: 3px; caret-color: var(--text); }
+  /* The padding is CANCELLED BY THE MARGIN on purpose: the focus wash needed
+     air around the words (owner: "the edge of the border for the text is too
+     close to the text itself"), but this span is the same element in reading
+     and editing and must never change size between them — that no-reflow rule
+     is the whole point of the in-place editor. Padding+equal-negative-margin
+     grows the painted box while the text stays exactly where it was. */
+  .bp-val[contenteditable] {
+    cursor: text; border-radius: 3px; caret-color: var(--text);
+    padding: 3px 7px; margin: -3px -7px;
+  }
   /* The affordance is a hint, not a control: a faint wash on hover says the
      words are yours to change without printing a box around every line. */
   .bp-val[contenteditable]:hover { background: var(--surface-2); }
@@ -6265,6 +6278,23 @@
      output is provably unchanged by this whole feature — --shadow-card is
      `none` there and this rule never fires. Checked: not one of these
      selectors sets box-shadow in the base sheet, so nothing is clobbered. */
+  /* The current-beat highlight. The base rule fills with var(--line-2) —
+     fine in dark, where line-2 is a subtle lift, but in light that is #d1cfc6:
+     a BORDER grey doing a background's job, and it painted the one row the
+     creator is reading as khaki mud (owner: "this looks terrible, make it
+     lighter or something"). A pale wash of the same green as the row's --good
+     inset says "now" without the sludge. Label contrast holds: --text-2 on
+     this ground is ~7:1. */
+  html[data-theme="light"] .bp-notime .bp-beat.on { background: #eaf3ec; }
+
+  /* The reference panel ("The original") fills with --surface-2, which in
+     dark sits one imperceptible step from the card (#17171a on #121214) — but
+     light's surface-2 is a real well on white, and the card read as two-tone
+     (owner: "make that inner box and the outer box the same color like in the
+     dark mode"). Same ground as the card; the hairline border still draws the
+     panel's edge. */
+  html[data-theme="light"] .bp-item.ref-panel { background: var(--surface); }
+
   html[data-theme="light"] :is(
     .bp-item, .plan-now, .vcard, .site-card, .client-editor, .bcard,
     .client-details, .fmt-card, .table-wrap, .tray, .empty, .lp-step, .lp-q,

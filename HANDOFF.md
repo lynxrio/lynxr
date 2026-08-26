@@ -163,6 +163,32 @@ Stamp `20260826a`. Nine directives applied in sequence, each verified painted:
 - **A `${...}`-in-HTML violation was written and caught mid-edit** — the exact
   mistake CLAUDE.md warns about; it became an HTML comment before ever
   painting. The rule earns its place.
+- **Fourth round, stamps `20260826v`→`20260827b` — the scroll-behavior arc:**
+  the CTA grew to 28px ("slightly" more top/bottom; mobile keeps its 44px
+  touch floor). Then three distinct unwanted-scroll bugs, each with a
+  different mechanism: (1) MOBILE tap on the paste box revealed below-fold
+  content — the browser's own scroll-input-into-view; no meta stops it, so
+  html.lp-composing moves the hero group to the TOP on focus (nothing left to
+  scroll for) plus a scroll pin to 0 as backstop, both released on blur, and
+  the viewport meta is now state-aware (overlays-content on the marketing
+  hero, enterApp() swaps to resizes-content for the app's above-keyboard
+  composer); (2) DESKTOP clicking the input moved the page — the first fix
+  scoped only the CSS, and the JS scrollTo(0,0)+pin still ran ("still isnt
+  fixed"); the whole behavior is now gated on matchMedia(max-width:760px) AT
+  EVENT TIME; (3) "sometimes lynxr just autoscrolls down" — a lingering #how
+  fragment replayed the browser's native fragment scroll (smooth via
+  lp-smooth) on every load/refresh/back; site.js now strips the fragment
+  120ms after the jump (deep links still work on first arrival; the 120ms
+  avoids Safari cancelling a mid-flight fragment scroll; history.state is
+  preserved for the gate's pushState). Also: home's bar never animates —
+  the capsule pages' lp-bar-away reveal played as a slow slide on the in-flow
+  bar ("scrolls back down slowly").
+  **VERIFICATION LESSON, expensive one:** in the unfocused Browser pane,
+  element.focus() moves activeElement but Chrome DEFERS the focus EVENT until
+  the tab refocuses — two rounds chased phantom failures ("wiring dead") and
+  one false pass (desktop tested from scrollY 0 where the glide is invisible).
+  Focus-driven behavior is verified with dispatchEvent(new FocusEvent(...))
+  and from a mid-scroll starting state, or on a real device.
 - **Third round, stamps `20260826e`→`k`:** bar content capped at 1200px on
   wide monitors ("less spread out"); bar toggle + CTA matched at the old
   toggle's 24px on desktop and at the burger's 44px touch floor on mobile;
