@@ -32,7 +32,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260825a">
+<link rel="stylesheet" href="/app.css?v=20260825e">
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -122,7 +122,7 @@
   "name": "lynxr — terms of service",
   "description": "The terms you agree to when you use lynxr: what the app does, what you are responsible for, and what we do and do not promise.",
   "inLanguage": "en",
-  "dateModified": "2026-08-19",
+  "dateModified": "2026-08-25",
   "isPartOf": { "@id": "https://lynxr.io/#website" },
   "about": { "@id": "https://lynxr.io/#lynxr" }
 }
@@ -149,6 +149,7 @@
     <nav class="lp-nav" aria-label="Main">
       <a href="/#how">how it works</a>
       <a href="/faq/">faq</a>
+      <a href="/pricing/">pricing</a>
     </nav>
     <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
     <!-- Under 760px the nav and the CTA above are display:none and this takes
@@ -167,6 +168,7 @@
   <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
     <a href="/#how">how it works</a>
     <a href="/faq/">faq</a>
+    <a href="/pricing/">pricing</a>
     <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
   </nav>
 </header>
@@ -174,15 +176,16 @@
 <main class="legal">
 
   <h1>terms of service</h1>
-  <p class="legal-date">last updated 19 august 2026</p>
+  <p class="legal-date">last updated 25 august 2026</p>
 
   <p class="legal-flag"><strong>this document has not been reviewed by a
     lawyer.</strong> it was drafted to describe honestly what lynxr actually
     does, and it is published so that nobody using the early access version is
     left guessing. it must be reviewed by a qualified lawyer before lynxr takes
     payments or opens to the public. the passages marked
-    <span class="legal-todo">to be completed</span> are decisions we have not
-    made yet, and we would rather leave them blank than guess at them.</p>
+    <span class="legal-todo">drafted, not reviewed</span> are the ones where
+    that matters most, and we would rather say so than let them read as
+    settled.</p>
 
   <p>these terms are an agreement between you and <span class="entity">Lynx
     Media Group LLC</span> (&ldquo;lynxr&rdquo;, &ldquo;we&rdquo;,
@@ -364,13 +367,35 @@
   <p>lynxr is <strong>free while it is in early access</strong>. that is a
     description of today, not a promise about tomorrow: we intend to charge for
     lynxr, and these terms do not entitle you to free access indefinitely.</p>
-  <p>when we introduce pricing we will tell you in advance and you will be able
-    to decide before you are charged anything. nothing will start billing your
-    card because you left an account open.
-    lynxr is free while it is in early access: no charge, no card on file, and
-    no trial that turns into one.
-    <span class="legal-todo">to be completed when pricing exists &mdash; refund
-    policy, billing terms, trial length and cancellation.</span></p>
+  <p>nothing starts billing your card because you left an account open. the
+    free tier is <strong>25 scripts for the lifetime of the account</strong>
+    and stays free: no card, and no trial that turns into a subscription.</p>
+
+  <h2>lynxr pro, and what you are agreeing to pay</h2>
+  <p><strong>lynxr pro is $24.99 per month, billed monthly in advance, in
+    USD</strong>, with tax added where it is required. the current price and
+    what is included are on the <a href="/pricing/">pricing page</a>.</p>
+  <p><span class="entity">Paddle.com</span> is the <strong>merchant of
+    record</strong> &mdash; the party you contract with for the payment itself.
+    <span class="entity">Paddle</span> issues all invoices and all refunds, and
+    is who your card statement will name.</p>
+  <p>pro includes <strong>up to 300 scripts in any rolling 30-day period, and
+    up to 30 in any 24 hours</strong>. <strong>the 30-day window rolls
+    continuously and does not reset on your billing date</strong> &mdash; each
+    script counts against you for 30 days from the moment it is written, and
+    room comes back as older ones age out. we may raise a limit on request, and
+    we will contact an account that persistently exceeds fair use before we
+    take any action on it.</p>
+  <p>you can cancel at any time. <strong>cancellation takes effect at the end of
+    the period you have already paid for</strong>, and there is no pro-rata
+    refund for the unused part of it.</p>
+  <p><strong>there is a 14-day money-back guarantee on your first payment</strong>,
+    and a refund ends access immediately &mdash; a refunded month is not a month
+    you keep. the <a href="/refunds/">refund policy</a> sets out how this works
+    and <strong>forms part of these terms</strong>.</p>
+  <p>if a payment fails, <span class="entity">Paddle</span> retries it for a few
+    days before the account drops to the free tier. nothing you have already
+    written is deleted.</p>
 
   <h2>suspending or ending access</h2>
   <p>you can stop at any time by deleting your account.</p>
@@ -469,6 +494,7 @@
       <a class="foot-link" href="/">home</a>
       <a class="foot-link" href="/#how">how it works</a>
       <a class="foot-link" href="/faq/">faq</a>
+      <a class="foot-link" href="/pricing/">pricing</a>
       <!-- Visible label "try it", accessible name "try it — join the wait
            list". The .sr-only tail is inside the <a>, so it is part of the
            name computation rather than a title attribute nobody hears. -->
@@ -486,6 +512,7 @@
       <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
       <a class="foot-link" href="/privacy/">privacy policy</a>
       <a class="foot-link" href="/terms/" aria-current="page">terms of service</a>
+      <a class="foot-link" href="/refunds/">refund policy</a>
       <a class="foot-link" href="/accessibility/">accessibility</a>
     </div>
     <div class="foot-col">
@@ -504,8 +531,8 @@
 
 <!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
      see the file's own header for why it must never reach either app. -->
-<script src="/site.js?v=20260825a" defer></script>
-<script src="/footer.js?v=20260825a" defer></script>
+<script src="/site.js?v=20260825e" defer></script>
+<script src="/footer.js?v=20260825e" defer></script>
 
 </body>
 </html>

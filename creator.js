@@ -380,6 +380,17 @@ function canonUrl(raw) {
     let key = "";
     if (host === "youtu.be") { key = "?v=" + path.slice(1); host = "youtube.com"; path = "/watch"; }
     else if (host === "youtube.com" && u.searchParams.get("v")) key = "?v=" + u.searchParams.get("v");
+    else if (host === "youtube.com") {
+      /* /shorts/ID, /live/ID and /embed/ID ARE /watch?v=ID. YouTube redirects
+         between them and yt-dlp reports webpage_url as the /watch form
+         whichever you hand it, so leaving them unfolded made a Short a
+         different video from itself: a second library entry for a link already
+         saved, a miss on the lynxr_sources cache that paid for a second
+         download + Whisper + tag pass, and a saturation count split across two
+         rows. Shorts is the form creators actually paste. */
+      const m = path.match(/^\/(?:shorts|live|embed)\/([^/]+)/);
+      if (m) { key = "?v=" + m[1]; path = "/watch"; }
+    }
     return host + path + key;
   } catch { return String(raw || "").trim().replace(/\/$/, ""); }
 }
@@ -1485,6 +1496,7 @@ function renderSide() {
   document.getElementById("nav-new").classList.toggle("on", VIEW.kind === "new");
   document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library");
   document.getElementById("nav-you").classList.toggle("on", VIEW.kind === "you");
+  document.getElementById("nav-plan").classList.toggle("on", VIEW.kind === "plan");
   document.getElementById("nav-feedback").classList.toggle("on", VIEW.kind === "feedback");
 
   const host = document.getElementById("side-list");
@@ -1635,6 +1647,7 @@ function renderPaneInner() {
   const head = document.getElementById("pane-head");
   const body = document.getElementById("pane-body");
   if (VIEW.kind === "new") return renderNewScript(head, body);
+  if (VIEW.kind === "plan") return renderPlan(head, body);
   if (VIEW.kind === "you") return renderYou(head, body);
   if (VIEW.kind === "feedback") return renderFeedback(head, body);
   if (VIEW.kind === "brand") {
@@ -3040,6 +3053,128 @@ function libraryItemHtml(item, scopeBrandId) {
 }
 
 // ---------- you ----------
+/* THE PAYWALL, AND THE ONE SWITCH THAT DECIDES WHETHER IT CAN TAKE MONEY.
+
+   Checkout does not exist yet: the Supabase Edge Function this would post to
+   (`/functions/v1/billing-checkout`) is Stage 3 and is not deployed, and no
+   Paddle account has been created. A button that silently 404s is worse than
+   no button, so BILLING_LIVE gates it the same way SEND_OVERLAY gates the send
+   modal — flip it to true the day the function and the secrets exist, and the
+   Upgrade button starts working with no other edit here.
+
+   Until then the page still does its real job: it tells a creator exactly
+   where they stand, what pro costs, and what they get — it just says plainly
+   that checkout is not open yet instead of pretending. */
+const BILLING_LIVE = false;
+
+/** POST to the checkout function and follow the URL it returns. Deliberately
+    `fetch`, not `sbFetch`: the path is /functions/v1/…, not /rest/v1/…, so
+    sbFetch's REST base and PostgREST error handling do not apply. */
+async function billingAction(action, plan) {
+  const res = await fetch(`${SB_URL}/functions/v1/billing-checkout`, {
+    method: "POST",
+    headers: { "content-type": "application/json", apikey: SB_KEY,
+               Authorization: `Bearer ${SB_TOKEN || SB_KEY}` },
+    body: JSON.stringify({ action, plan }),
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  const { url } = await res.json();
+  if (!url) throw new Error("no url");
+  location.href = url;
+}
+
+/* WHAT A CREATOR SEES ABOUT THEIR PLAN. Follows renderYou's shape exactly —
+   burger + .pane-title + .pane-sub in the head, .section blocks in the body.
+
+   ONLY THE FREE STATE IS BUILT. `PLAN` does not exist yet: it is filled by
+   Stage 3's webhook receiver, and until then every account is on free, so an
+   'active'/'past_due' branch here would be code that cannot run and cannot be
+   tested. The extension point is marked below. */
+function renderPlan(head, body) {
+  head.innerHTML = `
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="pane-title"><div class="bcard-title">Plan</div></div>
+    <p class="pane-sub">What you're on, and what you'd get.</p>`;
+  document.getElementById("side-open").addEventListener("click", (e) => {
+    const open = document.body.classList.toggle("side-open");
+    e.currentTarget.setAttribute("aria-expanded", open);
+  });
+
+  /* THE NUMBERS COME FROM THE LEDGER, NEVER FROM THE CONSTANT. scriptGrant()
+     is my_allowance()'s `granted` once it has answered and SCRIPT_CAP only
+     before that — so an account whose limit was raised by hand reads its own
+     number here rather than 25. */
+  const grant = scriptGrant();
+  const room = Math.max(0, scriptRoom());
+  const used = Math.max(0, grant - room);
+  const spent = room <= 0;
+
+  // TODO(Stage 3): when PLAN exists, branch here on PLAN.status for
+  // 'active' / 'trialing' / 'past_due' before falling through to free.
+  body.innerHTML = `
+    <div class="section">
+      <div class="plan-now${spent ? " spent" : ""}">
+        <div class="plan-now-head">
+          <span class="plan-badge">free</span>
+          <span class="plan-count">${used}/${grant} scripts used</span>
+        </div>
+        <span class="quota-bar" aria-hidden="true"><i id="plan-fill"></i></span>
+        <p class="plan-line">${spent
+          ? "You've used all of them. Nothing you've written is gone — your scripts and companies stay exactly as they are."
+          : `${room} left. They don't refill — it's ${grant} for the life of the account.`}</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="bcard-title">lynxr pro</div>
+      <p class="plan-price"><strong>$24.99</strong> <span class="plan-per">a month</span></p>
+      <ul class="plan-list">
+        <li>Unlimited scripts &mdash; you never buy them one at a time.</li>
+        <li>Fair use: 300 in any rolling 30 days, 30 in any 24 hours.
+          <span class="plan-dim">The 30 days roll continuously; they don't reset on your billing date.</span></li>
+        <li>Cancel any time. Access runs to the end of the period you've paid for.</li>
+        <li>14-day money-back on your first payment.</li>
+      </ul>
+      ${BILLING_LIVE
+        ? `<button type="button" class="btn" id="plan-upgrade">Upgrade to pro</button>`
+        : `<p class="plan-soon">Checkout isn't open yet &mdash; lynxr is still in early access.
+             When it opens you'll be able to upgrade from this page.</p>`}
+      <p class="plan-msg" id="plan-msg" role="status" aria-live="polite"></p>
+      ${/* Separated by .x-sep, the same middot Settings' own .me-links row
+             uses — without it the three run together as one string. All three
+             open in a new tab: the delegated modal handler at the top of this
+             file is scoped to /privacy/ only and does not cover these. */""}
+      <span class="me-links">
+        <a href="/pricing/" target="_blank" rel="noopener">pricing</a>
+        <span class="x-sep">&middot;</span>
+        <a href="/refunds/" target="_blank" rel="noopener">refund policy</a>
+        <span class="x-sep">&middot;</span>
+        <a href="/terms/" target="_blank" rel="noopener">terms</a>
+      </span>
+    </div>`;
+
+  // CSSOM, never a style attribute: style-src 'self' drops inline styles and
+  // this exact mistake once shipped bar charts that painted as nothing.
+  const fill = document.getElementById("plan-fill");
+  if (fill) fill.style.width = `${grant > 0 ? (used / grant) * 100 : 100}%`;
+
+  const up = document.getElementById("plan-upgrade");
+  up?.addEventListener("click", async () => {
+    // Disabled for the whole round trip: a double-click must never open two
+    // Paddle transactions.
+    up.disabled = true;
+    const was = up.textContent;
+    up.textContent = "Opening checkout…";
+    try {
+      await billingAction("checkout", "pro");
+    } catch {
+      flashMsg("plan-msg", "Couldn't open checkout. Try again, or use Feedback.", "bad");
+      up.disabled = false;
+      up.textContent = was;
+    }
+  });
+}
+
 function renderYou(head, body) {
   head.innerHTML = `
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -3893,7 +4028,7 @@ const scriptsUsed = () => (ME.adaptations || []).length + (ME.trash || []).lengt
    Once a real number has landed it is KEPT through a later failure: a stale
    server number is closer to the truth than the local one, which the creator
    can edit. */
-let ALLOWANCE = null;                        // { used, granted } or null
+let ALLOWANCE = null;                        // { used, granted, periodDays } or null
 
 /** How many more scripts this account may write, and out of how many.
     A COURTESY, not the enforcement point — the worker charges against the
@@ -3901,6 +4036,25 @@ let ALLOWANCE = null;                        // { used, granted } or null
     lies to a paying creator is worse than none, so it reads the server's
     numbers whenever it has them. */
 const scriptGrant = () => (ALLOWANCE ? ALLOWANCE.granted : SCRIPT_CAP);
+
+/* THE WALL SENTENCE, IN ONE PLACE.
+
+   TWO DIFFERENT WALLS EXIST AND THEY MUST NOT SHARE A SENTENCE. A free
+   creator at 25 of 25 can do something about it, and is pointed at Plan. A pro
+   creator at 300 of 300 has hit FAIR USE and cannot buy their way out — that
+   wall is about the rolling window reopening, and telling them to upgrade
+   would be both wrong and insulting. `period_days > 0` is what tells the two
+   apart, and it is the ledger's own field rather than anything guessed here.
+
+   Note it says "rolling 30 days", never "this month": the window does not
+   align with the billing date, and /pricing/ and /terms/ both say so. */
+function quotaWallText() {
+  const grant = scriptGrant();
+  const rolling = ALLOWANCE && ALLOWANCE.periodDays > 0;
+  return rolling
+    ? `That's all ${grant} scripts for the last 30 days. The window rolls, so room comes back as older scripts age out — nothing you've written is gone.`
+    : `That's all ${grant} scripts. See Plan in the menu for what's next.`;
+}
 const scriptRoom = () => (ALLOWANCE
   ? Math.max(ALLOWANCE.granted - ALLOWANCE.used, 0)
   : SCRIPT_CAP - scriptsUsed());
@@ -3918,7 +4072,12 @@ async function refreshAllowance() {
   // A half-answer is worse than no answer: keep whatever we had rather than
   // painting NaN into the rail.
   if (!Number.isFinite(granted) || !Number.isFinite(used)) return;
-  ALLOWANCE = { used, granted };
+  /* period_days was already in my_allowance()'s answer and was being thrown
+     away here. It is what tells a LIFETIME allowance from a ROLLING one, and
+     therefore which of the two walls quotaWallText() should show — 0 means
+     "that's all there is", >0 means "room comes back". Defaults to 0 so an
+     older RPC that omits it reads as lifetime, which is what free is. */
+  ALLOWANCE = { used, granted, periodDays: Number(r?.period_days) || 0 };
   renderSide();
 }
 
@@ -4011,7 +4170,7 @@ function wireComposer() {
     // only when it has not; see its definition for why this stays a courtesy.
     const room = scriptRoom();
     if (room <= 0) {
-      say(`That's all ${scriptGrant()} scripts. Ask for more from Feedback in the menu.`, "bad");
+      say(quotaWallText(), "bad");
       return;
     }
 
@@ -4068,7 +4227,7 @@ function wireComposer() {
       // video's own words, shots and structure, with no rewrite. This is a
       // real result, not a fallback for a failure.
       if (room <= 0) {
-        say(`That's all ${scriptGrant()} scripts. Ask for more from Feedback in the menu.`, "bad");
+        say(quotaWallText(), "bad");
         return;
       }
       const { item: solo } = ensureLibraryItem(url);
@@ -4394,8 +4553,7 @@ async function hydrate(item) {
     if (a.libraryId === live.id && live.title) a.title = live.title;
   }
   save();
-  const editing = document.activeElement
-    && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  const editing = isTyping();
   if (!editing) { renderSide(); renderPane(); }   // titles land in both views
 }
 
@@ -4451,8 +4609,7 @@ async function hydrateScript(rec) {
     item.creator = item.creator || meta.creator || "";
   }
   save();
-  const editing = document.activeElement
-    && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  const editing = isTyping();
   if (!editing) { renderSide(); renderPane(); }
 }
 
@@ -5056,7 +5213,7 @@ function brandsWithout(item) {
 async function alsoWriteFor(item, brandIds, afterRender) {
   const room = scriptRoom();
   if (room <= 0) {
-    say(`That's all ${scriptGrant()} scripts. Ask for more from Feedback in the menu.`, "bad");
+    say(quotaWallText(), "bad");
     return { queued: [], skipped: [] };
   }
   if (brandIds.length > room) {
@@ -5124,82 +5281,17 @@ function queueAdaptation(item, co) {
 const SEEN = new Map();
 const FLASH = new Set();
 
-/* WHICH SCRIPTS ARE OPEN FOR EDITING. Ids only — the edits themselves live in
-   the textareas until Save, so Cancel is simply a re-render and needs no undo
-   buffer. Not persisted: a half-finished edit should not survive a reload as a
-   silent draft nobody remembers making. */
-const EDITING = new Set();
+/* IS THE CREATOR TYPING RIGHT NOW?
 
-/** The script, as fields you can change.
- *
- *  Editing is plain textareas over the same shape the model returns — hook,
- *  a row per beat, cta, caption — rather than a rich editor, because what a
- *  creator actually wants to fix is a word choice or a line that does not sound
- *  like them. Nothing here calls the API: this is the creator's own writing, it
- *  costs nothing, and it cannot fail.
- *
- *  Beats keep their SAY / DO / SHOW split rather than collapsing to one box.
- *  Flattening them would lose which line is spoken and which is an instruction,
- *  and scriptText() and the Copy button both read those fields by name.
- */
-/** Read every open textarea back onto the adaptation.
- *
- *  Called before ANY re-render that must not lose what is typed — Save, and
- *  also adding or removing a beat, since those rebuild the list from the data
- *  and would otherwise discard edits made to the other beats first. */
-function stashEdits(host, a) {
-  const scope = host.querySelector(`.ed[data-adid="${CSS.escape(a.id)}"]`);
-  if (!scope || !a.adaptation) return;
-  const beats = Array.isArray(a.adaptation.beats)
-    ? a.adaptation.beats.map((b) => ({ ...b })) : [];
-  scope.querySelectorAll(".ed-input").forEach((el) => {
-    const v = el.value.trim();
-    if (el.dataset.beat === undefined) { a.adaptation[el.dataset.field] = v; return; }
-    const b = beats[Number(el.dataset.beat)];
-    if (b) b[el.dataset.field] = v;
-  });
-  a.adaptation.beats = beats;
-}
-
-function scriptEditor(a, ad, silent) {
-  const id = escapeHtml(a.id);
-  const beats = Array.isArray(ad.beats) ? ad.beats : [];
-  const field = (label, name, value, rows) => `
-    <label class="ed-field"><span class="lbl">${label}</span>
-      <textarea class="ed-input grow" rows="${rows || 1}" data-adid="${id}"
-        data-field="${name}">${escapeHtml(value || "")}</textarea></label>`;
-  return `
-    <div class="ed" data-adid="${id}">
-      ${field(silent ? "Opening card" : "Hook", "hook", ad.hook, 2)}
-      <div class="bp-heading">${silent ? "Shots" : "Beats"}</div>
-      <ol class="ed-beats">${beats.map((b, i) => `
-        <li class="ed-beat">
-          <span class="ed-n">${i + 1}</span>
-          <div class="ed-beat-fields">
-            ${silent ? "" : `
-            <label class="ed-field"><span class="lbl">say</span>
-              <textarea class="ed-input grow" rows="1" data-adid="${id}"
-                data-beat="${i}" data-field="say">${escapeHtml(b.say || "")}</textarea></label>`}
-            <label class="ed-field"><span class="lbl">do</span>
-              <textarea class="ed-input grow" rows="1" data-adid="${id}"
-                data-beat="${i}" data-field="do">${escapeHtml(b.do || "")}</textarea></label>
-            <label class="ed-field"><span class="lbl">show</span>
-              <textarea class="ed-input grow" rows="1" data-adid="${id}"
-                data-beat="${i}" data-field="show">${escapeHtml(b.show || "")}</textarea></label>
-          </div>
-          ${/* Removing a beat is the one structural edit worth having — a
-                script that runs one beat too long is the commonest fix, and
-                without this the only way to shorten it is a rewrite. */""}
-          <button type="button" class="ghost danger icon-only ed-drop" data-adid="${id}"
-            data-beat="${i}" aria-label="Remove this beat" title="Remove this beat">
-            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-              stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
-          </button>
-        </li>`).join("")}</ol>
-      <button type="button" class="linkish ed-add" data-adid="${id}">+ add a beat</button>
-      ${field(silent ? "Final card" : "CTA", "cta", ad.cta, 1)}
-      ${field("Caption", "caption", ad.caption, 2)}
-    </div>`;
+   Three separate places guarded a repaint with an inline
+   /^(INPUT|TEXTAREA|SELECT)$/ test on document.activeElement. Script lines are
+   edited IN PLACE now — contenteditable spans, which are none of those three
+   tags — so every one of those guards would have read "not typing" and let the
+   2.5s poll rebuild the card out from under a half-typed line. One definition,
+   so the next editable thing cannot miss a guard. */
+function isTyping() {
+  const el = document.activeElement;
+  return !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
 }
 
 /** THE SECOND A BEAT STARTS, off the `t` string the model already writes.
@@ -5221,7 +5313,7 @@ function beatStart(t) {
   return m ? Number(m[1]) : null;
 }
 
-function beatRow(bt, carry, silent) {
+function beatRow(bt, carry, silent, adid, idx) {
   let say = (bt.say || "").trim();
   let doIt = (bt.do || "").trim();
   let show = (bt.show || "").trim();
@@ -5242,9 +5334,23 @@ function beatRow(bt, carry, silent) {
      is false for both DO and SHOW. A wall of same-weight text with a 9.5px
      label as the only distinction is unreadable at a glance, and these are read
      while filming. */
-  const row = (label, v, dim) => v
-    ? `<span class="bp-lbl bp-lbl-${label.toLowerCase()}">${label}</span><span class="bp-val bp-${label.toLowerCase()}${dim ? " bp-dim" : ""}">${escapeHtml(v)}</span>`
-    : "";
+  /* EDITABLE IN PLACE. The value span IS the input — contenteditable rather
+     than a textarea swapped in on click, because a textarea has its own box
+     model and the line would jump the moment it was touched. That jump is the
+     whole complaint about the old editor ("expands it too much"), so the
+     resting and editing states here are the SAME element at the same size.
+     `plaintext-only` keeps pasted markup out; wireInlineEdit adds a paste
+     fallback for engines that ignore it. Absent adid (a preview, the
+     teleprompter) the span renders read-only exactly as before. */
+  const row = (label, v, dim) => {
+    if (!v) return "";
+    const f = label.toLowerCase();
+    const edit = adid === undefined ? "" :
+      ` contenteditable="plaintext-only" role="textbox" tabindex="0" spellcheck="false"` +
+      ` data-edit="beat" data-adid="${escapeHtml(adid)}" data-beat="${idx}" data-field="${f}"`;
+    return `<span class="bp-lbl bp-lbl-${f}">${label}</span>` +
+      `<span class="bp-val bp-${f}${dim ? " bp-dim" : ""}"${edit}>${escapeHtml(v)}</span>`;
+  };
   // No timing column. These are recreation beats, not a cut list — the order
   // is the instruction, and "0-4s" invited people to match a stopwatch to a
   // video they are deliberately not copying shot for shot. The `t` values are
@@ -5515,9 +5621,21 @@ function seekRefTo(vid, t) {
      reading as restoreDisclosures': never start one invisibly. */
   if (vid.closest("details:not([open])")) return;
   REF_HANDS_OFF = 0;                    // an explicit "take me there" re-arms follow
+  /* SEEK ONLY — NEVER START PLAYBACK. Owner, 2026-08-25: "have the side video
+     play when i press play so when i click on the script side it doesnt play
+     automatically."
+
+     This used to call play() on a paused video, so touching the script started
+     the clip. That was already surprising; with lines now editable in place it
+     would be untenable, because putting the caret in a line to fix a word
+     would also start playing sound. Clicking a beat moves the playhead to that
+     moment and leaves it exactly as it found it — the play button and tapping
+     the frame are the only two things that start a video.
+
+     A video already PLAYING keeps playing and simply jumps, which is what
+     scrubbing means; nothing here pauses it either. */
   const go = () => {
     try { vid.currentTime = t; } catch { /* seek refused, leave it be */ }
-    if (vid.paused) vid.play().catch(() => { /* autoplay policy said no */ });
   };
   /* currentTime before metadata is loaded is a no-op or a throw. preload
      ="metadata" usually has it by the time a card is readable, but a click one
@@ -6610,9 +6728,14 @@ function adaptationHtml(a, liveName, opts = {}) {
             could ever have painted were those internal ones — a script that
             arrived intact but whose tag call blipped showed "tags failed:
             Overloaded" beneath it. */""}
-      ${EDITING.has(a.id) ? scriptEditor(a, ad, silent) : `
+      ${/* One editing model for the whole card: every value is edited where it
+            is read. The old Edit button swapped the entire script for a stacked
+            form of labelled textareas — owner, 2026-08-25: "the edit button
+            expands it too much and it looks too complicated". */""}
       ${ad.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">${
-        silent ? "Opening card" : "Hook"}</span>“${escapeHtml(ad.hook)}”</div>` : ""}
+        silent ? "Opening card" : "Hook"}</span>“<span class="bp-val bp-hookval"
+        contenteditable="plaintext-only" role="textbox" tabindex="0" spellcheck="false"
+        data-edit="top" data-adid="${id}" data-field="hook">${escapeHtml(ad.hook)}</span>”</div>` : ""}
       ${silent ? `<p class="bp-hint">No voiceover — put the SHOW line on screen at each beat.</p>` : ""}
       ${/* Silent scripts get no heading. "Shot by shot" sat directly above a
             list of shots, under a line that already says "no voiceover — put
@@ -6621,9 +6744,19 @@ function adaptationHtml(a, liveName, opts = {}) {
             follow a hook and a delivery note, so the label marks where the
             script itself starts. */""}
       ${silent ? "" : `<div class="bp-heading">Your script</div>`}
-      <ol class="bp-beats bp-notime">${(ad.beats || []).map((b) => beatRow(b, carry, silent)).join("")}</ol>
-      ${ad.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> ${escapeHtml(ad.cta)}</p>` : ""}
-      ${ad.caption ? `<p class="bp-hint"><strong>Caption:</strong> ${escapeHtml(ad.caption)}</p>` : ""}`}
+      ${/* The index passed here is the beat's REAL index in ad.beats, not its
+            position among rendered rows — beatRow returns "" for a beat whose
+            every line is blank or carried over, so the two drift apart and an
+            edit would land on the wrong beat. */""}
+      <ol class="bp-beats bp-notime bp-editable">${(ad.beats || [])
+        .map((b, i) => beatRow(b, carry, silent, id, i)).join("")}</ol>
+      <button type="button" class="linkish bp-addbeat" data-adid="${id}">+ add a beat</button>
+      ${ad.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> <span
+        class="bp-val" contenteditable="plaintext-only" role="textbox" tabindex="0" spellcheck="false"
+        data-edit="top" data-adid="${id}" data-field="cta">${escapeHtml(ad.cta)}</span></p>` : ""}
+      ${ad.caption ? `<p class="bp-hint"><strong>Caption:</strong> <span
+        class="bp-val" contenteditable="plaintext-only" role="textbox" tabindex="0" spellcheck="false"
+        data-edit="top" data-adid="${id}" data-field="caption">${escapeHtml(ad.caption)}</span></p>` : ""}
       ${/* format.why_it_works is still extracted and stored — it is useful to the
             model and to step 2's clustering — it just isn't shown. It explains the
             format to someone who already has the script, which is analysis nobody
@@ -6638,21 +6771,16 @@ function adaptationHtml(a, liveName, opts = {}) {
               the thing you do WITH it. Named for what it shows — a silent
               script has no words to read aloud, so its SHOW lines are cue
               cards, the same rename the hook and CTA already take. */""}
-        ${EDITING.has(a.id) || !TP_ENABLED ? "" : `<button type="button" class="btn ad-prompt" data-adid="${id}"
+        ${!TP_ENABLED ? "" : `<button type="button" class="btn ad-prompt" data-adid="${id}"
           >${silent ? "Cue cards" : "Teleprompter"}</button>`}
-        ${EDITING.has(a.id) ? `
-          <button type="button" class="btn ad-save" data-adid="${id}">Save changes</button>
-          <button type="button" class="ghost ad-cancel" data-adid="${id}">Cancel</button>`
-        : `${/* No rewrite button. Asking the model again spent another script
-                from the allowance to produce a different-but-equivalent answer,
-                and the pencil now covers the real need — changing a line that
-                does not sound like you — for nothing. A creator who genuinely
-                wants a fresh take can send the link again.
+        ${`${/* NO SAVE, NO CANCEL, NO PENCIL. Every line is edited where it is
+                read and commits on blur, so a Save button would be a second
+                way to do what leaving the field already did — and a Cancel
+                that appeared to undo edits already written would be a lie.
+                Escape reverts the line you are in; that is the undo.
 
-                Edit and delete sit on THIS row rather than a separate one
-                below: they are things you do to this script, same as copying
-                it, and a second row of buttons underneath read as a different
-                kind of control. Pushed right by .bp-icons so the destructive
+                Copy and delete stay: they are things you do TO the script,
+                same as before. Pushed right by .bp-icons so the destructive
                 one is not adjacent to the one you press most. */""}
           <span class="bp-icons">
             <button type="button" class="ghost icon-only ad-copy" data-adid="${id}"
@@ -6660,12 +6788,6 @@ function adaptationHtml(a, liveName, opts = {}) {
               <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
                 ><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-            </button>
-            <button type="button" class="ghost icon-only ad-edit" data-adid="${id}"
-              aria-label="Edit this script" title="Edit this script">
-              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-                ><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>
             </button>
             <button type="button" class="ghost danger icon-only ad-del" data-adid="${id}"
               aria-label="Delete this script" title="Delete this script">
@@ -6682,14 +6804,14 @@ function adaptationHtml(a, liveName, opts = {}) {
             twice, one under the other. The offer belongs to the VIDEO, which is
             what the Library entry is; a script card only owns it on a brand
             page, where there is no entry above it to carry it. */""}
-      ${reuse.length && !EDITING.has(a.id) && !nested ? `<div class="bp-heading">Also write this for</div>
+      ${reuse.length && !nested ? `<div class="bp-heading">Also write this for</div>
         <div class="chips lib-also">${reuse.map((b) => `
           <button type="button" class="chip pick ad-also" data-adid="${id}" data-bid="${escapeHtml(b.id)}"
             >+ ${escapeHtml(b.name)}</button>`).join("")}</div>` : ""}`;
-    /*  While EDITING the row holds Save changes / Cancel, which belong beside
-        the textarea they act on — those stay inside .ref-main. Only a finished
-        card's icon row moves under the split. */
-    body = EDITING.has(a.id) ? refSplitHtml(a, script + foot) : refSplitHtml(a, script, foot);
+    /*  A finished card's icon row moves under the split. There is no second
+        layout any more: editing happens inside the script itself, so the card
+        never changes shape. */
+    body = refSplitHtml(a, script, foot);
   } else if (asOriginal || !a.brandId) {
     /* THE ORIGINAL SCRIPT — a finished result, not a failure.
        This branch used to be shared with "the rewrite failed", so a creator who
@@ -7143,10 +7265,16 @@ function wireAdaptationCards(host) {
     split.querySelectorAll(".ref-main ol.bp-beats.bp-notime > li.bp-beat[data-t]")
       .forEach((li) => {
         li.classList.add("bp-seekable");
-        li.title = `Jump the video to ${lengthLabel(Number(li.dataset.t) || 0) || "0:00"}`;
+        li.title = `Move the video to ${lengthLabel(Number(li.dataset.t) || 0) || "0:00"}`;
       });
     split.addEventListener("click", (e) => {
       if (e.target.closest("button, a, textarea, input, .ref-play")) return;
+      /* An editable value still seeks — the caret and the playhead landing on
+         the same beat is the point — but a click that is REFINING a selection
+         inside one must not yank the video. The collapsed-selection test below
+         covers the drag case; this covers a second click inside a field the
+         creator is already in. */
+      if (e.target.closest("[data-edit]") && document.activeElement === e.target) return;
       const li = e.target.closest("li.bp-beat[data-t]");
       if (!li) return;
       const sel = window.getSelection();
@@ -7186,66 +7314,98 @@ function wireAdaptationCards(host) {
      queueAdaptation, which now enforces one script per video per brand with no
      way around it. */
 
-  /* MANUAL EDITING — the creator's own words, not another model run. Open,
-     close and save are all a re-render around the EDITING set; the textareas
-     hold the working copy until Save, so Cancel needs no undo buffer and a
-     reload cannot resurrect a half-finished edit. Nothing here calls the API,
-     spends from the allowance, or can fail. */
-  /* Every one of these re-renders the pane, which rebuilds the <details> from
-     scratch and loses the open state — so the card you were editing snaps shut
-     the moment you save, hiding the change you just made. Reopen it after each
-     paint. In "by brand" mode the same script can appear in more than one
-     place, so reopen ALL copies rather than an arbitrary first match. */
-  const keepOpen = (adid) => {
-    renderPane();
-    document.querySelectorAll(`.bp-item[data-adid="${CSS.escape(adid)}"]`)
-      .forEach((el) => {
-        el.open = true;
-        /* In the Library the script card is nested INSIDE its video entry, and
-           reopening the script alone left it sitting inside a collapsed parent
-           — so pressing edit looked like it closed the card, and you had to
-           open the video again to reach the editor that was already there.
-           On a brand page there is no parent and this is a no-op. */
-        const entry = el.parentElement?.closest("details.lib-item");
-        if (entry) entry.open = true;
-      });
+  /* EDITING, IN PLACE. The creator's own words, not another model run —
+     nothing here calls the API, spends from the allowance, or can fail.
+
+     COMMIT ON BLUR, NOT ON INPUT. Writing to ME on every keystroke would
+     change paneSig() and let the 2.5s live-sync rebuild the card mid-word;
+     isTyping() guards that too, but not writing until the field is left means
+     there is nothing to guard against in the first place. */
+  const beatsOf = (adid) => {
+    const a = ME.adaptations.find((x) => x.id === adid);
+    return a && a.adaptation ? a : null;
   };
-  host.querySelectorAll(".ad-edit").forEach((btn) => btn.addEventListener("click", () => {
-    EDITING.add(btn.dataset.adid);
-    keepOpen(btn.dataset.adid);
-  }));
-  host.querySelectorAll(".ad-cancel").forEach((btn) => btn.addEventListener("click", () => {
-    EDITING.delete(btn.dataset.adid);
-    keepOpen(btn.dataset.adid);
-  }));
-  host.querySelectorAll(".ad-save").forEach((btn) => btn.addEventListener("click", () => {
-    const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
-    if (!a || !a.adaptation) return;
-    stashEdits(host, a);
-    /* A beat emptied to nothing is one the creator deleted by clearing it, so
-       drop it rather than leave a blank row that renders as a gap. */
-    a.adaptation.beats = (a.adaptation.beats || []).filter((b) =>
-      (b.say || "").trim() || (b.do || "").trim() || (b.show || "").trim());
+  const keepOpenAll = (adid) => {
+    host.querySelectorAll(`.lib-item, details`).forEach((d) => {
+      if (d.querySelector(`[data-adid="${CSS.escape(adid)}"]`)) d.open = true;
+    });
+  };
+
+  host.querySelectorAll("[data-edit]").forEach((el) => {
+    /* THE UNDO VALUE IS CAPTURED AT WIRE TIME, not on focus.
+       It hung off a focus listener first, which is one event away from never
+       having run — a programmatic focus does not fire one in an unfocused tab,
+       and neither does restoring focus after a repaint. Escape then had no
+       original to restore. Capturing here means every editable line has its
+       undo value from the moment it is on screen, whatever route the caret
+       took to get there. Refreshed on focus and again after each commit so it
+       always describes the last saved state, not the first one. */
+    el.dataset.was = el.textContent;
+    el.addEventListener("focus", () => { el.dataset.was = el.textContent; });
+
+    // plaintext-only is not honoured everywhere; force plain text on paste so
+    // pasted markup can never enter a script that gets copied out verbatim.
+    el.addEventListener("paste", (e) => {
+      e.preventDefault();
+      const t = (e.clipboardData || window.clipboardData).getData("text/plain");
+      document.execCommand("insertText", false, (t || "").replace(/\s+/g, " "));
+    });
+
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); el.blur(); }        // commit
+      if (e.key === "Escape") {                                        // revert
+        e.preventDefault();
+        /* ONLY revert to a value we actually recorded. `el.dataset.was || ""`
+           looked equivalent and was destructive: any path that reaches Escape
+           without the focus handler having run — a programmatic focus, a
+           re-render mid-edit — wiped the line to empty on screen while the
+           record still held the real text, so the creator saw their line
+           vanish and had nothing to undo it with. */
+        if (el.dataset.was !== undefined) el.textContent = el.dataset.was;
+        el.blur();
+      }
+    });
+
+    el.addEventListener("blur", () => {
+      const a = beatsOf(el.dataset.adid);
+      if (!a) return;
+      const val = (el.textContent || "").replace(/\s+/g, " ").trim();
+      if (val === (el.dataset.was || "").replace(/\s+/g, " ").trim()) return;  // untouched
+      el.textContent = val;                                            // normalise what is shown
+      if (el.dataset.edit === "beat") {
+        const b = (a.adaptation.beats || [])[Number(el.dataset.beat)];
+        if (!b) return;
+        b[el.dataset.field] = val;
+        /* A beat cleared to nothing is one the creator deleted by emptying it
+           — the same rule the old Save button applied, now applied the moment
+           it happens. Repaint, because the row has to disappear. */
+        if (!(b.say || "").trim() && !(b.do || "").trim() && !(b.show || "").trim()) {
+          a.adaptation.beats = a.adaptation.beats.filter((x) => x !== b);
+          a.editedAt = new Date().toISOString();
+          save({ now: true });
+          renderPane(); keepOpenAll(a.id);
+          return;
+        }
+      } else {
+        a.adaptation[el.dataset.field] = val;
+      }
+      a.editedAt = new Date().toISOString();
+      el.dataset.was = val;              // the new baseline for the next Escape
+      save({ now: true });
+      // No repaint: the DOM already shows exactly what was typed, and
+      // rebuilding the card here is what used to snap it shut on save.
+    });
+  });
+
+  host.querySelectorAll(".bp-addbeat").forEach((btn) => btn.addEventListener("click", () => {
+    const a = beatsOf(btn.dataset.adid);
+    if (!a) return;
+    a.adaptation.beats = [...(a.adaptation.beats || []), { say: "", do: "Describe the shot", show: "" }];
     a.editedAt = new Date().toISOString();
-    EDITING.delete(a.id);
     save({ now: true });
-    renderSide(); keepOpen(a.id);
-    say("Saved your changes.", "good");
-  }));
-  host.querySelectorAll(".ed-add").forEach((btn) => btn.addEventListener("click", () => {
-    const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
-    if (!a || !a.adaptation) return;
-    stashEdits(host, a);          // or adding a beat throws away the edit so far
-    a.adaptation.beats = [...(a.adaptation.beats || []), { say: "", do: "", show: "" }];
-    keepOpen(a.id);
-  }));
-  host.querySelectorAll(".ed-drop").forEach((btn) => btn.addEventListener("click", () => {
-    const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
-    if (!a || !a.adaptation) return;
-    stashEdits(host, a);
-    const i = Number(btn.dataset.beat);
-    a.adaptation.beats = (a.adaptation.beats || []).filter((_, n) => n !== i);
-    keepOpen(a.id);
+    renderPane(); keepOpenAll(a.id);
+    // Land the caret in the line just added rather than making them find it.
+    document.querySelector(`[data-adid="${CSS.escape(a.id)}"][data-beat="${a.adaptation.beats.length - 1}"]`)?.focus();
   }));
 
   host.querySelectorAll(".ad-del").forEach((btn) => armDelete(btn, "Delete script", () => {
@@ -7374,8 +7534,7 @@ function startLiveSync() {
     const before = paneSig();
     try { await pull(); } catch { SYNC_OK = false; }
     renderSyncBadge();
-    const editing = document.activeElement
-      && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    const editing = isTyping();
     /* THE RAIL REPAINTS EVEN MID-KEYSTROKE; THE PANE WAITS ITS TURN.
        `editing` is only ever true for an INPUT/TEXTAREA/SELECT, and every one
        of those lives in the pane or the sign-in gate — the rail is buttons and
@@ -7759,6 +7918,7 @@ document.addEventListener("click", (e) => {
 
 document.getElementById("nav-library").addEventListener("click", () => go({ kind: "library" }));
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
+document.getElementById("nav-plan").addEventListener("click", () => go({ kind: "plan" }));
 document.getElementById("nav-feedback").addEventListener("click", () => go({ kind: "feedback" }));
 // The footer's Feedback link is a view, not a URL, exactly like nav-feedback
 // above — it stays inside the app instead of navigating anywhere.

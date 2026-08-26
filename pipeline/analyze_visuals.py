@@ -23,6 +23,7 @@ import base64
 import csv
 import json
 import logging
+import re
 import subprocess
 import sys
 import tempfile
@@ -140,15 +141,39 @@ def yt_dlp_bin():
     return str(local) if local.exists() else "yt-dlp"
 
 
+# WHY THIS IS NOT `-f b[height<=720]/b` ANY MORE (2026-08-25).
+# `b` / `best` means "one file that already contains BOTH streams" — a
+# progressive format. YouTube has stopped serving those: on the pinned yt-dlp
+# the only one left for a Short is the legacy itag 18, and downloading it
+# answers 403 Forbidden; on yt-dlp 2026.08.19 itag 18 is not even offered and
+# the same selector fails with "Requested format is not available". Either way
+# EVERY YouTube link died at the download step — /shorts/, /watch?v= and
+# youtu.be alike — while TikTok and Instagram were unaffected, because they
+# still serve muxed files. That is why this looked like a YouTube-only bug.
+# `bv*+ba` takes the best video and best audio separately and lets ffmpeg mux
+# them (ffmpeg is already a hard dependency here — see extract_frames). The
+# progressive selectors are KEPT as fallbacks so the other three platforms take
+# exactly the path they always did.
+DL_FORMAT = "bv*[height<=720]+ba/b[height<=720]/bv*+ba/b"
+
+
 def download_video(url, dest):
     r = subprocess.run(
-        [yt_dlp_bin(), "-q", "--no-warnings", "-f", "b[height<=720]/b",
+        [yt_dlp_bin(), "-q", "--no-warnings", "-f", DL_FORMAT,
          "--no-playlist", "-o", str(dest / "v.%(ext)s"), url],
         capture_output=True, text=True, timeout=180)
     if r.returncode != 0:
         return None, (r.stderr or "download failed").strip().splitlines()[-1][:160]
-    vids = list(dest.glob("v.*"))
-    return (vids[0], None) if vids else (None, "no file")
+    # Merging means yt-dlp writes the two streams first (v.f136.mp4,
+    # v.f251.webm) and muxes them into v.mkv. It deletes the parts on success,
+    # but `glob("v.*")` would happily return a half of the video if one ever
+    # survived — a silent, audio-less transcript rather than an error. Take the
+    # muxed file by name, and only then fall back to the largest candidate.
+    junk = (".part", ".ytdl", ".temp")
+    vids = [p for p in dest.glob("v.*") if p.suffix not in junk]
+    merged = [p for p in vids if not re.match(r"^v\.f\d+$", p.stem)]
+    pick = sorted(merged or vids, key=lambda p: p.stat().st_size, reverse=True)
+    return (pick[0], None) if pick else (None, "no file")
 
 
 def extract_frames(video, times, dest):

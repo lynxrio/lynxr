@@ -1308,6 +1308,37 @@
      sat at the same weight as the words to put on screen. */
   .bp-beat .bp-val { color: var(--text); }
   .bp-beat .bp-val ~ .bp-val { color: var(--text-2); }
+
+  /* ---- editing a script line in place ----
+     THE RESTING AND EDITING STATES ARE THE SAME ELEMENT AT THE SAME SIZE.
+     The old editor swapped the whole script for a stack of labelled textareas,
+     which is what "expands it too much" meant. Nothing here changes the box:
+     no border, no padding, no font change between reading and typing — only
+     colour. A 1px border on focus would reflow every line in the card. */
+  .bp-val[contenteditable] { cursor: text; border-radius: 3px; caret-color: var(--text); }
+  /* The affordance is a hint, not a control: a faint wash on hover says the
+     words are yours to change without printing a box around every line. */
+  .bp-val[contenteditable]:hover { background: var(--surface-2); }
+  .bp-val[contenteditable]:focus {
+    outline: none; background: var(--surface-2);
+    box-shadow: inset 2px 0 0 var(--text-3);   /* inset: takes no layout space */
+    color: var(--text);
+  }
+  /* An empty line still has to be clickable, or a beat you cleared is
+     unrecoverable without adding a new one. */
+  .bp-val[contenteditable]:empty::before {
+    content: "…"; color: var(--text-3);
+  }
+  /* Quiet by default and only fully legible on hover — it is a rare action and
+     must not read as part of the script. */
+  .bp-addbeat {
+    display: block; margin: 8px 0 0 10px; padding: 2px 0;
+    color: var(--text-3); font-size: var(--fs-115);
+  }
+  .bp-addbeat:hover { color: var(--text-2); }
+  @media (prefers-reduced-motion: reduce) {
+    .bp-val[contenteditable] { transition: none; }
+  }
   .bp-beat .bp-lbl ~ .bp-lbl { color: var(--text-3); }
   @media (max-width: 560px) {
     .bp-beat { grid-template-columns: 42px 1fr; }
@@ -2491,6 +2522,44 @@
   }
   .quota-bar > i { display: block; height: 100%; width: 0; background: var(--text-3); }
   .side-quota.spent .quota-bar > i { background: var(--bad); }
+
+  /* ---- the Plan view (the paywall) ----
+     .quota-bar above is REUSED here rather than reinvented, so the meter on
+     this page and the meter in the rail can never drift apart; only the box
+     around it is new. */
+  .plan-now {
+    border: 1px solid var(--line); border-radius: var(--r-card);
+    padding: 14px; background: var(--surface);
+  }
+  .plan-now.spent { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+  .plan-now-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 9px;
+  }
+  .plan-badge {
+    padding: 2px 9px; border-radius: var(--r-pill); border: 1px solid var(--line-2);
+    color: var(--text-2); font-size: var(--fs-105); letter-spacing: .04em;
+  }
+  .plan-count { color: var(--text-3); font-size: var(--fs-115); font-variant-numeric: tabular-nums; }
+  .plan-now .quota-bar { margin-top: 0; }
+  .plan-now.spent .quota-bar > i { background: var(--bad); }
+  .plan-line { margin: 9px 0 0; color: var(--text-2); font-size: var(--fs-125); }
+  .plan-now.spent .plan-line { color: var(--bad); }
+  /* $24.99 must PAINT as $24.99. `body { text-transform: lowercase }` does not
+     touch digits, but this is the one number on the page a creator is agreeing
+     to, so it is sized rather than left to inherit. */
+  .plan-price { margin: 10px 0 12px; font-size: var(--fs-30); color: var(--text); }
+  .plan-price .plan-per { font-size: var(--fs-125); color: var(--text-3); }
+  .plan-list { margin: 0 0 16px; padding-left: 18px; color: var(--text-2); font-size: var(--fs-125); }
+  .plan-list li { margin: 0 0 7px; }
+  .plan-dim { display: block; color: var(--text-3); font-size: var(--fs-115); margin-top: 2px; }
+  /* Shown INSTEAD of the Upgrade button while BILLING_LIVE is false — see the
+     comment on that constant in creator.js. */
+  .plan-soon {
+    margin: 0 0 12px; padding: 10px 12px; border-radius: var(--r-inner);
+    border: 1px dashed var(--line-2); color: var(--text-3); font-size: var(--fs-125);
+  }
+  .plan-msg { margin: 10px 0 0; font-size: var(--fs-125); min-height: 1em; }
 
   /* Main pane: a column that scrolls, with the composer pinned at its foot. */
   /* max-width matters as much as min-width here: in the mobile column layout
@@ -4703,7 +4772,22 @@
        116/144/163/153/157px to 116/144/163/210/195px. Deliberately NOT solved
        by width alone: at 320px there is no extra width to be had, which is why
        the duration moved onto the cover below. */
-    grid-template-columns: repeat(auto-fill, minmax(min(180px, 46%), 1fr));
+    /* FIVE ACROSS, NEVER SIX (owner, 2026-08-25: "make this 5 in a row max, it
+       looks a bit too squished"). `.pane` caps its content at 1180px via
+       --gutter, so this grid's widest container IS 1180px — and 1180 / (180+12)
+       is 6.2, which is where the six squished 187px columns came from. There is
+       no wider case to defend against, so this needs no max-width and no media
+       query: it raises the FLOOR of the track instead.
+         max(..., (100% - 48px)/5) is one-fifth of a row, gaps removed. Because
+       auto-fill fits floor((W + gap) / (track + gap)) columns, a track of
+       exactly (W - 4*gap)/5 solves to exactly 5 — a sixth can never fit. Below
+       ~948px that fifth is narrower than 180px, the old floor takes over again
+       and the count falls away on its own (5/4/3/2), so every measured narrow
+       width is untouched.
+         THE 48px IS 4 * THE GAP BELOW. Change `gap` and change it too, or the
+       cap drifts off by a column at the boundary. */
+    grid-template-columns:
+      repeat(auto-fill, minmax(max(min(180px, 46%), calc((100% - 48px) / 5)), 1fr));
     gap: 12px;
   }
   /* .bp-item carries margin-top: 8px for the list layout; inside a grid that

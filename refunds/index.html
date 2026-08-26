@@ -2,29 +2,33 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Static prose, no scripts of its own, no network calls. The one <script> in
-     this document is a `type="application/ld+json"` DATA BLOCK — it is never
-     executed, and browsers do not apply script-src to a non-executable script
-     type. Verified: this page loads with an empty console and no CSP report.
-     If that ever changes, the fix is a 'sha256-…' for the block, NOT
-     'unsafe-inline'. -->
+<!-- Static prose. No scripts, no network calls of any kind, so the CSP is the
+     tightest on the site: stylesheet and font from self, nothing else. Same as
+     /privacy/, which this page is the pair to. -->
+<!-- `script-src 'self'` was ADDED 2026-08-19, and it is the narrowest thing
+     that makes this page's own top bar work. These three legal pages carried no
+     script at all, so `default-src 'none'` covered script-src by fallback — and
+     when the shared bar and its burger menu arrived, site.js was silently
+     BLOCKED here and nowhere else. It failed exactly the way CSP failures fail:
+     the markup was right, the file 200'd, and the only trace was one console
+     line. No 'unsafe-inline', no host: one same-origin file. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The parts of a short-form video script</title>
-<meta name="description" content="Every short-form video that works has the same skeleton: a hook, a setup, the beats, the turn where it becomes something else, and the close. Here is what each part is doing and how to tell whether yours is doing it.">
-<meta property="og:title" content="The parts of a short-form video script">
-<meta property="og:description" content="Every short-form video that works has the same skeleton: a hook, a setup, the beats, the turn where it becomes something else, and the close. Here is what each part is doing and how to tell whether yours is doing it.">
-<meta property="og:type" content="article">
+<title>lynxr — refund policy</title>
+<meta name="description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Paddle as the merchant of record.">
+<meta property="og:title" content="lynxr — refund policy">
+<meta property="og:description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Paddle as the merchant of record.">
+<meta property="og:type" content="website">
 <meta property="og:site_name" content="lynxr">
-<meta property="og:url" content="https://lynxr.io/short-form-script-structure/">
+<meta property="og:url" content="https://lynxr.io/refunds/">
 <meta property="og:image" content="https://lynxr.io/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="The parts of a short-form video script">
-<meta name="twitter:description" content="Every short-form video that works has the same skeleton: a hook, a setup, the beats, the turn where it becomes something else, and the close. Here is what each part is doing and how to tell whether yours is doing it.">
+<meta name="twitter:title" content="lynxr — refund policy">
+<meta name="twitter:description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Paddle as the merchant of record.">
 <meta name="twitter:image" content="https://lynxr.io/og.png">
-<link rel="canonical" href="https://lynxr.io/short-form-script-structure/">
+<link rel="canonical" href="https://lynxr.io/refunds/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
@@ -112,18 +116,15 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "Article",
-  "@id": "https://lynxr.io/short-form-script-structure/#article",
-  "headline": "The parts of a short-form video script",
-  "description": "Every short-form video that works has the same skeleton: a hook, a setup, the beats, the turn where it becomes something else, and the close. Here is what each part is doing and how to tell whether yours is doing it.",
+  "@type": "WebPage",
+  "@id": "https://lynxr.io/refunds/#webpage",
+  "url": "https://lynxr.io/refunds/",
+  "name": "lynxr — refund policy",
+  "description": "How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Paddle as the merchant of record.",
   "inLanguage": "en",
-  "datePublished": "2026-08-19",
-  "dateModified": "2026-08-24",
-  "author": { "@id": "https://lynxr.io/#organization" },
-  "publisher": { "@id": "https://lynxr.io/#organization" },
+  "dateModified": "2026-08-25",
   "isPartOf": { "@id": "https://lynxr.io/#website" },
-  "about": { "@id": "https://lynxr.io/#lynxr" },
-  "mainEntityOfPage": "https://lynxr.io/short-form-script-structure/"
+  "about": { "@id": "https://lynxr.io/#lynxr" }
 }
 </script>
 <script type="application/ld+json">
@@ -132,20 +133,12 @@
   "@type": "BreadcrumbList",
   "itemListElement": [
     { "@type": "ListItem", "position": 1, "name": "lynxr", "item": "https://lynxr.io/" },
-    { "@type": "ListItem", "position": 2, "name": "The parts of a short-form video script", "item": "https://lynxr.io/short-form-script-structure/" }
+    { "@type": "ListItem", "position": 2, "name": "refund policy", "item": "https://lynxr.io/refunds/" }
   ]
 }
 </script>
 </head>
-<!-- This page's visible copy is written in normal sentence case in the
-     source, unlike the lowercase-with-exceptions convention the rest of the
-     site uses. Painted output is identical either way — text-transform:
-     lowercase in app.css flattens all of it — but a model reading the source
-     sees real casing here, because this page carries no JSON-LD twin of its
-     prose the way /faq/ does, so the body text is the only machine-readable
-     copy there is. .lp unsets the app's bare main{} container so the sections
-     below can be full-bleed. See the marketing-page block in app.css. -->
-<body class="lp">
+<body>
 
 <header class="lp-bar">
   <div class="lp-in lp-bar-in">
@@ -180,76 +173,46 @@
   </nav>
 </header>
 
-<main>
+<main class="legal">
+  <h1>refund policy</h1>
+  <p class="legal-date">last updated 25 august 2026</p>
 
-  <section class="lp-hero">
-    <div class="lp-in">
-      <h1 class="lp-h1">The parts of a short-form video script</h1>
-      <p class="lp-lede">Every short-form video that works runs on the same skeleton: a hook, a setup, a set of beats, a turn where it becomes something else, and a close. Naming each part on its own makes it possible to tell which one a script is missing when it is not landing.</p>
-    </div>
-  </section>
+  <p>this policy covers lynxr pro, which is <strong>$24.99 a month, billed
+    monthly in advance</strong>. it forms part of the
+    <a href="/terms/">terms of service</a>.</p>
 
-  <section class="lp-sec">
-    <div class="lp-in">
-      <h2 class="lp-h2" id="hook">What is a hook?</h2>
-      <p class="lp-p">The hook is the opening of a short-form video — the first thing it says or shows. Its job is to stop someone from scrolling past, before they know anything else about the video. The most common way a hook fails is opening on context instead of a claim or a question: introducing yourself, thanking the platform, or explaining what the video is about before saying the thing that would make someone stay.</p>
-    </div>
-  </section>
+  <h2>who you are paying</h2>
+  <p><span class="entity">Paddle.com</span> is the merchant of record for every
+    purchase of lynxr pro. <span class="entity">Paddle</span> takes the
+    payment, issues the invoice, handles tax, and issues any refund. your card
+    statement will show <span class="entity">Paddle</span> rather than lynxr.</p>
 
-  <section class="lp-band">
-    <div class="lp-in">
-      <h2 class="lp-h2" id="setup">What is the setup?</h2>
-      <p class="lp-p">The setup is what comes right after the hook, before the video gets into its main beats. Its job is to give the hook enough context to make sense — who is talking, why, or what is at stake — without spending so long on it that the hook's promise goes cold. The most common way a setup fails is running too long, so it becomes a second hook the video never needed.</p>
-    </div>
-  </section>
+  <h2>14-day money-back on your first payment</h2>
+  <p><strong>if lynxr has not worked for you, ask within 14 days of your first
+    payment and it is refunded in full.</strong> you do not have to justify it.</p>
+  <p><strong>a refund ends access straight away.</strong> a refunded month is
+    not a month you keep &mdash; the account returns to the free tier when the
+    refund is issued.</p>
 
-  <section class="lp-sec">
-    <div class="lp-in">
-      <h2 class="lp-h2" id="beats">What are the beats?</h2>
-      <p class="lp-p">The beats are the individual steps the video moves through to deliver on what the hook promised, in the order they come in. Each beat's job is to move the video forward — a new step, a new reveal, a new piece of the demonstration — rather than repeat the one before it. The most common way beats fail is running out of order relative to the hook's promise, so a beat that should resolve tension shows up before the tension is built.</p>
-    </div>
-  </section>
+  <h2>cancelling</h2>
+  <p>you can cancel at any time from the billing page in the app.</p>
+  <p><strong>there is no pro-rata refund on cancellation.</strong> cancelling
+    takes effect at the end of the period you have already paid for: your
+    access and your script allowance stay until then, and the unused part of
+    that period is not refunded.</p>
 
-  <section class="lp-band">
-    <div class="lp-in">
-      <h2 class="lp-h2" id="turn">What is the turn?</h2>
-      <p class="lp-p">The turn is the point where a video becomes something other than what it looked like it was going to be — a reveal, a reversal, a shift from problem to solution. Its job is to re-earn attention partway through, when a viewer's interest is most likely to drop. The most common way a turn fails is arriving too late, after a viewer has already decided nothing is going to change and scrolled on.</p>
-    </div>
-  </section>
+  <h2>after the first 14 days</h2>
+  <p>beyond the 14 days, refunds are at our discretion. ask and we will look at
+    it &mdash; we would rather hear that something went wrong than not.</p>
 
-  <section class="lp-sec">
-    <div class="lp-in">
-      <h2 class="lp-h2" id="close">What is the close?</h2>
-      <p class="lp-p">The close is the last beat of a video — how it wraps up once the turn has landed. Its job is to leave the viewer with the takeaway the whole video was building toward, cleanly, rather than trailing off. The most common way a close fails is ending on the same energy as the middle of the video, so nothing marks the moment as the ending.</p>
-    </div>
-  </section>
+  <h2>if a payment fails</h2>
+  <p><span class="entity">Paddle</span> retries a failed payment for a few days
+    before access drops back to the free tier. <strong>nothing you have already
+    written is deleted</strong>, and your scripts stay readable.</p>
 
-  <section class="lp-band">
-    <div class="lp-in">
-      <h2 class="lp-h2" id="call-to-action">Where does the call to action go?</h2>
-      <p class="lp-p">A call to action is the specific thing the video asks the viewer to do — comment, follow, click, buy — and it sits inside or immediately after the close, not bolted on as an afterthought. Its job is to convert the attention the rest of the video earned into one concrete action. The most common way it fails is showing up disconnected from what the video was actually about, so it reads as a generic ask rather than the natural next step of the video.</p>
-    </div>
-  </section>
-
-  <section class="lp-sec">
-    <div class="lp-in">
-      <h2 class="lp-h2" id="checking-a-script">How do you tell whether a script has all of them?</h2>
-      <p class="lp-p">Read the script back and label each line with the part it belongs to: hook, setup, beat, turn, close, call to action. A script missing a part usually shows up as a specific symptom — no turn reads as flat, no setup reads as confusing, no close reads as unfinished. If a part is genuinely missing rather than just short, that is usually the part worth rewriting first.</p>
-      <p class="lp-p">Most short-form advice names three parts — hook, body and CTA. The five parts here are the same video seen more closely: the hook is the hook, the setup, the beats and the turn are what "body" is a single word for, and the close is where the call to action sits. Splitting the middle into three is what makes it possible to say which part is missing, rather than only that the middle is not working.</p>
-      <p class="lp-p">Each of these terms is also defined on its own in the <a href="/glossary/">short-form video glossary</a>. For the idea that ties them together, see <a href="/what-is-a-video-format/">what a video format is</a>. For the method applied end to end, see <a href="/turn-a-video-into-a-script/">how to turn a video into a script for a brand</a>. See <a href="/faq/">questions and answers</a> for what lynxr costs and how access works, or <a href="/waitlist/">join the wait list</a> to try it.</p>
-    </div>
-  </section>
-
-  <section class="lp-final">
-    <div class="lp-in">
-      <h2 class="lp-h2">still want in?</h2>
-      <p class="lp-p">leave your email and we will tell you when a place opens.</p>
-      <div class="home-cta">
-        <a class="btn home-go" href="/waitlist/">try it<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-      </div>
-    </div>
-  </section>
-
+  <h2>how to ask for a refund</h2>
+  <p>reply to the <span class="entity">Paddle</span> receipt you were emailed,
+    or use feedback in the app. either reaches us.</p>
 </main>
 
 <footer id="site-footer">
@@ -274,7 +237,7 @@
       <div class="foot-label">guides</div>
       <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
       <a class="foot-link" href="/turn-a-video-into-a-script/">video to script</a>
-      <a class="foot-link" href="/short-form-script-structure/" aria-current="page">script structure</a>
+      <a class="foot-link" href="/short-form-script-structure/">script structure</a>
       <a class="foot-link" href="/glossary/">glossary</a>
     </div>
     <div class="foot-col">
@@ -282,7 +245,7 @@
       <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
       <a class="foot-link" href="/privacy/">privacy policy</a>
       <a class="foot-link" href="/terms/">terms of service</a>
-      <a class="foot-link" href="/refunds/">refund policy</a>
+      <a class="foot-link" href="/refunds/" aria-current="page">refund policy</a>
       <a class="foot-link" href="/accessibility/">accessibility</a>
     </div>
     <div class="foot-col">
@@ -299,8 +262,8 @@
   </div>
 </footer>
 
-<!-- The top bar's hide-on-scroll. Public pages only — see the file's
-     own header for why it must never reach either app. -->
+<!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
+     see the file's own header for why it must never reach either app. -->
 <script src="/site.js?v=20260825e" defer></script>
 <script src="/footer.js?v=20260825e" defer></script>
 

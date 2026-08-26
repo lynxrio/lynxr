@@ -160,6 +160,7 @@ def canon_url(u):
     process_adaptations rather than imported — importing that module would run
     its logging setup as a side effect, and platform_of is already duplicated
     here for the same reason."""
+    import re
     from urllib.parse import urlparse, parse_qs
     try:
         p = urlparse(u if "://" in u else "https://" + u)
@@ -170,6 +171,18 @@ def canon_url(u):
             key, host, path = "?v=" + path.lstrip("/"), "youtube.com", "/watch"
         elif host == "youtube.com" and parse_qs(p.query).get("v"):
             key = "?v=" + parse_qs(p.query)["v"][0]
+        elif host == "youtube.com":
+            # /shorts/ID, /live/ID and /embed/ID are the SAME video as
+            # /watch?v=ID — YouTube itself redirects between them, and yt-dlp
+            # reports webpage_url as the /watch form no matter which you hand
+            # it. Left unfolded, a Short was its own video: pasting one after
+            # the /watch link made a second library entry, missed the
+            # lynxr_sources cache and paid for a second download, transcribe
+            # and tag pass, and split the saturation count this whole table
+            # exists to measure.
+            m = re.match(r"/(?:shorts|live|embed)/([^/?#]+)", path)
+            if m:
+                key, path = "?v=" + m.group(1), "/watch"
         return host + path + key
     except Exception:  # noqa: BLE001
         return (u or "").rstrip("/")

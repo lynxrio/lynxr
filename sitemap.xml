@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Only the ten genuinely public pages. The creator and agency apps are
+<!-- Only the twelve genuinely public pages. The creator and agency apps are
      deliberately absent: they carry `noindex` and listing them here would
      advertise them, which is the same mistake as a Disallow line in
      robots.txt. See the comment at the top of robots.txt. -->
@@ -20,6 +20,14 @@
   <url>
     <loc>https://lynxr.io/faq/</loc>
     <lastmod>2026-08-24</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <!-- Pricing sits with /faq/, not with the legal set: it is written for a
+       stranger deciding whether to pay, and it is the page Paddle's domain
+       review looks for. -->
+  <url>
+    <loc>https://lynxr.io/pricing/</loc>
+    <lastmod>2026-08-25</lastmod>
     <priority>0.8</priority>
   </url>
   <!-- The four content/GEO guides — below /faq/, above the legal set. -->
@@ -50,7 +58,12 @@
   </url>
   <url>
     <loc>https://lynxr.io/terms/</loc>
-    <lastmod>2026-08-24</lastmod>
+    <lastmod>2026-08-25</lastmod>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/refunds/</loc>
+    <lastmod>2026-08-25</lastmod>
     <priority>0.3</priority>
   </url>
   <url>

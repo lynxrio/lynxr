@@ -130,7 +130,7 @@ real rather than a dead channel.
 
 **2026-08-25 — the wait is a real progress bar, and a script can no longer
 invent who the creator is. UNCOMMITTED: 15 files modified, nothing staged.**
-The `?v=` stamp is already bumped to `20260825a` on all twelve pages and
+The `?v=` stamp is already bumped to `20260825c` on all twelve pages and
 `tools/check_stamp.py` passes, so this commits as one piece.
 
 A test creator read their own script and found a sentence nobody had told us
@@ -211,6 +211,283 @@ persisting, the stale-card guard, and Settings rendering both fields.
 pipeline tests that touch `process_adaptations` pass. **It has NOT been seen
 against a real paste on a signed-in account** — no live writing script was
 available. That is the first thing to do next.
+
+**EVERY YOUTUBE LINK WAS DEAD AT THE DOWNLOAD STEP — fixed.** This is the one
+that actually answers "youtube shorts links dont work", and it was never about
+Shorts. `download_video` in `pipeline/analyze_visuals.py` asked yt-dlp for
+`-f b[height<=720]/b`, and `b`/`best` means **one file that already contains
+both streams** — a progressive format. YouTube has stopped serving those:
+
+- on the pinned yt-dlp (2026.07.04) the only progressive left for a Short is
+  legacy itag 18, and downloading it answers **403 Forbidden**;
+- on 2026.08.19 itag 18 is not even offered and the same selector fails with
+  **"Requested format is not available"**.
+
+**Production hits the second case.** Fly and CI both install
+`requirements-ci.txt`, which says `yt-dlp>=2024.1` — i.e. the latest. So every
+YouTube paste has been failing in the worker, /shorts/, /watch?v= and youtu.be
+alike. TikTok and Instagram were untouched because they still serve muxed
+files, which is exactly why this read as a YouTube-only fault.
+
+The fix is the selector: `DL_FORMAT = "bv*[height<=720]+ba/b[height<=720]/bv*+ba/b"`
+— take best video and best audio separately and let ffmpeg mux them. ffmpeg is
+already a hard dependency (`extract_frames` shells out to it) and is installed
+in **both** the Dockerfile and the CI workflow, so nothing new is required to
+deploy. **The progressive selectors are kept as fallbacks**, so TikTok takes
+exactly the path it always did — verified, it still lands `v.mp4`.
+
+Verified through the project's own `download_video`, not yt-dlp by hand: all
+three YouTube forms return a `v.mkv` with **both an audio and a video stream**
+(ffprobe) at ~10MB in ~2.5s, and `extract_frames` pulls frames off the result.
+Confirmed on **both** yt-dlp versions — the pinned one and the 2026.08.19 that
+Fly and CI actually run. TikTok and Instagram both still download to
+`v.mp4` with both streams, unchanged.
+
+**A correction worth keeping, because it was written down wrong first:
+Instagram DOWNLOADS FINE.** An initial n=1 test failed on
+`instagram.com/reel/DaQ9T_bAlCw/` and that was written up as a platform-wide
+anonymous-access block. Re-tested across four posts: **3 of 4 download**, both
+streams, `v.mp4`. `DaQ9T_bAlCw` is one dead/restricted post, not a platform
+gate. What IS true of Instagram is narrower and unrelated to download: no
+keyless oEmbed (so no thumbnail in the creator app) and no yt-dlp view count
+(hence Apify). Do not conflate those with "Instagram video downloads are
+blocked" — they are not.
+
+**TikTok is intermittently flaky.** One of two TikToks failed with
+"Unable to extract webpage video data" and the SAME url succeeded on the first
+retry seconds later. Worth knowing before reading a single TikTok failure as a
+break: retry once before believing it.
+
+`download_video` also stopped trusting `glob("v.*")[0]`. Merging writes the two
+streams first (`v.f136.mp4`, `v.f251.webm`) before muxing to `v.mkv`; yt-dlp
+does clean them up, but that glob would have happily returned HALF the video if
+one ever survived — a silent, audio-less transcript instead of an error. It now
+takes the muxed file by name and falls back to the largest candidate.
+
+Nothing downstream assumes mp4: transcription is local (MLX / faster-whisper,
+both decode via ffmpeg) rather than an upload to an API that would reject mkv,
+and `clip.mp4` is a full re-encode that takes any input container.
+
+**Also fixed: a YouTube Short was a different video from itself.** `canonUrl`
+(`creator.js`) and its three Python copies (`process_adaptations`,
+`process_blueprints`, `upload_covers`) folded `youtu.be/ID` and `watch?v=ID`
+together but left `/shorts/ID` as its own key — so the form creators actually
+paste was the one form that never matched. Pasting a Short after the `/watch`
+link made a **second library entry** for one video, **missed the
+`lynxr_sources` cache** and paid for a second download + Whisper + tag pass,
+and **split the saturation count** — the "one video pasted by three creators"
+signal THE POINT is built on. `/live/` and `/embed/` had the same shape and
+are folded too. Verified by running the same 15 URLs through the JS and the
+Python side by side: all five forms of one video collapse to
+`youtube.com/watch?v=ID`, all 15 agree byte-for-byte, non-YouTube untouched.
+No migration hazard — `coverUrl` reads `source.cover` off the record as a
+stored string, not from the sha1, so no existing thumbnail is orphaned; the
+only effect on old rows is one stale `lynxr_sources` key that costs a single
+re-read and heals itself.
+
+**Also: the script grid is five across, not six.** Owner, 2026-08-25: *"make
+this 5 in a row max, it looks a bit too squished."* The cause was arithmetic
+nobody had noticed — `.pane` caps its content at 1180px through
+`--gutter: max(28px, (100% - 1180px) / 2)`, and 1180 / (180px track + 12px gap)
+is 6.2, so the widest the grid ever got was six 187px columns. **That 1180px cap
+is the whole story: there is no wider container to defend against**, so this
+needed no `max-width` and no media query — only a higher FLOOR on the track,
+`max(min(180px, 46%), calc((100% - 48px) / 5))`. auto-fill fits
+`floor((W + gap) / (track + gap))` columns, so a track of exactly `(W - 4*gap)/5`
+solves to exactly 5 and a sixth cannot fit. The 48px is 4 x the gap — **change
+`gap` and change it too.**
+
+Below ~948px that fifth is narrower than 180px, the old floor takes back over
+and the ladder falls away on its own. Measured before/after at ten widths:
+288/320/414/640/768/900 are byte-identical (2/2/2/3/4/4 columns, same card px),
+and at the 1180px cap it goes **6 x 186.7px -> 5 x 226.4px**, a 21% wider card
+with a 399px cover. Verified as painted pixels at a 1900px viewport, not DOM
+state — the browser simplifies the calc to `20% - 9.6px`, which is the same
+number.
+
+**SCRIPT LINES ARE EDITED IN PLACE. The Edit button and the whole editor form
+are gone.** Owner, 2026-08-25: *"have it just be they click on the line and
+edit it directly, right now the edit button expands it too much and it looks
+too complicated."*
+
+The pencil used to swap the entire script for `scriptEditor()` — a stacked form
+of labelled textareas (hook, then say/do/show per beat with a remove button,
+then + add a beat, CTA, caption) plus a Save/Cancel row. **78 lines deleted**:
+`EDITING`, `stashEdits`, `scriptEditor` and the `ad-edit` / `ad-save` /
+`ad-cancel` / `ed-add` / `ed-drop` handlers.
+
+Every value is now a `contenteditable="plaintext-only"` span **on the element
+that already displayed it** — hook, every say/do/show, CTA and caption. Nine
+editable fields on a normal card. **Measured: focusing a line shifts the row by
+0.00px and the card by 0.00px**, which is the whole point — the resting and
+editing states are the same element at the same size, so no box appears and
+nothing reflows. The affordance is a faint hover wash plus an *inset* focus
+shadow; an ordinary 1px border would have reflowed every line.
+
+Commit on **blur**, not on input — writing to `ME` per keystroke would change
+`paneSig()` and let the 2.5s live-sync rebuild the card mid-word. Enter
+commits, Escape reverts. **No repaint on commit**: the DOM already shows what
+was typed, and repainting is what used to snap the card shut on save. Clearing
+every line of a beat drops it (verified 3 → 2), which is the rule the old Save
+button applied, now applied when it happens. A quiet `+ add a beat` remains.
+
+**TWO BUGS FOUND WHILE BUILDING IT, BOTH IN THE NEW CODE, BOTH FIXED:**
+
+1. **Escape wiped the line.** `el.textContent = el.dataset.was || ""` reads as
+   an obvious default and is destructive: any path reaching Escape without the
+   recorded original blanked the line ON SCREEN while the record still held the
+   real text. Now it only restores a value it actually has.
+2. **The undo value hung off a `focus` listener**, which is one event away from
+   never running — a programmatic focus does not fire one in an unfocused tab,
+   and neither does restoring focus after a repaint. It is captured **at wire
+   time** instead, so every editable line has its undo value from the moment it
+   is on screen, and refreshed on each commit so Escape reverts to the last
+   saved state rather than two edits back.
+
+**`isTyping()` replaced three copies of an inline
+`/^(INPUT|TEXTAREA|SELECT)$/` guard.** None of them matched a contenteditable
+span, so all three would have read "not typing" and let the poll rebuild a card
+around a half-typed line.
+
+**THE REFERENCE VIDEO NO LONGER PLAYS ITSELF.** Owner, same session: *"have the
+side video play when i press play so when i click on the script side it doesnt
+play automatically."* `seekRefTo()` called `play()` on a paused video, so
+touching the script started the clip — already surprising, and untenable once
+putting the caret in a line to fix a word would start audio. It now **seeks
+only**; a video already playing keeps playing and simply jumps. Verified both:
+paused stays paused at the new time, playing jumps and keeps playing. The play
+button, tapping the frame, and restoring a video that was already playing
+across a repaint are the only three things that start it.
+
+Clicking a beat still moves the playhead — the caret and the playhead landing
+on the same beat is the point — but a second click inside a field already
+focused does not, so refining a selection cannot yank the video.
+
+Stamp `20260825e`.
+
+---
+
+**THE PAYWALL — the creator-facing half — IS BUILT. Free is 25, not 5.**
+
+**The free allowance is now 25 lifetime.** Owner, 2026-08-25, asked for
+"whatever gets the user hooked and dependent", which is a design call, so:
+dependency comes from having a LIBRARY and configured brands worth not
+abandoning, not from the first good script. 25 is about one month of daily
+posting (or ~3 months at twice a week) — enough to build that. 5 walls someone
+inside a week, before any habit forms, and this project has already lost one
+live account to a too-early wall. Costs $1.88/signup at $0.075/script, and
+**it is already the live default** (`lynxr_allowance.granted`, `SCRIPT_CAP`),
+so there is no migration and nobody loses scripts. 50 would double the cost for
+diminishing habit gain. **`/pricing/` and `/terms/` say 25** — if that number
+ever moves, both pages and the schema default move with it.
+
+**`BILLING_LIVE = false` is the switch that decides whether this can take
+money**, and it is the same idiom as `SEND_OVERLAY`. Checkout posts to
+`/functions/v1/billing-checkout`, which is Stage 3 and **is not deployed** —
+no Paddle account exists. A button that silently 404s is worse than no button,
+so while the flag is false the Upgrade button is replaced by an honest line
+saying checkout is not open yet. **Flip the flag the day the function and the
+secrets exist and the button starts working with no other edit.**
+`billingAction()` is written and wired behind it.
+
+New `VIEW.kind === "plan"`, following `renderYou`'s shape exactly: a `nav-plan`
+rail button (`creatorsonly/index.html`, directly under the quota meter — the
+meter is where you learn you are running out and this is the answer to it), a
+`renderPlan()`, a `renderPane()` branch, a `renderSide()` toggle and a
+listener. **Only the FREE state is built.** `PLAN` does not exist until the
+webhook receiver does, so an `active`/`past_due` branch would be code that
+cannot run or be tested; the extension point is marked `TODO(Stage 3)`.
+
+**TWO WALLS NOW EXIST AND THEY DO NOT SHARE A SENTENCE.** Three call sites said
+`Ask for more from Feedback in the menu.`; they now call one `quotaWallText()`.
+A FREE creator at 25/25 can act, and is pointed at Plan. A PRO creator at
+300/300 has hit **fair use** and cannot buy their way out — that copy says the
+rolling window reopens and never pitches an upgrade, which would be both wrong
+and insulting. `period_days > 0` is what tells them apart.
+
+**`period_days` was already in `my_allowance()`'s answer and creator.js was
+throwing it away** — `ALLOWANCE` kept only `{used, granted}`. It now carries
+`periodDays`, defaulting to 0 so an older RPC reads as lifetime, which is what
+free is. That field is the only honest way to know which wall to show.
+
+Verified in the browser against a stubbed ledger — note `ALLOWANCE` is a
+module-scope `let` in a classic script, so `window.ALLOWANCE = …` does NOT
+rebind it and a first attempt silently measured the default state instead.
+Assigning the lexical binding works. Confirmed: free 22/25 paints the bar at
+**811.4px of 922px = 88% real pixels** (CSSOM width, not an inline attribute —
+`style-src 'self'` would have dropped that silently); free 25/25 turns the box,
+bar and rail red together and says nothing is lost; pro 300/300 produces the
+rolling-window sentence instead; **`$24.99` paints as `$24.99`** under the
+sitewide lowercase; clicking the rail button really routes (`VIEW.kind` flips,
+`nav-plan` gains `.on`, the rail reads `25/25 — none left`); and the links row
+needed `.x-sep` middots, which Settings' own `.me-links` already uses — without
+them it painted as `pricing refund policy terms` in one run.
+
+Stamp is `20260825d` on all 14 pages (CSS and JS both changed this time).
+
+---
+
+**PAYMENTS STAGE 1 IS DONE — the public pages Paddle's domain review looks
+for.** Gate 06, from `~/.claude/plans/creator-payments-paddle.md`. HTML only:
+no billing code, no secrets, no provider involved, nothing that can take money.
+
+New: **`pricing/index.html`** and **`refunds/index.html`**, both generated from
+`terms/index.html` so the CSP meta is **byte-identical** (verified by hash —
+`script-src 'self'` is the line that, when dropped, silently CSP-blocked
+site.js on three legal pages once). Copy is the decided position, written as
+settled: free = **5 scripts lifetime**; **lynxr pro $24.99/mo** billed monthly
+in advance; fair use **300 per rolling 30 days, 30 per 24 hours**, stated
+explicitly as *rolling, not resetting on the billing date*; **14-day money-back
+on the first payment**, refund ends access immediately; **no pro-rata on
+cancellation**; `Paddle.com` as merchant of record.
+
+`terms/index.html`'s billing `legal-todo` is **gone, replaced by the real
+clause** — and the banner that explained the flag convention was rewritten with
+it. It said *the passages marked "to be completed"*, but after this change no
+passage says that any more; the two survivors both say *"drafted, not
+reviewed"*. Left as-was it would have pointed at a convention that no longer
+existed. **The other two flags stay** — the liability cap and the
+Massachusetts governing-law clause are drafted, not reviewed, and **a lawyer's
+look is still a hard prerequisite for live money.** That gate is NOT closed by
+this work.
+
+**The plan was 6 days stale in its mechanics and was re-derived, not followed.**
+It said 8 pages carry the nav (**10** do — four SEO guides shipped after it was
+written), that the footer is `<li>` inside `.lp-foot` (**it is
+`<a class="foot-link">` inside `.foot-col`**, literal markup in **11** pages),
+that `creatorsonly` has no footer (**it does**), and that the stamp was
+`20260823d`. Its strategy and copy were sound; only the mechanics had drifted.
+
+Three pages needed hand-fixing after the bulk pass and each would have been a
+silent miss: **`faq/`** anchors its own nav/menu/footer links with
+`aria-current="page"`, so the generic anchor matched nothing; **`waitlist/`**
+does the same on the menu's try-it button; **`creatorsonly/`** has no faq link
+and a 14-space indent, so its refund link landed mis-indented. Final state,
+checked per page: **all 12 public pages carry pricing in BOTH `.lp-nav` and
+`.lp-menu`** and both footer links; `creatorsonly` gets the refund link only;
+**`agencyonly` is untouched — staff do not buy.**
+
+Sitemap: 12 urls, parses, pricing at 0.8 beside `/faq/` and refunds at 0.3 with
+the legal set. **`robots.txt` deliberately unchanged** — it must never name an
+app path and needs nothing for public pages. `tools/check_stamp.py` discovers
+pages by `rglob` rather than a hardcoded list, so it picked both new pages up
+by itself: **14 pages, stamp `20260825c`, consistent**. No stamp bump was
+needed — Stage 1 changes no CSS and no JS.
+
+Verified in the browser, painted: both pages render, `footer.js` runs (the
+wordmark was caught mid-spin, which is the proof it is not CSP-blocked), **zero
+console errors**, `.entity` computes to `text-transform: none` against the
+body's `lowercase` so `Paddle.com` keeps its capitals, the burger opens and
+closes and **pricing is painted in the mobile panel**, and **nav centring is
+still 0.00px off at 1280 / 1440 / 800px** with a third item in the bar.
+
+**NEXT, AND IT IS THE OWNER'S, NOT THE EXECUTOR'S:** action A0 in the plan —
+create the Paddle account for `Lynx Media Group LLC` (the entity name must
+match `/terms/` exactly) and submit lynxr.io for domain verification. **That is
+a 3–7 business day external clock and nothing else in payments moves until it
+starts.** These pages exist so the reviewer has something to approve; they must
+be DEPLOYED before submitting. Stages 2–6 (billing SQL, the Edge Function
+webhook receiver, checkout, cap layers, owner visibility) are untouched.
 
 The 2026-08-20 priorities below are untouched and still the queue.
 
@@ -1082,6 +1359,13 @@ pages stay fully zoomable), and `.bp-wait` measures 3.39:1 in list rows.
 
 ### Still open
 
+- **yt-dlp is unpinned in the thing that matters.** `requirements-ci.txt` says
+  `yt-dlp>=2024.1`, so Fly and CI silently take whatever is newest at build
+  time. That is what turned the progressive-format removal into a hard failure
+  with no code change and no deploy — the worker's behaviour moved underneath
+  it. The new `DL_FORMAT` is verified on both 2026.07.04 and 2026.08.19, but
+  the underlying exposure is unchanged: pin a version and upgrade it
+  deliberately, or accept that YouTube can break the worker on any rebuild.
 - **Answers given during the wait do not reach the script being written.**
   `process_group` reads the creator row when it claims the job and passes that
   in-memory `data` down to `fill_adaptation`, which builds the prompt ~35–40s
