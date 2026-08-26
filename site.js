@@ -313,7 +313,29 @@
      one place; reduced-motion gets it instantly; the first focus or keystroke
      ends the show and hands over the full text — an animation must never race
      a person already typing. One-shot, so LP_TEARDOWN has nothing to undo. */
+  /* TAPPING THE PASTE BOX MUST NOT REVEAL THE PAGE BELOW (owner, twice —
+     the meta swap alone did not stop it). The scroll is the BROWSER's own
+     focus behaviour: it scrolls the document until the input clears the
+     software keyboard, and on a centered hero that drags the sections into
+     view. So while composing, the hero group moves to the TOP of the screen
+     (html.lp-composing — the input is then already clear of any keyboard and
+     the browser has nothing to scroll for), and a scroll pin holds the
+     document at 0 as the backstop for engines that scroll anyway. Both end on
+     blur. Desktop is unaffected in practice: no keyboard, no browser scroll,
+     and the brief top-align only while the caret is in the box. */
   const heroInput = document.getElementById("lp-composer-url");
+  if (heroInput) {
+    const pin = () => { if (scrollY !== 0) scrollTo(0, 0); };
+    heroInput.addEventListener("focus", () => {
+      document.documentElement.classList.add("lp-composing");
+      scrollTo(0, 0);
+      addEventListener("scroll", pin);
+    });
+    heroInput.addEventListener("blur", () => {
+      document.documentElement.classList.remove("lp-composing");
+      removeEventListener("scroll", pin);
+    });
+  }
   if (heroInput && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
     const full = heroInput.placeholder;
     heroInput.placeholder = "";

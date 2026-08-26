@@ -2751,6 +2751,11 @@
     font-size: clamp(24px, 2.6vw, 36px); line-height: 1.15; letter-spacing: -.01em;
   }
   body.home .lp-hero .newscript-greet { margin-bottom: 48px; }
+  /* While the caret is in the paste box the hero group rides at the top of
+     the screen — see the lp-composing comment in site.js. */
+  html.lp-composing body.home .lp-hero { align-items: flex-start; }
+  html.lp-composing body.home .lp-hero .lp-in { padding-top: 9svh; }
+
   .lp-sub {
     margin: 12px 0 0; color: var(--text-2);
     font-size: var(--fs-13); line-height: 1.5;
