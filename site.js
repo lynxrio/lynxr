@@ -136,7 +136,7 @@
     last = lockedY;
   };
 
-  const openMenu = () => {
+  const openMenu = (viaKeyboard) => {
     if (!burger || !menu || menuOpen) return;
     clearTimeout(closeTimer);
     menuOpen = true;
@@ -150,10 +150,13 @@
     burger.setAttribute("aria-expanded", "true");
     burger.setAttribute("aria-label", "close menu");
     lockScroll();
-    /* FOCUS MOVES INTO THE PANEL. Without this, Tab from the burger walks
-       through the (hidden) rest of the bar first. */
-    const first = menu.querySelector("a, button");
-    if (first) first.focus();
+    /* FOCUS MOVES INTO THE PANEL — but only for a KEYBOARD open. Without it,
+       Tab from the burger walks the hidden rest of the bar first; with it on
+       a TAP, Chrome treats the programmatic focus as focus-visible and draws
+       a ring around "how it works" that the owner read as broken ("this is
+       fucked up"). A pointer open leaves focus on the burger; the Esc and
+       outside-tap closers are document-level and never needed it. */
+    if (viaKeyboard) menu.querySelector("a, button")?.focus();
   };
 
   const closeMenu = (returnFocus) => {
@@ -176,9 +179,18 @@
     if (returnFocus) burger.focus();
   };
 
+  /* DECLARED HERE, ASSIGNED INSIDE THE IF — because LP_TEARDOWN below is
+     IIFE-level and must remove them. As `const`s inside the block they were
+     invisible to it, and the FIRST CALL of LP_TEARDOWN threw
+     "onKeydown is not defined" — a bug typeof-checking the teardown never
+     caught, found only when enterApp() actually called it. On a page with no
+     burger they stay undefined and the teardown's removeEventListener calls
+     are no-ops, which is the correct behaviour there. */
+  let onKeydown, onPointerdown;
   if (burger && menu) {
-    burger.addEventListener("click", () => {
-      if (menuOpen) closeMenu(true); else openMenu();
+    burger.addEventListener("click", (e) => {
+      /* e.detail is 0 for a keyboard "click" and >0 for a pointer one. */
+      if (menuOpen) closeMenu(true); else openMenu(e.detail === 0);
     });
     /* Selecting an item closes it. The navigation itself may be a same-page
        fragment (/#how from /), which does not reload — so nothing else would
@@ -186,21 +198,26 @@
     menu.addEventListener("click", (e) => {
       /* `false`: the navigation owns focus from here. A same-page fragment
          (/#how) moves focus to the target section, and pulling it back to the
-         burger would fight that. */
-      if (e.target.closest("a")) closeMenu(false);
+         burger would fight that. `[data-gate]` is added alongside `a` because
+         the merged home's panel also holds a <button data-gate> ("sign in"),
+         which is not an <a> and would otherwise leave the panel open over the
+         gate it just opened. */
+      if (e.target.closest("a, [data-gate]")) closeMenu(false);
     });
-    addEventListener("keydown", (e) => {
+    onKeydown = (e) => {
       if (e.key === "Escape" && menuOpen) { e.preventDefault(); closeMenu(true); }
-    });
+    };
+    addEventListener("keydown", onKeydown);
     /* OUTSIDE CLICK. pointerdown rather than click so a drag that starts on the
        page does not leave the panel open behind the finger. Anything inside the
        bar (the burger, the panel) is inside. */
-    addEventListener("pointerdown", (e) => {
+    onPointerdown = (e) => {
       /* If focus was INSIDE the panel when it closed, it has to go somewhere
          real — otherwise it lands on <body> and the next Tab restarts from the
          top of the document. */
       if (menuOpen && !bar.contains(e.target)) closeMenu(menu.contains(document.activeElement));
-    }, true);
+    };
+    addEventListener("pointerdown", onPointerdown, true);
     /* Growing past the breakpoint hides the burger by CSS, which would leave
        the body scroll-locked with no visible way to unlock it. */
     narrow.addEventListener("change", () => { if (!narrow.matches) closeMenu(false); });
@@ -264,8 +281,10 @@
   };
 
   addEventListener("scroll", onScroll, { passive: true });
-  addEventListener("resize", () => { remeasure(); onScroll(); }, { passive: true });
-  addEventListener("orientationchange", () => { remeasure(); onScroll(); }, { passive: true });
+  const onResize = () => { remeasure(); onScroll(); };
+  const onOrient = () => { remeasure(); onScroll(); };
+  addEventListener("resize", onResize, { passive: true });
+  addEventListener("orientationchange", onOrient, { passive: true });
   /* <details> on /faq/ changes the page height when it opens, which moves the
      bottom clamp. Capturing, because `toggle` does not bubble. */
   addEventListener("toggle", remeasure, true);
@@ -282,4 +301,42 @@
      no-op and no class is toggled on first paint. */
   remeasure();
   read();
+
+  /* THE MERGED HOME TEARS THIS DOWN. On `/` the same document also hosts the
+     creator app, and three of the effects above reach it: html.lp-smooth
+     fights scrollCardIntoView, jumpToAnswer force-opens a <details> (the
+     library is made of them), and the capturing `toggle` listener does a
+     full-document scrollHeight read on every disclosure. creator.js's
+     enterApp() calls this the moment sign-in succeeds. Idempotent. */
+  /* THE HERO PLACEHOLDER TYPES ITSELF OUT (owner: "have it type out with an
+     animation"). The full text comes from the markup, so copy edits stay in
+     one place; reduced-motion gets it instantly; the first focus or keystroke
+     ends the show and hands over the full text — an animation must never race
+     a person already typing. One-shot, so LP_TEARDOWN has nothing to undo. */
+  const heroInput = document.getElementById("lp-composer-url");
+  if (heroInput && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const full = heroInput.placeholder;
+    heroInput.placeholder = "";
+    let i = 0;
+    const tick = setInterval(() => {
+      i += 1;
+      heroInput.placeholder = full.slice(0, i);
+      if (i >= full.length) clearInterval(tick);
+    }, 55);
+    heroInput.addEventListener("focus", () => {
+      clearInterval(tick); heroInput.placeholder = full;
+    }, { once: true });
+  }
+
+  window.LP_TEARDOWN = () => {
+    closeMenu(false);
+    document.documentElement.classList.remove("lp-smooth");
+    removeEventListener("hashchange", jumpToAnswer);
+    removeEventListener("scroll", onScroll);
+    removeEventListener("resize", onResize);
+    removeEventListener("orientationchange", onOrient);
+    removeEventListener("toggle", remeasure, true);
+    removeEventListener("keydown", onKeydown);
+    removeEventListener("pointerdown", onPointerdown, true);
+  };
 })();

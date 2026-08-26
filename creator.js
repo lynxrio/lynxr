@@ -407,10 +407,19 @@ function canonUrl(raw) {
 const PLATFORMS = [
   ["TikTok",    ["tiktok.com"]],
   ["Instagram", ["instagram.com"]],
-  ["Facebook",  ["facebook.com", "fb.watch", "fb.com"]],
-  ["YouTube",   ["youtube.com", "youtu.be"]],
+  /* FACEBOOK AND YOUTUBE ARE OFF, NOT GONE (owner, 2026-08-26: "for now
+     lets just do instagram and tiktok"). YouTube is dead from the worker's IP
+     — YouTube bot-checks Fly's datacenter range, verified live against every
+     yt-dlp player client — and a paste that is guaranteed a dead card is
+     worse than a refusal that names the platform. The Apify route is proven
+     (see HANDOFF 2026-08-26) and turning either platform back on is
+     re-adding its row here and in app.js, SUPPORTED_HOSTS in
+     process_adaptations.py, SUPPORTED in process_blueprints.py, and the
+     public copy (JSON-LD sentence, landing lede, FAQ). Old youtube/facebook
+     records keep rendering — labels, covers and hydration are all still
+     wired — this list gates NEW pastes only. */
 ];
-const SUPPORTED_LIST = "TikTok, Instagram, Facebook or YouTube";
+const SUPPORTED_LIST = "TikTok or Instagram";
 const hostOf = (raw) => {
   try {
     const s = String(raw || "").trim();
@@ -635,8 +644,12 @@ async function sbSignUp(email, password, invite) {
    "the server told us this", `false` is "we never heard back and these are
    defaults". Nothing renders differently on it today; it exists so a caller
    can never mistake a default for a fact. */
+// Reworded for the merged home (owner, 2026-08-26 merge): the old sentence
+// ended "join the waitlist at lynxr.io", which pointed at the page the reader
+// is already ON once / and /creatorsonly/ are the same document. The link
+// itself — #gate-full, HOME only — carries the action now.
 const FULL_MSG = "lynxr is invite-only and full right now — "
-  + "join the waitlist at lynxr.io and we'll come to you as we open up.";
+  + "we'll come to you as we open up.";
 let SEATS_OPEN = null;                       // null = not asked yet
 let INVITE_REQUIRED = false;
 
@@ -679,6 +692,11 @@ function applySeatState() {
   if (SEATS_OPEN === false) {
     document.getElementById("gate-go").disabled = true;
     document.getElementById("err").textContent = FULL_MSG;
+    // The merged home's own seats-full line, with the wait-list link on it —
+    // see FULL_MSG's own comment for why the wording differs on this page.
+    if (HOME) document.getElementById("gate-full").hidden = false;
+  } else {
+    document.getElementById("gate-full")?.setAttribute("hidden", "");
   }
 }
 
@@ -1109,7 +1127,10 @@ function flashMsg(elId, text, tone) {
 // time the lookup runs, any synchronous view change in the same call stack
 // (including go()) has already happened, so the message lands on whichever of
 // these is actually on screen.
-const SAY_TARGETS = ["composer-note", "lib-flash", "brand-flash", "me-msg", "fb-out"];
+// "lp-composer-note" is LAST: this function returns on the first id it finds,
+// and once the app exists on the merged home its own targets (composer-note
+// etc.) must always win over the hero's.
+const SAY_TARGETS = ["composer-note", "lib-flash", "brand-flash", "me-msg", "fb-out", "lp-composer-note"];
 function say(text, tone) {
   queueMicrotask(() => {
     for (const id of SAY_TARGETS) {
@@ -1429,7 +1450,7 @@ function renderNewScript(head, body) {
       <div class="composer composer-inline" id="composer">
         <div class="composer-for" id="composer-for"></div>
         <form class="composer-row" id="composer-form">
-          <input type="url" id="composer-url" placeholder="Paste a TikTok / Instagram / Facebook / YouTube link"
+          <input type="url" id="composer-url" placeholder="Paste a TikTok or Instagram link"
             autocomplete="off" spellcheck="false" aria-label="Paste a video link">
           <span class="bp-plat" id="composer-plat"></span>
           <button type="submit" class="composer-send" id="composer-send" aria-label="Get the script">
@@ -1443,6 +1464,7 @@ function renderNewScript(head, body) {
 
   renderComposeFor();
   wireComposer();
+  consumePendingPaste();
   document.getElementById("nobrand-add")?.addEventListener("click", addBrand);
   // Focus on desktop only — on a phone the keyboard would spring up and cover
   // the company picker before you've chosen who the script is for.
@@ -1474,6 +1496,30 @@ function focusComposer() {
     input.addEventListener("blur", () => row.classList.remove("autofocused"), { once: true });
   }
   input.focus();
+}
+
+/* RESTORE THE PASTE AFTER SIGN-IN. The hero composer (wireHeroComposer, below)
+   stashes a link that was typed before an account existed; this hands it back
+   to the app's own composer once sign-in lands here. ONE SHOT: the key is
+   removed the moment it is read, whatever the outcome, so a stale link can
+   never resurface on a later visit. TWO-HOUR TTL: sessionStorage already dies
+   with the tab, but a confirmation email opens a NEW tab (see Assumption 1),
+   so this only ever fires for a same-tab sign-IN — the window is generous
+   because there is no reason to be strict once it is this narrow already.
+   DOES NOT AUTO-SEND — see the Do-not list; a send spends one of 25 lifetime
+   scripts and a brand-new account has no brands yet to write for. */
+function consumePendingPaste() {
+  let p = null;
+  try { p = JSON.parse(sessionStorage.getItem(PASTE_KEY) || "null"); } catch {}
+  try { sessionStorage.removeItem(PASTE_KEY); } catch {}   // one shot, always
+  if (!p || !p.url) return;
+  if (Date.now() - (p.at || 0) > 2 * 60 * 60 * 1000) return;  // two hours
+  const input = document.getElementById("composer-url");
+  if (!input) return;
+  input.value = p.url;
+  input.dispatchEvent(new Event("input"));   // paints the platform badge
+  focusComposer();
+  say("your link is ready — press send when you are.", "good");
 }
 
 /* KEYBOARD-AWARE HEIGHT ------------------------------------------------------
@@ -1592,6 +1638,12 @@ function openDisclosures(root = document) {
        original open every time the brand script was open. */
     oids: [...root.querySelectorAll("details.lib-orig[open]")]
       .map((d) => d.dataset.oid).filter(Boolean),
+    /* BRAND GROUPS INVERT THE RULE: they ship open, so the signal worth
+       keeping is which ones the creator CLOSED. Recording open ones instead
+       would silently re-open every closed group the first time a new group
+       appeared. */
+    closedGids: [...root.querySelectorAll("details.lib-group[data-gid]:not([open])")]
+      .map((d) => d.dataset.gid).filter(Boolean),
     /* THE REFERENCE PANEL, keyed on the ADAPTATION it belongs to — one per
        script card, and unlike `oids` it is genuinely per-record, because two
        brand scripts from one video each carry their own. Deliberately
@@ -1634,6 +1686,10 @@ function restoreDisclosures(state, root = document) {
   for (const oid of new Set(state.oids || [])) {
     root.querySelectorAll(`details.lib-orig[data-oid="${CSS.escape(oid)}"]`)
       .forEach((d) => { d.open = true; });
+  }
+  for (const gid of new Set(state.closedGids || [])) {
+    root.querySelectorAll(`details.lib-group[data-gid="${CSS.escape(gid)}"]`)
+      .forEach((d) => { d.open = false; });
   }
   /* The panel ships `open` by default, so unlike the loops above this one must
      also be able to CLOSE it — but only for a panel that existed in the
@@ -2732,14 +2788,21 @@ function paintLibraryList() {
       if (!items.length) return "";
       const ready = ME.adaptations.filter((a) => a.brandId === b.id && a.status === "done").length;
       const busy = ME.adaptations.filter((a) => a.brandId === b.id && isWriting(a)).length;
-      return `<section class="lib-group">
-        <div class="lib-group-head">
+      /* A DETAILS, OPEN BY DEFAULT (owner, 2026-08-26: "add a box around the
+         entire brand section that can collapse"). data-gid is what lets
+         restoreDisclosures keep a closed one closed across the 2.5s repaint —
+         and because groups DEFAULT open, persistence records the closed ones,
+         not the open ones. The brand-name button keeps its second job (open
+         the brand view); its click also toggles the disclosure, which does not
+         matter because it navigates the whole pane away. */
+      return `<details class="lib-group" data-gid="${escapeHtml(b.id)}" open>
+        <summary class="lib-group-head">
           <button type="button" class="lib-group-name linkish" data-bid="${escapeHtml(b.id)}">${
             escapeHtml(b.name || "Untitled company")}</button>
           <span class="lib-group-meta">${ready} ready${busy ? ` · ${busy} writing` : ""}</span>
-        </div>
+        </summary>
         <div class="bp-list script-grid">${items.map((it) => libraryItemHtml(it, b.id)).join("")}</div>
-      </section>`;
+      </details>`;
     }).filter(Boolean).join("");
 
     // Videos saved but never scripted for anyone still need a home here, or
@@ -2751,13 +2814,13 @@ function paintLibraryList() {
     // places on one screen.
     const orphans = shown.filter((it) => !libScripts(it).length);
 
-    const loose = (title, items, meta) => items.length ? `<section class="lib-group">
-      <div class="lib-group-head">
+    const loose = (title, items, meta) => items.length ? `<details class="lib-group" data-gid="loose:${escapeHtml(title)}" open>
+      <summary class="lib-group-head">
         <span class="lib-group-name">${title}</span>
         <span class="lib-group-meta">${items.length} ${meta}</span>
-      </div>
+      </summary>
       <div class="bp-list script-grid">${items.map((it) => libraryItemHtml(it)).join("")}</div>
-    </section>` : "";
+    </details>` : "";
 
     /* "not tagged yet" is not decoration: these are exactly the videos the
        rail's count leaves out (no script, so no tags), and this is the one
@@ -4363,6 +4426,54 @@ function wireComposer() {
     hydrate(item);
   });
 }
+
+/* THE MERGED HOME'S SIGNED-OUT COMPOSER. Lives here rather than in a new file
+   so PLATFORMS / platformOf() / normalizeUrl() / SUPPORTED_LIST stay a single
+   copy — see the Do-not list. Mirrors wireComposer()'s live badge and
+   validation exactly, but there is no account yet to send anything to: a
+   valid paste is stashed and hands off to the gate instead of being queued. */
+function wireHeroComposer() {
+  const input = document.getElementById("lp-composer-url");
+  const badge = document.getElementById("lp-composer-plat");
+  if (!input || !badge) return;
+  const showPlat = () => {
+    const u = normalizeUrl(input.value);
+    const plat = u ? platformOf(u) : null;
+    badge.textContent = u ? (plat || "not supported") : "";
+    badge.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
+  };
+  input.addEventListener("input", showPlat);
+
+  document.getElementById("lp-composer-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const raw = (input.value || "").trim();
+    if (!raw) { say("Paste a video link first.", "bad"); input.focus(); return; }
+    const url = normalizeUrl(raw);
+    if (!url) { say("That doesn't look like a video link.", "bad"); input.select(); return; }
+
+    const plat = platformOf(url);
+    if (!plat) {
+      const h = hostOf(url);
+      say(`lynxr only reads ${SUPPORTED_LIST} links`
+        + (h ? ` — that one is from ${h}.` : "."), "bad");
+      input.select();
+      return;
+    }
+
+    try { sessionStorage.setItem(PASTE_KEY, JSON.stringify({ url, at: Date.now(), plat })); }
+    catch { /* private mode: the link is lost, the signup is not */ }
+    const link = document.getElementById("gate-full-link");
+    // Only when nothing inbound already claimed `ref` — an actual campaign tag is
+    // worth more than the intent signal, and home.js has already run.
+    if (link && plat && !new URL(link.href, location.href).searchParams.has("ref")) {
+      const u = new URL(link.getAttribute("href"), location.href);
+      u.searchParams.set("ref", "composer:" + plat.toLowerCase());
+      link.setAttribute("href", u.pathname + u.search);
+    }
+    showGate("up");
+  });
+}
+wireHeroComposer();
 
 // ---------- source metadata ----------
 async function fetchWithTimeout(url, ms) {
@@ -7637,12 +7748,24 @@ function unlock() {
   document.getElementById("err").textContent = "";
   document.getElementById("gate").style.display = "none";
   document.getElementById("app").style.display = "block";
+  if (HOME) enterApp();
   renderAll();
   startLiveSync();
   // AFTER SIGN-IN. renderAll() has already painted the rail from the local
   // count; this repaints it with the server's the moment it answers. Not
   // awaited — a slow or missing RPC must not hold up the app opening.
   refreshAllowance();
+}
+
+/* SIGNED IN MEANS NO MARKETING. The sections are REMOVED, not hidden: site.js
+   holds listeners on the bar, footer.js observes the marketing footer, and a
+   hidden #lp-main still answers document.querySelector. Removing `home` also
+   drops `.lp` semantics we never took on — see the Do-not list. */
+function enterApp() {
+  document.body.classList.remove("home", "gate-on");
+  window.LP_TEARDOWN?.();
+  document.getElementById("lp-main")?.remove();
+  document.querySelector(".lp-bar")?.remove();
 }
 
 /** Scripts are written off-page, so poll while the tab is visible and repaint
@@ -7783,6 +7906,12 @@ function startLiveSync() {
    is the mechanism; this is only the label on it. */
 const PRIVACY_VERSION = "2026-08-18";
 
+/* THE MERGED HOME. `/` hosts three layers in one document — #lp-main
+   (marketing), #gate (auth) and #app (the app). HOME is false on any other
+   page that loads this file, so every branch below is inert there. */
+const HOME = !!document.getElementById("lp-main");
+const PASTE_KEY = "lynxr_pending_paste";
+
 let GATE_MODE = "in";
 function setGateMode(mode) {
   GATE_MODE = mode;
@@ -7828,12 +7957,43 @@ function setGateMode(mode) {
   document.getElementById("err").textContent = "";
   // The resend link belongs to a failed sign-in, not to the create form.
   document.getElementById("resend-wrap").hidden = true;
+  // Same reset, same reason: the seats-full fallback belongs to a live "we're
+  // full" answer, not to whatever mode is being switched to.
+  document.getElementById("gate-full")?.setAttribute("hidden", "");
   // Both modes share one submit button, so a seat refusal that disabled it must
   // be lifted on the way back to sign-in or existing creators are locked out by
   // a rule that was never about them.
   document.getElementById("gate-go").disabled = false;
   if (up) { if (SEATS_OPEN === null) refreshSeats(); else applySeatState(); }
 }
+
+/* THE MERGED HOME'S GATE OPEN/CLOSE. On every other page #gate is simply the
+   page — there is nothing to open it FROM or close it BACK TO. Here it is one
+   layer among three, so opening and closing it are real actions. */
+function showGate(mode) {
+  if (!HOME) return;
+  document.body.classList.add("gate-on");
+  setGateMode(mode);
+  // A real history entry, so the browser Back button closes the card. The
+  // state object is what popstate below tests, so a Back that lands on some
+  // OTHER entry does not get mistaken for this one.
+  try { history.pushState({ lynxrGate: 1 }, "", location.pathname + location.search); } catch {}
+  document.getElementById(mode === "reset" ? "pw" : "email")?.focus();
+}
+function hideGate() {
+  document.body.classList.remove("gate-on");
+  document.getElementById("err").textContent = "";
+}
+addEventListener("popstate", () => { if (HOME) hideGate(); });
+document.getElementById("gate-back")?.addEventListener("click", () => {
+  if (history.state && history.state.lynxrGate) history.back(); else hideGate();
+});
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-gate]");
+  if (!t || !HOME) return;
+  e.preventDefault();           // the control is an <a href="/waitlist/"> so it works with JS off
+  showGate(t.dataset.gate === "in" ? "in" : "up");
+});
 
 // The homepage CTA links to ?signup=1, so "Create your account" lands on the
 // create form rather than the sign-in form the visitor has no credentials for.

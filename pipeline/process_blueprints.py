@@ -120,12 +120,10 @@ def platform_of(url):
 # Mirrors SUPPORTED_HOSTS in process_adaptations.py and PLATFORMS in app.js —
 # duplicated for the same reason canon_url below is: importing that module runs
 # its logging setup as a side effect. Change one, change all three.
-SUPPORTED_HOSTS = ("tiktok.com", "instagram.com",
-                   "facebook.com", "fb.watch", "fb.com",
-                   "youtube.com", "youtu.be")
+SUPPORTED_HOSTS = ("tiktok.com", "instagram.com")
 
-OFF_PLATFORM_NOTE = ("Blueprints read TikTok, Instagram, Facebook and YouTube "
-                     "links only.")
+OFF_PLATFORM_NOTE = ("Blueprints read TikTok and Instagram links only — "
+                     "YouTube and Facebook are switched off for now.")
 
 
 def supported_url(url):

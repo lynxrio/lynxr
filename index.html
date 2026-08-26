@@ -2,22 +2,58 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Strict CSP, same as every other page. This one is TIGHTER than the app
-     pages: the email form lives on /waitlist/, so this page makes no network
-     call at all and needs no connect-src. Do not paste Supabase back in here
-     without a reason — an allow-list entry that nothing uses is a hole nobody
-     is watching. The social icons are inline SVG for the same reason: an icon
-     font or a CDN sprite would be a request to somebody else on a page that
-     currently makes none, and font-src/img-src are 'self'. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<!-- THE MERGED HOME NOW HOSTS THE CREATOR APP, so it carries the app's CSP
+     below rather than the old marketing-only one that made no network call at
+     all. Every form on this page — the hero composer, the gate, the app's own
+     forms — is handled in JS, so form-action 'none' still holds regardless. -->
+<!-- Same strict CSP as the agency app: no inline script or style, nothing
+     off-origin, native form posts blocked.
+     media-src, CHANGED 2026-08-24: the original video used to play in a
+     cross-origin iframe (frame-src, below, removed the same day). It is now a
+     self-hosted 480p proxy played in a native <video>, so media-src gains the
+     Supabase origin — already trusted in img-src and connect-src for the
+     cover frame — and no third-party frame origin remains at all.
+     blob: stays for the teleprompter's MediaRecorder preview (creator.js).
+     ONE PLAIN LINE ON WHAT THAT MEANS: the clip lives in a PUBLIC storage
+     bucket at an unguessable, content-hashed path — anyone holding the URL
+     can fetch the video bytes with no sign-in. Row-level security protects
+     which creator can see which row, not the file once its URL is known. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co; media-src 'self' blob: https://esakjfogplfszievvabi.supabase.co; form-action 'none'; base-uri 'none'; object-src 'none'">
+<!-- STAGE A ONLY: kept out of search while this lives at /preview/. Removed
+     when the file moves to / in Stage B. -->
 <meta name="referrer" content="no-referrer">
-<!-- No maximum-scale here on purpose. The two app pages cap it to suppress
-     iOS's focus-zoom on the find bar; this page has no find bar, and capping
-     scale on a public marketing page costs a low-vision reader their
-     pinch-zoom for nothing. -->
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- maximum-scale=1 SUPPRESSES iOS SAFARI'S FOCUS-ZOOM, and it is here in
+     exchange for the find bar's type size: the search and sort controls came
+     off the 16px floor on 2026-08-19 (owner's call) so they sit proportionally
+     with the cards they filter, and this is what is meant to stop Safari
+     zooming the page when one of them takes focus.
+
+     THIS NOW APPLIES TO A PUBLIC MARKETING PAGE, which the comment below
+     explicitly said it should not — that was true while / and /creatorsonly/
+     were separate documents. The merged home carries the app's find bar on
+     this URL now, so the app's rule wins for the whole document.
+
+     ON THE TWO APP PAGES ONLY. It is deliberately absent from /waitlist/,
+     /privacy/ and /terms/ — the find bar does not exist there, and a scale cap
+     on a public marketing or legal page costs a low-vision reader their
+     pinch-zoom for nothing. `user-scalable=no` is deliberately NOT used:
+     Safari has ignored it since iOS 10 and it would only ever have blocked
+     zoom on Android.
+
+     UNVERIFIED ON A REAL iPHONE — it cannot be tested from here.
+
+     THE FALLBACK WAS TAKEN ON 2026-08-23, for the popup-size reason rather
+     than this one: the sort control is now a `<button>` plus a `.find-sort-
+     menu` listbox, not a `<select>`, because macOS was drawing the native
+     popup at the select's own --fs-135 and it was unreadable. This tag SURVIVES
+     that change and stays on this page regardless: the search input is still a
+     real `<input type="search">` at --fs-135, under the 16px floor, and is
+     still a focus-zoom trigger exactly like the select was. Retiring the tag
+     needed both controls off the floor, and only the sort control left. See
+     the .find-bar block in app.css for the full history. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content">
 <title>lynxr — any video becomes tailored scripts</title>
-<meta name="description" content="Any video becomes tailored scripts. Send a TikTok, Instagram or YouTube link; lynxr pulls out the format underneath it — the hook, the beats, the order they come in — and rewrites it as a script for the brand you make content for.">
+<meta name="description" content="Any video becomes tailored scripts. Send a TikTok or Instagram link; lynxr pulls out the format underneath it — the hook, the beats, the order they come in — and rewrites it as a script for the brand you make content for.">
 <meta property="og:title" content="lynxr — any video becomes tailored scripts">
 <meta property="og:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta property="og:type" content="website">
@@ -31,11 +67,11 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="favicon.png">
-<link rel="shortcut icon" href="favicon.ico">
-<link rel="stylesheet" href="app.css?v=20260825k">
-<script src="theme.js?v=20260825k"></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="stylesheet" href="/app.css?v=20260826q">
+<script src="/theme.js?v=20260826q"></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -90,9 +126,9 @@
       "url": "https://lynxr.io/",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Any modern web browser",
-      "description": "lynxr turns a short-form video into a script. You send it a public link to a TikTok, Instagram, YouTube or Facebook video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "description": "lynxr turns a short-form video into a script. You send it a public link to a TikTok or Instagram video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
       "featureList": [
-        "Reads a public TikTok, Instagram, YouTube or Facebook link. There is no file upload.",
+        "Reads a public TikTok or Instagram link. There is no file upload.",
         "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
         "Writes one script per company from a single link, reading the video only once.",
         "Never asks for a platform password and never posts anything on your behalf."
@@ -123,7 +159,7 @@
   "@id": "https://lynxr.io/#webpage",
   "url": "https://lynxr.io/",
   "name": "lynxr — any video becomes tailored scripts",
-  "description": "Any video becomes tailored scripts. Send a TikTok, Instagram or YouTube link; lynxr pulls out the format underneath it — the hook, the beats, the order they come in — and rewrites it as a script for the brand you make content for.",
+  "description": "Any video becomes tailored scripts. Send a TikTok or Instagram link; lynxr pulls out the format underneath it — the hook, the beats, the order they come in — and rewrites it as a script for the brand you make content for.",
   "inLanguage": "en",
   "isPartOf": { "@id": "https://lynxr.io/#website" },
   "about": { "@id": "https://lynxr.io/#lynxr" },
@@ -136,20 +172,23 @@
 }
 </script>
 </head>
-<!-- .lp unsets the app's bare main{} container so the sections below can be
-     full-bleed. See the marketing-page block in app.css. -->
-<body class="lp">
+<!-- THE MERGED HOME. `class="home"`, NOT `class="lp"` — `.lp` unsets the app's
+     bare main{} container (`.lp main { padding: 0; max-width: none; margin: 0
+     }`, (0,1,1)), which would beat `.pane`'s `max-width: 100%` (also (0,1,1)
+     but losing to the more specific ancestor selector) and reopen the sideways
+     scroll `.pane`'s own comment in app.css records. `body.home` is the flag
+     the new CSS state machine and creator.js both key on instead. -->
+<body class="lp home">
 
 <header class="lp-bar">
   <div class="lp-in lp-bar-in">
     <a class="wordmark" href="/"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></a>
-    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+    <!-- ABSOLUTE, not `#how`. This bar is on every public page, and a bare
          fragment does nothing from /faq/ or /privacy/ — it appends a hash to
          the current URL and stays put. -->
     <nav class="lp-nav" aria-label="Main">
       <a href="/#how">how it works</a>
       <a href="/faq/">faq</a>
-      <a href="/pricing/">pricing</a>
     </nav>
     <span class="lp-actions">
     <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
@@ -157,10 +196,16 @@
       <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
       <span class="tt-knob"></span>
     </button>
-    <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
-    <!-- Under 760px the nav and the CTA above are display:none and this takes
-         their place. aria-expanded carries the state to a screen reader AND
-         drives which glyph is drawn, so the two cannot disagree. -->
+    <!-- Opens #gate in the two modes: sign-in reuses the existing form as-is,
+         "get started" is a real <a href="/waitlist/"> so it still works with
+         JS off — Step 7b's delegated handler preventDefault()s it once JS is
+         live. Both live INSIDE .lp-actions (a flex row), not beside it: the
+         capsule's grid is a strict 1fr auto 1fr and a fifth item outside this
+         span would wrap to a second row. -->
+    <a class="btn" href="/waitlist/" data-gate="up">get started<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <!-- Under 760px the nav and the two controls above are display:none and
+         this takes their place. aria-expanded carries the state to a screen
+         reader AND drives which glyph is drawn, so the two cannot disagree. -->
     <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
             aria-expanded="false" aria-controls="lp-menu">
       <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -174,43 +219,62 @@
   <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
     <a href="/#how">how it works</a>
     <a href="/faq/">faq</a>
-    <a href="/pricing/">pricing</a>
-    <a class="btn" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <!-- The toggle lives HERE on a phone, not in the bar (owner, 2026-08-26:
+         "for mobile put this in the menu when it drops down") — the bar was
+         the crowded place and the menu has room for a labelled row. theme.js
+         wires every .theme-toggle by delegation and keeps all instances'
+         aria-pressed in step, so this second copy needs no script of its own. -->
+    <div class="lp-menu-theme">
+      <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
+        <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.6 8.6 0 1 0 10.6 10.6z"/></svg>
+        <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
+        <span class="tt-knob"></span>
+      </button>
+    </div>
+    <a class="btn" href="/waitlist/" data-gate="up">get started<span class="rk" aria-hidden="true">&#128640;</span></a>
   </nav>
 </header>
 
-<main>
+<main id="lp-main">
 
   <section class="lp-hero">
     <div class="lp-in">
-      <!-- The arrow is a GLYPH, not a word, so it is aria-hidden and an
-           .sr-only word stands in its place: the headline announces as "any
-           video becomes tailored scripts". Reading "any video right arrow
-           tailored scripts" aloud is the failure this avoids. -->
-      <h1 class="lp-h1">any video <span class="lp-arrow" aria-hidden="true">&rarr;</span><span class="sr-only">&#32;becomes&#32;</span> tailored scripts</h1>
-      <!-- The whole explanation a stranger gets before the button: what you
-           hand lynxr and what comes back. Nothing about speed — the measured
-           end-to-end median is around two minutes and a cold start is longer,
-           so an "in seconds" line would be a lie the first time anyone timed
-           it. -->
-      <p class="lp-lede">lynxr is a script tool for creators who make
-        short&#8209;form video for brands. send it a public TikTok, Instagram,
-        YouTube or Facebook link and it rewrites the format underneath that
-        video as a script for the company you make content for.</p>
-      <div class="home-cta">
-        <!-- THE ONE CALL TO ACTION ON THIS SITE, and it goes to the wait list.
-             Signup is closed — signup_state() returns {"open": false} and every
-             seat is taken — so a button pointing at the app would walk a
-             stranger into a door that cannot open. Neither app is linked from
-             any public page. The note underneath says where the button goes
-             BEFORE it is pressed, which is the difference between a call to
-             action and a bait. -->
-        <!-- THE ROCKET REPLACES THE ARROW here (owner, 2026-08-19). One glyph,
-             aria-hidden, so the accessible name stays exactly "try it"; it
-             nudges up and right on hover/focus only, never on a loop — the ring
-             behind this button is the page's one resting animation. -->
-        <a class="btn home-go" id="try-it" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span></a>
+      <!-- THE HERO IS THE APP'S OWN OPENING (owner, 2026-08-26: "pretty much
+           replace this with this", pointing at the signed-in new-script view).
+           Same classes, same mark, same five words — a visitor sees the exact
+           screen they will use, which is the whole Lovable move. The old
+           "any video → tailored scripts" headline lives on in <title> and the
+           meta/og descriptions, so search results keep the value-prop phrasing
+           while the page itself just IS the product. -->
+      <div class="newscript-greet">
+        <!-- No mark here — owner, 2026-08-26: "get rid of the logo at the
+             top". The bar's wordmark already carries the identity; the app's
+             own signed-in greet keeps its mark. -->
+        <h1 class="newscript-h">build your script</h1>
+        <p class="lp-sub">paste a video link and get your tailored script</p>
       </div>
+      <!-- THE PRODUCT ITSELF AS THE HERO (owner, 2026-08-26: "make it like
+           lovable"). This is the app's OWN composer markup, untouched — see
+           the comment above wireComposer() in creator.js: the composer-inline
+           / composer-row pair is what all of its styling hangs off, and
+           `.lp-composer` below is a size modifier only. Every id is prefixed
+           `lp-` so it can never collide with the app's own #composer-url etc. -->
+      <div class="composer composer-inline lp-composer">
+        <form class="composer-row" id="lp-composer-form">
+          <input type="url" id="lp-composer-url" placeholder="paste instagram/tiktok link"
+            autocomplete="off" spellcheck="false" aria-label="Paste a video link">
+          <span class="bp-plat" id="lp-composer-plat"></span>
+          <button type="submit" class="composer-send" id="lp-composer-send" aria-label="Get the script">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </form>
+        <p class="composer-note" id="lp-composer-note" role="status" aria-live="polite"></p>
+      </div>
+      <!-- "25" is the live default (lynxr_allowance.granted, SCRIPT_CAP,
+           /pricing/, /terms/). If that number ever moves, this line moves
+           with it. -->
+
     </div>
   </section>
 
@@ -256,64 +320,403 @@
     </div>
   </section>
 
+  <!-- Moved INSIDE #lp-main (it lived after </main> before the merge) so it
+       disappears the moment the marketing layer is removed on sign-in — see
+       enterApp() in creator.js. This is the MARKETING footer and keeps its
+       ids; the app's own in-pane footer below cannot carry the same ones. -->
+  <footer id="site-footer">
+    <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr.</div>
+    <div class="foot-grid foot-grid-wide">
+      <div class="foot-brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+        <p>format intelligence for short&#8209;form video, built by a short&#8209;form video agency.</p>
+      </div>
+      <div class="foot-col">
+        <div class="foot-label">lynxr</div>
+        <a class="foot-link" href="/" aria-current="page">home</a>
+        <a class="foot-link" href="/#how">how it works</a>
+        <a class="foot-link" href="/faq/">faq</a>
+        <a class="foot-link" href="/pricing/">pricing</a>
+        <!-- Visible label "try it", accessible name "try it — join the wait
+             list". The .sr-only tail is inside the <a>, so it is part of the
+             name computation rather than a title attribute nobody hears. -->
+        <a class="foot-link" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span><span class="sr-only"> &mdash; join the wait list</span></a>
+      </div>
+      <div class="foot-col">
+        <div class="foot-label">guides</div>
+        <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
+        <a class="foot-link" href="/turn-a-video-into-a-script/">video to script</a>
+        <a class="foot-link" href="/short-form-script-structure/">script structure</a>
+        <a class="foot-link" href="/glossary/">glossary</a>
+      </div>
+      <div class="foot-col">
+        <div class="foot-label">company</div>
+        <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
+        <a class="foot-link" href="/privacy/">privacy policy</a>
+        <a class="foot-link" href="/terms/">terms of service</a>
+        <a class="foot-link" href="/refunds/">refund policy</a>
+        <a class="foot-link" href="/accessibility/">accessibility</a>
+      </div>
+      <div class="foot-col">
+        <div class="foot-label">socials</div>
+        <a class="foot-link" href="https://www.instagram.com/lynxmediagroup/" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a class="foot-link" href="https://www.tiktok.com/@lynxmediagroup" target="_blank" rel="noopener noreferrer">TikTok</a>
+        <a class="foot-link" href="https://www.linkedin.com/company/lynxmediagroup" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+    <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+         of the sitewide lowercase text-transform. -->
+    <div class="foot-legal">
+      &copy; <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a> 2026
+    </div>
+  </footer>
+
 </main>
 
-<footer id="site-footer">
-  <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr.</div>
-  <div class="foot-grid foot-grid-wide">
-    <div class="foot-brand">
-      <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
-      <p>format intelligence for short&#8209;form video, built by a short&#8209;form video agency.</p>
-    </div>
-    <div class="foot-col">
-      <div class="foot-label">lynxr</div>
-      <a class="foot-link" href="/" aria-current="page">home</a>
-      <a class="foot-link" href="/#how">how it works</a>
-      <a class="foot-link" href="/faq/">faq</a>
-      <a class="foot-link" href="/pricing/">pricing</a>
-      <!-- Visible label "try it", accessible name "try it — join the wait
-           list". The .sr-only tail is inside the <a>, so it is part of the
-           name computation rather than a title attribute nobody hears. -->
-      <a class="foot-link" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span><span class="sr-only"> &mdash; join the wait list</span></a>
-    </div>
-    <div class="foot-col">
-      <div class="foot-label">guides</div>
-      <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
-      <a class="foot-link" href="/turn-a-video-into-a-script/">video to script</a>
-      <a class="foot-link" href="/short-form-script-structure/">script structure</a>
-      <a class="foot-link" href="/glossary/">glossary</a>
-    </div>
-    <div class="foot-col">
-      <div class="foot-label">company</div>
-      <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
-      <a class="foot-link" href="/privacy/">privacy policy</a>
-      <a class="foot-link" href="/terms/">terms of service</a>
-      <a class="foot-link" href="/refunds/">refund policy</a>
-      <a class="foot-link" href="/accessibility/">accessibility</a>
-    </div>
-    <div class="foot-col">
-      <div class="foot-label">socials</div>
-      <a class="foot-link" href="https://www.instagram.com/lynxmediagroup/" target="_blank" rel="noopener noreferrer">Instagram</a>
-      <a class="foot-link" href="https://www.tiktok.com/@lynxmediagroup" target="_blank" rel="noopener noreferrer">TikTok</a>
-      <a class="foot-link" href="https://www.linkedin.com/company/lynxmediagroup" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-    </div>
+<div id="gate">
+  <div class="gate-card">
+    <!-- FIRST CHILD, so it reads before the wordmark rather than after the
+         form. Closes the gate: a real history entry was pushed when the gate
+         opened (see showGate() in creator.js), so Back does the same thing;
+         this is the same action for someone who never touched the URL bar. -->
+    <button type="button" class="linkish gate-back" id="gate-back">&larr; back to lynxr</button>
+    <h1 class="wordmark"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg><span>lynxr<i>.</i></span></h1>
+    <p class="tagline" id="gate-tagline">for creators</p>
+    <form class="field login" id="gate-form">
+      <input type="email" id="email" placeholder="Email" autofocus
+             autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
+      <div class="pw-wrap">
+        <input type="password" id="pw" placeholder="Password"
+               autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <button type="button" class="toggle" id="toggle-pw" aria-pressed="false" aria-label="Show password" title="Show password">
+          <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+          <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.6 6.1A9.9 9.9 0 0 1 12 6c6.4 0 10 7 10 7a15.4 15.4 0 0 1-3.1 3.9M6.6 6.6A15.4 15.4 0 0 0 2 13s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/>
+            <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><line x1="3" y1="3" x2="21" y2="21"/>
+          </svg>
+        </button>
+      </div>
+      <div class="pw-wrap" id="pw2-wrap" hidden>
+        <input type="password" id="pw2" placeholder="Confirm password"
+               autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false">
+      </div>
+      <!-- Shown only when the database says invites are the gate. An invite link
+           fills this in, so most people never see it typed. -->
+      <div class="pw-wrap" id="invite-wrap" hidden>
+        <input type="text" id="invite" placeholder="Invite code"
+               autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false">
+      </div>
+      <!-- Shown only when creating an account (see setGateMode). Signing in is
+           not the moment you agree to anything — you already did. A ticked-by-
+           default box would not be agreement at all, so it starts empty and the
+           submit is refused without it. -->
+      <label class="gate-agree" id="agree-wrap" hidden>
+        <input type="checkbox" id="agree">
+        <span>i agree to the <a href="/privacy/" target="_blank" rel="noopener">privacy policy</a></span>
+      </label>
+      <button type="submit" class="btn" id="gate-go">Enter</button>
+    </form>
+    <div class="err" id="err" role="status" aria-live="polite"></div>
+    <!-- SEATS-FULL FALLBACK, HOME ONLY. applySeatState() in creator.js reveals
+         this when SEATS_OPEN === false; hidden otherwise. data-carry-utm is
+         home.js's loop (Step A6) — an inbound ?ref=/?utm_ tag outranks the
+         composer's own platform intent. -->
+    <p class="gate-other" id="gate-full" hidden>
+      <a id="gate-full-link" href="/waitlist/" data-carry-utm>join the wait list</a>
+    </p>
+    <p class="gate-other" id="resend-wrap" hidden>
+      <button type="button" class="linkish" id="gate-resend">Send me the confirmation link again</button>
+    </p>
+    <p class="gate-other" id="forgot-wrap">
+      <button type="button" class="linkish" id="gate-forgot">Forgot your password?</button>
+    </p>
+    <p class="gate-switch">
+      <span id="switch-lede">Don't have an account?</span>
+      <button type="button" class="linkish" id="switch-mode">Create one</button>
+    </p>
+    <!-- One policy covers all of lynxr, but it has to be reachable from HERE:
+         this gate is where an account is created, which is the point the app
+         starts collecting an email, a password, and everything the creator goes
+         on to put in. A policy linked only from the public home page is not
+         reachable from the app at all — a creator handed this URL directly
+         never sees that page. -->
+    <!-- Agreement is now an explicit tick above, so this is only a way to reach
+         the policy — it no longer claims you agreed by being here. -->
+    <p class="gate-fine"><a href="/privacy/">privacy policy</a></p>
   </div>
-  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
-       of the sitewide lowercase text-transform. -->
-  <div class="foot-legal">
-    &copy; <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a> 2026
-  </div>
-</footer>
+</div>
 
-<!-- The top bar's hide-on-scroll. Public pages only — see the file's
-     own header for why it must never reach either app. -->
-<script src="site.js?v=20260825k" defer></script>
-<script src="footer.js?v=20260825k" defer></script>
-<script src="dotgrid.js?v=20260825k" defer></script>
-<!-- home.js does two things here and neither of them is the form (which lives
-     on /waitlist/): it carries a ?ref= / ?utm_ campaign tag across to the wait
-     list page, and it no-ops on everything else. Every wiring in it is guarded
-     on the element existing, so one file serves both pages. -->
-<script src="home.js?v=20260825k" defer></script>
+<div id="app">
+  <div class="shell">
+
+    <!-- The rail. Brands sit here like conversations; Library is the one place
+         every original video lives, once, across every brand. -->
+    <nav class="side" id="side" aria-label="Brands">
+      <div class="side-brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+        <span class="wordmark"><span>lynxr<i>.</i></span></span>
+        <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
+          <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.6 8.6 0 1 0 10.6 10.6z"/></svg>
+          <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
+          <span class="tt-knob"></span>
+        </button>
+      </div>
+
+
+      <!-- Shaped like a chat app: this is the new-chat button. It always lands
+           on an empty composer, and that composer is where opening lynxr starts.
+           The old "New script" page rendered the same list as the Library, which
+           is what made the two feel identical. -->
+      <button type="button" class="side-new" id="nav-new">
+        <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>
+        New script
+      </button>
+
+      <button type="button" class="side-link side-brand-add" id="side-new">
+        <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <span class="side-label">New brand</span>
+      </button>
+
+      <!-- Library sits with the other places you go, rather than up top with
+           the one thing you do. Every video ever sent lives here, once, with
+           the scripts made from it nested inside. -->
+      <button type="button" class="side-link" id="nav-library">
+        <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H9v16H5.5A1.5 1.5 0 0 1 4 18.5zM11 4h3.5A1.5 1.5 0 0 1 16 5.5v13a1.5 1.5 0 0 1-1.5 1.5H11z"/><path d="M18.2 5.6l1.9 13.2"/></svg>
+        <span class="side-label">Library</span>
+        <span class="side-count" id="nav-library-n"></span>
+      </button>
+
+      <div class="side-head">Brands</div>
+      <div class="side-list" id="side-list"></div>
+
+      <div class="side-foot">
+        <!-- Scripts used against the account's allowance. Always visible rather
+             than only near the end: a limit you discover at 50 is a wall, and a
+             limit you can see from the first script is just how it works. -->
+        <div class="side-quota" id="side-quota">
+          <span id="side-quota-text"></span>
+          <span class="quota-bar" aria-hidden="true"><i id="side-quota-fill"></i></span>
+        </div>
+        <div class="side-who"><span id="sync-state" class="sync-state"></span> <span id="side-who"></span></div>
+        <!-- Plan sits directly under the quota rail on purpose: the meter is
+             where someone learns they are running out, and this is the answer
+             to that. viewBox, stroke-width and .side-ico match the neighbouring
+             buttons exactly or the icon sits a pixel off. -->
+        <button type="button" class="side-link" id="nav-plan">
+          <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg>
+          <span class="side-label">Plan</span>
+        </button>
+        <button type="button" class="side-link" id="nav-feedback">
+          <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-5a8.4 8.4 0 0 1-.8-3.6 8.4 8.4 0 0 1 8.4-8.4h.5a8.4 8.4 0 0 1 8 8Z"/></svg>
+          <span class="side-label">Feedback</span>
+        </button>
+        <!-- Sign out lives inside Settings now, not in the rail. It is a rare,
+             irreversible-feeling action sitting one slip away from Feedback;
+             putting it behind a page keeps it out of thumb range. -->
+        <button type="button" class="side-link" id="nav-you">
+          <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg>
+          <span class="side-label">Settings</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- One pane. Everything the app shows is rendered into pane-head and
+         pane-body by creator.js — a brand's scripts, the Library, Settings,
+         Feedback, the composer. The rail says where you are; this says what.
+         A <div>, NOT a <main> — one <main> per document, and #lp-main is it.
+         .pane already neutralises every main{} declaration (padding: 0;
+         margin: 0; max-width: 100%), so this carries no visual change. -->
+    <div class="pane">
+      <!-- Phones only (see .pane-mark): the rail is a drawer there, so this is
+           the only lynxr mark on screen once it is closed. -->
+      <svg class="pane-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+      <div class="pane-scroll" id="pane-scroll">
+        <div class="pane-head" id="pane-head" tabindex="-1"></div>
+        <div class="pane-body" id="pane-body"></div>
+
+        <!-- Placed inside .pane-scroll, not after .shell: this is the element
+             that actually scrolls at desktop widths (.shell is min-height:
+             100svh and never scrolls itself), so it is both where the footer
+             belongs visually and what makes the wordmark animate.
+             class="site-footer", NOT id — the merged home already has the
+             marketing footer's id="site-footer" above, and two elements
+             cannot share an id. Same for .foot-wordmark. -->
+        <footer class="site-footer">
+          <div class="foot-wordmark" aria-hidden="true">lynxr.</div>
+          <div class="foot-grid">
+            <div class="foot-brand">
+              <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+              <p>The format intelligence behind <span class="entity">Lynx Media Group</span>,
+                turned into a script for the brand you're writing for.</p>
+            </div>
+            <div class="foot-col">
+              <div class="foot-label">lynxr</div>
+              <!-- Feedback is a view, not a URL — wired in creator.js exactly
+                   like nav-feedback, rather than navigating. -->
+              <button type="button" class="foot-link" id="foot-feedback">Feedback</button>
+              <a class="foot-link" href="/privacy/">privacy policy</a>
+              <a class="foot-link" href="/terms/">terms of service</a>
+              <a class="foot-link" href="/refunds/">refund policy</a>
+              <a class="foot-link" href="/accessibility/">accessibility</a>
+            </div>
+            <div class="foot-col">
+              <div class="foot-label">socials</div>
+              <a class="foot-link" href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">Instagram</a>
+              <a class="foot-link" href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">TikTok</a>
+              <a class="foot-link" href="https://www.linkedin.com/company/lynxr" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            </div>
+            <div class="foot-col">
+              <div class="foot-label"><span class="entity">Lynx Media Group</span></div>
+              <a class="foot-link" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">lynxmediagroup.org</a>
+            </div>
+          </div>
+          <div class="foot-legal">&copy; <span class="entity">Lynx Media Group LLC</span> 2026. All rights reserved.</div>
+        </footer>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- The privacy policy, shown without leaving the page. Deliberately EMPTY: the
+     text is fetched from /privacy/ at open time rather than duplicated here, so
+     there is exactly one copy of the policy to keep accurate. A second copy
+     pasted into this file would be wrong the first time the real one changed,
+     and nobody would notice. -->
+<div class="modal" id="policy-modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="policy-modal-h">
+    <div class="modal-head">
+      <span class="modal-title" id="policy-modal-h">privacy policy</span>
+      <button type="button" class="ghost icon-only" id="policy-close" aria-label="Close">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="policy-body" tabindex="0"></div>
+  </div>
+</div>
+
+<!-- THE SEND CONFIRMATION. Opened when a link is sent, showing the lynxr
+     mark working, which phase the worker is in, and how long is left. IT
+     DOES NOT CLOSE ITSELF — not when the script lands, not on a timer, not
+     on a backdrop click (owner, 2026-08-17: "dont close it unless the user
+     presses to close it"). Only the X, Escape, or the "Read it" button
+     close it. Empty here; creator.js fills #send-body. -->
+<div class="modal sendmodal" id="send-modal" hidden>
+  <div class="sendbox" role="dialog" aria-modal="true" aria-labelledby="send-title">
+    <div class="sendbox-head">
+      <span class="sendbox-title" id="send-title">your script</span>
+      <button type="button" class="ghost icon-only" id="send-close" aria-label="Close">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="sendbox-body" id="send-body"></div>
+  </div>
+</div>
+
+<!-- THE TELEPROMPTER. The reading band is first and pinned to the top of the
+     viewport on purpose: the front camera sits above the screen, so text read
+     from the middle produces footage of someone looking down. Controls go at
+     the bottom, out of frame and within thumb reach.
+     Everything here is empty — creator.js fills it. No ${...} in this file. -->
+<div class="tp" id="tp" hidden>
+  <div class="tp-band" id="tp-band">
+    <div class="tp-scroll" id="tp-scroll"></div>
+    <div class="tp-mark" aria-hidden="true"></div>
+  </div>
+
+  <!-- The camera fills the gap between the reading band and the controls. It is
+       muted and playsinline on purpose: an unmuted preview feeds the mic back
+       through the speaker, and without playsinline iOS takes the video
+       fullscreen and covers the teleprompter with it. -->
+  <div class="tp-stage" id="tp-stage">
+    <video class="tp-cam" id="tp-cam" muted playsinline autoplay></video>
+    <span class="tp-dot" id="tp-dot">rec</span>
+    <div class="tp-count" id="tp-count" role="status" aria-live="assertive" hidden></div>
+  </div>
+
+  <div class="tp-foot">
+    <div class="tp-meta">
+      <span class="tp-brand" id="tp-brand"></span>
+      <!-- Appears once a take exists. A plain download link, not an upload:
+           the file goes straight to the device and never touches a server. -->
+      <a class="tp-save" id="tp-save" download hidden>save take</a>
+      <span class="tp-len" id="tp-len"></span>
+    </div>
+
+    <!-- Icon-only, so every aria-label carries the entire meaning: with no text
+         inside, a screen reader would announce these as just "button".
+         Speed uses chevrons and text size uses the two A's, deliberately NOT
+         two identical minus/plus pairs — side by side those are impossible to
+         tell apart at a glance, which is the one thing that matters when you
+         are reaching for one mid-take. -->
+    <div class="tp-row">
+      <button type="button" class="ghost icon-only" id="tp-slower" aria-label="Slower" title="Slower">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          ><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
+      </button>
+      <span class="tp-rate" id="tp-rate">1.0&#215;</span>
+      <button type="button" class="ghost icon-only" id="tp-faster" aria-label="Faster" title="Faster">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          ><path d="M13 17l5-5-5-5M6 17l5-5-5-5"/></svg>
+      </button>
+
+      <span class="tp-gap"></span>
+
+      <button type="button" class="ghost icon-only" id="tp-smaller" aria-label="Smaller text" title="Smaller text">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          ><path d="M7.5 17l4.5-9 4.5 9M9.4 13.6h5.2"/></svg>
+      </button>
+      <button type="button" class="ghost icon-only" id="tp-bigger" aria-label="Bigger text" title="Bigger text">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          ><path d="M4 19l8-14 8 14M7.6 13.5h8.8"/></svg>
+      </button>
+    </div>
+
+    <div class="tp-row tp-main">
+      <button type="button" class="ghost icon-only" id="tp-restart" aria-label="Start again" title="Start again">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+          ><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+      </button>
+
+      <!-- Both faces live in the markup and CSS swaps them on aria-pressed, the
+           same way the password eye does. Writing textContent onto this button
+           would delete its svg outright — the bug armDelete already shipped
+           once, and it is not worth shipping twice. -->
+      <button type="button" class="btn tp-play" id="tp-play" aria-pressed="false"
+        aria-label="Start recording" title="Start recording">
+        <svg class="ico icon-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
+          ><circle cx="12" cy="12" r="8"/></svg>
+        <svg class="ico icon-off" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
+          ><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
+
+      <button type="button" class="ghost icon-only" id="tp-close" aria-label="Done" title="Done">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Root-relative, because this file lives at /preview/ during Stage A and at
+     the root from Stage B on — root-relative resolves correctly from both.
+     home.js before creator.js: creator.js's hero composer only sets a `ref` on
+     the seats-full link when nothing inbound has already claimed one, and
+     home.js's carry-utm loop must have run first for that check to mean
+     anything. -->
+<script src="/site.js?v=20260826q" defer></script>
+<script src="/footer.js?v=20260826q" defer></script>
+<script src="/dotgrid.js?v=20260826q" defer></script>
+<script src="/home.js?v=20260826q" defer></script>
+<script src="/creator.js?v=20260826q" defer></script>
 </body>
 </html>

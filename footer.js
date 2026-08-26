@@ -1,18 +1,24 @@
 /* ---------------------------------------------------------------------------
-   THE SPLIT-FLAP WORDMARK — shared by all three surfaces (the public pages,
-   the creator app, the agency app). Self-initialising and self-contained: it
-   does nothing unless it finds #foot-wordmark and #site-footer, and exports
-   nothing, so a page that doesn't have a footer pays nothing for loading
+   THE SPLIT-FLAP WORDMARK — shared by every surface (the public pages, the
+   creator app, the agency app, and the merged home, which carries TWO
+   footers in one document). Self-initialising and self-contained: it does
+   nothing unless it finds a <footer> containing a .foot-wordmark, and
+   exports nothing, so a page that doesn't have one pays nothing for loading
    this file, and no app ever needs to call in.
 
    Lifted out of app.js's old initFooter() — the wordmark half of that
    function touched no app state (no fmt(), no activateTab(), no rows), so it
    lifts out cleanly. app.js keeps #foot-count and the .foot-link[data-tab]
-   wiring, which are agency-only concerns. */
+   wiring, which are agency-only concerns.
+
+   ONE wire() PER FOOTER, not a single instance keyed on an id. The merged
+   home has two <footer> elements — the marketing one and the app's in-pane
+   one — and only the first can carry id="site-footer"/"foot-wordmark"; the
+   second is class-only (see app.css). Querying every <footer> on the page
+   and wiring whichever ones actually have a .foot-wordmark inside them
+   covers both without either needing an id. */
 (() => {
-  const mark = document.getElementById("foot-wordmark");
-  const foot = document.getElementById("site-footer");
-  if (!mark || !foot) return;
+  function wire(foot, mark) {
 
   // Slot-machine wordmark: each character spins through random glyphs and
   // locks in left-to-right as the footer scrolls into view. At the bottom of
@@ -98,4 +104,10 @@
   // and this is what re-runs update() without either app needing to call in.
   new ResizeObserver(update).observe(foot);
   update();
+  }
+
+  document.querySelectorAll("footer").forEach((foot) => {
+    const mark = foot.querySelector(".foot-wordmark");
+    if (mark) wire(foot, mark);
+  });
 })();

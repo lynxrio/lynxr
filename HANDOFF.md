@@ -128,6 +128,257 @@ real rather than a dead channel.
 
 ## Where this left off (read this first)
 
+**ALSO 2026-08-26 — THE LANDING'S LOVABLE PASS, owner-driven iteration burst.**
+Stamp `20260826a`. Nine directives applied in sequence, each verified painted:
+
+- **The 624px squish had a NAME COLLISION under it**: the merged page's
+  `<body class="home">` (Stage A's state flag — `body.home #gate` etc.)
+  collided with `.home`, the WAITLIST page's 720px centered-column layout
+  class, jamming the entire landing into a strip; and the body lacked `.lp`,
+  so the agency `main{max-width:1180px}` stacked a second cap. Fix: the layout
+  rule is `main.home` now (the waitlist's markup is `<main class="home">`),
+  and the landing body is `class="lp home"`. Same word, two jobs, element
+  selector keeps them apart — the comment at the rule says so.
+- **Hero = the app's opening verbatim minus the mark**: `.newscript-greet`
+  with "paste a video, get a script" as the H1; the X mark removed by owner
+  order ("get rid of the logo at the top" — the bar's wordmark carries
+  identity). The lede, the "25 free scripts. no card." line and the hero
+  get-started button are all REMOVED by owner order; the composer is the
+  hero's only CTA, capped at 720px (it measured 1072px and read as a
+  stretched form field; Lovable's box is ~700).
+- **The bar is INFUSED, not boxed** ("dont make this its own box"): on
+  body.home only — transparent, no border, no blur, and STATIC so it scrolls
+  away with the hero; sticky-with-transparency was the one combination that
+  could not work. "sign in" and "pricing" are gone from the landing bar and
+  its burger menu by owner order (get started is the single auth entry — the
+  gate's own switch serves returning creators; footer pricing link kept).
+- **The hero owns the first screen on every device** ("it looks like this is
+  all there is but if you scroll there is more"): 100svh minus bar, headline
+  at clamp(34px,5.2vw,62px) scoped to the hero (the app's signed-in greet
+  keeps its size), sections below the fold.
+- **Phone bar fits by dropping the wordmark TEXT, not a control**: toggle +
+  CTA + burger measured ~400px vs a 375px bar and the burger painted half
+  off-screen; mark-only wordmark (the agency's own pattern) bought it back.
+  Verified: burger right edge 350 ≤ 375, zero horizontal overflow.
+- **A `${...}`-in-HTML violation was written and caught mid-edit** — the exact
+  mistake CLAUDE.md warns about; it became an HTML comment before ever
+  painting. The rule earns its place.
+- **Third round, stamps `20260826e`→`k`:** bar content capped at 1200px on
+  wide monitors ("less spread out"); bar toggle + CTA matched at the old
+  toggle's 24px on desktop and at the burger's 44px touch floor on mobile;
+  CTA side padding tightened; the toggle capsule FOLLOWS THE THEME now (white
+  capsule/ink knob/deeper amber in light — the fixed-ink mockup capsule "stands
+  out too much" on paper); hero placeholder is "paste instagram/tiktok link"
+  and TYPES ITSELF OUT (site.js one-shot, reduced-motion gets it instantly,
+  first focus hands over the full text); headline now clamp(24px,2.6vw,36px)
+  after two "make it smaller" rounds. THREE REAL BUGS from this burst, all
+  found by the owner using the thing: (1) the dropdown painted 3,400px down
+  the page — body.home .lp-bar was `position: static`, orphaning the panel's
+  absolute anchor; it is `relative; z-index:30` now, which scrolls identically;
+  (2) the menu's get-started painted WHITE-ON-WHITE in light mode — `.lp-menu
+  a` (0,1,1) nukes .btn's ink ground exactly as that rule's own comment warns;
+  settled by `.lp-menu .btn` (0,2,0); (3) a tap-open drew a focus ring around
+  the first menu item — programmatic .focus() after a click counts as
+  focus-visible in Chrome; focus now moves into the panel ONLY on keyboard
+  opens (`e.detail === 0`). Menu theme row is label-less. A first
+  size-match attempt at (0,2,0) LOST to a later `.lp-bar .btn` in source
+  order — the winning rule sits at the END of the file with a comment saying
+  why.
+- **Second round, stamp `20260826d`:** hero rhythm re-measured off the
+  reference and biased BELOW center (10svh top pad; headline top 49%, group
+  center 58% at 1440 — the first cut read top-heavy); headline reduced to
+  clamp(28px,3.6vw,44px) because mono runs ~1.4x wider than the reference's
+  sans, so matching its 64px overshot the visual mass ("make this smaller");
+  and on a phone the theme toggle moved INTO the burger dropdown as a
+  labelled "theme" row (bar = mark + CTA + burger) — a second .theme-toggle
+  instance in .lp-menu that theme.js's delegation wires for free. Verified:
+  bar copy hidden under 760, menu copy flips the theme both ways.
+
+**ALSO 2026-08-26 — THE FLIP HAPPENED BY OWNER ORDER: the merged page IS
+`index.html` now. `/preview/` is deleted.** Stamp `20260825w`, back to 14
+pages. Owner: "make edits to the lynxr main page, dont add a preview url" —
+so the staging step was skipped and the plan's Stage B flip landed early,
+WITHOUT its redirect-stub half (see below). The old landing is recoverable:
+`git show HEAD:index.html`.
+
+**The hero was then rebuilt as the app's own opening** (owner, with
+screenshots: "pretty much replace this with this" + "add a get started
+instead of the try it and lead them to the login/signup"): the `.newscript-*`
+classes VERBATIM — mark, "paste a video, get a script" as the H1, the real
+composer, "25 free scripts. no card.", and an ink `get started 🚀` (`<a
+href="/waitlist/" data-gate="up">` — href is the no-JS fallback, the gate
+opens in create-account mode). The old "any video → tailored scripts" phrasing
+survives in `<title>` and meta/og for search. Verified painted: new H1, old
+hero absent from the DOM, get-started opens the gate, Back closes it.
+
+**WHAT THE EARLY FLIP LEAVES OPEN (was Stage B's other half):**
+- `/creatorsonly/` still serves the FULL app, untouched — no redirect stub
+  yet. Bookmarks and in-flight auth emails keep working there. The stub (with
+  its #hash-preserving requirement) can land any time.
+- Sign-IN at `/` works (password flow needs no redirect allow-list). Sign-UP
+  confirmation emails still carry redirect_to per CREATOR_PATH — the Supabase
+  Redirect URLs owner action (+ CREATOR_PATH flip) is still pending. Signup is
+  seat-closed anyway, so nothing is broken TODAY; do the dashboard action
+  before opening seats.
+- Stage C (copy/SEO polish) unrun.
+
+**ALSO 2026-08-26 — THE LANDING-APP MERGE, STAGE A: BUILT AND VERIFIED at
+/preview/.** Plan: `~/.claude/plans/landing-app-merge.md` (23 steps, 3 stages;
+owner pre-approved). Stamp `20260825v`, 15 pages (preview/ joined the list).
+
+The merged page lives at `/preview/` — noindex, not in the sitemap, invisible
+— so the whole thing is walkable at localhost:8811/preview/ before anything
+public moves. Hero = the REAL composer (Lovable-shaped); signed-out visitors
+get marketing sections below; sign-in tears the marketing layer down and the
+app takes the page.
+
+**TWO BUGS THE MERGE SURFACED, both fixed, both verified live:**
+1. `home.js` and `creator.js` both declared top-level `const SB_URL`/`SB_KEY`
+   — never on one document before; on the merged page the second declaration
+   was an early SyntaxError that killed ALL of creator.js (composer and gate
+   never wired). Both files ALSO declare `say()`, which would not even error —
+   the later declaration silently rebinds the earlier one's calls. Fix:
+   **home.js is now one IIFE** (248 lines, nothing external references its
+   names — verified by grep before wrapping). The comment on the IIFE says it
+   is load-bearing; do not unwrap.
+2. `site.js`'s `LP_TEARDOWN` (IIFE-level) referenced `onKeydown`/
+   `onPointerdown` declared as consts INSIDE `if (burger && menu)` — the
+   FIRST CALL threw "onKeydown is not defined". The executor's structural
+   `typeof LP_TEARDOWN === "function"` check passed; only enterApp() actually
+   calling it found this. Handlers are now declared at IIFE level and assigned
+   in the block; on burger-less pages they stay undefined and the teardown's
+   removeEventListener calls are no-ops. LESSON: a teardown must be CALLED in
+   verification, not typeof-checked.
+
+**THE FULL ANONYMOUS FLOW, VERIFIED PAINTED at /preview/:** tiktok/instagram
+badge correctly, youtube refuses ("not supported"); submitting a good link
+opens the gate, stashes `{url, at, plat}` in sessionStorage
+(`lynxr_pending_paste`) and pushes a history state; **Back closes the gate**;
+the bar's "sign in" opens it too; `unlock()` (the stubbed signed-in state)
+shows the app, removes the marketing DOM entirely, and **consumePendingPaste
+restores the pasted link into the app composer** — badged, with "your link is
+ready — press send when you are". The screenshot of that state is the whole
+product promise in one frame.
+
+**STAGE B IS BLOCKED ON ONE OWNER ACTION:** Supabase → Authentication → URL
+Configuration → Redirect URLs → ADD `https://lynxr.io/` and KEEP
+`https://lynxr.io/creatorsonly/`. Then the executor runs Stage B (the flip +
+the fragment-preserving /creatorsonly/ stub — the auth tokens arrive in the
+#hash and the plan forbids meta-refresh for exactly that reason) and Stage C.
+
+**Known transient until Stage B ships:** Step A6 rewrote home.js's campaign-
+tag carrier to a `[data-carry-utm]` loop; the LIVE `/` page's "try it" button
+(old markup, no attribute) stops carrying `?ref=`/`?utm_` to /waitlist/ until
+the flip. Links work; only attribution is affected. Plan-intended.
+
+Not verifiable without live signup state: the seats-full fallback copy and a
+real end-to-end signup. Everything else in Stage A is measured and green.
+
+**ALSO 2026-08-26 — BOXY (kept, revert-ready), platforms cut to TikTok +
+Instagram everywhere, dark stays default.** Stamp `20260825s`.
+
+**Boxy:** all four radius tokens are 0 (`--r-pill/--r-round/--r-card/
+--r-inner`, app.css ~line 95). Owner: "i like the boxy for now, be ready to
+revert" — **the revert is restoring four values documented in the comment
+right above them: 999px / 50% / 16px / 10px**, plus one literal (the 3px on
+`.bp-val[contenteditable]`, also now 0). The whole experiment was possible in
+four lines because a prior pass routed all 129 radius uses through the tokens.
+
+**Platform cut, completed to the last copy:** PLATFORMS in creator.js and
+app.js, SUPPORTED_HOSTS in process_adaptations.py (the enforcing copy) and
+process_blueprints.py, composer placeholder, landing hero + meta/og, the two
+shared JSON-LD sentences across 12 pages, both FAQ answers AND their FAQPage
+JSON-LD copies (which said the old thing while the visible page said the new —
+structured data must not contradict the page), terms' service description,
+accessibility's player line. Verified painted: typing a YouTube/Facebook link
+badges "not supported"; TikTok/Instagram badge normally; the worker refuses
+independently. DELIBERATE KEEPS, do not "fix": the two CSP metas still list
+www.youtube.com (old records hydrate titles through its oEmbed), privacy's and
+terms' corpus descriptions (the scraped corpus genuinely holds YouTube rows),
+and FAQ's four remaining mentions are the honest "not accepted right now"
+statements. A verification lesson is attached to this: my sweep grep required
+70 trailing chars and declared victory early — two promises survived it and
+were caught only on a PAINTED screenshot. Sweep with plain `grep -ci`, then
+read the survivors.
+
+**Dark default:** owner asked for it; it was already true (no
+prefers-color-scheme, light only by explicit choice).
+
+**ALSO 2026-08-26 — BRAND GROUPS ARE COLLAPSIBLE BOXES, the views badge text
+is white, and APIFY IS VERIFIED FOR YOUTUBE (not yet integrated).** Stamp
+`20260825p`.
+
+**Brand boxes:** the Library's by-brand groups are `<details class="lib-group"
+data-gid>` now — card border/radius/surface, a rotating ▸ caret, head becomes
+the summary; a closed group is one calm row (its underline and gap belong to
+the open state only). PERSISTENCE IS INVERTED relative to every other
+disclosure: groups ship open, so openDisclosures records `closedGids` — the
+ones the creator closed — and restoreDisclosures re-closes exactly those.
+Recording open ones instead would re-open every closed group whenever a new
+group appeared. Verified: close one, renderPane(), restore — it stays closed
+while its sibling stays open. The brand-name button keeps its second job
+(navigating to the brand view); its click also toggles the disclosure, which
+does not matter because the pane re-renders.
+
+**Views badge:** `.lib-stat` carries its own `color: var(--text-3)`, which
+beat the white inherited from the badge — the count painted grey on the dark
+ground. Stated explicitly at tile scope now; count and eye both measure
+rgb(255,255,255).
+
+**APIFY DOWNLOADS YOUTUBE — PROVEN ON THE REAL ACCOUNT, 2026-08-26.** Ran
+`streamers/youtube-video-downloader` (same vendor family as the scrape
+pipeline) against the exact Short Fly cannot fetch: HTTP 200, 9,908,248 bytes,
+`v.mp4` with BOTH streams, 35.0s duration, via run-sync + the KV-store file
+(expires ~3 days; fetch immediately). **Wall time 71 seconds** for the actor
+run — a YouTube paste would cost roughly double the current end-to-end time,
+only for YouTube. Pricing is PAY_PER_EVENT per MB downloaded (~10MB/short);
+exact rate is on the actor page in the Apify console. NOT integrated yet:
+needs a youtube branch in the download path calling the actor, plus the
+empty-error fix (a failed card currently shows status "error" with EMPTY
+error/diag while the worker logs the full reason). Owner asked "if i give
+apify more money, will youtube work" — the answer, measured: yes.
+
+**ALSO 2026-08-26 — TILES ARE FULL-COVER NOW, and YouTube is diagnosed but
+NOT fixed.** Two separate things, both owner-driven.
+
+**Tiles (shipped, stamp `20260825n`):** "get rid of the caption and just have
+the full card be the thumbnail", status bottom-left like the time, views
+badged too. Four corners, one convention — views top-left, ↗ top-right,
+status bottom-left, duration bottom-right, every overlay on `--badge-ground`.
+The caption is HIDDEN, not removed (clip pattern; still the tile's accessible
+name; the opened card still shows it). Status colors on the cover chip are
+re-declared to the DARK values — the badge ground is dark in both themes and
+light mode's darker `--good` would vanish on it (same move as .ref-media).
+Two traps hit and documented in the CSS: absolute children anchor to the
+summary's PADDING BOX (a -2px "compensation" painted badges flush into the
+corner; plain 6px offsets match every other badge at 7px painted), and the
+empty-views guard must key on `.lib-views`, NOT `.lib-stat` — `.lib-len` is
+also a `.lib-stat`, so a views-less tile painted a 14x4px husk. Verified
+painted: chip 7/7, views 7/7, dur 7/8 from the card corners; zero-view tile
+shows no badge; measured on the live grid with stubbed records.
+
+**YouTube (NOT fixed — needs an owner decision):** every YouTube paste dies at
+download on the worker. Live evidence, Fly logs 2026-08-26 16:06Z: `Sign in to
+confirm you're not a bot … [permanent]`. **YouTube has hard-blocked Fly's
+datacenter IP range** — tested all five yt-dlp player clients (default, tv,
+web_safari, web_embedded, android_vr) FROM the Fly box via `fly ssh console`:
+all five refused identically. Local tests pass (residential IP), which is why
+earlier session testing looked green — test from Fly or it means nothing.
+The cookie route is DECLINED precedent (Instagram, 2026-08-18 — see
+[[lynxr-age-gate-auth-declined]]). Remaining options, in order:
+(a) test whether GitHub Actions runner IPs pass YouTube — adaptations.yml
+already runs the whole pipeline there on cron + workflow_dispatch, so if GH
+IPs work the fix is routing youtube jobs to that path (no gh CLI on this Mac;
+trigger from github.com or install gh);
+(b) Apify — already a paid dependency for IG views; fits the "paid API, not a
+session" precedent; costs per video;
+(c) if neither: refuse YouTube at the paste box honestly rather than letting
+creators spend a paste on a guaranteed dead card.
+**Separate real bug found on the way:** the failed card showed status "error"
+with EMPTY error/diag — the worker logged the full reason and the record got
+none of it, so the creator saw a dead card with no explanation. Worth fixing
+regardless of which route is chosen.
+
 **ALSO 2026-08-26 — THE ONE-CLICK THEME TOGGLE, everywhere.** Owner: "have
 everyone be able to change it with one click and then it toggles that side with
 a light bulb icon and a moon icon" (with a sun/moon slider mockup — sun+moon is

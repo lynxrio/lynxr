@@ -14,6 +14,21 @@
    out by invitation, and a link on a public page would undo that. A returning
    creator has the URL already; these pages do not need to help them. */
 
+/* THE WHOLE FILE IS AN IIFE, AND THAT IS LOAD-BEARING — NOT STYLE.
+   The merged landing page (Stage A, 2026-08-26) loads home.js AND creator.js
+   as classic scripts on ONE document for the first time. Both declared
+   top-level `const SB_URL` / `const SB_KEY`; the second declaration is an
+   early SyntaxError that aborted ALL of creator.js before one statement ran —
+   the hero composer and the gate simply never wired. Both also declare
+   `say()`, which would not even error: the later declaration silently rebinds
+   the earlier one's calls. Wrapping THIS file (248 lines, nothing outside it
+   references any of its names — verified) rather than creator.js (7,600
+   lines whose globals the verification harness uses) makes every top-level
+   name here private and retires both collisions at once. Do not unwrap; do
+   not add a new top-level declaration below outside the IIFE. */
+(function () {
+
+
 const SB_URL = "https://esakjfogplfszievvabi.supabase.co";
 // Public by design — the repo is public. It is safe only because the waitlist
 // policy grants INSERT and nothing else: no one can read the list back with it.
@@ -133,30 +148,35 @@ function say(text, kind) {
    turning away a real creator is the whole point of the page. */
 const looksLikeEmail = (s) => /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(s);
 
-/* THE "TRY IT" BUTTON, on / only.
+/* CARRYING A CAMPAIGN TAG ONTO EVERY LINK THAT NEEDS IT, on / only.
 
    The wait list is a separate page now, so a campaign tag put on the link that
    was shared — lynxr.io/?ref=tiktokbio — sits in the URL of the page BEFORE the
    form and would be dropped at the hop. Every signup would then read "landing",
    which is the exact blindness the source column was added to fix.
 
+   Used to be one hard-coded element (#try-it, the old CTA). The merged home
+   dropped that element and added a second link that needs the same treatment
+   — the gate's seats-full fallback (#gate-full-link) — so this is now a loop
+   over every element carrying data-carry-utm rather than a single lookup.
+
    Only the two keys signupSource() actually reads are carried (`ref`, and
    anything utm_*): forwarding the whole query string would drag arbitrary
    visitor-supplied junk onto our own URL for no gain. An existing key on the
    href always wins, so a hand-written link cannot be overridden by a query
-   param. Failure here must never break the link — it is wrapped, and the
-   plain href is a working navigation on its own with JS off entirely. */
-const tryIt = $("try-it");
-if (tryIt) {
+   param. Failure on any one link must never break the others or the page —
+   each is wrapped separately, and every plain href is a working navigation on
+   its own with JS off entirely. */
+for (const el of document.querySelectorAll("[data-carry-utm]")) {
   try {
     const from = new URLSearchParams(location.search);
-    const to = new URL(tryIt.getAttribute("href"), location.href);
+    const to = new URL(el.getAttribute("href"), location.href);
     for (const [k, v] of from) {
       if ((k === "ref" || k.startsWith("utm_")) && !to.searchParams.has(k)) {
         to.searchParams.set(k, v);
       }
     }
-    if (to.search) tryIt.setAttribute("href", to.pathname + to.search);
+    if (to.search) el.setAttribute("href", to.pathname + to.search);
   } catch { /* a malformed query is not worth breaking the only button on */ }
 }
 
@@ -241,3 +261,4 @@ if ($("wait-form")) $("wait-form").addEventListener("submit", async (e) => {
     btn.disabled = false;
   }
 });
+})();

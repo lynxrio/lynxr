@@ -2929,10 +2929,10 @@ function agoLabel(iso) {
 const PLATFORMS = [
   ["TikTok",    ["tiktok.com"]],
   ["Instagram", ["instagram.com"]],
-  ["Facebook",  ["facebook.com", "fb.watch", "fb.com"]],
-  ["YouTube",   ["youtube.com", "youtu.be"]],
+  // Facebook and YouTube are off — same cut as creator.js, same date, same
+  // reason; see the comment there. Old rows keep their labels.
 ];
-const SUPPORTED_LIST = "TikTok, Instagram, Facebook or YouTube";
+const SUPPORTED_LIST = "TikTok or Instagram";
 const hostOf = (raw) => {
   try {
     const s = String(raw || "").trim();

@@ -92,10 +92,16 @@
        placeholder, and a script row nested inside a library card). Those are
        "no corner at all" because something else owns the clip, not a value on
        this scale. */
-    --r-pill:    999px;
-    --r-round:   50%;
-    --r-card:    16px;
-    --r-inner:   10px;
+    /* BOXY, 2026-08-26 (owner: "make everything boxy, no more rounded
+       things — just try it out"). The whole point of routing every radius
+       through these four is that this experiment is four lines; the old
+       values were 999px / 50% / 16px / 10px, and putting them back is
+       reverting this block. --r-round squares the circles too — the toggle
+       knob, the play disc, the ↗ badge — which is what "everything" means. */
+    --r-pill:    0;
+    --r-round:   0;
+    --r-card:    0;
+    --r-inner:   0;
     /* Legacy alias. Nothing in this file or in any .js reads it any more —
        kept so a stray `var(--radius)` written from memory lands on the
        container token rather than resolving to nothing and painting a square. */
@@ -792,7 +798,11 @@
      does not hold anyone. Still capped rather than full-bleed — a bar running
      the whole width of a desktop pane exaggerates every pixel of movement and
      makes the slow phases look stalled. */
-  .eta-rail { display: flex; gap: 3px; margin-top: 10px; max-width: 340px; }
+  /* gap: 0 — ONE continuous bar (owner, 2026-08-26: "dont add the breaks in
+     the progress bar"). The four segments still exist and still size
+     themselves to their phase's real duration; only the seams are gone, so
+     the fill reads as a single line filling left to right. */
+  .eta-rail { display: flex; gap: 0; margin-top: 10px; max-width: 340px; }
   /* The rail is now always in the markup and hidden by attribute until a phase
      is known — and `display: flex` above outranks the UA stylesheet's
      [hidden] { display: none }, so without this rule a phase-less script paints
@@ -803,8 +813,13 @@
      phase really takes — hence `flex-grow: 1` here as the pre-paint default
      rather than a fixed basis. `overflow: hidden` is what clips the fill to
      the pill, so the fill needs no radius of its own on its leading edge. */
+  /* Radius lives on the RAIL, not the segments: per-segment pills are what
+     drew the seams, and with the tokens currently 0 the bug would lie dormant
+     and come back the day the rounded look returns. The rail clips its ends;
+     the segments stay flush forever. */
+  .eta-rail { border-radius: var(--r-pill); overflow: hidden; }
   .eta-seg {
-    flex: 1 1 0; height: 4px; border-radius: var(--r-pill);
+    flex: 1 1 0; height: 4px; border-radius: 0;
     background: var(--line-2); overflow: hidden;
   }
   /* THE PART THAT MOVES. Width is written by paintEta through CSSOM (an inline
@@ -1344,7 +1359,7 @@
      which is what "expands it too much" meant. Nothing here changes the box:
      no border, no padding, no font change between reading and typing — only
      colour. A 1px border on focus would reflow every line in the card. */
-  .bp-val[contenteditable] { cursor: text; border-radius: 3px; caret-color: var(--text); }
+  .bp-val[contenteditable] { cursor: text; border-radius: 0; caret-color: var(--text); }
   /* The affordance is a hint, not a control: a faint wash on hover says the
      words are yours to change without printing a box around every line. */
   .bp-val[contenteditable]:hover { background: var(--surface-2); }
@@ -2251,7 +2266,11 @@
      The giant wordmark starts as an outline and fills left-to-right as the
      footer scrolls into view (fill width driven from JS via CSSOM — the
      strict CSP allows element.style, just not style="" attributes). */
-  #site-footer {
+  /* THE MERGED HOME HAS TWO FOOTERS — the marketing one keeps id="site-footer"
+     (it was there first, and every other page's footer keeps matching it
+     unchanged); the app's in-pane footer on that same document can only carry
+     a class, since an id has to be unique. Every rule below names both. */
+  #site-footer, .site-footer {
     border-top: 1px solid var(--line);
     margin-top: 72px;
     padding: 48px 24px 28px;
@@ -2263,11 +2282,11 @@
   /* Agency: `main` already caps width to 1180px and supplies its own 24px
      padding, so the footer just fills that box rather than applying a
      second, narrower measure on top of it. */
-  #app #site-footer { max-width: none; margin-left: 0; margin-right: 0; }
+  #app #site-footer, #app .site-footer { max-width: none; margin-left: 0; margin-right: 0; }
   /* Creator app: .pane-scroll has no max-width of its own — .pane-body and
      .composer both align to --gutter instead of centering a narrower box —
      so the footer matches them rather than capping independently. */
-  .pane-scroll #site-footer {
+  .pane-scroll #site-footer, .pane-scroll .site-footer {
     padding-left: var(--gutter, 24px); padding-right: var(--gutter, 24px);
   }
   /* Slot-machine wordmark: JS splits "lynxr." into one span per character;
@@ -2314,7 +2333,7 @@
      the wait-list link moved into this footer the rocket ended up flush against
      the label ("try it&#128640;"). Same 8px, stated as a margin because making
      every footer link a flex container to space one glyph is the wrong trade. */
-  #site-footer .foot-link .rk { margin-left: 8px; }
+  #site-footer .foot-link .rk, .site-footer .foot-link .rk { margin-left: 8px; }
   .foot-legal { padding-top: 22px; color: var(--text-3); font-size: var(--fs-125); }
   /* TWO columns on a phone, not one. At a single column the public footer was
      sixteen links in an unbroken vertical run — the owner's words were "clean
@@ -2635,7 +2654,13 @@
      instances rendered after load. theme.js owns the flip; this file only
      draws it. Both icons are always present: the knob simply COVERS the
      inactive one, which is how the mockup works and needs no visibility
-     switching at all. */
+     switching at all.
+
+     THE CAPSULE FOLLOWS THE THEME NOW (owner, 2026-08-26: "the background
+     should be white when they choose white mode, it stands out too much") —
+     the original fixed-ink capsule read as a stray dark block on the paper
+     bar. Light mode inverts the pair: white capsule, ink knob, and the amber
+     deepens because #e8a33d vanishes on white. */
   .theme-toggle {
     position: relative; flex: none; width: 46px; height: 24px; padding: 0;
     border-radius: var(--r-pill); background: #1c1b18; border: 1px solid #ffffff2b;
@@ -2653,6 +2678,10 @@
     transition: left .16s var(--ease);
   }
   html[data-theme="light"] .tt-knob { left: 2px; }
+  html[data-theme="light"] .theme-toggle { background: #ffffff; border-color: var(--line-2); }
+  html[data-theme="light"] .tt-knob { background: #1c1b18; }
+  html[data-theme="light"] .theme-toggle .tt-moon,
+  html[data-theme="light"] .theme-toggle .tt-sun { color: #b0741a; }
   .theme-toggle:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { .tt-knob { transition: none; } }
 
@@ -2662,6 +2691,89 @@
      and .lp-burger go inert (they are no longer grid items) rather than being
      fought; the margins they carry still apply inside the flex row. */
   .lp-actions { justify-self: end; display: flex; align-items: center; gap: 10px; }
+
+  /* The hero's greet block reuses the app's .newscript-* classes verbatim so
+     the signed-out hero and the signed-in opening can never drift apart; only
+     the CTA row under the composer is landing-specific. */
+  .lp-hero .newscript-greet { margin-bottom: 26px; }
+  /* The hero composer is a Lovable-sized box, not a full-measure bar: at the
+     1120px column the bare input measured 1072px and read as a stretched form
+     field rather than a place to drop one link. ~720px is the reference size. */
+  .lp-hero .lp-composer { max-width: 520px; margin-left: auto; margin-right: auto; }  /* 720 read as a stretched bar; owner: "make it horizontally shorter" */
+
+  /* ---- THE MERGED HOME'S LOVABLE STRUCTURE (owner, 2026-08-26: "look at
+     this structure and do the same", desktop + mobile screenshots) ----
+     Three moves, all scoped to body.home so every other public page keeps its
+     capsule bar untouched:
+     1. THE BAR IS FLAT AND FULL-WIDTH — no floating capsule. Sticky with the
+        glass ground and a hairline, the agency header's pattern.
+     2. THE HERO OWNS THE FIRST SCREEN ("it looks like this is all there is
+        but if you scroll there is more"): 100svh minus the bar, content
+        centered a touch high. Sections exist only past the fold.
+     3. THE HEADLINE IS DISPLAY-SCALE. clamp so a phone gets 34px and a
+        desktop 62px; the app's own signed-in greet keeps its size — this is
+        scoped to the hero, not to .newscript-h. */
+  /* NOT A BOX (owner: "dont make this its own box, infuse it into the
+     background"): the home bar is transparent over the dot grid — no ground,
+     no hairline, no blur — and STATIC, so it scrolls away with the hero the
+     way the reference's does. Sticky-with-transparency was the one combination
+     that could not work: the links would collide with content on scroll. */
+  /* `relative`, NOT `static`: it flows and scrolls away exactly like static —
+     but the burger's dropdown panel is absolutely positioned INSIDE this bar,
+     and static handed that anchor to the document: the open menu painted at
+     ~3,400px down, below the footer, which the owner reported as "the drop
+     down doesnt work" (the burger flipped to X over a menu nobody could see).
+     z-index because the panel must overlay the hero that now scrolls past. */
+  body.home .lp-bar { padding: 0; position: relative; z-index: 30; background: transparent; }
+  body.home .lp-bar-in {
+    /* Capped, not edge-to-edge (owner: "make this less spread out") — on a
+       wide monitor the three groups drifted to the viewport's corners. 1200px
+       keeps them in conversation and roughly tracks the 1120px content column
+       below without the wordmark and CTA sitting flush on its edges. */
+    max-width: 1200px; margin: 0 auto; border: 0;
+    background: transparent; backdrop-filter: none;
+    padding: 0 clamp(16px, 3vw, 32px); min-height: 64px;
+  }
+  body.home .lp-hero {
+    min-height: calc(100svh - 64px);
+    display: flex; align-items: center; justify-content: center;
+    /* TRUE CENTER, every viewport (owner: "put it in the center for all
+       views") — this has now been tuned three times: above center read
+       top-heavy, the reference-matched 10svh below-center read low on a tall
+       window. Dead center is the version that survives every screen, so no
+       bias in either direction. */
+    padding: 0;
+  }
+  body.home .lp-hero .newscript-h {
+    /* Smaller than the reference's 64px on purpose (owner: "make this
+       smaller"): mono glyphs run ~1.4x wider than the reference's sans, so
+       matching its pixel size overshot its visual mass by half again. */
+    font-size: clamp(24px, 2.6vw, 36px); line-height: 1.15; letter-spacing: -.01em;
+  }
+  body.home .lp-hero .newscript-greet { margin-bottom: 48px; }
+  .lp-sub {
+    margin: 12px 0 0; color: var(--text-2);
+    font-size: var(--fs-13); line-height: 1.5;
+  }
+  .lp-menu-theme {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; color: var(--text-2); font-size: var(--fs-125);
+  }
+  @media (max-width: 760px) {
+    /* Lovable's phone bar keeps the CTA beside the burger; the global rule
+       hides .lp-actions > .btn under 760px for the capsule pages, so the home
+       opts back in. Toggle(46) + CTA(~150) + burger(44) + gaps + padding
+       measured ~400px against a 375px bar — the actions cell overflowed the
+       grid and the burger painted half off-screen. The wordmark TEXT is what
+       gives: mark-only on a phone (the agency app's own pattern), which buys
+       the ~70px back without dropping any control. */
+    body.home .lp-actions > .btn { display: inline-flex; }
+    body.home .lp-bar .wordmark span { display: none; }
+    /* On a phone the toggle moves INTO the dropdown (owner) — the bar keeps
+       mark + CTA + burger only. The menu row gives it a label and a full-width
+       touch row instead of a 46px target between two buttons. */
+    body.home .lp-actions > .theme-toggle { display: none; }
+  }
   .side-brand .theme-toggle { margin-left: auto; }
   header .theme-toggle { margin-left: auto; }
 
@@ -2681,7 +2793,12 @@
            margin absorbs free space BEFORE flex-grow — so between ~640px and
            820px the pane collapsed to ~470px with the grid either side and an
            inset header rule.
-       The header and body carry their own box, so neutralise all of it. */
+       The header and body carry their own box, so neutralise all of it.
+       On the merged home .pane is a <div>, not a <main> — one <main> per
+       document, and #lp-main is it — but the neutralising declarations below
+       stay regardless: /creatorsonly/-shaped markup (a bare `<main
+       class="pane">`) is still what this comment describes and still what
+       ships on the /creatorsonly/ redirect stub's own history. */
     padding: 0; margin: 0; position: relative;
     flex: 1 1 auto; min-width: 0; max-width: 100%; display: flex; flex-direction: column;
     /* Content is centred by GUTTER, not by max-width, so the header keeps its
@@ -2995,11 +3112,34 @@
   .lib-add { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; font-size: var(--fs-13); }
   .lib-add svg { width: 15px; height: 15px; }
 
-  .lib-group { margin-bottom: 22px; }
+  /* A BOX AROUND EACH BRAND, COLLAPSIBLE (owner, 2026-08-26: "makes the
+     separation between the brands a bit cleaner"). The group is a <details>
+     now; the head is its summary. The box is the card idiom — same border,
+     same radius, one step of surface — so a closed group reads as one calm
+     row and the grids inside stop bleeding into each other. */
+  .lib-group {
+    margin-bottom: 14px; border: 1px solid var(--line);
+    border-radius: var(--r-card); background: var(--surface);
+    padding: 12px 14px;
+  }
   .lib-group-head {
     display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
     padding: 0 2px 7px; border-bottom: 1px solid var(--line); margin-bottom: 9px;
+    cursor: pointer; list-style: none;
   }
+  .lib-group-head::-webkit-details-marker { display: none; }
+  /* A CLOSED GROUP IS ONE ROW: the head's rule and gap under it belong to the
+     open state only. */
+  .lib-group:not([open]) > .lib-group-head { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+  /* The caret leads the name — same rotating-▸ idiom as the platform's other
+     disclosures, drawn in text so it costs nothing. */
+  .lib-group-head::before {
+    content: "\25B8"; flex: none; color: var(--text-3); font-size: var(--fs-12);
+    align-self: center; transition: transform .14s var(--ease);
+  }
+  .lib-group[open] > .lib-group-head::before { transform: rotate(90deg); }
+  @media (prefers-reduced-motion: reduce) { .lib-group-head::before { transition: none; } }
+  .lib-group-head > .lib-group-name { margin-right: auto; }
   .lib-group-name { font-size: var(--fs-14); color: var(--text); text-align: left; }
   .lib-group-meta { font-size: var(--fs-12); color: var(--text-2); white-space: nowrap; }
   .lib-empty { text-align: center; }
@@ -3333,7 +3473,13 @@
      unlisted path handed out by invitation, and the real lock on it is the
      lynxr_staff gate in the database, not the URL.
      --------------------------------------------------------------------- */
-  .home {
+  /* `main.home`, NOT bare `.home` — the merged landing's <body> carries
+     class="home" as a STATE flag (`body.home #gate` etc., the Stage A state
+     machine), and the bare selector jammed that whole page into this 720px
+     waitlist column: at 1440px viewport every section measured 624px wide and
+     the bar's "sign in" wrapped. Same word, two jobs; the element selector is
+     what keeps them apart. The waitlist's own markup is <main class="home">. */
+  main.home {
     min-height: 100svh; display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     padding: 56px 24px; text-align: center; max-width: 720px; margin: 0 auto;
@@ -3901,6 +4047,20 @@
      component (.btn, .ghost, .wordmark, .home-go, .home-n, .entity). Nothing
      here can reach /waitlist/, the two apps, or the legal pages. */
 
+  /* THE MERGED HOME. One document, three layers: #lp-main (marketing),
+     #gate (auth) and #app (the creator app). `body.home` says "this document
+     is the merged home"; `.gate-on` says the auth card is up. #gate is
+     (1,0,0), so `body.home #gate` (1,1,1) is what it takes to beat it.
+     enterApp() in creator.js removes BOTH classes and both marketing nodes
+     the moment sign-in succeeds — a signed-in creator sees no marketing. */
+  body.home #gate { display: none; }
+  body.home.gate-on #gate { display: grid; }
+  body.home.gate-on #lp-main,
+  body.home.gate-on .lp-bar { display: none; }
+  .gate-back { display: block; margin: 0 0 22px; color: var(--text-3); border-bottom: 0; }
+  .gate-back:hover { color: var(--text); }
+  body:not(.home) .gate-back { display: none; }
+
   /* THE <main> ON THESE PAGES CARRIES NOTHING. There is a bare
      `main { padding: 32px 24px 72px; max-width: 1180px; margin: 0 auto }` rule
      further up this file for the two apps, and it was the reason the "full
@@ -4158,8 +4318,12 @@
        so the CTA, toggle and burger share one cell in a .lp-actions flex row)
        — and the old CHILD selector silently stopped matching, which put the
        full "try it" capsule back in a phone bar and overflowed the page
-       sideways. Owner caught it live, 2026-08-26. */
-    .lp-nav, .lp-actions > .btn { display: none; }
+       sideways. Owner caught it live, 2026-08-26.
+       .lp-actions > .lp-signin joins the same rule for the same reason: below
+       760px the bar is toggle + burger only, which is Lovable's shape too —
+       "sign in" moves into the panel with "get started" rather than crowding
+       the capsule. */
+    .lp-nav, .lp-actions > .btn, .lp-actions > .lp-signin { display: none; }
     .lp-burger {
       display: grid; place-items: center; justify-self: end; margin-right: 9px;
       /* 44x44, not 40: this is the ONLY way to reach the nav on a phone, and 40
@@ -4218,13 +4382,20 @@
     }
     .lp-menu[hidden] { display: none; }
     .lp-menu.is-open { transform: none; opacity: 1; }
-    .lp-menu a {
+    /* .lp-menu-link is the panel's own "sign in" — a <button>, not an <a>, so
+       it needs the same look but also its own reset: without width: 100% it
+       shrinks-to-fit like the "get started" pill did before that fix (see the
+       .lp-menu .btn comment below), and without background: none / border: 0
+       it paints as a button rather than a menu row. */
+    .lp-menu a, .lp-menu .lp-menu-link {
       display: block; padding: 13px 18px; border-radius: var(--r-pill);
       color: var(--text-2); font-size: var(--fs-145); border-bottom: 0;
+      width: 100%; text-align: left; background: none; border: 0;
       transition: color .14s var(--ease), background .14s var(--ease);
     }
     /* --surface-2 is the fill cards and chips already use. No new grey. */
-    .lp-menu a:hover, .lp-menu a:focus-visible { color: var(--text); background: var(--surface-2); }
+    .lp-menu a:hover, .lp-menu a:focus-visible,
+    .lp-menu .lp-menu-link:hover, .lp-menu .lp-menu-link:focus-visible { color: var(--text); background: var(--surface-2); }
     /* THREE THINGS HERE ARE FIXES, NOT STYLE, and each was measured broken:
        — `width: 100%`. Without it the pill shrink-to-fit to 121x50 and sat hard
          right inside a 340px panel, reading as a stray chip rather than as the
@@ -4331,6 +4502,18 @@
     color: var(--text-2); font-size: var(--fs-16); line-height: 1.65;
     margin: 0 auto 32px; max-width: 56ch;
   }
+  /* THE HERO COMPOSER. A size modifier only — `.composer` / `.composer-inline`
+     / `.composer-row` are the app's own classes and carry all the structural
+     styling; this just scales the app's default sizing up to hero weight. */
+  .lp-composer { max-width: 620px; margin: 30px auto 0; text-align: left; }
+  /* Tightened (owner: "the padding from the text to the box is too big") —
+     the hero modifier had grown the row's inset past the app composer's own. */
+  .lp-composer .composer-row { padding: 5px 5px 5px 12px; }
+  .lp-composer .composer-row input { font-size: var(--fs-16); padding-top: 5px; padding-bottom: 5px; }
+  .lp-composer .composer-send { width: 34px; height: 34px; }
+  .lp-composer .composer-note { text-align: center; }
+  @media (max-width: 560px) { .lp-composer { margin-top: 22px; } }
+  .lp-fine { color: var(--text-3); font-size: var(--fs-125); margin: 14px 0 0; }
   .lp-p { color: var(--text-2); font-size: var(--fs-145); line-height: 1.7; margin: 0 0 14px; max-width: 62ch; }
   .lp-p:last-child { margin-bottom: 0; }
   .lp-sec .lp-p, .lp-band .lp-p { max-width: 68ch; }
@@ -5878,6 +6061,55 @@
     #panel-ops .ops-line-k { min-width: 0; }
   }
 
+  /* ---- THE TILE IS THE COVER (owner, 2026-08-26) ----
+     "get rid of the caption and just have the full card be the thumbnail",
+     status bottom-left "the same way you put the time", and the views badged
+     too. Four corners, one convention: views top-left, open top-right, status
+     bottom-left, duration bottom-right — every overlay on .bp-dur's badge
+     ground, because they all sit on arbitrary video frames.
+
+     THE CAPTION IS HIDDEN, NOT REMOVED. It stays the tile's accessible name
+     (clip pattern, same as .sr-only) and the opened card still shows it — the
+     tile is for FINDING a script, the open row is for reading it.
+
+     PLAIN 6px OFFSETS, THE SAME NUMBER EVERY OTHER BADGE USES — and measured
+     before trusted: absolute children anchor to the summary's PADDING BOX,
+     not its content box, and that box spans the whole card interior. A first
+     cut compensated for the 8px padding with -2px offsets and painted the
+     badges flush into the corner (-1px from the card edge, part-clipped by
+     the radius) while the time floated at 7px. Offset 6 paints 7 from the
+     card edge here, identical to .bp-dur and the ↗.
+
+     STATUS COLORS ARE RE-DECLARED TO THE DARK VALUES on the chip: the badge
+     ground is dark in BOTH themes (a deliberate literal), and light mode's
+     darker --good/--bad would vanish on it. Same move as .ref-media. */
+  .script-grid > .bp-item:not([open]) > summary > .bp-thumb { margin: -8px; }
+  .script-grid > .bp-item:not([open]) > summary > .bp-name {
+    position: absolute; width: 1px; height: 1px; margin: -1px; border: 0;
+    padding: 0; clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+  }
+  .script-grid > .bp-item:not([open]) > summary > .chip {
+    --good: #57c98a; --bad: #e06c6c; --even: #d8a657;
+    position: absolute; left: 6px; bottom: 6px; z-index: 1;
+    margin: 0; background: var(--badge-ground); border-color: #ffffff3d;
+  }
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts {
+    position: absolute; left: 6px; top: 6px; z-index: 1; margin: 0;
+    padding: 1px 6px; border-radius: var(--r-pill);
+    background: var(--badge-ground); border: 1px solid #ffffff3d; color: #fff;
+    font-size: var(--fs-105);
+  }
+  /* The white must be said AGAIN on the stat itself: .lib-stat carries
+     `color: var(--text-3)` for its life in meta rows, which beats inheritance
+     from the badge — so the count painted grey on the dark ground (owner:
+     "make the text white"). Same white as .bp-dur's. */
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts .lib-stat { color: #fff; }
+  /* A tile with no view count would paint an EMPTY badge: the meta row still
+     renders .lib-len there (tiles hide it — the duration already sits on the
+     cover), and .lib-len is ALSO a .lib-stat, so the guard must key on the
+     views class specifically or a views-less tile shows a 14x4px husk. */
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts:not(:has(.lib-views)) { display: none; }
+
   /* =====================================================================
      LIGHT MODE
      ---------------------------------------------------------------------
@@ -6012,3 +6244,39 @@
     .client-details, .fmt-card, .table-wrap, .tray, .empty, .lp-step, .lp-q,
     .sendbox, .wait, .composer-first, .lookup, .modal-card
   ) { box-shadow: var(--shadow-card); }
+
+  /* THE BAR PAIR MATCHES THE OLD TOGGLE (owner: "make them both the size of
+     the old toggle") — the toggle stays its original 46x24 and the CTA drops
+     to the same 24px height. This block sits at the END of the file on
+     purpose: an earlier attempt at (0,2,0) lost to `.lp-bar .btn` later in
+     source, which is exactly the tie source order exists to break. */
+  .lp-actions > .btn {
+    height: 24px; padding: 0 9px;   /* sides tightened with the height — the
+       full-size button's inline padding read as wings on a 24px capsule */
+    display: inline-flex; align-items: center;
+    font-size: var(--fs-115);
+  }
+  /* On a phone the CTA's neighbour is the BURGER, not the toggle (the toggle
+     lives in the dropdown there), and the burger's 44px is a documented
+     touch-target floor this file already defends — so the pair matches at 44
+     on mobile (owner: "match these sizes") and at 24 beside the toggle on
+     desktop. */
+  @media (max-width: 760px) {
+    body.home .lp-actions > .btn { height: 44px; padding: 0 16px; }
+  }
+
+  /* THE PANEL'S GET-STARTED IS A BUTTON, NOT A LINK ROW. `.lp-menu a` (0,1,1)
+     nukes .btn's ink ground (the file's own comment at that rule warns about
+     this exact fight) — in light mode that painted WHITE TEXT ON A WHITE
+     PANEL: the owner saw a floating 🚀 with no words. (0,2,0) settles it. */
+  .lp-menu .btn {
+    background: var(--text); color: var(--bg);
+    padding: 12px 16px; justify-content: center;
+  }
+  /* The toggle row is just the toggle now (owner: "no need to mention that
+     its a theme change") — the control is self-explanatory. */
+  /* Left-aligned with the other rows' TEXT (owner: "move the toggle for the
+     mobile drop down on the left like the other options") — the items carry
+     13px 18px padding, so the row matches it and the toggle sits where their
+     labels start. */
+  .lp-menu-theme { justify-content: flex-start; padding: 13px 18px; }

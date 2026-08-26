@@ -673,7 +673,7 @@ CREATOR_NOTES = {
                       "and send this video again.", "brand"),
     "cap":          ("This account has used its {cap} scripts. "
                      "Ask us to raise the limit.", "cap"),
-    "off_platform": ("lynxr only reads TikTok, Instagram, Facebook and YouTube "
+    "off_platform": ("lynxr only reads TikTok and Instagram "
                      "links. Nothing was used from your allowance.", "platform"),
     "fetch_age":    ("This video is age-restricted, so we can't open it. "
                      "Try another link.", "fetch"),
@@ -1145,9 +1145,13 @@ def platform_of(url):
 # label — see its docstring); this remains the one that must never regress to
 # a substring test, because it would let `evil.com/?ref=tiktok.com` through as
 # a gate, not merely mislabel a row we already accepted.
-SUPPORTED_HOSTS = ("tiktok.com", "instagram.com",
-                   "facebook.com", "fb.watch", "fb.com",
-                   "youtube.com", "youtu.be")
+# Facebook and YouTube removed 2026-08-26 (owner: "for now lets just do
+# instagram and tiktok"). YouTube is unfetchable from Fly's IP range — the
+# bot-check, verified against every yt-dlp player client from the box itself —
+# and a queued paste that cannot download is a dead card. This is the copy
+# that counts (the browser list can be walked around); PLATFORM_HOSTS above
+# deliberately still knows all four names so old rows keep their labels.
+SUPPORTED_HOSTS = ("tiktok.com", "instagram.com")
 
 # WHICH PLATFORMS ACTUALLY HAND OVER A VIEW COUNT, without signing in, via
 # yt-dlp specifically (this list is about the FREE route only — see
