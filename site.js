@@ -95,6 +95,16 @@
      the gate's pushState rides in it. The 120ms is deliberate: replacing the
      URL the same tick as a native fragment scroll can cancel it mid-flight
      in Safari. */
+  /* The home bar's earned separation — see body.home .lp-bar.is-scrolled in
+     app.css. Cheap on purpose: one class flip at an 8px threshold, passive,
+     and only wired on the merged home (the capsule pages keep their own
+     hide/reveal machinery). */
+  if (document.body.classList.contains("home") && bar) {
+    const groundBar = () => bar.classList.toggle("is-scrolled", scrollY > 8);
+    addEventListener("scroll", groundBar, { passive: true });
+    groundBar();
+  }
+
   const stripFragment = () => {
     if (!location.hash) return;
     setTimeout(() => history.replaceState(history.state, "", location.pathname + location.search), 120);
@@ -360,18 +370,30 @@
       removeEventListener("scroll", pin);
     });
   }
-  if (heroInput && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    const full = heroInput.placeholder;
-    heroInput.placeholder = "";
-    let i = 0;
-    const tick = setInterval(() => {
-      i += 1;
-      heroInput.placeholder = full.slice(0, i);
-      if (i >= full.length) clearInterval(tick);
-    }, 55);
-    heroInput.addEventListener("focus", () => {
-      clearInterval(tick); heroInput.placeholder = full;
-    }, { once: true });
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    /* BOTH composer instances type — the hero and the closing band (owner:
+       "have this also for the bottom one"). One self-contained typewriter per
+       input, each reading its own markup placeholder as phrase one, each
+       stopping independently on its first focus. */
+    document.querySelectorAll('form[data-hero] input[type="url"]').forEach((el) => {
+      const phrases = [el.placeholder,
+                       "https://www.tiktok.com/@name/video/…",
+                       "https://www.instagram.com/reel/…"];
+      let p = 0, i = 0, dir = 1, timer = null;
+      const loop = (ms) => { timer = setTimeout(step, ms); };
+      const step = () => {
+        i += dir;
+        el.placeholder = phrases[p].slice(0, i);
+        if (dir > 0 && i >= phrases[p].length) { dir = 0; timer = setTimeout(() => { dir = -1; loop(22); }, 2200); return; }
+        if (dir < 0 && i <= 0) { p = (p + 1) % phrases.length; dir = 1; loop(55); return; }
+        loop(dir > 0 ? 55 : 22);
+      };
+      el.placeholder = "";
+      loop(55);
+      el.addEventListener("focus", () => {
+        clearTimeout(timer); dir = 0; el.placeholder = phrases[0];
+      }, { once: true });
+    });
   }
 
   window.LP_TEARDOWN = () => {

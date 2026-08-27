@@ -77,8 +77,8 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260827f">
-<script src="/theme.js?v=20260827f"></script>
+<link rel="stylesheet" href="/app.css?v=20260827x">
+<script src="/theme.js?v=20260827x"></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -267,7 +267,7 @@
            `.lp-composer` below is a size modifier only. Every id is prefixed
            `lp-` so it can never collide with the app's own #composer-url etc. -->
       <div class="composer composer-inline lp-composer">
-        <form class="composer-row" id="lp-composer-form">
+        <form class="composer-row" id="lp-composer-form" data-hero data-note="lp-composer-note">
           <input type="url" id="lp-composer-url" placeholder="paste instagram/tiktok link"
             autocomplete="off" spellcheck="false" aria-label="Paste a video link">
           <span class="bp-plat" id="lp-composer-plat"></span>
@@ -292,24 +292,118 @@
       <ol class="lp-steps">
         <li class="lp-step">
           <span class="home-n">1</span>
+          <div class="lp-mock" aria-hidden="true">
+            <div class="lp-mock-bar"><span class="lp-mock-txt">tiktok.com/@maya/video/72&hellip;</span><span class="lp-mock-up">&uarr;</span></div>
+          </div>
           <h3 class="lp-h3">paste a link</h3>
           <p class="lp-p">a video you already believe in &mdash; yours or anyone's.
-            there is nothing to upload and no account to connect.</p>
+            nothing to upload &mdash; the box is at the top of this page.</p>
         </li>
         <li class="lp-step">
           <span class="home-n">2</span>
+          <div class="lp-mock" aria-hidden="true">
+            <div class="lp-mock-read">reading the video&hellip;</div>
+            <div class="lp-mock-rail"><i></i></div>
+            <div class="lp-mock-tags"><span>hook: cold open</span><span>turn @ 9s</span></div>
+          </div>
           <h3 class="lp-h3">lynxr reads it back</h3>
           <p class="lp-p">it watches the video, transcribes what is said, and
             works out the <b>format</b> underneath &mdash; not the topic.</p>
         </li>
         <li class="lp-step">
           <span class="home-n">3</span>
+          <div class="lp-mock" aria-hidden="true">
+            <div class="lp-ex-row"><span class="lp-ex-lbl">say</span><span class="lp-ex-val lp-quote">I went from failing to a 96% in two weeks.</span></div>
+            <div class="lp-ex-row"><span class="lp-ex-lbl">do</span><span class="lp-ex-val">face close to camera, talk fast.</span></div>
+          </div>
           <h3 class="lp-h3">you get a script</h3>
           <p class="lp-p">that same format, rewritten for the company you are
             making content for. send one link to three brands and you get three
             scripts.</p>
         </li>
       </ol>
+    </div>
+  </section>
+
+  <!-- Lovable's "For building and beyond" slot, filled with claims that are
+       all TRUE of the current app: the format engine, the in-place editor and
+       its honesty rule, multi-brand sends, and the no-connection privacy
+       posture the FAQ already promises. No capability below is gated or
+       shelved. -->
+  <section class="lp-sec">
+    <div class="lp-in lp-panel">
+      <span class="lp-eyebrow">what you get</span>
+      <h2 class="lp-h2">beyond the script</h2>
+      <div class="lp-split">
+        <div class="lp-feats">
+          <div class="lp-feat">
+            <h3 class="lp-h3">the format, not the topic</h3>
+            <p class="lp-p">lynxr reads why a video works &mdash; the hook shape, the
+              pacing, the turn &mdash; so it transfers to your niche, whatever the
+              original was about.</p>
+          </div>
+          <div class="lp-feat">
+            <h3 class="lp-h3">every line stays yours</h3>
+            <p class="lp-p">click any line of a script and change it in place. and a
+              script will only ever claim things you've said are true about you.</p>
+          </div>
+          <div class="lp-feat">
+            <h3 class="lp-h3">one link, many brands</h3>
+            <p class="lp-p">send the same video for three companies and you get three
+              scripts, each rewritten for that brand's product and voice.</p>
+          </div>
+          <div class="lp-feat">
+            <h3 class="lp-h3">connected to nothing</h3>
+            <p class="lp-p">no account linking, no passwords to any platform, nothing
+              posted on your behalf. paste a public link, take your script.</p>
+          </div>
+        </div>
+        <!-- The exhibit is the product's own script card in miniature — an
+             edited line mid-confirm. Decorative; the words are real records. -->
+        <div class="lp-exhibit" aria-hidden="true">
+          <div class="lp-ex-card">
+            <div class="lp-ex-row"><span class="lp-ex-lbl">say</span><span class="lp-ex-val lp-quote">Don't skip &mdash; you're the one refreshing your inbox after the final round.</span></div>
+            <div class="lp-ex-row on"><span class="lp-ex-lbl">do</span><span class="lp-ex-val">hold the phone screen-out at chest height. slight smile.</span></div>
+            <div class="lp-ex-tick">&#10003; saved &mdash; every line is yours to change</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  <!-- THE PROOF BAND: one REAL specimen from the pilot, not a testimonial
+       wall. The two quotes are actual records — the pasted video's own title
+       and the hook lynxr wrote from its format for an EMT-education brand.
+       .lp-quote is on the lowercase exclusion list: these are content, and
+       repainting them in house lowercase would misquote both. -->
+  <section class="lp-sec" id="proof">
+    <div class="lp-in">
+      <span class="lp-eyebrow">a real one</span>
+      <h2 class="lp-h2">same format, your subject</h2>
+      <div class="lp-proof">
+        <div class="lp-proof-col">
+          <span class="lp-proof-lbl">the video pasted</span>
+          <p class="lp-quote">&ldquo;How I got a 1550 on the SAT&rdquo;</p>
+          <p class="lp-p">a study&#8209;hacks video &mdash; someone else's niche entirely.</p>
+        </div>
+        <span class="lp-proof-arrow" aria-hidden="true">&rarr;</span>
+        <div class="lp-proof-col">
+          <span class="lp-proof-lbl">the script it wrote, for an EMT&#8209;education brand</span>
+          <p class="lp-quote">&ldquo;I went from failing my medical assessment to a 96% in two weeks.&rdquo;</p>
+          <p class="lp-p">same hook shape, same pacing &mdash; the format carried over, the subject didn't.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lovable's stats slot, with the one number lynxr can stand behind: the
+       corpus is real (9,028 rows at last verified count — say "9,000+" so
+       this line does not rot as it grows). -->
+  <section class="lp-band">
+    <div class="lp-in lp-stat lp-panel">
+      <span class="lp-eyebrow">the engine</span>
+      <h2 class="lp-h2">built on 9,000+ studied videos</h2>
+      <p class="lp-p">every script lynxr writes draws on a corpus of short-form
+        video read the same way, format first &mdash; hook, beats, turn, close.</p>
     </div>
   </section>
 
@@ -324,6 +418,26 @@
         <li><b><a href="/short-form-script-structure/">the parts of a short-form video script</a></b> &mdash; hook, beats, turn and close, and what each part is doing.</li>
         <li><b><a href="/glossary/">short-form video glossary</a></b> &mdash; plain definitions of the terms lynxr uses.</li>
       </ul>
+    </div>
+  </section>
+
+  <!-- Lovable's closing-CTA slot. Same control as the bar; same honest fine
+       print as the pricing page. -->
+  <section class="lp-sec lp-close">
+    <div class="lp-in">
+      <h2 class="lp-h2">ready to build your script?</h2>
+      <div class="composer composer-inline lp-composer">
+        <form class="composer-row" data-hero data-note="lp-close-note">
+          <input type="url" placeholder="paste instagram/tiktok link"
+            autocomplete="off" spellcheck="false" aria-label="Paste a video link">
+          <span class="bp-plat"></span>
+          <button type="submit" class="composer-send" aria-label="Get the script">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </form>
+        <p class="composer-note" id="lp-close-note" role="status" aria-live="polite"></p>
+      </div>
     </div>
   </section>
 
@@ -724,10 +838,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20260827f" defer></script>
-<script src="/footer.js?v=20260827f" defer></script>
-<script src="/dotgrid.js?v=20260827f" defer></script>
-<script src="/home.js?v=20260827f" defer></script>
-<script src="/creator.js?v=20260827f" defer></script>
+<script src="/site.js?v=20260827x" defer></script>
+<script src="/footer.js?v=20260827x" defer></script>
+<script src="/dotgrid.js?v=20260827x" defer></script>
+<script src="/home.js?v=20260827x" defer></script>
+<script src="/creator.js?v=20260827x" defer></script>
 </body>
 </html>

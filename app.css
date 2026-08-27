@@ -2358,8 +2358,13 @@
     .foot-brand { grid-column: 1 / -1; }
     .foot-wordmark { margin-bottom: 36px; }
   }
+  /* (The ≤400px single-column collapse lived here. A 375px phone fell into
+     it and the footer became every column stacked end to end — "too vertical"
+     (owner, 2026-08-27). Two columns of these short link lists fit a 320px
+     phone: the longest label is ~14ch at fs-125. So it holds two columns all
+     the way down, with the gaps tightened a step.) */
   @media (max-width: 400px) {
-    .foot-grid, .foot-grid-wide { grid-template-columns: 1fr; }
+    .foot-grid, .foot-grid-wide { gap: 26px 14px; }
   }
 
   /* ---------- Client editor readability ----------
@@ -2712,7 +2717,8 @@
   /* The hero composer is a Lovable-sized box, not a full-measure bar: at the
      1120px column the bare input measured 1072px and read as a stretched form
      field rather than a place to drop one link. ~720px is the reference size. */
-  .lp-hero .lp-composer { max-width: 520px; margin-left: auto; margin-right: auto; }  /* 720 read as a stretched bar; owner: "make it horizontally shorter" */
+  /* One size for BOTH composer instances — hero and closing band. */
+  .lp-hero .lp-composer, .lp-close .lp-composer { max-width: 520px; margin-left: auto; margin-right: auto; }
 
   /* ---- THE MERGED HOME'S LOVABLE STRUCTURE (owner, 2026-08-26: "look at
      this structure and do the same", desktop + mobile screenshots) ----
@@ -2737,14 +2743,43 @@
      ~3,400px down, below the footer, which the owner reported as "the drop
      down doesnt work" (the burger flipped to X over a menu nobody could see).
      z-index because the panel must overlay the hero that now scrolls past. */
-  body.home .lp-bar { padding: 0; position: relative; z-index: 30; background: transparent; }
+  /* STICKY, transparent at rest, grounded once scrolled (owner: "when i
+     scroll down make the top bar like this and keep it there... make that
+     separation gone once im back at the top" — Lovable's own scrolled-bar
+     behavior). .is-scrolled is toggled by a tiny watcher in site.js at an
+     8px threshold; at the top the bar stays fully infused in the page. */
+  /* SOLID AT BOTH ENDS (owner: "so it doesnt bounce when i scroll to the
+     very bottom and very top") — the bounce was the OS rubber-band, and the
+     bar's earned separation flickering through it made the whole page feel
+     like jelly. overscroll-behavior stops the band dead on the home; the
+     side effect of losing pull-to-refresh here is fine — this page is an
+     app's front door, not a feed. :has() targets the root scroller, which is
+     the element Safari actually listens to. */
+  html:has(> body.home) { overscroll-behavior-y: none; }
+  body.home { overscroll-behavior-y: none; }
+
+  body.home .lp-bar {
+    padding: 0; position: sticky; top: 0; z-index: 30; background: transparent;
+    /* The hairline exists at ALL times and only its color changes: a 0→1px
+       border on a sticky bar shoves everything below it a pixel on every
+       threshold cross. The fade is color-only (owner: "have it be smooth not
+       just pop up"); transform stays pinned by the never-move rule below. */
+    border-bottom: 1px solid transparent;
+    transition: background-color .25s ease, border-color .25s ease;
+  }
+  body.home .lp-bar.is-scrolled {
+    background: var(--glass); backdrop-filter: blur(8px);
+    border-bottom-color: var(--line);
+  }
+  @media (prefers-reduced-motion: reduce) { body.home .lp-bar { transition: none; } }
   /* The capsule pages' hide-on-scroll-down / reveal-on-scroll-up machinery
      still fires on home (site.js toggles .lp-bar-away everywhere), but this
      bar is IN FLOW — it leaves the screen by scrolling like any content, and
      the reveal transition played as a slow slide-back near the top (owner:
      "the top bar scrolls back down slowly, just have it stay there"). On home
      the bar simply sits in the flow: no transform, no transition, ever. */
-  body.home .lp-bar, body.home .lp-bar.lp-bar-away { transform: none; transition: none; }
+  /* transform only — the ground fade above owns `transition` now. */
+  body.home .lp-bar, body.home .lp-bar.lp-bar-away { transform: none; }
   body.home .lp-bar-in {
     /* Capped, not edge-to-edge (owner: "make this less spread out") — on a
        wide monitor the three groups drifted to the viewport's corners. 1200px
@@ -2780,6 +2815,95 @@
     html.lp-composing body.home .lp-hero { align-items: flex-start; }
     html.lp-composing body.home .lp-hero .lp-in { padding-top: 9svh; }
   }
+
+  /* ---- the proof band + the quieter below-fold (owner: sections should
+     match the minimal hero). The step cards lose their boxes — number, title,
+     text on the ground, same voice as the hero. Only the home has these
+     classes, so no other page moves. ---- */
+  /* The features band is a LIST + EXHIBIT split now (the reference's "For
+     building and beyond" shape): items stacked left with hairlines, one
+     real-component exhibit right. Under 900px the exhibit drops below. */
+  .lp-split { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 40px; align-items: center; margin-top: 26px; }
+  @media (max-width: 900px) { .lp-split { grid-template-columns: 1fr; } }
+  .lp-feats { display: flex; flex-direction: column; }
+  .lp-feat { padding: 18px 0; border-top: 1px solid var(--line); }
+  .lp-feat:first-child { border-top: 0; padding-top: 0; }
+
+  /* ---- the miniatures: the product drawn with its own tokens ---- */
+  .lp-mock {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-inner); padding: 12px; margin-bottom: 16px;
+  }
+  .lp-mock-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    border: 1px solid var(--line-2); border-radius: var(--r-pill);
+    padding: 7px 6px 7px 12px; color: var(--text-3); font-size: var(--fs-115);
+  }
+  .lp-mock-up {
+    display: grid; place-items: center; width: 22px; height: 22px; flex: none;
+    background: var(--text); color: var(--bg); border-radius: var(--r-round);
+    font-size: var(--fs-11);
+  }
+  .lp-mock-read { color: var(--text-2); font-size: var(--fs-115); margin-bottom: 8px; }
+  .lp-mock-rail { height: 4px; background: var(--line-2); border-radius: var(--r-pill); overflow: hidden; margin-bottom: 10px; }
+  .lp-mock-rail > i { display: block; height: 100%; width: 62%; background: var(--text-2); }
+  .lp-mock-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .lp-mock-tags span {
+    border: 1px solid var(--line-2); border-radius: var(--r-pill);
+    padding: 1px 8px; color: var(--text-3); font-size: var(--fs-105);
+  }
+  .lp-ex-card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-card); padding: 18px;
+  }
+  .lp-ex-row { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 8px 6px; }
+  /* Same two grounds the app's own current-beat highlight uses per theme. */
+  .lp-ex-row.on { background: var(--hover); border-radius: var(--r-inner); box-shadow: inset 2px 0 0 var(--good); }
+  html[data-theme="light"] .lp-ex-row.on { background: #eaf3ec; }
+  .lp-ex-lbl { color: var(--text-3); font-size: var(--fs-105); padding-top: 2px; }
+  .lp-ex-val { color: var(--text-2); font-size: var(--fs-125); line-height: 1.5; }
+  .lp-ex-tick { margin-top: 12px; color: var(--good); font-size: var(--fs-115); }
+  .lp-close .lp-composer { margin-top: 22px; }
+
+  /* ---- SECTION PANELS (owner: "add separations like the rounded boxes
+     around certain sections"). The reference's rhythm is ALTERNATION — plain
+     ground, big rounded panel, plain ground — so only the features and stats
+     bands are panels; steps, proof, guides and the closing stay on the dot
+     grid, and the marketing footer floats as its own inset card below. */
+  /* The marketing footer becomes the reference's inset card. Scoped to home:
+     the other public pages keep their full-bleed footer. */
+  body.home #site-footer {
+    max-width: 1120px; margin: 0 auto 28px;
+    border: 1px solid var(--line); border-radius: calc(var(--r-card) + 8px);
+    background: var(--surface);
+  }
+  html[data-theme="light"] body.home #site-footer { box-shadow: var(--shadow-card); }
+
+  /* (The color-block band lived here — a tinted ground for #how, tried
+     inverted then softened, both rejected 2026-08-27: "i hate that". The
+     section sits on the page ground like everything else; only the breathing
+     room survived.) */
+  body.home #how { padding-block: 88px; } .lp-feat .lp-h3 { margin-bottom: 8px; }
+  .lp-stat { text-align: center; }
+  .lp-stat .lp-p { margin-inline: auto; }
+  .lp-close { text-align: center; }
+  .lp-close .lp-cta { margin-top: 18px; }
+  .lp-close .lp-fine { margin-top: 12px; }
+
+  .lp-proof {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    gap: 22px; align-items: center; margin-top: 26px;
+  }
+  @media (max-width: 760px) {
+    .lp-proof { grid-template-columns: 1fr; }
+    .lp-proof-arrow { transform: rotate(90deg); justify-self: center; }
+  }
+  .lp-proof-lbl {
+    display: block; color: var(--text-3); font-size: var(--fs-115);
+    letter-spacing: .05em; margin-bottom: 10px;
+  }
+  .lp-quote { margin: 0 0 10px; color: var(--text); font-size: var(--fs-16); line-height: 1.45; }
+  .lp-proof-arrow { color: var(--text-3); font-size: var(--fs-19); }
 
   .lp-sub {
     margin: 12px 0 0; color: var(--text-2);
@@ -4751,7 +4875,7 @@
      content, same as everywhere else it appears; trashItemHtml only puts the
      class on the chip when it carries a company name, so the "original
      script" face (our own copy) stays lowercased. */
-  .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title,
+  .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title, .lp-quote,
   .lib-group-name[data-bid], .side-item .side-label, #brand-heading,
   .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip, .chip.trash-brand,
   .tp-words, .tp-cue, .tp-brand, .for-chip {
@@ -6130,17 +6254,23 @@
      STATUS COLORS ARE RE-DECLARED TO THE DARK VALUES on the chip: the badge
      ground is dark in BOTH themes (a deliberate literal), and light mode's
      darker --good/--bad would vanish on it. Same move as .ref-media. */
-  .script-grid > .bp-item:not([open]) > summary > .bp-thumb { margin: -8px; }
-  .script-grid > .bp-item:not([open]) > summary > .bp-name {
+  .script-grid > .bp-item:not([open]):not(.trash-card) > summary > .bp-thumb { margin: -8px; }
+  .script-grid > .bp-item:not([open]):not(.trash-card) > summary > .bp-name {
     position: absolute; width: 1px; height: 1px; margin: -1px; border: 0;
     padding: 0; clip-path: inset(50%); overflow: hidden; white-space: nowrap;
   }
-  .script-grid > .bp-item:not([open]) > summary > .chip {
+  /* :not(.trash-card) — the corner-badge treatment belongs to tiles whose
+     face IS a video cover. Trash tiles have no cover: their chip carries the
+     COMPANY NAME beside restore/delete controls, and the dark badge floated
+     over the card corner like a sticker coming off (owner: "find a better
+     way to put this brand label somewhere"). Trash keeps its own in-flow
+     chip, defined with the other trash rules. */
+  .script-grid > .bp-item:not([open]):not(.trash-card) > summary > .chip {
     --good: #57c98a; --bad: #e06c6c; --even: #d8a657;
     position: absolute; left: 6px; bottom: 6px; z-index: 1;
     margin: 0; background: var(--badge-ground); border-color: #ffffff3d;
   }
-  .script-grid > .bp-item:not([open]) > summary > .meta-facts {
+  .script-grid > .bp-item:not([open]):not(.trash-card) > summary > .meta-facts {
     position: absolute; left: 6px; top: 6px; z-index: 1; margin: 0;
     padding: 1px 6px; border-radius: var(--r-pill);
     background: var(--badge-ground); border: 1px solid #ffffff3d; color: #fff;
@@ -6305,7 +6435,7 @@
 
   html[data-theme="light"] :is(
     .bp-item, .plan-now, .vcard, .site-card, .client-editor, .bcard,
-    .client-details, .fmt-card, .table-wrap, .tray, .empty, .lp-step, .lp-q,
+    .client-details, .fmt-card, .table-wrap, .tray, .empty, .lp-q,
     .sendbox, .wait, .composer-first, .lookup, .modal-card
   ) { box-shadow: var(--shadow-card); }
 
@@ -6314,6 +6444,26 @@
      to the same 24px height. This block sits at the END of the file on
      purpose: an earlier attempt at (0,2,0) lost to `.lp-bar .btn` later in
      source, which is exactly the tie source order exists to break. */
+  /* .lp-panel — HERE, at the end, THIRD victim of the same source-order tie:
+     written mid-file it sat before .lp-in, whose `padding: 0 24px` zeroed the
+     panel's padding entirely — the owner's "too squished vertically" was a
+     padding of NOTHING, and bumping 44→68 in place fixed nothing because
+     neither ever applied. Measure computed styles, not the rule you wrote. */
+  .lp-panel {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: calc(var(--r-card) + 8px);
+    padding: 68px clamp(24px, 4vw, 56px);
+  }
+  html[data-theme="light"] .lp-panel { box-shadow: var(--shadow-card); }
+  @media (max-width: 560px) { .lp-panel { padding: 36px 18px; } }
+
+  /* Below-fold quieting (owner: match the minimal hero). HERE, at the end,
+     because the original .lp-step card rule sits at ~4589 and outranks any
+     equal-specificity rule before it — the same source-order tie the CTA
+     sizing above already lost once. */
+  .lp-step { background: transparent; border: 0; padding: 0; }
+  .lp-band, .lp-sec { padding-block: 72px; }
+
   .lp-actions > .btn {
     height: 28px; padding: 0 14px;  /* height, not padding, is what a flex
        capsule grows by: 24 -> 28 is the owner's "slightly more top and

@@ -4444,8 +4444,17 @@ function wireComposer() {
    validation exactly, but there is no account yet to send anything to: a
    valid paste is stashed and hands off to the gate instead of being queued. */
 function wireHeroComposer() {
-  const input = document.getElementById("lp-composer-url");
-  const badge = document.getElementById("lp-composer-plat");
+  /* EVERY [data-hero] form on the page — the hero has one and the closing
+     band repeats it (the reference's own strongest move: the composer IS the
+     closing CTA). Scoped lookups, so each instance keeps its own badge, send
+     disc and note; the stash, the gate and the loading beat are shared. */
+  document.querySelectorAll("form[data-hero]").forEach(wireOneHero);
+}
+function wireOneHero(form) {
+  const input = form.querySelector('input[type="url"]');
+  const badge = form.querySelector(".bp-plat");
+  const noteId = form.dataset.note;
+  const note = (text, tone) => { if (noteId && document.getElementById(noteId)) flashMsg(noteId, text, tone); };
   if (!input || !badge) return;
   const showPlat = () => {
     const u = normalizeUrl(input.value);
@@ -4455,17 +4464,17 @@ function wireHeroComposer() {
   };
   input.addEventListener("input", showPlat);
 
-  document.getElementById("lp-composer-form").addEventListener("submit", async (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const raw = (input.value || "").trim();
-    if (!raw) { say("Paste a video link first.", "bad"); input.focus(); return; }
+    if (!raw) { note("Paste a video link first.", "bad"); input.focus(); return; }
     const url = normalizeUrl(raw);
-    if (!url) { say("That doesn't look like a video link.", "bad"); input.select(); return; }
+    if (!url) { note("That doesn't look like a video link.", "bad"); input.select(); return; }
 
     const plat = platformOf(url);
     if (!plat) {
       const h = hostOf(url);
-      say(`lynxr only reads ${SUPPORTED_LIST} links`
+      note(`lynxr only reads ${SUPPORTED_LIST} links`
         + (h ? ` — that one is from ${h}.` : "."), "bad");
       input.select();
       return;
@@ -4490,11 +4499,11 @@ function wireHeroComposer() {
        script is ready — it is not; it says what is TRUE and about to happen:
        consumePendingPaste() auto-sends the moment they are in, because the
        press that landed them here WAS the send gesture. */
-    const send = document.getElementById("lp-composer-send");
+    const send = form.querySelector(".composer-send");
     const face = send ? send.innerHTML : "";
     input.disabled = true;
     if (send) { send.disabled = true; send.innerHTML = loaderMark(); }
-    say("reading the video…", "good");
+    note("reading the video…", "good");
     const t0 = Date.now();
     let m = null;
     try {
@@ -4516,7 +4525,7 @@ function wireHeroComposer() {
        rather than a dead spinner. */
     input.disabled = false;
     if (send) { send.disabled = false; send.innerHTML = face; }
-    say("", "");
+    note("", "");
   });
 }
 wireHeroComposer();

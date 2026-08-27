@@ -163,6 +163,68 @@ Stamp `20260826a`. Nine directives applied in sequence, each verified painted:
 - **A `${...}`-in-HTML violation was written and caught mid-edit** — the exact
   mistake CLAUDE.md warns about; it became an HTML comment before ever
   painting. The rule earns its place.
+- **Eighth round, stamps `20260827o` — the Lovable outline, fleshed:** the
+  owner supplied the full reference outline in screenshots; three moves landed:
+  (1) the STEP CARDS contain MINIATURES OF THE PRODUCT drawn with its own
+  tokens — a mini composer bar, a mini reading-progress card (rail + format
+  tags "hook: cold open / turn @ 9s"), a mini say/do script snippet using the
+  real proof quote. Where the reference fakes screenshots, these are the
+  actual components in small. (2) the features band is a LIST + EXHIBIT
+  split (.lp-split): items stacked left with hairlines, right a script-card
+  exhibit showing an edited line mid-confirm ("✓ saved — every line is yours
+  to change"); its highlight uses var(--hover) in dark and the app's own
+  #eaf3ec wash in light. (3) THE CLOSING CTA IS THE COMPOSER AGAIN —
+  wireHeroComposer became wireOneHero over every form[data-hero], each
+  instance with scoped badge/send/note (data-note: lp-composer-note vs
+  lp-close-note, so validation messages paint at the composer you touched);
+  stash, loading beat and gate are shared. VERIFIED: the closing instance
+  badges, runs its own loading beat, opens the gate with the banner. The
+  logo wall remains deliberately absent.
+- **Seventh round, stamps `20260827i`→`n` — the full Lovable ladder + bar
+  behavior + two leak fixes:** the home now runs hero → three steps → "beyond
+  the script" (4 feature cards, every claim true of the current app: format
+  engine, in-place editing + the rule-8 honesty line, multi-brand sends,
+  no-connection privacy) → the real proof specimen → "built on 9,000+ studied
+  videos" (the corpus, real, "9,000+" so the line doesn't rot) → guides →
+  "ready to build your script?" closing CTA (gate-wired). Still no logo wall
+  — nothing to put on it honestly. THE BAR: sticky again, transparent at
+  rest, gaining glass + hairline past 8px (site.js watcher), fading in over
+  .25s — the hairline is PERMANENTLY present and only changes color (a 0→1px
+  border shoves a sticky page 1px), reduced-motion gets the instant swap; and
+  `overscroll-behavior-y: none` on the home kills the rubber-band at both
+  ends (owner: "more solid"). LEAKS: the cover-tile corner-badge treatment hit
+  the TRASH grid (no covers there — the brand chip floated like a peeling
+  sticker); all four cover rules now carry :not(.trash-card). The step
+  unboxing left `.lp-step` in the light shadow list — a ghost card with zero
+  padding; removed. THIRD ENVIRONMENT ARTIFACT for the book: a hidden pane
+  has innerHeight 0, so the compositor never ticks — CSS TRANSITIONS FREEZE
+  AT FRAME ZERO and computed styles report the start value forever; verify
+  transitioned properties with transition temporarily set to none, or on a
+  real screen.
+- **Sixth round, stamp `20260827h` — SIGNUP IS OPEN TO EVERYONE, and the
+  landing grew its proof:** `lynxr_signup_gate.seats` 9 → 100000 by owner
+  order ("make sure anyone can sign up and use lynxr") — `signup_state()`
+  verified `open: true` live. The old "do NOT bump seats" warning belonged to
+  the invite-era and is superseded: the app IS the public homepage now. Every
+  new account gets the 25-lifetime allowance, enforced by the server ledger.
+  The gate paints create-account mode with the full form (verified). Note the
+  confirmation-email redirect still points at /creatorsonly/, WHICH STILL
+  SERVES THE FULL APP — so signups work end to end today; the Supabase
+  Redirect URLs addition of lynxr.io/ remains the cleaner future state.
+  **The landing:** a PROOF BAND with one real specimen from the live DB — the
+  pasted video's actual title ("How I got a 1550 on the SAT") beside the hook
+  lynxr actually wrote from its format for an EMT-education brand ("I went
+  from failing my medical assessment to a 96% in two weeks") — real records,
+  no fabricated logos/metrics; `.lp-quote` joined the lowercase exclusion list
+  because quotes are content and repainting them lowercase would misquote
+  both. The how-it-works cards lost their boxes (quiet columns matching the
+  hero — the override lives in the END-OF-FILE zone because the original
+  .lp-step at ~4589 wins any earlier equal-specificity tie; SECOND time this
+  source-order trap fired, same fix, same comment). Sections 104 → 72px.
+  Step-1 copy no longer claims "no account to connect". The typewriter CYCLES
+  three phrases (markup's own placeholder first, then two URL-shaped
+  examples), erases and retypes, stops with the canonical text on first
+  focus, still skipped under reduced-motion.
 - **Fifth round, stamps `20260827c`→`f` — light-mode color debts + the
   anonymous paste flow:** the current-beat highlight abused `--line-2` as a
   background (imperceptible in dark, khaki mud in light) → a pale wash of the
