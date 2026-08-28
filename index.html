@@ -77,8 +77,8 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260828d">
-<script src="/theme.js?v=20260828d"></script>
+<link rel="stylesheet" href="/app.css?v=20260828u">
+<script src="/theme.js?v=20260828u"></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -206,12 +206,12 @@
       <span class="tt-knob"></span>
     </button>
     <!-- Opens #gate in the two modes: sign-in reuses the existing form as-is,
-         "get started" is a real <a href="/waitlist/"> so it still works with
+         "get started" is a real <a href="/"> so it still works with
          JS off — Step 7b's delegated handler preventDefault()s it once JS is
          live. Both live INSIDE .lp-actions (a flex row), not beside it: the
          capsule's grid is a strict 1fr auto 1fr and a fifth item outside this
          span would wrap to a second row. -->
-    <a class="btn" href="/waitlist/" data-gate="up">get started<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <a class="btn" href="/" data-gate="up">get started<span class="rk" aria-hidden="true">&#128640;</span></a>
     <!-- Under 760px the nav and the two controls above are display:none and
          this takes their place. aria-expanded carries the state to a screen
          reader AND drives which glyph is drawn, so the two cannot disagree. -->
@@ -240,7 +240,7 @@
         <span class="tt-knob"></span>
       </button>
     </div>
-    <a class="btn" href="/waitlist/" data-gate="up">get started<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <a class="btn" href="/" data-gate="up">get started<span class="rk" aria-hidden="true">&#128640;</span></a>
   </nav>
 </header>
 
@@ -259,8 +259,8 @@
         <!-- No mark here — owner, 2026-08-26: "get rid of the logo at the
              top". The bar's wordmark already carries the identity; the app's
              own signed-in greet keeps its mark. -->
-        <h1 class="newscript-h">build your script</h1>
-        <p class="lp-sub">paste a video link and get your tailored script</p>
+        <h1 class="newscript-h">build your <span class="entity">UGC</span> script</h1>
+        <p class="lp-sub">built by creators, for creators</p>
       </div>
       <!-- THE PRODUCT ITSELF AS THE HERO (owner, 2026-08-26: "make it like
            lovable"). This is the app's OWN composer markup, untouched — see
@@ -280,6 +280,7 @@
         </form>
         <p class="composer-note" id="lp-composer-note" role="status" aria-live="polite"></p>
       </div>
+
       <!-- "25" is the live default (lynxr_allowance.granted, SCRIPT_CAP,
            /pricing/, /terms/). If that number ever moves, this line moves
            with it. -->
@@ -289,7 +290,7 @@
 
   <section class="lp-band" id="how">
     <div class="lp-in">
-      <span class="lp-eyebrow">how it works</span>
+      <span class="lp-eyebrow"><i class="lp-n">01</i>how it works</span>
       <h2 class="lp-h2">three steps, and only one of them is yours</h2>
       <p class="lp-seclede">you paste, lynxr reads, you film. nothing to install and nothing to connect.</p>
       <ol class="lp-steps">
@@ -335,7 +336,7 @@
        shelved. -->
   <section class="lp-sec">
     <div class="lp-in lp-panel">
-      <span class="lp-eyebrow">what you get</span>
+      <span class="lp-eyebrow"><i class="lp-n">02</i>what you get</span>
       <h2 class="lp-h2">beyond the script</h2>
       <p class="lp-seclede">everything around the script is part of it &mdash; editing, brands, and what lynxr will never touch.</p>
       <div class="lp-split">
@@ -370,6 +371,7 @@
             <div class="lp-ex-row on"><span class="lp-ex-lbl">do</span><span class="lp-ex-val">hold the phone screen-out at chest height. slight smile.</span></div>
             <div class="lp-ex-tick">&#10003; saved &mdash; every line is yours to change</div>
           </div>
+          <p class="lp-note">drawn with the app's own components &middot; the words are real records</p>
         </div>
       </div>
     </section>
@@ -381,7 +383,7 @@
        repainting them in house lowercase would misquote both. -->
   <section class="lp-sec" id="proof">
     <div class="lp-in">
-      <span class="lp-eyebrow">a real one</span>
+      <span class="lp-eyebrow"><i class="lp-n">03</i>the evidence</span>
       <h2 class="lp-h2">same format, your subject</h2>
       <p class="lp-seclede">one real pair from the pilot, exactly as it happened.</p>
       <div class="lp-proof">
@@ -397,6 +399,7 @@
           <p class="lp-p">same hook shape, same pacing &mdash; the format carried over, the subject didn't.</p>
         </div>
       </div>
+      <p class="lp-note">both lines are unedited records from the pilot</p>
     </div>
   </section>
 
@@ -405,7 +408,7 @@
        this line does not rot as it grows). -->
   <section class="lp-band">
     <div class="lp-in lp-stat lp-panel">
-      <span class="lp-eyebrow">the engine</span>
+      <span class="lp-eyebrow"><i class="lp-n">04</i>the engine</span>
       <!-- 100K+ is the OWNER'S OWN FIGURE, instructed explicitly and twice
            (2026-08-28: "just make it 100k+ its true") — it counts something
            beyond this repo's data. For the record: lynxr_videos held 9,046
@@ -415,9 +418,17 @@
       <h2 class="lp-h2">built on 100,000+ studied videos</h2>
       <p class="lp-p">every script lynxr writes draws on a corpus of short-form
         video read the same way, format first &mdash; hook, beats, turn, close.</p>
+      <p class="lp-note">5,190,673,018 combined views across the studied set &middot; measured 2026-08-28</p>
     </div>
   </section>
 
+
+  <!-- THE HOOK TICKER (option 3, added alongside the phone): real hooks from
+       the corpus drifting past in the house mono — UGC as voice, and every
+       line is a real record. Two copies of the run make the loop seamless;
+       aria-hidden because six repeating quotes are decoration to a screen
+       reader, not content. -->
+  <div class="lp-ticker" aria-hidden="true"><div class="lp-ticker-track"><span class="lp-tick lp-quote">&ldquo;I went from failing my medical assessment to a 96% in two weeks.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;How many times do I need to show you guys this&rdquo;</span><span class="lp-tick lp-quote">&ldquo;If your closet's full but you wear the same three outfits…&rdquo;</span><span class="lp-tick lp-quote">&ldquo;I never believed the smartest people are the laziest ones. Then class started.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;This one trick means you'll never say you've got nothing to wear.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;I said it once, I'll say it again: flashcards won't pass your skills exam.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;I went from failing my medical assessment to a 96% in two weeks.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;How many times do I need to show you guys this&rdquo;</span><span class="lp-tick lp-quote">&ldquo;If your closet's full but you wear the same three outfits…&rdquo;</span><span class="lp-tick lp-quote">&ldquo;I never believed the smartest people are the laziest ones. Then class started.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;This one trick means you'll never say you've got nothing to wear.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;I said it once, I'll say it again: flashcards won't pass your skills exam.&rdquo;</span></div></div>
 
   <!-- Lovable's closing-CTA slot. Same control as the bar; same honest fine
        print as the pricing page. -->
@@ -459,7 +470,7 @@
         <!-- Visible label "try it", accessible name "try it — join the wait
              list". The .sr-only tail is inside the <a>, so it is part of the
              name computation rather than a title attribute nobody hears. -->
-        <a class="foot-link" href="/waitlist/">try it<span class="rk" aria-hidden="true">&#128640;</span><span class="sr-only"> &mdash; join the wait list</span></a>
+        <a class="foot-link" href="/">get started<span class="rk" aria-hidden="true">&#128640;</span><span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
       </div>
       <div class="foot-col">
         <div class="foot-label">guides</div>
@@ -547,7 +558,7 @@
          home.js's loop (Step A6) — an inbound ?ref=/?utm_ tag outranks the
          composer's own platform intent. -->
     <p class="gate-other" id="gate-full" hidden>
-      <a id="gate-full-link" href="/waitlist/" data-carry-utm>join the wait list</a>
+      <a id="gate-full-link" href="/" data-carry-utm>back to the homepage</a>
     </p>
     <p class="gate-other" id="resend-wrap" hidden>
       <button type="button" class="linkish" id="gate-resend">Send me the confirmation link again</button>
@@ -836,10 +847,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20260828d" defer></script>
-<script src="/footer.js?v=20260828d" defer></script>
-<script src="/dotgrid.js?v=20260828d" defer></script>
-<script src="/home.js?v=20260828d" defer></script>
-<script src="/creator.js?v=20260828d" defer></script>
+<script src="/site.js?v=20260828u" defer></script>
+<script src="/footer.js?v=20260828u" defer></script>
+<script src="/dotgrid.js?v=20260828u" defer></script>
+<script src="/home.js?v=20260828u" defer></script>
+<script src="/creator.js?v=20260828u" defer></script>
 </body>
 </html>

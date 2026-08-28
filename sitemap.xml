@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Only the fifteen genuinely public pages. The creator and agency apps are
+<!-- Only the fourteen genuinely public pages. The creator and agency apps are
      deliberately absent: they carry `noindex` and listing them here would
      advertise them, which is the same mistake as a Disallow line in
      robots.txt. See the comment at the top of robots.txt. -->
@@ -8,11 +8,6 @@
     <loc>https://lynxr.io/</loc>
     <lastmod>2026-08-28</lastmod>
     <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://lynxr.io/waitlist/</loc>
-    <lastmod>2026-08-23</lastmod>
-    <priority>0.9</priority>
   </url>
   <!-- The one page written for a stranger or a model asking a question rather
        than for someone already convinced, so it ranks alongside the wait list

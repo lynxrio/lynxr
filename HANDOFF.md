@@ -128,6 +128,91 @@ real rather than a dead channel.
 
 ## Where this left off (read this first)
 
+**ALSO 2026-08-28, EVENING — TICKER-ONLY, ONE BAR EVERYWHERE, HERO COPY.**
+- **The phone is GONE** ("do option 3 now" meant INSTEAD, not alongside —
+  misread once, corrected): markup, all three CSS blocks (hero grid, scenes,
+  end-zone mobile), and the last cover asset removed; assets/ugc/ deleted.
+  The hero is the clean centered column again. THE TICKER IS THE UGC
+  TREATMENT: real corpus hooks, 48s loop, above the closing composer.
+- **Pricing left every top bar** (13 pages, nav + burger both) — it lives on
+  in footers and in-answer links only.
+- **ONE BAR SITEWIDE**: the landing's flat bar (transparent, sticky,
+  1200px-capped, scroll-earned glass + hairline fading in over .25s) now
+  applies to all public pages via BARE .lp-bar rules in the END-OF-FILE zone
+  (sixth order-trap firing — the capsule styles at ~4300 would beat anything
+  earlier). The is-scrolled watcher in site.js was still gated on body.home;
+  ungated, it wires wherever a bar exists. Legal pages have bare <body> (no
+  .lp class), which is WHY the unification is element-scoped, not
+  body-class-scoped — do not "clean that up" by adding .lp to them without
+  checking .lp main's padding reset against .legal's layout.
+- **The burger menu panel is fully opaque now** (owner saw a dot-grid dot
+  ghosting through the 5% translucency under the faq item). A mid-transition
+  screenshot earlier looked like the page h1 painting OVER the open menu —
+  measured elementFromPoint says the menu overlays correctly; that scare was
+  the pane's frozen-transition artifact again.
+- **Hero copy**: h1 "build your UGC script" (UGC in a .entity span or the
+  house lowercase repaints it "ugc"); subline "built by creators, for
+  creators" (owner typed "build by" — corrected to "built", flagged).
+- ENVIRONMENT NOTE for the book: the collapsed pane cannot SCROLL either
+  (scrollTo is a no-op at 0-height viewport), so scroll-driven behaviors
+  (the bar fade) are unverifiable in it — the machinery is the same as the
+  landing's verified copy; eyeball on a real device.
+
+**ALSO 2026-08-28, LATER — THE HERO PHONE + THE HOOK TICKER (UGC pass).**
+The ghost-frame and real-cover backgrounds were both tried and rejected
+("i dont like this that much"); three options were demoed live and the owner
+chose the PHONE (option 2) plus the TICKER (option 3). What shipped:
+- **The hero phone**: desktop hero is a two-column grid — centered mini-hero
+  left (headline/subline/composer on one axis), a 270px 9:16 phone right
+  looping the product's three acts every 12s: the pasted video (a REAL cover,
+  /assets/ugc/cover-4.jpg, the 1.5M study-app one), the reading state (rail +
+  format tags), the finished script (say/do + ready chip). Crossfade windows
+  tile into EXACT thirds (0-27 hold, 33.4 out — the first cut's 30/36 bands
+  left the outgoing scene at ~45% opacity at every boundary, ghosting).
+  MOBILE keeps the loop at 190px, centered under the composer via flex
+  order; reduced-motion holds the finished script. The mobile block lives in
+  the END-OF-FILE zone — the source-order trap's FIFTH firing put desktop's
+  270px over the media query's 190px.
+- **The ticker**: real corpus hooks drifting above the closing composer,
+  48s linear loop, two runs for seamlessness, quotes on the lowercase
+  exclusion (.lp-quote) so they cannot be misquoted, still under
+  reduced-motion, aria-hidden.
+- **The video-shape gate**: instagram.com/explore/ passed the hostname gate
+  and ran the loading beat for a FEED (owner: "come on"). videoLikePath()
+  now requires a single-video path (IG /reel|reels|p|tv/<id>; TikTok
+  /@user/video/<id>, /t/<code>, vm./vt. short hosts) in BOTH landing
+  composers and the app composer — badge says "not a video", submit refuses
+  with copy. THE WORKER STILL GATES ON HOSTNAME ONLY (supported_url in
+  process_adaptations.py) — a console-crafted page URL still costs a
+  download before failing; tightening that is a small follow-up.
+- Unused covers 1/2/3/5 deleted; only cover-4 ships.
+
+**2026-08-28 — THE COHERENCE PURGE: the whole public site now agrees signup
+is open.** Owner: "fix the shit out of our website." The audit found zero
+broken links and zero broken assets across all 17 pages — the rot was
+LANGUAGE: ten pages still spoke invitation-only-era copy while
+`signup_state()` returns open. Fixed in four layers, sitewide: the shared
+JSON-LD Offer node said "invitation-only / pricing does not exist" on 14
+pages (both false — now InStock, "25 scripts, no card, sign-up open"); the
+footer CTA on 14 pages said "try it — join the wait list"→/waitlist/ (now
+"get started — sign-up is open to everyone"→/); the bar CTA on capsule pages
+likewise; the FAQ's metas + two answers in BOTH visible HTML and FAQPage
+JSON-LD claimed invite-only access and no pricing (now: open signup, 25 free,
+pro on /pricing/); and /waitlist/ was REIDENTIFIED as "lynxr is open" — its
+title/metas/JSON-LD/h1 all said invitation-only, and its email form is now
+labeled "get product notes by email" (consent string unchanged). Verified:
+zero "invitation-only" anywhere, every page's JSON-LD parses, 17 pages
+stamp-consistent at `20260828e`. Also this session: 3 new SEO guide pages
+(how-to-write-a-hook, ugc-script-template, remake-a-viral-video) with Article
+JSON-LD, in sitemap (15 urls) + llms.txt; llms.txt rewritten to open-signup
+truth (it was telling AI engines lynxr is invite-only); wispe.ai-style
+numbered sections + precise annotations ("5,190,673,018 combined views ·
+measured 2026-08-28"); the stat headline is the OWNER'S 100,000+ figure
+(instructed twice; DB held 9,046 rows same day — recorded in a markup
+comment); guides section removed from the landing (footer still links all
+guides). Owner actions that multiply all of this: Search Console + Bing
+sitemap submission, and a lynxr-anchored link from lynxmediagroup.org.
+
 **ALSO 2026-08-26 — THE LANDING'S LOVABLE PASS, owner-driven iteration burst.**
 Stamp `20260826a`. Nine directives applied in sequence, each verified painted:
 

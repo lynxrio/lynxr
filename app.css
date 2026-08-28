@@ -6473,6 +6473,19 @@
      the owner has now chosen the reference's card look instead; this rule
      supersedes the transparent one below in this same zone.) */
   .lp-seclede { color: var(--text-3); font-size: var(--fs-145); line-height: 1.6; margin: 0 0 34px; max-width: 52ch; }
+  /* The wispe.ai pass (owner: the details read "vibecoded"): numbered section
+     indices and small tracked annotation lines. Precision is the register —
+     the annotations carry unrounded, dated figures, never marketing-round
+     ones. */
+  .lp-n { font-style: normal; color: var(--text-3); margin-right: 10px; font-variant-numeric: tabular-nums; }
+  .lp-n::after { content: " /"; opacity: .5; }
+  
+
+
+  .lp-note {
+    margin: 18px 0 0; color: var(--text-3);
+    font-size: var(--fs-105); letter-spacing: .09em;
+  }
   .lp-band, .lp-sec { padding-block: clamp(84px, 11vh, 128px); }
   body.home #how { padding-block: clamp(84px, 11vh, 128px); }
   .lp-step {
@@ -6524,3 +6537,43 @@
      13px 18px padding, so the row matches it and the toggle sits where their
      labels start. */
   .lp-menu-theme { justify-content: flex-start; padding: 13px 18px; }
+
+  /* ---- the hook ticker (option 3) ---- */
+  .lp-ticker { overflow: hidden; max-width: 100%; border-block: 1px solid var(--line); padding: 14px 0; }
+  .lp-ticker-track { display: inline-flex; gap: 44px; white-space: nowrap; width: max-content; animation: lp-tick 48s linear infinite; }
+  .lp-tick { color: var(--text-3); font-size: var(--fs-135); }
+  @keyframes lp-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .lp-ticker-track { animation: none; } }
+
+  /* ---- ONE BAR EVERYWHERE (owner: "make all the top bars like the main
+     one"). These re-state the home bar's flat treatment scoped to BARE
+     .lp-bar so every public page gets it — only public pages carry that
+     header, and the apps have their own. AT THE END OF THE FILE because the
+     capsule styles (~4300) would beat an equal-specificity rule earlier in
+     source — the same order trap, sixth firing. The home rules above become
+     redundant rather than wrong. */
+  .lp-bar {
+    padding: 0; position: sticky; top: 0; z-index: 30; background: transparent;
+    border-bottom: 1px solid transparent;
+    transition: background-color .25s ease, border-color .25s ease;
+  }
+  .lp-bar.is-scrolled {
+    background: var(--glass); backdrop-filter: blur(8px);
+    border-bottom-color: var(--line);
+  }
+  @media (prefers-reduced-motion: reduce) { .lp-bar { transition: none; } }
+  .lp-bar, .lp-bar.lp-bar-away { transform: none; }
+  .lp-bar-in {
+    max-width: 1200px; margin: 0 auto; border: 0; border-radius: 0;
+    background: transparent; backdrop-filter: none; box-shadow: none;
+    padding: 0 clamp(16px, 3vw, 32px); min-height: 64px;
+  }
+  @media (max-width: 760px) {
+    .lp-bar .wordmark span { display: none; }
+    .lp-actions > .btn { display: inline-flex; }
+  }
+
+  /* Fully opaque menu panel (owner: "remove the dot under this" — the dot
+     grid ghosted through the panel's 5% translucency as a stray dot under
+     the items). Solid ground, no bleed, both themes. */
+  .lp-menu { background: var(--bg); }

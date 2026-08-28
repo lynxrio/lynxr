@@ -95,11 +95,11 @@
      the gate's pushState rides in it. The 120ms is deliberate: replacing the
      URL the same tick as a native fragment scroll can cancel it mid-flight
      in Safari. */
-  /* The home bar's earned separation — see body.home .lp-bar.is-scrolled in
-     app.css. Cheap on purpose: one class flip at an 8px threshold, passive,
-     and only wired on the merged home (the capsule pages keep their own
-     hide/reveal machinery). */
-  if (document.body.classList.contains("home") && bar) {
+  /* The bar's earned separation — see .lp-bar.is-scrolled in app.css. Cheap
+     on purpose: one class flip at an 8px threshold, passive. Wired on EVERY
+     page since the bars unified (owner: "add the top bar stuff like the
+     fading in line in the main page" — the home gate predated one-bar). */
+  if (bar) {
     const groundBar = () => bar.classList.toggle("is-scrolled", scrollY > 8);
     addEventListener("scroll", groundBar, { passive: true });
     groundBar();

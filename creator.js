@@ -441,6 +441,28 @@ function platformOf(raw) {
 // Unsupported links are now refused before anything stores them, so "Link" is
 // only ever seen on rows saved before this gate existed.
 const platformLabel = (u) => platformOf(u) || "Link";
+
+/* IS THIS A LINK TO ONE VIDEO, or just a page on the right site? The hostname
+   gate accepted instagram.com/explore/ and painted the loading beat for a
+   FEED (owner: "dont allow the explore page to be read come on"). The
+   platform decides the shape a single video's path must have:
+     instagram: /reel/<id>, /reels/<id>, /p/<id>, /tv/<id>
+     tiktok:    /@user/video/<digits>, /t/<code>, and the vm./vt. short hosts
+   Everything else on an accepted host — profiles, /explore/, /foryou — is a
+   page, and refusing it here costs nothing instead of a download. */
+function videoLikePath(raw) {
+  const plat = platformOf(raw);
+  if (!plat) return false;
+  let u; try { u = new URL(String(raw).includes("://") ? raw : "https://" + raw); } catch { return false; }
+  const host = u.hostname.toLowerCase().replace(/^(www|m)\./, "");
+  const path = u.pathname;
+  if (plat === "Instagram") return /^\/(reels?|p|tv)\/[A-Za-z0-9_-]+/.test(path);
+  if (plat === "TikTok") {
+    if (host === "vm.tiktok.com" || host === "vt.tiktok.com") return /^\/[A-Za-z0-9]+/.test(path);
+    return /^\/@[^/]+\/video\/\d+/.test(path) || /^\/t\/[A-Za-z0-9]+/.test(path);
+  }
+  return false;
+}
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 const listOf = (xs) => xs.length < 2 ? (xs[0] || "")
   : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1];
@@ -4269,11 +4291,15 @@ function wireComposer() {
   if (!input || !badge) return;
   const showPlat = () => {
     const u = normalizeUrl(input.value);
-    const plat = u ? platformOf(u) : null;
+    let plat = u ? platformOf(u) : null;
+    /* Right site, wrong shape — /explore/, a profile, /foryou — badges as its
+       own state so the refusal reads before send. */
+    if (plat && !videoLikePath(u)) plat = null, badge.dataset.page = "1";
+    else delete badge.dataset.page;
     // Say no while they are still typing, not on submit. The badge already sits
     // in the paste field and is where the eye is, so an unsupported link reads
     // as refused before anyone reaches for the button.
-    badge.textContent = u ? (plat || "not supported") : "";
+    badge.textContent = u ? (plat || (badge.dataset.page ? "not a video" : "not supported")) : "";
     badge.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
   };
   input.addEventListener("input", showPlat);
@@ -4289,6 +4315,11 @@ function wireComposer() {
     // entry exists. The worker enforces the same allowlist — this row belongs to
     // the creator, so the console can walk around anything decided here — but
     // this is the one that explains itself.
+    if (platformOf(url) && !videoLikePath(url)) {
+      say("That's a page, not a video — paste the link to one specific video.", "bad");
+      input.select();
+      return;
+    }
     if (!platformOf(url)) {
       const h = hostOf(url);
       say(`lynxr only reads ${SUPPORTED_LIST} links`
@@ -4458,8 +4489,12 @@ function wireOneHero(form) {
   if (!input || !badge) return;
   const showPlat = () => {
     const u = normalizeUrl(input.value);
-    const plat = u ? platformOf(u) : null;
-    badge.textContent = u ? (plat || "not supported") : "";
+    let plat = u ? platformOf(u) : null;
+    /* Right site, wrong shape — /explore/, a profile, /foryou — badges as its
+       own state so the refusal reads before send. */
+    if (plat && !videoLikePath(u)) plat = null, badge.dataset.page = "1";
+    else delete badge.dataset.page;
+    badge.textContent = u ? (plat || (badge.dataset.page ? "not a video" : "not supported")) : "";
     badge.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
   };
   input.addEventListener("input", showPlat);
@@ -4470,6 +4505,10 @@ function wireOneHero(form) {
     if (!raw) { note("Paste a video link first.", "bad"); input.focus(); return; }
     const url = normalizeUrl(raw);
     if (!url) { note("That doesn't look like a video link.", "bad"); input.select(); return; }
+    if (platformOf(url) && !videoLikePath(url)) {
+      note("That's a page, not a video — paste the link to one specific video.", "bad");
+      input.select(); return;
+    }
 
     const plat = platformOf(url);
     if (!plat) {
@@ -8059,7 +8098,7 @@ document.getElementById("gate-back")?.addEventListener("click", () => {
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-gate]");
   if (!t || !HOME) return;
-  e.preventDefault();           // the control is an <a href="/waitlist/"> so it works with JS off
+  e.preventDefault();           // the control is a real <a href="/"> so it works with JS off
   showGate(t.dataset.gate === "in" ? "in" : "up");
 });
 
