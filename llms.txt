@@ -1,28 +1,33 @@
 # lynxr
 
-> lynxr turns a short-form video into a script. You send it a public link to
-> a TikTok, Instagram, YouTube or Facebook video; it watches the video,
-> transcribes what is said, works out the format underneath — the hook, the
-> beats, the order they come in — and rewrites that format as a script for
-> the company you are making content for.
+> lynxr turns a short-form video into a script. You paste a public link to a
+> TikTok or Instagram video; it watches the video, transcribes what is said,
+> works out the format underneath — the hook, the beats, the order they come
+> in — and rewrites that format as a script for the company you are making
+> content for.
 
 lynxr is made by Lynx Media Group LLC, a short-form video agency in Allston,
-Massachusetts. It is free and invitation-only during early access. There is
-no file upload: a public video link is the only input. It never asks for a
-platform password and it never posts anything on your behalf. You must be 18
-or older to use it.
+Massachusetts. Sign-up is open to everyone and free: every account includes
+25 scripts, with no card required. The app lives at lynxr.io itself — paste a
+link on the homepage and create an account when you send it. There is no file
+upload: a public video link is the only input. It reads TikTok and Instagram
+links. It never asks for a platform password and it never posts anything on
+your behalf. You must be 18 or older to use it.
 
 ## Pages
 
 - [lynxr](https://lynxr.io/): What lynxr is and how it works in three steps.
 - [Questions and answers](https://lynxr.io/faq/): Straight answers about what lynxr does with a link, which platforms it reads, what it costs, who owns the scripts, and how access works.
-- [Join the wait list](https://lynxr.io/waitlist/): The only way in while lynxr is invitation-only.
+- [Pricing](https://lynxr.io/pricing/): What lynxr costs — free to start with 25 scripts included.
 
 ## Guides
 
 - [What a video format is](https://lynxr.io/what-is-a-video-format/): The difference between a video's format and its topic, and why a format travels between brands when a topic does not.
 - [How to turn a video into a script for a brand](https://lynxr.io/turn-a-video-into-a-script/): The step-by-step method, by hand and with lynxr.
 - [The parts of a short-form video script](https://lynxr.io/short-form-script-structure/): Hook, setup, beats, turn, close, and what each one is doing.
+- [How to write a hook](https://lynxr.io/how-to-write-a-hook/): The four hook shapes that keep working, and how to steal a hook's shape without stealing its words.
+- [A UGC script template that holds up](https://lynxr.io/ugc-script-template/): The four-part template with a real worked example, and the mistakes that make UGC read like an ad.
+- [Remake a viral video without copying it](https://lynxr.io/remake-a-viral-video/): What to keep, what to replace, and the line between a remake and a copy.
 - [Short-form video glossary](https://lynxr.io/glossary/): Plain definitions of the terms lynxr uses.
 
 ## Policies

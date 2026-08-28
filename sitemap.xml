@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Only the twelve genuinely public pages. The creator and agency apps are
+<!-- Only the fifteen genuinely public pages. The creator and agency apps are
      deliberately absent: they carry `noindex` and listing them here would
      advertise them, which is the same mistake as a Disallow line in
      robots.txt. See the comment at the top of robots.txt. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://lynxr.io/</loc>
-    <lastmod>2026-08-24</lastmod>
+    <lastmod>2026-08-28</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
@@ -44,6 +44,21 @@
   <url>
     <loc>https://lynxr.io/short-form-script-structure/</loc>
     <lastmod>2026-08-24</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/how-to-write-a-hook/</loc>
+    <lastmod>2026-08-28</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/ugc-script-template/</loc>
+    <lastmod>2026-08-28</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/remake-a-viral-video/</loc>
+    <lastmod>2026-08-28</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
