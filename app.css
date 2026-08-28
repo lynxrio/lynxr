@@ -2878,6 +2878,8 @@
     background: var(--surface);
   }
   html[data-theme="light"] body.home #site-footer { box-shadow: var(--shadow-card); }
+  /* Same phone-side gap as .lp-panel — the card ran flush at 375px. */
+  @media (max-width: 760px) { body.home #site-footer { margin-inline: 14px; } }
 
   /* (The color-block band lived here — a tinted ground for #how, tried
      inverted then softened, both rejected 2026-08-27: "i hate that". The
@@ -4658,7 +4660,9 @@
      puts a real space before it. */
   .lp-h1 .lp-arrow { color: var(--text-2); font-weight: 500; }
   .lp-h2 {
-    font-size: clamp(21px, 3.2vw, 32px); font-weight: 600; line-height: 1.2;
+    /* Display scale (owner: "make it look more like the lovable one") — their
+       section heads run ~44px against ours at 32. */
+    font-size: clamp(24px, 3.6vw, 42px); font-weight: 600; line-height: 1.15;
     letter-spacing: -0.025em; color: var(--text); margin: 0 0 16px;
     display: block; text-transform: lowercase;
   }
@@ -6455,13 +6459,38 @@
     padding: 68px clamp(24px, 4vw, 56px);
   }
   html[data-theme="light"] .lp-panel { box-shadow: var(--shadow-card); }
+  /* On a phone the panel's box ran flush to the viewport edges — .lp-in's
+     24px was INNER padding once the box became visible (owner: "add some
+     space between the box and the sides"). width:auto so the margins
+     actually narrow the box instead of pushing it offscreen. */
+  @media (max-width: 760px) { .lp-panel { width: auto; margin-inline: 14px; } }
   @media (max-width: 560px) { .lp-panel { padding: 36px 18px; } }
+
+  /* THE LOVABLE PASS on the below-fold (owner, 2026-08-28): ledes under every
+     section head, sections that breathe at reference scale, and the step
+     cards RE-BOXED as big soft cards with the miniature as each card's upper
+     half. (Yes, the steps were unboxed on 08-27 to "match the minimal hero" —
+     the owner has now chosen the reference's card look instead; this rule
+     supersedes the transparent one below in this same zone.) */
+  .lp-seclede { color: var(--text-3); font-size: var(--fs-145); line-height: 1.6; margin: 0 0 34px; max-width: 52ch; }
+  .lp-band, .lp-sec { padding-block: clamp(84px, 11vh, 128px); }
+  body.home #how { padding-block: clamp(84px, 11vh, 128px); }
+  .lp-step {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: calc(var(--r-card) + 8px); padding: 26px;
+    display: flex; flex-direction: column;
+  }
+  /* The miniature is each card's UPPER HALF (the reference's shape): first in
+     paint order regardless of markup, full-bleed to the card's top edge. */
+  .lp-step .lp-mock { order: -1; }
+  html[data-theme="light"] .lp-step { box-shadow: var(--shadow-card); }
+  .lp-step .lp-mock { margin: -26px -26px 20px; border: 0; border-bottom: 1px solid var(--line); border-radius: calc(var(--r-card) + 8px) calc(var(--r-card) + 8px) 0 0; padding: 26px 22px; background: var(--surface-2); }
+  .lp-step .home-n { position: relative; z-index: 1; }
 
   /* Below-fold quieting (owner: match the minimal hero). HERE, at the end,
      because the original .lp-step card rule sits at ~4589 and outranks any
      equal-specificity rule before it — the same source-order tie the CTA
      sizing above already lost once. */
-  .lp-step { background: transparent; border: 0; padding: 0; }
   .lp-band, .lp-sec { padding-block: 72px; }
 
   .lp-actions > .btn {
