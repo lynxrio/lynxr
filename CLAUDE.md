@@ -55,11 +55,14 @@ the database, not the interface — verified live, see HANDOFF.md.
   silently tagging ~45% of rows. Coverage is now verified and errors below 95%.
 - Clients sync through Supabase (`lynxr_clients`), cached in browser
   localStorage; briefs live inside those client records, not the repo.
-- **Bump the `?v=YYYYMMDDx` stamp on every css/js change**, on all twelve
-  cache-stamped pages — `index.html`, `waitlist/`, `faq/`, `terms/`,
-  `privacy/`, `accessibility/`, `creatorsonly/`, `agencyonly/`,
-  `what-is-a-video-format/`, `turn-a-video-into-a-script/`,
-  `short-form-script-structure/`, `glossary/` — or browsers serve stale files.
+- **Bump the `?v=YYYYMMDDx` stamp on every css/js change**, on EVERY
+  cache-stamped page — or browsers serve stale files. Do not work from a list
+  written here: this file said "all twelve" and named twelve pages until
+  2026-08-28, by which point there were seventeen, so a change that obeyed the
+  list left five pages serving stale assets. **`./venv/bin/python
+  tools/check_stamp.py` is the authority** — it finds every stamped page
+  itself, requires one stamp value site-wide, and prints the one-liner that
+  bumps them all. Run it after any css/js change; `ok` is the gate.
   The HTML documents are not stamped, so markup changes need a hard reload.
 - **Lowercase is the house style, and it lives in CSS** (`body, button, select
   { text-transform: lowercase }` plus a content exclusion list near the end of

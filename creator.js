@@ -1414,8 +1414,18 @@ function go(view) {
   document.body.classList.remove("side-open");
   renderSide();
   renderPane();
+  /* THE BOX THAT ACTUALLY SCROLLS. Measured 2026-08-28 at 1440px against the
+     real stylesheet: #pane-scroll has overflow-y:auto but no height cap, so
+     scrollHeight === clientHeight and the DOCUMENT is what moves — at every
+     width, not just on a phone. The #pane-scroll line is kept because it is
+     free and becomes right the day that box is capped; the document line is the
+     one that works today. This runs AFTER renderPane(), which now restores the
+     offset it was given, so this is what makes a view change different from a
+     repaint. */
   const s = document.getElementById("pane-scroll");
   if (s) s.scrollTop = 0;
+  const sd = document.scrollingElement || document.documentElement;
+  if (sd) sd.scrollTop = 0;
   // go() replaces #pane-head/#pane-body wholesale, so focus falls to <body>
   // and a keyboard user restarts from the top of the document on every
   // navigation. #pane-head carries tabindex="-1" in index.html so it can take
@@ -1759,6 +1769,22 @@ function restoreDisclosures(state, root = document) {
 
 function renderPane() {
   const open = openDisclosures();
+  /* KEEP THE READER'S PLACE. renderPaneInner() replaces #pane-body wholesale
+     and everything comes back CLOSED, and wireRefMini()'s stickyH() reads
+     getBoundingClientRect() BEFORE restoreDisclosures() re-opens anything —
+     a forced layout taken while the document is at its shortest, so the
+     browser clamps the offset to that collapsed maximum. Measured 2026-08-28
+     at 1440px against the real stylesheet: scrollTop 585 -> 0 on a repaint
+     nobody asked for; with the forced layout removed it held at 585.
+     This is a repaint of the SAME view, so the offset is restored; go()
+     clears it deliberately when the view actually changes. Both boxes are
+     remembered because #pane-scroll is not a scroller today (see
+     followScriptBeat) but is the one that would be if it were ever capped —
+     writing 0 to a box with nothing to scroll costs nothing. */
+  const doc = document.scrollingElement || document.documentElement;
+  const pane = document.getElementById("pane-scroll");
+  const keepDoc = doc ? doc.scrollTop : 0;
+  const keepPane = pane ? pane.scrollTop : 0;
   /* Let anything holding a document-level listener on behalf of a node that is
      about to be destroyed take it off again — see wireRefControls' fullscreen
      block. renderPaneInner() replaces #pane-body wholesale. */
@@ -1767,6 +1793,8 @@ function renderPane() {
   renderPaneInner();
   restoreDisclosures(open);
   paintEta(document);      // every view's progress blocks, filled in one place
+  if (doc && doc.scrollTop !== keepDoc) doc.scrollTop = keepDoc;
+  if (pane && pane.scrollTop !== keepPane) pane.scrollTop = keepPane;
 }
 
 function renderPaneInner() {
@@ -5823,6 +5851,24 @@ function refIndexAt(times, t) {
 let REF_HANDS_OFF = 0;
 const HANDS_OFF_MS = 6000;
 
+/** A PERSON JUST ASKED TO BE TAKEN SOMEWHERE — and `seeked` alone cannot say
+ *  so. Three different things seek this element: a beat click (seekRefTo), a
+ *  scrubber drag (wireRefControls' seekTo), and restoreDisclosures putting
+ *  the playhead back on EVERY repaint with nobody touching anything. Only the
+ *  first two are a request to move the page. Both already cleared the
+ *  hands-off window to mean exactly this, so the clearing moves in here and
+ *  records which video and when; the window is short because the `seeked` it
+ *  is answering lands in the same breath. */
+let REF_SEEK_ASKED = { id: null, at: 0 };
+function refSeekAsked(vid) {
+  REF_HANDS_OFF = 0;
+  REF_SEEK_ASKED = { id: vid && vid.dataset ? vid.dataset.refvid : null, at: Date.now() };
+}
+function refSeekWasAsked(vid) {
+  return !!vid && REF_SEEK_ASKED.id === vid.dataset.refvid
+    && Date.now() - REF_SEEK_ASKED.at < 1500;
+}
+
 let HANDS_OFF_WIRED = false;
 /** wheel / touchmove / pointerdown are the three gestures that are
  *  unambiguously a person, and none of them fires for a programmatic
@@ -5863,12 +5909,26 @@ function wireHandsOff() {
  *  ASKED OF THE COMPUTED STYLE, NOT OF THE VIEWPORT WIDTH, so it cannot drift
  *  from the CSS — the idiom scrollCardToTop() already uses for .pane-head.
  *
- *  THE SCROLLER IS FOUND, NOT ASSUMED: it is #pane-scroll at desktop widths
- *  and the document on a phone (see scrollerFor). The sticky .pane-head is
- *  subtracted the same way scrollCardToTop() subtracts it, so the lit beat
- *  lands just below the header rather than underneath it. */
+ *  THE SCROLLER IS FOUND, NOT ASSUMED — and measured 2026-08-28 it is the
+ *  DOCUMENT at every width. #pane-scroll carries overflow-y:auto but is never
+ *  height-capped (.shell is min-height:100svh and grows to its content), so at
+ *  1440px scrollHeight === clientHeight === 2004 and it has nothing to scroll.
+ *  scrollerFor() tests for real overflow rather than trusting the property, so
+ *  it already answers correctly; do not "simplify" it to a width check. The
+ *  sticky .pane-head is subtracted the same way scrollCardToTop() subtracts it,
+ *  so the lit beat lands just below the header rather than underneath it. */
 function followScriptBeat(li) {
   if (Date.now() < REF_HANDS_OFF) return;
+  /* NEVER FOR A CARD THAT IS SHUT. Every <video> in the pane carries
+     preload="metadata", so `loadedmetadata` fires for the ones inside collapsed
+     cards too — with no click and no playback — and a beat inside a closed
+     <details> is a content-visibility: hidden subtree whose
+     getBoundingClientRect() answers with a STALE rect, not zeros. Measured
+     2026-08-28 at 1440px: a collapsed card sitting ~200px down the page
+     reported its first beat at top 1053, and the scrollTo that followed clamped
+     to the document maximum — the footer. Same guard, same reading, as
+     seekRefTo() and restoreDisclosures': never act on something invisible. */
+  if (li.closest("details:not([open])")) return;
   const split = li.closest(".ref-split");
   const panel = split && split.querySelector("details.ref-panel");
   if (!panel || getComputedStyle(panel).position !== "sticky") return;
@@ -5897,7 +5957,7 @@ function seekRefTo(vid, t) {
      "when i close it, dont allow the video the play". Same guard and the same
      reading as restoreDisclosures': never start one invisibly. */
   if (vid.closest("details:not([open])")) return;
-  REF_HANDS_OFF = 0;                    // an explicit "take me there" re-arms follow
+  refSeekAsked(vid);                    // an explicit "take me there" re-arms follow
   /* SEEK ONLY — NEVER START PLAYBACK. Owner, 2026-08-25: "have the side video
      play when i press play so when i click on the script side it doesnt play
      automatically."
@@ -5996,7 +6056,7 @@ function wireRefControls(vid) {
   const seekTo = (t) => {
     const d = dur();
     if (!d) return;
-    REF_HANDS_OFF = 0;
+    refSeekAsked(vid);
     try { vid.currentTime = Math.max(0, Math.min(t, d)); } catch { /* refused */ }
   };
 
@@ -7492,8 +7552,14 @@ function wireAdaptationCards(host) {
     /* timeupdate fires ~4x a second. MOVE A CLASS, never re-render: this list
        is built by innerHTML and rebuilding it four times a second would
        destroy the focus ring, any live text selection and every seek
-       handler. */
-    const mark = () => {
+       handler. loadedmetadata paints the opening highlight and nothing else —
+       it fires with nobody watching. */
+    /* `follow` is the whole difference between painting the highlight and moving
+       the page. Painting is always right; moving is right only when playback or a
+       person's own seek put the playhead there. loadedmetadata fires on every
+       fresh <video> — first render and every repaint, open card or shut — and
+       following it is what scrolled a reading creator to the footer. */
+    const mark = (follow) => {
       const i = refIndexAt(times, vid.currentTime);
       if (i === vid._refIdx) return;
       if (lis[vid._refIdx]) {
@@ -7504,18 +7570,18 @@ function wireAdaptationCards(host) {
       if (lis[i]) {
         lis[i].classList.add("on");
         lis[i].setAttribute("aria-current", "true");
-        followScriptBeat(lis[i]);
+        if (follow) followScriptBeat(lis[i]);
       }
     };
-    vid.addEventListener("timeupdate", mark);
     /* A seek can land between two timeupdates, and `play` after a repaint-
        restored currentTime fires no timeupdate until the first frame
        decodes. `ended` deliberately does NOT clear the highlight — the last
        section staying lit reads better than everything going dark at 0:00
        of nothing. */
-    vid.addEventListener("seeked", mark);
-    vid.addEventListener("play", mark);
-    vid.addEventListener("loadedmetadata", mark);
+    vid.addEventListener("timeupdate", () => mark(!vid.paused));
+    vid.addEventListener("seeked", () => mark(refSeekWasAsked(vid)));
+    vid.addEventListener("play", () => mark(true));
+    vid.addEventListener("loadedmetadata", () => mark(false));
 
     /* ONE AT A TIME, across the whole pane — the rule the iframe player
        already had. A second video starting must silence the first. */

@@ -370,11 +370,19 @@
       removeEventListener("scroll", pin);
     });
   }
+  /* Each typewriter's way to stop itself, handed to LP_TEARDOWN. Declared out
+     here rather than inside the reduced-motion branch so the teardown can call
+     it unconditionally — with reduced motion on, no typewriter starts and this
+     stays an empty list. */
+  const TYPE_STOPS = [];
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
     /* BOTH composer instances type — the hero and the closing band (owner:
        "have this also for the bottom one"). One self-contained typewriter per
-       input, each reading its own markup placeholder as phrase one, each
-       stopping independently on its first focus. */
+       input, each reading its own markup placeholder as phrase one.
+       THEY NEVER STOP ON THEIR OWN any more (see the note on focus below), so
+       each one hands its timer to LP_TEARDOWN: enterApp() replaces this page
+       with the signed-in app, and a loop left running would go on writing to a
+       detached <input> every 55ms for the life of the tab. */
     document.querySelectorAll('form[data-hero] input[type="url"]').forEach((el) => {
       const phrases = [el.placeholder,
                        "https://www.tiktok.com/@name/video/…",
@@ -390,14 +398,29 @@
       };
       el.placeholder = "";
       loop(55);
-      el.addEventListener("focus", () => {
-        clearTimeout(timer); dir = 0; el.placeholder = phrases[0];
-      }, { once: true });
+      TYPE_STOPS.push(() => clearTimeout(timer));
+      /* CLICKING THE BOX DOES NOTHING TO THE ANIMATION — it keeps typing.
+         There is deliberately no focus handler here.
+
+         Two owner notes on 2026-08-28, in order. First: "when i click on the
+         link input, the placeholder text changes to the original one, dont do
+         that" — the handler assigned phrases[0], the markup placeholder, so
+         clicking mid-way through a URL example snapped the text back to "paste
+         instagram/tiktok link" under the cursor. That was changed to complete
+         the phrase already on screen instead. Then: "when the input bar is mid
+         animation dont let it auto complete when i click on it, have it still
+         play out" — so the stop goes entirely, snapping and completing alike.
+
+         Nothing has to suppress it once typing starts: a placeholder is only
+         painted while the field is EMPTY, so the first real character hides it
+         whatever the loop is doing, and the loop writing to a hidden
+         placeholder costs nothing. */
     });
   }
 
   window.LP_TEARDOWN = () => {
     closeMenu(false);
+    TYPE_STOPS.forEach((stop) => stop());
     document.documentElement.classList.remove("lp-smooth");
     removeEventListener("hashchange", jumpToAnswer);
     removeEventListener("scroll", onScroll);
