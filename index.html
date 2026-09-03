@@ -77,8 +77,8 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260828x">
-<script src="/theme.js?v=20260828x"></script>
+<link rel="stylesheet" href="/app.css?v=20260903a">
+<script src="/theme.js?v=20260903a"></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -301,7 +301,7 @@
           </div>
           <h3 class="lp-h3">paste a link</h3>
           <p class="lp-p">a video you already believe in &mdash; yours or anyone's.
-            nothing to upload &mdash; the box is at the top of this page.</p>
+            nothing to upload.</p>
         </li>
         <li class="lp-step">
           <span class="home-n">2</span>
@@ -311,8 +311,8 @@
             <div class="lp-mock-tags"><span>hook: cold open</span><span>turn @ 9s</span></div>
           </div>
           <h3 class="lp-h3">lynxr reads it back</h3>
-          <p class="lp-p">it watches the video, transcribes what is said, and
-            works out the <b>format</b> underneath &mdash; not the topic.</p>
+          <p class="lp-p">it watches, transcribes, and works out the
+            <b>format</b> underneath &mdash; not the topic.</p>
         </li>
         <li class="lp-step">
           <span class="home-n">3</span>
@@ -321,9 +321,8 @@
             <div class="lp-ex-row"><span class="lp-ex-lbl">do</span><span class="lp-ex-val">face close to camera, talk fast.</span></div>
           </div>
           <h3 class="lp-h3">you get a script</h3>
-          <p class="lp-p">that same format, rewritten for the company you are
-            making content for. send one link to three brands and you get three
-            scripts.</p>
+          <p class="lp-p">that same format, rewritten for the company you make
+            content for.</p>
         </li>
       </ol>
     </div>
@@ -338,29 +337,43 @@
     <div class="lp-in lp-panel">
       <span class="lp-eyebrow"><i class="lp-n">02</i>what you get</span>
       <h2 class="lp-h2">beyond the script</h2>
-      <p class="lp-seclede">everything around the script is part of it &mdash; editing, brands, and what lynxr will never touch.</p>
+      <p class="lp-seclede">editing, brands, and what lynxr never touches.</p>
+      <!-- ICON + ONE LINE EACH. These were four 20-25 word paragraphs; the
+           glyph now carries the idea and the sentence only names it. Every
+           icon is inline SVG on purpose — the CSP is `default-src 'none'`
+           with img-src limited to 'self' and the Supabase origin, so there is
+           no CDN sprite to reach for, and a stroked 24-viewBox path matches
+           the .side-ico set the app already draws with. -->
       <div class="lp-split">
         <div class="lp-feats">
           <div class="lp-feat">
+            <span class="lp-feat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 13h2.6l2.2-6.6 2.7 11 2.3-7.4 1.5 3h5.5"/></svg>
+            </span>
             <h3 class="lp-h3">the format, not the topic</h3>
-            <p class="lp-p">lynxr reads why a video works &mdash; the hook shape, the
-              pacing, the turn &mdash; so it transfers to your niche, whatever the
-              original was about.</p>
+            <p class="lp-p">the hook shape, the pacing, the turn &mdash; never the subject.</p>
           </div>
           <div class="lp-feat">
+            <span class="lp-feat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>
+            </span>
             <h3 class="lp-h3">every line stays yours</h3>
-            <p class="lp-p">click any line of a script and change it in place. and a
-              script will only ever claim things you've said are true about you.</p>
+            <p class="lp-p">click any line and change it in place. it only ever claims
+              what you've said is true.</p>
           </div>
           <div class="lp-feat">
+            <span class="lp-feat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.6" cy="12" r="2.1"/><path d="M6.7 12h4.1M10.8 12V6.4h4.5M10.8 12h4.5M10.8 12v5.6h4.5"/><circle cx="17.4" cy="6.4" r="2.1"/><circle cx="17.4" cy="12" r="2.1"/><circle cx="17.4" cy="17.6" r="2.1"/></svg>
+            </span>
             <h3 class="lp-h3">one link, many brands</h3>
-            <p class="lp-p">send the same video for three companies and you get three
-              scripts, each rewritten for that brand's product and voice.</p>
+            <p class="lp-p">one video, three companies, three scripts.</p>
           </div>
           <div class="lp-feat">
+            <span class="lp-feat-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 4.9 6v5.5c0 4.4 3 7.6 7.1 9 4.1-1.4 7.1-4.6 7.1-9V6z"/></svg>
+            </span>
             <h3 class="lp-h3">connected to nothing</h3>
-            <p class="lp-p">no account linking, no passwords to any platform, nothing
-              posted on your behalf. paste a public link, take your script.</p>
+            <p class="lp-p">no account linking, no passwords, nothing posted for you.</p>
           </div>
         </div>
         <!-- The exhibit is the product's own script card in miniature — an
@@ -372,6 +385,30 @@
             <div class="lp-ex-tick">&#10003; saved &mdash; every line is yours to change</div>
           </div>
           <p class="lp-note">drawn with the app's own components &middot; the words are real records</p>
+          <!-- THE FAN. Measured, not guessed: with the feature copy cut this
+               column ran 192px shorter than the list beside it, and that hole
+               was the only dead space left in the panel. It is filled by the
+               one claim on the page that still had no picture — one link, one
+               script per company.
+
+               THE NOTE ABOVE STAYS ATTACHED TO THE CARD ABOVE IT, and the fan
+               sits below it on purpose: "the words are real records" is true
+               of the exhibit card and is NOT true of this diagram, whose URL
+               is the same illustrative one step 01 already draws. No brand
+               names are invented here for the same reason — the three outputs
+               are labelled "script", which is what they are.
+
+               aria-hidden: the neighbouring feature row already says "one
+               video, three companies, three scripts" in words. -->
+          <div class="lp-fan" aria-hidden="true">
+            <span class="lp-fan-src">tiktok.com/@maya/video/72&hellip;</span>
+            <svg class="lp-fan-wire" viewBox="0 0 26 92" fill="none" stroke="currentColor" stroke-width="1" shape-rendering="crispEdges"><path d="M0 46H7M7 13V79M7 13H26M7 46H26M7 79H26"/></svg>
+            <ul class="lp-fan-out">
+              <li>script</li>
+              <li>script</li>
+              <li>script</li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>
@@ -386,17 +423,51 @@
       <span class="lp-eyebrow"><i class="lp-n">03</i>the evidence</span>
       <h2 class="lp-h2">same format, your subject</h2>
       <p class="lp-seclede">one real pair from the pilot, exactly as it happened.</p>
+      <!-- THE TRANSFORMATION, DRAWN. This was two stacks of prose either side
+           of a "→" glyph; the two sentences that explained the transfer ("a
+           study-hacks video — someone else's niche entirely" / "same hook
+           shape, same pacing — the format carried over") are GONE because the
+           middle column now shows it instead of asserting it.
+
+           THE SPINE IS NOT DECORATION AND IS NOT aria-hidden: "hook / beats /
+           turn / close" is the actual claim this section makes, so it stays in
+           the accessibility tree. Only the phone frame around the source clip
+           is hidden — that one really is a drawing of nothing.
+
+           NOTHING HERE IS INVENTED. The out card carries the single real
+           `say` line and no fabricated `do` line, because the note under it
+           says these are unedited records and a made-up stage direction would
+           make that sentence false. "study hacks" is the niche the removed
+           sentence already named. -->
       <div class="lp-proof">
         <div class="lp-proof-col">
-          <span class="lp-proof-lbl">the video pasted</span>
-          <p class="lp-quote">&ldquo;How I got a 1550 on the SAT&rdquo;</p>
-          <p class="lp-p">a study&#8209;hacks video &mdash; someone else's niche entirely.</p>
+          <span class="lp-proof-lbl">in &mdash; the video pasted</span>
+          <div class="lp-vid">
+            <div class="lp-vid-frame" aria-hidden="true">
+              <svg class="lp-vid-play" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9.2 6.1v11.8l9.4-5.9z"/></svg>
+              <span class="lp-vid-rail"><i></i></span>
+            </div>
+            <div class="lp-vid-meta">
+              <span class="lp-vid-chip">study hacks</span>
+              <p class="lp-quote lp-vid-cap">&ldquo;How I got a 1550 on the SAT&rdquo;</p>
+            </div>
+          </div>
         </div>
-        <span class="lp-proof-arrow" aria-hidden="true">&rarr;</span>
+        <div class="lp-spine">
+          <span class="lp-spine-lbl">what carried over</span>
+          <ol class="lp-spine-list">
+            <li>hook</li>
+            <li>beats</li>
+            <li>turn</li>
+            <li>close</li>
+          </ol>
+          <span class="lp-spine-foot">the subject didn't</span>
+        </div>
         <div class="lp-proof-col">
-          <span class="lp-proof-lbl">the script it wrote, for an EMT&#8209;education brand</span>
-          <p class="lp-quote">&ldquo;I went from failing my medical assessment to a 96% in two weeks.&rdquo;</p>
-          <p class="lp-p">same hook shape, same pacing &mdash; the format carried over, the subject didn't.</p>
+          <span class="lp-proof-lbl">out &mdash; for an EMT&#8209;education brand</span>
+          <div class="lp-ex-card">
+            <div class="lp-ex-row"><span class="lp-ex-lbl">say</span><span class="lp-ex-val lp-quote">&ldquo;I went from failing my medical assessment to a 96% in two weeks.&rdquo;</span></div>
+          </div>
         </div>
       </div>
       <p class="lp-note">both lines are unedited records from the pilot</p>
@@ -416,19 +487,11 @@
            the lede deliberately carries no second number so the page cannot
            contradict itself. -->
       <h2 class="lp-h2">built on 100,000+ studied videos</h2>
-      <p class="lp-p">every script lynxr writes draws on a corpus of short-form
-        video read the same way, format first &mdash; hook, beats, turn, close.</p>
+      <p class="lp-p">every script draws on that corpus, read format&#8209;first.</p>
       <p class="lp-note">5,190,673,018 combined views across the studied set &middot; measured 2026-08-28</p>
     </div>
   </section>
 
-
-  <!-- THE HOOK TICKER (option 3, added alongside the phone): real hooks from
-       the corpus drifting past in the house mono — UGC as voice, and every
-       line is a real record. Two copies of the run make the loop seamless;
-       aria-hidden because six repeating quotes are decoration to a screen
-       reader, not content. -->
-  <div class="lp-ticker" aria-hidden="true"><div class="lp-ticker-track"><span class="lp-tick lp-quote">&ldquo;I went from failing my medical assessment to a 96% in two weeks.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;How many times do I need to show you guys this&rdquo;</span><span class="lp-tick lp-quote">&ldquo;If your closet's full but you wear the same three outfits…&rdquo;</span><span class="lp-tick lp-quote">&ldquo;I never believed the smartest people are the laziest ones. Then class started.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;This one trick means you'll never say you've got nothing to wear.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;I said it once, I'll say it again: flashcards won't pass your skills exam.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;I went from failing my medical assessment to a 96% in two weeks.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;How many times do I need to show you guys this&rdquo;</span><span class="lp-tick lp-quote">&ldquo;If your closet's full but you wear the same three outfits…&rdquo;</span><span class="lp-tick lp-quote">&ldquo;I never believed the smartest people are the laziest ones. Then class started.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;This one trick means you'll never say you've got nothing to wear.&rdquo;</span><span class="lp-tick lp-quote">&ldquo;I said it once, I'll say it again: flashcards won't pass your skills exam.&rdquo;</span></div></div>
 
   <!-- Lovable's closing-CTA slot. Same control as the bar; same honest fine
        print as the pricing page. -->
@@ -847,10 +910,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20260828x" defer></script>
-<script src="/footer.js?v=20260828x" defer></script>
-<script src="/dotgrid.js?v=20260828x" defer></script>
-<script src="/home.js?v=20260828x" defer></script>
-<script src="/creator.js?v=20260828x" defer></script>
+<script src="/site.js?v=20260903a" defer></script>
+<script src="/footer.js?v=20260903a" defer></script>
+<script src="/dotgrid.js?v=20260903a" defer></script>
+<script src="/home.js?v=20260903a" defer></script>
+<script src="/creator.js?v=20260903a" defer></script>
 </body>
 </html>

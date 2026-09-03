@@ -2898,14 +2898,15 @@
   }
   @media (max-width: 760px) {
     .lp-proof { grid-template-columns: 1fr; }
-    .lp-proof-arrow { transform: rotate(90deg); justify-self: center; }
   }
   .lp-proof-lbl {
     display: block; color: var(--text-3); font-size: var(--fs-115);
     letter-spacing: .05em; margin-bottom: 10px;
   }
   .lp-quote { margin: 0 0 10px; color: var(--text); font-size: var(--fs-16); line-height: 1.45; }
-  .lp-proof-arrow { color: var(--text-3); font-size: var(--fs-19); }
+  /* (.lp-proof-arrow — the "→" that used to sit between the two prose columns
+     — was removed with the prose on 2026-09-03. The middle column is now
+     .lp-spine, which shows what carried over instead of pointing at it.) */
 
   .lp-sub {
     margin: 12px 0 0; color: var(--text-2);
@@ -6538,12 +6539,6 @@
      labels start. */
   .lp-menu-theme { justify-content: flex-start; padding: 13px 18px; }
 
-  /* ---- the hook ticker (option 3) ---- */
-  .lp-ticker { overflow: hidden; max-width: 100%; border-block: 1px solid var(--line); padding: 14px 0; }
-  .lp-ticker-track { display: inline-flex; gap: 44px; white-space: nowrap; width: max-content; animation: lp-tick 48s linear infinite; }
-  .lp-tick { color: var(--text-3); font-size: var(--fs-135); }
-  @keyframes lp-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  @media (prefers-reduced-motion: reduce) { .lp-ticker-track { animation: none; } }
 
   /* ---- ONE BAR EVERYWHERE (owner: "make all the top bars like the main
      one"). These re-state the home bar's flat treatment scoped to BARE
@@ -6577,3 +6572,160 @@
      grid ghosted through the panel's 5% translucency as a stray dot under
      the items). Solid ground, no bleed, both themes. */
   .lp-menu { background: var(--bg); }
+
+  /* ================= LANDING PAGE: PICTURES INSTEAD OF PARAGRAPHS =========
+     (owner, 2026-09-03: "for the landing page, make it just have more
+     visuals, theres too much text.")
+
+     EVERY SELECTOR IN THIS BLOCK IS `.lp-*`, and every one of those classes is
+     emitted by index.html ALONE — grepped, not assumed. app.css is the whole
+     site's stylesheet, so a rule that leaked would land on the creator and
+     agency apps as well as the six public pages.
+
+     AT THE END OF THE FILE for the reason this file records five times over:
+     .lp-feat, .lp-proof and .lp-split all already have rules mid-file, and an
+     equal-specificity rule written up there loses the source-order tie. The
+     two properties being overridden below (.lp-feat's block layout and
+     .lp-proof's align-items) are exactly that case.
+
+     No inline `style` anywhere in the markup this serves — CSP is
+     `style-src 'self'`, which discards them silently. Everything drawn here is
+     a class or an inline <svg>, both of which survive it. ==================== */
+
+  /* ---- 02 / what you get: an icon carries each idea, the line just names it ---- */
+  .lp-feat {
+    display: grid; grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 14px; align-items: start;
+  }
+  .lp-feat-ico {
+    grid-row: 1 / span 2; grid-column: 1;
+    display: grid; place-items: center; width: 34px; height: 34px;
+    border: 1px solid var(--line-2); border-radius: var(--r-inner);
+    background: var(--surface-2); color: var(--text-2);
+  }
+  .lp-feat-ico svg { width: 19px; height: 19px; display: block; }
+  .lp-feat .lp-h3, .lp-feat .lp-p { grid-column: 2; }
+  /* The heading sits on the icon's optical centre rather than its top edge. */
+  .lp-feat .lp-h3 { align-self: center; min-height: 34px; display: flex; align-items: center; margin-bottom: 0; }
+  .lp-feat .lp-p { margin-top: 6px; }
+
+  /* ---- 03 / the evidence: in → format → out, drawn ---- */
+  /* stretch, not centre: the two cards either side of the spine are now real
+     boxes of different natural heights, and a centred pair reads as two
+     unrelated objects rather than one before/after. */
+  .lp-proof { align-items: stretch; }
+  .lp-proof-col { display: flex; flex-direction: column; }
+  .lp-proof-col > .lp-vid, .lp-proof-col > .lp-ex-card { flex: 1; }
+  .lp-proof-col > .lp-ex-card { display: flex; align-items: center; }
+  .lp-proof-col > .lp-ex-card > .lp-ex-row { flex: 1; }
+
+  /* the pasted clip, drawn with the card tokens the app already uses */
+  .lp-vid {
+    display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 16px;
+    align-items: center;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-card); padding: 16px;
+  }
+  html[data-theme="light"] .lp-vid { box-shadow: var(--shadow-card); }
+  .lp-vid-frame {
+    position: relative; aspect-ratio: 9 / 16; display: grid; place-items: center;
+    background: var(--surface-2); border: 1px solid var(--line-2);
+    border-radius: var(--r-inner); overflow: hidden;
+  }
+  .lp-vid-play { width: 26px; height: 26px; color: var(--text-2); }
+  .lp-vid-rail {
+    position: absolute; left: 8px; right: 8px; bottom: 8px; height: 3px;
+    background: var(--line-2); border-radius: var(--r-pill); overflow: hidden;
+  }
+  .lp-vid-rail > i { display: block; height: 100%; width: 38%; background: var(--text-2); }
+  .lp-vid-chip {
+    display: inline-block; margin-bottom: 9px; padding: 1px 8px;
+    border: 1px solid var(--line-2); border-radius: var(--r-pill);
+    color: var(--text-3); font-size: var(--fs-105);
+  }
+  .lp-vid-cap { margin: 0; }
+
+  /* THE FORMAT SPINE. Deliberately NOT aria-hidden: "hook / beats / turn /
+     close" is the claim this section makes, and the two sentences that used to
+     make it in prose were deleted in favour of this. An <ol>, because the
+     order is the point. */
+  .lp-spine {
+    align-self: center; position: relative;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    padding: 2px 4px;
+  }
+  .lp-spine-lbl, .lp-spine-foot {
+    color: var(--text-3); font-size: var(--fs-105); letter-spacing: .09em;
+    text-align: center; white-space: nowrap;
+  }
+  .lp-spine-list {
+    list-style: none; margin: 0; padding: 0; position: relative;
+    display: flex; flex-direction: column; gap: 13px;
+  }
+  .lp-spine-list::before {
+    content: ""; position: absolute; left: 4.5px; top: 5px; bottom: 5px;
+    width: 1px; background: var(--line-2);
+  }
+  .lp-spine-list li {
+    position: relative; padding-left: 21px;
+    color: var(--text-2); font-size: var(--fs-125); line-height: 1.1;
+  }
+  .lp-spine-list li::before {
+    content: ""; position: absolute; left: 0; top: 50%; margin-top: -4.5px;
+    width: 9px; height: 9px; border-radius: var(--r-round);
+    background: var(--text-2);
+  }
+  /* Two hairline stubs reaching into the grid gap toward the cards either
+     side, so the three columns read as one joined object. Desktop only —
+     under 760px .lp-proof is a single column and there is nothing beside the
+     spine to reach for. */
+  @media (min-width: 761px) {
+    .lp-spine::before, .lp-spine::after {
+      content: ""; position: absolute; top: 50%; width: 13px; height: 1px;
+      background: var(--line-2);
+    }
+    .lp-spine::before { left: -17px; }
+    .lp-spine::after { right: -17px; }
+  }
+  /* On a phone the spine stops being a spine — a vertical rail between two
+     stacked cards points nowhere. Four labelled stage chips in a row say the
+     same thing in a quarter of the height. */
+  @media (max-width: 760px) {
+    .lp-spine { gap: 10px; padding: 4px 0; }
+    .lp-spine-list { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .lp-spine-list::before { display: none; }
+    .lp-spine-list li {
+      padding: 4px 11px 4px 23px;
+      border: 1px solid var(--line); border-radius: var(--r-pill);
+      background: var(--surface);
+    }
+    .lp-spine-list li::before { left: 9px; }
+  }
+
+  /* one link -> one script per company, drawn. Sits in the space the cut
+     feature copy freed up in the exhibit column; see the markup comment. */
+  .lp-fan {
+    margin-top: 16px;
+    display: grid; grid-template-columns: minmax(0, 1fr) 26px auto;
+    align-items: center;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-card); padding: 18px;
+  }
+  html[data-theme="light"] .lp-fan { box-shadow: var(--shadow-card); }
+  .lp-fan-src {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    border: 1px solid var(--line-2); border-radius: var(--r-pill);
+    padding: 7px 12px; color: var(--text-3); font-size: var(--fs-115);
+  }
+  /* 1:1 with its viewBox so the elbows land on whole pixels — the three row
+     centres below are 13 / 46 / 79, which is 26px chips on a 7px gap. */
+  .lp-fan-wire { width: 26px; height: 92px; display: block; color: var(--line-2); }
+  .lp-fan-out {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .lp-fan-out li {
+    height: 26px; display: flex; align-items: center;
+    padding: 0 12px; border: 1px solid var(--line-2); border-radius: var(--r-pill);
+    background: var(--surface-2); color: var(--text-2); font-size: var(--fs-115);
+  }
