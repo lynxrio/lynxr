@@ -544,6 +544,37 @@ function trackCode(brandName) {
 const SB_URL = "https://esakjfogplfszievvabi.supabase.co";
 const SB_KEY = "sb_publishable_pTFNX2B94PE_DFLL799w4A_4VcH2xTN";
 
+/* THE CLIP CDN — OFF UNTIL THIS STRING IS SET, and while it is empty every URL
+   below comes back untouched, so the app behaves exactly as it did.
+   Set it to the proxied Cloudflare hostname (cdn.lynxr.io) once that DNS record
+   and its cache rule exist. Both hosts are already allowed by the CSP's
+   media-src and img-src, so turning it on is this one string and nothing else.
+
+   WHY IT EXISTS: on 2026-09-07 the whole Supabase project went to HTTP 402,
+   `exceed_egress_quota`, and took sign-in, the database, storage and the worker
+   with it. Clips have been served straight out of storage since 2026-08-24,
+   when the original stopped playing in a TikTok iframe (where TikTok paid for
+   the bytes) and became a self-hosted proxy. Every play, and every metadata
+   fetch, has come out of the egress allowance since.
+
+   REWRITTEN AT RENDER TIME, ON PURPOSE, rather than at upload time. Every
+   existing adaptation row already stores a Supabase URL and
+   pipeline/process_adaptations.py builds more of them the same way, so
+   rewriting here means no database migration — which also means it can ship
+   while the project is restricted and those rows cannot even be read. It is
+   also one string to clear if the CDN ever has to come back out.
+
+   NARROW BY DESIGN: only public storage objects are rewritten. The REST and
+   auth endpoints must keep going straight to Supabase. */
+const CLIP_CDN = "";                       // e.g. "https://cdn.lynxr.io"
+const SB_PUBLIC_PREFIX = `${SB_URL}/storage/v1/object/public/`;
+
+function cdnUrl(u) {
+  const s = String(u || "");
+  if (!CLIP_CDN || !s.startsWith(SB_PUBLIC_PREFIX)) return s;
+  return CLIP_CDN + s.slice(SB_URL.length);
+}
+
 // Where this app lives, for the links Supabase mails back — confirmation and
 // password reset. It moved off /creator.html to an unlisted directory so the
 // homepage can be a public marketing page; a stale value here does not fail
@@ -730,8 +761,28 @@ function refreshSeats() {
   });
 }
 
+/* THE AUTH MAILER FAILING. GoTrue answers 500 / `unexpected_failure` with
+   "Error sending confirmation email" (signup), "Error sending recovery email"
+   (password reset), and the same shape for its other mails. MEASURED
+   2026-09-12 against the live project: /auth/v1/recover returned exactly
+   `{"code":500,"error_code":"unexpected_failure","msg":"Error sending recovery
+   email"}` while the SMTP credentials were broken.
+
+   Signup ROLLS BACK when this happens — no row in auth.users — so it looks
+   like nothing happened at all. Nothing matched it before, so it fell through
+   to "check your connection", and for eleven days (no signup succeeded after
+   2026-08-31) creators were told their internet was the problem while their
+   internet was fine. Owner, 2026-09-12: "people couldnt sign up".
+   Say whose fault it is. */
+const MAILER_FAILURE = /error sending .*e-?mail|email_send|smtp/i;
+
 function signupError(raw) {
   const s = String(raw || "");
+  // First, ahead of the `unexpected_failure` seat branch below: a mailer fault
+  // carries that same error_code, and must never read as "we're full".
+  if (MAILER_FAILURE.test(s))
+    return "We couldn't send your confirmation email — that's a problem on our end, "
+      + "not your connection. No account was made, so try again later.";
   /* The seat gate refusing an account. MEASURED against the live project on
      2026-08-12, because the wording here is not obvious: GoTrue passes the
      trigger's own `raise exception` text straight through as `message`, so what
@@ -4834,16 +4885,25 @@ async function hydrate(item) {
   catch { return; }
   const live = ME.library.find((l) => l.id === item.id);
   if (!live) return;                            // removed while the request was out
+  /* WHAT IT LOOKED LIKE BEFORE. A relay that answers 200 with an empty caption
+     reaches every line below and changes not one of them — and this used to
+     save() and repaint anyway. See the repaint-gate note on hydrateStale. */
+  const was = JSON.stringify([live.title, live.caption, live.creator]);
   live.caption = live.caption || meta.caption || "";
   live.creator = live.creator || meta.creator || "";
   live.title = realTitle(live.title)
     || (meta.caption || "").replace(/\s+/g, " ").trim().slice(0, 90);
+  let changed = JSON.stringify([live.title, live.caption, live.creator]) !== was;
   // Trash too. A deleted script keeps its own copy of the title, and only the
   // live list was ever updated — so a trashed entry held the old URL fallback
   // for good, which is exactly what the Trash view was rendering.
   for (const a of [...ME.adaptations, ...(ME.trash || [])]) {
-    if (a.libraryId === live.id && live.title) a.title = live.title;
+    if (a.libraryId === live.id && live.title && a.title !== live.title) {
+      a.title = live.title;
+      changed = true;
+    }
   }
+  if (!changed) return;              // learned nothing: no save, no repaint
   save();
   const editing = editInFlight();
   if (!editing) { renderSide(); renderPane(); }   // titles land in both views
@@ -4891,15 +4951,25 @@ async function hydrateScript(rec) {
   if (!title) return;
 
   const canon = canonUrl(url);
+  /* SAME REPAINT GATE AS hydrate(). A title that matches nothing — every record
+     for this URL already named, which is the common case on a re-visit — used
+     to fall through to save() and a full renderPane() regardless. */
+  let changed = false;
   for (const a of [...(ME.adaptations || []), ...(ME.trash || [])]) {
-    if (a.sourceUrl && canonUrl(a.sourceUrl) === canon && !realTitle(a.title)) a.title = title;
+    if (a.sourceUrl && canonUrl(a.sourceUrl) === canon && !realTitle(a.title)) {
+      a.title = title;
+      changed = true;
+    }
   }
   const item = (ME.library || []).find((l) => l.canon === canon);
   if (item) {
+    const was = JSON.stringify([item.title, item.caption, item.creator]);
     item.title = realTitle(item.title) || title;
     item.caption = item.caption || meta.caption || "";
     item.creator = item.creator || meta.creator || "";
+    if (JSON.stringify([item.title, item.caption, item.creator]) !== was) changed = true;
   }
+  if (!changed) return;              // matched nothing: no save, no repaint
   save();
   const editing = editInFlight();
   if (!editing) { renderSide(); renderPane(); }
@@ -5770,8 +5840,8 @@ function refPlayHtml(a) {
     <div class="ref-dock">
       <div class="ref-media">
         <video class="ref-video" data-refvid="${escapeHtml(a.id)}"
-          src="${escapeHtml(safeUrl(clip))}"
-          ${cover ? `poster="${escapeHtml(cover)}"` : ""}
+          src="${escapeHtml(cdnUrl(safeUrl(clip)))}"
+          ${cover ? `poster="${escapeHtml(cdnUrl(cover))}"` : ""}
           preload="metadata" playsinline
           aria-label="The original video"></video>
         <span class="ref-badge" aria-hidden="true"><svg viewBox="0 0 24 24"
@@ -8100,6 +8170,22 @@ function setGateMode(mode) {
   // tick behind that the creator never made.
   document.getElementById("agree-wrap").hidden = !up;
   document.getElementById("agree").checked = false;
+  /* THE INVITE FIELD IS HIDDEN HERE TOO — the reset that was missing.
+     applySeatState() owns SHOWING it, but it opens with
+     `if (GATE_MODE !== "up") return;` and setGateMode only calls it when `up`,
+     so nothing ever hid it on the way back. An invite box left over from the
+     create form then sat on the SIGN-IN form asking existing creators for a
+     code that has never applied to signing in (owner, 2026-09-07: "why is there
+     an invite code"). Same shape as the agreement tick above: it belongs to
+     creating an account, so every mode change re-decides it.
+
+     THE VALUE IS DELIBERATELY NOT CLEARED, unlike the tick. An invite link
+     (?e=…&c=…) prefills this field AFTER setGateMode("up") has run, and that
+     prefill happens once at load — so clearing on every mode change would cost
+     an invited creator their code the first time they toggled to sign-in and
+     back, with nowhere to get it again. Consent must be freshly given; an
+     invite code must not be silently thrown away. */
+  document.getElementById("invite-wrap").hidden = !(up && INVITE_REQUIRED);
   document.getElementById("gate-go").textContent =
     reset ? "Save new password" : up ? "Create account" : "Enter";
   pw.setAttribute("autocomplete", up || reset ? "new-password" : "current-password");
@@ -8208,13 +8294,23 @@ document.getElementById("gate-forgot").addEventListener("click", async () => {
       headers: { apikey: SB_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
-    if (!res.ok) throw new Error(String(res.status));
+    if (!res.ok) {
+      // The body, not just the status — a bare "500" cannot tell a broken
+      // mailer from a dropped connection, and those need opposite advice.
+      // See MAILER_FAILURE.
+      // The status stays in front of it: the rate check below keys on "429".
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`${res.status} ${body.msg || body.message || ""}`.trim());
+    }
     err.textContent = "If that address has an account, a reset link is on its way. "
       + "Open it on this device and you can set a new password.";
   } catch (ex) {
-    err.textContent = /429|rate/i.test(ex.message)
+    err.textContent = /429|rate|too many|for security purposes/i.test(ex.message)
       ? "Too many attempts — wait a minute and try again."
-      : "Couldn't send the reset link — check your connection and try again.";
+      : MAILER_FAILURE.test(ex.message)
+        ? "We couldn't send the reset email — that's a problem on our end, not your "
+          + "connection. Message Lynx and we'll get you back in."
+        : "Couldn't send the reset link — check your connection and try again.";
   } finally { btn.disabled = false; }
 });
 
