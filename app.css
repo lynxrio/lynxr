@@ -1626,6 +1626,35 @@
   .ref-seek::-moz-range-track { height: 100%; background: transparent; }
   .ref-seek::-moz-range-thumb { width: 16px; height: 16px; border: 0; background: transparent; }
   .ref-seek:disabled { cursor: default; }
+  /* CLICKING THE TIMELINE MUST NEVER PAINT IT. Owner, 2026-09-12: "when i
+     click on the video timeline, have it not go black and blocked off".
+     The site-wide `input:focus, select:focus { background: var(--surface-2) }`
+     rule is written for text fields, but this slider is an <input> too, and at
+     specificity (0,1,1) it outranks `.ref-seek { background: transparent }` at
+     (0,1,0). Inside the player that token is the dark island's #17171a — see
+     `html[data-theme="light"] :is(.ref-media, .tp, .vplay)` — so a click filled
+     the whole 32px strip black, over the rail and the fill. MEASURED on the
+     real stylesheet with a real click: background rgb(23, 23, 26). The global
+     :focus-visible outline then drew a box round it, because Chrome counts a
+     clicked range input as focus-visible (it takes arrow keys).
+     These two rules sit at (0,2,0), which beats both without editing either —
+     both are still right for every text field on the site. This is the only
+     range input in the app (checked), so nothing else needs the same guard. */
+  .ref-seek:focus { background: transparent; }
+  .ref-seek:focus-visible { outline: none; }
+  /* THE FOCUS RING MOVES TO THE THUMB, it does not disappear: a keyboard user
+     tabbing to the timeline still has to see where focus is. A ring on the dot
+     marks the control without covering the rail. Two tones so it reads on the
+     light card, on the dark panel and on fullscreen's #000 alike: inside the
+     player these tokens are the dark island's in both themes, #17171a inside
+     and #ededf0 outside.
+     :has() because the input comes AFTER the rail in the markup, so no sibling
+     combinator can reach back to it. This file already relies on :has() for a
+     focus ring (.vpick); where it is unsupported only this ring is lost, the
+     black block stays fixed regardless. */
+  .ref-scrub:has(> .ref-seek:focus-visible) .ref-rail-fill::after {
+    box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--text);
+  }
   /* NOTHING READY YET: no duration, so no position to state. The fill stays at
      zero width AND the thumb is removed, so the strip reads as inert rather
      than as "0% played, drag me". The readout says --:-- in the same beat. */
@@ -6729,3 +6758,117 @@
     padding: 0 12px; border: 1px solid var(--line-2); border-radius: var(--r-pill);
     background: var(--surface-2); color: var(--text-2); font-size: var(--fs-115);
   }
+
+  /* ---------- FIELD ERRORS (2026-09-12) ----------
+     lynxr's own replacement for the browser's validation bubble (owner: "i dont
+     like how it looks so elementary"). Every <form> carries `novalidate`; the
+     submit handlers in creator.js / app.js set `aria-invalid="true"` on the
+     field they refuse and write the reason into the message element that form
+     already had (.bp-msg / .composer-note under a paste box, #err under the
+     gate, .warn in the brief, #av-note). This block only paints that state, and
+     paints NOTHING new — the red is --bad, the colour .bp-plat.bad and
+     .bp-msg.bad already use for the same refusal, in both themes.
+
+     KEYED ON THE ATTRIBUTE, NOT A CLASS, so the paint cannot drift from what a
+     screen reader is told: the attribute is lifted the moment the field is
+     fixed, and the border and the red #err go with it.
+
+     SCOPED to the forms that set it (ids, or .composer-row which only the paste
+     boxes use), so no public page or other control can pick it up. Specificity
+     is deliberate: the composer's focus rules ~900 lines up reach (0,3,1) and
+     re-pin the border to --line-2 on keyboard focus, which is exactly when an
+     error has just moved focus into the field — so the composer rule doubles
+     its class to (0,3,1) and wins by coming later. The id-scoped rules clear
+     every .pw-wrap / .field.login / .post-form :focus rule outright. The focus
+     RING (outline) is untouched: ring says where focus is, border says what is
+     wrong, and both show at once. No motion added. */
+  .composer-row.composer-row:has(input[aria-invalid="true"]) { border-color: var(--bad); }
+  /* The signed-in composer's note is .composer-note, which has no .bad colour —
+     so its refusals used to paint grey (--text-3) while the home page's paint
+     red. Red here only while the box above is flagged, so "Tick which brand
+     this is for" and the other non-field notes keep their grey. */
+  .composer-row:has(input[aria-invalid="true"]) ~ .composer-note { color: var(--bad); }
+  #gate-form input[aria-invalid="true"],
+  #brief-form input[aria-invalid="true"],
+  #av-form input[aria-invalid="true"] { border-color: var(--bad); }
+  #gate-form .gate-agree:has(input[aria-invalid="true"]) { color: var(--bad); }
+  /* #err carries "Signing in…" and "check your email" too — it is red only
+     while one of the gate's own fields is flagged by it. */
+  #gate-form:has([aria-invalid="true"]) ~ #err { color: var(--bad); }
+
+  /* ---------- THE RAIL LOGO IS A BUTTON (2026-09-12) ----------
+     #nav-home wraps the creator rail's mark + wordmark (index.html and
+     /creatorsonly/) and goes to New script. It must paint exactly what the bare
+     mark + wordmark painted: the 9px between them used to come from
+     .side-brand's flex gap, so the button carries its own; everything a <button>
+     brings with it (padding, border, background, UA colour) is reset. The focus
+     ring is the global :focus-visible one; the radius only shapes that ring.
+     Hover dims like .side-new, the rail's other ink control. Scoped to the
+     class, which exists only in the creator rail. */
+  .side-home {
+    display: inline-flex; align-items: center; gap: 9px;
+    margin: 0; padding: 0; border: 0; background: none; color: inherit;
+    border-radius: var(--r-inner); text-align: left;
+  }
+  .side-home:hover { opacity: .85; }
+
+  /* ================= CONTENT PAGES: ONE READING COLUMN =================
+     Owner, 2026-09-03, on the guide pages: "for the blogs they look ass,
+     add sm styling". Measured on /how-to-write-a-hook/ at 1280px before this
+     block: body copy 14.28px, h2 42px, h2 1072px wide against a 584px
+     paragraph column, margin-top 0 on every h2, a centred hero over a
+     left-aligned body. After: h1, lede, h2 and paragraphs share one 680px
+     column (x=295 at 1280), body 16.28px, h2 28px.
+
+     SCOPE: body.lp:not(.home) = the guides, /glossary/, /faq/, /about/,
+     /blog/ and every post. The landing is body.lp.home and is untouched;
+     the legal pages and /pricing/ have a bare <body>; the apps never carry
+     .lp. EVERY selector here starts with that scope, because app.css is
+     the whole site's stylesheet.
+
+     AT THE END OF THE FILE for the source-order reason this file records
+     repeatedly; the scope's specificity also beats every bare .lp-* rule.
+
+     .post-* classes exist only in /blog/ post markup. The global table /
+     th / td rules belong to the agency app (sticky, nowrap, zebra) and are
+     undone for .post-table. `td` sits on the lowercase exclusion list for
+     scraped data; a post's table is our own copy, so it is lowercased
+     again, and an .entity span inside a cell still keeps its capitals
+     because that rule matches the span directly. */
+  body.lp:not(.home) main :is(.lp-hero, .lp-sec, .lp-band) > .lp-in { max-width: 728px; }
+  body.lp:not(.home) .lp-hero { text-align: left; padding: clamp(56px, 10vh, 112px) 0 32px; }
+  body.lp:not(.home) .lp-hero .lp-h1 { font-size: clamp(30px, 4vw, 46px); line-height: 1.12; letter-spacing: -0.03em; max-width: none; margin: 0 0 20px; }
+  body.lp:not(.home) .lp-hero .lp-lede { font-size: calc(16px + var(--fs-d) * 0.02); line-height: 1.6; max-width: none; margin: 0; }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) { padding-block: 20px; }
+  body.lp:not(.home) main > :is(.lp-sec, .lp-band):last-child { padding-bottom: 104px; }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) .lp-h2 { font-size: clamp(21px, 2.3vw, 28px); line-height: 1.25; letter-spacing: -0.02em; margin: 52px 0 14px; }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) .lp-in > .lp-h2:first-child { margin-top: 12px; }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) h3 { font-size: calc(16px + var(--fs-d) * 0.02); font-weight: 600; line-height: 1.35; color: var(--text); margin: 34px 0 10px; }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) .lp-p { font-size: calc(15px + var(--fs-d) * 0.015); line-height: 1.75; max-width: none; margin: 0 0 18px; }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) .lp-p:last-child { margin-bottom: 0; }
+  body.lp:not(.home) .lp-a { font-size: calc(15px + var(--fs-d) * 0.015); max-width: none; }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) :is(.lp-p, li, blockquote) :is(b, strong) { color: var(--text); }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) :is(ul, ol):not(.lp-list):not(.ps-beats) { margin: 0 0 18px; padding-left: 1.6em; color: var(--text-2); font-size: calc(15px + var(--fs-d) * 0.015); line-height: 1.75; }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) :is(ul, ol):not(.lp-list):not(.ps-beats) > li { margin: 0 0 8px; padding-left: 4px; }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) :is(ul, ol):not(.lp-list):not(.ps-beats) > li::marker { color: var(--text-3); }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) .lp-list { margin: 8px 0 22px; }
+  body.lp:not(.home) main :is(.lp-sec, .lp-band) .lp-list li { font-size: calc(14px + var(--fs-d) * 0.015); }
+  body.lp:not(.home) main blockquote { margin: 26px 0; padding: 2px 0 2px 18px; border-left: 2px solid var(--line-2); color: var(--text); font-size: calc(15px + var(--fs-d) * 0.015); line-height: 1.7; }
+  body.lp:not(.home) main blockquote p { margin: 0; }
+  body.lp:not(.home) .post-crumbs { font-size: var(--fs-12); color: var(--text-3); margin: 0 0 18px; }
+  body.lp:not(.home) .post-crumbs a { color: var(--text-3); border-bottom-color: transparent; }
+  body.lp:not(.home) .post-meta { font-size: var(--fs-12); color: var(--text-3); margin: 18px 0 0; }
+  body.lp:not(.home) .post-script { margin: 26px 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 18px 20px; }
+  html[data-theme="light"] body.lp:not(.home) .post-script { box-shadow: var(--shadow-card); }
+  body.lp:not(.home) .post-script figcaption { font-size: var(--fs-115); letter-spacing: .08em; color: var(--text-3); margin: 0 0 14px; }
+  body.lp:not(.home) .post-script .ps-beats { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+  body.lp:not(.home) .post-script .ps-beats > li { display: grid; grid-template-columns: 72px minmax(0, 1fr); column-gap: 14px; font-size: calc(14px + var(--fs-d) * 0.015); line-height: 1.6; }
+  body.lp:not(.home) .post-script .ps-part { grid-row: 1 / span 2; color: var(--text-3); font-size: var(--fs-115); letter-spacing: .06em; padding-top: 2px; }
+  body.lp:not(.home) .post-script .ps-say { grid-column: 2; color: var(--text); }
+  body.lp:not(.home) .post-script .ps-do { grid-column: 2; color: var(--text-2); }
+  body.lp:not(.home) .post-table { margin: 26px 0; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-card); }
+  body.lp:not(.home) .post-table table { font-size: calc(13.5px + var(--fs-d) * 0.015); min-width: 520px; }
+  body.lp:not(.home) .post-table :is(th, td) { white-space: normal; vertical-align: top; padding: 11px 14px; text-transform: lowercase; line-height: 1.55; }
+  body.lp:not(.home) .post-table th { position: static; background: var(--surface); color: var(--text-3); font-size: var(--fs-115); box-shadow: none; }
+  body.lp:not(.home) .post-table td { color: var(--text-2); }
+  body.lp:not(.home) .post-table tbody tr:is(:nth-child(even), :hover) td { background: transparent; }

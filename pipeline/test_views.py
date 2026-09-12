@@ -185,6 +185,28 @@ check("source_metrics falls back to src duration when meta has none",
 
 
 # =============================================================================
+# upsert_metrics — the paste path must never blank a stored count
+# =============================================================================
+
+_um_no_count = P.upsert_metrics({"views": None, "likes": 1, "comments": 0,
+                                  "duration": 5.0, "creator": "", "title": "t"})
+check("upsert_metrics: no count -> 'views' key is left OUT of the body",
+      "views" in _um_no_count, False)
+check("upsert_metrics: no count -> metrics_at is None (due for the next sweep)",
+      _um_no_count["metrics_at"], None)
+
+_um_zero = P.upsert_metrics({"views": 0, "likes": 1, "comments": 0,
+                              "duration": 5.0, "creator": "", "title": "t"})
+check("upsert_metrics: a real 0 survives", _um_zero["views"], 0)
+check("upsert_metrics: a real 0 still stamps metrics_at",
+      isinstance(_um_zero["metrics_at"], str), True)
+
+_um_5 = P.upsert_metrics({"views": 5, "likes": 1, "comments": 0,
+                           "duration": 5.0, "creator": "", "title": "t"})
+check("upsert_metrics: a real count survives", _um_5["views"], 5)
+
+
+# =============================================================================
 # apply_views — pure, hand-built entry lists
 # =============================================================================
 
@@ -223,19 +245,29 @@ check("apply_views: a queued entry is NOT updated",
       by_id["queued"]["source"]["meta"]["views"], 27)
 check("apply_views: a running entry is NOT updated",
       by_id["running"]["source"]["meta"]["views"], 27)
-check("apply_views: an entry with no source.meta is NOT touched",
-      by_id["no_meta"]["source"], {})
-check("apply_views: an entry whose value already matches is NOT reported changed "
-      "(no-op write)",
-      by_id["already_31"]["source"]["meta"].get("metricsAt"), None)
+check("apply_views: a source dict with no meta GETS one",
+      by_id["no_meta"]["source"], {"meta": {"views": 31, "metricsAt": AT}})
+check("apply_views: an unchanged count is re-stamped",
+      by_id["already_31"]["source"]["meta"].get("metricsAt"), AT)
 check("apply_views: an entry for a DIFFERENT video is untouched",
       by_id["other_video"]["source"]["meta"]["views"], 5)
 check("apply_views: two entries for the same video with different query "
       "strings are BOTH matched via canon_url",
       by_id["diff_qs"]["source"]["meta"]["views"], 31)
 check("apply_views: returns the count of entries ACTUALLY changed "
-      "(done + diff_qs, not already_31)",
-      changed, 2)
+      "(done + no_meta + already_31 + diff_qs)",
+      changed, 4)
+
+es2 = [entry("d2", "done", VIDEO_A, 27)]
+check("apply_views: views=None returns 0 (a refresh with no count is a no-op)",
+      P.apply_views(es2, CANON_A, None, AT), 0)
+check("apply_views: ...and touches nothing", es2[0]["source"]["meta"]["views"], 27)
+
+es3 = [{"id": "nosrc", "status": "done", "sourceUrl": VIDEO_A}]
+check("apply_views: an entry with no source key at all returns 0",
+      P.apply_views(es3, CANON_A, 31, AT), 0)
+check("apply_views: ...and gains no source key",
+      "source" in es3[0], False)
 
 
 # =============================================================================
@@ -460,6 +492,161 @@ check("paid pool: staleness stamp is the oldest of the three",
 # platform can be moved between pools without a silent behaviour change.
 check("retry config of 0 degrades to the free form",
       P.views_or_clause(_NOW, 168, 0, 0), P.views_or_clause(_NOW, 168))
+
+# ---------------------------------------------------------------------------
+# views_or_clause taper (2026-09-12): the max_age_h clock only applies while
+# first_seen_at is younger than taper_after_h; older rows fall back to
+# taper_max_age_h. Both 0 = no taper, output identical to before.
+# ---------------------------------------------------------------------------
+import urllib.parse
+
+_taper = P.views_or_clause(_NOW, 168, 2, 24, 720, 720)
+check("taper: retry branch's and(...) is joined by the taper's own and(...)",
+      "and(first_seen_at.gt." in _taper, True)
+check("taper: three metrics_at.lt. windows (taper, retry, taper-max-age)",
+      _taper.count("metrics_at.lt."), 3)
+check("taper: 720h-before-now stamp is present (taper_after_h/taper_max_age_h)",
+      urllib.parse.quote("2026-07-20T12:00:00Z", safe="") in _taper, True)
+check("taper: 0/0 degrades to the untapered form",
+      P.views_or_clause(_NOW, 168, 2, 24, 0, 0) == P.views_or_clause(_NOW, 168, 2, 24), True)
+
+
+# =============================================================================
+# refresh_views (2026-09-12 rework) — yield to a paste, skip orphans, never
+# blank a stored count, taper. Stubs P.sb, P.fetch_meta, P.queued_work and
+# P.refresh_entry_views; restores all four in `finally`.
+# =============================================================================
+
+_ORIG_SB = P.sb
+_ORIG_FETCH_META = P.fetch_meta
+_ORIG_QUEUED_WORK = P.queued_work
+_ORIG_REFRESH_ENTRY_VIEWS = P.refresh_entry_views
+
+_RV_INSTAGRAM_ROW = {"canonical_url": "instagram.com/reel/x", "url": INSTAGRAM_URL,
+                     "platform": "instagram", "views": 3715, "metrics_at": None}
+
+
+def _make_rv_sb(holders, patches):
+    def _sb(key, path, method="GET", body=None, raw=False):
+        if method == "PATCH":
+            patches.append((path, body))
+            return None
+        if "lynxr_sources?select=" in path and "platform=in.(instagram)" in path:
+            return [_RV_INSTAGRAM_ROW]
+        if "lynxr_sources?select=" in path:
+            return []
+        if path.startswith("/rest/v1/lynxr_creators?select=id&or="):
+            return holders
+        raise AssertionError(f"unexpected sb call: {method} {path}")
+    return _sb
+
+
+try:
+    # --- (a) yield: a paste is waiting, so nothing is fetched or paid for ---
+    patches = []
+    P.sb = _make_rv_sb([], patches)
+    P.queued_work = lambda k: True
+
+    def _fm_must_not_run(*a, **kw):
+        raise AssertionError("fetch_meta must not run while yielding")
+    P.fetch_meta = _fm_must_not_run
+    P.refresh_views("k", 3)
+    check("refresh_views (a) yield: no PATCH issued", patches, [])
+
+    # --- (b) orphan: nobody holds the video — clock moves, nothing is fetched ---
+    patches = []
+    P.sb = _make_rv_sb([], patches)
+    P.queued_work = lambda k: False
+
+    def _fm_must_not_run2(*a, **kw):
+        raise AssertionError("fetch_meta must not run on an orphan row")
+    P.fetch_meta = _fm_must_not_run2
+    P.refresh_views("k", 3)
+    check("refresh_views (b) orphan: exactly one PATCH", len(patches), 1)
+    check("refresh_views (b) orphan: PATCH body is metrics_at only",
+          sorted(patches[0][1].keys()) if patches else None, ["metrics_at"])
+
+    # --- (c) no count comes back: the stored count is kept, nothing propagates ---
+    patches = []
+    P.sb = _make_rv_sb([{"id": "c1"}], patches)
+    P.queued_work = lambda k: False
+    P.fetch_meta = lambda url, paid=False: {
+        "video_id": "x", "creator": "", "title": "t", "views": None,
+        "likes": 1, "comments": 0, "duration": 5.0,
+        "metricsAt": "2026-09-12T00:00:00Z"}
+    _rev_calls = []
+    P.refresh_entry_views = lambda *a: _rev_calls.append(a) or 0
+    P.refresh_views("k", 3)
+    check("refresh_views (c) no count: exactly one PATCH", len(patches), 1)
+    check("refresh_views (c) no count: PATCH body has no 'views' key",
+          "views" in (patches[0][1] if patches else {}), False)
+    check("refresh_views (c) no count: PATCH body has metrics_at",
+          "metrics_at" in (patches[0][1] if patches else {}), True)
+    check("refresh_views (c) no count: refresh_entry_views NOT called",
+          _rev_calls, [])
+
+    # --- (d) a count propagates ---
+    patches = []
+    P.sb = _make_rv_sb([{"id": "c1"}], patches)
+    P.queued_work = lambda k: False
+    P.fetch_meta = lambda url, paid=False: {
+        "video_id": "x", "creator": "", "title": "t", "views": 1234,
+        "likes": 1, "comments": 0, "duration": 5.0,
+        "metricsAt": "2026-09-12T00:00:00Z"}
+    _rev_calls = []
+    P.refresh_entry_views = lambda *a: _rev_calls.append(a) or 1
+    P.refresh_views("k", 3)
+    check("refresh_views (d) count propagates: PATCH body views == 1234",
+          (patches[0][1] if patches else {}).get("views"), 1234)
+    check("refresh_views (d) count propagates: refresh_entry_views called once",
+          len(_rev_calls), 1)
+    check("refresh_views (d) count propagates: refresh_entry_views args",
+          _rev_calls[0] if _rev_calls else None,
+          ("k", "c1", P.canon_url(INSTAGRAM_URL), 1234, "2026-09-12T00:00:00Z"))
+
+    # --- (e) fetch failure: {} means "could not ask" — clock moves, no count ---
+    patches = []
+    P.sb = _make_rv_sb([{"id": "c1"}], patches)
+    P.queued_work = lambda k: False
+    P.fetch_meta = lambda url, paid=False: {}
+    _rev_calls = []
+    P.refresh_entry_views = lambda *a: _rev_calls.append(a) or 0
+    P.refresh_views("k", 3)
+    check("refresh_views (e) fetch failure: exactly one PATCH", len(patches), 1)
+    check("refresh_views (e) fetch failure: PATCH body is metrics_at only",
+          sorted(patches[0][1].keys()) if patches else None, ["metrics_at"])
+    check("refresh_views (e) fetch failure: refresh_entry_views NOT called",
+          _rev_calls, [])
+
+    # --- queued_work itself (the real function, not the stub above) ---
+    P.queued_work = _ORIG_QUEUED_WORK
+
+    def _sb_raises(key, path, method="GET", body=None, raw=False):
+        raise OSError("simulated transport failure")
+    P.sb = _sb_raises
+    check("queued_work: a probe error yields (fails toward yielding)",
+          P.queued_work("k"), True)
+
+    _qw_path = {}
+
+    def _sb_empty(key, path, method="GET", body=None, raw=False):
+        _qw_path["path"] = path
+        return []
+    P.sb = _sb_empty
+    check("queued_work: an empty probe means nothing queued", P.queued_work("k"), False)
+    check("queued_work: the probe it issues is capped at one row",
+          "limit=1" in _qw_path.get("path", ""), True)
+
+    def _sb_one(key, path, method="GET", body=None, raw=False):
+        return [{"id": "x"}]
+    P.sb = _sb_one
+    check("queued_work: a queued creator means yield", P.queued_work("k"), True)
+finally:
+    P.sb = _ORIG_SB
+    P.fetch_meta = _ORIG_FETCH_META
+    P.queued_work = _ORIG_QUEUED_WORK
+    P.refresh_entry_views = _ORIG_REFRESH_ENTRY_VIEWS
+
 
 if FAILS:
     print(f"{len(FAILS)} FAILED: {', '.join(FAILS)}")

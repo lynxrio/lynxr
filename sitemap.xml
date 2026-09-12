@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Only the fourteen genuinely public pages. The creator and agency apps are
+<!-- Only the genuinely public pages. The creator and agency apps are
      deliberately absent: they carry `noindex` and listing them here would
      advertise them, which is the same mistake as a Disallow line in
      robots.txt. See the comment at the top of robots.txt. -->
@@ -24,6 +24,11 @@
     <loc>https://lynxr.io/pricing/</loc>
     <lastmod>2026-08-25</lastmod>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/about/</loc>
+    <lastmod>2026-09-12</lastmod>
+    <priority>0.5</priority>
   </url>
   <!-- The four content/GEO guides — below /faq/, above the legal set. -->
   <url>
@@ -60,6 +65,37 @@
     <loc>https://lynxr.io/glossary/</loc>
     <lastmod>2026-08-24</lastmod>
     <priority>0.7</priority>
+  </url>
+  <!-- The blog hub and its posts, added in batches. -->
+  <url>
+    <loc>https://lynxr.io/blog/</loc>
+    <lastmod>2026-09-12</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/question-hooks/</loc>
+    <lastmod>2026-09-12</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/two-column-script/</loc>
+    <lastmod>2026-09-12</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/storytime-script/</loc>
+    <lastmod>2026-09-12</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/find-a-video-worth-remaking/</loc>
+    <lastmod>2026-09-12</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/brief-to-script/</loc>
+    <lastmod>2026-09-12</lastmod>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/privacy/</loc>

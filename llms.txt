@@ -7,7 +7,7 @@
 > content for.
 
 lynxr is made by Lynx Media Group LLC, a short-form video agency in Allston,
-Massachusetts. Sign-up is open to everyone and free: every account includes
+Massachusetts. The agency's site is https://lynxmediagroup.org/. Sign-up is open to everyone and free: every account includes
 25 scripts, with no card required. The app lives at lynxr.io itself — paste a
 link on the homepage and create an account when you send it. There is no file
 upload: a public video link is the only input. It reads TikTok and Instagram
@@ -19,6 +19,7 @@ your behalf. You must be 18 or older to use it.
 - [lynxr](https://lynxr.io/): What lynxr is and how it works in three steps.
 - [Questions and answers](https://lynxr.io/faq/): Straight answers about what lynxr does with a link, which platforms it reads, what it costs, who owns the scripts, and how access works.
 - [Pricing](https://lynxr.io/pricing/): What lynxr costs — free to start with 25 scripts included.
+- [About lynxr](https://lynxr.io/about/): Who makes lynxr — Lynx Media Group LLC, a short-form video agency — and how the tool and the agency fit together.
 
 ## Guides
 
@@ -29,6 +30,15 @@ your behalf. You must be 18 or older to use it.
 - [A UGC script template that holds up](https://lynxr.io/ugc-script-template/): The four-part template with a real worked example, and the mistakes that make UGC read like an ad.
 - [Remake a viral video without copying it](https://lynxr.io/remake-a-viral-video/): What to keep, what to replace, and the line between a remake and a copy.
 - [Short-form video glossary](https://lynxr.io/glossary/): Plain definitions of the terms lynxr uses.
+
+## Blog
+
+- [The lynxr blog](https://lynxr.io/blog/): Every post, grouped by topic.
+- [Question hooks: asking one a viewer can't scroll past](https://lynxr.io/blog/question-hooks/): Question hook examples for short-form video: why yes-or-no questions lose the viewer, how to ask an open one, and where the answer should land in the script.
+- [The two-column script: SAY and DO side by side](https://lynxr.io/blog/two-column-script/): A blank two-column video script template for short-form video: spoken words on the left, what the camera shows on the right, plus a filled example.
+- [How to script a storytime video for a brand](https://lynxr.io/blog/storytime-script/): How to write a storytime script for a brand: the beat map of a storytime video, where the story should turn into the product, and which backstory to cut.
+- [How to find a video worth remaking in your niche](https://lynxr.io/blog/find-a-video-worth-remaking/): How to find viral videos in your niche that are worth remaking for a brand: the signals to trust, where to look, a five-line test, and the red flags to skip.
+- [How to turn a brand brief into a script](https://lynxr.io/blog/brief-to-script/): How to write a UGC script from a brief: mark what must and must not be said, pick the format before writing, and place brand lines so they do not sound recited.
 
 ## Policies
 

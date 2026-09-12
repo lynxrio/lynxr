@@ -36,6 +36,72 @@ function gateBusy(el, text) {
   el.innerHTML = `<span class="loader inline">${loaderMark()}<span>${escapeHtml(text)}</span></span>`;
 }
 
+/* FIELD ERRORS — lynxr's own, in place of the browser's validation bubble
+   (owner, 2026-09-12). Same contract as markInvalid()/clearInvalid() in
+   creator.js, which carries the full reasoning; this file is a separate bundle,
+   so it keeps its own copy of the two small helpers.
+
+   Every <form> here carries `novalidate`: the browser never draws a bubble and
+   never blocks submit, and each handler's own check decides. That matters most
+   for `type="url"`, which refused `clientsite.com` — the exact example the
+   brief form's own error tells you to type — and every scheme-less video link,
+   before normalizeClientUrl() could add the https:// it exists to add. The
+   `type` attributes stay for the phone keyboard, autofill and the app.css
+   selectors that key on them. Styling: the [aria-invalid] block at the end of
+   app.css. */
+function markInvalid(input, msgId) {
+  if (!input) return;
+  input.setAttribute("aria-invalid", "true");
+  const ids = (input.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean);
+  if (msgId && !ids.includes(msgId)) {
+    ids.push(msgId);
+    input.setAttribute("aria-describedby", ids.join(" "));
+    input.dataset.errFor = msgId;
+  }
+}
+function clearInvalid(input) {
+  if (!input || input.getAttribute("aria-invalid") !== "true") return false;
+  input.removeAttribute("aria-invalid");
+  const mine = input.dataset.errFor;
+  if (mine) {
+    const ids = (input.getAttribute("aria-describedby") || "").split(/\s+/)
+      .filter((id) => id && id !== mine);
+    if (ids.length) input.setAttribute("aria-describedby", ids.join(" "));
+    else input.removeAttribute("aria-describedby");
+    delete input.dataset.errFor;
+  }
+  return true;
+}
+/** A link lynxr can ingest — the same two checks every link form below already
+    ran, in one place so the submit refusal and the clear-when-fixed agree. */
+const ingestibleLink = (raw) => { const u = normalizeClientUrl(raw); return !!(u && platformOf(u)); };
+// Loose on purpose, and the same test the creator gate and the old wait list use.
+const emailShapeOk = (s) => /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(s);
+let GATE_ERR_TEXT = "";
+function gateFieldError(el, text) {
+  const err = document.getElementById("err");
+  err.textContent = text;
+  GATE_ERR_TEXT = text;
+  ["email", "pw"].forEach((id) => clearInvalid(document.getElementById(id)));
+  markInvalid(el, "err");
+  el.focus();
+  // Retype a password; finish an address — see creator.js gateFieldError().
+  if (el.type === "password" && el.value) el.select();
+}
+// Fixed means fixed: the flag and its sentence go on the edit that satisfies it.
+document.getElementById("gate-form").addEventListener("input", () => {
+  const emailEl = document.getElementById("email");
+  const pw = document.getElementById("pw");
+  const bad = [emailEl, pw].filter((el) => el.getAttribute("aria-invalid") === "true");
+  if (!bad.length) return;
+  const ok = (el) => (el === emailEl ? emailShapeOk(el.value.trim()) : el.value.length > 0);
+  if (bad.every(ok)) {
+    bad.forEach(clearInvalid);
+    const err = document.getElementById("err");
+    if (err.textContent === GATE_ERR_TEXT) err.textContent = "";
+  }
+});
+
 document.getElementById("gate-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const emailEl = document.getElementById("email");
@@ -44,7 +110,12 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
   const submitBtn = e.target.querySelector('button[type="submit"]');
   const email = (emailEl?.value || "").trim();
   const password = pw.value;
-  if (!email || !password) { err.textContent = "Enter your email and password."; return; }
+  if (!email || !password) { gateFieldError(email ? pw : emailEl, "Enter your email and password."); return; }
+  if (!emailShapeOk(email)) {
+    gateFieldError(emailEl, "Check your email address — it should look like name@example.com.");
+    return;
+  }
+  clearInvalid(emailEl); clearInvalid(pw);
 
   submitBtn.disabled = true;
   /* The mark, working — same signal as the site read and the script write.
@@ -1998,12 +2069,12 @@ async function renderShelf(niche) {
   body.innerHTML =
     notes.map((n) => `<div class="warn">${n}</div>`).join("") +
     `<div class="add-video">
-      <form class="post-form" id="av-form">
+      <form class="post-form" id="av-form" novalidate>
         <input type="url" id="av-url" placeholder="Add a specific video by link — it joins this brief now, full data follows"
           autocomplete="off" spellcheck="false">
         <button type="submit" class="btn" id="av-add">Add video</button>
       </form>
-      <p class="note" id="av-note">Not in the database yet? Paste any TikTok / Instagram / Facebook / YouTube link. It's added
+      <p class="note" id="av-note" aria-live="polite">Not in the database yet? Paste any TikTok / Instagram / Facebook / YouTube link. It's added
         to this brief immediately with what the platform reveals, queued for full ingestion (real metrics, tags,
         verbatim script) on the next pipeline run — the brief upgrades itself when that lands.</p>
     </div>
@@ -2040,20 +2111,32 @@ async function renderShelf(niche) {
   // ingestion (metrics, tags, verbatim script). Briefs self-heal once the
   // ingested row exists — see tailoredScript's URL lookup.
   const avForm = document.getElementById("av-form");
+  /* Clear-when-fixed, and the help text comes back: the refusal below writes
+     into #av-note, which is also where the explanation of this form lives. */
+  const avField = document.getElementById("av-url");
+  const avHelp = document.getElementById("av-note")?.textContent || "";
+  avField?.addEventListener("input", () => {
+    if (avField.value.trim() && !ingestibleLink(avField.value)) return;
+    if (clearInvalid(avField)) document.getElementById("av-note").textContent = avHelp;
+  });
   if (avForm) avForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const url = normalizeClientUrl(document.getElementById("av-url").value);
+    const avUrl = document.getElementById("av-url");
+    const url = normalizeClientUrl(avUrl.value);
     const note = document.getElementById("av-note");
     const btn = document.getElementById("av-add");
-    if (!url) { note.textContent = "That doesn't look like a video link."; return; }
+    const refuse = (text) => { note.textContent = text; markInvalid(avUrl, "av-note"); avUrl.focus(); if (avUrl.value) avUrl.select(); };
+    if (!avUrl.value.trim()) { refuse(`Paste a ${SUPPORTED_LIST} video link first.`); return; }
+    if (!url) { refuse(`That isn't a link — paste the address of a ${SUPPORTED_LIST} video.`); return; }
     // Same allowlist as the blueprint form — this path calls queueVideoIngest,
     // so an off-platform link becomes a pipeline job too.
     if (!platformOf(url)) {
       const h = hostOf(url);
-      note.textContent = `Only ${SUPPORTED_LIST} links can be ingested`
-        + (h ? ` — that one is from ${h}.` : ".");
+      refuse(`Only ${SUPPORTED_LIST} links can be ingested`
+        + (h ? ` — that one is from ${h}.` : "."));
       return;
     }
+    clearInvalid(avUrl);
     const clean = canonUrl;
     let row = [...SHELF_CTX.index.values()].find((r) => r.url && clean(r.url) === clean(url))
       || ALL.find((r) => r.url && clean(r.url) === clean(url));
@@ -3232,7 +3315,7 @@ function blueprintsBoxHtml(client) {
           than restyling a .post-form keeps the two sides identical for free.
           The outer sticky .composer wrapper is deliberately NOT used: that one
           pins to the foot of the creator's scrolling pane. */""}
-    <form class="composer-row bp-form" id="bp-form" hidden>
+    <form class="composer-row bp-form" id="bp-form" novalidate hidden>
       <input type="url" id="bp-url" placeholder="Paste a TikTok / Instagram / Facebook / YouTube link"
         autocomplete="off" spellcheck="false" aria-label="Paste a video link">
       <span class="bp-plat" id="bp-plat"></span>
@@ -3321,21 +3404,34 @@ function bindBlueprints(host, client) {
     platEl.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
   };
   if (urlEl) { urlEl.addEventListener("input", showPlat); showPlat(); }
+  // Clear-when-fixed: a link that now passes, or a box emptied to start over.
+  urlEl?.addEventListener("input", () => {
+    if (urlEl.value.trim() && !ingestibleLink(urlEl.value)) return;
+    if (!clearInvalid(urlEl)) return;
+    const m = document.getElementById("bp-msg");
+    if (m) { m.textContent = ""; m.className = "bp-msg"; }
+  });
 
   const bpForm = document.getElementById("bp-form");
   if (bpForm) bpForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const rawUrl = (urlEl.value || "").trim();
     const url = rawUrl ? normalizeClientUrl(rawUrl) : null;
-    if (!rawUrl) { bpMsg("Paste a video link first.", "bad"); urlEl.focus(); return; }
-    if (!url) { bpMsg("That doesn't look like a video link.", "bad"); urlEl.select(); return; }
+    /* An error here stays until the field is fixed (see the input listener
+       above) — bpMsg's own 4.5s fade is for confirmations. */
+    const refuse = (text) => {
+      bpMsg(text, "bad"); clearTimeout(BP_MSG_T);
+      markInvalid(urlEl, "bp-msg"); urlEl.focus(); if (rawUrl) urlEl.select();
+    };
+    if (!rawUrl) { refuse(`Paste a ${SUPPORTED_LIST} video link first.`); return; }
+    if (!url) { refuse(`That isn't a link — paste the address of a ${SUPPORTED_LIST} video.`); return; }
     if (!platformOf(url)) {
       const h = hostOf(url);
-      bpMsg(`Blueprints read ${SUPPORTED_LIST} links`
-        + (h ? ` — that one is from ${h}.` : "."), "bad");
-      urlEl.select();
+      refuse(`Blueprints read ${SUPPORTED_LIST} links`
+        + (h ? ` — that one is from ${h}.` : "."));
       return;
     }
+    clearInvalid(urlEl);
     const fresh = loadClients();
     const c = fresh.find((x) => x.id === client.id);
     if (!c) return;
@@ -4100,11 +4196,15 @@ async function renderBrief(rawUrl) {
   const host = document.getElementById("brief-out");
   const hasUrl = String(rawUrl || "").trim().length > 0;
   const url = hasUrl ? normalizeClientUrl(rawUrl) : null;
+  const field = document.getElementById("client-url");
   if (hasUrl && !url) {
-    host.innerHTML = `<div class="warn">That doesn't look like a website address. Try something like
+    host.innerHTML = `<div class="warn" id="client-url-err" role="alert">That doesn't look like a website address. Try something like
       <code>clientsite.com</code> — or leave it empty and fill in the client details by hand.</div>`;
+    markInvalid(field, "client-url-err");
+    field?.focus(); field?.select();
     return;
   }
+  clearInvalid(field);
 
   let analysis = null, failReason = null;
   const loader = showLoader(host, url ? new URL(url).hostname : "");
@@ -4240,6 +4340,13 @@ async function renderBrief(rawUrl) {
 
 function initBrief() {
   const form = document.getElementById("brief-form");
+  /* Clear-when-fixed: the warning goes the moment the address parses (or the
+     box is emptied — empty is a valid brief, filled in by hand). */
+  const field = document.getElementById("client-url");
+  field.addEventListener("input", () => {
+    if (field.value.trim() && !normalizeClientUrl(field.value)) return;
+    if (clearInvalid(field)) document.getElementById("client-url-err")?.remove();
+  });
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');

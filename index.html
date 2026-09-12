@@ -77,8 +77,8 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260903d">
-<script src="/theme.js?v=20260903d"></script>
+<link rel="stylesheet" href="/app.css?v=20260912b">
+<script src="/theme.js?v=20260912b"></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -91,6 +91,7 @@
       "legalName": "Lynx Media Group LLC",
       "url": "https://lynxmediagroup.org/",
       "description": "A short-form video agency. lynxr is its own format-intelligence tool.",
+      "logo": "https://lynxmediagroup.org/imgs/logo-social.png",
       "email": "lynxrnetwork@gmail.com",
       "sameAs": [
         "https://lynxmediagroup.org/",
@@ -98,6 +99,12 @@
         "https://www.tiktok.com/@lynxmediagroup",
         "https://www.linkedin.com/company/lynxmediagroup"
       ],
+      "brand": {
+        "@type": "Brand",
+        "@id": "https://lynxr.io/#brand",
+        "name": "lynxr",
+        "url": "https://lynxr.io/"
+      },
       "founder": [
         {
           "@type": "Person",
@@ -154,7 +161,8 @@
         "url": "https://lynxr.io/",
         "description": "Free: every account includes 25 scripts, no card required. Sign-up is open."
       },
-      "publisher": { "@id": "https://lynxr.io/#organization" }
+      "publisher": { "@id": "https://lynxr.io/#organization" },
+      "creator": { "@id": "https://lynxr.io/#organization" }
     }
   ]
 }
@@ -269,7 +277,7 @@
            `.lp-composer` below is a size modifier only. Every id is prefixed
            `lp-` so it can never collide with the app's own #composer-url etc. -->
       <div class="composer composer-inline lp-composer">
-        <form class="composer-row" id="lp-composer-form" data-hero data-note="lp-composer-note">
+        <form class="composer-row" id="lp-composer-form" data-hero data-note="lp-composer-note" novalidate>
           <input type="url" id="lp-composer-url" placeholder="paste instagram/tiktok link"
             autocomplete="off" spellcheck="false" aria-label="Paste a video link">
           <span class="bp-plat" id="lp-composer-plat"></span>
@@ -499,7 +507,7 @@
     <div class="lp-in">
       <h2 class="lp-h2">ready to build your script?</h2>
       <div class="composer composer-inline lp-composer">
-        <form class="composer-row" data-hero data-note="lp-close-note">
+        <form class="composer-row" data-hero data-note="lp-close-note" novalidate>
           <input type="url" placeholder="paste instagram/tiktok link"
             autocomplete="off" spellcheck="false" aria-label="Paste a video link">
           <span class="bp-plat"></span>
@@ -522,7 +530,7 @@
     <div class="foot-grid foot-grid-wide">
       <div class="foot-brand">
         <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
-        <p>format intelligence for short&#8209;form video, built by a short&#8209;form video agency.</p>
+        <p>format intelligence for short&#8209;form video, built by <span class="entity">Lynx Media Group</span>, a short&#8209;form video agency.</p>
       </div>
       <div class="foot-col">
         <div class="foot-label">lynxr</div>
@@ -530,6 +538,7 @@
         <a class="foot-link" href="/#how">how it works</a>
         <a class="foot-link" href="/faq/">faq</a>
         <a class="foot-link" href="/pricing/">pricing</a>
+        <a class="foot-link" href="/about/">about</a>
         <!-- Visible label "try it", accessible name "try it — join the wait
              list". The .sr-only tail is inside the <a>, so it is part of the
              name computation rather than a title attribute nobody hears. -->
@@ -537,6 +546,7 @@
       </div>
       <div class="foot-col">
         <div class="foot-label">guides</div>
+        <a class="foot-link" href="/blog/">blog</a>
         <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
         <a class="foot-link" href="/turn-a-video-into-a-script/">video to script</a>
         <a class="foot-link" href="/short-form-script-structure/">script structure</a>
@@ -579,7 +589,7 @@
          this visitor here, named back to them. Text only, set via textContent
          — the title comes from a third-party oEmbed. -->
     <p class="gate-paste" id="gate-paste" hidden></p>
-    <form class="field login" id="gate-form">
+    <form class="field login" id="gate-form" novalidate>
       <input type="email" id="email" placeholder="Email" autofocus
              autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
       <div class="pw-wrap">
@@ -652,8 +662,15 @@
          every original video lives, once, across every brand. -->
     <nav class="side" id="side" aria-label="Brands">
       <div class="side-brand">
-        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
-        <span class="wordmark"><span>lynxr<i>.</i></span></span>
+        <!-- THE LOGO GOES HOME, and home is New script (owner, 2026-09-12).
+             Only the mark + wordmark are the button: the theme toggle beside
+             them is a button of its own and cannot sit inside another. The
+             name keeps the visible word "lynxr" in it, so "click lynxr" by
+             voice still finds it. Wired in creator.js next to #nav-new. -->
+        <button type="button" class="side-home" id="nav-home" aria-label="lynxr — New script">
+          <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+          <span class="wordmark"><span>lynxr<i>.</i></span></span>
+        </button>
         <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
           <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.6 8.6 0 1 0 10.6 10.6z"/></svg>
           <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
@@ -910,10 +927,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20260903d" defer></script>
-<script src="/footer.js?v=20260903d" defer></script>
-<script src="/dotgrid.js?v=20260903d" defer></script>
-<script src="/home.js?v=20260903d" defer></script>
-<script src="/creator.js?v=20260903d" defer></script>
+<script src="/site.js?v=20260912b" defer></script>
+<script src="/footer.js?v=20260912b" defer></script>
+<script src="/dotgrid.js?v=20260912b" defer></script>
+<script src="/home.js?v=20260912b" defer></script>
+<script src="/creator.js?v=20260912b" defer></script>
 </body>
 </html>

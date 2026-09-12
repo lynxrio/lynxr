@@ -463,6 +463,36 @@ function videoLikePath(raw) {
   }
   return false;
 }
+/** THE PASTE BOX'S ONE VERDICT: null for a link lynxr will read, otherwise the
+    sentence saying why not and what to paste instead. Both composers (the app's
+    and the home page's two) used to carry this ladder inline, word for word;
+    it lives here once so the submit check and the clear-when-fixed check below
+    can never disagree. Nothing new is decided — normalizeUrl(), platformOf()
+    and videoLikePath() are the gate, in the order they always ran. */
+function linkProblem(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return `Paste a ${SUPPORTED_LIST} video link first.`;
+  const url = normalizeUrl(s);
+  if (!url) return `That isn't a link — paste the address of a ${SUPPORTED_LIST} video, like tiktok.com/@name/video/…`;
+  const plat = platformOf(url);
+  if (plat && !videoLikePath(url)) return "That's a page, not a video — paste the link to one specific video.";
+  if (!plat) {
+    const h = hostOf(url);
+    return `lynxr only reads ${SUPPORTED_LIST} links` + (h ? ` — that one is from ${h}.` : ".");
+  }
+  return null;
+}
+/** Wire a paste box's clear-when-fixed: once flagged, each edit re-asks
+    linkProblem(), and a link that now passes — or a box emptied to start over —
+    drops the error at once rather than on the next send. A still-wrong edit
+    leaves the message alone, so a screen reader is not re-read a sentence on
+    every keystroke; the live badge in the box is already tracking it. */
+function clearLinkErrorOnFix(input, msgId) {
+  input.addEventListener("input", () => {
+    if (input.getAttribute("aria-invalid") !== "true") return;
+    if (!input.value.trim() || !linkProblem(input.value)) clearFieldError(input, msgId);
+  });
+}
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 const listOf = (xs) => xs.length < 2 ? (xs[0] || "")
   : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1];
@@ -1212,6 +1242,65 @@ function say(text, tone) {
   });
 }
 
+/* FIELD ERRORS — lynxr's own, in place of the browser's validation bubble
+   (owner, 2026-09-12: "i dont like how it looks so elementary, and change that
+   for any other error message like that").
+
+   EVERY <form> in the app carries `novalidate`, so the browser never draws a
+   bubble and never blocks the submit event; each submit handler already did
+   its own checking and now does all of it. That route rather than catching
+   `invalid` and calling preventDefault(): the invalid-event route hides the
+   bubble but still CANCELS the submit, and the bubble most often seen was the
+   browser refusing a correct link — `type="url"` rejects
+   `tiktok.com/@name/video/…` for having no scheme, before normalizeUrl() could
+   add one. The `type` attributes stay: they pick the URL / email keyboard on a
+   phone, feed autofill, and several app.css selectors key on them.
+
+   What the bubble gave for free is put back by hand: `aria-invalid` on the
+   field, the message tied to it with `aria-describedby` (so focusing the field
+   reads the reason), the message itself in the element's existing live region,
+   focus moved to the field, and the whole state lifted the moment the field is
+   fixed. The describedby link is added only while the field is invalid, so a
+   later "reading the video…" in the same region is not read as a description
+   of the field. Styling is the `[aria-invalid]` block at the end of app.css. */
+function markInvalid(input, msgId) {
+  if (!input) return;
+  input.setAttribute("aria-invalid", "true");
+  const ids = (input.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean);
+  if (msgId && !ids.includes(msgId)) {
+    ids.push(msgId);
+    input.setAttribute("aria-describedby", ids.join(" "));
+    input.dataset.errFor = msgId;
+  }
+}
+function clearInvalid(input) {
+  if (!input || input.getAttribute("aria-invalid") !== "true") return false;
+  input.removeAttribute("aria-invalid");
+  const mine = input.dataset.errFor;
+  if (mine) {
+    const ids = (input.getAttribute("aria-describedby") || "").split(/\s+/)
+      .filter((id) => id && id !== mine);
+    if (ids.length) input.setAttribute("aria-describedby", ids.join(" "));
+    else input.removeAttribute("aria-describedby");
+    delete input.dataset.errFor;
+  }
+  return true;
+}
+/** A composer-style error: the message in the note under the field, red, and —
+    unlike every other flashMsg — it does NOT fade after five seconds. An error
+    that disappears while the field is still wrong leaves `aria-invalid` saying
+    one thing and the screen another. It goes when the field is fixed. */
+function fieldError(input, msgId, text) {
+  flashMsg(msgId, text, "bad");
+  clearTimeout(MSG_T.get(msgId));
+  markInvalid(input, msgId);
+}
+function clearFieldError(input, msgId) {
+  if (!clearInvalid(input)) return;
+  const el = document.getElementById(msgId);
+  if (el) { el.textContent = ""; el.className = FLASH_STYLE[msgId] || "bp-msg"; }
+}
+
 // ---------- slices ----------
 const brandScripts = (b) => ME.adaptations.filter((a) => a.brandId === b.id);
 
@@ -1532,7 +1621,7 @@ function renderNewScript(head, body) {
         to get scripts written for them</p>` : ""}
       <div class="composer composer-inline" id="composer">
         <div class="composer-for" id="composer-for"></div>
-        <form class="composer-row" id="composer-form">
+        <form class="composer-row" id="composer-form" novalidate>
           <input type="url" id="composer-url" placeholder="Paste a TikTok or Instagram link"
             autocomplete="off" spellcheck="false" aria-label="Paste a video link">
           <span class="bp-plat" id="composer-plat"></span>
@@ -4382,30 +4471,24 @@ function wireComposer() {
     badge.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
   };
   input.addEventListener("input", showPlat);
+  clearLinkErrorOnFix(input, "composer-note");
 
   document.getElementById("composer-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const raw = (input.value || "").trim();
-    if (!raw) { say("Paste a video link first.", "bad"); input.focus(); return; }
-    const url = normalizeUrl(raw);
-    if (!url) { say("That doesn't look like a video link.", "bad"); input.select(); return; }
-
     // Refuse an off-platform link BEFORE the cap check and before any library
     // entry exists. The worker enforces the same allowlist — this row belongs to
     // the creator, so the console can walk around anything decided here — but
-    // this is the one that explains itself.
-    if (platformOf(url) && !videoLikePath(url)) {
-      say("That's a page, not a video — paste the link to one specific video.", "bad");
-      input.select();
+    // this is the one that explains itself. linkProblem() is that whole ladder:
+    // empty, not a link, a page rather than a video, another platform.
+    const problem = linkProblem(raw);
+    if (problem) {
+      fieldError(input, "composer-note", problem);
+      if (raw) input.select(); else input.focus();
       return;
     }
-    if (!platformOf(url)) {
-      const h = hostOf(url);
-      say(`lynxr only reads ${SUPPORTED_LIST} links`
-        + (h ? ` — that one is from ${h}.` : "."), "bad");
-      input.select();
-      return;
-    }
+    clearFieldError(input, "composer-note");
+    const url = normalizeUrl(raw);
 
     // Refuse before making anything — a company created and then blocked by
     // the cap would leave an empty folder behind. scriptRoom() is the SERVER's
@@ -4577,26 +4660,20 @@ function wireOneHero(form) {
     badge.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
   };
   input.addEventListener("input", showPlat);
+  if (noteId) clearLinkErrorOnFix(input, noteId);
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const raw = (input.value || "").trim();
-    if (!raw) { note("Paste a video link first.", "bad"); input.focus(); return; }
-    const url = normalizeUrl(raw);
-    if (!url) { note("That doesn't look like a video link.", "bad"); input.select(); return; }
-    if (platformOf(url) && !videoLikePath(url)) {
-      note("That's a page, not a video — paste the link to one specific video.", "bad");
-      input.select(); return;
-    }
-
-    const plat = platformOf(url);
-    if (!plat) {
-      const h = hostOf(url);
-      note(`lynxr only reads ${SUPPORTED_LIST} links`
-        + (h ? ` — that one is from ${h}.` : "."), "bad");
-      input.select();
+    const problem = linkProblem(raw);
+    if (problem) {
+      if (noteId && document.getElementById(noteId)) fieldError(input, noteId, problem);
+      if (raw) input.select(); else input.focus();
       return;
     }
+    if (noteId) clearFieldError(input, noteId);
+    const url = normalizeUrl(raw);
+    const plat = platformOf(url);
 
     try { sessionStorage.setItem(PASTE_KEY, JSON.stringify({ url, at: Date.now(), plat })); }
     catch { /* private mode: the link is lost, the signup is not */ }
@@ -5486,7 +5563,7 @@ function askInnerHtml(a) {
       ).join("")}</div>`
     /* A form, so Enter sends it — the handler preventDefaults, and `form-action
        'none'` in the CSP is the backstop if it ever does not. */
-    : `<form class="askbox-row" data-askform="1">
+    : `<form class="askbox-row" data-askform="1" novalidate>
          <input type="text" class="askbox-input" value="${escapeHtml(ASK_DRAFT)}"
            placeholder="${escapeHtml(q.placeholder)}" autocomplete="off"
            aria-label="${escapeHtml(String(title).replace(/<[^>]*>/g, ""))}">
@@ -8151,6 +8228,56 @@ const HOME = !!document.getElementById("lp-main");
 const PASTE_KEY = "lynxr_pending_paste";
 
 let GATE_MODE = "in";
+
+/* THE GATE'S FIELD ERRORS — markInvalid() on the gate's own surface. The
+   message stays where every gate message already goes, #err (one line under
+   the card's fields, role="status"), and the field it is about is flagged,
+   described by it, and focused. app.css turns #err red only while a gate field
+   is flagged, so "Signing in…" in the same element stays its normal grey.
+
+   The email shape check is new in the sense that the browser used to do it:
+   with `novalidate` on the form, "maya" would otherwise reach Supabase and come
+   back as "Wrong email or password", which blames the wrong field. Same loose
+   test the old wait list used (home.js), for the reason recorded there — a
+   strict pattern refuses real addresses. Named differently because home.js and
+   this file share a page. */
+const emailShapeOk = (s) => /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(s);
+const GATE_FIELD_OK = {
+  email: (el) => emailShapeOk(el.value.trim()),
+  pw:    (el) => (GATE_MODE === "in" ? el.value.length > 0 : el.value.length >= 8),
+  pw2:   (el) => el.value === document.getElementById("pw").value,
+  agree: (el) => el.checked,
+};
+let GATE_ERR_TEXT = "";
+function gateFieldError(id, text) {
+  const el = document.getElementById(id);
+  document.getElementById("err").textContent = text;
+  GATE_ERR_TEXT = text;
+  clearGateErrors();                // one flagged field at a time: the one the sentence is about
+  markInvalid(el, "err");
+  el?.focus();
+  /* A password is retyped, so select it; an address is usually a few keys from
+     right ("maya@gmail"), so the caret is left where the person was typing. */
+  if (el && el.type === "password" && el.value) el.select();
+}
+function clearGateErrors() {
+  for (const id of Object.keys(GATE_FIELD_OK)) clearInvalid(document.getElementById(id));
+}
+/* Fixed means fixed: every edit anywhere in the form re-asks the flagged field,
+   so matching the confirm box by retyping the FIRST password clears it too. The
+   message goes with the flag only if it is still the one this set — a later
+   "Signing in…" is not ours to wipe. */
+["input", "change"].forEach((type) => document.getElementById("gate-form")?.addEventListener(type, () => {
+  const flagged = Object.keys(GATE_FIELD_OK).map((id) => document.getElementById(id))
+    .filter((el) => el && el.getAttribute("aria-invalid") === "true");
+  if (!flagged.length) return;
+  if (flagged.every((el) => GATE_FIELD_OK[el.id](el))) {
+    clearGateErrors();
+    const err = document.getElementById("err");
+    if (err.textContent === GATE_ERR_TEXT) err.textContent = "";
+  }
+}));
+
 function setGateMode(mode) {
   GATE_MODE = mode;
   const up = mode === "up";
@@ -8209,6 +8336,7 @@ function setGateMode(mode) {
     up || sent ? "Already have an account?" : "Don't have an account?";
   document.getElementById("switch-mode").textContent = up || sent ? "Sign in" : "Create one";
   document.getElementById("err").textContent = "";
+  clearGateErrors();
   // The resend link belongs to a failed sign-in, not to the create form.
   document.getElementById("resend-wrap").hidden = true;
   // Same reset, same reason: the seats-full fallback belongs to a live "we're
@@ -8242,6 +8370,7 @@ function showGate(mode) {
 function hideGate() {
   document.body.classList.remove("gate-on");
   document.getElementById("err").textContent = "";
+  clearGateErrors();
 }
 addEventListener("popstate", () => { if (HOME) hideGate(); });
 document.getElementById("gate-back")?.addEventListener("click", () => {
@@ -8279,8 +8408,11 @@ document.getElementById("gate-forgot").addEventListener("click", async () => {
   const btn = document.getElementById("gate-forgot");
   const email = (document.getElementById("email").value || "").trim();
   if (!email) {
-    err.textContent = "Enter your email first, then tap Forgot your password.";
-    document.getElementById("email").focus();
+    gateFieldError("email", "Enter your email first, then tap Forgot your password.");
+    return;
+  }
+  if (!emailShapeOk(email)) {
+    gateFieldError("email", "Check your email address — it should look like name@example.com.");
     return;
   }
   btn.disabled = true;
@@ -8331,7 +8463,7 @@ document.getElementById("gate-resend").addEventListener("click", async () => {
   const btn = document.getElementById("gate-resend");
   const err = document.getElementById("err");
   const email = RESEND_FOR || (document.getElementById("email").value || "").trim();
-  if (!email) { err.textContent = "Enter your email first."; return; }
+  if (!email) { gateFieldError("email", "Enter your email first."); return; }
   btn.disabled = true;
   err.textContent = "Sending…";
   try {
@@ -8376,8 +8508,9 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
      below, because this mode deliberately has no email field — the link
      already said who this is. */
   if (GATE_MODE === "reset") {
-    if (pw.value.length < 8) { err.textContent = "Use at least 8 characters."; pw.select(); return; }
-    if (pw.value !== pw2.value) { err.textContent = "Those two passwords don't match."; pw2.select(); return; }
+    if (pw.value.length < 8) { gateFieldError("pw", "Use at least 8 characters for your password."); return; }
+    if (pw.value !== pw2.value) { gateFieldError("pw2", "Those two passwords don't match — retype the second one."); return; }
+    clearGateErrors();
     btn.disabled = true;
     err.textContent = "Saving…";
     try {
@@ -8396,23 +8529,31 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
     return;
   }
 
-  if (!email || !pw.value) { err.textContent = "Enter your email and password."; return; }
+  if (!email || !pw.value) {
+    gateFieldError(email ? "pw" : "email", "Enter your email and password.");
+    return;
+  }
+  if (!emailShapeOk(email)) {
+    gateFieldError("email", "Check your email address — it should look like name@example.com.");
+    return;
+  }
 
   if (GATE_MODE === "up") {
     // Known-full: refuse here rather than sending a request that can only come
     // back as a 500. If the answer never arrived (SEATS_OPEN === null) the
     // signup goes ahead and the trigger decides — the check is a courtesy.
     if (SEATS_OPEN === false) { err.textContent = FULL_MSG; return; }
-    if (pw.value.length < 8) { err.textContent = "Use at least 8 characters."; pw.select(); return; }
-    if (pw.value !== pw2.value) { err.textContent = "Those two passwords don't match."; pw2.select(); return; }
+    if (pw.value.length < 8) { gateFieldError("pw", "Use at least 8 characters for your password."); return; }
+    if (pw.value !== pw2.value) { gateFieldError("pw2", "Those two passwords don't match — retype the second one."); return; }
     /* Checked here rather than with the `required` attribute: this form shares
        one submit handler with sign-in and password reset, where the box is
        hidden — and a hidden `required` control blocks submission with a browser
        bubble pointing at something nobody can see. */
     if (!document.getElementById("agree").checked) {
-      err.textContent = "Please agree to the privacy policy to create an account.";
+      gateFieldError("agree", "Tick the box to agree to the privacy policy, then create your account.");
       return;
     }
+    clearGateErrors();
     btn.disabled = true;
     err.textContent = "Creating your account…";
     try {
@@ -8446,6 +8587,7 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
     return;
   }
 
+  clearGateErrors();
   btn.disabled = true;
   /* The mark, working — the same signal the brand lookup and the script write
      use. Every failure line below stays on textContent: those render messages
@@ -8515,6 +8657,21 @@ document.addEventListener("click", (e) => {
   document.body.classList.remove("side-open");
 });
 
+/* THE RAIL LOGO: the same destination as New script. From anywhere else it
+   IS #nav-new — go() closes the phone drawer and moves focus to the pane. On
+   New script itself it deliberately does NOT call go(): that rebuilds the
+   composer and throws away a half-pasted link (measured — #nav-new does
+   exactly that), and a logo is clicked absent-mindedly far more often than a
+   button labelled "New script". There it only closes the drawer, handing
+   focus to the pane the way go() would so a keyboard user is not left on a
+   control that just slid off-screen. */
+document.getElementById("nav-home")?.addEventListener("click", () => {
+  if (VIEW.kind !== "new") { go({ kind: "new" }); return; }
+  if (!document.body.classList.contains("side-open")) return;
+  document.body.classList.remove("side-open");
+  document.getElementById("side-open")?.setAttribute("aria-expanded", "false");
+  document.getElementById("pane-head")?.focus({ preventScroll: true });
+});
 document.getElementById("nav-library").addEventListener("click", () => go({ kind: "library" }));
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
 document.getElementById("nav-plan").addEventListener("click", () => go({ kind: "plan" }));

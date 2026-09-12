@@ -28,8 +28,8 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
-<link rel="stylesheet" href="/app.css?v=20260903d">
-<script src="/theme.js?v=20260903d"></script>
+<link rel="stylesheet" href="/app.css?v=20260912b">
+<script src="/theme.js?v=20260912b"></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -42,6 +42,7 @@
       "legalName": "Lynx Media Group LLC",
       "url": "https://lynxmediagroup.org/",
       "description": "A short-form video agency. lynxr is its own format-intelligence tool.",
+      "logo": "https://lynxmediagroup.org/imgs/logo-social.png",
       "email": "lynxrnetwork@gmail.com",
       "sameAs": [
         "https://lynxmediagroup.org/",
@@ -49,6 +50,12 @@
         "https://www.tiktok.com/@lynxmediagroup",
         "https://www.linkedin.com/company/lynxmediagroup"
       ],
+      "brand": {
+        "@type": "Brand",
+        "@id": "https://lynxr.io/#brand",
+        "name": "lynxr",
+        "url": "https://lynxr.io/"
+      },
       "founder": [
         {
           "@type": "Person",
@@ -104,7 +111,8 @@
         "url": "https://lynxr.io/waitlist/",
         "description": "Free to start: every account includes 25 scripts, no card required. Sign-up is open."
       },
-      "publisher": { "@id": "https://lynxr.io/#organization" }
+      "publisher": { "@id": "https://lynxr.io/#organization" },
+      "creator": { "@id": "https://lynxr.io/#organization" }
     }
   ]
 }
@@ -295,7 +303,7 @@
   <div class="foot-grid foot-grid-wide">
     <div class="foot-brand">
       <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
-      <p>format intelligence for short&#8209;form video, built by a short&#8209;form video agency.</p>
+      <p>format intelligence for short&#8209;form video, built by <span class="entity">Lynx Media Group</span>, a short&#8209;form video agency.</p>
     </div>
     <div class="foot-col">
       <div class="foot-label">lynxr</div>
@@ -303,6 +311,7 @@
       <a class="foot-link" href="/#how">how it works</a>
       <a class="foot-link" href="/faq/">faq</a>
       <a class="foot-link" href="/pricing/">pricing</a>
+      <a class="foot-link" href="/about/">about</a>
       <!-- Visible label "try it", accessible name "try it — join the wait
            list". The .sr-only tail is inside the <a>, so it is part of the
            name computation rather than a title attribute nobody hears. -->
@@ -310,6 +319,7 @@
     </div>
     <div class="foot-col">
       <div class="foot-label">guides</div>
+      <a class="foot-link" href="/blog/">blog</a>
       <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
       <a class="foot-link" href="/turn-a-video-into-a-script/" aria-current="page">video to script</a>
       <a class="foot-link" href="/short-form-script-structure/">script structure</a>
@@ -339,8 +349,8 @@
 
 <!-- The top bar's hide-on-scroll. Public pages only — see the file's
      own header for why it must never reach either app. -->
-<script src="/site.js?v=20260903d" defer></script>
-<script src="/footer.js?v=20260903d" defer></script>
+<script src="/site.js?v=20260912b" defer></script>
+<script src="/footer.js?v=20260912b" defer></script>
 
 </body>
 </html>

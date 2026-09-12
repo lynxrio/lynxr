@@ -1208,12 +1208,24 @@ VIEWS_PER_PASS   = int(envcfg.get("VIEWS_PER_PASS", "3"))
 VIEWS_PAID_RETRY_H        = float(envcfg.get("VIEWS_PAID_RETRY_H", "2"))
 VIEWS_PAID_RETRY_WINDOW_H = float(envcfg.get("VIEWS_PAID_RETRY_WINDOW_H", "24"))
 
+# TAPER (2026-09-12). Refresh cost scales with the CUMULATIVE number of
+# Instagram videos, and the Apify account is on the FREE plan with a hard
+# $5/month cap (apify_budget_ok takes min(APIFY_MAX_MONTHLY_USD, the
+# account's own cap)). Weekly-forever reaches $5 in ~7 months at the
+# measured ~53 Instagram pastes a month, and hitting it stops CAPTURES for
+# new pastes too — the part creators see. So: the VIEWS_PAID_MAX_AGE_H
+# clock applies while a video is younger than VIEWS_PAID_TAPER_AFTER_H;
+# older videos are re-measured every VIEWS_PAID_TAPER_MAX_AGE_H.
+# Set VIEWS_PAID_TAPER_AFTER_H=0 to switch the taper off.
+VIEWS_PAID_TAPER_AFTER_H   = float(envcfg.get("VIEWS_PAID_TAPER_AFTER_H", "720"))
+VIEWS_PAID_TAPER_MAX_AGE_H = float(envcfg.get("VIEWS_PAID_TAPER_MAX_AGE_H", "720"))
+
 APIFY_VIEWS_ACTOR    = "apify~instagram-scraper"   # actor id shu8hvrXbJbY3Eb9W
 APIFY_RUN_TIMEOUT_S  = int(envcfg.get("APIFY_RUN_TIMEOUT_S", "60"))
 APIFY_MAX_CHARGE_USD = float(envcfg.get("APIFY_MAX_CHARGE_USD", "0.05"))
 APIFY_MAX_MONTHLY_USD = float(envcfg.get("APIFY_MAX_MONTHLY_USD", "45"))
 APIFY_BUDGET_TTL_S   = int(envcfg.get("APIFY_BUDGET_TTL_S", "600"))
-APIFY_PRICE_PER_LOOKUP_USD = 0.0023  # BRONZE tier, measured 2026-08-19 — for
+APIFY_PRICE_PER_LOOKUP_USD = 0.0027  # FREE tier, measured 2026-09-12 (BRONZE is 0.0023) — for
 # the refresh_views() summary log line ONLY; not authoritative for spend
 # decisions, apify_budget_ok() reads Apify's own ledger for that.
 
@@ -1746,10 +1758,11 @@ def upsert_source(key, a):
     # promise used to be false: fetch_meta itself coerced an absent count to
     # 0 before it ever got here. It is true now — source_metrics() writes
     # `views: None` straight through as SQL NULL when the platform reported
-    # nothing (see trusted_views).
+    # nothing (see trusted_views). A fetch with no count leaves the stored
+    # count alone and the row due for measurement — see upsert_metrics().
     meta = src.get("meta") or {}
     if meta:
-        body.update(source_metrics(meta, src.get("duration")))
+        body.update(upsert_metrics(meta, src.get("duration")))
     try:
         # merge-duplicates so a re-tag refreshes the extraction rather than 409ing
         req = urllib.request.Request(
@@ -2046,6 +2059,26 @@ def source_metrics(meta, fallback_duration=None):
         "title":      meta.get("title") or "",
         "metrics_at": now_iso(),
     }
+
+
+def upsert_metrics(meta, fallback_duration=None):
+    """source_metrics() for upsert_source()'s merge-duplicates POST. Pure.
+
+    When this fetch produced no count (every Instagram paste — the paste
+    path never pays), two things differ from a refresh:
+      * `views` is left OUT of the body. merge-duplicates updates only the
+        columns it is given, so re-pasting a video that already has a paid
+        count no longer overwrites it with NULL. A new row still inserts NULL.
+      * `metrics_at` is written as NULL. refresh_views() orders
+        metrics_at.asc.nullsfirst, so the row is the first thing the next
+        idle sweep measures — about a minute after the script lands —
+        rather than waiting out a clock the paste itself had just reset.
+    """
+    body = source_metrics(meta, fallback_duration)
+    if meta.get("views") is None:
+        body.pop("views", None)
+        body["metrics_at"] = None
+    return body
 
 
 def upsert_video(key, a):
@@ -2894,12 +2927,17 @@ def apply_views(entries, canon, views, at):
       when it refuses to re-stamp a terminal entry, for the same reason
       (HANDOFF, 2026-08-18: an unlocked read-modify-write raced the
       completion graft and erased a finished script).
-    - Skips any entry with no existing source.meta dict — never invent a
-      source object on an entry the pipeline never fetched; has_usable_result()
-      and the title resolvers both read that shape.
-    - Skips when the value is already what it would be set to, so an
-      unchanged refresh writes nothing.
+    - creates `source.meta` inside an existing `source` dict — 7 Instagram
+      entries pasted 2026-08-18 carry a `source` dict with no `meta` key at
+      all, and apply_views() used to skip them forever.
+    - re-stamps `metricsAt` on an unchanged count — the card dates the count
+      off this field, so a re-measured-but-identical number still needs a
+      fresh date.
+    - returns 0 and touches nothing when `views` is None — a refresh with no
+      count must never push a blank over a stored one.
     """
+    if views is None:
+        return 0          # a refresh with no count never touches a card
     changed = 0
     for entry in entries:
         if canon_url(entry.get("sourceUrl") or "") != canon:
@@ -2910,12 +2948,19 @@ def apply_views(entries, canon, views, at):
         if not isinstance(source, dict):
             continue
         meta = source.get("meta")
-        if not isinstance(meta, dict):
+        if meta is None:
+            # 7 Instagram entries pasted 2026-08-18 carry a `source` dict with
+            # no `meta` key at all (verified live 2026-09-12). Give them one
+            # holding only the count — has_usable_result() never reads meta,
+            # and creator.js reads meta.title/meta.duration defensively.
+            meta = source["meta"] = {}
+        elif not isinstance(meta, dict):
             continue
-        if meta.get("views") == views:
+        if meta.get("views") == views and meta.get("metricsAt") == at:
             continue
         meta["views"] = views
-        meta["metricsAt"] = at
+        meta["metricsAt"] = at   # re-stamped even when the number is unchanged:
+                                 # the card dates the count off this field
         changed += 1
     return changed
 
@@ -2936,7 +2981,7 @@ def refresh_entry_views(key, cid, canon, views, at):
         return changed
 
 
-def views_or_clause(now, max_age_h, retry_h=0, retry_window_h=0):
+def views_or_clause(now, max_age_h, retry_h=0, retry_window_h=0, taper_after_h=0, taper_max_age_h=0):
     """The PostgREST `or=(...)` body selecting rows due a view refresh.
 
     Pure and separate from refresh_views() for the same reason too_young() is:
@@ -2949,16 +2994,56 @@ def views_or_clause(now, max_age_h, retry_h=0, retry_window_h=0):
       * (paid pools only) views IS NULL AND the row is younger than
         retry_window_h AND metrics_at older than retry_h — the never-succeeded
         case, retried fast but only for a bounded window.
+      * (taper) the max_age_h clock applies only while first_seen_at is
+        younger than taper_after_h; older rows use taper_max_age_h. Both 0 =
+        no taper, output identical to before.
     """
     def stamp(hours):
         return urllib.parse.quote(
             (now - timedelta(hours=hours)).isoformat().replace("+00:00", "Z"), safe="")
-    clauses = ["metrics_at.is.null", f"metrics_at.lt.{stamp(max_age_h)}"]
+    if taper_after_h and taper_max_age_h:
+        clauses = ["metrics_at.is.null",
+                   f"and(first_seen_at.gt.{stamp(taper_after_h)},"
+                   f"metrics_at.lt.{stamp(max_age_h)})",
+                   f"metrics_at.lt.{stamp(taper_max_age_h)}"]
+    else:
+        clauses = ["metrics_at.is.null", f"metrics_at.lt.{stamp(max_age_h)}"]
     if retry_h and retry_window_h:
         clauses.append("and(views.is.null,"
                        f"first_seen_at.gt.{stamp(retry_window_h)},"
                        f"metrics_at.lt.{stamp(retry_h)})")
     return ",".join(clauses)
+
+
+def queued_work(key):
+    """True when any creator has a QUEUED entry right now — the same
+    containment probe worker.py's queued_creators() asks, capped at one id.
+    FAILS TOWARD YIELDING: a probe error returns True. Being wrong that way
+    costs a count measured a minute later; the other way, a creator's
+    script waits behind a paid lookup."""
+    try:
+        return bool(sb(key, prefilter_url([[{"status": "queued"}]], limit=1)))
+    except Exception as e:  # noqa: BLE001
+        log.info("  refresh: queue probe failed (%s) — yielding", str(e)[:80])
+        return True
+
+
+def refresh_patch(meta):
+    """(PATCH body for lynxr_sources, whether to push the count to creator
+    entries) for one SUCCESSFUL refresh fetch. Pure.
+
+    A refresh that comes back with no count — the $5 FREE-plan cap reached
+    (apify_budget_ok fails closed), a token problem, a timed-out run, a
+    deleted post — used to PATCH views=NULL over the stored number AND push
+    None onto every card holding the video. Now `views` is left out of the
+    body, so the stored count survives, and nothing is pushed. metrics_at
+    still moves (source_metrics stamps it), so the row is not re-selected
+    next pass."""
+    body = source_metrics(meta)
+    if meta.get("views") is None:
+        body.pop("views", None)
+        return body, False
+    return body, True
 
 
 def refresh_views(key, limit):
@@ -2969,17 +3054,26 @@ def refresh_views(key, limit):
     Two pools, each on its own staleness clock: VIEWS_TRUSTED_PLATFORMS
     (tiktok/youtube, free via yt-dlp) at VIEWS_MAX_AGE_H, and
     VIEWS_PAID_PLATFORMS (instagram, paid via Apify) at the much longer
-    VIEWS_PAID_MAX_AGE_H — see the plan's Assumption 2 for why weekly, not
-    daily. `limit` is per pool, so a pass does at most `limit` free fetches
-    and at most `limit` PAID ones — default 3, i.e. $0.0069 a pass, worst
-    case.
+    VIEWS_PAID_MAX_AGE_H, tapering to VIEWS_PAID_TAPER_MAX_AGE_H after
+    VIEWS_PAID_TAPER_AFTER_H — see the plan's cost section for why. `limit`
+    is per pool, so a pass does at most `limit` free fetches and at most
+    `limit` PAID ones — default 3, i.e. $0.0081 a pass, worst case.
+
+    Four behaviours beyond the two staleness clocks: (1) yields before every
+    row when queued_work() is true, so a paste in flight never waits behind
+    a paid lookup; (2) probes who holds a row BEFORE paying — an orphan (no
+    live script holds it) only moves metrics_at, never fetches or pays;
+    (3) never writes or pushes a missing count — refresh_patch() leaves
+    `views` out of the PATCH and apply_views()/refresh_entry_views() are
+    never called on a None; (4) the paid pool tapers to a longer clock once
+    a video is older than VIEWS_PAID_TAPER_AFTER_H.
 
     Steady-state rate: a row is re-selected only once its metrics_at is
     older than its pool's staleness window, so this is one fetch per
     views-capable video per that window, not one per pass. In paid terms:
     one Apify lookup per Instagram video per VIEWS_PAID_MAX_AGE_H (7 days
-    by default), which at today's 24 Instagram rows in lynxr_sources is
-    ~3.4 lookups a day, ~$0.24 a month.
+    by default) while young, tapering to one per VIEWS_PAID_TAPER_MAX_AGE_H
+    afterward.
     """
     considered = fetched = entries_updated = 0
     calls_before = _APIFY_CALLS
@@ -2988,65 +3082,74 @@ def refresh_views(key, limit):
         # Only the PAID pool gets the retry pair — a free yt-dlp platform that
         # returns nothing is answered on the ordinary clock and costs nothing
         # to ask again, so it needs no bounded window.
-        pools = ((VIEWS_TRUSTED_PLATFORMS, VIEWS_MAX_AGE_H, 0, 0),
+        pools = ((VIEWS_TRUSTED_PLATFORMS, VIEWS_MAX_AGE_H, 0, 0, 0, 0),
                  (VIEWS_PAID_PLATFORMS,    VIEWS_PAID_MAX_AGE_H,
-                  VIEWS_PAID_RETRY_H, VIEWS_PAID_RETRY_WINDOW_H))
+                  VIEWS_PAID_RETRY_H, VIEWS_PAID_RETRY_WINDOW_H,
+                  VIEWS_PAID_TAPER_AFTER_H, VIEWS_PAID_TAPER_MAX_AGE_H))
         rows = []
         now = datetime.now(timezone.utc)
-        for pool_platforms, pool_max_age_h, retry_h, retry_window_h in pools:
+        for pool_platforms, pool_max_age_h, retry_h, retry_window_h, taper_after_h, taper_max_age_h in pools:
             if not pool_platforms:
                 continue
             platforms = ",".join(pool_platforms)
             q = ("/rest/v1/lynxr_sources?select=canonical_url,url,platform,views,metrics_at"
                  f"&platform=in.({platforms})"
-                 f"&or=({views_or_clause(now, pool_max_age_h, retry_h, retry_window_h)})"
+                 f"&or=({views_or_clause(now, pool_max_age_h, retry_h, retry_window_h, taper_after_h, taper_max_age_h)})"
                  f"&order=metrics_at.asc.nullsfirst&limit={limit}")
             rows.extend(sb(key, q) or [])
     except Exception as e:  # noqa: BLE001
         log.warning("refresh_views: selection failed: %s", str(e)[:120])
         return
     considered = len(rows)
+    orphans = 0
+    yielded = False
     for row in rows:
         url = row.get("url") or ""
+        # YIELD TO A PASTE. worker.py runs this pass synchronously, so every
+        # second here is a second a newly pasted link waits to be claimed.
+        # Asked before EVERY row: worst case is one row in flight.
+        if queued_work(key):
+            yielded = True
+            log.info("  refresh: queued work waiting — yielding to it")
+            break
+        target = "/rest/v1/lynxr_sources?canonical_url=eq." + urllib.parse.quote(
+            row.get("canonical_url") or canon_url(url), safe="")
         try:
-            # {} means "could not ask" — deleted, private, rate-limited, a
-            # transport failure. Write nothing at all; blanking a good
-            # number on a hiccup is the mistake source_metrics()'s docstring
-            # names. paid=True: this is the sweep, the one caller allowed to
-            # spend — video_views() still refuses to spend on anything
-            # outside VIEWS_PAID_PLATFORMS, so a tiktok/youtube row here
-            # never reaches Apify. No per-row platform branch is needed.
-            meta = fetch_meta(url, paid=True)
-            if not meta:
-                log.info("  refresh: no metadata — %s", url[:60])
-                continue
-            fetched += 1
-            # metrics_at moves whether or not a count came back, which is
-            # what stops a views-less row being re-selected every pass.
-            target = "/rest/v1/lynxr_sources?canonical_url=eq." + urllib.parse.quote(
-                row.get("canonical_url") or canon_url(url), safe="")
-            sb(key, target, method="PATCH", body=source_metrics(meta))
-
-            canon = canon_url(url)
+            # WHO HOLDS IT, asked BEFORE anything is fetched or paid for — 13
+            # of 55 Instagram rows on 2026-09-12 belonged to no live script.
+            # An empty probe means "nobody holds it" and must NOT trigger
+            # candidate_creators()'s canary/full-scan fallback: the cost
+            # here is a stale decoration, not a lost script.
             try:
                 probe_rows = sb(key, prefilter_url([[{"sourceUrl": url}]])) or []
             except Exception as e:  # noqa: BLE001
                 log.warning("  refresh: creator probe failed for %s: %s", url[:50], str(e)[:90])
                 continue
-            # An empty probe means "nobody holds it", and must NOT trigger
-            # candidate_creators()'s canary/full-scan fallback. That
-            # machinery exists because an empty queue and a broken filter
-            # were indistinguishable and the consequence was "no scripts get
-            # written". Here the consequence is "a number stays a day old" —
-            # not worth importing a 215 KB full scan to protect a decoration.
             if not probe_rows:
-                log.info("  refresh: no creator holds %s", url[:60])
+                # Move the clock and nothing else — no yt-dlp, no Apify.
+                sb(key, target, method="PATCH", body={"metrics_at": now_iso()})
+                orphans += 1
                 continue
-            at = now_iso()
+            meta = fetch_meta(url, paid=True)
+            if not meta:
+                # {} = could not ask (deleted, private, rate-limited). Move the
+                # clock so a dead row cannot sit at the head of the pool every
+                # minute; write NO metric.
+                sb(key, target, method="PATCH", body={"metrics_at": now_iso()})
+                log.info("  refresh: no metadata — %s", url[:60])
+                continue
+            fetched += 1
+            body, propagate = refresh_patch(meta)
+            sb(key, target, method="PATCH", body=body)
+            if not propagate:
+                log.info("  refresh: no count came back for %s — stored count kept", url[:60])
+                continue
+            canon = canon_url(url)
+            at = meta.get("metricsAt") or now_iso()
             for r in probe_rows:
                 try:
                     entries_updated += refresh_entry_views(
-                        key, r["id"], canon, meta.get("views"), at)
+                        key, r["id"], canon, meta["views"], at)
                 except Exception as e:  # noqa: BLE001
                     log.warning("  refresh: creator %s not updated: %s",
                                 str(r.get("id"))[:8], str(e)[:90])
@@ -3054,10 +3157,12 @@ def refresh_views(key, limit):
             log.warning("  refresh: row failed (%s): %s", url[:50], str(e)[:90])
 
     paid_calls = _APIFY_CALLS - calls_before
-    log.info("refresh_views: %d row(s) considered, %d fetched, %d creator entr%s updated, "
-              "%d paid lookup(s) (~$%.4f)",
-              considered, fetched, entries_updated, "y" if entries_updated == 1 else "ies",
-              paid_calls, paid_calls * APIFY_PRICE_PER_LOOKUP_USD)
+    log.info("refresh_views: %d row(s) considered, %d fetched, %d orphan(s) skipped, "
+              "%d creator entr%s updated, %d paid lookup(s) (~$%.4f)%s",
+              considered, fetched, orphans, entries_updated,
+              "y" if entries_updated == 1 else "ies",
+              paid_calls, paid_calls * APIFY_PRICE_PER_LOOKUP_USD,
+              " — yielded to queued work" if yielded else "")
 
 
 def heartbeat(key, cid, aid, stop_event, interval=45):
@@ -3552,6 +3657,17 @@ def main():
 
     if not jobs:
         log.info("done")
+        # IDLE BY ANOTHER ROUTE. `todo` is a prefilter SUPERSET of real work.
+        # One `final` error entry (a dead YouTube card, creator 4eb7cb66)
+        # matched the {"status":"error"} probe on every sweep, so the
+        # `if not todo:` branch above never ran and view counts stopped
+        # refreshing on Fly after 2026-09-03 — every log read "creators to
+        # consider: 1" then "done". A pass that claimed nothing is as idle.
+        if args.refresh_views:
+            try:
+                refresh_views(key, args.views_per_pass)
+            except Exception as e:  # noqa: BLE001
+                log.warning("refresh_views failed: %s", str(e)[:120])
         return
 
     # Step 7c: group by canon_url so N brands pasted for the SAME video (even
