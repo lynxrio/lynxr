@@ -4200,27 +4200,55 @@ function videoSeconds({ item, rec } = {}) {
   return 0;
 }
 
-/** THE VIDEO'S PUBLIC VIEW COUNT, same walk as videoSeconds and for the same
- *  reason (fetch_meta writes onto one record per video, not all of them).
+/** THE VIDEO'S PUBLIC VIEW COUNT, and WHEN it was measured — same walk as
+ *  videoSeconds and for the same reason: fetch_meta() runs once per video and
+ *  writes onto one record of the group, not all of them.
  *
- *  READ THIS BEFORE TRUSTING THE NUMBER. It is almost never there.
- *  pipeline/process_adaptations.py's fetch_meta does
- *  `int(d.get("view_count") or 0)`, so a missing count is stored as 0 rather
- *  than as nothing — the field LOOKS populated everywhere. Measured against
- *  the live database 2026-08-18: of 23 distinct videos, 15 carry a value and
- *  13 of those are exactly 0; 2 are non-zero and one of those two is "27".
- *  lynxr_sources agrees, 0 non-zero across all 27 rows. yt-dlp returns no
- *  count at all for Instagram, which is most of the corpus.
+ *  The counts are real now (2026-09-12). `source.meta.views` is None when the
+ *  pipeline has no count, never a stored 0 standing in for one. TikTok's comes
+ *  free from yt-dlp at paste; Instagram's is a paid Apify lookup made on the
+ *  worker's idle sweep a minute or two after the script lands, then refreshed
+ *  weekly for a month and monthly after. `source.meta.metricsAt` is when THIS
+ *  count was measured, so the card can say how old the number is.
  *
- *  So 0 is treated as ABSENT, not as a measurement, and the card renders
- *  nothing rather than "0" or a dash. The slot is real and will fill itself
- *  the day the number becomes real; today it is empty on almost every card. */
-function videoViews({ item, rec } = {}) {
+ *  0 is still treated as ABSENT: absent is stored as null, and a genuine
+ *  zero-view paste is not worth a badge.
+ *
+ *  Of several records carrying a count, the most recently measured wins. The
+ *  walk also reports whether any record is a finished script and when the
+ *  newest finished one was added, which is what decides between "on its way"
+ *  and "no public count" when there is no number at all. */
+const VIEWS_FRESH_MS = 8 * 24 * 3600 * 1000;   // weekly paid refresh + a day
+const VIEWS_PENDING_MS = 24 * 3600 * 1000;     // the pipeline's paid retry window
+function videoViewsInfo({ item, rec } = {}) {
+  let done = false, addedT = 0;
+  let views = 0, at = "", t = -1;
   for (const r of recordsForVideo({ item, rec })) {
-    const v = Number(((r.source || {}).meta || {}).views);
-    if (v > 0) return v;
+    if (r.status === "done") {
+      done = true;
+      const a = new Date(r.addedAt).getTime();
+      if (a > addedT) addedT = a;
+    }
+    const meta = (r.source || {}).meta || {};
+    const v = Number(meta.views);
+    if (!(v > 0)) continue;
+    const mt = new Date(meta.metricsAt).getTime() || 0;
+    if (mt > t) { views = v; at = meta.metricsAt || ""; t = mt; }
   }
-  return 0;
+  return views > 0 ? { views, at, t, done, addedT } : { views: 0, at: "", t: 0, done, addedT };
+}
+function videoViews({ item, rec } = {}) { return videoViewsInfo({ item, rec }).views; }
+
+/** "today", "Aug 19", or "Aug 19, 2025" across a year boundary. Empty for a
+ *  date we cannot read, so the caller can say "date unknown" instead. */
+function asOfLabel(iso) {
+  const d = new Date(iso);
+  if (!iso || isNaN(d.getTime())) return "";
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return "today";
+  const opts = { month: "short", day: "numeric" };
+  if (d.getFullYear() !== now.getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString("en-US", opts);
 }
 
 /** THE NUMBER ONLY — "1", "27", "12k", "1.2m". Nothing at all for 0, see
@@ -4248,6 +4276,48 @@ function viewsLabel(n) {
   return `${(v / 1e6).toFixed(1)}m`.replace(".0m", "m");
 }
 
+/* THE EYE IS THE UNIT, for sighted readers. It is the same lens-and-pupil the
+   gate's show-password toggle draws, so it is a shape already in this app
+   rather than a new one — two paths, which is all that survives at 13px.
+   It is aria-hidden and the WORD goes in the accessible name instead: an icon
+   is not a label. Singular matters there and only there, because 0 is never
+   drawn as a number and a compacted value is never 1. The no-count dash wears
+   the same eye, so "no views" and "views" read as one fact in two states. */
+const EYE_SVG = `<svg class="ico-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+    ><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
+/** THE VIEWS FACT, in one of three states.
+ *  - A count: eye + number. Measured more than VIEWS_FRESH_MS ago (or with no
+ *    date) adds a clock; the tooltip and the accessible name carry "as of
+ *    <date>", and the opened card prints it (tiles hide .lib-asof).
+ *  - A finished script with no count: a muted eye + dash, so absence reads as
+ *    a fact rather than as a rendering gap.
+ *  - Anything still queued, writing or failed with no count: nothing. */
+function viewsFactHtml({ item, rec } = {}) {
+  const info = videoViewsInfo({ item, rec });
+  if (info.views > 0) {
+    const asOf = asOfLabel(info.at);
+    const dated = !info.t || Date.now() - info.t > VIEWS_FRESH_MS;
+    const when = asOf ? `as of ${asOf}` : "date unknown";
+    return `<span class="lib-stat lib-views${dated ? " lib-views-dated" : ""}" title="${escapeHtml(when)}">`
+      + EYE_SVG
+      + escapeHtml(viewsLabel(info.views))
+      + (dated ? `<svg class="ico-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>` : "")
+      + (asOf ? `<span class="lib-asof" aria-hidden="true">· as of ${escapeHtml(asOf)}</span>` : "")
+      + `<span class="sr-only"> ${info.views === 1 ? "view" : "views"}, ${escapeHtml(when)}</span>`
+      + `</span>`;
+  }
+  if (info.done) {
+    const url = (rec && rec.sourceUrl) || (item && item.url) || "";
+    const why = (platformOf(url) && info.addedT && Date.now() - info.addedT < VIEWS_PENDING_MS)
+      ? "View count on its way" : "No public view count for this video";
+    return `<span class="lib-stat lib-views lib-views-none" title="${why}">${EYE_SVG}`
+      + `<span aria-hidden="true">—</span><span class="sr-only"> ${why}</span></span>`;
+  }
+  return "";
+}
+
 /** THE TWO FACTS UNDER A CARD'S TITLE — views, then length — as ONE group
  *  pushed to the right of the row, with the status chip left against the other
  *  edge. The gap between the two does the separating: left-packed, the whole
@@ -4265,22 +4335,11 @@ function viewsLabel(n) {
  *  punctuation the eye does not need is punctuation a screen reader has to
  *  skip. */
 function metaFactsHtml({ item, rec } = {}) {
-  const views = videoViews({ item, rec });
-  const v = viewsLabel(views);
+  const views = viewsFactHtml({ item, rec });
   const len = lengthLabel(videoSeconds({ item, rec }));
-  if (!v && !len) return "";
-  /* THE EYE IS THE UNIT, for sighted readers. It is the same lens-and-pupil the
-     gate's show-password toggle draws, so it is a shape already in this app
-     rather than a new one — two paths, which is all that survives at 13px.
-     It is aria-hidden and the WORD goes in the accessible name instead: an icon
-     is not a label. Singular matters there and only there, because 0 never
-     reaches this function and a compacted value is never 1. */
-  const eye = `<svg class="ico-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-      ><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  if (!views && !len) return "";
   return `<span class="meta-facts">`
-    + (v ? `<span class="lib-stat lib-views">${eye}${escapeHtml(v)}<span class="sr-only"> ${
-        views === 1 ? "view" : "views"}</span></span>` : "")
+    + views
     + (len ? `<span class="lib-stat lib-len"><span class="sr-only">Length </span>${escapeHtml(len)}</span>` : "")
     + `</span>`;
 }

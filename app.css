@@ -5633,6 +5633,9 @@
      before, 3.2px after, zero wrapped rows at any width. */
   .script-grid > .bp-item:not([open]) > summary > .meta-facts .lib-stat { gap: 1px; font-size: var(--fs-105); }
   .script-grid > .bp-item:not([open]) > summary > .meta-facts .ico-eye { width: .95em; height: .95em; }
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts .ico-clock { width: .85em; height: .85em; }
+  /* A tile has no room for the words — the clock and the tooltip carry it. */
+  .script-grid > .bp-item:not([open]) > summary > .meta-facts .lib-asof { display: none; }
   .meta-facts { display: inline-flex; align-items: center; gap: 10px; }
   /* Each fact. Mono and tabular so a column of tiles lines up rather than
      shimmering as the digits change; inline-flex so the eye is optically
@@ -5647,6 +5650,13 @@
      supporting information and must not compete with the status chip, which is
      the signal. */
   .ico-eye { width: 1.15em; height: 1.15em; flex: none; opacity: .9; }
+  /* VIEW-COUNT STATES (2026-09-12). The clock marks a count older than a
+     missed weekly refresh; the words live in the tooltip and the
+     accessible name, and the opened card prints "· as of <date>". A
+     finished script with no count shows a muted dash rather than nothing,
+     so absence reads as a fact, not as a rendering gap. */
+  .ico-clock { width: 1em; height: 1em; flex: none; opacity: .75; }
+  .lib-views-none { opacity: .6; }
 
   /* The badge's hover fade is the only transition this section adds, so it is
      the only thing this section has to turn off. The block ~1500 lines above
