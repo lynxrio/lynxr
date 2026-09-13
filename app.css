@@ -1892,6 +1892,33 @@
       position: sticky; top: 0; z-index: 1;
       background: var(--surface-2); margin: 0; padding-bottom: 12px;
     }
+    /* THE SCRIPT ENDS WHERE THE VIDEO BOX ENDS, AND SCROLLS INSIDE ITSELF.
+       Owner, 2026-09-12: "make it cut off wherever the video box ends, and
+       allow me to scroll within that section so that the script doesn't go
+       super far down." `contain: size` takes .ref-main's content out of the
+       grid row's sizing, so the row is exactly as tall as the panel beside it
+       (which keeps its align-self: start above); the column then stretches to
+       that row — the grid default — and scrolls whatever does not fit.
+       Measured 2026-09-12: 1238px of column beside a 722px panel before, 722px
+       after (1440x900); 668px at 1180x800; at 1440x700 the panel is held to its
+       max-height and the column follows it to 568px.
+       ONLY WITH THE PANEL OPEN AND A REAL <video> IN IT. A shut panel is one
+       summary line and the age-gated no-clip panel is ~176px; capping the
+       script to either would bury it. A script shorter than the video just
+       stretches to the row with nothing to scroll: no scrollbar, and no height
+       the row did not already have. overflow-x: hidden because overflow-y:
+       auto would otherwise compute overflow-x to auto and offer a sideways bar
+       for a stray long word (measured scrollWidth === clientWidth).
+       creator.js's followScriptBeat() keeps the playing beat in view inside
+       this box; the page itself does not move during playback. */
+    .ref-split:has(> details.ref-panel[open] video.ref-video) > .ref-main {
+      contain: size; overflow-y: auto; overflow-x: hidden;
+    }
+    /* The global thumb's 2px ring is --bg, right for a page-level scroller;
+       this one sits on the card's --surface. */
+    .ref-split:has(> details.ref-panel[open] video.ref-video) > .ref-main::-webkit-scrollbar-thumb {
+      border-color: var(--surface);
+    }
   }
   /* A library row carries two chips, a date and a link, which on a phone leaves
      the title — the only part worth reading — squeezed to "Why…". Give it the
@@ -5297,6 +5324,15 @@
      170px column; the tile is for FINDING one, the row is for READING it.
      Source order is untouched (no `dense`), so the card opens where it sat. */
   .script-grid > .bp-item[open] { grid-column: 1 / -1; }
+
+  /* THE REACH SPACER. creator.js's landSpacer() appends one empty .land-spacer
+     as the last child of #pane-scroll and sizes it through CSSOM: 0px, except
+     while a card near the end of a list needs the room to put its top at the
+     top of the screen. flex: none IS LOAD-BEARING. Wherever #pane-scroll is a
+     fixed-height flex column (.shell capped at the viewport), an empty flex
+     item shrinks to nothing — measured with the cap applied: style height
+     3128px, painted 0px, and the card landed 34px short. */
+  .land-spacer { flex: none; height: 0; pointer-events: none; }
 
   /* ---- the tile ---- */
   /* Wrapping flex rather than grid areas: a library entry carries two chips and

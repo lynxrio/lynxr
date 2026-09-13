@@ -1547,6 +1547,7 @@ function closeSendOverlay() {
 }
 
 function go(view) {
+  releaseCardLanding();
   // Leaving the Library abandons whatever entry a send was pointed at —
   // switching views by hand is a deliberate move elsewhere.
   if (view.kind !== "library") FOCUS_LID = null;
@@ -1850,6 +1851,15 @@ function openDisclosures(root = document) {
          back on under them. */
       .map((v) => ({ id: v.dataset.refvid, t: v.currentTime, playing: !v.paused,
                      muted: v.muted })),
+    /* THE SCRIPT COLUMN'S OWN SCROLL OFFSET. Beside a playing clip at >=1180px
+       .ref-main is a scroller in its own right (see followScriptBeat), and a
+       repaint rebuilding it at 0 throws the reader back to the hook mid-video.
+       Keyed on the panel's data-refid — the adaptation — for the same reason
+       `refs` is. Only non-zero offsets are worth carrying. */
+    cols: [...root.querySelectorAll(".ref-split > details.ref-panel[data-refid]")]
+      .map((p) => ({ id: p.dataset.refid,
+                     top: (p.parentElement.querySelector(":scope > .ref-main") || {}).scrollTop || 0 }))
+      .filter((c) => c.top > 0),
   };
 }
 function restoreDisclosures(state, root = document) {
@@ -1884,6 +1894,15 @@ function restoreDisclosures(state, root = document) {
   root.querySelectorAll("details.ref-panel[data-refid]").forEach((d) => {
     if (known.has(d.dataset.refid)) d.open = wantRef.has(d.dataset.refid);
   });
+  /* After the panels, because whether .ref-main scrolls at all depends on its
+     panel being open; and never into a card that is shut, whose subtree has no
+     layout to scroll. */
+  for (const c of state.cols || []) {
+    root.querySelectorAll(`.ref-split > details.ref-panel[data-refid="${CSS.escape(c.id)}"]`).forEach((p) => {
+      const col = p.parentElement.querySelector(":scope > .ref-main");
+      if (col && !col.closest("details:not([open])")) col.scrollTop = c.top;
+    });
+  }
   /* LAST, so it runs against the open/closed state the loops above just set.
      A video inside a <details> that ended up shut is skipped rather than
      started invisibly. Navigating to another view goes through renderPane()
@@ -6097,32 +6116,48 @@ function wireHandsOff() {
   document.addEventListener("wheel", off, { passive: true, capture: true });
   document.addEventListener("touchmove", off, { passive: true, capture: true });
   document.addEventListener("pointerdown", off, true);
+  /* TYPING IN A LINE IS HANDS-OFF TOO. Lines are edited in place, inside the
+     very column that follow scrolls; without this, a video left playing moved
+     the line out from under the caret on the next beat. Tab joins the
+     navigation keys: focus moving through the script is someone reading it. */
   document.addEventListener("keydown", (e) => {
-    if (/^(Arrow|Page|Home|End)/.test(e.key) || e.key === " ") off(e);
+    if (/^(Arrow|Page|Home|End|Tab)/.test(e.key) || e.key === " "
+        || (e.target && e.target.closest && e.target.closest("[data-edit]"))) off(e);
   }, true);
 }
 
-/** THE PLAYING BEAT STAYS ON SCREEN — but only where the PLAYER holds its
- *  place, and never anywhere else.
+/** THE PLAYING BEAT STAYS IN VIEW — inside its own column, never by moving the
+ *  page.
  *
- *  At >=1180px app.css makes .bp-item.ref-panel position: sticky, so the video
- *  is pinned beside the script for the whole card and following the playhead
- *  moves only what the creator is reading. Below that the panel is static, the
- *  player scrolls away with everything else, and following would yank the
- *  whole page under the thumb of someone reading — the same conclusion the
- *  section version reached, for the same reason.
+ *  Owner, 2026-09-12: "For the scripts that are next to the video playback,
+ *  make it cut off wherever the video box ends, and allow me to scroll within
+ *  that section so that the script doesn't go super far down. As the video
+ *  plays, it automatically scrolls down, so the user stays in the same
+ *  position, but it still matches the video."
  *
- *  ASKED OF THE COMPUTED STYLE, NOT OF THE VIEWPORT WIDTH, so it cannot drift
- *  from the CSS — the idiom scrollCardToTop() already uses for .pane-head.
+ *  At >=1180px, with "The original" open and a playable clip, app.css caps
+ *  .ref-main at the height of the panel beside it and makes it scroll (the
+ *  `.ref-split:has(...) > .ref-main` rule). This scrolls THAT box and nothing
+ *  else. The version before it scrolled the PAGE, on the theory that the
+ *  sticky panel held the player still — but that panel pins to #pane-scroll,
+ *  which never scrolls while .shell is uncapped, so the player rode up and off
+ *  the screen with the script. Measured 2026-09-12 at 1440x900: 785px of page
+ *  travel in 18s of playback, player included.
  *
- *  THE SCROLLER IS FOUND, NOT ASSUMED — and measured 2026-08-28 it is the
- *  DOCUMENT at every width. #pane-scroll carries overflow-y:auto but is never
- *  height-capped (.shell is min-height:100svh and grows to its content), so at
- *  1440px scrollHeight === clientHeight === 2004 and it has nothing to scroll.
- *  scrollerFor() tests for real overflow rather than trusting the property, so
- *  it already answers correctly; do not "simplify" it to a width check. The
- *  sticky .pane-head is subtracted the same way scrollCardToTop() subtracts it,
- *  so the lit beat lands just below the header rather than underneath it. */
+ *  STEADY, NOT NUDGED. Every time the beat changes, the lit beat's top is put
+ *  the same `lead` below the top of the column, so the line being read stays
+ *  where the eye already is while the words move under it — "the user stays in
+ *  the same position". The lead (72px, or a fifth of a short column) keeps the
+ *  end of the previous beat in sight. The opening beats and the closing ones
+ *  stop where the column runs out; that is just scrollTo clamping.
+ *
+ *  WHERE THE COLUMN IS NOT CAPPED — below 1180px, panel shut, no clip, or a
+ *  script shorter than the video — there is nothing to scroll and this does
+ *  nothing. The page is never the fallback. No .pane-head offset either: that
+ *  header sits over the page, not over this box.
+ *
+ *  The 2026-08-28 guards stay exactly as they were: nothing inside the
+ *  hands-off window, nothing for a card that is shut. */
 function followScriptBeat(li) {
   if (Date.now() < REF_HANDS_OFF) return;
   /* NEVER FOR A CARD THAT IS SHUT. Every <video> in the pane carries
@@ -6135,22 +6170,16 @@ function followScriptBeat(li) {
      to the document maximum — the footer. Same guard, same reading, as
      seekRefTo() and restoreDisclosures': never act on something invisible. */
   if (li.closest("details:not([open])")) return;
-  const split = li.closest(".ref-split");
-  const panel = split && split.querySelector("details.ref-panel");
-  if (!panel || getComputedStyle(panel).position !== "sticky") return;
-  const scroller = scrollerFor(li);
-  const isDoc = scroller === document.scrollingElement || scroller === document.documentElement;
-  const box = isDoc
-    ? { top: 0, bottom: window.innerHeight || document.documentElement.clientHeight }
-    : scroller.getBoundingClientRect();
-  const head = document.querySelector(".pane-head");
-  const pad = (head && getComputedStyle(head).position === "sticky"
-    ? Math.round(head.getBoundingClientRect().height) : 0) + 12;
-  const lr = li.getBoundingClientRect();
-  if (lr.top >= box.top + pad && lr.bottom <= box.bottom) return;   // already visible
+  const col = li.closest(".ref-main");
+  if (!col || !/(auto|scroll)/.test(getComputedStyle(col).overflowY)) return;
+  const max = col.scrollHeight - col.clientHeight;
+  if (max <= 1) return;
+  const lead = Math.min(72, Math.round(col.clientHeight / 5));
+  const to = Math.max(0, Math.min(max, Math.round(col.scrollTop
+    + li.getBoundingClientRect().top - col.getBoundingClientRect().top - col.clientTop - lead)));
+  if (Math.abs(to - col.scrollTop) < 2) return;
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  scroller.scrollTo({ top: Math.max(0, Math.round(scroller.scrollTop + (lr.top - box.top) - pad)),
-                     behavior: still ? "auto" : "smooth" });
+  col.scrollTo({ top: to, behavior: still ? "auto" : "smooth" });
 }
 
 function seekRefTo(vid, t) {
@@ -6290,8 +6319,18 @@ function wireRefControls(vid) {
     vid.addEventListener(e, clearWait));
 
   toggle.addEventListener("click", () => {
-    if (vid.paused) vid.play().catch(() => { /* autoplay policy said no */ });
-    else vid.pause();
+    if (vid.paused) {
+      /* Owner, 2026-09-13: a person pressing play is asking to be followed
+         again, same as a beat click or a scrubber drag — so this clears
+         hands-off exactly as refSeekAsked() does, rather than leaving the
+         column to wait out the rest of a stale 6s window. Only here, on the
+         gesture itself: NOT on the video's own `play` event, which also
+         fires when restoreDisclosures() resumes a clip after a repaint, and
+         a programmatic resume must never override someone who is reading
+         ahead. */
+      REF_HANDS_OFF = 0;
+      vid.play().catch(() => { /* autoplay policy said no */ });
+    } else vid.pause();
   });
   mute.addEventListener("click", () => { vid.muted = !vid.muted; });
 
@@ -6300,8 +6339,10 @@ function wireRefControls(vid) {
      arms the hands-off window; and wireAdaptationCards' beat-click delegation
      already ignores anything inside .ref-play, so it cannot also seek. */
   vid.addEventListener("click", () => {
-    if (vid.paused) vid.play().catch(() => {});
-    else vid.pause();
+    if (vid.paused) {
+      REF_HANDS_OFF = 0;   // starting playback clears hands-off — see the toggle's click handler above
+      vid.play().catch(() => {});
+    } else vid.pause();
   });
 
   seek.addEventListener("pointerdown", () => {
@@ -7612,71 +7653,306 @@ function scrollerFor(el) {
   return document.scrollingElement || document.documentElement;
 }
 
-/** Bring an opened card's top edge to the top of the viewport.
- *
- *  Owner, 2026-08-18: "when i open a script have it auto scroll to the top of
- *  the expanded card". It replaces a `scrollIntoView({block:"nearest"})` that
- *  only nudged a card far enough to be visible — which left the header halfway
- *  up the screen with the script running off the bottom.
- *
- *  MEASURED AFTER THE REFLOW, NEVER BEFORE. Opening a card sets
- *  `grid-column: 1 / -1` on it, which re-flows every tile after it and changes
- *  the card's own height and position; and the one-open-at-a-time handler may
- *  CLOSE a card above it in the same tick, moving it up by a whole row. A
- *  target computed at click time is wrong by more the further down the grid the
- *  card sits. Reading the rect inside rAF forces layout first, so the number is
- *  the post-open one.
- *
- *  THE STICKY HEADER IS AN OFFSET ONLY WHERE IT IS STICKY. .pane-head pins to
- *  the top on desktop and is static under 820px, so the card lands below it on
- *  one and flush to the viewport on the other. Asked of the computed style
- *  rather than of the viewport width, so it cannot drift from the CSS.
- *
- *  A card near the bottom cannot put its top at the top — there is not enough
- *  document beneath it. scrollTo clamps to the maximum on its own, which is
- *  exactly "as far as possible"; no special case, and no fight with the
- *  container. */
-function scrollCardToTop(card) {
-  const scroller = scrollerFor(card);
-  const head = document.querySelector(".pane-head");
-  const offset = head && getComputedStyle(head).position === "sticky"
-    ? Math.round(head.getBoundingClientRect().height) : 0;
-  const isDoc = scroller === document.scrollingElement || scroller === document.documentElement;
-  const base = isDoc ? 0 : scroller.getBoundingClientRect().top;
-  const top = scroller.scrollTop + card.getBoundingClientRect().top - base - offset;
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  scroller.scrollTo({ top: Math.max(0, Math.round(top)), behavior: still ? "auto" : "smooth" });
+/** THE BOX A STICKY ELEMENT PINS TO — its nearest ancestor that is a scroll
+ *  container AT ALL (overflow other than visible/clip), whether or not that box
+ *  has anything to scroll. That is the CSS rule, and it is not scrollerFor()'s
+ *  question: .pane-head is position: sticky inside #pane-scroll at every width
+ *  above 820px, but while .shell is uncapped #pane-scroll never moves, the
+ *  DOCUMENT does, and the header scrolls away with the page. Computing
+ *  `position === "sticky"` alone therefore said "pinned" about a header that
+ *  was off-screen. Measured 2026-09-12 at 1440x900 against the real stylesheet:
+ *  every opened card landed 96px below the top of the viewport, with the
+ *  previous row of tiles showing in the gap (114px at 844x390). */
+function stickyBoxOf(el) {
+  for (let n = el.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (!/^(visible|clip)$/.test(cs.overflowY) || !/^(visible|clip)$/.test(cs.overflowX)) return n;
+  }
+  return document.scrollingElement || document.documentElement;
 }
 
-/** Wire that scroll onto a genuine open, and onto nothing else.
- *
- *  ON CLICK, NEVER ON `toggle`. A <details open> inserted by innerHTML fires
- *  toggle on insertion — measured in this file, and the reason wireAdaptation
- *  Cards' one-at-a-time handler is written the way it is. A toggle-based
- *  version of this would yank the page every time the grid repainted: on every
- *  keystroke in the search box, on every ETA tick of a writing card, and on
- *  every restoreDisclosures() after a live-sync repaint. A click is a person.
- *  Enter and Space on a focused <summary> dispatch one too, so the keyboard is
- *  covered and the auto-opening writing card is not.
- *
- *  AND ONLY WHEN IT OPENED. The same summary click closes the card, and
- *  collapsing must leave the page exactly where it is — so the rAF re-checks
- *  `card.open` rather than assuming the click meant "open". */
-function keepInView(host) {
-  if (!host) return;
-  host.querySelectorAll(".script-grid > details.bp-item > summary")
-    .forEach((sum) => sum.addEventListener("click", (e) => {
-      if (e.target.closest("a")) return;            // the ↗ goes somewhere else
-      const card = sum.parentElement;
-      requestAnimationFrame(() => {
-        if (card.open) scrollCardToTop(card);
-      });
-    }));
+/** How much of the top of `scroller` is covered by a pinned .pane-head: its
+ *  height (plus its `top`) when it is sticky AND pins to this very scroller,
+ *  otherwise 0. Asked of the computed style and the tree, never of the viewport
+ *  width, so it follows app.css — including the day .shell is capped and
+ *  #pane-scroll becomes the scroller, when the header really does pin. */
+function pinnedHeadOver(scroller) {
+  const head = document.querySelector(".pane-head");
+  if (!head) return 0;
+  const cs = getComputedStyle(head);
+  if (cs.position !== "sticky" || stickyBoxOf(head) !== scroller) return 0;
+  return Math.round(head.getBoundingClientRect().height + (parseFloat(cs.top) || 0));
 }
+
+/* THE LANDING IN FLIGHT, if any. One at a time: a second open supersedes the
+   first. `card` outlives the flight so the toggle that shuts it can release the
+   spacer and an orientation change can put it back; `touched` records that a
+   person has scrolled, tapped or pressed a key since it landed. */
+const LAND = { card: null, scroller: null, stop: null, touched: false };
+
+/** THE REACH SPACER. A card near the end of a list cannot put its top at the
+ *  top of the screen: scrollTo clamps at the maximum, so a short card in the
+ *  last row stopped wherever the maximum happened to be. This empty box, the
+ *  last child of #pane-scroll (after the footer), is grown to EXACTLY the
+ *  shortfall while such a card is open and is 0px the rest of the time — so
+ *  there is never standing dead space, only the least needed to land one card.
+ *  It sits in #pane-scroll rather than #pane-body so renderPane()'s wholesale
+ *  rebuild of #pane-body cannot take it away mid-read and clamp the offset that
+ *  renderPane() is about to restore. Height is set through CSSOM (CSP). */
+function landSpacer() {
+  const pane = document.getElementById("pane-scroll");
+  if (!pane) return null;
+  let sp = pane.querySelector(":scope > .land-spacer");
+  if (!sp) {
+    sp = document.createElement("div");
+    sp.className = "land-spacer";
+    sp.setAttribute("aria-hidden", "true");
+    pane.appendChild(sp);
+  }
+  return sp;
+}
+const spacerH = (sp) => (sp ? parseFloat(sp.style.height) || 0 : 0);
+
+/** Stop any landing in flight and give back the reach space. Called when the
+ *  view changes (go()) and when the landed card is closed. */
+function releaseCardLanding() {
+  if (LAND.stop) LAND.stop();
+  LAND.card = null;
+  LAND.scroller = null;
+  const sp = document.querySelector("#pane-scroll > .land-spacer");
+  if (sp) sp.style.height = "0px";
+}
+
+/** Bring an opened card's top edge to the top of the screen, and keep it there
+ *  until the layout has stopped moving.
+ *
+ *  Owner, 2026-08-18: "when i open a script have it auto scroll to the top of
+ *  the expanded card". Owner, 2026-09-12: "No matter what orientation on the
+ *  screen I'm at, when I click a script that's in a brand or library (wherever
+ *  it is), make sure that it auto-scrolls to the very top of the expanded view
+ *  for each card." The 2026-08-18 version was one smooth scrollTo aimed from a
+ *  single measurement, and it missed in four measured ways:
+ *
+ *  1. IT MEASURED BEFORE THE CARD ABOVE CLOSED. rAF runs BEFORE the `toggle`
+ *     event whose handler enforces one-script-open-at-a-time (measured: click
+ *     at 25ms, measurement at 33ms, toggle at 34ms). With a script open above,
+ *     the clicked card then jumped up by that script's whole height while the
+ *     scroll ran on to the old number: -1109px at 1440x900, -1974px at 390x844.
+ *     This is started from the clicked card's own toggle instead (see
+ *     wireCardLanding), and re-aims every frame, so anything that moves the
+ *     card while it travels is followed rather than overshot.
+ *  2. IT SUBTRACTED A HEADER THAT WAS NOT THERE — see stickyBoxOf().
+ *  3. A CARD NEAR THE END COULD NOT REACH — see landSpacer().
+ *  4. TRASH, AND THE SCRIPT ROWS INSIDE A LIBRARY ENTRY, WERE NEVER WIRED —
+ *     see wireCardLanding().
+ *
+ *  THE SCROLLER IS FOUND BY PROBING. scrollerFor() tests for real overflow, and
+ *  on a short list nothing overflows yet — so it answered "the document" even
+ *  where #pane-scroll is the box that will scroll once the spacer exists. The
+ *  spacer is set to one viewport for the length of one synchronous read (no
+ *  frame is painted in between) so whichever box genuinely scrolls reveals
+ *  itself, then set to what is really needed.
+ *
+ *  HANDS OFF. Any wheel, touch, pointer press or key while it is travelling
+ *  ends it where it is — a person scrolling wins. `instant` lands in one step
+ *  (reduced motion, or an orientation change, where the page has just
+ *  reflowed under the reader anyway). */
+function scrollCardToTop(card, { instant = false } = {}) {
+  if (LAND.stop) LAND.stop();
+  const sp = landSpacer();
+  if (sp) sp.style.height = `${window.innerHeight}px`;
+  const scroller = scrollerFor(card);
+  if (sp) sp.style.height = "0px";
+  const isDoc = scroller === document.scrollingElement || scroller === document.documentElement;
+  const still = instant || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const behavior = still ? "auto" : "smooth";
+
+  // Where the scroller must stand for the card's top to sit under whatever is
+  // pinned over it; grows the spacer by exactly the shortfall.
+  const aim = () => {
+    const base = isDoc ? 0 : scroller.getBoundingClientRect().top + scroller.clientTop;
+    const want = Math.max(0, Math.round(scroller.scrollTop + card.getBoundingClientRect().top
+      - base - pinnedHeadOver(scroller)));
+    if (sp) {
+      const have = spacerH(sp);
+      const natural = scroller.scrollHeight - scroller.clientHeight - have;
+      const need = Math.max(0, want - natural);
+      if (need !== have) sp.style.height = `${need}px`;
+    }
+    return want;
+  };
+
+  /* A REPAINT MID-FLIGHT. renderPane() rebuilds #pane-body wholesale and
+     restoreDisclosures() re-opens this card as a NEW node — and renderPane()'s
+     scrollTop write cancels the browser's smooth scroll on the way. Follow the
+     twin (the open copy with the same id nearest to where this one was: "By
+     brand" can hold several copies of one video) and keep going. */
+  const key = card.dataset.adid ? `[data-adid="${CSS.escape(card.dataset.adid)}"]`
+    : card.dataset.lid ? `[data-lid="${CSS.escape(card.dataset.lid)}"]`
+    : card.dataset.oid ? `[data-oid="${CSS.escape(card.dataset.oid)}"]` : "";
+  let lastTop = card.getBoundingClientRect().top;
+  const twin = () => {
+    if (!key) return null;
+    let best = null;
+    let gap = Infinity;
+    document.querySelectorAll(`details.bp-item${key}[open]`).forEach((d) => {
+      if (!d.matches(LAND_CARDS)) return;
+      const g = Math.abs(d.getBoundingClientRect().top - lastTop);
+      if (g < gap) { best = d; gap = g; }
+    });
+    return best;
+  };
+
+  let target = aim();
+  scroller.scrollTo({ top: target, behavior });
+  let deadline = performance.now() + 1500;
+  let calm = 0;
+  let idleOff = 0;
+  let repaint = 0;
+  let last = scroller.scrollTop;
+  let raf = 0;
+  const stop = () => {
+    cancelAnimationFrame(raf);
+    if (LAND.stop === stop) LAND.stop = null;
+  };
+  /* RE-AIM ONLY FOR TWO REASONS: the card moved against the page, or a repaint
+     replaced it. A scroll that something else caused moves the page and the
+     card together, leaves the target where it was, and is never chased back
+     (measured: a scrollTo(300) issued 120ms into a landing stayed at ~300).
+     AFTER A REPAINT THE SCROLL IS RESTARTED ONCE IT HAS SAT STILL FOR TWO
+     FRAMES, not at once. Measured 2026-09-12 (Brave 153): once a scrollTop write
+     has interrupted a smooth scroll, a new smooth scrollTo to the SAME target in
+     the same or the next task is ignored (600 -> 903 of 1500), while the same
+     call two frames later arrives (-> 1500). renderPane() makes exactly that
+     write. The window is 30 frames, so this can never become a standing fight. */
+  const tick = () => {
+    if (!card.isConnected) {
+      const next = twin();
+      if (!next) return stop();
+      card = next;
+      LAND.card = next;
+      repaint = 30;
+      deadline = performance.now() + 1500;
+    }
+    if (!card.open) return stop();
+    lastTop = card.getBoundingClientRect().top;
+    const next = aim();
+    const st = scroller.scrollTop;
+    const idle = Math.abs(st - last) < 0.5;
+    idleOff = idle && Math.abs(st - next) > 1 ? idleOff + 1 : 0;
+    if (Math.abs(next - target) > 1 || (repaint > 0 && idleOff >= 2)) {
+      target = next;
+      scroller.scrollTo({ top: target, behavior });
+      calm = 0;
+      idleOff = 0;
+    }
+    if (repaint > 0) repaint -= 1;
+    calm = idle && Math.abs(st - target) <= 1 ? calm + 1 : 0;
+    last = st;
+    if (calm >= 6 || performance.now() > deadline) return stop();   // on target and still for ~0.1s
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+  LAND.card = card;
+  LAND.scroller = scroller;
+  LAND.touched = false;
+  LAND.stop = stop;
+}
+
+/** WHICH CARDS LAND, AND WHEN. Wired ONCE, on the document, like wireHandsOff —
+ *  so every place a script card is drawn is covered by construction, including
+ *  Trash (renderTrash never called wireAdaptationCards, so it never had the
+ *  scroll) and the script rows and "Original script" row inside a Library entry
+ *  (the old selector only reached direct children of .script-grid).
+ *
+ *  A CLICK ASKS; THE CARD'S OWN TOGGLE ANSWERS. The click is what proves a
+ *  person did it — Enter and Space on a focused <summary> dispatch one too — and
+ *  a <details open> inserted by innerHTML, restoreDisclosures() after a
+ *  live-sync repaint, keepOpenAll(), a finishing script held open by
+ *  `justReady`: none of those click, so none of those scroll. The toggle is
+ *  what proves the open actually happened and that the one-at-a-time handlers
+ *  (which run on that same toggle) have shut whatever they were going to shut;
+ *  one frame later the layout is final enough to aim at. A click whose default
+ *  was prevented (the Trash bin, Restore) or that started on a link or button
+ *  inside the summary never asks. An ask that no toggle answers within a
+ *  second expires, so a stale one can never fire later on a programmatic open.
+ *
+ *  Bubble phase for the click, so a handler that stops propagation keeps the
+ *  card still exactly as it did before; capture phase for `toggle`, which does
+ *  not bubble. */
+const LAND_CARDS = ".script-grid > details.bp-item, .lib-scripts > details.bp-item";
+let LAND_ASK = null;
+let LAND_WIRED = false;
+function wireCardLanding() {
+  if (LAND_WIRED) return;
+  LAND_WIRED = true;
+  document.addEventListener("click", (e) => {
+    if (e.defaultPrevented) return;
+    const sum = e.target.closest && e.target.closest("summary");
+    const card = sum && sum.parentElement;
+    if (!card || !card.matches(LAND_CARDS) || card.open) return;
+    if (e.target.closest("a, button, input, textarea")) return;
+    LAND_ASK = { card, at: performance.now() };
+  });
+  document.addEventListener("toggle", (e) => {
+    const card = e.target;
+    if (card === LAND.card && !card.open) releaseCardLanding();
+    if (!LAND_ASK || LAND_ASK.card !== card) return;
+    const fresh = performance.now() - LAND_ASK.at < 1000;
+    LAND_ASK = null;
+    if (!fresh || !card.open) return;
+    /* A card opened by hand starts at the top of its script as well as at the
+       top of the screen: a column scrolled on a previous visit would otherwise
+       open half-way down. Only here — never on a repaint's re-open and never on
+       the orientation re-landing, where the reader's place in the column is
+       exactly what should survive. */
+    card.querySelectorAll(".ref-main").forEach((m) => { m.scrollTop = 0; });
+    requestAnimationFrame(() => { if (card.open) scrollCardToTop(card); });
+  }, true);
+
+  /* A PERSON TOUCHING THE PAGE ends a landing in flight — where it is, not
+     where it was going: stopping the frame loop alone leaves the browser's own
+     smooth scroll running to the old target (measured: a wheel 90ms into a
+     landing changed nothing), so the scroller is told to stay put, which
+     cancels that animation before the wheel's own scroll is applied. It also
+     marks the landed card as the reader's again, so an orientation change
+     will not move it. */
+  const hands = () => {
+    LAND.touched = true;
+    if (!LAND.stop) return;
+    LAND.stop();
+    const s = LAND.scroller;
+    if (s) s.scrollTo({ top: s.scrollTop, behavior: "auto" });
+  };
+  ["wheel", "touchstart", "pointerdown", "keydown"].forEach((t) =>
+    addEventListener(t, hands, { capture: true, passive: true }));
+
+  /* GIVE THE REACH SPACE BACK once the reader has scrolled far enough up that
+     none of it is on screen — shrinking something wholly below the fold moves
+     nothing. Capture phase, because #pane-scroll's scroll does not bubble. */
+  document.addEventListener("scroll", () => {
+    const sp = document.querySelector("#pane-scroll > .land-spacer");
+    const s = LAND.scroller;
+    if (LAND.stop || !sp || !s || !spacerH(sp)) return;
+    if (s.scrollTop + s.clientHeight <= s.scrollHeight - spacerH(sp)) sp.style.height = "0px";
+  }, { capture: true, passive: true });
+
+  /* ROTATION. A phone turned sideways re-flows every card, and the grid's
+     column count with it, so the card that was at the top is not any more.
+     Put it back — in one step — but only if nobody has touched the page since
+     it landed: someone who has scrolled on is reading somewhere else. */
+  window.matchMedia("(orientation: portrait)").addEventListener("change", () => {
+    const card = LAND.card;
+    if (!card || LAND.touched || !card.isConnected || !card.open) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (card.isConnected && card.open && !LAND.touched) scrollCardToTop(card, { instant: true });
+    }));
+  });
+}
+wireCardLanding();
 
 function wireAdaptationCards(host) {
   if (!host) return;
-  keepInView(host);
   stopSummaryLinks(host);
   host.querySelectorAll(".ad-prompt").forEach((btn) => btn.addEventListener("click", () => {
     const a = (ME.adaptations || []).find((x) => x.id === btn.dataset.adid);
@@ -7801,12 +8077,12 @@ function wireAdaptationCards(host) {
   /* AUTO-SCROLL, HANDS OFF WHEN A PERSON IS SCROLLING THEMSELVES — wired ONCE,
      on the document, in the capture phase. It used to hang off each
      details.ref-panel, which was right while the thing being followed lived
-     inside that panel. The beats live in .ref-main and the box that actually
-     scrolls them is #pane-scroll (or, on a phone, the document itself — see
-     scrollerFor). A wheel over the card header would otherwise move the beat
-     out of view without arming hands-off, and follow would yank it back.
-     Once, because wireAdaptationCards runs on every repaint and #pane-scroll
-     and document both outlive every one of them. */
+     inside that panel. The beats live in .ref-main, and since 2026-09-12 the
+     box that scrolls them during playback is .ref-main itself, capped beside
+     a playable clip at >=1180px (see followScriptBeat). A wheel over the
+     column — or anywhere else — has to arm hands-off, or follow would pull
+     the script back mid-read. Once, because wireAdaptationCards runs on every
+     repaint and document outlives every one of them. */
   wireHandsOff();
 
   /* The floating corner player. Rebuilt per repaint, and it disconnects the
