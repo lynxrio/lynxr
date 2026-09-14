@@ -27,6 +27,7 @@ function unlock(rows) {
   app.style.display = "block";
   renderApp(rows);
   startLiveSync();
+  revealCreatorSwitch();   // staff only, decided by the database; not awaited
 }
 
 /** Put the gate's status line into a working state: the four-arm mark at text
@@ -168,6 +169,30 @@ async function loadFailureReason(m) {
     return "Signed in, but the database is empty — run pipeline/export_supabase.py.";
   }
   return "Signed in, but couldn't load the database — check your connection.";
+}
+
+/* STAFF-ONLY LINK TO THE CREATOR APP (2026-09-14). Mirror of
+   revealAgencySwitch() in creator.js, which carries the full reasoning:
+   is_staff() decides, RLS is the gate, the link is a convenience, and the two
+   apps keep SEPARATE sessions (lynxr_sb_session here, lynxr_creator_session
+   there). Never copy a session between them: refresh tokens are single-use,
+   and a second use ends the session in both apps.
+   Targets /creatorsonly/, not /: signed out of the creator app, / is the
+   marketing landing, while /creatorsonly/ is the creator sign-in. */
+async function revealCreatorSwitch() {
+  if (document.getElementById("to-creator")) return;
+  let staff = false;
+  try {
+    staff = (await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" })) === true;
+  } catch { return; }
+  const signout = document.getElementById("signout");
+  if (!staff || !signout || document.getElementById("to-creator")) return;
+  const a = document.createElement("a");
+  a.className = "ghost";
+  a.id = "to-creator";
+  a.href = "/creatorsonly/";
+  a.textContent = "Creator app";
+  signout.parentNode.insertBefore(a, signout);
 }
 
 // Returning session: refresh the token and go straight in, no retyping.
@@ -2482,6 +2507,10 @@ function deleteClient(id) {
   persistClients(loadClients().filter((c) => c.id !== id));
   sbDeleteClient(id).catch(() => {});          // tombstone re-tries on next sync
   pushSharedTombstones([id]).catch(() => {});  // and the whole team honors it
+  // Campaign briefs are staff-only, server-only rows keyed on client_id (no
+  // FK) — they never ride the local-storage sync above, so they need their
+  // own delete. Formats cascade off the campaign in Postgres.
+  sbFetch(`/rest/v1/lynxr_campaigns?client_id=eq.${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
 }
 
 /** Merge local and remote, push anything the server has not seen, and adopt
@@ -2553,7 +2582,10 @@ function startLiveSync() {
     const briefsShown = !document.getElementById("panel-briefs")?.hidden;
     const editing = document.activeElement
       && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
-    if (briefsShown && !editing) renderBriefs();
+    // Campaign briefs hold work that lives only in the page until it is sent:
+    // pasted links in the composer, an open brand editor, a format editor. A
+    // teammate's client edit must not repaint any of those away.
+    if (briefsShown && !editing && !cbUnsavedWork()) renderBriefs();
   };
   setInterval(tick, 90000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
@@ -2692,6 +2724,7 @@ function saveCurrentBrief() {
   // Land inside the client folder with the new brief on top.
   CLIENT_VIEW = { id: client.id };
   BRIEF_VIEW = null;
+  CAMPAIGN_VIEW = null;
   renderBriefs();
   activateTab("tab-briefs");
 }
@@ -2832,9 +2865,20 @@ function renderBriefs() {
   const host = document.getElementById("briefs-host");
   const list = loadClients();
 
+  // Any render that does not land on a campaign view stops its poll timer, so
+  // leaving the view (crumb, back, another client) can never leave it running.
+  if (!CAMPAIGN_VIEW || !CLIENT_VIEW) cbStopPoll();
+
   if (CLIENT_VIEW) {
     const client = list.find((c) => c.id === CLIENT_VIEW.id);
     if (client) {
+      // Campaign first: BRIEF_VIEW is cleared whenever a campaign is open, so
+      // renderApp's arrow-key brief flipper has nothing to act on here.
+      if (CAMPAIGN_VIEW) {
+        BRIEF_VIEW = null;
+        renderCampaignView(host, client, CAMPAIGN_VIEW.id);
+        return;
+      }
       if (BRIEF_VIEW) {
         const rec = client.briefs.find((b) => b.id === BRIEF_VIEW.id);
         if (rec) { renderBriefViewer(host, rec, client); return; }
@@ -2844,6 +2888,8 @@ function renderBriefs() {
       return;
     }
     CLIENT_VIEW = null;
+    CAMPAIGN_VIEW = null;
+    cbStopPoll();
   }
 
   if (!list.length) {
@@ -2868,7 +2914,7 @@ function renderBriefs() {
 
   host.querySelectorAll(".bcard").forEach((card) => {
     const id = card.dataset.id;
-    openOnCard(card, () => { CLIENT_VIEW = { id }; BRIEF_VIEW = null; renderBriefs(); });
+    openOnCard(card, () => { CLIENT_VIEW = { id }; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs(); });
     armDelete(card.querySelector(".b-del"), "Delete", () => {
       deleteClient(id);
       renderBriefs();
@@ -2951,6 +2997,11 @@ function clientDetailsHtml(client) {
   const parts = ctx.avatarParts || (ctx.avatar ? { stats: ctx.avatar } : null);
   const row = (label, val) => val
     ? `<div class="sug-drow"><span class="sug-dk">${label}</span><span class="sug-dv">${escapeHtml(String(val))}</span></div>` : "";
+  // Brand-context fields typed by staff in the Edit brand form (campaign
+  // briefs). Content, so .cb-bval keeps their casing; the rows above predate
+  // it and are left as they were.
+  const brow = (label, val) => val
+    ? `<div class="sug-drow"><span class="sug-dk">${label}</span><span class="sug-dv cb-bval">${escapeHtml(String(val))}</span></div>` : "";
   const avatar = [
     ["Core statistics", parts?.stats], ["Daily habits", parts?.habits],
     ["Deep personal goals", parts?.goals], ["Major problems", parts?.problems],
@@ -2962,6 +3013,10 @@ function clientDetailsHtml(client) {
       ${row("audience", ctx.audience)}
       ${row("brand", ctx.brand)}
       ${row("features", (ctx.feats || []).join(", "))}
+      ${brow("description", ctx.description)}
+      ${brow("tone", ctx.tone)}
+      ${brow("cta", ctx.cta)}
+      ${brow("site", ctx.site)}
       ${row("briefs", client.briefs.length)}
       ${row("blueprints", (client.blueprints || []).length)}
       ${row("added", (client.createdAt || "").slice(0, 10))}
@@ -3842,22 +3897,21 @@ function refreshNextBriefBtn(client) {
     el.className = "btn sec-cta";
     el.textContent = `${SUGGEST_PICKS.size} pick${SUGGEST_PICKS.size === 1 ? "" : "s"} \u2192 brief ${total + 1}`;
   } else {
-    el.className = "lib-plus";
-    el.title = `Build brief ${total + 1}`;
-    el.setAttribute("aria-label", el.title);
-    el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-      stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`;
+    // No picks: the section's + (#cb-new) is the campaign composer now, so
+    // this slot stays an empty placeholder until something is ticked.
+    const slot = document.createElement("span");
+    slot.id = "cl-nextbrief";
+    slot.hidden = true;
+    old.replaceWith(slot);
+    return;
   }
   el.addEventListener("click", () => startNextWeekBrief(client));
   old.replaceWith(el);
 }
 
 function renderClientPage(host, client) {
-  // Briefs are stored newest-first; number them oldest-first so "Brief 1" is
-  // where the client started and the number never changes as weeks are added.
-  const total = client.briefs.length;
-  const briefNo = (idx) => total - idx;
-
+  // Briefs are stored newest-first and numbered oldest-first so "Brief 1" is
+  // where the client started — cbBriefItems keeps that numbering.
   host.innerHTML = `
     <nav class="crumbs" aria-label="Breadcrumb">
       <button type="button" class="crumb-link" id="cl-back">Clients</button>
@@ -3869,47 +3923,26 @@ function renderClientPage(host, client) {
         <div class="bcard-title">${escapeHtml(client.company)}</div>
         <div class="lbl">${escapeHtml(client.niche || "All niches")}${client.ctx?.audience ? " \u00b7 " + escapeHtml(client.ctx.audience) : ""}</div>
       </div>
+      <button type="button" class="ghost" id="cl-brand" aria-expanded="false" aria-controls="cl-brand-box">Edit brand</button>
       <button type="button" class="ghost" id="cl-details" aria-expanded="false">Details</button>
     </div>
     ${clientDetailsHtml(client)}
+    ${clientBrandBoxHtml(client)}
 
     ${suggestionsBoxHtml(client)}
 
     ${blueprintsBoxHtml(client)}
 
-    <div class="sec-head">
-      <h2>Briefs <span class="pill">${total}</span></h2>
-      ${/* Replaces the "next brief" block that used to sit at the bottom of the
-            page: same action, attached to the thing it creates instead of
-            stranded below the brief list. Bare + until videos are ticked above,
-            then it names the count it is carrying — the tick and the button are
-            far apart on screen, so the button has to say what it picked up. */""}
-      ${SUGGEST_PICKS.size
-        ? `<button type="button" class="btn sec-cta" id="cl-nextbrief">${SUGGEST_PICKS.size} pick${SUGGEST_PICKS.size === 1 ? "" : "s"} \u2192 brief ${total + 1}</button>`
-        : `<button type="button" class="lib-plus" id="cl-nextbrief"
-             title="Build brief ${total + 1}" aria-label="Build brief ${total + 1}">
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
-               aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-           </button>`}
-    </div>
-    ${total ? `<div class="brief-stack">` + client.briefs.map((b, i) => `
-      <article class="bcard opens" data-bid="${escapeHtml(b.id)}"
-        role="button" tabindex="0" aria-label="Open brief ${briefNo(i)}">
-        <div class="bcard-main">
-          <div class="bcard-title">Brief ${briefNo(i)}${i === 0 ? ` <span class="pill">latest</span>` : ""}</div>
-          <div class="lbl">${escapeHtml((b.createdAt || "").slice(0, 10))} \u00b7 ${b.items.length} scripts</div>
-        </div>
-        <button type="button" class="ghost danger icon-only br-del"
-          aria-label="Delete this brief" title="Delete this brief">${TRASH_SVG}</button>
-      </article>`).join("") + `</div>`
-    : `<div class="empty"><p><strong>No briefs yet.</strong></p>
-        <p>Tick videos above and hit + to start Brief 1 with them already in the cart.</p></div>`}
+    ${/* Every brief, both kinds, in one list — see briefsSectionHtml. */""}
+    ${briefsSectionHtml(client)}
 `;
 
   bindBlueprints(host, client);
   bindSuggestions(host, client);
+  bindClientBrand(host, client);
+  bindBriefsSection(host, client);
   document.getElementById("cl-back").addEventListener("click", () => {
-    CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
+    CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs();
   });
   const detBtn = document.getElementById("cl-details");
   detBtn?.addEventListener("click", () => {
@@ -3919,21 +3952,7 @@ function renderClientPage(host, client) {
     detBtn.setAttribute("aria-expanded", String(open));
     detBtn.textContent = open ? "Hide details" : "Details";
   });
-  document.getElementById("cl-nextbrief").addEventListener("click", () => startNextWeekBrief(client));
-
-  host.querySelectorAll(".bcard[data-bid]").forEach((card) => {
-    const bid = card.dataset.bid;
-    // The whole card is the target now — armDelete already stopPropagation()s,
-    // so the trash button inside it cannot also open the brief.
-    openOnCard(card, () => { BRIEF_VIEW = { id: bid, expanded: null }; renderBriefs(); });
-    armDelete(card.querySelector(".br-del"), "Delete", () => {
-      const fresh = loadClients();
-      const c = fresh.find((x) => x.id === client.id);
-      c.briefs = c.briefs.filter((b) => b.id !== bid);
-      persistClients(fresh);
-      renderBriefs();
-    });
-  });
+  // Brief cards (both kinds) and the section's + are wired in bindBriefsSection.
 }
 
 /** The expanded body of a script card: player, stats, tags, the tailored
@@ -4021,9 +4040,9 @@ function renderBriefViewer(host, rec, client) {
 
     ${briefScriptsHtml(rec, client)}`;
 
-  document.getElementById("bv-back").addEventListener("click", () => { BRIEF_VIEW = null; renderBriefs(); });
+  document.getElementById("bv-back").addEventListener("click", () => { BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs(); });
   document.getElementById("bv-clients").addEventListener("click", () => {
-    CLIENT_VIEW = null; BRIEF_VIEW = null; renderBriefs();
+    CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs();
   });
   document.getElementById("wk-prev").addEventListener("click", () => {
     if (idx < total - 1) { BRIEF_VIEW = { id: client.briefs[idx + 1].id, expanded: null }; renderBriefs(); }
@@ -4354,6 +4373,2016 @@ function initBrief() {
     try { await renderBrief(document.getElementById("client-url").value); }
     finally { btn.disabled = false; }
   });
+}
+
+// ---------- Campaign briefs ----------
+// Agency batch campaign briefs (plan: ~/.claude/plans/agency-batch-campaign-brief.md).
+// Paste 1-10 inspiration links for a client, get one editable format per link,
+// written by the Fly worker's agency lane (pipeline/process_campaigns.py), then
+// export a clean copy for creators. Staff only — lynxr_campaigns and
+// lynxr_campaign_formats are gated on is_staff() (supabase/campaigns.sql).
+//
+// No daily spend cap here (owner decision 2026-09-14): agency work is metered
+// under lynxr_costs.lane='agency' for visibility, but nothing in this app or
+// the worker enforces a stop. The lane still never touches the creators' own
+// 250/day breaker and always runs behind them in the queue.
+//
+// Everything here is prefixed cb/CB_ to avoid another SB_URL/say-style collision.
+
+const CB_MAX_PASTE = 10;
+const CB_MAX_FORMATS = 20;
+const CB_POLL_MS = 5000;
+
+let CAMPAIGN_VIEW = null;               // { id } when a campaign brief is open
+let CB_CACHE = new Map();               // campaign id -> { campaign, formats, at }
+let CB_LISTS = new Map();               // clientId -> { rows, at }
+
+/** Classify a thrown sbFetch error into what the campaign UI can act on.
+    sbFetch's Error message is `${status} ${body}` — see its definition above. */
+function cbError(ex) {
+  const msg = String(ex?.message || ex || "");
+  if (/^404\b/.test(msg) || /PGRST205/.test(msg) || /does not exist/i.test(msg)) return "missing";
+  if (/^40[13]\b/.test(msg) || /42501/.test(msg)) return "denied";
+  return "other";
+}
+
+/** The campaign's brand_context shape, read off a lynxr_clients row. Every
+    missing field is "" (features []) — never undefined, so brand_block-style
+    rendering downstream never has to guard against it. */
+function brandContextFromClient(c) {
+  const ctx = c.ctx || {};
+  const ap = ctx.avatarParts || {};
+  return {
+    name: ctx.brand || c.company || "",
+    company: c.company || "",
+    niche: c.niche || "",
+    description: ctx.description || "",
+    product: ctx.product || "",
+    audience: ctx.audience || "",
+    audienceNotes: ap.stats || "",
+    painPoints: ap.problems || "",
+    habits: ap.habits || "",
+    goals: ap.goals || "",
+    features: ctx.feats || [],
+    valueProps: ctx.valueProps || "",
+    tone: ctx.tone || "",
+    cta: ctx.cta || "",
+    site: ctx.site || "",
+    notes: ctx.notes || "",
+  };
+}
+
+/** The reverse of brandContextFromClient: a patch to MERGE into a client's ctx
+    (never replace it — activeCreators/videosPerMonth/successViews30d and any
+    other existing key must survive). `avatar` is the four avatarParts joined
+    by "\n", in the same order renderBrief()'s apply() joins them, so the
+    existing keyword matcher keeps working on campaign-sourced brand context. */
+function brandContextToClientPatch(bc) {
+  const avatarParts = {
+    stats: bc.audienceNotes || "",
+    problems: bc.painPoints || "",
+    habits: bc.habits || "",
+    goals: bc.goals || "",
+  };
+  const avatar = [avatarParts.stats, avatarParts.habits, avatarParts.goals, avatarParts.problems]
+    .filter(Boolean).join("\n");
+  return {
+    niche: bc.niche || "",
+    ctx: {
+      brand: bc.name || "",
+      description: bc.description || "",
+      product: bc.product || "",
+      audience: bc.audience || "",
+      avatarParts,
+      feats: (bc.features || []).slice(0, 8),
+      valueProps: bc.valueProps || "",
+      tone: bc.tone || "",
+      cta: bc.cta || "",
+      site: bc.site || "",
+      notes: bc.notes || "",
+      avatar,
+    },
+  };
+}
+
+/** Parse a pasted batch of links into one row per token, deduping within the
+    paste and against `existingCanon` (a Set of canonUrl()s already on the
+    campaign). Never throws on garbage input. */
+function cbParseLinks(text, existingCanon = new Set()) {
+  const seen = new Set();
+  const tokens = String(text || "").split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
+  return tokens.map((raw) => {
+    const url = normalizeClientUrl(raw);
+    if (!url) return { raw, url: null, plat: null, ok: false, why: "not a link" };
+    const host = hostOf(url);
+    if (host === "youtube.com" || host === "youtu.be") {
+      return { raw, url, plat: null, ok: false, why: "youtube" };
+    }
+    const plat = platformOf(url);
+    if (!plat) return { raw, url, plat: null, ok: false, why: "not supported" };
+    const key = canonUrl(url);
+    if (seen.has(key) || existingCanon.has(key)) return { raw, url, plat, ok: false, why: "duplicate" };
+    seen.add(key);
+    return { raw, url, plat, ok: true, why: "" };
+  });
+}
+
+/** The current, editable view of one format: the worker's generated script
+    with any staff edits layered on top. */
+function cbView(f) {
+  return { ...(f.script || {}), ...(f.edited || {}) };
+}
+
+function cbProgress(formats) {
+  const total = formats.length;
+  let ready = 0, failed = 0;
+  for (const f of formats) {
+    if (f.status === "done") ready++;
+    else if (f.status === "error") failed++;
+  }
+  return { total, ready, failed, working: total - ready - failed };
+}
+
+/** Short present-tense words for a queued/running format card. */
+function cbStateWords(f) {
+  if (f.status === "queued") {
+    if (f.retry_at && new Date(f.retry_at).getTime() > Date.now()) return "retrying soon";
+    return f.job === "script" ? "analyzed — writing next" : "waiting";
+  }
+  if (f.status === "running") {
+    if (f.phase === "reading") return "reading the video";
+    if (f.phase === "analyzing") return "analyzing";
+    if (f.phase === "writing") return "writing";
+  }
+  return "working";
+}
+
+// Agency wording — do NOT reuse CREATOR_NOTES (creator.js), which promises
+// refunds against a creator's own allowance. Nothing here is refundable.
+const CB_ERROR_TEXT = {
+  off_platform: "lynxr reads TikTok and Instagram links only right now.",
+  fetch_age: "This video is age-restricted, so it can't be opened.",
+  fetch_private: "This video is private.",
+  fetch_gone: "This video was deleted or made unavailable.",
+  fetch_unreadable: "That link isn't a single video lynxr can read.",
+  fetch_geo: "This video isn't available where lynxr's servers run.",
+  fetch_bot: "The platform blocked the download.",
+  fetch_generic: "The video couldn't be downloaded.",
+  ai_ours: "The writing step failed on our side after several tries.",
+  ai_content: "lynxr couldn't write a usable format from this video.",
+};
+const cbErrorText = (kind) => CB_ERROR_TEXT[kind] || "Something went wrong with this format.";
+
+const CB_LIGHT = "id,status,job,phase,attempts,retry_at,error_kind,retryable,updated_at";
+const CB_FULL = CB_LIGHT + ",campaign_id,position,source_url,error_detail,regen_note,analysis,"
+  + "script,script_prev,edited,internal_note,finished_at,cover:source->>cover,clip:source->>clip,"
+  + "platform:source->>platform,duration:source->>duration,title:source->meta->>title";
+
+/** Campaigns for one client, with a done/working/failed count per campaign.
+    Populates CB_LISTS; call renderBriefsKeepScroll() after to paint it. */
+async function cbListCampaigns(clientId) {
+  const rows = await sbFetch(`/rest/v1/lynxr_campaigns?client_id=eq.${encodeURIComponent(clientId)}`
+    + `&select=id,name,created_at&order=created_at.desc`);
+  let counts = new Map();
+  if (rows.length) {
+    const ids = rows.map((r) => r.id).join(",");
+    const formats = await sbFetch(`/rest/v1/lynxr_campaign_formats?campaign_id=in.(${ids})&select=campaign_id,status`);
+    for (const f of formats) {
+      const c = counts.get(f.campaign_id) || { total: 0, ready: 0, working: 0, failed: 0 };
+      c.total++;
+      if (f.status === "done") c.ready++;
+      else if (f.status === "error") c.failed++;
+      else c.working++;
+      counts.set(f.campaign_id, c);
+    }
+  }
+  const withCounts = rows.map((r) => ({ ...r, counts: counts.get(r.id) || { total: 0, ready: 0, working: 0, failed: 0 } }));
+  CB_LISTS.set(clientId, { rows: withCounts, at: Date.now() });
+  return withCounts;
+}
+
+/** Create a campaign and its formats in two writes. Returns the new campaign id. */
+async function cbCreateCampaign({ clientId, name, instructions, brandContext, urls }) {
+  const [campaign] = await sbFetch("/rest/v1/lynxr_campaigns", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      client_id: clientId, name: name || "", instructions: instructions || "",
+      brand_context: brandContext || {}, created_by: SB_EMAIL || "",
+    }),
+  });
+  if (urls.length) {
+    try {
+      await sbFetch("/rest/v1/lynxr_campaign_formats", {
+        method: "POST",
+        body: JSON.stringify(urls.map((url, i) => ({ campaign_id: campaign.id, position: i, source_url: url }))),
+      });
+    } catch (e) {
+      // The campaign row already landed — don't leave a formats-less orphan
+      // behind if this second write fails. Best-effort: if the delete also
+      // fails, the composer still surfaces the original error either way.
+      await sbFetch(`/rest/v1/lynxr_campaigns?id=eq.${campaign.id}`, { method: "DELETE" }).catch(() => {});
+      throw e;
+    }
+  }
+  return campaign.id;
+}
+
+/** Full load of one campaign + its formats, into CB_CACHE. */
+async function cbLoadCampaign(id) {
+  const [campaign, formats] = await Promise.all([
+    sbFetch(`/rest/v1/lynxr_campaigns?id=eq.${id}&select=id,client_id,name,instructions,internal_notes,brand_context,created_at`)
+      .then((rows) => rows[0]),
+    sbFetch(`/rest/v1/lynxr_campaign_formats?campaign_id=eq.${id}&select=${CB_FULL}&order=position.asc`),
+  ]);
+  const rec = { campaign, formats, at: Date.now() };
+  CB_CACHE.set(id, rec);
+  return rec;
+}
+
+/** Cheap poll: light rows for every format, then a full re-fetch only for the
+    ones whose updated_at moved. Returns whether anything changed. */
+async function cbPoll(id) {
+  const cached = CB_CACHE.get(id);
+  if (!cached) { await cbLoadCampaign(id); return true; }
+  const light = await sbFetch(`/rest/v1/lynxr_campaign_formats?campaign_id=eq.${id}&select=${CB_LIGHT}`);
+  const byId = new Map(cached.formats.map((f) => [f.id, f]));
+  const staleIds = light.filter((l) => (byId.get(l.id)?.updated_at) !== l.updated_at).map((l) => l.id);
+  const deletedIds = new Set(light.map((l) => l.id));
+  let changed = staleIds.length || cached.formats.some((f) => !deletedIds.has(f.id));
+  if (staleIds.length) {
+    const fresh = await sbFetch(`/rest/v1/lynxr_campaign_formats?id=in.(${staleIds.join(",")})&select=${CB_FULL}`);
+    for (const f of fresh) byId.set(f.id, f);
+  }
+  for (const id2 of byId.keys()) if (!deletedIds.has(id2)) byId.delete(id2);
+  cached.formats = light.map((l) => byId.get(l.id)).filter(Boolean)
+    .sort((a, b) => (a.position || 0) - (b.position || 0));
+  cached.at = Date.now();
+  return changed;
+}
+
+const cbPatchCampaign = (id, fields) => sbFetch(`/rest/v1/lynxr_campaigns?id=eq.${id}`,
+  { method: "PATCH", body: JSON.stringify(fields) });
+const cbPatchFormat = (id, fields) => sbFetch(`/rest/v1/lynxr_campaign_formats?id=eq.${id}`,
+  { method: "PATCH", body: JSON.stringify(fields) });
+const cbDeleteFormat = (id) => sbFetch(`/rest/v1/lynxr_campaign_formats?id=eq.${id}`, { method: "DELETE" });
+const cbDeleteCampaign = (id) => sbFetch(`/rest/v1/lynxr_campaigns?id=eq.${id}`, { method: "DELETE" });
+const cbAddFormats = (campaignId, urls, startPos) => sbFetch("/rest/v1/lynxr_campaign_formats", {
+  method: "POST",
+  body: JSON.stringify(urls.map((url, i) => ({ campaign_id: campaignId, position: startPos + i, source_url: url }))),
+});
+
+/** The agency lane's last-known state (pipeline/process_campaigns.py writes
+    this key). Returns the value object, or null if unwritten/unreadable. */
+async function cbLaneState() {
+  try {
+    const rows = await sbFetch("/rest/v1/lynxr_ops?key=eq.agency.lane&select=value,updated_at");
+    return rows[0]?.value || null;
+  } catch { return null; }
+}
+
+// ---- Staff-action request bodies (Step 13's buttons send these verbatim) ----
+const cbRetryBody = () => ({
+  status: "queued", attempts: 0, retry_at: null, error_kind: "", error_detail: "",
+  retryable: true, phase: "",
+});
+const cbRegenerateBody = (f, note) => ({
+  status: "queued", job: f.analysis ? "script" : "read", regen_note: note || "",
+  attempts: 0, retry_at: null, error_kind: "", error_detail: "", phase: "",
+});
+const cbReplaceLinkBody = (url) => ({
+  source_url: url, job: "read", status: "queued", source: null, analysis: null,
+  script: null, script_prev: null, edited: null, attempts: 0, retry_at: null,
+  error_kind: "", error_detail: "", phase: "",
+});
+const cbRestoreBody = (f) => ({
+  script: f.script_prev.script, edited: f.script_prev.edited,
+  script_prev: { script: f.script, edited: f.edited },
+});
+
+/** The ONLY definition of what a creator sees. Only "done" formats, position
+    order, renumbered 1..N. Never includes strategy_note, internal_note,
+    internal_notes, fit/fit_reason, analysis, regen_note, brand_context
+    internals or status — those are agency-only and must never export. */
+function campaignDocHtml(campaign, formats, client) {
+  const bc = campaign.brand_context || {};
+  const done = formats.filter((f) => f.status === "done");
+  const created = (campaign.created_at || "").slice(0, 10);
+  const rows = done.map((f, i) => {
+    const v = cbView(f);
+    const setup = [["Setting", v.setting], ["Lighting", v.lighting], ["Framing", v.framing], ["Audio", v.audio]]
+      .filter(([, val]) => val)
+      .map(([lbl, val]) => `<p><strong>${lbl}:</strong> ${escapeHtml(val)}</p>`).join("");
+    const beats = (v.beats || []).map((b) => {
+      const parts = [];
+      if (b.say) parts.push(`<strong>Say:</strong> “${escapeHtml(b.say)}”`);
+      if (b.do) parts.push(`<strong>Do:</strong> ${escapeHtml(b.do)}`);
+      if (b.show) parts.push(`<strong>On screen:</strong> “${escapeHtml(b.show)}”`);
+      return `<li>[${escapeHtml(b.t || "")}] ${parts.join("<br>")}</li>`;
+    }).join("");
+    const href = safeUrl(f.source_url);
+    // The original video sits directly under the title, kept on the same page
+    // as it (.cb-doc-head). A worded link for the PDF, and the address itself
+    // as plain text beneath it, so a paper print or a viewer that strips link
+    // annotations still carries the video.
+    return `<section>
+      <div class="cb-doc-head">
+        <h2>${i + 1}. ${escapeHtml(v.title || v.hook || "Untitled format")}</h2>
+        <p class="cb-doc-video">${href
+          ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">Watch the original video</a>`
+          : `<strong>Original video</strong>`}<br><span class="cb-doc-url">${escapeHtml(f.source_url || "")}</span></p>
+      </div>
+      <p><strong>Needs:</strong> ${escapeHtml((v.needs || []).join(" • "))}</p>
+      ${setup}
+      <ol>${beats}</ol>
+      <p><strong>CTA:</strong> “${escapeHtml(v.cta || "")}”</p>
+      <p><strong>Post caption:</strong> ${escapeHtml(v.caption || "")}</p>
+      ${v.creator_note ? `<p><strong>Note:</strong> ${escapeHtml(v.creator_note)}</p>` : ""}
+    </section>`;
+  }).join("");
+  return `<article class="cb-doc"><h1>${escapeHtml(campaign.name || "")}</h1>
+    <p class="cb-doc-sub">${escapeHtml(bc.name || client?.company || "")} · ${escapeHtml(created)}</p>
+    ${campaign.instructions ? `<h2>Campaign requirements</h2><p>${escapeHtml(campaign.instructions)}</p>` : ""}
+    ${rows}</article>`;
+}
+
+function campaignDocText(campaign, formats, client) {
+  const bc = campaign.brand_context || {};
+  const done = formats.filter((f) => f.status === "done");
+  const created = (campaign.created_at || "").slice(0, 10);
+  const lines = [campaign.name || "", `${bc.name || client?.company || ""} · ${created}`, ""];
+  if (campaign.instructions) lines.push("CAMPAIGN REQUIREMENTS", campaign.instructions, "");
+  done.forEach((f, i) => {
+    const v = cbView(f);
+    lines.push(`${i + 1}. ${v.title || v.hook || "Untitled format"}`);
+    lines.push(`Watch the original video: ${f.source_url || ""}`);
+    lines.push(`Needs: ${(v.needs || []).join(" • ")}`);
+    for (const [lbl, val] of [["Setting", v.setting], ["Lighting", v.lighting], ["Framing", v.framing], ["Audio", v.audio]]) {
+      if (val) lines.push(`${lbl}: ${val}`);
+    }
+    (v.beats || []).forEach((b) => {
+      const parts = [];
+      if (b.say) parts.push(`Say: "${b.say}"`);
+      if (b.do) parts.push(`Do: ${b.do}`);
+      if (b.show) parts.push(`On screen: "${b.show}"`);
+      lines.push(`[${b.t || ""}] ${parts.join(" / ")}`);
+    });
+    lines.push(`CTA: "${v.cta || ""}"`);
+    lines.push(`Post caption: ${v.caption || ""}`);
+    if (v.creator_note) lines.push(`Note: ${v.creator_note}`);
+    lines.push("");
+  });
+  return lines.join("\n");
+}
+
+// ---- Campaign briefs: interface (plan Steps 10-14) ----
+// Everything a staff member sees and presses for campaign briefs. The data
+// layer above is the only thing that talks to Supabase; nothing below builds a
+// request of its own. Styles live in the CAMPAIGN BRIEFS block at the very end
+// of app.css (CSS ORDER TRAP, see HANDOFF). CSP: no style="" attribute anywhere
+// here — the progress bar and textarea heights are set through CSSOM.
+
+const CB_ICON = {
+  up: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>`,
+  down: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>`,
+  edit: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>`,
+  regen: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.35-5.65"/><path d="M20 4v5h-5"/></svg>`,
+  plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`,
+  send: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`,
+};
+
+/* Session-only editor state, ids only (the BP_EDITING pattern): the working
+   copy lives in the form fields until Save, so Cancel needs no undo buffer. */
+const CB_EDITING = new Set();     // format ids with the edit form open
+const CB_REGEN = new Set();       // format ids with the "what should change?" row open
+const CB_REPLACE = new Set();     // failed format ids with the replace-link row open
+let CB_FIELD_EDIT = null;         // { id, field: "name" | "instructions" | "internal_notes" | "brand" }
+const CB_AGENCY_OPEN = new Set(); // campaign ids whose agency-only <details> is open
+let CB_POLL_T = null, CB_POLL_ID = null, CB_POLL_BUSY = false;
+let CB_PENDING = false;           // a poll found changes it could not paint yet
+let CB_LIST_T = null;
+const CB_LIST_BUSY = new Set();
+const CB_LOADING = new Set();
+const CB_LOAD_ERR = new Map();    // campaign id -> cbError kind of the failed first load
+let CB_LANE = null;               // { value, at, fetching }
+let CB_ADD_KEEP = null;           // { id, values } typed add-video rows carried across a repaint
+
+const cbPlural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/** Grow a textarea.grow to its content. Skipped while the field is not laid
+    out (hidden box, closed <details>) — scrollHeight is 0 there and would pin
+    the box at zero height; reveal handlers call it again. */
+function cbGrow(t) {
+  if (!t.getClientRects().length) { t.style.height = ""; return; }
+  t.style.height = "auto";
+  t.style.height = t.scrollHeight + 2 + "px";
+}
+function cbWireGrow(root) {
+  root.querySelectorAll("textarea.grow").forEach((t) => {
+    cbGrow(t);
+    if (t.dataset.cbGrow) return;
+    t.dataset.cbGrow = "1";
+    t.addEventListener("input", () => cbGrow(t));
+  });
+  root.querySelectorAll("details").forEach((d) => {
+    if (d.dataset.cbGrow) return;
+    d.dataset.cbGrow = "1";
+    d.addEventListener("toggle", () => d.querySelectorAll("textarea.grow").forEach(cbGrow));
+  });
+}
+
+/** Inline feedback line (.bp-msg). Confirmations fade; errors stay (sticky). */
+const CB_MSG_T = new Map();
+function cbMsg(el, text, tone, sticky) {
+  if (!el) return;
+  el.textContent = text;
+  el.className = `bp-msg cb-msg show${tone ? " " + tone : ""}`;
+  clearTimeout(CB_MSG_T.get(el.id));
+  if (!sticky) {
+    const id = el.id;
+    CB_MSG_T.set(id, setTimeout(() => {
+      const e2 = document.getElementById(id);
+      if (e2) e2.className = "bp-msg cb-msg";
+    }, 4500));
+  }
+}
+
+function cbErrorSentence(ex, verb) {
+  const kind = cbError(ex);
+  if (kind === "missing") return "Campaign briefs aren't installed yet — run supabase/campaigns.sql in the Supabase SQL editor.";
+  if (kind === "denied") return `This account can't ${verb} campaign briefs.`;
+  return `Couldn't ${verb} — check the connection and try again.`;
+}
+
+/** Work that exists only in this page until it is sent. startLiveSync checks
+    this so a teammate's client edit never repaints it away. */
+function cbUnsavedWork() {
+  // Any typed link row — the new-brief composer's or the campaign view's
+  // add-videos rows — plus a named or instructed composer. The name field is
+  // empty by default (its "Brief N" is only a placeholder), so any value in it
+  // was typed.
+  if ([...document.querySelectorAll(".cb-row-input")].some((i) => i.value.trim())) return true;
+  if ((document.getElementById("cb-name")?.value || "").trim()) return true;
+  if ((document.getElementById("cb-instructions")?.value || "").trim()) return true;
+  if (document.querySelector("#cl-brand-box:not([hidden])")) return true;
+  return CB_EDITING.size > 0 || CB_REGEN.size > 0 || CB_REPLACE.size > 0 || !!CB_FIELD_EDIT;
+}
+
+// ---------- Link rows: one input per video ----------
+/* Used by the new-brief composer and the campaign view's "add videos" box.
+   Every rule about a link still comes from cbParseLinks: each row is parsed
+   top to bottom with the links above it (and the campaign's existing ones) as
+   the duplicate set, so a row's badge and the summary can never disagree with
+   what submit sends. URLs never contain whitespace, so a paste or an input
+   holding several tokens is split into consecutive rows. */
+let CB_ROW_SEQ = 0;
+const CB_X_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+
+function cbRowHtml() {
+  const id = `cb-row-${++CB_ROW_SEQ}`;
+  return `<div class="cb-row">
+    <label class="cb-row-lbl" for="${id}">Video</label>
+    <div class="composer-row cb-row-field">
+      <input type="url" class="cb-row-input cb-raw" id="${id}" aria-describedby="${id}-st"
+        placeholder="Paste a TikTok or Instagram link" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <span class="bp-plat cb-row-badge" id="${id}-st"></span>
+      <button type="button" class="ghost icon-only cb-row-del" aria-label="Remove video">${CB_X_SVG}</button>
+    </div>
+  </div>`;
+}
+
+/** kind: "compose" | "add". Numbering starts at `startNo`; at most `max` rows. */
+function cbRowsHtml(kind, startNo, max) {
+  return `<div class="cb-rows" data-rows="${kind}" data-start="${startNo}" data-max="${max}">
+    <div class="cb-row-list">${cbRowHtml()}</div>
+    <div class="cb-rows-foot">
+      <button type="button" class="ghost cb-small cb-row-add">+ Add video</button>
+      <span class="lbl cb-row-cap"></span>
+    </div>
+    <p class="bp-msg cb-msg" id="cb-rowmsg-${kind}" role="status" aria-live="polite"></p>
+  </div>`;
+}
+
+/** Parse every row in order. Returns [{input, value, r}] — r is the
+    cbParseLinks row for that input, or null when it is empty. */
+function cbRowsParse(rowsEl, existing = new Set()) {
+  const seen = new Set(existing);
+  return [...rowsEl.querySelectorAll(".cb-row-input")].map((input) => {
+    const value = input.value.trim();
+    const r = value ? cbParseLinks(value, seen)[0] || null : null;
+    if (r?.ok) seen.add(canonUrl(r.url));
+    return { input, value, r };
+  });
+}
+
+function cbRowsCount(parsed) {
+  const filled = parsed.filter((p) => p.r);
+  const ready = filled.filter((p) => p.r.ok).length;
+  return { ready, skipped: filled.length - ready };
+}
+
+const cbWhySentence = (why) => why === "youtube" ? "YouTube isn't supported yet."
+  : why === "duplicate" ? "That video is already in the list."
+  : why === "not supported" ? CB_ERROR_TEXT.off_platform : "That isn't a link.";
+
+/** Wire a cbRowsHtml block. Delegated listeners, so rows added later need no
+    wiring of their own. Returns { paint, parsed, reset, values, setValues }. */
+function cbWireRows(rowsEl, { existing = () => new Set(), onChange = () => {} } = {}) {
+  const list = rowsEl.querySelector(".cb-row-list");
+  const max = Math.max(1, Number(rowsEl.dataset.max) || CB_MAX_PASTE);
+  const start = Number(rowsEl.dataset.start) || 1;
+  const addBtn = rowsEl.querySelector(".cb-row-add");
+  const cap = rowsEl.querySelector(".cb-row-cap");
+  const msg = rowsEl.querySelector(".cb-msg");
+  const rows = () => [...list.querySelectorAll(".cb-row")];
+  const inputOf = (row) => row?.querySelector(".cb-row-input");
+
+  const paint = () => {
+    const rs = rows();
+    rs.forEach((row, i) => {
+      const n = start + i;
+      row.querySelector(".cb-row-lbl").textContent = `Video ${n}`;
+      const del = row.querySelector(".cb-row-del");
+      del.setAttribute("aria-label", `Remove video ${n}`);
+      del.title = `Remove video ${n}`;
+      del.hidden = rs.length === 1;
+    });
+    const parsed = cbRowsParse(rowsEl, existing());
+    for (const { input, r } of parsed) {
+      const badge = input.parentElement.querySelector(".cb-row-badge");
+      if (!r) { badge.textContent = ""; badge.title = ""; badge.className = "bp-plat cb-row-badge"; continue; }
+      const text = r.ok ? r.plat : r.why === "youtube" ? "YouTube isn't supported yet" : r.why;
+      badge.textContent = text;
+      badge.title = text;
+      badge.className = "bp-plat cb-row-badge on " + (r.ok ? "good" : r.why === "duplicate" ? "dup" : "bad");
+    }
+    const full = rs.length >= max;
+    addBtn.disabled = full;
+    cap.textContent = !full ? ""
+      : max >= CB_MAX_PASTE ? `${CB_MAX_PASTE} videos is the limit per batch`
+      : `The campaign holds ${CB_MAX_FORMATS} formats — room for ${max} more`;
+    onChange(parsed);
+  };
+
+  const insertAfter = (row, value = "") => {
+    if (rows().length >= max) return null;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = cbRowHtml().trim();
+    const nr = tpl.content.firstElementChild;
+    inputOf(nr).value = value;
+    if (row) row.after(nr); else list.appendChild(nr);
+    return nr;
+  };
+  const focusEnd = (input) => { input.focus(); const n = input.value.length; try { input.setSelectionRange(n, n); } catch {} };
+
+  // Several links in one input: the first stays here, the rest fill new rows
+  // directly below, up to the cap. Says so when some did not fit.
+  const spread = (input, tokens) => {
+    input.value = tokens[0];
+    let row = input.closest(".cb-row");
+    let last = input, added = 1, dropped = 0;
+    for (let k = 1; k < tokens.length; k++) {
+      const nr = insertAfter(row, tokens[k]);
+      if (!nr) { dropped = tokens.length - k; break; }
+      row = nr; last = inputOf(nr); added++;
+    }
+    paint();
+    focusEnd(last);
+    if (dropped) {
+      cbMsg(msg, `Only ${max} videos fit here — ${cbPlural(dropped, "link wasn't", "links weren't")} added.`, "bad", true);
+    } else {
+      cbMsg(msg, `Pasted ${added} links into ${added} rows.`, "good");
+    }
+  };
+
+  list.addEventListener("paste", (e) => {
+    const input = e.target.closest(".cb-row-input");
+    if (!input) return;
+    const text = e.clipboardData?.getData("text") || "";
+    const a = input.selectionStart ?? input.value.length, b = input.selectionEnd ?? a;
+    const tokens = cbParseLinks(input.value.slice(0, a) + text + input.value.slice(b)).map((t) => t.raw);
+    if (tokens.length <= 1) return;           // one link: the normal paste
+    e.preventDefault();
+    spread(input, tokens);
+  });
+  list.addEventListener("input", (e) => {
+    const input = e.target.closest(".cb-row-input");
+    if (!input) return;
+    const tokens = cbParseLinks(input.value).map((t) => t.raw);
+    if (tokens.length > 1) { spread(input, tokens); return; }   // drag-drop, autofill
+    paint();
+  });
+  list.addEventListener("keydown", (e) => {
+    const input = e.target.closest(".cb-row-input");
+    if (!input || e.key !== "Enter") return;
+    e.preventDefault();                       // never submits the form from a row
+    if (!input.value.trim() || rows().length >= max) return;
+    const nr = insertAfter(input.closest(".cb-row"));
+    paint();
+    inputOf(nr).focus();
+  });
+  list.addEventListener("click", (e) => {
+    const del = e.target.closest(".cb-row-del");
+    if (!del) return;
+    const row = del.closest(".cb-row");
+    if (rows().length <= 1) return;
+    const next = row.nextElementSibling || row.previousElementSibling;
+    row.remove();
+    if (msg) msg.className = "bp-msg cb-msg";   // an "only 10 fit" note is stale now
+    paint();
+    focusEnd(inputOf(next));
+  });
+  addBtn.addEventListener("click", () => {
+    const nr = insertAfter(rows().at(-1));
+    if (!nr) return;
+    paint();
+    inputOf(nr).focus();
+  });
+
+  const setValues = (values) => {
+    list.innerHTML = "";
+    const vs = (values || []).slice(0, max);
+    (vs.length ? vs : [""]).forEach((v) => insertAfter(null, v));
+    paint();
+  };
+  return {
+    paint,
+    parsed: () => cbRowsParse(rowsEl, existing()),
+    values: () => rows().map((r) => inputOf(r).value),
+    setValues,
+    reset: () => { setValues([]); if (msg) msg.className = "bp-msg cb-msg"; },
+  };
+}
+
+// ---------- Step 10: brand context form ----------
+
+/** The brand context form, shared by the client page (Edit brand), the new
+    campaign composer, and a campaign's agency-only block. Labels are written
+    in normal case; the house style lowercases them in CSS. Typed values are
+    content and keep their casing (inputs/textareas are on the exclusion list). */
+function brandFormHtml(bc, prefix) {
+  const niches = [...new Set(ALL.map((r) => r.niche_category).filter(Boolean))].sort();
+  const audiences = [...new Set(ALL.map((r) => r.target_audience).filter(Boolean))].sort();
+  const opts = (list, cur, empty) => {
+    const all = cur && !list.includes(cur) ? [cur, ...list] : list;
+    return `<option value="">${empty}</option>` + all.map((v) =>
+      `<option value="${escapeHtml(v)}"${v === cur ? " selected" : ""}>${escapeHtml(v)}</option>`).join("");
+  };
+  const fid = (k) => `${prefix}-${k}`;
+  const input = (k, label, val, ph = "", wide = false) => `
+    <label class="ce-field${wide ? " ce-wide" : ""}"><span class="lbl">${label}</span>
+      <input type="text" id="${fid(k)}" data-bf="${k}" value="${escapeHtml(val || "")}"
+        placeholder="${escapeHtml(ph)}" autocomplete="off"></label>`;
+  const area = (k, label, val, ph = "") => `
+    <label class="ce-field ce-wide"><span class="lbl">${label}</span>
+      <textarea class="grow" rows="2" id="${fid(k)}" data-bf="${k}"
+        placeholder="${escapeHtml(ph)}">${escapeHtml(val || "")}</textarea></label>`;
+  return `<div class="ce-grid cb-brand-form">
+    ${input("name", "Brand / product name", bc.name, "e.g. Cloey")}
+    <label class="ce-field"><span class="lbl">Niche</span>
+      <select id="${fid("niche")}" data-bf="niche">${opts(niches, bc.niche, "Not set")}</select></label>
+    ${area("description", "Brand description", bc.description, "What it is, in a sentence or two")}
+    ${input("product", "Product / app", bc.product)}
+    <label class="ce-field"><span class="lbl">Target audience</span>
+      <select id="${fid("audience")}" data-bf="audience">${opts(audiences, bc.audience, "Not sure")}</select></label>
+    ${area("audienceNotes", "Who it's for, in plain words", bc.audienceNotes)}
+    ${area("painPoints", "Main pain points", bc.painPoints)}
+    ${input("features", "Key features (comma-separated, up to 8)", (bc.features || []).join(", "), "", true)}
+    ${area("valueProps", "Value propositions", bc.valueProps)}
+    ${area("tone", "Brand tone and language", bc.tone)}
+    ${input("cta", "CTA", bc.cta, "e.g. Download free — link in bio")}
+    ${input("site", "Website / app link", bc.site, "https://")}
+    ${area("notes", "Previous campaign notes / brand instructions", bc.notes)}
+    <details class="ce-wide cb-more"${bc.habits || bc.goals ? " open" : ""}>
+      <summary>Daily habits and deep goals</summary>
+      <div class="ce-grid cb-more-grid">
+        ${area("habits", "Daily habits", bc.habits)}
+        ${area("goals", "Deep goals", bc.goals)}
+      </div>
+    </details>
+  </div>`;
+}
+
+/** Read a brandFormHtml form back into a brand_context, on top of `base` so
+    keys the form does not edit (company) survive. */
+function readBrandForm(root, base = {}) {
+  const val = (k) => (root.querySelector(`[data-bf="${k}"]`)?.value || "").trim();
+  return {
+    ...base,
+    name: val("name"), niche: val("niche"), description: val("description"), product: val("product"),
+    audience: val("audience"), audienceNotes: val("audienceNotes"), painPoints: val("painPoints"),
+    features: val("features").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 8),
+    valueProps: val("valueProps"), tone: val("tone"), cta: val("cta"), site: val("site"),
+    notes: val("notes"), habits: val("habits"), goals: val("goals"),
+  };
+}
+
+/** MERGE a brand context into a client record (never replace its ctx). */
+function cbApplyBrandToClient(c, bc) {
+  const patch = brandContextToClientPatch(bc);
+  c.ctx = { ...(c.ctx || {}), ...patch.ctx };
+  c.niche = patch.niche;
+}
+
+function clientBrandBoxHtml(client) {
+  return `<div class="client-details cb-brand-box" id="cl-brand-box" hidden>
+    <div class="cb-block-head"><span class="cb-block-title">Brand context</span>
+      <span class="lbl">used when campaign briefs are written</span></div>
+    ${brandFormHtml(brandContextFromClient(client), "clb")}
+    <div class="bp-actions">
+      <button type="button" class="btn" id="cl-brand-save">Save brand</button>
+      <button type="button" class="ghost" id="cl-brand-cancel">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function bindClientBrand(host, client) {
+  const btn = document.getElementById("cl-brand");
+  const box = document.getElementById("cl-brand-box");
+  if (!btn || !box) return;
+  const setOpen = (open) => {
+    box.hidden = !open;
+    btn.setAttribute("aria-expanded", String(open));
+    if (open) {
+      box.querySelectorAll("textarea.grow").forEach(cbGrow);
+      box.querySelector('[data-bf="name"]')?.focus();
+    }
+  };
+  // Cancel discards: the form is rebuilt from the stored client, in place, so
+  // nothing else on the page (a half-pasted composer) is repainted.
+  const cancel = () => {
+    box.querySelector(".cb-brand-form").outerHTML = brandFormHtml(brandContextFromClient(client), "clb");
+    cbWireGrow(box);
+    setOpen(false);
+    btn.focus();
+  };
+  cbWireGrow(box);
+  btn.addEventListener("click", () => (box.hidden ? setOpen(true) : cancel()));
+  document.getElementById("cl-brand-cancel").addEventListener("click", cancel);
+  box.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); cancel(); } });
+  document.getElementById("cl-brand-save").addEventListener("click", () => {
+    const list = loadClients();
+    const c = list.find((x) => x.id === client.id);
+    if (!c) return;
+    cbApplyBrandToClient(c, readBrandForm(box.querySelector(".cb-brand-form"), brandContextFromClient(c)));
+    persistClients(list);
+    renderBriefsKeepScroll();
+    const again = document.getElementById("cl-brand");
+    if (again) {
+      again.textContent = "Saved ✓";
+      again.focus();
+      setTimeout(() => { if (again.isConnected) again.textContent = "Edit brand"; }, 1500);
+    }
+  });
+}
+
+// ---------- Step 11: campaign list + new campaign composer ----------
+
+/* ONE BRIEFS LIST (owner, 2026-09-14). The client page's "Briefs" section
+   holds both kinds, newest first, in the same card: the picked-video briefs
+   stored on the client record, and campaign briefs from lynxr_campaigns. The
+   campaign half is fetched; if that fails (tables not installed, no access,
+   offline) the record's briefs still render and one quiet line says why. */
+
+const cbTime = (iso) => new Date(iso || 0).getTime() || 0;
+
+function cbBriefItems(client) {
+  const old = client.briefs || [];
+  const items = old.map((b, i) => ({ kind: "brief", id: b.id, at: b.createdAt, no: old.length - i, b }));
+  for (const r of CB_LISTS.get(client.id)?.rows || []) items.push({ kind: "campaign", id: r.id, at: r.created_at, r });
+  return items.sort((x, y) => cbTime(y.at) - cbTime(x.at));
+}
+
+/** "Brief N" for a new campaign brief whose name was left empty. */
+const cbNextBriefName = (client) => `Brief ${cbBriefItems(client).length + 1}`;
+
+function cbBriefListHtml(client) {
+  const entry = CB_LISTS.get(client.id);
+  const items = cbBriefItems(client);
+  let quiet = "";
+  if (!entry) quiet = `<p class="note cb-list-note">Loading campaign briefs…</p>`;
+  else if (entry.error === "missing") quiet = `<p class="note cb-list-note">Campaign briefs aren't installed yet — run <code>supabase/campaigns.sql</code> in the Supabase SQL editor.</p>`;
+  else if (entry.error === "denied") quiet = `<p class="note cb-list-note">This account can't read campaign briefs.</p>`;
+  else if (entry.error) quiet = `<p class="note cb-list-note">Couldn't load campaign briefs. <button type="button" class="ghost cb-small" id="cb-list-retry">Try again</button></p>`;
+  if (!items.length) {
+    if (!entry) return quiet;
+    return `<div class="empty"><p><strong>No briefs yet.</strong></p>
+      <p>Hit + to paste 1–10 inspiration links — each video becomes a production format.</p></div>${quiet}`;
+  }
+  const trash = (what) => `<button type="button" class="ghost danger icon-only br-del"
+      aria-label="Delete this ${what}" title="Delete this ${what}">${TRASH_SVG}</button>`;
+  const latest = (i) => i === 0 ? ` <span class="pill">latest</span>` : "";
+  return `<div class="brief-stack">` + items.map((it, i) => {
+    const date = escapeHtml(String(it.at || "").slice(0, 10));
+    if (it.kind === "brief") {
+      return `<article class="bcard opens" data-kind="brief" data-id="${escapeHtml(it.id)}"
+          role="button" tabindex="0" aria-label="Open brief ${it.no}">
+        <div class="bcard-main">
+          <div class="bcard-title">Brief ${it.no}${latest(i)}</div>
+          <div class="lbl">${date} · ${it.b.items.length} scripts</div>
+        </div>${trash("brief")}
+      </article>`;
+    }
+    const c = it.r.counts;
+    const name = it.r.name || "Untitled brief";
+    return `<article class="bcard opens" data-kind="campaign" data-id="${escapeHtml(it.id)}"
+        role="button" tabindex="0" aria-label="Open campaign brief ${escapeHtml(name)}">
+      <div class="bcard-main">
+        <div class="bcard-title"><span class="cb-name">${escapeHtml(name)}</span>${latest(i)}</div>
+        <div class="lbl cb-meta"><span>${date} · ${cbPlural(c.total, "format", "formats")}${c.working ? ` · ${c.ready} of ${c.total} ready` : ""}</span>
+          ${c.failed ? `<span class="chip bad">${c.failed} failed</span>` : ""}</div>
+      </div>${trash("campaign brief")}
+    </article>`;
+  }).join("") + `</div>${quiet}`;
+}
+
+function briefsSectionHtml(client) {
+  const picks = SUGGEST_PICKS.size;
+  const nextName = cbNextBriefName(client);
+  return `<div class="section cb-briefs" id="cb-box">
+    <div class="sec-head">
+      <h2>Briefs <span class="pill" id="cl-brief-count">${cbBriefItems(client).length}</span></h2>
+      <span class="cb-sec-actions">
+        ${/* The picked-video brief builder stays reachable, but only where it
+              ever made sense: after videos are ticked in Suggestions. The + is
+              the campaign composer now (owner, 2026-09-14). */""}
+        ${picks
+          ? `<button type="button" class="btn sec-cta" id="cl-nextbrief">${picks} pick${picks === 1 ? "" : "s"} → brief ${client.briefs.length + 1}</button>`
+          : `<span id="cl-nextbrief" hidden></span>`}
+        <button type="button" class="lib-plus" id="cb-new" aria-expanded="false" aria-controls="cb-compose"
+          title="New brief from inspiration links" aria-label="New brief from inspiration links">${CB_ICON.plus}</button>
+      </span>
+    </div>
+    <form class="client-details cb-compose" id="cb-compose" novalidate hidden>
+      <div class="ce-grid">
+        <label class="ce-field ce-wide"><span class="lbl">Brief name</span>
+          <input type="text" id="cb-name" value="" placeholder="${escapeHtml(nextName)}" autocomplete="off"></label>
+        <label class="ce-field ce-wide"><span class="lbl">Campaign instructions — shown to creators at the top of the brief</span>
+          <textarea class="grow" rows="3" id="cb-instructions"
+            placeholder="e.g. Film in natural light. No competitor logos on screen."></textarea></label>
+        <div class="ce-field ce-wide" role="group" aria-labelledby="cb-links-h">
+          <span class="lbl" id="cb-links-h">Inspiration videos — one link per row, 5–10 works best</span>
+          ${cbRowsHtml("compose", 1, CB_MAX_PASTE)}
+        </div>
+      </div>
+      <p class="cb-link-count" id="cb-link-count" role="status" aria-live="polite"></p>
+      <details class="cb-more cb-compose-brand">
+        <summary>Brand context for this brief</summary>
+        ${brandFormHtml(brandContextFromClient(client), "cbc")}
+        <label class="cb-check"><input type="checkbox" id="cb-save-brand">
+          <span>Also save these to <span class="cb-name">${escapeHtml(client.company)}</span>'s profile</span></label>
+      </details>
+      <div class="bp-actions">
+        <button type="submit" class="btn" id="cb-go" disabled>Generate 0 formats</button>
+        <button type="button" class="ghost" id="cb-cancel">Cancel</button>
+      </div>
+      <p class="bp-msg cb-msg" id="cb-compose-msg" role="status" aria-live="polite"></p>
+    </form>
+    <p class="bp-msg cb-msg" id="cb-msg" role="status" aria-live="polite"></p>
+    <div id="cl-brief-list">${cbBriefListHtml(client)}</div>
+  </div>`;
+}
+
+/** The count line and the Generate button, both driven by the link rows. */
+function cbPaintComposer(parsed) {
+  const count = document.getElementById("cb-link-count");
+  const go = document.getElementById("cb-go");
+  if (!count || !go) return;
+  const { ready, skipped } = cbRowsCount(parsed);
+  const n = Math.min(ready, CB_MAX_PASTE);
+  const bits = [];
+  if (ready || skipped) bits.push(`${cbPlural(ready, "link", "links")} ready` + (skipped ? ` · ${skipped} skipped` : ""));
+  if (ready > 0 && ready < 5) bits.push("5–10 works best");
+  count.textContent = bits.join(" · ");
+  go.disabled = n === 0;
+  go.textContent = `Generate ${cbPlural(n, "format", "formats")}`;
+}
+
+function cbScheduleList(clientId) {
+  clearTimeout(CB_LIST_T);
+  const entry = CB_LISTS.get(clientId);
+  if (!entry?.rows?.some((r) => r.counts.working > 0)) return;
+  const again = () => {
+    if (CAMPAIGN_VIEW || BRIEF_VIEW || CLIENT_VIEW?.id !== clientId || !document.getElementById("cl-brief-list")) return;
+    if (document.hidden || document.querySelector("#cl-brief-list .br-del.armed")) { CB_LIST_T = setTimeout(again, 30000); return; }
+    cbRefreshList(clientId);
+  };
+  CB_LIST_T = setTimeout(again, 30000);
+}
+
+async function cbRefreshList(clientId) {
+  if (CB_LIST_BUSY.has(clientId)) return;
+  CB_LIST_BUSY.add(clientId);
+  try { await cbListCampaigns(clientId); }
+  catch (ex) { CB_LISTS.set(clientId, { rows: null, error: cbError(ex), at: Date.now() }); }
+  finally { CB_LIST_BUSY.delete(clientId); }
+  cbPaintList(clientId);
+}
+
+/** Repaint ONLY the briefs list, its count and the composer's "Brief N"
+    placeholder — never the whole client page, which would wipe a half-filled
+    composer or brand form. */
+function cbPaintList(clientId) {
+  if (CAMPAIGN_VIEW || BRIEF_VIEW || CLIENT_VIEW?.id !== clientId) return;
+  const box = document.getElementById("cl-brief-list");
+  const client = loadClients().find((c) => c.id === clientId);
+  if (!box || !client) return;
+  const focused = document.activeElement?.closest?.("#cl-brief-list .bcard")?.dataset.id;
+  box.innerHTML = cbBriefListHtml(client);
+  const pill = document.getElementById("cl-brief-count");
+  if (pill) pill.textContent = String(cbBriefItems(client).length);
+  const name = document.getElementById("cb-name");
+  if (name) name.placeholder = cbNextBriefName(client);
+  cbBindList(clientId);
+  if (focused) [...box.querySelectorAll(".bcard")].find((c) => c.dataset.id === focused)?.focus();
+  cbScheduleList(clientId);
+}
+
+function cbBindList(clientId) {
+  const box = document.getElementById("cl-brief-list");
+  if (!box) return;
+  const msg = () => document.getElementById("cb-msg");
+  box.querySelectorAll(".bcard[data-kind]").forEach((card) => {
+    const id = card.dataset.id;
+    const del = card.querySelector(".br-del");
+    if (card.dataset.kind === "brief") {
+      openOnCard(card, () => { BRIEF_VIEW = { id, expanded: null }; CAMPAIGN_VIEW = null; renderBriefs(); });
+      armDelete(del, "Delete", () => {
+        const fresh = loadClients();
+        const c = fresh.find((x) => x.id === clientId);
+        if (!c) return;
+        c.briefs = c.briefs.filter((b) => b.id !== id);
+        persistClients(fresh);
+        cbPaintList(clientId);
+        refreshNextBriefBtn(c);
+        cbMsg(msg(), "Brief deleted.", "good");
+      });
+      return;
+    }
+    openOnCard(card, () => {
+      CAMPAIGN_VIEW = { id }; BRIEF_VIEW = null;
+      renderBriefs();
+      window.scrollTo({ top: 0 });
+    });
+    armDelete(del, "Delete", async () => {
+      try {
+        await cbDeleteCampaign(id);
+        CB_CACHE.delete(id);
+        const e = CB_LISTS.get(clientId);
+        if (e?.rows) e.rows = e.rows.filter((r) => r.id !== id);
+        cbPaintList(clientId);
+        cbMsg(msg(), "Campaign brief deleted.", "good");
+      } catch (ex) {
+        cbPaintList(clientId);
+        cbMsg(msg(), cbErrorSentence(ex, "delete"), "bad", true);
+      }
+    });
+  });
+  document.getElementById("cb-list-retry")?.addEventListener("click", () => cbRefreshList(clientId));
+}
+
+function bindBriefsSection(host, client) {
+  const form = document.getElementById("cb-compose");
+  const plus = document.getElementById("cb-new");
+  const rowsEl = form?.querySelector('[data-rows="compose"]');
+  if (!form || !plus || !rowsEl) return;
+  const cmsg = () => document.getElementById("cb-compose-msg");
+  const ctl = cbWireRows(rowsEl, { onChange: cbPaintComposer });
+  ctl.paint();
+  const firstRow = () => rowsEl.querySelector(".cb-row-input");
+  const setOpen = (open) => {
+    form.hidden = !open;
+    plus.setAttribute("aria-expanded", String(open));
+    if (!open) return;
+    form.querySelectorAll("textarea.grow").forEach(cbGrow);
+    firstRow()?.focus();
+    // Not installed: say so where it matters — at the moment of creating.
+    if (CB_LISTS.get(client.id)?.error === "missing") {
+      cbMsg(cmsg(), "Campaign briefs aren't installed yet — run supabase/campaigns.sql in the Supabase SQL editor.", "bad", true);
+    }
+  };
+  plus.addEventListener("click", () => setOpen(form.hidden));
+  const picksBtn = document.getElementById("cl-nextbrief");
+  if (picksBtn?.tagName === "BUTTON") picksBtn.addEventListener("click", () => startNextWeekBrief(client));
+  cbWireGrow(form);
+  // Cancel discards everything typed; Escape only hides the form.
+  document.getElementById("cb-cancel").addEventListener("click", () => {
+    form.reset();
+    ctl.reset();
+    form.querySelectorAll("textarea.grow").forEach(cbGrow);
+    const m = cmsg();
+    if (m) m.className = "bp-msg cb-msg";
+    setOpen(false);
+    plus.focus();
+  });
+  form.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.preventDefault(); setOpen(false); plus.focus(); }
+  });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const go = document.getElementById("cb-go");
+    const parsed = ctl.parsed();
+    const urls = parsed.filter((p) => p.r?.ok).slice(0, CB_MAX_PASTE).map((p) => p.r.url);
+    if (!urls.length) {
+      const bad = parsed.find((p) => p.r);
+      cbMsg(cmsg(), bad ? cbWhySentence(bad.r.why) : "Paste at least one TikTok or Instagram video link.", "bad", true);
+      (bad?.input || firstRow())?.focus();
+      return;
+    }
+    const nameEl = document.getElementById("cb-name");
+    const name = nameEl.value.trim() || cbNextBriefName(client);
+    const brandContext = readBrandForm(form.querySelector(".cb-brand-form"), brandContextFromClient(client));
+    const face = go.textContent;
+    go.disabled = true;
+    go.textContent = "Creating…";
+    try {
+      const id = await cbCreateCampaign({
+        clientId: client.id, name, instructions: document.getElementById("cb-instructions").value.trim(),
+        brandContext, urls,
+      });
+      if (document.getElementById("cb-save-brand")?.checked) {
+        const list = loadClients();
+        const c = list.find((x) => x.id === client.id);
+        if (c) { cbApplyBrandToClient(c, brandContext); persistClients(list); }
+      }
+      CB_LISTS.delete(client.id);
+      form.reset();
+      ctl.reset();                      // releases the live-sync guard
+      CAMPAIGN_VIEW = { id }; BRIEF_VIEW = null;
+      renderBriefs();
+      window.scrollTo({ top: 0 });
+    } catch (ex) {
+      cbMsg(cmsg(), cbErrorSentence(ex, "create"), "bad", true);
+      go.disabled = false;
+      go.textContent = face;
+    }
+  });
+
+  cbBindList(client.id);
+  const entry = CB_LISTS.get(client.id);
+  // Re-renders of this page are frequent (blueprints, suggestions); refetch
+  // only when the list is missing or older than 15s.
+  if (!entry || Date.now() - (entry.at || 0) > 15000) cbRefreshList(client.id);
+  else cbScheduleList(client.id);
+}
+
+// ---------- Step 12: the campaign view ----------
+
+const cbSorted = (rec) => [...rec.formats].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+const cbShortUrl = (u) => String(u || "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+
+function cbCrumbsHtml(client, here) {
+  return `<nav class="crumbs" aria-label="Breadcrumb">
+    <button type="button" class="crumb-link" id="cv-clients">Clients</button>
+    <span class="crumb-sep">›</span>
+    <button type="button" class="crumb-link" id="cv-back">${escapeHtml(client.company)}</button>
+    <span class="crumb-sep">›</span>
+    <span class="crumb-here cb-name">${escapeHtml(here)}</span>
+  </nav>`;
+}
+function cbBindCrumbs() {
+  document.getElementById("cv-clients")?.addEventListener("click", () => {
+    CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs();
+  });
+  document.getElementById("cv-back")?.addEventListener("click", () => {
+    CAMPAIGN_VIEW = null; BRIEF_VIEW = null; renderBriefs();
+  });
+}
+
+function cbMediaHtml(f) {
+  const href = f.source_url ? safeUrl(f.source_url) : "";
+  const plat = platformOf(f.source_url || "") || (f.platform ? String(f.platform) : "video");
+  const cover = f.cover ? safeUrl(f.cover) : "";
+  const wrap = (cls, inner) => href
+    ? `<a class="${cls}" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" aria-label="Open the original video">${inner}</a>`
+    : `<span class="${cls}">${inner}</span>`;
+  let frame;
+  if (f.clip && safeUrl(f.clip)) {
+    frame = `<video class="cb-clip" controls preload="metadata" playsinline src="${escapeHtml(safeUrl(f.clip))}"${cover ? ` poster="${escapeHtml(cover)}"` : ""}></video>`;
+  } else if (cover) {
+    frame = wrap("cb-cover", `<img src="${escapeHtml(cover)}" alt="" loading="lazy">`);
+  } else {
+    frame = wrap("cb-ph", `<span>${escapeHtml(plat)}</span>`);
+  }
+  const dur = Number(f.duration) > 0 ? `${Math.round(Number(f.duration))}s` : "";
+  return `<div class="cd-player-col cb-media">
+    ${frame}
+    ${href ? `<a class="cb-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open original ↗</a>` : ""}
+    <div class="lbl">${escapeHtml(plat)}${dur ? " · " + dur : ""}</div>
+  </div>`;
+}
+
+function cbDetailHtml(f) {
+  const v = cbView(f);
+  const sec = (label, inner) => inner ? `<div class="cb-sec"><div class="cb-lbl">${label}</div>${inner}</div>` : "";
+  const needs = (v.needs || []).filter(Boolean);
+  const setup = [["setting", v.setting], ["lighting", v.lighting], ["framing", v.framing], ["audio", v.audio]]
+    .filter(([, x]) => x);
+  const beats = (v.beats || []).map((b) => {
+    const rows = [["SAY", b.say], ["DO", b.do], ["ON SCREEN", b.show]].filter(([, x]) => x)
+      .map(([l, x]) => `<span class="bp-lbl">${l}</span><span class="bp-val">${escapeHtml(x)}</span>`);
+    if (!rows.length) return "";
+    return `<li class="bp-beat"><span class="bp-t">${escapeHtml(b.t || "")}</span>${rows[0]}${rows.slice(1).map((r) => `<span></span>${r}`).join("")}</li>`;
+  }).join("");
+  const why = [f.analysis?.format?.why_it_works, f.analysis?.production?.hook_mechanism,
+    f.analysis?.production?.repeatable_because].filter(Boolean);
+  const internal = (v.strategy_note || f.internal_note || why.length) ? `
+    <div class="cb-internal">
+      <div class="cb-lbl cb-agency-lbl">Agency only — never exported</div>
+      ${v.strategy_note ? `<div class="cb-sec"><div class="cb-lbl">Strategy note</div><p>${escapeHtml(v.strategy_note)}</p></div>` : ""}
+      ${f.internal_note ? `<div class="cb-sec"><div class="cb-lbl">Internal note</div><p>${escapeHtml(f.internal_note)}</p></div>` : ""}
+      ${why.length ? `<div class="cb-sec"><div class="cb-lbl">Why the original works</div>${why.map((w) => `<p>${escapeHtml(w)}</p>`).join("")}</div>` : ""}
+    </div>` : "";
+  return `<div class="card-detail cb-detail">
+    ${cbMediaHtml(f)}
+    <div class="cd-info cb-info">
+      ${v.hook ? sec("Hook", `<p class="cb-note">“${escapeHtml(v.hook)}”</p>`) : ""}
+      ${sec("Needs", needs.length ? `<ul class="cb-needs">${needs.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : "")}
+      ${sec("Setup", setup.length ? `<div class="cb-setup">${setup.map(([l, x]) =>
+        `<div class="cb-setup-row"><span class="cb-setup-lbl">${l}</span><span class="cb-setup-val">${escapeHtml(x)}</span></div>`).join("")}</div>` : "")}
+      ${sec("Script", beats ? `<ol class="bp-beats cb-beats">${beats}</ol>` : "")}
+      ${sec("CTA", v.cta ? `<p class="cb-note">“${escapeHtml(v.cta)}”</p>` : "")}
+      ${sec("Post caption", v.caption ? `<p class="cb-note">${escapeHtml(v.caption)}</p>` : "")}
+      ${sec("Creator note", v.creator_note ? `<p class="cb-note">${escapeHtml(v.creator_note)}</p>` : "")}
+      ${internal}
+    </div>
+  </div>`;
+}
+
+function cbBeatFieldHtml(b, i) {
+  const area = (k, label) => `<label class="ce-field"><span class="lbl">${label}</span>
+    <textarea class="grow" rows="1" data-bt="${k}">${escapeHtml(b[k] || "")}</textarea></label>`;
+  return `<fieldset class="cb-beat-field">
+    <legend class="cb-lbl">Beat <span class="cb-beat-n">${i + 1}</span></legend>
+    <div class="cb-beat-grid">
+      <label class="ce-field"><span class="lbl">Time</span>
+        <input type="text" data-bt="t" value="${escapeHtml(b.t || "")}" placeholder="0-3s" autocomplete="off"></label>
+      ${area("say", "Say")}${area("do", "Do")}${area("show", "On screen")}
+    </div>
+    <button type="button" class="ghost cb-small cb-beat-remove">Remove beat</button>
+  </fieldset>`;
+}
+
+function cbEditorHtml(f) {
+  const v = cbView(f);
+  const area = (k, label, val, rows = 2, wide = true, aud = "") => `
+    <label class="ce-field${wide ? " ce-wide" : ""}"><span class="lbl">${label}${aud ? ` <span class="cb-aud">(${aud})</span>` : ""}</span>
+      <textarea class="grow" rows="${rows}" data-ed="${k}">${escapeHtml(val || "")}</textarea></label>`;
+  return `<form class="cb-editor" novalidate>
+    <div class="ce-grid">
+      ${area("title", "Title", v.title, 1)}
+      ${area("hook", "Hook", v.hook)}
+      ${area("needs", "Needs — one per line", (v.needs || []).join("\n"), 3)}
+      ${area("setting", "Setting", v.setting, 2, false)}
+      ${area("lighting", "Lighting", v.lighting, 2, false)}
+      ${area("framing", "Framing", v.framing, 2, false)}
+      ${area("audio", "Audio", v.audio, 2, false)}
+    </div>
+    <div class="cb-lbl">Script beats</div>
+    <div class="cb-beat-list">${(v.beats || []).map(cbBeatFieldHtml).join("")}</div>
+    <button type="button" class="ghost cb-small cb-beat-add">Add beat</button>
+    <div class="ce-grid cb-ed-tail">
+      ${area("cta", "CTA", v.cta)}
+      ${area("caption", "Post caption", v.caption)}
+      ${area("creator_note", "Creator note", v.creator_note, 2, true, "shown to creators")}
+      ${area("strategy_note", "Strategy note", v.strategy_note, 2, true, "agency only")}
+      ${area("internal_note", "Internal note", f.internal_note, 2, true, "agency only")}
+    </div>
+    <div class="bp-actions">
+      <button type="submit" class="btn cb-ed-save">Save changes</button>
+      <button type="button" class="ghost cb-ed-cancel">Cancel</button>
+      ${f.edited ? `<button type="button" class="ghost cb-ed-revert" title="Discard the edits and show the generated version">Revert to generated</button>` : ""}
+    </div>
+  </form>`;
+}
+
+function cbReadEditor(form) {
+  const val = (k) => (form.querySelector(`[data-ed="${k}"]`)?.value || "").trim();
+  const beats = [...form.querySelectorAll(".cb-beat-field")].map((fs) => {
+    const g = (k) => (fs.querySelector(`[data-bt="${k}"]`)?.value || "").trim();
+    return { t: g("t"), say: g("say"), do: g("do"), show: g("show") };
+  }).filter((b) => b.say || b.do || b.show);
+  return {
+    edited: {
+      title: val("title"), hook: val("hook"),
+      needs: val("needs").split("\n").map((s) => s.trim()).filter(Boolean),
+      setting: val("setting"), lighting: val("lighting"), framing: val("framing"), audio: val("audio"),
+      beats, cta: val("cta"), caption: val("caption"),
+      creator_note: val("creator_note"), strategy_note: val("strategy_note"),
+    },
+    internal_note: val("internal_note"),
+  };
+}
+
+/** One format card. The ONLY markup for a card: the full render and every
+    in-place card update (poll, edit, regenerate) both call this, so the two
+    paths cannot drift apart. */
+function cbCardHtml(f, i, total) {
+  const n = i + 1;
+  const fid = escapeHtml(f.id);
+  const busy = f.status === "queued" || f.status === "running";
+  const editing = CB_EDITING.has(f.id);
+  const href = f.source_url ? safeUrl(f.source_url) : "";
+  const v = cbView(f);
+  const hasScript = !!(f.script || f.edited);
+  const srcLink = href
+    ? `<a class="cb-src cb-raw" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(cbShortUrl(f.source_url))}</a>`
+    : `<span class="cb-src cb-raw">${escapeHtml(cbShortUrl(f.source_url))}</span>`;
+  const ctrls = `<span class="cb-ctrls">
+    <button type="button" class="ghost icon-only cb-up" aria-label="Move format ${n} up" title="Move up"${i === 0 || editing ? " disabled" : ""}>${CB_ICON.up}</button>
+    <button type="button" class="ghost icon-only cb-down" aria-label="Move format ${n} down" title="Move down"${i === total - 1 || editing ? " disabled" : ""}>${CB_ICON.down}</button>
+    ${f.status === "done" && !editing ? `<button type="button" class="ghost icon-only cb-edit" aria-label="Edit format ${n}" title="Edit">${CB_ICON.edit}</button>` : ""}
+    ${f.status !== "error" ? `<button type="button" class="ghost icon-only cb-regen" aria-label="Regenerate format ${n}" aria-expanded="${CB_REGEN.has(f.id)}"
+      title="${busy ? "Already generating" : "Regenerate"}"${busy || editing ? " disabled" : ""}>${CB_ICON.regen}</button>` : ""}
+    <button type="button" class="ghost danger icon-only b-del cb-del" aria-label="Delete format ${n}" title="Delete this format">${TRASH_SVG}</button>
+  </span>`;
+
+  let head, body = "", extra = "";
+  if (f.status === "done") {
+    const weak = typeof v.fit === "number" && v.fit < 0.45;
+    head = `<h3 class="cb-fh"><span class="cb-fnum">${n}.</span> <span class="cb-title">${escapeHtml(v.title || v.hook || "Untitled format")}</span></h3>
+      <span class="cb-chips">${f.edited ? `<span class="chip">edited</span>` : ""}${weak
+        ? `<span class="chip bad" title="${escapeHtml(v.fit_reason || "")}">weak fit<span class="sr-only">: ${escapeHtml(v.fit_reason || "")}</span></span>` : ""}</span>`;
+    if (f.script_prev && !editing) {
+      extra += `<div class="cb-restore-row"><button type="button" class="ghost cb-small cb-restore">Restore previous version</button></div>`;
+    }
+    body = editing ? cbEditorHtml(f) : cbDetailHtml(f);
+  } else if (busy) {
+    head = `<h3 class="cb-fh"><span class="cb-fnum">${n}.</span> ${hasScript ? `<span class="cb-title">${escapeHtml(v.title || v.hook || "")}</span>` : srcLink}</h3>
+      <span class="chip cb-state">${loaderMark()}<span>${escapeHtml(cbStateWords(f))}</span></span>`;
+    body = `<div class="card-detail cb-detail">${cbMediaHtml(f)}
+      <div class="cd-info cb-skel" aria-hidden="true"><i></i><i></i><i></i><i class="short"></i></div></div>`;
+  } else {
+    head = `<h3 class="cb-fh"><span class="cb-fnum">${n}.</span> ${srcLink}</h3><span class="chip bad">failed</span>`;
+    body = `<div class="cb-err-body">
+      <p class="cb-err-text">${escapeHtml(cbErrorText(f.error_kind))}</p>
+      ${f.error_detail ? `<details class="cb-err-detail"><summary>details</summary><p class="cb-raw">${escapeHtml(f.error_detail)}</p></details>` : ""}
+      <div class="bp-actions">
+        ${f.retryable ? `<button type="button" class="ghost cb-retry">Try again</button>` : ""}
+        <button type="button" class="ghost cb-replace" aria-expanded="${CB_REPLACE.has(f.id)}">Replace link</button>
+      </div>
+      ${CB_REPLACE.has(f.id) ? `<form class="composer-row cb-replace-form" novalidate>
+          <input type="url" class="cb-replace-input" id="cb-rin-${fid}" placeholder="Paste a TikTok or Instagram link"
+            aria-label="Replacement link for format ${n}" autocomplete="off" spellcheck="false">
+          <button type="submit" class="composer-send" aria-label="Replace the link">${CB_ICON.send}</button>
+        </form>` : ""}
+    </div>`;
+  }
+  if (CB_REGEN.has(f.id) && f.status === "done") {
+    extra += `<div class="cb-regen-row">
+      <label class="ce-field"><span class="lbl">What should change? (optional)</span>
+        <textarea class="grow" rows="2" data-regen-note placeholder="e.g. more Gen Z, shorter hook"></textarea></label>
+      <div class="bp-actions">
+        <button type="button" class="btn cb-regen-go">Regenerate</button>
+        <button type="button" class="ghost cb-regen-cancel">Cancel</button>
+      </div>
+    </div>`;
+  }
+  return `<article class="fmt-card cb-format cb-${escapeHtml(f.status)}" id="cb-f-${fid}" data-fid="${fid}" tabindex="-1" aria-label="Format ${n}">
+    <div class="fmt-head cb-fhead">${head}${ctrls}</div>
+    ${extra}${body}
+    <p class="bp-msg cb-msg" id="cb-fmsg-${fid}" role="status" aria-live="polite"></p>
+  </article>`;
+}
+
+function cbRequirementsHtml(campaign, fe) {
+  const editing = fe === "instructions";
+  return `<section class="cb-block" aria-labelledby="cb-req-h">
+    <div class="cb-block-head"><span class="cb-block-title" id="cb-req-h">Campaign requirements</span>
+      <span class="lbl">shown to creators</span>
+      ${editing ? "" : `<button type="button" class="ghost cb-small cb-field-edit" data-field="instructions">Edit</button>`}</div>
+    ${editing ? cbFieldEditorHtml("instructions", campaign.instructions, "Campaign requirements")
+      : campaign.instructions ? `<p class="cb-instructions">${escapeHtml(campaign.instructions)}</p>`
+      : `<p class="note">No campaign-wide rules. Edit to add some — they print at the top of the brief.</p>`}
+  </section>`;
+}
+
+function cbFieldEditorHtml(field, value, label) {
+  return `<div class="cb-field-editor ce-field" data-field="${field}">
+    <textarea class="grow" rows="3" data-fe aria-label="${escapeHtml(label)}">${escapeHtml(value || "")}</textarea>
+    <div class="bp-actions">
+      <button type="button" class="btn cb-fe-save">Save</button>
+      <button type="button" class="ghost cb-fe-cancel">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function cbAgencyHtml(campaign, fe) {
+  const bc = campaign.brand_context || {};
+  const open = CB_AGENCY_OPEN.has(campaign.id) || fe === "brand" || fe === "internal_notes";
+  const rows = [["brand", bc.name], ["company", bc.company], ["niche", bc.niche], ["description", bc.description],
+    ["product", bc.product], ["audience", bc.audience], ["who it's for", bc.audienceNotes], ["pain points", bc.painPoints],
+    ["features", (bc.features || []).join(", ")], ["value props", bc.valueProps], ["tone", bc.tone], ["cta", bc.cta],
+    ["site", bc.site], ["notes", bc.notes], ["daily habits", bc.habits], ["deep goals", bc.goals]].filter(([, x]) => x);
+  return `<details class="cb-agency" id="cb-agency"${open ? " open" : ""}>
+    <summary>Agency only — never exported</summary>
+    <div class="cb-agency-body">
+      <div class="cb-block-head"><span class="cb-block-title">Brand context used</span>
+        ${fe === "brand" ? "" : `<button type="button" class="ghost cb-small cb-field-edit" data-field="brand">Edit</button>`}</div>
+      ${fe === "brand" ? `<div class="cb-field-editor" data-field="brand">
+          ${brandFormHtml(bc, "cbv")}
+          <p class="note">Saved brand context applies to formats generated or regenerated from now on — existing formats keep their text.</p>
+          <div class="bp-actions">
+            <button type="button" class="btn cb-fe-save">Save</button>
+            <button type="button" class="ghost cb-fe-cancel">Cancel</button>
+          </div>
+        </div>`
+        : rows.length ? `<div class="cd-facts">${rows.map(([k, x]) =>
+            `<div class="sug-drow"><span class="sug-dk">${k}</span><span class="sug-dv cb-bval">${escapeHtml(String(x))}</span></div>`).join("")}</div>`
+        : `<p class="note">No brand context was saved with this campaign.</p>`}
+      <div class="cb-block-head cb-notes-head"><span class="cb-block-title">Internal notes</span>
+        ${fe === "internal_notes" ? "" : `<button type="button" class="ghost cb-small cb-field-edit" data-field="internal_notes">Edit</button>`}</div>
+      ${fe === "internal_notes" ? cbFieldEditorHtml("internal_notes", campaign.internal_notes, "Internal notes")
+        : campaign.internal_notes ? `<p class="cb-internal cb-internal-text">${escapeHtml(campaign.internal_notes)}</p>`
+        : `<p class="note">None.</p>`}
+    </div>
+  </details>`;
+}
+
+function cbAddHtml(formats) {
+  const room = CB_MAX_FORMATS - formats.length;
+  if (room <= 0) {
+    return `<p class="note cb-add-box">This campaign holds the maximum of ${CB_MAX_FORMATS} formats. Delete one to add another.</p>`;
+  }
+  // One batch is at most CB_MAX_PASTE links, and never more than the campaign
+  // has room for. Numbering carries on from the formats already here.
+  const batch = Math.min(CB_MAX_PASTE, room);
+  return `<form class="cb-add-box" id="cb-add" novalidate>
+    <div class="cb-block-head"><span class="cb-block-title" id="cb-add-h">Add inspiration videos</span>
+      <span class="lbl">up to ${room} more</span></div>
+    <div role="group" aria-labelledby="cb-add-h">${cbRowsHtml("add", formats.length + 1, batch)}</div>
+    <div class="bp-actions cb-add-actions">
+      <button type="submit" class="btn" id="cb-add-go" disabled>Add 0 videos</button>
+      <span class="lbl" id="cb-add-count" role="status" aria-live="polite"></span>
+    </div>
+    <p class="bp-msg cb-msg" id="cb-add-msg" role="status" aria-live="polite"></p>
+  </form>`;
+}
+
+function renderCampaignView(host, client, id) {
+  const rec = CB_CACHE.get(id);
+  if (!rec || !rec.campaign) {
+    const err = CB_LOAD_ERR.get(id);
+    const gone = rec && !rec.campaign;
+    let inner;
+    if (gone) inner = `<div class="empty"><p>This campaign brief no longer exists.</p></div>`;
+    else if (err) {
+      const text = err === "missing" ? "Campaign briefs aren't installed yet — run <code>supabase/campaigns.sql</code> in the Supabase SQL editor."
+        : err === "denied" ? "This account can't read campaign briefs." : "Couldn't load this campaign brief.";
+      inner = `<div class="empty"><p>${text}</p>${err === "other" ? `<p><button type="button" class="ghost" id="cb-load-retry">Try again</button></p>` : ""}</div>`;
+    } else {
+      inner = `<div class="loader" role="status" aria-live="polite">${loaderMark()}
+        <div class="loader-text"><div class="lbl">Opening the campaign brief…</div></div></div>`;
+    }
+    host.innerHTML = cbCrumbsHtml(client, "Campaign brief") + inner;
+    cbBindCrumbs();
+    document.getElementById("cb-load-retry")?.addEventListener("click", () => { CB_LOAD_ERR.delete(id); renderBriefs(); });
+    if (gone) CB_CACHE.delete(id);
+    if (!rec && !err && !CB_LOADING.has(id)) {
+      CB_LOADING.add(id);
+      cbLoadCampaign(id)
+        .catch((ex) => { CB_LOAD_ERR.set(id, cbError(ex)); })
+        .finally(() => { CB_LOADING.delete(id); if (CAMPAIGN_VIEW?.id === id) renderBriefsKeepScroll(); });
+    }
+    return;
+  }
+
+  CB_PENDING = false;
+  const keep = host.dataset.cbView === id ? [...host.querySelectorAll("#cb-add .cb-row-input")].map((i) => i.value) : [];
+  CB_ADD_KEEP = keep.some((v) => v.trim()) ? { id, values: keep } : null;
+  host.dataset.cbView = id;
+  const { campaign } = rec;
+  const formats = cbSorted(rec);
+  const fe = CB_FIELD_EDIT && CB_FIELD_EDIT.id === id ? CB_FIELD_EDIT.field : null;
+  const name = campaign.name || "Untitled campaign";
+  host.innerHTML = `
+    ${cbCrumbsHtml(client, name)}
+    <div class="page-head cb-head">
+      <div class="minw0">
+        ${fe === "name"
+          ? `<input type="text" class="cb-name-input" id="cb-name-input" value="${escapeHtml(campaign.name || "")}"
+               aria-label="Campaign name — Enter saves, Escape cancels" autocomplete="off">`
+          : `<div class="cb-title-row"><div class="bcard-title cb-name">${escapeHtml(name)}</div>
+               <button type="button" class="ghost icon-only cb-rename" id="cb-rename" aria-label="Rename this campaign" title="Rename">${CB_ICON.edit}</button></div>`}
+        <div class="lbl">${escapeHtml((campaign.created_at || "").slice(0, 10))} · <span id="cb-fcount"></span></div>
+      </div>
+      <div class="cb-export">
+        <button type="button" class="ghost" id="cb-copy">Copy brief</button>
+        <button type="button" class="btn cb-pdf-btn" id="cb-pdf">Download PDF</button>
+        <button type="button" class="ghost danger icon-only b-del" id="cb-del-campaign"
+          aria-label="Delete this campaign brief" title="Delete this campaign brief">${TRASH_SVG}</button>
+      </div>
+    </div>
+    <p class="note cb-notready" id="cb-notready" hidden></p>
+    <p class="bp-msg cb-msg" id="cb-view-msg" role="status" aria-live="polite"></p>
+    <div class="cb-progress">
+      <div class="cb-progress-line" id="cb-progress-text" role="status" aria-live="polite"></div>
+      <div class="cb-bar" aria-hidden="true"><div class="cb-bar-fill" id="cb-bar-fill"></div></div>
+      <p class="note cb-lane" id="cb-lane" hidden></p>
+    </div>
+    ${cbRequirementsHtml(campaign, fe)}
+    ${cbAgencyHtml(campaign, fe)}
+    <div class="fmt-grid cb-grid" id="cb-grid">
+      ${formats.length ? formats.map((f, i) => cbCardHtml(f, i, formats.length)).join("")
+        : `<div class="empty"><p>No formats in this campaign yet. Add a link below.</p></div>`}
+    </div>
+    ${cbAddHtml(formats)}`;
+
+  cbBindCrumbs();
+  host.querySelectorAll(".cb-format").forEach((card) => cbBindCard(card, id));
+  cbBindView(host, client, id);
+  cbWireGrow(host);
+  cbPaintSummary(id);
+  if (fe === "name") { const inp = document.getElementById("cb-name-input"); inp?.focus(); inp?.select(); }
+  else if (fe) host.querySelector(`.cb-field-editor[data-field="${fe}"] :is(textarea, input)`)?.focus();
+  if (cbProgress(formats).working > 0) cbEnsurePoll(id); else cbClearPollTimer();
+}
+
+/** Progress line, bar, export buttons, not-ready note and lane reason — all
+    updated in place, so a poll never has to repaint the page for them. */
+function cbPaintSummary(id) {
+  const rec = CB_CACHE.get(id);
+  if (!rec || CAMPAIGN_VIEW?.id !== id) return;
+  const formats = rec.formats;
+  const p = cbProgress(formats);
+  let reading = 0, writing = 0, queued = 0;
+  for (const f of formats) {
+    if (f.status === "running") { if (f.phase === "writing") writing++; else reading++; }
+    else if (f.status === "queued") queued++;
+  }
+  const parts = [`${p.ready} of ${p.total} ready`];
+  if (reading) parts.push(`${reading} reading`);
+  if (writing) parts.push(`${writing} writing`);
+  if (queued) parts.push(`${queued} queued`);
+  if (p.failed) parts.push(`${p.failed} failed`);
+  const text = document.getElementById("cb-progress-text");
+  if (text) text.textContent = p.total ? parts.join(" · ") : "No formats yet";
+  const fill = document.getElementById("cb-bar-fill");
+  if (fill) fill.style.width = p.total ? `${(p.ready / p.total) * 100}%` : "0%";
+  const count = document.getElementById("cb-fcount");
+  if (count) count.textContent = cbPlural(p.total, "format", "formats");
+  for (const bid of ["cb-copy", "cb-pdf"]) {
+    const b = document.getElementById(bid);
+    if (!b) continue;
+    b.disabled = p.ready === 0;
+    b.title = p.ready === 0 ? "No format is ready yet" : "";
+  }
+  // The export note, under the buttons: which formats the PDF/copy carries,
+  // or — with nothing ready — why the buttons are disabled.
+  const nr = document.getElementById("cb-notready");
+  if (nr) {
+    const left = p.total - p.ready;
+    nr.hidden = !(p.total && (left || !p.ready));
+    nr.textContent = !p.ready
+      ? "Download PDF and Copy brief unlock once a format is ready."
+      : `The PDF includes only the ${cbPlural(p.ready, "ready format", "ready formats")} — ${left} still generating or failed.`;
+  }
+  cbPaintLane(id);
+}
+
+/** "Why is nothing happening?" Only asked when something has sat queued for
+    more than 2 minutes with nothing running. No spend cap exists (owner,
+    2026-09-14), so the only reasons are a missing table or no/stale worker. */
+function cbPaintLane(id) {
+  const el = document.getElementById("cb-lane");
+  const rec = CB_CACHE.get(id);
+  if (!el || !rec) return;
+  const now = Date.now();
+  const running = rec.formats.some((f) => f.status === "running");
+  const stuck = !running && rec.formats.some((f) => f.status === "queued"
+    && !(f.retry_at && new Date(f.retry_at).getTime() > now)
+    && now - new Date(f.updated_at || 0).getTime() > 120000);
+  if (!stuck) { el.hidden = true; return; }
+  if (CB_LANE && CB_LANE.at && now - CB_LANE.at < 30000) {
+    const v = CB_LANE.value;
+    const fresh = v && v.at && now - new Date(v.at).getTime() < 15 * 60000;
+    el.textContent = fresh && v.state === "tables_missing"
+      ? "The worker can't find the campaign tables — run supabase/campaigns.sql in the Supabase SQL editor."
+      : "Waiting for the worker.";
+    el.hidden = false;
+    return;
+  }
+  if (CB_LANE?.fetching) return;
+  CB_LANE = { value: CB_LANE?.value ?? null, at: 0, fetching: true };
+  cbLaneState().then((value) => {
+    CB_LANE = { value, at: Date.now(), fetching: false };
+    if (CAMPAIGN_VIEW?.id === id) cbPaintLane(id);
+  });
+}
+
+function cbEditorBusy() {
+  if (CB_EDITING.size || CB_REGEN.size || CB_REPLACE.size || CB_FIELD_EDIT) return true;
+  if ([...document.querySelectorAll("#cb-add .cb-row-input")].some((i) => i.value.trim())) return true;
+  const a = document.activeElement;
+  return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && document.getElementById("briefs-host")?.contains(a));
+}
+function cbFlushPending(id) {
+  if (CB_PENDING && !cbEditorBusy() && CAMPAIGN_VIEW?.id === id) renderBriefsKeepScroll();
+}
+
+function cbClearPollTimer() { clearInterval(CB_POLL_T); CB_POLL_T = null; CB_POLL_ID = null; }
+/** Leaving the campaign view: stop the poll and forget per-view editor state. */
+function cbStopPoll() {
+  cbClearPollTimer();
+  CB_EDITING.clear(); CB_REGEN.clear(); CB_REPLACE.clear();
+  CB_FIELD_EDIT = null; CB_PENDING = false;
+}
+function cbEnsurePoll(id) {
+  if (CB_POLL_T && CB_POLL_ID === id) return;
+  cbClearPollTimer();
+  CB_POLL_ID = id;
+  CB_POLL_T = setInterval(() => cbPollTick(id), CB_POLL_MS);
+}
+
+async function cbPollTick(id) {
+  if (CAMPAIGN_VIEW?.id !== id) { cbClearPollTimer(); return; }
+  if (document.hidden || document.getElementById("panel-briefs")?.hidden || CB_POLL_BUSY) return;
+  const rec = CB_CACHE.get(id);
+  if (!rec) return;
+  if (cbProgress(rec.formats).working === 0) { cbClearPollTimer(); return; }
+  CB_POLL_BUSY = true;
+  const before = new Map(rec.formats.map((f) => [f.id, JSON.stringify(f)]));
+  const order = cbSorted(rec).map((f) => f.id).join(",");
+  let changed = false;
+  try { changed = await cbPoll(id); } catch { /* transient — the next tick tries again */ }
+  finally { CB_POLL_BUSY = false; }
+  if (CAMPAIGN_VIEW?.id !== id) return;
+  const cur = CB_CACHE.get(id);
+  if (!changed || !cur) { cbPaintLane(id); return; }
+  if (cbSorted(cur).map((f) => f.id).join(",") !== order) {
+    // A format was added, removed or reordered elsewhere: numbering changes.
+    if (cbEditorBusy()) { CB_PENDING = true; cbPaintSummary(id); } else renderBriefsKeepScroll();
+    return;
+  }
+  // Same formats, same order: repaint only the cards that changed. A card with
+  // an editor open, a focused field or a playing clip is left alone and caught
+  // up once the editor closes.
+  for (const f of cur.formats) {
+    if (before.get(f.id) === JSON.stringify(f)) continue;
+    const card = document.getElementById(`cb-f-${f.id}`);
+    const a = document.activeElement;
+    const focusedField = card && a && card.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
+    const playing = card && [...card.querySelectorAll("video")].some((vd) => !vd.paused);
+    if (CB_EDITING.has(f.id) || CB_REGEN.has(f.id) || CB_REPLACE.has(f.id) || focusedField || playing) {
+      CB_PENDING = true;
+      continue;
+    }
+    cbRepaintCard(id, f.id);
+  }
+  cbPaintSummary(id);
+  if (cbProgress(cur.formats).working === 0) cbClearPollTimer();
+}
+
+function cbRepaintCard(campaignId, fid, focusSel) {
+  const rec = CB_CACHE.get(campaignId);
+  const old = document.getElementById(`cb-f-${fid}`);
+  if (!rec || !old) { renderBriefsKeepScroll(); return; }
+  const formats = cbSorted(rec);
+  const i = formats.findIndex((x) => x.id === fid);
+  if (i < 0) { renderBriefsKeepScroll(); return; }
+  const tpl = document.createElement("template");
+  tpl.innerHTML = cbCardHtml(formats[i], i, formats.length).trim();
+  const card = tpl.content.firstElementChild;
+  old.replaceWith(card);
+  cbBindCard(card, campaignId);
+  cbWireGrow(card);
+  if (focusSel) (card.querySelector(focusSel) || card).focus();
+}
+
+async function cbMove(campaignId, fid, dir) {
+  const rec = CB_CACHE.get(campaignId);
+  if (!rec) return;
+  const formats = cbSorted(rec);
+  const i = formats.findIndex((x) => x.id === fid);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= formats.length) return;
+  const a = formats[i], b = formats[j];
+  let pa = a.position ?? i, pb = b.position ?? j;
+  if (pa === pb) { pa = i; pb = j; }
+  a.position = pb; b.position = pa;
+  renderBriefsKeepScroll();
+  const card = document.getElementById(`cb-f-${fid}`);
+  const want = card?.querySelector(dir < 0 ? ".cb-up" : ".cb-down");
+  (want && !want.disabled ? want : card?.querySelector(dir < 0 ? ".cb-down" : ".cb-up") || card)?.focus();
+  try {
+    await Promise.all([cbPatchFormat(a.id, { position: pb }), cbPatchFormat(b.id, { position: pa })]);
+  } catch {
+    try { await cbLoadCampaign(campaignId); } catch { /* keep the optimistic order on screen */ }
+    if (CAMPAIGN_VIEW?.id !== campaignId) return;
+    renderBriefsKeepScroll();
+    cbMsg(document.getElementById("cb-view-msg"), "Couldn't save the new order — reloaded the campaign.", "bad", true);
+  }
+}
+
+/** Merge a request body into the cached format after a successful PATCH. The
+    worker-derived aliases (cover/clip/…) go with the source a replace clears. */
+function cbMergeLocal(f, body) {
+  Object.assign(f, body);
+  if ("source" in body && body.source === null) Object.assign(f, { cover: null, clip: null, duration: null, title: "" });
+  delete f.source;
+}
+
+function cbBindCard(card, campaignId) {
+  const fid = card.dataset.fid;
+  const get = () => CB_CACHE.get(campaignId)?.formats.find((x) => x.id === fid);
+  const fmsg = () => document.getElementById(`cb-fmsg-${fid}`);
+  const repaint = (sel) => cbRepaintCard(campaignId, fid, sel);
+  const after = () => { cbPaintSummary(campaignId); cbEnsurePoll(campaignId); };
+
+  card.querySelector(".cb-up")?.addEventListener("click", () => cbMove(campaignId, fid, -1));
+  card.querySelector(".cb-down")?.addEventListener("click", () => cbMove(campaignId, fid, +1));
+  card.querySelector(".cb-edit")?.addEventListener("click", () => {
+    CB_REGEN.delete(fid); CB_EDITING.add(fid); repaint('[data-ed="title"]');
+  });
+  card.querySelector(".cb-regen")?.addEventListener("click", () => {
+    if (CB_REGEN.has(fid)) { CB_REGEN.delete(fid); repaint(".cb-regen"); cbFlushPending(campaignId); }
+    else { CB_REGEN.add(fid); repaint("[data-regen-note]"); }
+  });
+  card.querySelector(".cb-regen-cancel")?.addEventListener("click", () => {
+    CB_REGEN.delete(fid); repaint(".cb-regen"); cbFlushPending(campaignId);
+  });
+  card.querySelector(".cb-regen-row")?.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.preventDefault(); CB_REGEN.delete(fid); repaint(".cb-regen"); cbFlushPending(campaignId); }
+  });
+  card.querySelector(".cb-regen-go")?.addEventListener("click", async (e) => {
+    const f = get();
+    if (!f) return;
+    const body = cbRegenerateBody(f, (card.querySelector("[data-regen-note]")?.value || "").trim());
+    e.currentTarget.disabled = true;
+    try {
+      await cbPatchFormat(fid, body);
+      cbMergeLocal(f, body);
+      CB_REGEN.delete(fid);
+      repaint(".cb-state");
+      after();
+    } catch (ex) {
+      e.target.closest("button").disabled = false;
+      cbMsg(fmsg(), cbErrorSentence(ex, "regenerate"), "bad", true);
+    }
+  });
+  card.querySelector(".cb-restore")?.addEventListener("click", async (e) => {
+    const f = get();
+    if (!f?.script_prev) return;
+    const body = cbRestoreBody(f);
+    e.currentTarget.disabled = true;
+    try {
+      await cbPatchFormat(fid, body);
+      cbMergeLocal(f, body);
+      repaint();
+      cbMsg(fmsg(), "Previous version restored — the one it replaced is kept as the new previous.", "good");
+    } catch (ex) {
+      e.target.closest("button").disabled = false;
+      cbMsg(fmsg(), cbErrorSentence(ex, "save"), "bad", true);
+    }
+  });
+  card.querySelector(".cb-retry")?.addEventListener("click", async (e) => {
+    const f = get();
+    if (!f) return;
+    const body = cbRetryBody();
+    e.currentTarget.disabled = true;
+    try {
+      await cbPatchFormat(fid, body);
+      cbMergeLocal(f, body);
+      repaint();
+      after();
+    } catch (ex) {
+      e.target.closest("button").disabled = false;
+      cbMsg(fmsg(), cbErrorSentence(ex, "save"), "bad", true);
+    }
+  });
+  card.querySelector(".cb-replace")?.addEventListener("click", () => {
+    if (CB_REPLACE.has(fid)) { CB_REPLACE.delete(fid); repaint(".cb-replace"); cbFlushPending(campaignId); }
+    else { CB_REPLACE.add(fid); repaint(".cb-replace-input"); }
+  });
+  const rform = card.querySelector(".cb-replace-form");
+  rform?.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.preventDefault(); CB_REPLACE.delete(fid); repaint(".cb-replace"); cbFlushPending(campaignId); }
+  });
+  rform?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const rec = CB_CACHE.get(campaignId);
+    const f = get();
+    if (!rec || !f) return;
+    const input = rform.querySelector("input");
+    const existing = new Set(rec.formats.filter((x) => x.id !== fid).map((x) => canonUrl(x.source_url)));
+    const parsed = cbParseLinks(input.value, existing);
+    const refuse = (t) => { cbMsg(fmsg(), t, "bad", true); markInvalid(input, `cb-fmsg-${fid}`); input.focus(); };
+    if (!parsed.length) return refuse("Paste a TikTok or Instagram video link.");
+    if (parsed.length > 1) return refuse("Paste one link to replace this one.");
+    const r = parsed[0];
+    if (!r.ok) {
+      return refuse(r.why === "youtube" ? "YouTube isn't supported yet."
+        : r.why === "duplicate" ? "That video is already in this campaign."
+        : r.why === "not supported" ? CB_ERROR_TEXT.off_platform : "That isn't a link.");
+    }
+    const body = cbReplaceLinkBody(r.url);
+    try {
+      await cbPatchFormat(fid, body);
+      cbMergeLocal(f, body);
+      CB_REPLACE.delete(fid);
+      repaint(".cb-state");
+      after();
+    } catch (ex) {
+      cbMsg(fmsg(), cbErrorSentence(ex, "save"), "bad", true);
+    }
+  });
+  rform?.querySelector("input")?.addEventListener("input", (e) => clearInvalid(e.target));
+
+  // ---- the format editor ----
+  const form = card.querySelector(".cb-editor");
+  if (form) {
+    const renumber = () => form.querySelectorAll(".cb-beat-n").forEach((s, k) => { s.textContent = String(k + 1); });
+    const wireRemove = (fs) => fs.querySelector(".cb-beat-remove").addEventListener("click", () => {
+      const next = fs.nextElementSibling || fs.previousElementSibling;
+      fs.remove();
+      renumber();
+      (next?.querySelector("input, textarea") || form.querySelector(".cb-beat-add")).focus();
+    });
+    form.querySelectorAll(".cb-beat-field").forEach(wireRemove);
+    form.querySelector(".cb-beat-add").addEventListener("click", () => {
+      const list = form.querySelector(".cb-beat-list");
+      const tpl = document.createElement("template");
+      tpl.innerHTML = cbBeatFieldHtml({}, list.children.length).trim();
+      const fs = tpl.content.firstElementChild;
+      list.appendChild(fs);
+      wireRemove(fs);
+      cbWireGrow(fs);
+      fs.querySelector("input").focus();
+    });
+    const close = (sel) => { CB_EDITING.delete(fid); repaint(sel); cbFlushPending(campaignId); };
+    form.querySelector(".cb-ed-cancel").addEventListener("click", () => close(".cb-edit"));
+    form.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); close(".cb-edit"); } });
+    form.querySelector(".cb-ed-revert")?.addEventListener("click", async (e) => {
+      const f = get();
+      if (!f) return;
+      e.currentTarget.disabled = true;
+      try {
+        await cbPatchFormat(fid, { edited: null });
+        f.edited = null;
+        close(".cb-edit");
+        cbMsg(fmsg(), "Back to the generated version.", "good");
+      } catch (ex) {
+        e.target.closest("button").disabled = false;
+        cbMsg(fmsg(), cbErrorSentence(ex, "save"), "bad", true);
+      }
+    });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = get();
+      if (!f) return;
+      const body = cbReadEditor(form);
+      // Nothing changed: close without writing, so an unchanged Save does not
+      // mark the format "edited".
+      const v = cbView(f);
+      const same = Object.keys(body.edited).every((k) =>
+        JSON.stringify(body.edited[k]) === JSON.stringify(k === "needs" || k === "beats"
+          ? (k === "needs" ? (v.needs || []).map((s) => String(s).trim()).filter(Boolean)
+            : (v.beats || []).map((b) => ({ t: (b.t || "").trim(), say: (b.say || "").trim(), do: (b.do || "").trim(), show: (b.show || "").trim() }))
+              .filter((b) => b.say || b.do || b.show))
+          : String(v[k] || "").trim()));
+      if (same && body.internal_note === (f.internal_note || "").trim()) { close(".cb-edit"); return; }
+      const save = form.querySelector(".cb-ed-save");
+      save.disabled = true;
+      try {
+        await cbPatchFormat(fid, body);
+        f.edited = body.edited;
+        f.internal_note = body.internal_note;
+        close(".cb-edit");
+        cbMsg(fmsg(), "Saved.", "good");
+      } catch (ex) {
+        save.disabled = false;
+        cbMsg(fmsg(), cbErrorSentence(ex, "save"), "bad", true);
+      }
+    });
+  }
+
+  const del = card.querySelector(".cb-del");
+  if (del) armDelete(del, "Delete", async () => {
+    const rec = CB_CACHE.get(campaignId);
+    try {
+      await cbDeleteFormat(fid);
+      if (rec) {
+        const order = cbSorted(rec).map((x) => x.id);
+        const at = order.indexOf(fid);
+        rec.formats = rec.formats.filter((x) => x.id !== fid);
+        CB_EDITING.delete(fid); CB_REGEN.delete(fid); CB_REPLACE.delete(fid);
+        renderBriefsKeepScroll();
+        const nextId = order[at + 1] || order[at - 1];
+        (nextId ? document.getElementById(`cb-f-${nextId}`) : document.querySelector("#cb-add .cb-row-input"))?.focus();
+        cbMsg(document.getElementById("cb-view-msg"), "Format deleted.", "good");
+      }
+    } catch (ex) {
+      cbMsg(fmsg(), cbErrorSentence(ex, "delete"), "bad", true);
+    }
+  });
+}
+
+function cbBindView(host, client, id) {
+  const rec = () => CB_CACHE.get(id);
+  const vmsg = () => document.getElementById("cb-view-msg");
+
+  // Rename: pencil -> input; Enter saves, Escape cancels.
+  document.getElementById("cb-rename")?.addEventListener("click", () => {
+    CB_FIELD_EDIT = { id, field: "name" }; renderBriefsKeepScroll();
+  });
+  const nameInput = document.getElementById("cb-name-input");
+  nameInput?.addEventListener("keydown", async (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      CB_FIELD_EDIT = null; renderBriefsKeepScroll();
+      document.getElementById("cb-rename")?.focus();
+      return;
+    }
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const name = nameInput.value.trim();
+    if (!name) { cbMsg(vmsg(), "A campaign brief needs a name.", "bad", true); return; }
+    nameInput.disabled = true;
+    try {
+      await cbPatchCampaign(id, { name });
+      rec().campaign.name = name;
+      const row = CB_LISTS.get(client.id)?.rows?.find((r) => r.id === id);
+      if (row) row.name = name;
+      CB_FIELD_EDIT = null;
+      renderBriefsKeepScroll();
+      document.getElementById("cb-rename")?.focus();
+    } catch (ex) {
+      nameInput.disabled = false;
+      nameInput.focus();
+      cbMsg(vmsg(), cbErrorSentence(ex, "save"), "bad", true);
+    }
+  });
+
+  host.querySelectorAll(".cb-field-edit").forEach((btn) => btn.addEventListener("click", () => {
+    CB_FIELD_EDIT = { id, field: btn.dataset.field };
+    renderBriefsKeepScroll();
+  }));
+  host.querySelectorAll(".cb-field-editor").forEach((ed) => {
+    const field = ed.dataset.field;
+    const cancel = () => {
+      CB_FIELD_EDIT = null;
+      renderBriefsKeepScroll();
+      document.querySelector(`.cb-field-edit[data-field="${field}"]`)?.focus();
+      cbFlushPending(id);
+    };
+    ed.querySelector(".cb-fe-cancel").addEventListener("click", cancel);
+    ed.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); cancel(); } });
+    ed.querySelector(".cb-fe-save").addEventListener("click", async (e) => {
+      const r = rec();
+      if (!r) return;
+      let fields;
+      if (field === "brand") fields = { brand_context: readBrandForm(ed.querySelector(".cb-brand-form"), r.campaign.brand_context || {}) };
+      else fields = { [field]: (ed.querySelector("[data-fe]").value || "").trim() };
+      e.currentTarget.disabled = true;
+      try {
+        await cbPatchCampaign(id, fields);
+        Object.assign(r.campaign, fields);
+        CB_FIELD_EDIT = null;
+        renderBriefsKeepScroll();
+        document.querySelector(`.cb-field-edit[data-field="${field}"]`)?.focus();
+        if (field === "brand") {
+          cbMsg(vmsg(), "Brand context saved. It applies to formats generated or regenerated from now on — existing formats keep their text.", "good");
+        } else cbMsg(vmsg(), "Saved.", "good");
+        cbFlushPending(id);
+      } catch (ex) {
+        e.target.closest("button").disabled = false;
+        cbMsg(vmsg(), cbErrorSentence(ex, "save"), "bad", true);
+      }
+    });
+  });
+
+  document.getElementById("cb-agency")?.addEventListener("toggle", (e) => {
+    if (e.target.open) CB_AGENCY_OPEN.add(id); else CB_AGENCY_OPEN.delete(id);
+  });
+
+  const delBtn = document.getElementById("cb-del-campaign");
+  if (delBtn) armDelete(delBtn, "Delete", async () => {
+    try {
+      await cbDeleteCampaign(id);
+      CB_CACHE.delete(id);
+      const e2 = CB_LISTS.get(client.id);
+      if (e2?.rows) e2.rows = e2.rows.filter((r) => r.id !== id);
+      CAMPAIGN_VIEW = null;
+      renderBriefs();
+      cbMsg(document.getElementById("cb-msg"), "Campaign brief deleted.", "good");
+    } catch (ex) {
+      cbMsg(vmsg(), cbErrorSentence(ex, "delete"), "bad", true);
+    }
+  });
+
+  // ---- Step 14: export ----
+  document.getElementById("cb-copy")?.addEventListener("click", (e) => cbCopyBrief(id, client, e.currentTarget));
+  document.getElementById("cb-pdf")?.addEventListener("click", () => cbSavePdf(id, client));
+
+  // ---- add inspiration videos (one row per link) ----
+  const addForm = document.getElementById("cb-add");
+  const addRows = addForm?.querySelector('[data-rows="add"]');
+  const existingCanon = () => new Set((rec()?.formats || []).map((f) => canonUrl(f.source_url)));
+  const addGo = document.getElementById("cb-add-go");
+  const addCount = document.getElementById("cb-add-count");
+  const addCtl = addRows ? cbWireRows(addRows, {
+    existing: existingCanon,
+    onChange: (parsed) => {
+      const { ready, skipped } = cbRowsCount(parsed);
+      addGo.disabled = ready === 0;
+      addGo.textContent = `Add ${cbPlural(ready, "video", "videos")}`;
+      addCount.textContent = ready || skipped ? `${ready} ready` + (skipped ? ` · ${skipped} skipped` : "") : "";
+    },
+  }) : null;
+  if (addCtl) {
+    // Typed rows survive this view's own repaints (a reorder, a poll catch-up).
+    if (CB_ADD_KEEP?.id === id) addCtl.setValues(CB_ADD_KEEP.values); else addCtl.paint();
+    CB_ADD_KEEP = null;
+  }
+  addForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const r = rec();
+    if (!r || !addCtl) return;
+    const parsed = addCtl.parsed();
+    const ok = parsed.filter((p) => p.r?.ok);
+    const amsg = document.getElementById("cb-add-msg");
+    if (!ok.length) {
+      const bad = parsed.find((p) => p.r);
+      cbMsg(amsg, bad ? cbWhySentence(bad.r.why) : "Paste one or more TikTok or Instagram video links.", "bad", true);
+      (bad || parsed[0]).input.focus();
+      return;
+    }
+    const urls = ok.map((p) => p.r.url).slice(0, CB_MAX_FORMATS - r.formats.length);
+    const maxPos = r.formats.reduce((m, f) => Math.max(m, f.position ?? 0), -1);
+    addGo.disabled = true;
+    try {
+      await cbAddFormats(id, urls, maxPos + 1);
+    } catch (ex) {
+      addGo.disabled = false;
+      cbMsg(amsg, cbErrorSentence(ex, "add links to"), "bad", true);
+      return;
+    }
+    addCtl.reset();                    // before the repaint, so nothing is carried over
+    let note = `Added ${cbPlural(urls.length, "video", "videos")}.`;
+    try { await cbLoadCampaign(id); }
+    catch { note += " Couldn't refresh the list — reload to see them."; }
+    if (CAMPAIGN_VIEW?.id !== id) return;
+    renderBriefsKeepScroll();
+    cbMsg(document.getElementById("cb-add-msg"), note, "good");
+    document.querySelector("#cb-add .cb-row-input")?.focus();
+  });
+}
+
+// ---------- Step 14: export ----------
+
+async function cbCopyBrief(id, client, btn) {
+  const rec = CB_CACHE.get(id);
+  if (!rec) return;
+  const formats = cbSorted(rec);
+  const html = campaignDocHtml(rec.campaign, formats, client);
+  const text = campaignDocText(rec.campaign, formats, client);
+  let ok = false;
+  try {
+    if (window.ClipboardItem && navigator.clipboard?.write) {
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([text], { type: "text/plain" }),
+      })]);
+      ok = true;
+    }
+  } catch { /* rich clipboard refused — plain text below */ }
+  if (!ok) {
+    try { await navigator.clipboard.writeText(text); ok = true; } catch { /* clipboard denied */ }
+  }
+  btn.textContent = ok ? "Copied ✓" : "Copy failed";
+  clearTimeout(btn.cbT);
+  btn.cbT = setTimeout(() => { if (btn.isConnected) btn.textContent = "Copy brief"; }, 1500);
+}
+
+/** "<campaign name> — brief", minus anything a filesystem refuses
+    (\\ / : * ? " < > | and control characters) and trailing dots/spaces. */
+function cbPdfTitle(name) {
+  const clean = String(name || "").replace(/[\\/:*?"<>|\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ").trim().replace(/[. ]+$/, "").slice(0, 120).trim();
+  return `${clean || "Campaign"} — brief`;
+}
+
+/** Print only the creator document: a detached #cb-print node plus
+    body.cb-printing, which the @media print rules at the end of app.css use
+    to hide everything else. Cleaned up on afterprint. */
+function cbSavePdf(id, client) {
+  const rec = CB_CACHE.get(id);
+  if (!rec) return;
+  document.getElementById("cb-print")?.remove();
+  const node = document.createElement("div");
+  node.id = "cb-print";
+  node.innerHTML = campaignDocHtml(rec.campaign, cbSorted(rec), client);
+  document.body.appendChild(node);
+  document.body.classList.add("cb-printing");
+  const oldTitle = document.title;
+  // Chrome's Save as PDF takes its default filename from the title.
+  document.title = cbPdfTitle(rec.campaign.name);
+  window.addEventListener("afterprint", () => {
+    node.remove();
+    document.body.classList.remove("cb-printing");
+    document.title = oldTitle;
+  }, { once: true });
+  window.print();
 }
 
 // ---------- Ops ----------

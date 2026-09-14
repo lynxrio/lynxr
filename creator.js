@@ -1748,10 +1748,16 @@ function renderSide() {
      existed. Wording is unchanged either way. */
   const grant = scriptGrant();
   const used = Math.min(ALLOWANCE ? ALLOWANCE.used : scriptsUsed(), grant);
+  // A rolling grant (period_days > 0) reads "N per D days" instead of the
+  // lifetime phrasing — see quotaWallText() for why the two must not share
+  // a sentence. `used` is already window-scoped by my_allowance() in that case.
+  const rolling = ALLOWANCE && ALLOWANCE.periodDays > 0;
   const quota = document.getElementById("side-quota");
   document.getElementById("side-quota-text").textContent =
-    used >= grant ? `${grant}/${grant} — none left`
-                  : `${used}/${grant} scripts · ${grant - used} left`;
+    used >= grant
+      ? (rolling ? `${grant}/${grant} per ${ALLOWANCE.periodDays}d — none left` : `${grant}/${grant} — none left`)
+      : (rolling ? `${used}/${grant} per ${ALLOWANCE.periodDays}d · ${grant - used} left`
+                 : `${used}/${grant} scripts · ${grant - used} left`);
   // Width via CSSOM, not a style attribute: the CSP drops inline styles, and
   // this exact mistake once shipped bar charts that rendered as nothing.
   // `grant` is guarded because a granted of 0 is a legal row — a suspended
@@ -3440,8 +3446,12 @@ function renderPlan(head, body) {
         </div>
         <span class="quota-bar" aria-hidden="true"><i id="plan-fill"></i></span>
         <p class="plan-line">${spent
-          ? "You've used all of them. Nothing you've written is gone — your scripts and companies stay exactly as they are."
-          : `${room} left. They don't refill — it's ${grant} for the life of the account.`}</p>
+          ? (ALLOWANCE && ALLOWANCE.periodDays > 0
+              ? "Nothing you've written is gone — the window rolls, so room reopens as older scripts age out."
+              : "You've used all of them. Nothing you've written is gone — your scripts and companies stay exactly as they are.")
+          : (ALLOWANCE && ALLOWANCE.periodDays > 0
+              ? `${room} left. It's ${grant} per ${ALLOWANCE.periodDays} days — the window rolls, so room comes back as older scripts age out.`
+              : `${room} left. They don't refill — it's ${grant} for the life of the account.`)}</p>
       </div>
     </div>
 
@@ -4453,7 +4463,7 @@ function quotaWallText() {
   const grant = scriptGrant();
   const rolling = ALLOWANCE && ALLOWANCE.periodDays > 0;
   return rolling
-    ? `That's all ${grant} scripts for the last 30 days. The window rolls, so room comes back as older scripts age out — nothing you've written is gone.`
+    ? `That's all ${grant} scripts for the last ${ALLOWANCE.periodDays} days. The window rolls, so room comes back as older scripts age out — nothing you've written is gone.`
     : `That's all ${grant} scripts. See Plan in the menu for what's next.`;
 }
 const scriptRoom = () => (ALLOWANCE
@@ -8397,6 +8407,41 @@ function unlock() {
   // count; this repaints it with the server's the moment it answers. Not
   // awaited — a slow or missing RPC must not hold up the app opening.
   refreshAllowance();
+  // Staff only, decided by the database (is_staff()). Not awaited, for the
+  // same reason as refreshAllowance above.
+  revealAgencySwitch();
+}
+
+/* STAFF-ONLY LINK TO THE AGENCY APP (2026-09-14).
+   Shown only when the database says this account is staff. is_staff() is the
+   exact check every agency RLS policy uses, so the link cannot disagree with
+   what the agency app will actually show. It is a CONVENIENCE, NOT THE GATE:
+   /agencyonly/ opens for anyone, and a non-staff account reads zero rows
+   there because RLS says so.
+
+   Built here, not in HTML, so the agency path never appears in the markup
+   of index.html (the public landing ships this same rail).
+
+   THE TWO APPS KEEP SEPARATE SESSIONS: lynxr_creator_session here,
+   lynxr_sb_session in app.js. The first switch on a browser shows that
+   app's sign-in once; after that both stay signed in. Do NOT copy a session
+   from one key to the other: Supabase refresh tokens are single-use, and a
+   second holder using the same token more than 10 seconds later terminates
+   the session in BOTH apps. */
+async function revealAgencySwitch() {
+  if (document.getElementById("nav-agency")) return;
+  let staff = false;
+  try {
+    staff = (await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" })) === true;
+  } catch { return; }                        // offline, or no is_staff(): no link
+  const before = document.getElementById("nav-you");
+  if (!staff || !before || document.getElementById("nav-agency")) return;
+  const a = document.createElement("a");
+  a.className = "side-link";
+  a.id = "nav-agency";
+  a.href = "/agencyonly/";
+  a.innerHTML = `<svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3.5-3.5"/><path d="M20 16H7l3.5 3.5"/></svg><span class="side-label">Agency app</span>`;
+  before.parentNode.insertBefore(a, before);
 }
 
 /* SIGNED IN MEANS NO MARKETING. The sections are REMOVED, not hidden: site.js

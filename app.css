@@ -4939,7 +4939,9 @@
   .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title, .lp-quote,
   .lib-group-name[data-bid], .side-item .side-label, #brand-heading,
   .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip, .chip.trash-brand,
-  .tp-words, .tp-cue, .tp-brand, .for-chip {
+  .tp-words, .tp-cue, .tp-brand, .for-chip,
+  .cb-name, .cb-title, .cb-needs, .cb-setup-val, .cb-note, .cb-instructions, .cb-internal,
+  .cb-bval, .cb-raw {
     text-transform: none;
   }
   /* Placeholders are ours, but they live inside an input that is not — so they
@@ -6918,3 +6920,238 @@
   body.lp:not(.home) .post-table th { position: static; background: var(--surface); color: var(--text-3); font-size: var(--fs-115); box-shadow: none; }
   body.lp:not(.home) .post-table td { color: var(--text-2); }
   body.lp:not(.home) .post-table tbody tr:is(:nth-child(even), :hover) td { background: transparent; }
+  /* ---------- STAFF APP SWITCH (2026-09-14) ----------
+     #nav-agency (creator rail, built by creator.js) and #to-creator (agency
+     header, built by app.js) are <a> elements that exist only after
+     is_staff() answers true. Neither is in any HTML file.
+     The global `a:hover { border-bottom-color }` near the top of this file is
+     (0,1,1) and beats `.side-link`'s transparent border (0,1,0), so without
+     this the rail link grows an underline on hover. `.ghost:hover:not(:disabled)`
+     already beats `a:hover`, so #to-creator needs no hover fix.
+     Id selectors on purpose: `header` also matches the public pages' .lp-bar,
+     so nothing here may be a bare `header …` rule. At the end of the file
+     because of the CSS ORDER TRAP (HANDOFF). */
+  #nav-agency, #nav-agency:hover { border-bottom-color: transparent; }
+  #to-creator { flex: none; white-space: nowrap; }
+  /* Same squeeze as `header #signout` in the 640px block far above (~2132),
+     restated here because that block loses to anything later in the file. */
+  @media (max-width: 640px) {
+    #to-creator { padding: 6px 10px; font-size: var(--fs-125); }
+  }
+  /* ---------- CAMPAIGN BRIEFS (2026-09-14) ----------
+     Agency app only: every class here is emitted by the campaign-brief code in
+     app.js (plan: ~/.claude/plans/agency-batch-campaign-brief.md, Steps
+     10-14) and prefixed cb- so nothing on another page can match it. At the
+     end of the file because of the CSS ORDER TRAP (HANDOFF): .card-detail,
+     .bp-beat and .fmt-grid are restated here at equal specificity, and only
+     source order makes these win.
+     Content classes (cb-name, cb-title, cb-needs, cb-setup-val, cb-note,
+     cb-instructions, cb-internal, cb-bval, cb-raw) sit on the lowercase
+     exclusion list near the HOUSE STYLE block; the labels inside them are put
+     back to lowercase explicitly (.cb-lbl, .cb-setup-lbl). */
+  .cb-msg.show { max-height: 160px; }
+  .cb-small { padding: 5px 11px; font-size: var(--fs-125); }
+  .cb-lbl, .cb-setup-lbl { text-transform: lowercase; }
+  .cb-lbl { font-size: var(--fs-105); letter-spacing: .08em; color: var(--text-3); margin: 0 0 4px; }
+  .cb-block-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 10px; }
+  .cb-block-head .cb-field-edit { margin-left: auto; }
+  .cb-block-title { font-size: var(--fs-13); font-weight: 600; color: var(--text-2); }
+
+  /* Step 10 — brand context editor */
+  .page-head #cl-brand { flex: 0 0 auto; }
+  .cb-brand-box .cb-brand-form { margin-bottom: 4px; }
+  .cb-more > summary { cursor: pointer; color: var(--text-3); font-size: var(--fs-13); padding: 6px 0; }
+  .cb-more > summary:hover { color: var(--text-2); }
+  .cb-more-grid { margin: 8px 0 0; }
+  .cb-check { display: flex; align-items: center; gap: 8px; margin: 6px 0 8px; font-size: var(--fs-13); color: var(--text-2); cursor: pointer; }
+  .cb-check input { width: 16px; height: 16px; flex: none; accent-color: var(--text); }
+
+  /* Step 11 — campaign list and composer */
+  .cb-compose[hidden] { display: none; }
+  .cb-compose > .ce-grid { margin-bottom: 8px; }
+  .cb-link-count { font-size: var(--fs-125); color: var(--text-2); margin: 0 0 10px; min-height: 1.6em; }
+  .cb-compose-brand { margin: 0 0 6px; }
+  .cb-compose-brand > .cb-brand-form { margin-top: 8px; }
+  .cb-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .cb-list-note { margin-top: 10px; }
+  .sec-head .cb-sec-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .sec-head .cb-sec-actions .lib-plus { margin-left: 0; }
+
+  /* One input per inspiration link (composer + the campaign view's add box).
+     Same capsule as the paste composer — dark field, rounded border, the
+     platform badge as a pill at the right — sized down to sit in a form. */
+  .cb-rows, .cb-row-list { display: flex; flex-direction: column; gap: 8px; }
+  .cb-row { display: grid; grid-template-columns: 74px minmax(0, 1fr); align-items: center; gap: 10px; }
+  .cb-row-lbl { font-size: var(--fs-125); color: var(--text-3); white-space: nowrap; }
+  .cb-row .composer-row { padding: 4px 4px 4px 14px; gap: 8px; min-height: 40px; box-sizing: border-box; background: var(--surface-2); border-color: var(--line); }
+  .cb-row .composer-row:focus-within { border-color: var(--text-3); }
+  .cb-row .composer-row input { font-size: var(--fs-14); padding: 6px 0; }
+  .cb-row .bp-plat { max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cb-row .bp-plat:not(.on) { display: none; }
+  .cb-row .bp-plat.good { color: var(--good); border-color: var(--good); }
+  .cb-row .ghost.icon-only { width: 30px; height: 30px; flex: none; border-color: transparent; }
+  .cb-row .ghost.icon-only[hidden] { display: none; }
+  .cb-rows-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding-left: 84px; }
+  .cb-rows .cb-msg.show { margin-top: 0; }
+  .cb-add-actions { align-items: center; flex-wrap: wrap; }
+  @media (max-width: 560px) {
+    .cb-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+    .cb-rows-foot { padding-left: 0; }
+  }
+
+  /* Step 12 — the campaign view */
+  .cb-head { flex-wrap: wrap; }
+  .cb-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .cb-title-row .bcard-title { min-width: 0; }
+  .cb-title-row .ghost.icon-only { width: 30px; height: 30px; border-color: transparent; flex: none; }
+  .cb-name-input {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: var(--fs-19); font-weight: 600;
+    background: var(--surface-2); border: 1px solid var(--line-2); border-radius: var(--r-inner);
+    color: var(--text); padding: 4px 10px;
+  }
+  .cb-export { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .cb-notready { margin: -8px 0 12px; }
+  .cb-progress { margin: 0 0 22px; }
+  .cb-progress-line { font-size: var(--fs-13); color: var(--text-2); margin: 0 0 8px; }
+  .cb-bar { height: 4px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
+  .cb-bar-fill { height: 100%; width: 0; background: var(--good); border-radius: inherit; transition: width .4s var(--ease); }
+  @media (prefers-reduced-motion: reduce) { .cb-bar-fill { transition: none; } }
+  .cb-lane { margin-top: 8px; }
+  .cb-block, .cb-agency {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
+    padding: 14px 16px; margin: 0 0 14px;
+  }
+  html[data-theme="light"] :is(.cb-block, .cb-agency) { box-shadow: var(--shadow-card); }
+  .cb-instructions, .cb-internal-text {
+    margin: 0; white-space: pre-line; overflow-wrap: anywhere;
+    font-size: var(--fs-135); line-height: 1.6; color: var(--text);
+  }
+  .cb-agency > summary { cursor: pointer; color: var(--text-2); font-size: var(--fs-13); font-weight: 600; }
+  .cb-agency[open] > summary { margin-bottom: 14px; }
+  .cb-agency-body .cd-facts { margin-bottom: 16px; }
+  .cb-notes-head { margin-top: 6px; }
+  .cb-field-editor .bp-actions { margin-top: 10px; }
+
+  .cb-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 0; }
+  .cb-format { scroll-margin-top: 80px; }
+  .cb-format:focus { outline: none; }
+  .cb-format:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  .cb-format.cb-error { border-color: var(--bad-line); }
+  .cb-fhead { align-items: center; flex-wrap: wrap; margin-bottom: 0; }
+  .cb-fh { margin: 0; flex: 1 1 220px; min-width: 0; font-size: var(--fs-15); font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+  .cb-fnum { color: var(--text-3); }
+  .cb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cb-ctrls { display: flex; gap: 4px; margin-left: auto; }
+  .cb-ctrls .ghost.icon-only { width: 32px; height: 32px; }
+  .cb-ctrls .ghost.icon-only.armed { width: auto; }
+  .cb-detail { grid-template-columns: 220px minmax(0, 1fr); gap: 22px; }
+  .cb-media { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .cb-clip, .cb-cover, .cb-ph {
+    display: block; width: 100%; aspect-ratio: 9 / 16; box-sizing: border-box; overflow: hidden;
+    border: 1px solid var(--line); border-radius: var(--r-inner); background: #000;
+  }
+  .cb-clip { object-fit: contain; }
+  a.cb-cover:hover, a.cb-ph:hover { border-color: var(--line-2); }
+  .cb-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .cb-ph { display: grid; place-items: center; background: var(--surface-2); color: var(--text-3); font-size: var(--fs-13); }
+  .cb-open { align-self: flex-start; font-size: var(--fs-125); }
+  .cb-sec { margin: 0 0 14px; }
+  .cb-sec p { margin: 0; }
+  .cb-note { font-size: var(--fs-135); line-height: 1.55; color: var(--text); white-space: pre-line; overflow-wrap: anywhere; }
+  .cb-needs { margin: 0; padding-left: 1.2em; font-size: var(--fs-135); line-height: 1.6; color: var(--text); }
+  .cb-needs li::marker { color: var(--text-3); }
+  .cb-setup { display: grid; gap: 4px; }
+  .cb-setup-row { display: grid; grid-template-columns: 9ch minmax(0, 1fr); gap: 10px; font-size: var(--fs-13); }
+  .cb-setup-lbl { color: var(--text-3); }
+  .cb-setup-val { color: var(--text); overflow-wrap: anywhere; }
+  .cb-beats { border: 1px solid var(--line); border-radius: var(--r-inner); }
+  .cb-format .bp-beat { grid-template-columns: 64px 72px minmax(0, 1fr); }
+  .cb-internal:not(p) {
+    margin-top: 16px; padding: 12px 14px; border: 1px dashed var(--even-line);
+    border-radius: var(--r-inner); background: var(--surface-2);
+  }
+  .cb-internal .cb-agency-lbl { color: var(--even); margin-bottom: 10px; }
+  .cb-internal p { font-size: var(--fs-13); color: var(--text-2); white-space: pre-line; overflow-wrap: anywhere; }
+  .cb-internal p + p { margin-top: 6px; }
+  .cb-internal .cb-sec:last-child { margin-bottom: 0; }
+  .cb-state { display: inline-flex; align-items: center; gap: 6px; }
+  .cb-state .loader-mark { width: 12px; height: 12px; }
+  .cb-src { font-weight: 400; font-size: var(--fs-13); color: var(--text-2); overflow-wrap: anywhere; }
+  .cb-skel { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+  .cb-skel i { display: block; height: 10px; width: 100%; border-radius: var(--r-pill); background: var(--surface-2); }
+  .cb-skel i.short { width: 55%; }
+  .cb-err-body { margin-top: 12px; }
+  .cb-err-text { margin: 0; color: var(--bad); font-size: var(--fs-135); }
+  .cb-err-detail > summary { cursor: pointer; margin-top: 6px; color: var(--text-3); font-size: var(--fs-125); }
+  .cb-err-detail p { margin: 6px 0 0; color: var(--text-3); font-size: var(--fs-12); overflow-wrap: anywhere; }
+  .cb-replace-form { margin-top: 12px; }
+
+  /* Step 13 — editing and per-format actions */
+  .cb-restore-row { margin-top: 10px; }
+  .cb-regen-row { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-inner); background: var(--surface-2); }
+  .cb-regen-row .bp-actions { margin-top: 10px; }
+  .cb-editor { margin-top: 14px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .cb-aud { color: var(--text-3); }
+  .cb-beat-list { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 10px; }
+  .cb-beat-field { margin: 0; min-width: 0; padding: 8px 12px 12px; border: 1px solid var(--line); border-radius: var(--r-inner); }
+  .cb-beat-field legend { padding: 0 6px; margin: 0; }
+  .cb-beat-grid { display: grid; grid-template-columns: 90px repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .cb-ed-tail { margin-top: 14px; }
+  .cb-add-box { margin: 20px 0 0; }
+
+  @media (max-width: 760px) {
+    .cb-detail { grid-template-columns: minmax(0, 1fr); }
+    .cb-media { width: 100%; max-width: 240px; margin: 0 auto; }
+    .cb-beat-grid { grid-template-columns: minmax(0, 1fr); }
+    .cb-ctrls { margin-left: 0; }
+  }
+  @media (max-width: 560px) {
+    .cb-format .bp-beat { grid-template-columns: 72px minmax(0, 1fr); }
+  }
+
+  /* Step 14 — Download PDF (the browser's print-to-PDF, which keeps real,
+     clickable link annotations). #cb-print only exists between the button
+     press and afterprint, and everything is scoped to body.cb-printing / the
+     named page `cb-brief`, so printing any other page is untouched — a bare
+     @page rule here would re-margin every page on the site. */
+  #cb-print { display: none; }
+  @page cb-brief { margin: 16mm 15mm 18mm; }
+  @media print {
+    body.cb-printing > :not(#cb-print) { display: none !important; }
+    body.cb-printing #cb-print { display: block; page: cb-brief; color: #000; background: #fff; }
+    body.cb-printing { background: #fff; }
+    body.cb-printing::before { display: none; }
+    /* The page margins paint the ROOT's background, not body's: with the dark
+       theme's color-scheme they came out near-black around a white sheet. */
+    html:has(> body.cb-printing) { background: #fff; color-scheme: light; }
+  }
+  .cb-doc, .cb-doc * { text-transform: none; }
+  .cb-doc {
+    max-width: 720px; margin: 0 auto; padding: 0;
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #000;
+  }
+  .cb-doc h1 { font-size: 19pt; line-height: 1.2; margin: 0 0 3pt; color: #000; }
+  .cb-doc h2 {
+    display: block; font-size: 13pt; font-weight: 700; letter-spacing: 0; line-height: 1.3;
+    color: #000; margin: 0 0 3pt; break-after: avoid; page-break-after: avoid;
+  }
+  .cb-doc > h2 { margin-top: 14pt; }
+  .cb-doc h2::before { content: none; display: none; }
+  .cb-doc p { margin: 0 0 5pt; white-space: pre-line; overflow-wrap: anywhere; }
+  .cb-doc .cb-doc-sub { color: #444; margin-bottom: 8pt; }
+  .cb-doc ol { margin: 4pt 0 8pt; padding-left: 18pt; }
+  .cb-doc li { margin: 0 0 5pt; }
+  .cb-doc a { color: #0b57d0; border-bottom: 0; text-decoration: underline; overflow-wrap: anywhere; }
+  /* Each format opens on a rule, and its title never lands at the foot of a
+     page without the video link under it. A format longer than a page still
+     breaks inside — avoid is a preference, not a clip. */
+  .cb-doc section { margin-top: 14pt; padding-top: 10pt; border-top: 1px solid #bbb; break-inside: avoid; page-break-inside: avoid; }
+  .cb-doc .cb-doc-head { break-inside: avoid; page-break-inside: avoid; margin-bottom: 6pt; }
+  .cb-doc .cb-doc-video { margin: 0; line-height: 1.4; }
+  .cb-doc .cb-doc-video a { font-weight: 600; }
+  .cb-doc .cb-doc-url { font-size: 9pt; color: #444; overflow-wrap: anywhere; word-break: break-word; }
+  /* The primary export action: a .btn, trimmed to the ghost buttons' height. */
+  .cb-export .cb-pdf-btn { padding: 7px 15px; font-size: var(--fs-135); }
+  /* A card still waiting on its video has nothing to play yet; a full 9:16
+     empty frame there is ~390px of nothing. */
+  :is(.cb-queued, .cb-running) .cb-ph { aspect-ratio: auto; height: 96px; }

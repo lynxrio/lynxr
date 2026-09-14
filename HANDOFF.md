@@ -128,6 +128,117 @@ real rather than a dead channel.
 
 ## Where this left off (read this first)
 
+**2026-09-14 — AGENCY CAMPAIGN BRIEFS (plan:
+`~/.claude/plans/agency-batch-campaign-brief.md`). Code done; O1–O6 still
+open, nothing live yet.**
+- **What shipped.** Agency staff can pick a client, edit its brand context
+  (`Edit brand` on the client page), paste 1–10 TikTok/Instagram inspiration
+  links as a campaign, and get one AI-written production brief per link —
+  hook, Needs checklist, Say/Do/On-screen beats, setup, CTA, caption, a
+  creator-facing note and an agency-only strategy note. Staff can edit any
+  field, reorder, regenerate one format with an optional note, restore the
+  previous version, retry or replace a failed link, and delete. **Copy
+  brief** (rich + plain clipboard) and **Save as PDF** export only the
+  creator-facing fields — agency-only text (strategy note, internal notes,
+  fit score, analysis) never leaves the agency app; verified both by a code
+  read of `campaignDocHtml`/`campaignDocText` and live in the browser against
+  a fixture carrying sentinel "SECRET" strings.
+- **New tables** (staff-only, `is_staff()`, in `supabase/campaigns.sql`, NOT
+  yet run): `lynxr_campaigns`, `lynxr_campaign_formats`. Also: `lynxr_costs`
+  gains a `lane` column (`'creator'` default, so every existing row keeps its
+  meaning), and `lynxr_sources` gains `agency_seen_at` (provenance only,
+  nothing reads it yet).
+- **The lane rules:** creators are ALWAYS served first — the agency lane
+  (`pipeline/process_campaigns.py`, run by `pipeline/worker.py`) only takes a
+  turn when no creator is queued and no periodic sweep is due, and each pass
+  writes at most `AGENCY_PER_PASS` (default 2) formats before handing control
+  back. **There is no daily spend cap** — an owner decision made mid-build
+  that reverses the plan's original $25/day design. Agency spend is still
+  recorded under its own `lynxr_costs.lane='agency'` label so it stays
+  visible, but nothing stops or pauses the lane on it. It also never touches
+  `lynxr_script_charges`, so the creators' `DAILY_SCRIPT_CAP = 250` breaker is
+  completely unaffected either way. The lane runs on Fly only (never the
+  GitHub Actions fallback). Kill switch: `AGENCY_LANE=0`.
+- **Push safety, checked live:** the tables genuinely don't exist yet, and
+  pushing this code as-is is safe. `process_campaigns.py --probe` prints
+  `tables missing` and exits 3, spending and writing nothing.
+  `worker.py`'s agency probe degrades the same way — a 404 is caught, logged
+  once, and backed off for 5 minutes — and never touches the creator-serving
+  loop. The agency app itself was opened live against the real (missing)
+  tables: the client page still renders everything else (Details, Edit
+  brand, Suggested videos, Video blueprints, Briefs) and the Campaign briefs
+  section shows "campaign briefs aren't installed yet — run
+  `supabase/campaigns.sql` in the Supabase SQL editor" instead of breaking.
+- **Owner actions still open, in order:**
+  1. Review and run `supabase/campaigns.sql` in the Supabase SQL editor.
+  2. Isolation-probe it with a throwaway non-staff creator account (both new
+     tables must return 0 rows and refuse writes), then delete that account.
+  3. Fill Cloey's brand context (description, tone, CTA, site) in the new
+     editor.
+  4. On the Mac, before deploying: create a 2-link Cloey campaign at
+     `localhost:8811/agencyonly/`, run
+     `./venv/bin/python pipeline/process_campaigns.py --max-formats 2` twice
+     (one read pass, one write pass; roughly $0.40), review the brief, Copy
+     and Save as PDF.
+  5. `git add`/commit/push by hand — pipeline changes auto-deploy to Fly.
+     Confirm the new version with `fly status`.
+  6. Optional: `fly secrets set AGENCY_LANE=0` to switch the lane off later.
+     There is no spend-cap secret to set.
+- **`lynxr_costs` undercounts every creator script** (found while building
+  this): it records only the adapt call, because `usage()` is thread-local
+  and the source half (shots, tags, format) runs on other threads and was
+  never bound to the same sink. The paywall plan's $0.075/script basis is
+  therefore low — the real figure is closer to $0.11–0.13. Fixed for the
+  agency lane (`usage_sink` binding in `fill_source`'s `do_shots`/`do_tags`);
+  the creator path itself is unchanged and is the paywall plan's job.
+- **Pooling:** every fully-analyzed agency inspiration video joins the shared
+  library (`lynxr_sources` + `lynxr_videos`, `data_source = 'Creator'`) the
+  same way a creator's pasted link does — through the same unmodified
+  `upsert_source`/`upsert_video` — marked with `agency_seen_at` so it stays
+  distinguishable later. Nothing agency-internal (client, brand, campaign,
+  staff identity) is structurally reachable from that write; a monkeypatched
+  test proves it (`pipeline/test_campaigns.py`, "nothing agency-internal is
+  pooled"). Also confirmed while building this: `lynxr_sources.tag_count` is
+  never incremented by any code path (its own docstring claims otherwise) —
+  live, all rows sit at 1 even where a video is known to be shared. Pooling
+  doesn't break that signal; it was already not working.
+- **YouTube stays unsupported** in this MVP — a pasted YouTube link shows
+  "YouTube isn't supported yet" and is never queued. Same block as the
+  creator app (Fly's IPs are bot-blocked; see the entry below).
+- Stamp is now `20260914c` on 24 pages + 404.html.
+
+**2026-09-14 — STAFF APP SWITCH; TWO INTERNAL ACCOUNTS MADE STAFF WITH 150
+SCRIPTS PER ROLLING 30 DAYS (OWNER SQL).**
+- The creator rail now shows "agency app" and the agency header shows
+  "creator app", **only when `is_staff()` answers true**. Both elements are
+  built in JS (`revealAgencySwitch` in creator.js, `revealCreatorSwitch` in
+  app.js) and appear in no HTML file. RLS is still the gate — the link is a
+  convenience, not the access control.
+- **Sessions are separate on purpose**: the first switch per browser asks for
+  one sign-in, then both stay signed in. Signing out of one app does not sign
+  out the other. Never copy a session between `lynxr_creator_session` and
+  `lynxr_sb_session`: Supabase refresh tokens are single-use, and reuse more
+  than 10 seconds later kills the session in both apps.
+- The grants were one-off SQL the owner ran in the Supabase SQL editor:
+  `lynxr_allowance` hand-grant rows (note prefix `hand grant:`, 150 granted
+  per rolling 30-day window) and two new `lynxr_staff` rows. Staff count goes
+  1 → 3 once run. **This supersedes "the only staff account" (HANDOFF.md:2898)
+  and "5 auth accounts, 1 staff row" (HANDOFF.md:2940) further down — those
+  notes are the prior count, from before this entry.**
+- The creator app's allowance copy (rail, Plan view, the quota-wall sentence)
+  now reads a `period_days > 0` grant as "N per D days" with room that comes
+  back as older scripts age out, instead of the old "N for the life of the
+  account" line, which was wrong for a rolling grant. A `period_days = 0`
+  grant (the free 25, or any future lifetime hand grant) reads exactly as it
+  did before.
+- Deleting the account from creator Settings removes staff access too
+  (`delete_own_account()` cascades `lynxr_staff`, `lynxr_allowance`,
+  `lynxr_script_charges` and `lynxr_creators`). Told both people.
+- The payments plan's Stage G pin (`on conflict … do nothing`) preserves
+  these hand grants, but its pin-count verification will read short by the
+  number of hand grants outstanding.
+- Stamp is now `20260914b` on 24 pages + 404.html.
+
 **ALSO 2026-08-28, EVENING — TICKER-ONLY, ONE BAR EVERYWHERE, HERO COPY.**
 - **The phone is GONE** ("do option 3 now" meant INSTEAD, not alongside —
   misread once, corrected): markup, all three CSS blocks (hero grid, scenes,

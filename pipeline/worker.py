@@ -53,6 +53,15 @@ LEAVE THE GITHUB WORKFLOW ON
     other skips. The race window is the few hundred milliseconds between one
     worker's read and its claim — and in practice this one empties the queue
     within seconds of a paste, so GitHub's run usually finds nothing at all.
+
+AGENCY LANE
+    Runs process_campaigns.py as a subprocess, but only when this tick found no
+    creator queued and no sweep due — CREATORS FIRST, always. Each agency pass
+    is one step (read OR write) for at most AGENCY_PER_PASS formats, so the
+    worst extra wait for a creator who pastes mid-pass is one pass, not a whole
+    brief. The GitHub fallback workflow does NOT run this lane — it is Fly-only.
+    AGENCY_LANE=0 turns it off entirely; AGENCY_POLL_S paces how often an idle
+    loop even asks whether the lane has work.
 """
 
 import argparse
@@ -68,6 +77,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -76,11 +86,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # behind __name__). It must NEVER pull in process_adaptations — that module
 # runs logging.basicConfig and mkdir("output/") as import-time side effects,
 # which is exactly why run_pass() below runs it as a subprocess instead.
+# campaign_queue is the same kind of safe import: side-effect-free, no I/O at
+# import, and it exists precisely so this probe and process_campaigns.py's
+# claim can never disagree about what "claimable" means.
 import watchdog
 import envcfg
+import campaign_queue
 
 ROOT = Path(__file__).resolve().parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
+
+# Kill switch and poll pacing for the agency campaign lane (see the module
+# docstring's AGENCY LANE section). AGENCY_LANE=0 turns it off entirely.
+AGENCY_LANE = envcfg.get("AGENCY_LANE", "1") not in ("0", "", "false", "False")
+AGENCY_POLL_S = float(envcfg.get("AGENCY_POLL_S", "10"))
 
 # This venv's Python has no system CA bundle — a bare default context fails
 # every request with CERTIFICATE_VERIFY_FAILED. Same guard the rest of the
@@ -189,6 +208,42 @@ def run_pass(extra_args):
         return False
     log.info("pass finished in %.0fs%s", time.time() - t0, "" if ok else " (non-zero exit)")
     return ok
+
+
+def queued_formats(key):
+    """Whether the agency lane has at least one claimable campaign format.
+    Same request shape and the same failure contract as queued_creators:
+    True/False, or None on any transport error, so a probe failure is never
+    mistaken for an empty queue."""
+    url = SB_URL + campaign_queue.probe_path(datetime.now(timezone.utc))
+    req = urllib.request.Request(url)
+    req.add_header("apikey", key)
+    req.add_header("Authorization", f"Bearer {key}")
+    try:
+        with urllib.request.urlopen(req, timeout=20, context=SSL_CTX) as r:
+            return bool(json.load(r))
+    except Exception as e:  # noqa: BLE001
+        log.warning("agency probe failed (%s)", str(e)[:90])
+        return None
+
+
+def run_agency_pass():
+    """One pass of the agency lane, as its own process — same reasoning as
+    run_pass(): process_campaigns imports process_adaptations, which is
+    long-running and must never take this loop down with it."""
+    cmd = [sys.executable, str(ROOT / "pipeline" / "process_campaigns.py")]
+    t0 = time.time()
+    try:
+        r = subprocess.run(cmd, cwd=str(ROOT / "pipeline"), timeout=1800)
+        rc = r.returncode
+    except subprocess.TimeoutExpired:
+        log.error("agency pass exceeded 30 minutes — killed")
+        return None
+    except Exception as e:  # noqa: BLE001
+        log.error("agency pass failed to start: %s", str(e)[:120])
+        return None
+    log.info("agency pass finished in %.0fs (%s)", time.time() - t0, rc)
+    return rc
 
 
 def warm_whisper():
@@ -310,6 +365,20 @@ def main():
     last_sweep = 0.0
     idle_logged = False
     probe_fails = 0
+    agency_next = 0.0
+
+    def agency_due(key):
+        """True only when the agency lane should run right now. Also the
+        throttle: when there is nothing to do (or the probe itself fails),
+        pushes agency_next out so an idle creator loop asks Supabase about
+        the agency lane at most once every AGENCY_POLL_S seconds, not on
+        every 2s creator poll."""
+        nonlocal agency_next
+        formats = queued_formats(key)
+        if formats:
+            return True
+        agency_next = time.time() + (300 if formats is None else AGENCY_POLL_S)
+        return False
     # 30 consecutive failures at the default 2.0s poll is ~60s of unbroken
     # trouble — long enough that a single blip (already handled silently,
     # every other tick just retries) cannot trip it, and short enough to
@@ -376,6 +445,13 @@ def main():
             # Probe failed; queued_creators already warned. Say nothing more —
             # claiming "idle" here would report an outage as an empty queue.
             pass
+        elif AGENCY_LANE and time.time() >= agency_next and agency_due(key):
+            # CREATORS FIRST. Reached only when no creator is queued and no sweep
+            # is due; each agency pass is one step (read OR write) for at most
+            # AGENCY_PER_PASS formats, then control returns to the creator probe.
+            rc = run_agency_pass()
+            agency_next = time.time() + (300 if rc in (None, campaign_queue.PAUSED_EXIT) else 0)
+            idle_logged = False
         elif not idle_logged:
             log.info("idle — nothing queued")
             idle_logged = True          # say it once, not every two seconds

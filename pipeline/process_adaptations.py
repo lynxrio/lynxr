@@ -2169,7 +2169,7 @@ def upsert_video(key, a):
 # ============================================================================
 
 
-def fill_source(a, aclient, key, notes, timings, publish=None):
+def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, usage_sink=None):
     """The video-dependent half of a script: download, transcribe, cover,
     frames, shots, tags. Populates a["source"]. Independent of brand, so
     main() runs this ONCE per distinct video and deep-copies the result onto
@@ -2182,6 +2182,13 @@ def fill_source(a, aclient, key, notes, timings, publish=None):
     `publish`, when given, is called with a phase name as each one starts —
     see publish_phase(). Optional and trailing so ab_format_adapt.py's
     positional calls stay untouched and its arm timings stay comparable.
+
+    `on_frames`, when given, is called once with [(t, jpeg_bytes), ...] while
+    the temp dir still exists.
+
+    `usage_sink`, when given, is the dict that the pool threads' note_usage
+    writes into. Both `on_frames` and `usage_sink` default to None, and the
+    creator path passes neither, so it behaves exactly as before.
 
     Returns True if there is a usable source to proceed with; False only for
     the "no ANTHROPIC_API_KEY" case, where the transcript is all there ever
@@ -2265,7 +2272,15 @@ def fill_source(a, aclient, key, notes, timings, publish=None):
         with stage(timings, "frames"):
             frames = extract_frames(media, frame_times(t, t["duration"]), td)
 
+        if on_frames and frames:
+            try:
+                on_frames([(ft, p.read_bytes()) for ft, p in frames])
+            except Exception as e:  # noqa: BLE001 — a hook must never cost the source
+                log.warning("  -> on_frames hook failed: %s", api_reason(e))
+
         def do_shots():
+            if usage_sink is not None:
+                _USAGE_LOCAL.d = usage_sink
             if not frames:
                 notes.append("no frames (audio-only source)")
                 return
@@ -2294,6 +2309,8 @@ def fill_source(a, aclient, key, notes, timings, publish=None):
         # (format 8.1s + adapt 16.7s — that is what FUSE_FORMAT_ADAPT targets) and
         # the shot list's own variance. Not this.
         def do_tags():
+            if usage_sink is not None:
+                _USAGE_LOCAL.d = usage_sink
             # Locked-taxonomy tags — the FAMILY half of spec §4.1.
             try:
                 row = {"platform": src["platform"], "data_source": "Creator source",

@@ -152,7 +152,10 @@ def _size_of(model):
 
 def _mlx(path, model):
     import mlx_whisper
-    return mlx_whisper.transcribe(str(path), path_or_hf_repo=model, verbose=False)
+    # Serialised like _faster: two threads transcribing at once through MLX
+    # segfaulted the process (exit 139) on 2026-09-14, in a two-format agency pass.
+    with TRANSCRIBE_SEM:
+        return mlx_whisper.transcribe(str(path), path_or_hf_repo=model, verbose=False)
 
 
 _MODELS = {}
