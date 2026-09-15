@@ -6,7 +6,7 @@ Writes into the repo root (or --out DIR):
   favicon.png            32x32, same faceless X (shown at 16 CSS px on retina tabs)
   favicon.ico            16 faceless; 32 and 48 with the face (OS surfaces at true size)
   apple-touch-icon.png   180x180 opaque, full idle avatar on the dark --bg tile
-  og-v2.png, og-creator-v2.png, og-agency-v2.png   1200x630
+  og-v3.png, og-creator-v3.png, og-agency-v3.png   1200x630
 
 WHY FACELESS AT 16: rendered and measured on 2026-09-14 -- at 16px the eyes and
 mouth resolve to two pink smudges over the gradient, while the bare X stays
@@ -91,13 +91,22 @@ def tracked(d, x, y, s, f, track, fill):
 def tracked_width(d, s, f, track):
     return sum(d.textlength(ch, font=f) + track for ch in s) - (track if s else 0)
 
+def ink_left(ch, f):
+    """Where a glyph's ink actually starts, measured from a render: textbbox's
+    left edge did not track the real side bearing here (off by 16px at 2x)."""
+    pad = 200
+    probe = Image.new("L", (pad * 3, pad * 3), 0)
+    ImageDraw.Draw(probe).text((pad, pad), ch, font=f, fill=255)
+    return probe.getbbox()[0] - pad
+
 def render_og(label, out, tmp, fonts):
     SS, W, H = 2, 1200, 630
     img = sips(field_svg(W, H), W * SS, H * SS, tmp, "field").convert("RGBA")
-    wf = font(fonts / Path(WORD_FONT).name, 132 * SS, WORD_WGHT)
+    WORD_PX = 158                                    # was 132; owner, 2026-09-15: "make the logo slightly bigger"
+    wf = font(fonts / Path(WORD_FONT).name, WORD_PX * SS, WORD_WGHT)
     d = ImageDraw.Draw(img)
-    av_px = 150 * SS; gap = 34 * SS
-    track = WORD_TRACK * 132 * SS
+    av_px = 180 * SS; gap = 40 * SS                  # was 150 / 34, scaled with the wordmark
+    track = WORD_TRACK * WORD_PX * SS
     ww = tracked_width(d, WORD, wf, track)
     total = av_px + gap + ww
     asc, desc = wf.getmetrics()
@@ -106,20 +115,22 @@ def render_og(label, out, tmp, fonts):
         lf = font(fonts / Path(LABEL_FONT).name, 30 * SS); lab_h = 64 * SS
     block_h = max(av_px, asc + desc) + lab_h
     x0 = (W * SS - total) / 2; y0 = (H * SS - block_h) / 2
-    # the glass slab behind the lockup (no blur: nothing detailed sits under it)
-    pad_x, pad_y = 72 * SS, 56 * SS
-    slab = Image.new("RGBA", img.size, (0, 0, 0, 0)); sd = ImageDraw.Draw(slab)
-    box = (x0 - pad_x, y0 - pad_y, x0 + total + pad_x, y0 + block_h + pad_y)
-    sd.rounded_rectangle(box, radius=56 * SS, fill=SLAB_FILL, outline=SLAB_EDGE, width=2 * SS)
-    img = Image.alpha_composite(img, slab); d = ImageDraw.Draw(img)
+    # No box behind the lockup (owner, 2026-09-15: "get rid of the box over the
+    # logo, just have the colorful background and the logo and text logo"). The
+    # ink wordmark sits straight on the pastel blobs, which stay light enough
+    # behind it to read at a glance.
     av = sips(avatar_svg(av_px), av_px, av_px, tmp, "av")
     cap_top = y0 + (max(av_px, asc + desc) - (asc + desc)) / 2
     img.alpha_composite(av, (round(x0), round(y0 + (max(av_px, asc + desc) - av_px) / 2)))
     tracked(d, x0 + av_px + gap, cap_top, WORD, wf, track, TEXT)
     if label:
         lt = LABEL_TRACK * 30 * SS
-        lw = tracked_width(d, label, lf, lt)
-        tracked(d, (W * SS - lw) / 2, y0 + max(av_px, asc + desc) + 18 * SS, label, lf, lt, LABEL)
+        # Left-aligned to the wordmark (owner, 2026-09-15: "in line with the start of
+        # the l in lynxr"). Both side bearings are subtracted, so the label's first
+        # ink lines up with the l's stem rather than with its glyph box.
+        wx = x0 + av_px + gap
+        lx = wx + ink_left(WORD[0], wf) - ink_left(label[0], lf)
+        tracked(d, lx, y0 + max(av_px, asc + desc) + 18 * SS, label, lf, lt, LABEL)
     img.convert("RGB").resize((W, H), Image.LANCZOS).save(out, optimize=True)
     print("wrote", out, (W, H))
 
@@ -140,9 +151,9 @@ def main():
         tile = sips(avatar_svg(180, tile=BG).replace('viewBox="0 0 120 120"', 'viewBox="-24 -24 168 168"'), 180, 180, tmp, "apple")
         flat = Image.new("RGB", tile.size, BG); flat.paste(tile, (0, 0), tile); flat.save(out / "apple-touch-icon.png", optimize=True)
         print("wrote", out / "apple-touch-icon.png")
-        render_og("", out / "og-v2.png", tmp, fonts)
-        render_og("creators", out / "og-creator-v2.png", tmp, fonts)
-        render_og("agency", out / "og-agency-v2.png", tmp, fonts)
+        render_og("", out / "og-v3.png", tmp, fonts)
+        render_og("creators", out / "og-creator-v3.png", tmp, fonts)
+        render_og("agency", out / "og-agency-v3.png", tmp, fonts)
 
 if __name__ == "__main__":
     main()

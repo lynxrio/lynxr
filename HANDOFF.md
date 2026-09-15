@@ -36,7 +36,7 @@ in the repo, unreferenced. Fonts are Albert Sans (UI/display/logo) + IBM Plex
 Mono (data), self-hosted OFL-1.1, `fonts/OFL-*.txt`. The avatar's shared
 `<svg class="lx-defs">` must stay rendered on every page — a gradient inside
 `display:none` doesn't paint. Rasters come from `tools/make_brand_assets.py`;
-OG refs are now `-v2.png` (old files kept). The "LOGO is Share Tech Mono
+OG refs are now `-v3.png` (2026-09-15: no box behind the lockup, just the blobs, the avatar and the wordmark; the short-lived `-v2` files are removed, the original `og*.png` kept). The "LOGO is Share Tech Mono
 again" note below is superseded. The loader still draws the old four-arm X
 until phase 2.
 
