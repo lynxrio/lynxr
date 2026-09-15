@@ -31,13 +31,13 @@
 <meta name="twitter:description" content="What lynxr does for accessibility, what it aims at, and the specific things it does not do yet — including where it falls short of WCAG 2.2 AA today.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/accessibility/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260915i">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260915i">
-<link rel="shortcut icon" href="/favicon.ico?v=20260915i">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260915i">
-<link rel="stylesheet" href="/app.css?v=20260915i">
-<script src="/theme.js?v=20260915i"></script>
-<script src="/backdrop.js?v=20260915i" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260915q">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260915q">
+<link rel="shortcut icon" href="/favicon.ico?v=20260915q">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260915q">
+<link rel="stylesheet" href="/app.css?v=20260915q">
+<script src="/theme.js?v=20260915q"></script>
+<script src="/backdrop.js?v=20260915q" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -46,41 +46,103 @@
     {
       "@type": "Organization",
       "@id": "https://lynxr.io/#organization",
+      "name": "lynxr",
+      "legalName": "lynxr LLC",
+      "alternateName": [
+        "lynxr.io",
+        "lynxr LLC"
+      ],
+      "url": "https://lynxr.io/",
+      "slogan": "your content creator buddy",
+      "description": "lynxr LLC makes lynxr, your content creator buddy: paste a TikTok or Instagram video and it writes that video's format as a script for the brand you make content for. lynxr LLC is a partner company of Lynx Media Group, the UGC agency.",
+      "logo": {
+        "@type": "ImageObject",
+        "@id": "https://lynxr.io/#logo",
+        "url": "https://lynxr.io/lynxr-logo.png",
+        "contentUrl": "https://lynxr.io/lynxr-logo.png",
+        "width": 512,
+        "height": 512,
+        "caption": "lynxr"
+      },
+      "image": {
+        "@id": "https://lynxr.io/#logo"
+      },
+      "email": "lynxrnetwork@gmail.com",
+      "sameAs": [
+        "https://www.instagram.com/lynxr.io/",
+        "https://www.tiktok.com/@lynxr.io",
+        "https://www.linkedin.com/company/lynxr"
+      ],
+      "founder": [
+        {
+          "@id": "https://lynxmediagroup.org/#gawin"
+        },
+        {
+          "@id": "https://lynxmediagroup.org/#junsa"
+        }
+      ],
+      "knowsAbout": [
+        "short-form video scripts",
+        "UGC scripts",
+        "video formats",
+        "hooks",
+        "TikTok",
+        "Instagram Reels"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://lynxmediagroup.org/#org",
       "name": "Lynx Media Group",
       "legalName": "Lynx Media Group LLC",
       "url": "https://lynxmediagroup.org/",
-      "description": "A short-form video agency. lynxr is its own format-intelligence tool.",
+      "description": "A UGC agency in Allston, Massachusetts that runs creator campaigns for brands. Its partner company, lynxr LLC, makes lynxr.",
       "logo": "https://lynxmediagroup.org/imgs/logo-social.png",
-      "email": "lynxrnetwork@gmail.com",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "15 Farrington Ave",
+        "addressLocality": "Allston",
+        "addressRegion": "MA",
+        "postalCode": "02134",
+        "addressCountry": "US"
+      },
       "sameAs": [
-        "https://lynxmediagroup.org/",
         "https://www.instagram.com/lynxmediagroup/",
         "https://www.tiktok.com/@lynxmediagroup",
         "https://www.linkedin.com/company/lynxmediagroup"
       ],
-      "brand": {
-        "@type": "Brand",
-        "@id": "https://lynxr.io/#brand",
-        "name": "lynxr",
-        "url": "https://lynxr.io/"
-      },
       "founder": [
         {
-          "@type": "Person",
-          "@id": "https://lynxr.io/#junsa-hwang",
-          "name": "Junsa Hwang",
-          "jobTitle": "Co-founder",
-          "url": "https://www.instagram.com/junsahwang/",
-          "sameAs": ["https://www.instagram.com/junsahwang/"]
+          "@id": "https://lynxmediagroup.org/#gawin"
         },
         {
-          "@type": "Person",
-          "@id": "https://lynxr.io/#gawin-hsu",
-          "name": "Gawin Hsu",
-          "jobTitle": "Co-founder",
-          "url": "https://www.instagram.com/gawinhsu/",
-          "sameAs": ["https://www.instagram.com/gawinhsu/"]
+          "@id": "https://lynxmediagroup.org/#junsa"
         }
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://lynxmediagroup.org/#junsa",
+      "name": "Junsa Hwang",
+      "jobTitle": "Co-founder & CTO",
+      "description": "Co-founder and CTO of Lynx Media Group and creator of lynxr.",
+      "worksFor": {
+        "@id": "https://lynxmediagroup.org/#org"
+      },
+      "sameAs": [
+        "https://www.instagram.com/junsahwang/"
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://lynxmediagroup.org/#gawin",
+      "name": "Gawin Hsu",
+      "jobTitle": "Co-founder & CEO",
+      "worksFor": {
+        "@id": "https://lynxmediagroup.org/#org"
+      },
+      "sameAs": [
+        "https://www.instagram.com/gawinhsu/"
       ]
     },
     {
@@ -88,9 +150,16 @@
       "@id": "https://lynxr.io/#website",
       "url": "https://lynxr.io/",
       "name": "lynxr",
+      "alternateName": [
+        "lynxr.io",
+        "lynxr app",
+        "lynxr script tool"
+      ],
       "inLanguage": "en",
       "publisher": { "@id": "https://lynxr.io/#organization" },
-      "about": { "@id": "https://lynxr.io/#lynxr" }
+      "about": {
+        "@id": "https://lynxr.io/#lynxr"
+      }
     },
     {
       "@type": "SoftwareApplication",
@@ -116,11 +185,19 @@
         "price": "0",
         "priceCurrency": "USD",
         "availability": "https://schema.org/InStock",
-        "url": "https://lynxr.io/waitlist/",
+        "url": "https://lynxr.io/pricing/",
         "description": "Free to start: every account includes 25 scripts, no card required. Sign-up is open."
       },
+      "author": {
+        "@id": "https://lynxmediagroup.org/#junsa"
+      },
       "publisher": { "@id": "https://lynxr.io/#organization" },
-      "creator": { "@id": "https://lynxr.io/#organization" }
+      "sameAs": [
+        "https://www.instagram.com/lynxr.io/",
+        "https://www.tiktok.com/@lynxr.io",
+        "https://www.linkedin.com/company/lynxr"
+      ],
+      "alternateName": "lynxr.io"
     }
   ]
 }
@@ -135,7 +212,7 @@
   "name": "Accessibility at lynxr — what works and what does not yet",
   "description": "What lynxr does for accessibility, what it aims at, and the specific things it does not do yet — including where it falls short of WCAG 2.2 AA today.",
   "inLanguage": "en",
-  "dateModified": "2026-08-19",
+  "dateModified": "2026-09-15",
   "isPartOf": { "@id": "https://lynxr.io/#website" },
   "about": { "@id": "https://lynxr.io/#lynxr" }
 }
@@ -194,7 +271,7 @@
 <main class="legal">
 
   <h1>accessibility</h1>
-  <p class="legal-date">last updated 19 august 2026</p>
+  <p class="legal-date">last updated 15 september 2026</p>
 
   <!-- The banner is the same object /terms/ uses for its "not reviewed by a
        lawyer" flag, and it is here for the same reason: the honest state of the
@@ -300,7 +377,7 @@
     measured them and wrote them down.</p>
 
   <h2>contact</h2>
-  <p><span class="entity">Lynx Media Group LLC</span><br>
+  <p><span class="entity">lynxr LLC</span><br>
     15 Farrington Ave, Allston MA 02134, USA<br>
     <a href="mailto:lynxrnetwork@gmail.com">lynxrnetwork@gmail.com</a></p>
 
@@ -311,7 +388,7 @@
   <div class="foot-grid foot-grid-wide">
     <div class="foot-brand">
       <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
-      <p>format intelligence for short&#8209;form video, built by <span class="entity">Lynx Media Group</span>, a short&#8209;form video agency.</p>
+      <p>your content creator buddy, from <span class="entity">lynxr LLC</span>, a partner company of <span class="entity">Lynx Media Group</span>, the <span class="entity">UGC</span> agency.</p>
     </div>
     <div class="foot-col">
       <div class="foot-label">lynxr</div>
@@ -357,8 +434,8 @@
 
 <!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
      see the file's own header for why it must never reach either app. -->
-<script src="/site.js?v=20260915i" defer></script>
-<script src="/footer.js?v=20260915i" defer></script>
+<script src="/site.js?v=20260915q" defer></script>
+<script src="/footer.js?v=20260915q" defer></script>
 
 </body>
 </html>

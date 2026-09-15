@@ -128,6 +128,92 @@ landed, gate `ok`, stamp `20260915i`):
   blobs, a white glass slab and ink text. The apple-touch icon sits on the
   light `--bg`.
 
+## Simple, fun, glass pass + motion changes (2026-09-15, stamp `20260915m`)
+
+- **Landing, simplified** ("too messy … simplistic but still fun"):
+  - Numbered eyebrows gone.
+  - The how-it-works mock UIs are replaced by the avatar acting each step:
+    `idle`, `reading`, `done`. `avatar.js` now renders any
+    `<span data-lx-mood="…">`.
+  - The features exhibit column (mock card and fan) is removed. The four
+    features are glass tiles with gradient icon badges.
+  - Proof fine print is hidden, and the steps are gradient-bordered pills.
+  - A `hyped` avatar sits above the closing CTA.
+- **Glass everywhere** ("add a glass morphism feel"): the SIMPLE, FUN, GLASS
+  block at the end of `app.css`.
+  - **Shared surface:** landing cards, the reading sheet on every content page
+    (`body.lp:not(.home) main`), `main.legal` and the footer card all use
+    `--surface` + blur + white edge + violet shadow.
+  - **Motion:** spring hover on landing cards and buttons, desktop only; off
+    under reduced motion.
+  - **White on gradient:** the icon badges use `--ico-grad` (deeper pink),
+    because white on the logo gradient measured 1.74:1.
+- **Creator app, same pass (2026-09-15, stamp `20260915q`):** the THE APP,
+  SIMPLE AND GLASS block in `app.css` covers the script view, the library
+  grid and Settings. Every rule is scoped to `.pane-body` or `.pane-head`, so
+  the agency app is untouched.
+  - **JS changes** are marked `APP GLASS PASS` in `creator.js`: the handle
+    moved into the card head, the duplicate caption is hidden, the poor-fit
+    callout gets a confused avatar, Settings is grouped into cards, and trash
+    renders as rows.
+  - **Don't blur** the open card or "The original": it breaks the mobile mini
+    player, which is pinned from inside them.
+  - **Checked** with injected data in headless Brave (not signed in).
+    Screenshots are in `/private/tmp/lynxr-app-revamp/`.
+- **Not yet done (older note):** the signed-in creator and agency app screens were not
+  redesigned. They only picked up the footer card and shared tokens. They need
+  a signed-in session to design and verify.
+  Inside the apps the footer card is inset by `--gutter` on both sides. A
+  percentage width there overflowed `.pane-scroll` into a horizontal scrollbar
+  (fixed, stamp `20260915n`).
+- **Footer waits below the fold on any display** (stamp `20260915o`): the
+  content and legal sheets are at least a screen tall, `.pane-body` fills its
+  pane, and the agency `<main>` fills the viewport. Checked at 1440×1400 on
+  404, /about/ and the creator app shell.
+- **Nav mark:** 32px on every public page.
+- **Wave:** on every device it waves on load, then every 3s (hover code removed).
+- **Backdrop motion:**
+  - **Desktop:** blobs pull toward the cursor, ≤70px, nearest most.
+  - **Phones:** a rigid swirl plus outward spread on scroll.
+  - **Contrast:** measured, see the `backdrop.js` header. Don't give phone
+    blobs individual moves.
+- **Wording:** "short-form video agency" → "UGC agency" everywhere (UGC stays
+  uppercase via `.entity` in visible text).
+
+## Brand search: lynxr LLC entity + GEO (2026-09-15)
+
+Owner: "pop up first when people look up lynxr" and "second when people look up
+lynx media group".
+- **Entity:** lynxr LLC is a **partner company** of Lynx Media Group (owner's
+  answer). The shared JSON-LD on 21 pages now has two Organizations:
+  `https://lynxr.io/#organization` is lynxr / lynxr LLC (logo
+  `lynxr-logo.png`, slogan, lynxr's own socials in `sameAs`), and
+  `https://lynxmediagroup.org/#organization` is the agency. schema.org has no
+  "partner" property, so the relationship is stated in both descriptions,
+  never as parent/sameAs.
+- **Copy:** the footer blurb, /about/ (title "About lynxr — a Lynx Media Group
+  partner company") and /faq/ say lynxr LLC is a partner company. /faq/ and
+  `llms.txt` gained a disambiguation line: not the Honeywell/Ademco LYNXR
+  panels, the Lynx R headsets, or lynxr.com.
+- **Legal pages switched to lynxr LLC (owner, same day):**
+  - **Operator:** privacy ("run by lynxr LLC … a partner company of Lynx Media
+    Group LLC"), terms (the agreement party, the "where formed" note) and the
+    privacy/terms/accessibility contact blocks now name lynxr LLC. Their "last
+    updated" dates are 15 september 2026. refunds names no operator in its body.
+  - **Kept, unverified:** the "Massachusetts limited liability company"
+    wording and the 15 Farrington Ave address carried over from Lynx Media
+    Group LLC.
+  - **Not done yet:** the privacy page promises an email for material changes,
+    and none has been sent.
+- **Indexing:**
+  - `sitemap.xml` lastmod is 2026-09-15.
+  - IndexNow key file `11a5180a05d480145ef85b097249664d.txt` is at the root.
+    Run `./venv/bin/python tools/indexnow.py` after a push has deployed (Bing →
+    ChatGPT search, Copilot, DuckDuckGo).
+  - **The real blocker is off-repo:** lynxr.io is still not indexed by Google
+    (checked 2026-09-15). It needs Search Console verification, a sitemap
+    submit and request-indexing.
+
 ## What stage Lynxr is at (2026-08-18)
 
 Three stages, the owner's framing:

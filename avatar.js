@@ -146,4 +146,20 @@
   root.lynxrMark = lynxrMark;
   root.lynxrDefs = lynxrDefs;
   root.LYNXR_MOODS = MOODS.slice();
+
+  /* DECORATIVE AVATARS IN MARKUP. A page can drop <span class="lp-av"
+     data-lx-mood="reading"></span> anywhere and it becomes a live avatar in
+     that mood (the landing's how-it-works steps and closing line, 2026-09-15).
+     This file is deferred, so the document is parsed by the time it runs. */
+  function renderDeclared() {
+    var els = document.querySelectorAll("[data-lx-mood]:not([data-lx-done])");
+    for (var i = 0; i < els.length; i++) {
+      els[i].innerHTML = lynxrAvatar(els[i].getAttribute("data-lx-mood"));
+      els[i].setAttribute("data-lx-done", "");
+    }
+  }
+  if (typeof document !== "undefined") {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", renderDeclared);
+    else renderDeclared();
+  }
 })(typeof window !== "undefined" ? window : globalThis);

@@ -1,19 +1,33 @@
 /* ---------------------------------------------------------------------------
-   THE BACKDROP: six soft blobs, each with a little life of its own.
+   THE BACKDROP: six soft blobs that answer the mouse on desktop and the scroll
+   on phones.
 
    Owner, 2026-09-15: "make it still blobs, but have the blobs have some
    variation, also interactive not as in the whole background moves with the
-   mouse, but interactive as the shape maybe moves a bit". One fixed, inert
-   layer of six blobs is prepended to <body>. Their shapes, colours and
-   positions live in app.css (BACKDROP block) and are the --field layers the
-   contrast gate measures, so this file must never grow them or move them far.
+   mouse", then "make the background interactive with the mouse on desktop and
+   scroll for mobile". One fixed, inert layer of six blobs is prepended to
+   <body>. Their shapes, colours and positions live in app.css (BACKDROP block).
 
-   What it does:
-   - LEAN: only a blob the cursor (or a finger) is near leans toward it, up to
-     ~30px, and swells by a few percent. The nearer, the more. The rest stay put.
-   - SQUASH: scrolling stretches every blob a touch along the scroll and lets
-     it trail a few pixels, then it settles, like jelly.
-   On desktop, each blob's slow breathing is plain CSS (.blob-in), not this file.
+   MOUSE SCREENS (hover: hover): each blob is pulled toward the cursor, up to
+   70px, by how close the cursor is to it, and the nearest ones swell by a few
+   percent. Near blobs move a lot and far ones barely move, so the background
+   never slides as one sheet. Scrolling adds a small jelly squash.
+
+   TOUCH SCREENS (hover: none): scrolling swirls the blobs. The whole group
+   turns slowly around the middle of the screen and spreads outward, up to 12%,
+   as you scroll, with the same jelly squash on every flick.
+
+   THESE LIMITS ARE CONTRAST LIMITS. Text sits on this page, and blobs that
+   drift into each other darken the ground under it. Measured 2026-09-15 with
+   the rebrand gate's light-theme bound (ground luminance >= .6705):
+   - Desktop: random 70px pulls on all six blobs plus the swell leave the
+     worst point at .6809. Around 80px they would reach the bound.
+   - Phones: the swirl is a rigid turn plus an outward spread, so no two blobs
+     ever get closer than at rest. Its worst point is .6745 over a full turn.
+     Moving phone blobs independently, even by 30px, failed (.6328), which is
+     why phones swirl instead of lean.
+   Don't raise PULL or SPREAD, and don't give phone blobs individual moves,
+   without re-running that measurement.
 
    Transforms go on .blob through CSSOM, which the CSP allows (a style=
    attribute would be dropped). One requestAnimationFrame loop eases everything
@@ -39,57 +53,32 @@
   document.body.prepend(layer);
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-  /* THE WAVE ON HOVER (mouse screens only; touch screens wave every 4s in CSS).
-     Owner, 2026-09-15: "for desktop have it wave when i hover over it". The arm
-     animation lives in app.css under html.lx-waving. This only keeps that class
-     on while the pointer is over a mark or the wordmark, and lets each wave run
-     its full 1.1s before stopping or starting the next, so the arm never snaps
-     back mid-swing. A timer is used rather than animationend, because some
-     browsers never animate SVG mask content and would never fire the event. */
-  if (matchMedia("(hover: hover)").matches) {
-    const root = document.documentElement;
-    const WAVE_MS = 1100;
-    let hovering = false, timer = 0;
-    const isMark = (el) => !!(el && el.closest && el.closest(".wordmark, .lx, .pane-mark"));
-    const wave = () => {
-      root.classList.remove("lx-waving");
-      void root.offsetWidth;                 // restart the animation from 0
-      root.classList.add("lx-waving");
-      timer = setTimeout(() => {
-        timer = 0;
-        if (hovering) wave(); else root.classList.remove("lx-waving");
-      }, WAVE_MS);
-    };
-    document.addEventListener("pointerover", (e) => {
-      if (e.pointerType !== "mouse" || !isMark(e.target)) return;
-      hovering = true;
-      if (!timer) wave();
-    }, { passive: true });
-    document.addEventListener("pointerout", (e) => {
-      if (e.pointerType === "mouse" && isMark(e.target) && !isMark(e.relatedTarget)) hovering = false;
-    }, { passive: true });
-  }
-
-  const PULL = 30;     // px a blob leans at most
-  const SWELL = 0.05;  // how much it grows when you are right on it
+  const mouseScreen = matchMedia("(hover: hover) and (pointer: fine)");
+  const PULL = 70;       // px, desktop: how far a blob is drawn to the cursor at most
+  const SWELL = 0.05;    // desktop: growth when the cursor is right on a blob
+  const TURN = 0.055;    // degrees per px scrolled, phones: 1000px of scroll turns the group 55deg
+  const SPREAD = 0.12;   // phones: how far the group spreads outward at most
   const EASE = 0.08;
 
   // The untransformed centre and size come from the CSS box, not
-  // getBoundingClientRect(), which would include the lean itself.
+  // getBoundingClientRect(), which would include the motion itself.
+  let vw = innerWidth, vh = innerHeight;
   const measure = () => {
+    vw = innerWidth; vh = innerHeight;
     for (const b of blobs) {
       const cs = getComputedStyle(b.el);
       b.cx = parseFloat(cs.left);
       b.cy = parseFloat(cs.top);
-      b.reach = Math.max(parseFloat(cs.width), parseFloat(cs.height)) * 0.62;
+      b.reach = Math.max(Math.max(parseFloat(cs.width), parseFloat(cs.height)) * 0.9, 520);
       b.hidden = cs.display === "none";
     }
+    kick();
   };
-  measure();
-  addEventListener("resize", measure, { passive: true });
 
-  let px = null, py = null;   // pointer, viewport px; null when there is none
+  let px = null, py = null;   // cursor, viewport px; null when there is none
   let vel = 0;                // smoothed scroll speed, px per event
+  let top = 0;                // how far the active scroller has scrolled
+  let ang = 0, spread = 0;    // eased swirl state (phones)
   const lastTop = new Map();  // per scroller: the creator app scrolls .pane-scroll
   let raf = 0;
 
@@ -97,29 +86,54 @@
     vel *= 0.88;
     const sq = Math.max(-1, Math.min(1, vel / 36));
     let busy = Math.abs(vel) > 0.3;
+    const mouse = mouseScreen.matches;
+
+    // phones: the target swirl for the current scroll position
+    const angT = mouse ? 0 : top * TURN * Math.PI / 180;
+    const spreadT = mouse ? 0 : SPREAD * Math.abs(Math.sin(top / 900));
+    ang += (angT - ang) * EASE;
+    spread += (spreadT - spread) * EASE;
+    if (Math.abs(angT - ang) > 0.0005 || Math.abs(spreadT - spread) > 0.0005) busy = true;
+    const cos = Math.cos(ang), sin = Math.sin(ang), grow = 1 + spread, mx = vw / 2, my = vh / 2;
+
     for (const b of blobs) {
       if (b.hidden) continue;
       let tx = 0, ty = 0, ts = 1;
-      if (px !== null) {
-        const dx = px - b.cx, dy = py - b.cy, d = Math.hypot(dx, dy);
-        if (d < b.reach) {
-          const k = (1 - d / b.reach) ** 2;
-          tx = (dx / (d || 1)) * PULL * k;
-          ty = (dy / (d || 1)) * PULL * k;
-          ts = 1 + SWELL * k;
+      if (mouse) {
+        if (px !== null) {
+          const dx = px - b.cx, dy = py - b.cy, d = Math.hypot(dx, dy);
+          if (d < b.reach) {
+            const k = (1 - d / b.reach) ** 1.6;
+            tx = (dx / (d || 1)) * PULL * k;
+            ty = (dy / (d || 1)) * PULL * k;
+            ts = 1 + SWELL * k;
+          }
         }
+      } else {
+        // rigid turn about the screen centre, plus an outward spread
+        const rx = b.cx - mx, ry = b.cy - my;
+        tx = mx + grow * (rx * cos - ry * sin) - b.cx;
+        ty = my + grow * (rx * sin + ry * cos) - b.cy;
       }
-      b.x += (tx - b.x) * EASE;
-      b.y += (ty - b.y) * EASE;
+      if (mouse) {
+        b.x += (tx - b.x) * EASE;
+        b.y += (ty - b.y) * EASE;
+      } else {
+        b.x = tx; b.y = ty;       // the swirl state is already eased above, and must stay rigid
+      }
       b.s += (ts - b.s) * EASE;
       if (Math.abs(tx - b.x) + Math.abs(ty - b.y) + Math.abs(ts - b.s) * 100 > 0.08) busy = true;
       const sx = b.s * (1 - sq * 0.03), sy = b.s * (1 + sq * 0.05);
       b.el.style.transform =
-        `translate(${b.x.toFixed(2)}px, ${(b.y - sq * 12).toFixed(2)}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
+        `translate(${b.x.toFixed(2)}px, ${(b.y - sq * 8).toFixed(2)}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
     }
     raf = busy ? requestAnimationFrame(tick) : 0;
   };
-  const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
+  function kick() { if (!raf) raf = requestAnimationFrame(tick); }
+
+  measure();
+  addEventListener("resize", measure, { passive: true });
+  mouseScreen.addEventListener?.("change", measure);
 
   addEventListener("pointermove", (e) => {
     if (e.pointerType !== "mouse") return;
@@ -127,22 +141,15 @@
   }, { passive: true });
   document.documentElement.addEventListener("mouseleave", () => { px = py = null; kick(); });
 
-  const onTouch = (e) => {
-    const t = e.touches && e.touches[0];
-    if (t) { px = t.clientX; py = t.clientY; kick(); }
-  };
-  addEventListener("touchstart", onTouch, { passive: true });
-  addEventListener("touchmove", onTouch, { passive: true });
-  addEventListener("touchend", () => { setTimeout(() => { px = py = null; kick(); }, 350); }, { passive: true });
-
   // Capture phase: element scroll events do not bubble.
   addEventListener("scroll", (e) => {
     const t = e.target && e.target.nodeType === 1 ? e.target : document;
-    const top = t === document ? scrollY : t.scrollTop;
+    const now = t === document ? scrollY : t.scrollTop;
     const prev = lastTop.get(t);
-    lastTop.set(t, top);
-    if (prev === undefined) return;
-    vel = Math.max(-72, Math.min(72, vel * 0.5 + (top - prev)));
+    lastTop.set(t, now);
+    top = Math.max(0, now);
+    if (prev === undefined) { kick(); return; }
+    vel = Math.max(-72, Math.min(72, vel * 0.5 + (now - prev)));
     kick();
   }, { passive: true, capture: true });
 })();

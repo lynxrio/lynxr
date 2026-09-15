@@ -3256,6 +3256,11 @@ function libraryItemHtml(item, scopeBrandId) {
         // The duration rides on the cover on a tile (see thumbHtml/.bp-dur).
         { tile: true, kind: item.platform || "link", dur: lengthLabel(videoSeconds({ item })) })}
       <span class="bp-name">${escapeHtml(sourceLabel(item))}</span>
+      ${/* APP GLASS PASS (owner, 2026-09-15: "this needs a revamp too"). The
+            @handle moved up from the body into the head, so the opened card
+            reads title, then handle underneath. Hidden on a closed tile by CSS
+            (display: none, so the tile's accessible name is unchanged). */""}
+      ${item.creator ? `<span class="bp-handle">@${escapeHtml(item.creator)}</span>` : ""}
       ${/* THE PLATFORM CHIP IS GONE, by decision, from both card kinds. It was
             the only thing on a tile that said TikTok from Instagram; the ↗'s
             accessible name carries that now instead, which costs no pixels.
@@ -3276,8 +3281,14 @@ function libraryItemHtml(item, scopeBrandId) {
       ${href ? openOriginalHtml(href, item.platform || platformLabel(item.url || "")) : ""}
     </summary>
     <div class="bp-body">
-      ${item.creator ? `<p class="bp-hint">@${escapeHtml(item.creator)}</p>` : ""}
-      ${item.caption ? `<p class="bp-hint lib-cap">${escapeHtml(item.caption)}</p>` : ""}
+      ${/* APP GLASS PASS, 2026-09-15: the @handle now sits in the head (see
+            .bp-handle above), and the caption is only drawn when it says
+            something the title does not. The title IS the caption on most
+            entries (normalizeMe copies one into the other), so it printed the
+            same sentence twice. The opened head wraps the title in full, so
+            hiding the identical copy loses nothing. */""}
+      ${item.caption && item.caption.replace(/\s+/g, " ").trim() !== sourceLabel(item).replace(/\s+/g, " ").trim()
+        ? `<p class="bp-hint lib-cap">${escapeHtml(item.caption)}</p>` : ""}
       ${/* THE SCRIPT ITSELF, right here. This used to be a list of links, each
             one navigating away — to a brand page, or to a standalone originals
             page that has since been deleted — so reading a script you were
@@ -3496,21 +3507,33 @@ function renderPlan(head, body) {
 function renderYou(head, body) {
   head.innerHTML = `
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div class="pane-title"><div class="bcard-title">Settings</div></div>
+    ${/* APP GLASS PASS (owner, 2026-09-15: "the settings page needs a revamp
+          too"): a small idle lynxr leads the title. Decorative, aria-hidden. */""}
+    <div class="pane-title">${typeof lynxrAvatar === "function" ? lynxrAvatar("idle", "me-av") : ""}<div class="bcard-title">Settings</div></div>
     <p class="pane-sub">Goes into every script, so it sounds like you.</p>`;
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
     e.currentTarget.setAttribute("aria-expanded", open);
   });
 
+  /* APP GLASS PASS, 2026-09-15. The one long form became a few glass cards
+     with friendly titles (you / your content / notifications / deleted
+     scripts / account). Markup only: every id, and so every handler below,
+     is unchanged, and the one Save still reads all of the fields. */
   body.innerHTML = `
-    <div class="section">
+    <div class="section me-card">
+      <h2 class="me-card-h">You</h2>
       <div class="ce-grid">
         <label class="ce-field"><span class="lbl">Your name</span>
           <input type="text" id="me-name" value="${escapeHtml(ME.name || "")}" placeholder="e.g. Sarah"></label>
         <label class="ce-field"><span class="lbl">Your niches (comma-separated)</span>
           <input type="text" id="me-niches" value="${escapeHtml((ME.niches || []).join(", "))}"
             placeholder="e.g. EMT education, study, fitness"></label>
+      </div>
+    </div>
+    <div class="section me-card">
+      <h2 class="me-card-h">Your content</h2>
+      <div class="ce-grid">
         ${/* THE ANSWER TO "the ai made things up about me". A script may only
               claim a job, a qualification or a timespan that it was given, and
               this pair is where it is given — the questions asked during the
@@ -3525,6 +3548,11 @@ function renderYou(head, body) {
           <input type="text" id="me-never" value="${escapeHtml(ME.never || "")}"
             placeholder="e.g. never call myself an expert">
           <span class="ce-hint">Claims you won't make, words that aren't yours.</span></label>
+      </div>
+    </div>
+    <div class="section me-card">
+      <h2 class="me-card-h">Notifications</h2>
+      <div class="ce-grid">
         ${/* The one setting that takes effect before you press Save — see the
               change listener below for why that is deliberate rather than an
               inconsistency. */""}
@@ -3544,17 +3572,19 @@ function renderYou(head, body) {
             <option value="yes"${ME.emailOptIn ? " selected" : ""}>Yes — updates and questions are fine</option>
           </select></label>
       </div>
+    </div>
+    <div class="me-save-row">
       <button type="button" class="btn" id="me-save">Save</button>
       <p class="bp-msg" id="me-msg" role="status" aria-live="polite"></p>
     </div>
 
-    <div class="section">
-      <h2>Trash <span class="pill">${(ME.trash || []).length}</span></h2>
+    <div class="section me-card">
+      <h2 class="me-card-h">Deleted scripts <span class="pill">${(ME.trash || []).length}</span></h2>
       <div id="trash-list"></div>
     </div>
 
-    <div class="section">
-      <h2>Account</h2>
+    <div class="section me-card">
+      <h2 class="me-card-h">Account</h2>
       ${/* Which account you are signed into, ABOVE the buttons that act on it.
             It sat below them, which meant "sign out" and "delete account"
             appeared before the thing they would sign out of or delete — you
@@ -3842,7 +3872,12 @@ function renderTrash() {
   // side effect of visiting another view, and hydrate() now writes through to
   // ME.trash, so asking here is what makes these rows name themselves.
   hydrateStale();
-  host.innerHTML = `<div class="bp-list script-grid">${items.map(trashItemHtml).join("")}</div>`;
+  /* APP GLASS PASS, 2026-09-15: ROWS, NOT TILES ("the trash list becomes
+     simple glass rows with a restore pill"). Dropping .script-grid takes the
+     tile rules away and leaves the plain .bp-item row, which .trash-rows in
+     the APP GLASS block at the end of app.css styles. The markup of each card,
+     and every handler below, is unchanged. */
+  host.innerHTML = `<div class="bp-list trash-rows">${items.map(trashItemHtml).join("")}</div>`;
 
   // The ↗ lives inside the <summary> and would otherwise open the video AND
   // flip the card open behind it.
@@ -7303,9 +7338,11 @@ function adaptationHtml(a, liveName, opts = {}) {
       ${/* A good score explains nothing the script itself doesn't say better, and
             it pushed the hook — the thing you came for — below the fold. Only the
             poor-fit warning still shows: that one changes what you'd do next. */""}
-      ${lowFit ? `<p class="bp-hint bp-partial"><strong>This format doesn't really suit ${escapeHtml(brandNow)}.</strong>
+      ${/* APP GLASS PASS, 2026-09-15: a small confused lynxr leads the warning,
+            and the words are wrapped so the callout can lay them out beside it. */""}
+      ${lowFit ? `<p class="bp-hint bp-partial">${typeof lynxrAvatar === "function" ? lynxrAvatar("confused", "bp-fit-mark") : ""}<span class="bp-partial-txt"><strong>This format doesn't really suit ${escapeHtml(brandNow)}.</strong>
           ${escapeHtml(ad.fit_reason || "")} The script below is written anyway, but a format that fits
-          would do better than forcing this one.</p>` : ""}
+          would do better than forcing this one.</span></p>` : ""}
       ${a.format?.name ? `<div class="chips bp-tags"><span class="chip">${escapeHtml(a.format.name)}</span>
         ${a.source?.tags?.format_type ? `<span class="chip">${escapeHtml(a.source.tags.format_type)}</span>` : ""}
         ${a.source?.tags?.hook_pattern ? `<span class="chip">${escapeHtml(a.source.tags.hook_pattern)}</span>` : ""}</div>` : ""}
@@ -7547,6 +7584,9 @@ function adaptationHtml(a, liveName, opts = {}) {
       <span class="bp-name">${escapeHtml(nested
         ? (a.brandId && !asOriginal ? brandNow : "Original script")
         : entryLabel(a))}</span>
+      ${/* APP GLASS PASS, 2026-09-15: the same @handle line the Library head
+            carries, off the library entry behind this script. */""}
+      ${!nested && srcItem && srcItem.creator ? `<span class="bp-handle">@${escapeHtml(srcItem.creator)}</span>` : ""}
       ${/* Nested, a green "script ready" sits next to the finished script it is
             describing, under an entry whose own chip already says ready —
             three ways of saying the same thing. Writing and error chips STAY: those

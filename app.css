@@ -7194,34 +7194,23 @@
      through the one shared #lx-idle mask, so moving that mask's top-right arm
      waves every identity mark on the page at once, with no markup change. A CSS
      transform REPLACES the rect's transform attribute, so the resting 45deg is
-     restated in the rule and in every keyframe. Split by what the device can
-     do, not by width, so an iPad waves on its own and a narrow desktop window
-     waits for the mouse.
-     - Touch screens (hover: none): one wave every 4s, the first ~1.4s after load.
-     - Mouse screens: only on hover. backdrop.js puts .lx-waving on <html> while
-       the pointer is over a mark or the wordmark, and lets each 1.1s wave finish
-       before stopping, so the arm never snaps back mid-swing. */
+     restated in the rule and in every keyframe.
+     2026-09-15 later: "on load, start with the waving lynxr animation and then
+     have it wave every 3 seconds". Every device now waves the moment the page
+     loads, then once every 3s: the wave takes the first ~1.4s of each cycle and
+     the arm rests for the remaining ~1.6s. Reduced motion: no wave. */
   #lx-idle rect:nth-child(2) {
     transform-box: view-box; transform-origin: 60px 62px;
     transform: rotate(45deg);
   }
-  @keyframes lx-wave {
-    0%, 100% { transform: rotate(45deg); }
-    22%      { transform: rotate(10deg); }
-    48%      { transform: rotate(36deg); }
-    74%      { transform: rotate(10deg); }
-  }
   @keyframes lx-wave-every {
-    0%, 70%, 100% { transform: rotate(45deg); }
-    77%           { transform: rotate(10deg); }
-    84%           { transform: rotate(36deg); }
-    92%           { transform: rotate(10deg); }
+    0%, 48%, 100% { transform: rotate(45deg); }
+    12%           { transform: rotate(10deg); }
+    24%           { transform: rotate(36deg); }
+    36%           { transform: rotate(10deg); }
   }
-  @media (hover: none) and (prefers-reduced-motion: no-preference) {
-    #lx-idle rect:nth-child(2) { animation: lx-wave-every 4s ease-in-out -1.3s infinite; }
-  }
-  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-    html.lx-waving #lx-idle rect:nth-child(2) { animation: lx-wave 1.1s ease-in-out; }
+  @media (prefers-reduced-motion: no-preference) {
+    #lx-idle rect:nth-child(2) { animation: lx-wave-every 3s ease-in-out 0s infinite; }
   }
   /* ================= THE LYNXR AVATAR: moods (avatar.js) =================
      avatar.js emits every face and every extra for all eight moods; these rules
@@ -7602,3 +7591,594 @@
   @media (prefers-reduced-motion: reduce) {
     .lp-bar, body.home .lp-bar, .lp-bar.lp-bar-away, body.home .lp-bar.lp-bar-away { transform: none; opacity: 1; pointer-events: auto; transition: none; }
   }
+
+  /* ONE NAV MARK SIZE EVERYWHERE (owner, 2026-09-15: "make both sizes of the
+     logos the same, make it the bigger one"). Home drew the avatar at 32px
+     (.home .mark) and every other public page at the default 22px. */
+  .lp-bar .wordmark .mark { width: 32px; height: 32px; }
+
+  /* ================= SIMPLE, FUN, GLASS (owner, 2026-09-15) =================
+     "all the stuff looks too messy. i want it simplistic but still fun to be
+     on" and "add a glass morphism feel to the whole website".
+     - SIMPLE: fewer things per screen. The landing lost its numbered eyebrows,
+       the mock UIs inside the steps and the exhibit column. What is left gets
+       more room, bigger type and one card style.
+     - FUN: lynxr itself acts out the steps (avatar.js renders
+       [data-lx-mood]), and cards and buttons answer the pointer with a small
+       spring.
+     - GLASS: one surface everywhere. Translucent --surface (the gate-measured
+       card fill), a backdrop blur, a white edge, a soft violet shadow. It is
+       used on the landing's cards, on the content pages' reading sheet, on the
+       legal pages and on the footer. Dense app data keeps its opaque ground
+       (GLASS: CHROME, NOT DATA above). */
+  :root {
+    --spring: cubic-bezier(.34, 1.56, .64, 1);
+    --g-shadow: 0 24px 50px -30px rgba(70, 30, 100, .32);
+    --g-shadow-lift: 0 34px 60px -30px rgba(70, 30, 100, .4);
+    --g-hi-fallback: #ffffffe6;
+    --logo-grad: linear-gradient(135deg, #ffb38a, #ff7eb8 50%, #7b61ff);
+    /* white glyphs sit on this one: the logo's pink deepened to #e8559b so white clears 3:1 (3.4) at both ends */
+    --ico-grad: linear-gradient(135deg, #e8559b, #7b61ff);
+    --ico-on-grad: #ffffff;
+    --ico-glow: 0 10px 20px -10px rgba(123, 97, 255, .55);
+    --av-glow: rgba(110, 50, 160, .22);
+  }
+
+  .lp-step, .lp-feat, .lp-stat.lp-panel, .lp-vid, .lp-ex-card, main.legal, body.lp:not(.home) main {
+    background: var(--surface);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge);
+    border-radius: 28px;
+    box-shadow: inset 0 1px 0 var(--glass-hi, var(--g-hi-fallback)), var(--g-shadow);
+  }
+  #site-footer, .site-footer {
+    background: var(--surface);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge);
+    border-radius: 32px;
+    box-shadow: inset 0 1px 0 var(--glass-hi, var(--g-hi-fallback)), var(--g-shadow);
+    width: min(1120px, calc(100% - 24px));
+  }
+
+  /* ---- type: bigger, calmer, one voice ---- */
+  .lp-n { display: none; }
+  .lp-eyebrow { font-family: var(--font-ui); letter-spacing: 0; }
+  .lp-seclede { color: var(--text-2); }
+  body.home .lp-h2 { font-size: clamp(30px, 3.6vw, 46px); font-weight: 700; letter-spacing: -.035em; line-height: 1.08; }
+  body.home :is(.lp-sec, .lp-band) > .lp-in > :is(.lp-h2, .lp-seclede) { text-align: center; margin-inline: auto; }
+  body.home .lp-h3 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+  body.home .lp-p { font-size: 16px; line-height: 1.6; }
+
+  /* ---- landing: how it works = three glass cards, lynxr acting each step out ---- */
+  body.home .lp-band, body.home .lp-sec { padding-block: clamp(64px, 9vh, 104px); }
+  body.home .lp-steps { gap: 18px; }
+  body.home .lp-step { padding: 28px 26px 30px; text-align: center; }
+  body.home .lp-step .lp-p { margin-inline: auto; max-width: 30ch; }
+  .lp-av { display: block; width: 96px; height: 96px; margin: 0 auto 16px; }
+  .lp-av .lx { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 12px 16px var(--av-glow)); }
+  .lp-av-close { width: 88px; height: 88px; margin-bottom: 10px; }
+
+  /* ---- landing: what you get = four glass tiles, no exhibit ---- */
+  body.home .lp-panel:not(.lp-stat) { background: none; border: 0; box-shadow: none; padding: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body.home .lp-split { display: block; margin-top: 8px; }
+  body.home .lp-feats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+  body.home .lp-feat, body.home .lp-feat:first-child { display: block; padding: 26px 24px 28px; border-top: 1px solid var(--glass-edge); }
+  body.home .lp-feat .lp-feat-ico {
+    display: grid; place-items: center; width: 48px; height: 48px; margin: 0 0 16px;
+    border: 0; border-radius: 16px; color: var(--ico-on-grad);
+    background: var(--ico-grad);
+    box-shadow: var(--ico-glow);
+  }
+  body.home .lp-feat .lp-feat-ico svg { width: 22px; height: 22px; }
+  body.home .lp-feat .lp-h3 { min-height: 0; display: block; margin: 0 0 6px; }
+  body.home .lp-feat .lp-p { margin: 0; }
+  @media (max-width: 1000px) { body.home .lp-feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { body.home .lp-feats, body.home .lp-steps { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ---- landing: proof + engine ---- */
+  body.home .lp-vid, body.home .lp-ex-card { padding: 22px; }
+  body.home .lp-stat.lp-panel { padding: clamp(36px, 5vw, 56px) clamp(24px, 4vw, 48px); }
+
+  /* ---- content pages: one glass reading sheet ---- */
+  body.lp:not(.home) main { max-width: 820px; margin: 28px auto 0; padding: 0 clamp(20px, 5vw, 48px); }
+  body.lp:not(.home) main :is(.lp-hero, .lp-sec, .lp-band) > .lp-in { max-width: none; padding-inline: 0; }
+  body.lp:not(.home) .lp-hero { padding: clamp(36px, 6vh, 56px) 0 18px; }
+  body.lp:not(.home) main > :is(.lp-sec, .lp-band):last-child { padding-bottom: clamp(36px, 6vh, 56px); }
+  main.legal { max-width: 760px; margin: 28px auto 0; padding: clamp(32px, 5vw, 56px); font-size: 15px; }
+  @media (max-width: 760px) {
+    body.lp:not(.home) main, main.legal { margin: 16px 12px 0; border-radius: 24px; }
+  }
+
+  /* ---- the footer card ---- */
+  #site-footer, .site-footer { margin-top: 36px; margin-bottom: 20px; box-sizing: border-box; }
+  /* INSIDE THE APPS the card must fit its column, not the page. An earlier
+     `margin-left: 0; max-width: none` rule (made for the old full-width
+     divider footer) left the card hugging the rail on the left, and the
+     percentage width plus the gutter padding overflowed .pane-scroll sideways,
+     which drew a horizontal scrollbar under it (owner, 2026-09-15: "this is
+     fcked up"). Here it sits inset by the gutter on both sides. */
+  #app :is(#site-footer, .site-footer), .pane-scroll :is(#site-footer, .site-footer) {
+    width: auto; max-width: none;
+    margin: 36px var(--gutter, 24px) 24px;
+  }
+
+  /* ---- a small spring on things you can touch ---- */
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    body.home :is(.lp-step, .lp-feat, .lp-vid, .lp-ex-card, .lp-stat.lp-panel) { transition: transform .5s var(--spring), box-shadow .5s ease; }
+    body.home :is(.lp-step, .lp-feat, .lp-vid, .lp-ex-card):hover { transform: translateY(-6px); box-shadow: inset 0 1px 0 var(--glass-hi, var(--g-hi-fallback)), var(--g-shadow-lift); }
+    body.home .lp-feat:hover .lp-feat-ico { transform: rotate(-8deg) scale(1.08); }
+    body.home .lp-feat .lp-feat-ico { transition: transform .5s var(--spring); }
+    :is(.btn, .composer-send) { transition: transform .35s var(--spring), background-color .2s ease, border-color .2s ease; }
+    :is(.btn, .composer-send):hover { transform: scale(1.05); }
+    :is(.btn, .composer-send):active { transform: scale(.96); }
+  }
+
+  /* ---- landing: the proof, simplified (same SIMPLE, FUN, GLASS pass) ----
+     The fine-print notes go, the tiny mono labels become plain small text,
+     and the carried-over steps become four gradient pills. */
+  body.home .lp-note { display: none; }
+  body.home .lp-proof-lbl { font-family: var(--font-ui); font-size: 14px; letter-spacing: 0; color: var(--text-2); }
+  body.home .lp-spine-lbl { font-family: var(--font-ui); font-size: 13px; letter-spacing: 0; color: var(--text-2); }
+  body.home .lp-spine-foot { display: none; }
+  body.home .lp-spine-list { gap: 8px; }
+  body.home .lp-spine-list::before, body.home .lp-spine-list li::before { display: none; }
+  /* Ink on white with a logo-gradient border: white text on the gradient
+     itself measured 1.74:1 at the peach end, so the colour stays in the edge. */
+  body.home .lp-spine-list li {
+    padding: 6px 16px 7px; border-radius: 999px; font-weight: 700; font-size: 14px; color: var(--text);
+    border: 2px solid transparent;
+    background: linear-gradient(var(--surface-flat), var(--surface-flat)) padding-box, var(--logo-grad) border-box;
+    box-shadow: var(--ico-glow);
+  }
+
+  /* ================= THE FOOTER WAITS BELOW THE FOLD (owner, 2026-09-15) =================
+     "have it be so that on any display i cant see it unless i scroll down".
+     Whatever sits above the footer is made at least one screen tall, so on a
+     page or pane with little content the footer starts under the fold instead
+     of floating up into view. Long pages are unaffected: min-height never
+     shrinks anything.
+     - Public pages (landing, content, legal, 404): the landing's hero is
+       already a full screen; the content and legal glass sheets reach the fold.
+     - Creator app: .pane-body fills its scroll pane (percent min-height
+       resolves against .pane-scroll's definite height), so the footer comes
+       after one full pane.
+     - Agency app: <main> fills the viewport under its header. */
+  body.lp:not(.home) > main, body > main.legal { min-height: calc(100svh - 28px); box-sizing: border-box; }
+  .pane-scroll > .pane-body { min-height: 100%; }
+  #app > main { min-height: 100svh; box-sizing: border-box; }
+
+  /* ================= THE APP, SIMPLE AND GLASS (owner, 2026-09-15) =================
+     The same SIMPLE, FUN, GLASS pass, carried into the signed-in creator app.
+     Owner, on the script view and the library grid: "this needs a revamp too"
+     and "keep the glass morphism in the context, i like the look"; then "the
+     settings page needs a revamp too".
+     EVERY RULE IS SCOPED TO .pane-body (or .pane-head), which only the creator
+     app's shell has. The agency app shares .bp-item, .bp-beat, .bp-hook and
+     .chip, and must not move.
+     - SCRIPT VIEW: a clean head (bigger title, handle underneath, one soft
+       status pill, the meta in the UI font), a tinted callout with a confused
+       lynxr for a poor fit, glass tag pills, the hook on its own card with a
+       logo-gradient edge, each beat a rounded row (say is the hero, do is
+       quieter, tiny pills instead of mono labels), and the playing beat lit by
+       a gradient edge instead of a green wash. "The original" is a glass card
+       with a rounded video and glass controls.
+     - LIBRARY GRID: frosted chips that hold on any frame, a glass arrow
+       circle, "ready" as a pill with a green dot, bigger tile radius, a soft
+       glass edge and a spring lift on hover (hover devices, motion allowed).
+     - SETTINGS: glass cards with plain titles, soft wells for the fields, one
+       primary Save pill, deleted scripts as glass rows with a restore pill.
+     WHERE THE BLUR GOES. backdrop-filter is used on three small things that sit
+     over sharp video, where frosting actually shows: the tile chips, the
+     arrow circle and the play disc (6px, the cheapest radius that reads). It is
+     NOT on the open card, the beat rows or "The original": a backdrop-filter
+     makes its box the containing block for position: fixed descendants, and
+     the mobile mini player (.ref-play.is-mini .ref-media) is position: fixed
+     inside both. Those surfaces are translucent --surface plus an edge, like
+     every other card in the app (GLASS: CHROME, NOT DATA). The Settings cards
+     hold nothing fixed, are few and static, and take the landing's full card
+     recipe, blur included.
+     CONTRAST. Text on these surfaces is --text / --text-2 / --text-3, or ink on
+     white frost. White over the page only ever lightens the ground under dark
+     text, so each pair measures at least what the gate measured on the page.
+     Colour lives in dots, pills and edges, never as white on the gradient
+     (1.74:1). Measured painted in the verification for this pass. */
+  :root {
+    /* The page's own light ink, captured on <html> BEFORE the dark media island
+       (:is(.ref-media, .tp, .vplay)) redefines --text inside the player. The
+       player's bar sits on the light card, not on the video. */
+    --ink: var(--text);
+    --ink-2: var(--text-2);
+    --ink-line: var(--line);
+    --ink-line-2: var(--line-2);
+    --ink-focus: var(--focus-ring);
+    --st-good: var(--good);
+    --st-bad: var(--bad);
+    /* scrub track: 4.1:1 against the ink fill and >=3.5:1 against the card */
+    --ctl-track: #7a7394;
+    /* frosted chips over video: ink on 80% white is >=6:1 even over pure black */
+    --tile-chip: #ffffffcc;
+    --tile-chip-edge: #ffffffeb;
+    --tile-chip-blur: blur(6px) saturate(1.4);
+    --tile-chip-shadow: 0 4px 14px -4px rgba(20, 18, 43, .38);
+    --app-lift: 0 34px 54px -26px rgba(70, 30, 100, .45);
+    --app-soft: 0 8px 22px -16px rgba(70, 30, 100, .38);
+    --beat-bg: #ffffffa3;
+    --beat-glow: 0 16px 34px -18px rgba(123, 97, 255, .55), 0 0 0 4px rgba(255, 126, 184, .10);
+    --callout-bg: #fff3ead9;
+    --callout-edge: #ffd6bf;
+    --lbl-say-bg: #7b61ff1f;
+    --lbl-do-bg: #14122b0f;
+    --mask-solid: linear-gradient(#000 0 0);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    html:root { --tile-chip: var(--surface-flat); --tile-chip-edge: var(--surface-flat); --tile-chip-blur: none;
+                --beat-bg: var(--surface-flat); --callout-bg: var(--surface-flat); }
+  }
+  .bp-handle { text-transform: none; }
+  .script-grid > .bp-item:not([open]) > summary > .bp-handle { display: none; }
+
+  /* ---- the logo-gradient edge, drawn as a masked ring so the fill under it
+     can stay translucent (a padding-box/border-box pair needs an opaque fill) ---- */
+  .pane-body .bp-hook::before,
+  .pane-body .bp-beats.bp-notime > .bp-beat::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
+    background: var(--logo-grad); pointer-events: none;
+    -webkit-mask: var(--mask-solid) content-box, var(--mask-solid);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+
+  /* ================= SCREEN 2: THE LIBRARY GRID ================= */
+  .pane-body .script-grid { gap: 14px; }
+  .pane-body .script-grid > .bp-item:not([open]) {
+    border-radius: 32px; border-color: var(--glass-edge);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--g-shadow);
+  }
+  .pane-body .script-grid > .bp-item:not([open]) > summary:focus-visible { border-radius: 29px; }
+  /* chips over the frame: frosted white, ink text */
+  .pane-body .script-grid > .bp-item:not([open]):not(.trash-card) > summary > .chip,
+  .pane-body .script-grid > .bp-item:not([open]):not(.trash-card) > summary > .meta-facts,
+  .pane-body .script-grid > .bp-item:not([open]) .bp-dur {
+    background: var(--tile-chip); border: 1px solid var(--tile-chip-edge); color: var(--ink);
+    -webkit-backdrop-filter: var(--tile-chip-blur); backdrop-filter: var(--tile-chip-blur);
+    box-shadow: var(--tile-chip-shadow);
+    font-family: var(--font-ui); font-weight: 600; font-size: var(--fs-115); line-height: 1.45;
+    border-radius: var(--r-pill);
+  }
+  .pane-body .script-grid > .bp-item:not([open]):not(.trash-card) > summary > .chip {
+    left: 10px; bottom: 10px; padding: 3px 10px 3px 8px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .pane-body .script-grid > .bp-item:not([open]):not(.trash-card) > summary > .meta-facts {
+    left: 10px; top: 10px; padding: 3px 9px;
+  }
+  .pane-body .script-grid > .bp-item:not([open]) .bp-dur {
+    right: 10px; bottom: 10px; padding: 3px 9px; font-variant-numeric: tabular-nums;
+  }
+  .pane-body .script-grid > .bp-item:not([open]) > summary > .meta-facts .lib-stat {
+    color: var(--ink); font-family: var(--font-ui); font-weight: 600; font-size: var(--fs-115); gap: 4px;
+  }
+  .pane-body .script-grid > .bp-item:not([open]) > summary > .chip .st-n { font-family: var(--font-ui); opacity: 1; }
+  .pane-body .script-grid > .bp-item:not([open]) > summary > .chip .st-n::before { content: ""; margin: 0 1px 0 0; }
+  .pane-body .script-grid > .bp-item:not([open]) > summary > .chip .st-n {
+    display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; margin-left: 5px;
+    border-radius: var(--r-pill); background: var(--lbl-do-bg); font-size: var(--fs-105);
+  }
+  /* the arrow: a glass circle */
+  .pane-body .script-grid > .bp-item:not([open]) > summary > .bp-open {
+    top: 10px; right: 10px; width: 32px; height: 32px;
+    background: var(--tile-chip); border: 1px solid var(--tile-chip-edge); color: var(--ink);
+    -webkit-backdrop-filter: var(--tile-chip-blur); backdrop-filter: var(--tile-chip-blur);
+    box-shadow: var(--tile-chip-shadow);
+  }
+  .pane-body .script-grid > .bp-item:not([open]) > summary > .bp-open:hover {
+    background: var(--surface-flat); border-color: var(--surface-flat); color: var(--ink);
+  }
+  .pane-body .script-grid > .bp-item:not([open]) > summary > .bp-open:focus-visible { outline-color: var(--focus-ring); }
+  .pane-body .script-grid > .bp-item:not([open]) > summary > .bp-thumb > .vthumb-none {
+    font-family: var(--font-ui); font-weight: 600; color: var(--text-3); background: var(--surface-2);
+  }
+
+  /* THE STATUS DOT, one recipe for the tile chip and the open head. A writing
+     chip already carries its own pulsing .bp-dot; good and bad get a still one.
+     The words stay ink: --good on 80% white frost over a black frame measured
+     3.3:1, so the green is kept to the dot (non-text, >=3:1 on white). */
+  .pane-body :is(.script-grid > .bp-item > summary > .chip, .bp-item[open] > summary > .chip):is(.good, .bad)::before {
+    content: ""; flex: none; width: 7px; height: 7px; border-radius: var(--r-round); background: var(--st-good);
+  }
+  .pane-body :is(.script-grid > .bp-item > summary > .chip, .bp-item[open] > summary > .chip).bad::before { background: var(--st-bad); }
+  .pane-body :is(.script-grid > .bp-item > summary > .chip, .bp-item[open] > summary > .chip) .bp-dot { margin: 0; }
+
+  /* groups ("by brand"): one calm glass box, no rule under the head */
+  .pane-body .lib-group {
+    border-color: var(--glass-edge); border-radius: 34px; padding: 16px 16px 18px;
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--g-shadow);
+  }
+  .pane-body .lib-group-head { border-bottom: 0; padding: 2px 6px 10px; margin-bottom: 4px; align-items: center; }
+  .pane-body .lib-group-name { font-size: var(--fs-16); font-weight: 700; letter-spacing: -.01em; }
+  .pane-body .lib-group-meta {
+    padding: 3px 10px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--line);
+    font-size: var(--fs-115); font-weight: 600;
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .pane-body .script-grid > .bp-item:not([open]) {
+      transition: transform .5s var(--spring), box-shadow .5s ease, border-color .2s ease;
+    }
+    .pane-body .script-grid > .bp-item:not([open]):hover {
+      transform: translateY(-5px);
+      box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-lift);
+    }
+    .pane-body .script-grid > .bp-item:not([open]) > summary > .bp-open { transition: transform .4s var(--spring), background-color .2s ease; }
+    .pane-body .script-grid > .bp-item:not([open]) > summary > .bp-open:hover { transform: scale(1.1); }
+  }
+
+  /* ================= SCREEN 1: THE OPENED SCRIPT ================= */
+  .pane-body .script-grid > .bp-item[open] {
+    border-radius: 32px; border-color: var(--glass-edge);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--g-shadow);
+  }
+  /* THE HEAD. One flex line of title / pill / arrow / caret, a zero-height
+     break, then a quiet second line of handle and facts. The cover is taken
+     out of the flow and pinned left, so both lines sit beside it. */
+  .pane-body .script-grid > .bp-item[open] > summary {
+    position: relative; display: flex; flex-wrap: wrap; align-items: center; align-content: center;
+    column-gap: 10px; row-gap: 0; box-sizing: border-box;
+    min-height: 116px; padding: 18px 20px 18px 83px;
+  }
+  .pane-body .script-grid > .bp-item[open] > summary:not(:has(> .bp-thumb > img)) { min-height: 0; padding-left: 20px; }
+  .pane-body .script-grid > .bp-item[open] > summary::after { content: ""; order: 5; flex: 0 0 100%; height: 6px; }
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-thumb {
+    position: absolute; left: 20px; top: 18px; margin: 0;
+    width: 45px; height: 80px; border-radius: 14px;
+    box-shadow: 0 0 0 1px var(--glass-edge), var(--app-soft);
+  }
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-name {
+    order: 1; flex: 1 1 0; min-width: 0; margin: 0;
+    font-size: var(--fs-19); font-weight: 700; letter-spacing: -.015em; line-height: 1.3; color: var(--text);
+    white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere;
+    display: block; -webkit-line-clamp: none;
+  }
+  .pane-body .script-grid > .bp-item[open] > summary > .chip {
+    order: 2; flex: none; margin: 0;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 12px 5px 10px; font-size: var(--fs-125); font-weight: 600; color: var(--text);
+    background: var(--surface); border: 1px solid var(--line);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+  }
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-open,
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-caret {
+    display: grid; place-items: center; flex: none; width: 34px; height: 34px; margin: 0; padding: 0;
+    border-radius: var(--r-round); background: var(--surface); border: 1px solid var(--line);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+    color: var(--text-2); font-size: var(--fs-13); line-height: 1;
+  }
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-open { order: 3; }
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-open:hover { color: var(--text); background: var(--surface-flat); }
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-caret { order: 4; font-size: var(--fs-11); }
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-handle {
+    order: 6; font-size: var(--fs-14); font-weight: 600; color: var(--text-2); margin-right: 6px;
+  }
+  .pane-body .script-grid > .bp-item[open] > summary > .meta-facts { order: 7; gap: 14px; margin: 0 6px 0 0; }
+  .pane-body .script-grid > .bp-item[open] > summary > .meta-facts .lib-stat {
+    font-family: var(--font-ui); font-size: var(--fs-13); color: var(--text-3); gap: 5px;
+  }
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-when {
+    order: 8; margin: 0; font-size: var(--fs-13); color: var(--text-3);
+  }
+  @media (max-width: 620px) {
+    .pane-body .script-grid > .bp-item[open] > summary { min-height: 108px; padding: 14px 14px 14px 73px; }
+    .pane-body .script-grid > .bp-item[open] > summary:not(:has(> .bp-thumb > img)) { padding-left: 14px; }
+    .pane-body .script-grid > .bp-item[open] > summary > .bp-thumb { left: 14px; top: 14px; }
+    .pane-body .script-grid > .bp-item[open] > summary > .bp-name { flex: 1 1 calc(100% - 50px); font-size: var(--fs-16); }
+    .pane-body .script-grid > .bp-item[open] > summary > .bp-caret { order: 2; }
+    .pane-body .script-grid > .bp-item[open] > summary::after { order: 3; height: 2px; }
+    .pane-body .script-grid > .bp-item[open] > summary > .bp-handle { order: 4; flex: 0 0 100%; margin: 0 0 8px; }
+    .pane-body .script-grid > .bp-item[open] > summary > .chip { order: 5; margin-left: 0; }
+    .pane-body .script-grid > .bp-item[open] > summary > .meta-facts { order: 6; gap: 10px; }
+    .pane-body .script-grid > .bp-item[open] > summary > .bp-when { order: 7; margin-left: 0; }
+    .pane-body .script-grid > .bp-item[open] > summary > .bp-open { order: 8; margin-left: auto; }
+  }
+  .pane-body .script-grid > .bp-item[open] > .bp-body { padding: 4px 20px 20px; }
+  @media (max-width: 620px) { .pane-body .script-grid > .bp-item[open] > .bp-body { padding: 2px 14px 16px; } }
+
+  /* the poor-fit warning: a soft peach callout, lynxr confused beside it */
+  .pane-body .bp-partial {
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 0 16px; padding: 12px 16px 12px 12px;
+    border: 1px solid var(--callout-edge); border-radius: 22px; background: var(--callout-bg);
+    color: var(--text-2); font-size: var(--fs-13); line-height: 1.5;
+  }
+  .pane-body .bp-partial strong { color: var(--text); }
+  .pane-body .bp-fit-mark { flex: none; width: 42px; height: 42px; }
+
+  /* tags: glass pills */
+  .pane-body .bp-tags { gap: 8px; margin: 0 0 16px; }
+  .pane-body .bp-tags .chip {
+    padding: 5px 13px; font-size: var(--fs-125); font-weight: 600; color: var(--text-2);
+    background: var(--surface); border: 1px solid var(--line);
+    box-shadow: inset 0 1px 0 var(--glass-hi);
+  }
+
+  /* the hook: its own card, gradient edge */
+  .pane-body .bp-hook {
+    position: relative; margin: 0 0 22px; padding: 16px 20px 18px;
+    border: 0; border-radius: 24px; background: var(--surface);
+    box-shadow: var(--beat-glow);
+    font-style: normal; font-size: var(--fs-18); font-weight: 650; line-height: 1.4; color: var(--text);
+  }
+  .pane-body .bp-hook-lbl {
+    display: flex; width: fit-content; margin: 0 0 8px; padding: 2px 9px;
+    border-radius: var(--r-pill); background: var(--lbl-say-bg); color: var(--accent);
+    font-size: var(--fs-105); font-weight: 700; letter-spacing: .02em; line-height: 1.5;
+  }
+  .pane-body .bp-heading {
+    margin: 0 0 10px; font-size: var(--fs-14); font-weight: 700; letter-spacing: 0; color: var(--text);
+  }
+
+  /* THE BEATS. Rows, not hairlines. No backdrop-filter: dozens are on screen. */
+  .pane-body .bp-beats.bp-notime { display: flex; flex-direction: column; gap: 10px; }
+  .pane-body .bp-beats.bp-notime > .bp-beat {
+    position: relative; grid-template-columns: 46px minmax(0, 1fr); gap: 8px 12px;
+    padding: 14px 18px 14px 14px;
+    border: 1px solid var(--line); border-radius: 20px; background: var(--beat-bg);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+    transition: background-color .25s ease, box-shadow .25s ease, border-color .25s ease;
+  }
+  .pane-body .bp-beats.bp-notime > .bp-beat::before { opacity: 0; transition: opacity .25s ease; }
+  .pane-body .bp-beats.bp-notime > .bp-beat.on {
+    background: var(--surface-flat); border-color: transparent; border-radius: 20px;
+    box-shadow: var(--beat-glow);
+  }
+  .pane-body .bp-beats.bp-notime > .bp-beat.on::before { opacity: 1; }
+  .pane-body .bp-beats.bp-notime > .bp-beat .bp-lbl {
+    justify-self: start; align-self: start; margin-top: 2px; padding: 2px 8px;
+    border-radius: var(--r-pill); background: var(--lbl-do-bg); color: var(--text-2);
+    font-size: var(--fs-105); font-weight: 700; letter-spacing: .02em; line-height: 1.5;
+  }
+  .pane-body .bp-beats.bp-notime > .bp-beat .bp-lbl.bp-lbl-say { background: var(--lbl-say-bg); color: var(--accent); }
+  .pane-body .bp-beats.bp-notime > .bp-beat .bp-val { font-size: var(--fs-145); line-height: 1.5; }
+  .pane-body .bp-beats.bp-notime > .bp-beat .bp-val.bp-say { font-size: var(--fs-16); font-weight: 500; color: var(--text); }
+  .pane-body .bp-beats.bp-notime > .bp-beat .bp-val ~ .bp-val { font-size: var(--fs-135); color: var(--text-2); }
+  .pane-body .bp-addbeat { margin: 12px 0 0 14px; }
+  .pane-body .ref-main > .bp-hint { font-size: var(--fs-13); color: var(--text-2); }
+  .pane-body .ref-main > .bp-hint strong { color: var(--text); }
+  @media (prefers-reduced-motion: reduce) {
+    .pane-body .bp-beats.bp-notime > .bp-beat, .pane-body .bp-beats.bp-notime > .bp-beat::before { transition: none; }
+  }
+  /* The column scrolls beside the player at >=1180px; a little inset keeps the
+     lit beat's glow from being cut off at the scroll box's edge. */
+  @media (min-width: 1180px) {
+    .pane-body .ref-split:has(> details.ref-panel[open] video.ref-video) > .ref-main {
+      padding: 2px 10px 14px; margin: 0 -10px;
+    }
+  }
+  /* copy / revert / delete: glass circles (armed ones still grow into words) */
+  .pane-body .bp-item :is(.bp-icons, .bp-foot) .ghost.icon-only {
+    background: var(--surface); border-color: var(--line);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+  }
+  .pane-body .bp-item :is(.bp-icons, .bp-foot) .ghost.icon-only:not(.armed) { width: 38px; height: 38px; }
+
+  /* "The original": a glass card, a rounded video, glass controls */
+  .pane-body .bp-item.ref-panel {
+    background: var(--surface); border: 1px solid var(--glass-edge); border-radius: 28px;
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--g-shadow);
+  }
+  .pane-body .bp-item.ref-panel > summary { padding: 14px 16px 12px; font-size: var(--fs-145); font-weight: 700; color: var(--text); }
+  .pane-body .bp-item.ref-panel > .bp-body { padding: 0 14px 12px; }
+  .pane-body .ref-play:not(.is-mini) .ref-media:not(.is-full) .ref-video {
+    border: 0; border-radius: 22px; box-shadow: var(--app-soft);
+  }
+  .pane-body .ref-badge {
+    width: 56px; height: 56px; margin: -28px 0 0 -28px;
+    background: var(--tile-chip); color: var(--ink); border: 1px solid var(--tile-chip-edge);
+    -webkit-backdrop-filter: var(--tile-chip-blur); backdrop-filter: var(--tile-chip-blur);
+    box-shadow: var(--tile-chip-shadow);
+  }
+  /* The bar sits UNDER the video, on the light card, so it takes the page's
+     ink back from the dark island. Not in the mini player (over the video)
+     and not in fullscreen (on black): both keep the island's light-on-dark. */
+  .pane-body .ref-play:not(.is-mini) .ref-media:not(.is-full) .ref-bar {
+    --text: var(--ink); --text-2: var(--ink-2); --text-3: var(--ctl-track);
+    --line: var(--ink-line); --line-2: var(--ink-line-2); --surface-2: transparent; --focus-ring: var(--ink-focus);
+  }
+  .pane-body .ref-play:not(.is-mini) .ref-media:not(.is-full) .ref-btn {
+    background: var(--surface-flat); border: 1px solid var(--line); color: var(--text);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+  }
+  .pane-body .ref-play:not(.is-mini) .ref-media:not(.is-full) .ref-btn:hover:not(:disabled) { border-color: var(--line-2); }
+  @media (min-width: 821px) {
+    .pane-body .ref-play:not(.is-mini) .ref-media:not(.is-full) .ref-btn { width: 38px; height: 38px; }
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .pane-body .ref-play:not(.is-mini) .ref-media:not(.is-full) .ref-btn { transition: transform .35s var(--spring), border-color .2s ease; }
+    .pane-body .ref-play:not(.is-mini) .ref-media:not(.is-full) .ref-btn:hover:not(:disabled) { transform: scale(1.08); }
+  }
+
+  /* ================= SETTINGS ================= */
+  .pane-head .me-av { flex: none; width: 34px; height: 34px; margin-right: -2px; }
+  .pane-body .me-card {
+    margin-bottom: 18px; padding: 22px 24px 24px;
+    background: var(--surface); border: 1px solid var(--glass-edge); border-radius: 28px;
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--g-shadow);
+  }
+  .pane-body .me-card > .me-card-h {
+    margin: 0 0 18px; font-size: var(--fs-18); font-weight: 700; letter-spacing: -.01em; color: var(--text);
+  }
+  .pane-body .me-card > .me-card-h::before { display: none; }
+  .pane-body .me-card > .me-card-h .pill { margin-left: 0; }
+  .pane-body .me-card .ce-grid { gap: 20px 22px; margin-bottom: 0; }
+  .pane-body .me-card .ce-field { gap: 8px; }
+  .pane-body .me-card .ce-field .lbl { font-size: var(--fs-135); font-weight: 600; color: var(--text-2); }
+  .pane-body .me-card .ce-field :is(input, select) {
+    padding: 12px 16px; font-size: var(--fs-15);
+    background: var(--field-input); border: 1px solid var(--field-input-edge);
+    box-shadow: inset 0 1px 3px var(--field-input-inset);
+  }
+  .pane-body .me-card .ce-field :is(input, select):focus { border-color: var(--focus-ring); }
+  .pane-body .me-card .ce-hint { font-size: var(--fs-125); }
+  .pane-body .me-save-row { display: flex; align-items: center; gap: 14px; margin: 4px 0 30px; }
+  .pane-body .me-save-row .bp-msg { margin: 0; }
+  .pane-body #me-save { padding: 13px 34px; font-size: var(--fs-155); box-shadow: var(--ico-glow); }
+  .pane-body .me-card .me-who { margin-top: 0; }
+
+  /* deleted scripts: glass rows with a restore pill */
+  .pane-body .trash-rows { display: flex; flex-direction: column; gap: 10px; margin-top: 0; }
+  .pane-body .trash-rows > .bp-item {
+    margin: 0; background: var(--beat-bg); border: 1px solid var(--line); border-radius: 22px;
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+  }
+  .pane-body .trash-rows > .bp-item > summary {
+    position: relative; display: flex; flex-wrap: nowrap; align-items: center; gap: 10px;
+    min-height: 92px; box-sizing: border-box; padding: 12px 12px 12px 69px;
+  }
+  .pane-body .trash-rows > .bp-item > summary > .bp-caret { display: none; }
+  .pane-body .trash-rows > .bp-item > summary > .bp-thumb {
+    position: absolute; left: 12px; top: 12px; width: 45px; height: 68px; overflow: visible;
+  }
+  .pane-body .trash-rows > .bp-item > summary > .bp-thumb > :is(.vthumb, .vthumb-none) {
+    border-radius: 12px; object-fit: cover; box-shadow: 0 0 0 1px var(--glass-edge);
+  }
+  .pane-body .trash-rows > .bp-item > summary > .bp-thumb > .bp-dur {
+    left: calc(100% + 12px); right: auto; top: auto; bottom: 4px;
+    padding: 0; border: 0; background: none; color: var(--text-3);
+    font-family: var(--font-ui); font-size: var(--fs-12); white-space: nowrap;
+  }
+  .pane-body .trash-rows > .bp-item > summary > .bp-name {
+    flex: 1 1 0; min-width: 0; align-self: flex-start; margin: 2px 0 0; order: 0;
+    font-size: var(--fs-145); font-weight: 600; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .pane-body .trash-rows > .bp-item > summary > .chip {
+    margin: 0; flex: none; background: var(--surface); font-size: var(--fs-12); font-weight: 600;
+  }
+  .pane-body .trash-rows > .bp-item > summary > .bp-open { flex: none; padding: 6px; }
+  .pane-body .trash-rows .trash-acts { gap: 6px; }
+  .pane-body .trash-rows .trash-restore {
+    min-height: 36px; padding: 6px 14px 6px 11px; font-weight: 600; color: var(--text);
+    background: var(--surface-flat); border-color: var(--line);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+  }
+  .pane-body .trash-rows .trash-purge:not(.armed) { width: 36px; height: 36px; }
+  .pane-body .trash-rows > .bp-item > .bp-body { padding: 0 16px 14px 69px; }
+  @media (max-width: 620px) {
+    .pane-body .trash-rows > .bp-item > summary { flex-wrap: wrap; align-content: space-between; row-gap: 30px; }
+    .pane-body .trash-rows > .bp-item > summary > .bp-name { flex: 1 1 100%; }
+    .pane-body .trash-rows > .bp-item > summary > .bp-thumb > .bp-dur { top: 26px; bottom: auto; }
+    .pane-body .trash-rows > .bp-item > summary > .chip { margin-left: 0; }
+    .pane-body .trash-rows .trash-acts { margin-left: auto; }
+    .pane-body .trash-rows > .bp-item > .bp-body { padding-left: 16px; }
+  }
+  /* (same block) small fixes found in the first painted pass */
+  .pane-body .script-grid > .bp-item:not([open]) > summary > .chip > .st-tile { display: inline-flex; align-items: center; white-space: nowrap; }
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-caret { font-size: 0; }
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-caret::before {
+    content: ""; width: 7px; height: 7px; margin-left: -3px;
+    border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg);
+  }
+  .pane-body .bp-hook .bp-val { font-size: inherit; font-weight: inherit; line-height: inherit; }
+  .pane-body .trash-rows > .bp-item > summary > .bp-open { border: 0; text-decoration: none; }
+  /* Below the two-column breakpoint the panel spans the card, so the 320px
+     player sits in the middle of it instead of against the left edge. */
+  @media (max-width: 1179.98px) { .pane-body .bp-item.ref-panel .ref-dock { margin-inline: auto; } }

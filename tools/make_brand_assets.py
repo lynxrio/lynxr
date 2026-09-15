@@ -151,6 +151,13 @@ def main():
         tile = sips(avatar_svg(180, tile=BG).replace('viewBox="0 0 120 120"', 'viewBox="-24 -24 168 168"'), 180, 180, tmp, "apple")
         flat = Image.new("RGB", tile.size, BG); flat.paste(tile, (0, 0), tile); flat.save(out / "apple-touch-icon.png", optimize=True)
         print("wrote", out / "apple-touch-icon.png")
+        # The Organization logo for search engines (JSON-LD "logo"): square, on
+        # our own domain, on solid white so no crawler or card fills it black.
+        lg = sips(avatar_svg(1024), 1024, 1024, tmp, "logo")
+        white = Image.new("RGB", (512, 512), "#ffffff")
+        lg = lg.resize((448, 448), Image.LANCZOS); white.paste(lg, (32, 32), lg)
+        white.save(out / "lynxr-logo.png", optimize=True)
+        print("wrote", out / "lynxr-logo.png")
         render_og("", out / "og-v3.png", tmp, fonts)
         render_og("creators", out / "og-creator-v3.png", tmp, fonts)
         render_og("agency", out / "og-agency-v3.png", tmp, fonts)
