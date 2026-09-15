@@ -116,6 +116,11 @@ landed, gate `ok`, stamp `20260915i`):
     away; it returns over .5s on a long ease-out (owner: "make the reappear
     smoother").
   - **Reduced motion:** the bar stays put.
+- **Favicon and apple-touch links carry the `?v=` stamp too (2026-09-15).**
+  Browsers cache a favicon by URL, apart from the page, so the tab kept
+  showing the old black X after the files changed. The stamp bump replaces
+  every `?v=` on a page, so these move with it; `check_stamp.py` only checks
+  .css/.js and is unaffected.
 - **Paste field:** a visibly separate well in the slab (white fill, ink-20%
   edge, inset shadow). Any darker tint failed `--good` over the gate's worst
   case.
