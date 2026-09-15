@@ -23,6 +23,106 @@ naming a path there publishes it.
 
 ---
 
+## Rebrand phase 1 (2026-09-14): glass + the X avatar
+
+Direction "g · glass" landed for tokens, palette, fonts and the avatar mark —
+gate: dark `--text-3` 4.53:1, tightest pair (full gate in
+`~/.claude/plans/lynxr-rebrand.md` Appendix B). New tokens: `--fill`,
+`--on-fill`, `--focus-ring`, `--glass*`, `--surface-flat`, `--field`,
+`--frame-*`, `--field-input*`, `--toggle-*`, `--scrim*`, `--beat-wash`. Glass
+is for chrome, not data — cards stay translucent with no blur, agency tables
+sit on opaque `--surface-flat`. The dot lattice is retired; `dotgrid.js` stays
+in the repo, unreferenced. Fonts are Albert Sans (UI/display/logo) + IBM Plex
+Mono (data), self-hosted OFL-1.1, `fonts/OFL-*.txt`. The avatar's shared
+`<svg class="lx-defs">` must stay rendered on every page — a gradient inside
+`display:none` doesn't paint. Rasters come from `tools/make_brand_assets.py`;
+OG refs are now `-v2.png` (old files kept). The "LOGO is Share Tech Mono
+again" note below is superseded. The loader still draws the old four-arm X
+until phase 2.
+
+**Added on top of the plan, 2026-09-14/15, at the owner's direction** (all
+landed, gate `ok`, stamp `20260915i`):
+- **Bar:** a floating pill on every public page, styled after
+  lynxmediagroup.org's bar (94% `--glass-solid`, hairline edge, outlined inset
+  buttons, centred links). This deliberately reverses the 2026-08-26/27
+  flat-bar orders.
+- **Landing hero:** the headline, subline and paste field sit on one glass
+  slab. It is 580px wide, so the 52px headline stays on one line.
+- **Removed on review ("thats too abstract"):** the two tilted 9:16 frames
+  behind the slab, the abstract glass objects, and the landing field drift.
+- **Backdrop = blobs:** `backdrop.js` (new, on all 24 stamped pages, watched by
+  `check_stamp.py`) adds six uneven, blurred blobs in the logo colours only:
+  peach `#ffb38a`, pink `#ff7eb8`, violet `#7b61ff`, and their dark tones.
+  - **They ARE the six `--field` layers:** same centres, radii, colours and
+    peak alphas. That is how the contrast gate still measures them.
+    `body::before` no longer paints the field.
+  - **Motion:** they breathe slowly on desktop (CSS). The script leans only
+    the blob near the cursor or finger toward it (≤30px), and squashes them
+    slightly with scroll speed. The whole background never moves.
+  - **Before changing a blob:** read the BACKDROP block comment at the end of
+    `app.css`, then change `--field` to match and re-run the gate.
+  - **Phones (≤760px) use their own layout** ("the background blobs for mobile
+    look bad"): five round vw-sized blobs with a fuller core, framing the hero
+    card — pink, violet, an orchid accent, violet, pink. The `--field` gate
+    doesn't model them. They were measured with
+    `~/.claude/plans/lynxr-rebrand-assets/mobile_blobs_gate.py` at 375, 390 and
+    430px wide: dark worst L .0470, light .6756. Re-run it before changing one.
+- **LIGHT ONLY (2026-09-15, "get rid of the dark mode"):** `theme.js` stamps
+  `data-theme="light"` before first paint. `creator.js`'s `applyTheme()` can
+  only paint light, so a creator's synced dark choice no longer applies. Every
+  theme toggle, the menu theme row and Settings > Appearance are hidden in CSS
+  (end of `app.css`). The dark `:root` values are dormant, not deleted, and
+  removing theme.js's one line brings dark back.
+- **The wave:** it moves the shared `#lx-idle` mask's top-right arm, so every
+  static avatar waves together.
+  - **Touch screens `(hover: none)`:** once every 4s, in CSS.
+  - **Mouse screens:** only while hovering the logo or wordmark. `backdrop.js`
+    toggles `html.lx-waving` and lets each 1.1s wave finish.
+- **Rebrand phase 2 (2026-09-15): the avatar has emotions.**
+  - **Component:** `avatar.js` (watched by `check_stamp.py`) exposes
+    `lynxrAvatar(mood, cls)` and `lynxrMood(svg, mood)` for eight moods: idle,
+    reading, writing, done, hyped, confused, sorry, coaching. The poses and
+    faces live in the "THE LYNXR AVATAR: moods" block of `app.css`, driven by
+    `data-mood`.
+  - **Wired:** `loaderMark()` is the avatar in both apps. `paintEta()` flips
+    reading→writing with no re-render. A card error shows confused (link or
+    fetch) or sorry (our failure). A just-finished card shows one done beat.
+    Campaign formats show writing.
+  - **Built but not wired:** hyped and coaching.
+  - **Rules:** static identity marks only ever wave. Reduced motion stops the
+    loops, but moods still change.
+  - **Name clash:** the coaching arm's keyframes are `lx-wave-arm`, because
+    `lx-wave` is the static mark's hover wave.
+  - **Changes after verification (2026-09-15):**
+    - **sorry, redrawn** ("i dont like the sorry"): the X stays whole but
+      shrinks in slightly, sinks and tilts. The face has droopy eyes and
+      no brows (removed at the owner's request); a sweat drop sits in the top notch, and it sighs slowly.
+      The old pose drooped every arm into a puddle.
+    - **Loops scoped to their mood:** Chrome was ticking all 14 hidden face
+      animations on every avatar.
+    - **No done beat above a failure:** it never renders over a `.bp-fail`
+      body.
+  - **Brand files:** high-res SVG (clip-path, true vector) and 2048px PNG
+    exports of all eight moods, plus a sheet, are in `~/Desktop/lynxr-avatar/`,
+    outside the repo.
+- **Bar hides on scroll-down, slides back on scroll-up (2026-09-15).** This is
+  every public page, home included, and it reverses the flat-bar era's "just
+  have it stay there".
+  - **Logic:** unchanged in `site.js`. The bar is always shown within 8px of
+    the top, ignores moves under 14px, and never hides while the menu is open
+    or when the bar takes focus.
+  - **CSS:** the THE BAR SLIDES AWAY AND BACK block at the end of `app.css`.
+    The bar lifts 22px and fades out in .3s, ignoring pointer events while
+    away; it returns over .5s on a long ease-out (owner: "make the reappear
+    smoother").
+  - **Reduced motion:** the bar stays put.
+- **Paste field:** a visibly separate well in the slab (white fill, ink-20%
+  edge, inset shadow). Any darker tint failed `--good` over the gate's worst
+  case.
+- **Share images:** `make_brand_assets.py` draws the light palette: pastel
+  blobs, a white glass slab and ink text. The apple-touch icon sits on the
+  light `--bg`.
+
 ## What stage Lynxr is at (2026-08-18)
 
 Three stages, the owner's framing:

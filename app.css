@@ -1,57 +1,123 @@
-/* Share Tech Mono — the "digital readout" face for numbers, verdicts, and
-   chart ticks. Single weight, monospace, full ASCII. */
+/* Albert Sans (UI, display, logo; variable 100-900) and IBM Plex Mono (data,
+   400 and 600). Both OFL-1.1, self-hosted -- licences in fonts/OFL-*.txt. */
 @font-face {
-  font-family: "Share Tech Mono";
-  src: url("fonts/sharetechmono.woff2") format("woff2");
-  font-weight: 400;
+  font-family: "Albert Sans";
+  src: url("fonts/albert-sans-latin-wght.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
   font-display: swap;
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Albert Sans";
+  src: url("fonts/albert-sans-latin-ext-wght.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/ibm-plex-mono-latin-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/ibm-plex-mono-latin-ext-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/ibm-plex-mono-latin-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/ibm-plex-mono-latin-ext-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
 }
 
 :root {
-    --bg:        #0a0a0b;
-    --surface:   #121214;
-    --surface-2: #17171a;
-    --hover:     #1d1d21;
-    --line:      #26262b;
-    --line-2:    #34343c;
-    --text:      #ededf0;
-    --text-2:    #a3a3ad;
-    /* RAISED 2026-08-23 from #6b6b76, which measured 3.55:1 on --surface and
-       FAILED WCAG AA's 4.5:1 floor for body text. It was not decorative: it
-       painted .nobrand, .composer-note, .stat .label and .gate-switch, all of
-       which are real copy. #7c7c87 measures 4.54:1 on --surface and 4.80:1 on
-       --bg, and stays in the same neutral family, so the scheme is unchanged
-       to the eye. Do not lower it again without re-measuring against
-       --surface, which is the tighter of the two backgrounds. */
-    --text-3:    #7c7c87;
-
-    /* ---------- THEME SURFACES ----------
-       Everything below is a colour that used to be a literal somewhere in this
-       file. The VALUES HERE ARE THE EXACT DARK VALUES THAT WERE ALREADY BEING
-       PAINTED — this group changes nothing on its own; it exists so the light
-       block at the end of the file has one place to override. Anything that
-       sits on top of MEDIA (a video frame, a cover, the camera) is deliberately
-       NOT in this group: its ground is an arbitrary image, so it is dark in
-       both themes and stays a literal. See the light block for the list. */
-    --glass:        #0a0a0bd9;   /* translucent chrome over blur: header, .lp-bar-in */
-    --glass-solid:  #0a0a0bf2;   /* the same, near-opaque: .lp-menu */
-    --th-bg:        #131316;     /* the sticky table header in the agency app */
-    --row-alt:      #ffffff04;   /* table zebra; was rgba(255,255,255,.015) */
-    --bar-fill:     #ffffff2b;   /* agency bar charts — the fill */
-    --bar-fill-hov: #ffffff59;   /* ...and the drillable row's hover */
-    --filter-on:    #4d4d58;     /* a <select> that is actually narrowing the table */
-    --selection:    #ffffff26;   /* ::selection */
-    --armed-fg:     #f0b3b3;     /* a destructive button that has been armed */
+    /* ---------- PALETTE: direction g, glass (rebrand, 2026-09) ----------
+       Every value here was measured by the rebrand gate (Appendix B of
+       ~/.claude/plans/lynxr-rebrand.md): each text token clears 4.5:1 on the
+       page (the --field sampled at 1280, 390 and 1920 wide), on --surface and
+       --surface-2 over it, on --glass over pure black AND pure white media, and
+       on the hero's paste pill. Translucent colours are 8-digit hex so the gate
+       can composite them. Do not change one without re-running it. */
+    --bg:           #0c0a18;
+    --surface:      #1210209e;   /* card glass, ink 62%: translucent, NO blur */
+    --surface-2:    #ffffff14;
+    --hover:        #ffffff1a;
+    --surface-flat: #141226;     /* dense data: .table-wrap, .stat, .bar-track */
+    --line:         #ffffff1a;
+    --line-2:       #ffffff2e;
+    --text:         #f6f4ff;
+    --text-2:       #cdc8e2;
+    --text-3:       #aca6c6;     /* tightest: 4.53:1 on the paste pill over a white frame */
+    --accent:       #c9b8ff;     /* violet: the focus ring and ::selection only */
+    --fill:         #f6f4ff;     /* primary actions: .btn, .composer-send, .side-new, … */
+    --on-fill:      #14122b;
+    --focus-ring:   #c9b8ff;
+    --glass:        #121020e0;   /* sticky chrome: 88% so text holds over a white video frame */
+    --glass-solid:  #121020f0;   /* floating layers: menus, modals, tooltips */
+    --glass-edge:   #ffffff24;
+    --glass-hi:     #ffffff1f;
+    --glass-shadow: #000000b3;
+    --th-bg:        #181530;
+    --row-alt:      #ffffff05;
+    --bar-fill:     #ffffff2b;   /* 1.66:1 on --surface-flat, hover 3.21:1: the old weight */
+    --bar-fill-hov: #ffffff59;
+    --filter-on:    #5d5680;
+    --selection:    #c9b8ff40;
+    --armed-fg:     #ffb8b3;
     --armed-line:   #6b3a3a;
-    --armed-bg:     #2a1414;
-    --good-line:    #2c4a39;     /* the tinted BORDER that pairs with --good */
-    --bad-line:     #4a2c2c;
-    --even-line:    #4a412c;
-    --warm-bar:     #b08a3e;     /* .sat-warm, a bar; not text */
-    --warm-t:       #c79a45;     /* .sat-warm-t, which IS text */
-    --dot-rgb:      255, 255, 255;  /* the lattice, CSS side and canvas side */
-    --shadow-card:  none;        /* dark has no card shadow; light does */
-    --shadow-pop:   0 10px 26px #00000080;   /* menus and tooltips */
+    --armed-bg:     #3a1618;
+    --good-line:    #24503a;
+    --bad-line:     #5a2c2c;
+    --even-line:    #54462a;
+    --warm-bar:     #b08a3e;
+    --warm-t:       #e8b866;
+    --shadow-card:  inset 0 1px 0 var(--glass-hi), 0 24px 50px -28px var(--glass-shadow);
+    --shadow-pop:   0 10px 26px #00000099;
+    --scrim:        rgba(0, 0, 0, .72);
+    --scrim-strong: #000000c4;
+    --scrim-soft:   #0009;
+    --toggle-bg:    #1c1932;
+    --toggle-line:  #ffffff24;
+    --toggle-icon:  #c9b8ff;
+    --toggle-knob:  #f6f4ff;
+    /* The paste field is a recessed well in the slab, not a lighter pill (owner,
+       2026-09-15: "make the distinction between the input and the overall box more
+       noticeable"). Darker than the slab, so it also RAISES the placeholder's contrast. */
+    --field-input:  #00000052;
+    --field-input-edge: #ffffff38;
+    --field-input-inset: #00000066;
+    --frame-a:      linear-gradient(170deg, #5b3a8a, #2a1846 60%, #120c22);
+    --frame-b:      linear-gradient(175deg, #a58cff, #7b61ff 55%, #2a1c5c);
+    /* The board's field geometry, in the logo's colours only (owner, 2026-09-14:
+       peach #ffb38a, pink #ff7eb8, violet #7b61ff and their dark tones). Alphas are capped so text sitting directly on
+       the page still clears 4.5:1 at a blob's centre (the board's full-colour
+       stops failed: --text-3 2.93:1 here). The lattice is retired. */
+    --field:
+      radial-gradient(40% 55% at 18% 28%, rgba(150, 76, 58, 0.5), rgba(150, 76, 58, 0) 70%),
+      radial-gradient(38% 50% at 80% 20%, rgba(122, 44, 90, 0.7), rgba(122, 44, 90, 0) 70%),
+      radial-gradient(45% 55% at 62% 88%, rgba(59, 42, 138, 0.7), rgba(59, 42, 138, 0) 70%),
+      radial-gradient(35% 45% at 10% 92%, rgba(96, 44, 118, 0.7), rgba(96, 44, 118, 0) 70%),
+      radial-gradient(16% 22% at 92% 58%, rgba(122, 44, 90, 0.6), rgba(122, 44, 90, 0) 70%),
+      radial-gradient(13% 18% at 38% 60%, rgba(59, 42, 138, 0.55), rgba(59, 42, 138, 0) 70%);
     color-scheme: dark;
 
     /* ---------- SHAPE ----------
@@ -100,33 +166,20 @@
        progress bar stays seamless in both worlds. */
     --r-pill:    999px;
     --r-round:   50%;
-    --r-card:    16px;
-    --r-inner:   10px;
+    --r-card:    28px;
+    --r-inner:   18px;
     /* Legacy alias. Nothing in this file or in any .js reads it any more —
        kept so a stray `var(--radius)` written from memory lands on the
        container token rather than resolving to nothing and painting a square. */
     --radius:    var(--r-card);
-    /* The system's own code font — SF Mono on macOS, Consolas on Windows, the
-       distro default on Linux. `ui-monospace` asks for exactly the face the OS
-       uses in its editors and terminals, which is the look this is after.
-       Share Tech Mono was the previous choice and is still self-hosted in
-       fonts/ (see the @font-face above); putting it back in front here restores
-       it everywhere in one edit, because everything reads from this variable. */
-    /* Menlo FIRST, deliberately. `ui-monospace` was in front, but it is not
-       supported everywhere — measured against a deliberately-unavailable face
-       it came back with the identical width, i.e. it was resolving to nothing
-       and the stack was falling through by accident. Menlo is the macOS editor
-       default (it is what VS Code uses), so naming it first makes the match
-       intentional instead of a happy side effect, and the rest still covers
-       Windows and Linux. */
-    --mono: Menlo, ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
-    /* THE LOGO ONLY. Share Tech Mono is the original digital-readout face; it
-       stopped being referenced anywhere when --mono moved to the system code
-       font, which meant the self-hosted woff2 was no longer even downloaded.
-       Scoped to a variable of its own so the wordmark keeps that face while
-       every other surface stays on the system font — do NOT fold this back
-       into --mono, that is the site-wide revert. */
-    --logo: "Share Tech Mono", var(--mono);
+    /* Data face: IBM Plex Mono for numbers, timecodes, code and the password field. */
+    --mono: "IBM Plex Mono", Menlo, ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
+    /* The logo: Albert Sans 700 with tight tracking. Body and display use the same family. */
+    --logo: "Albert Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --logo-weight:   700;
+    --logo-tracking: -0.035em;
+    --font-ui:       "Albert Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-display:  var(--font-ui);
     --ease: cubic-bezier(.22, .61, .2, 1);
     /* Soft at BOTH ends. --ease above is an ease-OUT: it leaves immediately and
        settles gently, which is right for a small state change and wrong for a
@@ -203,28 +256,16 @@
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: var(--r-pill); border: 2px solid var(--bg); }
   ::-webkit-scrollbar-track { background: transparent; }
-  /* ---------- Dot-grid backdrop ----------
-     The same evenly spaced lattice the Lynx Media Group site uses, retuned
-     for this dark theme (light dots instead of dark). Fixed so it never
-     scrolls away, pure CSS so it stays crisp at any zoom and costs no
-     bytes. app.js swaps in a pointer-reactive canvas over the top when a
-     mouse is present — see initDotGrid. */
+  /* The glass field: fixed, so panels float over the same light wherever you scroll. */
   body::before {
     content: "";
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background:
-      radial-gradient(rgba(var(--dot-rgb), .06) 1.3px, transparent 1.4px) 0 0/34px 34px,
-      var(--bg);
-  }
-  /* Once the canvas is live it IS the grid — retire the CSS one so there is
-     never a second, offset set of dots. */
-  body.dots-live::before { display: none; }
-  .dot-fx {
-    position: fixed; left: 0; top: 0; width: 100%; height: 100%;
-    z-index: -1; pointer-events: none;
+    /* The field is painted by the backdrop blobs (BACKDROP block), which ARE the
+       --field layers; painting it here as well would double it. */
+    background: var(--bg);
   }
 
   body {
@@ -240,7 +281,7 @@
        shorthand is resolved at computed-value time, so ONE bad token would
        invalidate the WHOLE shorthand — including font-family — and drop the
        entire site to Times. Longhands fail one property at a time. */
-    font-family: var(--mono);
+    font-family: var(--font-ui);
     font-size: var(--fs-14);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
@@ -280,18 +321,14 @@
      is nearly the whole UI: every .btn/.ghost/.chip/.side-* pill keeps 999px,
      .bp-open keeps 50%, a tile's <summary> keeps the 13px its own
      :focus-visible rule gives it, and the checkbox was already square. */
-  :focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
-  /* Share Tech Mono ships a single 400 weight, so the old 600 would have been
-     a synthesised bold — smeared strokes on a face whose whole character is
-     thin even ones. Negative tracking goes too: it was tuned for a
-     proportional face and cramps a monospace one. */
+  /* Albert Sans 700 with tight tracking: the wordmark from direction g. */
   .wordmark {
-    font-family: var(--logo); font-size: var(--fs-21); font-weight: 400;
-    letter-spacing: 0; margin: 0;
+    font-family: var(--logo); font-size: var(--fs-21); font-weight: var(--logo-weight);
+    letter-spacing: var(--logo-tracking); margin: 0;
     display: inline-flex; align-items: center; gap: 9px;
   }
-  .wordmark i { font-style: normal; color: var(--text-3); }
   .mark { width: 22px; height: 22px; flex: none; }
   .gate-card .wordmark { justify-content: center; gap: 12px; }
   .gate-card .mark { width: 34px; height: 34px; }
@@ -329,7 +366,7 @@
   .toggle[aria-pressed="true"] .icon-on { display: none; }
   .toggle[aria-pressed="true"] .icon-off { display: block; }
   .btn {
-    padding: 11px 18px; background: var(--text); color: var(--bg);
+    padding: 11px 18px; background: var(--fill); color: var(--on-fill);
     border: 1px solid var(--text); border-radius: var(--r-pill); font-weight: 600; font-size: var(--fs-15);
     transition: opacity .12s;
   }
@@ -475,7 +512,7 @@
   .modal {
     position: fixed; inset: 0; z-index: 100;
     display: flex; align-items: center; justify-content: center;
-    padding: 24px; background: rgba(0, 0, 0, .72);
+    padding: 24px; background: var(--scrim);
     animation: fade-in .16s var(--ease);
     /* THE WAY OUT, which this did not have: it arrived on a .16s fade and then
        a full-screen black sheet vanished between two frames. Closing is as
@@ -561,10 +598,10 @@
      else in a title row. The hover override is not optional — .ghost:hover
      paints the text var(--text) on a var(--text) fill, i.e. invisible. */
   .ghost.pane-save {
-    background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600;
+    background: var(--fill); border-color: var(--fill); color: var(--on-fill); font-weight: 600;
   }
   .ghost.pane-save:hover:not(:disabled) {
-    background: var(--text); border-color: var(--text); color: var(--bg); opacity: .85;
+    background: var(--fill); border-color: var(--fill); color: var(--on-fill); opacity: .85;
   }
   main { padding: 32px 24px 72px; max-width: 1180px; margin: 0 auto; }
   .panel[hidden] { display: none; }
@@ -757,24 +794,9 @@
   .mt8 { margin-top: 8px; }
   .mt14 { margin-top: 14px; }
 
-  /* Brand loader */
-  /* Each arm scales out of the centre in turn, the four hold as the complete
-     mark, then the cycle resets. */
-  @keyframes arm-in {
-    0%   { opacity: 0; transform: scale(.15); }
-    14%  { opacity: 1; transform: scale(1); }
-    68%  { opacity: 1; transform: scale(1); }
-    82%  { opacity: 0; transform: scale(.15); }
-    100% { opacity: 0; transform: scale(.15); }
-  }
   @keyframes loader-glow { 50% { opacity: .55; } }
   .loader { display: flex; align-items: center; gap: 16px; padding: 28px 0; }
   .loader-mark { width: 46px; height: 46px; flex: none; color: var(--text); overflow: visible; }
-  .loader-mark .arm { transform-origin: 12px 12px; animation: arm-in 1.9s var(--ease) infinite; opacity: 0; }
-  .loader-mark .a1 { animation-delay: 0s; }
-  .loader-mark .a2 { animation-delay: .13s; }
-  .loader-mark .a3 { animation-delay: .26s; }
-  .loader-mark .a4 { animation-delay: .39s; }
   .loader-text { min-width: 0; }
   .loader-stage { font-size: var(--fs-15); }
   .loader-sub { margin-top: 2px; }
@@ -782,10 +804,7 @@
      room for the 46px block form, but "Loading database…" is a long enough
      wait to need the signal. */
   .loader.inline { display: inline-flex; align-items: center; gap: 9px; padding: 0; }
-  /* 20px, not the 15px of the text beside it: the centre gap is 3 of the
-     mark's 24 units, so at 15px it renders about a pixel wide and the X reads
-     as a blob. 20px keeps the gap visible, which is the whole point of using
-     this shape instead of a dot. */
+  /* 20px: the avatar's face still reads at 20px (measured); smaller instances hide it. */
   .loader.inline .loader-mark { width: 20px; height: 20px; }
 
   /* Four segments, one per published phase. A rail rather than a spinner
@@ -993,9 +1012,9 @@
   .vpick input {
     position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;
   }
-  .vpick:has(input:checked) { background: var(--text); border-color: var(--text); color: var(--bg); }
+  .vpick:has(input:checked) { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
   .vpick:has(input:checked)::before { content: "✓"; }
-  .vpick:has(input:focus-visible) { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  .vpick:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
   /* Tailored script on a picked card */
   .vscript { border-top: 1px dashed var(--line-2); padding: 12px 14px; }
@@ -1090,7 +1109,7 @@
   /* Keyboard users get the same target, and it must not be invisible against
      the row — the frame is dark and so is the card behind it. */
   a.bp-thumb:focus-visible, .bp-thumb-link:focus-visible {
-    outline: 2px solid var(--text-2); outline-offset: 2px; border-radius: var(--r-inner);
+    outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--r-inner);
   }
 
   .bp-msg {
@@ -1971,7 +1990,7 @@
   }
   #modal[hidden] { display: none; opacity: 0; pointer-events: none; }
   @media (prefers-reduced-motion: reduce) { #modal { transition: none; } }
-  .modal-back { position: absolute; inset: 0; background: #000000c4; }
+  .modal-back { position: absolute; inset: 0; background: var(--scrim-strong); }
   .modal-card {
     position: relative; margin: 4vh auto; width: min(880px, calc(100vw - 32px));
     max-height: 92vh; overflow: auto; background: var(--surface);
@@ -2008,7 +2027,7 @@
      each row was redundant next to a target this size. The cursor is the only
      affordance left, so it has to be there. */
   .bcard.opens { cursor: pointer; }
-  .bcard.opens:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  .bcard.opens:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
   /* Buttons inside a clickable card keep their own cursor. */
   .bcard.opens button { cursor: pointer; }
   .bcard-main { min-width: 0; flex: 1; }
@@ -2088,7 +2107,7 @@
   }
 
   /* Performance tracking: green = beating benchmark, red = under it */
-  :root { --good: #57c98a; --bad: #e06c6c; --even: #d8a657; }
+  :root { --good: #6fe0a0; --bad: #ff8f8a; --even: #e8b866; }
   .verdict { font-family: var(--mono); font-size: var(--fs-12); white-space: nowrap; }
   .verdict.good { color: var(--good); }
   .verdict.bad { color: var(--bad); }
@@ -2235,12 +2254,6 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
     html { scroll-behavior: auto; }
-    /* The loader's arms rest at opacity:0 and are revealed BY `arm-in`, so the
-       blanket rule above left the whole mark invisible — a loading indicator
-       that isn't there, on every long wait in both apps. Show the assembled
-       mark instead; the status line beside it carries "still working".
-       Measured, not assumed: computed opacity was 0 on all four arms. */
-    .loader-mark .arm { opacity: 1; }
   }
 
   /* Week navigation */
@@ -2363,11 +2376,11 @@
      the footer scrolls in — all settled by the bottom of the page. Monospace
      means every glyph has the same advance, so nothing jitters. */
   .foot-wordmark {
-    font-family: var(--logo); font-size: clamp(30px, 7.5vw, 76px);
+    font-family: var(--logo); font-size: clamp(30px, 7.5vw, 76px); font-weight: var(--logo-weight); letter-spacing: var(--logo-tracking);
     line-height: 1.1; text-align: center; margin: 0 auto 44px;
     user-select: none; pointer-events: none; color: var(--text);
   }
-  .fw-ch { display: inline-block; min-width: .62em; transition: color .3s ease; }
+  .fw-ch { display: inline-block; min-width: 0; text-align: center; transition: color .3s ease; }
   .fw-ch.spin { color: var(--text-3); }
   @keyframes fw-settle { from { transform: translateY(-12%); opacity: .35; } }
   .fw-ch.settled { animation: fw-settle .22s var(--ease); }
@@ -2537,7 +2550,7 @@
   .sug-score.bad  { color: var(--bad);  border-color: var(--bad-line); }
   .sug-score.s-none { color: var(--text-3); }
   .sug-score { cursor: help; }
-  .sug-score:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  .sug-score:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
   /* Parented to <body> and position:fixed on purpose — .vcard is overflow:hidden,
      so a tooltip rendered inside a card would be clipped by it. */
@@ -2640,7 +2653,7 @@
   .side-new {
     display: flex; align-items: center; gap: 9px; width: 100%;
     padding: 9px 10px; margin-bottom: 6px; text-align: left;
-    background: var(--text); color: var(--bg); border: 1px solid var(--text);
+    background: var(--fill); color: var(--on-fill); border: 1px solid var(--fill);
     border-radius: var(--r-pill); font-weight: 600; font-size: var(--fs-135);
   }
   .side-new:hover { opacity: .85; }
@@ -2719,8 +2732,8 @@
      One component, three homes: the public bar (inside .lp-actions), the
      creator rail (.side-brand) and the agency header. The capsule stays INK IN
      BOTH THEMES — that is the owner's mockup, and it makes the control read as
-     a fixed object rather than a themed surface, so the literals here are
-     deliberate (same precedent as the badge grounds over video).
+     a fixed object rather than a themed surface; its colours are the
+     --toggle-* tokens.
 
      STATE IS THE html[data-theme] ATTRIBUTE AND NOTHING ELSE. The knob's
      position derives from it, so every instance on a page — bar and burger
@@ -2737,25 +2750,21 @@
      deepens because #e8a33d vanishes on white. */
   .theme-toggle {
     position: relative; flex: none; width: 46px; height: 24px; padding: 0;
-    border-radius: var(--r-pill); background: #1c1b18; border: 1px solid #ffffff2b;
+    border-radius: var(--r-pill); background: var(--toggle-bg); border: 1px solid var(--toggle-line);
     cursor: pointer;
   }
   .theme-toggle .tt-moon, .theme-toggle .tt-sun {
     position: absolute; top: 50%; transform: translateY(-50%);
-    width: 14px; height: 14px; color: #e8a33d;
+    width: 14px; height: 14px; color: var(--toggle-icon);
   }
   .theme-toggle .tt-moon { left: 5px; }
   .theme-toggle .tt-sun { right: 5px; }
   .tt-knob {
     position: absolute; top: 2px; left: 24px; width: 18px; height: 18px;
-    border-radius: var(--r-round); background: #fff;
+    border-radius: var(--r-round); background: var(--toggle-knob);
     transition: left .16s var(--ease);
   }
   html[data-theme="light"] .tt-knob { left: 2px; }
-  html[data-theme="light"] .theme-toggle { background: #ffffff; border-color: var(--line-2); }
-  html[data-theme="light"] .tt-knob { background: #1c1b18; }
-  html[data-theme="light"] .theme-toggle .tt-moon,
-  html[data-theme="light"] .theme-toggle .tt-sun { color: #b0741a; }
   .theme-toggle:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { .tt-knob { transition: none; } }
 
@@ -2869,7 +2878,7 @@
      changes nothing and the group stays put. */
   @media (max-width: 760px) {
     html.lp-composing body.home .lp-hero { align-items: flex-start; }
-    html.lp-composing body.home .lp-hero .lp-in { padding-top: 9svh; }
+    html.lp-composing body.home .lp-hero .lp-in { margin-top: 9svh; }
   }
 
   /* ---- the proof band + the quieter below-fold (owner: sections should
@@ -2897,7 +2906,7 @@
   }
   .lp-mock-up {
     display: grid; place-items: center; width: 22px; height: 22px; flex: none;
-    background: var(--text); color: var(--bg); border-radius: var(--r-round);
+    background: var(--fill); color: var(--on-fill); border-radius: var(--r-round);
     font-size: var(--fs-11);
   }
   .lp-mock-read { color: var(--text-2); font-size: var(--fs-115); margin-bottom: 8px; }
@@ -2915,7 +2924,7 @@
   .lp-ex-row { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 8px 6px; }
   /* Same two grounds the app's own current-beat highlight uses per theme. */
   .lp-ex-row.on { background: var(--hover); border-radius: var(--r-inner); box-shadow: inset 2px 0 0 var(--good); }
-  html[data-theme="light"] .lp-ex-row.on { background: #eaf3ec; }
+  html[data-theme="light"] .lp-ex-row.on { background: var(--beat-wash); }
   .lp-ex-lbl { color: var(--text-3); font-size: var(--fs-105); padding-top: 2px; }
   .lp-ex-val { color: var(--text-2); font-size: var(--fs-125); line-height: 1.5; }
   .lp-ex-tick { margin-top: 12px; color: var(--good); font-size: var(--fs-115); }
@@ -2933,7 +2942,7 @@
     border: 1px solid var(--line); border-radius: calc(var(--r-card) + 8px);
     background: var(--surface);
   }
-  html[data-theme="light"] body.home #site-footer { box-shadow: var(--shadow-card); }
+  body.home #site-footer { box-shadow: var(--shadow-card); }
   /* Same phone-side gap as .lp-panel — the card ran flush at 375px. */
   @media (max-width: 760px) { body.home #site-footer { margin-inline: 14px; } }
 
@@ -3030,7 +3039,7 @@
   .pane-head {
     position: sticky; top: 0; z-index: 5; padding: 18px var(--gutter) 14px;
     border-bottom: 1px solid var(--line);
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    background: var(--glass);
     backdrop-filter: blur(8px);
   }
   /* The pane title reuses the agency page-head treatment rather than
@@ -3086,7 +3095,7 @@
 
   .composer-send {
     flex: none; width: 34px; height: 34px; border-radius: var(--r-pill); display: grid; place-items: center;
-    background: var(--text); color: var(--bg); border: 0;
+    background: var(--fill); color: var(--on-fill); border: 0;
   }
   .composer-send:disabled { opacity: .3; }
   .composer-send svg { width: 17px; height: 17px; }
@@ -3165,7 +3174,7 @@
   .composer-first .ce-grid { margin-bottom: 10px; }
   .composer-first .bp-hint { margin: 0 0 12px; }
   .newscript-mark { width: 28px; height: 28px; color: var(--text-3); margin-bottom: 14px; }
-  .newscript-h { font-size: var(--fs-26); line-height: 1.2; margin: 0; letter-spacing: -.01em; }
+  .newscript-h { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-26); line-height: 1.2; margin: 0; letter-spacing: -.01em; }
   /* (.newscript-sub lived here — the small line under the greeting. The
      greeting says it all in one line now, so there is nothing to sub-title.) */
 
@@ -3288,7 +3297,7 @@
   .lib-modes-ind {
     position: absolute; left: 0; top: 3px; bottom: 3px; width: 0;
     border-radius: var(--r-pill); pointer-events: none; z-index: 0;
-    background: var(--text);
+    background: var(--fill);
   }
   /* Nothing to show until JS has measured a tab — a 0-width pill parked at the
      left edge would be a stray dot on any page where the script did not run. */
@@ -3314,7 +3323,7 @@
      the button would double up during the slide. The two labels cross over on
      the same .18s the pill travels on, so the arriving one darkens as it is
      covered and the leaving one lifts as it is uncovered. */
-  .lib-mode.on { color: var(--bg); }
+  .lib-mode.on { color: var(--on-fill); }
   @media (max-width: 820px) {
     /* 36.4px was under the 44px target these are, on the surface where the
        whole strip is thumb-driven. min-height rather than more padding, because
@@ -3497,7 +3506,7 @@
        drawer sees the click as landing on <body> either way — a pseudo-element
        is never itself an event target — so nothing about dismissing changes. */
     body::after {
-      content: ""; position: fixed; inset: 0; z-index: 30; background: #0009;
+      content: ""; position: fixed; inset: 0; z-index: 30; background: var(--scrim-soft);
       display: none; opacity: 0; pointer-events: none;
       transition: opacity .2s var(--ease), display .2s allow-discrete;
     }
@@ -4073,7 +4082,7 @@
      only the quiet border swap. That is the trade for the ring belonging to the
      unit; it is one field on one page and the louder indicator is the safer
      side to err on. The quiet border swap above still fires underneath it. */
-  .wait-form:focus-within { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  .wait-form:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
   /* The input no longer draws its own — it would double up inside the unit's. */
   .wait-form input:focus-visible { outline: none; }
   /* ICON-ONLY, owner's call 2026-08-19. It briefly carried the words "join
@@ -4196,7 +4205,7 @@
     max-width: 68ch; margin: 0 auto; padding: 56px 24px 96px;
     text-align: left; font-size: var(--fs-14); line-height: 1.7; color: var(--text-2);
   }
-  .legal h1 { font-size: var(--fs-30); font-weight: 600; margin: 0 0 4px; color: var(--text); }
+  .legal h1 { font-family: var(--font-display); font-size: var(--fs-30); font-weight: 700; margin: 0 0 4px; color: var(--text); }
   .legal h2 {
     font-size: var(--fs-13); margin: 40px 0 10px; color: var(--text);
     letter-spacing: .04em;
@@ -4642,9 +4651,9 @@
          sliding the pill 8px LEFT of the links above it. Measured x=17 against
          x=25; equal now. */
       gap: 8px; margin: 8px 0 0;
-      padding: 14px 24px; font-size: var(--fs-145); color: var(--bg);
+      padding: 14px 24px; font-size: var(--fs-145); color: var(--on-fill);
     }
-    .lp-menu .btn:hover { background: var(--text); color: var(--bg); }
+    .lp-menu .btn:hover { background: var(--fill); color: var(--on-fill); }
     @media (prefers-reduced-motion: reduce) {
       .lp-menu { transition: none; }
     }
@@ -4705,7 +4714,8 @@
      which is the wrong object entirely on a marketing page. ::before is turned
      off for the same reason .wait-h turns it off. */
   .lp-h1 {
-    font-size: clamp(30px, 6.4vw, 58px); font-weight: 600; line-height: 1.1;
+    font-family: var(--font-display);
+    font-size: clamp(30px, 6.4vw, 58px); font-weight: 700; line-height: 1.1;
     letter-spacing: -0.035em; color: var(--text); margin: 0 auto 22px; max-width: 16ch;
   }
   /* THE ARROW IN THE HEADLINE. One notch down from the words either side of it,
@@ -4717,9 +4727,10 @@
      puts a real space before it. */
   .lp-h1 .lp-arrow { color: var(--text-2); font-weight: 500; }
   .lp-h2 {
+    font-family: var(--font-display);
     /* Display scale (owner: "make it look more like the lovable one") — their
        section heads run ~44px against ours at 32. */
-    font-size: clamp(24px, 3.6vw, 42px); font-weight: 600; line-height: 1.15;
+    font-size: clamp(24px, 3.6vw, 42px); font-weight: 700; line-height: 1.15;
     letter-spacing: -0.025em; color: var(--text); margin: 0 0 16px;
     display: block; text-transform: lowercase;
   }
@@ -4818,7 +4829,7 @@
     transition: transform .18s var(--ease);
   }
   .lp-q[open] > summary::after { content: "\2212"; }
-  .lp-q > summary:focus-visible { outline: 2px solid var(--text-2); outline-offset: -3px; border-radius: calc(var(--r-card) - 3px); }
+  .lp-q > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -3px; border-radius: calc(var(--r-card) - 3px); }
   /* 78ch, because the card is 1120px on a laptop and an answer set edge to edge
      across it runs ~150 characters a line — measurably past the point where the
      eye stops finding the start of the next one. The CARD stays full width; only
@@ -4870,7 +4881,7 @@
 
   /* A second action button in the rail, quieter than "New brand" so the two
      do not compete for the same attention. */
-  .side-new .side-count { margin-left: auto; color: var(--bg); opacity: .55; }
+  .side-new .side-count { margin-left: auto; color: var(--on-fill); opacity: .55; }
   /* Adding a brand is setup you do a handful of times — it should not compete
      with the button you press every day. */
   /* The two ADD actions read as a pair: same shape, same weight, same + icon —
@@ -5118,7 +5129,7 @@
        already swapped — so focus gets a ring of its own. Keyboard focus on
        these was previously a 1px colour change; it is now unmistakable. */
     .find-bar input[type="search"]:focus-visible, .find-bar .find-sort:focus-visible {
-      outline: 2px solid var(--text-2); outline-offset: -1px;
+      outline: 2px solid var(--focus-ring); outline-offset: -1px;
     }
   }
 
@@ -5705,7 +5716,7 @@
   /* Keyboard: <summary> is the tile's control, and the UA ring sits outside a
      card that clips its own overflow, so it is drawn inset instead. */
   .script-grid > .bp-item > summary:focus-visible {
-    outline: 2px solid var(--text-2); outline-offset: -3px; border-radius: calc(var(--r-card) - 3px);
+    outline: 2px solid var(--focus-ring); outline-offset: -3px; border-radius: calc(var(--r-card) - 3px);
   }
 
   /* ---- THE TRASH TILE ----
@@ -5883,13 +5894,13 @@
   .post-form input:focus-visible, .post-form select:focus-visible,
   .lookup input[type="text"]:focus-visible,
   .composer-row input:focus-visible {
-    outline: 2px solid var(--text-2); outline-offset: 2px;
+    outline: 2px solid var(--focus-ring); outline-offset: 2px;
   }
   /* The composer's field has no box of its own — the capsule around it is
      .composer-row — so its ring is drawn on the capsule instead, or it would
      paint a rectangle through the middle of one. */
   .composer-row input:focus-visible { outline: none; }
-  .composer-row:focus-within { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  .composer-row:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
   /* A CLICK must not draw it: :focus-within has no keyboard-only variant, so
      the ring is suppressed unless the field inside is keyboard-focused —
      EXCEPT when we put focus there ourselves, see .autofocused below. */
@@ -5910,7 +5921,7 @@
      above — and the border is pinned back to its resting colour in the same
      rule, so this cannot reintroduce the two-concentric-pills bug. */
   .composer-row.autofocused:focus-within {
-    outline: 2px solid var(--text-2); outline-offset: 2px; border-color: var(--line-2);
+    outline: 2px solid var(--focus-ring); outline-offset: 2px; border-color: var(--line-2);
   }
   /* ONE RING, NOT TWO, and this is the rule that makes it one. The capsule was
      carrying both indicators at once: the outline above, AND the border
@@ -6378,7 +6389,7 @@
      `html[data-theme="light"]` and NOT `[data-theme="light"]`, deliberately.
      A bare attribute selector is (0,1,0) — the SAME specificity as `:root`,
      so it would win only by sitting later in the file, and this file has a
-     SECOND `:root` block at line ~1978. Adding the element selector makes it
+     second `:root` block (the verdict colours). Adding the element selector makes it
      (0,1,1) and the override is true regardless of source order.
 
      THE TASTE: near-white with a whisper of warmth. The first cut landed at
@@ -6408,56 +6419,65 @@
      clears 4.5:1 on ALL FOUR grounds, which the dark one does not (4.07 on
      --hover). Do not lighten it without re-measuring.
 
-     The ink button (`background: var(--text); color: var(--bg)`) needs no
+     The ink button (`background: var(--fill); color: var(--on-fill)`) needs no
      rule: it inverts for free and paints #191813 with #faf9f6 text at
      16.88:1 — the solid ink capsule both reference sites use.
      ===================================================================== */
   html[data-theme="light"] {
     color-scheme: light;
-
-    --bg:        #faf9f6;
-    --surface:   #ffffff;
-    --surface-2: #f1f0ec;   /* a WELL, not a lift: nested surfaces recede on paper */
-    --hover:     #e9e8e3;
-    --line:      #e5e3dc;   /* 1.22:1 on --bg — a hairline, same whisper as dark's --line */
-    --line-2:    #d1cfc6;
-    --text:      #191813;
-    --text-2:    #555046;
-    --text-3:    #6b665b;
-
-    --good:      #177544;
-    --bad:       #a92c24;
-    --even:      #7d5f15;
-    --good-line: #b7d3c1;
-    --bad-line:  #e8bdb9;
-    --even-line: #ded0a6;
-    --warm-bar:  #b8892f;
-    --warm-t:    #7d5f15;
-
-    /* Chrome follows the theme. Owner, after seeing the dark bar survive on a
-       light page: "make this also match, the black stands out too much."
-       --glass is white at 72% over the paper — composited rgb(254, 253, 252),
-       --text on it 17.3:1, --text-3 5.56:1 — and .lp-bar-in's existing
-       `border: 1px solid var(--line)` is what gives it its edge. */
-    --glass:        #ffffffb8;
-    --glass-solid:  #faf9f6f7;
-    --th-bg:        #efeee9;   /* --text-3 on it: 4.92:1 */
-    --row-alt:      #19181307; /* paints rgb(244, 243, 240) on the paper */
-    /* MATCHED TO THE DARK BARS BY RATIO, NOT BY ALPHA. Dark's fill is 1.65:1
-       against its track and the hover is 3.21:1; these are 1.61 and 3.40, so
-       the chart reads with the same weight in both themes. This is the
-       invisible-bar-chart spot — verify the painted pixel, not the rule. */
-    --bar-fill:     #19181338; /* paints rgb(204, 204, 203) on a white track */
-    --bar-fill-hov: #19181380; /* paints rgb(140, 139, 137) */
-    --filter-on:    #8c8375;
-    --selection:    #19181326; /* paints rgb(221, 221, 220) on white */
-    --armed-fg:     #8a1d18;   /* 8.35:1 on --bg */
+    --bg:           #f6eefa;
+    --surface:      #ffffffb8;   /* card glass, white 72% */
+    --surface-2:    #ffffff99;
+    --hover:        #14122b0d;
+    --surface-flat: #ffffff;
+    --line:         #14122b1a;
+    --line-2:       #14122b2e;
+    --text:         #14122b;
+    --text-2:       #4a4566;
+    --text-3:       #544f70;
+    --accent:       #5a2fd6;
+    --fill:         #14122b;
+    --on-fill:      #ffffff;
+    --focus-ring:   #5a2fd6;
+    --good:         #146b3e;
+    --bad:          #a92c24;
+    --even:         #735610;
+    --good-line:    #b7d3c1;
+    --bad-line:     #e8bdb9;
+    --even-line:    #ded0a6;
+    --warm-bar:     #b8892f;
+    --warm-t:       #735610;
+    --glass:        #ffffffd9;   /* sticky chrome: 85% so text holds over a black video frame */
+    --glass-solid:  #fffffff0;
+    --glass-edge:   #ffffffd9;
+    --glass-hi:     #ffffffd9;
+    --glass-shadow: #461e6459;
+    --th-bg:        #f3edf8;
+    --row-alt:      #14122b08;
+    --bar-fill:     #14122b38;   /* 1.62:1 on white, hover 3.49:1 */
+    --bar-fill-hov: #14122b80;
+    --filter-on:    #8a82a3;
+    --selection:    #5a2fd633;
+    --armed-fg:     #8a1d18;
     --armed-line:   #e3b3ae;
     --armed-bg:     #fdeceb;
-
-    --dot-rgb:      25, 24, 19;
-    --shadow-card:  0 1px 2px rgba(52, 50, 44, .06), 0 8px 24px rgba(52, 50, 44, .07);
-    --shadow-pop:   0 12px 30px rgba(52, 50, 44, .18);
+    --shadow-pop:   0 12px 30px #461e642e;
+    --toggle-bg:    #ffffff;
+    --toggle-line:  var(--line-2);
+    --toggle-icon:  #5a2fd6;
+    --toggle-knob:  #14122b;
+    --beat-wash:    #146b3e1a;   /* current-beat row: a pale wash of --good */
+    --field-input:  #ffffff;        /* brighter than the 85% slab: any darker tint fails --good over the worst case */
+    --field-input-edge: #14122b33;
+    --field-input-inset: #14122b1f;
+    --frame-a:      linear-gradient(170deg, #ffb38a, #ff7eb8 55%, #5a3fb8);
+    --field:
+      radial-gradient(40% 55% at 18% 28%, rgba(255, 179, 138, 0.5), rgba(255, 179, 138, 0) 70%),
+      radial-gradient(38% 50% at 80% 20%, rgba(255, 126, 184, 0.3), rgba(255, 126, 184, 0) 70%),
+      radial-gradient(45% 55% at 62% 88%, rgba(123, 97, 255, 0.2), rgba(123, 97, 255, 0) 70%),
+      radial-gradient(35% 45% at 10% 92%, rgba(255, 126, 184, 0.24), rgba(255, 126, 184, 0) 70%),
+      radial-gradient(16% 22% at 92% 58%, rgba(123, 97, 255, 0.16), rgba(123, 97, 255, 0) 70%),
+      radial-gradient(13% 18% at 38% 60%, rgba(255, 179, 138, 0.4), rgba(255, 179, 138, 0) 70%);
   }
 
   /* MEDIA STAYS DARK — the twelvelabs.io inset-panel move, and the reason this
@@ -6476,8 +6496,9 @@
      chrome and follows the theme like everything else. It is also what goes
      position: fixed in the mini state, and a fixed element is still a DOM
      descendant, so the corner player stays dark too.
-     (0,2,1) beats the block above it at (0,1,1). */
-  html[data-theme="light"] :is(.ref-media, .tp, .vplay) {
+     Declared on the media element itself, so it wins over the inherited theme
+     in BOTH themes: the dark theme's glass surfaces are translucent. */
+  :is(.ref-media, .tp, .vplay) {
     color-scheme: dark;
     --bg:        #0a0a0b;
     --surface:   #121214;
@@ -6491,13 +6512,12 @@
     --good:      #57c98a;
     --bad:       #e06c6c;
     --even:      #d8a657;
+    --focus-ring: #a3a3ad;
   }
 
-  /* Cards lift off the paper. Applied HERE rather than by adding
-     `box-shadow: var(--shadow-card)` to twenty base rules, so dark mode's
-     output is provably unchanged by this whole feature — --shadow-card is
-     `none` there and this rule never fires. Checked: not one of these
-     selectors sets box-shadow in the base sheet, so nothing is clobbered. */
+  /* Cards lift off the field in BOTH themes (glass direction): an inner top
+     highlight plus a soft drop, from --shadow-card. The border stays, because
+     state rules say what they say by changing border-color. */
   /* The current-beat highlight. The base rule fills with var(--line-2) —
      fine in dark, where line-2 is a subtle lift, but in light that is #d1cfc6:
      a BORDER grey doing a background's job, and it painted the one row the
@@ -6505,7 +6525,7 @@
      lighter or something"). A pale wash of the same green as the row's --good
      inset says "now" without the sludge. Label contrast holds: --text-2 on
      this ground is ~7:1. */
-  html[data-theme="light"] .bp-notime .bp-beat.on { background: #eaf3ec; }
+  html[data-theme="light"] .bp-notime .bp-beat.on { background: var(--beat-wash); }
 
   /* The reference panel ("The original") fills with --surface-2, which in
      dark sits one imperceptible step from the card (#17171a on #121214) — but
@@ -6515,7 +6535,7 @@
      panel's edge. */
   html[data-theme="light"] .bp-item.ref-panel { background: var(--surface); }
 
-  html[data-theme="light"] :is(
+  :is(
     .bp-item, .plan-now, .vcard, .site-card, .client-editor, .bcard,
     .client-details, .fmt-card, .table-wrap, .tray, .empty, .lp-q,
     .sendbox, .wait, .composer-first, .lookup, .modal-card
@@ -6536,7 +6556,7 @@
     border-radius: calc(var(--r-card) + 8px);
     padding: 68px clamp(24px, 4vw, 56px);
   }
-  html[data-theme="light"] .lp-panel { box-shadow: var(--shadow-card); }
+  .lp-panel { box-shadow: var(--shadow-card); }
   /* On a phone the panel's box ran flush to the viewport edges — .lp-in's
      24px was INNER padding once the box became visible (owner: "add some
      space between the box and the sides"). width:auto so the margins
@@ -6574,7 +6594,7 @@
   /* The miniature is each card's UPPER HALF (the reference's shape): first in
      paint order regardless of markup, full-bleed to the card's top edge. */
   .lp-step .lp-mock { order: -1; }
-  html[data-theme="light"] .lp-step { box-shadow: var(--shadow-card); }
+  .lp-step { box-shadow: var(--shadow-card); }
   .lp-step .lp-mock { margin: -26px -26px 20px; border: 0; border-bottom: 1px solid var(--line); border-radius: calc(var(--r-card) + 8px) calc(var(--r-card) + 8px) 0 0; padding: 26px 22px; background: var(--surface-2); }
   .lp-step .home-n { position: relative; z-index: 1; }
 
@@ -6605,7 +6625,7 @@
      this exact fight) — in light mode that painted WHITE TEXT ON A WHITE
      PANEL: the owner saw a floating 🚀 with no words. (0,2,0) settles it. */
   .lp-menu .btn {
-    background: var(--text); color: var(--bg);
+    background: var(--fill); color: var(--on-fill);
     padding: 12px 16px; justify-content: center;
   }
   /* The toggle row is just the toggle now (owner: "no need to mention that
@@ -6703,7 +6723,7 @@
     background: var(--surface); border: 1px solid var(--line);
     border-radius: var(--r-card); padding: 16px;
   }
-  html[data-theme="light"] .lp-vid { box-shadow: var(--shadow-card); }
+  .lp-vid { box-shadow: var(--shadow-card); }
   .lp-vid-frame {
     position: relative; aspect-ratio: 9 / 16; display: grid; place-items: center;
     background: var(--surface-2); border: 1px solid var(--line-2);
@@ -6788,7 +6808,7 @@
     background: var(--surface); border: 1px solid var(--line);
     border-radius: var(--r-card); padding: 18px;
   }
-  html[data-theme="light"] .lp-fan { box-shadow: var(--shadow-card); }
+  .lp-fan { box-shadow: var(--shadow-card); }
   .lp-fan-src {
     min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     border: 1px solid var(--line-2); border-radius: var(--r-pill);
@@ -6907,7 +6927,7 @@
   body.lp:not(.home) .post-crumbs a { color: var(--text-3); border-bottom-color: transparent; }
   body.lp:not(.home) .post-meta { font-size: var(--fs-12); color: var(--text-3); margin: 18px 0 0; }
   body.lp:not(.home) .post-script { margin: 26px 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 18px 20px; }
-  html[data-theme="light"] body.lp:not(.home) .post-script { box-shadow: var(--shadow-card); }
+  body.lp:not(.home) .post-script { box-shadow: var(--shadow-card); }
   body.lp:not(.home) .post-script figcaption { font-size: var(--fs-115); letter-spacing: .08em; color: var(--text-3); margin: 0 0 14px; }
   body.lp:not(.home) .post-script .ps-beats { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
   body.lp:not(.home) .post-script .ps-beats > li { display: grid; grid-template-columns: 72px minmax(0, 1fr); column-gap: 14px; font-size: calc(14px + var(--fs-d) * 0.015); line-height: 1.6; }
@@ -7021,7 +7041,7 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
     padding: 14px 16px; margin: 0 0 14px;
   }
-  html[data-theme="light"] :is(.cb-block, .cb-agency) { box-shadow: var(--shadow-card); }
+  :is(.cb-block, .cb-agency) { box-shadow: var(--shadow-card); }
   .cb-instructions, .cb-internal-text {
     margin: 0; white-space: pre-line; overflow-wrap: anywhere;
     font-size: var(--fs-135); line-height: 1.6; color: var(--text);
@@ -7035,7 +7055,7 @@
   .cb-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 0; }
   .cb-format { scroll-margin-top: 80px; }
   .cb-format:focus { outline: none; }
-  .cb-format:focus-visible { outline: 2px solid var(--text-2); outline-offset: 2px; }
+  .cb-format:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
   .cb-format.cb-error { border-color: var(--bad-line); }
   .cb-fhead { align-items: center; flex-wrap: wrap; margin-bottom: 0; }
   .cb-fh { margin: 0; flex: 1 1 220px; min-width: 0; font-size: var(--fs-15); font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
@@ -7155,3 +7175,430 @@
   /* A card still waiting on its video has nothing to play yet; a full 9:16
      empty frame there is ~390px of nothing. */
   :is(.cb-queued, .cb-running) .cb-ph { aspect-ratio: auto; height: 96px; }
+
+  /* ================= THE LYNXR AVATAR: static identity copies =================
+     The X with a face (owner, 2026-09-14: "i like the x"). Every nav, footer,
+     gate and rail mark is one byte-identical inline SVG. It paints through the
+     page's shared #lx-glass, #lx-shade, #lx-soft and #lx-idle, defined once in
+     <svg class="lx-defs"> right after <body>. That svg must stay RENDERED: a
+     gradient inside a display:none subtree does not paint in Chrome or
+     Firefox, so it is sized to nothing instead of hidden. Identity copies only
+     ever wave (below); every other mood is a live state (avatar.js). */
+  .lx-defs { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+  /* 19px: below ~20px the face resolves to two smudges (rendered and compared
+     at 16, 22 and 32px on 2026-09-14); the bare gradient X stays crisp. */
+  .pane-mark .lx-face { display: none; }
+  /* THE WAVE. Owner, 2026-09-14: "have lynxr be waving from time to time";
+     2026-09-15: "for mobile have the lynxr wave every like 3-5 seconds and then
+     for desktop have it wave when i hover over it". Every static copy paints
+     through the one shared #lx-idle mask, so moving that mask's top-right arm
+     waves every identity mark on the page at once, with no markup change. A CSS
+     transform REPLACES the rect's transform attribute, so the resting 45deg is
+     restated in the rule and in every keyframe. Split by what the device can
+     do, not by width, so an iPad waves on its own and a narrow desktop window
+     waits for the mouse.
+     - Touch screens (hover: none): one wave every 4s, the first ~1.4s after load.
+     - Mouse screens: only on hover. backdrop.js puts .lx-waving on <html> while
+       the pointer is over a mark or the wordmark, and lets each 1.1s wave finish
+       before stopping, so the arm never snaps back mid-swing. */
+  #lx-idle rect:nth-child(2) {
+    transform-box: view-box; transform-origin: 60px 62px;
+    transform: rotate(45deg);
+  }
+  @keyframes lx-wave {
+    0%, 100% { transform: rotate(45deg); }
+    22%      { transform: rotate(10deg); }
+    48%      { transform: rotate(36deg); }
+    74%      { transform: rotate(10deg); }
+  }
+  @keyframes lx-wave-every {
+    0%, 70%, 100% { transform: rotate(45deg); }
+    77%           { transform: rotate(10deg); }
+    84%           { transform: rotate(36deg); }
+    92%           { transform: rotate(10deg); }
+  }
+  @media (hover: none) and (prefers-reduced-motion: no-preference) {
+    #lx-idle rect:nth-child(2) { animation: lx-wave-every 4s ease-in-out -1.3s infinite; }
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    html.lx-waving #lx-idle rect:nth-child(2) { animation: lx-wave 1.1s ease-in-out; }
+  }
+  /* ================= THE LYNXR AVATAR: moods (avatar.js) =================
+     avatar.js emits every face and every extra for all eight moods; these rules
+     show the current one and pose the arms. A mood change is one data-mood
+     write, so poses transition on their own, and hidden groups (display:none)
+     run no animation. hyped and coaching are built but not wired: no surface
+     exists for them yet. Numbers are the owner-approved prototype's
+     (x-avatar-prototype.html, CON.x.poses). */
+  .lx:not(.lx-still) { overflow: visible; }
+  .lx .lx-arm, .lx .lx-w, .lx .lx-spin, .lx .lx-body { transform-box: view-box; transform-origin: 60px 62px; }
+  .lx .lx-arm, .lx .lx-body { transition: transform .6s cubic-bezier(.34, 1.56, .64, 1); }
+  .lx .lx-a0 { transform: rotate(-45deg); }
+  .lx .lx-a1 { transform: rotate(45deg); }
+  .lx .lx-a2 { transform: rotate(135deg); }
+  .lx .lx-a3 { transform: rotate(-135deg); }
+  .lx[data-mood="done"] .lx-a0 { transform: rotate(-32deg); }
+  .lx[data-mood="done"] .lx-a1 { transform: rotate(32deg); }
+  .lx[data-mood="done"] .lx-a2 { transform: rotate(150deg); }
+  .lx[data-mood="done"] .lx-a3 { transform: rotate(-150deg); }
+  .lx[data-mood="done"] .lx-body { transform: translateY(-2px); }
+  .lx[data-mood="hyped"] .lx-a0 { transform: rotate(-26deg); }
+  .lx[data-mood="hyped"] .lx-a1 { transform: rotate(26deg); }
+  .lx[data-mood="hyped"] .lx-a2 { transform: rotate(118deg); }
+  .lx[data-mood="hyped"] .lx-a3 { transform: rotate(-118deg); }
+  .lx[data-mood="hyped"] .lx-body { transform: translateY(-3px); }
+  .lx[data-mood="confused"] .lx-a0 { transform: rotate(-62deg); }
+  .lx[data-mood="confused"] .lx-a1 { transform: rotate(38deg); }
+  .lx[data-mood="confused"] .lx-body { transform: rotate(-8deg); }
+  /* sorry, redrawn 2026-09-15 (owner: "i dont like the sorry, make it better"):
+     the old pose drooped every arm into a puddle and lost the X. Now the X
+     stays whole and just shrinks in on itself a little (arms 10deg narrower),
+     sinks and tilts, while the face does the apologising: droopy eyes glancing
+     aside, a small frown, a sweat drop in the notch, and a slow sigh. */
+  .lx[data-mood="sorry"] .lx-a0 { transform: rotate(-55deg); }
+  .lx[data-mood="sorry"] .lx-a1 { transform: rotate(55deg); }
+  .lx[data-mood="sorry"] .lx-a2 { transform: rotate(145deg); }
+  .lx[data-mood="sorry"] .lx-a3 { transform: rotate(-145deg); }
+  .lx[data-mood="sorry"] .lx-body { transform: translateY(2px) rotate(4deg); }
+  .lx[data-mood="coaching"] .lx-a1 { transform: rotate(14deg); }
+
+  .lx .lx-f, .lx .lx-x { display: none; }
+  .lx[data-mood="idle"] .lx-f-idle, .lx[data-mood="reading"] .lx-f-reading,
+  .lx[data-mood="writing"] .lx-f-writing, .lx[data-mood="done"] .lx-f-done,
+  .lx[data-mood="hyped"] .lx-f-hyped, .lx[data-mood="confused"] .lx-f-confused,
+  .lx[data-mood="sorry"] .lx-f-sorry, .lx[data-mood="coaching"] .lx-f-coaching,
+  .lx[data-mood="writing"] .lx-x-writing, .lx[data-mood="hyped"] .lx-x-hyped,
+  .lx[data-mood="confused"] .lx-x-confused, .lx[data-mood="sorry"] .lx-x-sorry { display: inline; }
+
+  /* reading spins the arms a quarter turn; the X's four-fold symmetry makes that loop seamless */
+  .lx[data-mood="reading"] .lx-spin { animation: lx-spin 1.6s linear infinite; }
+  .lx[data-mood="writing"] .lx-w2 { animation: lx-wig .45s ease-in-out infinite alternate; }
+  .lx[data-mood="coaching"] .lx-w1 { animation: lx-wave-arm .6s ease-in-out infinite alternate; }
+  .lx[data-mood="done"] .lx-loop { animation: lx-hop 2.4s ease-in-out infinite; }
+  .lx[data-mood="hyped"] .lx-loop { animation: lx-hop .85s ease-in-out infinite; }
+  .lx .lx-blink, .lx .lx-talk, .lx .lx-tw { transform-box: fill-box; transform-origin: center; }
+  /* Each loop is scoped to the mood that shows it. The hidden faces are
+     display:none, but Chrome still ticks CSS animations on their descendants
+     (measured: every avatar ran all 14 face/extra loops), so unscoped rules
+     cost eight moods' worth of animation per avatar. */
+  .lx[data-mood="idle"] .lx-blink { animation: lx-blink 4.4s infinite; }
+  .lx[data-mood="reading"] .lx-scan { animation: lx-scan 2.4s ease-in-out infinite; }
+  .lx[data-mood="writing"] .lx-nod { animation: lx-nod 1.4s ease-in-out infinite; }
+  .lx[data-mood="coaching"] .lx-talk { animation: lx-talk .8s ease-in-out infinite; }
+  .lx[data-mood="hyped"] .lx-tw { animation: lx-tw 1.1s ease-in-out infinite; }
+  .lx[data-mood="writing"] .lx-dot { animation: lx-dot 1.1s ease-in-out infinite; }
+  .lx[data-mood="confused"] .lx-bob { animation: lx-bob 1.4s ease-in-out infinite; }
+  .lx[data-mood="sorry"] .lx-drip { animation: lx-drip 1.6s ease-in infinite; }
+  .lx[data-mood="sorry"] .lx-loop { transform-box: view-box; transform-origin: 60px 100px; animation: lx-sigh 2.8s ease-in-out infinite; }
+  /* The prototype's inline animation-delay values, as classes (CSP). */
+  /* lx-wave-arm, not lx-wave: app.css's static-mark hover wave already owns that name. */
+  .lx[data-mood] .lx-dl1 { animation-delay: .15s; }
+  .lx[data-mood] .lx-dl2 { animation-delay: .18s; }
+  .lx[data-mood] .lx-dl3 { animation-delay: .25s; }
+  .lx[data-mood] .lx-dl4 { animation-delay: .36s; }
+  .lx[data-mood] .lx-dl5 { animation-delay: .5s; }
+  @keyframes lx-spin { to { transform: rotate(90deg); } }
+  @keyframes lx-wig { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+  @keyframes lx-wave-arm { from { transform: rotate(-12deg); } to { transform: rotate(10deg); } }
+  @keyframes lx-hop { 0%, 60%, 100% { transform: translateY(0); } 78% { transform: translateY(-7px); } }
+  @keyframes lx-blink { 0%, 91%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.08); } }
+  @keyframes lx-scan { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
+  @keyframes lx-nod { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.5px); } }
+  @keyframes lx-talk { 0%, 100% { transform: scaleY(.4); } 50% { transform: scaleY(1); } }
+  @keyframes lx-tw { 50% { transform: scale(.72); opacity: .75; } }
+  @keyframes lx-dot { 0%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  @keyframes lx-bob { 50% { transform: translateY(-3px); } }
+  @keyframes lx-sigh { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.025, .955); } }
+  @keyframes lx-drip { 0% { transform: translateY(-2px); opacity: 0; } 25% { opacity: 1; } 100% { transform: translateY(7px); opacity: 0; } }
+  /* Every loop stops; the state change still happens (poses jump, faces swap). */
+  @media (prefers-reduced-motion: reduce) {
+    .lx, .lx * { animation: none !important; transition: none !important; }
+  }
+  /* Small live instances: below ~20px the face smudges and the extras crowd. */
+  .loader.inline .lx .lx-extras,
+  :is(.cb-state, .composer-send) .lx :is(.lx-face, .lx-extras) { display: none; }
+  /* ================= THE FLOATING GLASS BAR (direction g) =================
+     Owner, 2026-09-14, on the board's glass hero: "i like this too", then on
+     lynxmediagroup.org's bar: "i like this style of top bar". The one public
+     bar becomes a floating pill on EVERY public page. This reverses the flat
+     full-width bar of 2026-08-26/27 ("dont make this its own box", "make all
+     the top bars like the main one") at the owner's newer instruction, and
+     keeps the one-bar-everywhere rule. The body.home selectors are named
+     because the earlier home rules out-specify a bare .lp-bar.
+
+     FILL --glass-solid (94%), NOT --glass (85%/88%). The reference reads as a
+     solid object. Default 8 sets a FLOOR for chrome that text sits on over
+     media; going more opaque only raises every ratio (the lowest bar text,
+     light --text-2 over a black frame, is 7.89:1 here, 6.37:1 on --glass;
+     measured from painted pixels as well as tokens). The blur stays: it is what
+     turns the 6% that still shows through into a flat tint rather than
+     ghosted headlines scrolling behind the nav.
+     EDGE: a 1px hairline. Dark paints --glass-edge. Light paints --line,
+     because light --glass-edge is white and would vanish on a white pill.
+     SHADOW: --shadow-pop, the floating-layer shadow, which is soft, wide and
+     low. --shadow-card's -28px spread collapses to nothing on a 44px-tall
+     box. The inset --glass-hi lip reads in dark and is white-on-white in light.
+     BUTTONS ARE PILLS INSIDE THE PILL. Height = pill - 12px, and right margin
+     + the pill's 1px border = 6px, so the inset is 6px on three sides and the
+     radii are concentric (22 - 6 = 16 desktop, 28 - 6 = 22 phone). Ground
+     --surface-flat (white | ink), --text label, and a 1px --line-2 edge:
+     the reference's 1.5px computes to 1px in Chromium at DPR 1 AND 2
+     (measured), so --line-2's darker grey carries that weight instead.
+     `.lp-actions > .btn` on purpose: the dropdown's .btn is also inside
+     .lp-bar and stays the --fill primary action.
+     --bar-inset is one number for the pill's side gap AND the dropdown's
+     left/right, so the panel cannot drift off the pill's edges again. */
+  .lp-bar { --bar-inset: clamp(10px, 2.4vw, 24px); --bar-edge: var(--glass-edge); }
+  html[data-theme="light"] .lp-bar { --bar-edge: var(--line); }
+  .lp-bar, body.home .lp-bar {
+    padding: 10px var(--bar-inset) 0;
+    background: transparent; border-bottom-color: transparent;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .lp-bar.is-scrolled, body.home .lp-bar.is-scrolled {
+    background: transparent; border-bottom-color: transparent;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .lp-bar-in, body.home .lp-bar-in {
+    max-width: 1200px; min-height: 44px; margin: 0 auto; padding: 0;
+    border: 1px solid var(--bar-edge); border-radius: var(--r-pill);
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-pop);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .lp-bar-in, body.home .lp-bar-in { background: var(--surface-flat); }
+  }
+  /* The grid stays the earlier strict 1fr auto 1fr, so the nav sits on the
+     pill's true centre: equal side tracks, insets as item margins. */
+  .lp-bar .wordmark { margin-left: 20px; }
+  .lp-nav { gap: clamp(22px, 2.5vw, 32px); }
+  .lp-bar .lp-actions > .btn {
+    height: 32px; margin-right: 5px;
+    background: var(--surface-flat); color: var(--text);
+    border: 1px solid var(--line-2); font-weight: 700;
+  }
+  /* Not .btn's opacity fade: fading an outlined label lowers its contrast.
+     The edge darkens instead. (0,4,0) also beats `a:hover`'s border colour. */
+  .lp-bar .lp-actions > .btn:hover:not(:disabled) { opacity: 1; border-color: var(--text-3); }
+  .lp-bar .theme-toggle:focus-visible { outline-color: var(--focus-ring); }
+  @media (max-width: 760px) {
+    .lp-bar-in, body.home .lp-bar-in { min-height: 56px; }
+    /* The burger is the end item here, so it takes the 6px inset and the CTA
+       beside it is spaced by .lp-actions' gap alone. */
+    .lp-bar .lp-actions > .btn { margin-right: 0; }
+    .lp-bar .lp-burger {
+      margin-right: 5px; color: var(--text);
+      background: var(--surface-flat); border: 1px solid var(--line-2);
+    }
+    .lp-bar .lp-burger:hover { background: var(--surface-flat); border-color: var(--text-3); }
+    .lp-menu { left: var(--bar-inset); right: var(--bar-inset); }
+  }
+
+  /* ================= THE GLASS HERO (landing only) =================
+     Direction g's hero applied to the hero that already exists: the same
+     greet, composer and centring. This is NOT the parked density/layout
+     revamp. body.home only: enterApp() removes .home, so the signed-in app on
+     this URL, /creatorsonly/'s new-script composer and every other page keep
+     their own layout. The slab paints --glass, not the board's 72%, because its
+     text must pass over the darkest stop of the frames behind it. The gate
+     proves --glass over pure black and pure white, which bounds any frame. */
+  body.home .lp-hero { position: relative; isolation: isolate; overflow: hidden; }
+  body.home .lp-hero > .lp-in {
+    position: relative; z-index: 1;
+    width: min(calc(100% - 28px), 580px); margin: 0 auto;   /* 580, not the board's 540: the real 52px headline is 486px wide and must stay on one line */
+    padding: clamp(22px, 3.6vw, 40px);
+    border: 1px solid var(--glass-edge); border-radius: 32px;
+    background: var(--glass);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-card);
+  }
+  body.home .lp-hero .newscript-greet { margin-bottom: 0; }
+  body.home .lp-hero .newscript-h { font-size: clamp(30px, 4.1vw, 52px); line-height: 1.02; letter-spacing: -.035em; }
+  body.home .lp-hero .lp-composer { max-width: none; margin-top: 22px; }
+  body.home .lp-hero .composer-row { background: var(--field-input); border-color: var(--field-input-edge); box-shadow: inset 0 1px 3px var(--field-input-inset); }
+
+  /* The landing's field drift is gone: the backdrop blobs breathe instead (BACKDROP block, end of file). */
+  /* ================= GLASS: CHROME, NOT DATA (direction g) =================
+     Sticky and floating layers blur. Cards are translucent --surface with NO
+     blur: they sit on the static field, where a blur has nothing to soften.
+     Dense agency data sits on opaque --surface-flat, so a large table is never
+     composited per row. BUDGET: at most the bar or header, one sticky sub-bar
+     (.pane-head or .tray) and one floating layer are blurred on screen at once.
+     Phones get a smaller radius, because backdrop-filter cost grows with it.
+     `header:not(.lp-bar)`: the public bar is also a <header>, and a transparent
+     full-width strip with a backdrop-filter would blur a band behind the pill. */
+  :root { --glass-blur: blur(20px) saturate(1.6); }
+  @media (max-width: 760px) { :root { --glass-blur: blur(12px) saturate(1.4); } }
+  header:not(.lp-bar), .pane-head, .tray {
+    background: var(--glass);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  }
+  .modal-card, .find-sort-menu, .score-tip, .lp-menu {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  }
+  .stat, .bar-track, .table-wrap { background: var(--surface-flat); }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    header:not(.lp-bar), .pane-head, .tray, .lp-bar-in, body.home .lp-bar-in,
+    body.home .lp-hero > .lp-in { background: var(--glass-solid); }
+  }
+  /* html:root, not :root: it must out-rank both palette blocks at equal
+     source-order footing, and the rebrand gate reads bare `:root` blocks. */
+  @media (prefers-reduced-transparency: reduce) {
+    html:root { --surface: var(--surface-flat); --glass: var(--glass-solid); --glass-blur: none; }
+    html:root[data-theme="light"] { --surface: var(--surface-flat); --glass: var(--glass-solid); --glass-blur: none; }
+  }
+
+  /* ================= THE BACKDROP: blobs, each with a little life =================
+     Owner, 2026-09-15, on the abstract objects: "thats too abstract ... make it
+     still blobs, but have the blobs have some variation, also interactive not
+     as in the whole background moves with the mouse, but interactive as the
+     shape maybe moves a bit". Logo colours only.
+
+     THE SIX BLOBS ARE THE --field LAYERS: same centre, same radii, same colour
+     and peak alpha, and the same linear fall to nothing (the box is 1.4x the
+     layer radius, so closest-side lands where the layer hits 0 at 70%). That is
+     what lets the contrast gate keep measuring the page through --field (six
+     layers, measured ok 2026-09-15). Variation only ever TAKES paint away: an
+     uneven border-radius and a rotation cut each ellipse into its own shape and
+     a blur softens the cut, so no pixel is denser than the layer the gate saw.
+     If you add, move or strengthen a blob, change --field to match and re-run
+     the gate.
+
+     backdrop.js adds the life: on desktop each blob breathes on its own slow
+     cycle (CSS, .blob-in), and the script leans only the blobs NEAR the cursor
+     (or a finger) toward it and squashes them a touch with scroll speed. It
+     moves nothing more than ~30px, so the overlaps stay the ones the gate
+     measured. Reduced motion: still. */
+  :root {
+    --b1: rgba(150, 76, 58, .5);   --b1z: rgba(150, 76, 58, 0);
+    --b2: rgba(122, 44, 90, .7);   --b2z: rgba(122, 44, 90, 0);
+    --b3: rgba(59, 42, 138, .7);   --b3z: rgba(59, 42, 138, 0);
+    --b4: rgba(96, 44, 118, .7);   --b4z: rgba(96, 44, 118, 0);
+    --b5: rgba(122, 44, 90, .6);   --b5z: rgba(122, 44, 90, 0);
+    --b6: rgba(59, 42, 138, .55);  --b6z: rgba(59, 42, 138, 0);
+
+    /* phones: their own composition (see the phone block below) */
+    --m1: rgba(255, 126, 184, .32);
+    --m2: rgba(123, 97, 255, .44);
+    --m3: rgba(189, 111, 219, .38);   /* orchid, halfway along the logo's pink-to-violet: faint peach or rose on black reads brown */
+    --m4: rgba(123, 97, 255, .44);
+    --m5: rgba(255, 126, 184, .32);
+  }
+  html[data-theme="light"] {
+    --b1: rgba(255, 179, 138, .5); --b1z: rgba(255, 179, 138, 0);
+    --b2: rgba(255, 126, 184, .3); --b2z: rgba(255, 126, 184, 0);
+    --b3: rgba(123, 97, 255, .2);  --b3z: rgba(123, 97, 255, 0);
+    --b4: rgba(255, 126, 184, .24); --b4z: rgba(255, 126, 184, 0);
+    --b5: rgba(123, 97, 255, .16); --b5z: rgba(123, 97, 255, 0);
+    --b6: rgba(255, 179, 138, .4); --b6z: rgba(255, 179, 138, 0);
+
+    --m1: rgba(255, 126, 184, .33);
+    --m2: rgba(123, 97, 255, .21);
+    --m3: rgba(255, 179, 138, .57);
+    --m4: rgba(123, 97, 255, .21);
+    --m5: rgba(255, 126, 184, .33);
+  }
+  .backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+  .blob {
+    position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h);
+    translate: -50% -50%; will-change: transform;
+  }
+  .blob-in {
+    display: block; width: 100%; height: 100%;
+    border-radius: var(--shape); rotate: var(--r);
+    background: radial-gradient(closest-side, var(--c), var(--cz));
+    filter: blur(var(--soft, 18px));
+  }
+  /*           centre           box = 1.4 x layer radius     colour                      shape                                        turn          breath */
+  .blob-1 { --x: 18%; --y: 28%; --w: 56vw;   --h: 77vh;   --c: var(--b1); --cz: var(--b1z); --shape: 62% 38% 55% 45% / 48% 60% 40% 52%; --r: -12deg; --t: 26s; }
+  .blob-2 { --x: 80%; --y: 20%; --w: 53.2vw; --h: 70vh;   --c: var(--b2); --cz: var(--b2z); --shape: 40% 60% 48% 52% / 58% 42% 58% 42%; --r: 18deg;  --t: 21s; }
+  .blob-3 { --x: 62%; --y: 88%; --w: 63vw;   --h: 77vh;   --c: var(--b3); --cz: var(--b3z); --shape: 55% 45% 38% 62% / 42% 55% 45% 58%; --r: -6deg;  --t: 29s; }
+  .blob-4 { --x: 10%; --y: 92%; --w: 49vw;   --h: 63vh;   --c: var(--b4); --cz: var(--b4z); --shape: 48% 52% 64% 36% / 60% 38% 62% 40%; --r: 24deg;  --t: 24s; }
+  .blob-5 { --x: 92%; --y: 58%; --w: 22.4vw; --h: 30.8vh; --c: var(--b5); --cz: var(--b5z); --shape: 64% 36% 46% 54% / 40% 58% 42% 60%; --r: 32deg;  --t: 17s; --soft: 12px; }
+  .blob-6 { --x: 38%; --y: 60%; --w: 18.2vw; --h: 25.2vh; --c: var(--b6); --cz: var(--b6z); --shape: 38% 62% 58% 42% / 55% 45% 55% 45%; --r: -20deg; --t: 19s; --soft: 12px; }
+  /* Breathing is desktop-only: every blurred bar above re-samples each frame it
+     runs, which phones pay for in battery. Phones still get the lean and the
+     scroll squash, which only run while you are touching or scrolling. */
+  @keyframes blob-breathe {
+    0%   { transform: scale(1, 1); }
+    50%  { transform: scale(1.04, .97); }
+    100% { transform: scale(.97, 1.04); }
+  }
+  @media (min-width: 761px) and (prefers-reduced-motion: no-preference) {
+    .blob-in { animation: blob-breathe var(--t) ease-in-out infinite alternate; will-change: transform; }
+  }
+  /* PHONES GET THEIR OWN COMPOSITION (owner, 2026-09-15: "the background blobs
+     for mobile look bad"). The desktop layers turned into dim tall smudges on a
+     portrait screen, and faint peach on black reads as brown. Instead there are
+     five round blobs sized in vw that frame the hero card: a big pink glow top
+     right, violet behind the card, an orchid accent by the logo, violet along the
+     bottom and a small pink in the corner. They have a fuller core (alpha at
+     1 / .8 / .35 / 0 across the radius) so they read as shapes, not haze.
+
+     The --field gate only models the desktop layout, so these were measured
+     separately: that exact profile and layout, composited at 375x812, 390x844
+     and 430x932, with each alpha raised until the page's luminance hit the
+     on-page text bound (dark L <= .0503, binding --text-3; light L >= .6705,
+     binding --good). Result: dark worst .0470 (orchid .38), light worst .6756. The script is
+     kept at ~/.claude/plans/lynxr-rebrand-assets/mobile_blobs_gate.py. Move,
+     grow or strengthen one and re-run it. */
+  @media (max-width: 760px) {
+    .blob-in {
+      background: radial-gradient(closest-side, var(--c) 0%,
+        color-mix(in srgb, var(--c) 80%, transparent) 35%,
+        color-mix(in srgb, var(--c) 35%, transparent) 70%, transparent 100%);
+      filter: blur(10px);
+    }
+    .blob-1 { --x: 80%; --y: 26%; --w: 128vw; --h: 128vw; --c: var(--m1); }
+    .blob-2 { --x: 18%; --y: 60%; --w: 112vw; --h: 112vw; --c: var(--m2); }
+    .blob-3 { --x: 14%; --y: 12%; --w: 68vw;  --h: 68vw;  --c: var(--m3); }
+    .blob-4 { --x: 72%; --y: 90%; --w: 124vw; --h: 124vw; --c: var(--m4); }
+    .blob-5 { --x: 6%;  --y: 88%; --w: 52vw;  --h: 52vw;  --c: var(--m5); }
+    .blob-6 { display: none; }
+  }
+  @media print { .backdrop { display: none; } }
+  @media (prefers-reduced-transparency: reduce) { .backdrop { display: none; } }
+
+  /* ================= LIGHT ONLY (owner, 2026-09-15: "get rid of the dark mode") =================
+     theme.js stamps data-theme="light" before first paint, and creator.js's
+     applyTheme() can only paint light. So every control that offered a choice
+     goes: the bar/rail/menu toggles, the menu's labelled theme row, and the
+     creator app's Settings > Appearance select. They are hidden rather than
+     removed from 24 pages and the app templates, because the app still wires
+     listeners to them. !important because several bar and rail rules set their
+     display with higher specificity. */
+  .theme-toggle, .lp-menu-theme, label:has(> #me-theme) { display: none !important; }
+
+  /* ================= THE BAR SLIDES AWAY AND BACK (owner, 2026-09-15) =================
+     "for the top bar, have it smoothly disappear as i scroll down and then when
+     i scroll back up have it smoothly reappear", then "make the reappear for the
+     top bar smoother". site.js has toggled .lp-bar-away on scroll direction all
+     along (shown within 8px of the top, a 14px dead zone against trackpad
+     jitter, never while the menu is open, brought back on focus). The flat-bar
+     era pinned it with `transform: none`; these restate those pins at equal
+     specificity, later in the file, so they win.
+
+     A SHORT LIFT AND A FADE, NOT A FULL SLIDE. Crossing the bar's whole height
+     (71px) in a quarter second read as abrupt on the way back. Away, it rises
+     22px and fades out in .3s. It returns over .5s on a long ease-out
+     (cubic-bezier(.16, 1, .3, 1)): it starts moving at once and spends most of
+     its time settling, which is what reads as smooth. While away it is
+     invisible and takes no pointer events, so it cannot trap a click on the
+     content under it, and site.js brings it back if keyboard focus lands in
+     it. Reduced motion: the bar stays. */
+  .lp-bar, body.home .lp-bar {
+    transform: none; opacity: 1;
+    transition: transform .5s cubic-bezier(.16, 1, .3, 1), opacity .42s cubic-bezier(.16, 1, .3, 1),
+                background-color .25s ease, border-color .25s ease;
+  }
+  .lp-bar.lp-bar-away, body.home .lp-bar.lp-bar-away {
+    transform: translateY(-22px); opacity: 0; pointer-events: none;
+    transition: transform .3s cubic-bezier(.4, 0, .2, 1), opacity .24s ease,
+                background-color .25s ease, border-color .25s ease;
+  }
+  .lp-bar.lp-menu-live.lp-bar-away, body.home .lp-bar.lp-menu-live.lp-bar-away { transform: none; opacity: 1; pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) {
+    .lp-bar, body.home .lp-bar, .lp-bar.lp-bar-away, body.home .lp-bar.lp-bar-away { transform: none; opacity: 1; pointer-events: auto; transition: none; }
+  }

@@ -22,8 +22,8 @@
 
   // Slot-machine wordmark: each character spins through random glyphs and
   // locks in left-to-right as the footer scrolls into view. At the bottom of
-  // the page every slot has stopped on its letter: l y n x r .
-  const FINAL = mark.textContent.trim() || "lynxr.";
+  // the page every slot has stopped on its letter: l y n x r
+  const FINAL = mark.textContent.trim() || "lynxr";
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;  // static text stays
   // Split-flap, not slot machine: each reel walks the alphabet TOWARD its
   // letter and arrives exactly as it locks — convergence, not noise.
@@ -36,6 +36,18 @@
   }));
   const chars = [...mark.children];
   const N = FINAL.length;
+  // PROPORTIONAL LOGO FACE (Albert Sans since the rebrand): lock every slot to
+  // its FINAL glyph's advance, in em, so glyphs of different widths passing
+  // through the reel cannot shift the word. Canvas measureText, not layout:
+  // the footer may be display:none at this point. style.width is CSSOM, which
+  // the CSP allows; a style= attribute would be dropped.
+  const lockWidths = () => {
+    const cs = getComputedStyle(mark);
+    const ctx = document.createElement("canvas").getContext("2d");
+    ctx.font = `${cs.fontWeight} 100px ${cs.fontFamily}`;
+    chars.forEach((s, i) => { s.style.width = (ctx.measureText(FINAL[i]).width / 100) + "em"; });
+  };
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(lockWidths);
 
   // Discover scroll sources rather than assume `window`. The creator app's
   // .pane-scroll carries overflow-y: auto and is the element that actually

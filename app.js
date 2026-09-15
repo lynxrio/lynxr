@@ -262,20 +262,13 @@ function safeUrl(u) {
     return (p.protocol === "http:" || p.protocol === "https:") ? p.href : "";
   } catch { return ""; }
 }
-/** THE LOADING MARK — the lynxr X split into its four arms, each scaling out of
- *  the centre in clockwise turn (`arm-in` in app.css). Mirrored in creator.js.
- *
- *  The arms meet at (12,9), (15,12), (12,15) and (9,12), leaving the diamond
- *  the real logo's evenodd rule carves where its two blades cross. That hole is
- *  the mark — never close it.
+/** THE LOADING MARK: the lynxr avatar (avatar.js) in a working mood. "reading"
+ *  by default, "writing" while a script is being written. Every long wait in
+ *  both apps goes through here. A mood change after render goes through
+ *  lynxrMood(), never a re-render (see paintEta in creator.js).
  */
-function loaderMark() {
-  return `<svg class="loader-mark" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="arm a1" fill="currentColor" d="M3 3H6L12 9L9 12L3 6Z"/>
-      <path class="arm a2" fill="currentColor" d="M21 3V6L15 12L12 9L18 3Z"/>
-      <path class="arm a3" fill="currentColor" d="M15 12L21 18L18 21L12 15Z"/>
-      <path class="arm a4" fill="currentColor" d="M12 15L6 21L3 18L9 12Z"/>
-    </svg>`;
+function loaderMark(mood = "reading") {
+  return typeof lynxrAvatar === "function" ? lynxrAvatar(mood, "loader-mark") : "";
 }
 const views = (r) => Number(r.views) || 0;
 function median(nums) {
@@ -5609,7 +5602,7 @@ function cbCardHtml(f, i, total) {
     body = editing ? cbEditorHtml(f) : cbDetailHtml(f);
   } else if (busy) {
     head = `<h3 class="cb-fh"><span class="cb-fnum">${n}.</span> ${hasScript ? `<span class="cb-title">${escapeHtml(v.title || v.hook || "")}</span>` : srcLink}</h3>
-      <span class="chip cb-state">${loaderMark()}<span>${escapeHtml(cbStateWords(f))}</span></span>`;
+      <span class="chip cb-state">${loaderMark("writing")}<span>${escapeHtml(cbStateWords(f))}</span></span>`;
     body = `<div class="card-detail cb-detail">${cbMediaHtml(f)}
       <div class="cd-info cb-skel" aria-hidden="true"><i></i><i></i><i></i><i class="short"></i></div></div>`;
   } else {

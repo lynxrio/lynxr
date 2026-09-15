@@ -83,7 +83,7 @@ STAMP_RE = re.compile(r'^(\d+)([a-z])$')
 # `git diff -- <spec>`, never through a shell.
 WATCHED_ASSET_SPECS = [
     "app.css", "app.js", "creator.js", "site.js", "home.js", "dotgrid.js",
-    "footer.js", "theme.js", "fonts/*.woff2",
+    "footer.js", "theme.js", "avatar.js", "fonts/*.woff2", "backdrop.js",
 ]
 
 SKIP_TOKEN = "[skip stamp]"

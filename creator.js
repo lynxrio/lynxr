@@ -38,26 +38,13 @@ function safeUrl(u) {
     return (p.protocol === "http:" || p.protocol === "https:") ? p.href : "";
   } catch { return ""; }
 }
-/** THE LOADING MARK — the lynxr X split into its four arms, each scaling out of
- *  the centre in clockwise turn (`arm-in` in app.css).
- *
- *  The four arms stop short of the middle: they meet at (12,9), (15,12),
- *  (12,15) and (9,12), which leaves the diamond gap the wordmark has. Do not
- *  "close" that hole — it is the mark, not a rendering slip, and the whole
- *  point of animating this shape instead of a generic spinner is that the thing
- *  spinning is recognisably lynxr.
- *
- *  It exists in one place because it is now used for every long wait: reading a
- *  brand's site, and writing a script from a link. Three hand-copied SVGs would
- *  drift the moment one arm's path changed.
+/** THE LOADING MARK: the lynxr avatar (avatar.js) in a working mood. "reading"
+ *  by default, "writing" while a script is being written. Every long wait in
+ *  both apps goes through here. A mood change after render goes through
+ *  lynxrMood(), never a re-render (see paintEta in creator.js).
  */
-function loaderMark() {
-  return `<svg class="loader-mark" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="arm a1" fill="currentColor" d="M3 3H6L12 9L9 12L3 6Z"/>
-      <path class="arm a2" fill="currentColor" d="M21 3V6L15 12L12 9L18 3Z"/>
-      <path class="arm a3" fill="currentColor" d="M15 12L21 18L18 21L12 15Z"/>
-      <path class="arm a4" fill="currentColor" d="M12 15L6 21L3 18L9 12Z"/>
-    </svg>`;
+function loaderMark(mood = "reading") {
+  return typeof lynxrAvatar === "function" ? lynxrAvatar(mood, "loader-mark") : "";
 }
 /** Put a status line into a working state: the mark at text size, plus what it
  *  is doing. `text` is ours, never server-supplied — failures use textContent. */
@@ -969,12 +956,13 @@ function currentTheme() {
 /** Paint it, and remember it on this device. Dark is the absence of the
     attribute rather than data-theme="dark", so the default state of the
     document and the default state of the stylesheet are the same thing. */
-function applyTheme(t) {
-  const want = THEMES.includes(t) ? t : "dark";
-  if (want === "light") document.documentElement.setAttribute("data-theme", "light");
-  else document.documentElement.removeAttribute("data-theme");
-  try { localStorage.setItem(THEME_KEY, want); } catch {}
-  return want;
+function applyTheme() {
+  // LIGHT ONLY since 2026-09-15 (owner: "get rid of the dark mode"). Whatever a
+  // creator's synced row or an old device setting says, paint light. The
+  // Appearance select and every toggle are hidden in app.css; see theme.js.
+  document.documentElement.setAttribute("data-theme", "light");
+  try { localStorage.setItem(THEME_KEY, "light"); } catch {}
+  return "light";
 }
 
 /** Adopt the device mirror into ME. Returns whether there was one to adopt. */
@@ -1608,7 +1596,7 @@ function renderNewScript(head, body) {
   body.innerHTML = `
     <div class="newscript">
       <div class="newscript-greet">
-        <svg class="newscript-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 3h3l15 15-3 3L3 6zM21 3v3L6 21l-3-3L18 3z"/></svg>
+        <svg class="newscript-mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
         ${/* One line, doing both jobs. "What are we making?" asked a question
               the composer below already asks, and needed a second line of
               small text to explain what to put in it — so the screen opened
@@ -3627,7 +3615,7 @@ function renderYou(head, body) {
     </div>
 
     <p class="you-foot">&copy;
-      <a class="entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group LLC</a>
+      <span class="entity">lynxr LLC</span>
       2026</p>`;
 
   renderTrash();
@@ -5493,6 +5481,7 @@ function paintEta(root = document) {
     const a = (ME.adaptations || []).find((x) => x.id === el.dataset.eta);
     if (!a) return;
     const eta = etaFor(a);
+    if (typeof lynxrMood === "function") lynxrMood(el.querySelector(".lx"), eta.phase === "writing" ? "writing" : "reading");
     const sub = el.querySelector(".bp-eta");
     if (sub) {
       if (sub.textContent !== eta.text) sub.textContent = eta.text;
@@ -7300,7 +7289,11 @@ function adaptationHtml(a, liveName, opts = {}) {
        no kind and falls back to the generic sentence, instead of painting
        "ERROR: [TikTok] 7524866777004723486: … Use --cookies-from-browser". */
     const note = a.noteKind ? a.note : "";
-    body = `<p class="bp-hint bad">${escapeHtml(note || "That video couldn't be downloaded.")}</p>
+    /* The avatar that was writing this card says what happened: confused when
+       the LINK was the problem (the chip's own "couldn't fetch" bucket), sorry
+       when we failed. */
+    const mood = a.noteKind && a.noteKind !== "fetch" ? "sorry" : "confused";
+    body = `<div class="loader bp-fail">${loaderMark(mood)}<div class="loader-text"><p class="bp-hint bad">${escapeHtml(note || "That video couldn't be downloaded.")}</p></div></div>
       ${canRetry
         ? `<div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`
         : ""}`;
@@ -7483,11 +7476,21 @@ function adaptationHtml(a, liveName, opts = {}) {
        no `a.note` — there is nothing here a creator can act on except the
        retry. The allowance claim is true: lynxr_script_charges.adaptation_id
        is a primary key, so retrying the same entry cannot charge twice. */
-    body = `<p class="bp-hint">We couldn't finish this one. Try again — it won't
-      take anything more from your allowance.</p>
+    body = `<div class="loader bp-fail">${loaderMark("sorry")}<div class="loader-text"><p class="bp-hint">We couldn't finish this one. Try again — it won't
+      take anything more from your allowance.</p></div></div>
       <div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`;
   }
 
+  /* THE DONE BEAT. `flash` is true for exactly one render, the one where this
+     card went from writing to done, so the avatar that was writing it gets one
+     "done" moment above the script, and the next render drops it. The words
+     are the status chip's own; no new copy. Never above a failure: a "done"
+     card with nothing in it renders the "couldn't finish" body (.bp-fail),
+     and a happy avatar stacked over a sorry one contradicts itself (caught in
+     verification, 2026-09-15). */
+  if (flash && a.status === "done" && !body.includes("bp-fail")) {
+    body = `<div class="loader bp-ready" role="status">${loaderMark("done")}<div class="loader-text"><div class="loader-stage">${ad && !asOriginal ? "script ready" : "original script"}</div></div></div>` + body;
+  }
   const statusClass = `bp-${isWriting(a) ? "queued" : escapeHtml(a.status)}${flash ? " bp-flash" : ""}`;
   /* A written script carries its own copy / edit / delete icons on the actions
      row inside `body`, so it gets nothing here — rendering this as well put a
