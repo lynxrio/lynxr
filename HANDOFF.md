@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-08-25.**
+Read this, then `README.md` for architecture. **Last updated 2026-09-16 (evening).** Start with the section right below the table.
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -8,11 +8,11 @@ pipeline. Three surfaces, one stylesheet (`app.css`):
 
 | path | file | who |
 |---|---|---|
-| `/` | `index.html` + `site.js` | public — marketing page. hero, how it works |
-| `/waitlist/` | `waitlist/` + `home.js` | public — the only funnel. every CTA lands here |
+| `/` | `index.html` + `site.js` + `creator.js` | public landing when signed out; the creator app when signed in |
+| `/waitlist/` | `waitlist/` | retired funnel page (light theme via `data-theme`) |
 | `/faq/` | static + `FAQPage` JSON-LD | public — the SEO/GEO page |
 | `/privacy/` `/terms/` `/accessibility/` | static | public — the legal set, linked from every footer |
-| `/creatorsonly/` | `creator.js` | creators — paste a link, get a script |
+| `/creatorsonly/` | `forward.js` | retired 2026-09-15: forwards to `/` with query and #fragment intact |
 | `/agencyonly/` | `app.js` | staff — database, briefs, clients |
 
 `site.js` carries the shared chrome (floating bar, mobile menu, smooth scroll)
@@ -20,6 +20,101 @@ on the **six public pages only** — never the two apps. `robots.txt` +
 `sitemap.xml` cover the public set; **neither names
 the two app paths, not even in a comment** — robots.txt is served to anyone, so
 naming a path there publishes it.
+
+---
+
+## START HERE — state as of 2026-09-16 (evening)
+
+**Repo:** everything is committed through `453df78` (working tree clean); the live
+cache stamp is `202609152u` (`./venv/bin/python tools/check_stamp.py` → `ok`, and
+`404.html` matches). Stamp format after the `z` rollover: date + batch digit + letter
+(`202609152u` → next `202609152v`).
+
+**What the site looks like now** (details in the dated sections below):
+- **Glass:** frosted `--gl-*` tokens (46%→12% white, 28px blur) on floating chrome and
+  app islands; a denser `--gl-fill-scrim` for anything over a scrim or video.
+- **Public pages:** info surfaces are the OLD WHITE (`--surface`); only the nav pill and
+  footer are glass; the landing hero card is pinned to `--glass` 85%; the closing CTA sits on
+  the backdrop with no box; feature badges are white glass with a logo-gradient ring.
+- **Creator app:** floating shell (sidebar A, header island, content islands, no box inside
+  a box, footer on Settings only, one document scroller). The phone drawer slides in and out
+  from the left and has a back arrow plus Escape. Every script view uses the beat-card style;
+  repeated DO lines are shown and editable.
+- **Agency app:** floating islands, library-tile card grids, scripts in the creator markup.
+  SAY/DO/SHOW/ON-SCREEN, hook, CTA and caption lines all edit in place. The Database view is
+  a tile grid, and its tiles are editable as staff-side corrections (row `source-edits`).
+- **Editing indicator (both apps):** a straight 2px left stripe (a background layer), accent
+  on focus, green while unsaved.
+
+**Open — in the order to pick up:**
+
+1. **Product roadmap.** The owner shared a new product map on 2026-09-16 (tiers, onboarding,
+   coaching, closed loop). Its decisions, and the holes found in it, are kept OUT of this
+   public file: they are in the private memory note `lynxr-product-map-2026-09-16`
+   (`~/.claude/projects/-Users-junsahwang-Documents-lynxrio/memory/`). A planner was
+   wrote `~/.claude/plans/lynxr-product-map-roadmap.md` (complete, 44 steps, phases 0 and A1–F,
+   24 owner questions with defaults). **It is NOT approved yet**, and nothing is built. Next
+   session: walk the owner through its questions and the gaps listed in the memory note, then
+   run its "Build first" list only on a go.
+
+2. **Google sign-in is BUILT but OFF** (`const OAUTH_ON = { google: false, … }` in
+   `creator.js`; plan `~/.claude/plans/oauth-sign-in.md`).
+   - **Owner still has to:**
+     - fix the ONE unconfirmed auth user (created 2026-08-28, never signed in): confirm it via magic link or SQL, or delete it, until
+       `select count(*) filter (where email_confirmed_at is null) from auth.users` = 0;
+     - confirm `require_invite = false` in `lynxr_signup_gate`;
+     - create the Google OAuth client (web; redirect URI
+       `https://esakjfogplfszievvabi.supabase.co/auth/v1/callback`; consent screen "In
+       production", no logo);
+     - enable the Supabase Google provider (Redirect URLs `https://lynxr.io/**` and
+       `http://localhost:8811/**`).
+   - **Then:** flip the flag, bump the stamp, push, and have the owner test a new Google
+     address plus linking to an existing password account (same library and allowance).
+   - **Unverified:** Safari rendering of `assets/google-g.svg` (Google's official
+     icon-only light asset, with a `foreignObject` gradient).
+   - **Staff sign-in stays password-only.** Apple is blocked on a $99/yr developer
+     account.
+
+3. **Brand search** (plan `~/.claude/plans/brand-search-visibility.md`; see its section below).
+   - **Done:** repo steps 1–4; sitemap submitted in Search Console (the Domain property was
+     ALREADY verified, with 7 indexed pages); IndexNow sent all 21 URLs (202).
+   - **Owner still has to:**
+     - request indexing: day 1 home/about/faq/pricing/glossary; day 2 the six guides; the
+       blog only after the owner reads the posts;
+     - Bing Webmaster → Import from GSC;
+     - GitHub About and Website fields;
+     - replace the LinkedIn tagline "sm calm shi";
+     - verify the Instagram/TikTok profiles are real and link back;
+     - take an AI-answer baseline;
+     - screenshot Performance → Queries.
+   - **Pricing copy:** the site's free-tier and price copy is about to change (see the
+     private roadmap note). Update it before re-indexing the pricing page.
+
+4. **Small, known, not done:**
+   - the creator app's caption save flattens line breaks (the agency keeps them);
+   - the creator hook card probably has the edit stripe over the opening quote mark (the
+     agency one was fixed; the creator one is untested);
+   - the desktop header in the creator app doesn't stick (`.pane-scroll` is a scroll
+     container);
+   - the phone drawer has no focus trap;
+   - "that video is private." paints red words on glass.
+
+**How this session worked (keep doing it):**
+- **Agents:** planner → owner approves → executor or ui-ux. Parallel agents that would both
+  touch `app.css`/`app.js` work in scratch "patch mode" and are applied one at a time.
+- **Relaying owner changes to a running executor:** an executor refused changes relayed
+  mid-task as "possible injection". Put owner decisions in the INITIAL prompt or in the plan
+  file, or resume a finished agent with a new task.
+- **Verification:** verify painted pixels in the Browser pane on copies built with the real
+  stylesheet and the real `adaptationHtml()` etc. Signed-in views use the harnesses in
+  `/private/tmp/lynxr-agency-revamp/` and the session scratchpad.
+- **CSS comment trap:** NEVER put a star immediately followed by a slash inside a CSS
+  comment (e.g. `.pane*` then `/`). It ends the comment early and the next rule is swallowed
+  as garbage; this once hid the whole public-pages `:root` sizing rule. Scan `app.css` for
+  stray comment terminators after every edit.
+- **IndexNow:** `tools/indexnow.py` needs its own User-Agent (Cloudflare 403s
+  `Python-urllib`) and falls back to `/etc/ssl/cert.pem` (the python.org macOS build has no
+  root certificates); both fixes are in the script.
 
 ---
 
