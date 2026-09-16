@@ -496,7 +496,7 @@ or data-visibility change.
   (volatile; rebuilt from `~/.claude/plans/agency-revamp.md` Appendix A). No signed-in check
   was run — Claude never typed a credential.
 
-## Small follow-ups (2026-09-16, stamp `202609152s`)
+## Small follow-ups (2026-09-16, stamp `202609152u`)
 
 Owner requests made while the agency build ran, each verified in the Browser pane on
 copies built from the real stylesheet and scripts:
@@ -541,6 +541,20 @@ copies built from the real stylesheet and scripts:
   `srcCardHtml` display-only changes). An opened tile spans the grid and is the old row. A click
   on the cover now opens the tile; the ↗ goes to the original post. Database tiles have no
   in-place editing (`srcCardHtml` never had it).
+- **Agency hook / CTA / caption edit in place** (stamp `t`): blueprint hook →
+  `b.editedHook`; campaign `edited.hook` / `edited.cta` / `edited.caption` (caption keeps line
+  breaks; Shift+Enter adds one); brief viewer `items[i].editedHook` / `editedCta`; modal drafts.
+  Known difference: the creator app's save still flattens caption line breaks, and its hook
+  card probably has the stripe-over-opening-quote overlap the agency one had (untested).
+- **Database tiles are editable** (stamp `u`) as STAFF-SIDE CORRECTIONS only: row
+  `lynxr_clients` id `"source-edits"` (`SOURCE_EDITS_ROW_ID`), `{ [canonUrl]: { title?, creator?,
+  tags?, format?: { name?, why_it_works?, beats? }, editedAt, editedBy } }`, merged over
+  `lynxr_sources` at render (`srcApplyEdit`); `lynxr_sources` is only ever read. Search and
+  filters use corrected values; "edited" chip; two-click "Revert to pipeline". The title is
+  edited inside the opened card (an editable node inside `<summary>` is invalid). Beat seconds
+  must be numeric. Phone: 36px tick/cross, fields kept clear of the keyboard (all agency
+  editable lines). `pipeline/process_blueprints.py` RESERVED_IDS now includes
+  `"source-edits"`. Unverified: the upsert under real staff RLS.
 - **Google sign-in is built but OFF** (`const OAUTH_ON = { google: false, … }` in `creator.js`):
   button on the creator gate with Google's official icon-only light asset
   (`assets/google-g.svg`, unmodified; Safari rendering of its `foreignObject` gradient

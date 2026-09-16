@@ -70,7 +70,9 @@ import envcfg  # the one place a secret or config value is read; see its docstri
 ROOT = Path(__file__).parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
 BUCKET = "lynxr-blueprints"
-RESERVED_IDS = {"ingest-queue", "deleted-clients"}
+# Special lynxr_clients rows the agency app keeps for itself; none is a client.
+# "source-edits" holds staff corrections to Database tiles (app.js SOURCE_EDITS_ROW_ID).
+RESERVED_IDS = {"ingest-queue", "deleted-clients", "source-edits"}
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(message)s",

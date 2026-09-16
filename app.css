@@ -9157,6 +9157,27 @@
      and the edit stripe were under the pill). Same value as the creator rule. ---- */
   body.agency #app .bp-beats.bp-orig:has(.bp-lbl-onscreen) > .bp-beat,
   body.agency #modal .bp-beats.bp-orig:has(.bp-lbl-onscreen) > .bp-beat { grid-template-columns: 70px minmax(0, 1fr) auto; }
+  /* ---- (agency) an editable post caption keeps its line breaks and its spaces exactly (2026-09-16).
+     pre-wrap, not the paragraph's pre-line: with collapsible spaces the editor types non-breaking
+     ones, which would not round-trip. A block, so the edit stripe runs the caption's full height
+     rather than only its first line. ---- */
+  body.agency #app .cb-note > .bp-val.ag-caption[contenteditable] { display: block; white-space: pre-wrap; }
+  /* ---- (agency) an editable hook or campaign CTA draws its curly quotes itself (app.js agTopHtml).
+     The edit stripe sits 7px left of the words, which is where a literal opening quote stood, so the
+     stripe cut through it and the field's wash half covered it. Drawn inside the field, the quotes
+     are framed with the words and the stripe lands on empty space. Neither quote is typed or saved:
+     generated content is not part of the editable text. ---- */
+  body.agency #app .bp-val.ag-quoted[contenteditable]::before,
+  body.agency #modal .bp-val.ag-quoted[contenteditable]::before { content: "\201C"; }
+  body.agency #app .bp-val.ag-quoted[contenteditable]::after,
+  body.agency #modal .bp-val.ag-quoted[contenteditable]::after { content: "\201D"; }
+  body.agency #app .bp-val.ag-quoted[contenteditable]:empty::before,
+  body.agency #modal .bp-val.ag-quoted[contenteditable]:empty::before { content: "\201C\2026"; }
+  /* ---- (agency) a line that follows a label on its own row (a tailored CTA's "[last 3s] CTA:") keeps
+     its left padding as the gap instead of pulling back over the label, so the stripe and wash start
+     just after the colon rather than on top of it. ---- */
+  body.agency #app .bp-val.ag-after-label[contenteditable],
+  body.agency #modal .bp-val.ag-after-label[contenteditable] { margin-left: 0; }
 
 
   /* ---- (agency) clients list: a grid of tiles on the backdrop, the heading above them (E17); the lift comes from the creator's own tile rule (Step 6a) ---- */
@@ -9783,6 +9804,40 @@
     body.agency #app main #src-list > .bp-item:not([open]) > summary > .src-chips { max-width: calc(100% - 16px); }
     body.agency #app main #src-list > .bp-item:not([open]) > summary > .bp-name { padding: 10px 10px 0; min-height: calc(2.7em + 10px); }
     body.agency #app main #src-list > .bp-item:not([open]) > summary > .bp-when { padding: 3px 10px 12px; }
+  }
+
+  /* ---- CORRECTIONS IN AN OPENED TILE (owner, 2026-09-16: "make the database tiles editable too",
+     "make the database tiles editable on mobile too"). Every text line is an in-place field with the
+     shared indicator (.bp-val[contenteditable]); these rules only fit that field into the tile.
+     A LABEL THEN A VALUE (the title field, a tag pill): the value keeps its left padding as the gap
+     (.ag-after-label), so the edit stripe starts after the label instead of on it; the row's own gap
+     shrinks by the same 7px so the resting spacing stays close to what it was. The creator handle
+     draws its @ inside the field, like a quoted hook, for the same reason.
+     TAP TARGETS: a pill, a beat row or a field row forwards a tap to its value (app.js), and on a
+     phone or any coarse pointer the tick and cross are 36px and each field's hit area is 6px taller
+     above and below, painted and cancelled by a negative margin, so nothing moves. ---- */
+  /* a value wears its container's type (the generic .bp-val size is for script lines) */
+  body.agency #app main #src-list .bp-val[contenteditable] { font-size: inherit; line-height: inherit; }
+  body.agency #app main #src-list .src-field { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 2px; margin: 0 0 10px; cursor: text; }
+  body.agency #app main #src-list .src-flbl { flex: none; font-size: var(--fs-115); font-weight: 600; color: var(--text-3); }
+  body.agency #app main #src-list .src-field > .bp-val[data-field="title"] {
+    flex: 1 1 14ch; min-width: 0; font-size: var(--fs-15); font-weight: 650; color: var(--text); overflow-wrap: anywhere;
+  }
+  body.agency #app main #src-list .bp-val.ag-at[contenteditable]::before { content: "@"; }
+  body.agency #app main #src-list .bp-val.ag-at[contenteditable]:empty::before { content: "@\2026"; }
+  body.agency #app main #src-list .src-tag:has(> .bp-val[contenteditable]) { gap: 0; cursor: text; }
+  body.agency #app main #src-list .src-tag > .edit-confirm { margin: 0 -4px 0 6px; align-self: center; }
+  body.agency #app main #src-list .src-beats > li { cursor: text; }
+  body.agency #app main #src-list .src-bt > .bp-val[contenteditable] { display: inline-block; font: inherit; color: inherit; }
+  body.agency #app main #src-list .src-why > .bp-val[aria-multiline="true"] { display: block; white-space: pre-wrap; }
+  body.agency #app main #src-list .src-why > .edit-confirm { display: flex; width: fit-content; margin: 6px 0 0 auto; }
+  body.agency #app main #src-list .src-field > .edit-confirm { margin: 0 0 0 auto; }
+  body.agency #app main #src-list .src-actions { margin-top: 14px; }
+  @media (max-width: 820px), (pointer: coarse) {
+    body.agency #app main #src-list .edit-confirm { gap: 4px; padding: 3px; }
+    body.agency #app main #src-list .edit-confirm button { width: 36px; height: 36px; }
+    body.agency #app main #src-list .edit-confirm button svg { width: 16px; height: 16px; }
+    body.agency #app main #src-list .bp-val[contenteditable] { padding-top: 6px; padding-bottom: 6px; margin-top: -6px; margin-bottom: -6px; }
   }
 
   /* ==========================================================================

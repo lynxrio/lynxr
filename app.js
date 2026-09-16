@@ -601,7 +601,10 @@ function numOf(r, k) { const v = parseFloat(r[k]); return isNaN(v) ? -1 : v; }
  *    fillHostedCovers() already derives in the browser. Nothing extra is stored
  *    on the row.
  */
-let SOURCES = [];
+let SOURCES = [];            // what staff see: SOURCES_RAW with SOURCE_EDITS laid over it (srcRebuild)
+let SOURCES_RAW = [];        // the rows exactly as lynxr_sources returned them
+let SOURCE_EDITS = {};       // canonUrl -> staff correction, the SOURCE_EDITS_ROW_ID row as last read
+const SRC_OPEN = new Set();  // canonUrls of opened tiles, so a redraw keeps them open
 let SOURCES_STATE = "idle";   // idle | loading | ready | error
 const SRC_FILTERS = [
   { id: "src-f-platform", key: "platform", label: "All platforms" },
@@ -624,6 +627,76 @@ function srcRow(r) {
   };
 }
 
+/** A fetched row with its staff correction laid over it (see SOURCE_EDITS_ROW_ID), flattened by
+    srcRow like any other. Corrected beats replace the list, each over the pipeline beat at its
+    index so fields a tile never shows are kept. `_edit` marks a corrected row. */
+function srcApplyEdit(raw) {
+  const e = SOURCE_EDITS[canonUrl(raw.url || "")];
+  if (!e) return srcRow(raw);
+  const f = raw.format || {}, fe = e.format || {};
+  const format = { ...f };
+  if (fe.name != null) format.name = fe.name;
+  if (fe.why_it_works != null) format.why_it_works = fe.why_it_works;
+  if (Array.isArray(fe.beats)) format.beats = fe.beats.map((b, i) => ({ ...((f.beats || [])[i] || {}), ...b }));
+  return {
+    ...srcRow({
+      ...raw,
+      title: e.title ?? raw.title,
+      creator: e.creator ?? raw.creator,
+      tags: { ...(raw.tags || {}), ...(e.tags || {}) },
+      format,
+    }),
+    _edit: e,
+  };
+}
+function srcRebuild() { SOURCES = SOURCES_RAW.map(srcApplyEdit); }
+
+/** An editable field of a source row, by the path its line carries in data-field. */
+const SRC_TAG_KEYS = ["format_type", "hook_pattern", "niche_category", "target_audience", "visual_hook"];
+function srcFieldValue(r, path) {
+  if (!r) return null;
+  if (path === "title" || path === "creator") return String(r[path] ?? "");
+  if (path.startsWith("tags.")) return SRC_TAG_KEYS.includes(path.slice(5)) ? String((r.tags || {})[path.slice(5)] ?? "") : null;
+  if (path === "format.name" || path === "format.why_it_works") return String((r.format || {})[path.slice(7)] ?? "");
+  const m = /^beats\.(\d+)\.(seconds|role)$/.exec(path);
+  const b = m && ((r.format || {}).beats || [])[+m[1]];
+  return b ? String(b[m[2]] ?? "") : null;
+}
+
+/** One field of one video's correction set to `val` against the pipeline row `raw`: kept only if it
+    differs from the pipeline, cleaned up when nothing is left (null = delete the entry). */
+function srcSetField(entry, raw, path, val) {
+  const e = entry || {};
+  const same = (a, b) => String(a ?? "") === String(b ?? "");
+  const fmt0 = raw.format || {};
+  if (path === "title" || path === "creator") {
+    if (same(val, raw[path])) delete e[path]; else e[path] = val;
+  } else if (path.startsWith("tags.")) {
+    const k = path.slice(5);
+    const tags = { ...(e.tags || {}) };
+    if (same(val, (raw.tags || {})[k])) delete tags[k]; else tags[k] = val;
+    if (Object.keys(tags).length) e.tags = tags; else delete e.tags;
+  } else {
+    const fe = { ...(e.format || {}) };
+    if (path === "format.name" || path === "format.why_it_works") {
+      const k = path.slice(7);
+      if (same(val, fmt0[k])) delete fe[k]; else fe[k] = val;
+    } else {
+      const [, i, part] = /^beats\.(\d+)\.(seconds|role)$/.exec(path);
+      const orig = (fmt0.beats || []).map((b) => ({ seconds: b.seconds ?? null, role: b.role ?? "" }));
+      const beats = (fe.beats || orig).map((b) => ({ ...b }));
+      if (!beats[+i]) throw new Error("no such beat");
+      beats[+i][part] = part === "seconds" ? Number(val) : val;
+      if (JSON.stringify(beats) === JSON.stringify(orig)) delete fe.beats; else fe.beats = beats;
+    }
+    if (Object.keys(fe).length) e.format = fe; else delete e.format;
+  }
+  if (!["title", "creator", "tags", "format"].some((k) => k in e)) return null;
+  e.editedAt = new Date().toISOString();
+  if (SB_EMAIL) e.editedBy = SB_EMAIL;
+  return e;
+}
+
 async function fetchSources() {
   SOURCES_STATE = "loading";
   // Everything except `script` and `shots`: the transcript alone is several KB a
@@ -632,12 +705,19 @@ async function fetchSources() {
   const sel = "canonical_url,url,platform,first_seen_at,last_seen_at,tag_count,"
     + "tags,format,views,likes,comments,creator,title,metrics_at";
   try {
-    const rows = await sbFetch(
-      `/rest/v1/lynxr_sources?select=${sel}&order=tag_count.desc,last_seen_at.desc`);
-    SOURCES = (rows || []).map(srcRow);
+    // The corrections row is read alongside. If it cannot be read the pipeline's values show,
+    // and every save reads it again before writing (pushSourceEdit).
+    const [rows, edits] = await Promise.all([
+      sbFetch(`/rest/v1/lynxr_sources?select=${sel}&order=tag_count.desc,last_seen_at.desc`),
+      sbSourceEdits().catch(() => ({})),
+    ]);
+    SOURCES_RAW = rows || [];
+    SOURCE_EDITS = edits;
+    srcRebuild();
     SOURCES_STATE = "ready";
   } catch (e) {
     // A 401/403 here is the policy, not the network. Say which.
+    SOURCES_RAW = [];
     SOURCES = [];
     SOURCES_STATE = "error";
   }
@@ -706,16 +786,27 @@ function renderSrcStats(rows) {
     has no equivalent of. .src-chips is display: contents in the open row, and
     .src-plat-tile (the platform beside a pick count) is drawn on the tile only,
     so an opened card reads exactly as the row did. */
-function srcCardHtml(r) {
+function srcCardHtml(r, open = false) {
   const f = r.format || {};
   const v = srcViews(r);
   const picks = r.tag_count || 1;
   const tags = [
-    ["format", r.format_type], ["hook", r.hook_pattern], ["niche", r.niche_category],
-    ["audience", r.target_audience], ["visual", r.visual_hook],
-  ].filter(([, val]) => val);
+    ["format", "format_type"], ["hook", "hook_pattern"], ["niche", "niche_category"],
+    ["audience", "target_audience"], ["visual", "visual_hook"],
+  ].filter(([, key]) => r[key]);
+  /* EDITABLE (owner, 2026-09-16: "make the database tiles editable too", "on mobile too"): every
+     text the opened card shows is an in-place line (agTopHtml / agWireInlineEdit), saved as a staff
+     correction, never to lynxr_sources (see SOURCE_EDITS_ROW_ID). Views, platform, picks, date and
+     URL are measurements and stay as they are.
+     THE TITLE IS EDITED IN THE BODY, not in the header. The header is the <summary>: a click on it
+     opens and closes the card, and interactive content inside a <summary> is invalid HTML whose
+     clicks and keys would still toggle it. So the header (and the closed tile) keep the title as
+     plain text that opens the card, and the opened card leads with a labelled title field;
+     saving it updates the header in place. */
+  const E = { ag: "src", id: r.canon };
+  const line = (path, value, opts) => agTopHtml(value ?? "", path, E, opts);
 
-  return `<details class="bp-item src-item" data-canon="${escapeHtml(r.canon)}">
+  return `<details class="bp-item src-item" data-canon="${escapeHtml(r.canon)}"${open ? " open" : ""}>
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
       ${bpThumbHtml({ url: r.url, name: r.title || "" })}
@@ -723,7 +814,8 @@ function srcCardHtml(r) {
       <span class="src-chips">${picks > 1
         ? `<span class="chip good" title="${picks} creators pasted this video">${picks}× picked</span>
            <span class="chip src-plat-tile">${escapeHtml(platformLabel(r.url))}</span>`
-        : `<span class="chip">${escapeHtml(platformLabel(r.url))}</span>`}</span>
+        : `<span class="chip">${escapeHtml(platformLabel(r.url))}</span>`}${
+        r._edit ? `<span class="chip src-edited" title="Corrected by staff; the pipeline's version is kept">edited</span>` : ""}</span>
       ${v == null ? `<span class="chip src-views src-nodata" title="Metrics never fetched — run backfill_source_metrics.py">views —</span>`
                   : `<span class="chip src-views">${compact(v)} views</span>`}
       <span class="bp-when">${escapeHtml(agoLabel(r.last_seen_at))}</span>
@@ -731,20 +823,26 @@ function srcCardHtml(r) {
         target="_blank" rel="noopener noreferrer" title="Open the original">↗</a>` : ""}
     </summary>
     <div class="bp-body">
-      ${r.creator ? `<p class="bp-hint">@${escapeHtml(r.creator)}</p>` : ""}
-      ${tags.length ? `<div class="src-tags">${tags.map(([k, val]) =>
-        `<span class="src-tag"><i>${escapeHtml(k)}</i>${escapeHtml(val)}</span>`).join("")}</div>` : ""}
+      <div class="src-field"><span class="src-flbl">title</span>${line("title", r.title, { label: "title", afterLabel: true })}</div>
+      ${r.creator ? `<p class="bp-hint src-field">${line("creator", r.creator, { label: "creator handle", cls: "ag-at" })}</p>` : ""}
+      ${tags.length ? `<div class="src-tags">${tags.map(([k, key]) =>
+        `<span class="src-tag"><i>${escapeHtml(k)}</i>${line(`tags.${key}`, r[key], { label: `${k} tag`, afterLabel: true })}</span>`).join("")}</div>` : ""}
       ${f.name ? `<div class="bp-heading">Format</div>
-        <p class="src-fname">${escapeHtml(f.name)}</p>` : ""}
-      ${f.why_it_works ? `<p class="bp-hint">${escapeHtml(f.why_it_works)}</p>` : ""}
-      ${Array.isArray(f.beats) && f.beats.length ? `<ol class="src-beats">${f.beats.map((b) =>
-        `<li><span class="src-bt">${escapeHtml(String(b.seconds ?? "") + (b.seconds != null ? "s" : ""))}</span>
-           ${escapeHtml(b.role || "")}</li>`).join("")}</ol>` : ""}
+        <p class="src-fname">${line("format.name", f.name, { label: "format name" })}</p>` : ""}
+      ${f.why_it_works ? `<p class="bp-hint src-why">${line("format.why_it_works", f.why_it_works, { label: "why it works", multiline: true })}</p>` : ""}
+      ${Array.isArray(f.beats) && f.beats.length ? `<ol class="src-beats">${f.beats.map((b, i) =>
+        `<li><span class="src-bt">${line(`beats.${i}.seconds`, String(b.seconds ?? ""),
+            { label: `beat ${i + 1} seconds`, inputmode: "decimal" })}${b.seconds != null && b.seconds !== "" ? "s" : ""}</span>${
+          line(`beats.${i}.role`, b.role || "", { label: `beat ${i + 1} role` })}</li>`).join("")}</ol>` : ""}
       ${!f.name && !(f.beats || []).length
         ? `<p class="bp-hint">No format extracted for this one yet.</p>` : ""}
+      ${r._edit ? SRC_REVERT_HTML : ""}
     </div>
   </details>`;
 }
+/* Throws this video's corrections away, so it is armed like delete (armDelete, no confirm()). */
+const SRC_REVERT_HTML = `<div class="bp-actions src-actions"><button type="button" class="ghost src-revert"
+  title="Drop the staff corrections and show the pipeline's version">Revert to pipeline</button></div>`;
 
 /** The URL's host, for a row whose title never arrived. Never the full
     permalink — eight near-identical instagram.com/p/… strings identify nothing. */
@@ -785,8 +883,12 @@ function renderSources() {
     ? fmt(rows.length) : `${fmt(rows.length)} of ${fmt(SOURCES.length)}`;
 
   host.innerHTML = rows.length
-    ? rows.map(srcCardHtml).join("")
+    ? rows.map((r) => srcCardHtml(r, SRC_OPEN.has(r.canon))).join("")
     : `<p class="bp-hint">Nothing matches those filters.</p>`;
+  host.querySelectorAll("details.src-item").forEach((d) => d.addEventListener("toggle", () => {
+    if (d.open) SRC_OPEN.add(d.dataset.canon); else SRC_OPEN.delete(d.dataset.canon);
+  }));
+  bindSourceEdits(host);
 
   // Covers resolve exactly as they do for blueprint rows — YouTube off the URL,
   // TikTok via oEmbed, and lynxr-covers for everything the pipeline has framed,
@@ -798,8 +900,10 @@ function renderSources() {
     el.addEventListener("click", (e) => e.stopPropagation()));
 }
 
-function renderSourcesAll() {
-  renderSrcStats(SOURCES);
+/** Everything around the list that counts tags: the bars, the filter menus, the pill. Redrawn
+    after a correction, so a corrected tag is a filter option straight away. A filter already
+    chosen stays chosen, even if no row carries that value any more. */
+function renderSrcChrome() {
   const noPct = { pct: false };   // see the note on renderBars
   renderBars("src-by-format", countBy(SOURCES, "format_type"), 8, null, noPct);
   renderBars("src-by-hook", countBy(SOURCES, "hook_pattern"), 8, null, noPct);
@@ -810,11 +914,100 @@ function renderSourcesAll() {
   for (const f of SRC_FILTERS) {
     const el = document.getElementById(f.id);
     if (!el) continue;
-    const vals = [...new Set(SOURCES.map((r) => (r[f.key] || "").trim()).filter(Boolean))].sort();
+    const keep = el.value;
+    const vals = [...new Set([...SOURCES.map((r) => (r[f.key] || "").trim()), keep].filter(Boolean))].sort();
     el.innerHTML = `<option value="">${escapeHtml(f.label)}</option>`
       + vals.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+    el.value = keep;
   }
+}
+
+function renderSourcesAll() {
+  renderSrcStats(SOURCES);
+  renderSrcChrome();
   renderSources();
+}
+
+/* CORRECTIONS IN PLACE. Every line in an opened tile saves through pushSourceEdit (a fresh read of
+   the corrections row, this one field changed, the row written back), then SOURCES is rebuilt so
+   search, the filters and the bars read the corrected values. No redraw of the list on a save,
+   as with every other in-place line; only a Revert redraws it (opened tiles stay open). */
+function bindSourceEdits(host) {
+  const rawOf = (canon) => SOURCES_RAW.find((x) => canonUrl(x.url || "") === canon);
+  const rowOf = (canon) => SOURCES.find((x) => x.canon === canon);
+  const tileOf = (canon) => [...host.querySelectorAll("details.src-item")].find((d) => d.dataset.canon === canon);
+  // After a save: the chip, the Revert button and the header title follow the stored state.
+  const settle = (canon) => {
+    const tile = tileOf(canon), r = rowOf(canon);
+    if (!tile || !r) return;
+    const name = tile.querySelector("summary > .bp-name");
+    if (name) name.textContent = r.title || sourceHostLabel(r.url);
+    const chips = tile.querySelector(".src-chips");
+    const chip = chips?.querySelector(".src-edited");
+    if (r._edit && chips && !chip) chips.insertAdjacentHTML("beforeend",
+      `<span class="chip src-edited" title="Corrected by staff; the pipeline's version is kept">edited</span>`);
+    if (!r._edit) chip?.remove();
+    const body = tile.querySelector(".bp-body");
+    const rev = body?.querySelector(".src-actions");
+    if (r._edit && body && !rev) { body.insertAdjacentHTML("beforeend", SRC_REVERT_HTML); wireRevert(body.querySelector(".src-revert")); }
+    if (!r._edit) rev?.remove();
+    const before = new Set(SOURCES.map((x) => x.format_type).filter(Boolean)).size;
+    renderSrcChrome();
+    if (document.querySelector("#src-stats .stat:nth-child(3) .value")?.textContent !== fmt(before)) renderSrcStats(SOURCES);
+  };
+  const wireRevert = (btn) => {
+    if (!btn) return;
+    armDelete(btn, "Revert", async () => {
+      const canon = btn.closest("details.src-item")?.dataset.canon;
+      if (!canon) return;
+      btn.disabled = true;
+      try {
+        SOURCE_EDITS = await pushSourceEdit(canon, () => null);
+      } catch {
+        btn.disabled = false;
+        agLineMsg(btn, "Couldn't revert. Check the connection and try again.");
+        return;
+      }
+      srcRebuild();
+      renderSrcStats(SOURCES);
+      renderSrcChrome();
+      renderSources();
+    });
+  };
+  host.querySelectorAll(".src-revert").forEach(wireRevert);
+
+  agWireInlineEdit(host, (el) => {
+    const canon = el.dataset.agid;
+    if (!rawOf(canon)) return null;
+    return {
+      readTop: (path) => srcFieldValue(rowOf(canon), path),
+      check: (path, val) => (/\.seconds$/.test(path) && !/^\d+(\.\d+)?$/.test(val.trim())
+        ? "Seconds must be a number, like 12 or 3.5. The “s” is added for you." : ""),
+      writeTop: async (path, val) => {
+        const raw = rawOf(canon);
+        if (!raw) throw new Error("gone");
+        SOURCE_EDITS = await pushSourceEdit(canon, (e) => srcSetField(e, raw, path, val));
+        srcRebuild();
+        return srcFieldValue(rowOf(canon), path);   // seconds come back as the number stored
+      },
+      failText: () => "Couldn't save that correction. Check the connection and try again.",
+      saved: () => settle(canon),
+      repaint: () => renderSources(),
+    };
+  });
+
+  // A tag pill, a beat row or a field row is a bigger target than its words (a phone matters
+  // here): a tap anywhere on it edits its value, caret at the end.
+  host.querySelectorAll(".src-tag, .src-beats > li, .src-field").forEach((box) => box.addEventListener("click", (e) => {
+    if (e.target.closest("[contenteditable], button, a")) return;
+    const target = e.target.closest(".src-bt")?.querySelector("[contenteditable]")
+      || [...box.querySelectorAll("[contenteditable]")].pop();
+    if (!target) return;
+    target.focus();
+    const sel = getSelection();
+    sel.selectAllChildren(target);
+    sel.collapseToEnd();
+  }));
 }
 
 function initSourcesUi() {
@@ -1855,10 +2048,19 @@ function clientSuggestions(client, count = 8) {
 // ---------- Brief cart ----------
 const CART_LIMIT = 10;
 let CART = new Map();        // rowKey -> row
-/* rowKey -> edited beat strings, for scripts edited in the video modal before the brief exists. The
-   rows are the shared database rows, so an edit cannot be written onto them; it waits here and
-   becomes the saved item's editedBeats when the brief is saved. Cleared with the cart. */
-let DRAFT_BEATS = new Map();
+/* rowKey -> { beats, hook, cta }, for scripts edited in the video modal before the brief exists
+   (each part only once edited; hook / cta may be "" = cleared). The rows are the shared database
+   rows, so an edit cannot be written onto them; it waits here and becomes the saved item's
+   editedBeats / editedHook / editedCta when the brief is saved. Cleared with the cart. */
+let DRAFT_EDITS = new Map();
+/** A draft as the saved item's override fields. */
+function agDraftFields(d) {
+  const o = {};
+  if (d.beats) o.editedBeats = d.beats;
+  if (d.hook != null) o.editedHook = d.hook;
+  if (d.cta != null) o.editedCta = d.cta;
+  return o;
+}
 
 const rowKey = (r) => (r.platform || "") + "|" + (r.video_id || r.url || r.title);
 
@@ -1948,7 +2150,7 @@ function refreshTray() {
 const cartSlot = (key) => Math.max([...CART.keys()].indexOf(key), 0);
 function scriptHtml(row) {
   const k = rowKey(row);
-  const s = agScriptFor(row, BRIEF_CTX, cartSlot(k), DRAFT_BEATS.get(k));
+  const s = agScriptFor(row, BRIEF_CTX, cartSlot(k), DRAFT_EDITS.get(k));
   return `
     <div class="vscript">${agScriptBodyHtml(s, { ag: "dr", id: k })}
     </div>`;
@@ -2036,11 +2238,11 @@ function openModalBindings(key, row) {
   fillTikTokThumbs([row]);
   const copyBtn = document.getElementById("modal-copy");
   if (copyBtn) copyBtn.addEventListener("click", async () => {
-    const s = agScriptFor(row, BRIEF_CTX, cartSlot(key), DRAFT_BEATS.get(key));
-    const text = `${s.heading}\nHook: “${s.hook}”\n${s.beats.join("\n")}\n${s.cta}`;
+    const s = agScriptFor(row, BRIEF_CTX, cartSlot(key), DRAFT_EDITS.get(key));
+    const text = `${s.heading}\n${s.hook ? `Hook: “${s.hook}”\n` : ""}${s.beats.join("\n")}\n${s.cta}`;
     try { await navigator.clipboard.writeText(text); copyBtn.textContent = "Copied ✓"; } catch {}
   });
-  /* LINE EDITS here are drafts (DRAFT_BEATS) until the brief is saved; saveCurrentBrief moves them
+  /* LINE EDITS here are drafts (DRAFT_EDITS) until the brief is saved; saveCurrentBrief moves them
      onto the saved items. Only the script redraws, so a playing video keeps playing. */
   const vscript = document.querySelector("#modal .vscript");
   const syncRevert = (on) => {
@@ -2054,23 +2256,30 @@ function openModalBindings(key, row) {
     btn.textContent = "Revert edits";
     btn.title = "Discard the line edits and show the script as written";
     actions.append(btn);
-    armDelete(btn, "Revert edits", () => { DRAFT_BEATS.delete(key); drawScript(); });
+    armDelete(btn, "Revert edits", () => { DRAFT_EDITS.delete(key); drawScript(); });
   };
   const drawScript = () => {
     if (!vscript || !BRIEF_CTX) return;
     vscript.innerHTML = agScriptBodyHtml(
-      agScriptFor(row, BRIEF_CTX, cartSlot(key), DRAFT_BEATS.get(key)), { ag: "dr", id: key });
+      agScriptFor(row, BRIEF_CTX, cartSlot(key), DRAFT_EDITS.get(key)), { ag: "dr", id: key });
     wireScript();
-    syncRevert(DRAFT_BEATS.has(key));
+    syncRevert(agDraftEdited(DRAFT_EDITS.get(key)));
   };
+  const script = () => agScriptFor(row, BRIEF_CTX, cartSlot(key), DRAFT_EDITS.get(key));
+  const patchDraft = (part) => DRAFT_EDITS.set(key, { ...(DRAFT_EDITS.get(key) || {}), ...part });
   const wireScript = () => agWireInlineEdit(vscript, () => (BRIEF_CTX ? {
-    read: () => agScriptFor(row, BRIEF_CTX, cartSlot(key), DRAFT_BEATS.get(key)).beats,
-    write: (beats) => { DRAFT_BEATS.set(key, beats); },
+    read: () => script().beats,
+    write: (beats) => patchDraft({ beats }),
+    readTop: (field) => agTopOf(script(), field),
+    writeTop: (field, val) => {
+      if (field !== "hook" && field !== "cta") throw new Error("no such line");
+      patchDraft({ [field]: agTopStored(script(), field, val) });
+    },
     saved: () => { agMarkEdited(vscript.querySelector(".bp-heading")); syncRevert(true); },
     repaint: drawScript,
   } : null));
   wireScript();
-  syncRevert(!!BRIEF_CTX && DRAFT_BEATS.has(key));
+  syncRevert(!!BRIEF_CTX && agDraftEdited(DRAFT_EDITS.get(key)));
   const pickBtn = document.getElementById("modal-pick");
   if (pickBtn && !pickBtn.dataset.bound) {
     pickBtn.dataset.bound = "1";
@@ -2482,7 +2691,7 @@ const INGEST_QUEUE_ID = "ingest-queue";
 
 async function sbPullClients() {
   const rows = await sbFetch("/rest/v1/lynxr_clients?select=id,data,updated_at");
-  return rows.filter((r) => r.id !== INGEST_QUEUE_ID && r.id !== TOMBSTONE_ROW_ID)
+  return rows.filter((r) => r.id !== INGEST_QUEUE_ID && r.id !== TOMBSTONE_ROW_ID && r.id !== SOURCE_EDITS_ROW_ID)
     .map((r) => ({ ...r.data, id: r.id, _remote_updated: r.updated_at }));
 }
 
@@ -2535,6 +2744,42 @@ async function pushSharedTombstones(ids) {
     headers: { Prefer: "resolution=merge-duplicates" },
     body: JSON.stringify({ id: TOMBSTONE_ROW_ID, data: { ids: [...union] }, updated_by: SB_EMAIL || "" }),
   });
+}
+
+// A third reserved row: staff CORRECTIONS to the pasted-video database (owner, 2026-09-16: "make
+// the database tiles editable too", and an edit changes "only what staff see"). lynxr_sources is
+// read-only to staff and written by the pipeline with the service key, so a correction can never go
+// there: it lives here, staff-only through is_staff(), and is laid over the fetched row at render
+// time (srcApplyEdit). A re-tag rewrites lynxr_sources and never touches this row, so a correction
+// survives it; Revert deletes the video's entry and the pipeline's values show again.
+//   data = { [canonUrl]: { title?, creator?, tags?: { format_type?, hook_pattern?, niche_category?,
+//            target_audience?, visual_hook? }, format?: { name?, why_it_works?,
+//            beats?: [{ seconds, role }] }, editedAt, editedBy? } }
+// Only fields that differ from the pipeline are kept; a field typed back to the pipeline's value is
+// dropped, and an entry with nothing left in it is deleted. beats, once corrected, is the whole list.
+const SOURCE_EDITS_ROW_ID = "source-edits";
+
+async function sbSourceEdits() {
+  const rows = await sbFetch(`/rest/v1/lynxr_clients?id=eq.${SOURCE_EDITS_ROW_ID}&select=data`);
+  const d = rows?.[0]?.data;
+  return d && typeof d === "object" && !Array.isArray(d) ? d : {};
+}
+
+/** Change ONE video's correction and write the row back. The row is read fresh first, as
+    pushSharedTombstones does, so a teammate's correction to another video (or to another field of
+    this one) made since the page loaded is kept. `change` gets this video's current entry (a copy,
+    or null) and returns the new entry, or null to drop it. Resolves to the whole map as written. */
+async function pushSourceEdit(canon, change) {
+  const next = { ...(await sbSourceEdits()) };
+  const cur = change(next[canon] ? JSON.parse(JSON.stringify(next[canon])) : null);
+  if (cur) next[canon] = cur;
+  else delete next[canon];
+  await sbFetch("/rest/v1/lynxr_clients", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify({ id: SOURCE_EDITS_ROW_ID, data: next, updated_by: SB_EMAIL || "" }),
+  });
+  return next;
 }
 
 async function sbDeleteClient(id) {
@@ -2766,8 +3011,8 @@ function saveCurrentBrief() {
   const rec = {
     id: newId(), company, ctx: BRIEF_CTX || {}, niche,
     createdAt: new Date().toISOString(),
-    // A script edited in the modal keeps its edits: the draft becomes the item's editedBeats.
-    items: [...CART].map(([k, r]) => (DRAFT_BEATS.has(k) ? { ...r, editedBeats: DRAFT_BEATS.get(k) } : r)),
+    // A script edited in the modal keeps its edits: the draft becomes the item's overrides.
+    items: [...CART].map(([k, r]) => (DRAFT_EDITS.has(k) ? { ...r, ...agDraftFields(DRAFT_EDITS.get(k)) } : r)),
   };
   const list = loadClients();
   const client = findOrCreateClient(list, company, BRIEF_CTX, niche);
@@ -2776,7 +3021,7 @@ function saveCurrentBrief() {
 
   // Wrap up for the next client: clear cart, reopen the details editor.
   CART = new Map();
-  DRAFT_BEATS = new Map();
+  DRAFT_EDITS = new Map();
   closeModal();
   const editor = document.getElementById("client-editor");
   if (editor) {
@@ -2835,8 +3080,8 @@ function scriptsAsText(ctx, items) {
   let i = 0;
   for (const row of items) {
     i += 1;
-    const s = agScriptFor(row, ctx, i - 1, DRAFT_BEATS.get(rowKey(row)));   // what the modal shows
-    out += `SCRIPT ${i} — ${s.heading}\nHook: “${s.hook}”\n`;
+    const s = agScriptFor(row, ctx, i - 1, DRAFT_EDITS.get(rowKey(row)));   // what the modal shows
+    out += `SCRIPT ${i} — ${s.heading}\n${s.hook ? `Hook: “${s.hook}”\n` : ""}`;
     for (const b of s.beats) out += b + "\n";
     out += s.cta + "\n";
     out += `Reference: ${row.title || ""}\n${row.creator || "—"} · ${fmt(views(row))} views · ${row.url || ""}\n\n`;
@@ -3267,16 +3512,33 @@ function agCtaParts(cta) {
   const m = /^(\[[^\]]*\]\s*CTA:\s*)([\s\S]*)$/.exec(String(cta ?? ""));
   return m ? [m[1], m[2]] : ["", String(cta ?? "")];
 }
+/** A tailored script's hook or CTA as its line shows it (the CTA without its label); null for any
+ *  other field (a tailored script has no caption). */
+function agTopOf(s, field) {
+  return field === "hook" ? String(s.hook ?? "") : field === "cta" ? agCtaParts(s.cta)[1] : null;
+}
+/** What to store for an edited hook or CTA line: a CTA keeps the label it had; cleared is "". */
+function agTopStored(s, field, val) {
+  return field === "cta" && val ? agCtaParts(s.cta)[0] + val : val;
+}
 /** A hook, CTA or caption value as its own in-place line: creator.js's data-edit="top" span.
  *  `edit` is { ag, id }; without it the value is plain text, as before. A caption keeps its line
- *  breaks (.ag-caption, aria-multiline). */
-function agTopHtml(value, field, edit) {
-  if (!edit) return escapeHtml(value);
-  const multi = field === "caption";
-  return `<span class="bp-val${field === "hook" ? " bp-hookval" : ""}${multi ? " ag-caption" : ""}"` +
+ *  breaks (.ag-caption, aria-multiline).
+ *  quoted: the value is shown in curly quotes. Read-only, they stay literal text; editable, app.css
+ *  draws them inside the span (.ag-quoted), because the edit stripe sits 7px left of the words, and
+ *  that is exactly where a literal opening quote is: the stripe and the field's wash covered it.
+ *  afterLabel: the span follows a label on the same line (a tailored CTA's "[last 3s] CTA:"), so
+ *  its left padding is the gap (.ag-after-label) instead of reaching back over the label's colon. */
+function agTopHtml(value, field, edit, {
+  quoted = false, afterLabel = false, multiline = field === "caption", label = field, cls = "", inputmode = "",
+} = {}) {
+  if (!edit) return quoted ? `“${escapeHtml(value)}”` : escapeHtml(value);
+  return `<span class="bp-val${field === "hook" ? " bp-hookval" : ""}${field === "caption" ? " ag-caption" : ""}` +
+    `${quoted ? " ag-quoted" : ""}${afterLabel ? " ag-after-label" : ""}${cls ? " " + cls : ""}"` +
     ` contenteditable="plaintext-only" role="textbox" tabindex="0" spellcheck="false"` +
-    `${multi ? ` aria-multiline="true"` : ""} aria-label="${field}" data-edit="top" data-ag="${edit.ag}"` +
-    ` data-agid="${escapeHtml(edit.id)}" data-field="${field}">${escapeHtml(value)}</span>`;
+    `${multiline ? ` aria-multiline="true"` : ""}${inputmode ? ` inputmode="${inputmode}"` : ""}` +
+    ` aria-label="${escapeHtml(label)}" data-edit="top" data-ag="${edit.ag}"` +
+    ` data-agid="${escapeHtml(edit.id)}" data-field="${escapeHtml(field)}">${escapeHtml(value ?? "")}</span>`;
 }
 /** One stored beat string as a line card; `edit` makes its lines editable (see agBeatHtml). */
 function agBeatLineHtml(bt, mode, edit) {
@@ -3287,11 +3549,13 @@ function agBeatLineHtml(bt, mode, edit) {
 function agScriptBodyHtml(s, edit) {
   const mode = agScriptMode(s);
   const beats = s.beats.map((bt, i) => agBeatLineHtml(bt, mode, edit ? { ...edit, mode, i } : null)).join("");
+  const [ctaLbl, ctaWords] = agCtaParts(s.cta);
   return `
-      ${s.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(s.hook)}”</div>` : ""}
+      ${s.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>${agTopHtml(s.hook, "hook", edit, { quoted: true })}</div>` : ""}
       <div class="bp-heading">Tailored script — ${escapeHtml(s.heading)}${s.edited ? ` <span class="chip">edited</span>` : ""}</div>
       ${agBeatsHtml(beats, true)}
-      ${s.cta ? `<p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>` : ""}`;
+      ${s.cta ? `<p class="vs-beat vs-cta">${!edit ? escapeHtml(s.cta)
+        : escapeHtml(ctaLbl.trimEnd()) + agTopHtml(ctaWords, "cta", edit, { afterLabel: !!ctaLbl })}</p>` : ""}`;
 }
 /* EVERY LINE IS SHOWN (owner, 2026-09-16: "show the repeated do lines too and make them editable",
    then "make the agency show lines editable too"). A DO or SHOW that repeated the beat before used to
@@ -3387,6 +3651,7 @@ function agBeatSplice(bt, mode, field, val) {
 }
 
 const agNorm = (v) => (v || "").replace(/\s+/g, " ").trim();
+const agText = (v) => String(v ?? "").replace(/\r\n?/g, "\n");   // a caption: exact, bar CRLF
 /** Is a script line being typed in, or changed and not yet saved, under `root`? A repaint then would
  *  throw the change away, so every repaint guard asks (creator.js editInFlight, same rule). */
 function agEditInFlight(root = document) {
@@ -3403,7 +3668,8 @@ function agMarkEdited(heading) {
 }
 /** A note under the script being edited: a refused or failed save. Cleared by the next save or undo. */
 function agLineMsg(el, text) {
-  const list = el.closest("ol.bp-beats");
+  // under the beat list, the hook card, or the CTA / caption paragraph the line sits in
+  const list = el.closest("ol.bp-beats, .bp-hook, .src-tags, ol.src-beats") || el.parentElement;
   if (!list) return;
   let m = list.nextElementSibling;
   if (!text) { if (m?.classList.contains("ag-edit-msg")) m.remove(); return; }
@@ -3416,6 +3682,31 @@ function agLineMsg(el, text) {
   m.textContent = text;
 }
 
+/** Scroll a line being edited clear of the sticky header and of whatever covers the bottom of the
+ *  screen: on a phone the on-screen keyboard shrinks the visual viewport, and the line typed into
+ *  must stay above it. Runs on focus and whenever the visual viewport resizes (the keyboard opening).
+ *  Does nothing when the line is already in view. */
+function agKeepInView(el) {
+  if (!el?.isConnected) return;
+  const vv = window.visualViewport;
+  const r = el.getBoundingClientRect();
+  const head = document.querySelector("#app > header")?.getBoundingClientRect().bottom || 0;
+  const top = Math.max(vv ? vv.offsetTop : 0, head) + 8;
+  const bottom = (vv ? vv.offsetTop + vv.height : innerHeight) - 12;
+  if (r.bottom > bottom) window.scrollBy(0, Math.min(r.bottom - bottom, r.top - top));
+  else if (r.top < top) window.scrollBy(0, r.top - top);
+}
+{
+  // the visual viewport is what a phone keyboard shrinks; a window resize is the fallback for
+  // browsers that resize the layout viewport instead (and does no harm where both fire)
+  const keep = () => {
+    const a = document.activeElement;
+    if (a?.isContentEditable && a.dataset.edit) requestAnimationFrame(() => agKeepInView(a));
+  };
+  window.visualViewport?.addEventListener("resize", keep);
+  window.addEventListener("resize", keep);
+}
+
 /* AGENCY SCRIPT LINES, EDITED IN PLACE (owner, 2026-09-16: "make the do lines for any script on any
    side of lynxr be editable the same way"). creator.js's model, line for line: the value span is the
    input, a changed line is not saved until its tick or Enter, the cross or Escape puts it back, blur
@@ -3425,14 +3716,24 @@ function agLineMsg(el, text) {
      { read() -> the current beats, fresh from storage (strings; {t, say, do, show} objects when the
          line's data-agmode is "fields"),
        write(beats) -> saves the whole list as the override (may be async, may throw),
-       saved() -> marks the script edited on screen, repaint() -> redraws it from storage,
+       readTop(field) -> the hook / cta / caption as it shows now (null if the script has none),
+       writeTop(field, value) -> saves that one override ("" = cleared, as creator.js allows),
+       saved(field) -> marks the script edited on screen, repaint() -> redraws it from storage,
        pencil -> true where the pencil editor exists, failText(ex) -> a failed save's sentence }
+   Hook and CTA lines are data-edit="top", like creator.js's (added 2026-09-16: "make the hook and
+   cta lines editable too", then "make the caption lines editable too"). A CAPTION KEEPS ITS LINE
+   BREAKS: its value is compared and saved as typed (only CRLF becomes LF), where every other line
+   collapses whitespace as creator.js does, and Shift+Enter adds a break; Enter still saves. Any
+   line with aria-multiline="true" gets that behaviour (a caption; a source's "why it works").
+   check(field, value) -> a sentence when the value cannot be saved on that line (nothing is written).
    A string beat is changed through agBeatSplice, so only the edited line's characters move. Before
    writing, the line's stored value must still be the one the page drew; if a sync or another tab
    changed it, the save is refused and the script redrawn rather than written over. */
 function agWireInlineEdit(root, store) {
   if (!root) return;
-  const rowOf = (el) => el.closest("li.bp-beat") || el.parentElement;
+  const rowOf = (el) => el.closest("li.bp-beat, .bp-hook, .src-tag, .src-beats > li") || el.parentElement;
+  const multi = (el) => el.getAttribute("aria-multiline") === "true";
+  const valOf = (el, v) => (multi(el) ? agText(v) : agNorm(v));
   const clearPending = (el) => {
     el.classList.remove("is-pending");
     rowOf(el).querySelector(".edit-confirm")?.remove();
@@ -3443,22 +3744,47 @@ function agWireInlineEdit(root, store) {
     agLineMsg(el, "");
   };
   const commitEdit = async (el) => {
-    const val = agNorm(el.textContent);
-    const was = agNorm(el.dataset.was);
+    const val = valOf(el, el.textContent);
+    const was = valOf(el, el.dataset.was);
     if (val === was) { clearPending(el); return; }            // nothing to save
     const st = store(el);
     if (!st || el.dataset.saving) return;
     const i = Number(el.dataset.beat), field = el.dataset.field, mode = el.dataset.agmode;
+    const conflict = () => {
+      st.repaint();
+      const q = `[data-ag="${el.dataset.ag}"][data-agid="${CSS.escape(el.dataset.agid)}"]`;
+      const again = document.querySelector(`[data-edit="${el.dataset.edit}"]${q}[data-field="${field}"]`)
+        || document.querySelector(`[data-edit]${q}`);
+      if (again) agLineMsg(again, "This script changed since the page drew it, so that line wasn't saved. This is the saved version.");
+    };
+    if (el.dataset.edit === "top") {
+      const now = st.readTop ? st.readTop(field) : null;
+      if (now == null || valOf(el, now) !== was) { conflict(); return; }
+      const out = val.trim() ? val : "";                      // cleared: the line is not drawn next time
+      const why = st.check ? st.check(field, out) : "";       // a value this line cannot hold
+      if (why) { agLineMsg(el, why); return; }
+      el.dataset.saving = "1";
+      let shown;
+      try {
+        shown = await st.writeTop(field, out);                // may hand back the value as stored
+      } catch (ex) {
+        agLineMsg(el, st.failText ? st.failText(ex) : "Couldn't save that line. Try again.");
+        return;
+      } finally {
+        delete el.dataset.saving;
+      }
+      agLineMsg(el, "");
+      el.textContent = shown == null ? out : String(shown);
+      el.dataset.was = el.textContent;
+      clearPending(el);
+      st.saved(field);
+      return;
+    }
     const beats = st.read() || [];
     const cur = beats[i];
     const now = cur == null ? null
       : mode === "fields" ? String(cur[field] ?? "") : (agBeatParse(cur, mode)[field]?.v ?? null);
-    if (now === null || agNorm(now) !== was) {
-      st.repaint();
-      const again = document.querySelector(`[data-edit="beat"][data-ag="${el.dataset.ag}"][data-agid="${CSS.escape(el.dataset.agid)}"]`);
-      if (again) agLineMsg(again, "This script changed since the page drew it, so that line wasn't saved. This is the saved version.");
-      return;
-    }
+    if (now === null || agNorm(now) !== was) { conflict(); return; }
     let next;
     if (mode === "fields") {
       const b = { ...cur, [field]: val };
@@ -3488,7 +3814,7 @@ function agWireInlineEdit(root, store) {
     el.textContent = val;
     el.dataset.was = val;                                     // the new baseline for the next Escape
     clearPending(el);
-    st.saved();
+    st.saved(field);
   };
   const showPending = (el) => {
     if (el.classList.contains("is-pending")) return;
@@ -3508,22 +3834,28 @@ function agWireInlineEdit(root, store) {
     ok.addEventListener("click", (e) => { if (e.detail === 0) { commitEdit(el); el.focus(); } });
     no.addEventListener("click", (e) => { if (e.detail === 0) { revertEdit(el); el.focus(); } });
     rowOf(el).appendChild(wrap);
+    // the tick and cross sit under the line: on a phone, keep them above the keyboard too
+    if (document.activeElement === el) requestAnimationFrame(() => agKeepInView(wrap));
   };
-  root.querySelectorAll('[data-edit="beat"][data-ag]').forEach((el) => {
+  root.querySelectorAll("[data-edit][data-ag]").forEach((el) => {
     // The undo value is captured at wire time, not on focus (see creator.js for why).
     el.dataset.was = el.textContent;
     el.addEventListener("paste", (e) => {
       e.preventDefault();
       const t = (e.clipboardData || window.clipboardData).getData("text/plain");
-      document.execCommand("insertText", false, agNorm(t));
+      document.execCommand("insertText", false, valOf(el, t));
     });
     el.addEventListener("input", () => {
-      if (agNorm(el.textContent) === agNorm(el.dataset.was)) clearPending(el);
+      if (valOf(el, el.textContent) === valOf(el, el.dataset.was)) clearPending(el);
       else showPending(el);
     });
     // stopPropagation: the video modal closes on a document-level Escape, and a line's Escape
-    // means "undo this line", not "close".
+    // means "undo this line", not "close". Shift+Enter in a caption is a line break (the browser's
+    // own, plain text in a plaintext-only field).
+    // A phone keyboard covers the bottom of the screen: keep the line being edited above it.
+    el.addEventListener("focus", () => setTimeout(() => { if (document.activeElement === el) agKeepInView(el); }, 300));
     el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.shiftKey && multi(el)) { e.stopPropagation(); return; }
       if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); commitEdit(el); el.blur(); }
       if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); revertEdit(el); el.blur(); }
     });
@@ -3539,6 +3871,11 @@ const BP_FLASH = new Set();
    resurrect a half-finished edit. Not persisted, deliberately: "open in the
    editor" is a state of this session, not of the blueprint. */
 const BP_EDITING = new Set();
+/* The hook is derived at render time too (realScript: the transcript's hook, else its first
+   segment), so an in-place hook edit is an override beside editedBeats: b.editedHook, which may be
+   "" (cleared). A blueprint has no CTA or caption line. Revert drops both overrides. */
+const bpHook = (b, s) => b.editedHook ?? s?.hook ?? "";
+const bpEdited = (b) => !!b.editedBeats || b.editedHook != null;
 
 function blueprintsBoxHtml(client) {
   const bps = client.blueprints || [];
@@ -3597,9 +3934,10 @@ function blueprintsBoxHtml(client) {
               ? `The visual pass (framing and on-screen text beneath each beat) runs on the Anthropic API and the balance is empty. Top up, then hit Try again.`
               : escapeHtml(b.note || "The visual pass didn't run.")}</p>`
           : b.note ? `<p class="bp-hint">${escapeHtml(b.note)}</p>` : ""}
-        ${s.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(s.hook)}”</div>` : ""}
+        ${bpHook(b, s) ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>${
+          agTopHtml(bpHook(b, s), "hook", { ag: "bp", id: b.id }, { quoted: true })}</div>` : ""}
         <div class="bp-heading">${escapeHtml(s.heading)}${
-          b.editedBeats ? ` <span class="chip">edited</span>` : ""}</div>
+          bpEdited(b) ? ` <span class="chip">edited</span>` : ""}</div>
         ${/* EDITING. The beats shown are DERIVED at render time —
               realScript(bpAsRow(b)) rebuilds them from the Whisper transcript
               and the shot list every paint — so there is nothing in the record
@@ -3621,7 +3959,7 @@ function blueprintsBoxHtml(client) {
             <div class="bp-actions">
               <button type="button" class="btn bp-save" data-bpid="${id}">Save changes</button>
               <button type="button" class="ghost bp-cancel" data-bpid="${id}">Cancel</button>
-              ${b.editedBeats ? `<button type="button" class="ghost bp-revert" data-bpid="${id}"
+              ${bpEdited(b) ? `<button type="button" class="ghost bp-revert" data-bpid="${id}"
                 title="Discard your edits and show the pipeline's own version">Revert to original</button>` : ""}
             </div>
           </div>`
@@ -3936,14 +4274,15 @@ function bindBlueprints(host, client) {
     const b = c?.blueprints?.find((x) => x.id === btn.dataset.bpid);
     if (!b) return;
     delete b.editedBeats;
+    delete b.editedHook;
     persistClients(fresh);
     BP_EDITING.delete(btn.dataset.bpid);
     bpMsg("Back to the pipeline's version.", "good");
     bpKeepOpen(btn.dataset.bpid);
   }));
 
-  /* IN-PLACE LINE EDITS land in the same b.editedBeats override the pencil editor writes, so the
-     pencil's Revert and the "edited" chip cover both. */
+  /* IN-PLACE LINE EDITS land in the same b.editedBeats override the pencil editor writes (the hook
+     in b.editedHook beside it), so the pencil's Revert and the "edited" chip cover all of them. */
   const findBp = (list, bpid) => list.find((c) => c.id === client.id)?.blueprints?.find((x) => x.id === bpid);
   agWireInlineEdit(host.querySelector(".bp-list"), (el) => {
     const bpid = el.dataset.agid;
@@ -3962,6 +4301,17 @@ function bindBlueprints(host, client) {
         b.editedBeats = beats;
         persistClients(fresh);
       },
+      readTop: (field) => {
+        const b = findBp(loadClients(), bpid);
+        return b && field === "hook" ? bpHook(b, realScript(bpAsRow(b))) : null;
+      },
+      writeTop: (field, val) => {
+        const fresh = loadClients();
+        const b = findBp(fresh, bpid);
+        if (!b || field !== "hook") throw new Error("gone");
+        b.editedHook = val;
+        persistClients(fresh);
+      },
       saved: () => agMarkEdited(el.closest(".bp-item")?.querySelector(".bp-heading")),
       repaint: () => bpKeepOpen(bpid),
     };
@@ -3976,7 +4326,8 @@ function bindBlueprints(host, client) {
       // b.editedBeats first: copy has to give you what is on the screen. `s` is
       // rebuilt from the transcript every call, so using s.beats here would
       // quietly hand back the pipeline's version and lose every manual edit.
-      const text = `${s.heading}\n` + (s.hook ? `HOOK: "${s.hook}"\n\n` : "\n")
+      const hook = bpHook(b, s);
+      const text = `${s.heading}\n` + (hook ? `HOOK: "${hook}"\n\n` : "\n")
         + (b.editedBeats || s.beats).join("\n");
       try {
         await navigator.clipboard.writeText(text);
@@ -4462,8 +4813,9 @@ function renderBriefViewer(host, rec, client) {
     detail?.querySelector(".cd-close")?.addEventListener("click", () => setExpanded(null));
     detail?.querySelector(".cd-prev")?.addEventListener("click", () => setExpanded(openIdx - 1));
     detail?.querySelector(".cd-next")?.addEventListener("click", () => setExpanded(openIdx + 1));
-    /* LINE EDITS in the brief viewer are saved on the brief's own item (items[i].editedBeats), inside
-       the client record, so they sync like the rest of the brief. Read the record fresh each time:
+    /* LINE EDITS in the brief viewer are saved on the brief's own item (items[i].editedBeats, and
+       editedHook / editedCta beside it), inside the client record, so they sync like the rest of
+       the brief. Read the record fresh each time:
        `rec` and `row` are the render's copies and go stale after the first edit. */
     const liveRec = (list = loadClients()) =>
       list.find((c) => c.id === client.id)?.briefs?.find((b) => b.id === rec.id) || null;
@@ -4483,7 +4835,7 @@ function renderBriefViewer(host, rec, client) {
       armDelete(btn, "Revert edits", () => {
         const fresh = loadClients();
         const it = liveRec(fresh)?.items?.[openIdx];
-        if (it) { delete it.editedBeats; persistClients(fresh); }
+        if (it) { delete it.editedBeats; delete it.editedHook; delete it.editedCta; persistClients(fresh); }
         drawScript();
       });
     };
@@ -4493,7 +4845,7 @@ function renderBriefViewer(host, rec, client) {
       if (!it || !vscript) { renderBriefs(); return; }
       vscript.innerHTML = agScriptBodyHtml(agScriptFor(it, r.ctx, openIdx), { ag: "br", id: String(openIdx) });
       wireScript();
-      syncRevert(!!it.editedBeats);
+      syncRevert(agItemEdited(it));
     };
     const wireScript = () => agWireInlineEdit(vscript, () => ({
       read: () => {
@@ -4508,17 +4860,30 @@ function renderBriefViewer(host, rec, client) {
         it.editedBeats = beats;
         persistClients(fresh);
       },
+      readTop: (field) => {
+        const r = liveRec();
+        const it = r?.items?.[openIdx];
+        return it ? agTopOf(agScriptFor(it, r.ctx, openIdx), field) : null;
+      },
+      writeTop: (field, val) => {
+        const fresh = loadClients();
+        const r = liveRec(fresh);
+        const it = r?.items?.[openIdx];
+        if (!it || (field !== "hook" && field !== "cta")) throw new Error("gone");
+        it[field === "hook" ? "editedHook" : "editedCta"] = agTopStored(agScriptFor(it, r.ctx, openIdx), field, val);
+        persistClients(fresh);
+      },
       saved: () => { agMarkEdited(vscript.querySelector(".bp-heading")); syncRevert(true); },
       repaint: drawScript,   // the script only: redrawing the card would stop a playing video
     }));
     wireScript();
-    syncRevert(!!row.editedBeats);
+    syncRevert(agItemEdited(row));
     detail?.querySelector(".cd-copy")?.addEventListener("click", async (e) => {
       const r = liveRec();
       const sc = agScriptFor(r?.items?.[openIdx] || row, r ? r.ctx : rec.ctx, openIdx);
       try {
         await navigator.clipboard.writeText(
-          [sc.heading, `Hook: \u201c${sc.hook}\u201d`, ...sc.beats, sc.cta].filter(Boolean).join("\n"));
+          [sc.heading, sc.hook ? `Hook: \u201c${sc.hook}\u201d` : "", ...sc.beats, sc.cta].filter(Boolean).join("\n"));
         e.target.textContent = "Copied ✓";
       } catch {}
     });
@@ -4683,7 +5048,7 @@ async function renderBrief(rawUrl) {
   const chosen = analysis?.niche || urlGuess.niche || "";
   BRIEF_CTX = analysis ? { brand: analysis.brand, feats: analysis.feats, audience: analysis.audience } : null;
   CART = new Map();   // a new client = a fresh brief
-  DRAFT_BEATS = new Map();
+  DRAFT_EDITS = new Map();
 
   const status = analysis
     ? `<div class="site-card">
@@ -5930,16 +6295,18 @@ function cbDetailHtml(f) {
       ${f.internal_note ? `<div class="cb-sec"><div class="bp-heading">Internal note</div><p>${escapeHtml(f.internal_note)}</p></div>` : ""}
       ${why.length ? `<div class="cb-sec"><div class="bp-heading">Why the original works</div>${why.map((w) => `<p>${escapeHtml(w)}</p>`).join("")}</div>` : ""}
     </div>` : "";
+  // Hook, CTA and caption edit in place too, into edited.hook / .cta / .caption (cbBindCard).
+  const top = { ag: "cb", id: f.id };
   // AGENCY SCRIPT LOOK (2026-09-15): the creator's hook card, beat cards and split.
   return `<div class="ref-split cb-split">
     <div class="ref-main cd-info cb-info">
-      ${v.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(v.hook)}”</div>` : ""}
+      ${v.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>${agTopHtml(v.hook, "hook", top, { quoted: true })}</div>` : ""}
       ${sec("Needs", needs.length ? `<ul class="cb-needs">${needs.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : "")}
       ${sec("Setup", setup.length ? `<div class="cb-setup">${setup.map(([l, x]) =>
         `<div class="cb-setup-row"><span class="cb-setup-lbl">${l}</span><span class="cb-setup-val">${escapeHtml(x)}</span></div>`).join("")}</div>` : "")}
       ${sec("Script", agBeatsHtml(beats, timed))}
-      ${sec("CTA", v.cta ? `<p class="cb-note">“${escapeHtml(v.cta)}”</p>` : "")}
-      ${sec("Post caption", v.caption ? `<p class="cb-note">${escapeHtml(v.caption)}</p>` : "")}
+      ${sec("CTA", v.cta ? `<p class="cb-note">${agTopHtml(v.cta, "cta", top, { quoted: true })}</p>` : "")}
+      ${sec("Post caption", v.caption ? `<p class="cb-note">${agTopHtml(v.caption, "caption", top)}</p>` : "")}
       ${sec("Creator note", v.creator_note ? `<p class="cb-note">${escapeHtml(v.creator_note)}</p>` : "")}
       ${internal}
     </div>
@@ -6434,8 +6801,9 @@ function cbBindCard(card, campaignId) {
 
   card.querySelector(".cb-up")?.addEventListener("click", () => cbMove(campaignId, fid, -1));
   card.querySelector(".cb-down")?.addEventListener("click", () => cbMove(campaignId, fid, +1));
-  /* A line edited in place is written as `edited.beats`, the same override the format editor saves
-     (cbView lays `edited` over `script`), so "Revert to generated" undoes both. */
+  /* A line edited in place is written as `edited.beats` (a hook, CTA or caption as `edited.hook`,
+     `.cta`, `.caption`), the same override the format editor saves (cbView lays `edited` over
+     `script`), so "Revert to generated" undoes all of it. */
   agWireInlineEdit(card.querySelector(".cb-info"), () => (get() ? {
     pencil: true,
     read: () => { const f = get(); return f ? (cbView(f).beats || []) : null; },
@@ -6446,8 +6814,20 @@ function cbBindCard(card, campaignId) {
       await cbPatchFormat(fid, { edited });
       f.edited = edited;
     },
+    readTop: (field) => { const f = get(); return f ? String(cbView(f)[field] ?? "") : null; },
+    writeTop: async (field, val) => {
+      const f = get();
+      if (!f) throw new Error("gone");
+      const edited = { ...(f.edited || {}), [field]: val };
+      await cbPatchFormat(fid, { edited });
+      f.edited = edited;
+    },
     failText: (ex) => cbErrorSentence(ex, "save"),
-    saved: () => {
+    saved: (field) => {
+      // an untitled format is headed by its hook: keep the head in step without a repaint
+      const v = get() && cbView(get());
+      const title = card.querySelector(".cb-title");
+      if (field === "hook" && v && title) title.textContent = v.title || v.hook || "Untitled format";
       const chips = card.querySelector(".cb-chips");
       if (!chips || [...chips.querySelectorAll(".chip")].some((c) => c.textContent === "edited")) return;
       const chip = document.createElement("span");
