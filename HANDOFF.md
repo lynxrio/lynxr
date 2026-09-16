@@ -162,7 +162,8 @@ landed, gate `ok`, stamp `20260915i`):
     Screenshots are in `/private/tmp/lynxr-app-revamp/`.
 - **Not yet done (older note):** the signed-in creator and agency app screens were not
   redesigned. They only picked up the footer card and shared tokens. They need
-  a signed-in session to design and verify.
+  a signed-in session to design and verify. Agency app: done 2026-09-15, see "Agency app,
+  floating glass" below.
   Inside the apps the footer card is inset by `--gutter` on both sides. A
   percentage width there overflowed `.pane-scroll` into a horizontal scrollbar
   (fixed, stamp `20260915n`).
@@ -406,6 +407,81 @@ format is date + batch digit + letter):**
   with `--glass-blur`). The nav pill and footer card stay frosted glass. Verified computed
   at 1024px on `/` and `/faq/`. Direction for the queued landing/content floating pass:
   info sections are the old white, chrome (nav, footer) is glass.
+
+## Agency app, floating glass (2026-09-15, stamp 202609152h)
+Owner: "add a revamp for the agency side too, follow the same principles you did for the
+other pages", then "make the agency side floating glass too" (plan:
+`~/.claude/plans/agency-revamp.md`). `agencyonly/index.html` + `app.js` now read the
+`--gl-*` tokens and the creator shell's own geometry; visual/UX only, no auth, RLS, query
+or data-visibility change.
+
+- **Three surfaces, one mechanical test for which a section gets (E17):** a card in a grid
+  (`.bcard`, `.vcard`, blueprint/source rows, `.play`, `.stat`, chart cards, the Ops hero
+  tiles) is a **tile** on the creator library tile's own rules — `.pane-body .script-grid >
+  .bp-item:not([open])` and its hover-spring/media rules gained an agency selector (Step
+  6a, `share-apply.py cards`; proved by `share-check.py`), never a copied number. A
+  single-panel block of a view (`.page-head`, `.client-details`, each `.cb-format`/expanded
+  script card, the lookup, add-video, the db-modes switch, every other `.section` that does
+  not directly hold a grid) is a **panel** — the glass island: `--gl-fill`, `--gl-edge`,
+  `--gl-shadow`, `--ag-radius`, `--ag-pad`. Anything inside one of those (`.table-wrap`,
+  `.sat-list`, `#ops-spend`, `.cb-regen-row`, `.cb-beat-field`) is **flat**: no fill, edge or
+  shadow, one `--line` hairline, never its own blur. A card grid's wrapper `.section` takes
+  no surface at all — its heading, lede and controls sit on the backdrop. A new view needs
+  no new selector: the test is only what a `.section` directly holds.
+- **Every surface wears its creator counterpart's material (E15).** The header equals the
+  creator header (`.pane-head`) on fill, edge, shadow and blur tier, and equals the landing
+  nav pill (`.lp-bar-in`) on fill and blur only — its edge and shadow are the one known,
+  decided difference (D-M), printed by every `material.mjs` run. The footer card equals the
+  landing footer. The landing's white-info exception (`--surface` 72% cards and reading
+  sheets) was deliberately **not** adopted (D-O): the agency follows the creator app for
+  content islands.
+- **Stat tiles and chart cards are tiles; the table box and saturation list are flat**
+  inside their panels. The sticky `th` keeps `--th-bg` (rows scroll under it). Bar tracks
+  are unchanged.
+- **Scripts (E14, E16):** every agency script rendering (blueprint beats, campaign format
+  cards, the brief viewer's expanded card, the video modal's script) now emits the
+  creator's own markup (`ol.bp-beats.bp-orig`/`.bp-notime`, `li.bp-beat`,
+  `span.bp-lbl.bp-lbl-*`, `span.bp-val.bp-*`, `span.bp-time` last in the beat's first row).
+  The creator's own script rules — the hook card, headings, tag pills, beat cards, pills and
+  time chip, phone media queries included — carry an appended `body.agency :is(#app,
+  #modal) …` selector (Step 16a, `share-apply.py scripts`: 35 selectors added to 32 creator
+  rules; `share-check.py` proves the prefix above the agency block is untouched otherwise).
+  The agency owns no second copy of those values. The source video now docks right as "The
+  original" (`.ag-original`, native `<details>`) on campaign cards and in the brief viewer,
+  and stacks above the script on narrow screens, exactly as the creator's reference panel
+  does. `cbEditorHtml`, `cbBeatFieldHtml`, `campaignDocHtml` (the PDF) and `srcCardHtml`
+  (the Database tab's format outlines) are untouched, and so is every handler and
+  copy-to-clipboard builder.
+- **Geometry (`--ag-*`)** is copied from the creator shell islands block (Step 2's
+  `pre/creator-geometry.json`): `--ag-inset`/`--ag-head-inset`/`--ag-top`/`--ag-gap` 12px
+  desktop / 10px phone; `--ag-radius`/`--ag-head-radius: var(--r-card)` desktop (28px
+  literal for the phone header pill, from THE PHONE HEADER FLOATS block); `--ag-pad` 24px
+  desktop / 14px phone; `--ag-island-blur: none` (the creator's content islands landed
+  still); `--ag-head-blur: var(--gl-blur)` (the creator header and tray blur). The Ops first
+  screen ends one inset above the fold, the tray's sticky top is `--ag-top + 52px +
+  --ag-gap`, and the column width is `min(1132px, 100% - 2 * --ag-inset)`.
+- **Header contrast over dark media (D-B, report-only since E15):** measured with a black
+  frame under the header/tray in the fixture harness; the agency header reads exactly as
+  the creator header does over the same kind of cover (no agency-only scrim fallback — that
+  would break "same material as the creator"). No E5 colour-step fallback was needed on the
+  header itself; where a data-surface text failed 4.5:1 on first measurement, the plan's
+  colour-step fallback (`--text-3` → `--text-2` → `--text`, never a tint) is applied at the
+  end of the agency block — see the per-step ledger in this run's report for which
+  selectors, if any, needed it.
+- **JS/HTML edits:** `agencyonly/index.html` — `<body class="agency">`, three `.section`
+  wrappers (Pasted videos, Full database, New Client lookup). `app.js` — two wrappers
+  (`renderBriefs`'s Clients list, `briefScriptsHtml`'s Scripts list), the `#cb-new` "New
+  brief" label, `emptyMark()` (an idle/confused avatar leading an empty or failed panel, on
+  `renderBriefs`'s and `cbBriefListHtml`'s empty states and `renderCampaignView`'s error
+  state), and the script render helpers `AG_TIMED`, `agBeatHtml`, `agBeatsHtml`,
+  `agScriptBodyHtml` and `cbMediaHtml`'s new `cls` argument, called from `bpBeatHtml`,
+  `scriptHtml`, `scriptDetailHtml` and `cbDetailHtml`.
+- **Tokens only:** the agency block (`app.css`, "THE AGENCY APP, FLOATING GLASS") holds no
+  raw colour or blur value; the one documented exception (a copied scrollbar rule) was not
+  needed — the creator shell's scrollbar styling is unscoped and already reaches this page.
+- **Verified signed-out only**, in a fixture harness at `/private/tmp/lynxr-agency-revamp/`
+  (volatile; rebuilt from `~/.claude/plans/agency-revamp.md` Appendix A). No signed-in check
+  was run — Claude never typed a credential.
 
 ## What stage Lynxr is at (2026-08-18)
 

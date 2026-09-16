@@ -7828,7 +7828,9 @@
   /* ---- the logo-gradient edge, drawn as a masked ring so the fill under it
      can stay translucent (a padding-box/border-box pair needs an opaque fill) ---- */
   .pane-body .bp-hook::before,
-  .pane-body .bp-beats.bp-notime > .bp-beat::before {
+  .pane-body .bp-beats.bp-notime > .bp-beat::before,
+  body.agency :is(#app, #modal) .bp-hook::before,
+  body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat::before {
     content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
     background: var(--logo-grad); pointer-events: none;
     -webkit-mask: var(--mask-solid) content-box, var(--mask-solid);
@@ -8005,58 +8007,73 @@
   .pane-body .bp-fit-mark { flex: none; width: 42px; height: 42px; }
 
   /* tags: glass pills */
-  .pane-body .bp-tags { gap: 8px; margin: 0 0 16px; }
-  .pane-body .bp-tags .chip {
+  .pane-body .bp-tags,
+  body.agency :is(#app, #modal) .bp-tags { gap: 8px; margin: 0 0 16px; }
+  .pane-body .bp-tags .chip,
+  body.agency :is(#app, #modal) .bp-tags .chip {
     padding: 5px 13px; font-size: var(--fs-125); font-weight: 600; color: var(--text-2);
     background: var(--surface); border: 1px solid var(--line);
     box-shadow: inset 0 1px 0 var(--glass-hi);
   }
 
   /* the hook: its own card, gradient edge */
-  .pane-body .bp-hook {
+  .pane-body .bp-hook,
+  body.agency :is(#app, #modal) .bp-hook {
     position: relative; margin: 0 0 22px; padding: 16px 20px 18px;
     border: 0; border-radius: 24px; background: var(--surface);
     box-shadow: var(--beat-glow);
     font-style: normal; font-size: var(--fs-18); font-weight: 650; line-height: 1.4; color: var(--text);
   }
-  .pane-body .bp-hook-lbl {
+  .pane-body .bp-hook-lbl,
+  body.agency :is(#app, #modal) .bp-hook-lbl {
     display: flex; width: fit-content; margin: 0 0 8px; padding: 2px 9px;
     border-radius: var(--r-pill); background: var(--lbl-say-bg); color: var(--accent);
     font-size: var(--fs-105); font-weight: 700; letter-spacing: .02em; line-height: 1.5;
   }
-  .pane-body .bp-heading {
+  .pane-body .bp-heading,
+  body.agency :is(#app, #modal) .bp-heading {
     margin: 0 0 10px; font-size: var(--fs-14); font-weight: 700; letter-spacing: 0; color: var(--text);
   }
 
   /* THE BEATS. Rows, not hairlines. No backdrop-filter: dozens are on screen. */
-  .pane-body .bp-beats.bp-notime { display: flex; flex-direction: column; gap: 10px; }
-  .pane-body .bp-beats.bp-notime > .bp-beat {
+  .pane-body .bp-beats.bp-notime,
+  body.agency :is(#app, #modal) .bp-beats.bp-notime { display: flex; flex-direction: column; gap: 10px; }
+  .pane-body .bp-beats.bp-notime > .bp-beat,
+  body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat {
     position: relative; grid-template-columns: 46px minmax(0, 1fr); gap: 8px 12px;
     padding: 14px 18px 14px 14px;
     border: 1px solid var(--line); border-radius: 20px; background: var(--beat-bg);
     box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
     transition: background-color .25s ease, box-shadow .25s ease, border-color .25s ease;
   }
-  .pane-body .bp-beats.bp-notime > .bp-beat::before { opacity: 0; transition: opacity .25s ease; }
+  .pane-body .bp-beats.bp-notime > .bp-beat::before,
+  body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat::before { opacity: 0; transition: opacity .25s ease; }
   .pane-body .bp-beats.bp-notime > .bp-beat.on {
     background: var(--surface-flat); border-color: transparent; border-radius: 20px;
     box-shadow: var(--beat-glow);
   }
   .pane-body .bp-beats.bp-notime > .bp-beat.on::before { opacity: 1; }
-  .pane-body .bp-beats.bp-notime > .bp-beat .bp-lbl {
+  .pane-body .bp-beats.bp-notime > .bp-beat .bp-lbl,
+  body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat .bp-lbl {
     justify-self: start; align-self: start; margin-top: 2px; padding: 2px 8px;
     border-radius: var(--r-pill); background: var(--lbl-do-bg); color: var(--text-2);
     font-size: var(--fs-105); font-weight: 700; letter-spacing: .02em; line-height: 1.5;
   }
-  .pane-body .bp-beats.bp-notime > .bp-beat .bp-lbl.bp-lbl-say { background: var(--lbl-say-bg); color: var(--accent); }
-  .pane-body .bp-beats.bp-notime > .bp-beat .bp-val { font-size: var(--fs-145); line-height: 1.5; }
-  .pane-body .bp-beats.bp-notime > .bp-beat .bp-val.bp-say { font-size: var(--fs-16); font-weight: 500; color: var(--text); }
-  .pane-body .bp-beats.bp-notime > .bp-beat .bp-val ~ .bp-val { font-size: var(--fs-135); color: var(--text-2); }
+  .pane-body .bp-beats.bp-notime > .bp-beat .bp-lbl.bp-lbl-say,
+  body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat .bp-lbl.bp-lbl-say { background: var(--lbl-say-bg); color: var(--accent); }
+  .pane-body .bp-beats.bp-notime > .bp-beat .bp-val,
+  body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat .bp-val { font-size: var(--fs-145); line-height: 1.5; }
+  .pane-body .bp-beats.bp-notime > .bp-beat .bp-val.bp-say,
+  body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat .bp-val.bp-say { font-size: var(--fs-16); font-weight: 500; color: var(--text); }
+  .pane-body .bp-beats.bp-notime > .bp-beat .bp-val ~ .bp-val,
+  body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat .bp-val ~ .bp-val { font-size: var(--fs-135); color: var(--text-2); }
   .pane-body .bp-addbeat { margin: 12px 0 0 14px; }
   .pane-body .ref-main > .bp-hint { font-size: var(--fs-13); color: var(--text-2); }
   .pane-body .ref-main > .bp-hint strong { color: var(--text); }
   @media (prefers-reduced-motion: reduce) {
-    .pane-body .bp-beats.bp-notime > .bp-beat, .pane-body .bp-beats.bp-notime > .bp-beat::before { transition: none; }
+    .pane-body .bp-beats.bp-notime > .bp-beat, .pane-body .bp-beats.bp-notime > .bp-beat::before,
+    body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat,
+    body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat::before { transition: none; }
   }
   /* The column scrolls beside the player at >=1180px; a little inset keeps the
      lit beat's glow from being cut off at the scroll box's edge. */
@@ -8077,9 +8094,12 @@
     background: var(--surface); border: 1px solid var(--glass-edge); border-radius: 28px;
     box-shadow: inset 0 1px 0 var(--glass-hi), var(--g-shadow);
   }
-  .pane-body .bp-item.ref-panel > summary { padding: 14px 16px 12px; font-size: var(--fs-145); font-weight: 700; color: var(--text); }
-  .pane-body .bp-item.ref-panel > .bp-body { padding: 0 14px 12px; }
-  .pane-body .ref-play:not(.is-mini) .ref-media:not(.is-full) .ref-video {
+  .pane-body .bp-item.ref-panel > summary,
+  body.agency :is(#app, #modal) .bp-item.ref-panel.ag-original > summary { padding: 14px 16px 12px; font-size: var(--fs-145); font-weight: 700; color: var(--text); }
+  .pane-body .bp-item.ref-panel > .bp-body,
+  body.agency :is(#app, #modal) .bp-item.ref-panel.ag-original > .bp-body { padding: 0 14px 12px; }
+  .pane-body .ref-play:not(.is-mini) .ref-media:not(.is-full) .ref-video,
+  body.agency :is(#app, #modal) .ag-original .ref-dock > :is(.vframe, .cb-clip, .cb-cover, .cb-ph) {
     border: 0; border-radius: 22px; box-shadow: var(--app-soft);
   }
   .pane-body .ref-badge {
@@ -8193,11 +8213,13 @@
     content: ""; width: 7px; height: 7px; margin-left: -3px;
     border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg);
   }
-  .pane-body .bp-hook .bp-val { font-size: inherit; font-weight: inherit; line-height: inherit; }
+  .pane-body .bp-hook .bp-val,
+  body.agency :is(#app, #modal) .bp-hook .bp-val { font-size: inherit; font-weight: inherit; line-height: inherit; }
   .pane-body .trash-rows > .bp-item > summary > .bp-open { border: 0; text-decoration: none; }
   /* Below the two-column breakpoint the panel spans the card, so the 320px
      player sits in the middle of it instead of against the left edge. */
-  @media (max-width: 1179.98px) { .pane-body .bp-item.ref-panel .ref-dock { margin-inline: auto; } }
+  @media (max-width: 1179.98px) { .pane-body .bp-item.ref-panel .ref-dock,
+ body.agency :is(#app, #modal) .bp-item.ref-panel.ag-original .ref-dock { margin-inline: auto; } }
 
   /* ---- (same block) THE BRAND PAGE, owner 2026-09-15: "the brand page needs a revamp too" ----
      Header: the brand name large, the meta small, Details as a glass pill, the
@@ -8694,8 +8716,10 @@
      --gl-* blur to reach for; no raw colour or blur value is introduced. No box
      inside a box: the beat cards are the one allowed container, exactly as for
      the brand script. */
-  .pane-body .bp-beats.bp-orig { display: flex; flex-direction: column; gap: 10px; }
-  .pane-body .bp-beats.bp-orig > .bp-beat {
+  .pane-body .bp-beats.bp-orig,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig { display: flex; flex-direction: column; gap: 10px; }
+  .pane-body .bp-beats.bp-orig > .bp-beat,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat {
     position: relative; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 8px 12px;
     padding: 14px 18px 14px 14px;
     border: 1px solid var(--line); border-radius: 20px; background: var(--beat-bg);
@@ -8707,7 +8731,8 @@
      card to card. */
   .pane-body .bp-beats.bp-orig:has(.bp-lbl-onscreen) > .bp-beat { grid-template-columns: 70px minmax(0, 1fr) auto; }
   /* the playing card: the same logo-gradient ring and glow as a lit brand beat */
-  .pane-body .bp-beats.bp-orig > .bp-beat::before {
+  .pane-body .bp-beats.bp-orig > .bp-beat::before,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat::before {
     content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
     background: var(--logo-grad); pointer-events: none;
     -webkit-mask: var(--mask-solid) content-box, var(--mask-solid);
@@ -8721,32 +8746,42 @@
   .pane-body .bp-beats.bp-orig > .bp-beat.on::before { opacity: 1; }
   .pane-body .bp-beats.bp-orig > .bp-beat.bp-seekable { cursor: pointer; }
   /* pills: say in accent, show and on screen in grey, like say and do */
-  .pane-body .bp-beats.bp-orig > .bp-beat .bp-lbl {
+  .pane-body .bp-beats.bp-orig > .bp-beat .bp-lbl,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat .bp-lbl {
     justify-self: start; align-self: start; margin-top: 2px; padding: 2px 8px;
     border-radius: var(--r-pill); background: var(--lbl-do-bg); color: var(--text-2);
     font-size: var(--fs-105); font-weight: 700; letter-spacing: .02em; line-height: 1.5;
     white-space: nowrap;
   }
-  .pane-body .bp-beats.bp-orig > .bp-beat .bp-lbl.bp-lbl-say { background: var(--lbl-say-bg); color: var(--accent); }
+  .pane-body .bp-beats.bp-orig > .bp-beat .bp-lbl.bp-lbl-say,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat .bp-lbl.bp-lbl-say { background: var(--lbl-say-bg); color: var(--accent); }
   /* words: say is the large ink line; show and on screen take do's quieter weight */
-  .pane-body .bp-beats.bp-orig > .bp-beat .bp-val { font-size: var(--fs-145); line-height: 1.5; color: var(--text); }
-  .pane-body .bp-beats.bp-orig > .bp-beat .bp-val.bp-say { font-size: var(--fs-16); font-weight: 500; color: var(--text); }
-  .pane-body .bp-beats.bp-orig > .bp-beat .bp-val.bp-dim { font-size: var(--fs-135); color: var(--text-2); }
+  .pane-body .bp-beats.bp-orig > .bp-beat .bp-val,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat .bp-val { font-size: var(--fs-145); line-height: 1.5; color: var(--text); }
+  .pane-body .bp-beats.bp-orig > .bp-beat .bp-val.bp-say,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat .bp-val.bp-say { font-size: var(--fs-16); font-weight: 500; color: var(--text); }
+  .pane-body .bp-beats.bp-orig > .bp-beat .bp-val.bp-dim,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat .bp-val.bp-dim { font-size: var(--fs-135); color: var(--text-2); }
   /* THE TIME: quiet inline meta in the UI font, never mono. It sits in the first
      row's last column; a second row leaves that cell empty. */
-  .pane-body .bp-beats.bp-orig > .bp-beat > .bp-time {
+  .pane-body .bp-beats.bp-orig > .bp-beat > .bp-time,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat > .bp-time {
     grid-column: 3; justify-self: end; align-self: start; margin-top: 2px;
     font-family: var(--font-ui); font-size: var(--fs-12); font-weight: 600; line-height: 1.5;
     font-variant-numeric: tabular-nums; color: var(--text-3); white-space: nowrap;
   }
-  .pane-body .bp-beats.bp-orig > .bp-beat > .bp-lbl { grid-column: 1; }
-  .pane-body .bp-beats.bp-orig > .bp-beat > .bp-val { grid-column: 2; }
+  .pane-body .bp-beats.bp-orig > .bp-beat > .bp-lbl,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat > .bp-lbl { grid-column: 1; }
+  .pane-body .bp-beats.bp-orig > .bp-beat > .bp-val,
+  body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat > .bp-val { grid-column: 2; }
   /* the second heading ("what's on screen") gets the air the hook card gives "your script" */
   .pane-body .bp-beats.bp-orig + .bp-heading { margin-top: 22px; }
   /* "no speech" then "what's on screen": only where the heading leads a .bp-orig list, so no brand script can match */
   .pane-body .bp-hint + .bp-heading:has(+ .bp-beats.bp-orig) { margin-top: 16px; }
   @media (prefers-reduced-motion: reduce) {
-    .pane-body .bp-beats.bp-orig > .bp-beat, .pane-body .bp-beats.bp-orig > .bp-beat::before { transition: none; }
+    .pane-body .bp-beats.bp-orig > .bp-beat, .pane-body .bp-beats.bp-orig > .bp-beat::before,
+    body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat,
+    body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat::before { transition: none; }
   }
 
   /* ================= THE AGENCY APP, FLOATING GLASS (owner, 2026-09-15) =================
@@ -8862,6 +8897,13 @@
   body.agency #app #panel-ops .ops-hero-grid > .ops-tile {
     background: var(--surface);
     -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  /* .stat, .bars-grid > div and .ops-tile never had a border of their own (unlike .bcard/.vcard/
+     .fmt-card/.bp-item/.play), so the shared rule's border-color-only override above has nothing to
+     paint against without a style and width declared here; the colour itself still comes from Step 6a. */
+  body.agency #app main :is(.stat, .bars-grid > div),
+  body.agency #app #panel-ops .ops-hero-grid > .ops-tile {
+    border-style: solid; border-width: 1px;
   }
   /* blueprint and source rows are a one-column grid of tiles, not a stack of hairlines */
   body.agency #app main .bp-list { display: flex; flex-direction: column; gap: 10px; }
@@ -8998,6 +9040,166 @@
   }
   body.agency #app main .bp-list > .bp-item .bp-open:hover { color: var(--text); border-color: var(--line-2); }
   body.agency #app main .bp-list > .bp-item > .bp-body { padding: 4px 16px 16px; }
+
+
+  /* ---- (agency) clients list: a grid of tiles on the backdrop, the heading above them (E17); the lift comes from the creator's own tile rule (Step 6a) ---- */
+  body.agency #app #briefs-host > .section > .brief-stack { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  body.agency #app main .brief-stack { gap: 12px; }
+  body.agency #app main .bcard { padding: 18px 20px; }
+  body.agency #app main .bcard-title { font-size: var(--fs-16); font-weight: 700; letter-spacing: -.01em; }
+  body.agency #app main .bcard .lbl { font-size: var(--fs-13); margin-top: 2px; }
+  /* ---- (agency) the client page head (an island) and the crumbs (on the backdrop) ---- */
+  body.agency #app main .crumbs { margin-bottom: 10px; }
+  body.agency #app main .crumb-link { padding: 4px 11px; color: var(--text-2); }
+  body.agency #app main .crumb-link:hover { color: var(--text); background: var(--hover); }
+  body.agency #app main .crumb-here { font-weight: 700; }
+  body.agency #app main .page-head { align-items: center; gap: 10px; }
+  body.agency #app main .page-head .lbl { margin-top: 6px; font-size: var(--fs-13); }
+
+  /* ---- (agency) details, brand and compose forms: the Settings card's fields ---- */
+  body.agency #app main .cd-facts { gap: 6px 24px; }
+  body.agency #app main .sug-drow { font-size: var(--fs-125); }
+  body.agency #app main .cb-block-title { font-size: var(--fs-16); font-weight: 700; letter-spacing: -.01em; color: var(--text); }
+  body.agency #app main .ce-field > .lbl { font-size: var(--fs-135); font-weight: 600; color: var(--text-2); }
+  body.agency #app main .ce-field > :is(input, select) { padding: 12px 16px; }
+  body.agency #app main .ce-field > textarea { padding: 10px 14px; border-radius: var(--ag-radius-in); }
+  body.agency #app main .cb-more > summary { color: var(--text-2); font-weight: 600; }
+  body.agency #app main .cb-row-lbl { color: var(--text-2); }
+  body.agency #app main .cb-compose { padding: var(--ag-pad); margin: 0 0 14px; }
+
+  /* ---- (agency) section heads: + is a circle; "new brief" is the page's one dark pill ---- */
+  body.agency #app main .sec-head { margin-bottom: 14px; }
+  body.agency #app main .blueprints-box .sec-head { margin-bottom: 0; }
+  body.agency #app main .lib-plus { width: 40px; height: 40px; background: var(--surface-flat); border-color: var(--line); color: var(--text); box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft); }
+  body.agency #app main .lib-plus:hover { background: var(--surface-flat); border-color: var(--line-2); }
+  body.agency #app main #cb-new {
+    width: auto; height: 44px; padding: 0 20px 0 16px; gap: 8px; display: inline-flex; align-items: center;
+    background: var(--fill); color: var(--on-fill); border-color: var(--fill); font-weight: 600; font-size: var(--fs-15); box-shadow: var(--ico-glow);
+  }
+  body.agency #app main #cb-new:hover { background: var(--fill); color: var(--on-fill); border-color: var(--fill); }
+  body.agency #app main #cb-new svg { width: 16px; height: 16px; }
+  body.agency #app main #cb-new .lib-plus-txt { display: inline; }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    body.agency #app main #cb-new { transition: transform .35s var(--spring), box-shadow .3s ease; }
+    body.agency #app main #cb-new:hover { transform: scale(1.04); }
+  }
+
+  /* ---- (agency) suggestions: tiles on the backdrop; their grid tracks and gap come from the creator's own .script-grid rule (Step 6a) ---- */
+  body.agency #app main .vcard .vframe { border-bottom-color: var(--line); }
+  body.agency #app main .vmeta { padding: 14px 16px; gap: 8px; }
+  body.agency #app main .vtitle { font-size: var(--fs-135); font-weight: 600; }
+  body.agency #app main .sug-score { background: var(--surface-flat); box-shadow: inset 0 1px 0 var(--glass-hi); }
+  body.agency #app main .vpick { background: var(--surface-flat); border-color: var(--line); color: var(--text); font-weight: 600; box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft); }
+  body.agency #app main .vpick:hover { background: var(--surface-flat); border-color: var(--line-2); }
+  body.agency #app main .vpick:has(input:checked) { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
+  body.agency #app main .sug-more { color: var(--text-2); }
+  body.agency #app main .sug-detail { border-top-color: var(--line); }
+
+
+  /* ---- (agency) brief viewer: a grid of tiles on the backdrop; the expanded one is a panel, the creator's opened card (the script inside is Step 16b's) ---- */
+  body.agency #app main .fmt-grid { gap: 14px; }
+  body.agency #app main .fmt-card:not(.cb-format) { padding: 16px 18px; }
+  body.agency #app main .fmt-head { font-size: var(--fs-14); }
+  body.agency #app main .fmt-head strong { font-weight: 700; }
+  body.agency #app main .card-detail { border-top-color: var(--line); }
+  body.agency #app main .vscript { border-top: 1px solid var(--line); }
+  body.agency #app main .metric .m-lbl { font-size: var(--fs-12); letter-spacing: 0; color: var(--text-3); }
+  body.agency #app main .week-arrow { width: 38px; height: 38px; }
+
+  /* ---- (agency) campaign view: head, progress, blocks and each format are islands ---- */
+  body.agency #app main .cb-name-input { font-size: clamp(22px, 2.4vw, 28px); font-weight: 750; letter-spacing: -.025em; padding: 6px 14px; border-radius: var(--ag-radius-in); }
+  body.agency #app main .cb-export .cb-pdf-btn { padding: 9px 18px; }
+  body.agency #app main .cb-progress-line { color: var(--text-2); }
+  body.agency #app main .cb-bar { height: 6px; background: var(--hover); }
+  body.agency #app main .cb-agency > summary { font-size: var(--fs-14); font-weight: 700; color: var(--text); }
+  body.agency #app main .cb-fh { font-size: var(--fs-16); font-weight: 700; letter-spacing: -.01em; }
+  body.agency #app main .cb-internal .cb-agency-lbl { color: var(--even); }
+  body.agency #app main .cb-media > :is(.cb-clip, .cb-cover, .cb-ph) { border: 0; border-radius: var(--ag-radius-in); box-shadow: 0 0 0 1px var(--glass-edge), var(--app-soft); }   /* the running card's frame; a finished card's frame is "The original" (Step 16b) */
+  body.agency #app main .cb-skel i { background: var(--line); }
+  body.agency #app main .cb-editor { border-top-color: var(--line); }
+
+
+  /* ---- (agency) New Client: the lookup, site card, client editor and add-video are panels; the shelf and the playbook are card grids (their cards are tiles, their headings sit on the backdrop); the tray is a sticky island on the scrim fill (it sits over video thumbnails) ---- */
+  body.agency #app #panel-brief .brief-form { gap: 10px; }
+  body.agency #app #panel-brief .brief-form > input[type="url"] { padding: 12px 18px; }
+  body.agency #app main .ce-title { font-size: var(--fs-16); font-weight: 700; letter-spacing: -.01em; color: var(--text); }
+  body.agency #app main .tray {
+    border: 1px solid var(--gl-edge); border-radius: var(--ag-head-radius);
+    background: var(--gl-fill-scrim); -webkit-backdrop-filter: var(--ag-head-blur); backdrop-filter: var(--ag-head-blur);
+    box-shadow: var(--gl-shadow); padding: 8px 8px 8px 20px; margin: 0 0 var(--ag-gap);
+  }
+  body.agency #app main .vdetails { background: var(--surface-flat); border-color: var(--line); color: var(--text); font-weight: 600; padding: 4px 12px; }
+  body.agency #app main .playbook > summary { color: var(--text-2); font-weight: 600; }
+  body.agency #app main .play-title { font-weight: 700; }
+  body.agency #app main .badge { font-size: var(--fs-12); font-weight: 600; letter-spacing: 0; color: var(--text-2); border-color: var(--line); background: var(--surface-flat); }
+  body.agency #app main .badge.strong { color: var(--text); border-color: var(--line-2); }
+  body.agency #app main .examples { background: transparent; border-top-color: var(--line); }
+
+  /* ---- (agency) the video modal and the score tooltip: their scrim fill, blur, edge and shadow are landed (THE GLASS block); shape and controls only. Never --gl-fill here. ---- */
+  body.agency #modal .modal-card { border-radius: var(--ag-radius); padding: var(--ag-pad); }
+  body.agency #modal .modal-x { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; background: var(--surface-flat); border-color: var(--line); color: var(--text); box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft); }
+  body.agency #modal .modal-player { border-radius: var(--ag-radius-in); }
+  body.agency #modal .modal-title { font-size: var(--fs-16); font-weight: 700; }
+  body.agency #modal .metric .m-lbl { font-size: var(--fs-12); letter-spacing: 0; color: var(--text-3); }
+  body.agency #modal .chip { background: var(--surface-flat); border-color: var(--line); font-weight: 600; }
+  body.agency #modal .vscript { border-top: 1px solid var(--line); }
+  body.agency #modal .btn { box-shadow: var(--ico-glow); }
+  body.agency #modal .ghost:not(.modal-x) { background: var(--surface-flat); border-color: var(--line); color: var(--text); font-weight: 600; }
+  body.agency .score-tip { border-radius: var(--ag-radius-in); }
+
+
+  /* ---- (agency) Database: which corpus, as a glass pill island (ink = the one you are on) ---- */
+  body.agency #app #panel-database .db-modes {
+    width: fit-content; gap: 4px; padding: 4px; margin: 0 0 var(--ag-gap);
+    background: var(--gl-fill); -webkit-backdrop-filter: var(--ag-island-blur); backdrop-filter: var(--ag-island-blur);
+    border: 1px solid var(--gl-edge); border-radius: var(--r-pill); box-shadow: var(--gl-shadow);
+  }
+  body.agency #app #panel-database .db-mode { border-color: transparent; background: transparent; color: var(--text-2); padding: 8px 16px; font-size: var(--fs-135); font-weight: 600; }
+  body.agency #app #panel-database .db-mode:hover { color: var(--text); background: var(--hover); }
+  body.agency #app #panel-database .db-mode.on { color: var(--on-fill); background: var(--fill); border-color: var(--fill); }
+  body.agency #app #panel-database .db-mode.on .pill { opacity: 1; }
+  body.agency #app #panel-database .controls { gap: 10px; }
+  body.agency #app #panel-database .src-tag { padding: 4px 11px; background: var(--surface-flat); border-color: var(--line); color: var(--text-2); font-size: var(--fs-125); font-weight: 600; box-shadow: inset 0 1px 0 var(--glass-hi); }
+  body.agency #app #panel-database .src-tag i { font-size: var(--fs-115); font-weight: 500; letter-spacing: 0; color: var(--text-3); }
+  body.agency #app #panel-database .src-fname { font-size: var(--fs-15); font-weight: 650; color: var(--text); }
+  body.agency #app #panel-database .src-beats li { border-top-color: var(--line); }
+
+
+  /* ---- (agency) Ops: the two hero tiles are cards (status surfaces: the shared hover spring is deliberately not on them); the stats section is a card grid; every other section is a panel with its chart and tables flat inside ---- */
+  body.agency #app #panel-ops .ops-hero-grid { gap: var(--ag-gap); background: none; border: 0; border-radius: 0; overflow: visible; }
+  body.agency #app #panel-ops .ops-hero-grid > .ops-tile { margin: 0; }
+  body.agency #app #panel-ops .ops-big { font-weight: 700; letter-spacing: -.03em; }
+  body.agency #app #panel-ops .ops-line-k { font-size: var(--fs-13); font-weight: 600; letter-spacing: 0; }
+  body.agency #app #panel-ops :is(.ops-line, .ops-alarm) { border-top-color: var(--line); }
+  body.agency #app #panel-ops .ops-alarm-t { font-weight: 600; }
+  body.agency #app #panel-ops #ops-spend { padding: var(--ag-pad) 0 0; }
+
+
+  /* ---- (agency) the lynxr that leads an empty or failed panel ---- */
+  body.agency #app main .empty .empty-mark { display: block; width: 64px; height: 64px; margin: 0 auto 12px; overflow: visible; filter: drop-shadow(0 12px 16px var(--av-glow)); }
+
+
+  /* ---- (agency) scripts: the creator's script look ("for both creator and agency make the scripts
+     look like this revamp one"; "make the agency mobile scripts match too"). The hook card, headings,
+     tag pills, beat cards, pills, time chips and "The original" panel are painted by the creator's own
+     rules, which carry an agency selector (Step 16a), phone media queries included. This block lays out
+     the parts the creator app has no counterpart for, and flattens "The original" exactly as the
+     creator's opened card flattens its own. ---- */
+  body.agency #app main .card-detail:has(> .ref-split) { display: block; }   /* the brief viewer's grid gives way to the split inside it */
+  body.agency #app main .cb-split { margin-top: 14px; }
+  body.agency #app main .ag-original { background: none; border-color: transparent; border-radius: 0; box-shadow: none; }
+  body.agency #app main .cb-dock { display: flex; flex-direction: column; gap: 8px; }
+  body.agency #app main .vscript, body.agency #modal .vscript { padding: 14px 0 0; }
+  body.agency #app main .vscript .vs-cta, body.agency #modal .vscript .vs-cta { margin: 12px 0 0; font-size: var(--fs-145); line-height: 1.5; color: var(--text-2); }
+  body.agency #app main .cb-sec { margin: 0 0 18px; }
+  body.agency #app main .cb-note { font-size: var(--fs-145); line-height: 1.5; }
+  body.agency #app main .cb-needs { list-style: none; padding-left: 0; display: grid; gap: 6px; font-size: var(--fs-145); line-height: 1.5; }
+  body.agency #app main .cb-setup { gap: 8px; }
+  body.agency #app main .cb-setup-row { grid-template-columns: 10ch minmax(0, 1fr); gap: 12px; font-size: var(--fs-145); line-height: 1.5; }
+  body.agency #app main .cb-setup-lbl { font-size: var(--fs-135); font-weight: 600; letter-spacing: 0; color: var(--text-2); }
+  @media (max-width: 620px) {
+    body.agency #app main .cb-setup-row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  }
 
 
   /* ================= THE FLOATING PUBLIC PAGES (owner, 2026-09-15) =================

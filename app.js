@@ -270,6 +270,12 @@ function safeUrl(u) {
 function loaderMark(mood = "reading") {
   return typeof lynxrAvatar === "function" ? lynxrAvatar(mood, "loader-mark") : "";
 }
+/** A decorative lynxr leading an empty or failed panel (AGENCY GLASS PASS,
+ *  2026-09-15): idle = nothing here yet, confused = we could not read it.
+ *  aria-hidden like every avatar; the words beside it say what happened. */
+function emptyMark(mood = "idle") {
+  return typeof lynxrAvatar === "function" ? lynxrAvatar(mood, "empty-mark") : "";
+}
 const views = (r) => Number(r.views) || 0;
 function median(nums) {
   if (!nums.length) return 0;
@@ -1914,11 +1920,7 @@ function scriptHtml(row) {
   const slot = [...CART.keys()].indexOf(rowKey(row));
   const s = tailoredScript(row, BRIEF_CTX, Math.max(slot, 0));
   return `
-    <div class="vscript">
-      <div class="lbl">Tailored script — ${escapeHtml(s.heading)}</div>
-      <p class="vs-hook">“${escapeHtml(s.hook)}”</p>
-      ${s.beats.map((b) => `<p class="vs-beat">${escapeHtml(b)}</p>`).join("")}
-      ${s.cta ? `<p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>` : ""}
+    <div class="vscript">${agScriptBodyHtml(s)}
     </div>`;
 }
 
@@ -2888,7 +2890,7 @@ function renderBriefs() {
   // AGENCY GLASS PASS (2026-09-15): each view's heading and content float as one island.
   if (!list.length) {
     host.innerHTML = `<div class="section"><h2>Clients</h2>
-      <div class="empty"><p><strong>No clients yet.</strong></p>
+      <div class="empty">${emptyMark("idle")}<p><strong>No clients yet.</strong></p>
         <p>Save a brief in the New Client tab — its company becomes your first client folder.</p></div></div>`;
     return;
   }
@@ -3130,9 +3132,54 @@ function bpThumbHtml(b) {
     Blueprints get the same beats (identical grouping and nearest-shot matching,
     by construction) but pulled apart into labelled rows. `silent` marks a
     no-speech video, where the whole beat is direction and nothing is said. */
+/* AGENCY SCRIPT LOOK (owner, 2026-09-15: "for both creator and agency make the scripts look
+   like this revamp one", then "make the agency mobile scripts match too"). Beats render in the
+   creator app's own markup (creator.js beatRow, and its Original scripts view for timed ones),
+   so the creator's script rules paint them: app.css appends an agency selector to each of those
+   rules rather than restating a value here. AG_TIMED is the creator's timed beat markup as it
+   landed. RENDER ONLY: same data, same words, same handlers. */
+const AG_TIMED = { ol: "bp-beats bp-orig", li: "bp-beat", time: "bp-time", trailing: true };
+/** One beat card. rows = [[label, kind, value], …], kind is "say" | "do" | "show" | "onscreen";
+ *  an empty value drops its row, and a beat with no rows renders nothing. DO, SHOW and ON SCREEN
+ *  dim in a spoken script, the way creator.js dims them; a silent script dims nothing, because
+ *  there the direction IS the script. The time goes last in the first row (or first, if the
+ *  creator's landed grid leads with it), so a second row leaves that grid cell empty. */
+function agBeatHtml(t, rows, spoken, timed) {
+  const pairs = rows.filter((r) => r[2]).map(([label, kind, value]) =>
+    `<span class="bp-lbl bp-lbl-${kind}">${label}</span>` +
+    `<span class="bp-val bp-${kind}${spoken && kind !== "say" ? " bp-dim" : ""}">${escapeHtml(value)}</span>`);
+  if (!pairs.length) return "";
+  if (!timed) return `<li class="bp-beat">${pairs.join("")}</li>`;
+  const time = t ? `<span class="${AG_TIMED.time}">${escapeHtml(t)}</span>` : "";
+  const first = AG_TIMED.trailing ? pairs[0] + time : time + pairs[0];
+  return `<li class="${AG_TIMED.li}">${first}${pairs.slice(1).join("")}</li>`;
+}
+/** The list: the creator's timed list when the beats carry times, its brand-script list when not. */
+function agBeatsHtml(items, timed) {
+  return items ? `<ol class="${timed ? AG_TIMED.ol : "bp-beats bp-notime"}">${items}</ol>` : "";
+}
+/** A tailored script (brief viewer, video modal) in the creator's order: the hook card, the
+ *  heading, the beats. A real script parses like a blueprint (spoken words plus ON SCREEN
+ *  notes; a shot-by-shot plan is silent). A pattern template's beats are directions, so each
+ *  is one DO row — they are instructions, not lines to read out. */
+function agScriptBodyHtml(s) {
+  const silent = !!s.real && /shot-by-shot plan/.test(s.heading);
+  const carry = { direction: "", show: "" };
+  const beats = s.real
+    ? s.beats.map((bt) => bpBeatHtml(bt, silent, carry)).join("")
+    : s.beats.map((bt) => {
+        const m = String(bt).match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
+        return agBeatHtml(m ? m[1] : "", [["DO", "do", m ? m[2].trim() : String(bt)]], false, true);
+      }).join("");
+  return `
+      ${s.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(s.hook)}”</div>` : ""}
+      <div class="bp-heading">Tailored script — ${escapeHtml(s.heading)}</div>
+      ${agBeatsHtml(beats, true)}
+      ${s.cta ? `<p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>` : ""}`;
+}
 function bpBeatHtml(bt, silent, prev) {
   const m = String(bt).match(/^\[([^\]]+)\]\s*([\s\S]*)$/);
-  if (!m) return `<li class="bp-beat"><span class="bp-t"></span><span class="bp-lbl">SAY</span><span class="bp-val">${escapeHtml(bt)}</span></li>`;
+  if (!m) return agBeatHtml("", [["SAY", "say", String(bt)]], true, true);
   let rest = m[2].trim();
 
   // Peel the on-screen overlay off the end: — text: “X”  /  — on-screen text: “X”
@@ -3158,15 +3205,7 @@ function bpBeatHtml(bt, silent, prev) {
     prev.show = wasShow || prev.show;
   }
 
-  const row = (label, value, dim) => value
-    ? `<span class="bp-lbl">${label}</span><span class="bp-val${dim ? " bp-dim" : ""}">${escapeHtml(value)}</span>`
-    : "";
-  const rows = [row("SAY", say), row("DO", direction, true), row("SHOW", show, true)].filter(Boolean);
-  if (!rows.length) return "";
-  return `<li class="bp-beat">
-    <span class="bp-t">${escapeHtml(m[1])}</span>${rows[0]}
-    ${rows.slice(1).map((r) => `<span></span>${r}`).join("\n    ")}
-  </li>`;
+  return agBeatHtml(m[1], [["SAY", "say", say], ["DO", "do", direction], ["SHOW", "show", show]], !silent, true);
 }
 
 // Status at last paint, so an entry that flips queued -> done while the page is
@@ -3264,7 +3303,7 @@ function blueprintsBoxHtml(client) {
                 title="Discard your edits and show the pipeline's own version">Revert to original</button>` : ""}
             </div>
           </div>`
-        : `<ol class="bp-beats">${(() => {
+        : `<ol class="${AG_TIMED.ol}">${(() => {
             const carry = { direction: "", show: "" };
             return (b.editedBeats || s.beats).map((bt) => bpBeatHtml(bt, !b.script?.has_speech, carry)).join("");
           })()}</ol>`}
@@ -3957,12 +3996,11 @@ function scriptDetailHtml(rec, client, i) {
   const er = row.engagement_rate ? parseFloat(row.engagement_rate).toFixed(2) + "%" : "—";
   const href = safeUrl(row.url);
   const stat = (v, l) => `<div class="metric"><div class="m-val">${v}</div><div class="m-lbl">${l}</div></div>`;
+  // AGENCY SCRIPT LOOK (2026-09-15): the creator's script markup; the video docks right as "The original".
   return `
     <div class="card-detail">
-      <div class="cd-player-col">
-        ${frameHtml(row).replace('class="vframe ', 'class="vframe viewer-player ')}
-      </div>
-      <div class="cd-info">
+      <div class="ref-split">
+      <div class="ref-main cd-info">
         <p class="modal-title">${escapeHtml(row.title || "(no caption)")}</p>
         <p class="lbl">${escapeHtml(row.creator || "—")} · ${escapeHtml(row.platform || "")} · ${escapeHtml(row.data_source || "")}
           ${href ? ` · <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open ↗</a>` : ""}</p>
@@ -3974,11 +4012,7 @@ function scriptDetailHtml(rec, client, i) {
           ${["format_type", "hook_pattern", "niche_category", "target_audience"]
             .map((d) => row[d] ? `<span class="chip">${escapeHtml(row[d])}</span>` : "").join("")}
         </div>
-        <div class="vscript">
-          <div class="lbl">Tailored script — ${escapeHtml(s.heading)}</div>
-          <p class="vs-hook">“${escapeHtml(s.hook)}”</p>
-          ${s.beats.map((b) => `<p class="vs-beat">${escapeHtml(b)}</p>`).join("")}
-          ${s.cta ? `<p class="vs-beat vs-cta">${escapeHtml(s.cta)}</p>` : ""}
+        <div class="vscript">${agScriptBodyHtml(s)}
         </div>
         <div class="cd-controls">
           <button type="button" class="ghost cd-prev" ${i === 0 ? "disabled" : ""}>← Script ${i}</button>
@@ -3986,6 +4020,11 @@ function scriptDetailHtml(rec, client, i) {
           <button type="button" class="ghost cd-close">Collapse</button>
           <button type="button" class="ghost cd-next" ${i === rec.items.length - 1 ? "disabled" : ""}>Script ${i + 2} →</button>
         </div>
+      </div>
+      <details class="bp-item ref-panel ag-original" open>
+        <summary><span class="bp-caret" aria-hidden="true">▸</span><span class="bp-name">The original</span></summary>
+        <div class="bp-body"><div class="ref-dock">${frameHtml(row).replace('class="vframe ', 'class="vframe viewer-player ')}</div></div>
+      </details>
       </div>
     </div>`;
 }
@@ -5160,7 +5199,7 @@ function cbBriefListHtml(client) {
   else if (entry.error) quiet = `<p class="note cb-list-note">Couldn't load campaign briefs. <button type="button" class="ghost cb-small" id="cb-list-retry">Try again</button></p>`;
   if (!items.length) {
     if (!entry) return quiet;
-    return `<div class="empty"><p><strong>No briefs yet.</strong></p>
+    return `<div class="empty">${emptyMark("idle")}<p><strong>No briefs yet.</strong></p>
       <p>Hit + to paste 1–10 inspiration links — each video becomes a production format.</p></div>${quiet}`;
   }
   const trash = (what) => `<button type="button" class="ghost danger icon-only br-del"
@@ -5204,7 +5243,7 @@ function briefsSectionHtml(client) {
           ? `<button type="button" class="btn sec-cta" id="cl-nextbrief">${picks} pick${picks === 1 ? "" : "s"} → brief ${client.briefs.length + 1}</button>`
           : `<span id="cl-nextbrief" hidden></span>`}
         <button type="button" class="lib-plus" id="cb-new" aria-expanded="false" aria-controls="cb-compose"
-          title="New brief from inspiration links" aria-label="New brief from inspiration links">${CB_ICON.plus}</button>
+          title="New brief from inspiration links" aria-label="New brief from inspiration links">${CB_ICON.plus}<span class="lib-plus-txt" aria-hidden="true">New brief</span></button>
       </span>
     </div>
     <form class="client-details cb-compose" id="cb-compose" novalidate hidden>
@@ -5443,7 +5482,7 @@ function cbBindCrumbs() {
   });
 }
 
-function cbMediaHtml(f) {
+function cbMediaHtml(f, cls = "cd-player-col cb-media") {
   const href = f.source_url ? safeUrl(f.source_url) : "";
   const plat = platformOf(f.source_url || "") || (f.platform ? String(f.platform) : "video");
   const cover = f.cover ? safeUrl(f.cover) : "";
@@ -5459,7 +5498,7 @@ function cbMediaHtml(f) {
     frame = wrap("cb-ph", `<span>${escapeHtml(plat)}</span>`);
   }
   const dur = Number(f.duration) > 0 ? `${Math.round(Number(f.duration))}s` : "";
-  return `<div class="cd-player-col cb-media">
+  return `<div class="${cls}">
     ${frame}
     ${href ? `<a class="cb-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">open original ↗</a>` : ""}
     <div class="lbl">${escapeHtml(plat)}${dur ? " · " + dur : ""}</div>
@@ -5468,38 +5507,40 @@ function cbMediaHtml(f) {
 
 function cbDetailHtml(f) {
   const v = cbView(f);
-  const sec = (label, inner) => inner ? `<div class="cb-sec"><div class="cb-lbl">${label}</div>${inner}</div>` : "";
+  const sec = (label, inner) => inner ? `<div class="cb-sec"><div class="bp-heading">${label}</div>${inner}</div>` : "";
   const needs = (v.needs || []).filter(Boolean);
   const setup = [["setting", v.setting], ["lighting", v.lighting], ["framing", v.framing], ["audio", v.audio]]
     .filter(([, x]) => x);
-  const beats = (v.beats || []).map((b) => {
-    const rows = [["SAY", b.say], ["DO", b.do], ["ON SCREEN", b.show]].filter(([, x]) => x)
-      .map(([l, x]) => `<span class="bp-lbl">${l}</span><span class="bp-val">${escapeHtml(x)}</span>`);
-    if (!rows.length) return "";
-    return `<li class="bp-beat"><span class="bp-t">${escapeHtml(b.t || "")}</span>${rows[0]}${rows.slice(1).map((r) => `<span></span>${r}`).join("")}</li>`;
-  }).join("");
+  const timed = (v.beats || []).some((b) => b.t);
+  const spoken = (v.beats || []).some((b) => b.say);
+  const beats = (v.beats || []).map((b) => agBeatHtml(b.t || "",
+    [["SAY", "say", b.say], ["DO", "do", b.do], ["ON SCREEN", "onscreen", b.show]], spoken, timed)).join("");
   const why = [f.analysis?.format?.why_it_works, f.analysis?.production?.hook_mechanism,
     f.analysis?.production?.repeatable_because].filter(Boolean);
   const internal = (v.strategy_note || f.internal_note || why.length) ? `
     <div class="cb-internal">
-      <div class="cb-lbl cb-agency-lbl">Agency only — never exported</div>
-      ${v.strategy_note ? `<div class="cb-sec"><div class="cb-lbl">Strategy note</div><p>${escapeHtml(v.strategy_note)}</p></div>` : ""}
-      ${f.internal_note ? `<div class="cb-sec"><div class="cb-lbl">Internal note</div><p>${escapeHtml(f.internal_note)}</p></div>` : ""}
-      ${why.length ? `<div class="cb-sec"><div class="cb-lbl">Why the original works</div>${why.map((w) => `<p>${escapeHtml(w)}</p>`).join("")}</div>` : ""}
+      <div class="bp-heading cb-agency-lbl">Agency only — never exported</div>
+      ${v.strategy_note ? `<div class="cb-sec"><div class="bp-heading">Strategy note</div><p>${escapeHtml(v.strategy_note)}</p></div>` : ""}
+      ${f.internal_note ? `<div class="cb-sec"><div class="bp-heading">Internal note</div><p>${escapeHtml(f.internal_note)}</p></div>` : ""}
+      ${why.length ? `<div class="cb-sec"><div class="bp-heading">Why the original works</div>${why.map((w) => `<p>${escapeHtml(w)}</p>`).join("")}</div>` : ""}
     </div>` : "";
-  return `<div class="card-detail cb-detail">
-    ${cbMediaHtml(f)}
-    <div class="cd-info cb-info">
-      ${v.hook ? sec("Hook", `<p class="cb-note">“${escapeHtml(v.hook)}”</p>`) : ""}
+  // AGENCY SCRIPT LOOK (2026-09-15): the creator's hook card, beat cards and split.
+  return `<div class="ref-split cb-split">
+    <div class="ref-main cd-info cb-info">
+      ${v.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(v.hook)}”</div>` : ""}
       ${sec("Needs", needs.length ? `<ul class="cb-needs">${needs.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : "")}
       ${sec("Setup", setup.length ? `<div class="cb-setup">${setup.map(([l, x]) =>
         `<div class="cb-setup-row"><span class="cb-setup-lbl">${l}</span><span class="cb-setup-val">${escapeHtml(x)}</span></div>`).join("")}</div>` : "")}
-      ${sec("Script", beats ? `<ol class="bp-beats cb-beats">${beats}</ol>` : "")}
+      ${sec("Script", agBeatsHtml(beats, timed))}
       ${sec("CTA", v.cta ? `<p class="cb-note">“${escapeHtml(v.cta)}”</p>` : "")}
       ${sec("Post caption", v.caption ? `<p class="cb-note">${escapeHtml(v.caption)}</p>` : "")}
       ${sec("Creator note", v.creator_note ? `<p class="cb-note">${escapeHtml(v.creator_note)}</p>` : "")}
       ${internal}
     </div>
+    <details class="bp-item ref-panel ag-original" open>
+      <summary><span class="bp-caret" aria-hidden="true">▸</span><span class="bp-name">The original</span></summary>
+      <div class="bp-body">${cbMediaHtml(f, "ref-dock cb-dock")}</div>
+    </details>
   </div>`;
 }
 
@@ -5723,7 +5764,7 @@ function renderCampaignView(host, client, id) {
     else if (err) {
       const text = err === "missing" ? "Campaign briefs aren't installed yet — run <code>supabase/campaigns.sql</code> in the Supabase SQL editor."
         : err === "denied" ? "This account can't read campaign briefs." : "Couldn't load this campaign brief.";
-      inner = `<div class="empty"><p>${text}</p>${err === "other" ? `<p><button type="button" class="ghost" id="cb-load-retry">Try again</button></p>` : ""}</div>`;
+      inner = `<div class="empty">${emptyMark("confused")}<p>${text}</p>${err === "other" ? `<p><button type="button" class="ghost" id="cb-load-retry">Try again</button></p>` : ""}</div>`;
     } else {
       inner = `<div class="loader" role="status" aria-live="polite">${loaderMark()}
         <div class="loader-text"><div class="lbl">Opening the campaign brief…</div></div></div>`;
