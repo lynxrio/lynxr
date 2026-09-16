@@ -14,8 +14,8 @@ Three separate front-ends share one stylesheet. Know which one you are in —
 
 | Path | What it is |
 |---|---|
-| `index.html` / `home.js` | **Public landing page.** One job: take an email for the wait list. Neither app is linked from it. |
-| `creatorsonly/` + `creator.js` | **Creator app.** Paste a video link → get a script for a brand. Unlisted URL, handed out by hand. |
+| `index.html` / `home.js` | **Public landing page, and the creator app's home.** Creators sign in or create an account here and land in the creator app on the same URL (`creator.js`). |
+| `creatorsonly/` | **Retired 2026-09-15.** A stub whose `forward.js` sends every visit to `/` with the query and #fragment intact, so old invite, confirmation and reset links still work. |
 | `agencyonly/` + `app.js` | **Agency app.** Staff only: database, brief builder, client folders. |
 | `privacy/` | The privacy policy. Linked from all three; the creator app fetches it into a modal. |
 | `app.css` | **Every page.** One file. |

@@ -9,9 +9,12 @@
    <body>. Their shapes, colours and positions live in app.css (BACKDROP block).
 
    MOUSE SCREENS (hover: hover): each blob is pulled toward the cursor, up to
-   70px, by how close the cursor is to it, and the nearest ones swell by a few
+   60px, by how close the cursor is to it, and the nearest ones swell by a few
    percent. Near blobs move a lot and far ones barely move, so the background
-   never slides as one sheet. Scrolling adds a small jelly squash.
+   never slides as one sheet. A soft white light also follows the cursor
+   (owner, 2026-09-15, again: "back the background interactive with the mouse
+   for desktop" — the 70px pull alone measured as ~40px on a 700px blob, too
+   little to notice). Scrolling adds a small jelly squash.
 
    TOUCH SCREENS (hover: none): scrolling swirls the blobs. The whole group
    turns slowly around the middle of the screen and spreads outward, up to 12%,
@@ -21,7 +24,10 @@
    drift into each other darken the ground under it. Measured 2026-09-15 with
    the rebrand gate's light-theme bound (ground luminance >= .6705):
    - Desktop: random 70px pulls on all six blobs plus the swell leave the
-     worst point at .6809. Around 80px they would reach the bound.
+     worst point at .6809. Around 80px they would reach the bound. Stretching
+     a blob toward the cursor was tried and FAILED (12% stretch: .6617), so
+     visibility comes from the light instead: white over this light ground
+     can only raise luminance, so it can never cost contrast.
    - Phones: the swirl is a rigid turn plus an outward spread, so no two blobs
      ever get closer than at rest. Its worst point is .6745 over a full turn.
      Moving phone blobs independently, even by 30px, failed (.6328), which is
@@ -50,11 +56,14 @@
     layer.appendChild(el);
     blobs.push({ el, cx: 0, cy: 0, reach: 0, x: 0, y: 0, s: 1 });
   }
+  const spot = document.createElement("span");   // the cursor light (mouse screens)
+  spot.className = "spot";
+  layer.appendChild(spot);
   document.body.prepend(layer);
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
   const mouseScreen = matchMedia("(hover: hover) and (pointer: fine)");
-  const PULL = 70;       // px, desktop: how far a blob is drawn to the cursor at most
+  const PULL = 60;       // px, desktop: how far a blob is drawn to the cursor at most
   const SWELL = 0.05;    // desktop: growth when the cursor is right on a blob
   const TURN = 0.055;    // degrees per px scrolled, phones: 1000px of scroll turns the group 55deg
   const SPREAD = 0.12;   // phones: how far the group spreads outward at most
@@ -69,13 +78,14 @@
       const cs = getComputedStyle(b.el);
       b.cx = parseFloat(cs.left);
       b.cy = parseFloat(cs.top);
-      b.reach = Math.max(Math.max(parseFloat(cs.width), parseFloat(cs.height)) * 0.9, 520);
+      b.reach = Math.max(Math.max(parseFloat(cs.width), parseFloat(cs.height)) * 1.1, 900);
       b.hidden = cs.display === "none";
     }
     kick();
   };
 
   let px = null, py = null;   // cursor, viewport px; null when there is none
+  let lx = -9999, ly = -9999; // eased light position
   let vel = 0;                // smoothed scroll speed, px per event
   let top = 0;                // how far the active scroller has scrolled
   let ang = 0, spread = 0;    // eased swirl state (phones)
@@ -103,7 +113,7 @@
         if (px !== null) {
           const dx = px - b.cx, dy = py - b.cy, d = Math.hypot(dx, dy);
           if (d < b.reach) {
-            const k = (1 - d / b.reach) ** 1.6;
+            const k = 1 - d / b.reach;
             tx = (dx / (d || 1)) * PULL * k;
             ty = (dy / (d || 1)) * PULL * k;
             ts = 1 + SWELL * k;
@@ -116,8 +126,8 @@
         ty = my + grow * (rx * sin + ry * cos) - b.cy;
       }
       if (mouse) {
-        b.x += (tx - b.x) * EASE;
-        b.y += (ty - b.y) * EASE;
+        b.x += (tx - b.x) * 0.12;
+        b.y += (ty - b.y) * 0.12;
       } else {
         b.x = tx; b.y = ty;       // the swirl state is already eased above, and must stay rigid
       }
@@ -126,6 +136,12 @@
       const sx = b.s * (1 - sq * 0.03), sy = b.s * (1 + sq * 0.05);
       b.el.style.transform =
         `translate(${b.x.toFixed(2)}px, ${(b.y - sq * 8).toFixed(2)}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
+    }
+    if (mouse && px !== null) {
+      if (lx < -9000) { lx = px; ly = py; }
+      lx += (px - lx) * 0.18; ly += (py - ly) * 0.18;
+      spot.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
+      if (Math.abs(px - lx) + Math.abs(py - ly) > 0.5) busy = true;
     }
     raf = busy ? requestAnimationFrame(tick) : 0;
   };
@@ -137,9 +153,11 @@
 
   addEventListener("pointermove", (e) => {
     if (e.pointerType !== "mouse") return;
-    px = e.clientX; py = e.clientY; kick();
+    px = e.clientX; py = e.clientY;
+    if (mouseScreen.matches) layer.classList.add("has-spot");
+    kick();
   }, { passive: true });
-  document.documentElement.addEventListener("mouseleave", () => { px = py = null; kick(); });
+  document.documentElement.addEventListener("mouseleave", () => { px = py = null; layer.classList.remove("has-spot"); kick(); });
 
   // Capture phase: element scroll events do not bubble.
   addEventListener("scroll", (e) => {

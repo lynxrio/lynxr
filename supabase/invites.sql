@@ -208,7 +208,7 @@ create trigger lynxr_signup_gate
 -- address and code already filled in:
 --
 --   select email,
---          'https://lynxr.io/creatorsonly/?signup=1&e=' || email || '&c=' || code as link
+--          'https://lynxr.io/?signup=1&e=' || email || '&c=' || code as link
 --     from public.lynxr_invites
 --    where redeemed_at is null
 --    order by created_at;

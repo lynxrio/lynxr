@@ -177,8 +177,8 @@ async function loadFailureReason(m) {
    apps keep SEPARATE sessions (lynxr_sb_session here, lynxr_creator_session
    there). Never copy a session between them: refresh tokens are single-use,
    and a second use ends the session in both apps.
-   Targets /creatorsonly/, not /: signed out of the creator app, / is the
-   marketing landing, while /creatorsonly/ is the creator sign-in. */
+   Targets / since /creatorsonly/ was retired (2026-09-15): the home page hosts
+   the creator app, and a signed-in creator goes straight into it. */
 async function revealCreatorSwitch() {
   if (document.getElementById("to-creator")) return;
   let staff = false;
@@ -190,7 +190,7 @@ async function revealCreatorSwitch() {
   const a = document.createElement("a");
   a.className = "ghost";
   a.id = "to-creator";
-  a.href = "/creatorsonly/";
+  a.href = "/";
   a.textContent = "Creator app";
   signout.parentNode.insertBefore(a, signout);
 }
@@ -2885,14 +2885,15 @@ function renderBriefs() {
     cbStopPoll();
   }
 
+  // AGENCY GLASS PASS (2026-09-15): each view's heading and content float as one island.
   if (!list.length) {
-    host.innerHTML = `<h2>Clients</h2>
+    host.innerHTML = `<div class="section"><h2>Clients</h2>
       <div class="empty"><p><strong>No clients yet.</strong></p>
-        <p>Save a brief in the New Client tab — its company becomes your first client folder.</p></div>`;
+        <p>Save a brief in the New Client tab — its company becomes your first client folder.</p></div></div>`;
     return;
   }
 
-  host.innerHTML = `<h2>Clients <span class="pill">${list.length}</span></h2>
+  host.innerHTML = `<div class="section"><h2>Clients <span class="pill">${list.length}</span></h2>
     <div class="brief-stack">` + list.map((c) => `
       <article class="bcard opens" data-id="${escapeHtml(c.id)}"
         role="button" tabindex="0" aria-label="Open ${escapeHtml(c.company)}">
@@ -2903,7 +2904,7 @@ function renderBriefs() {
         </div>
         <button type="button" class="ghost danger icon-only b-del"
           aria-label="Delete this client" title="Delete this client">${TRASH_SVG}</button>
-      </article>`).join("") + `</div>`;
+      </article>`).join("") + `</div></div>`;
 
   host.querySelectorAll(".bcard").forEach((card) => {
     const id = card.dataset.id;
@@ -4003,8 +4004,8 @@ function briefScriptsHtml(rec, client) {
       ${expanded ? scriptDetailHtml(rec, client, i) : ""}
     </div>`;
   }).join("");
-  return `<h2>Scripts <span class="pill">${rec.items.length}</span></h2>
-    <div class="fmt-grid">${cards}</div>`;
+  return `<div class="section"><h2>Scripts <span class="pill">${rec.items.length}</span></h2>
+    <div class="fmt-grid">${cards}</div></div>`;
 }
 
 function renderBriefViewer(host, rec, client) {

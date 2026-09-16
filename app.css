@@ -3050,12 +3050,16 @@
   .pane-title .bcard-title { font-size: var(--fs-19); }
   .pane-sub { color: var(--text-3); font-size: var(--fs-125); margin: 5px 0 0; }
   .pane-body { flex: 1 1 auto; padding: 20px var(--gutter) 8px; width: 100%; }
-  /* scrollbar-gutter, for the reason spelled out on `html` above: this is the
-     box that actually scrolls at desktop widths, so it is the one whose width
-     would otherwise flicker under the player. */
+  /* NO scrollbar-gutter here any more (owner, 2026-09-15: "fix this gap"). It
+     was added when .pane-scroll was the box that scrolled at desktop widths,
+     but .shell is uncapped (min-height: 100svh), so the DOCUMENT scrolls at
+     every width and `html` already reserves the one real scrollbar lane.
+     A stable gutter here reserved a second, empty 10px lane, which left the
+     sticky header and every card 10px short of the page's scrollbar.
+     .pane-scroll never overflows its own box (measured 0 at 1440, 1180, 1024,
+     820, 390 and 844x390), so there is no scrollbar here to flicker. */
   .pane-scroll {
     flex: 1 1 auto; min-width: 0; overflow-y: auto; display: flex; flex-direction: column;
-    scrollbar-gutter: stable;
   }
 
   /* The composer — paste a link, get a script for the brand you're inside. */
@@ -3173,7 +3177,7 @@
   }
   .composer-first .ce-grid { margin-bottom: 10px; }
   .composer-first .bp-hint { margin: 0 0 12px; }
-  .newscript-mark { width: 28px; height: 28px; color: var(--text-3); margin-bottom: 14px; }
+  .newscript-mark { width: 36px; height: 36px; color: var(--text-3); margin-bottom: 16px; }   /* was 28px; owner: "make this logo a bit bigger" */
   .newscript-h { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-26); line-height: 1.2; margin: 0; letter-spacing: -.01em; }
   /* (.newscript-sub lived here — the small line under the greeting. The
      greeting says it all in one line now, so there is nothing to sub-title.) */
@@ -5294,7 +5298,8 @@
      still while the toolbar above it grows. Turning it off would make every
      card jump 26px on the first keystroke. .suggest-grid's case is the opposite
      — there the anchor pinned a button that was supposed to move. */
-  .script-grid {
+  .script-grid,
+  body.agency #app main :is(.suggest-grid, .shelf) {
     display: grid;
     /* The `46%` half of that min() is what guarantees TWO columns at every
        width, with no media query: at a 288px column (a 320px phone) 46% is
@@ -7490,6 +7495,17 @@
     --m5: rgba(255, 126, 184, .33);
   }
   .backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+  /* The cursor light (backdrop.js, mouse screens only). White over the light
+     ground only ever raises luminance, so it cannot cost text contrast. */
+  :root { --spot-core: rgba(255, 255, 255, 0); --spot-fade: rgba(255, 255, 255, 0); }
+  html[data-theme="light"] { --spot-core: rgba(255, 255, 255, .7); }
+  .spot {
+    position: absolute; left: 0; top: 0; width: 560px; height: 560px; margin: -280px 0 0 -280px;
+    border-radius: 50%; background: radial-gradient(closest-side, var(--spot-core), var(--spot-fade));
+    opacity: 0; transition: opacity .5s ease; will-change: transform;
+  }
+  .backdrop.has-spot .spot { opacity: 1; }
+  @media (hover: none), (prefers-reduced-motion: reduce) { .spot { display: none; } }
   .blob {
     position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h);
     translate: -50% -50%; will-change: transform;
@@ -7720,7 +7736,7 @@
   body.home .lp-proof-lbl { font-family: var(--font-ui); font-size: 14px; letter-spacing: 0; color: var(--text-2); }
   body.home .lp-spine-lbl { font-family: var(--font-ui); font-size: 13px; letter-spacing: 0; color: var(--text-2); }
   body.home .lp-spine-foot { display: none; }
-  body.home .lp-spine-list { gap: 8px; }
+  body.home .lp-spine-list { gap: 8px; align-items: center; }   /* centred under "what carried over" (owner, 2026-09-15: "center these") */
   body.home .lp-spine-list::before, body.home .lp-spine-list li::before { display: none; }
   /* Ink on white with a logo-gradient border: white text on the gradient
      itself measured 1.74:1 at the peach end, so the colour stays in the edge. */
@@ -7731,21 +7747,13 @@
     box-shadow: var(--ico-glow);
   }
 
-  /* ================= THE FOOTER WAITS BELOW THE FOLD (owner, 2026-09-15) =================
-     "have it be so that on any display i cant see it unless i scroll down".
-     Whatever sits above the footer is made at least one screen tall, so on a
-     page or pane with little content the footer starts under the fold instead
-     of floating up into view. Long pages are unaffected: min-height never
-     shrinks anything.
-     - Public pages (landing, content, legal, 404): the landing's hero is
-       already a full screen; the content and legal glass sheets reach the fold.
-     - Creator app: .pane-body fills its scroll pane (percent min-height
-       resolves against .pane-scroll's definite height), so the footer comes
-       after one full pane.
-     - Agency app: <main> fills the viewport under its header. */
-  body.lp:not(.home) > main, body > main.legal { min-height: calc(100svh - 28px); box-sizing: border-box; }
-  .pane-scroll > .pane-body { min-height: 100%; }
-  #app > main { min-height: 100svh; box-sizing: border-box; }
+  /* ================= THE FOOTER STARTS AT THE BOTTOM EDGE OF THE SCREEN (owner, 2026-09-15) =================
+     Done in footer.js (fitFold), not here. CSS min-heights were tried first and
+     could not know how tall the header above the content is, so the footer
+     began a header's height below the fold ("im scrolling too far for it").
+     One of them, a percent min-height on .pane-body, also broke opening a
+     script. footer.js measures the real shortfall and grows the footer's top
+     margin by exactly that much. */
 
   /* ================= THE APP, SIMPLE AND GLASS (owner, 2026-09-15) =================
      The same SIMPLE, FUN, GLASS pass, carried into the signed-in creator app.
@@ -7828,12 +7836,15 @@
   }
 
   /* ================= SCREEN 2: THE LIBRARY GRID ================= */
-  .pane-body .script-grid { gap: 14px; }
-  .pane-body .script-grid > .bp-item:not([open]) {
-    border-radius: 32px; border-color: var(--glass-edge);
+  .pane-body .script-grid,
+  body.agency #app main :is(.suggest-grid, .shelf) { gap: 14px; }
+  .pane-body .script-grid > .bp-item:not([open]),
+  body.agency #app main :is(.bcard, .vcard, .fmt-card:not(.cb-format):not(.expanded), .bp-list > .bp-item, .play, .stat, .bars-grid > div),
+  body.agency #app #panel-ops .ops-hero-grid > .ops-tile {
+    border-radius: 22px; border-color: var(--glass-edge);   /* was 32px; owner: "round the corners a bit less" */
     box-shadow: inset 0 1px 0 var(--glass-hi), var(--g-shadow);
   }
-  .pane-body .script-grid > .bp-item:not([open]) > summary:focus-visible { border-radius: 29px; }
+  .pane-body .script-grid > .bp-item:not([open]) > summary:focus-visible { border-radius: 19px; }
   /* chips over the frame: frosted white, ink text */
   .pane-body .script-grid > .bp-item:not([open]):not(.trash-card) > summary > .chip,
   .pane-body .script-grid > .bp-item:not([open]):not(.trash-card) > summary > .meta-facts,
@@ -7901,10 +7912,12 @@
   }
 
   @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-    .pane-body .script-grid > .bp-item:not([open]) {
+    .pane-body .script-grid > .bp-item:not([open]),
+    body.agency #app main :is(.bcard.opens, .vcard, .fmt-card.expandable:not(.expanded), .bp-list > .bp-item:not([open])) {
       transition: transform .5s var(--spring), box-shadow .5s ease, border-color .2s ease;
     }
-    .pane-body .script-grid > .bp-item:not([open]):hover {
+    .pane-body .script-grid > .bp-item:not([open]):hover,
+    body.agency #app main :is(.bcard.opens, .vcard, .fmt-card.expandable:not(.expanded), .bp-list > .bp-item:not([open])):hover {
       transform: translateY(-5px);
       box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-lift);
     }
@@ -8172,7 +8185,10 @@
   }
   /* (same block) small fixes found in the first painted pass */
   .pane-body .script-grid > .bp-item:not([open]) > summary > .chip > .st-tile { display: inline-flex; align-items: center; white-space: nowrap; }
-  .pane-body .script-grid > .bp-item[open] > summary > .bp-caret { font-size: 0; }
+  /* grid-template 1fr / 1fr: the hidden ▸ is still a text node, so it became a second grid row
+     (20.5px + 11.5px) and the chevron centred in the first; rotated 90deg that read as 5-6px
+     right of centre (owner: "fix this"). One 1fr row takes all 32px; the text row is 0px. */
+  .pane-body .script-grid > .bp-item[open] > summary > .bp-caret { font-size: 0; grid-template: 1fr / 1fr; }
   .pane-body .script-grid > .bp-item[open] > summary > .bp-caret::before {
     content: ""; width: 7px; height: 7px; margin-left: -3px;
     border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg);
@@ -8182,3 +8198,979 @@
   /* Below the two-column breakpoint the panel spans the card, so the 320px
      player sits in the middle of it instead of against the left edge. */
   @media (max-width: 1179.98px) { .pane-body .bp-item.ref-panel .ref-dock { margin-inline: auto; } }
+
+  /* ---- (same block) THE BRAND PAGE, owner 2026-09-15: "the brand page needs a revamp too" ----
+     Header: the brand name large, the meta small, Details as a glass pill, the
+     bin a quiet icon that only turns red on hover (still two-click armed: an
+     armed bin keeps .ghost.danger's red face, untouched here). The website
+     lookup and the editor are the Settings card with its white wells. The
+     scripts row gets a plain title and "+ new script" as the one dark pill on
+     the page. The grid is the library's tiles unchanged. The #brand-heading /
+     #brand-details / .b-del ids only exist on the brand page. */
+  .pane-head #brand-heading { font-size: clamp(22px, 2.4vw, 28px); font-weight: 750; letter-spacing: -.025em; line-height: 1.15; }
+  .pane-head:has(#brand-heading) .pane-title { gap: 10px; }
+  .pane-head:has(#brand-heading) .pane-title > .chip.bp-wait {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px;
+    background: var(--surface-flat); border-color: var(--line); font-weight: 600; box-shadow: var(--app-soft);
+  }
+  .pane-head:has(#brand-heading) .pane-title > .chip.bp-wait .bp-dot { margin: 0; }
+  .pane-head #brand-sub { margin-top: 6px; font-size: var(--fs-13); color: var(--text-3); }
+  .pane-head #brand-details {
+    padding: 9px 18px; font-weight: 600; color: var(--text);
+    background: var(--surface-flat); border-color: var(--line);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+  }
+  .pane-head #brand-details.icon-only { padding: 0; width: 40px; height: 40px; color: var(--good); }
+  .pane-head #brand-details:hover:not(:disabled) { border-color: var(--line-2); background: var(--surface-flat); }
+  .pane-head .b-del:not(.armed) { border-color: transparent; background: transparent; color: var(--text-3); }
+  .pane-head .b-del:not(.armed):hover { color: var(--bad); background: var(--surface); border-color: var(--line); }
+  .pane-head .detail-point { font-weight: 600; }
+
+  /* the lookup and the editor: glass cards, white wells */
+  .pane-body :is(.lookup, #brand-editor) {
+    margin: 0 0 14px; padding: 22px 24px 24px; gap: 10px;
+    background: var(--surface); border: 1px solid var(--glass-edge); border-radius: 28px;
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--g-shadow);
+  }
+  .pane-body .lookup-label { font-size: var(--fs-18); font-weight: 700; letter-spacing: -.01em; color: var(--text); margin-bottom: 4px; }
+  .pane-body .lookup input[type="text"],
+  .pane-body #brand-editor .ce-field :is(input, textarea) {
+    padding: 13px 18px; font-size: var(--fs-15);
+    background: var(--field-input);
+    box-shadow: inset 0 1px 3px var(--field-input-inset);
+  }
+  .pane-body .lookup input[type="text"],
+  .pane-body #brand-editor .ce-field :is(input, textarea):not(.ce-missing) { border: 1px solid var(--field-input-edge); }
+  .pane-body .lookup input[type="text"]:focus,
+  .pane-body #brand-editor .ce-field :is(input, textarea):not(.ce-missing):focus { border-color: var(--focus-ring); }
+  .pane-body .lookup-hint { font-size: var(--fs-13); color: var(--text-2); text-align: center; }
+  .pane-body .lookup-loader { padding: 20px 0 2px; }
+  .pane-body .lookup-loader .loader-mark { width: 64px; height: 64px; filter: drop-shadow(0 12px 16px var(--av-glow)); }
+  .pane-body #brand-editor .ce-body { margin-top: 0; }
+  .pane-body #brand-editor .ce-grid { gap: 18px 20px; margin-bottom: 0; }
+  .pane-body #brand-editor .ce-field { gap: 8px; }
+  .pane-body #brand-editor .ce-field .lbl { font-size: var(--fs-135); font-weight: 600; color: var(--text-2); }
+  .pane-body #brand-editor .bp-msg.show { margin-top: 12px; }
+  /* "add manually" / "use their website instead": a quiet way across, not a second button */
+  .pane-body .b-back-link { margin: 2px 0 18px 8px; font-size: var(--fs-13); color: var(--text-2); border-bottom-color: var(--line); }
+  .pane-body .b-back-link:hover { color: var(--text); }
+  .pane-body > #brand-flash:empty { display: none; }
+
+  /* the scripts row: a plain title, and "+ new script" as the page's main action */
+  .pane-body .lib-head:has(> #brand-add) { margin: 8px 0 14px; }
+  .pane-body #brand-editor + .lib-head { margin-top: 26px; }
+  .pane-body .lib-head:has(> #brand-add) > h2 { font-size: var(--fs-18); font-weight: 700; letter-spacing: -.01em; color: var(--text); text-transform: lowercase; }
+  .pane-body .lib-head:has(> #brand-add) > h2::before { display: none; }
+  .pane-body .lib-head:has(> #brand-add) > h2 .pill { margin-left: 2px; }
+  .pane-body #brand-add {
+    width: auto; height: 44px; padding: 0 20px 0 16px; gap: 8px;
+    display: inline-flex; align-items: center;
+    background: var(--fill); color: var(--on-fill); border-color: var(--fill);
+    font-weight: 600; font-size: var(--fs-15); box-shadow: var(--ico-glow);
+  }
+  .pane-body #brand-add:hover { background: var(--fill); color: var(--on-fill); border-color: var(--fill); }
+  .pane-body #brand-add svg { width: 16px; height: 16px; }
+  .lib-plus-txt { display: none; }
+  .pane-body #brand-add .lib-plus-txt { display: inline; }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .pane-body #brand-add { transition: transform .35s var(--spring), box-shadow .3s ease; }
+    .pane-body #brand-add:hover { transform: scale(1.04); }
+  }
+  /* a named brand with no scripts yet: the same glass card, not a dashed box */
+  .pane-body #ad-list > .empty {
+    border: 1px solid var(--glass-edge); border-radius: 28px;
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--g-shadow); color: var(--text-2);
+  }
+  .pane-body .b-back-link { border-bottom: 0; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; }
+  .pane-body .b-back-link:hover { text-decoration-color: var(--text-2); }
+  /* A brand with no scripts already offers "create first script" in its empty
+     card, which does exactly what "+ new script" does; one dark pill, not two. */
+  .pane-body .lib-head:has(> #brand-add):has(~ #ad-list > .empty) > #brand-add { display: none; }
+
+  /* ONE LOGO SIZE IN THE APPS TOO (owner, 2026-09-15: "logo is too small", on
+     the creator app's rail). The rail and the agency header drew the avatar at
+     the default 22px while the public bar draws it at 32px. The phone header's
+     corner mark (.pane-mark, 19px with the face hidden) grows to 26px, where
+     the face reads, so it shows again. */
+  .side-home .mark, #app > header .wordmark .mark { width: 32px; height: 32px; }
+  .side-home { gap: 10px; }
+  @media (max-width: 820px) {
+    .pane-mark { width: 26px; height: 26px; top: 21px; }
+    .pane-mark .lx-face { display: inline; }
+  }
+
+
+  /* The paste box shows no focus ring when it was CLICKED (owner, 2026-09-15).
+     creator.js marks a pointer press with .pointer-focused; keyboard focus keeps
+     its ring. The caret and the dark send button already say where typing goes. */
+  .composer-row.pointer-focused:focus-within { outline: none; }
+
+  /* ================= THE PHONE HEADER FLOATS (owner, 2026-09-15) =================
+     "make the block top bar like the floating look": on phones the creator
+     app's header was a full-width block with a hairline under it. It becomes
+     the public bar's floating glass pill, inset 10px from the edges with the
+     same near-solid fill, hairline edge and soft shadow. When the header also
+     carries a title (library, a brand, settings), the same shape simply grows
+     taller. The corner avatar follows the inset. */
+  @media (max-width: 820px) {
+    .pane-head, .pane-head:not(:has(.pane-title)) {
+      margin: 10px 10px 0; width: auto;
+      padding: 8px 16px 16px;
+      border: 1px solid var(--line); border-radius: 28px;
+      background: var(--glass-solid);
+      -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+      box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow-pop);
+    }
+    .pane-head:not(:has(.pane-title)) { padding: 8px; }
+    .pane-head:not(:has(.pane-title)) .side-toggle { margin: 0; }
+    .pane-mark { top: 25px; right: 26px; }
+  }
+
+  /* ================= THE GLASS (owner, 2026-09-15) =================
+     "make it more glass morphism like", then "go back to this version of the glass look"
+     and "make everything" glass (plan: ~/.claude/plans/sitewide-glass.md, amended the same
+     day). PREVIEW the owner is judging on every surface ("lets see how that full look
+     looks"): the FROSTED recipe, the first one previewed on the hero card. It lives in the
+     html[data-theme="light"] block below; delete that block and every token falls back to
+     the original hero card look (--glass 85%, --glass-solid 94% on the nav pill).
+     One token family; every floating surface points at it:
+       glass  frosted: 46% -> 12% white, blur 28px saturate 1.8, a 75% white edge, lit top
+              and bottom inner edges, two soft violet shadows. Cards, menus, modals,
+              tooltips, reading sheets, the rail and the sticky header.
+       frost  the nav pill's fill: the same frosted gradient during the preview; 94% without it.
+       scrim  glass that opens OVER a dimming scrim or over video: the phone drawer, modals,
+              menus, the send sheet, the sort menu and tooltips. A backdrop-filter samples
+              what is behind it, and behind these is the darkened page or a black cover, so
+              the thin 46% -> 12% wash turned grey-brown and the grey text fell to ~1.2:1
+              (owner, 2026-09-15, on the phone drawer: "wayyy to dark"). Same blur, edge
+              and shadow, a dense 94% -> 86% fill: 86% is the measured floor where --good
+              still clears 4.5:1 over a black frame. Surfaces on the backdrop itself (the
+              desktop rail, cards, reading sheets) stay on glass.
+       still  the glass fill with NO blur: a surface holding a position:fixed child
+              (backdrop-filter would become its containing block) or a large group box.
+       well   frosted: 50% white, a 90% white edge. Inputs, and anything
+              nested in a blurred parent (Chromium blurs a child only up to its blurred
+              parent). Never blurred.
+     Tables and stats go glass too (owner), but .stat / .bar-track / .table-wrap only exist in
+     the agency app, so the agency pass applies that. Green words still turn ink on glass:
+     colour lives in dots and edges. Each token maps to the palette's own glass, so light and
+     dark both resolve and a page without theme.js (/waitlist/) still reads. Always write
+     `background: var(--gl-fill)` (the shorthand): the fallbacks swap it for a colour. */
+  :root {
+    --gl-fill: var(--glass);
+    --gl-fill-frost: var(--glass-solid);
+    --gl-fill-scrim: var(--glass-solid);
+    --gl-blur: var(--glass-blur);
+    --gl-edge: var(--glass-edge);
+    --gl-shadow: var(--shadow-card);
+    --gl-well-fill: var(--field-input);
+    --gl-well-edge: var(--field-input-edge);
+    --gl-well-shadow: inset 0 1px 3px var(--field-input-inset);
+  }
+  html[data-theme="light"] {
+    --gl-fill: linear-gradient(135deg, rgba(255, 255, 255, .46) 0%, rgba(255, 255, 255, .12) 100%);
+    --gl-fill-frost: var(--gl-fill);
+    --gl-fill-scrim: linear-gradient(135deg, rgba(255, 255, 255, .94) 0%, rgba(255, 255, 255, .86) 100%);
+    --gl-blur: blur(28px) saturate(1.8);
+    --gl-edge: rgba(255, 255, 255, .75);
+    --gl-shadow: inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 -1px 0 rgba(255, 255, 255, .3),
+                 0 30px 60px -30px rgba(70, 30, 100, .35), 0 10px 30px -14px rgba(70, 30, 100, .14);
+    --gl-well-fill: rgba(255, 255, 255, .5);
+    --gl-well-edge: rgba(255, 255, 255, .9);
+    --gl-well-shadow: inset 0 1px 2px rgba(70, 30, 100, .06);
+  }
+  /* No backdrop-filter at all: a 46% -> 12% wash cannot hold text, so everything takes the
+     94% fill, as the hero card and bars already did. Same specificity as the light block, later. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    html:root { --gl-fill: var(--glass-solid); --gl-fill-frost: var(--glass-solid); --gl-fill-scrim: var(--glass-solid); }
+  }
+  /* Reduced transparency: every tier opaque, nothing blurs, edges become hairlines. html:root
+     out-ranks both blocks above; the contrast gate does not parse html:root blocks. */
+  @media (prefers-reduced-transparency: reduce) {
+    html:root, html:root[data-theme="light"] {
+      --gl-fill: var(--surface-flat); --gl-fill-frost: var(--surface-flat); --gl-fill-scrim: var(--surface-flat); --gl-blur: none;
+      --gl-edge: var(--line);
+      --gl-well-fill: var(--field-input); --gl-well-edge: var(--field-input-edge);
+    }
+  }
+
+  /* ---- (glass) floating cards over the blob backdrop: the hero card's own look ----
+     The landing's info cards (.lp-step, .lp-feat, .lp-stat.lp-panel, .lp-vid, .lp-ex-card) and the
+     content pages' reading sheets are NOT listed: they keep their original white rules from before
+     this block (owner, 2026-09-15: "bring the old white version for the info on the screen, the
+     footer and nav bar can be the glass"). */
+  body.home .lp-hero > .lp-in,
+  #site-footer, .site-footer, body.home #site-footer,
+  #gate .gate-card,
+  .pane-body .me-card, .pane-body .lookup, .pane-body #brand-editor,
+  .pane-body .plan-now, .pane-body .fb-thanks, .pane-body #ad-list > .empty {
+    background: var(--gl-fill);
+    -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+    border: 1px solid var(--gl-edge);
+    box-shadow: var(--gl-shadow);
+  }
+  /* The sign-in card had no surface of its own. It takes the hero card's shape, on / and /agencyonly/. */
+  #gate .gate-card { max-width: 400px; padding: clamp(28px, 4vw, 40px); border-radius: 32px; }
+  /* A state edge the rule above would paint over. */
+  .pane-body .plan-now.spent { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+  /* The phone header pill is position: static below 821px, so nothing ever passes under it. */
+  @media (max-width: 820px) {
+    .pane-head, .pane-head:not(:has(.pane-title)) {
+      background: var(--gl-fill); border-color: var(--gl-edge); box-shadow: var(--gl-shadow);
+      -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+    }
+    .pane-head .detail-point { color: var(--text); }
+  }
+  /* Green words never sit on glass: the words turn ink; green stays on edges, dots and icons. */
+  .pane-body :is(.me-card, .lookup, .plan-now, .fb-thanks) :is(.bp-msg.good, .ghost.good, .ghost.ok),
+  .pane-body #brand-editor :is(.bp-msg.good, .ghost.good, .ghost.ok) { color: var(--text); }
+
+  /* ---- (glass) menus, modals, tooltips and reading sheets: frost in the first plan, glass by the owner ---- */
+  .lp-menu, .modal-card, .sendbox, .find-sort-menu, .score-tip {
+    background: var(--gl-fill);
+    -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+    border-color: var(--gl-edge);
+    box-shadow: var(--gl-shadow);
+  }
+  /* ...but the layers that open over a scrim or a video take the scrim tier. (The content pages' reading sheets left this rule: they keep their original white.) */
+  .lp-menu, .modal-card, .sendbox, .find-sort-menu, .score-tip { background: var(--gl-fill-scrim); }
+  .score-tip .st-arrow { background: var(--surface-flat); border-color: var(--gl-edge); }
+  /* The public nav pill takes the frost fill (frosted glass during the preview), and keeps its --line
+     hairline and --shadow-pop (the card shadows swamp a 44px box). */
+  .lp-bar-in, body.home .lp-bar-in {
+    background: var(--gl-fill-frost);
+    -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+  }
+  /* The rail, beside the pane or as a drawer. */
+  .side {
+    background: var(--gl-fill);
+    -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+    border-right-color: var(--gl-edge);
+  }
+  /* The creator app's sticky header at desktop widths: scripts and video covers scroll under it. */
+  @media (min-width: 821px) {
+    .pane-head { background: var(--gl-fill); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur); }
+  }
+
+  /* ---- (still) the material without a blur of its own ----
+     The opened script card and "The original": the mobile mini player is position:fixed inside
+     them, and a backdrop-filter would make the card its containing block. The by-brand group
+     box: tiles are opaque covers. */
+  .pane-body .script-grid > .bp-item[open], :root .pane-body .bp-item.ref-panel {
+    background: var(--gl-fill); border-color: var(--gl-edge); box-shadow: var(--gl-shadow);
+  }
+  .pane-body .lib-group { background: var(--gl-fill); border-color: var(--gl-edge); box-shadow: var(--gl-shadow); }
+  /* ---- nested inside a blurred sheet or card: the well's tint and a hairline, never a blur ---- */
+  #gate .gate-paste {
+    background: var(--gl-well-fill); border-color: var(--line); box-shadow: var(--gl-well-shadow);
+  }
+
+  /* ---- (well) inputs: the paste field as it was, never blurred; no font-size (the iOS 16px floor stays) ---- */
+  .composer-row, body.home .lp-hero .composer-row,
+  #gate .field.login input[type="email"], #gate .pw-wrap input,
+  .pane-body .me-card .ce-field :is(input, select),
+  .pane-body .lookup input[type="text"],
+  .pane-body #brand-editor .ce-field :is(input, textarea):not(.ce-missing),
+  .find-bar input[type="search"], .askbox-input {
+    background: var(--gl-well-fill); border: 1px solid var(--gl-well-edge); box-shadow: var(--gl-well-shadow);
+  }
+  #gate :is(.field.login input[type="email"], .pw-wrap input):focus { background: var(--gl-well-fill); border-color: var(--focus-ring); }
+  /* The landing hero card keeps its ORIGINAL white whatever the preview tokens say (owner,
+     2026-09-15: "make this the old white background"): --glass 85%, its edge and shadow, and the
+     white paste field with the grey edge. Placed after the well rule so the field override wins. */
+  body.home .lp-hero > .lp-in {
+    background: var(--glass); border-color: var(--glass-edge); box-shadow: var(--shadow-card);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  }
+  body.home .lp-hero .composer-row {
+    background: var(--field-input); border-color: var(--field-input-edge); box-shadow: inset 0 1px 3px var(--field-input-inset);
+  }
+
+  /* ---- (same block) TEXT THAT LOOKED OUT OF PLACE (owner, 2026-09-15: "make this text also match
+     the new redesign") ----
+     Sign-in fields typed in IBM Plex Mono; the revamp keeps mono for numbers and timecodes only.
+     Chrome paints autofilled fields its own blue (#e8f0fe) over any background, so the well's white
+     is laid back on as a 1000px inset shadow, under the well's own inset shadow. */
+  .field.login input[type="email"], .pw-wrap input { font-family: var(--font-ui); letter-spacing: 0; }
+  :is(.field.login input[type="email"], .pw-wrap input, .find-bar input[type="search"],
+      .pane-body .me-card .ce-field input, .pane-body .lookup input[type="text"]):-webkit-autofill {
+    -webkit-box-shadow: var(--gl-well-shadow), inset 0 0 0 1000px var(--field-input);
+    box-shadow: var(--gl-well-shadow), inset 0 0 0 1000px var(--field-input);
+    -webkit-text-fill-color: var(--text); caret-color: var(--text);
+    transition: background-color 100000s 0s;
+  }
+  /* The sync line, agency header and creator rail: the UI font, the words in ink or grey, and only
+     the leading ● keeps green or red. The dot is the first character of the text, so ::first-letter
+     colours it with no JS change; ::first-letter needs a block container, so the rail's badge (text
+     straight inside #sync-state) becomes inline-block, and the agency's .sync-word is a flex item. */
+  .sync-state { font-family: var(--font-ui); }
+  .sync-state.ok, .sync-state.bad { color: var(--text-2); }
+  .sync-state:is(.ok, .bad) .sync-word { color: var(--text); }
+  .side .sync-state { display: inline-block; }
+  .side .sync-state.ok::first-letter, .sync-state.ok .sync-word::first-letter { color: var(--good); }
+  .side .sync-state.bad::first-letter, .sync-state.bad .sync-word::first-letter { color: var(--bad); }
+
+  /* ================= THE FLOATING SHELL (owner, 2026-09-15) =================
+     "i like this" (rail direction A), then "make each section be like floating within the
+     nice colorful background". Every part of the signed-in creator app floats as its own
+     island over the blobs, with the backdrop showing in the gaps:
+       - the rail: one glass panel, inset --float-gap from the viewport, --r-card corners;
+         on phones the drawer floats the same gap in, on the SCRIM tier (it opens over the
+         dimmed page and video covers; see the GLASS block).
+       - the desktop header: its own glass island. Its top meets the rail's top, its left and
+         right edges meet the content column's, so every gutter is the same --float-gap.
+       - content: each section is an island. Existing cards (Settings, lookup, brand editor,
+         plan meter, feedback thanks, empty brand, the library tiles, the opened script) already
+         were; the plan offer and the feedback form join them.
+       - NO BOX INSIDE A BOX (owner, 2026-09-15: "get rid of the box wihin the box"). An island
+         never holds a second container with its own fill, edge or shadow: nested cards and
+         panels go flat, separated by spacing or one hairline. Only input wells and the say/do
+         beat and hook cards keep their own look (plus pills, chips and buttons, which are
+         controls, not containers). So the library and brand grids get NO wrapper island (it
+         would box every tile and the opened card); the tiles and the opened card float alone,
+         and the by-brand group box goes flat for the same reason.
+         NOT the new-script view: its avatar, heading and paste field sit straight on the blobs
+         (owner, 2026-09-15: "this doesnt need its own glass container").
+       - the in-pane footer card shows on Settings only ("have this only in the settings page");
+         creator.js stamps #pane-scroll[data-view] after every paint. display:none, so it takes
+         no space. The marketing footer on the signed-out landing is a different element.
+     TIERS, from the GLASS block above, and why:
+       - rail and header are GLASS (blur): nothing blurred or position:fixed lives inside them.
+         The phone drawer keeps the blur but takes the scrim fill.
+       - the two new content islands (plan offer, feedback form) are STILL (fill, edge, shadow,
+         no blur): large group boxes over an already-soft backdrop, where a blur buys nothing and
+         costs scroll frames on phones. The opened script keeps its existing still tier: the
+         mobile mini player is position:fixed inside it.
+     Every value is a --gl-* token or a palette token, so the preview recipe, the no-blur
+     fallback and reduced transparency all flow through unchanged. SCOPE: .shell, .side and
+     .pane-* only exist in the creator app (grep app.js and agencyonly/: zero); the agency
+     app, the public pages and the signed-out landing never match. */
+  .shell { --float-gap: 12px; }
+  .shell > .pane { --gutter: max(var(--float-gap), (100% - 1180px) / 2); }
+  @media (max-width: 820px) {
+    .shell { --float-gap: 10px; }
+    .shell > .pane { --gutter: var(--float-gap); }
+  }
+
+  /* ---- the rail: direction A ---- */
+  @media (min-width: 821px) {
+    .shell > .side {
+      margin: var(--float-gap) 0 var(--float-gap) var(--float-gap);
+      top: var(--float-gap); height: calc(100svh - 2 * var(--float-gap));
+      padding: 14px 12px 12px; border-radius: var(--r-card);
+      background: var(--gl-fill);
+      -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+      border: 1px solid var(--gl-edge); box-shadow: var(--gl-shadow);
+    }
+    .shell > .side .side-brand-add { margin-top: 2px; }
+  }
+  @media (max-width: 820px) {
+    .shell > .side {
+      left: var(--float-gap); top: var(--float-gap); bottom: var(--float-gap); height: auto;
+      width: min(calc(84vw - var(--float-gap)), 300px);
+      padding: 14px 12px 12px; border-radius: var(--r-card);
+      background: var(--gl-fill-scrim);   /* it opens over the scrim and the video covers */
+      -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+      border: 1px solid var(--gl-edge); box-shadow: var(--gl-shadow);
+      /* fully clear of the left edge while shut, gap included */
+      transform: translateX(calc(-100% - var(--float-gap) - 2px));
+    }
+    body.side-open .shell > .side { transform: none; }
+  }
+  /* the one dark primary sits ON the glass */
+  .shell > .side .side-new { box-shadow: var(--app-soft); }
+  /* the two secondary places are wells (never blurred: they sit inside a blurred panel) */
+  .shell > .side :is(.side-brand-add, #nav-library) {
+    padding: 9px 12px; margin-bottom: 0;
+    background: var(--gl-well-fill); border: 1px solid var(--gl-well-edge); box-shadow: var(--gl-well-shadow);
+    color: var(--text); font-weight: 600;
+  }
+  .shell > .side :is(.side-brand-add, #nav-library):hover { background: var(--gl-well-fill); border-color: var(--line-2); }
+  .shell > .side #nav-library .side-ico { opacity: 1; }
+  /* where you are: a plain row becomes a well; the library pill (already one) takes the darker edge */
+  .shell > .side :is(.side-link, .side-item).on {
+    background: var(--gl-well-fill); border-color: var(--gl-well-edge); box-shadow: var(--gl-well-shadow); color: var(--text);
+  }
+  .shell > .side #nav-library.on { border-color: var(--line-2); }
+  .shell > .side :is(.side-link, .side-item):hover { color: var(--text); }
+  .shell > .side .side-count { color: var(--text-2); font-variant-numeric: tabular-nums; }
+  /* no tiny tracked label: "brands" is a normal-size quiet heading */
+  .shell > .side .side-head { font-size: var(--fs-125); letter-spacing: 0; font-weight: 600; color: var(--text-2); padding: 14px 12px 4px; }
+  .shell > .side :is(.side-quota, .side-who) { color: var(--text-2); }
+  .shell > .side .side-quota.spent { color: var(--bad); }
+  /* scoped to the rail: .plan-now reuses .quota-bar */
+  .shell > .side .quota-bar { height: 4px; background: var(--line); }
+  .shell > .side .quota-bar > i { background: var(--text); border-radius: inherit; }
+  .shell > .side .side-quota.spent .quota-bar > i { background: var(--bad); }
+  /* .side-list is overflow-y:auto and clipped the 2px-offset ring's top and bottom on brand rows */
+  .shell > .side .side-item:focus-visible { outline-offset: -2px; }
+
+  /* ---- the header island (desktop; the phone pill above already floats) ---- */
+  @media (min-width: 821px) {
+    .shell .pane-head {
+      margin: var(--float-gap) var(--gutter) 0;
+      padding: 16px 24px 14px;   /* 24px: the Settings, lookup and editor cards' own inset */
+      border: 1px solid var(--gl-edge); border-radius: var(--r-card); box-shadow: var(--gl-shadow);
+    }
+    /* the new-script view's header holds only the phone menu button: no island at all */
+    .shell .pane-head:not(:has(.pane-title)) {
+      margin: 0; padding: 0; border: 0; box-shadow: none;
+      background: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+    }
+  }
+
+  /* ---- the content column: same edges as the header, one gap between islands ---- */
+  .shell .pane-body { padding: var(--float-gap) var(--gutter) 8px; }
+  .pane-body > :is(.section:not(:has(> .lib-head)), .me-save-row) { margin-bottom: var(--float-gap); }
+  .pane-body > :is(.lookup, #brand-editor) { margin-bottom: var(--float-gap); }
+
+  /* ---- content islands (still) ---- */
+  .pane-body > .section:not(.me-card, .lookup, .client-editor):not(:has(> :is(.plan-now, .fb-thanks, .lib-head))) {
+    background: var(--gl-fill);
+    border: 1px solid var(--gl-edge); border-radius: var(--r-card); box-shadow: var(--gl-shadow);
+    padding: 20px 24px 24px;
+  }
+  /* the plan meter is already an island: its text takes the same 24px inset as the header's */
+  .pane-body > .section > .plan-now { padding: 18px 24px; }
+  /* ---- no box inside a box ---- */
+  /* the opened script: the scripts nested in a library entry (their fill and edge were already
+     stripped; the global .bp-item card shadow was not), "The original", its player backing and
+     the poor-fit callout all go flat. The hairline between nested scripts stays. */
+  .pane-body .script-grid > .bp-item[open] .bp-item { box-shadow: none; }
+  .pane-body .script-grid > .bp-item[open] .bp-item.ref-panel { background: none; border-color: transparent; border-radius: 0; }
+  .pane-body .script-grid > .bp-item[open] .ref-play { background: none; }
+  .pane-body .script-grid > .bp-item[open] .bp-partial { background: none; border-color: transparent; }
+  /* by brand: the group is a heading over floating tiles, not a box around them */
+  .pane-body .lib-group { background: none; border-color: transparent; box-shadow: none; padding-inline: 0; }
+  /* Settings > deleted scripts: rows split by a hairline, not cards in the card */
+  .pane-body .trash-rows { gap: 0; }
+  .pane-body .trash-rows > .bp-item { background: none; border: 0; border-radius: 0; box-shadow: none; }
+  .pane-body .trash-rows > .bp-item + .bp-item { border-top: 1px solid var(--line); }
+  /* Plan: "checkout isn't open yet" is a note under a hairline, not a dashed box */
+  .pane-body .plan-soon { border: 0; border-top: 1px solid var(--line); border-radius: 0; padding-inline: 0; }
+  @media (max-width: 820px) {
+    .shell .pane-body { padding-left: var(--float-gap); padding-right: var(--float-gap); }
+    .pane-body > .section:not(.me-card, .lookup, .client-editor):not(:has(> :is(.plan-now, .fb-thanks, .lib-head))) { padding: 14px; }
+  }
+  /* the in-pane footer card: Settings only */
+  .pane-scroll:not([data-view="you"]) > .site-footer { display: none; }
+  /* ...and it never pushes the pane sideways. "lynxmediagroup.org" cannot break, and once the
+     gutter dropped to --float-gap it overran its column at 821-860px wide: .pane-scroll grew a
+     horizontal bar, which took height from it and summoned a second vertical one ("get rid of
+     these two scroll wheels"). The link wraps inside its column instead; the card keeps the
+     islands' 24px inset rather than the gutter. */
+  .pane-scroll .site-footer { padding-left: 24px; padding-right: 24px; }
+  .pane-scroll .site-footer .foot-link { max-width: 100%; overflow-wrap: anywhere; }   /* safety net only */
+  /* beside the rail the pane is under ~700px wide up to a 960px window: the phone footer's two columns */
+  @media (min-width: 821px) and (max-width: 960px) {
+    .pane-scroll .site-footer .foot-grid { grid-template-columns: 1fr 1fr; gap: 30px 20px; }
+    .pane-scroll .site-footer .foot-brand { grid-column: 1 / -1; }
+  }
+
+
+  /* ================= SCRIPT VIEWS, ONE LOOK (owner, 2026-09-15) =================
+     "some scripts look good like the first screenshot and the others look
+     terrible, so make them all look good", "make the brand page scripts match
+     too", "fix the script so theres no more of these". The good one is the brand
+     script in the opened card (SCREEN 1 above: hook card, "your script", say/do
+     beat cards, "The original" docked). The terrible one was the VIDEO'S OWN
+     script: "what they say" / "what's on screen" over hairline rows, a mono
+     timecode and a tiny tracked SAY / SHOW label per row, and no player.
+     creator.js now draws that view as beat cards in ol.bp-beats.bp-orig, with
+     the time as a trailing .bp-time and "The original" docked beside it (see
+     adaptationHtml's original branch). This block gives .bp-orig the exact
+     recipe .bp-notime has above, value for value, and adds only what the
+     original has that a brand script does not: the time, the "on screen" row
+     and the space before the second heading.
+     APPEND-ONLY. Nothing above is edited and nothing here selects .bp-notime, so
+     the brand script (the reference) is paint-identical. .bp-orig and .bp-time
+     exist in creator.js only (zero in app.js / agencyonly), and every rule is
+     scoped to .pane-body, so the agency blueprints cannot match.
+     TOKENS. Every value is a palette or app token the reference card already
+     uses (--beat-bg, --line, --glass-hi, --app-soft, --beat-glow, --surface-flat,
+     --logo-grad, --lbl-say-bg, --lbl-do-bg); nothing blurs (dozens of cards, and
+     the mobile mini player is position: fixed inside the card), so there is no
+     --gl-* blur to reach for; no raw colour or blur value is introduced. No box
+     inside a box: the beat cards are the one allowed container, exactly as for
+     the brand script. */
+  .pane-body .bp-beats.bp-orig { display: flex; flex-direction: column; gap: 10px; }
+  .pane-body .bp-beats.bp-orig > .bp-beat {
+    position: relative; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 8px 12px;
+    padding: 14px 18px 14px 14px;
+    border: 1px solid var(--line); border-radius: 20px; background: var(--beat-bg);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+    transition: background-color .25s ease, box-shadow .25s ease, border-color .25s ease;
+  }
+  /* The shot list carries an "on screen" pill, which is wider than the 46px say
+     column: the column grows for that list only, so its words still line up
+     card to card. */
+  .pane-body .bp-beats.bp-orig:has(.bp-lbl-onscreen) > .bp-beat { grid-template-columns: 70px minmax(0, 1fr) auto; }
+  /* the playing card: the same logo-gradient ring and glow as a lit brand beat */
+  .pane-body .bp-beats.bp-orig > .bp-beat::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
+    background: var(--logo-grad); pointer-events: none;
+    -webkit-mask: var(--mask-solid) content-box, var(--mask-solid);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0; transition: opacity .25s ease;
+  }
+  .pane-body .bp-beats.bp-orig > .bp-beat.on {
+    background: var(--surface-flat); border-color: transparent; border-radius: 20px;
+    box-shadow: var(--beat-glow);
+  }
+  .pane-body .bp-beats.bp-orig > .bp-beat.on::before { opacity: 1; }
+  .pane-body .bp-beats.bp-orig > .bp-beat.bp-seekable { cursor: pointer; }
+  /* pills: say in accent, show and on screen in grey, like say and do */
+  .pane-body .bp-beats.bp-orig > .bp-beat .bp-lbl {
+    justify-self: start; align-self: start; margin-top: 2px; padding: 2px 8px;
+    border-radius: var(--r-pill); background: var(--lbl-do-bg); color: var(--text-2);
+    font-size: var(--fs-105); font-weight: 700; letter-spacing: .02em; line-height: 1.5;
+    white-space: nowrap;
+  }
+  .pane-body .bp-beats.bp-orig > .bp-beat .bp-lbl.bp-lbl-say { background: var(--lbl-say-bg); color: var(--accent); }
+  /* words: say is the large ink line; show and on screen take do's quieter weight */
+  .pane-body .bp-beats.bp-orig > .bp-beat .bp-val { font-size: var(--fs-145); line-height: 1.5; color: var(--text); }
+  .pane-body .bp-beats.bp-orig > .bp-beat .bp-val.bp-say { font-size: var(--fs-16); font-weight: 500; color: var(--text); }
+  .pane-body .bp-beats.bp-orig > .bp-beat .bp-val.bp-dim { font-size: var(--fs-135); color: var(--text-2); }
+  /* THE TIME: quiet inline meta in the UI font, never mono. It sits in the first
+     row's last column; a second row leaves that cell empty. */
+  .pane-body .bp-beats.bp-orig > .bp-beat > .bp-time {
+    grid-column: 3; justify-self: end; align-self: start; margin-top: 2px;
+    font-family: var(--font-ui); font-size: var(--fs-12); font-weight: 600; line-height: 1.5;
+    font-variant-numeric: tabular-nums; color: var(--text-3); white-space: nowrap;
+  }
+  .pane-body .bp-beats.bp-orig > .bp-beat > .bp-lbl { grid-column: 1; }
+  .pane-body .bp-beats.bp-orig > .bp-beat > .bp-val { grid-column: 2; }
+  /* the second heading ("what's on screen") gets the air the hook card gives "your script" */
+  .pane-body .bp-beats.bp-orig + .bp-heading { margin-top: 22px; }
+  /* "no speech" then "what's on screen": only where the heading leads a .bp-orig list, so no brand script can match */
+  .pane-body .bp-hint + .bp-heading:has(+ .bp-beats.bp-orig) { margin-top: 16px; }
+  @media (prefers-reduced-motion: reduce) {
+    .pane-body .bp-beats.bp-orig > .bp-beat, .pane-body .bp-beats.bp-orig > .bp-beat::before { transition: none; }
+  }
+
+  /* ================= THE AGENCY APP, FLOATING GLASS (owner, 2026-09-15) =================
+     "add a revamp for the agency side too, follow the same principles you did for the other
+     pages", then "make the agency side floating glass too" (plan: ~/.claude/plans/agency-revamp.md).
+     Floating glass islands over the blob backdrop, the creator shell's pattern: every top-level
+     single-panel block of a view is its own island (--gl-fill, --gl-edge, --gl-shadow; its blur is
+     whatever the creator content islands landed with, --ag-island-blur); a grid of cards takes no
+     wrapper at all and each card is a tile on the creator library tile's own rules (owner: each card
+     floats); anything inside a panel or a card goes flat, the creator shell's no box inside a box
+     (no fill, edge or shadow, one --line hairline, never a blur of its own: Chromium blurs a child
+     only up to its blurred parent). Every surface wears its creator counterpart's material ("match the agency side to
+     get the glass look to the creator and main landing page"). Tables and stats sit flat on their
+     islands (owner: "make the tables and stats glass too"); the table's sticky header row keeps
+     --th-bg because rows scroll under it. Bar tracks are unchanged. Scripts wear the creator's
+     own script rules, which carry an agency selector (Step 16a): nothing here restyles a hook,
+     beat, pill or time chip. Header and tray take the creator header's blur (--ag-head-blur).
+     Anything over a scrim or over video/thumbnails (the tray, the modal, the score tip) uses
+     --gl-fill-scrim, never --gl-fill. Phone widths use the creator phone view's own values.
+     TOKENS ONLY: no hex, rgb or blur values here (except a one-line scrollbar rule copied
+     exactly from the creator shell). The light-block glass preview may be swapped;
+     this block follows it. Geometry (--ag-*) is copied from the creator shell islands block.
+     EVERY SELECTOR STARTS WITH body.agency #gate, body.agency #app, body.agency #modal or
+     body.agency .score-tip (or is body.agency). Only agencyonly/index.html carries
+     class="agency", so nothing here reaches the landing, the creator app on /, a content page,
+     or #cb-print (the PDF, a direct child of <body>). No outline is declared (focus rings
+     stand); no font-size is set on an input under 16px (iOS zoom). */
+  body.agency {
+    --ag-inset: 12px; --ag-head-inset: 12px; --ag-top: 12px; --ag-gap: 12px;
+    --ag-radius: var(--r-card); --ag-head-radius: var(--r-card); --ag-pad: 24px;
+    --ag-island-blur: none; --ag-head-blur: var(--gl-blur);
+    --ag-radius-in: max(12px, calc(var(--ag-radius) - 10px));
+  }
+  @media (max-width: 820px) {
+    body.agency {
+      --ag-inset: 10px; --ag-head-inset: 10px; --ag-top: 10px; --ag-gap: 10px;
+      --ag-radius: var(--r-card); --ag-head-radius: 28px; --ag-pad: 14px;
+      --ag-island-blur: none; --ag-head-blur: var(--gl-blur);
+    }
+  }
+
+  /* ---- (agency) the header: a glass island at the creator shell's top, inset and radius.
+     52px tall; buttons 38px, so the inset is 6px on three sides. The first island below starts at
+     --ag-top + 52px + --ag-gap; the Ops first screen, the tray and the column follow. ---- */
+  body.agency #app > header {
+    position: sticky; top: var(--ag-top); z-index: 20;
+    width: min(1132px, calc(100% - 2 * var(--ag-head-inset))); height: 52px;
+    margin: var(--ag-top) auto 0; padding: 0 6px 0 16px; gap: 12px;
+    border: 1px solid var(--gl-edge); border-radius: var(--ag-head-radius);
+    background: var(--gl-fill);
+    -webkit-backdrop-filter: var(--ag-head-blur); backdrop-filter: var(--ag-head-blur);
+    box-shadow: var(--gl-shadow);
+  }
+  body.agency #app > header nav { margin-left: 4px; gap: 4px; }
+  body.agency #app > header .tab {
+    height: 38px; padding: 0 14px; display: inline-flex; align-items: center;
+    border: 1px solid transparent; color: var(--text-2); font-size: var(--fs-14); font-weight: 600;
+  }
+  body.agency #app > header .tab:hover { color: var(--text); background: var(--hover); }
+  body.agency #app > header .tab[aria-selected="true"] { color: var(--on-fill); background: var(--fill); border-color: var(--fill); }
+  body.agency #app > header :is(#signout, #to-creator) {
+    height: 38px; padding: 0 16px; display: inline-flex; align-items: center;
+    background: var(--surface-flat); color: var(--text); border: 1px solid var(--line-2);
+    font-size: var(--fs-135); font-weight: 600;
+  }
+  body.agency #app > header :is(#signout, #to-creator):hover { background: var(--surface-flat); color: var(--text); border-color: var(--text-3); }
+  @media (max-width: 640px) {
+    body.agency #app > header { padding: 0 6px 0 12px; gap: 6px; }
+    body.agency #app > header nav { margin-left: 0; }
+    body.agency #app > header .tab { height: 36px; padding: 0 10px; font-size: var(--fs-135); }
+    body.agency #app > header :is(#signout, #to-creator) { height: 36px; padding: 0 12px; font-size: var(--fs-125); }
+  }
+  /* the column: islands stay one inset in from the viewport, the header's width */
+  body.agency #app > main { max-width: calc(1132px + 2 * var(--ag-inset)); padding: var(--ag-gap) var(--ag-inset) 0; }
+  /* Ops: the first screen ends one inset above the bottom edge; the details start one gap below the fold */
+  body.agency #app #panel-ops .ops-hero {
+    min-height: calc(100vh - var(--ag-top) - 52px - var(--ag-gap) - var(--ag-inset));
+    min-height: calc(100svh - var(--ag-top) - 52px - var(--ag-gap) - var(--ag-inset));
+    margin-bottom: calc(var(--ag-inset) + var(--ag-gap));
+  }
+  body.agency #app main .tray { top: calc(var(--ag-top) + 52px + var(--ag-gap)); }   /* its fill is the scrim tier: Step 13 */
+  body.agency #app > #site-footer { width: min(1132px, calc(100% - 2 * var(--ag-inset))); margin: 0 auto var(--ag-inset); border-radius: var(--ag-radius); }
+  /* Scrollbar look (E13): nothing to copy. The creator shell's own scrollbar styling (html { scrollbar-gutter: stable }
+     and the ::-webkit-scrollbar* rules) is unscoped and already reaches this page; no rule inside the creator
+     shell block (.shell, .pane-*, .side, body.home) styles the scrollbar itself.
+     NB: a star followed by a slash inside a comment (as in a bare `.pane` star-slash `.side`
+     selector list) CLOSES the comment early, and the next rule is then swallowed as garbage.
+     It ate the public block's :root sizing rule once; write such lists with commas instead. */
+
+
+  /* ---- (agency) type: bigger, calmer, no dash eyebrow ---- */
+  body.agency #app main h2 { font-size: var(--fs-18); font-weight: 700; letter-spacing: -.01em; line-height: 1.3; color: var(--text); margin: 0 0 12px; }
+  body.agency #app main h2::before { display: none; }
+  body.agency #app main .sec-head h2 { margin-bottom: 0; }
+  body.agency #app main .bars-grid h2 { font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; color: var(--text-2); margin: 0 0 10px; }
+  body.agency #app main .ops-tile > h2 { font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; color: var(--text-2); margin: 0; }
+  body.agency #app main #briefs-host > .section:only-child > h2,
+  body.agency #app main #panel-brief > .section > h2,
+  body.agency #app main .page-head .bcard-title {
+    font-size: clamp(22px, 2.4vw, 28px); font-weight: 750; letter-spacing: -.025em; line-height: 1.15; color: var(--text);
+  }
+  body.agency #app main .lede { color: var(--text-2); font-size: var(--fs-14); margin: -2px 0 18px; }
+  body.agency #app main .pill { padding: 2px 10px; background: var(--surface-flat); border-color: var(--line); color: var(--text-2); font-size: var(--fs-12); font-weight: 600; }
+
+  /* ---- (agency) the panel fade-in goes: an opacity animation makes every island's blur flat while it runs ---- */
+  body.agency #app .panel { animation: none; }
+
+  /* ---- (agency) tiles (E17): every card in a grid floats on its own, the creator library tile's
+     pattern. ONLY THE FILL IS HERE: the tile's edge, 22px radius, shadow and hover spring come from the
+     creator's own tile rules, which carry an agency selector (Step 6a). --surface is the token the
+     creator tile itself takes from .bp-item. ---- */
+  body.agency #app main :is(.bcard, .vcard, .fmt-card:not(.cb-format):not(.expanded), .bp-list > .bp-item, .play, .stat, .bars-grid > div),
+  body.agency #app #panel-ops .ops-hero-grid > .ops-tile {
+    background: var(--surface);
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  /* blueprint and source rows are a one-column grid of tiles, not a stack of hairlines */
+  body.agency #app main .bp-list { display: flex; flex-direction: column; gap: 10px; }
+  body.agency #app main .bp-list > .bp-item { margin-top: 0; }
+
+  /* ---- (agency) panels: a section that is NOT a card grid floats as its own glass island, and so does an
+     expanded script card (the creator's opened card). A card grid's section takes no surface at all: its
+     heading, lede and controls sit on the backdrop, the way the creator library's head does. ---- */
+  body.agency #app main .section:not(.bars-grid):not(:has(> :is(.stats, .bp-list, .brief-stack, .suggest-grid, .fmt-grid, #cl-brief-list))),
+  body.agency #app main .client-details,
+  body.agency #app main #brief-out > :is(.site-card, .client-editor),
+  body.agency #app main #brief-body > .add-video,
+  body.agency #app main #briefs-host > :is(.page-head, .cb-progress, .cb-block, .cb-agency, form.cb-add-box, .empty),
+  body.agency #app main #briefs-host > .cb-grid > :is(.cb-format, .empty),
+  body.agency #app main .fmt-card.expanded {
+    background: var(--gl-fill);
+    -webkit-backdrop-filter: var(--ag-island-blur); backdrop-filter: var(--ag-island-blur);
+    border: 1px solid var(--gl-edge); border-radius: var(--ag-radius);
+    box-shadow: var(--gl-shadow);
+    padding: var(--ag-pad); margin: 0 0 var(--ag-gap);
+  }
+  /* every section keeps the gap between blocks; a grid section takes no inset, so its cards start at the column edge */
+  body.agency #app main .section { margin: 0 0 var(--ag-gap); }
+  body.agency #app main :is(.section.bars-grid, .section:has(> :is(.stats, .bp-list, .brief-stack, .suggest-grid, .fmt-grid, #cl-brief-list))) { padding: 0; }
+  body.agency #app main #briefs-host > .cb-grid { gap: var(--ag-gap); margin-bottom: var(--ag-gap); }
+  body.agency #app main #briefs-host > .cb-grid > :is(.cb-format, .empty) { margin: 0; }
+
+  /* ---- (agency) flat: a surface inside a panel or inside a card takes no fill, edge or shadow of its own,
+     just one --line hairline — the creator shell's no box inside a box, and never a blur ---- */
+  body.agency #app main :is(.table-wrap, .sat-list, #ops-spend, .cb-regen-row, .cb-beat-field) {
+    background: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    border: 0; border-top: 1px solid var(--line); border-radius: 0;
+    box-shadow: none;
+  }
+  body.agency #app main .cb-internal:not(p) { background: none; }   /* keeps its dashed amber edge: the agency-only warning, not a card */
+
+  /* ---- (agency) state edges the rules above would paint over ---- */
+  body.agency #app main :is(.bcard.opens, .vcard:not(.picked)):hover { border-color: var(--line-2); }
+  body.agency #app main .vcard.picked { border-color: var(--text-3); }
+  body.agency #app main .fmt-card.good { border-color: var(--good-line); }
+  body.agency #app main .fmt-card.bad { border-color: var(--bad-line); }
+  body.agency #app main #briefs-host > .cb-grid > .cb-format.cb-error { border-color: var(--bad-line); }
+  body.agency #app main .empty { color: var(--text-2); }
+  body.agency #app main .empty strong { color: var(--text); }
+
+  /* ---- (agency) green words never sit on glass: ink words; green stays on edges and dots ---- */
+  body.agency #app main :is(.bp-msg.good, .ghost.good, .ghost.ok) { color: var(--text); }
+  body.agency #app main .tier-chip { background: var(--surface-flat); }
+
+  /* ---- (agency) callouts: the creator app's peach callout, on the backdrop ---- */
+  body.agency #app main :is(.warn, .bp-hint.bp-partial) {
+    border: 1px solid var(--callout-edge); border-radius: var(--ag-radius-in); background: var(--callout-bg);
+    color: var(--text-2); padding: 12px 16px;
+  }
+
+  /* ---- (agency) the working lynxr, a size up, with its glow ---- */
+  body.agency #app main .loader:not(.inline) .loader-mark { width: 56px; height: 56px; filter: drop-shadow(0 12px 16px var(--av-glow)); }
+
+
+  /* ---- (agency) one glowing primary; secondaries are pills ---- */
+  body.agency #app main .btn { box-shadow: var(--ico-glow); }
+  body.agency #app main .ghost:not(.icon-only):not(.danger) {
+    background: var(--surface-flat); border-color: var(--line); color: var(--text); font-weight: 600;
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+  }
+  body.agency #app main .ghost:not(.icon-only):not(.danger):hover:not(:disabled) { background: var(--surface-flat); border-color: var(--line-2); color: var(--text); }
+  body.agency #app main :is(.bp-icons, .cb-ctrls) .ghost.icon-only:not(.danger):not(.armed) {
+    width: 36px; height: 36px; background: var(--surface-flat); border-color: var(--line); color: var(--text-2);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+  }
+  body.agency #app main :is(.bp-icons, .cb-ctrls) .ghost.icon-only:not(.danger):hover:not(:disabled) { background: var(--surface-flat); border-color: var(--line-2); color: var(--text); }
+  /* the bin is quiet until you point at it; still two-click armed (armDelete), and an armed bin keeps .ghost.danger / .b-del.armed's red face */
+  body.agency #app main .ghost.danger.icon-only:not(.armed) { border-color: transparent; background: transparent; color: var(--text-3); box-shadow: none; }
+  body.agency #app main .ghost.danger.icon-only:not(.armed):hover { color: var(--bad); background: var(--surface-flat); border-color: var(--line); }
+
+  /* ---- (agency) glass wells: the well tier (no font-size here: the <=820px 16px iOS floor must keep winning) ---- */
+  body.agency #app main :is(.controls > input[type="search"], .controls > select, .brief-form > input[type="url"], .post-form > input, .ce-field > input, .ce-field > select, .ce-field > textarea, .cb-name-input, .bp-editor > textarea),
+  body.agency #app main .composer-row {
+    background: var(--gl-well-fill); border: 1px solid var(--gl-well-edge);
+    box-shadow: var(--gl-well-shadow);
+  }
+  body.agency #app main :is(.controls > input[type="search"], .controls > select, .brief-form > input[type="url"], .post-form > input, .ce-field > input, .ce-field > select, .ce-field > textarea, .cb-name-input, .bp-editor > textarea):focus,
+  body.agency #app main .composer-row:focus-within { background: var(--gl-well-fill); border-color: var(--focus-ring); }
+  body.agency #app main :is(.ce-field > input, .ce-field > textarea).ce-missing,
+  body.agency #app main :is(.ce-field > input, .ce-field > textarea).ce-missing:focus { border-color: var(--bad); }
+  body.agency #app main .controls > :is(input[type="search"], select) { padding: 10px 16px; }
+  body.agency #app main .controls > select.active { color: var(--text); border-color: var(--filter-on); box-shadow: inset 0 0 0 1px var(--filter-on), var(--gl-well-shadow); }
+
+  /* ---- (agency) chips: pills; status = ink words + a coloured dot ---- */
+  body.agency #app main .chip { padding: 3px 10px; background: var(--surface-flat); border-color: var(--line); color: var(--text-2); font-weight: 600; box-shadow: inset 0 1px 0 var(--glass-hi); }
+  body.agency #app main .chip.src-nodata { color: var(--text-3); }
+  body.agency #app main .chip:is(.good, .bad) { display: inline-flex; align-items: center; gap: 6px; color: var(--text); border-color: var(--line); }
+  body.agency #app main .chip:is(.good, .bad)::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: var(--r-round); background: var(--good); }
+  body.agency #app main .chip.bad::before { background: var(--bad); }
+
+
+  /* ---- (agency) stats: separate nested tiles, plain labels ---- */
+  body.agency #app main .stats { gap: 12px; background: none; border: 0; border-radius: 0; overflow: visible; }
+  body.agency #app main .stat { padding: 16px 20px 18px; }
+  body.agency #app main .stat .label { font-size: var(--fs-13); font-weight: 600; letter-spacing: 0; color: var(--text-2); margin-bottom: 4px; }
+  body.agency #app main .stat .value { font-size: var(--fs-30); font-weight: 700; letter-spacing: -.03em; }
+  body.agency #app main .stat .sub { font-size: var(--fs-12); color: var(--text-3); }
+
+  /* ---- (agency) charts: a tile each, no wrapper; the bar track is unchanged ---- */
+  body.agency #app main .bars-grid { gap: 16px; }
+  body.agency #app main .bars-grid > div { padding: 18px 20px 20px; }
+  body.agency #app main .bar-label { padding: 5px 12px; }
+
+  /* ---- (agency) room to run: a nested list; a visible meter track ---- */
+  body.agency #app main .sat-list { gap: 2px; padding: 8px 0 0; }
+  body.agency #app main .sat-row { padding: 12px 14px; border-radius: var(--ag-radius-in); }
+  body.agency #app main .sat-row:is(:hover, :focus-visible) { background: var(--hover); }
+  body.agency #app main .sat-meter { height: 6px; background: var(--hover); }
+  body.agency #app main .sat-name { font-weight: 600; }
+  body.agency #app main :is(.sat-word, .sat-share) { font-size: var(--fs-12); letter-spacing: 0; }
+
+  /* ---- (agency) the table: flat inside its panel; the sticky header row keeps --th-bg (rows scroll under it) ---- */
+  body.agency #app main th { font-size: var(--fs-125); font-weight: 600; letter-spacing: 0; color: var(--text-2); background: var(--th-bg); }
+  body.agency #app main tbody tr:hover td { background: var(--hover); }
+  body.agency #app main .pager { color: var(--text-2); }
+
+  /* ---- (agency) list rows: blueprints and creator sources are tiles (Steps 6, 6a); only their insides are set here ---- */
+  body.agency #app main .bp-list > .bp-item[open] { border-color: var(--line-2); }
+  body.agency #app main .bp-list > .bp-item > summary { padding: 11px 14px 11px 12px; gap: 12px; }
+  body.agency #app main .bp-list > .bp-item > summary:focus-visible { border-radius: var(--ag-radius-in); }
+  body.agency #app main .bp-list > .bp-item .bp-thumb { border-radius: 12px; }
+  body.agency #app main .bp-list > .bp-item .bp-name { font-size: var(--fs-145); font-weight: 600; color: var(--text); }
+  body.agency #app main .bp-list > .bp-item .bp-when { font-size: var(--fs-12); }
+  body.agency #app main .bp-list > .bp-item .bp-open {
+    display: grid; place-items: center; flex: none; width: 32px; height: 32px;
+    border: 1px solid var(--line); border-radius: var(--r-round); background: var(--surface-flat);
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft); color: var(--text-2); font-size: var(--fs-13);
+  }
+  body.agency #app main .bp-list > .bp-item .bp-open:hover { color: var(--text); border-color: var(--line-2); }
+  body.agency #app main .bp-list > .bp-item > .bp-body { padding: 4px 16px 16px; }
+
+
+  /* ================= THE FLOATING PUBLIC PAGES (owner, 2026-09-15) =================
+     "make the landing page sections floating glass too", "make the content pages floating
+     glass too" and "everything that you see fit is floating and glass"; then, on the landing,
+     "bring the old white version for the info on the screen, the footer and nav bar can be
+     the glass". Earlier, on the hero card: "make this the old white background". From the
+     creator app, and held here too: "get rid of the box wihin the box" and "there should
+     only be one" scrollbar.
+     The signed-out landing and every content page float as islands over the blob backdrop,
+     with the backdrop showing in the gaps. Nothing is full-bleed or touches the viewport.
+       - MATERIAL. Information islands take the OLD WHITE look, the same declarations as the
+         landing cards in SIMPLE, FUN, GLASS (--surface 72% white, --glass-blur, --glass-edge,
+         the --glass-hi top light and --g-shadow). Chrome keeps its --gl-* frost: the nav pill
+         and the footer card are only re-positioned here, never re-painted. The hero card stays
+         pinned to --glass 85% by its own block above.
+       - GEOMETRY, THE SAME NUMBERS AS THE FLOATING SHELL. --pub-gap is the shell's
+         --float-gap, restated at :root because the public pages have no .shell to inherit it
+         from: 12px, and 10px at the shell's own 820px breakpoint. Islands take --r-card. Every
+         landing island (cards, the stats panel, the closing CTA, the footer) shares ONE column,
+         --pub-col: 1120px, or the viewport less a gap each side. (Before this, cards sat on a
+         1072px column and panels on 1120px, and at 1024px wide the feature cards and the stats
+         panel touched both viewport edges.)
+       - NO BOX INSIDE A BOX. Where a section is a grid of cards (steps, features, the proof
+         pair) the CARDS are the islands, and the heading and lede sit on the backdrop. A loose
+         section, or a single panel (stats, closing CTA), is one island. Inside an island,
+         nested containers go flat: FAQ items, link lists, blog script figures and tables are
+         separated by one hairline, never a fill, edge or shadow. Only input wells, icon tiles,
+         pills and buttons keep their own look (controls, not containers).
+       - CONTENT PAGES. body.lp:not(.home) > main was one reading sheet. It becomes a clear
+         column and every section in it (header, each content section, the closing CTA) is an
+         island. main.legal (pricing, privacy, terms, refunds, accessibility, 404) had no
+         sections, so those pages gain bare <section> wrappers at each <h2> (layout-only markup,
+         shipped as a separate diff). :has(> section) gates the whole legal treatment, so
+         the one-island stubs (/waitlist/, /creatorsonly/) and any browser without :has keep
+         the single white sheet instead of getting a box inside one.
+       - BLUR. Each island blurs; its column does not, so no blurred element has a blurred
+         ancestor. Reduced transparency and the no-backdrop-filter fallback flow through the
+         tokens (--surface becomes --surface-flat, --glass-blur becomes none).
+     SCOPE: body.home #lp-main (removed from the DOM on sign-in, and .home with it),
+     body.lp:not(.home) > main (a content page's own <main>; the apps have no <main> under
+     body.lp), main.legal, and `body > #site-footer` / `#lp-main > #site-footer` (the agency
+     footer lives inside #app, the creator footer is .site-footer inside .shell). */
+  :root { --pub-gap: 12px; --pub-col: min(1120px, calc(100% - 2 * var(--pub-gap))); }
+  @media (max-width: 820px) { :root { --pub-gap: 10px; } }
+
+  /* ---- the white island: one declaration set for every information surface ---- */
+  body.home #lp-main > .lp-close > .lp-in,
+  body.lp:not(.home) > main:not(.legal) > :is(.lp-hero, .lp-sec, .lp-band, .lp-final) {
+    background: var(--surface);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge);
+    border-radius: var(--r-card);
+    box-shadow: inset 0 1px 0 var(--glass-hi, var(--g-hi-fallback)), var(--g-shadow);
+  }
+  /* the same, on its own: a browser without :has drops a whole selector list that contains one */
+  main.legal:has(> section) > section {
+    background: var(--surface);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge);
+    border-radius: var(--r-card);
+    box-shadow: inset 0 1px 0 var(--glass-hi, var(--g-hi-fallback)), var(--g-shadow);
+  }
+
+  /* ================= landing (signed out) ================= */
+  /* one column for every section; the stats and closing panels keep their inner padding */
+  body.home #lp-main > :is(.lp-sec, .lp-band) > .lp-in {
+    width: var(--pub-col); max-width: none; margin-inline: auto; padding-inline: 0; box-sizing: border-box;
+  }
+  body.home #lp-main > .lp-band > .lp-in.lp-stat.lp-panel,
+  body.home #lp-main > .lp-close > .lp-in {
+    padding: clamp(36px, 5vw, 56px) clamp(24px, 4vw, 48px);
+  }
+  /* headings and ledes on the backdrop keep the text inset they had (18px from a phone's edge) */
+  @media (max-width: 820px) {
+    body.home #lp-main > :is(.lp-sec, .lp-band) > .lp-in > :is(.lp-h2, .lp-seclede),
+    body.home #lp-main > .lp-sec > .lp-in > .lp-proof .lp-proof-lbl { padding-inline: 8px; }
+  }
+  /* card grids: the shell's gap between islands */
+  body.home #lp-main .lp-steps, body.home #lp-main .lp-feats { gap: var(--pub-gap); }
+  /* the hero card: the same gap from a phone's edges (580px cap unchanged) */
+  body.home #lp-main > .lp-hero > .lp-in { width: min(calc(100% - 2 * var(--pub-gap)), 580px); }
+  /* the closing CTA is one island; its paste field is the hero's white field, not the frosted well */
+  body.home #lp-main > .lp-close .composer-row {
+    background: var(--field-input); border-color: var(--field-input-edge); box-shadow: inset 0 1px 3px var(--field-input-inset);
+  }
+
+  /* ================= the footer card (chrome: its --gl-* paint is untouched) ================= */
+  body.home #lp-main > #site-footer, body > #site-footer {
+    width: var(--pub-col); max-width: none; margin-left: auto; margin-right: auto; margin-bottom: var(--pub-gap);
+  }
+
+  /* ================= content pages: a clear column of white islands ================= */
+  body.lp:not(.home) > main:not(.legal) {
+    background: none; border: 0; border-radius: 0; box-shadow: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    width: min(820px, calc(100% - 2 * var(--pub-gap))); max-width: none;
+    margin: 28px auto 0; padding: 0;
+  }
+  body.lp:not(.home) > main:not(.legal) > :is(.lp-hero, .lp-sec, .lp-band, .lp-final) {
+    width: auto; margin: 0 0 var(--pub-gap);
+    padding: clamp(24px, 4vw, 40px) clamp(20px, 5vw, 48px);
+  }
+  body.lp:not(.home) > main:not(.legal) > .lp-hero { padding-top: clamp(28px, 5vw, 48px); padding-bottom: clamp(28px, 5vw, 44px); }
+  body.lp:not(.home) > main:not(.legal) > .lp-final { padding-block: clamp(32px, 5vw, 48px); }
+  body.lp:not(.home) > main:not(.legal) > :last-child { margin-bottom: 0; }
+  /* the island's padding is the inset: nothing inside adds its own at the top or bottom */
+  body.lp:not(.home) > main:not(.legal) > * > .lp-in { max-width: none; padding-inline: 0; }
+  body.lp:not(.home) > main:not(.legal) > * > .lp-in > :first-child { margin-top: 0; }
+  body.lp:not(.home) > main:not(.legal) > * > .lp-in > :last-child { margin-bottom: 0; }
+
+  /* ---- no box inside a box (content pages) ---- */
+  /* FAQ: one island, questions split by a hairline */
+  body.lp:not(.home) > main .lp-faq { gap: 0; }
+  body.lp:not(.home) > main .lp-q {
+    background: none; border: 0; border-radius: 0; box-shadow: none;
+  }
+  body.lp:not(.home) > main .lp-q + .lp-q { border-top: 1px solid var(--line); }
+  body.lp:not(.home) > main .lp-q > summary { padding: 16px 0; }
+  body.lp:not(.home) > main .lp-q:first-child > summary { padding-top: 0; }
+  body.lp:not(.home) > main .lp-q:last-child:not([open]) > summary { padding-bottom: 0; }
+  body.lp:not(.home) > main .lp-q:last-child .lp-a:last-child { padding-bottom: 0; }
+  body.lp:not(.home) > main .lp-q > summary:focus-visible { outline-offset: 3px; border-radius: 6px; }
+  /* the hover affordance was the card's edge lighting up; with no edge, the +/- answers instead */
+  body.lp:not(.home) > main .lp-q > summary:hover::after { color: var(--text); }
+  body.lp:not(.home) > main .lp-a { padding-left: 0; padding-right: 0; }
+  /* link lists: rows under hairlines */
+  body.lp:not(.home) > main .lp-list { background: none; border: 0; border-radius: 0; overflow: visible; gap: 0; }
+  body.lp:not(.home) > main .lp-list li { background: none; padding: 12px 0; }
+  body.lp:not(.home) > main .lp-list li + li { border-top: 1px solid var(--line); }
+  /* the example script: a figure between two hairlines */
+  body.lp:not(.home) > main .post-script {
+    background: none; border: 0; border-block: 1px solid var(--line); border-radius: 0; box-shadow: none;
+    padding: 18px 0;
+  }
+  /* tables: flat, aligned to the prose, and they fit the island rather than scroll inside it */
+  body.lp:not(.home) > main .post-table { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+  body.lp:not(.home) > main .post-table th { background: none; }
+  body.lp:not(.home) > main .post-table :is(th, td):first-child { padding-left: 0; }
+  body.lp:not(.home) > main .post-table :is(th, td):last-child { padding-right: 0; }
+  body.lp:not(.home) > main .post-table tbody tr:last-child td { border-bottom: 0; }
+  @media (max-width: 640px) {
+    body.lp:not(.home) > main .post-table table { min-width: 0; }
+    body.lp:not(.home) > main .post-table :is(th, td) { padding: 9px 8px; overflow-wrap: anywhere; }
+  }
+
+  /* ================= legal pages: the same islands ================= */
+  main.legal:has(> section) {
+    background: none; border: 0; border-radius: 0; box-shadow: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    width: min(760px, calc(100% - 2 * var(--pub-gap))); max-width: none;
+    margin: 28px auto 0; padding: 0;
+  }
+  main.legal:has(> section) > section {
+    margin: 0 0 var(--pub-gap);
+    padding: clamp(24px, 4vw, 40px) clamp(20px, 5vw, 56px);
+  }
+  main.legal:has(> section) > section:first-child { padding-top: clamp(28px, 5vw, 48px); }
+  main.legal:has(> section) > section:last-child { margin-bottom: 0; }
+  main.legal:has(> section) > section > :first-child { margin-top: 0; }
+  main.legal:has(> section) > section > :last-child { margin-bottom: 0; }
+  /* the unreviewed-document banner stays at the top of the header island, flat between hairlines */
+  main.legal:has(> section) .legal-flag {
+    background: none; border: 0; border-block: 1px solid var(--line); border-radius: 0; padding: 14px 0;
+  }
+  /* the one-island stubs (/waitlist/, /creatorsonly/): the same gap from the edges */
+  main.legal:not(:has(> section)) {
+    width: min(760px, calc(100% - 2 * var(--pub-gap))); max-width: none; margin-left: auto; margin-right: auto;
+    border-radius: var(--r-card);
+  }
+
+  @media (max-width: 760px) {
+    body.lp:not(.home) > main:not(.legal) { margin-top: 16px; }
+    main.legal:has(> section) { margin-top: 16px; }
+    main.legal:not(:has(> section)) { margin-top: 16px; }
+  }

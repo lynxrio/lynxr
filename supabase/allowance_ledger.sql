@@ -202,5 +202,5 @@ grant execute on function public.refund_script(text)          to service_role;
 --   values ('them@example.com', public.new_invite_code(), 'tester wave 1')
 --   on conflict (email) do nothing;
 --
---   select email, 'https://lynxr.io/creatorsonly/?signup=1&e=' || email || '&c=' || code
+--   select email, 'https://lynxr.io/?signup=1&e=' || email || '&c=' || code
 --     from public.lynxr_invites where redeemed_at is null order by created_at;

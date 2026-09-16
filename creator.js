@@ -598,7 +598,10 @@ function cdnUrl(u) {
 // loudly, it just mails people a 404, so it is defined once and used for both.
 // Supabase must also allow it: Authentication -> URL Configuration -> Redirect
 // URLs needs https://lynxr.io/** or the link is rejected as an open redirect.
-const CREATOR_PATH = "/creatorsonly/";
+/* Where confirmation and password-reset emails send people back to. The home
+   page since /creatorsonly/ was retired (2026-09-15); that path is now a stub
+   that forwards here, so links already sitting in inboxes still work. */
+const CREATOR_PATH = "/";
 const SB_SESSION_KEY = "lynxr_creator_session";
 
 let SB_TOKEN = null, SB_EMAIL = null, SB_UID = null, SB_REFRESHING = null;
@@ -724,7 +727,8 @@ let SEATS_OPEN = null;                       // null = not asked yet
 let INVITE_REQUIRED = false;
 
 /* The invite that brought them here. An invite link is
-   /creatorsonly/?signup=1&e=<email>&c=<code>, so the common path is one click
+   /?signup=1&e=<email>&c=<code> (older invites say /creatorsonly/, whose stub
+   forwards here with the query intact), so the common path is one click
    and nothing to type; the code field exists for someone who has the mail open
    on their phone and the app on a laptop. */
 const INVITE = new URLSearchParams(location.search).get("c") || "";
@@ -1944,6 +1948,10 @@ function renderPane() {
   document.querySelectorAll(".ref-media").forEach((m) =>
     m.dispatchEvent(new Event("ref-teardown")));
   renderPaneInner();
+  /* Which view is painted, for CSS. The in-pane footer card shows on Settings
+     only (owner, 2026-09-15: "remove this and have this only in the settings
+     page"). Read AFTER renderPaneInner, which can fall back to "new". */
+  if (pane) pane.dataset.view = VIEW.kind;
   restoreDisclosures(open);
   paintEta(document);      // every view's progress blocks, filled in one place
   if (doc && doc.scrollTop !== keepDoc) doc.scrollTop = keepDoc;
@@ -2246,9 +2254,13 @@ function renderBrand(head, body, b) {
     ${(b.name || "").trim() ? `
     <div class="lib-head">
       <h2>Scripts <span class="pill">${scripts.length}</span></h2>
+      ${/* APP GLASS PASS, brand page (owner, 2026-09-15: "the brand page needs a
+            revamp too"): the + carries its word, so it reads as the page's main
+            action. The word is aria-hidden because the button's aria-label
+            already says the same thing. */""}
       <button type="button" class="lib-plus" id="brand-add" title="New script" aria-label="New script">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
-          aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="lib-plus-txt" aria-hidden="true">New script</span>
       </button>
     </div>
     <div id="ad-list"></div>` : ""}`;
@@ -5988,7 +6000,7 @@ function scriptText(a) {
  *  the section highlight a real playhead, which a cross-origin frame never
  *  could (measured 2026-08-24: TikTok's undocumented embed bus posts one,
  *  Instagram's does not, and 24 of 32 live source URLs are Instagram). */
-function refPlayHtml(a) {
+function refPlayHtml(a, key = a.id) {
   const clip = (a.source || {}).clip;
   const href = safeUrl(a.sourceUrl || "");
   if (!clip) {
@@ -6028,7 +6040,7 @@ function refPlayHtml(a) {
   return `<div class="ref-play">
     <div class="ref-dock">
       <div class="ref-media">
-        <video class="ref-video" data-refvid="${escapeHtml(a.id)}"
+        <video class="ref-video" data-refvid="${escapeHtml(key)}"
           src="${escapeHtml(cdnUrl(safeUrl(clip)))}"
           ${cover ? `poster="${escapeHtml(cdnUrl(cover))}"` : ""}
           preload="metadata" playsinline
@@ -6095,6 +6107,13 @@ function stopRefVideos(root = document, except = null) {
     if (v !== except && !v.paused) v.pause();
   });
 }
+
+/** THE LISTS THAT FOLLOW THE PLAYHEAD, relative to a .ref-split.
+ *  .bp-notime is the lynxr script's <ol> and only that; .bp-orig is the
+ *  video's own transcript and shot list, which dock beside the same player
+ *  since 2026-09-15. Nothing else in either app carries either class — the
+ *  agency blueprints share .bp-beats and must never light up or seek. */
+const REF_TRACKS = ".ref-main ol.bp-beats:is(.bp-notime, .bp-orig)";
 
 /** WHICH SECTION IS PLAYING. Sections are [t, next.t); the last one is
  *  open-ended. Anything before the first section's t is clamped to 0 —
@@ -6710,7 +6729,7 @@ function wireRefMini(host) {
   docks.forEach((d) => REF_MINI_IO.observe(d));
 }
 
-function referenceHtml(a) {
+function referenceHtml(a, key = a.id) {
   const clip = (a.source || {}).clip;
   const href = safeUrl(a.sourceUrl || "");
   /* THE PANEL IS THE PLAYER NOW. The shot-list/transcript sections it used to
@@ -6732,13 +6751,13 @@ function referenceHtml(a) {
      file, and two copies of one image stacked is noise. Without a player it is
      the only image the panel has, so it stays. */
   const head = clip ? "" : `<div class="ref-head">${cover}</div>`;
-  return `<details class="bp-item ref-panel" open data-refid="${escapeHtml(a.id)}">
+  return `<details class="bp-item ref-panel" open data-refid="${escapeHtml(key)}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
       <span class="bp-name">The original</span>
     </summary>
     <div class="bp-body">
-      ${refPlayHtml(a)}
+      ${refPlayHtml(a, key)}
       ${head}
     </div>
   </details>`;
@@ -6750,8 +6769,12 @@ function referenceHtml(a) {
  *  card then looks exactly as it does today; an empty panel would read as a
  *  broken one. Measured on the 2026-08-23 backup: 5 of 47 records carry no
  *  `source` at all. */
-function refSplitHtml(a, scriptHtml, footHtml = "") {
-  const ref = referenceHtml(a);
+function refSplitHtml(a, scriptHtml, footHtml = "", key = a.id) {
+  /* `key` names the panel and its <video> (data-refid / data-refvid). It is the
+     record id everywhere except the original-script view, which passes
+     `<id>:orig` so it can sit in the same Library card as that record's brand
+     script without the two players sharing an identity. See adaptationHtml. */
+  const ref = referenceHtml(a, key);
   if (!ref) return scriptHtml + footHtml;
   /*  The foot goes UNDER the split, never inside .ref-main. At >=1180px
       app.css turns .ref-split into minmax(0,1.4fr) minmax(0,1fr), so an
@@ -7292,6 +7315,7 @@ function adaptationHtml(a, liveName, opts = {}) {
   const reuse = srcItem ? brandsWithout(srcItem) : [];
 
   let body;
+  let origIcons = false;   // the original branch draws its own delete; see deleteBtn
   if (isWriting(a)) {
     /* The same mark the brand lookup uses. This is the longest wait in the app
        — a link goes off to be transcribed, watched and rewritten — and it used
@@ -7465,44 +7489,113 @@ function adaptationHtml(a, liveName, opts = {}) {
     const segs = Array.isArray(scr.segments) ? scr.segments : [];
     const shots = Array.isArray(src.shots) ? src.shots : [];
     const t = (n) => `${Math.round(Number(n) || 0)}s`;
-    body = `
+    /* SCRIPT VIEWS PASS (owner, 2026-09-15: "some scripts look good like the
+       first screenshot and the others look terrible, so make them all look
+       good"). This branch used to print a flat table — a mono timecode, a tiny
+       tracked SAY/SHOW label and the words, over hairlines — beside nothing.
+       It now draws the SAME beat cards the lynxr script draws (beatRow): one
+       card per line, the say / show / on screen pill, the words, and the time
+       kept as a quiet chip at the end of the card rather than a mono column.
+
+       THE <ol> CARRIES .bp-orig, NEVER .bp-notime. .bp-notime still means "the
+       lynxr script" and nothing else (app.css scopes the good look to it and
+       the agency blueprints never carry it). .bp-orig is the video's own
+       transcript and shot list; app.css gives it the same card look, and the
+       player follow in wireAdaptationCards reads both — see REF_TRACKS.
+
+       data-t is the segment's own start, a number already, so there is no
+       beatStart() parse to fail. A start that is not a finite number gets no
+       data-t and simply never lights up, the same fail-soft rule. */
+    const dataT = (n) => Number.isFinite(Number(n)) && n !== null && n !== "" ? ` data-t="${Number(n)}"` : "";
+    const time = (n) => `<span class="bp-time">${escapeHtml(t(n))}</span>`;
+    const pill = (f, label) => `<span class="bp-lbl bp-lbl-${f}">${label}</span>`;
+    const sayRows = segs.map(([st, , txt]) => {
+      const words = String(txt || "").trim();
+      return words ? `
+          <li class="bp-beat"${dataT(st)}>${pill("say", "SAY")}<span class="bp-val bp-say">${escapeHtml(words)}</span>${time(st)}</li>` : "";
+    }).join("");
+    /* SHOW and ON SCREEN are two rows of one card, both .bp-dim: the visual is
+       what the camera sees, the on-screen text is the literal caption. They
+       used to share one value split by a line break under a single SHOW label,
+       which read the caption as part of the stage direction. */
+    const shotRows = shots.map((sh) => {
+      const visual = String((sh || {}).visual || "").trim();
+      const words = String((sh || {}).onscreen_text || "").trim();
+      const rows = [
+        visual ? pill("show", "SHOW") + `<span class="bp-val bp-show bp-dim">${escapeHtml(visual)}</span>` : "",
+        words ? pill("onscreen", "ON SCREEN") + `<span class="bp-val bp-onscreen bp-dim">“${escapeHtml(words)}”</span>` : "",
+      ].filter(Boolean);
+      if (!rows.length) return "";
+      // The time chip sits in the first row's third column; any second row
+      // leaves that cell empty, so it lines up under the first row's words.
+      return `
+          <li class="bp-beat"${dataT(sh.t)}>${rows[0]}${time(sh.t)}${rows.slice(1).join("")}</li>`;
+    }).join("");
+    const script = `
       ${a.format?.name ? `<div class="chips bp-tags"><span class="chip">${escapeHtml(a.format.name)}</span>
         ${src.tags?.format_type ? `<span class="chip">${escapeHtml(src.tags.format_type)}</span>` : ""}
         ${src.tags?.hook_pattern ? `<span class="chip">${escapeHtml(src.tags.hook_pattern)}</span>` : ""}</div>` : ""}
-      ${segs.length ? `<div class="bp-heading">What they say</div>
-        <ol class="bp-beats">${segs.map(([st, , txt]) => `
-          <li class="bp-beat"><span class="bp-t">${escapeHtml(t(st))}</span>
-            <span class="bp-lbl bp-lbl-say">SAY</span><span class="bp-val bp-say">${escapeHtml(String(txt || "").trim())}</span></li>`).join("")}</ol>`
+      ${sayRows ? `<div class="bp-heading">What they say</div>
+        <ol class="bp-beats bp-orig">${sayRows}</ol>`
         : `<p class="bp-hint">No speech &mdash; this one is carried by what's on screen.</p>`}
       ${/* SHOW rows are .bp-dim, SAY rows are not — the same weighting the
             agency blueprints use (row("SAY", say) plain, row("SHOW", …, true)
             dimmed) and the same one beatRow() applies to brand scripts. The
             words are what you came to read; the visuals are the annotation
-            around them, and printing both in full white made the two compete.
-            This branch was the one place that never got the treatment. */""}
-      ${shots.length ? `<div class="bp-heading">What's on screen</div>
-        <ol class="bp-beats">${shots.map((sh) => `
-          <li class="bp-beat"><span class="bp-t">${escapeHtml(t(sh.t))}</span>
-            <span class="bp-lbl bp-lbl-show">SHOW</span><span class="bp-val bp-show bp-dim">${escapeHtml(sh.visual || "")}${
-              (sh.onscreen_text || "").trim() ? `\n“${escapeHtml(sh.onscreen_text.trim())}”` : ""}</span></li>`).join("")}</ol>` : ""}
+            around them. */""}
+      ${shotRows ? `<div class="bp-heading">What's on screen</div>
+        <ol class="bp-beats bp-orig">${shotRows}</ol>` : ""}`;
+    const foot = `
       <div class="bp-actions">
-        ${/* data-orig marks WHICH script this button copies, and it has to be
-              on the BUTTON rather than looked up from the record: after this
-              change the same record can render twice inside one Library card
-              — once as its brand rewrite, once as the video's own words — so
-              two .ad-copy buttons can carry the same data-adid and mean
-              different things. See originalText. */""}
-        <button type="button" class="ghost ad-copy" data-adid="${id}" data-orig="1">Copy</button>
-        ${/* No rewrite here either — same reason as on a brand script. This is
-              the video's own transcript, so "ask again" would return the same
-              words anyway. */""}
         ${/* "Write this for a brand" turns an original INTO a brand script, so
               it makes no sense on a record that already is one — this card is
               only borrowing that record's source to show the video's own words.
               The entry's own "Also write this for" chips are the right control
-              there, and they already offer the brands it is NOT written for. */""}
+              there, and they already offer the brands it is NOT written for.
+              It leads the row, where the Teleprompter leads a brand script's. */""}
         ${a.brandId ? "" : `<button type="button" class="btn ad-brandify" data-adid="${id}">Write this for a brand</button>`}
+        ${/* No rewrite here either — same reason as on a brand script. This is
+              the video's own transcript, so "ask again" would return the same
+              words anyway. */""}
+        ${/* THE SAME ICON ROW A BRAND SCRIPT HAS, so the two cards end the same
+              way. .bp-orig-icons keeps refreshRevertBtn out of it: a borrowed
+              original carries the brand record's data-adid, and without the
+              exclusion confirming an edit on the brand script would inject a
+              revert button here too. */""}
+        <span class="bp-icons bp-orig-icons">
+          ${/* data-orig marks WHICH script this button copies, and it has to be
+                on the BUTTON rather than looked up from the record: the same
+                record can render twice inside one Library card — once as its
+                brand rewrite, once as the video's own words — so two .ad-copy
+                buttons can carry the same data-adid and mean different things.
+                See originalText. */""}
+          <button type="button" class="ghost icon-only ad-copy" data-adid="${id}" data-orig="1"
+            aria-label="Copy the original script" title="Copy the original script">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+              ><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          </button>
+          ${/* The record's own delete, moved into the row from .bp-foot. Only
+                when there is no brand rewrite on it (`!ad`) — exactly the rule
+                `deleteBtn` below applies, which now skips this branch. A
+                borrowed original never gets a bin: see origCarrier. */""}
+          ${ad ? "" : `<button type="button" class="ghost danger icon-only ad-del" data-adid="${id}"
+            aria-label="Delete this script" title="Delete this script">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+              ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+          </button>`}
+        </span>
       </div>`;
+    /* THE ORIGINAL VIDEO DOCKS BESIDE IT, as it does beside a brand script.
+       KEYED `<id>:orig`, not the record id: a borrowed original (the Library
+       card's "Original script" row) is the SAME record as the brand script
+       above it, and two panels sharing data-refid / data-refvid would have
+       restoreDisclosures resume BOTH videos after a repaint, and the mini
+       player's REF_MINI_ID could not tell them apart. Nothing looks the
+       record up by this key; every consumer only compares keys. */
+    body = refSplitHtml(a, script, foot, `${a.id}:orig`);
+    origIcons = true;
   } else {
     /* BRANDED, FINISHED, NO SCRIPT — an illegal state the pipeline can no
        longer write (fill_adaptation raises instead of returning "done"), kept
@@ -7535,7 +7628,7 @@ function adaptationHtml(a, liveName, opts = {}) {
 
      The other branches (the original transcript, a failed read) have no such
      row, and still need a way to be deleted. */
-  const deleteBtn = ad ? "" : `
+  const deleteBtn = ad || origIcons ? "" : `
       <div class="bp-foot">
         <button type="button" class="ghost danger icon-only ad-del" data-adid="${id}"
           aria-label="Delete this script" title="Delete this script">
@@ -7933,7 +8026,10 @@ function scrollCardToTop(card, { instant = false } = {}) {
  *  Bubble phase for the click, so a handler that stops propagation keeps the
  *  card still exactly as it did before; capture phase for `toggle`, which does
  *  not bubble. */
-const LAND_CARDS = ".script-grid > details.bp-item, .lib-scripts > details.bp-item";
+/* .trash-rows since 2026-09-15: the APP GLASS pass turned Trash from a
+   .script-grid into rows, which silently took deleted scripts out of this
+   list, so opening one stopped landing at its top. */
+const LAND_CARDS = ".script-grid > details.bp-item, .lib-scripts > details.bp-item, .trash-rows > details.bp-item";
 let LAND_ASK = null;
 let LAND_WIRED = false;
 function wireCardLanding() {
@@ -8004,6 +8100,23 @@ function wireCardLanding() {
 }
 wireCardLanding();
 
+/* NO RING WHEN THE PASTE BOX IS CLICKED (owner, 2026-09-15: "get rid of this
+   outline once i click on the input box"). A text input matches :focus-visible
+   on a mouse click as well as on Tab, so CSS alone cannot tell the two apart.
+   A pointer press inside a .composer-row marks it .pointer-focused until the
+   field loses focus; app.css drops the ring for that class. Keyboard focus
+   (Tab) never gets the class, so it keeps the 2px ring the /accessibility/ page
+   promises. A click also ends the autofocus ring on New script. */
+document.addEventListener("pointerdown", (e) => {
+  const row = e.target.closest && e.target.closest(".composer-row");
+  if (!row) return;
+  row.classList.add("pointer-focused");
+  row.classList.remove("autofocused");
+  const input = row.querySelector("input");
+  const clear = () => row.classList.remove("pointer-focused");
+  if (input) input.addEventListener("blur", clear, { once: true });
+}, { capture: true, passive: true });
+
 function wireAdaptationCards(host) {
   if (!host) return;
   stopSummaryLinks(host);
@@ -8067,22 +8180,24 @@ function wireAdaptationCards(host) {
      click on a section jump the video there. One block because all three
      read the same `vid`/`lis`/`times` per panel. */
   host.querySelectorAll("video.ref-video[data-refvid]").forEach((vid) => {
-    /* THE LYNXR SCRIPT'S OWN BEATS, not the original's sections. The player
-       lives in the panel; the beats live in .ref-main, its SIBLING inside
-       .ref-split — so the scope is the split, not the panel.
+    /* THE BEATS BESIDE THE PLAYER. The player lives in the panel; the beats
+       live in .ref-main, its SIBLING inside .ref-split — so the scope is the
+       split, not the panel.
        Read off the rendered <li>s, and only the ones that actually carry a
        data-t: a beat whose `t` would not parse simply is not a target, and its
        seconds fold into the beat before it. That is a highlight that lingers,
        never one that lands in the wrong place.
-       .bp-notime is on the lynxr script's <ol> and on nothing else in this
-       app — the asOriginal branch's two <ol class="bp-beats"> lists (the
-       video's own transcript and shot list) must NOT light up. */
+       ONE TRACK PER LIST (REF_TRACKS). Beside a brand script that is the lynxr
+       script's single ol.bp-notime, exactly as before. Beside the original
+       script (2026-09-15, when the video started docking there too) it is the
+       transcript's ol.bp-orig and the shot list's: each lights its own current
+       card, and only the FIRST track present — the words, or the shots when
+       there are no words — moves the column, so two follows never fight. */
     const split = vid.closest(".ref-split");
-    const lis = split
-      ? [...split.querySelectorAll(".ref-main ol.bp-beats.bp-notime > li.bp-beat[data-t]")]
-      : [];
-    const times = lis.map((li) => Number(li.dataset.t) || 0);
-    vid._refIdx = -1;
+    const tracks = (split ? [...split.querySelectorAll(REF_TRACKS)] : [])
+      .map((ol) => [...ol.querySelectorAll(":scope > li.bp-beat[data-t]")])
+      .filter((lis) => lis.length)
+      .map((lis) => ({ lis, times: lis.map((li) => Number(li.dataset.t) || 0), idx: -1 }));
 
     /* timeupdate fires ~4x a second. MOVE A CLASS, never re-render: this list
        is built by innerHTML and rebuilding it four times a second would
@@ -8094,20 +8209,21 @@ function wireAdaptationCards(host) {
        person's own seek put the playhead there. loadedmetadata fires on every
        fresh <video> — first render and every repaint, open card or shut — and
        following it is what scrolled a reading creator to the footer. */
-    const mark = (follow) => {
-      const i = refIndexAt(times, vid.currentTime);
-      if (i === vid._refIdx) return;
-      if (lis[vid._refIdx]) {
-        lis[vid._refIdx].classList.remove("on");
-        lis[vid._refIdx].removeAttribute("aria-current");
+    const mark = (follow) => tracks.forEach((tr, n) => {
+      const { lis } = tr;
+      const i = refIndexAt(tr.times, vid.currentTime);
+      if (i === tr.idx) return;
+      if (lis[tr.idx]) {
+        lis[tr.idx].classList.remove("on");
+        lis[tr.idx].removeAttribute("aria-current");
       }
-      vid._refIdx = i;
+      tr.idx = i;
       if (lis[i]) {
         lis[i].classList.add("on");
         lis[i].setAttribute("aria-current", "true");
-        if (follow) followScriptBeat(lis[i]);
+        if (follow && n === 0) followScriptBeat(lis[i]);
       }
-    };
+    });
     /* A seek can land between two timeupdates, and `play` after a repaint-
        restored currentTime fires no timeupdate until the first frame
        decodes. `ended` deliberately does NOT clear the highlight — the last
@@ -8155,7 +8271,7 @@ function wireAdaptationCards(host) {
        cannot know whether this card has a playable clip — one live record is
        age-gated and has none, and "Jump the video to 0:04" on a card with no
        video is a lie. Class and title only; no inline style (CSP). */
-    split.querySelectorAll(".ref-main ol.bp-beats.bp-notime > li.bp-beat[data-t]")
+    split.querySelectorAll(`${REF_TRACKS} > li.bp-beat[data-t]`)
       .forEach((li) => {
         li.classList.add("bp-seekable");
         li.title = `Move the video to ${lengthLabel(Number(li.dataset.t) || 0) || "0:00"}`;
@@ -8351,7 +8467,7 @@ function wireAdaptationCards(host) {
      rather than waiting for a repaint that deliberately does not happen. */
   refreshRevertBtn = (a) => {
     if (!a.adaptationOrig) return;
-    host.querySelectorAll(`.bp-icons`).forEach((row) => {
+    host.querySelectorAll(`.bp-icons:not(.bp-orig-icons)`).forEach((row) => {
       if (!row.querySelector(`[data-adid="${CSS.escape(a.id)}"]`)) return;
       if (row.querySelector(".ad-revert")) return;
       const b = document.createElement("button");
@@ -8822,6 +8938,18 @@ if (INVITE) {
   const f = document.getElementById("invite");
   if (f) f.value = INVITE;
 }
+/* ON THE HOME PAGE THE GATE IS A LAYER THAT HAS TO BE OPENED. /creatorsonly/
+   was retired on 2026-09-15 (owner: "you can delete the creators only, the
+   creators either have an account or make an account on lynxr.io main page");
+   its stub forwards every link here with the query string intact. On that page
+   the gate WAS the page, so setGateMode() alone was enough; here it would set
+   the mode of a card nobody can see and leave the invited creator on the
+   marketing page. Open it. A creator who is already signed in is taken into
+   the app by resume() at the end of this file, which also closes the gate. */
+if (HOME && (/[?&]signup=1\b/.test(location.search) || INVITED_EMAIL || INVITE)) {
+  showGate("up");
+  if (INVITED_EMAIL) document.getElementById("pw")?.focus();
+}
 
 /* Forgot password. Supabase answers /recover with 200 whether or not the
    address exists — deliberately, so the endpoint can't be used to find out who
@@ -9137,6 +9265,8 @@ async function sessionFromLink() {
 
   const err = p.get("error_description") || p.get("error");
   if (err) {
+    // The gate is hidden on the home page until opened; the message has to be seen.
+    if (HOME) showGate("up");
     document.getElementById("err").textContent = /expired|invalid/i.test(err)
       ? "That confirmation link has expired — sign up again to get a new one."
       : decodeURIComponent(err).replace(/\+/g, " ");
@@ -9162,7 +9292,7 @@ async function sessionFromLink() {
 (async function resume() {
   const link = await sessionFromLink();
   if (link === "recovery") {
-    setGateMode("reset");
+    if (HOME) showGate("reset"); else setGateMode("reset");
     document.getElementById("pw").focus();
     document.getElementById("err").textContent = "Set a new password to finish.";
     return;

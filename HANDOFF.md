@@ -170,6 +170,29 @@ landed, gate `ok`, stamp `20260915i`):
   content and legal sheets are at least a screen tall, `.pane-body` fills its
   pane, and the agency `<main>` fills the viewport. Checked at 1440×1400 on
   404, /about/ and the creator app shell.
+- **Card landing bug, found and fixed (stamp `20260915r`):**
+  - **Cause:** the below-the-fold footer rule first shipped as
+    `.pane-scroll > .pane-body { min-height: 100% }`. With the shell uncapped
+    (the document scrolls), that made `#pane-scroll` overflow as well.
+    `scrollCardToTop()` then scrolled the pane while the page had also
+    moved, so opened scripts landed 292–834px above the top of the screen.
+  - **Fix:** `min-height: 100svh`.
+  - **Trash:** the APP GLASS pass also renamed trash `.script-grid` →
+    `.trash-rows`, which dropped deleted scripts out of `LAND_CARDS`. They
+    are added back.
+  - **Verified** in headless Brave with injected data: library, library with
+    a card open above, every brand card, and every trash row land exactly
+    under the header (cardTop == expected) at 1440, 1180, 1024, 820, 390 and
+    844×390. Harness: `/private/tmp/lynxr-land/`.
+  - **Note:** clicking a card's thumbnail image doesn't open it; the
+    pre-change copy behaves the same.
+- **Desktop backdrop:**
+  - **Pull:** every blob within 900px is pulled toward the cursor, 60px max
+    and linear in distance.
+  - **Light:** a white light follows the cursor (safe: white only raises
+    luminance).
+  - **Limit:** bigger pulls fail the contrast bound even with paler blobs
+    (120px: .6431, at x0.85 strength: .6591). Don't raise PULL.
 - **Nav mark:** 32px on every public page.
 - **Wave:** on every device it waves on load, then every 3s (hover code removed).
 - **Backdrop motion:**
@@ -179,6 +202,32 @@ landed, gate `ok`, stamp `20260915i`):
     blobs individual moves.
 - **Wording:** "short-form video agency" → "UGC agency" everywhere (UGC stays
   uppercase via `.entity` in visible text).
+
+## /creatorsonly/ retired; the creator app lives on / (2026-09-15, stamp `20260915w`)
+
+Owner: "you can delete the creators only, the creators either have an account
+or make an account on lynxr.io main page".
+- **The stub:** `creatorsonly/index.html` is now a noindex stub.
+  `creatorsonly/forward.js` does `location.replace("/" + search + hash)`, with
+  a 3s meta-refresh fallback, so handed-out links and emailed invite /
+  confirmation / reset links keep working. The old page is in git history; a
+  copy is in the session scratchpad.
+- **creator.js on the home page:** before, the gate was hidden until opened,
+  so these links landed on the marketing page.
+  - `?signup=1`, `e=` or `c=` now calls `showGate("up")`, with the email and
+    invite prefilled.
+  - An error fragment opens the gate with the expired message.
+  - A `type=recovery` session opens it in reset mode.
+  - All verified end to end (old and new paths), with tokens stripped from the
+    URL.
+- **Retargeted:**
+  - `CREATOR_PATH = "/"`: the `redirect_to` for confirmation and reset emails.
+  - `app.js`'s staff "Creator app" link.
+  - The SQL invite-link comments.
+- **OWNER CHECK:** Supabase Auth → URL Configuration must allow
+  `https://lynxr.io/` as a redirect (it is allowed automatically if it is the
+  Site URL).
+- `og-creator-v3.png` is now unreferenced.
 
 ## Brand search: lynxr LLC entity + GEO (2026-09-15)
 
@@ -213,6 +262,150 @@ lynx media group".
   - **The real blocker is off-repo:** lynxr.io is still not indexed by Google
     (checked 2026-09-15). It needs Search Console verification, a sitemap
     submit and request-indexing.
+
+## Glass everywhere (2026-09-15, stamp 202609152a)
+
+One token family, `--gl-*`, appended to the end of `app.css`. `sitewide-glass.md`
+landed (all 12 steps, gate `ok`, stamp `x`) with the see-through recipe it was
+planned around. The owner then rejected that look ("i dont like the too
+transparent look"), sent a screenshot of the ORIGINAL hero card as the
+reference, and asked for everything to be glass. That was applied the same day
+by hand (stamp `y`). The owner then asked to see the first, FROSTED recipe on every
+surface ("lets see how that full look looks"), which is what is live now (stamp
+`z`): the `html[data-theme="light"]` block in the `--gl-*` section holds it, and
+deleting that block puts every surface back on the original look described
+below. **The original look (the fallback under the preview):**
+- **glass** — the hero card exactly as it stood before: `--glass` (85% white),
+  `--glass-blur` (20px saturate 1.6; 12px/1.4 at ≤760px), `--glass-edge`,
+  `--shadow-card`. No sheen layer. Floating cards (hero, step/feature/proof
+  cards, footer, both sign-in cards, Settings/brand/plan/feedback cards, the
+  phone header pill) AND everything the plan had put on frost: phone menu,
+  modals, sendbox, sort menu, score tooltip, blog/legal reading sheets, the
+  rail, the desktop sticky header.
+- **frost** — `--glass-solid` (94%): now only the public nav pill, which was
+  94% already.
+- **still** — the glass fill with no blur, for a surface holding a
+  `position: fixed` child (the opened script card, "The original") or a large
+  group box (by-brand).
+- **well** — `--field-input`: the white paste field with its grey edge.
+  Inputs, and anything nested inside a blurred parent, never blurred.
+- **Tables and stats go glass too** (owner), but `.stat` / `.bar-track` /
+  `.table-wrap` only exist in the agency app, so `agency-revamp.md` applies it.
+- **Always `background: var(--gl-fill)`, never `background-image`** — the
+  fallbacks (no-`backdrop-filter` browsers, `prefers-reduced-transparency`)
+  swap the shorthand for a flat colour.
+- **Text fixes (owner: "make this text also match the new redesign"):** the
+  sign-in email/password fields type in `--font-ui` instead of IBM Plex Mono;
+  Chrome's autofill blue is covered by the well's white (inset-shadow trick,
+  NOT verified on a real autofilled field); the sync line ("● syncing ·
+  email" in the agency header, "● synced" in the rail) is `--font-ui` with the
+  words in ink/grey and only the ● green or red, via `::first-letter` (the rail
+  badge became `inline-block` so `::first-letter` applies).
+
+**Verified (stamp `y`, Browser pane at 1024px):** hero card, composer and nav
+pill computed values are identical to the pre-change measurement (85% /
+`blur(20px) saturate(1.6)` / .85 edge / same shadow; composer #fff with the
+.2 ink edge; nav 94%). Step cards and footer paint the same glass. The
+`/agencyonly/` gate card is glass and both fields compute Albert Sans on #fff.
+Sync-line dot colours were checked painted on stand-in copies of both markups
+with the real stylesheet, not in a signed-in app.
+
+**Contrast:** the plan's numbers were measured for the see-through recipe and
+no longer apply. The shipped fill is the pre-existing 85% `--glass`, whose
+token note already covers text over a black video frame; it was not
+re-measured after the change. Green words still turn ink on glass (D8).
+
+**Nesting rule:** an element with `backdrop-filter` is a backdrop root — a
+glass/frost child inside one only samples that parent's own fill, not the
+page behind it, so any surface nested inside a blurred card takes the well
+tint with no blur of its own (FAQ items, the blog script/table, the terms
+banner, the sign-in card's paste banner and fields). Verified with a probe
+that walks every element in every state: no blurred element has a blurred
+ancestor.
+
+**Mini-player rule:** `backdrop-filter` makes an element the containing block
+for a `position: fixed` descendant, so the opened script card and "The
+original" (both hold the mobile mini player) never blur — they take the glass
+fill with `backdrop-filter: none` instead. Verified: the mini player's `.ref-media`
+stays `position: fixed` and pins inside the viewport with no blurred ancestor
+between it and the card.
+
+**Step 9 (phone scroll cost):** measured, not assumed. p95 frame time and
+long-frame count at 390×844 under 4× CPU throttle were identical before and
+after on every page tested (landing, blog, legal, settings, brand — all
+16.7–16.8ms p95, 0 long frames both runs). The 12px phone-blur fallback
+(D7) was **not needed**. That was measured on the 16px recipe; the shipped
+phone blur is `--glass-blur`'s 12px and was not re-measured.
+
+**Backdrop unchanged (D14):** `backdrop.js`, the `.blob` layers and `--field`
+were not touched by this plan.
+
+**Next:** the owner reviews the glass before anything else runs ("lets go all
+glass first and then ill see"). Queued after that review:
+- `agency-revamp.md` consumes these `--gl-*` tokens. Its own text still says
+  the header pill and tray are frost and data grids stay opaque; per the owner
+  both are now glass (header, tray, tables, stat tiles, Ops tiles).
+- **Creator floating shell LANDED (stamp `202609152b`)**, block "THE FLOATING SHELL
+  (owner, 2026-09-15)" at the end of `app.css`:
+  - Rail = direction A (floating panel, 12px inset, `--r-card`); desktop header is its
+    own island aligned to the rail; content islands (tiles, opened card, Settings cards)
+    use `--gl-fill` without blur; phone header pill and drawer float 10px in.
+  - New `--gl-fill-scrim` tier (94%→86% frosted) for anything over a scrim or media:
+    the phone drawer, `.lp-menu`, `.modal-card`, `.sendbox`, `.find-sort-menu`,
+    `.score-tip`. Drawer over a black cover: `--text-2` 1.18 → 6.95.
+  - No box inside a box: nested script cards, "The original" panel backing, the
+    poor-fit callout, Settings trash rows, the plan note and the by-brand group box are
+    flat inside their island (hairline dividers only). The by-brand box change needs
+    the owner's OK.
+  - The new-script empty state has no container. The in-pane footer shows on Settings
+    only (`creator.js` `renderPane()` sets `pane.dataset.view = VIEW.kind`).
+  - Double scrollbar cause: the in-pane footer's "lynxmediagroup.org" overflowed at
+    840–860px and gave `.pane-scroll` its own scrollbar; the footer reflows to two
+    columns at 821–960px. Sweep 330–1500px: only the document scrolls (plus the existing
+    "The original" column at ≥1180px).
+  - Pre-existing, left alone: the desktop header scrolls away (`.pane-scroll` is a scroll
+    container, so `sticky` never engages); the drawer has no focus trap / Escape;
+    "that video is private." paints red words on glass.
+- **Script views, one look — LANDED (stamp `202609152c`)**, block "SCRIPT VIEWS, ONE
+  LOOK (owner, 2026-09-15)" at the end of `app.css` plus a `creator.js` patch. The only
+  old-style path was the original-script branch of `adaptationHtml()` ("what they say" /
+  "what's on screen" as a mono-timecode table). It now renders beat cards in
+  `ol.bp-beats.bp-orig` (say pill; show + "on screen" pills; the time as a trailing
+  `.bp-time` in the UI font) with "The original" docked via `refSplitHtml`, keyed
+  `<id>:orig` so it never shares a player with the brand script on the same record.
+  `.bp-notime` still means the lynxr script only; `REF_TRACKS` (creator.js) covers both
+  lists for play-highlight and click-to-seek, one track per list. The brand script (the
+  owner's reference) is paint-identical. Verified after applying, against the served
+  files: `.bp-orig` beats compute identical to `.bp-notime` beats (20px radius, padding,
+  fill, edge, shadow), no `.bp-t` mono rows remain, painted screenshot taken. The
+  "needs / setup / script" table is agency-only (`app.js` `cbDetailHtml()` ~5468,
+  `campaignDocHtml()` ~4657): the agency plan covers it.
+- In progress as a scratch-copy patch: the public pages as floating islands (info = old
+  white, nav/footer = glass).
+  Then `agency-revamp.md` (amended the same evening: islands, scrim tier, one scroller,
+  scripts and phone matching the creator app).
+
+**Also landed (stamp `202609152a`; `check_stamp` cannot suggest past `z`, so the
+format is date + batch digit + letter):**
+- The open script card's down-chevron sat ~5–6px right of centre: the hidden `▸`
+  text node (font-size 0) was a second grid row (20.5px + 11.5px) in the rotated
+  34px caret button. `grid-template: 1fr / 1fr` on that `.bp-caret` makes it one
+  32px row; verified from the served stylesheet (rows `32px 0px`) and painted.
+- Closed library tiles: `border-radius` 32px → 22px (focus ring 29px → 19px),
+  owner: "round the corners a bit less". The cover clips to it (`overflow: clip`).
+- The landing hero card is pinned to its ORIGINAL white (`--glass` 85%, `--glass-edge`,
+  `--shadow-card`, `--glass-blur`) and its paste field to the `--field-input` tokens,
+  whatever the preview tokens say (owner: "make this the old white background"). The
+  rule sits right after the well section so the field override wins. Verified computed
+  at 1024px: identical to the pre-change hero.
+- Public pages, owner: "bring the old white version for the info on the screen, the footer
+  and nav bar can be the glass". The landing info cards (`.lp-step`, `.lp-feat`,
+  `.lp-stat.lp-panel`, `.lp-vid`, `.lp-ex-card`) and the content pages' reading sheet
+  (`body.lp:not(.home) main`, `main.legal`) and its nested FAQ/script/table boxes were
+  REMOVED from the `--gl-*` rules, so their original rules apply again (72% `--surface`
+  with `--glass-blur`). The nav pill and footer card stay frosted glass. Verified computed
+  at 1024px on `/` and `/faq/`. Direction for the queued landing/content floating pass:
+  info sections are the old white, chrome (nav, footer) is glass.
 
 ## What stage Lynxr is at (2026-08-18)
 

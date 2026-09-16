@@ -12,7 +12,7 @@ a change to `app.css` lands on all of them.
 | Path | What it is |
 |---|---|
 | `index.html` / `home.js` | Public landing page. Wait list capture only; neither app is linked from it |
-| `creatorsonly/` / `creator.js` | Creator app — paste a link, get a script. Unlisted URL, given out by hand |
+| `index.html` / `creator.js` | Creator app — paste a link, get a script. Lives on the home page; `creatorsonly/` is a retired stub that forwards there |
 | `agencyonly/` / `app.js` | Agency app — database, brief builder, client folders. Staff only |
 | `privacy/` | Privacy policy, linked from all three (the creator app fetches it into a modal) |
 | `app.css` | Every page. One file |

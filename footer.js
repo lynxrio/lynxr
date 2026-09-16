@@ -118,8 +118,111 @@
   update();
   }
 
+  /* THE FOOTER STARTS AT THE BOTTOM EDGE OF THE SCREEN. Owner, 2026-09-15:
+     "have it be so that on any display i cant see it unless i scroll down",
+     then "make it like the very start is the edge of the display for all
+     displays, right now im scrolling too far for it". CSS min-heights got the
+     first half and overshot the second: they could not know how tall the
+     header above the content is, so the footer began a header's height (plus
+     its margin) below the fold. This measures instead. When everything above
+     the footer is shorter than one screen, the footer's top margin grows by
+     exactly the shortfall, so its top edge sits on the bottom edge of the
+     screen with the page scrolled to the top. When the content is taller, the
+     margin is left alone and the footer simply follows it.
+
+     - The screen height is the SMALL viewport (100svh, read from a probe), not
+       innerHeight: a phone's toolbar changes innerHeight while you scroll, and
+       chasing it would make the page jump under your finger.
+     - The scroller is whichever box really scrolls: the document, or the
+       creator app's #pane-scroll on layouts that cap the shell. For a box, the
+       "screen" is its own client height.
+     - It is one read and one write in the same task, so nothing is painted in
+       between. Margin is set through CSSOM (the CSP drops style= attributes).
+     - This runs under reduced motion too: it is layout, not animation. */
+  const probe = document.createElement("div");
+  probe.setAttribute("aria-hidden", "true");
+  probe.style.position = "fixed"; probe.style.left = "-9999px"; probe.style.top = "0";
+  probe.style.width = "1px"; probe.style.height = "100svh"; probe.style.visibility = "hidden";
+  probe.style.pointerEvents = "none";
+  document.body.appendChild(probe);
+
+  function scrollBoxOf(el) {
+    for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+      if (/(auto|scroll)/.test(getComputedStyle(n).overflowY) && n.scrollHeight > n.clientHeight + 1) return n;
+    }
+    return null;   // the document
+  }
+
+  const fits = [];
+  function fitFold(foot) {
+    if (!foot.isConnected || !foot.getClientRects().length) return;
+    foot.style.marginTop = "";                              // back to the stylesheet's own margin
+    const base = parseFloat(getComputedStyle(foot).marginTop) || 0;
+    /* A FLEX-GROWN SIBLING WOULD HIDE THE SHORTFALL. In the creator app,
+       .pane-body is `flex: 1 1 auto` inside a column that is at least one
+       screen tall, so with the margin cleared it grows into exactly the space
+       being measured and the footer looks like it already sits low enough
+       (measured: margin 531px where 735px was needed). For the one read, the
+       siblings above stop growing; they are put back before anything paints. */
+    const grown = [];
+    for (let el = foot.previousElementSibling; el; el = el.previousElementSibling) {
+      if (parseFloat(getComputedStyle(el).flexGrow) > 0) { grown.push([el, el.style.flexGrow]); el.style.flexGrow = "0"; }
+    }
+    const box = scrollBoxOf(foot);
+    const r = foot.getBoundingClientRect();
+    let naturalTop, screen;
+    if (box) {
+      const b = box.getBoundingClientRect();
+      naturalTop = r.top - b.top - box.clientTop + box.scrollTop;
+      screen = box.clientHeight;
+    } else {
+      naturalTop = r.top + scrollY;
+      screen = probe.getBoundingClientRect().height || innerHeight;
+    }
+    grown.forEach(([el, was]) => { el.style.flexGrow = was; });
+    const short = Math.round(screen - naturalTop);
+    if (short > 0) foot.style.marginTop = (base + short) + "px";
+  }
+
+  let queued = 0;
+  const refit = () => {
+    if (queued) return;
+    queued = requestAnimationFrame(() => { queued = 0; fits.forEach((f) => f()); });
+  };
+  /* CONTENT CAN CHANGE WITHOUT ANY BOX ABOVE CHANGING SIZE. The creator app's
+     .pane-body fills its column, so switching from the library to a short
+     brand page swaps its contents while its own height stays put, and a
+     ResizeObserver never fires (measured: the footer kept the library's
+     margin). So DOM changes above the footer also ask for a refit, throttled
+     to one every 150ms because the app repaints parts of itself while a
+     script is being written. Attribute changes are not watched, so the
+     flex-grow write in fitFold cannot feed back into this. */
+  let soon = 0;
+  const refitSoon = () => {
+    if (soon) return;
+    soon = setTimeout(() => { soon = 0; refit(); }, 150);
+  };
+
   document.querySelectorAll("footer").forEach((foot) => {
     const mark = foot.querySelector(".foot-wordmark");
-    if (mark) wire(foot, mark);
+    if (!mark) return;
+    fits.push(() => fitFold(foot));
+    // Everything above the footer decides where it lands: watch those boxes
+    // (the app rebuilds #pane-body, reveals #app, opens cards) and the page
+    // width. Not the footer's parent — the margin written here resizes that,
+    // which would only re-run this to the same answer.
+    const ro = new ResizeObserver(refit);
+    const mo = new MutationObserver(refitSoon);
+    for (let s = foot.previousElementSibling; s; s = s.previousElementSibling) {
+      ro.observe(s);
+      mo.observe(s, { childList: true, subtree: true, characterData: true });
+    }
+    ro.observe(foot);
+    wire(foot, mark);
   });
+  let lastW = innerWidth;
+  addEventListener("resize", () => { if (innerWidth !== lastW) { lastW = innerWidth; refit(); } }, { passive: true });
+  addEventListener("orientationchange", refit, { passive: true });
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(refit);
+  refit();
 })();
