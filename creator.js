@@ -779,6 +779,7 @@ function refreshSeats() {
     SEATS_OPEN = s.open !== false;
     INVITE_REQUIRED = s.invite_required === true;
     applySeatState();
+    applyOauthState();
   });
 }
 
@@ -5918,9 +5919,11 @@ function beatRow(bt, carry, silent, adid, idx) {
   // point and an unchanged shot is still running. A silent video is the
   // opposite: DO and SHOW *are* the script, and blanking them would drop the
   // beat entirely, so every beat is printed in full and nothing is dimmed.
+  /* REPEATED DO LINES ARE SHOWN (owner, 2026-09-16: "show the repeated do lines too and make them
+     editable"). A blanked repeat had no line to click, so that beat's action could not be edited
+     in place. Only SHOW still collapses, and spoken scripts do not print SHOW anyway. */
   if (carry && !silent) {
     const wasDo = doIt, wasShow = show;
-    if (doIt && doIt === carry.do) doIt = "";
     if (show && show === carry.show) show = "";
     carry.do = wasDo || carry.do;
     carry.show = wasShow || carry.show;
@@ -8779,7 +8782,7 @@ function startLiveSync() {
    Do not treat a bump here as consent re-taken. The policy's own "changes to
    this policy" section promises an email for a material change, and that email
    is the mechanism; this is only the label on it. */
-const PRIVACY_VERSION = "2026-08-18";
+const PRIVACY_VERSION = "2026-09-16";
 
 /* THE MERGED HOME. `/` hosts three layers in one document — #lp-main
    (marketing), #gate (auth) and #app (the app). HOME is false on any other
@@ -8837,6 +8840,97 @@ function clearGateErrors() {
     if (err.textContent === GATE_ERR_TEXT) err.textContent = "";
   }
 }));
+
+/* ---------- SIGN IN WITH GOOGLE / APPLE ---------- */
+
+/* THE KILL SWITCH, and the slower of the two. Flipping a provider to false here
+   hides its button; flipping both hides the block and the "or" with it. But the
+   FASTER lever is the Supabase dashboard — Authentication -> Sign In / Providers
+   -> disable — which takes effect immediately for everyone, needs no deploy and
+   no ?v= bump. Reach for that one first if a provider misbehaves; this is for
+   taking the button off the page afterwards.
+
+   SHIPPED OFF (owner, 2026-09-16). The Google Cloud client and Supabase provider
+   are not both configured yet, and one unconfirmed creator email is still an
+   open fork risk (see the plan's assumption 2) — Supabase would mint a second
+   uid for that address the moment Google is live. Flip this to `true` only
+   after both are done and the census in Stage A step 2 comes back clean. */
+const OAUTH_ON = { google: false, apple: false };
+const OAUTH_FLAG = "lynxr_oauth";
+let OAUTH_RETURN = null;
+
+/* WHAT WE LEFT ON THE DOORSTEP. sessionStorage, not localStorage: it belongs to
+   this tab and this trip, and a stale one must not outlive the tab. It carries
+   the mode we left in (so a refusal reopens the card the creator was actually
+   on) and the privacy version they ticked, because the return lands in a fresh
+   page load with none of that in memory. */
+function takeOauthFlag() {
+  try {
+    const raw = sessionStorage.getItem(OAUTH_FLAG);
+    sessionStorage.removeItem(OAUTH_FLAG);
+    if (!raw) return null;
+    const f = JSON.parse(raw);
+    // Ten minutes is longer than any real trip to a consent screen and shorter
+    // than "I left this tab open over lunch".
+    return f && Date.now() - (f.at || 0) < 600000 ? f : null;
+  } catch { return null; }
+}
+
+/* Same per-request redirect_to as sbSignUp() and the reset mail, for the same
+   reason: the project's single Site URL is not necessarily the host that served
+   this page. It must also be on Supabase's Redirect URLs allow list
+   (https://lynxr.io/** and http://localhost:8811/**) or GoTrue silently sends
+   the creator to the Site URL instead — signed in, on the wrong page. */
+function oauthStart(provider) {
+  try {
+    sessionStorage.setItem(OAUTH_FLAG, JSON.stringify({
+      provider, mode: GATE_MODE, at: Date.now(),
+      agreed: GATE_MODE === "up" ? PRIVACY_VERSION : "",
+    }));
+  } catch {}
+  const back = encodeURIComponent(location.origin + CREATOR_PATH);
+  location.href = `${SB_URL}/auth/v1/authorize?provider=${provider}&redirect_to=${back}`;
+}
+
+/* WHEN THE BUTTONS ARE NOT AN OPTION.
+   Creating an account is the only mode the front-door gate in
+   supabase/invites.sql applies to, and it is the only mode where a provider
+   button can be refused by the trigger. An invite code rides on signup metadata
+   (`data: { invite }`) and a provider signup has nowhere to put one — so while
+   invites ARE the gate, these buttons cannot work and must not be offered.
+   Seats-full gives the same answer as the submit button's.
+   Signing IN is left alone on purpose: it inserts no row for an account that
+   already exists, so a creator who set up with Google keeps their way back in
+   whatever the front door is doing. */
+function applyOauthState() {
+  const box = document.getElementById("gate-oauth");
+  if (!box) return;
+  const any = OAUTH_ON.google || OAUTH_ON.apple;
+  const inGate = GATE_MODE === "in" || GATE_MODE === "up";
+  const blocked = GATE_MODE === "up" && (INVITE_REQUIRED || SEATS_OPEN === false);
+  box.hidden = !any || !inGate || blocked;
+  document.getElementById("oauth-google").hidden = !OAUTH_ON.google;
+  document.getElementById("oauth-apple").hidden = !OAUTH_ON.apple;
+}
+
+for (const p of ["google", "apple"]) {
+  document.getElementById("oauth-" + p)?.addEventListener("click", () => {
+    /* Agreement belongs to creating an account, and a provider button is not a
+       way around the tick. Same field, same flag, same sentence shape as the
+       submit path — gateFieldError already knows "agree". */
+    if (GATE_MODE === "up" && !document.getElementById("agree").checked) {
+      gateFieldError("agree", "Tick the box to agree to the privacy policy, then continue.");
+      return;
+    }
+    document.getElementById("oauth-google").disabled = true;
+    document.getElementById("oauth-apple").disabled = true;
+    document.getElementById("gate-go").disabled = true;
+    // Ours, never server-supplied — gateBusy uses innerHTML.
+    gateBusy(document.getElementById("err"),
+      p === "google" ? "Taking you to Google…" : "Taking you to Apple…");
+    oauthStart(p);
+  });
+}
 
 function setGateMode(mode) {
   GATE_MODE = mode;
@@ -8907,6 +9001,7 @@ function setGateMode(mode) {
   // a rule that was never about them.
   document.getElementById("gate-go").disabled = false;
   if (up) { if (SEATS_OPEN === null) refreshSeats(); else applySeatState(); }
+  applyOauthState();
 }
 
 /* THE MERGED HOME'S GATE OPEN/CLOSE. On every other page #gate is simply the
@@ -9287,6 +9382,29 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !document.getElementById("send-modal")?.hidden) closeSendOverlay();
 });
 
+/** WHAT CAME BACK INSTEAD OF A SESSION. GoTrue puts a provider failure in the
+    same URL fragment a confirmation link uses, so this is the only code that can
+    see it — GitHub Pages never receives a fragment.
+
+    The refusals a creator can actually hit here are THE SAME REFUSALS
+    /auth/v1/signup gives, because the same BEFORE INSERT trigger
+    (supabase/invites.sql) decides both. So they go through signupError() and say
+    the same words in both places rather than growing a second vocabulary that
+    drifts.
+
+    A CANCEL IS NOT A FAILURE. Someone who backed out of Google's account chooser
+    made a decision; telling them something went wrong is a lie and it is the
+    message they will read most often. Empty string, quiet card. */
+function oauthReturnError(p) {
+  const code = (p.get("error_code") || p.get("error") || "").toLowerCase();
+  const desc = decodeURIComponent(p.get("error_description") || "").replace(/\+/g, " ");
+  const both = code + " " + desc;
+  if (/access_denied|user_cancell?ed|consent_required|login_required/i.test(both)) return "";
+  if (/bad_gateway|502|503|504|timeout|temporarily unavailable|provider is not enabled|validation_failed/i.test(both))
+    return "That sign-in service didn't answer. Try again in a moment, or use your email and password.";
+  return signupError(desc || code);
+}
+
 /** A confirmation (or recovery) link comes back here with the session in the
     URL fragment. Take it, strip it out of the address bar so the tokens never
     sit in history or get pasted into a chat, and go straight in — otherwise a
@@ -9296,6 +9414,11 @@ document.addEventListener("keydown", (e) => {
     Fragments never reach a server, so this is the only place that can read it;
     GitHub Pages sees nothing. */
 async function sessionFromLink() {
+  /* Read and clear the doorstep note BEFORE the early return below, so a plain
+     reload — which is what "they wandered off at Google and came back later"
+     looks like — throws it away instead of attributing a later confirmation
+     link to an OAuth trip that never finished. */
+  const oa = takeOauthFlag();
   const hash = location.hash || "";
   if (!hash.includes("access_token") && !hash.includes("error")) return false;
   const p = new URLSearchParams(hash.replace(/^#/, ""));
@@ -9303,11 +9426,13 @@ async function sessionFromLink() {
 
   const err = p.get("error_description") || p.get("error");
   if (err) {
-    // The gate is hidden on the home page until opened; the message has to be seen.
-    if (HOME) showGate("up");
-    document.getElementById("err").textContent = /expired|invalid/i.test(err)
-      ? "That confirmation link has expired — sign up again to get a new one."
-      : decodeURIComponent(err).replace(/\+/g, " ");
+    // The card the creator was actually on when they left, not always "up".
+    if (HOME) showGate(oa && oa.mode === "in" ? "in" : "up");
+    document.getElementById("err").textContent = oa
+      ? oauthReturnError(p)
+      : /expired|invalid/i.test(err)
+        ? "That confirmation link has expired — sign up again to get a new one."
+        : decodeURIComponent(err).replace(/\+/g, " ");
     return false;
   }
   const access_token = p.get("access_token"), refresh_token = p.get("refresh_token");
@@ -9318,6 +9443,7 @@ async function sessionFromLink() {
       headers: { apikey: SB_KEY, Authorization: `Bearer ${access_token}` } });
     if (!res.ok) return false;
     adoptSession({ access_token, refresh_token, user: await res.json() });
+    OAUTH_RETURN = oa;
     // A recovery link authenticates but does NOT change the password. Dropping
     // straight into the app would look like success while leaving the old
     // password in place — so the next sign-in fails exactly as before and the
@@ -9341,6 +9467,19 @@ async function sessionFromLink() {
       if (!had) { document.getElementById("err").textContent = accountLoadError(ex.message || ""); return; }
       SYNC_OK = false;
       if (DIRTY) scheduleRetry();
+    }
+    /* Consent, recorded the way the password signup records it (see the "up"
+       branch of the gate submit). The create form's tick gates the provider
+       buttons too, and a provider button pressed on the SIGN-IN form still
+       creates the account when there isn't one — so the version and the moment
+       are written here, once, for any account that reaches the app without them. */
+    if (OAUTH_RETURN && !ME.privacyAccepted) {
+      ME.privacyAccepted = {
+        version: OAUTH_RETURN.agreed || PRIVACY_VERSION,
+        at: new Date().toISOString(),
+        via: OAUTH_RETURN.provider,
+      };
+      save();
     }
     unlock();
     return;

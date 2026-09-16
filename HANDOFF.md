@@ -496,7 +496,7 @@ or data-visibility change.
   (volatile; rebuilt from `~/.claude/plans/agency-revamp.md` Appendix A). No signed-in check
   was run — Claude never typed a credential.
 
-## Small follow-ups (2026-09-16, stamp `202609152o`)
+## Small follow-ups (2026-09-16, stamp `202609152s`)
 
 Owner requests made while the agency build ran, each verified in the Browser pane on
 copies built from the real stylesheet and scripts:
@@ -523,9 +523,31 @@ copies built from the real stylesheet and scripts:
   Removed from the public block's island selector list.
   Its bottom padding was cut so it sits 46px above the footer card at 1440 (34px at 390),
   down from 147px (owner: "put this closer to the footer box").
-- **Open question:** the owner reported "can't edit the scripts anymore". In-place
-  editing of a creator brand script was reproduced WORKING with a real click (focus,
-  typing, save/discard pills). Waiting on which app/screen fails.
+- **Editing indicator (both apps):** the line being edited shows a straight 2px left stripe
+  (a background layer, not an inset shadow — an inset shadow on a box with rounded right
+  corners painted slivers along the top and bottom), accent on focus, green while unsaved
+  (block "THE LINE YOU ARE EDITING"). Pending wins over hover; an emptied line stays visible
+  at ≤560px in both apps.
+- **Creator:** repeated DO lines are no longer collapsed in `beatRow()`, so every beat's DO is
+  editable in place.
+- **Agency in-place editing:** SAY / DO / SHOW / ON SCREEN lines edit in place on client
+  blueprints, campaign formats, the brief viewer and the New Client modal (`agBeatParse` /
+  `agBeatSplice` / `agWireInlineEdit` in `app.js`). Edits splice only the edited characters of the
+  stored beat string (1,970 round-trip edits clean) and save as overrides (`b.editedBeats`,
+  `edited.beats`, `items[i].editedBeats`; modal drafts on "Save brief"). Three edit shapes are
+  refused with a pointer to the pencil. Root cause of "click does nothing": lines never had a
+  click handler; the pencil always worked. Hook / CTA / caption are not inline-editable yet.
+- **Agency Database view is a tile grid** (block "AGENCY DATABASE: PASTED VIDEOS AS A GRID",
+  `srcCardHtml` display-only changes). An opened tile spans the grid and is the old row. A click
+  on the cover now opens the tile; the ↗ goes to the original post. Database tiles have no
+  in-place editing (`srcCardHtml` never had it).
+- **Google sign-in is built but OFF** (`const OAUTH_ON = { google: false, … }` in `creator.js`):
+  button on the creator gate with Google's official icon-only light asset
+  (`assets/google-g.svg`, unmodified; Safari rendering of its `foreignObject` gradient
+  unverified), redirect/return handling, privacy + terms text (16 Sept 2026). Owner still has to:
+  fix the one unconfirmed account, confirm `require_invite = false`, create the Google OAuth
+  client and enable the Supabase provider; then flip the flag, bump the stamp, and test a new
+  Google address plus linking to an existing password account.
 
 ## Brand search visibility (2026-09-16) — plan `~/.claude/plans/brand-search-visibility.md`
 
@@ -535,8 +557,14 @@ Lynx R headsets and lynxr.com); the homepage `#how` lede opens with "lynxr turns
 tiktok or instagram video into a script for the brand you make content for." (3 lines
 at 1024 and 390, painted); the stale Stage-A `<meta name="referrer" content="no-referrer">`
 is gone (the server's `strict-origin-when-cross-origin` applies); `llms.txt` lists
-`/refunds/`. **Step 8 (IndexNow, `./venv/bin/python tools/indexnow.py`) runs only after
-the owner pushes and GitHub Pages serves the new files.** Owner steps 5–7 and 9–14
+`/refunds/`. The owner pushed (`d3743ea`); lynxr.io served it ~40s later. **Step 8 DONE:**
+`tools/indexnow.py` → `IndexNow answered 202 for 21 URL(s)`. The script needed two fixes
+first (now in the file): Cloudflare 403s the default `Python-urllib` user agent, so it
+sends `lynxr-indexnow/1.0 (+https://lynxr.io/)`; and the python.org macOS build had no
+root certificates, so it falls back to `/etc/ssl/cert.pem` with verification still on.
+Search Console: the Domain property `lynxr.io` was ALREADY verified (7 indexed pages,
+7 clicks since 2026-08-24); the sitemap had never been submitted and now is
+(`https://lynxr.io/sitemap.xml`; a Domain property needs the full URL). Owner steps 5–7 and 9–14
 (Search Console, Bing, GitHub About, LinkedIn tagline, socials, listings, AI baseline,
 weekly check) are the owner's. Pricing on the site still reads 25 free / $24.99;
 decide before Search Console so the first indexed version is the right one.

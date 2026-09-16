@@ -15,12 +15,28 @@ It sends nothing but public URLs and the public key. Standard library only.
 """
 import json
 import re
+import ssl
 import sys
 import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 HOST = "lynxr.io"
+# Cloudflare in front of lynxr.io answers 403 to Python's default "Python-urllib"
+# user agent (measured 2026-09-16; curl, bingbot and this string all get 200), so
+# the key-file check announces itself honestly instead.
+UA = "lynxr-indexnow/1.0 (+https://lynxr.io/)"
+
+
+def tls_context():
+    """The python.org macOS build ships without root certificates until its
+    "Install Certificates" script is run, and every HTTPS call then fails with
+    CERTIFICATE_VERIFY_FAILED. Verification stays ON: fall back to the system
+    bundle macOS already has, rather than turning checks off."""
+    ctx = ssl.create_default_context()
+    if not ctx.get_ca_certs() and Path("/etc/ssl/cert.pem").exists():
+        ctx.load_verify_locations("/etc/ssl/cert.pem")
+    return ctx
 
 
 def main():
@@ -34,14 +50,16 @@ def main():
     else:
         urls = re.findall(r"<loc>([^<]+)</loc>", (ROOT / "sitemap.xml").read_text())
 
-    live = urllib.request.urlopen(f"https://{HOST}/{key}.txt", timeout=15).read().decode().strip()
+    ctx = tls_context()
+    probe = urllib.request.Request(f"https://{HOST}/{key}.txt", headers={"User-Agent": UA})
+    live = urllib.request.urlopen(probe, timeout=15, context=ctx).read().decode().strip()
     if live != key:
         sys.exit("the key file is not live yet: push and wait for the deploy, then run this again")
 
     body = json.dumps({"host": HOST, "key": key, "keyLocation": f"https://{HOST}/{key}.txt", "urlList": urls}).encode()
     req = urllib.request.Request("https://api.indexnow.org/indexnow", data=body,
-                                 headers={"Content-Type": "application/json; charset=utf-8"})
-    with urllib.request.urlopen(req, timeout=30) as r:
+                                 headers={"Content-Type": "application/json; charset=utf-8", "User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=30, context=ctx) as r:
         print(f"IndexNow answered {r.status} for {len(urls)} URL(s)")  # 200 or 202 = accepted
 
 
