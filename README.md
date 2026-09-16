@@ -1,8 +1,21 @@
-# Lynxr
+# lynxr
 
-Format intelligence for short-form video. Scrapes social video, tags each one
-against a locked taxonomy using the Claude API, and merges everything into a
-single database that powers the dashboard at [lynxr.io](https://www.lynxr.io).
+**lynxr turns a short-form video into a script.** You paste a public TikTok or
+Instagram link at **[lynxr.io](https://lynxr.io/)**; lynxr watches the video,
+transcribes it, works out the format underneath — the hook, the beats, their
+order, the turn and the close — and rewrites that format as a script for the
+brand you make content for.
+
+lynxr is made by lynxr LLC, a partner company of
+[Lynx Media Group](https://lynxmediagroup.org/), the UGC agency in Allston,
+Massachusetts.
+
+Not to be confused with the Honeywell/Ademco LYNXR alarm panels, the Lynx R
+mixed-reality headsets, or lynxr.com.
+
+This repository is the site and the data pipeline behind it: it scrapes social
+video, tags each one against a locked taxonomy using the Claude API, and merges
+everything into the database the agency app reads.
 
 ## Where everything lives
 

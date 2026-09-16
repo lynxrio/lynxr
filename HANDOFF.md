@@ -408,7 +408,7 @@ format is date + batch digit + letter):**
   at 1024px on `/` and `/faq/`. Direction for the queued landing/content floating pass:
   info sections are the old white, chrome (nav, footer) is glass.
 
-## Agency app, floating glass (2026-09-15, stamp 202609152h)
+## Agency app, floating glass (2026-09-15, stamp 202609152j)
 Owner: "add a revamp for the agency side too, follow the same principles you did for the
 other pages", then "make the agency side floating glass too" (plan:
 `~/.claude/plans/agency-revamp.md`). `agencyonly/index.html` + `app.js` now read the
@@ -476,12 +476,70 @@ or data-visibility change.
   state), and the script render helpers `AG_TIMED`, `agBeatHtml`, `agBeatsHtml`,
   `agScriptBodyHtml` and `cbMediaHtml`'s new `cls` argument, called from `bpBeatHtml`,
   `scriptHtml`, `scriptDetailHtml` and `cbDetailHtml`.
+- **The header wordmark is now the "home" control** (owner, mid-run: "have this logo be
+  clickable as well and lead me back to the main clients page"). The header's `<h1
+  class="wordmark">` (the second one in `agencyonly/index.html` — the gate's own wordmark
+  is untouched) now wraps a real `<button id="home-mark" class="wordmark-link"
+  aria-label="lynxr — back to clients">` around the mark and the word. Its handler
+  (`app.js`, beside `#signout`'s) calls `activateTab("tab-briefs")` then resets
+  `CLIENT_VIEW`/`BRIEF_VIEW`/`CAMPAIGN_VIEW` to null and `renderBriefs()` — the same landing
+  point the breadcrumb's own "Clients" links (`bv-clients`/`cv-clients`/`cl-back`) use, so it
+  works from any tab, including one already open on a client. No inline styles or handlers
+  (CSP); the button gets no declared `outline`, so the sitewide `:focus-visible` ring still
+  applies. Verified with real CDP key events (headless `.focus()` alone does not satisfy
+  `:focus-visible` in this harness): Tab reaches it, Enter and Space both land on the
+  Clients list with the tab selected, from a client detail view, Database and Ops.
 - **Tokens only:** the agency block (`app.css`, "THE AGENCY APP, FLOATING GLASS") holds no
   raw colour or blur value; the one documented exception (a copied scrollbar rule) was not
   needed — the creator shell's scrollbar styling is unscoped and already reaches this page.
 - **Verified signed-out only**, in a fixture harness at `/private/tmp/lynxr-agency-revamp/`
   (volatile; rebuilt from `~/.claude/plans/agency-revamp.md` Appendix A). No signed-in check
   was run — Claude never typed a credential.
+
+## Small follow-ups (2026-09-16, stamp `202609152o`)
+
+Owner requests made while the agency build ran, each verified in the Browser pane on
+copies built from the real stylesheet and scripts:
+- **Agency suggested-video cards** (and the New Client brief-builder cards, the same
+  component): the cover is the face, 9:16 with `object-fit: cover`, views and score as
+  frosted chips on it (score band as a dot, not coloured text), "details" as a quiet
+  control, "add" as a pill with an ink "added" state and an accent card edge. Block
+  "AGENCY VIDEO CARDS: THE COVER IS THE FACE" in `app.css`; `sugCardHtml` and a new
+  `viewsChipHtml()` in `app.js`. Known trade-off: 4:3 and 16:9 covers are cropped.
+- **Header logo in the agency app** is a `<button id="home-mark">` back to the Clients list.
+- **Website lookup** (new brand) has a visible go button: the field sits in a
+  `.composer-row.lookup-row` capsule with a `.composer-send` arrow; Enter and the header
+  tick still work; a `running` guard stops double reads.
+- **Phone drawer** slides in from the left and back out over .28s at every width up to
+  820px (the old slide stopped at 760px), is `visibility: hidden` while parked, and has a
+  left-arrow `#side-close` plus Escape; focus returns to `#side-open`.
+- **New-script composer:** a `--line-2` hairline and soft lift, and no focus ring on
+  arrival (overrides the deliberate `.autofocused` ring, New script only). A Tab still rings.
+- **Landing feature badges** are white glass (`--glass`) with the logo gradient as a 2px
+  masked ring (the hook card's recipe) and the icon in `--accent`. The owner rejected
+  pink→violet and then alternating pink/orange; this was picked from four previews.
+- **Landing closing CTA** ("ready to build your script?") is no longer a white island:
+  the avatar, heading and the white paste field sit on the backdrop, like New script.
+  Removed from the public block's island selector list.
+  Its bottom padding was cut so it sits 46px above the footer card at 1440 (34px at 390),
+  down from 147px (owner: "put this closer to the footer box").
+- **Open question:** the owner reported "can't edit the scripts anymore". In-place
+  editing of a creator brand script was reproduced WORKING with a real click (focus,
+  typing, save/discard pills). Waiting on which app/screen fails.
+
+## Brand search visibility (2026-09-16) — plan `~/.claude/plans/brand-search-visibility.md`
+
+Owner approved. Repo steps 1–4 are DONE (HTML/markdown only, no stamp bump):
+README lede now describes the product (and disambiguates the Honeywell LYNXR panels,
+Lynx R headsets and lynxr.com); the homepage `#how` lede opens with "lynxr turns a
+tiktok or instagram video into a script for the brand you make content for." (3 lines
+at 1024 and 390, painted); the stale Stage-A `<meta name="referrer" content="no-referrer">`
+is gone (the server's `strict-origin-when-cross-origin` applies); `llms.txt` lists
+`/refunds/`. **Step 8 (IndexNow, `./venv/bin/python tools/indexnow.py`) runs only after
+the owner pushes and GitHub Pages serves the new files.** Owner steps 5–7 and 9–14
+(Search Console, Bing, GitHub About, LinkedIn tagline, socials, listings, AI baseline,
+weekly check) are the owner's. Pricing on the site still reads 25 free / $24.99;
+decide before Search Console so the first indexed version is the right one.
 
 ## What stage Lynxr is at (2026-08-18)
 

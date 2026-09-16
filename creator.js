@@ -2058,7 +2058,9 @@ function wireBrandLookup(b) {
 
   document.getElementById("lookup-skip").addEventListener("click", openEditor);
 
+  let running = false;
   const run = async () => {
+    if (running) return;                 // Enter, the go button and the tick all call this
     const tick = document.getElementById("brand-details");
     const url = asUrl(input.value.trim());
     if (!url) {
@@ -2075,6 +2077,11 @@ function wireBrandLookup(b) {
        is happening at a given moment. The fetch is most of the wall clock and
        the analysis is near-instant, so per-stage claims would be theatre; this
        is ambient and truthful about the job as a whole. */
+    running = true;
+    // Both outcomes below re-render the brand view, which replaces this button,
+    // so it is only ever disabled, never restored.
+    const goBtn = document.getElementById("lookup-go");
+    if (goBtn) { goBtn.disabled = true; goBtn.setAttribute("aria-label", "Reading their site"); }
     let phase = 0, phaseTimer = null;
     const PHASES = ["Reading their site", "Looking for what they sell",
                     "Working out their niche", "Finding who it's for"];
@@ -2147,6 +2154,10 @@ function wireBrandLookup(b) {
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); run(); }
   });
+  document.getElementById("lookup-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    run();
+  });
   if (window.matchMedia("(min-width: 761px)").matches) input.focus();
 }
 
@@ -2205,8 +2216,18 @@ function renderBrand(head, body, b) {
     ${fresh ? `
     <div class="section lookup" id="brand-lookup">
       <p class="lookup-label">Brand website</p>
-      <input type="text" class="b-lookup" autocomplete="off" spellcheck="false"
-        value="${escapeHtml(b.site || "")}" placeholder="lynxr.io">
+      ${/* A visible go button (owner, 2026-09-16: "there should be some kind of go
+            button for lynxr to start reading the website"). Enter and the header
+            tick still work; this is the same round arrow the paste box uses, in the
+            same .composer-row capsule, so the two read as one control. */""}
+      <form class="composer-row lookup-row" id="lookup-form" novalidate>
+        <input type="text" class="b-lookup" autocomplete="off" spellcheck="false"
+          value="${escapeHtml(b.site || "")}" placeholder="lynxr.io" aria-label="Brand website">
+        <button type="submit" class="composer-send" id="lookup-go" aria-label="Read this website">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </form>
       <p class="lookup-hint" id="lookup-msg" role="status" aria-live="polite"></p>
       ${/* The app's established loading mark, not a second invention: the X
             split into four arms that scale out of the centre in clockwise
@@ -9216,6 +9237,23 @@ document.addEventListener("click", (e) => {
    button labelled "New script". There it only closes the drawer, handing
    focus to the pane the way go() would so a keyboard user is not left on a
    control that just slid off-screen. */
+/* THE DRAWER'S WAY OUT (owner, 2026-09-16: "add a left arrow indicating its
+   going to go back and leave the screen with a left animation"). The arrow in
+   the drawer's header and Escape both close it; app.css slides it back out to
+   the left. Focus returns to the menu button that opened it, so a keyboard user
+   is never left on a control that just slid off-screen. */
+function closeSideDrawer() {
+  if (!document.body.classList.contains("side-open")) return;
+  document.body.classList.remove("side-open");
+  const toggle = document.getElementById("side-open");
+  toggle?.setAttribute("aria-expanded", "false");
+  toggle?.focus({ preventScroll: true });
+}
+document.getElementById("side-close")?.addEventListener("click", closeSideDrawer);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeSideDrawer();
+});
+
 document.getElementById("nav-home")?.addEventListener("click", () => {
   if (VIEW.kind !== "new") { go({ kind: "new" }); return; }
   if (!document.body.classList.contains("side-open")) return;

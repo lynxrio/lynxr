@@ -19,9 +19,6 @@
      can fetch the video bytes with no sign-in. Row-level security protects
      which creator can see which row, not the file once its URL is known. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; media-src 'self' blob: https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; form-action 'none'; base-uri 'none'; object-src 'none'">
-<!-- STAGE A ONLY: kept out of search while this lives at /preview/. Removed
-     when the file moves to / in Stage B. -->
-<meta name="referrer" content="no-referrer">
 <!-- maximum-scale=1 SUPPRESSES iOS SAFARI'S FOCUS-ZOOM, and it is here in
      exchange for the find bar's type size: the search and sort controls came
      off the 16px floor on 2026-08-19 (owner's call) so they sit proportionally
@@ -74,13 +71,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609152h">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609152h">
-<link rel="shortcut icon" href="/favicon.ico?v=202609152h">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609152h">
-<link rel="stylesheet" href="/app.css?v=202609152h">
-<script src="/theme.js?v=202609152h"></script>
-<script src="/backdrop.js?v=202609152h" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609152o">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609152o">
+<link rel="shortcut icon" href="/favicon.ico?v=202609152o">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609152o">
+<link rel="stylesheet" href="/app.css?v=202609152o">
+<script src="/theme.js?v=202609152o"></script>
+<script src="/backdrop.js?v=202609152o" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -378,7 +375,7 @@
   <section class="lp-band" id="how">
     <div class="lp-in">
       <h2 class="lp-h2">three steps, and only one of them is yours</h2>
-      <p class="lp-seclede">you paste, lynxr reads, you film. nothing to install and nothing to connect.</p>
+      <p class="lp-seclede">lynxr turns a tiktok or instagram video into a script for the brand you make content for. you paste, lynxr reads, you film. nothing to install and nothing to connect.</p>
       <ol class="lp-steps">
         <li class="lp-step">
           <span class="lp-av" data-lx-mood="idle" aria-hidden="true"></span>
@@ -706,6 +703,12 @@
           <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
           <span class="tt-knob"></span>
         </button>
+        <!-- THE DRAWER'S WAY OUT (owner, 2026-09-16: "add a left arrow indicating its going to go
+             back"). Phone only; the drawer slides back out to the left, the way it came in.
+             Wired in creator.js next to #nav-home. -->
+        <button type="button" class="side-close" id="side-close" aria-label="Close menu" title="Close menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 5l-7 7 7 7"/></svg>
+        </button>
       </div>
 
 
@@ -957,10 +960,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=202609152h" defer></script>
-<script src="/footer.js?v=202609152h" defer></script>
-<script src="/home.js?v=202609152h" defer></script>
-<script src="/avatar.js?v=202609152h" defer></script>
-<script src="/creator.js?v=202609152h" defer></script>
+<script src="/site.js?v=202609152o" defer></script>
+<script src="/footer.js?v=202609152o" defer></script>
+<script src="/home.js?v=202609152o" defer></script>
+<script src="/avatar.js?v=202609152o" defer></script>
+<script src="/creator.js?v=202609152o" defer></script>
 </body>
 </html>

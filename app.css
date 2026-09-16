@@ -7686,6 +7686,20 @@
     box-shadow: var(--ico-glow);
   }
   body.home .lp-feat .lp-feat-ico svg { width: 22px; height: 22px; }
+  /* GLASS WITH A LOGO RING (owner, 2026-09-16: picked over pink and orange, which "looks bad").
+     A white glass badge whose edge is the logo gradient, drawn as the same masked ring the script
+     hook card uses, with the icon in the accent violet (about 6.5:1 on the white glass). */
+  body.home .lp-feat .lp-feat-ico {
+    position: relative;
+    background: var(--glass); color: var(--accent);
+    box-shadow: 0 8px 18px -12px var(--glass-shadow);
+  }
+  body.home .lp-feat .lp-feat-ico::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
+    background: var(--logo-grad); pointer-events: none;
+    -webkit-mask: var(--mask-solid) content-box, var(--mask-solid);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+  }
   body.home .lp-feat .lp-h3 { min-height: 0; display: block; margin: 0 0 6px; }
   body.home .lp-feat .lp-p { margin: 0; }
   @media (max-width: 1000px) { body.home .lp-feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -8508,6 +8522,58 @@
   body.home .lp-hero .composer-row {
     background: var(--field-input); border-color: var(--field-input-edge); box-shadow: inset 0 1px 3px var(--field-input-inset);
   }
+  /* The new-script composer sits straight on the backdrop now (no island), and the frosted well's
+     white edge vanished into it (owner, 2026-09-16: "add an outline to make this easier to see or a
+     shadow or sm distinction"). A real hairline and the app's soft lift; the fill is unchanged. */
+  .pane-body .newscript .composer-row {
+    border-color: var(--line-2);
+    box-shadow: var(--gl-well-shadow), var(--app-soft);
+  }
+  /* NO RING ON ARRIVAL either (owner, 2026-09-16: "right when i load in there is an outline, get rid
+     of that"). This overrides the deliberate .autofocused ring (see "AUTO-FOCUS ARRIVES BY NEITHER
+     ROUTE" above) on the New script view only. The field still takes focus and shows its caret, and
+     the hairline and lift above keep it distinct; a keyboard user who Tabs gets the ordinary ring,
+     and a click stays ring-free through .pointer-focused. */
+  .pane-body .newscript .composer-row.autofocused:focus-within { outline: none; }
+  /* THE WEBSITE LOOKUP GETS A GO BUTTON (owner, 2026-09-16: "there should be some kind of go button
+     for lynxr to start reading the website"). creator.js wraps the field in the paste box's own
+     .composer-row capsule with its round .composer-send button, so both inherit from the global
+     composer rules. The field's standalone well look (.lookup input, and the glass block's well rule)
+     would draw a second box inside the capsule, so it is reset here; the capsule is the well. */
+  /* THE PHONE DRAWER SLIDES IN FROM THE LEFT AND BACK OUT THE SAME WAY (owner, 2026-09-16). The
+     floating shell parks the drawer off-screen at every width up to 820px, but the old slide only
+     existed up to 760px, and nothing inside the drawer took you back out. Same curve both ways,
+     a little slower than the old .2s so the direction reads; visibility waits for the slide to
+     finish on the way out and flips at once on the way in, so neither half is clipped, and the
+     parked drawer is never tabbable. The arrow (#side-close) is the way out. */
+  .side-close { display: none; }
+  @media (max-width: 820px) {
+    .shell > .side {
+      visibility: hidden;
+      transition: transform .28s var(--ease), visibility 0s .28s;
+    }
+    body.side-open .shell > .side {
+      visibility: visible;
+      transition: transform .28s var(--ease), visibility 0s 0s;
+    }
+    .shell > .side .side-close {
+      display: grid; place-items: center; flex: none; margin-left: auto;
+      width: 36px; height: 36px; padding: 0; border-radius: var(--r-round);
+      background: var(--gl-well-fill); border: 1px solid var(--line); color: var(--text-2);
+      cursor: pointer;
+    }
+    .shell > .side .side-close svg { width: 18px; height: 18px; }
+    .shell > .side .side-close:hover { color: var(--text); border-color: var(--line-2); }
+  }
+  @media (max-width: 820px) and (prefers-reduced-motion: reduce) {
+    .shell > .side, body.side-open .shell > .side { transition: none; }
+  }
+  .pane-body .lookup .lookup-row { border-color: var(--line-2); }
+  .pane-body .lookup .lookup-row input[type="text"] {
+    width: auto; flex: 1 1 auto; min-width: 0; padding: 8px 0;
+    background: none; border: 0; border-radius: 0; box-shadow: none;
+    font-size: var(--fs-145);
+  }
 
   /* ---- (same block) TEXT THAT LOOKED OUT OF PLACE (owner, 2026-09-15: "make this text also match
      the new redesign") ----
@@ -9202,6 +9268,20 @@
   }
 
 
+  /* ---- (agency) the header wordmark is a "home" control (owner: "have this logo be
+     clickable as well and lead me back to the main clients page"). Geometry and material
+     are unchanged: only the pointer/focus affordance is added here. ---- */
+  body.agency #app > header .wordmark-link {
+    display: inline-flex; align-items: center; gap: inherit;
+    background: none; border: 0; padding: 0; margin: 0; cursor: pointer; color: inherit; font: inherit;
+  }
+
+
+  /* ---- (agency) contrast fallback (E5): measured 4.43 at 390 in the brief viewer, one
+     palette step darker, never a tint ---- */
+  body.agency #app main .metric .m-lbl { color: var(--text-2); }
+
+
   /* ================= THE FLOATING PUBLIC PAGES (owner, 2026-09-15) =================
      "make the landing page sections floating glass too", "make the content pages floating
      glass too" and "everything that you see fit is floating and glass"; then, on the landing,
@@ -9246,8 +9326,9 @@
   :root { --pub-gap: 12px; --pub-col: min(1120px, calc(100% - 2 * var(--pub-gap))); }
   @media (max-width: 820px) { :root { --pub-gap: 10px; } }
 
-  /* ---- the white island: one declaration set for every information surface ---- */
-  body.home #lp-main > .lp-close > .lp-in,
+  /* ---- the white island: one declaration set for every information surface ----
+     The landing's closing CTA is NOT one (owner, 2026-09-16: "this doesnt need its own box, just
+     have the logo, text and then the input field"): it sits on the backdrop like New script. */
   body.lp:not(.home) > main:not(.legal) > :is(.lp-hero, .lp-sec, .lp-band, .lp-final) {
     background: var(--surface);
     -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
@@ -9282,7 +9363,13 @@
   body.home #lp-main .lp-steps, body.home #lp-main .lp-feats { gap: var(--pub-gap); }
   /* the hero card: the same gap from a phone's edges (580px cap unchanged) */
   body.home #lp-main > .lp-hero > .lp-in { width: min(calc(100% - 2 * var(--pub-gap)), 580px); }
-  /* the closing CTA is one island; its paste field is the hero's white field, not the frosted well */
+  /* With no box around it, the closing CTA's bottom padding (56px inside, 81px under the section)
+     left a 147px hole above the footer (owner, 2026-09-16: "put this closer to the footer box").
+     It now sits one gutter-ish step above the footer card; the space above it is unchanged. */
+  body.home #lp-main > .lp-close { padding-bottom: 0; }
+  body.home #lp-main > .lp-close > .lp-in { padding-bottom: clamp(24px, 3vw, 36px); }
+  /* the closing CTA sits on the backdrop; its paste field is the hero's white field (grey edge),
+     which is what keeps it visible there */
   body.home #lp-main > .lp-close .composer-row {
     background: var(--field-input); border-color: var(--field-input-edge); box-shadow: inset 0 1px 3px var(--field-input-inset);
   }
@@ -9375,4 +9462,166 @@
     body.lp:not(.home) > main:not(.legal) { margin-top: 16px; }
     main.legal:has(> section) { margin-top: 16px; }
     main.legal:not(:has(> section)) { margin-top: 16px; }
+  }
+
+  /* ================= AGENCY VIDEO CARDS: THE COVER IS THE FACE (owner, 2026-09-16) =================
+     "lets revamp these cards too", said of the client page's suggested videos. A card is now the
+     creator library tile with a caption under it: one 9:16 cover with 22px corners, filled edge to
+     edge (object-fit: cover, so a 4:3 or square cover is cropped to the middle, never letterboxed),
+     frosted chips on it in the UI font with tabular numbers (views top-left, the score or reach tier
+     bottom-left), then the caption and the actions directly on the card's own glass. No hairline
+     between cover and caption, and nothing inside the card has its own fill, edge or shadow except
+     the cover and its chips. Colour lives in the chip's dot and in the picked card's accent edge,
+     never in words: the number stays ink.
+     .vface wraps frameHtml()'s untouched .vframe. The chips are the frame's SIBLINGS, because
+     playInFrame() replaces the frame's children; they step aside while a player is live so they
+     never sit over its controls. The New Client shelf is the same .vcard component and takes the
+     same face (its views chip carries the index, its tier chip takes the score's corner).
+     Scoped to body.agency #app main, so the modal, the creator app and the public pages are
+     untouched. Tokens only; 22px is the tile radius the library rule itself declares. */
+  /* an expanded card grows alone; its row-mates keep their height (captions are clamped to
+     exactly two lines, so closed cards in a row are equal anyway) */
+  body.agency #app main :is(.suggest-grid, .shelf) { align-items: start; }
+  body.agency #app main .vface { position: relative; flex: none; }
+  body.agency #app main .vface > .vframe,
+  body.agency #app main .vface > .vframe:is(.vf-tiktok, .vf-insta, .vf-short, .vf-wide) {
+    aspect-ratio: 9 / 16; height: auto; overflow: hidden;
+    border: 0; border-radius: 22px; background: var(--surface-2);
+  }
+  body.agency #app main .vface > .vframe > :is(.vthumb, .vthumb-none, .vthumb-pending) {
+    width: 100%; height: 100%; object-fit: cover; align-self: stretch; justify-self: stretch;
+  }
+  /* a hairline ring over the cover, so a white frame still has an edge on the white card */
+  body.agency #app main .vface::after {
+    content: ""; position: absolute; inset: 0; z-index: 1; border-radius: 22px;
+    box-shadow: inset 0 0 0 1px var(--line); pointer-events: none;
+  }
+  body.agency #app main .vface > .vframe > .vthumb-none {
+    font-family: var(--font-ui); font-weight: 600; color: var(--text-3); background: var(--surface-2);
+  }
+
+  /* the platform name drops below the centred play disc instead of hiding under it */
+  body.agency #app main .vface > .vframe > .vthumb-none { box-sizing: border-box; padding-top: 104px; }
+
+  /* the chips: the library tile's frosted recipe, verbatim */
+  body.agency #app main .vface > .vchip {
+    position: absolute; z-index: 2; box-sizing: border-box; max-width: calc(100% - 20px);
+    display: inline-flex; align-items: center; gap: 5px; margin: 0;
+    padding: 3px 9px; border-radius: var(--r-pill);
+    background: var(--tile-chip); border: 1px solid var(--tile-chip-edge); color: var(--ink);
+    -webkit-backdrop-filter: var(--tile-chip-blur); backdrop-filter: var(--tile-chip-blur);
+    box-shadow: var(--tile-chip-shadow);
+    font-family: var(--font-ui); font-size: var(--fs-115); font-weight: 600; line-height: 1.45;
+    font-variant-numeric: tabular-nums; letter-spacing: normal;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  body.agency #app main .vface > .vviews { left: 10px; top: 10px; }
+  body.agency #app main .vface > .vviews .ico-eye { width: .95em; height: .95em; opacity: 1; }
+  body.agency #app main .vface > :is(.sug-score, .tier-chip) {
+    left: 10px; bottom: 10px; gap: 0; padding: 3px 10px 3px 8px;
+  }
+  body.agency #app main .vface > .vframe.playing ~ .vchip { display: none; }
+
+  /* the band: a 7px dot, the library status chip's own. The number stays ink. */
+  body.agency #app main .vface > :is(.sug-score, .tier-chip)::before {
+    content: ""; flex: none; width: 7px; height: 7px; margin-right: 6px; border-radius: var(--r-round);
+    background: var(--text-3);
+  }
+  body.agency #app main .vface > :is(.sug-score.good, .tier-chip.t1)::before { background: var(--st-good); }
+  body.agency #app main .vface > .sug-score.even::before { background: var(--even); }
+  body.agency #app main .vface > .sug-score.bad::before { background: var(--st-bad); }
+  body.agency #app main .vface > .sug-score.s-none::before {
+    background: none; box-shadow: inset 0 0 0 1.5px var(--text-3);
+  }
+  body.agency #app main .vface > .sug-score i {
+    font-style: normal; font-size: inherit; font-weight: 500; color: var(--ink-2);
+  }
+
+  /* below the cover: caption, then the actions pinned to the foot so a row of cards lines up */
+  body.agency #app main .vface + .vmeta { flex: 1 1 auto; padding: 12px 14px 14px; gap: 10px; }
+  body.agency #app main .vcard .vtitle {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; white-space: normal; text-overflow: clip; min-height: 2.7em;
+    font-size: var(--fs-13); font-weight: 600; line-height: 1.35; color: var(--text);
+  }
+  body.agency #app main .vcard .vrow:is(.sug-acts, .vacts) {
+    display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between;
+    gap: 8px; margin-top: auto;
+  }
+  /* the no-cover card New Client prepends for an added link: its count in the UI font too */
+  body.agency #app main .vcard .vstat {
+    font-family: var(--font-ui); font-size: var(--fs-125); font-variant-numeric: tabular-nums; color: var(--text-2);
+  }
+
+  /* "details": a quiet text control. Suggestion cards expand in place (the chevron follows
+     aria-expanded); the shelf's opens the modal, so it has none. */
+  body.agency #app main .vcard :is(.sug-more, .vdetails) {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin: 0 0 0 -8px; padding: 0 8px;
+    background: none; border: 0; border-radius: var(--r-pill); box-shadow: none;
+    font: inherit; font-size: var(--fs-125); font-weight: 600; line-height: 1.2; color: var(--text-2);
+    cursor: pointer; white-space: nowrap;
+  }
+  body.agency #app main .vcard :is(.sug-more, .vdetails):hover { background: var(--lbl-do-bg); color: var(--text); }
+  body.agency #app main .vcard .sug-more::after {
+    content: ""; width: 5px; height: 5px; margin: -3px 0 0 1px;
+    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg); transition: transform .2s var(--ease);
+  }
+  body.agency #app main .vcard .sug-more[aria-expanded="true"]::after { margin-top: 3px; transform: rotate(225deg); }
+
+  /* "add": a pill. Added = the ink fill and a tick, and the card itself takes an accent edge. */
+  body.agency #app main .vcard .vpick {
+    flex: none; gap: 6px; min-height: 32px; margin: 0 0 0 auto; padding: 0 14px 0 11px;
+    background: var(--surface-flat); border: 1px solid var(--line); color: var(--text);
+    font-size: var(--fs-125); font-weight: 600; line-height: 1.2;
+    box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft);
+  }
+  body.agency #app main .vcard .vpick:hover { background: var(--surface-flat); border-color: var(--line-2); }
+  body.agency #app main .vcard .vpick:has(input:checked) {
+    background: var(--fill); border-color: var(--fill); color: var(--on-fill); box-shadow: var(--app-soft);
+  }
+  /* the grid parent in the selector outranks the shared tile rule's :is(), whose heaviest branch is (0,3,0) */
+  body.agency #app main :is(.suggest-grid, .shelf) > .vcard.picked,
+  body.agency #app main :is(.suggest-grid, .shelf) > .vcard.picked:hover {
+    border-color: var(--accent);
+    box-shadow: inset 0 1px 0 var(--glass-hi), 0 0 0 1px var(--accent), var(--g-shadow);
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    body.agency #app main :is(.suggest-grid, .shelf) > .vcard.picked:hover {
+      box-shadow: inset 0 1px 0 var(--glass-hi), 0 0 0 1px var(--accent), var(--app-lift);
+    }
+  }
+
+  /* details: flat label/value rows between hairlines, labels at the value's size */
+  body.agency #app main .vcard .sug-detail {
+    gap: 0; margin: -2px 0 0; padding: 0;
+    background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; box-shadow: none;
+  }
+  body.agency #app main .vcard .sug-detail[hidden] { display: none; }
+  body.agency #app main .vcard .sug-drow {
+    gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line);
+    font-size: var(--fs-125); line-height: 1.45;
+  }
+  body.agency #app main .vcard .sug-dk {
+    flex: 0 0 11ch; font-size: inherit; font-weight: 500; letter-spacing: normal; color: var(--text-3);
+  }
+  body.agency #app main .vcard .sug-dv { color: var(--text); font-variant-numeric: tabular-nums; }
+  body.agency #app main .vcard .sug-open {
+    display: inline-flex; align-items: center; min-height: 32px; margin: 4px 0 0;
+    font-size: var(--fs-125); font-weight: 600; color: var(--text-2);
+  }
+  body.agency #app main .vcard .sug-open:hover { color: var(--text); }
+
+  @media (max-width: 560px) {
+    body.agency #app main .vface > .vviews { left: 8px; top: 8px; }
+    body.agency #app main .vface > :is(.sug-score, .tier-chip) { left: 8px; bottom: 8px; }
+    body.agency #app main .vface > .vchip { max-width: calc(100% - 16px); }
+    body.agency #app main .vface + .vmeta { padding: 10px 10px 12px; gap: 8px; }
+    body.agency #app main .vcard .vrow:is(.sug-acts, .vacts) { gap: 4px; }
+    body.agency #app main .vcard .vpick { padding: 0 11px 0 9px; }
+    body.agency #app main .vcard .sug-drow { flex-direction: column; gap: 1px; }
+    body.agency #app main .vcard .sug-dk { flex: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.agency #app main .vcard .sug-more::after { transition: none; }
   }

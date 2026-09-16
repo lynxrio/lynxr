@@ -241,6 +241,15 @@ document.getElementById("signout").addEventListener("click", () => {
   location.reload();
 });
 
+// AGENCY GLASS PASS (2026-09-15): the header wordmark is a clickable "home" control —
+// the same landing point as the breadcrumb's own "Clients" link (bv-clients/cv-clients/
+// cl-back), reachable from any tab.
+document.getElementById("home-mark").addEventListener("click", () => {
+  activateTab("tab-briefs");
+  CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null;
+  renderBriefs();
+});
+
 // ---------- Helpers ----------
 const fmt = (n) => Number(n).toLocaleString();
 function compact(n) {
@@ -1293,6 +1302,15 @@ function frameHtml(row) {
       </button>` : ""}
     </div>`;
 }
+/** The views chip on a card's cover: creator.js's eye glyph (EYE_SVG) and the
+    count, with the word kept for screen readers. `text` is already compacted. */
+function viewsChipHtml(text, title = "") {
+  return `<span class="vchip vviews"${title ? ` title="${escapeHtml(title)}"` : ""}>`
+    + `<svg class="ico-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" `
+    + `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">`
+    + `<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`
+    + `${escapeHtml(text)}<span class="sr-only"> views</span></span>`;
+}
 // The creator twin of this function, embedForUrl(), was removed 2026-08-24
 // when the creator app moved to self-hosted 480p clips played in a native
 // <video> — see creator.js's refPlayHtml(). No file needs to be kept in sync
@@ -2105,13 +2123,15 @@ async function renderShelf(niche) {
       const checked = CART.has(k);
       return `
       <article class="vcard${checked ? " picked" : ""}" data-key="${escapeHtml(k)}">
-        ${frameHtml(r)}
+        <div class="vface">
+          ${frameHtml(r)}
+          ${viewsChipHtml(`${compact(views(r))} · ${relative(r).toFixed(1)}×`, "views · index vs its source's median")}
+          ${/^Tier [123]$/.test(r.reach_confidence_tier || "") ? `<span class="vchip tier-chip t${r.reach_confidence_tier.slice(-1)}"
+            title="Reach confidence: ${escapeHtml(r.reach_confidence_tier)} — this format×hook combo repeats across ${escapeHtml(r.similar_format_count || "?")} videos averaging ${compact(+r.avg_views_of_similar || 0)} views">${escapeHtml(r.reach_confidence_tier)}</span>` : ""}
+        </div>
         <div class="vmeta">
-          <div class="vtitle">${escapeHtml(r.title || "(no caption)")}</div>
-          <div class="vrow">
-            <span class="vstat" title="views · index vs its source's median">${compact(views(r))} · ${relative(r).toFixed(1)}×</span>
-            ${/^Tier [123]$/.test(r.reach_confidence_tier || "") ? `<span class="tier-chip t${r.reach_confidence_tier.slice(-1)}"
-              title="Reach confidence: ${escapeHtml(r.reach_confidence_tier)} — this format×hook combo repeats across ${escapeHtml(r.similar_format_count || "?")} videos averaging ${compact(+r.avg_views_of_similar || 0)} views">${escapeHtml(r.reach_confidence_tier)}</span>` : ""}
+          <div class="vtitle" title="${escapeHtml(r.title || "")}">${escapeHtml(r.title || "(no caption)")}</div>
+          <div class="vrow vacts">
             <button type="button" class="vdetails" data-key="${escapeHtml(k)}">Details</button>
             <label class="vpick"><input type="checkbox" class="vcheck" ${checked ? "checked" : ""}><span class="vpick-txt">${checked ? "Added" : "Add"}</span></label>
           </div>
@@ -3680,20 +3700,24 @@ function sugCardHtml({ row, edge }) {
   // click away — eight cards of full metadata is a wall, not a shelf.
   const detail = (label, val) => val
     ? `<div class="sug-drow"><span class="sug-dk">${label}</span><span class="sug-dv">${escapeHtml(String(val))}</span></div>` : "";
+  // The cover is the card's face (2026-09-16): views and the score ride on it
+  // as chips, the creator library tile's layout. frameHtml stays untouched
+  // inside .vface, and playInFrame only swaps the frame's own children, so the
+  // chips survive a play.
   return `
   <article class="vcard sug-card${picked ? " picked" : ""}" data-key="${escapeHtml(k)}">
-    ${frameHtml(row)}
+    <div class="vface">
+      ${frameHtml(row)}
+      ${viewsChipHtml(compact(views(row)))}
+      ${(() => {
+        const t = typeScore(row);
+        if (!t) return `<span class="vchip sug-score s-none" title="Too few videos of this type to judge it">\u2013<i>/10</i></span>`;
+        const band = t.score >= 7 ? "good" : t.score >= 5 ? "even" : "bad";
+        return `<span class="vchip sug-score ${band}" tabindex="0" role="button" aria-label="Opportunity score ${t.score} out of 10">${t.score}<i>/10</i></span>`;
+      })()}
+    </div>
     <div class="vmeta">
       <div class="vtitle" title="${escapeHtml(row.title || "")}">${escapeHtml(row.title || "(no caption)")}</div>
-      <div class="vrow">
-        ${(() => {
-          const t = typeScore(row);
-          if (!t) return `<span class="sug-score s-none" title="Too few videos of this type to judge it">\u2013<i>/10</i></span>`;
-          const band = t.score >= 7 ? "good" : t.score >= 5 ? "even" : "bad";
-          return `<span class="sug-score ${band}" tabindex="0" role="button" aria-label="Opportunity score ${t.score} out of 10">${t.score}<i>/10</i></span>`;
-        })()}
-        <span class="vstat">${compact(views(row))} views</span>
-      </div>
       <div class="vrow sug-acts">
         <button type="button" class="sug-more" aria-expanded="false">Details</button>
         <label class="vpick"><input type="checkbox" class="sugcheck" ${picked ? "checked" : ""}><span class="vpick-txt">${picked ? "Added" : "Add"}</span></label>

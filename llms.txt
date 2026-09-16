@@ -48,3 +48,4 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 - [Privacy policy](https://lynxr.io/privacy/): What lynxr collects, why, who it is shared with, how long it is kept, and how to have it deleted.
 - [Terms of service](https://lynxr.io/terms/): What lynxr does, what you are responsible for, who owns the scripts, and what is and is not promised.
 - [Accessibility](https://lynxr.io/accessibility/): What works, and the specific things that do not work yet.
+- [Refunds](https://lynxr.io/refunds/): How refunds work on lynxr pro — 14-day money-back on the first payment, no pro-rata on cancellation, and Paddle as the merchant of record.
