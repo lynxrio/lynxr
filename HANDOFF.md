@@ -52,8 +52,8 @@ cache stamp is `202609152u` (`./venv/bin/python tools/check_stamp.py` → `ok`, 
    coaching, closed loop). Its decisions, and the holes found in it, are kept OUT of this
    public file: they are in the private memory note `lynxr-product-map-2026-09-16`
    (`~/.claude/projects/-Users-junsahwang-Documents-lynxrio/memory/`). A planner was
-   wrote `~/.claude/plans/lynxr-product-map-roadmap.md` (complete, 44 steps, phases 0 and A1–F,
-   24 owner questions with defaults). **It is NOT approved yet**, and nothing is built. Next
+   wrote `~/.claude/plans/lynxr-product-map-roadmap.md` (complete, 48 steps, phases 0 and A1–F,
+   29 owner questions with defaults). **It is NOT approved yet**, and nothing is built. Next
    session: walk the owner through its questions and the gaps listed in the memory note, then
    run its "Build first" list only on a go.
 
