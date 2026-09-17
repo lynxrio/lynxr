@@ -90,7 +90,16 @@ cache stamp is `202609152u` (`./venv/bin/python tools/check_stamp.py` → `ok`, 
    - **Pricing copy:** the site's free-tier and price copy is about to change (see the
      private roadmap note). Update it before re-indexing the pricing page.
 
-4. **Small, known, not done:**
+4. **Email moved to Google Workspace on lynxr.io (2026-09-16).**
+   - **Done:** Cloudflare has the MX (`smtp.google.com`) and DKIM (`google._domainkey`) records. The public contact
+     address is now `hello@lynxr.io` on every page, in the JSON-LD, and on lynxmediagroup.org.
+   - **Owner still has to:**
+     - make `hello@lynxr.io` receive mail (a Workspace group or an alias);
+     - add the SPF TXT record on `@` (`v=spf1 include:_spf.google.com ~all`);
+     - move every service login off the old Gmail contact before deleting it.
+   - HTML only; no stamp bump was needed.
+
+5. **Small, known, not done:**
    - the creator app's caption save flattens line breaks (the agency keeps them);
    - the creator hook card probably has the edit stripe over the opening quote mark (the
      agency one was fixed; the creator one is untested);

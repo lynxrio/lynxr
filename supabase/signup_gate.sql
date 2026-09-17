@@ -46,7 +46,7 @@ values (1, 4, array[
   'junsaemail@gmail.com',
   'gawinhsu99@gmail.com',
   'lynxmedianetwork@gmail.com',
-  'lynxrnetwork@gmail.com',
+  'hello@lynxr.io',   -- the shared inbox (replaced the old Gmail contact, 2026-09-16)
   -- Aliases and .edu addresses of the same two people. They are yours, so they
   -- should not eat seats meant for creators. Remove any you would rather count.
   'junsaemail+t1@gmail.com',
