@@ -14,7 +14,7 @@
        rather than with the legal pages. -->
   <url>
     <loc>https://lynxr.io/faq/</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <priority>0.8</priority>
   </url>
   <!-- Pricing sits with /faq/, not with the legal set: it is written for a
@@ -109,7 +109,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/refunds/</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-21</lastmod>
     <priority>0.3</priority>
   </url>
   <url>

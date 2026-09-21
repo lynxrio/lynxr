@@ -28,7 +28,7 @@ naming a path there publishes it.
 ### Read this block first. The rest of START HERE below is older and still true unless this says otherwise.
 
 **Repo.** Last push is `c90805e`. The working tree holds a large uncommitted batch that is **ready to review and
-push**: stamp bumped to **`20260921d`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
+push**: stamp bumped to **`20260921e`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
 anywhere, all JSON-LD parses, no inline styles in the page sources.
 
 **What's in the batch:**
@@ -44,7 +44,7 @@ anywhere, all JSON-LD parses, no inline styles in the page sources.
   **It lowered an advertised limit on a page that forms part of the terms — the owner should read it (~305–340).**
 - **terms / refunds / faq / llms.txt** — Stripe as merchant of record, pro 150, three new FAQ entries (cost, cancel,
   who takes payment). Copy promising things that don't exist was removed: no "basic coaching" (pro's ledger row
-  has no features), and cancellation is "email hello@lynxr.io or reply to your receipt" until a portal button exists.
+  has no features), and cancellation is self-serve from the Plan view (Cancel subscription / Manage billing), with the email kept as a fallback.
 - **`supabase/billing.sql`, `supabase/functions/`** — new, untracked; the header now describes Managed Payments.
 
 **Verified by the agent:** headless Brave over DevTools against localhost — 8 Plan states × light/dark × 390/1280
@@ -76,15 +76,15 @@ the new Upgrade button — do one after the push (it calls the same function tha
    `apikey` and `x-client-info` (goes live with the next redeploy). A test covers it (44/44). Stamp `20260921c`.
    **PROVEN after the fix (2026-09-21):** the real Upgrade button on lynxr.io reached Stripe checkout and completed
    a purchase, twice: one real $24.99 payment and one with the 100%-off test code. Item 1 is done.
-2. **Redeploy `billing-webhook`** (paste the file again): fixed in the tree — Stripe API 2025+ moved
-   `current_period_end` onto subscription items, so the first live subscription recorded no renewal date.
-3. **Manage billing / self-serve cancel — built, switched off.** `billing-checkout` has a `portal` action
-   (tests 43/43); the Plan view has a Manage billing button behind `PORTAL_LIVE = false` in `creator.js`
-   (it shows on http://localhost:8811 regardless, so it can be proved there first). To go live: redeploy
-   `billing-checkout` (paste; confirm Verify JWT is still OFF), save the Customer portal in Stripe LIVE mode
-   (cancel at end of period, no plan switching, email change off), prove it from the localhost preview, then set
-   `PORTAL_LIVE = true`, switch the refunds/faq cancel copy, and bump the stamp.
-   Plan: `~/.claude/plans/lynxr-stripe-customer-portal.md` (Phase B = owner steps, Phase C = the flip).
+2. ~~Redeploy `billing-webhook`~~ **DONE 2026-09-21** — the renewal-date fix (Stripe API 2025+ keeps
+   `current_period_end` on subscription items) is deployed, Verify JWT off.
+3. **Manage billing + Cancel subscription — LIVE (2026-09-21).** Both Plan-view buttons open the Stripe customer
+   portal (saved in live mode: cancel at period end, no plan switching, email change off). `billing-checkout`
+   redeployed with the `portal` action (Verify JWT off). Owner proved a real cancel end to end from localhost
+   before the flip. `PORTAL_LIVE = true` in creator.js is the kill switch; refunds/faq now say "open plan, choose
+   cancel subscription" with hello@lynxr.io as the fallback. Plan: `~/.claude/plans/lynxr-stripe-customer-portal.md`.
+   **Stray function:** a `billing-cancel` Edge Function was created by mistake (a paste into a new function);
+   nothing calls it — delete it in the Supabase dashboard if it's still there.
    **A Cancel subscription button sits beside Manage billing** (same `PORTAL_LIVE` gate) while a plan still renews.
    It calls the portal action with `flow: "cancel"`, which opens a portal session with `flow_data[type]=
    subscription_cancel` — straight onto Stripe's "confirm cancellation" page, then back to `/?billing=portal`.

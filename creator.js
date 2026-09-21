@@ -3428,11 +3428,11 @@ const BILLING_LIVE = true;
    The Manage billing button on the Plan view posts { action: "portal" } to
    billing-checkout, which mints a portal URL for the caller's OWN Stripe
    customer. It needs two things this file cannot see: that version of the
-   function deployed, and the portal saved in Stripe's live mode. Until the
-   owner has done both and proved them, PORTAL_LIVE stays false and a paying
-   creator sees the hello@lynxr.io sentence instead — a button that posts to
-   a function which cannot answer is the silent failure BILLING_LIVE exists
-   to prevent.
+   function deployed, and the portal saved in Stripe's live mode.
+   LIVE since 2026-09-21: both are done, and Cancel subscription was proved
+   end to end from the localhost preview against the live function. Set this
+   back to false to hide Manage billing and Cancel subscription and restore
+   the hello@lynxr.io sentence with no other edit.
 
    THE ONE EXCEPTION IS THE LOCAL PREVIEW. On http://localhost:8811 — the
    SessionStart preview, and the only non-production origin billing-checkout
@@ -3442,7 +3442,7 @@ const BILLING_LIVE = true;
    lynxr.io renders, which is how production is checked locally.
 
    BILLING_LIVE = false still hides it: that switch stops everything. */
-const PORTAL_LIVE = false;
+const PORTAL_LIVE = true;
 const portalOn = () => BILLING_LIVE && (PORTAL_LIVE || location.origin === "http://localhost:8811");
 
 /* PRO'S NUMBERS COME FROM THE LEDGER. lynxr_billing_plans is the one enforcing
