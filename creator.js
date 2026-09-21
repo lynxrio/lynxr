@@ -3506,7 +3506,7 @@ function planFairUse(p) {
 /** POST to the checkout function and follow the URL it returns. Deliberately
     `fetch`, not `sbFetch`: the path is /functions/v1/…, not /rest/v1/…, so
     sbFetch's REST base and PostgREST error handling do not apply. */
-async function billingAction(action, plan) {
+async function billingAction(action, plan, flow) {
   /* NO `apikey` HEADER — THAT WAS THE LIVE UPGRADE BUG (2026-09-21). This is a
      cross-origin call, so the browser preflights it, and the deployed function
      allowed only `authorization, content-type`. An extra `apikey` header made
@@ -3519,7 +3519,7 @@ async function billingAction(action, plan) {
     method: "POST",
     headers: { "content-type": "application/json",
                Authorization: `Bearer ${SB_TOKEN || SB_KEY}` },
-    body: JSON.stringify({ action, plan }),
+    body: JSON.stringify({ action, plan, flow }),
   });
   let res = await attempt();
   // A Plan view left open past the token's hour gets a 401 on the first click.
@@ -3694,6 +3694,9 @@ function renderPlan(head, body) {
   /* Manage billing needs a paid state, the portal switch, and a Stripe
      customer on the row — the function refuses an account without one. */
   const canManage = paid && portalOn() && !!PLAN.has_customer;
+  /* Cancel sits beside Manage billing while the plan still renews. Once it's
+     ending there is nothing to cancel — Manage billing is where to renew. */
+  const canCancel = canManage && !PLAN.cancel_at;
 
   /* THE STATUS WORD IS OURS, THE STATUS IS THEIRS. Stripe's vocabulary
      ('past_due') is not a sentence a person should be shown. */
@@ -3731,7 +3734,7 @@ function renderPlan(head, body) {
   const manageLine = `To change your card or cancel, email <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> — there's no self-serve billing page yet, so we make the change for you. Cancelling takes effect at the end of the period you've already paid for.`;
   const portalLine = PLAN?.cancel_at
     ? `Changed your mind? Renew from Manage billing any time before <strong>${planDate(PLAN.cancel_at)}</strong>. Your receipts and card are there too.`
-    : `Change your card, download receipts, or cancel &mdash; all on Stripe's billing page. Cancelling takes effect at the end of the period you've already paid for.`;
+    : `Cancelling takes effect at the end of the period you've already paid for &mdash; you keep ${escapeHtml(label)} until then, and nothing you've written is deleted. Your card and receipts are under Manage billing.`;
   const mocLine = `Stripe is the merchant of record: it takes the payment, adds any tax at checkout, and handles refunds.`;
 
   /* THE THREE OPTIONS ARE THE LANDING'S #pricing CARDS (owner, 2026-09-21:
@@ -3800,7 +3803,10 @@ function renderPlan(head, body) {
         ${paidNotes.length ? `<ul class="plan-meta">${paidNotes.map((n) => `<li>${n}</li>`).join("")}</ul>` : ""}
         ${paid ? (canManage
           ? `<div class="plan-manage">
-               <button type="button" class="ghost plan-portal" id="plan-portal">Manage billing</button>
+               <div class="plan-manage-btns">
+                 <button type="button" class="ghost plan-portal" id="plan-portal">Manage billing</button>
+                 ${canCancel ? `<button type="button" class="ghost plan-cancel" id="plan-cancel">Cancel subscription</button>` : ""}
+               </div>
                <p class="bp-msg" id="plan-portal-msg" role="status" aria-live="polite"></p>
                <p class="plan-manage-line">${portalLine}</p>
                <p class="plan-manage-line">${mocLine}</p>
@@ -3921,6 +3927,29 @@ function renderPlan(head, body) {
       flashMsg("plan-portal-msg", "Couldn't open billing. Try again, or email hello@lynxr.io and we'll make the change for you.", "bad");
       portalBtn.disabled = false;
       portalBtn.textContent = was;
+    }
+  });
+
+  /* THE CANCEL BUTTON opens Stripe's own "confirm cancellation" page for this
+     subscription (billing-checkout: action portal, flow cancel), and Stripe
+     sends the browser back to /?billing=portal when it's done — where the
+     portal return banner and ledger re-poll already take over. No armed second
+     click here: nothing is cancelled until the creator confirms on Stripe. */
+  const cancelBtn = document.getElementById("plan-cancel");
+  if (cancelBtn) cancelBtn.addEventListener("click", async () => {
+    cancelBtn.disabled = true;
+    const was = cancelBtn.textContent;
+    cancelBtn.textContent = "Opening…";
+    try {
+      await billingAction("portal", undefined, "cancel");
+    } catch (ex) {
+      // 409 nothing_to_cancel: the ledger already says it's ending (a cancel
+      // made elsewhere that this page hasn't re-read yet).
+      flashMsg("plan-portal-msg", String(ex?.message) === "409"
+        ? "Your plan is already set to end. Reload to see the date."
+        : "Couldn't open the cancel page. Try again, or email hello@lynxr.io and we'll cancel it for you.", "bad");
+      cancelBtn.disabled = false;
+      cancelBtn.textContent = was;
     }
   });
 }

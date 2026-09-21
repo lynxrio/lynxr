@@ -20,6 +20,9 @@
 //   POST { "plan": "pro" }                      → { "url": "https://checkout.stripe.com/…" }
 //   POST { "action": "checkout", "plan": "pro" } → same (no action = checkout)
 //   POST { "action": "portal" }                 → { "url": "https://billing.stripe.com/…" }
+//   POST { "action": "portal", "flow": "cancel" } → a portal URL that opens straight on
+//        Stripe's "confirm cancellation" page for the caller's own subscription
+//        409 { "error": "nothing_to_cancel" } if there is no renewing subscription
 //        409 { "error": "no_customer" } if the account has never had a Stripe customer
 //        502 { "error": "portal_failed" } if Stripe refuses — in live mode that almost
 //        always means the portal settings were never SAVED (Stripe → Settings →
@@ -113,21 +116,44 @@ async function callerFromToken(token: string) {
     card, download receipts. The customer id comes from lynxr_billing, which
     only billing-webhook writes from Stripe's own events. Never from the
     request: a portal URL for someone else's customer hands over their billing. */
-async function openPortal(creatorId: string, origin: string | null) {
+async function openPortal(creatorId: string, origin: string | null, flow: string) {
   const rows = await sbSelect(
-    `lynxr_billing?creator_id=eq.${creatorId}&select=provider_customer_id`,
+    `lynxr_billing?creator_id=eq.${creatorId}&select=provider_customer_id,provider_subscription_id,status,cancel_at`,
   );
-  const customer = rows?.[0]?.provider_customer_id;
+  const row = rows?.[0] ?? null;
+  const customer = row?.provider_customer_id;
   // Never bought anything: there is no Stripe customer to manage. The app only
   // shows the button when my_plan() says has_customer, so this is the guard,
   // not the path.
   if (!customer) return json({ error: "no_customer" }, 409, origin);
 
+  const back = `${siteFor(origin)}/?billing=portal`;
   const form = new URLSearchParams({
     customer,
     // Same allow-list as checkout: never a caller-supplied URL.
-    return_url: `${siteFor(origin)}/?billing=portal`,
+    return_url: back,
   });
+
+  /* THE CANCEL BUTTON. A portal session with flow_data subscription_cancel
+     opens directly on Stripe's "confirm cancellation" page instead of the
+     portal's front page, and redirects back here once it's done. Stripe asks
+     for the confirmation, so our button needs no armed second click. It
+     cancels at the end of the period, per the portal settings saved in the
+     dashboard. The subscription id comes from the ledger, like the customer.
+     Only a subscription that is still set to renew can be cancelled: Stripe
+     refuses the flow for one that is already ending, so we refuse first with
+     a clear code rather than a 502. */
+  if (flow === "cancel") {
+    const sub = row?.provider_subscription_id;
+    if (!sub || !["active", "trialing", "past_due"].includes(row?.status) || row?.cancel_at) {
+      return json({ error: "nothing_to_cancel" }, 409, origin);
+    }
+    form.set("flow_data[type]", "subscription_cancel");
+    form.set("flow_data[subscription_cancel][subscription]", sub);
+    form.set("flow_data[after_completion][type]", "redirect");
+    form.set("flow_data[after_completion][redirect][return_url]", back);
+  }
+
   const res = await fetch(`${STRIPE}/billing_portal/sessions`, {
     method: "POST",
     headers: {
@@ -143,7 +169,7 @@ async function openPortal(creatorId: string, origin: string | null) {
     console.error("stripe portal failed", res.status, session?.error?.code ?? session?.error?.type ?? "");
     return json({ error: "portal_failed" }, 502, origin);
   }
-  console.log("portal opened", creatorId.slice(0, 8));
+  console.log("portal opened", flow || "home", creatorId.slice(0, 8));
   return json({ url: session.url }, 200, origin);
 }
 
@@ -163,7 +189,13 @@ Deno.serve(async (req) => {
     // the portal existed keeps working unchanged; anything unknown is refused
     // before it can reach Stripe.
     const action = String(body.action ?? "checkout");
-    if (action === "portal") return await openPortal(caller.id, origin);
+    if (action === "portal") {
+      // flow is an allow-list too: absent = the portal's front page, "cancel" =
+      // the cancellation page. Anything else never reaches Stripe.
+      const flow = String(body.flow ?? "");
+      if (flow !== "" && flow !== "cancel") return json({ error: "unknown_flow" }, 400, origin);
+      return await openPortal(caller.id, origin, flow);
+    }
     if (action !== "checkout") return json({ error: "unknown_action" }, 400, origin);
 
     const plan = String(body.plan ?? "");

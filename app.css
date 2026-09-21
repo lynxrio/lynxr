@@ -9953,7 +9953,15 @@
   /* A ghost, not .btn: in the state band this is the secondary action — the
      loud button on this page is Upgrade. The message line collapses to
      nothing until a failure fills it, so it holds no gap open. */
-  .plan-manage .plan-portal { margin: 0 0 8px; }
+  /* Manage billing and Cancel subscription side by side, wrapping to two rows
+     on a narrow phone rather than squeezing. Cancel is the same ghost with the
+     --bad ink only on hover/focus: visible enough to find, never louder than
+     the plan it's cancelling. */
+  .plan-manage .plan-manage-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+  .plan-manage .plan-portal { margin: 0; }
+  .plan-manage .plan-cancel { margin: 0; }
+  .plan-manage .plan-cancel:hover:not(:disabled),
+  .plan-manage .plan-cancel:focus-visible { color: var(--bad); border-color: var(--bad); }
   .plan-manage .bp-msg { margin: 0; }
   .plan-manage .bp-msg.show { margin: 0 0 8px; }
   .plan-manage .plan-manage-line { margin: 0; }

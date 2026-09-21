@@ -193,6 +193,49 @@ check("portal: stripe failure -> 502 portal_failed, no leak",
   r.status === 502 && (await r.json()).error === "portal_failed");
 stripeOk = true;
 
+// ---------------------------------------------------------------- the cancel button
+billingRows = [{ provider_customer_id: "cus_1", provider_subscription_id: "sub_1", status: "active", plan_code: "pro", cancel_at: null }];
+calls.length = 0;
+r = await post({ action: "portal", flow: "cancel", subscription: "sub_evil", customer: "cus_evil" });
+{
+  const f = new URLSearchParams(stripeCalls()[0]?.body ?? "");
+  check("cancel: renewing subscriber gets a portal url", r.status === 200 && String((await r.json()).url).startsWith("https://billing.stripe.com/"));
+  check("cancel: opens the subscription_cancel flow", f.get("flow_data[type]") === "subscription_cancel");
+  check("cancel: subscription + customer from the ledger, never the caller",
+    f.get("flow_data[subscription_cancel][subscription]") === "sub_1" && f.get("customer") === "cus_1");
+  check("cancel: redirects back to lynxr.io/?billing=portal when done",
+    f.get("flow_data[after_completion][type]") === "redirect" &&
+    f.get("flow_data[after_completion][redirect][return_url]") === "https://lynxr.io/?billing=portal" &&
+    f.get("return_url") === "https://lynxr.io/?billing=portal");
+}
+
+calls.length = 0;
+await postFrom("https://evil.example", { action: "portal", flow: "cancel" });
+check("cancel: hostile Origin cannot redirect the finish",
+  new URLSearchParams(stripeCalls()[0].body).get("flow_data[after_completion][redirect][return_url]") === "https://lynxr.io/?billing=portal");
+
+for (const [why, row] of [
+  ["already ending", { provider_customer_id: "cus_1", provider_subscription_id: "sub_1", status: "active", cancel_at: "2026-10-21T00:00:00Z" }],
+  ["already cancelled", { provider_customer_id: "cus_1", provider_subscription_id: "sub_1", status: "canceled", cancel_at: null }],
+  ["no subscription id", { provider_customer_id: "cus_1", provider_subscription_id: null, status: "active", cancel_at: null }],
+]) {
+  billingRows = [row];
+  calls.length = 0;
+  r = await post({ action: "portal", flow: "cancel" });
+  check(`cancel: ${why} -> 409 nothing_to_cancel, stripe never called`,
+    r.status === 409 && (await r.json()).error === "nothing_to_cancel" && stripeCalls().length === 0);
+}
+
+billingRows = [{ provider_customer_id: "cus_1", provider_subscription_id: "sub_1", status: "active", cancel_at: null }];
+calls.length = 0;
+r = await post({ action: "portal", flow: "subscription_update" });
+check("portal: unknown flow -> 400, stripe never called", r.status === 400 && stripeCalls().length === 0);
+
+calls.length = 0;
+await post({ action: "portal" });
+check("portal: no flow still opens the front page (no flow_data)",
+  ![...new URLSearchParams(stripeCalls()[0].body).keys()].some((k) => k.startsWith("flow_data")));
+
 billingRows = [];
 calls.length = 0;
 r = await post({ action: "checkout", plan: "pro" });

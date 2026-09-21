@@ -28,7 +28,7 @@ naming a path there publishes it.
 ### Read this block first. The rest of START HERE below is older and still true unless this says otherwise.
 
 **Repo.** Last push is `c90805e`. The working tree holds a large uncommitted batch that is **ready to review and
-push**: stamp bumped to **`20260921c`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
+push**: stamp bumped to **`20260921d`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
 anywhere, all JSON-LD parses, no inline styles in the page sources.
 
 **What's in the batch:**
@@ -74,6 +74,8 @@ the new Upgrade button — do one after the push (it calls the same function tha
    it left the page. It's been broken since checkout shipped. Fixed on both sides: the app no longer sends `apikey`
    (works against the function as deployed, no redeploy needed), and `billing-checkout`'s `cors()` now allows
    `apikey` and `x-client-info` (goes live with the next redeploy). A test covers it (44/44). Stamp `20260921c`.
+   **PROVEN after the fix (2026-09-21):** the real Upgrade button on lynxr.io reached Stripe checkout and completed
+   a purchase, twice: one real $24.99 payment and one with the 100%-off test code. Item 1 is done.
 2. **Redeploy `billing-webhook`** (paste the file again): fixed in the tree — Stripe API 2025+ moved
    `current_period_end` onto subscription items, so the first live subscription recorded no renewal date.
 3. **Manage billing / self-serve cancel — built, switched off.** `billing-checkout` has a `portal` action
@@ -83,6 +85,12 @@ the new Upgrade button — do one after the push (it calls the same function tha
    (cancel at end of period, no plan switching, email change off), prove it from the localhost preview, then set
    `PORTAL_LIVE = true`, switch the refunds/faq cancel copy, and bump the stamp.
    Plan: `~/.claude/plans/lynxr-stripe-customer-portal.md` (Phase B = owner steps, Phase C = the flip).
+   **A Cancel subscription button sits beside Manage billing** (same `PORTAL_LIVE` gate) while a plan still renews.
+   It calls the portal action with `flow: "cancel"`, which opens a portal session with `flow_data[type]=
+   subscription_cancel` — straight onto Stripe's "confirm cancellation" page, then back to `/?billing=portal`.
+   The subscription id comes from the ledger only; 409 `nothing_to_cancel` if it is already ending. Needs no new
+   key permission (Customer portal write covers it), but DOES need the portal saved in live mode with
+   cancellation on. Tests 54/54.
    **Also in this pass:** the Plan view's free / pro / max options now use the landing `#pricing` card design
    (shared CSS: the landing rules are scoped `:is(body.home, .pane-body) .lp-plan…`; landing measured unchanged).
    **`supabase/delete_account.sql` now has the live-subscription guard** `billing.sql`'s header promised but the
