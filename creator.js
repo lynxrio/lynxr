@@ -3507,12 +3507,31 @@ function planFairUse(p) {
     `fetch`, not `sbFetch`: the path is /functions/v1/…, not /rest/v1/…, so
     sbFetch's REST base and PostgREST error handling do not apply. */
 async function billingAction(action, plan) {
-  const res = await fetch(`${SB_URL}/functions/v1/billing-checkout`, {
+  /* NO `apikey` HEADER — THAT WAS THE LIVE UPGRADE BUG (2026-09-21). This is a
+     cross-origin call, so the browser preflights it, and the deployed function
+     allowed only `authorization, content-type`. An extra `apikey` header made
+     the preflight fail: the browser blocked the POST before it left the page,
+     fetch threw, and every Upgrade click said "couldn't open checkout". The
+     function runs with Verify JWT off and does its own auth from the bearer
+     token, so the gateway needs no apikey. Keep this header list inside what
+     the function's cors() allows. */
+  const attempt = () => fetch(`${SB_URL}/functions/v1/billing-checkout`, {
     method: "POST",
-    headers: { "content-type": "application/json", apikey: SB_KEY,
+    headers: { "content-type": "application/json",
                Authorization: `Bearer ${SB_TOKEN || SB_KEY}` },
     body: JSON.stringify({ action, plan }),
   });
+  let res = await attempt();
+  // A Plan view left open past the token's hour gets a 401 on the first click.
+  // Refresh once and retry, the same way sbFetch does.
+  if (res.status === 401 && loadSession()?.refresh_token) {
+    try {
+      SB_REFRESHING = SB_REFRESHING
+        || sbRefresh(loadSession().refresh_token).finally(() => { SB_REFRESHING = null; });
+      await SB_REFRESHING;
+      res = await attempt();
+    } catch { /* fall through to the normal error */ }
+  }
   if (!res.ok) throw new Error(`${res.status}`);
   const { url } = await res.json();
   if (!url) throw new Error("no url");

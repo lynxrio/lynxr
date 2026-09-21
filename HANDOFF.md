@@ -28,7 +28,7 @@ naming a path there publishes it.
 ### Read this block first. The rest of START HERE below is older and still true unless this says otherwise.
 
 **Repo.** Last push is `c90805e`. The working tree holds a large uncommitted batch that is **ready to review and
-push**: stamp bumped to **`20260921b`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
+push**: stamp bumped to **`20260921c`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
 anywhere, all JSON-LD parses, no inline styles in the page sources.
 
 **What's in the batch:**
@@ -69,6 +69,11 @@ the new Upgrade button — do one after the push (it calls the same function tha
 
 **Open, in order:**
 1. **Push the batch**, then click **Upgrade to pro** once on lynxr.io to confirm the real button reaches Stripe.
+   **That click failed on the live site (2026-09-21): "couldn't open checkout".** Cause: `billingAction` sent an
+   `apikey` header the function's CORS preflight didn't allow, so the browser blocked every checkout POST before
+   it left the page. It's been broken since checkout shipped. Fixed on both sides: the app no longer sends `apikey`
+   (works against the function as deployed, no redeploy needed), and `billing-checkout`'s `cors()` now allows
+   `apikey` and `x-client-info` (goes live with the next redeploy). A test covers it (44/44). Stamp `20260921c`.
 2. **Redeploy `billing-webhook`** (paste the file again): fixed in the tree — Stripe API 2025+ moved
    `current_period_end` onto subscription items, so the first live subscription recorded no renewal date.
 3. **Manage billing / self-serve cancel — built, switched off.** `billing-checkout` has a `portal` action

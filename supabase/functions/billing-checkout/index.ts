@@ -71,9 +71,14 @@ const siteFor = (origin: string | null) => (ORIGINS.includes(origin ?? "") ? ori
 // Stripe ever refuses eligibility for this product.
 const managedOn = () => (Deno.env.get("STRIPE_MANAGED_PAYMENTS") ?? "true") !== "false";
 
+// Allow-Headers must cover every header a browser caller sends, or the
+// preflight fails and the POST never leaves the page. It once listed only
+// authorization + content-type while the app also sent `apikey`, and every live
+// Upgrade click died in the browser. apikey and x-client-info are what
+// supabase-js and the app send by habit; allowing them costs nothing.
 const cors = (origin: string | null) => ({
   "Access-Control-Allow-Origin": ORIGINS.includes(origin ?? "") ? origin! : ORIGINS[0],
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Vary": "Origin",
 });

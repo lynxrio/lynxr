@@ -73,6 +73,13 @@ const post = (body, token = "good-token") =>
 
 let r = await checkout(new Request("https://fn.test/", { method: "OPTIONS", headers: { origin: "https://lynxr.io" } }));
 check("preflight 204 + CORS", r.status === 204 && r.headers.get("access-control-allow-origin") === "https://lynxr.io");
+// The live Upgrade bug: the app sent `apikey`, the preflight didn't allow it,
+// and the browser blocked every checkout before it left the page.
+{
+  const allowed = (r.headers.get("access-control-allow-headers") ?? "").toLowerCase().split(/\s*,\s*/);
+  check("preflight allows every header a browser caller sends",
+    ["authorization", "apikey", "content-type", "x-client-info"].every((h) => allowed.includes(h)));
+}
 
 r = await post({ plan: "pro" }, "bad-token");
 check("bad token -> 401", r.status === 401);
