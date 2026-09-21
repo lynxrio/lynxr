@@ -29,6 +29,17 @@
 -- and it is shared across everyone. The privacy policy is written to match:
 -- it promises "your companies, your saved links, your scripts", all of which
 -- live in lynxr_creators. Keep the two in step if you change either.
+--
+-- THE LIVE-SUBSCRIPTION GUARD (2026-09-21). lynxr_billing.creator_id cascades
+-- too, so deleting a paying account would drop our only record of its Stripe
+-- subscription while Stripe went on charging the card every month. The
+-- function therefore refuses while a subscription is still set to renew:
+-- status active / trialing / past_due (past_due = Stripe is retrying the card)
+-- with no cancel_at. Once the creator has cancelled — cancel_at set — no
+-- further charge can happen, so deletion is allowed; they give up the rest of
+-- the period they paid for, which is their choice to make. The page matches
+-- on the literal 'active_subscription' in the error body, so keep that word.
+-- Requires supabase/billing.sql (lynxr_billing) to have been applied first.
 
 create or replace function public.delete_own_account()
 returns void
@@ -43,6 +54,15 @@ declare
 begin
   if uid is null then
     raise exception 'not signed in';
+  end if;
+  if exists (
+    select 1 from public.lynxr_billing b
+     where b.creator_id = uid
+       and b.status in ('active','trialing','past_due')
+       and b.cancel_at is null
+  ) then
+    raise exception 'active_subscription'
+      using hint = 'Cancel the subscription first; deletion is allowed once it is set to end.';
   end if;
   delete from auth.users where id = uid;
 end

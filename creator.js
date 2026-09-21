@@ -3414,17 +3414,94 @@ function libraryItemHtml(item, scopeBrandId) {
 // ---------- you ----------
 /* THE PAYWALL, AND THE ONE SWITCH THAT DECIDES WHETHER IT CAN TAKE MONEY.
 
-   Checkout does not exist yet: the Supabase Edge Function this would post to
-   (`/functions/v1/billing-checkout`) is Stage 3 and is not deployed, and no
-   Paddle account has been created. A button that silently 404s is worse than
-   no button, so BILLING_LIVE gates it the same way SEND_OVERLAY gates the send
-   modal — flip it to true the day the function and the secrets exist, and the
-   Upgrade button starts working with no other edit here.
+   LIVE since 2026-09-21. `billing-checkout` is deployed on Supabase with the
+   Stripe secret key, and `billing-webhook` receives the events that grant the
+   entitlement. The provider is Stripe with Managed Payments — Stripe is the
+   merchant of record, so tax and disputes are theirs, not lynxr LLC's.
 
-   Until then the page still does its real job: it tells a creator exactly
-   where they stand, what pro costs, and what they get — it just says plainly
-   that checkout is not open yet instead of pretending. */
-const BILLING_LIVE = false;
+   The kill switch stays: flip this to false and the Upgrade button becomes a
+   sentence again, with no other edit here. That is the fastest way to stop
+   taking money if something is wrong. */
+const BILLING_LIVE = true;
+
+/* SELF-SERVE BILLING — THE STRIPE CUSTOMER PORTAL, AND ITS OWN SWITCH.
+   The Manage billing button on the Plan view posts { action: "portal" } to
+   billing-checkout, which mints a portal URL for the caller's OWN Stripe
+   customer. It needs two things this file cannot see: that version of the
+   function deployed, and the portal saved in Stripe's live mode. Until the
+   owner has done both and proved them, PORTAL_LIVE stays false and a paying
+   creator sees the hello@lynxr.io sentence instead — a button that posts to
+   a function which cannot answer is the silent failure BILLING_LIVE exists
+   to prevent.
+
+   THE ONE EXCEPTION IS THE LOCAL PREVIEW. On http://localhost:8811 — the
+   SessionStart preview, and the only non-production origin billing-checkout
+   will return to — the button shows regardless, so the real button can be
+   clicked end to end against the live function before any creator sees it.
+   http://127.0.0.1:8811 is deliberately NOT the exception: it renders what
+   lynxr.io renders, which is how production is checked locally.
+
+   BILLING_LIVE = false still hides it: that switch stops everything. */
+const PORTAL_LIVE = false;
+const portalOn = () => BILLING_LIVE && (PORTAL_LIVE || location.origin === "http://localhost:8811");
+
+/* PRO'S NUMBERS COME FROM THE LEDGER. lynxr_billing_plans is the one enforcing
+   place for the fair-use cap, and hardcoding it here meant this page said 300
+   while the database granted 150 — the kind of drift that turns into a support
+   argument the creator is right about. my_plan() returns the row; until it
+   answers, the page says nothing about the cap rather than guessing.
+
+   THE ONE NUMBER THAT IS NOT IN THE LEDGER IS THE PRICE. billing.sql says so
+   in as many words: "the PRICE of a plan -> the provider's dashboard, never
+   here". So $24.99 and $74.99 are typed here and on /pricing/, and those two
+   are the only places to change them. Everything else on this page — the cap,
+   the window, the 24h ceiling, whether a plan can be bought at all — is read
+   back from my_plan() and cannot drift from what the database enforces. */
+let PLAN = null;
+/* idle -> loading -> ok | error. Needed because `PLAN === null` cannot tell
+   "not asked yet" from "asked and the RPC failed", and those two want
+   different sentences: one is a blank moment, the other is a broken page. */
+let PLAN_STATE = "idle";
+async function refreshPlan() {
+  if (PLAN_STATE !== "ok") PLAN_STATE = "loading";
+  try {
+    PLAN = await sbFetch("/rest/v1/rpc/my_plan", { method: "POST", body: "{}" });
+    PLAN_STATE = "ok";
+  } catch {
+    /* leave PLAN as it was; the page copes with null */
+    PLAN_STATE = PLAN ? "ok" : "error";
+  }
+}
+
+/* WHO COUNTS AS PAYING. The same three the database calls entitled in
+   entitlement_for() — including past_due, deliberately: the card failed, the
+   provider is retrying, and taking the product away on day one of a failed
+   renewal turns a card problem into a cancellation. If this list and that one
+   ever disagree, the page lies about what the creator actually has. */
+const PAID_STATUS = new Set(["active", "trialing", "past_due"]);
+const planIsPaid = () => !!PLAN && PAID_STATUS.has(PLAN.status);
+/** The plan row the creator is actually on, or null while they are on free. */
+const planMine = () => (planIsPaid() && PLAN.plan_code ? PLAN.plans?.[PLAN.plan_code] || null : null);
+/** A plan may be offered only when the ledger holds a price id for it.
+    NEVER a hardcoded "coming soon": the day the owner sets max's price id in
+    the SQL editor, this card grows a button with no edit here — and until
+    then billing-checkout refuses the plan anyway, so the two agree. */
+const planForSale = (code) => !!(BILLING_LIVE && PLAN?.plans?.[code]?.for_sale);
+
+/** "21 october 2026". Never a bare ISO string: a renewal date is a promise. */
+function planDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/** The fair-use sentence for a plan row, from the row itself. */
+function planFairUse(p) {
+  if (!p || !p.granted) return "";
+  const per = p.period_days > 0 ? ` in any rolling ${p.period_days} days` : " for the life of the account";
+  return `${p.granted}${per}${p.daily_max ? `, ${p.daily_max} in any 24 hours` : ""}`;
+}
 
 /** POST to the checkout function and follow the URL it returns. Deliberately
     `fetch`, not `sbFetch`: the path is /functions/v1/…, not /rest/v1/…, so
@@ -3442,13 +3519,121 @@ async function billingAction(action, plan) {
   location.href = url;
 }
 
-/* WHAT A CREATOR SEES ABOUT THEIR PLAN. Follows renderYou's shape exactly —
-   burger + .pane-title + .pane-sub in the head, .section blocks in the body.
+/* ---------- coming back from Stripe ----------
+   billing-checkout sends a finished checkout to /?billing=done, an abandoned
+   one to /?billing=cancelled, and the customer portal's "return" link to
+   /?billing=portal. unlock() reads the flag once, wipes it
+   off the address bar and opens this view; nothing else in the app looks at
+   it, so a reload or a pasted link can never replay "payment received". */
+let BILLING_RETURN = null;        // 'done' | 'cancelled' | 'portal' | null
 
-   ONLY THE FREE STATE IS BUILT. `PLAN` does not exist yet: it is filled by
-   Stage 3's webhook receiver, and until then every account is on free, so an
-   'active'/'past_due' branch here would be code that cannot run and cannot be
-   tested. The extension point is marked below. */
+/* THE ENTITLEMENT IS NOT INSTANT AND THE PAGE MUST NOT PRETEND IT IS. Stripe
+   redirects the browser back the moment the payment succeeds; the plan becomes
+   ours only when billing-webhook receives the event and writes the row. That
+   is usually a second or two. So this asks again rather than telling a creator
+   they are on pro before the ledger agrees — and it is BOUNDED, because an
+   unbounded poll against a webhook that never arrives is a spinner with no
+   end and no honest thing to say. */
+const BILLING_POLL_MAX = 10;      // × 2s ≈ 20 seconds
+let BILLING_POLLS = 0;
+let BILLING_POLLING = false;
+async function awaitEntitlement() {
+  if (BILLING_POLLING) return;
+  BILLING_POLLING = true;
+  try {
+    while (BILLING_POLLS < BILLING_POLL_MAX && !planIsPaid()) {
+      BILLING_POLLS += 1;
+      // Read BEFORE the wait: this is the state the page last painted, so any
+      // change that lands during the wait — from here or anywhere — repaints.
+      const was = planIsPaid();
+      await new Promise((r) => setTimeout(r, 2000));
+      await refreshPlan();
+      await refreshAllowance();
+      if (VIEW.kind !== "plan") continue;
+      /* A REPAINT ONLY WHEN SOMETHING REALLY CHANGED. renderPane() replaces
+         #pane-body wholesale, which drops focus and any in-flight transition;
+         doing that every two seconds to change one sentence would be the
+         repaint-on-a-timer mistake. The sentence updates in place, and both
+         paths read billingReturnText() so they cannot drift apart. */
+      if (planIsPaid() !== was) renderPane();
+      else paintBillingReturn();
+    }
+    if (VIEW.kind === "plan") paintBillingReturn();
+  } finally {
+    BILLING_POLLING = false;
+  }
+}
+
+/* BACK FROM THE BILLING PORTAL. A cancellation made there reaches us the
+   same way a purchase does — Stripe sends customer.subscription.updated to
+   billing-webhook, which writes cancel_at — so the page asks the ledger again
+   rather than assuming nothing changed. Bounded like awaitEntitlement, but it
+   cannot stop early: "nothing changed" and "the webhook hasn't landed yet"
+   look identical from here. So it runs its few polls and repaints only when a
+   fact the page shows actually moved. */
+const PORTAL_POLL_MAX = 5;        // × 2s ≈ 10 seconds
+let PORTAL_POLLS = 0;
+let PORTAL_POLLING = false;
+const planSig = () => (PLAN ? [PLAN.status, PLAN.plan_code, PLAN.cancel_at, PLAN.current_period_end].join("|") : "");
+async function awaitPortalChanges() {
+  if (PORTAL_POLLING || PORTAL_POLLS >= PORTAL_POLL_MAX) return;
+  PORTAL_POLLING = true;
+  try {
+    while (PORTAL_POLLS < PORTAL_POLL_MAX) {
+      PORTAL_POLLS += 1;
+      const was = planSig();
+      await new Promise((r) => setTimeout(r, 2000));
+      await refreshPlan();
+      await refreshAllowance();
+      if (VIEW.kind !== "plan") continue;
+      if (planSig() !== was) renderPane();
+      else paintBillingReturn();
+    }
+    if (VIEW.kind === "plan") paintBillingReturn();
+  } finally {
+    PORTAL_POLLING = false;
+  }
+}
+
+/** The one source of the banner's words — used by the render AND by the
+    in-place update above, so the two can never say different things. */
+function billingReturnText() {
+  if (BILLING_RETURN === "cancelled") {
+    return "Checkout cancelled. Nothing was charged and nothing about your account changed.";
+  }
+  if (BILLING_RETURN === "portal") {
+    if (planIsPaid() && PLAN.cancel_at) {
+      const lbl = PLAN.plans?.[PLAN.plan_code]?.label || PLAN.plan_code;
+      return `Back from billing. ${lbl} is set to end on ${planDate(PLAN.cancel_at)} — you keep it until then.`;
+    }
+    if (PORTAL_POLLS >= PORTAL_POLL_MAX) {
+      return "Back from billing. This is your plan as Stripe last reported it — if a cancellation you just made isn't showing, reload in a minute.";
+    }
+    return "Back from billing. If you cancelled there, it can take a few seconds to show here — this page checks by itself.";
+  }
+  if (BILLING_RETURN !== "done") return "";
+  if (planIsPaid()) {
+    return `Payment went through — you're on ${PLAN.plans?.[PLAN.plan_code]?.label || PLAN.plan_code}. Thank you.`;
+  }
+  if (BILLING_POLLS >= BILLING_POLL_MAX) {
+    return "Payment went through, but it hasn't reached your account yet. Reload in a minute; if it's still not here, email hello@lynxr.io and we'll fix it by hand.";
+  }
+  return "Payment went through. We're waiting for Stripe to confirm it — this page updates itself the moment it lands.";
+}
+function paintBillingReturn() {
+  const el = document.getElementById("plan-return");
+  if (el) el.textContent = billingReturnText();
+}
+
+/* WHAT A CREATOR SEES ABOUT THEIR PLAN — a three-option picker, not a wall.
+   Follows renderYou's shape (burger + .pane-title + .pane-sub in the head,
+   islands in the body) and reuses .quota-bar from the rail so the meter here
+   and the meter there can never drift.
+
+   THE ORDER IS DELIBERATE: where you stand first, what you could move to
+   second. A creator opens this page to answer "why won't it send" at least as
+   often as "what does it cost", and the answer to the first is the band at the
+   top. */
 function renderPlan(head, body) {
   head.innerHTML = `
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -3462,47 +3647,213 @@ function renderPlan(head, body) {
   /* THE NUMBERS COME FROM THE LEDGER, NEVER FROM THE CONSTANT. scriptGrant()
      is my_allowance()'s `granted` once it has answered and SCRIPT_CAP only
      before that — so an account whose limit was raised by hand reads its own
-     number here rather than 25. */
+     number here rather than 25, and a subscriber reads their plan's. */
   const grant = scriptGrant();
   const room = Math.max(0, scriptRoom());
   const used = Math.max(0, grant - room);
   const spent = room <= 0;
+  const rolling = !!(ALLOWANCE && ALLOWANCE.periodDays > 0);
 
-  // TODO(Stage 3): when PLAN exists, branch here on PLAN.status for
-  // 'active' / 'trialing' / 'past_due' before falling through to free.
+  // First visit: ask the ledger for the plan rows, then repaint if the creator
+  // is still on this view. Never block the render on it — the state band above
+  // is already correct and comes from my_allowance().
+  if (PLAN_STATE === "idle") refreshPlan().then(() => { if (VIEW.kind === "plan") renderPane(); });
+  if (BILLING_RETURN === "done" && !planIsPaid()) awaitEntitlement();
+  if (BILLING_RETURN === "portal") awaitPortalChanges();
+
+  const paid = planIsPaid();
+  const mine = planMine();
+  const code = paid ? PLAN.plan_code : "free";
+  const label = paid ? (mine?.label || PLAN.plan_code) : "free";
+  const pro = PLAN?.plans?.pro || null;
+  const max = PLAN?.plans?.max || null;
+  /* "coming soon" is a claim about the ledger, so it is only made once the
+     ledger has answered: max's row is present AND says it is not for sale.
+     With my_plan() unanswered or failing, the card makes no claim either way —
+     and has no button either, because planForSale() is false without a row. */
+  const maxSoon = !!max && !max.for_sale;
+  /* Manage billing needs a paid state, the portal switch, and a Stripe
+     customer on the row — the function refuses an account without one. */
+  const canManage = paid && portalOn() && !!PLAN.has_customer;
+
+  /* THE STATUS WORD IS OURS, THE STATUS IS THEIRS. Stripe's vocabulary
+     ('past_due') is not a sentence a person should be shown. */
+  const statusWord = { active: "active", trialing: "on trial", past_due: "payment failed" };
+  // Stripe keeps a cancelled subscription 'active' until cancel_at. A pill
+  // saying "active" beside a line saying "Cancelled" reads as a contradiction.
+  const statusShown = paid && PLAN.cancel_at ? "ending" : (paid ? statusWord[PLAN.status] || PLAN.status : "");
+  /* What the paid band adds under the meter. Each line is a fact from
+     lynxr_billing, and each is omitted when the field behind it is null —
+     there is no "renews soon" for a date we do not have. */
+  const paidNotes = [];
+  if (paid) {
+    if (PLAN.cancel_at) {
+      paidNotes.push(`Cancelled. ${escapeHtml(label)} runs to <strong>${planDate(PLAN.cancel_at)}</strong>, then this account goes back to free. Nothing you've written is deleted.`);
+    } else if (PLAN.status === "trialing" && PLAN.current_period_end) {
+      paidNotes.push(`Your trial runs to <strong>${planDate(PLAN.current_period_end)}</strong>. The first payment is taken then.`);
+    } else if (PLAN.status === "active" && PLAN.current_period_end) {
+      // Active only: a past_due period end is the date a renewal already
+      // FAILED on, and calling that "renews" would be a promise we can't keep.
+      paidNotes.push(`Renews <strong>${planDate(PLAN.current_period_end)}</strong>.`);
+    }
+    if (PLAN.status === "past_due") {
+      paidNotes.push(`Your last payment didn't go through. Stripe is retrying it, and nothing here changes while it does.${canManage ? " To use a different card, open Manage billing below." : ""}`);
+    }
+  }
+
+  /* WHERE BILLING IS MANAGED. With canManage, the band gets a Manage billing
+     button: billing-checkout's `portal` action mints a Stripe customer-portal
+     URL for the caller's OWN customer (the id comes from lynxr_billing, never
+     from this page), and the creator cancels, changes card or downloads
+     receipts there. Otherwise — PORTAL_LIVE off, or a paid row with no customer
+     id, which only a hand-edited row can produce — it stays a sentence pointing
+     at hello@lynxr.io. Flipping PORTAL_LIVE back to false restores that
+     sentence with no other edit. */
+  const manageLine = `To change your card or cancel, email <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> — there's no self-serve billing page yet, so we make the change for you. Cancelling takes effect at the end of the period you've already paid for.`;
+  const portalLine = PLAN?.cancel_at
+    ? `Changed your mind? Renew from Manage billing any time before <strong>${planDate(PLAN.cancel_at)}</strong>. Your receipts and card are there too.`
+    : `Change your card, download receipts, or cancel &mdash; all on Stripe's billing page. Cancelling takes effect at the end of the period you've already paid for.`;
+  const mocLine = `Stripe is the merchant of record: it takes the payment, adds any tax at checkout, and handles refunds.`;
+
+  /* THE THREE OPTIONS ARE THE LANDING'S #pricing CARDS (owner, 2026-09-21:
+     "make the options way better" — pointing at those). Same markup shape and
+     the same .lp-plan* classes, so ONE block of rules in app.css draws both
+     and the two cannot drift apart; only the surface (the app's --gl-* island)
+     and the grid breakpoint are the app's own.
+
+     The CTA slot adapts to someone signed in: the plan you are on says so in
+     that slot (not a button — there is nothing to do), a plan you can buy gets
+     the real button, and anything else is the landing's dashed "not on sale"
+     pill or a plain line. Every number is still from my_plan(). */
+  const tick = `<svg class="lp-plan-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
+  const off = (text, plain) => `<p class="lp-plan-off${plain ? " plain" : ""}">${text}</p>`;
+  const cardCta = (planCode, buyLabel, notForSale) => {
+    if (code === planCode) return `<p class="lp-plan-cta lp-plan-here">${tick}Your plan</p>`;
+    // Already paying: checkout refuses a second subscription (already_subscribed),
+    // so a paid account never sees a buy button for another plan.
+    if (planCode === "free") return off("Where you land if you cancel", true);
+    if (paid && planCode === "pro") return off("Included in max", true);
+    if (paid && planCode === "max" && !maxSoon) return off("To move up, email hello@lynxr.io", true);
+    if (planForSale(planCode)) return `<button type="button" class="btn lp-plan-cta plan-buy" data-plan="${planCode}">${buyLabel}</button>`;
+    if (PLAN_STATE === "loading" || PLAN_STATE === "idle") return off("Checking what's available…");
+    if (PLAN_STATE === "error") return off("Couldn't load plans. Reload to try again.");
+    return off(notForSale);
+  };
+  // Static poses: free = idle, pro = done, max = hyped (HANDOFF item 7). The
+  // hop loops are switched off in app.css — three bouncing faces on a price
+  // page is decoration, not information.
+  const face = (mood) => (typeof lynxrAvatar === "function" ? lynxrAvatar(mood, "lp-plan-av") : "");
+  const cardClass = (planCode, extra) => `lp-plan${extra}${code === planCode ? " lp-plan-mine" : ""}`;
+
+  /* WHAT PRO WOULD CHANGE FOR THIS ACCOUNT. The one line the landing cannot
+     say: your number now against pro's, both read from the ledger. Free only,
+     and only once pro's row has answered. */
+  const gain = code === "free" && pro && pro.granted && pro.period_days > 0
+    ? `<p class="lp-plan-gain">${spent
+        ? `You've used all ${grant}.`
+        : rolling
+          ? `You get <strong>${grant}</strong> every ${ALLOWANCE.periodDays} days now.`
+          : `You have <strong>${room}</strong> left, and they don't refill.`}
+        Pro gives you <strong>${pro.granted}</strong> every ${pro.period_days} days.</p>`
+    : "";
+  const freeGrant = code === "free" ? grant : (PLAN?.plans?.free?.granted || SCRIPT_CAP);
+
   body.innerHTML = `
+    ${BILLING_RETURN ? `<div class="section plan-return-wrap"><p class="plan-return${BILLING_RETURN !== "done" ? " quiet" : ""}" id="plan-return" role="status" aria-live="polite">${escapeHtml(billingReturnText())}</p></div>` : ""}
+
+    ${/* WHERE YOU STAND. The same .plan-now box and the same .quota-bar the
+          rail draws, on free and on pro alike — one meter, one truth. */""}
     <div class="section">
       <div class="plan-now${spent ? " spent" : ""}">
         <div class="plan-now-head">
-          <span class="plan-badge">free</span>
+          <span class="plan-badge">${escapeHtml(label)}</span>
+          ${paid ? `<span class="plan-status s-${PLAN.status}">${statusShown}</span>` : ""}
           <span class="plan-count">${used}/${grant} scripts used</span>
         </div>
         <span class="quota-bar" aria-hidden="true"><i id="plan-fill"></i></span>
         <p class="plan-line">${spent
-          ? (ALLOWANCE && ALLOWANCE.periodDays > 0
+          ? (rolling
               ? "Nothing you've written is gone — the window rolls, so room reopens as older scripts age out."
               : "You've used all of them. Nothing you've written is gone — your scripts and companies stay exactly as they are.")
-          : (ALLOWANCE && ALLOWANCE.periodDays > 0
+          : (rolling
               ? `${room} left. It's ${grant} per ${ALLOWANCE.periodDays} days — the window rolls, so room comes back as older scripts age out.`
               : `${room} left. They don't refill — it's ${grant} for the life of the account.`)}</p>
+        ${paidNotes.length ? `<ul class="plan-meta">${paidNotes.map((n) => `<li>${n}</li>`).join("")}</ul>` : ""}
+        ${paid ? (canManage
+          ? `<div class="plan-manage">
+               <button type="button" class="ghost plan-portal" id="plan-portal">Manage billing</button>
+               <p class="bp-msg" id="plan-portal-msg" role="status" aria-live="polite"></p>
+               <p class="plan-manage-line">${portalLine}</p>
+               <p class="plan-manage-line">${mocLine}</p>
+             </div>`
+          : `<p class="plan-manage">${manageLine}<br>${mocLine}</p>`) : ""}
       </div>
     </div>
 
-    <div class="section">
-      <div class="bcard-title">lynxr pro</div>
-      <p class="plan-price"><strong>$24.99</strong> <span class="plan-per">a month</span></p>
-      <ul class="plan-list">
-        <li>Unlimited scripts &mdash; you never buy them one at a time.</li>
-        <li>Fair use: 300 in any rolling 30 days, 30 in any 24 hours.
-          <span class="plan-dim">The 30 days roll continuously; they don't reset on your billing date.</span></li>
-        <li>Cancel any time. Access runs to the end of the period you've paid for.</li>
-        <li>14-day money-back on your first payment.</li>
-      </ul>
-      ${BILLING_LIVE
-        ? `<button type="button" class="btn" id="plan-upgrade">Upgrade to pro</button>`
-        : `<p class="plan-soon">Checkout isn't open yet &mdash; lynxr is still in early access.
-             When it opens you'll be able to upgrade from this page.</p>`}
+    ${/* Not .section elements: the pane's island rule would box the row as one
+          card, and the point of the row is that the three are comparable at a
+          glance. A list, like the landing's, because it is one. */""}
+    <ul class="lp-plans" aria-label="Plans">
+      <li class="${cardClass("free", "")}">
+        <div class="lp-plan-head">${face("idle")}<h2 class="lp-plan-name">free</h2></div>
+        <p class="lp-plan-price"><strong>$0</strong></p>
+        <p class="lp-plan-tax">No card needed</p>
+        <ul class="lp-plan-list">
+          ${code === "free" && rolling
+            ? `<li>${grant} scripts every ${ALLOWANCE.periodDays} days</li>
+               <li>The window rolls, so room comes back as older scripts age out</li>`
+            : `<li>${freeGrant} scripts for the life of the account</li>
+               <li>They don't refill &mdash; it's a total, not a monthly amount</li>`}
+          <li>Everything you write stays yours, on any plan</li>
+        </ul>
+        ${cardCta("free", "", "")}
+      </li>
+
+      ${/* $24.99 must PAINT as $24.99. The tax line is not a disclaimer, it is
+            the difference between the number here and the number charged. */""}
+      <li class="${cardClass("pro", " lp-plan-pro")}">
+        <div class="lp-plan-head">${face("done")}<h2 class="lp-plan-name">lynxr pro</h2></div>
+        <p class="lp-plan-price"><strong>$24.99</strong> <span class="lp-plan-per">a month</span></p>
+        <p class="lp-plan-tax">Plus tax where applicable</p>
+        <ul class="lp-plan-list">
+          <li>Unlimited scripts &mdash; you never buy them one at a time</li>
+          ${pro && pro.granted
+            ? `<li>Fair use: ${planFairUse(pro)}
+                 <span class="plan-dim">The ${pro.period_days} days roll continuously; they don't reset on your billing date</span></li>`
+            : `<li>Fair use applies, so one account can't run up an unlimited bill
+                 <span class="plan-dim">The limit shows here once your plan loads</span></li>`}
+          <li>Cancel any time; access runs to the end of the period you've paid for</li>
+          <li>14-day money-back on your first payment</li>
+        </ul>
+        ${gain}
+        ${cardCta("pro", "Upgrade to pro", "Not open for checkout right now")}
+      </li>
+
+      ${/* MAX: ANNOUNCED, NOT SOLD. Neither feature it is sold on exists yet,
+            and lynxr_billing_plans holds no price id for it — so asking to buy
+            it is refused by the edge function itself, not merely hidden in
+            this markup. planForSale('max') flips the day the owner sets that
+            price id, and the button appears with no edit here. */""}
+      <li class="${cardClass("max", maxSoon ? " lp-plan-soon" : "")}">
+        <div class="lp-plan-head">${face("hyped")}<h2 class="lp-plan-name">lynxr max ${maxSoon && code !== "max" ? `<span class="lp-plan-chip">coming soon</span>` : ""}</h2></div>
+        <p class="lp-plan-price"><strong>$74.99</strong> <span class="lp-plan-per">a month</span></p>
+        <p class="lp-plan-tax">Plus tax where applicable</p>
+        <ul class="lp-plan-list">
+          <li>Everything in pro, with a higher ceiling${max && max.granted ? `: ${planFairUse(max)}` : ""}</li>
+          <li>Post tracking &mdash; lynxr follows how your public TikTok or Instagram videos do
+            <span class="plan-dim">Not built yet</span></li>
+          <li>A coach that reads those numbers back and says what to make next
+            <span class="plan-dim">Not built yet</span></li>
+        </ul>
+        ${cardCta("max", "Upgrade to max", "Not on sale yet")}
+      </li>
+    </ul>
+
+    <div class="section plan-foot">
       <p class="plan-msg" id="plan-msg" role="status" aria-live="polite"></p>
+      ${paid ? "" : `<p class="plan-foot-line">${mocLine}</p>`}
+      ${BILLING_LIVE ? "" : `<p class="plan-soon">Checkout isn't open yet &mdash; lynxr is still in early access.
+             When it opens you'll be able to upgrade from this page.</p>`}
       ${/* Separated by .x-sep, the same middot Settings' own .me-links row
              uses — without it the three run together as one string. All three
              open in a new tab: the delegated modal handler at the top of this
@@ -3521,19 +3872,36 @@ function renderPlan(head, body) {
   const fill = document.getElementById("plan-fill");
   if (fill) fill.style.width = `${grant > 0 ? (used / grant) * 100 : 100}%`;
 
-  const up = document.getElementById("plan-upgrade");
-  up?.addEventListener("click", async () => {
-    // Disabled for the whole round trip: a double-click must never open two
-    // Paddle transactions.
-    up.disabled = true;
-    const was = up.textContent;
-    up.textContent = "Opening checkout…";
+  body.querySelectorAll(".plan-buy").forEach((up) => {
+    up.addEventListener("click", async () => {
+      // Disabled for the whole round trip: a double-click must never open two
+      // Stripe Checkout sessions.
+      up.disabled = true;
+      const was = up.textContent;
+      up.textContent = "Opening checkout…";
+      try {
+        await billingAction("checkout", up.dataset.plan);
+      } catch {
+        flashMsg("plan-msg", "Couldn't open checkout. Try again, or use Feedback.", "bad");
+        up.disabled = false;
+        up.textContent = was;
+      }
+    });
+  });
+
+  const portalBtn = document.getElementById("plan-portal");
+  if (portalBtn) portalBtn.addEventListener("click", async () => {
+    // Disabled for the round trip, like the buy buttons: a double-click must
+    // never mint two portal sessions.
+    portalBtn.disabled = true;
+    const was = portalBtn.textContent;
+    portalBtn.textContent = "Opening billing…";
     try {
-      await billingAction("checkout", "pro");
+      await billingAction("portal");
     } catch {
-      flashMsg("plan-msg", "Couldn't open checkout. Try again, or use Feedback.", "bad");
-      up.disabled = false;
-      up.textContent = was;
+      flashMsg("plan-portal-msg", "Couldn't open billing. Try again, or email hello@lynxr.io and we'll make the change for you.", "bad");
+      portalBtn.disabled = false;
+      portalBtn.textContent = was;
     }
   });
 }
@@ -3731,7 +4099,12 @@ function renderYou(head, body) {
       // shape as signupError() / accountLoadError(): read the code off the
       // thrown error's message, which is where sbFetch puts it.
       const why = String(ex?.message || "");
-      flashMsg("del-msg", /PGRST202/i.test(why)
+      // active_subscription: delete_own_account() refuses while a paid plan is
+      // still set to renew, because the cascade would drop our record of the
+      // subscription while Stripe kept charging. Cancelling first unblocks it.
+      flashMsg("del-msg", /active_subscription/.test(why)
+        ? "Your paid plan is still set to renew. Cancel it from Plan first — once it's set to end, you can delete your account here."
+        : /PGRST202/i.test(why)
         ? "Account deletion isn't switched on yet — email us and we'll do it by hand."
         : "That didn't go through. Try again, or email us.", "bad");
       btn.disabled = false;
@@ -8593,6 +8966,28 @@ function unlock() {
   // Staff only, decided by the database (is_staff()). Not awaited, for the
   // same reason as refreshAllowance above.
   revealAgencySwitch();
+  takeBillingReturn();
+}
+
+/* BACK FROM STRIPE. billing-checkout sets success_url to /?billing=done,
+   cancel_url to /?billing=cancelled and the portal's return_url to
+   /?billing=portal — the creator app's own URL, because that is where the answer belongs.
+
+   READ ONCE, THEN WIPED OFF THE ADDRESS BAR. A reload, a bookmark or a link
+   pasted to a friend must never replay "payment went through": the flag is a
+   one-shot fact about this navigation, not state. history.replaceState keeps
+   the #fragment (an invite or confirmation link can carry one) and drops only
+   this parameter, so nothing else riding the URL is lost.
+
+   Runs after unlock() so the Plan view it opens has a session behind it. */
+function takeBillingReturn() {
+  const q = new URLSearchParams(location.search).get("billing");
+  if (q !== "done" && q !== "cancelled" && q !== "portal") return;
+  BILLING_RETURN = q;
+  const u = new URL(location.href);
+  u.searchParams.delete("billing");
+  history.replaceState(null, "", u.pathname + u.search + u.hash);
+  go({ kind: "plan" });
 }
 
 /* STAFF-ONLY LINK TO THE AGENCY APP (2026-09-14).

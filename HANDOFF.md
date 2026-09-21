@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-09-16 (evening).** Start with the section right below the table.
+Read this, then `README.md` for architecture. **Last updated 2026-09-21 (early morning).** Start with the section right below the table.
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -23,11 +23,86 @@ naming a path there publishes it.
 
 ---
 
-## START HERE — state as of 2026-09-16 (evening)
+## START HERE — state as of 2026-09-21 (early morning)
 
-**Repo:** everything is committed through `453df78` (working tree clean); the live
-cache stamp is `20260917a` (`./venv/bin/python tools/check_stamp.py` → `ok`, and
-`404.html` matches); the next one is `20260917b`.
+### Read this block first. The rest of START HERE below is older and still true unless this says otherwise.
+
+**Repo.** Last push is `c90805e`. The working tree holds a large uncommitted batch that is **ready to review and
+push**: stamp bumped to **`20260921b`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
+anywhere, all JSON-LD parses, no inline styles in the page sources.
+
+**What's in the batch:**
+- **Plan view** (`creator.js` `renderPlan`, `app.css`) — built by the ui-ux agent and reviewed: current state first,
+  then free / pro / max glass cards with "your plan" marked; a buy button only when `BILLING_LIVE` and that plan's
+  `for_sale` are both true; paid states (renews / trial / cancelling "ending" / past-due); `takeBillingReturn()`
+  reads `?billing=done|cancelled`, strips it, opens Plan, and polls the ledger up to 10× over ~20s after a purchase.
+  Prices ($24.99 / $74.99) are typed in the code because the ledger deliberately holds no prices.
+- **Landing `#pricing` section** (`index.html` ~552) — free / pro / max cards, "plus tax where applicable", max
+  "coming soon", Stripe named as merchant of record, links to `/pricing/`. Buttons open sign-up; nothing is buyable
+  signed-out.
+- **`/pricing/`** — now agrees with the ledger: Stripe (not Paddle), pro 150 (not 300), a max "coming soon" section.
+  **It lowered an advertised limit on a page that forms part of the terms — the owner should read it (~305–340).**
+- **terms / refunds / faq / llms.txt** — Stripe as merchant of record, pro 150, three new FAQ entries (cost, cancel,
+  who takes payment). Copy promising things that don't exist was removed: no "basic coaching" (pro's ledger row
+  has no features), and cancellation is "email hello@lynxr.io or reply to your receipt" until a portal button exists.
+- **`supabase/billing.sql`, `supabase/functions/`** — new, untracked; the header now describes Managed Payments.
+
+**Verified by the agent:** headless Brave over DevTools against localhost — 8 Plan states × light/dark × 390/1280
+with injected data, the landing cards painted and focusable, no console/CSP errors. **Not verified:** a real click on
+the new Upgrade button — do one after the push (it calls the same function that was already proven live).
+
+**PAYWALL IS LIVE ON STRIPE — proven end to end with real money flows (2026-09-21).**
+- **Provider:** Stripe with **Managed Payments** (Stripe is merchant of record: tax, VAT, disputes, billing support
+  are Stripe's, for +3.5% a transaction). Chosen over Paddle for no approval queue, and over plain Stripe because
+  Massachusetts taxes SaaS and lynxr LLC is in Allston. Revisit past ~300 subscribers.
+- **Ledger:** `supabase/billing.sql` is APPLIED. free 25 lifetime (unchanged), pro 150/30d + 30/24h with the LIVE
+  price id set, max 300/30d + 40/24h with **no price** — so max is unbuyable by construction ("coming soon").
+- **Functions:** `billing-checkout` and `billing-webhook` are DEPLOYED, **both with Verify JWT OFF** (the project is on
+  new JWT signing keys; the legacy-secret check would reject real user tokens; our code does its own auth and the
+  webhook verifies Stripe's HMAC). Secrets set: `STRIPE_SECRET_KEY` (a restricted live key: Checkout Sessions write,
+  Customer Portal write, Customers read, Subscriptions read), `STRIPE_WEBHOOK_SECRET`.
+- **Proven live:** checkout → subscription created → webhook `applied` → entitlement 150/30d → cancelled →
+  `customer.subscription.deleted` applied → back to free 25. Unsigned and forged webhook calls return 400.
+- **Tests:** `node --experimental-strip-types supabase/functions/test_edge_billing.mjs` → 28/28, no accounts needed.
+- **`creator.js`:** `BILLING_LIVE = true` (the kill switch — false turns Upgrade back into a sentence); pro's
+  fair-use line now reads `my_plan()` instead of a hardcoded 300.
+
+**Open, in order:**
+1. **Push the batch**, then click **Upgrade to pro** once on lynxr.io to confirm the real button reaches Stripe.
+2. **Redeploy `billing-webhook`** (paste the file again): fixed in the tree — Stripe API 2025+ moved
+   `current_period_end` onto subscription items, so the first live subscription recorded no renewal date.
+3. **Manage billing / self-serve cancel — built, switched off.** `billing-checkout` has a `portal` action
+   (tests 43/43); the Plan view has a Manage billing button behind `PORTAL_LIVE = false` in `creator.js`
+   (it shows on http://localhost:8811 regardless, so it can be proved there first). To go live: redeploy
+   `billing-checkout` (paste; confirm Verify JWT is still OFF), save the Customer portal in Stripe LIVE mode
+   (cancel at end of period, no plan switching, email change off), prove it from the localhost preview, then set
+   `PORTAL_LIVE = true`, switch the refunds/faq cancel copy, and bump the stamp.
+   Plan: `~/.claude/plans/lynxr-stripe-customer-portal.md` (Phase B = owner steps, Phase C = the flip).
+   **Also in this pass:** the Plan view's free / pro / max options now use the landing `#pricing` card design
+   (shared CSS: the landing rules are scoped `:is(body.home, .pane-body) .lp-plan…`; landing measured unchanged).
+   **`supabase/delete_account.sql` now has the live-subscription guard** `billing.sql`'s header promised but the
+   file never had: `delete_own_account()` refuses with `active_subscription` while a paid plan is set to renew
+   (active/trialing/past_due, no `cancel_at`) — otherwise the cascade drops the ledger row while Stripe keeps
+   charging. **Re-run it in the SQL editor**; until then the live function has no guard.
+4. **Edit the Stripe product description** — it still says "unlimited scripts and basic coaching", and it shows at
+   checkout. Coaching is not built.
+5. **Sitewide `SoftwareApplication` JSON-LD** still offers only `price: 0`. Add the $24.99 pro Offer on all 21 pages
+   in one pass and re-parse every block.
+6. **Stripe cleanup:** delete the test coupons/promotion codes — a live 100%-off code must not outlive its test. The
+   pro product's tax code saved as "SaaS – business use"; personal use was intended (minor, editable).
+7. **Tier faces:** free=idle, pro=done, max=hyped PNGs are in `~/Desktop/lynxr-tier-logos/` (upload pro's as the
+   Stripe product image). In-app, put `lynxrAvatar(mood)` on the plan cards rather than images.
+8. **Google sign-in fork risk:** `gawin@lynxr.io` is still an unconfirmed invited account — have him accept before he
+   uses "Continue with Google", or he gets a second account without staff access.
+9. **Search:** request indexing in Search Console (~10/day: about, pricing, faq, glossary, then the guides); Bing →
+   import from GSC; re-ping IndexNow (`tools/indexnow.py`) after the push.
+10. **Noticed, not fixed:** Escape doesn't close the sign-up gate (already true before this batch).
+
+---
+
+### Earlier state (2026-09-16 evening), kept for context
+
+**Repo (then):** committed through `453df78`; live cache stamp `20260917a`.
 
 **Agency sign-in has "Forgot your password?" (2026-09-17, stamp `20260917a`).**
 - **What changed:** `agencyonly/index.html` has the link and a hidden confirm field. `app.js` gained
@@ -117,7 +192,34 @@ cache stamp is `20260917a` (`./venv/bin/python tools/check_stamp.py` → `ok`, a
      - move every service login off the old Gmail contact before deleting it.
    - HTML only; no stamp bump was needed.
 
-5. **Small, known, not done:**
+5. **Paywall on STRIPE MANAGED PAYMENTS — built, nothing live.** (Owner picked Stripe on 2026-09-20 and then
+   took Stripe's own merchant-of-record option, Managed Payments, when the onboarding offered it: Stripe owns sales
+   tax/VAT/GST in 80+ countries, fraud, disputes and billing support for an extra 3.5% a transaction — ~$1.89 of a
+   $24.99 subscription against ~$1.02 without. It is what makes selling outside the US possible immediately, and it
+   takes Massachusetts sales tax on software off lynxr LLC. Revisit past ~300 subscribers. It is a per-SESSION flag
+   (`managed_payments[enabled]`), so dropping it silently returns the tax liability here; `STRIPE_MANAGED_PAYMENTS=false`
+   turns it off without a redeploy. Products must carry a tax code labelled "Eligible for Managed Payments", and tax
+   is added ON TOP of $24.99 unless the price's tax behaviour is set to inclusive.) Earlier reasoning:
+   ships without an approval queue, ~2.9% + 30c against ~5% + 50c, and nobody vets the scraping question — at the
+   cost of lynxr LLC being seller of record, so sales tax and refunds are ours. Revisit before selling outside
+   North America; moving providers later costs a webhook rewrite, not a migration, because no column says "stripe").
+   - **In the repo:** `supabase/billing.sql` (plans free/pro/max, `lynxr_billing`, `lynxr_feature_grants`,
+     `lynxr_billing_events`, and `entitlement_for` / `features_for` / `charge_scripts` / `my_plan` / `spend_state`);
+     `supabase/functions/billing-checkout/` and `billing-webhook/`; `supabase/functions/test_edge_billing.mjs`
+     (27 checks, `node --experimental-strip-types …`, no accounts needed — all passing).
+   - **Applying `billing.sql` changes nothing visible:** free is seeded at today's 25 lifetime, max has no price id
+     and so cannot be bought. The caps (pro 150/30d, max 300/30d) are PROVISIONAL until the per-script cost is
+     measured; a subscriber who uses every slot must still leave 20% of the net payment.
+   - **Owner still has to:** activate Stripe (LLC details, EIN, statement descriptor `LYNXR`), connect Mercury for
+     payouts (ACH routing + account number), create the `lynxr pro` $24.99/mo price and send the price id, enable
+     the customer portal, add a Radar rule blocking card countries outside US/CA, run `billing.sql`, deploy both
+     functions from the dashboard, set `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`, and add the webhook endpoint.
+   - **THE COMMON FAILURE:** `billing-webhook` must be deployed with **Verify JWT OFF**. Stripe sends no Supabase
+     token, so with it on every delivery is rejected and subscriptions never activate.
+   - **Not built yet:** the Plan view (pro card + max "coming soon" + notify-me), and the legal copy — `terms/` and
+     `refunds/` still name Paddle as merchant of record, which is now wrong and must change before any money moves.
+
+6. **Small, known, not done:**
    - the creator app's caption save flattens line breaks (the agency keeps them);
    - the creator hook card probably has the edit stripe over the opening quote mark (the
      agency one was fixed; the creator one is untested);

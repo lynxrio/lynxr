@@ -29,13 +29,13 @@
 <meta name="twitter:description" content="What lynxr costs: a free tier of 25 scripts, and lynxr pro at $24.99 a month with a fair-use ceiling. Prices in USD, tax added at checkout where required.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/pricing/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260917a">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260917a">
-<link rel="shortcut icon" href="/favicon.ico?v=20260917a">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260917a">
-<link rel="stylesheet" href="/app.css?v=20260917a">
-<script src="/theme.js?v=20260917a"></script>
-<script src="/backdrop.js?v=20260917a" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260921b">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260921b">
+<link rel="shortcut icon" href="/favicon.ico?v=20260921b">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260921b">
+<link rel="stylesheet" href="/app.css?v=20260921b">
+<script src="/theme.js?v=20260921b"></script>
+<script src="/backdrop.js?v=20260921b" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -211,7 +211,7 @@
   "name": "lynxr — pricing",
   "description": "What lynxr costs: a free tier of 25 scripts, and lynxr pro at $24.99 a month with a fair-use ceiling. Prices in USD, tax added at checkout where required.",
   "inLanguage": "en",
-  "dateModified": "2026-08-25",
+  "dateModified": "2026-09-21",
   "isPartOf": { "@id": "https://lynxr.io/#website" },
   "about": { "@id": "https://lynxr.io/#lynxr" }
 }
@@ -270,11 +270,12 @@
 <main class="legal">
   <section>
   <h1>pricing</h1>
-  <p class="legal-date">last updated 25 august 2026</p>
+  <p class="legal-date">last updated 21 september 2026</p>
 
   <p>lynxr turns a video you paste into a script written for a company you
     choose. there are two ways to use it: a free tier you never have to pay
-    for, and one paid tier.</p>
+    for, and one paid tier. a second paid tier, lynxr max, is announced but
+    not on sale yet.</p>
   </section>
 
   <section>
@@ -285,7 +286,7 @@
     <li>the twenty-five are a lifetime total, not twenty-five a month &mdash;
       they do not refill.</li>
     <li>everything you write on the free tier stays yours and stays readable
-      after the five are used.</li>
+      after the twenty-five are used.</li>
   </ul>
   </section>
 
@@ -302,17 +303,32 @@
   </ul>
   </section>
 
+  <!-- MAX IS ANNOUNCED, NOT SOLD (2026-09-21). lynxr_billing_plans holds no
+       price id for it, so checkout refuses it. The two features it is sold on
+       do not exist yet, and this section must not say they do. -->
+  <section>
+  <h2>lynxr max &mdash; coming soon</h2>
+  <p><strong>$74.99 a month, when it opens. it is not on sale yet.</strong></p>
+  <ul>
+    <li>everything in pro, with a higher fair-use ceiling: up to 300 scripts
+      in any rolling 30-day period and up to 40 in any 24 hours.</li>
+    <li>post tracking, and a coach that reads how your videos did and suggests
+      what to make next. neither is built yet, which is why max cannot be
+      bought.</li>
+  </ul>
+  </section>
+
   <section>
   <h2>fair use</h2>
   <p>pro is unlimited in the sense that you never buy scripts one at a time
     and you will not run out doing the work it is for. it is not unmetered.
-    pro includes up to <strong>300 scripts in any rolling 30-day period</strong>
+    pro includes up to <strong>150 scripts in any rolling 30-day period</strong>
     and up to <strong>30 in any 24 hours</strong>.</p>
   <p><strong>the 30-day window rolls continuously &mdash; it does not reset on
     your billing date.</strong> each script counts against you for 30 days from
     the moment it is written, and room comes back as older ones age out.</p>
   <p>for scale: a creator posting once a day writes about 30 scripts a month,
-    so this is roughly ten times heavy use. it exists to stop automated or
+    so this is roughly five times heavy use. it exists to stop automated or
     shared-account use, not to ration normal work.</p>
   <p>if you reach either limit nothing is deleted and everything already
     written stays yours; new scripts resume as earlier ones age out. if you
@@ -325,16 +341,15 @@
   <p>prices are in <strong>USD</strong>. tax is added at checkout where it is
     required, so the total you are shown before paying may be higher than
     $24.99 depending on where you are.</p>
-  <p><span class="entity">Paddle.com</span> is our merchant of record. that
-    means <span class="entity">Paddle</span> takes the payment, issues the
-    invoice, handles tax, and issues any refund &mdash; your card statement
-    will say <span class="entity">Paddle</span>, not lynxr.</p>
+  <p><span class="entity">Stripe</span> is our merchant of record. that
+    means <span class="entity">Stripe</span> takes the payment, works out and
+    adds any tax, issues the receipt, and handles refunds and disputes.</p>
   </section>
 
   <section>
   <h2>if a payment fails</h2>
-  <p><span class="entity">Paddle</span> retries a failed payment for a few days
-    before access drops back to the free tier. nothing you have already written
+  <p><span class="entity">Stripe</span> retries a failed payment before access
+    drops back to the free tier; pro stays on while it does. nothing you have already written
     is deleted.</p>
 
   <p>the <a href="/refunds/">refund policy</a> and the
@@ -393,8 +408,8 @@
 
 <!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
      see the file's own header for why it must never reach either app. -->
-<script src="/site.js?v=20260917a" defer></script>
-<script src="/footer.js?v=20260917a" defer></script>
+<script src="/site.js?v=20260921b" defer></script>
+<script src="/footer.js?v=20260921b" defer></script>
 
 </body>
 </html>

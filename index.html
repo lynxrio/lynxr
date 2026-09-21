@@ -71,13 +71,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260917a">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260917a">
-<link rel="shortcut icon" href="/favicon.ico?v=20260917a">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260917a">
-<link rel="stylesheet" href="/app.css?v=20260917a">
-<script src="/theme.js?v=20260917a"></script>
-<script src="/backdrop.js?v=20260917a" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260921b">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260921b">
+<link rel="shortcut icon" href="/favicon.ico?v=20260921b">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260921b">
+<link rel="stylesheet" href="/app.css?v=20260921b">
+<script src="/theme.js?v=20260921b"></script>
+<script src="/backdrop.js?v=20260921b" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -524,6 +524,72 @@
       <h2 class="lp-h2">built on 100,000+ studied videos</h2>
       <p class="lp-p">every script draws on that corpus, read format&#8209;first.</p>
       <p class="lp-note">5,190,673,018 combined views across the studied set &middot; measured 2026-08-28</p>
+    </div>
+  </section>
+
+
+  <!-- PRICING (2026-09-21, the day checkout opened). Free / pro / max side by
+       side, the way a SaaS landing normally does it, and a link to /pricing/
+       for the long version.
+
+       EVERY NUMBER HERE MIRRORS lynxr_billing_plans (supabase/billing.sql),
+       which is the ONE place the database enforces them: free 25 lifetime,
+       pro 150 per rolling 30 days + 30 per 24h, max 300 + 40. This is a static
+       page and cannot ask the ledger, so when a cap changes there it changes
+       HERE, on /pricing/, and nowhere else — the Plan view in the app reads the
+       row live. The prices are the provider's (Stripe) and are not in the
+       ledger at all; they live here, on /pricing/ and in creator.js.
+
+       MAX IS ANNOUNCED, NOT SOLD: it has no price id, so nothing can buy it.
+       No button, and the two features it is sold on are said plainly to be
+       unbuilt. Do not give this card a CTA until the Plan view has one.
+
+       The free tier is 25 for the life of the account TODAY. A move to a weekly
+       allowance is planned and NOT shipped — do not write it here before it is.
+
+       NO INLINE STYLES (CSP style-src 'self' drops them silently) and no
+       template syntax: this file is static HTML. -->
+  <section class="lp-sec" id="pricing">
+    <div class="lp-in">
+      <h2 class="lp-h2">free to start, one plan to pay for</h2>
+      <p class="lp-seclede">no card to sign up. when you want more, upgrade from inside the app.</p>
+      <ul class="lp-plans">
+        <li class="lp-plan">
+          <h3 class="lp-h3 lp-plan-name">free</h3>
+          <p class="lp-plan-price"><strong>$0</strong></p>
+          <p class="lp-plan-tax">no card needed</p>
+          <ul class="lp-plan-list">
+            <li>25 scripts for the life of the account</li>
+            <li>they don't refill &mdash; it's a total, not a monthly amount</li>
+            <li>everything you write stays yours, on any plan</li>
+          </ul>
+          <a class="ghost lp-plan-cta" href="/" data-gate="up">create a free account</a>
+        </li>
+        <li class="lp-plan lp-plan-pro">
+          <h3 class="lp-h3 lp-plan-name">lynxr pro</h3>
+          <p class="lp-plan-price"><strong>$24.99</strong> <span class="lp-plan-per">a month</span></p>
+          <p class="lp-plan-tax">plus tax where applicable</p>
+          <ul class="lp-plan-list">
+            <li>unlimited scripts &mdash; you never buy them one at a time</li>
+            <li>fair use: 150 in any rolling 30 days, 30 in any 24 hours</li>
+            <li>cancel any time; access runs to the end of the period you've paid for</li>
+            <li>14-day money-back on your first payment</li>
+          </ul>
+          <a class="btn lp-plan-cta" href="/" data-gate="up">start free, upgrade in the app</a>
+        </li>
+        <li class="lp-plan lp-plan-soon">
+          <h3 class="lp-h3 lp-plan-name">lynxr max <span class="lp-plan-chip">coming soon</span></h3>
+          <p class="lp-plan-price"><strong>$74.99</strong> <span class="lp-plan-per">a month</span></p>
+          <p class="lp-plan-tax">plus tax where applicable</p>
+          <ul class="lp-plan-list">
+            <li>everything in pro, with a higher ceiling: 300 in any rolling 30 days, 40 in any 24 hours</li>
+            <li>post tracking, and a coach that reads how your videos did &mdash; neither is built yet</li>
+          </ul>
+          <p class="lp-plan-off">not on sale yet</p>
+        </li>
+      </ul>
+      <p class="lp-plans-fine">prices in usd. <span class="entity">Stripe</span> is the merchant of record: it takes the payment and adds any tax at checkout.
+        <a href="/pricing/">full pricing, fair use and refunds</a></p>
     </div>
   </section>
 
@@ -993,10 +1059,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20260917a" defer></script>
-<script src="/footer.js?v=20260917a" defer></script>
-<script src="/home.js?v=20260917a" defer></script>
-<script src="/avatar.js?v=20260917a" defer></script>
-<script src="/creator.js?v=20260917a" defer></script>
+<script src="/site.js?v=20260921b" defer></script>
+<script src="/footer.js?v=20260921b" defer></script>
+<script src="/home.js?v=20260921b" defer></script>
+<script src="/avatar.js?v=20260921b" defer></script>
+<script src="/creator.js?v=20260921b" defer></script>
 </body>
 </html>

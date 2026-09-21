@@ -21,7 +21,7 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 
 - [lynxr](https://lynxr.io/): What lynxr is and how it works in three steps.
 - [Questions and answers](https://lynxr.io/faq/): Straight answers about what lynxr does with a link, which platforms it reads, what it costs, who owns the scripts, and how access works.
-- [Pricing](https://lynxr.io/pricing/): What lynxr costs — free to start with 25 scripts included.
+- [Pricing](https://lynxr.io/pricing/): What lynxr costs. Free to start: 25 scripts for the life of the account, no card required. lynxr pro is $24.99 a month for unlimited scripts (fair use: 150 in any rolling 30 days, 30 in any 24 hours); tax is added where it applies. lynxr max, $74.99 a month, adds the content coach and post tracking, and is not on sale yet.
 - [About lynxr](https://lynxr.io/about/): Who makes lynxr — lynxr LLC, a partner company of Lynx Media Group, the UGC agency — and how the two fit together.
 
 ## Guides
@@ -48,4 +48,4 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 - [Privacy policy](https://lynxr.io/privacy/): What lynxr collects, why, who it is shared with, how long it is kept, and how to have it deleted.
 - [Terms of service](https://lynxr.io/terms/): What lynxr does, what you are responsible for, who owns the scripts, and what is and is not promised.
 - [Accessibility](https://lynxr.io/accessibility/): What works, and the specific things that do not work yet.
-- [Refunds](https://lynxr.io/refunds/): How refunds work on lynxr pro — 14-day money-back on the first payment, no pro-rata on cancellation, and Paddle as the merchant of record.
+- [Refunds](https://lynxr.io/refunds/): How refunds work on lynxr pro — 14-day money-back on the first payment, no pro-rata on cancellation, and Stripe as the merchant of record.

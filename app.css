@@ -2712,13 +2712,9 @@
   .plan-now.spent .quota-bar > i { background: var(--bad); }
   .plan-line { margin: 9px 0 0; color: var(--text-2); font-size: var(--fs-125); }
   .plan-now.spent .plan-line { color: var(--bad); }
-  /* $24.99 must PAINT as $24.99. `body { text-transform: lowercase }` does not
-     touch digits, but this is the one number on the page a creator is agreeing
-     to, so it is sized rather than left to inherit. */
-  .plan-price { margin: 10px 0 12px; font-size: var(--fs-30); color: var(--text); }
-  .plan-price .plan-per { font-size: var(--fs-125); color: var(--text-3); }
-  .plan-list { margin: 0 0 16px; padding-left: 18px; color: var(--text-2); font-size: var(--fs-125); }
-  .plan-list li { margin: 0 0 7px; }
+  /* The Plan view's options are the landing's .lp-plan cards now — see
+     "LANDING: THE PRICING SECTION" near the end of this file. .plan-dim is the
+     one piece they keep from before: a quieter second line inside a bullet. */
   .plan-dim { display: block; color: var(--text-3); font-size: var(--fs-115); margin-top: 2px; }
   /* Shown INSTEAD of the Upgrade button while BILLING_LIVE is false — see the
      comment on that constant in creator.js. */
@@ -7640,7 +7636,7 @@
     --av-glow: rgba(110, 50, 160, .22);
   }
 
-  .lp-step, .lp-feat, .lp-stat.lp-panel, .lp-vid, .lp-ex-card, main.legal, body.lp:not(.home) main {
+  .lp-step, .lp-feat, .lp-plan, .lp-stat.lp-panel, .lp-vid, .lp-ex-card, main.legal, body.lp:not(.home) main {
     background: var(--surface);
     -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-edge);
@@ -7734,8 +7730,8 @@
 
   /* ---- a small spring on things you can touch ---- */
   @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-    body.home :is(.lp-step, .lp-feat, .lp-vid, .lp-ex-card, .lp-stat.lp-panel) { transition: transform .5s var(--spring), box-shadow .5s ease; }
-    body.home :is(.lp-step, .lp-feat, .lp-vid, .lp-ex-card):hover { transform: translateY(-6px); box-shadow: inset 0 1px 0 var(--glass-hi, var(--g-hi-fallback)), var(--g-shadow-lift); }
+    body.home :is(.lp-step, .lp-feat, .lp-plan, .lp-vid, .lp-ex-card, .lp-stat.lp-panel) { transition: transform .5s var(--spring), box-shadow .5s ease; }
+    body.home :is(.lp-step, .lp-feat, .lp-plan, .lp-vid, .lp-ex-card):hover { transform: translateY(-6px); box-shadow: inset 0 1px 0 var(--glass-hi, var(--g-hi-fallback)), var(--g-shadow-lift); }
     body.home .lp-feat:hover .lp-feat-ico { transform: rotate(-8deg) scale(1.08); }
     body.home .lp-feat .lp-feat-ico { transition: transform .5s var(--spring); }
     :is(.btn, .composer-send) { transition: transform .35s var(--spring), background-color .2s ease, border-color .2s ease; }
@@ -8440,7 +8436,8 @@
   #site-footer, .site-footer, body.home #site-footer,
   #gate .gate-card,
   .pane-body .me-card, .pane-body .lookup, .pane-body #brand-editor,
-  .pane-body .plan-now, .pane-body .fb-thanks, .pane-body #ad-list > .empty {
+  .pane-body .plan-now, .pane-body .fb-thanks, .pane-body #ad-list > .empty,
+  .pane-body .lp-plan {
     background: var(--gl-fill);
     -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
     border: 1px solid var(--gl-edge);
@@ -9893,3 +9890,211 @@
     color: var(--text-3); font-size: var(--fs-13);
   }
   .oauth-or::before, .oauth-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+
+  /* ================= CREATOR: THE PLAN PICKER (2026-09-21, billing live) =================
+     The Plan view stopped being "here is your meter, and here is one paragraph
+     about pro" the day checkout opened. It is now a three-option picker: where
+     you stand, then free / pro / max side by side with the one you are on
+     marked.
+
+     EVERY NUMBER ON IT COMES FROM lynxr_billing_plans VIA my_plan(), and
+     whether a card gets a button comes from that row's `for_sale`. Nothing in
+     this block encodes a cap, a window or "coming soon" — those are data, and
+     a stylesheet that hardcoded them would be the second place they live.
+
+     THE CARDS REUSE THE APP'S OWN ISLAND TOKENS (--gl-fill / --gl-edge /
+     --gl-shadow), not a new card look: they must be the same object as the
+     Settings cards and the .plan-now band above them. This block sits at the
+     END of the file, after the glass pass, for the same reason .lp-panel had
+     to — an equal-specificity rule written mid-file loses the source-order tie
+     to the pass that comes later. */
+
+  /* ---- coming back from Stripe ---- */
+  /* The dot carries the colour; the words stay ink. Green text on glass was
+     measured at ~1.2:1 once and the house rule from that is "colour lives in
+     dots and edges", so this is a dot. */
+  .pane-body .plan-return {
+    margin: 0; color: var(--text); font-size: var(--fs-135); line-height: 1.55;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .pane-body .plan-return::before {
+    content: ""; flex: none; width: 8px; height: 8px; margin-top: .5em;
+    border-radius: 50%; background: var(--good);
+  }
+  /* A cancelled checkout is not a failure and must not be painted as one. */
+  .pane-body .plan-return.quiet { color: var(--text-2); }
+  .pane-body .plan-return.quiet::before { background: var(--text-3); }
+
+  /* ---- the state band: what the paid branch adds under the meter ---- */
+  .plan-status {
+    padding: 2px 9px; border-radius: var(--r-pill); font-size: var(--fs-105);
+    letter-spacing: .04em; border: 1px solid var(--line-2); color: var(--text-2);
+  }
+  .plan-status.s-active, .plan-status.s-trialing { border-color: color-mix(in srgb, var(--good) 55%, var(--line)); }
+  .plan-status.s-past_due { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); color: var(--bad); }
+  /* The count is pushed to its own end of the head row so the badge, the
+     status and the number read as three separate facts rather than a string. */
+  .plan-now-head .plan-count { margin-left: auto; }
+  .plan-meta {
+    margin: 10px 0 0; padding-left: 18px; color: var(--text-2); font-size: var(--fs-125);
+  }
+  .plan-meta li { margin: 0 0 5px; }
+  .plan-meta strong { color: var(--text); font-variant-numeric: tabular-nums; }
+  /* WHERE BILLING IS MANAGED. With the portal on (canManage in creator.js)
+     this is a div holding the Manage billing button; with it off, the
+     hello@lynxr.io sentence as a <p>. Same frame either way. */
+  .plan-manage {
+    margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--line);
+    color: var(--text-3); font-size: var(--fs-115); line-height: 1.6;
+  }
+  .plan-manage a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
+  .plan-manage a:hover { color: var(--text); }
+  /* A ghost, not .btn: in the state band this is the secondary action — the
+     loud button on this page is Upgrade. The message line collapses to
+     nothing until a failure fills it, so it holds no gap open. */
+  .plan-manage .plan-portal { margin: 0 0 8px; }
+  .plan-manage .bp-msg { margin: 0; }
+  .plan-manage .bp-msg.show { margin: 0 0 8px; }
+  .plan-manage .plan-manage-line { margin: 0; }
+
+  /* ---- the three options ----
+     THE LANDING'S #pricing CARDS, drawn by the shared `:is(body.home,
+     .pane-body) .lp-plan…` rules at the end of this file (name, price, tax,
+     hairline, dot list, pinned pill CTA, pro's logo ring, max's dashed pill).
+     What is the app's own lives here: the grid, the head with its lynxr, the
+     "your plan" slot and the one line only a signed-in page can say. The
+     surface is the app island (--gl-*), added to the glass-pass list above.
+
+     Three items, three columns, and ONE breakpoint where three no longer fit —
+     never `auto-fit`, which reported four tracks at 1440px for .lp-steps and
+     left a hole. The pane is ~950px wide inside a 1280px window and ~650px
+     inside a 960px one, so the switch is on the WINDOW at 1180px. */
+  .pane-body > .lp-plans {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--float-gap); list-style: none; margin: 0 0 var(--float-gap); padding: 0; align-items: stretch;
+  }
+  @media (max-width: 1180px) { .pane-body > .lp-plans { grid-template-columns: minmax(0, 1fr); } }
+  /* THE PLAN YOU ARE ON. An edge, not a fill: a filled card would read as the
+     recommended one, and the point of the mark is "this is yours". */
+  .pane-body .lp-plan.lp-plan-mine { border-color: color-mix(in srgb, var(--text) 40%, var(--gl-edge)); }
+  .pane-body .lp-plan-head { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
+  .pane-body .lp-plan-head .lp-plan-name { flex: 1 1 auto; min-width: 0; margin: 0; }
+  /* An <h2> for the outline, so the global h2 eyebrow dash comes off. */
+  .pane-body .lp-plan-name::before { display: none; }
+  .pane-body .lp-plan-av { flex: none; width: 40px; height: 40px; }
+  /* Poses, not loops: done and hyped hop forever elsewhere. On a page where
+     someone is reading prices, three bouncing faces are decoration. The pose
+     (arms, face, hyped's sparkle) still says which is which. */
+  .pane-body .lx.lp-plan-av * { animation: none; }
+  /* Free only: this account's number against pro's, both from the ledger. */
+  .pane-body .lp-plan-gain { margin: -8px 0 14px; color: var(--text-2); font-size: 14px; line-height: 1.5; }
+  .pane-body .lp-plan-gain strong { color: var(--text); font-variant-numeric: tabular-nums; }
+  /* "Your plan" sits in the CTA slot so the three cards still end on one line,
+     but it is not a button — there is nothing to press — so it has no border
+     and no hover, just a tint and a tick. */
+  .pane-body .lp-plan-here {
+    margin-bottom: 0; gap: 8px; border-radius: 999px; cursor: default;
+    background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text);
+  }
+  .pane-body .lp-plan-tick { flex: none; width: 16px; height: 16px; }
+  /* The dashed pill carries longer states in the app ("checking…", "couldn't
+     load plans…"), so it may wrap; .plain drops the dash for lines that are
+     information, not an unavailable action. */
+  .pane-body .lp-plan-off { padding: 8px 18px; text-align: center; line-height: 1.4; }
+  .pane-body .lp-plan-off.plain { border-color: transparent; }
+
+  /* ---- the foot: the message line, the merchant of record, the three links ---- */
+  .plan-foot-line { margin: 0 0 10px; color: var(--text-3); font-size: var(--fs-115); line-height: 1.6; }
+  /* Empty until a checkout fails: it must not hold a line open at the top of
+     the island. min-height, not display:none — a live region that is not
+     rendered when its text arrives is not reliably announced. */
+  .pane-body .plan-foot .plan-msg { margin-top: 0; min-height: 0; }
+  /* On a phone .me-links draws a rule above itself to part it from Settings'
+     buttons. Here it is alone in its own island, so the island is the frame. */
+  @media (max-width: 560px) {
+    .pane-body .plan-foot .me-links { border-top: 0; margin-top: 4px; padding-top: 0; }
+  }
+
+
+  /* ================= LANDING: THE PRICING SECTION (2026-09-21) =================
+     index.html #pricing AND the creator app's Plan view (2026-09-21). The
+     CARD rules are written `:is(body.home, .pane-body) .lp-plan…`: the same
+     specificity as the `body.home .lp-plan…` they replaced — :is() takes its
+     most specific argument — so the landing's cascade is unchanged, and the
+     Plan view draws its free / pro / max options from these exact rules, so
+     the two cannot drift apart. (The app strips `home` from <body> on sign-in,
+     which is why the app needs the second argument at all.) The GRID and the
+     fine print stay body.home only; the app lays the three out on its own
+     breakpoint further down. /pricing/, the content pages and the agency app
+     emit no .lp-plan* and are untouched.
+
+     THE CARD IS NOT A NEW LOOK. .lp-plan was added to the landing's own glass
+     card list (the `.lp-step, .lp-feat, …` rule) and to its hover spring, so
+     it is the same object as the "how it works" cards and cannot drift from
+     them. This block only lays the three out and sets their type.
+
+     NOT .lp-note for the fine print: `body.home .lp-note { display: none }`
+     hides every one on this page (the SIMPLE, FUN, GLASS pass). The tax line
+     is not fine print to be hidden — it is the difference between the price
+     shown and the price charged — so it has its own class. */
+  body.home .lp-plans {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px; list-style: none; margin: 0; padding: 0; align-items: stretch;
+  }
+  /* Three items, three columns, one breakpoint (never auto-fit — see .lp-steps). */
+  @media (max-width: 860px) { body.home .lp-plans { grid-template-columns: minmax(0, 1fr); max-width: 520px; margin-inline: auto; } }
+  :is(body.home, .pane-body) .lp-plan {
+    display: flex; flex-direction: column; padding: 28px 26px 26px; position: relative;
+  }
+  :is(body.home, .pane-body) .lp-plan-name { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 12px;
+    font-size: 19px; font-weight: 700; letter-spacing: -.01em; color: var(--text); }
+  :is(body.home, .pane-body) .lp-plan-price { margin: 0; color: var(--text); font-size: 17px; line-height: 1.1; }
+  /* The one number a visitor is being asked to agree to: sized, not inherited. */
+  :is(body.home, .pane-body) .lp-plan-price strong { font-size: clamp(34px, 3.4vw, 42px); font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  :is(body.home, .pane-body) .lp-plan-per { color: var(--text-2); font-size: 15px; }
+  :is(body.home, .pane-body) .lp-plan-tax { margin: 6px 0 18px; color: var(--text-2); font-size: 14px; }
+  :is(body.home, .pane-body) .lp-plan-list {
+    list-style: none; margin: 0 0 22px; padding: 18px 0 0; border-top: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto;
+    color: var(--text-2); font-size: 15px; line-height: 1.5;
+  }
+  :is(body.home, .pane-body) .lp-plan-list li { position: relative; padding-left: 18px; }
+  :is(body.home, .pane-body) .lp-plan-list li::before {
+    content: ""; position: absolute; left: 2px; top: .62em; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--text-3);
+  }
+  /* Both CTAs open the same sign-up gate (data-gate="up"): there is no way to
+     buy from a signed-out page, and the labels say so. .ghost / .btn are the
+     app's own two button weights, sized here to the landing's scale. */
+  :is(body.home, .pane-body) .lp-plan-cta {
+    display: flex; align-items: center; justify-content: center; margin-top: auto;
+    min-height: 46px; padding: 0 18px; font-size: 15px; font-weight: 600; text-decoration: none; text-align: center;
+  }
+  :is(body.home, .pane-body) .lp-plan-cta.ghost { border-color: var(--line-2); color: var(--text); }
+  /* PRO: the one plan that is for sale, marked by the logo ring the feature
+     icons already wear — an edge, not a "most popular" label we could not
+     stand behind. Same masked-ring technique as .lp-feat-ico::before. */
+  :is(body.home, .pane-body) .lp-plan-pro::before {
+    content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 2px;
+    background: var(--logo-grad); pointer-events: none;
+    -webkit-mask: var(--mask-solid) content-box, var(--mask-solid);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  :is(body.home, .pane-body) .lp-plan-chip {
+    padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line-2);
+    color: var(--text-2); font-size: 12px; font-weight: 500; letter-spacing: .02em; white-space: nowrap;
+  }
+  /* MAX, announced: quieter than the two you can have today, and no button. */
+  :is(body.home, .pane-body) .lp-plan-soon .lp-plan-price { color: var(--text-2); }
+  :is(body.home, .pane-body) .lp-plan-off {
+    margin: auto 0 0; min-height: 46px; display: flex; align-items: center; justify-content: center;
+    border: 1px dashed var(--line-2); border-radius: 999px; color: var(--text-2); font-size: 14px;
+  }
+  body.home .lp-plans-fine {
+    margin: 22px auto 0; max-width: 64ch; text-align: center;
+    color: var(--text-2); font-size: 14px; line-height: 1.6;
+  }
+  body.home .lp-plans-fine a { color: var(--text); border-bottom: 1px solid var(--line-2); text-decoration: none; white-space: nowrap; }
+  body.home .lp-plans-fine a:hover { border-bottom-color: var(--text-2); }
+  @media (max-width: 560px) { :is(body.home, .pane-body) .lp-plan { padding: 24px 20px 22px; } }
