@@ -9868,13 +9868,11 @@
   .oauth-btn[hidden] { display: none; }
   .oauth-btn:disabled { opacity: .45; cursor: default; }
   .oauth-btn img, .oauth-btn svg { width: 18px; height: 18px; flex: none; display: block; }
-  /* Google's 2025 asset pack ships full pill/circle buttons only — no bare G.
-     assets/google-g.svg is their icon-only button face: a white circle with a
-     #747775 hairline around the gradient G. At the 18px baseline that circle
-     nearly disappears into the button's own white fill; sized up, the hairline
-     reads as an intentional badge rather than a box nested inside a box. Do not
-     shrink this back to 18px without re-checking the painted result. */
-  #oauth-google img { width: 26px; height: 26px; }
+  /* 18px, Google's own size on their button. The asset is google-g-mark.svg: the
+     official icon with its white circle and hairline taken off (owner, 2026-09-20,
+     "get rid of the circle around the google logo"), so there is no badge left to
+     size up — a bare glyph at 26px would tower over the 15px label. */
+  #oauth-google img { width: 18px; height: 18px; }
   /* THE LABEL KEEPS ITS CAPITALS. `body, button, select { text-transform:
      lowercase }` in the HOUSE STYLE block would otherwise draw a string both
      providers mandate the wording of in a casing neither of them shows. Same

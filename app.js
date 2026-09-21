@@ -83,7 +83,7 @@ function gateFieldError(el, text) {
   const err = document.getElementById("err");
   err.textContent = text;
   GATE_ERR_TEXT = text;
-  ["email", "pw"].forEach((id) => clearInvalid(document.getElementById(id)));
+  ["email", "pw", "pw2"].forEach((id) => clearInvalid(document.getElementById(id)));
   markInvalid(el, "err");
   el.focus();
   // Retype a password; finish an address — see creator.js gateFieldError().
@@ -93,9 +93,12 @@ function gateFieldError(el, text) {
 document.getElementById("gate-form").addEventListener("input", () => {
   const emailEl = document.getElementById("email");
   const pw = document.getElementById("pw");
-  const bad = [emailEl, pw].filter((el) => el.getAttribute("aria-invalid") === "true");
+  const pw2 = document.getElementById("pw2");
+  const bad = [emailEl, pw, pw2].filter((el) => el.getAttribute("aria-invalid") === "true");
   if (!bad.length) return;
-  const ok = (el) => (el === emailEl ? emailShapeOk(el.value.trim()) : el.value.length > 0);
+  const ok = (el) => (el === emailEl ? emailShapeOk(el.value.trim())
+    : el === pw2 ? el.value === pw.value
+    : el.value.length >= (GATE_RESET ? 8 : 1));
   if (bad.every(ok)) {
     bad.forEach(clearInvalid);
     const err = document.getElementById("err");
@@ -109,6 +112,7 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
   const pw = document.getElementById("pw");
   const err = document.getElementById("err");
   const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (GATE_RESET) { await saveNewPassword(submitBtn); return; }
   const email = (emailEl?.value || "").trim();
   const password = pw.value;
   if (!email || !password) { gateFieldError(email ? pw : emailEl, "Enter your email and password."); return; }
@@ -149,6 +153,107 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
     pw.select();
   } finally {
     submitBtn.disabled = false;
+  }
+});
+
+/* RESET MODE (2026-09-17: "for the agency side there is no forgot password").
+   A password-reset or invite link lands here with a session in the URL
+   fragment; sessionFromLink() takes it and calls this. The link already said
+   who this is, so the email field goes and the new password is asked twice —
+   the same shape as the creator gate's reset mode in creator.js. An invite
+   counts too: an invited account has no password yet, and this app signs in
+   with nothing else. */
+let GATE_RESET = false;
+function setResetMode(message) {
+  GATE_RESET = true;
+  const emailEl = document.getElementById("email");
+  const pw = document.getElementById("pw");
+  emailEl.hidden = true;
+  pw.placeholder = "New password";
+  pw.setAttribute("autocomplete", "new-password");
+  document.getElementById("pw2-wrap").hidden = false;
+  document.getElementById("forgot-wrap").hidden = true;
+  document.querySelector('#gate-form button[type="submit"]').textContent = "Save new password";
+  document.getElementById("err").textContent = message;
+  pw.focus();
+}
+
+async function saveNewPassword(submitBtn) {
+  const pw = document.getElementById("pw");
+  const pw2 = document.getElementById("pw2");
+  const err = document.getElementById("err");
+  if (pw.value.length < 8) { gateFieldError(pw, "Use at least 8 characters for your password."); return; }
+  if (pw.value !== pw2.value) { gateFieldError(pw2, "Those two passwords don't match — retype the second one."); return; }
+  clearInvalid(pw); clearInvalid(pw2);
+  submitBtn.disabled = true;
+  gateBusy(err, "Saving…");
+  let saved = false;
+  try {
+    // sbFetch carries the session the link established, and refreshes it if
+    // the person sat on this screen past the hour.
+    await sbFetch("/auth/v1/user", { method: "PUT", body: JSON.stringify({ password: pw.value }) });
+    saved = true;
+    pw.value = ""; pw2.value = "";
+    gateBusy(err, "Loading database…");
+    const rows = await sbFetchVideos();
+    try { await syncClients(); } catch { SYNC_OK = false; }
+    unlock(rows);
+    updateSyncBadge();
+  } catch (ex) {
+    const m = (ex && ex.message) || "";
+    // Saved but the load failed: the password is set, so say what the load
+    // says (a creator account lands here too, and is told so).
+    err.textContent = saved
+      ? await loadFailureReason(m)
+      : /same.*password|different from the old/i.test(m)
+        ? "That's the password you already had — pick a different one."
+        : "Couldn't save the new password. Ask for a fresh reset link and try again.";
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+/* Forgot password. The same request the creator gate makes. Supabase answers
+   200 whether or not the address has an account, so the wording must not
+   claim a mail was sent. The link comes back to this page when this URL is an
+   allowed redirect in Supabase (Authentication → URL Configuration); when it
+   isn't, Supabase uses the Site URL instead and the creator app's own reset
+   form sets the password — one account, so both apps accept it either way. */
+const MAILER_FAILURE = /error sending .*e-?mail|email_send|smtp/i;
+document.getElementById("gate-forgot").addEventListener("click", async () => {
+  const err = document.getElementById("err");
+  const btn = document.getElementById("gate-forgot");
+  const emailEl = document.getElementById("email");
+  const email = (emailEl.value || "").trim();
+  if (!email) { gateFieldError(emailEl, "Enter your email first, then tap Forgot your password."); return; }
+  if (!emailShapeOk(email)) {
+    gateFieldError(emailEl, "Check your email address — it should look like name@example.com.");
+    return;
+  }
+  clearInvalid(emailEl);
+  btn.disabled = true;
+  err.textContent = "Sending…";
+  try {
+    const back = encodeURIComponent(location.origin + location.pathname);
+    const res = await fetch(`${SB_URL}/auth/v1/recover?redirect_to=${back}`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`${res.status} ${body.msg || body.message || ""}`.trim());
+    }
+    err.textContent = "If that address has an account, a reset link is on its way.";
+  } catch (ex) {
+    const m = (ex && ex.message) || "";
+    err.textContent = /429|rate|too many|for security purposes/i.test(m)
+      ? "Too many attempts — wait a minute and try again."
+      : MAILER_FAILURE.test(m)
+        ? "We couldn't send the reset email — that's a problem on our end, not your connection."
+        : "Couldn't send the reset link — check your connection and try again.";
+  } finally {
+    btn.disabled = false;
   }
 });
 
@@ -8083,6 +8188,49 @@ function renderApp(rows) {
   applyFilters();
 }
 
+/** A reset or invite link comes back here with the session in the URL
+    fragment (Supabase's implicit flow). Take it, strip it from the address bar
+    so the tokens never sit in history, and ask for a password. Returns true
+    when it took over the gate, so the stored-session path doesn't also run.
+    Fragments never reach a server, so this is the only place that can read it.
+    Same contract as sessionFromLink() in creator.js; separate bundle, own copy. */
+async function sessionFromLink() {
+  const hash = location.hash || "";
+  if (!hash.includes("access_token") && !hash.includes("error")) return false;
+  const p = new URLSearchParams(hash.replace(/^#/, ""));
+  history.replaceState(null, "", location.pathname + location.search);
+  const err = document.getElementById("err");
+  if (p.get("error_description") || p.get("error")) {
+    // A stored session may still be good, so fall through to it; if it isn't,
+    // this sentence is what stays on the gate.
+    err.textContent = "That link has expired or was already used. "
+      + "Enter your email and tap Forgot your password for a new one.";
+    return false;
+  }
+  const type = p.get("type");
+  const access_token = p.get("access_token"), refresh_token = p.get("refresh_token");
+  if (!access_token || !refresh_token) return false;
+  try {
+    // The fragment carries no user object; the email is what updated_by records.
+    const res = await fetch(`${SB_URL}/auth/v1/user`, {
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${access_token}` } });
+    if (!res.ok) throw new Error(String(res.status));
+    const user = await res.json();
+    SB_TOKEN = access_token;
+    SB_EMAIL = user.email || null;
+    sbSaveSession({ access_token, refresh_token, user });
+  } catch {
+    err.textContent = "Couldn't open that link — ask for a fresh one and try again.";
+    return true;
+  }
+  if (type === "recovery" || type === "invite") {
+    setResetMode(type === "invite" ? "Choose a password to finish." : "Set a new password to finish.");
+    return true;
+  }
+  return false;   // any other link (a signup confirmation): the stored session takes it from here
+}
+
 // Kick off auto-login last, once every Supabase const above is initialized.
-resumeSession();
+// A reset or invite link wins over a stored session.
+(async () => { if (!(await sessionFromLink())) resumeSession(); })();
 

@@ -26,9 +26,18 @@ naming a path there publishes it.
 ## START HERE — state as of 2026-09-16 (evening)
 
 **Repo:** everything is committed through `453df78` (working tree clean); the live
-cache stamp is `202609152u` (`./venv/bin/python tools/check_stamp.py` → `ok`, and
-`404.html` matches). Stamp format after the `z` rollover: date + batch digit + letter
-(`202609152u` → next `202609152v`).
+cache stamp is `20260917a` (`./venv/bin/python tools/check_stamp.py` → `ok`, and
+`404.html` matches); the next one is `20260917b`.
+
+**Agency sign-in has "Forgot your password?" (2026-09-17, stamp `20260917a`).**
+- **What changed:** `agencyonly/index.html` has the link and a hidden confirm field. `app.js` gained
+  `setResetMode()`, `saveNewPassword()` and its own `sessionFromLink()`. A reset or invite link that lands on
+  `/agencyonly/` now asks for the new password twice, saves it, and opens the database.
+- **Creator side:** `creator.js` now treats an **invite** link like a reset link and asks for a password. Before
+  this, an invited staff member had no password to sign in to the agency app with.
+- **Redirect:** the link lands on `/agencyonly/` only if `https://lynxr.io/agencyonly/` (or `https://lynxr.io/**`)
+  is an allowed Redirect URL in Supabase → Authentication → URL Configuration. Otherwise Supabase sends it to the
+  Site URL and the creator app's reset form sets the same password, which is one account, so both apps accept it.
 
 **What the site looks like now** (details in the dated sections below):
 - **Glass:** frosted `--gl-*` tokens (46%→12% white, 28px blur) on floating chrome and
@@ -57,23 +66,26 @@ cache stamp is `202609152u` (`./venv/bin/python tools/check_stamp.py` → `ok`, 
    session: walk the owner through its questions and the gaps listed in the memory note, then
    run its "Build first" list only on a go.
 
-2. **Google sign-in is BUILT but OFF** (`const OAUTH_ON = { google: false, … }` in
+2. **Google sign-in is ON in the code, not yet pushed** (`const OAUTH_ON = { google: true, apple: false }` in
    `creator.js`; plan `~/.claude/plans/oauth-sign-in.md`).
-   - **Owner still has to:**
-     - fix the ONE unconfirmed auth user (created 2026-08-28, never signed in): confirm it via magic link or SQL, or delete it, until
-       `select count(*) filter (where email_confirmed_at is null) from auth.users` = 0;
-     - confirm `require_invite = false` in `lynxr_signup_gate`;
-     - create the Google OAuth client (web; redirect URI
-       `https://esakjfogplfszievvabi.supabase.co/auth/v1/callback`; consent screen "In
-       production", no logo);
-     - enable the Supabase Google provider (Redirect URLs `https://lynxr.io/**` and
-       `http://localhost:8811/**`).
-   - **Then:** flip the flag, bump the stamp, push, and have the owner test a new Google
-     address plus linking to an existing password account (same library and allowance).
-   - **Unverified:** Safari rendering of `assets/google-g.svg` (Google's official
-     icon-only light asset, with a `foreignObject` gradient).
-   - **Staff sign-in stays password-only.** Apple is blocked on a $99/yr developer
-     account.
+   - **Done 2026-09-20:** Google Cloud project `lynxr` (id `tidy-interface-508915-e3`, org lynxr.io) with the consent
+     screen External and published, client `lynxr web` (origins `https://lynxr.io` + `http://localhost:8811`, single
+     redirect URI `https://esakjfogplfszievvabi.supabase.co/auth/v1/callback`); the Supabase Google provider is
+     enabled (`/auth/v1/settings` → `external.google = true`); Site URL and the two `/**` redirect patterns are set.
+   - **Proven locally:** the button paints, the consent tick still gates it, and clicking reaches Google's sign-in
+     page with the right client_id and `redirect_to` intact. No real sign-in was performed.
+   - **Owner must do BEFORE pushing** — an account whose email is unconfirmed does not link; Supabase mints a second
+     uid with an empty library and a fresh allowance:
+     - delete the empty unconfirmed account from 2026-08-28 (never signed in, no creator row, no charges);
+     - have `gawin@lynxr.io` accept his invite, or confirm that account, so staff access stays on one uid;
+     - re-check: `select count(*) filter (where email_confirmed_at is null) from auth.users` = 0.
+   - **Then:** push (the stamp is already `20260917a` in the tree) and test on lynxr.io with a brand-new Google
+     address, and with an address that already has a confirmed password account — that one must stay ONE account.
+   - **Known cosmetic:** Google's screen reads "to continue to esakjfogplfszievvabi.supabase.co". Changing it needs
+     Supabase's paid custom-domain add-on.
+   - **Unverified:** Safari rendering of `assets/google-g.svg` (Google's official icon-only light asset, with a
+     `foreignObject` gradient).
+   - **Staff sign-in stays password-only.** Apple is blocked on a $99/yr developer account.
 
 3. **Brand search** (plan `~/.claude/plans/brand-search-visibility.md`; see its section below).
    - **Done:** repo steps 1–4; sitemap submitted in Search Console (the Domain property was
@@ -91,8 +103,14 @@ cache stamp is `202609152u` (`./venv/bin/python tools/check_stamp.py` → `ok`, 
      private roadmap note). Update it before re-indexing the pricing page.
 
 4. **Email moved to Google Workspace on lynxr.io (2026-09-16).**
-   - **Done:** Cloudflare has the MX (`smtp.google.com`) and DKIM (`google._domainkey`) records. The public contact
-     address is now `hello@lynxr.io` on every page, in the JSON-LD, and on lynxmediagroup.org.
+   - **Done:** Cloudflare has the MX (`smtp.google.com`) and DKIM (`google._domainkey`) records.
+   - **Public contact is `hello@lynxr.io`** on every page, in the JSON-LD and in lynxr's organization block on
+     lynxmediagroup.org. `junsa@lynxr.io` is the owner's own account: Google sign-in's support/contact email, the
+     seat-exempt seed entry, and service logins — never the public address. Lynx Media Group's own
+     `lynxmedianetwork@gmail.com` is untouched and still names the `lynxr_staff` seed in `supabase/staff_gate.sql`.
+   - **`hello@lynxr.io` is an ALIAS on `junsa@lynxr.io`** (Workspace, added 2026-09-20), so support mail lands in the
+     owner's inbox at no extra licence cost. It is not a group and cannot sign in anywhere. Replies come from junsa@
+     unless the owner adds it under Gmail → Send mail as.
    - **Owner still has to:**
      - make `hello@lynxr.io` receive mail (a Workspace group or an alias);
      - add the SPF TXT record on `@` (`v=spf1 include:_spf.google.com ~all`);

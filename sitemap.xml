@@ -6,7 +6,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://lynxr.io/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>1.0</priority>
   </url>
   <!-- The one page written for a stranger or a model asking a question rather
@@ -14,7 +14,7 @@
        rather than with the legal pages. -->
   <url>
     <loc>https://lynxr.io/faq/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.8</priority>
   </url>
   <!-- Pricing sits with /faq/, not with the legal set: it is written for a
@@ -22,99 +22,99 @@
        review looks for. -->
   <url>
     <loc>https://lynxr.io/pricing/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://lynxr.io/about/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.5</priority>
   </url>
   <!-- The four content/GEO guides — below /faq/, above the legal set. -->
   <url>
     <loc>https://lynxr.io/what-is-a-video-format/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/turn-a-video-into-a-script/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/short-form-script-structure/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/how-to-write-a-hook/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/ugc-script-template/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/remake-a-viral-video/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/glossary/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.7</priority>
   </url>
   <!-- The blog hub and its posts, added in batches. -->
   <url>
     <loc>https://lynxr.io/blog/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://lynxr.io/blog/question-hooks/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/blog/two-column-script/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/blog/storytime-script/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/blog/find-a-video-worth-remaking/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/blog/brief-to-script/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/privacy/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://lynxr.io/terms/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://lynxr.io/refunds/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://lynxr.io/accessibility/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-18</lastmod>
     <priority>0.3</priority>
   </url>
 </urlset>

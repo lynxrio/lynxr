@@ -8850,12 +8850,17 @@ function clearGateErrors() {
    no ?v= bump. Reach for that one first if a provider misbehaves; this is for
    taking the button off the page afterwards.
 
-   SHIPPED OFF (owner, 2026-09-16). The Google Cloud client and Supabase provider
-   are not both configured yet, and one unconfirmed creator email is still an
-   open fork risk (see the plan's assumption 2) — Supabase would mint a second
-   uid for that address the moment Google is live. Flip this to `true` only
-   after both are done and the census in Stage A step 2 comes back clean. */
-const OAUTH_ON = { google: false, apple: false };
+   GOOGLE ON (owner, 2026-09-20). The Google Cloud client (project `lynxr`,
+   consent screen External + published) and the Supabase provider are both
+   configured; `/auth/v1/settings` reports `external.google = true`. Apple stays
+   off: it needs a paid Apple Developer account.
+
+   STILL THE FORK RISK (the plan's Stage A step 2): an account whose email is
+   unconfirmed does NOT link — Supabase mints a second uid with an empty library
+   and a fresh allowance. Two such accounts existed when this flipped: an empty
+   one from 2026-08-28 that never signed in, and gawin@lynxr.io, invited and
+   not yet accepted. Confirm or delete them before this reaches production. */
+const OAUTH_ON = { google: true, apple: false };
 const OAUTH_FLAG = "lynxr_oauth";
 let OAUTH_RETURN = null;
 
@@ -9448,17 +9453,21 @@ async function sessionFromLink() {
     // straight into the app would look like success while leaving the old
     // password in place — so the next sign-in fails exactly as before and the
     // reset appears not to have worked. Say so by asking for the new one.
-    return p.get("type") === "recovery" ? "recovery" : true;
+    // An invite link is the same case: the account has no password yet, and
+    // the agency app signs in with nothing else (2026-09-17).
+    const kind = p.get("type");
+    return kind === "recovery" || kind === "invite" ? kind : true;
   } catch { return false; }
 }
 
 // Arriving from a confirmation link, or a session already stored here.
 (async function resume() {
   const link = await sessionFromLink();
-  if (link === "recovery") {
+  if (link === "recovery" || link === "invite") {
     if (HOME) showGate("reset"); else setGateMode("reset");
     document.getElementById("pw").focus();
-    document.getElementById("err").textContent = "Set a new password to finish.";
+    document.getElementById("err").textContent =
+      link === "invite" ? "Choose a password to finish." : "Set a new password to finish.";
     return;
   }
   if (link) {
