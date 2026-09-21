@@ -10106,3 +10106,19 @@
   body.home .lp-plans-fine a { color: var(--text); border-bottom: 1px solid var(--line-2); text-decoration: none; white-space: nowrap; }
   body.home .lp-plans-fine a:hover { border-bottom-color: var(--text-2); }
   @media (max-width: 560px) { :is(body.home, .pane-body) .lp-plan { padding: 24px 20px 22px; } }
+
+/* ── IN-APP NOTICE CARD (free tier change, 2026-09-21) ──
+   One card above the composer, free accounts only, until "got it" (see
+   paintFreeNotice in creator.js). The app's still island: glass fill and edge,
+   no blur, the composer's width. The slot is empty (and takes no space) when
+   there is nothing to say. */
+.newscript #free-notice-slot:empty { display: none; }
+.newscript .notice-card {
+  width: 100%; max-width: 640px; margin: 0 auto; padding: 16px 20px;
+  background: var(--gl-fill); border: 1px solid var(--gl-edge);
+  border-radius: var(--r-card); box-shadow: var(--gl-shadow);
+}
+.newscript .notice-title { margin: 0 0 4px; font-weight: 600; color: var(--text); }
+.newscript .notice-body { margin: 0 0 8px; color: var(--text-2); font-size: var(--fs-13); line-height: 1.55; }
+.newscript .notice-actions { margin: 0; display: flex; gap: 16px; align-items: baseline; font-size: var(--fs-13); }
+.newscript .notice-actions a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }

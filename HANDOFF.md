@@ -28,7 +28,7 @@ naming a path there publishes it.
 ### Read this block first. The rest of START HERE below is older and still true unless this says otherwise.
 
 **Repo.** Last push is `c90805e`. The working tree holds a large uncommitted batch that is **ready to review and
-push**: stamp bumped to **`20260921e`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
+push**: stamp bumped to **`20260921f`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
 anywhere, all JSON-LD parses, no inline styles in the page sources.
 
 **What's in the batch:**
@@ -97,6 +97,14 @@ the new Upgrade button — do one after the push (it calls the same function tha
    file never had: `delete_own_account()` refuses with `active_subscription` while a paid plan is set to renew
    (active/trialing/past_due, no `cancel_at`) — otherwise the cascade drops the ledger row while Stripe keeps
    charging. **Re-run it in the SQL editor**; until then the live function has no guard.
+**FREE TIER → 3 A WEEK ON TUESDAY 6 OCTOBER 2026 (notice started 2026-09-21).** The terms promise 14 days' emailed
+   notice, so the owner emails every confirmed account on 21/22 Sep (draft on the owner's Desktop, never in the repo;
+   BCC only). Already live in the tree: terms (payments + short version), /pricing/ free section, /faq/ (visible +
+   JSON-LD), landing `#pricing` free card, llms.txt, the Plan view's free card, and a one-time composer card
+   (`paintFreeNotice` / `FREE_WEEKLY_FROM` in creator.js; free accounts only, before the switch only). **Left for
+   switch day:** the free row in `lynxr_billing_plans` (25 lifetime → 3 per 7 days), worker walls, the allowance
+   display, the sitewide SoftwareApplication JSON-LD + meta descriptions ("includes 25 scripts"), and the
+   post-switch in-app text. If the email slips past 22 Sep, move `FREE_WEEKLY_FROM` and every "6 october" string.
 4. **Edit the Stripe product description** — it still says "unlimited scripts and basic coaching", and it shows at
    checkout. Coaching is not built.
 5. **Sitewide `SoftwareApplication` JSON-LD** still offers only `price: 0`. Add the $24.99 pro Offer on all 21 pages

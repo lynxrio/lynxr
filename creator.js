@@ -618,7 +618,7 @@ let SYNC_OK = false;
 // card asks once and then stops. See ASK_QS.
 const BLANK_ME = { name: "", niches: [], brands: [], adaptations: [], library: [],
                    trash: [], contactEmail: "", emailOptIn: false,
-                   about: "", never: "", askDone: [], theme: "" };
+                   about: "", never: "", askDone: [], theme: "", noticesSeen: [] };
 
 /** Delete a script the recoverable way: it moves to the trash with a stamp and
  *  the name of the company it was written for, so Settings can offer it back.
@@ -1068,7 +1068,7 @@ document.addEventListener("visibilitychange", () => {
 function normalizeMe() {
   ME = { ...BLANK_ME, ...ME };
   let changed = false;
-  for (const k of ["niches", "brands", "adaptations", "library", "trash", "askDone"]) {
+  for (const k of ["niches", "brands", "adaptations", "library", "trash", "askDone", "noticesSeen"]) {
     if (!Array.isArray(ME[k])) { ME[k] = []; changed = true; }
   }
 
@@ -1571,6 +1571,48 @@ function go(view) {
 // Modelled on a chat app's new-chat screen: opening lynxr lands here with an
 // empty composer, and pressing "New script" from anywhere returns here empty.
 // One job on the page, so there is nothing to read before you can start.
+/* THE FREE-TIER NOTICE (2026-09-21). The terms promise 14 days' emailed notice
+   of a change that affects you, and free moves from 25 for the life of the
+   account to 3 in any rolling 7 days on FREE_WEEKLY_FROM. The email is the
+   legal notice; this card is the in-app echo, shown once above the composer
+   until "got it".
+
+   FREE ACCOUNTS ONLY, AND ONLY BEFORE THE SWITCH. "Free" is read off the
+   ledger's answer: ALLOWANCE.periodDays === 0 is the lifetime allowance only
+   free has (pro rolls over 30 days). ALLOWANCE arrives after the composer
+   first paints, so the card goes into a slot that refreshAllowance() repaints.
+   After the switch the card says nothing: whether the new allowance is live
+   is the switch step's job, and a card claiming it early would be false. */
+const FREE_WEEKLY_FROM = "2026-10-06";
+const FREE_NOTICE_ID = "free-weekly-2026-10-06";
+
+function paintFreeNotice() {
+  const slot = document.getElementById("free-notice-slot");
+  if (!slot) return;
+  let paid = false;
+  try { paid = planIsPaid(); } catch { /* PLAN not initialised yet */ }
+  const seen = (ME?.noticesSeen || []).includes(FREE_NOTICE_ID);
+  const before = Date.now() < Date.parse(FREE_WEEKLY_FROM + "T00:00:00Z");
+  const isFree = !!ALLOWANCE && ALLOWANCE.periodDays === 0;
+  if (seen || !before || paid || !isFree) { slot.replaceChildren(); return; }
+
+  const when = new Date(FREE_WEEKLY_FROM + "T12:00:00Z")
+    .toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  const left = Math.max(0, ALLOWANCE.granted - ALLOWANCE.used);
+  slot.innerHTML = `
+    <div class="notice-card" role="status">
+      <p class="notice-title">Free is changing on ${escapeHtml(when)}</p>
+      <p class="notice-body">From ${escapeHtml(when)}, free accounts get 3 scripts a week instead of ${ALLOWANCE.granted} in total. You have ${left} of your ${ALLOWANCE.granted} left until then. Nothing you've written changes.</p>
+      <p class="notice-actions"><a href="/pricing/" target="_blank" rel="noopener">What's changing</a>
+        <button type="button" class="linkish" id="notice-dismiss">Got it</button></p>
+    </div>`;
+  document.getElementById("notice-dismiss").addEventListener("click", () => {
+    ME.noticesSeen = [...new Set([...(ME.noticesSeen || []), FREE_NOTICE_ID])];
+    save();
+    slot.replaceChildren();
+  });
+}
+
 function renderNewScript(head, body) {
   // No page title — the greeting below is the title, and repeating it twice
   // above a one-field form is exactly the clutter this view is avoiding.
@@ -1610,6 +1652,7 @@ function renderNewScript(head, body) {
               is all a returning creator needs and enough for a new one. */""}
         <h1 class="newscript-h">paste a video, get a script</h1>
       </div>
+      <div id="free-notice-slot"></div>
       ${firstRun ? `<p class="nobrand">
         <button type="button" class="linkish" id="nobrand-add">Add a brand</button>
         to get scripts written for them</p>` : ""}
@@ -1630,6 +1673,7 @@ function renderNewScript(head, body) {
 
   renderComposeFor();
   wireComposer();
+  paintFreeNotice();
   consumePendingPaste();
   document.getElementById("nobrand-add")?.addEventListener("click", addBrand);
   // Focus on desktop only — on a phone the keyboard would spring up and cover
@@ -3827,8 +3871,8 @@ function renderPlan(head, body) {
           ${code === "free" && rolling
             ? `<li>${grant} scripts every ${ALLOWANCE.periodDays} days</li>
                <li>The window rolls, so room comes back as older scripts age out</li>`
-            : `<li>${freeGrant} scripts for the life of the account</li>
-               <li>They don't refill &mdash; it's a total, not a monthly amount</li>`}
+            : `<li>3 scripts in any 7 days, from 6 October 2026</li>
+               <li>Until then, ${freeGrant} for the life of the account</li>`}
           <li>Everything you write stays yours, on any plan</li>
         </ul>
         ${cardCta("free", "", "")}
@@ -4968,6 +5012,7 @@ async function refreshAllowance() {
      older RPC that omits it reads as lifetime, which is what free is. */
   ALLOWANCE = { used, granted, periodDays: Number(r?.period_days) || 0 };
   renderSide();
+  paintFreeNotice();
 }
 
 /** Which companies the pasted link is for. Links are sent from one place now,
