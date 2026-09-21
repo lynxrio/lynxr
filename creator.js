@@ -1571,48 +1571,6 @@ function go(view) {
 // Modelled on a chat app's new-chat screen: opening lynxr lands here with an
 // empty composer, and pressing "New script" from anywhere returns here empty.
 // One job on the page, so there is nothing to read before you can start.
-/* THE FREE-TIER NOTICE (2026-09-21). The terms promise 14 days' emailed notice
-   of a change that affects you, and free moves from 25 for the life of the
-   account to 3 in any rolling 7 days on FREE_WEEKLY_FROM. The email is the
-   legal notice; this card is the in-app echo, shown once above the composer
-   until "got it".
-
-   FREE ACCOUNTS ONLY, AND ONLY BEFORE THE SWITCH. "Free" is read off the
-   ledger's answer: ALLOWANCE.periodDays === 0 is the lifetime allowance only
-   free has (pro rolls over 30 days). ALLOWANCE arrives after the composer
-   first paints, so the card goes into a slot that refreshAllowance() repaints.
-   After the switch the card says nothing: whether the new allowance is live
-   is the switch step's job, and a card claiming it early would be false. */
-const FREE_WEEKLY_FROM = "2026-10-06";
-const FREE_NOTICE_ID = "free-weekly-2026-10-06";
-
-function paintFreeNotice() {
-  const slot = document.getElementById("free-notice-slot");
-  if (!slot) return;
-  let paid = false;
-  try { paid = planIsPaid(); } catch { /* PLAN not initialised yet */ }
-  const seen = (ME?.noticesSeen || []).includes(FREE_NOTICE_ID);
-  const before = Date.now() < Date.parse(FREE_WEEKLY_FROM + "T00:00:00Z");
-  const isFree = !!ALLOWANCE && ALLOWANCE.periodDays === 0;
-  if (seen || !before || paid || !isFree) { slot.replaceChildren(); return; }
-
-  const when = new Date(FREE_WEEKLY_FROM + "T12:00:00Z")
-    .toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
-  const left = Math.max(0, ALLOWANCE.granted - ALLOWANCE.used);
-  slot.innerHTML = `
-    <div class="notice-card" role="status">
-      <p class="notice-title">Free is changing on ${escapeHtml(when)}</p>
-      <p class="notice-body">From ${escapeHtml(when)}, free accounts get 3 scripts a week instead of ${ALLOWANCE.granted} in total. You have ${left} of your ${ALLOWANCE.granted} left until then. Nothing you've written changes.</p>
-      <p class="notice-actions"><a href="/pricing/" target="_blank" rel="noopener">What's changing</a>
-        <button type="button" class="linkish" id="notice-dismiss">Got it</button></p>
-    </div>`;
-  document.getElementById("notice-dismiss").addEventListener("click", () => {
-    ME.noticesSeen = [...new Set([...(ME.noticesSeen || []), FREE_NOTICE_ID])];
-    save();
-    slot.replaceChildren();
-  });
-}
-
 function renderNewScript(head, body) {
   // No page title — the greeting below is the title, and repeating it twice
   // above a one-field form is exactly the clutter this view is avoiding.
@@ -1652,7 +1610,6 @@ function renderNewScript(head, body) {
               is all a returning creator needs and enough for a new one. */""}
         <h1 class="newscript-h">paste a video, get a script</h1>
       </div>
-      <div id="free-notice-slot"></div>
       ${firstRun ? `<p class="nobrand">
         <button type="button" class="linkish" id="nobrand-add">Add a brand</button>
         to get scripts written for them</p>` : ""}
@@ -1673,7 +1630,6 @@ function renderNewScript(head, body) {
 
   renderComposeFor();
   wireComposer();
-  paintFreeNotice();
   consumePendingPaste();
   document.getElementById("nobrand-add")?.addEventListener("click", addBrand);
   // Focus on desktop only — on a phone the keyboard would spring up and cover
@@ -1716,8 +1672,8 @@ function focusComposer() {
    with the tab, but a confirmation email opens a NEW tab (see Assumption 1),
    so this only ever fires for a same-tab sign-IN — the window is generous
    because there is no reason to be strict once it is this narrow already.
-   DOES NOT AUTO-SEND — see the Do-not list; a send spends one of 25 lifetime
-   scripts and a brand-new account has no brands yet to write for. */
+   DOES NOT AUTO-SEND — see the Do-not list; a send spends one of this week's
+   free scripts and a brand-new account has no brands yet to write for. */
 function consumePendingPaste() {
   let p = null;
   try { p = JSON.parse(sessionStorage.getItem(PASTE_KEY) || "null"); } catch {}
@@ -1778,7 +1734,7 @@ trackVisibleHeight();
 function renderSide() {
   document.getElementById("side-who").textContent = SB_EMAIL || "";
   /* THE SERVER'S NUMBER WHEN THERE IS ONE. `granted` is per-account
-     (lynxr_allowance.granted), so it is not always 25 — raising one creator's
+     (lynxr_allowance.granted), so it is not always free's 3 — raising one creator's
      limit is one UPDATE and this rail has to say the new number, not the
      constant. ALLOWANCE null means my_allowance() has not answered: fall back
      to the local count, which is what this rail showed before the ledger
@@ -1788,12 +1744,13 @@ function renderSide() {
   // A rolling grant (period_days > 0) reads "N per D days" instead of the
   // lifetime phrasing — see quotaWallText() for why the two must not share
   // a sentence. `used` is already window-scoped by my_allowance() in that case.
-  const rolling = ALLOWANCE && ALLOWANCE.periodDays > 0;
+  const period = scriptPeriod();
+  const rolling = period > 0;
   const quota = document.getElementById("side-quota");
   document.getElementById("side-quota-text").textContent =
     used >= grant
-      ? (rolling ? `${grant}/${grant} per ${ALLOWANCE.periodDays}d — none left` : `${grant}/${grant} — none left`)
-      : (rolling ? `${used}/${grant} per ${ALLOWANCE.periodDays}d · ${grant - used} left`
+      ? (rolling ? `${grant}/${grant} per ${period}d — none left` : `${grant}/${grant} — none left`)
+      : (rolling ? `${used}/${grant} per ${period}d · ${grant - used} left`
                  : `${used}/${grant} scripts · ${grant - used} left`);
   // Width via CSSOM, not a style attribute: the CSP drops inline styles, and
   // this exact mistake once shipped bar charts that rendered as nothing.
@@ -3710,12 +3667,13 @@ function renderPlan(head, body) {
   /* THE NUMBERS COME FROM THE LEDGER, NEVER FROM THE CONSTANT. scriptGrant()
      is my_allowance()'s `granted` once it has answered and SCRIPT_CAP only
      before that — so an account whose limit was raised by hand reads its own
-     number here rather than 25, and a subscriber reads their plan's. */
+     number here rather than 3, and a subscriber reads their plan's. */
   const grant = scriptGrant();
   const room = Math.max(0, scriptRoom());
   const used = Math.max(0, grant - room);
   const spent = room <= 0;
-  const rolling = !!(ALLOWANCE && ALLOWANCE.periodDays > 0);
+  const period = scriptPeriod();
+  const rolling = period > 0;
 
   // First visit: ask the ledger for the plan rows, then repaint if the creator
   // is still on this view. Never block the render on it — the state band above
@@ -3818,11 +3776,14 @@ function renderPlan(head, body) {
     ? `<p class="lp-plan-gain">${spent
         ? `You've used all ${grant}.`
         : rolling
-          ? `You get <strong>${grant}</strong> every ${ALLOWANCE.periodDays} days now.`
+          ? `You get <strong>${grant}</strong> every ${period} days now.`
           : `You have <strong>${room}</strong> left, and they don't refill.`}
         Pro gives you <strong>${pro.granted}</strong> every ${pro.period_days} days.</p>`
     : "";
+  // my_plan() does not return the free row, so a paid account reads free's
+  // numbers from the constants below, which match lynxr_billing_plans 'free'.
   const freeGrant = code === "free" ? grant : (PLAN?.plans?.free?.granted || SCRIPT_CAP);
+  const freePeriod = code === "free" ? period : (PLAN?.plans?.free?.period_days ?? SCRIPT_PERIOD_DAYS);
 
   body.innerHTML = `
     ${BILLING_RETURN ? `<div class="section plan-return-wrap"><p class="plan-return${BILLING_RETURN !== "done" ? " quiet" : ""}" id="plan-return" role="status" aria-live="polite">${escapeHtml(billingReturnText())}</p></div>` : ""}
@@ -3842,7 +3803,7 @@ function renderPlan(head, body) {
               ? "Nothing you've written is gone — the window rolls, so room reopens as older scripts age out."
               : "You've used all of them. Nothing you've written is gone — your scripts and companies stay exactly as they are.")
           : (rolling
-              ? `${room} left. It's ${grant} per ${ALLOWANCE.periodDays} days — the window rolls, so room comes back as older scripts age out.`
+              ? `${room} left. It's ${grant} per ${period} days — the window rolls, so room comes back as older scripts age out.`
               : `${room} left. They don't refill — it's ${grant} for the life of the account.`)}</p>
         ${paidNotes.length ? `<ul class="plan-meta">${paidNotes.map((n) => `<li>${n}</li>`).join("")}</ul>` : ""}
         ${paid ? (canManage
@@ -3868,11 +3829,10 @@ function renderPlan(head, body) {
         <p class="lp-plan-price"><strong>$0</strong></p>
         <p class="lp-plan-tax">No card needed</p>
         <ul class="lp-plan-list">
-          ${code === "free" && rolling
-            ? `<li>${grant} scripts every ${ALLOWANCE.periodDays} days</li>
-               <li>The window rolls, so room comes back as older scripts age out</li>`
-            : `<li>3 scripts in any 7 days, from 6 October 2026</li>
-               <li>Until then, ${freeGrant} for the life of the account</li>`}
+          ${freePeriod > 0
+            ? `<li>${freeGrant} scripts in any ${freePeriod} days</li>
+               <li>Each one frees up ${freePeriod} days after you write it</li>`
+            : `<li>${freeGrant} scripts for the life of the account</li>`}
           <li>Everything you write stays yours, on any plan</li>
         </ul>
         ${cardCta("free", "", "")}
@@ -4928,15 +4888,16 @@ function sourceLabel(item) { return videoTitle({ item }); }
 // one library entry, a separate script per company.
 let COMPOSE_FOR = null;      // Set of brand ids; null means "just this brand"
 
-// How many scripts a NEW account may write, and the number this page shows
-// before the server has told it otherwise. Four model calls each, three of them
-// Opus, so this is a spend limit before it is a product rule.
-// The default the database grants (lynxr_allowance.granted) is the same 25, and
-// the WORKER charges against that ledger before it spends anything — that is
-// the one that counts. Keep the two in step, and remember a single account can
-// legitimately be granted more, which is why nothing below prints this constant
-// once my_allowance() has answered.
-const SCRIPT_CAP = 25;
+// The free tier — 3 scripts in any rolling 7 days since 21 September 2026 —
+// and the numbers this page shows before the server has told it otherwise.
+// Four model calls each, three of them Opus, so this is a spend limit before it
+// is a product rule. The database's copy (lynxr_billing_plans 'free') is the
+// one that counts: the WORKER charges against that ledger before it spends
+// anything. Keep the two in step, and remember a single account can
+// legitimately be granted more, which is why nothing below prints these
+// constants once my_allowance() has answered.
+const SCRIPT_CAP = 3;
+const SCRIPT_PERIOD_DAYS = 7;
 // Counted against the allowance whether or not the creator still has it. Every
 // one of these was four model calls that were actually paid for, so deleting a
 // script must not hand the money back — otherwise 50 is not a limit, it is a
@@ -4950,6 +4911,12 @@ const SCRIPT_CAP = 25;
 // reaches this page only through my_allowance(). Use scriptRoom()/scriptGrant()
 // below rather than either of these two directly.
 const scriptsUsed = () => (ME.adaptations || []).length + (ME.trash || []).length;
+// The same fallback count, scoped to the free tier's rolling window.
+const scriptsUsedWindow = () => {
+  const since = Date.now() - SCRIPT_PERIOD_DAYS * 864e5;
+  return [...(ME.adaptations || []), ...(ME.trash || [])]
+    .filter((a) => Date.parse(a.addedAt || "") > since).length;
+};
 
 /* WHAT THE SERVER SAYS THIS ACCOUNT HAS SPENT.
    `null` until my_allowance() has answered once — which is also where it stays
@@ -4961,7 +4928,7 @@ const scriptsUsed = () => (ME.adaptations || []).length + (ME.trash || []).lengt
    Once a real number has landed it is KEPT through a later failure: a stale
    server number is closer to the truth than the local one, which the creator
    can edit. */
-let ALLOWANCE = null;                        // { used, granted, periodDays } or null
+let ALLOWANCE = null;                        // { used, granted, periodDays, plan } or null
 
 /** How many more scripts this account may write, and out of how many.
     A COURTESY, not the enforcement point — the worker charges against the
@@ -4969,28 +4936,32 @@ let ALLOWANCE = null;                        // { used, granted, periodDays } or
     lies to a paying creator is worse than none, so it reads the server's
     numbers whenever it has them. */
 const scriptGrant = () => (ALLOWANCE ? ALLOWANCE.granted : SCRIPT_CAP);
+const scriptPeriod = () => (ALLOWANCE ? ALLOWANCE.periodDays : SCRIPT_PERIOD_DAYS);
 
 /* THE WALL SENTENCE, IN ONE PLACE.
 
    TWO DIFFERENT WALLS EXIST AND THEY MUST NOT SHARE A SENTENCE. A free
-   creator at 25 of 25 can do something about it, and is pointed at Plan. A pro
-   creator at 300 of 300 has hit FAIR USE and cannot buy their way out — that
-   wall is about the rolling window reopening, and telling them to upgrade
-   would be both wrong and insulting. `period_days > 0` is what tells the two
-   apart, and it is the ledger's own field rather than anything guessed here.
+   creator at 3 of 3 this week can do something about it, and is pointed at
+   Plan. A pro creator at 150 of 150 has hit FAIR USE and cannot buy their way
+   out — that wall is about the rolling window reopening, and telling them to
+   upgrade would be both wrong and insulting. Both windows roll now, so the
+   ledger's `plan` is what tells the two apart, not `period_days`.
 
    Note it says "rolling 30 days", never "this month": the window does not
    align with the billing date, and /pricing/ and /terms/ both say so. */
 function quotaWallText() {
   const grant = scriptGrant();
-  const rolling = ALLOWANCE && ALLOWANCE.periodDays > 0;
-  return rolling
-    ? `That's all ${grant} scripts for the last ${ALLOWANCE.periodDays} days. The window rolls, so room comes back as older scripts age out — nothing you've written is gone.`
+  const period = scriptPeriod();
+  const free = !ALLOWANCE || (ALLOWANCE.plan || "free") === "free";
+  if (free && period > 0)
+    return `That's this week's ${grant} free scripts. Each one frees up ${period} days after you wrote it — or see Plan in the menu for pro. Nothing you've written is gone.`;
+  return period > 0
+    ? `That's all ${grant} scripts for the last ${period} days. The window rolls, so room comes back as older scripts age out — nothing you've written is gone.`
     : `That's all ${grant} scripts. See Plan in the menu for what's next.`;
 }
 const scriptRoom = () => (ALLOWANCE
   ? Math.max(ALLOWANCE.granted - ALLOWANCE.used, 0)
-  : SCRIPT_CAP - scriptsUsed());
+  : SCRIPT_CAP - scriptsUsedWindow());
 
 /** Ask the server for the two numbers. Silent on failure by design: this runs
     on sign-in, after every send and on tab focus, and a creator does not need
@@ -5009,10 +4980,11 @@ async function refreshAllowance() {
      away here. It is what tells a LIFETIME allowance from a ROLLING one, and
      therefore which of the two walls quotaWallText() should show — 0 means
      "that's all there is", >0 means "room comes back". Defaults to 0 so an
-     older RPC that omits it reads as lifetime, which is what free is. */
-  ALLOWANCE = { used, granted, periodDays: Number(r?.period_days) || 0 };
+     older RPC that omits it reads as lifetime (free was, until 21 September
+     2026; it is 3 per rolling 7 days now). */
+  ALLOWANCE = { used, granted, periodDays: Number(r?.period_days) || 0,
+                plan: typeof r?.plan === "string" ? r.plan : "free" };
   renderSide();
-  paintFreeNotice();
 }
 
 /** Which companies the pasted link is for. Links are sent from one place now,

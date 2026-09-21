@@ -671,8 +671,19 @@ CREATOR_NOTES = {
                      "one after {tries} tries. Nothing was used from your allowance.", "ours"),
     "brand_missing": ("that company isn't on your profile any more — pick another "
                       "and send this video again.", "brand"),
-    "cap":          ("This account has used its {cap} scripts. "
-                     "Ask us to raise the limit.", "cap"),
+    "cap":          ("You've used all {cap} free scripts. See Plan in the menu "
+                     "to keep going — nothing you've written is gone.", "cap"),
+    "cap_rolling":  ("You've written {cap} scripts in the last {days} days — the "
+                     "fair-use limit. Room comes back as older scripts age out; "
+                     "nothing is lost.", "cap"),
+    "cap_week":     ("You've used this week's {cap} free scripts. Each one frees "
+                     "up 7 days after it was written, or see Plan in the menu for "
+                     "pro. Nothing you've written is gone.", "cap"),
+    "cap_daily":    ("You've written {cap} scripts in the last 24 hours — the most "
+                     "lynxr writes in a day. There's room again within 24 hours; "
+                     "nothing is lost.", "cap"),
+    "cap_generic":  ("This account has used its scripts for now. See Plan in the "
+                     "menu — nothing you've written is gone.", "cap"),
     "off_platform": ("lynxr only reads TikTok and Instagram "
                      "links. Nothing was used from your allowance.", "platform"),
     "fetch_age":    ("This video is age-restricted, so we can't open it. "
@@ -722,6 +733,21 @@ def note_text(key, **nums):
         return text.format(**safe)[:200]
     except Exception:  # noqa: BLE001
         return CREATOR_NOTES["fallback"][0]
+
+
+def wall_note(state):
+    """(CREATOR_NOTES key, nums) for an over-allowance refusal, from allowance_state()'s dict."""
+    if not state:
+        return "cap_generic", {}
+    dm, u24 = int(state.get("daily_max") or 0), int(state.get("used_24h") or 0)
+    if dm > 0 and u24 >= dm:
+        return "cap_daily", {"cap": dm}
+    pd, granted = int(state.get("period_days") or 0), int(state.get("granted") or 0)
+    if pd == 7 and state.get("plan", "free") == "free":
+        return "cap_week", {"cap": granted}
+    if pd > 0:
+        return "cap_rolling", {"cap": granted, "days": pd}
+    return "cap", {"cap": granted}
 
 
 def set_note(a, key, **nums):
@@ -3574,12 +3600,23 @@ def main():
             key=lambda a: a.get("addedAt") or "")
         ready, over = candidates, []
         if args.cap:
+            # G1: charge only what THIS pass claims. Charging every queued candidate while claiming
+            # --max-per-creator left the rest charged-but-unclaimed; delete one before its turn and the
+            # charge stayed. At 3 free scripts a week that is a third of someone's week for nothing.
+            offer = candidates[:args.max_per_creator] if args.max_per_creator else candidates
             try:
                 charged = sb(key, "/rest/v1/rpc/charge_scripts", method="POST",
-                             body={"p_creator": cid,
-                                   "p_ids": [a["id"] for a in candidates]})
+                             body={"p_creator": cid, "p_ids": [a["id"] for a in offer]})
                 if charged is None:
                     raise RuntimeError("charge_scripts returned nothing")
+                allowed = set(charged)
+                room_ran_out = sum(1 for a in offer if a["id"] in allowed) < len(offer)
+                if room_ran_out and len(offer) < len(candidates):
+                    # No room is left, so this charges nothing: it only returns tail ids that
+                    # were ALREADY charged, which must not be refused.
+                    tail = sb(key, "/rest/v1/rpc/charge_scripts", method="POST",
+                              body={"p_creator": cid, "p_ids": [a["id"] for a in candidates[len(offer):]]})
+                    allowed |= set(tail or [])
             except Exception as e:  # noqa: BLE001
                 # FAIL CLOSED. Every other check here fails open so a broken
                 # check cannot lock out a real creator — right for the signup
@@ -3589,22 +3626,27 @@ def main():
                 log.warning("[%s] charge_scripts failed, skipping this pass: %s",
                             data.get("name") or cid[:8], str(e)[:120])
                 continue
-            allowed = set(charged)
             ready = [a for a in candidates if a["id"] in allowed]
-            over = [a for a in candidates if a["id"] not in allowed]
-            cap_note = note_text("cap", cap=args.cap)
-            fresh_over = [a for a in over if a.get("note") != cap_note]
-            if fresh_over:
-                # Written only when not already there: an "error" entry with
-                # no attemptedAt clears cooled() on every pass, so without
-                # this guard an over-allowance entry would be re-marked every
-                # pass forever instead of once.
-                for a in fresh_over:
-                    a["status"] = "error"
-                    set_note(a, "cap", cap=args.cap)
-                log.info("[%s] refusing %d over the allowance",
-                         data.get("name") or cid[:8], len(fresh_over))
-                graft_adaptations(key, cid, fresh_over)
+            over = [a for a in candidates if a["id"] not in allowed] if room_ran_out else []
+            if over:
+                try:
+                    state = sb(key, "/rest/v1/rpc/allowance_state", method="POST", body={"p_creator": cid})
+                except Exception:  # noqa: BLE001 — billing.sql not applied, or offline
+                    state = None
+                note_key, nums = wall_note(state)
+                cap_note = note_text(note_key, **nums)
+                fresh_over = [a for a in over if a.get("note") != cap_note]
+                if fresh_over:
+                    # Written only when not already there: an "error" entry with
+                    # no attemptedAt clears cooled() on every pass, so without
+                    # this guard an over-allowance entry would be re-marked every
+                    # pass forever instead of once.
+                    for a in fresh_over:
+                        a["status"] = "error"
+                        set_note(a, note_key, **nums)
+                    log.info("[%s] refusing %d over the allowance (%s)",
+                             data.get("name") or cid[:8], len(fresh_over), note_key)
+                    graft_adaptations(key, cid, fresh_over)
 
         # OFF-PLATFORM LINKS, refused before anything is spent — the same
         # allowlist creator.js applies at the paste box, enforced here because

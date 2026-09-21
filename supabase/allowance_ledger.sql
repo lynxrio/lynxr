@@ -1,6 +1,15 @@
 -- Lynxr allowance ledger — closes the three ways around the script-count cap.
 -- Dashboard → SQL Editor → New query → paste → Run. Safe to re-run.
 --
+-- SUPERSEDED IN PART. supabase/billing.sql redefines my_allowance() and charge_scripts() on top of this file.
+-- Re-running this file after it would silently put the old versions back (no daily ceiling, no subscriptions,
+-- free tier read from here instead of lynxr_billing_plans). This guard stops the whole run before anything changes.
+do $$ begin
+  if to_regclass('public.lynxr_billing_plans') is not null then
+    raise exception 'billing.sql is applied - re-running allowance_ledger.sql would revert my_allowance() and charge_scripts(). Run supabase/billing.sql instead.';
+  end if;
+end $$;
+--
 -- ---------------------------------------------------------------------------
 -- WHY THIS EXISTS
 -- ---------------------------------------------------------------------------

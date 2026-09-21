@@ -7,8 +7,8 @@
 > content for.
 
 lynxr is your content creator buddy. It is made by lynxr LLC, a partner company of
-Lynx Media Group LLC, the UGC agency in Allston, Massachusetts. The agency's site is https://lynxmediagroup.org/. Sign-up is open to everyone and free: every account includes
-25 scripts until 6 October 2026, then 3 scripts a week, with no card required. The app lives at lynxr.io itself — paste a
+Lynx Media Group LLC, the UGC agency in Allston, Massachusetts. The agency's site is https://lynxmediagroup.org/. Sign-up is open to everyone and free: every account gets
+3 scripts a week, with no card required. The app lives at lynxr.io itself — paste a
 link on the homepage and create an account when you send it. There is no file
 upload: a public video link is the only input. It reads TikTok and Instagram
 links. It never asks for a platform password and it never posts anything on
@@ -21,7 +21,7 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 
 - [lynxr](https://lynxr.io/): What lynxr is and how it works in three steps.
 - [Questions and answers](https://lynxr.io/faq/): Straight answers about what lynxr does with a link, which platforms it reads, what it costs, who owns the scripts, and how access works.
-- [Pricing](https://lynxr.io/pricing/): What lynxr costs. Free to start: 25 scripts for the life of the account until 6 October 2026, then 3 scripts in any rolling 7 days for every account; no card required. lynxr pro is $24.99 a month for unlimited scripts (fair use: 150 in any rolling 30 days, 30 in any 24 hours); tax is added where it applies. lynxr max, $74.99 a month, adds the content coach and post tracking, and is not on sale yet.
+- [Pricing](https://lynxr.io/pricing/): What lynxr costs. Free to start: 3 scripts in any rolling 7 days; no card required. lynxr pro is $24.99 a month for unlimited scripts (fair use: 150 in any rolling 30 days, 30 in any 24 hours); tax is added where it applies. lynxr max, $74.99 a month, adds the content coach and post tracking, and is not on sale yet.
 - [About lynxr](https://lynxr.io/about/): Who makes lynxr — lynxr LLC, a partner company of Lynx Media Group, the UGC agency — and how the two fit together.
 
 ## Guides

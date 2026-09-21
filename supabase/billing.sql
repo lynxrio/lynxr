@@ -9,9 +9,9 @@
 -- 2. supabase/billing.sql            (this file)
 -- 3. re-run supabase/delete_account.sql  (adds the live-subscription guard)
 --
--- APPLYING THIS FILE CHANGES NOBODY'S ALLOWANCE. The free row is seeded with
--- today's live default (25, lifetime), so every existing account resolves to
--- exactly the numbers it already had. Nothing bills, nothing walls, nothing
+-- APPLYING THIS FILE CHANGES NOBODY'S ALLOWANCE. The seeds are `do nothing`,
+-- so a live row is never overwritten, and the free row is seeded with the live
+-- free tier (3 per rolling 7 days since 2026-09-21). Nothing bills, nothing walls, nothing
 -- new is visible until a checkout exists and a webhook writes a row.
 --
 -- ---------------------------------------------------------------------------
@@ -40,7 +40,7 @@
 -- ---------------------------------------------------------------------------
 -- WHERE EVERY NUMBER LIVES — ONE ENFORCING PLACE EACH
 -- ---------------------------------------------------------------------------
---   free tier (25 lifetime today)  -> lynxr_billing_plans, code='free'
+--   free tier (3 per rolling 7d)   -> lynxr_billing_plans, code='free'
 --   pro fair-use cap / window / 24h ceiling -> same table, code='pro'
 --   max ditto                      -> same table, code='max'
 --   who has which feature          -> lynxr_billing_plans.features, plus
@@ -73,15 +73,23 @@ create table if not exists public.lynxr_billing_plans (
 -- Seeded ONCE. `do nothing`, never `do update`: re-running this file must not
 -- stomp a number the owner changed by hand afterwards.
 --
--- free = 25 lifetime HERE ON PURPOSE: that is today's live default, so
--- applying this file is a zero-change apply. The product map moves the free
--- tier to 3 per rolling 7 days later, in its own file, 14 days after the
--- notice email the published terms promise.
+-- free = 3 per rolling 7 days, no 24-hour ceiling. The row was 25 lifetime
+-- when this file was first applied live; it was moved on 2026-09-21, when the
+-- only accounts were staff and a test account, so there was nobody for the
+-- terms' 14-day notice to reach. The live move was this one UPDATE:
+--
+--   update public.lynxr_billing_plans
+--      set granted = 3, period_days = 7, daily_max = 0, updated_at = now()
+--    where code = 'free';
+--
+-- Check: select code, granted, period_days, daily_max from public.lynxr_billing_plans;
+-- Any later change to the free tier that affects real accounts needs the
+-- terms' 14 days' emailed notice first.
 --
 -- max is seeded but has no price id and is NOT for sale: its two features do
 -- not exist yet. The Plan view says "coming soon" and offers no checkout.
 insert into public.lynxr_billing_plans (code, provider_price_id, granted, period_days, daily_max, features, label)
-values ('free', null,  25,  0,  0, '{}',                                  'free'),
+values ('free', null,   3,  7,  0, '{}',                                  'free'),
        ('pro',  null, 150, 30, 30, '{}',                                  'lynxr pro'),
        ('max',  null, 300, 30, 40, '{post_tracking,advanced_coaching}',   'lynxr max')
 on conflict (code) do nothing;

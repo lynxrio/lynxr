@@ -55,7 +55,7 @@ the new Upgrade button — do one after the push (it calls the same function tha
 - **Provider:** Stripe with **Managed Payments** (Stripe is merchant of record: tax, VAT, disputes, billing support
   are Stripe's, for +3.5% a transaction). Chosen over Paddle for no approval queue, and over plain Stripe because
   Massachusetts taxes SaaS and lynxr LLC is in Allston. Revisit past ~300 subscribers.
-- **Ledger:** `supabase/billing.sql` is APPLIED. free 25 lifetime (unchanged), pro 150/30d + 30/24h with the LIVE
+- **Ledger:** `supabase/billing.sql` is APPLIED. free 3 per rolling 7 days (since 2026-09-21), pro 150/30d + 30/24h with the LIVE
   price id set, max 300/30d + 40/24h with **no price** — so max is unbuyable by construction ("coming soon").
 - **Functions:** `billing-checkout` and `billing-webhook` are DEPLOYED, **both with Verify JWT OFF** (the project is on
   new JWT signing keys; the legacy-secret check would reject real user tokens; our code does its own auth and the
@@ -97,14 +97,16 @@ the new Upgrade button — do one after the push (it calls the same function tha
    file never had: `delete_own_account()` refuses with `active_subscription` while a paid plan is set to renew
    (active/trialing/past_due, no `cancel_at`) — otherwise the cascade drops the ledger row while Stripe keeps
    charging. **Re-run it in the SQL editor**; until then the live function has no guard.
-**FREE TIER → 3 A WEEK ON TUESDAY 6 OCTOBER 2026 (notice started 2026-09-21).** The terms promise 14 days' emailed
-   notice, so the owner emails every confirmed account on 21/22 Sep (draft on the owner's Desktop, never in the repo;
-   BCC only). Already live in the tree: terms (payments + short version), /pricing/ free section, /faq/ (visible +
-   JSON-LD), landing `#pricing` free card, llms.txt, the Plan view's free card, and a one-time composer card
-   (`paintFreeNotice` / `FREE_WEEKLY_FROM` in creator.js; free accounts only, before the switch only). **Left for
-   switch day:** the free row in `lynxr_billing_plans` (25 lifetime → 3 per 7 days), worker walls, the allowance
-   display, the sitewide SoftwareApplication JSON-LD + meta descriptions ("includes 25 scripts"), and the
-   post-switch in-app text. If the email slips past 22 Sep, move `FREE_WEEKLY_FROM` and every "6 october" string.
+**FREE TIER IS 3 A WEEK — SWITCHED LIVE 2026-09-21, NO NOTICE PERIOD.** The planned 14-day notice (switch on
+   6 Oct) was dropped because the only accounts were staff and one test account (checked live first), so no one was
+   affected. Done: the `lynxr_billing_plans` 'free' row is 3 / 7 days / no 24h ceiling (verified via `allowance_state`);
+   `billing.sql`'s seed and header match; every page's copy and JSON-LD say 3 a week; the dated "until 6 october, 25"
+   text and the in-app notice card (`paintFreeNotice`) are gone; `creator.js` falls back to 3 per 7 days and gives free
+   its own wall sentence (from `my_allowance().plan`); the worker's walls name the real limit (`wall_note()`, the parked
+   A0.1 hunk plus `cap_week`). **Owner: push** — until then the live worker still tells a walled free creator "used its
+   25 scripts". **Not done:** the unlock time on the wall (needs `next_room_at` in `allowance_state()`, an SQL-editor
+   change) and the app's 24-hour check for pro (A0.2). **Any future free-tier change that affects real accounts needs
+   the terms' 14 days' emailed notice.**
 4. **Edit the Stripe product description** — it still says "unlimited scripts and basic coaching", and it shows at
    checkout. Coaching is not built.
 5. **Sitewide `SoftwareApplication` JSON-LD** still offers only `price: 0`. Add the $24.99 pro Offer on all 21 pages
@@ -228,7 +230,7 @@ the new Upgrade button — do one after the push (it calls the same function tha
      `lynxr_billing_events`, and `entitlement_for` / `features_for` / `charge_scripts` / `my_plan` / `spend_state`);
      `supabase/functions/billing-checkout/` and `billing-webhook/`; `supabase/functions/test_edge_billing.mjs`
      (27 checks, `node --experimental-strip-types …`, no accounts needed — all passing).
-   - **Applying `billing.sql` changes nothing visible:** free is seeded at today's 25 lifetime, max has no price id
+   - **Applying `billing.sql` changes nothing visible:** seeds are `do nothing`, free is seeded at 3/7d, max has no price id
      and so cannot be bought. The caps (pro 150/30d, max 300/30d) are PROVISIONAL until the per-script cost is
      measured; a subscriber who uses every slot must still leave 20% of the net payment.
    - **Owner still has to:** activate Stripe (LLC details, EIN, statement descriptor `LYNXR`), connect Mercury for

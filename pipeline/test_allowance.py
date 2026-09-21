@@ -111,6 +111,27 @@ check("ai_failure_kind()'s fallback ('content') has a note key too",
 check("every AI_NOTE_KEY target resolves to a real CREATOR_NOTES entry",
       set(P.AI_NOTE_KEY.values()) <= set(P.CREATOR_NOTES), True)
 
+# The over-allowance wall names the limit the creator actually hit.
+check("wall_note(None) -> generic", P.wall_note(None), ("cap_generic", {}))
+check("free at 3 per 7 days -> cap_week",
+      P.wall_note({"granted": 3, "period_days": 7, "daily_max": 0, "used": 3,
+                   "used_24h": 1, "plan": "free"}), ("cap_week", {"cap": 3}))
+check("pro at 150/30d, 4 in 24h -> cap_rolling",
+      P.wall_note({"granted": 150, "period_days": 30, "daily_max": 30, "used": 150,
+                   "used_24h": 4, "plan": "pro"}), ("cap_rolling", {"cap": 150, "days": 30}))
+check("pro at 30 in 24h -> cap_daily",
+      P.wall_note({"granted": 150, "period_days": 30, "daily_max": 30, "used": 31,
+                   "used_24h": 30, "plan": "pro"}), ("cap_daily", {"cap": 30}))
+check("a lifetime 25 -> cap",
+      P.wall_note({"granted": 25, "period_days": 0, "daily_max": 0, "used": 25,
+                   "used_24h": 0, "plan": "free"}), ("cap", {"cap": 25}))
+for _k in ("cap", "cap_rolling", "cap_daily", "cap_generic", "cap_week"):
+    _t = P.note_text(_k, cap=3, days=7)
+    check(f"{_k} text fits 200 chars and is not the fallback",
+          len(_t) <= 200 and _t != P.CREATOR_NOTES["fallback"][0], True)
+    check(f"{_k} text carries no raw vendor text",
+          any(n in _t.lower() for n in P.RAW_TEXT_NEEDLES), False)
+
 # =============================================================================
 # TIER 2 — the actual ledger, live. Skips cleanly; see the module docstring.
 # =============================================================================
