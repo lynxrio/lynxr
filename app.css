@@ -10640,6 +10640,7 @@
      .side-ico-fill exists because the neighbouring icons are strokes and this one is a filled shape. */
   .bcard-title .lynx-mark { width: 20px; height: 20px; flex: none; margin-right: 8px; vertical-align: -3px; }
   .lynx-from { display: flex; align-items: center; gap: 8px; }
+  .lynx-empty { margin: 4px 0 22px; }
   .lynx-from .lynx-mark { width: 16px; height: 16px; flex: none; }
   .side-link .side-ico-fill { stroke: none; }
   /* The original video beside its script (owner, 2026-09-22). One column of video, one of words;

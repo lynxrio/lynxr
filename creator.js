@@ -4682,8 +4682,10 @@ function renderLynx(head, body) {
           <div class="lbl">${escapeHtml(b.client_name || "")} · ${escapeHtml(String(b.sent_at || "").slice(0, 10))}
             · ${b.formats} format${b.formats === 1 ? "" : "s"}</div>
         </article>`).join("")}</div>`
-      : `<div class="empty">${typeof lynxrAvatar === "function" ? lynxrAvatar("idle", "empty-mark") : ""}
-          <p><strong>Nothing from Lynx yet.</strong></p></div>`}
+      : /* Owner, 2026-09-22: "when there are no briefs yet, just have it blank or just say something
+           simple like waiting on briefs". The avatar that used to sit here had no size outside the
+           agency app (.empty-mark is styled under body.agency only), so it filled the pane. */
+        `<p class="note lynx-empty">Waiting on briefs.</p>`}
     <div class="bp-actions lynx-leave-row">
       <button type="button" class="ghost danger" id="lynx-leave">Leave the roster</button>
     </div>
