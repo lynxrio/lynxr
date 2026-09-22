@@ -97,6 +97,13 @@ the new Upgrade button — do one after the push (it calls the same function tha
    file never had: `delete_own_account()` refuses with `active_subscription` while a paid plan is set to renew
    (active/trialing/past_due, no `cancel_at`) — otherwise the cascade drops the ledger row while Stripe keeps
    charging. **Re-run it in the SQL editor**; until then the live function has no guard.
+**COFOUNDERS HAVE MAX FOR FREE + STAFF (2026-09-21).** Both cofounders' main logins each have a
+   `lynxr_billing` row with provider `comp`, status active, plan max, no Stripe ids, and occurred_at `infinity`, so no
+   Stripe event can overwrite it (proven: a later "canceled" came back `stale`). Gawin's main login was added to
+   `lynxr_staff`, which is what `is_staff()` reads for the agency app. The recipe and undo are in `supabase/billing.sql`
+   under the operator recipes. The owner's old pro subscription is still set to end 2026-10-21 in Stripe; that's harmless.
+   The Plan view still shows the paid-billing sentences (email hello@ to cancel; Stripe is merchant of record) for a
+   comp, because `my_plan()` doesn't expose `provider`. That's cosmetic.
 **FREE TIER IS 3 A WEEK — SWITCHED LIVE 2026-09-21, NO NOTICE PERIOD.** The planned 14-day notice (switch on
    6 Oct) was dropped because the only accounts were staff and one test account (checked live first), so no one was
    affected. Done: the `lynxr_billing_plans` 'free' row is 3 / 7 days / no 24h ceiling (verified via `allowance_state`);

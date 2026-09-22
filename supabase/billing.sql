@@ -540,9 +540,27 @@ notify pgrst, 'reload schema';
 --   values ('<uuid>', 'post_tracking', 'beta tester')
 --   on conflict (creator_id, feature) do nothing;
 --
--- Who is paying:
+-- Give an account a plan for free (the cofounders have max this way, since
+-- 2026-09-21). provider 'comp' says no provider issued it; occurred_at
+-- 'infinity' makes every provider event for that account arrive "stale", so a
+-- leftover Stripe subscription ending (or renewing) can never overwrite it.
+-- The ids are cleared so the app shows no Manage billing / Cancel buttons that
+-- would point at a subscription that is not the source of this plan:
 --
---   select creator_id, plan_code, status, cancel_at, current_period_end
+--   insert into public.lynxr_billing (creator_id, provider, status, plan_code, occurred_at)
+--   values ('<uuid>', 'comp', 'active', 'max', 'infinity')
+--   on conflict (creator_id) do update set provider = 'comp', status = 'active',
+--     plan_code = 'max', provider_customer_id = null, provider_subscription_id = null,
+--     current_period_end = null, cancel_at = null, occurred_at = 'infinity', updated_at = now();
+--
+-- Undo (back to free; the account can then buy through checkout as normal):
+--
+--   delete from public.lynxr_billing where creator_id = '<uuid>' and provider = 'comp';
+--
+-- Who is paying (comps show provider = 'comp' — they are counted as active by
+-- spend_state()'s active_paid, so subtract them when reading revenue):
+--
+--   select creator_id, provider, plan_code, status, cancel_at, current_period_end
 --     from public.lynxr_billing where status in ('active','trialing','past_due');
 --
 -- Recent events:
