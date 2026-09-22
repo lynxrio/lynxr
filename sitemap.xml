@@ -25,6 +25,17 @@
     <lastmod>2026-09-18</lastmod>
     <priority>0.8</priority>
   </url>
+  <!-- How it works: how scripts are made, and the coach (not built yet). -->
+  <url>
+    <loc>https://lynxr.io/how-it-works/</loc>
+    <lastmod>2026-09-22</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/how-it-works/coach/</loc>
+    <lastmod>2026-09-22</lastmod>
+    <priority>0.5</priority>
+  </url>
   <url>
     <loc>https://lynxr.io/about/</loc>
     <lastmod>2026-09-18</lastmod>

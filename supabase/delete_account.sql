@@ -23,6 +23,13 @@
 --     lynxr_feedback.creator_id references auth.users(id) ON DELETE SET NULL
 --         -> feedback text survives, detached from the person who sent it.
 --            That is intended: the note stays useful, the link to them does not.
+--     lynxr_roster.creator_id references auth.users(id) ON DELETE CASCADE
+--         -> the roster seat goes with the account; the agency can re-invite.
+--     lynxr_agency_deliveries.creator_id references auth.users(id) ON DELETE CASCADE
+--         -> the deliveries go; the brief snapshot itself survives because it
+--            is the agency's own document, not the creator's.
+--     (supabase/agency_roster.sql — comment change only, this function needs
+--      no edit and that file needs no re-run.)
 --
 -- NOT deleted: lynxr_sources. That table is keyed by canonical video URL and
 -- holds facts about publicly posted videos — no creator id, no personal data —

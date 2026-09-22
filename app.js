@@ -603,6 +603,7 @@ const TABS = [
   ["tab-database", "panel-database"],
   ["tab-brief", "panel-brief"],
   ["tab-briefs", "panel-briefs"],
+  ["tab-roster", "panel-roster"],
   ["tab-ops", "panel-ops"],
 ];
 function activateTab(tabId) {
@@ -617,6 +618,7 @@ function activateTab(tabId) {
   // it is loading. NOT a setInterval: this is a look-when-I-want surface, and a
   // background poller in a tab left open all day is a database bill for nobody.
   if (tabId === "tab-ops") ensureOps();
+  if (tabId === "tab-roster") rostLoad();
 }
 function initTabs() {
   for (const [tabId] of TABS) {
@@ -2151,7 +2153,11 @@ function clientSuggestions(client, count = 8) {
 }
 
 // ---------- Brief cart ----------
-const CART_LIMIT = 10;
+// ANY SIZE (owner, 2026-09-22: "it won't let me save the brief unless i got 10 videos in there,
+// just make it so i can make the brief at any amount"). There was one number, 10, acting as BOTH
+// the floor for Save and the ceiling for picking. Both are gone: one video is a brief, and there
+// is no upper stop. Scripts still differ per slot — tailoredScript() indexes its features and CTAs
+// with slot % length, so slot 11 reads as well as slot 1.
 let CART = new Map();        // rowKey -> row
 /* rowKey -> { beats, hook, cta }, for scripts edited in the video modal before the brief exists
    (each part only once edited; hook / cta may be "" = cleared). The rows are the shared database
@@ -2233,12 +2239,12 @@ function trayHtml() {
   const n = CART.size;
   return `
     <div class="tray-inner">
-      <span class="tray-count"><strong>${n}</strong>/${CART_LIMIT} in brief</span>
-      <span class="tray-hint">${n < CART_LIMIT ? `check ${CART_LIMIT - n} more to save` : "ready to save"}</span>
+      <span class="tray-count"><strong>${n}</strong> ${n === 1 ? "video" : "videos"} in brief</span>
+      <span class="tray-hint">${n ? "ready to save" : "check any video to add it"}</span>
       <span class="spacer"></span>
       <button type="button" class="ghost" id="tray-copy" ${n ? "" : "disabled"}>Copy scripts</button>
-      <button type="button" class="btn" id="tray-export" ${n >= CART_LIMIT ? "" : "disabled"}
-        title="${n >= CART_LIMIT ? "Saves into the Briefs tab — flip through videos and scripts there" : `Unlocks at ${CART_LIMIT} videos`}">
+      <button type="button" class="btn" id="tray-export" ${n ? "" : "disabled"}
+        title="${n ? "Saves into the Briefs tab — flip through videos and scripts there" : "Add at least one video"}">
         Save brief</button>
     </div>`;
 }
@@ -2269,14 +2275,6 @@ function setPicked(key, on) {
   const row = SHELF_CTX?.index.get(key);
   if (!row) return false;
   if (on) {
-    if (CART.size >= CART_LIMIT) {
-      const tray = document.getElementById("tray");
-      if (tray) {
-        tray.classList.add("shake");
-        setTimeout(() => tray.classList.remove("shake"), 500);
-      }
-      return false;
-    }
     CART.set(key, row);
   } else {
     CART.delete(key);
@@ -2627,6 +2625,7 @@ const SB_SESSION_KEY = "lynxr_sb_session";
 
 let SB_TOKEN = null;      // access token for the signed-in user
 let SB_EMAIL = null;
+let SB_UID = null;        // auth.uid() of the signed-in staff account; used by agSend()
 let SYNC_OK = false;      // false => running local-only, and the UI says so
 
 function sbSaveSession(sess) {
@@ -2691,6 +2690,7 @@ async function sbSignIn(email, password) {
   const sess = await res.json();
   SB_TOKEN = sess.access_token;
   SB_EMAIL = sess.user?.email || email;
+  SB_UID = sess.user?.id || SB_UID;
   sbSaveSession(sess);
   return sess;
 }
@@ -2706,6 +2706,7 @@ async function sbRefresh(refresh_token) {
   const sess = await res.json();
   SB_TOKEN = sess.access_token;
   SB_EMAIL = sess.user?.email || SB_EMAIL;
+  SB_UID = sess.user?.id || SB_UID;
   sbSaveSession(sess);
   return sess;
 }
@@ -3067,6 +3068,22 @@ function persistClientsLocal(list) {
 // mirrors to Supabase in the background so the other machine sees it.
 function loadClients() { return loadClientsLocal(); }
 
+/* THE CLIENT-DETAILS DRAFT (owner, 2026-09-22: "just make it so i can add everything manually
+   cause it messed up when i put in the link and refreshed all my text … like the creator side
+   where i can just type everything in and save it manually").
+   Two things went wrong before: reading a site re-rendered the details form, so anything typed was
+   replaced by what the reader found (or by blanks when it failed), and the details only ever
+   reached storage as part of a saved brief, so a reload lost them. Now every keystroke in the
+   editor is kept here, the form fills from this draft FIRST and from the site read only where the
+   draft is empty, and "Save client" writes the client into the Clients tab with no brief at all. */
+const CLIENT_DRAFT_KEY = "lynxr_client_draft";
+function loadClientDraft() {
+  try { return JSON.parse(localStorage.getItem(CLIENT_DRAFT_KEY)) || {}; } catch { return {}; }
+}
+function saveClientDraft(d) {
+  try { localStorage.setItem(CLIENT_DRAFT_KEY, JSON.stringify(d)); } catch { /* private window */ }
+}
+
 // One-team semantics: every account is the same workspace, so a device may
 // only push what IT changed — re-pushing its whole cached list would overwrite
 // teammates' fresh edits with stale copies. Each client carries updatedAt,
@@ -3110,7 +3127,7 @@ function persistClients(list) {
 
 /** Save the current cart as a brief inside its client's folder. */
 function saveCurrentBrief() {
-  if (CART.size < CART_LIMIT) return;
+  if (!CART.size) return;
   const company = BRIEF_CTX?.brand || "Client";
   const niche = document.getElementById("brief-niche")?.value || "";
   const rec = {
@@ -4874,11 +4891,23 @@ function renderBriefViewer(host, rec, client) {
         title="${idx <= 0 ? "No later brief" : "Later brief"}">\u2192</button>
     </nav>
     <div class="page-head">
-      <div class="bcard-title">Brief ${total - idx} <span class="pill">${total - idx} of ${total}</span></div>
-      <div class="lbl">${escapeHtml(rec.company)} \u00b7 ${escapeHtml((rec.createdAt || "").slice(0, 10))}</div>
+      <div class="minw0">
+        <div class="bcard-title">Brief ${total - idx} <span class="pill">${total - idx} of ${total}</span></div>
+        <div class="lbl">${escapeHtml(rec.company)} \u00b7 ${escapeHtml((rec.createdAt || "").slice(0, 10))}</div>
+      </div>
+      <div class="cb-export">
+        <button type="button" class="btn cb-send-btn" id="cb-send-toggle"${rec.items.length ? "" : " disabled"}>${CB_ICON.send}<span>Send to creators</span></button>
+      </div>
     </div>
+    <p class="bp-msg cb-msg" id="bv-send-msg" role="status" aria-live="polite"></p>
+    <div id="cb-send-wrap">${cbSendPanelHtml("brief", rec.id)}${cbSentListHtml("brief", rec.id)}</div>
 
     ${briefScriptsHtml(rec, client)}`;
+
+  cbBindSend(host, "brief", rec.id, () => briefSendDoc(rec, client),
+    () => { if (BRIEF_VIEW?.id === rec.id) renderBriefsKeepScroll(); }, "bv-send-msg");
+  if (ROSTER === null && !ROSTER_ERR) rostLoad();
+  agEnsureSent("brief", rec.id, () => { if (BRIEF_VIEW?.id === rec.id) renderBriefsKeepScroll(); });
 
   document.getElementById("bv-back").addEventListener("click", () => { BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs(); });
   document.getElementById("bv-clients").addEventListener("click", () => {
@@ -5175,6 +5204,10 @@ async function renderBrief(rawUrl) {
   // when detection is wrong — Apply re-tailors every script.
   const niches = [...new Set(ALL.map((r) => r.niche_category).filter(Boolean))].sort();
   const audiences = [...new Set(ALL.map((r) => r.target_audience).filter(Boolean))].sort();
+  // What was typed before wins over what the reader found, and survives a reload. `??`, not `||`:
+  // a field the user deliberately cleared stays cleared.
+  const draft = loadClientDraft();
+  const draftNiche = draft.niche ?? chosen;
   host.innerHTML = status + `
     <div class="client-editor" id="client-editor">
       <div class="ce-head">
@@ -5185,43 +5218,52 @@ async function renderBrief(rawUrl) {
       <div class="ce-body" id="ce-body">
       <div class="ce-grid">
         <label class="ce-field"><span class="lbl">Company name</span>
-          <input type="text" id="ce-brand" value="${escapeHtml(analysis?.brand || "")}" placeholder="e.g. Medceptor"></label>
+          <input type="text" id="ce-brand" value="${escapeHtml(draft.brand ?? analysis?.brand ?? "")}" placeholder="e.g. Medceptor"></label>
         <label class="ce-field"><span class="lbl">Niche</span>
           <select id="brief-niche">
             <option value="">Whole database (all niches)</option>
-            ${niches.map((n) => `<option value="${escapeHtml(n)}"${n === chosen ? " selected" : ""}>${escapeHtml(n)}</option>`).join("")}
+            ${niches.map((n) => `<option value="${escapeHtml(n)}"${n === draftNiche ? " selected" : ""}>${escapeHtml(n)}</option>`).join("")}
           </select></label>
         <label class="ce-field"><span class="lbl">Target audience</span>
           <select id="ce-audience">
             <option value="">Not sure</option>
-            ${audiences.map((a) => `<option value="${escapeHtml(a)}"${a === analysis?.audience ? " selected" : ""}>${escapeHtml(a)}</option>`).join("")}
+            ${audiences.map((a) => `<option value="${escapeHtml(a)}"${a === (draft.audience ?? analysis?.audience) ? " selected" : ""}>${escapeHtml(a)}</option>`).join("")}
           </select></label>
         <label class="ce-field ce-wide"><span class="lbl">Features / selling points (comma-separated — these get written into the scripts)</span>
-          <input type="text" id="ce-feats" value="${escapeHtml((analysis?.feats || []).join(", "))}"
+          <input type="text" id="ce-feats" value="${escapeHtml(draft.feats ?? (analysis?.feats || []).join(", "))}"
             placeholder="e.g. NCLEX practice questions, case walkthroughs, study planner"></label>
         <div class="ce-field ce-wide"><span class="lbl">Target avatar — who these videos are for (all four shape the ranking)</span>
           <div class="ce-avatar-grid">
             <label class="ce-field"><span class="lbl">Core statistics</span>
               <textarea id="ce-av-stats" rows="2"
-                placeholder="e.g. 20–24, 2nd-year nursing student, part-time hospital job, tight budget">${escapeHtml(BRIEF_CTX?.avatarParts?.stats || "")}</textarea></label>
+                placeholder="e.g. 20–24, 2nd-year nursing student, part-time hospital job, tight budget">${escapeHtml(draft.stats ?? BRIEF_CTX?.avatarParts?.stats ?? "")}</textarea></label>
             <label class="ce-field"><span class="lbl">Daily habits</span>
               <textarea id="ce-av-habits" rows="2"
-                placeholder="e.g. studies after night shifts, lives on TikTok study hacks, flashcards on the bus">${escapeHtml(BRIEF_CTX?.avatarParts?.habits || "")}</textarea></label>
+                placeholder="e.g. studies after night shifts, lives on TikTok study hacks, flashcards on the bus">${escapeHtml(draft.habits ?? BRIEF_CTX?.avatarParts?.habits ?? "")}</textarea></label>
             <label class="ce-field"><span class="lbl">Deep personal goals</span>
               <textarea id="ce-av-goals" rows="2"
-                placeholder="e.g. pass the NCLEX first try, land an ICU job, make family proud">${escapeHtml(BRIEF_CTX?.avatarParts?.goals || "")}</textarea></label>
+                placeholder="e.g. pass the NCLEX first try, land an ICU job, make family proud">${escapeHtml(draft.goals ?? BRIEF_CTX?.avatarParts?.goals ?? "")}</textarea></label>
             <label class="ce-field"><span class="lbl">Major problems</span>
               <textarea id="ce-av-problems" rows="2"
-                placeholder="e.g. overwhelmed by content volume, fails practice tests, no study plan, burnout">${escapeHtml(BRIEF_CTX?.avatarParts?.problems || "")}</textarea></label>
+                placeholder="e.g. overwhelmed by content volume, fails practice tests, no study plan, burnout">${escapeHtml(draft.problems ?? BRIEF_CTX?.avatarParts?.problems ?? "")}</textarea></label>
           </div>
         </div>
       </div>
-      <button type="button" class="btn" id="ce-apply">Apply — build the shelf</button>
+      <div class="ce-actions">
+        <button type="button" class="btn" id="ce-apply">Apply — build the shelf</button>
+        <button type="button" class="ghost" id="ce-save">Save client</button>
+        <span class="lbl" id="ce-msg" role="status" aria-live="polite"></span>
+      </div>
       </div>
     </div>
     <div id="brief-body"></div>`;
 
-  const apply = () => {
+  const val = (id) => (document.getElementById(id)?.value ?? "");
+  const readEditor = () => ({
+    brand: val("ce-brand"), niche: val("brief-niche"), audience: val("ce-audience"), feats: val("ce-feats"),
+    stats: val("ce-av-stats"), habits: val("ce-av-habits"), goals: val("ce-av-goals"), problems: val("ce-av-problems"),
+  });
+  const ctxFromEditor = () => {
     const brand = document.getElementById("ce-brand").value.trim();
     const feats = document.getElementById("ce-feats").value.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 8);
     const audience = document.getElementById("ce-audience").value || null;
@@ -5239,6 +5281,11 @@ async function renderBrief(rawUrl) {
     BRIEF_CTX = (brand || feats.length || audience || avatar)
       ? { brand: brand || "the product", feats, audience, avatar, avatarParts }
       : BRIEF_CTX;
+    saveClientDraft(readEditor());
+    return niche;
+  };
+  const apply = () => {
+    const niche = ctxFromEditor();
     // Collapse the editor into a one-line summary; Edit re-opens it.
     const chips = [
       BRIEF_CTX?.brand, niche || "All niches", BRIEF_CTX?.audience,
@@ -5256,6 +5303,30 @@ async function renderBrief(rawUrl) {
   });
   document.getElementById("ce-apply").addEventListener("click", apply);
   document.getElementById("brief-niche").addEventListener("change", apply);
+  // Every keystroke is kept, so nothing is lost to a reload or to reading a site.
+  let draftTimer;
+  const editor = document.getElementById("client-editor");
+  editor.addEventListener("input", () => {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => saveClientDraft(readEditor()), 400);
+  });
+  editor.addEventListener("change", () => saveClientDraft(readEditor()));
+  // Save client: writes these details into the Clients tab on their own, with no brief attached,
+  // and leaves the editor open. A brief saved later finds the same client by name and merges.
+  document.getElementById("ce-save").addEventListener("click", () => {
+    const d = readEditor();
+    const msg = document.getElementById("ce-msg");
+    if (!d.brand.trim()) {
+      document.getElementById("ce-brand").focus();
+      if (msg) msg.textContent = "Add a company name first.";
+      return;
+    }
+    const niche = ctxFromEditor();
+    const list = loadClients();
+    findOrCreateClient(list, BRIEF_CTX?.brand || d.brand.trim(), BRIEF_CTX, niche);
+    persistClients(list);
+    if (msg) msg.textContent = `Saved — ${d.brand.trim()} is in the Clients tab.`;
+  });
   if (analysis) {
     apply();   // read succeeded: collapse to summary and build the shelf
   } else {
@@ -5303,6 +5374,34 @@ const CB_POLL_MS = 5000;
 let CAMPAIGN_VIEW = null;               // { id } when a campaign brief is open
 let CB_CACHE = new Map();               // campaign id -> { campaign, formats, at }
 let CB_LISTS = new Map();               // clientId -> { rows, at }
+
+// Sending: who a campaign/legacy brief has been sent to, and whether the send
+// panel is open. Keyed by `${sourceKind}:${sourceId}` so campaign and legacy
+// briefs share the cache without colliding. Populated lazily, the same
+// pattern as CB_CACHE/CB_LOADING above.
+let AG_SENT = new Map();                // key -> { rows, error } | undefined = not loaded
+const AG_LOADING = new Set();           // keys in flight
+const CB_SEND_OPEN = new Set();         // source ids with the send panel open
+const agSentKey = (kind, id) => `${kind}:${id}`;
+
+/** Loads (or reloads with force=true) who a source has been sent to. Silent
+    on error — the failure is only surfaced from inside the send panel, via
+    ROSTER_ERR, so a page that never opens it stays quiet. */
+async function agEnsureSent(sourceKind, sourceId, onDone, force) {
+  const key = agSentKey(sourceKind, sourceId);
+  if (!force && (AG_SENT.has(key) || AG_LOADING.has(key))) return;
+  if (force && AG_LOADING.has(key)) return;
+  AG_LOADING.add(key);
+  try {
+    const rows = await agSentFor(sourceKind, sourceId);
+    AG_SENT.set(key, { rows, error: null });
+  } catch (ex) {
+    AG_SENT.set(key, { rows: [], error: cbError(ex) });
+  } finally {
+    AG_LOADING.delete(key);
+    onDone?.();
+  }
+}
 
 /** Classify a thrown sbFetch error into what the campaign UI can act on.
     sbFetch's Error message is `${status} ${body}` — see its definition above. */
@@ -5546,6 +5645,520 @@ async function cbLaneState() {
     const rows = await sbFetch("/rest/v1/lynxr_ops?key=eq.agency.lane&select=value,updated_at");
     return rows[0]?.value || null;
   } catch { return null; }
+}
+
+// ---------- Agency roster: who may be sent a brief (plan:
+// ~/.claude/plans/agency-send-brief-to-creators.md) ----------
+// The roster lives entirely in its own tables (supabase/agency_roster.sql) —
+// nothing below writes to lynxr_creators. rost* is the data layer; the
+// Creators tab (renderRoster()) is the interface, step 5.
+
+// Client-side mirror of the shape check write_guards.sql uses on the
+// waitlist, so a typo is caught before the round trip rather than after.
+const ROST_EMAIL_RE = /^[^@\s]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}$/;
+
+let ROSTER = null;      // array of roster rows, or null = not loaded yet
+let ROSTER_ERR = "";    // "" | "missing" | "denied" | "other" (see cbError)
+
+async function rostList() {
+  return sbFetch("/rest/v1/lynxr_roster?select=email,code,display_name,status,creator_id,invited_at,accepted_at,left_at&order=invited_at.desc");
+}
+
+async function rostInvite(email, name, note) {
+  const clean = String(email || "").trim().toLowerCase();
+  if (!clean || clean.length > 254 || !ROST_EMAIL_RE.test(clean)) {
+    throw new Error("That doesn't look like an email address.");
+  }
+  return sbFetch("/rest/v1/lynxr_roster", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify({ email: clean, display_name: name || "", note: note || "" }),
+  });
+}
+
+async function rostRemove(email) {
+  return sbFetch(`/rest/v1/lynxr_roster?email=eq.${encodeURIComponent(email)}`, { method: "DELETE" });
+}
+
+/** The send picker only ever offers accepted members — an invited-or-left
+    address can't receive a delivery (the RLS policy in agency_roster.sql
+    refuses it too; this just keeps the UI from offering what the database
+    would reject). */
+const rostAccepted = () => (ROSTER || []).filter((r) => r.status === "accepted");
+
+/** Fills ROSTER / ROSTER_ERR and repaints the Creators tab if it's on screen.
+    Reuses cbError's classifier: a 404/PGRST205 (table missing, i.e.
+    supabase/agency_roster.sql not applied yet) becomes ROSTER_ERR="missing". */
+function rostErrorSentence(ex, verb) {
+  const kind = cbError(ex);
+  if (kind === "missing") return "The roster isn't installed yet — run supabase/agency_roster.sql in the Supabase SQL editor.";
+  if (kind === "denied") return `This account can't ${verb} the roster.`;
+  return `Couldn't ${verb} — check the connection and try again.`;
+}
+
+async function rostLoad() {
+  try {
+    ROSTER = await rostList();
+    ROSTER_ERR = "";
+  } catch (ex) {
+    ROSTER = null;
+    ROSTER_ERR = cbError(ex);
+  }
+  if (document.getElementById("roster-host")) renderRoster();
+}
+
+// ---------- Creators tab: the roster page ----------
+// Renders into #roster-host (agencyonly/index.html). Reuses the agency
+// vocabulary — .section, .sec-head, .page-head, .bcard, .chip, .lbl,
+// .ce-field, .bp-actions, .pill — rather than inventing classes. CSS lives in
+// the AGENCY ROSTER + SENDING block at the very end of app.css.
+
+function renderRoster() {
+  const host = document.getElementById("roster-host");
+  if (!host) return;
+  host.innerHTML = rosterHtml();
+  bindRoster(host);
+}
+
+function rosterHtml() {
+  if (ROSTER === null && !ROSTER_ERR) {
+    return `<div class="section rost-section"><div class="sec-head"><h2>Creators</h2></div>
+      <div class="loader" role="status" aria-live="polite">${loaderMark()}
+        <div class="loader-text"><div class="lbl">Loading the roster…</div></div></div></div>`;
+  }
+  if (ROSTER_ERR === "missing") {
+    return `<div class="section rost-section"><div class="sec-head"><h2>Creators</h2></div>
+      <p class="note">The roster isn't installed yet — run <code>supabase/agency_roster.sql</code> in the Supabase SQL editor.</p></div>`;
+  }
+  if (ROSTER_ERR === "denied") {
+    return `<div class="section rost-section"><div class="sec-head"><h2>Creators</h2></div>
+      <p class="note">This account can't read the roster.</p></div>`;
+  }
+  if (ROSTER_ERR) {
+    return `<div class="section rost-section"><div class="sec-head"><h2>Creators</h2></div>
+      <p class="note">Couldn't load the roster. <button type="button" class="ghost" id="rost-retry">Try again</button></p></div>`;
+  }
+  const accepted = ROSTER.filter((r) => r.status === "accepted").length;
+  return `<div class="section rost-section">
+    <div class="sec-head"><h2>Creators <span class="pill">${accepted}</span></h2></div>
+    <form class="client-details rost-invite" id="rost-invite-form" novalidate>
+      <div class="ce-grid">
+        <label class="ce-field"><span class="lbl">Email</span>
+          <input type="email" id="rost-email" autocomplete="off" placeholder="them@example.com"></label>
+        <label class="ce-field"><span class="lbl">Name (optional)</span>
+          <input type="text" id="rost-name" autocomplete="off"></label>
+        <label class="ce-field ce-wide"><span class="lbl">Note (optional)</span>
+          <input type="text" id="rost-note" autocomplete="off" placeholder="agency only — never reaches the creator"></label>
+      </div>
+      <div class="bp-actions">
+        <button type="submit" class="btn" id="rost-invite-go">Invite</button>
+      </div>
+      <p class="bp-msg cb-msg" id="rost-invite-msg" role="status" aria-live="polite"></p>
+    </form>
+    <div class="rost-list" id="rost-list">${rosterListHtml()}</div>
+  </div>`;
+}
+
+function rosterListHtml() {
+  if (!ROSTER.length) {
+    return `<div class="empty">${emptyMark("idle")}<p><strong>No creators yet.</strong></p>
+      <p>Invite one by email — they accept inside their own lynxr account with the code you give them.</p></div>`;
+  }
+  return `<div class="rost-cards">` + ROSTER.map((r) => {
+    const chipCls = r.status === "accepted" ? " good" : r.status === "left" ? " bad" : "";
+    const dateIso = r.status === "accepted" ? r.accepted_at : r.status === "left" ? r.left_at : r.invited_at;
+    const date = escapeHtml(String(dateIso || "").slice(0, 10));
+    const codeRow = r.status !== "accepted"
+      ? `<div class="rost-code-row">
+          <code class="rost-code">${escapeHtml(r.code)}</code>
+          <button type="button" class="ghost rost-copy" data-code="${escapeHtml(r.code)}">Copy code</button>
+        </div>`
+      : "";
+    return `<article class="bcard rost-card" data-email="${escapeHtml(r.email)}">
+      <div class="bcard-main minw0">
+        <div class="bcard-title">${escapeHtml(r.display_name || r.email)}</div>
+        <div class="lbl">${escapeHtml(r.email)} · <span class="chip${chipCls}">${escapeHtml(r.status)}</span> · ${date}</div>
+        ${codeRow}
+      </div>
+      <button type="button" class="ghost danger icon-only rost-remove"
+        aria-label="Remove ${escapeHtml(r.email)} from the roster" title="Remove from roster">${TRASH_SVG}</button>
+    </article>`;
+  }).join("") + `</div>`;
+}
+
+function bindRoster(host) {
+  document.getElementById("rost-retry")?.addEventListener("click", () => rostLoad());
+
+  const form = document.getElementById("rost-invite-form");
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("rost-invite-msg");
+    const emailInput = document.getElementById("rost-email");
+    const nameInput = document.getElementById("rost-name");
+    const noteInput = document.getElementById("rost-note");
+    const go = document.getElementById("rost-invite-go");
+    go.disabled = true;
+    try {
+      await rostInvite(emailInput.value, nameInput.value.trim(), noteInput.value.trim());
+      emailInput.value = ""; nameInput.value = ""; noteInput.value = "";
+      await rostLoad();
+      cbMsg(document.getElementById("rost-invite-msg"), "Invited. The code is on their card below — read it out to them.", "good", true);
+    } catch (ex) {
+      cbMsg(msg, ex?.message && !/^\d/.test(ex.message) ? ex.message : rostErrorSentence(ex, "invite to"), "bad", true);
+    } finally {
+      const g = document.getElementById("rost-invite-go");
+      if (g) g.disabled = false;
+    }
+  });
+
+  host.querySelectorAll(".rost-copy").forEach((btn) => btn.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(btn.dataset.code); } catch { /* clipboard denied */ }
+    const old = btn.textContent;
+    btn.textContent = "Copied ✓";
+    setTimeout(() => { if (btn.isConnected) btn.textContent = old; }, 1500);
+  }));
+
+  host.querySelectorAll(".rost-remove").forEach((btn) => {
+    const card = btn.closest(".rost-card");
+    const email = card?.dataset.email;
+    armDelete(btn, "Remove", async () => {
+      try {
+        await rostRemove(email);
+        await rostLoad();
+      } catch (ex) {
+        cbMsg(document.getElementById("rost-invite-msg"), rostErrorSentence(ex, "remove from"), "bad", true);
+      }
+    });
+  });
+}
+
+// ---------- Sending a brief to roster creators ----------
+// Two source kinds share one delivery path: campaign briefs (agencySendDoc,
+// below) and legacy picked-video briefs (briefSendDoc, step 16) both produce
+// the identical doc shape, so everything from here down needs no change
+// between them.
+
+/** THE ONE DEFINITION of what leaves the agency for a creator's ACCOUNT.
+    Read alongside campaignDocHtml just above — that is what a creator sees on
+    paper, this is what a creator sees in their own lynxr account, and the two
+    must stay in step. An ALLOWLIST, field by field: a column added to
+    lynxr_campaign_formats later cannot leak through here, because nothing
+    here is a spread.
+
+    client.features rides alongside name/sells/audience — the owner's call,
+    2026-09-22: the scripts already name the product's features in their own
+    beats, so withholding the list from the brief page was inconsistent with
+    what a creator can already read in the script itself. Everything else off
+    brand_context (audienceNotes, painPoints, habits, goals, tone, cta,
+    valueProps, product, site, notes) stays withheld — that's the agency's
+    strategy material, not filming instructions.
+
+    Explicitly absent, and never add: fit, fit_reason, strategy_note,
+    internal_note, campaign.internal_notes, regen_note, status, analysis,
+    f.source (transcript, shots, tags, cover, clip), every other
+    brand_context key, and anything at all off lynxr_videos or the client's
+    posts / blueprints / avatar. */
+function agencySendDoc(campaign, formats, client) {
+  const bc = campaign.brand_context || {};
+  const done = formats.filter((f) => f.status === "done");
+  return {
+    v: 1,
+    client: {
+      name: bc.name || client?.company || "",
+      sells: bc.description || "",
+      audience: bc.audience || "",
+      features: Array.isArray(bc.features) ? bc.features.filter(Boolean) : [],
+    },
+    title: campaign.name || "",
+    instructions: campaign.instructions || "",
+    sent_at: new Date().toISOString(),
+    formats: done.map((f) => {
+      const v = cbView(f);
+      return {
+        id: f.id,
+        title: v.title || "",
+        source_url: f.source_url || "",
+        needs: Array.isArray(v.needs) ? v.needs : [],
+        setting: v.setting || "",
+        lighting: v.lighting || "",
+        framing: v.framing || "",
+        audio: v.audio || "",
+        hook: v.hook || "",
+        delivery: v.delivery || "",
+        beats: (v.beats || []).map((b) => ({ t: b.t || "", say: b.say || "", do: b.do || "", show: b.show || "" })),
+        cta: v.cta || "",
+        caption: v.caption || "",
+        note: v.creator_note || "",
+      };
+    }),
+  };
+}
+
+/** Same delivery, second source (A1): a legacy picked-video brief, sent
+    through the identical doc shape agencySendDoc produces above, so the
+    creator side needs no branch on where a brief came from.
+
+    Sends no database statistics — no views, likes, comments, engagement_rate,
+    data_source, format_type, hook_pattern, niche_category, target_audience —
+    those are the agency's asset (decision 5). The video's URL and its own
+    caption (row.title) are all a creator needs to find it. Also never sends
+    rec.ctx.avatar, rec.ctx.avatarParts or rec.ctx._avatarWords — avatar
+    material is internal, same as agencySendDoc's brand_context exclusions.
+
+    client.sells reads the CLIENT's saved description, not rec.ctx.brand (that
+    key is the brand's *name*, not a description of what it sells).
+    client.features rides alongside name/sells/audience for the same reason
+    agencySendDoc's does — the owner's 2026-09-22 amendment to decision 5 is
+    the doc shape's rule, not a campaign-only exception, and the two send
+    paths are meant to produce identical shapes. */
+function briefSendDoc(rec, client) {
+  const ctx = rec.ctx || {};
+  const briefs = client?.briefs || [];
+  const idx = briefs.findIndex((b) => b.id === rec.id);
+  const label = idx >= 0 ? `Brief ${briefs.length - idx}` : "Brief";
+  return {
+    v: 1,
+    client: {
+      name: rec.company || client?.company || "",
+      sells: client?.ctx?.description || "",
+      audience: ctx.audience || "",
+      features: Array.isArray(client?.ctx?.feats) ? client.ctx.feats.filter(Boolean) : [],
+    },
+    title: label,
+    instructions: "",
+    sent_at: new Date().toISOString(),
+    formats: (rec.items || []).map((row, i) => {
+      const s = agScriptFor(row, ctx, i);
+      const mode = agScriptMode(s);
+      const beats = (s.beats || []).map((bt) => {
+        const p = agBeatParse(bt, mode);
+        return { t: p.t || "", say: p.say?.v || "", do: p.do?.v || "", show: p.show?.v || "" };
+      });
+      return {
+        id: row.url || String(i),
+        title: s.heading || "",
+        source_url: row.url || "",
+        needs: [],
+        setting: "", lighting: "", framing: "", audio: "",
+        hook: s.hook || "",
+        delivery: mode === "silent" ? "silent" : "spoken",
+        beats,
+        cta: agCtaParts(s.cta).join(""),
+        caption: row.title || "",
+        note: "",
+      };
+    }),
+  };
+}
+
+/** Send (or re-send) a doc to one or more accepted roster creators.
+    Re-sending with the same briefId overwrites the snapshot in place — same
+    row, `resolution=merge-duplicates` — rather than creating a second brief,
+    and un-revokes anyone in creatorIds who had been unsent. */
+async function agSend(doc, sourceKind, sourceId, creatorIds, briefId) {
+  briefId = briefId || newId();
+  const [client_name, title] = [doc.client?.name || "", doc.title || ""];
+  await sbFetch("/rest/v1/lynxr_agency_briefs", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify({
+      id: briefId, client_name, title, doc,
+      source_kind: sourceKind, source_id: String(sourceId), sent_by: SB_UID,
+    }),
+  });
+  await sbFetch("/rest/v1/lynxr_agency_deliveries", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify(creatorIds.map((creator_id) => ({ brief_id: briefId, creator_id, revoked_at: null }))),
+  });
+  return briefId;
+}
+
+/** Who a source (one campaign or one legacy brief) has been sent to, mapped
+    back to a roster address via the cached ROSTER. PostgREST embeds the
+    deliveries through the foreign key in one round trip. */
+async function agSentFor(sourceKind, sourceId) {
+  // Deliberately does NOT map creator_id -> address here: ROSTER and this
+  // fetch are kicked off together (renderCampaignView/renderBriefViewer) and
+  // may resolve in either order, so baking the lookup in at fetch time could
+  // freeze in a blank email if ROSTER lands second. cbSentListHtml resolves
+  // the address at PAINT time instead, off whatever ROSTER holds then.
+  return sbFetch(`/rest/v1/lynxr_agency_briefs?source_kind=eq.${encodeURIComponent(sourceKind)}`
+    + `&source_id=eq.${encodeURIComponent(String(sourceId))}`
+    + `&select=id,created_at,lynxr_agency_deliveries(creator_id,sent_at,revoked_at)`);
+}
+
+const agUnsend = (briefId, creatorId) => sbFetch(
+  `/rest/v1/lynxr_agency_deliveries?brief_id=eq.${encodeURIComponent(briefId)}&creator_id=eq.${encodeURIComponent(creatorId)}`,
+  { method: "PATCH", body: JSON.stringify({ revoked_at: new Date().toISOString() }) });
+
+const agUnsendAll = (briefId) => sbFetch(
+  `/rest/v1/lynxr_agency_deliveries?brief_id=eq.${encodeURIComponent(briefId)}&revoked_at=is.null`,
+  { method: "PATCH", body: JSON.stringify({ revoked_at: new Date().toISOString() }) });
+
+/** Same shape as cbErrorSentence, plus the one error specific to sending: a
+    403 on the deliveries insert means the target rostered address is not
+    (or is no longer) an accepted member — the RLS policy in
+    agency_roster.sql refuses the insert outright rather than silently
+    dropping it. */
+function agSendErrorSentence(ex) {
+  const kind = cbError(ex);
+  if (kind === "missing") return "Sending isn't installed yet — run supabase/agency_roster.sql in the Supabase SQL editor.";
+  if (kind === "denied") return "That creator has not accepted the invite yet.";
+  return "Couldn't send — check the connection and try again.";
+}
+
+// ---------- The send panel + sent-to list (steps 8/9, reused verbatim by the
+// legacy brief viewer in step 16) ----------
+// Shared by the campaign view and renderBriefViewer, keyed by
+// sourceKind/sourceId so the two never collide in CB_SEND_OPEN or AG_SENT.
+// Not a modal: the agency app has none for this, and confirm() is forbidden —
+// every unsend below is the existing two-click armDelete pattern instead.
+
+/** The inline "Send this brief to" panel. */
+function cbSendPanelHtml(sourceKind, sourceId) {
+  const key = agSentKey(sourceKind, sourceId);
+  if (!CB_SEND_OPEN.has(key)) return "";
+  if (ROSTER_ERR === "missing") {
+    return `<div class="section cb-send-panel">
+      <p class="note">Sending isn't installed yet — run <code>supabase/agency_roster.sql</code> in the Supabase SQL editor.</p>
+    </div>`;
+  }
+  if (ROSTER === null) {
+    return `<div class="section cb-send-panel">
+      <div class="loader" role="status" aria-live="polite">${loaderMark()}
+        <div class="loader-text"><div class="lbl">Loading the roster…</div></div></div>
+    </div>`;
+  }
+  const accepted = rostAccepted();
+  if (!accepted.length) {
+    return `<div class="section cb-send-panel">
+      <p class="note">Nobody has accepted a Lynx invite yet — invite them on the Creators tab.</p>
+      <button type="button" class="ghost" id="cb-send-goto-roster">Go to Creators</button>
+    </div>`;
+  }
+  const already = new Set((AG_SENT.get(key)?.rows || [])
+    .flatMap((b) => (b.lynxr_agency_deliveries || []).filter((d) => !d.revoked_at).map((d) => d.creator_id)));
+  return `<div class="section cb-send-panel">
+    <h3>Send this brief to</h3>
+    <p class="note">They get a copy of this brief as it is now. Editing it here afterwards does not
+      change what they see — send it again to update them.</p>
+    <div class="rost-picker">
+      ${accepted.map((r) => `<label class="rost-pick-row">
+        <input type="checkbox" class="cb-send-pick" value="${escapeHtml(r.creator_id)}"${already.has(r.creator_id) ? " checked" : ""}>
+        <span>${escapeHtml(r.display_name || r.email)} <span class="lbl">${escapeHtml(r.email)}</span></span>
+      </label>`).join("")}
+    </div>
+    <div class="bp-actions">
+      <button type="button" class="btn" id="cb-send-go" disabled>Send to 0 creators</button>
+      <button type="button" class="ghost" id="cb-send-cancel">Cancel</button>
+    </div>
+    <p class="bp-msg cb-msg" id="cb-send-msg" role="status" aria-live="polite"></p>
+  </div>`;
+}
+
+/** "Sent to" list: one row per delivery, an Unsend on each live one, plus
+    Unsend for everyone. Visible whenever there's anything to show, whether or
+    not the send panel itself is open. Shows nothing about whether a creator
+    opened or copied a brief — there is no such data, and there must not be
+    (decision 7). */
+function cbSentListHtml(sourceKind, sourceId) {
+  const entry = AG_SENT.get(agSentKey(sourceKind, sourceId));
+  if (!entry || entry.error || !entry.rows.length) return "";
+  const byId = new Map((ROSTER || []).map((r) => [r.creator_id, r.email]));
+  const deliveries = entry.rows.flatMap((b) => (b.lynxr_agency_deliveries || [])
+    .map((d) => ({ ...d, briefId: b.id, email: byId.get(d.creator_id) || "" })));
+  if (!deliveries.length) return "";
+  deliveries.sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at));
+  const anyLive = deliveries.some((d) => !d.revoked_at);
+  return `<div class="section cb-sent-section">
+    <div class="sec-head"><h3>Sent to</h3>
+      ${anyLive ? `<button type="button" class="ghost danger cb-unsend-all" data-brief="${escapeHtml(deliveries[0].briefId)}">Unsend for everyone</button>` : ""}
+    </div>
+    ${anyLive ? `<p class="note">Unsending removes it from their app. Anything they already copied into their own library stays theirs.</p>` : ""}
+    <div class="cb-sent-list">
+      ${deliveries.map((d) => `<article class="bcard cb-sent-row">
+        <div class="bcard-main minw0">
+          <div class="bcard-title">${escapeHtml(d.email || "—")}</div>
+          <div class="lbl">${d.revoked_at ? `unsent ${escapeHtml(String(d.revoked_at).slice(0, 10))}` : `sent ${escapeHtml(String(d.sent_at).slice(0, 10))}`}</div>
+        </div>
+        ${d.revoked_at
+          ? `<span class="chip bad">unsent</span>`
+          : `<button type="button" class="ghost danger cb-unsend" data-brief="${escapeHtml(d.briefId)}" data-creator="${escapeHtml(d.creator_id)}">Unsend</button>`}
+      </article>`).join("")}
+    </div>
+  </div>`;
+}
+
+/** Binds the send panel + sent-to list rendered by the two functions above.
+    `getDoc()` builds the payload only when Send is actually pressed — never
+    ahead of time, so a page that never opens the panel never calls it.
+    `repaint()` is the caller's own keep-scroll repaint (renderBriefsKeepScroll
+    for the campaign view, its equivalent for the legacy brief viewer). */
+function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-view-msg") {
+  const key = agSentKey(sourceKind, sourceId);
+  const msgEl = () => document.getElementById(msgId);
+
+  document.getElementById("cb-send-toggle")?.addEventListener("click", () => {
+    if (CB_SEND_OPEN.has(key)) CB_SEND_OPEN.delete(key); else CB_SEND_OPEN.add(key);
+    if (CB_SEND_OPEN.has(key) && ROSTER === null && !ROSTER_ERR) rostLoad();
+    repaint();
+  });
+  document.getElementById("cb-send-cancel")?.addEventListener("click", () => {
+    CB_SEND_OPEN.delete(key);
+    repaint();
+  });
+  document.getElementById("cb-send-goto-roster")?.addEventListener("click", () => activateTab("tab-roster"));
+
+  const updateGo = () => {
+    const n = host.querySelectorAll(".cb-send-pick:checked").length;
+    const go = document.getElementById("cb-send-go");
+    if (go) { go.disabled = n === 0; go.textContent = `Send to ${cbPlural(n, "creator", "creators")}`; }
+  };
+  host.querySelectorAll(".cb-send-pick").forEach((cb) => cb.addEventListener("change", updateGo));
+  updateGo();
+
+  document.getElementById("cb-send-go")?.addEventListener("click", async (e) => {
+    const creatorIds = [...host.querySelectorAll(".cb-send-pick:checked")].map((c) => c.value);
+    if (!creatorIds.length) return;
+    const doc = getDoc();
+    if (!doc) return;
+    const existing = AG_SENT.get(key)?.rows?.[0]?.id;
+    e.currentTarget.disabled = true;
+    try {
+      await agSend(doc, sourceKind, sourceId, creatorIds, existing);
+      await agEnsureSent(sourceKind, sourceId, null, true);
+      CB_SEND_OPEN.delete(key);
+      repaint();
+      cbMsg(msgEl(), `Sent to ${cbPlural(creatorIds.length, "creator", "creators")}.`, "good");
+    } catch (ex) {
+      e.currentTarget.disabled = false;
+      cbMsg(document.getElementById("cb-send-msg"), agSendErrorSentence(ex), "bad", true);
+    }
+  });
+
+  host.querySelectorAll(".cb-unsend").forEach((btn) => {
+    armDelete(btn, "Unsend", async () => {
+      try {
+        await agUnsend(btn.dataset.brief, btn.dataset.creator);
+        await agEnsureSent(sourceKind, sourceId, null, true);
+        repaint();
+      } catch (ex) {
+        cbMsg(msgEl(), agSendErrorSentence(ex), "bad", true);
+      }
+    });
+  });
+  host.querySelectorAll(".cb-unsend-all").forEach((btn) => {
+    armDelete(btn, "Unsend for everyone", async () => {
+      try {
+        await agUnsendAll(btn.dataset.brief);
+        await agEnsureSent(sourceKind, sourceId, null, true);
+        repaint();
+      } catch (ex) {
+        cbMsg(msgEl(), agSendErrorSentence(ex), "bad", true);
+      }
+    });
+  });
 }
 
 // ---- Staff-action request bodies (Step 13's buttons send these verbatim) ----
@@ -5930,12 +6543,17 @@ function cbWireRows(rowsEl, { existing = () => new Set(), onChange = () => {} } 
 function brandFormHtml(bc, prefix) {
   const niches = [...new Set(ALL.map((r) => r.niche_category).filter(Boolean))].sort();
   const audiences = [...new Set(ALL.map((r) => r.target_audience).filter(Boolean))].sort();
-  const opts = (list, cur, empty) => {
-    const all = cur && !list.includes(cur) ? [cur, ...list] : list;
-    return `<option value="">${empty}</option>` + all.map((v) =>
-      `<option value="${escapeHtml(v)}"${v === cur ? " selected" : ""}>${escapeHtml(v)}</option>`).join("");
-  };
   const fid = (k) => `${prefix}-${k}`;
+  /* TYPE ANYTHING (owner, 2026-09-22: "make all of these typeable, no need for dropdown options").
+     Niche and target audience were the only two <select>s here, so a client whose niche the database
+     has never seen could not be written down. They are text boxes now, with the database's own values
+     offered as suggestions — a <datalist> suggests without restricting, and the picked-video shelf
+     still filters by exact niche name, so choosing a suggested one keeps that filter working. */
+  const listed = (k, label, val, list, ph) => `
+    <label class="ce-field"><span class="lbl">${label}</span>
+      <input type="text" id="${fid(k)}" data-bf="${k}" value="${escapeHtml(val || "")}"
+        list="${fid(k)}-opts" placeholder="${escapeHtml(ph)}" autocomplete="off">
+      <datalist id="${fid(k)}-opts">${list.map((v) => `<option value="${escapeHtml(v)}"></option>`).join("")}</datalist></label>`;
   const input = (k, label, val, ph = "", wide = false) => `
     <label class="ce-field${wide ? " ce-wide" : ""}"><span class="lbl">${label}</span>
       <input type="text" id="${fid(k)}" data-bf="${k}" value="${escapeHtml(val || "")}"
@@ -5946,12 +6564,10 @@ function brandFormHtml(bc, prefix) {
         placeholder="${escapeHtml(ph)}">${escapeHtml(val || "")}</textarea></label>`;
   return `<div class="ce-grid cb-brand-form">
     ${input("name", "Brand / product name", bc.name, "e.g. Cloey")}
-    <label class="ce-field"><span class="lbl">Niche</span>
-      <select id="${fid("niche")}" data-bf="niche">${opts(niches, bc.niche, "Not set")}</select></label>
+    ${listed("niche", "Niche", bc.niche, niches, "e.g. fashion & beauty")}
     ${area("description", "Brand description", bc.description, "What it is, in a sentence or two")}
     ${input("product", "Product / app", bc.product)}
-    <label class="ce-field"><span class="lbl">Target audience</span>
-      <select id="${fid("audience")}" data-bf="audience">${opts(audiences, bc.audience, "Not sure")}</select></label>
+    ${listed("audience", "Target audience", bc.audience, audiences, "who it's for")}
     ${area("audienceNotes", "Who it's for, in plain words", bc.audienceNotes)}
     ${area("painPoints", "Main pain points", bc.painPoints)}
     ${input("features", "Key features (comma-separated, up to 8)", (bc.features || []).join(", "), "", true)}
@@ -6680,6 +7296,7 @@ function renderCampaignView(host, client, id) {
         <div class="lbl">${escapeHtml((campaign.created_at || "").slice(0, 10))} · <span id="cb-fcount"></span></div>
       </div>
       <div class="cb-export">
+        <button type="button" class="btn cb-send-btn" id="cb-send-toggle">${CB_ICON.send}<span>Send to creators</span></button>
         <button type="button" class="ghost" id="cb-copy">Copy brief</button>
         <button type="button" class="btn cb-pdf-btn" id="cb-pdf">Download PDF</button>
         <button type="button" class="ghost danger icon-only b-del" id="cb-del-campaign"
@@ -6688,6 +7305,7 @@ function renderCampaignView(host, client, id) {
     </div>
     <p class="note cb-notready" id="cb-notready" hidden></p>
     <p class="bp-msg cb-msg" id="cb-view-msg" role="status" aria-live="polite"></p>
+    <div id="cb-send-wrap">${cbSendPanelHtml("campaign", id)}${cbSentListHtml("campaign", id)}</div>
     <div class="cb-progress">
       <div class="cb-progress-line" id="cb-progress-text" role="status" aria-live="polite"></div>
       <div class="cb-bar" aria-hidden="true"><div class="cb-bar-fill" id="cb-bar-fill"></div></div>
@@ -6704,11 +7322,15 @@ function renderCampaignView(host, client, id) {
   cbBindCrumbs();
   host.querySelectorAll(".cb-format").forEach((card) => cbBindCard(card, id));
   cbBindView(host, client, id);
+  cbBindSend(host, "campaign", id, () => agencySendDoc(rec.campaign, cbSorted(rec), client),
+    () => { if (CAMPAIGN_VIEW?.id === id) renderBriefsKeepScroll(); });
   cbWireGrow(host);
   cbPaintSummary(id);
   if (fe === "name") { const inp = document.getElementById("cb-name-input"); inp?.focus(); inp?.select(); }
   else if (fe) host.querySelector(`.cb-field-editor[data-field="${fe}"] :is(textarea, input)`)?.focus();
   if (cbProgress(formats).working > 0) cbEnsurePoll(id); else cbClearPollTimer();
+  if (ROSTER === null && !ROSTER_ERR) rostLoad();
+  agEnsureSent("campaign", id, () => { if (CAMPAIGN_VIEW?.id === id) renderBriefsKeepScroll(); });
 }
 
 /** Progress line, bar, export buttons, not-ready note and lane reason — all
@@ -6734,7 +7356,7 @@ function cbPaintSummary(id) {
   if (fill) fill.style.width = p.total ? `${(p.ready / p.total) * 100}%` : "0%";
   const count = document.getElementById("cb-fcount");
   if (count) count.textContent = cbPlural(p.total, "format", "formats");
-  for (const bid of ["cb-copy", "cb-pdf"]) {
+  for (const bid of ["cb-copy", "cb-pdf", "cb-send-toggle"]) {
     const b = document.getElementById(bid);
     if (!b) continue;
     b.disabled = p.ready === 0;
@@ -8218,6 +8840,7 @@ async function sessionFromLink() {
     const user = await res.json();
     SB_TOKEN = access_token;
     SB_EMAIL = user.email || null;
+    SB_UID = user.id || null;
     sbSaveSession({ access_token, refresh_token, user });
   } catch {
     err.textContent = "Couldn't open that link — ask for a fresh one and try again.";

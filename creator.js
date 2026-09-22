@@ -1765,6 +1765,17 @@ function renderSide() {
   document.getElementById("nav-you").classList.toggle("on", VIEW.kind === "you");
   document.getElementById("nav-plan").classList.toggle("on", VIEW.kind === "plan");
   document.getElementById("nav-feedback").classList.toggle("on", VIEW.kind === "feedback");
+  // Lynx Media Group: hidden for the ~99% of creators not on the roster.
+  // AGENCY is null until refreshAgency() answers — nothing paints until then,
+  // rather than flashing the rail in and out on every sign-in.
+  const navLynx = document.getElementById("nav-lynx");
+  if (navLynx) {
+    navLynx.hidden = !hasAgency();
+    navLynx.classList.toggle("on", VIEW.kind === "lynx");
+    const n = document.getElementById("nav-lynx-n");
+    if (n) n.textContent = AGENCY?.state === "invited" ? "1"
+      : AGENCY?.state === "accepted" && AGENCY.briefs.length ? String(AGENCY.briefs.length) : "";
+  }
 
   const host = document.getElementById("side-list");
   if (!ME.brands.length) {
@@ -1967,6 +1978,8 @@ function renderPaneInner() {
   if (VIEW.kind === "plan") return renderPlan(head, body);
   if (VIEW.kind === "you") return renderYou(head, body);
   if (VIEW.kind === "feedback") return renderFeedback(head, body);
+  if (VIEW.kind === "lynx") return renderLynx(head, body);
+  if (VIEW.kind === "lynxbrief") return renderLynxBrief(head, body);
   if (VIEW.kind === "brand") {
     const b = brandById(VIEW.id);
     if (b) return renderBrand(head, body, b);
@@ -3474,6 +3487,44 @@ async function refreshPlan() {
   }
 }
 
+/* AGENCY: Lynx Media Group's roster (plan:
+   ~/.claude/plans/agency-send-brief-to-creators.md). Same shape as PLAN
+   above — one object, one state, no polling. AGENCY_NAME is hardcoded
+   (A5): there is exactly one agency, and a roster row carries no agency
+   name to read one back from. */
+const AGENCY_NAME = "Lynx Media Group";
+/* The agency's own mark (owner, 2026-09-22: "make this logo our lynx media logo"), traced from
+   the logo they sent into one path on the same 24 box the sidebar icons use. `currentColor`, so
+   it follows the theme like every other icon; the file lynx-media-mark.svg holds the same path. */
+const AGENCY_MARK = `<svg class="lynx-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.69 22.36L22.46 22.33 22.11 22.18 21.71 21.94 21.16 21.51 20.06 20.86 18.88 20.31 17.84 19.91 16.64 19.56 15.34 19.28 14.08 19.11 12.67 19.01 11.33 19.01 9.89 19.11 8.51 19.31 6.89 19.68 5.67 20.08 4.49 20.59 3.19 21.29 2.69 21.61 2.31 21.91 1.79 22.23 1.62 22.31 1.29 22.36 1.16 22.31 1.08 22.22 1.0 22.05 1.0 21.57 1.18 20.78 3.05 14.9 5.92 5.68 6.11 5.17 6.25 4.88 6.49 4.57 6.84 4.34 7.27 4.32 7.71 4.54 8.0 4.83 8.35 5.37 9.53 7.7 10.17 8.9 10.37 9.2 10.61 9.46 10.84 9.59 11.01 9.59 11.19 9.49 11.35 9.3 11.7 8.65 14.12 2.73 14.42 2.18 14.69 1.89 14.86 1.77 15.23 1.64 15.51 1.67 15.74 1.77 16.07 2.07 16.33 2.53 16.45 2.85 22.82 20.79 22.97 21.45 23.0 21.99 22.9 22.25 22.84 22.31 22.69 22.36Z"/></svg>`;
+let AGENCY = null;                              // { state, briefs: [...] } or null = not asked
+let AGENCY_STATE = "idle";                      // idle | loading | ready | missing | error
+async function refreshAgency() {
+  if (AGENCY_STATE !== "ready") AGENCY_STATE = "loading";
+  try {
+    AGENCY = await sbFetch("/rest/v1/rpc/my_agency", { method: "POST", body: "{}" });
+    AGENCY_STATE = "ready";
+  } catch (ex) {
+    // Not installed yet (supabase/agency_roster.sql hasn't been applied) —
+    // silent, per the plan: the section simply never appears. Any other
+    // failure (offline, a real error) is "error", which the section DOES
+    // say something about once someone has opened it.
+    AGENCY_STATE = /^404\b/.test(String(ex?.message || "")) || /PGRST20[25]/.test(String(ex?.message || ""))
+      ? "missing" : "error";
+  }
+}
+const hasAgency = () => AGENCY?.state === "accepted" || AGENCY?.state === "invited";
+
+async function agencyBriefDoc(id) {
+  return sbFetch("/rest/v1/rpc/my_agency_brief", { method: "POST", body: JSON.stringify({ p_id: id }) });
+}
+async function acceptAgency(code) {
+  return sbFetch("/rest/v1/rpc/accept_agency_invite", { method: "POST", body: JSON.stringify({ p_code: code }) });
+}
+async function leaveAgency() {
+  return sbFetch("/rest/v1/rpc/leave_agency", { method: "POST", body: "{}" });
+}
+
 /* WHO COUNTS AS PAYING. The same three the database calls entitled in
    entitlement_for() — including past_due, deliberately: the card failed, the
    provider is retrying, and taking the product away on day one of a failed
@@ -4532,6 +4583,276 @@ async function sendFeedback() {
   } finally { btn.disabled = false; }
 }
 
+// ---------- Lynx Media Group: the agency roster section (plan:
+// ~/.claude/plans/agency-send-brief-to-creators.md, steps 12-13) ----------
+// Four states: not on the roster at all (nav-lynx stays hidden, this view is
+// unreachable), invited, accepted, left. Follows renderPlan's head pattern
+// exactly (creator.js:3657) — the #side-open toggle, a .pane-title with
+// .bcard-title, and a .pane-sub.
+
+/** Shared by the invited and left states — both ask for the same code. */
+function bindLynxAcceptForm() {
+  const form = document.getElementById("lynx-accept-form");
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("lynx-code");
+    const code = (input.value || "").trim();
+    if (!code) { input.focus(); return; }
+    const btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+    try {
+      const r = await acceptAgency(code);
+      if (r?.ok) {
+        await refreshAgency();
+        renderSide();
+        renderPane();
+        return;
+      }
+      flashMsg("lynx-accept-msg", "That code doesn't match.", "bad");
+    } catch {
+      flashMsg("lynx-accept-msg", "Couldn't reach the server — try again.", "bad");
+    }
+    btn.disabled = false;
+  });
+}
+
+function renderLynx(head, body) {
+  head.innerHTML = `
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="pane-title"><div class="bcard-title">${AGENCY_MARK}${escapeHtml(AGENCY_NAME)}</div></div>
+    <p class="pane-sub">Briefs sent to you from the agency.</p>`;
+  document.getElementById("side-open").addEventListener("click", (e) => {
+    const open = document.body.classList.toggle("side-open");
+    e.currentTarget.setAttribute("aria-expanded", open);
+  });
+
+  if (AGENCY_STATE === "idle" || (AGENCY_STATE === "loading" && !AGENCY)) {
+    body.innerHTML = `<div class="loader" role="status" aria-live="polite">${loaderMark()}
+      <div class="loader-text"><div class="lbl">Loading…</div></div></div>`;
+    if (AGENCY_STATE === "idle") refreshAgency().then(() => { if (VIEW.kind === "lynx") renderPane(); });
+    return;
+  }
+  // Not normally reachable — #nav-lynx stays hidden without hasAgency() — but
+  // a stale deep link (go({kind:"lynx"}) from somewhere that no longer holds)
+  // or a race with sign-out could still land here.
+  if (!AGENCY || AGENCY_STATE === "missing" || AGENCY_STATE === "error") {
+    body.innerHTML = `<div class="empty"><p>Couldn't load this section.</p></div>`;
+    return;
+  }
+
+  if (AGENCY.state === "invited") {
+    body.innerHTML = `<div class="bcard lynx-card">
+      <p><strong>${escapeHtml(AGENCY_NAME)} invited you to their creator roster.</strong></p>
+      <p class="bp-hint">You'll see briefs Lynx sends you here. They never see your own scripts,
+        library or plan, and agency scripts never count against your plan.</p>
+      <form class="ce-field lynx-accept" id="lynx-accept-form" novalidate>
+        <input type="text" id="lynx-code" placeholder="Join code" autocomplete="off"
+          autocapitalize="characters" spellcheck="false">
+        <button type="submit" class="btn">Accept</button>
+      </form>
+      <p class="bp-msg" id="lynx-accept-msg" role="status" aria-live="polite"></p>
+    </div>`;
+    bindLynxAcceptForm();
+    return;
+  }
+
+  if (AGENCY.state === "left") {
+    body.innerHTML = `<div class="bcard lynx-card">
+      <p>You left ${escapeHtml(AGENCY_NAME)}'s roster.</p>
+      <p class="bp-hint">Ask for a new code to rejoin — any brief still live from before comes back.</p>
+      <form class="ce-field lynx-accept" id="lynx-accept-form" novalidate>
+        <input type="text" id="lynx-code" placeholder="Join code" autocomplete="off"
+          autocapitalize="characters" spellcheck="false">
+        <button type="submit" class="btn">Accept</button>
+      </form>
+      <p class="bp-msg" id="lynx-accept-msg" role="status" aria-live="polite"></p>
+    </div>`;
+    bindLynxAcceptForm();
+    return;
+  }
+
+  // accepted
+  const briefs = AGENCY.briefs || [];
+  body.innerHTML = `
+    ${briefs.length
+      ? `<div class="lynx-briefs">${briefs.map((b) => `
+        <article class="bcard opens lynx-brief-card" data-id="${escapeHtml(b.id)}" role="button" tabindex="0"
+          aria-label="Open ${escapeHtml(b.title || "brief")}">
+          <div class="bcard-title">${escapeHtml(b.title || "Untitled brief")}</div>
+          <div class="lbl">${escapeHtml(b.client_name || "")} · ${escapeHtml(String(b.sent_at || "").slice(0, 10))}
+            · ${b.formats} format${b.formats === 1 ? "" : "s"}</div>
+        </article>`).join("")}</div>`
+      : `<div class="empty">${typeof lynxrAvatar === "function" ? lynxrAvatar("idle", "empty-mark") : ""}
+          <p><strong>Nothing from Lynx yet.</strong></p></div>`}
+    <div class="bp-actions lynx-leave-row">
+      <button type="button" class="ghost danger" id="lynx-leave">Leave the roster</button>
+    </div>
+    <p class="note">Leaving removes Lynx briefs from your account. Anything you copied into your library stays yours.</p>`;
+
+  body.querySelectorAll(".lynx-brief-card").forEach((card) => {
+    const open = () => go({ kind: "lynxbrief", id: card.dataset.id });
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+  });
+  const leaveBtn = document.getElementById("lynx-leave");
+  if (leaveBtn) armDelete(leaveBtn, "Leave the roster", async () => {
+    leaveBtn.disabled = true;
+    try {
+      await leaveAgency();
+      await refreshAgency();
+      renderSide();
+      renderPane();
+    } catch {
+      leaveBtn.disabled = false;
+    }
+  });
+}
+
+/** The brief page: read-only (decision 4), loaded via agencyBriefDoc(VIEW.id).
+    The fetch result is kept on the VIEW object itself, not a module cache —
+    each go({kind:"lynxbrief", id}) is a NEW VIEW object, so navigating away
+    and back always re-fetches rather than showing a stale doc. `VIEW !==
+    myView` after the await is how a navigation that happened meanwhile is
+    detected, the same pattern liveRec() uses elsewhere in this file. */
+function renderLynxBrief(head, body) {
+  const id = VIEW.id;
+  head.innerHTML = `
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="pane-title"><div class="bcard-title">Brief</div></div>
+    <p class="pane-sub lynx-from">${AGENCY_MARK}From ${escapeHtml(AGENCY_NAME)}.</p>`;
+  document.getElementById("side-open").addEventListener("click", (e) => {
+    const open = document.body.classList.toggle("side-open");
+    e.currentTarget.setAttribute("aria-expanded", open);
+  });
+
+  if (VIEW._docId !== id) {
+    body.innerHTML = `<div class="loader" role="status" aria-live="polite">${loaderMark()}
+      <div class="loader-text"><div class="lbl">Opening the brief…</div></div></div>`;
+    if (!VIEW._fetching) {
+      VIEW._fetching = true;
+      const myView = VIEW;
+      agencyBriefDoc(id)
+        .then((doc) => { if (VIEW === myView) { myView._docId = id; myView._doc = doc || null; renderPane(); } })
+        .catch(() => { if (VIEW === myView) { myView._docId = id; myView._doc = null; renderPane(); } });
+    }
+    return;
+  }
+
+  const doc = VIEW._doc;
+  if (!doc) {
+    body.innerHTML = `<div class="empty"><p>This brief isn't available any more.</p>
+      <button type="button" class="ghost" id="lynx-brief-back">Back</button></div>`;
+    document.getElementById("lynx-brief-back").addEventListener("click", () => go({ kind: "lynx" }));
+    return;
+  }
+
+  // The four things decision 5 allows, each only when non-empty. Every string
+  // here was typed by a staff account and now renders inside a creator's own
+  // app — escapeHtml() on all of it, same as every format below.
+  const top = [
+    doc.client?.name ? `<p class="bp-hint"><strong>Client:</strong> ${escapeHtml(doc.client.name)}</p>` : "",
+    doc.client?.sells ? `<p class="bp-hint"><strong>What it sells:</strong> ${escapeHtml(doc.client.sells)}</p>` : "",
+    doc.client?.audience ? `<p class="bp-hint"><strong>Audience:</strong> ${escapeHtml(doc.client.audience)}</p>` : "",
+    Array.isArray(doc.client?.features) && doc.client.features.length
+      ? `<p class="bp-hint"><strong>Features:</strong> ${escapeHtml(doc.client.features.join(" • "))}</p>` : "",
+    doc.instructions ? `<p class="bp-hint"><strong>Instructions:</strong> ${escapeHtml(doc.instructions)}</p>` : "",
+  ].filter(Boolean).join("");
+
+  const formats = Array.isArray(doc.formats) ? doc.formats : [];
+  body.innerHTML = `
+    <div class="section lynx-brief-head">
+      <div class="bcard-title">${escapeHtml(doc.title || "Brief")}</div>
+      ${top}
+    </div>
+    ${formats.length > 1
+      ? `<div class="bp-actions"><button type="button" class="btn" id="lynx-add-all">Add all ${formats.length} to my library</button></div>`
+      : ""}
+    <div class="lynx-formats">${formats.map((f, i) => lynxFormatCardHtml(f, i)).join("")}</div>
+    <p class="note">Scripts Lynx sends you never count against your plan.</p>`;
+
+  bindLynxBriefButtons(doc, formats, id);
+}
+
+/** One format, read-only. Reuses the creator app's own script markup —
+    .bp-item/.bp-beats/beatRow — rather than inventing new markup, so the
+    existing caret, motion and one-open-at-a-time rules apply unchanged.
+    beatRow's own guard is `adid === undefined` (see its comment) — an
+    omitted (not null) adid is what makes the beats read-only: no
+    contenteditable, no +add-a-beat button, no bp-editable class. */
+function lynxFormatCardHtml(f, i) {
+  const silent = f.delivery === "silent";
+  const carry = { do: "", show: "" };
+  const href = f.source_url ? safeUrl(f.source_url) : "";
+  const plat = f.source_url ? platformLabel(f.source_url) : "";
+  const needs = Array.isArray(f.needs) && f.needs.length
+    ? `<p class="bp-hint"><strong>Needs:</strong> ${escapeHtml(f.needs.join(" • "))}</p>` : "";
+  const setup = [["Setting", f.setting], ["Lighting", f.lighting], ["Framing", f.framing], ["Audio", f.audio]]
+    .filter(([, v]) => v)
+    .map(([lbl, v]) => `<p class="bp-hint"><strong>${lbl}:</strong> ${escapeHtml(v)}</p>`).join("");
+  const already = (ME.adaptations || []).find((a) => a.fromAgency?.formatId === f.id);
+  return `<details class="bp-item lynx-fmt" open>
+    <summary>
+      <span class="bp-caret" aria-hidden="true">▸</span>
+      <span class="bp-name">${i + 1}. ${escapeHtml(f.title || f.hook || "Untitled format")}</span>
+      ${href ? openOriginalHtml(href, plat) : ""}
+    </summary>
+    <div class="bp-body">
+      ${/* THE VIDEO BESIDE THE SCRIPT (owner, 2026-09-22: "for the creators as well add the videos
+            side by side"). The original sits in its own column next to the words, so a creator can
+            watch and read at once instead of hunting for the arrow in the title. There is no player
+            here on purpose: the brief carries a link to someone else's post, not a stored clip, and
+            the page's CSP admits no third-party frames or images — so this is the platform, the
+            address, and a button that opens it in a new tab. */""}
+      <div class="lynx-cols">
+        <div class="lynx-vid">
+          <span class="lynx-vid-lbl">the original</span>
+          ${plat ? `<span class="lynx-vid-plat">${escapeHtml(plat)}</span>` : ""}
+          ${href
+            ? `<a class="btn lynx-vid-go" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">watch it${plat && plat !== "Link" ? ` on ${escapeHtml(plat)}` : ""}</a>
+               <span class="lynx-vid-url">${escapeHtml(f.source_url)}</span>`
+            : `<span class="lynx-vid-url">no link was sent with this one</span>`}
+        </div>
+        <div class="lynx-script">
+      ${needs}${setup}
+      ${f.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(f.hook)}”</div>` : ""}
+      <ol class="bp-beats bp-notime">${(f.beats || []).map((b, bi) => beatRow(b, carry, silent, undefined, bi)).join("")}</ol>
+      ${f.cta ? `<p class="bp-hint"><strong>CTA:</strong> “${escapeHtml(f.cta)}”</p>` : ""}
+      ${f.caption ? `<p class="bp-hint"><strong>Caption:</strong> ${escapeHtml(f.caption)}</p>` : ""}
+      ${f.note ? `<p class="bp-hint"><strong>Note:</strong> ${escapeHtml(f.note)}</p>` : ""}
+        </div>
+      </div>
+      <div class="bp-actions lynx-add-row">
+        ${already
+          ? `<button type="button" class="btn" disabled>In your library ✓</button>
+             <button type="button" class="linkish lynx-open-brand" data-fid="${escapeHtml(f.id)}">open it</button>`
+          : `<button type="button" class="btn lx-add" data-fid="${escapeHtml(f.id)}">Add to my library</button>`}
+      </div>
+      ${already ? `<p class="bp-hint">Saved to your ${escapeHtml(already.brandName || "")} folder — edit it there.</p>` : ""}
+    </div>
+  </details>`;
+}
+
+function bindLynxBriefButtons(doc, formats, briefId) {
+  document.querySelectorAll(".lx-add").forEach((btn) => btn.addEventListener("click", () => {
+    const f = formats.find((x) => x.id === btn.dataset.fid);
+    if (!f) return;
+    btn.disabled = true;
+    // addAgencyFormat saves and repaints on success on its own; on a (rare,
+    // click-raced) dupe it doesn't, so repaint here to show the real state.
+    const r = addAgencyFormat(doc, f, briefId);
+    if (!r.ok) renderPane();
+  }));
+  document.getElementById("lynx-add-all")?.addEventListener("click", (e) => {
+    e.currentTarget.disabled = true;
+    for (const f of formats) addAgencyFormat(doc, f, briefId);
+  });
+  document.querySelectorAll(".lynx-open-brand").forEach((btn) => btn.addEventListener("click", () => {
+    const f = formats.find((x) => x.id === btn.dataset.fid);
+    const a = f && (ME.adaptations || []).find((x) => x.fromAgency?.formatId === f.id);
+    if (a) go({ kind: "brand", id: a.brandId });
+  }));
+}
+
 // ---------- the library record ----------
 // One entry per video, keyed on canonical URL across the WHOLE account — not
 // per brand. The same link sent for three brands is one row here that lists
@@ -4919,12 +5240,20 @@ const SCRIPT_PERIOD_DAYS = 7;
 // count lives in lynxr_script_charges, a table no creator can write, and
 // reaches this page only through my_allowance(). Use scriptRoom()/scriptGrant()
 // below rather than either of these two directly.
-const scriptsUsed = () => (ME.adaptations || []).length + (ME.trash || []).length;
+// A script copied in from a Lynx brief (addAgencyFormat, below) is written
+// straight to status:"done" — it never went through the worker and never will
+// — so it must not count toward either fallback meter, or copying five agency
+// scripts would make a free creator's rail read "5/3" for the first second of
+// every page load, before my_allowance() overwrites it with the real (and
+// correctly agency-blind) server number.
+const isAgencyCopy = (a) => !!(a && a.fromAgency);
+const scriptsUsed = () => (ME.adaptations || []).filter((a) => !isAgencyCopy(a)).length
+  + (ME.trash || []).filter((a) => !isAgencyCopy(a)).length;
 // The same fallback count, scoped to the free tier's rolling window.
 const scriptsUsedWindow = () => {
   const since = Date.now() - SCRIPT_PERIOD_DAYS * 864e5;
   return [...(ME.adaptations || []), ...(ME.trash || [])]
-    .filter((a) => Date.parse(a.addedAt || "") > since).length;
+    .filter((a) => !isAgencyCopy(a) && Date.parse(a.addedAt || "") > since).length;
 };
 
 /* WHAT THE SERVER SAYS THIS ACCOUNT HAS SPENT.
@@ -6324,6 +6653,50 @@ function queueAdaptation(item, co) {
     code: trackCode(co ? co.name : "LYNX"),   // spec §6.2 / R3 — issued at brief time
   });
   return { ok: true, id };
+}
+
+/** "Add to my library" — copies one format off a Lynx brief into the
+    creator's own library as a normal, editable script. Never queues work:
+    the script text already exists (agencySendDoc/briefSendDoc wrote it), so
+    this only ever writes to the creator's own lynxr_creators row — nothing
+    here touches the roster or delivery tables. */
+function addAgencyFormat(doc, f, briefId) {
+  // 1. Dedupe first — this can be pressed again after a reload.
+  const already = [...(ME.adaptations || []), ...(ME.trash || [])]
+    .find((a) => a.fromAgency?.formatId === f.id);
+  if (already) return { ok: false, reason: "already", id: already.id };
+
+  // 2. Find-or-create the brand named after the client (A4): an agency brief
+  // is for a company, and the creator app is one folder per company.
+  const key = String(doc.client?.name || "").trim().toLowerCase();
+  let b = key && ME.brands.find((x) => (x.name || "").trim().toLowerCase() === key);
+  if (!b) {
+    b = { id: newId(), name: doc.client?.name || "", site: "", description: doc.client?.sells || "",
+          objective: "", niche: "", code: trackCode(doc.client?.name || "") };
+    ME.brands.push(b);
+  }
+
+  const { item } = ensureLibraryItem(f.source_url, { title: f.title || "" });
+
+  const id = newId();
+  ME.adaptations.unshift({
+    id, libraryId: item.id, sourceUrl: f.source_url,
+    brandId: b.id, brandName: b.name, title: f.title,
+    // status:"done" with a populated adaptation is what keeps the worker away
+    // from this record — wants_work() (pipeline/process_adaptations.py:1085)
+    // only ever claims queued/running/error, so charge_scripts() is never
+    // called for it, on any tier (decision 6). No `source` key: it carries no
+    // tags and no transcript, and faking one would make hasTags() count it as
+    // a tagged video in the rail.
+    status: "done", addedAt: new Date().toISOString(), code: trackCode(b.name || ""),
+    adaptation: { hook: f.hook, delivery: f.delivery, beats: f.beats, cta: f.cta, caption: f.caption },
+    fromAgency: { briefId, formatId: f.id, client: doc.client?.name || "", at: new Date().toISOString() },
+  });
+
+  save({ now: true });
+  renderSide();
+  renderPane();
+  return { ok: true, id, brandId: b.id, brandName: b.name };
 }
 
 // Status at last paint, so a script that finishes while the page is open
@@ -9058,6 +9431,9 @@ function unlock() {
   // Staff only, decided by the database (is_staff()). Not awaited, for the
   // same reason as refreshAllowance above.
   revealAgencySwitch();
+  // Same shape, same reason: paints #nav-lynx in only once the roster answer
+  // is back, for the ~1% of creators actually on it.
+  refreshAgency().then(() => { renderSide(); if (VIEW.kind === "lynx") renderPane(); });
   takeBillingReturn();
 }
 
@@ -9851,6 +10227,7 @@ document.getElementById("nav-home")?.addEventListener("click", () => {
 document.getElementById("nav-library").addEventListener("click", () => go({ kind: "library" }));
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
 document.getElementById("nav-plan").addEventListener("click", () => go({ kind: "plan" }));
+document.getElementById("nav-lynx").addEventListener("click", () => go({ kind: "lynx" }));
 /* THE RAIL TOGGLE AND SETTINGS STAY ONE FACT. theme.js owns the flip and
    announces it; this mirrors the choice into ME so it reaches the creator's
    other devices (same job as Settings' own change handler), and keeps the

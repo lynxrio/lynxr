@@ -71,13 +71,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260922b">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260922b">
-<link rel="shortcut icon" href="/favicon.ico?v=20260922b">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260922b">
-<link rel="stylesheet" href="/app.css?v=20260922b">
-<script src="/theme.js?v=20260922b"></script>
-<script src="/backdrop.js?v=20260922b" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260922q">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260922q">
+<link rel="shortcut icon" href="/favicon.ico?v=20260922q">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260922q">
+<link rel="stylesheet" href="/app.css?v=20260922q">
+<script src="/theme.js?v=20260922q"></script>
+<script src="/backdrop.js?v=20260922q" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -300,8 +300,9 @@
          fragment does nothing from /faq/ or /privacy/ — it appends a hash to
          the current URL and stays put. -->
     <nav class="lp-nav" aria-label="Main">
-      <a href="/#how">how it works</a>
+      <a href="/how-it-works/">how it works</a>
       <a href="/faq/">faq</a>
+      <a href="/#pricing">pricing</a>
     </nav>
     <span class="lp-actions">
     <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
@@ -330,8 +331,9 @@
        `hidden` — not opacity — is what takes these links out of the tab order
        when it is closed. -->
   <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
-    <a href="/#how">how it works</a>
+    <a href="/how-it-works/">how it works</a>
     <a href="/faq/">faq</a>
+    <a href="/#pricing">pricing</a>
     <!-- The toggle lives HERE on a phone, not in the bar (owner, 2026-08-26:
          "for mobile put this in the menu when it drops down") — the bar was
          the crowded place and the menu has room for a labelled row. theme.js
@@ -350,199 +352,108 @@
 
 <main id="lp-main">
 
-  <section class="lp-hero">
+  <!-- THE SPLIT HERO (owner-approved mockup, 2026-09-22: "from the pricing
+       section onward keep the old, and start making this mockup on the real
+       one"). WRITE on the left — live today — and COACH on the right, which
+       does not exist yet and says so twice ("coming soon", "preview").
+       SIDE BY SIDE AT EVERY WIDTH, on the owner's instruction ("half and half
+       like left and right"): a phone shrinks type and padding and drops only
+       the coach preview card; the halves never stack. The right half's lavender
+       is a wash (.hx-wash) that fades in across the middle and out at the
+       bottom, so there is no edge between the halves; the avatar sits on the
+       seam. Every look lives in app.css (.hx-*) — no inline styles, CSP. -->
+  <section class="hx" aria-labelledby="hx-write-h">
+    <div class="hx-wash" aria-hidden="true"></div>
+    <div class="hx-half hx-l">
+      <div class="hx-col">
+        <span class="hx-pill hx-pill-live"><span class="hx-pill-dot" aria-hidden="true"></span>live now</span>
+        <h1 class="hx-h" id="hx-write-h">paste a link. get your script.</h1>
+        <!-- THE APP'S OWN COMPOSER, moved here from the old centred hero with
+             every id, class and data-* intact: creator.js wires every
+             form[data-hero] (wireHeroComposer), site.js's typewriter and the
+             phone keyboard pin key on #lp-composer-url, and say() falls back
+             to #lp-composer-note. `.lp-composer` is a size modifier only. -->
+        <div class="composer composer-inline lp-composer">
+          <form class="composer-row" id="lp-composer-form" data-hero data-note="lp-composer-note" novalidate>
+            <input type="url" id="lp-composer-url" placeholder="paste instagram/tiktok link"
+              autocomplete="off" spellcheck="false" aria-label="Paste a video link">
+            <span class="bp-plat" id="lp-composer-plat"></span>
+            <button type="submit" class="composer-send" id="lp-composer-send" aria-label="Get the script">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </form>
+          <p class="composer-note" id="lp-composer-note" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+    <div class="hx-half hx-r">
+      <div class="hx-col">
+        <span class="hx-pill hx-pill-soon">coming soon</span>
+        <h2 class="hx-h">a coach that's all about you.</h2>
+        <!-- A PREVIEW, labelled as one: the coach is not built (max is "not on
+             sale yet" in #pricing below). Hidden under 560px — the one piece
+             the right half gives up so the halves can stay side by side. -->
+        <div class="hx-coach">
+          <div class="hx-coach-head">
+            <span class="hx-coach-av" data-lx-mood="coaching" aria-hidden="true"></span>
+            <span class="hx-coach-lbl">your coach &middot; preview</span>
+          </div>
+          <p class="hx-coach-msg">your result-first hooks get the most views. try one next.</p>
+        </div>
+        <!-- The coach's own page (2026-09-22), under "how it works". It says
+             plainly that the coach is not built and max is not on sale. -->
+        <a class="hx-link" href="/how-it-works/coach/">about the coach <span aria-hidden="true">&rarr;</span></a>
+      </div>
+    </div>
+    <span class="hx-seam" data-lx-mood="idle" aria-hidden="true"></span>
+  </section>
+
+  <!-- FOR ANY CREATOR, AT ANY STAGE. id="how" is kept so old links to /#how
+       still land somewhere sensible; since 2026-09-22 every bar, phone menu and
+       footer links "how it works" to /how-it-works/ instead. Four real toggle buttons (aria-pressed);
+       home.js swaps the card text from each button's data-title / data-text,
+       so the words live in ONE place — this markup — and stage 1's are already
+       in the card for a visitor without JS. The track is drawn at DOT height,
+       under the labels, so it can never pass behind an avatar. -->
+  <section class="lp-sec hs" id="how" aria-labelledby="hs-h">
+    <span class="hs-snap-pt" aria-hidden="true"></span><span class="hs-snap-pt" aria-hidden="true"></span><span class="hs-snap-pt" aria-hidden="true"></span><span class="hs-snap-pt" aria-hidden="true"></span>
     <div class="lp-in">
-      <!-- THE HERO IS THE APP'S OWN OPENING (owner, 2026-08-26: "pretty much
-           replace this with this", pointing at the signed-in new-script view).
-           Same classes, same mark, same five words — a visitor sees the exact
-           screen they will use, which is the whole Lovable move. The old
-           "any video → tailored scripts" headline lives on in <title> and the
-           meta/og descriptions, so search results keep the value-prop phrasing
-           while the page itself just IS the product. -->
-      <div class="newscript-greet">
-        <!-- No mark here — owner, 2026-08-26: "get rid of the logo at the
-             top". The bar's wordmark already carries the identity; the app's
-             own signed-in greet keeps its mark. -->
-        <h1 class="newscript-h">build your <span class="entity">UGC</span> script</h1>
-        <p class="lp-sub">by creators, for creators</p>
+      <h2 class="lp-h2 hs-h" id="hs-h">for any creator, at any stage</h2>
+      <div class="hs-row" role="group" aria-label="your stage">
+        <span class="hs-track" aria-hidden="true"></span>
+        <button type="button" class="hs-stage" aria-pressed="true" aria-controls="hs-card"
+          data-title="start with a video you love." data-text="get a script, then film it on the teleprompter.">
+          <span class="hs-av" data-lx-mood="idle" aria-hidden="true"></span>
+          <span class="hs-lbl">just starting</span>
+          <span class="hs-dot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
+          data-title="see why videos work." data-text="every video, broken down and saved.">
+          <span class="hs-av" data-lx-mood="reading" aria-hidden="true"></span>
+          <span class="hs-lbl">finding your format</span>
+          <span class="hs-dot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
+          data-title="never run out of ideas." data-text="any saved video can be your next script.">
+          <span class="hs-av" data-lx-mood="writing" aria-hidden="true"></span>
+          <span class="hs-lbl">posting consistently</span>
+          <span class="hs-dot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
+          data-title="get coached as you grow." data-text="unlimited scripts on pro. the coach, coming with max.">
+          <span class="hs-av" data-lx-mood="coaching" aria-hidden="true"></span>
+          <span class="hs-lbl">growing fast</span>
+          <span class="hs-dot" aria-hidden="true"></span>
+        </button>
       </div>
-      <!-- THE PRODUCT ITSELF AS THE HERO (owner, 2026-08-26: "make it like
-           lovable"). This is the app's OWN composer markup, untouched — see
-           the comment above wireComposer() in creator.js: the composer-inline
-           / composer-row pair is what all of its styling hangs off, and
-           `.lp-composer` below is a size modifier only. Every id is prefixed
-           `lp-` so it can never collide with the app's own #composer-url etc. -->
-      <div class="composer composer-inline lp-composer">
-        <form class="composer-row" id="lp-composer-form" data-hero data-note="lp-composer-note" novalidate>
-          <input type="url" id="lp-composer-url" placeholder="paste instagram/tiktok link"
-            autocomplete="off" spellcheck="false" aria-label="Paste a video link">
-          <span class="bp-plat" id="lp-composer-plat"></span>
-          <button type="submit" class="composer-send" id="lp-composer-send" aria-label="Get the script">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-          </button>
-        </form>
-        <p class="composer-note" id="lp-composer-note" role="status" aria-live="polite"></p>
+      <div class="hs-card" id="hs-card" aria-live="polite">
+        <p class="hs-step" id="hs-step">1 of 4 · just starting</p>
+        <h3 class="hs-title" id="hs-title">start with a video you love.</h3>
+        <p class="hs-text" id="hs-text">get a script, then film it on the teleprompter.</p>
       </div>
-
     </div>
   </section>
-
-  <section class="lp-band" id="how">
-    <div class="lp-in">
-      <h2 class="lp-h2">three steps, and only one of them is yours</h2>
-      <p class="lp-seclede">lynxr turns a tiktok or instagram video into a script for the brand you make content for. you paste, lynxr reads, you film. nothing to install and nothing to connect.</p>
-      <ol class="lp-steps">
-        <li class="lp-step">
-          <span class="lp-av" data-lx-mood="idle" aria-hidden="true"></span>
-          <h3 class="lp-h3">paste a link</h3>
-          <p class="lp-p">a video you already believe in &mdash; yours or anyone's.
-            nothing to upload.</p>
-        </li>
-        <li class="lp-step">
-          <span class="lp-av" data-lx-mood="reading" aria-hidden="true"></span>
-          <h3 class="lp-h3">lynxr reads it back</h3>
-          <p class="lp-p">it watches, transcribes, and works out the
-            <b>format</b> underneath &mdash; not the topic.</p>
-        </li>
-        <li class="lp-step">
-          <span class="lp-av" data-lx-mood="done" aria-hidden="true"></span>
-          <h3 class="lp-h3">you get a script</h3>
-          <p class="lp-p">that same format, rewritten for the company you make
-            content for.</p>
-        </li>
-      </ol>
-    </div>
-  </section>
-
-  <!-- Lovable's "For building and beyond" slot, filled with claims that are
-       all TRUE of the current app: the format engine, the in-place editor and
-       its honesty rule, multi-brand sends, and the no-connection privacy
-       posture the FAQ already promises. No capability below is gated or
-       shelved. -->
-  <section class="lp-sec">
-    <div class="lp-in lp-panel">
-      <h2 class="lp-h2">beyond the script</h2>
-      <p class="lp-seclede">editing, brands, and what lynxr never touches.</p>
-      <!-- ICON + ONE LINE EACH. These were four 20-25 word paragraphs; the
-           glyph now carries the idea and the sentence only names it. Every
-           icon is inline SVG on purpose — the CSP is `default-src 'none'`
-           with img-src limited to 'self' and the Supabase origin, so there is
-           no CDN sprite to reach for, and a stroked 24-viewBox path matches
-           the .side-ico set the app already draws with. -->
-      <div class="lp-split">
-        <div class="lp-feats">
-          <div class="lp-feat">
-            <span class="lp-feat-ico" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 13h2.6l2.2-6.6 2.7 11 2.3-7.4 1.5 3h5.5"/></svg>
-            </span>
-            <h3 class="lp-h3">the format, not the topic</h3>
-            <p class="lp-p">the hook shape, the pacing, the turn &mdash; never the subject.</p>
-          </div>
-          <div class="lp-feat">
-            <span class="lp-feat-ico" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16.8 3.8a2.1 2.1 0 0 1 3 3L8.5 18.1l-4 1 1-4z"/><path d="M14.5 6.1l3.4 3.4"/></svg>
-            </span>
-            <h3 class="lp-h3">every line stays yours</h3>
-            <p class="lp-p">click any line and change it in place. it only ever claims
-              what you've said is true.</p>
-          </div>
-          <div class="lp-feat">
-            <span class="lp-feat-ico" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.6" cy="12" r="2.1"/><path d="M6.7 12h4.1M10.8 12V6.4h4.5M10.8 12h4.5M10.8 12v5.6h4.5"/><circle cx="17.4" cy="6.4" r="2.1"/><circle cx="17.4" cy="12" r="2.1"/><circle cx="17.4" cy="17.6" r="2.1"/></svg>
-            </span>
-            <h3 class="lp-h3">one link, many brands</h3>
-            <p class="lp-p">one video, three companies, three scripts.</p>
-          </div>
-          <div class="lp-feat">
-            <span class="lp-feat-ico" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 4.9 6v5.5c0 4.4 3 7.6 7.1 9 4.1-1.4 7.1-4.6 7.1-9V6z"/></svg>
-            </span>
-            <h3 class="lp-h3">connected to nothing</h3>
-            <p class="lp-p">no account linking, no passwords, nothing posted for you.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-  <!-- THE PROOF BAND: one REAL specimen from the pilot, not a testimonial
-       wall. The two quotes are actual records — the pasted video's own title
-       and the hook lynxr wrote from its format for an EMT-education brand.
-       .lp-quote is on the lowercase exclusion list: these are content, and
-       repainting them in house lowercase would misquote both. -->
-  <section class="lp-sec" id="proof">
-    <div class="lp-in">
-      <h2 class="lp-h2">same format, your subject</h2>
-      <p class="lp-seclede">one real pair from the pilot, exactly as it happened.</p>
-      <!-- THE TRANSFORMATION, DRAWN. This was two stacks of prose either side
-           of a "→" glyph; the two sentences that explained the transfer ("a
-           study-hacks video — someone else's niche entirely" / "same hook
-           shape, same pacing — the format carried over") are GONE because the
-           middle column now shows it instead of asserting it.
-
-           THE SPINE IS NOT DECORATION AND IS NOT aria-hidden: "hook / beats /
-           turn / close" is the actual claim this section makes, so it stays in
-           the accessibility tree. Only the phone frame around the source clip
-           is hidden — that one really is a drawing of nothing.
-
-           NOTHING HERE IS INVENTED. The out card carries the single real
-           `say` line and no fabricated `do` line, because the note under it
-           says these are unedited records and a made-up stage direction would
-           make that sentence false. "study hacks" is the niche the removed
-           sentence already named. -->
-      <div class="lp-proof">
-        <div class="lp-proof-col">
-          <span class="lp-proof-lbl">in &mdash; the video pasted</span>
-          <div class="lp-vid">
-            <div class="lp-vid-frame" aria-hidden="true">
-              <svg class="lp-vid-play" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9.2 6.1v11.8l9.4-5.9z"/></svg>
-              <span class="lp-vid-rail"><i></i></span>
-            </div>
-            <div class="lp-vid-meta">
-              <span class="lp-vid-chip">study hacks</span>
-              <p class="lp-quote lp-vid-cap">&ldquo;How I got a 1550 on the SAT&rdquo;</p>
-            </div>
-          </div>
-        </div>
-        <div class="lp-spine">
-          <span class="lp-spine-lbl">what carried over</span>
-          <ol class="lp-spine-list">
-            <li>hook</li>
-            <li>beats</li>
-            <li>turn</li>
-            <li>close</li>
-          </ol>
-          <span class="lp-spine-foot">the subject didn't</span>
-        </div>
-        <div class="lp-proof-col">
-          <span class="lp-proof-lbl">out &mdash; for an EMT&#8209;education brand</span>
-          <div class="lp-ex-card">
-            <div class="lp-ex-row"><span class="lp-ex-lbl">say</span><span class="lp-ex-val lp-quote">&ldquo;I went from failing my medical assessment to a 96% in two weeks.&rdquo;</span></div>
-          </div>
-        </div>
-      </div>
-      <p class="lp-note">both lines are unedited records from the pilot</p>
-    </div>
-  </section>
-
-  <!-- Lovable's stats slot, with the one number lynxr can stand behind: the
-       corpus is real (9,028 rows at last verified count — say "9,000+" so
-       this line does not rot as it grows). -->
-  <section class="lp-band">
-    <div class="lp-in lp-stat lp-panel">
-      <!-- 100K+ is the OWNER'S OWN FIGURE, instructed explicitly and twice
-           (2026-08-28: "just make it 100k+ its true") — it counts something
-           beyond this repo's data. For the record: lynxr_videos held 9,046
-           rows with 5,190,673,018 combined views when measured the same day;
-           the lede deliberately carries no second number so the page cannot
-           contradict itself. -->
-      <h2 class="lp-h2">built on 100,000+ studied videos</h2>
-      <p class="lp-p">every script draws on that corpus, read format&#8209;first.</p>
-      <p class="lp-note">5,190,673,018 combined views across the studied set &middot; measured 2026-08-28</p>
-    </div>
-  </section>
-
-
   <!-- PRICING (2026-09-21, the day checkout opened). Free / pro / max side by
        side, the way a SaaS landing normally does it, and a link to /pricing/
        for the long version.
@@ -578,7 +489,7 @@
             <li>each one frees up 7 days after you write it</li>
             <li>everything you write stays yours, on any plan</li>
           </ul>
-          <a class="ghost lp-plan-cta" href="/" data-gate="up">create a free account</a>
+          <a class="ghost lp-plan-cta" href="/" data-gate="up">try for free</a>
         </li>
         <li class="lp-plan lp-plan-pro">
           <h3 class="lp-h3 lp-plan-name">lynxr pro</h3>
@@ -588,7 +499,6 @@
             <li>unlimited scripts &mdash; you never buy them one at a time</li>
             <li>fair use: 150 in any rolling 30 days, 30 in any 24 hours</li>
             <li>cancel any time; access runs to the end of the period you've paid for</li>
-            <li>14-day money-back on your first payment</li>
           </ul>
           <a class="btn lp-plan-cta" href="/" data-gate="up">start free, upgrade in the app</a>
         </li>
@@ -597,7 +507,8 @@
           <p class="lp-plan-price"><strong>$74.99</strong> <span class="lp-plan-per">a month</span></p>
           <p class="lp-plan-tax">plus tax where applicable</p>
           <ul class="lp-plan-list">
-            <li>everything in pro, with a higher ceiling: 300 in any rolling 30 days, 40 in any 24 hours</li>
+            <li>everything in pro</li>
+            <li>a higher ceiling: 300 in any rolling 30 days, 40 in any 24 hours</li>
             <li>post tracking, and a coach that reads how your videos did &mdash; neither is built yet</li>
           </ul>
           <p class="lp-plan-off">not on sale yet</p>
@@ -644,7 +555,7 @@
       <div class="foot-col">
         <div class="foot-label">lynxr</div>
         <a class="foot-link" href="/" aria-current="page">home</a>
-        <a class="foot-link" href="/#how">how it works</a>
+        <a class="foot-link" href="/how-it-works/">how it works</a>
         <a class="foot-link" href="/faq/">faq</a>
         <a class="foot-link" href="/pricing/">pricing</a>
         <a class="foot-link" href="/about/">about</a>
@@ -861,6 +772,19 @@
           <span class="quota-bar" aria-hidden="true"><i id="side-quota-fill"></i></span>
         </div>
         <div class="side-who"><span id="sync-state" class="sync-state"></span> <span id="side-who"></span></div>
+        <!-- Lynx Media Group: only for the ~1% of creators on the agency
+             roster (plan: ~/.claude/plans/agency-send-brief-to-creators.md).
+             Hidden in the markup, not by CSS — the CSP allows the attribute
+             and there is nothing to paint for everyone else. Above Plan per
+             decision 10. NOT #nav-agency — that id is already the staff-only
+             "Agency app" link revealAgencySwitch() injects below. viewBox,
+             stroke-width and .side-ico match the neighbouring buttons exactly
+             or the icon sits a pixel off. -->
+        <button type="button" class="side-link" id="nav-lynx" hidden>
+          <svg class="side-ico side-ico-fill" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.69 22.36L22.46 22.33 22.11 22.18 21.71 21.94 21.16 21.51 20.06 20.86 18.88 20.31 17.84 19.91 16.64 19.56 15.34 19.28 14.08 19.11 12.67 19.01 11.33 19.01 9.89 19.11 8.51 19.31 6.89 19.68 5.67 20.08 4.49 20.59 3.19 21.29 2.69 21.61 2.31 21.91 1.79 22.23 1.62 22.31 1.29 22.36 1.16 22.31 1.08 22.22 1.0 22.05 1.0 21.57 1.18 20.78 3.05 14.9 5.92 5.68 6.11 5.17 6.25 4.88 6.49 4.57 6.84 4.34 7.27 4.32 7.71 4.54 8.0 4.83 8.35 5.37 9.53 7.7 10.17 8.9 10.37 9.2 10.61 9.46 10.84 9.59 11.01 9.59 11.19 9.49 11.35 9.3 11.7 8.65 14.12 2.73 14.42 2.18 14.69 1.89 14.86 1.77 15.23 1.64 15.51 1.67 15.74 1.77 16.07 2.07 16.33 2.53 16.45 2.85 22.82 20.79 22.97 21.45 23.0 21.99 22.9 22.25 22.84 22.31 22.69 22.36Z"/></svg>
+          <span class="side-label">Lynx Media Group</span>
+          <span class="side-count" id="nav-lynx-n"></span>
+        </button>
         <!-- Plan sits directly under the quota rail on purpose: the meter is
              where someone learns they are running out, and this is the answer
              to that. viewBox, stroke-width and .side-ico match the neighbouring
@@ -1074,10 +998,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20260922b" defer></script>
-<script src="/footer.js?v=20260922b" defer></script>
-<script src="/home.js?v=20260922b" defer></script>
-<script src="/avatar.js?v=20260922b" defer></script>
-<script src="/creator.js?v=20260922b" defer></script>
+<script src="/site.js?v=20260922q" defer></script>
+<script src="/footer.js?v=20260922q" defer></script>
+<script src="/home.js?v=20260922q" defer></script>
+<script src="/avatar.js?v=20260922q" defer></script>
+<script src="/creator.js?v=20260922q" defer></script>
 </body>
 </html>

@@ -27,6 +27,33 @@ naming a path there publishes it.
 
 ### Read this block first. The rest of START HERE below is older and still true unless this says otherwise.
 
+**AGENCY SENDS BRIEFS TO ROSTER CREATORS — BUILT, NOT YET LIVE (2026-09-22).** Plan:
+`~/.claude/plans/agency-send-brief-to-creators.md`, all 17 non-owner steps implemented in the
+working tree (uncommitted). **Two SQL dependencies, both required before any of this works:**
+`supabase/staff_gate.sql` and `supabase/invites.sql` must already be applied (they were), and
+**the owner still needs to apply the new `supabase/agency_roster.sql`** in the Supabase SQL
+editor — nothing in this feature works until that lands; every UI surface degrades to a quiet
+"not installed yet" note on the 404 until then. The privacy/terms decision (plan step 19) is
+also still the owner's.
+
+Where things live: the roster (invite by email, see who's accepted, remove) is the agency
+app's new **Creators** tab (`agencyonly/index.html`). **Send to creators** sits in both brief
+viewers — the campaign brief view and the legacy picked-video brief viewer — with the same
+panel and the same "Sent to" / unsend list. On the creator side, the whole feature is
+`#nav-lynx` / `VIEW.kind === "lynx"` (`creator.js`) — **do not confuse this with the
+pre-existing staff-only `#nav-agency` link** that `revealAgencySwitch()` injects; the two ids
+were nearly the same and a plan note exists specifically because of that collision risk.
+Agency scripts a creator copies in never touch the allowance ledger: they're written straight
+to `status: "done"` with a populated `adaptation`, so `wants_work()`
+(`pipeline/process_adaptations.py`) never claims them and `charge_scripts()` is never called.
+Unsend is `revoked_at` on the delivery row, never a delete — the brief snapshot and the roster
+row both survive it.
+
+**Not verified live** (both apps are sign-in gated and the SQL isn't applied yet): the full
+owner click-through in the plan's Verification section, the isolation proof SQL block, and the
+stored-XSS probe. Cold checks (`check_stamp.py`, `404.html`'s stamp, no `style="`, no `${`,
+`node --check` on both files) all pass. Stamp bumped to `20260922l`.
+
 **Repo.** Last push is `c90805e`. The working tree holds a large uncommitted batch that is **ready to review and
 push**: stamp bumped to **`20260921f`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
 anywhere, all JSON-LD parses, no inline styles in the page sources.
@@ -97,6 +124,54 @@ the new Upgrade button — do one after the push (it calls the same function tha
    file never had: `delete_own_account()` refuses with `active_subscription` while a paid plan is set to renew
    (active/trialing/past_due, no `cancel_at`) — otherwise the cascade drops the ledger row while Stripe keeps
    charging. **Re-run it in the SQL editor**; until then the live function has no guard.
+**BUILT: THE AGENCY SENDS BRIEFS TO ROSTER CREATORS (2026-09-22) — see the block at the very top
+   of START HERE for current status.** Plan: `~/.claude/plans/agency-send-brief-to-creators.md`
+   (19 steps; 2 are [OWNER]: apply the SQL, decide the privacy/terms line — both still open).
+   Settled with the owner: roster only; staff invite by email and the creator ACCEPTS in lynxr
+   with a join code (autoconfirm means an email match alone proves nothing); one account per
+   person; the creator gets a read-only brief page plus "add to my library"; the copy carries
+   name/what-it-sells/audience/features and nothing else off `brand_context` (features added by
+   the owner 2026-09-22 — the scripts name them anyway); it never touches the allowance ledger;
+   one-way (nothing reports back); one brief to several creators; no deadline or target count;
+   its own sidebar section; NO notifications (told on Discord); staff can unsend, leaving the
+   roster hides agency briefs, library copies stay the creator's. Campaign briefs shipped first
+   (steps 6-9), legacy picked-video briefs share the identical payload shape (step 16).
+   **Security:** three new tables (`supabase/agency_roster.sql`) with `is_staff()`-only policies
+   and NO anon/authenticated policies — the creator reads through four SECURITY DEFINER
+   functions that return only their own rows; nothing writes to `lynxr_creators` from the staff
+   side, so the isolation that was verified live still holds.
+
+**AGENCY APP, TWO FIXES FROM GAWIN (2026-09-22, uncommitted, in app.js + app.css).**
+   1. **A brief saves at any size.** `CART_LIMIT = 10` was both the floor for Save and the ceiling for
+   picking; both are gone (one video is enough, no upper stop). Tray reads "n videos in brief".
+   Scripts still vary per slot — `tailoredScript()` indexes with `slot % length`.
+   2. **New-client details are no longer lost.** Every keystroke in the client editor is kept in
+   localStorage (`lynxr_client_draft`), the form fills from that draft FIRST and from the site read
+   only where the draft is empty (so reading a site never overwrites typed text, and a reload keeps
+   it), and a new **Save client** button writes the client into the Clients tab with no brief
+   attached. **UNTESTED BY CLAUDE: the agency app needs a staff sign-in — the owner/Gawin must try
+   both flows.**
+
+**LANDING REDESIGN, TOP HALF BUILT LOCALLY (2026-09-22, uncommitted, stamp `20260922i`).** Above `#pricing`, index.html is now
+   the owner-approved mockup: a split hero (`section.hx`: left "live now · paste a link. get your script." with the
+   existing composer moved in unchanged; right "coming soon · a coach that's all about you." + a preview card; the live
+   avatar on the seam; halves side by side at every width) and a stage picker (`section.hs#how`, four stages, JS in
+   home.js). From `#pricing` down nothing changed. CSS is one `body.home`-scoped `.hx-*`/`.hs-*` block at the end of
+   app.css. Removed: old hero, "three steps", "beyond the script", proof, the 100,000+ band. Placeholders: "about the
+   coach →" goes to `/pricing/`; the owner has not yet said whether to build the "how scripts work" and "coach" detail
+   pages. Rules only the removed sections used are still in app.css (not yet grepped for other users). The h1 is now
+   "paste a link. get your script."; title/meta unchanged.
+   Later the same day (owner): on phones (≤640px) the hero STACKS (write, then the coach on lavender, avatar on the
+   join) — tablets/desktop keep the split; the stage picker is SCROLL-DRIVEN (sticky, 75svh per stage, proximity
+   snap points at each stage's middle, `html.hs-snap` only while live; clicks/arrows scroll to the stage); phone row
+   drops labels and the card shows "n of 4 · label"; "free · no card" removed from the hero; the landing pro card
+   lost "14-day money-back" (still on /pricing/ and in the app's Plan view); max's "everything in pro" is its own bullet.
+   Then: NEW PAGES `/how-it-works/` (how scripts work) and `/how-it-works/coach/` (the coach — says plainly it isn't
+   built), each with a scripts|coach switch; every "how it works" link on all public pages now goes to `/how-it-works/`
+   (was `/#how`); the landing's coach link goes to the coach page; both pages are in sitemap.xml and llms.txt; CSS is
+   the "HOW IT WORKS" block (`body.hiw`) at the end of app.css. The free card says "try for free". The landing's seam
+   avatar is ALIVE (home.js): waves now and then, drifts through moods with a face crossfade, breathes, eyes follow the
+   cursor; paused off-screen/hidden/reduced-motion. The identity marks (bar/footer/gate/rail) NO LONGER WAVE (owner).
 **COFOUNDERS HAVE MAX FOR FREE + STAFF (2026-09-21).** Both cofounders' main logins each have a
    `lynxr_billing` row with provider `comp`, status active, plan max, no Stripe ids, and occurred_at `infinity`, so no
    Stripe event can overwrite it (proven: a later "canceled" came back `stale`). Gawin's main login was added to

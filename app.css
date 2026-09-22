@@ -910,6 +910,9 @@
   }
   .ce-title { font-size: var(--fs-14); margin: 0 0 12px; color: var(--text-2); text-transform: lowercase; letter-spacing: .05em; }
   .ce-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  /* Apply + Save client + the saved/needs-a-name line, on one row (2026-09-22). */
+  .ce-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .ce-actions #ce-msg { color: var(--text-2); }
   .ce-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .ce-wide { grid-column: 1 / -1; }
   /* A stacked form field fills its column. The global `select { max-width:
@@ -7199,19 +7202,13 @@
      2026-09-15 later: "on load, start with the waving lynxr animation and then
      have it wave every 3 seconds". Every device now waves the moment the page
      loads, then once every 3s: the wave takes the first ~1.4s of each cycle and
-     the arm rests for the remaining ~1.6s. Reduced motion: no wave. */
+     the arm rests for the remaining ~1.6s. Reduced motion: no wave.
+     2026-09-22, REVERSED: "have this logo at the top stop moving, just have it static". The
+     identity marks (bar, footer, gate, rail) no longer wave; the life moved to the live avatar on
+     the landing's seam (home.js), which waves and changes mood on its own. The resting pose stays. */
   #lx-idle rect:nth-child(2) {
     transform-box: view-box; transform-origin: 60px 62px;
     transform: rotate(45deg);
-  }
-  @keyframes lx-wave-every {
-    0%, 48%, 100% { transform: rotate(45deg); }
-    12%           { transform: rotate(10deg); }
-    24%           { transform: rotate(36deg); }
-    36%           { transform: rotate(10deg); }
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    #lx-idle rect:nth-child(2) { animation: lx-wave-every 3s ease-in-out 0s infinite; }
   }
   /* ================= THE LYNXR AVATAR: moods (avatar.js) =================
      avatar.js emits every face and every extra for all eight moods; these rules
@@ -10106,3 +10103,560 @@
   body.home .lp-plans-fine a { color: var(--text); border-bottom: 1px solid var(--line-2); text-decoration: none; white-space: nowrap; }
   body.home .lp-plans-fine a:hover { border-bottom-color: var(--text-2); }
   @media (max-width: 560px) { :is(body.home, .pane-body) .lp-plan { padding: 24px 20px 22px; } }
+
+  /* ================= THE SPLIT HERO + STAGE PICKER (landing, 2026-09-22) =================
+     The owner-approved mockup (Home.dc.html), translated from its inline styles into classes:
+     `style-src 'self'` would drop every one of them. Everything here is scoped to NEW class
+     names (.hx-*, .hs-*) that only index.html wears, under body.home where it touches a shared
+     class (.lp-composer, .lp-in), so /pricing/, /faq/ and the rest cannot move. #lp-main is
+     removed on sign-in (enterApp in creator.js), so both sections go with it.
+
+     COLOURS: the mockup's values are the LIGHT tokens below; dark gets a deliberate deep-violet
+     equivalent (dormant while theme.js forces light, but it must not break if dark returns).
+     Text sits on --text / --text-2 / --text-3, so contrast follows the palette's own gates. */
+  body.home .hx, body.home .hs {
+    --hx-w0: rgba(74, 43, 176, 0);
+    --hx-w1: rgba(74, 43, 176, .26);
+    --hx-w2: rgba(90, 47, 214, .36);
+    --hx-glow: rgba(123, 97, 255, .22);
+    --hx-glow0: rgba(123, 97, 255, 0);
+    --hx-card: var(--surface);
+    --hx-card-edge: var(--line-2);
+    --hx-card-shadow: var(--shadow-card);
+    --hx-live-t: #8fe3b4;
+    --hx-live-bg: rgba(20, 107, 62, .3);
+    --hx-soon-t: var(--accent);
+    --hx-soon-bg: rgba(12, 10, 24, .6);    /* ink, not white: over the violet glow a white tint measured 4.33:1 */
+    --hx-seam-shadow: rgba(0, 0, 0, .5);
+    --hs-on-bg: var(--surface-flat);
+    --hs-on-edge: var(--line-2);
+    --hs-on-shadow: 0 18px 36px -22px rgba(0, 0, 0, .8);
+    --hs-dot-off: rgba(255, 255, 255, .24);
+    --hs-dot-on: #9d86ff;
+    --hs-dot-ring: rgba(157, 134, 255, .25);
+    --hs-track-o: .6;
+  }
+  html[data-theme="light"] body.home :is(.hx, .hs) {
+    --hx-w0: rgba(237, 230, 255, 0);
+    --hx-w1: rgba(237, 230, 255, .75);
+    --hx-w2: rgba(233, 224, 255, .95);
+    --hx-glow: rgba(123, 97, 255, .2);
+    --hx-card: rgba(255, 255, 255, .82);
+    --hx-card-edge: rgba(255, 255, 255, .95);
+    --hx-card-shadow: 0 24px 50px -32px rgba(70, 30, 100, .45);
+    --hx-live-t: #146b3e;
+    --hx-live-bg: rgba(225, 241, 231, .96);   /* the mockup's .9 measured 4.54:1 over the phone's pink backdrop */
+    --hx-soon-t: #4a2bb0;
+    --hx-soon-bg: rgba(255, 255, 255, .75);
+    --hx-seam-shadow: rgba(70, 30, 100, .3);
+    --hs-on-bg: #ffffff;
+    --hs-on-edge: rgba(20, 18, 43, .14);
+    --hs-on-shadow: 0 18px 36px -22px rgba(70, 30, 100, .5);
+    --hs-dot-off: #d9cdef;
+    --hs-dot-on: #5a2fd6;
+    --hs-dot-ring: rgba(90, 47, 214, .16);
+    --hs-track-o: .45;
+  }
+
+  /* ---- the split: two equal halves at EVERY width (owner: never stacked) ---- */
+  body.home .hx {
+    position: relative; isolation: isolate;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: clamp(480px, calc(100svh - 150px), 620px);
+  }
+  /* The lavender: transparent to 30% of the width, full by ~60%, faded out at the top (so the
+     bar's zone has no horizontal edge) and the bottom (so the next section has none either). */
+  body.home .hx-wash {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      radial-gradient(38vw 46vh at 86% 22%, var(--hx-glow), var(--hx-glow0) 70%),
+      linear-gradient(90deg, var(--hx-w0) 30%, var(--hx-w1) 58%, var(--hx-w2) 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 16%, #000 62%, transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 0, #000 16%, #000 62%, transparent 100%);
+  }
+  body.home .hx-half {
+    position: relative; z-index: 1; min-width: 0; box-sizing: border-box;
+    display: flex; align-items: center;
+  }
+  body.home .hx-l { justify-content: flex-end; padding: 48px 110px 64px 40px; }
+  body.home .hx-r { justify-content: flex-start; padding: 48px 40px 64px 110px; }
+  body.home .hx-col {
+    width: 100%; max-width: 440px; min-width: 0; overflow-wrap: anywhere;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  body.home .hx-pill {
+    align-self: flex-start; display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.4;
+    padding: 5px 11px; border-radius: 999px;
+  }
+  body.home .hx-pill-live { color: var(--hx-live-t); background: var(--hx-live-bg); }
+  body.home .hx-pill-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+  body.home .hx-pill-soon { color: var(--hx-soon-t); background: var(--hx-soon-bg); }
+  /* Both headlines, h1 and h2, at one display size. The bare h2 rule is the agency's eyebrow
+     (flex, 12px, tracked, a dash before it), so every one of those is undone here. */
+  body.home .hx-h {
+    display: block; margin: 0; color: var(--text);
+    font-family: var(--font-display); font-size: clamp(22px, 4.4vw, 56px); font-weight: 800;
+    line-height: 1.02; letter-spacing: -.035em; text-wrap: balance;
+  }
+  body.home .hx-h::before { display: none; }
+  body.home .hx-fine { margin: 0; font-size: 14px; color: var(--text-3); }
+
+  /* The composer: the app's own markup, restyled only inside the hero. Width is the column's. */
+  body.home .hx .lp-composer { max-width: none; margin: 0; }
+  body.home .hx .composer-row {
+    padding: 6px 6px 6px 20px;
+    background: var(--field-input); border-color: var(--field-input-edge);
+    box-shadow: inset 0 1px 3px var(--field-input-inset), 0 24px 50px -30px rgba(70, 30, 100, .45);
+  }
+  body.home .hx .lp-composer .composer-send { width: 44px; height: 44px; }
+  body.home .hx .lp-composer .composer-note { text-align: left; }
+  body.home .hx .lp-composer .composer-note:empty { display: none; }
+  /* The platform badge is empty until a link is pasted; empty, it still took 20px + a gap from
+     the field, which a phone's half-width hero cannot spare. It returns the moment it has text. */
+  body.home .hx .bp-plat:empty { display: none; }
+
+  /* The coach preview card. */
+  body.home .hx-coach {
+    display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border-radius: 20px;
+    background: var(--hx-card); border: 1px solid var(--hx-card-edge); box-shadow: var(--hx-card-shadow);
+  }
+  body.home .hx-coach-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  body.home .hx-coach-av { display: block; width: 26px; height: 26px; flex: none; }
+  body.home .hx-coach-lbl { font-family: var(--mono); font-size: 12px; color: var(--text-3); }
+  body.home .hx-coach-msg { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--text); }
+  body.home .hx-link {
+    align-self: flex-start; font-size: 15px; font-weight: 600; text-decoration: none; color: var(--accent);
+    border-bottom: 1px solid transparent;
+  }
+  body.home .hx-link:hover { border-bottom-color: currentColor; }
+
+  /* The avatar ON the seam. Live (avatar.js renders the span), never a picture. */
+  body.home .hx-seam {
+    position: absolute; left: 50%; top: 50%; z-index: 2; transform: translate(-50%, -50%);
+    width: 104px; height: 104px; pointer-events: none;
+  }
+  body.home :is(.hx-seam, .hx-coach-av, .hs-av) .lx { display: block; width: 100%; height: 100%; overflow: visible; }
+  body.home .hx-seam .lx { filter: drop-shadow(0 16px 26px var(--hx-seam-shadow)); }
+
+  @media (max-width: 960px) {
+    body.home .hx-l { padding: 40px 58px 56px 24px; }
+    body.home .hx-r { padding: 40px 24px 56px 58px; }
+    body.home .hx-seam { width: 72px; height: 72px; }
+  }
+  /* A PHONE (owner, 2026-09-22: "figure out a better layout for mobile"). Side by side at 393px
+     squeezed both headlines and the paste field, so on a phone the halves become two full-width
+     panels: write on top, the coach below on its lavender, and the avatar on the join between
+     them. Tablets and up keep the split. The paste field keeps 16px type (iOS zooms below it). */
+  @media (max-width: 640px) {
+    body.home .hx { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+    body.home .hx-l { order: 1; justify-content: flex-start; padding: 32px 20px 48px; }
+    body.home .hx-seam {
+      order: 2; position: relative; left: auto; top: auto; transform: none;
+      justify-self: center; width: 72px; height: 72px; margin: -36px 0;
+    }
+    body.home .hx-r { order: 3; justify-content: flex-start; padding: 48px 20px 52px; }
+    body.home .hx-col { max-width: none; gap: 14px; }
+    body.home .hx-h { font-size: 40px; }
+    body.home .hx-wash {
+      background-image:
+        radial-gradient(90vw 40vh at 80% 80%, var(--hx-glow), var(--hx-glow0) 70%),
+        linear-gradient(180deg, var(--hx-w0) 38%, var(--hx-w1) 55%, var(--hx-w2) 100%);
+      -webkit-mask-image: linear-gradient(180deg, #000 86%, transparent 100%);
+      mask-image: linear-gradient(180deg, #000 86%, transparent 100%);
+    }
+    body.home #lp-main > .hs { padding-top: 40px; }
+  }
+
+  /* ---- for any creator, at any stage ---- */
+  body.home #lp-main > .hs > .lp-in { width: min(960px, var(--pub-col)); }
+  body.home .hs { --hs-gap: 12px; --hs-pb: 14px; }
+  /* Scroll-driven (home.js sets .hs-live): the section is tall and its content
+     sticks, centred in the screen, while each quarter of the scroll selects the
+     next stage. 75svh of scroll per stage (see THE GRACE below). */
+  body.home #lp-main > .hs.hs-live { position: relative; height: calc(100svh + 300svh); padding-block: 0; }
+  /* THE GRACE (owner, 2026-09-22: "a bigger grace period, so users dont accidentally scroll past
+     one of the steps, but also not too long"). 75svh of scroll per stage (was 60) — about one flick
+     — and a PROXIMITY snap point at the middle of each stage's stretch, so a scroll that stops near
+     a stage settles on it. Proximity, never mandatory: a deliberate scroll still passes straight
+     through, and nothing snaps anywhere else on the page. home.js puts .hs-snap on <html> only
+     while the picker is live. Each point sits where scrollY = top + 300svh * (k + .5) / 4. */
+  html.hs-snap { scroll-snap-type: y proximity; }
+  body.home .hs-snap-pt { display: none; }
+  body.home .hs.hs-live > .hs-snap-pt {
+    display: block; position: absolute; left: 0; width: 1px; height: 1px; pointer-events: none;
+    scroll-snap-align: start;
+  }
+  body.home .hs.hs-live > .hs-snap-pt:nth-of-type(1) { top: 37.5svh; }
+  body.home .hs.hs-live > .hs-snap-pt:nth-of-type(2) { top: 112.5svh; }
+  body.home .hs.hs-live > .hs-snap-pt:nth-of-type(3) { top: 187.5svh; }
+  body.home .hs.hs-live > .hs-snap-pt:nth-of-type(4) { top: 262.5svh; }
+  body.home #lp-main > .hs.hs-live > .lp-in {
+    position: sticky; top: 0; min-height: 100svh; box-sizing: border-box;
+    display: flex; flex-direction: column; justify-content: center; padding-block: 72px 24px;
+  }
+  body.home .hs-h { text-align: center; margin: 0 0 32px; text-wrap: balance; }
+  body.home .hs-row {
+    position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--hs-gap);
+  }
+  /* THE TRACK runs dot to dot, at dot height — below every label, so it can never cross an
+     avatar (owner rejected that). Its ends are the first and last column centres. */
+  body.home .hs-track {
+    position: absolute; z-index: 0; height: 3px; border-radius: 99px; pointer-events: none;
+    left: calc((100% - 3 * var(--hs-gap)) / 8); right: calc((100% - 3 * var(--hs-gap)) / 8);
+    bottom: calc(var(--hs-pb) + 5.5px);
+    background: linear-gradient(90deg, #ffb38a, #ff7eb8 55%, #7b61ff); opacity: var(--hs-track-o);
+  }
+  body.home .hs-stage {
+    position: relative; z-index: 1; min-width: 0; margin: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 14px 10px var(--hs-pb); border-radius: 22px;
+    border: 1px solid transparent; background: transparent; box-shadow: none; color: var(--text);
+    transition: background-color .2s, border-color .2s, box-shadow .2s;
+  }
+  body.home .hs-stage[aria-pressed="true"] {
+    background: var(--hs-on-bg); border-color: var(--hs-on-edge); box-shadow: var(--hs-on-shadow);
+  }
+  body.home .hs-av { display: block; width: 64px; height: 64px; opacity: .5; transition: opacity .2s; }
+  @media (hover: hover) { body.home .hs-stage:hover .hs-av { opacity: .75; } }
+  body.home .hs-stage[aria-pressed="true"] .hs-av { opacity: 1; }
+  /* Only the chosen stage is alive: the others rest in their pose (motion marks the selection). */
+  body.home .hs-stage[aria-pressed="false"] .hs-av .lx,
+  body.home .hs-stage[aria-pressed="false"] .hs-av .lx * { animation: none; }
+  body.home .hs-lbl {
+    display: flex; align-items: center; justify-content: center; min-height: 2.5em;
+    font-size: 15px; line-height: 1.25; font-weight: 500; text-align: center;
+  }
+  body.home .hs-stage[aria-pressed="true"] .hs-lbl { font-weight: 700; }
+  body.home .hs-dot { display: grid; place-items: center; width: 14px; height: 14px; }
+  body.home .hs-dot::before {
+    content: ""; display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--hs-dot-off);
+  }
+  body.home .hs-stage[aria-pressed="true"] .hs-dot::before {
+    width: 14px; height: 14px; background: var(--hs-dot-on); box-shadow: 0 0 0 4px var(--hs-dot-ring);
+  }
+  body.home .hs-card {
+    margin: 24px auto 0; max-width: 640px; box-sizing: border-box;
+    display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center;
+    padding: 26px 28px; border-radius: 26px;
+    background: var(--hx-card); border: 1px solid var(--hx-card-edge); box-shadow: var(--hx-card-shadow);
+  }
+  body.home .hs-title { margin: 0; font-size: 24px; line-height: 1.2; letter-spacing: -.015em; font-weight: 700; color: var(--text); }
+  body.home .hs-text { margin: 0; font-size: 17px; line-height: 1.5; color: var(--text-2); }
+  /* "1 of 4 · just starting": a phone's row drops its labels, so the card names the stage. */
+  body.home .hs-step { display: none; margin: 0; font-family: var(--mono); font-size: 12px; color: var(--text-3); }
+  @media (max-width: 640px) {
+    body.home .hs { --hs-gap: 4px; --hs-pb: 10px; }
+    body.home .hs-h { margin-bottom: 22px; }
+    body.home .hs-stage { padding: 12px 4px var(--hs-pb); gap: 12px; border-radius: 18px; }
+    body.home .hs-av { width: 52px; height: 52px; }
+    /* Four wrapped labels at 393px read as clutter: the row is just avatars and dots, and the
+       card below says which stage this is. The labels stay in the buttons for screen readers. */
+    body.home .hs-lbl { position: absolute; width: 1px; height: 1px; min-height: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    body.home .hs-step { display: block; }
+    body.home .hs-card { padding: 20px 18px; border-radius: 22px; }
+    body.home .hs-title { font-size: 20px; }
+    body.home .hs-text { font-size: 15px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.home .hs-stage, body.home .hs-av { transition: none; }
+  }
+
+  /* ================= HOW IT WORKS: /how-it-works/ and /how-it-works/coach/ (2026-09-22) =================
+     Owner: "build the how scripts work and coach pages and then have the how it works button lead
+     to those pages". One nav item, two pages, joined by the scripts | coach switch under the header.
+     The owner's taste from the same day binds the look: light, NO ink panels ("i dont like the
+     black background"), few words, glass cards on the pastel ground, the coach page leaning
+     lavender like the coach half of the landing hero.
+     SCOPE: everything is under body.hiw, a class only these two pages wear. Cards take the same
+     white island paint as every other content page (--surface, --glass-blur, --glass-edge,
+     --g-shadow), so they follow the theme tokens; only the lavender accents are new, with a dark
+     equivalent that is dormant while theme.js forces light. The main is outranked on purpose:
+     `body.lp:not(.home) > main:not(.legal)` (0,3,2) is the content pages' reading column, and
+     these pages want a wider one, so the selector here is (0,4,2). */
+  body.hiw {
+    --hiw-num-bg: rgba(157, 134, 255, .2);
+    --hiw-num-t: #d9ceff;
+    --hiw-chip-bg: rgba(157, 134, 255, .18);
+    --hiw-chip-t: #e4dcff;
+    --hiw-chip-off-t: var(--text-2);
+    --hiw-pill-t: var(--accent);
+    --hiw-pill-bg: rgba(12, 10, 24, .6);
+    --hiw-on-bg: var(--surface-flat);
+    --hiw-on-shadow: 0 10px 22px -14px rgba(0, 0, 0, .8);
+    --hiw-wash1: rgba(74, 43, 176, .26);
+    --hiw-wash2: rgba(90, 47, 214, .36);
+    --hiw-wash0: rgba(74, 43, 176, 0);
+  }
+  html[data-theme="light"] body.hiw {
+    --hiw-num-bg: #ece4ff;
+    --hiw-num-t: #4a2bb0;
+    --hiw-chip-bg: #ece4ff;
+    --hiw-chip-t: #3d2394;
+    --hiw-chip-off-t: #4a4566;
+    --hiw-pill-t: #4a2bb0;
+    --hiw-pill-bg: rgba(255, 255, 255, .8);
+    --hiw-on-bg: #ffffff;
+    --hiw-on-shadow: 0 8px 18px -10px rgba(70, 30, 100, .4);
+    --hiw-wash1: rgba(237, 230, 255, .75);
+    --hiw-wash2: rgba(233, 224, 255, .95);
+    --hiw-wash0: rgba(237, 230, 255, 0);
+  }
+
+  /* ---- the column ---- */
+  body.lp.hiw:not(.home) > main.hiw-main {
+    position: relative; box-sizing: border-box;
+    width: min(1040px, calc(100% - 2 * var(--pub-gap))); max-width: none;
+    margin: 0 auto; padding: 40px 0 clamp(40px, 6vw, 72px);
+    background: none; border: 0; border-radius: 0; box-shadow: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  /* The coach page's lavender: a wash over the top of the page, faded out downward, painted over
+     the fixed backdrop (both z-index -1; this one is later in the document). */
+  body.hiw .hiw-wash {
+    position: absolute; z-index: -1; pointer-events: none;
+    top: -120px; left: 50%; width: 100vw; margin-left: -50vw; height: min(1100px, 150vh);
+    background-image:
+      radial-gradient(60% 50% at 70% 20%, var(--hiw-wash2), var(--hiw-wash0) 70%),
+      linear-gradient(180deg, var(--hiw-wash1), var(--hiw-wash0));
+    -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  }
+
+  /* ---- the header: on the ground, centred ---- */
+  body.hiw .hiw-head {
+    display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
+    padding: 24px 0 8px;
+  }
+  body.hiw .hiw-av { display: block; width: 72px; height: 72px; }
+  body.hiw :is(.hiw-av, .hiw-preview-av) .lx { display: block; width: 100%; height: 100%; overflow: visible; }
+  body.hiw .hiw-av .lx { filter: drop-shadow(0 12px 16px var(--av-glow)); }
+  body.hiw .hiw-eyebrow { margin: 0; font-family: var(--mono); font-size: 13px; color: var(--text-3); }
+  body.hiw .hiw-h1 {
+    margin: 0; max-width: 18ch; color: var(--text);
+    font-family: var(--font-display); font-size: clamp(34px, 5.2vw, 58px); font-weight: 800;
+    line-height: 1.04; letter-spacing: -.035em; text-wrap: balance;
+  }
+  body.hiw .hiw-lede { margin: 0; max-width: 44ch; font-size: 18px; line-height: 1.5; color: var(--text-2); text-wrap: balance; }
+  body.hiw .hiw-pill {
+    display: inline-flex; align-items: center; font-family: var(--mono); font-size: 12px; line-height: 1.4;
+    padding: 5px 11px; border-radius: 999px; color: var(--hiw-pill-t); background: var(--hiw-pill-bg);
+  }
+
+  /* ---- the scripts | coach switch: two links, the current one raised ---- */
+  body.hiw .hiw-switch {
+    display: inline-flex; gap: 4px; margin: 14px 0 0; padding: 4px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    box-shadow: inset 0 1px 0 var(--glass-hi, var(--g-hi-fallback)), var(--g-shadow);
+  }
+  body.hiw .hiw-switch a {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 96px; min-height: 40px;
+    box-sizing: border-box; padding: 0 20px; border-radius: 999px;
+    font-size: 15px; font-weight: 600; text-decoration: none; border: 0; color: var(--text-2);
+    transition: background-color .15s, color .15s;
+  }
+  body.hiw .hiw-switch a:hover { color: var(--text); }
+  body.hiw .hiw-switch a[aria-current="page"] {
+    color: var(--text); background: var(--hiw-on-bg); box-shadow: var(--hiw-on-shadow); font-weight: 700;
+  }
+  /* The bar's link on the coach page is aria-current="true" (the section, not the page itself). */
+  body.hiw .lp-nav a[aria-current="true"] { color: var(--text); }
+  body.hiw .lp-nav a[aria-current="true"]::after {
+    content: ""; position: absolute; left: 50%; bottom: -7px;
+    width: 3px; height: 3px; margin-left: -1.5px; border-radius: var(--r-round); background: var(--text-3);
+  }
+
+  /* ---- sections: the heading on the ground, the cards are the islands ---- */
+  body.hiw .hiw-sec { margin: clamp(48px, 7vw, 80px) 0 0; }
+  body.hiw .hiw-h2 {
+    display: block; margin: 0 0 18px; text-align: center; color: var(--text);
+    font-family: var(--font-display); font-size: clamp(26px, 3.2vw, 38px); font-weight: 700;
+    line-height: 1.1; letter-spacing: -.03em; text-transform: lowercase;
+  }
+  body.hiw .hiw-h2::before { display: none; }
+  body.hiw .hiw-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pub-gap); }
+  body.hiw .hiw-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  body.hiw .hiw-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  body.hiw .hiw-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.hiw .hiw-card {
+    box-sizing: border-box; min-width: 0; margin: 0; padding: 22px 22px 24px; border-radius: var(--r-card);
+    background: var(--surface); border: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    box-shadow: inset 0 1px 0 var(--glass-hi, var(--g-hi-fallback)), var(--g-shadow);
+  }
+  body.hiw .hiw-num {
+    display: grid; place-items: center; width: 30px; height: 30px; margin: 0 0 14px; border-radius: 50%;
+    font-family: var(--mono); font-size: 14px; font-weight: 600;
+    color: var(--hiw-num-t); background: var(--hiw-num-bg);
+  }
+  body.hiw .hiw-h3 { margin: 0 0 6px; font-size: 18px; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; color: var(--text); }
+  body.hiw .hiw-p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--text-2); }
+  body.hiw .hiw-strong { font-size: 16px; font-weight: 600; color: var(--text); }
+  body.hiw .hiw-fine { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.5; color: var(--text-3); }
+  body.hiw .hiw-lbl { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.4; color: var(--text-3); }
+  body.hiw .hiw-case { text-transform: none; }
+
+  /* ---- the pilot pair ---- */
+  body.hiw .hiw-ex { display: flex; flex-direction: column; gap: 20px; padding: 26px 28px; }
+  body.hiw .hiw-ex-pair {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: 20px;
+  }
+  body.hiw .hiw-ex-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  body.hiw .hiw-ex-arrow { font-size: 24px; line-height: 1; color: var(--text-3); padding-top: 24px; }
+  /* Real quoted lines keep their real casing. */
+  body.hiw .hiw-quote {
+    margin: 0; text-transform: none; color: var(--text);
+    font-size: 20px; font-weight: 700; line-height: 1.35; letter-spacing: -.01em;
+  }
+  body.hiw .hiw-ex-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding-top: 18px; border-top: 1px solid var(--line); }
+  body.hiw .hiw-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  body.hiw .hiw-chip {
+    padding: 5px 12px; border-radius: 999px; font-size: 14px; font-weight: 600; line-height: 1.3;
+    color: var(--hiw-chip-t); background: var(--hiw-chip-bg); border: 1px solid transparent;
+  }
+  body.hiw .hiw-chip-off { color: var(--hiw-chip-off-t); background: transparent; border: 1px dashed var(--line-2); font-weight: 500; }
+
+  /* ---- the coach preview ---- */
+  body.hiw .hiw-preview {
+    display: flex; flex-direction: column; gap: 8px; max-width: 460px; margin: 36px auto 0; padding: 16px 18px;
+    border-radius: 20px;
+  }
+  body.hiw .hiw-preview-head { display: flex; align-items: center; gap: 8px; }
+  body.hiw .hiw-preview-av { display: block; width: 26px; height: 26px; flex: none; }
+  body.hiw .hiw-preview-msg { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.45; color: var(--text); }
+
+  /* ---- good to know: one island, questions under hairlines ---- */
+  body.hiw .hiw-qa { max-width: 760px; margin: 0 auto; padding: 8px 28px; }
+  body.hiw .hiw-qa > div { padding: 16px 0; }
+  body.hiw .hiw-qa > div + div { border-top: 1px solid var(--line); }
+  body.hiw .hiw-qa dt { margin: 0 0 4px; font-size: 16px; font-weight: 700; color: var(--text); }
+  body.hiw .hiw-qa dd { margin: 0; font-size: 15px; line-height: 1.5; color: var(--text-2); }
+  body.hiw .hiw-qa a { color: var(--accent); font-weight: 600; }
+
+  /* ---- the close: on the ground, like the landing's ---- */
+  body.hiw .hiw-close {
+    display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
+    margin: clamp(56px, 8vw, 96px) 0 0;
+  }
+  body.hiw .hiw-close .hiw-h2 { margin: 0; }
+  body.hiw .hiw-av-close { width: 80px; height: 80px; }
+  body.hiw .hiw-cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 20px; margin-top: 8px; }
+  body.hiw .hiw-btn { display: inline-flex; align-items: center; min-height: 46px; box-sizing: border-box; padding: 0 26px; font-size: 16px; text-decoration: none; }
+  body.hiw .hiw-link { font-size: 15px; font-weight: 600; color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  body.hiw .hiw-link:hover { border-bottom-color: currentColor; }
+
+  @media (max-width: 900px) {
+    body.hiw .hiw-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    body.hiw .hiw-grid-3 { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 640px) {
+    body.lp.hiw:not(.home) > main.hiw-main { padding-top: 24px; }
+    body.hiw .hiw-head { padding-top: 12px; }
+    body.hiw .hiw-av { width: 60px; height: 60px; }
+    body.hiw .hiw-h1 { font-size: 34px; }
+    body.hiw .hiw-lede { font-size: 16px; }
+    /* the 4-card grids stay two-up: each card is one short line, and stacked they made a long scroll */
+    body.hiw .hiw-grid-2 { grid-template-columns: minmax(0, 1fr); }
+    body.hiw .hiw-card { padding: 16px 16px 18px; }
+    body.hiw .hiw-grid-4 .hiw-h3 { font-size: 16px; }
+    body.hiw .hiw-grid-4 .hiw-p { font-size: 14px; }
+    body.hiw .hiw-num { margin-bottom: 10px; }
+    body.hiw .hiw-ex { padding: 20px 18px; gap: 16px; }
+    body.hiw .hiw-ex-pair { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    body.hiw .hiw-ex-arrow { transform: rotate(90deg); justify-self: start; padding-top: 0; }
+    body.hiw .hiw-quote { font-size: 18px; }
+    body.hiw .hiw-qa { padding: 4px 18px; }
+    body.hiw .hiw-preview { margin-top: 28px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.hiw .hiw-switch a { transition: none; }
+  }
+
+  /* ---------- AGENCY ROSTER + SENDING (2026-09-22) ----------
+     Plan: ~/.claude/plans/agency-send-brief-to-creators.md. Two audiences
+     share this block: rost-/cb-send-/cb-sent- classes are agency-app only
+     (emitted by app.js's Creators tab and the campaign/legacy brief Send
+     panel); lynx-/lx- classes are creator-app only (emitted by creator.js's
+     #nav-lynx section). At the very end of the file, after the CAMPAIGN
+     BRIEFS block, for the CSS ORDER TRAP reason recorded in HANDOFF — .bcard,
+     .bp-item and .bp-beat are restated here at equal specificity and only
+     source order makes these overrides win. No style="" attributes anywhere
+     in the markup that produces this: the CSP drops them silently, so
+     anything dynamic here is plain classes, not CSSOM writes, because none of
+     it is computed at runtime.
+     rost-/lynx- content classes (rost-code, lynx-hook text) are NOT on the
+     lowercase exclusion list — staff-typed and creator-typed text keeps the
+     house lowercase like everything else; only the join code itself
+     (rost-code) is deliberately excluded below, because a code is typed back
+     letter for letter and must never be shown lowercased. */
+  .rost-code { text-transform: none; }
+
+  /* ---- Creators tab (agency app) ---- */
+  .rost-list { margin-top: 18px; }
+  .rost-cards { display: flex; flex-direction: column; gap: 10px; }
+  .rost-card { align-items: flex-start; }
+  .rost-code-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .rost-code {
+    font-family: var(--mono); font-size: var(--fs-13); letter-spacing: .06em;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-inner);
+    padding: 3px 8px;
+  }
+  .rost-copy { padding: 5px 11px; font-size: var(--fs-125); }
+  .rost-remove { flex: none; }
+
+  /* ---- Send panel + sent-to list (both brief viewers) ---- */
+  .cb-send-btn { display: inline-flex; align-items: center; gap: 7px; }
+  .cb-send-btn svg { width: 16px; height: 16px; }
+  .cb-send-panel { margin: 0 0 18px; }
+  .cb-send-panel h3 { margin: 0 0 6px; font-size: var(--fs-15); }
+  .rost-picker { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-height: 320px; overflow-y: auto; }
+  .rost-pick-row { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: var(--fs-135); }
+  .rost-pick-row input { width: 17px; height: 17px; flex: none; accent-color: var(--text); }
+  .rost-pick-row .lbl { margin-left: 6px; }
+  .cb-sent-section { margin: 0 0 18px; }
+  .cb-sent-section .sec-head { margin-bottom: 10px; }
+  .cb-sent-list { display: flex; flex-direction: column; gap: 8px; }
+  .cb-sent-row { padding: 12px 16px; }
+
+  /* ---- Creator app: #nav-lynx section ---- */
+  .lynx-card { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .lynx-accept { flex-direction: row; align-items: center; gap: 8px; max-width: 360px; }
+  .lynx-accept input { flex: 1 1 auto; min-width: 0; }
+  .lynx-briefs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+  .lynx-leave-row { margin-top: 22px; }
+  .lynx-brief-head { margin-bottom: 18px; }
+  .lynx-formats { display: flex; flex-direction: column; gap: 12px; }
+  .lynx-add-row { margin-top: 14px; }
+  /* The agency app's header badge: the agency's mark and name, after lynxr's wordmark. */
+  body.agency header .ag-brand {
+    display: inline-flex; align-items: center; gap: 8px; padding-left: 12px;
+    border-left: 1px solid var(--line-2); color: var(--text-2); font-size: var(--fs-13); white-space: nowrap;
+  }
+  body.agency header .ag-brand-mark { width: 18px; height: 18px; flex: none; }
+  @media (max-width: 900px) { body.agency header .ag-brand-name { display: none; } }
+  @media (max-width: 560px) { body.agency header .ag-brand { display: none; } }
+  /* The agency's own mark: in the section title, and in the sidebar where it replaced a placeholder.
+     .side-ico-fill exists because the neighbouring icons are strokes and this one is a filled shape. */
+  .bcard-title .lynx-mark { width: 20px; height: 20px; flex: none; margin-right: 8px; vertical-align: -3px; }
+  .lynx-from { display: flex; align-items: center; gap: 8px; }
+  .lynx-from .lynx-mark { width: 16px; height: 16px; flex: none; }
+  .side-link .side-ico-fill { stroke: none; }
+  /* The original video beside its script (owner, 2026-09-22). One column of video, one of words;
+     on a phone the video sits above the script rather than squeezing beside it. */
+  .lynx-cols { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .lynx-script { min-width: 0; }
+  .lynx-vid {
+    display: flex; flex-direction: column; gap: 8px; align-items: flex-start; min-width: 0;
+    padding: 14px; border-radius: var(--r-card); background: var(--surface-2); border: 1px solid var(--line);
+  }
+  .lynx-vid-lbl { font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); }
+  .lynx-vid-plat { font-size: var(--fs-13); color: var(--text-2); }
+  .lynx-vid-go { width: 100%; text-align: center; text-decoration: none; }
+  .lynx-vid-url { font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); overflow-wrap: anywhere; }
+  @media (max-width: 760px) {
+    .lynx-cols { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .lynx-accept { flex-direction: column; align-items: stretch; max-width: none; }
+  }

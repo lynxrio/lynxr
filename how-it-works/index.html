@@ -2,33 +2,28 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Static prose. No scripts, no network calls of any kind, so the CSP is the
-     tightest on the site: stylesheet and font from self, nothing else. Same as
-     /privacy/, which this page is the pair to. -->
-<!-- `script-src 'self'` was ADDED 2026-08-19, and it is the narrowest thing
-     that makes this page's own top bar work. These three legal pages carried no
-     script at all, so `default-src 'none'` covered script-src by fallback — and
-     when the shared bar and its burger menu arrived, site.js was silently
-     BLOCKED here and nowhere else. It failed exactly the way CSP failures fail:
-     the markup was right, the file 200'd, and the only trace was one console
-     line. No 'unsafe-inline', no host: one same-origin file. -->
+<!-- Static page. Its scripts are same-origin files (theme, backdrop, the bar,
+     the footer, and avatar.js for the live avatars); the <script> blocks below
+     are `type="application/ld+json"` DATA and are never executed. No inline
+     style anywhere: `style-src 'self'` would drop it silently. Every look is in
+     app.css, in the HOW IT WORKS block at the end (body.hiw). -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>lynxr — pricing</title>
-<meta name="description" content="What lynxr costs: a free tier of 3 scripts a week, and lynxr pro at $24.99 a month with a fair-use ceiling. Prices in USD, tax added at checkout where required.">
-<meta property="og:title" content="lynxr — pricing">
-<meta property="og:description" content="What lynxr costs: a free tier of 3 scripts a week, and lynxr pro at $24.99 a month with a fair-use ceiling. Prices in USD, tax added at checkout where required.">
+<title>How lynxr scripts work — from a link to a script you can film</title>
+<meta name="description" content="How lynxr turns a public TikTok or Instagram link into a script: it transcribes the video, reads it shot by shot, maps the format, and writes it for your brand. Then you film it on the built-in teleprompter.">
+<meta property="og:title" content="How lynxr scripts work — from a link to a script you can film">
+<meta property="og:description" content="How lynxr turns a public TikTok or Instagram link into a script: it transcribes the video, reads it shot by shot, maps the format, and writes it for your brand. Then you film it on the built-in teleprompter.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="lynxr">
-<meta property="og:url" content="https://lynxr.io/pricing/">
+<meta property="og:url" content="https://lynxr.io/how-it-works/">
 <meta property="og:image" content="https://lynxr.io/og-v3.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="lynxr — pricing">
-<meta name="twitter:description" content="What lynxr costs: a free tier of 3 scripts a week, and lynxr pro at $24.99 a month with a fair-use ceiling. Prices in USD, tax added at checkout where required.">
+<meta name="twitter:title" content="How lynxr scripts work — from a link to a script you can film">
+<meta name="twitter:description" content="How lynxr turns a public TikTok or Instagram link into a script: it transcribes the video, reads it shot by shot, maps the format, and writes it for your brand. Then you film it on the built-in teleprompter.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
-<link rel="canonical" href="https://lynxr.io/pricing/">
+<link rel="canonical" href="https://lynxr.io/how-it-works/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260922q">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260922q">
 <link rel="shortcut icon" href="/favicon.ico?v=20260922q">
@@ -74,10 +69,24 @@
       ],
       "founder": [
         {
-          "@id": "https://lynxmediagroup.org/#gawin"
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": [
+            "https://www.instagram.com/junsahwang/"
+          ]
         },
         {
-          "@id": "https://lynxmediagroup.org/#junsa"
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": [
+            "https://www.instagram.com/gawinhsu/"
+          ]
         }
       ],
       "knowsAbout": [
@@ -112,36 +121,11 @@
       ],
       "founder": [
         {
-          "@id": "https://lynxmediagroup.org/#gawin"
+          "@id": "https://lynxr.io/#junsa-hwang"
         },
         {
-          "@id": "https://lynxmediagroup.org/#junsa"
+          "@id": "https://lynxr.io/#gawin-hsu"
         }
-      ]
-    },
-    {
-      "@type": "Person",
-      "@id": "https://lynxmediagroup.org/#junsa",
-      "name": "Junsa Hwang",
-      "jobTitle": "Co-founder & CTO",
-      "description": "Co-founder and CTO of Lynx Media Group and creator of lynxr.",
-      "worksFor": {
-        "@id": "https://lynxmediagroup.org/#org"
-      },
-      "sameAs": [
-        "https://www.instagram.com/junsahwang/"
-      ]
-    },
-    {
-      "@type": "Person",
-      "@id": "https://lynxmediagroup.org/#gawin",
-      "name": "Gawin Hsu",
-      "jobTitle": "Co-founder & CEO",
-      "worksFor": {
-        "@id": "https://lynxmediagroup.org/#org"
-      },
-      "sameAs": [
-        "https://www.instagram.com/gawinhsu/"
       ]
     },
     {
@@ -149,13 +133,10 @@
       "@id": "https://lynxr.io/#website",
       "url": "https://lynxr.io/",
       "name": "lynxr",
-      "alternateName": [
-        "lynxr.io",
-        "lynxr app",
-        "lynxr script tool"
-      ],
       "inLanguage": "en",
-      "publisher": { "@id": "https://lynxr.io/#organization" },
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
       "about": {
         "@id": "https://lynxr.io/#lynxr"
       }
@@ -206,15 +187,12 @@
           "description": "Unlimited scripts within fair use (150 in any rolling 30 days, 30 in any 24 hours), billed monthly. Tax is added at checkout where it applies."
         }
       ],
-      "author": {
-        "@id": "https://lynxmediagroup.org/#junsa"
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
       },
-      "publisher": { "@id": "https://lynxr.io/#organization" },
-      "sameAs": [
-        "https://www.instagram.com/lynxr.io/",
-        "https://www.tiktok.com/@lynxr.io",
-        "https://www.linkedin.com/company/lynxr"
-      ],
+      "creator": {
+        "@id": "https://lynxr.io/#organization"
+      },
       "alternateName": "lynxr.io"
     }
   ]
@@ -225,14 +203,22 @@
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "@id": "https://lynxr.io/pricing/#webpage",
-  "url": "https://lynxr.io/pricing/",
-  "name": "lynxr — pricing",
-  "description": "What lynxr costs: a free tier of 3 scripts a week, and lynxr pro at $24.99 a month with a fair-use ceiling. Prices in USD, tax added at checkout where required.",
+  "@id": "https://lynxr.io/how-it-works/#page",
+  "url": "https://lynxr.io/how-it-works/",
+  "name": "How lynxr scripts work — from a link to a script you can film",
+  "description": "How lynxr turns a public TikTok or Instagram link into a script: it transcribes the video, reads it shot by shot, maps the format, and writes it for your brand. Then you film it on the built-in teleprompter.",
   "inLanguage": "en",
-  "dateModified": "2026-09-21",
-  "isPartOf": { "@id": "https://lynxr.io/#website" },
-  "about": { "@id": "https://lynxr.io/#lynxr" }
+  "datePublished": "2026-09-22",
+  "dateModified": "2026-09-22",
+  "isPartOf": {
+    "@id": "https://lynxr.io/#website"
+  },
+  "about": {
+    "@id": "https://lynxr.io/#lynxr"
+  },
+  "publisher": {
+    "@id": "https://lynxr.io/#organization"
+  }
 }
 </script>
 <script type="application/ld+json">
@@ -240,13 +226,27 @@
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    { "@type": "ListItem", "position": 1, "name": "lynxr", "item": "https://lynxr.io/" },
-    { "@type": "ListItem", "position": 2, "name": "pricing", "item": "https://lynxr.io/pricing/" }
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "lynxr",
+      "item": "https://lynxr.io/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "how it works",
+      "item": "https://lynxr.io/how-it-works/"
+    }
   ]
 }
 </script>
 </head>
-<body>
+<!-- HOW IT WORKS (2026-09-22). One nav item, two pages: the scripts|coach
+     switch under the header joins them. Copy is short on the owner's
+     instruction ("simplify it", "too many words"). Light, glass cards on the
+     pastel ground; no dark panels ("i dont like the black background"). -->
+<body class="lp hiw">
 <svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
 
 <header class="lp-bar">
@@ -256,7 +256,7 @@
          fragment does nothing from /faq/ or /privacy/ — it appends a hash to
          the current URL and stays put. -->
     <nav class="lp-nav" aria-label="Main">
-      <a href="/how-it-works/">how it works</a>
+      <a href="/how-it-works/" aria-current="page">how it works</a>
       <a href="/faq/">faq</a>
     </nav>
     <span class="lp-actions">
@@ -286,94 +286,96 @@
   </nav>
 </header>
 
-<main class="legal">
-  <section>
-  <h1>pricing</h1>
-  <p class="legal-date">last updated 21 september 2026</p>
+<main class="hiw-main">
 
-  <p>lynxr turns a video you paste into a script written for a company you
-    choose. there are two ways to use it: a free tier you never have to pay
-    for, and one paid tier. a second paid tier, lynxr max, is announced but
-    not on sale yet.</p>
+  <div class="hiw-head">
+    <span class="hiw-av" data-lx-mood="writing" aria-hidden="true"></span>
+    <p class="hiw-eyebrow">how it works</p>
+    <h1 class="hiw-h1">scripts built on videos that already work</h1>
+    <p class="hiw-lede">how lynxr gets from a link to a script you can film.</p>
+    <nav class="hiw-switch" aria-label="how it works">
+      <a href="/how-it-works/" aria-current="page">scripts</a>
+      <a href="/how-it-works/coach/">coach</a>
+    </nav>
+  </div>
+
+  <section class="hiw-sec" aria-labelledby="hiw-get">
+    <h2 class="hiw-h2" id="hiw-get">how we get the script</h2>
+    <ol class="hiw-grid hiw-grid-4">
+      <li class="hiw-card"><span class="hiw-num">1</span><h3 class="hiw-h3">you paste a link</h3><p class="hiw-p">any public tiktok or instagram video. nothing to upload.</p></li>
+      <li class="hiw-card"><span class="hiw-num">2</span><h3 class="hiw-h3">it listens</h3><p class="hiw-p">transcribes every word.</p></li>
+      <li class="hiw-card"><span class="hiw-num">3</span><h3 class="hiw-h3">it watches</h3><p class="hiw-p">reads the frames, shot by shot.</p></li>
+      <li class="hiw-card"><span class="hiw-num">4</span><h3 class="hiw-h3">it maps the format</h3><p class="hiw-p">the hook, every beat, the turn, the close.</p></li>
+    </ol>
   </section>
 
-  <section>
-  <h2>free</h2>
-  <p><strong>$0. 3 scripts in any rolling 7 days.</strong></p>
-  <ul>
-    <li>no card, and no trial that turns into a subscription.</li>
-    <li>each script frees up 7 days after you write it, so the free tier never
-      runs out for good.</li>
-    <li>everything you write on the free tier stays yours and stays readable,
-      whatever plan you are on.</li>
-  </ul>
+  <!-- THE PILOT PAIR. Both quoted lines are verbatim and unedited — do not
+       tidy them. Their capitals are kept on purpose (.hiw-quote opts out of the
+       sitewide lowercase). No timeline bars: nobody measured the proportions. -->
+  <section class="hiw-sec" aria-labelledby="hiw-ex">
+    <h2 class="hiw-h2" id="hiw-ex">a real example</h2>
+    <div class="hiw-card hiw-ex">
+      <div class="hiw-ex-pair">
+        <div class="hiw-ex-side">
+          <p class="hiw-lbl">in &middot; a study-hacks video</p>
+          <p class="hiw-quote">&ldquo;How I got a 1550 on the SAT&rdquo;</p>
+        </div>
+        <span class="hiw-ex-arrow" aria-hidden="true">&rarr;</span>
+        <div class="hiw-ex-side hiw-ex-out">
+          <p class="hiw-lbl">out &middot; for an <span class="hiw-case">EMT</span>&#8209;education brand</p>
+          <p class="hiw-quote">&ldquo;I went from failing my medical assessment to a 96% in two weeks.&rdquo;</p>
+        </div>
+      </div>
+      <div class="hiw-ex-foot">
+        <p class="hiw-lbl">carried over</p>
+        <ul class="hiw-chips">
+          <li class="hiw-chip">hook</li>
+          <li class="hiw-chip">beats</li>
+          <li class="hiw-chip">turn</li>
+          <li class="hiw-chip">close</li>
+          <li class="hiw-chip hiw-chip-off">the subject didn't</li>
+        </ul>
+      </div>
+      <p class="hiw-fine">both lines unedited, from the pilot.</p>
+    </div>
   </section>
 
-  <section>
-  <h2>lynxr pro</h2>
-  <p><strong>$24.99 a month, billed monthly in advance.</strong> unlimited
-    scripts, subject to the fair-use ceiling below.</p>
-  <ul>
-    <li>you never buy scripts one at a time.</li>
-    <li>cancel any time. cancellation takes effect at the end of the period
-      you have already paid for.</li>
-    <li>14-day money-back on your first payment &mdash; see the
-      <a href="/refunds/">refund policy</a>.</li>
-  </ul>
+  <section class="hiw-sec" aria-labelledby="hiw-you">
+    <h2 class="hiw-h2" id="hiw-you">written for you</h2>
+    <ul class="hiw-grid hiw-grid-3">
+      <li class="hiw-card"><h3 class="hiw-h3">your brand</h3><p class="hiw-p">paste its website. lynxr works out what they sell and who it's for.</p></li>
+      <li class="hiw-card"><h3 class="hiw-h3">you</h3><p class="hiw-p">what's true about you, and what you'd never say. a script only claims what you put there.</p></li>
+      <li class="hiw-card"><h3 class="hiw-h3">one link, many brands</h3><p class="hiw-p">one video, a script for each brand you pick.</p></li>
+    </ul>
   </section>
 
-  <!-- MAX IS ANNOUNCED, NOT SOLD (2026-09-21). lynxr_billing_plans holds no
-       price id for it, so checkout refuses it. The two features it is sold on
-       do not exist yet, and this section must not say they do. -->
-  <section>
-  <h2>lynxr max &mdash; coming soon</h2>
-  <p><strong>$74.99 a month, when it opens. it is not on sale yet.</strong></p>
-  <ul>
-    <li>everything in pro, with a higher fair-use ceiling: up to 300 scripts
-      in any rolling 30-day period and up to 40 in any 24 hours.</li>
-    <li>post tracking, and a coach that reads how your videos did and suggests
-      what to make next. neither is built yet, which is why max cannot be
-      bought.</li>
-  </ul>
+  <section class="hiw-sec" aria-labelledby="hiw-why">
+    <h2 class="hiw-h2" id="hiw-why">why they're good</h2>
+    <ul class="hiw-grid hiw-grid-2">
+      <li class="hiw-card"><h3 class="hiw-h3">the format, not the topic</h3><p class="hiw-p">you borrow the shape that worked, never its subject or its words.</p></li>
+      <li class="hiw-card"><h3 class="hiw-h3">built on 100,000+ studied videos</h3><p class="hiw-fine">5,190,673,018 combined views across the studied set &middot; measured 2026-08-28</p></li>
+      <li class="hiw-card"><h3 class="hiw-h3">no words put in your mouth</h3><p class="hiw-p">it never invents a credential, and it tells you when a format doesn't suit a brand.</p></li>
+      <li class="hiw-card"><h3 class="hiw-h3">yours to change</h3><p class="hiw-p">edit any line. revert any time.</p></li>
+    </ul>
   </section>
 
-  <section>
-  <h2>fair use</h2>
-  <p>pro is unlimited in the sense that you never buy scripts one at a time
-    and you will not run out doing the work it is for. it is not unmetered.
-    pro includes up to <strong>150 scripts in any rolling 30-day period</strong>
-    and up to <strong>30 in any 24 hours</strong>.</p>
-  <p><strong>the 30-day window rolls continuously &mdash; it does not reset on
-    your billing date.</strong> each script counts against you for 30 days from
-    the moment it is written, and room comes back as older ones age out.</p>
-  <p>for scale: a creator posting once a day writes about 30 scripts a month,
-    so this is roughly five times heavy use. it exists to stop automated or
-    shared-account use, not to ration normal work.</p>
-  <p>if you reach either limit nothing is deleted and everything already
-    written stays yours; new scripts resume as earlier ones age out. if you
-    have a real need for more, ask &mdash; we would rather raise your limit
-    than have you work around it.</p>
+  <section class="hiw-sec" aria-labelledby="hiw-film">
+    <h2 class="hiw-h2" id="hiw-film">then film it</h2>
+    <ul class="hiw-grid hiw-grid-2">
+      <li class="hiw-card"><h3 class="hiw-h3">the teleprompter</h3><p class="hiw-p">set speed and text size, record with your camera. the take saves to your device, never uploaded.</p></li>
+      <li class="hiw-card"><h3 class="hiw-h3">no voiceover? cue cards</h3><p class="hiw-p">what to put on screen at each beat.</p></li>
+    </ul>
   </section>
 
-  <section>
-  <h2>tax, currency and who you pay</h2>
-  <p>prices are in <strong>USD</strong>. tax is added at checkout where it is
-    required, so the total you are shown before paying may be higher than
-    $24.99 depending on where you are.</p>
-  <p><span class="entity">Stripe</span> is our merchant of record. that
-    means <span class="entity">Stripe</span> takes the payment, works out and
-    adds any tax, issues the receipt, and handles refunds and disputes.</p>
+  <section class="hiw-close" aria-labelledby="hiw-go">
+    <span class="hiw-av hiw-av-close" data-lx-mood="hyped" aria-hidden="true"></span>
+    <h2 class="hiw-h2" id="hiw-go">paste a link. get your script.</h2>
+    <div class="hiw-cta">
+      <a class="btn hiw-btn" href="/?signup=1" data-gate="up">try for free</a>
+      <a class="hiw-link" href="/pricing/">see pricing</a>
+    </div>
   </section>
 
-  <section>
-  <h2>if a payment fails</h2>
-  <p><span class="entity">Stripe</span> retries a failed payment before access
-    drops back to the free tier; pro stays on while it does. nothing you have already written
-    is deleted.</p>
-
-  <p>the <a href="/refunds/">refund policy</a> and the
-    <a href="/terms/">terms of service</a> both form part of this.</p>
-  </section>
 </main>
 
 <footer id="site-footer">
@@ -386,9 +388,9 @@
     <div class="foot-col">
       <div class="foot-label">lynxr</div>
       <a class="foot-link" href="/">home</a>
-      <a class="foot-link" href="/how-it-works/">how it works</a>
+      <a class="foot-link" href="/how-it-works/" aria-current="page">how it works</a>
       <a class="foot-link" href="/faq/">faq</a>
-      <a class="foot-link" href="/pricing/" aria-current="page">pricing</a>
+      <a class="foot-link" href="/pricing/">pricing</a>
       <a class="foot-link" href="/about/">about</a>
       <!-- Visible label "try it", accessible name "try it — join the wait
            list". The .sr-only tail is inside the <a>, so it is part of the
@@ -425,10 +427,11 @@
   </div>
 </footer>
 
-<!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
-     see the file's own header for why it must never reach either app. -->
+<!-- The top bar's hide-on-scroll and burger, the footer, and the live avatars
+     ([data-lx-mood] spans). Public pages only. -->
 <script src="/site.js?v=20260922q" defer></script>
 <script src="/footer.js?v=20260922q" defer></script>
+<script src="/avatar.js?v=20260922q" defer></script>
 
 </body>
 </html>

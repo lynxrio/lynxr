@@ -180,6 +180,172 @@ for (const el of document.querySelectorAll("[data-carry-utm]")) {
   } catch { /* a malformed query is not worth breaking the only button on */ }
 }
 
+/* THE STAGE PICKER on / ("for any creator, at any stage"). Four toggle
+   buttons, one card. The copy lives in the markup (each button's data-title /
+   data-text, and stage 1's already in the card for a visitor without JS), so
+   this only moves aria-pressed and copies two strings — nothing to drift.
+
+   SCROLL DRIVES IT (owner, 2026-09-22: "instead of the user clicking on each
+   one, have it change as i scroll down"). With `hs-live` on the section it is
+   tall and its content is sticky, so the page holds still on the picker while
+   each quarter of the scroll through it selects the next stage. A click or an
+   arrow key scrolls to that stage's quarter instead of fighting the scroll, so
+   position and selection can never disagree. `hs-live` is only set on a screen
+   tall enough to pin the whole block; otherwise (and without JS) it stays the
+   plain clickable row. Unselected avatars are paused in CSS. */
+const stageSec = document.querySelector("section.hs");
+const stageRow = document.querySelector(".hs-row");
+if (stageSec && stageRow && $("hs-title") && $("hs-text")) {
+  const stages = [...stageRow.querySelectorAll(".hs-stage")];
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+  let current = 0;
+  const pick = (i, focus) => {
+    current = i;
+    stages.forEach((b, k) => b.setAttribute("aria-pressed", String(k === i)));
+    $("hs-title").textContent = stages[i].dataset.title || "";
+    $("hs-text").textContent = stages[i].dataset.text || "";
+    const lbl = stages[i].querySelector(".hs-lbl");
+    if ($("hs-step") && lbl) $("hs-step").textContent = `${i + 1} of ${stages.length} · ${lbl.textContent.trim()}`;
+    if (focus) stages[i].focus({ preventScroll: true });
+  };
+  const live = () => stageSec.classList.contains("hs-live");
+  // Where the pin starts, and how far the page scrolls while it holds.
+  const span = () => {
+    const top = stageSec.getBoundingClientRect().top + scrollY;
+    return { top, run: Math.max(1, stageSec.offsetHeight - innerHeight) };
+  };
+  const fromScroll = () => {
+    if (!stageSec.isConnected) { document.documentElement.classList.remove("hs-snap"); return; }
+    if (!live()) return;
+    const { top, run } = span();
+    const p = Math.min(Math.max((scrollY - top) / run, 0), 0.9999);
+    const i = Math.floor(p * stages.length);
+    if (i !== current) pick(i, false);
+  };
+  const goTo = (i, focus) => {
+    if (!live()) { pick(i, focus); return; }
+    const { top, run } = span();
+    scrollTo({ top: top + run * (i + 0.5) / stages.length, behavior: reduce.matches ? "auto" : "smooth" });
+    pick(i, focus);
+  };
+  // Pin only when the whole block fits on screen (a landscape phone would clip it).
+  const setLive = () => {
+    stageSec.classList.toggle("hs-live", innerHeight >= 560);
+    document.documentElement.classList.toggle("hs-snap", stageSec.isConnected && innerHeight >= 560);
+    fromScroll();
+  };
+  // Straight on the scroll event, not via requestAnimationFrame: a frame callback never runs in a
+  // tab that isn't painting, which froze the stage on the first one it missed. The work is one
+  // rect read and, only when the stage actually changes, four attribute writes.
+  addEventListener("scroll", fromScroll, { passive: true });
+  addEventListener("resize", setLive);
+  setLive();
+  stageRow.addEventListener("click", (e) => {
+    const i = stages.indexOf(e.target.closest(".hs-stage"));
+    if (i >= 0) goTo(i, false);
+  });
+  stageRow.addEventListener("keydown", (e) => {
+    const i = stages.indexOf(e.target.closest(".hs-stage"));
+    if (i < 0) return;
+    const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: stages.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    goTo(Math.min(Math.max(to, 0), stages.length - 1), true);
+  });
+}
+
+/* THE SEAM AVATAR IS ALIVE (owner, 2026-09-22: "have this wave too from time to time and cycle
+   through other emotions randomly", then "make it seem alive almost"). The X between the two
+   halves of the hero:
+   - WAVES now and then (and once on arrival): the top-right arm swings, the same motion as the
+     identity mark's wave, played with the Web Animations API so no stylesheet is needed;
+   - DRIFTS through its other moods at random — happy, hyped, reading, writing, coaching, a rare
+     puzzled look — holding each for a couple of seconds, then back to idle (which blinks on its own);
+   - BREATHES: a slow few-pixel bob, forever;
+   - LOOKS at you: on a mouse screen the face leans a few units toward the cursor.
+   Moods are the avatar's own data-mood states (app.css poses them), so this only writes one
+   attribute. "sorry" is left out on purpose: a sad face on the front page reads as an error.
+   Reduced motion: none of it runs. Off screen or in a background tab: the mood loop waits.
+   avatar.js renders the span after this file runs (script order), so start on DOMContentLoaded. */
+addEventListener("DOMContentLoaded", () => {
+  const host = document.querySelector(".hx-seam");
+  const svg = host && host.querySelector("svg.lx");
+  if (!svg || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const MOODS = [["done", 3], ["hyped", 2], ["reading", 2], ["writing", 2], ["coaching", 2], ["confused", 1]];
+  let last = "idle";
+  let onScreen = true;
+  /* SMOOTH SWITCHES (owner: "have the switch between emotions smoother"). A face is shown by
+     display, which cannot transition, so the face and its extras fade out, the mood changes while
+     they're invisible, and they fade back in. The arms already ease between poses in CSS; on this
+     one avatar they get a slower, softer curve (set through CSSOM, which the CSP allows). */
+  const soft = "transform .9s cubic-bezier(.33, 1.18, .5, 1)";
+  for (const el of svg.querySelectorAll(".lx-arm, .lx-body")) el.style.transition = soft;
+  let switching = null;
+  const setMood = (m) => {
+    if (svg.getAttribute("data-mood") === m) return;
+    const layers = [svg.querySelector(".lx-face"), svg.querySelector(".lx-extras")].filter(Boolean);
+    if (!layers.length || !layers[0].animate) { svg.setAttribute("data-mood", m); return; }
+    if (switching) switching.forEach((a) => a.cancel());
+    const outs = layers.map((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: "ease-in", fill: "forwards" }));
+    switching = outs;
+    outs[0].finished.then(() => {
+      svg.setAttribute("data-mood", m);
+      layers.forEach((el) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: "ease-out" }));
+      outs.forEach((a) => a.cancel());
+      switching = null;
+    }).catch(() => {});
+  };
+  const pickMood = () => {
+    const pool = MOODS.filter(([m]) => m !== last);
+    let r = Math.random() * pool.reduce((sum, [, w]) => sum + w, 0);
+    for (const [m, w] of pool) { if ((r -= w) < 0) return m; }
+    return pool[0][0];
+  };
+  const wave = () => {
+    const arm = svg.querySelector(".lx-a1");
+    if (!arm || !arm.animate) return;
+    arm.animate([
+      { transform: "rotate(45deg)" }, { transform: "rotate(8deg)", offset: 0.2 },
+      { transform: "rotate(34deg)", offset: 0.45 }, { transform: "rotate(8deg)", offset: 0.7 },
+      { transform: "rotate(45deg)" },
+    ], { duration: 1500, easing: "ease-in-out" });
+  };
+  // Breathing: the whole mark rises and settles a few pixels, slowly, forever.
+  if (svg.animate) {
+    svg.animate([{ transform: "translateY(0)" }, { transform: "translateY(-5px)" }, { transform: "translateY(0)" }],
+      { duration: 3400, iterations: Infinity, easing: "ease-in-out" });
+  }
+  // The mood loop. Each beat is either a wave (in idle) or a mood held for a moment, then idle again.
+  const tick = () => {
+    if (!svg.isConnected) return;                       // signed in: #lp-main is gone
+    if (!onScreen || document.hidden) { setTimeout(tick, 1500); return; }
+    if (Math.random() < 0.35) {
+      last = "idle"; setMood("idle"); wave();
+      setTimeout(tick, rand(3200, 5600));
+      return;
+    }
+    last = pickMood(); setMood(last);
+    setTimeout(() => { setMood("idle"); setTimeout(tick, rand(2400, 4400)); }, rand(1800, 3000));
+  };
+  setTimeout(() => { wave(); setTimeout(tick, rand(2600, 4000)); }, 900);   // hello on arrival
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; }).observe(host);
+  }
+  // Eyes on you: on a mouse screen the face leans toward the cursor, at most 3 units of the 120 box.
+  const face = svg.querySelector(".lx-face");
+  if (face && matchMedia("(hover: hover)").matches) {
+    face.style.transition = "transform .35s ease-out";
+    addEventListener("pointermove", (e) => {
+      if (!onScreen) return;
+      const r = svg.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 400) * 3;
+      face.style.transform = `translate(${(dx / d * k).toFixed(2)}px, ${(dy / d * k).toFixed(2)}px)`;
+    }, { passive: true });
+  }
+});
+
 if ($("wait-form")) $("wait-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = $("wait-email");
