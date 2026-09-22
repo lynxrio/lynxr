@@ -1740,7 +1740,7 @@ function renderSide() {
      to the local count, which is what this rail showed before the ledger
      existed. Wording is unchanged either way. */
   const grant = scriptGrant();
-  const used = Math.min(ALLOWANCE ? ALLOWANCE.used : scriptsUsed(), grant);
+  const used = Math.min(ALLOWANCE ? ALLOWANCE.used : scriptsUsedWindow(), grant);
   // A rolling grant (period_days > 0) reads "N per D days" instead of the
   // lifetime phrasing — see quotaWallText() for why the two must not share
   // a sentence. `used` is already window-scoped by my_allowance() in that case.
@@ -1749,7 +1749,7 @@ function renderSide() {
   const quota = document.getElementById("side-quota");
   document.getElementById("side-quota-text").textContent =
     used >= grant
-      ? (rolling ? `${grant}/${grant} per ${period}d — none left` : `${grant}/${grant} — none left`)
+      ? (rolling ? `${grant}/${grant} per ${period}d — ${ALLOWANCE?.nextRoomAt ? `next ${unlockWhen(ALLOWANCE.nextRoomAt)}` : "none left"}` : `${grant}/${grant} — none left`)
       : (rolling ? `${used}/${grant} per ${period}d · ${grant - used} left`
                  : `${used}/${grant} scripts · ${grant - used} left`);
   // Width via CSSOM, not a style attribute: the CSP drops inline styles, and
@@ -3670,10 +3670,15 @@ function renderPlan(head, body) {
      number here rather than 3, and a subscriber reads their plan's. */
   const grant = scriptGrant();
   const room = Math.max(0, scriptRoom());
-  const used = Math.max(0, grant - room);
+  // The window's count, not grant - room: room also answers to the 24-hour
+  // ceiling, and a pro creator stopped for the day has not used all 150.
+  const used = ALLOWANCE ? Math.min(ALLOWANCE.used, grant) : Math.max(0, grant - room);
+  const left = Math.max(0, grant - used);   // the window's; `room` also answers to the day
   const spent = room <= 0;
   const period = scriptPeriod();
   const rolling = period > 0;
+  const dailyHit = !!ALLOWANCE && ALLOWANCE.dailyMax > 0 && ALLOWANCE.used24h >= ALLOWANCE.dailyMax;
+  const when = unlockWhen(ALLOWANCE?.nextRoomAt);
 
   // First visit: ask the ledger for the plan rows, then repaint if the creator
   // is still on this view. Never block the render on it — the state band above
@@ -3777,7 +3782,7 @@ function renderPlan(head, body) {
         ? `You've used all ${grant}.`
         : rolling
           ? `You get <strong>${grant}</strong> every ${period} days now.`
-          : `You have <strong>${room}</strong> left, and they don't refill.`}
+          : `You have <strong>${left}</strong> left, and they don't refill.`}
         Pro gives you <strong>${pro.granted}</strong> every ${pro.period_days} days.</p>`
     : "";
   // my_plan() does not return the free row, so a paid account reads free's
@@ -3799,12 +3804,16 @@ function renderPlan(head, body) {
         </div>
         <span class="quota-bar" aria-hidden="true"><i id="plan-fill"></i></span>
         <p class="plan-line">${spent
-          ? (rolling
-              ? "Nothing you've written is gone — the window rolls, so room reopens as older scripts age out."
+          ? (dailyHit
+              ? `That's ${ALLOWANCE.dailyMax} in the last 24 hours — the most your plan writes in a day. There's room again ${when ? `on ${escapeHtml(when)}` : "within 24 hours"}. Nothing you've written is gone.`
+              : rolling
+              ? (when
+                  ? `${code === "free" ? "Your next free script unlocks" : "There's room again"} on ${escapeHtml(when)}. Nothing you've written is gone.`
+                  : "Nothing you've written is gone — the window rolls, so room reopens as older scripts age out.")
               : "You've used all of them. Nothing you've written is gone — your scripts and companies stay exactly as they are.")
           : (rolling
-              ? `${room} left. It's ${grant} per ${period} days — the window rolls, so room comes back as older scripts age out.`
-              : `${room} left. They don't refill — it's ${grant} for the life of the account.`)}</p>
+              ? `${left} left. It's ${grant} per ${period} days — the window rolls, so room comes back as older scripts age out.`
+              : `${left} left. They don't refill — it's ${grant} for the life of the account.`)}</p>
         ${paidNotes.length ? `<ul class="plan-meta">${paidNotes.map((n) => `<li>${n}</li>`).join("")}</ul>` : ""}
         ${paid ? (canManage
           ? `<div class="plan-manage">
@@ -4928,7 +4937,7 @@ const scriptsUsedWindow = () => {
    Once a real number has landed it is KEPT through a later failure: a stale
    server number is closer to the truth than the local one, which the creator
    can edit. */
-let ALLOWANCE = null;                        // { used, granted, periodDays, plan } or null
+let ALLOWANCE = null;  // { used, granted, periodDays, plan, dailyMax, used24h, nextRoomAt } or null
 
 /** How many more scripts this account may write, and out of how many.
     A COURTESY, not the enforcement point — the worker charges against the
@@ -4953,15 +4962,31 @@ function quotaWallText() {
   const grant = scriptGrant();
   const period = scriptPeriod();
   const free = !ALLOWANCE || (ALLOWANCE.plan || "free") === "free";
+  const when = unlockWhen(ALLOWANCE?.nextRoomAt);
+  // The 24-hour ceiling first: it is the one that binds when both do, and a
+  // pro creator at 30 in a day still has room in their 30-day window.
+  if (ALLOWANCE && ALLOWANCE.dailyMax > 0 && ALLOWANCE.used24h >= ALLOWANCE.dailyMax)
+    return `That's ${ALLOWANCE.dailyMax} scripts in the last 24 hours — the most your plan writes in a day. There's room again ${when ? `on ${when}` : "within 24 hours"}; nothing you've written is gone.`;
   if (free && period > 0)
-    return `That's this week's ${grant} free scripts. Each one frees up ${period} days after you wrote it — or see Plan in the menu for pro. Nothing you've written is gone.`;
+    return `That's this week's ${grant} free scripts. ${when ? `Your next one unlocks on ${when}` : `Each one frees up ${period} days after you wrote it`} — or see Plan in the menu for pro. Nothing you've written is gone.`;
   return period > 0
-    ? `That's all ${grant} scripts for the last ${period} days. The window rolls, so room comes back as older scripts age out — nothing you've written is gone.`
+    ? `That's all ${grant} scripts for the last ${period} days. ${when ? `There's room again on ${when}` : "The window rolls, so room comes back as older scripts age out"} — nothing you've written is gone.`
     : `That's all ${grant} scripts. See Plan in the menu for what's next.`;
 }
+/* Room is the smaller of the window's and the 24-hour ceiling's: a pro creator
+   with 120 left this month but 30 written today has none right now. */
 const scriptRoom = () => (ALLOWANCE
-  ? Math.max(ALLOWANCE.granted - ALLOWANCE.used, 0)
+  ? Math.min(Math.max(ALLOWANCE.granted - ALLOWANCE.used, 0),
+             ALLOWANCE.dailyMax > 0 ? Math.max(ALLOWANCE.dailyMax - ALLOWANCE.used24h, 0) : Infinity)
   : SCRIPT_CAP - scriptsUsedWindow());
+/** allowance_state()'s next_room_at as "Tue 29 Sep, 3:14 pm", or "" when
+    nothing binds or the server predates the field. */
+function unlockWhen(iso) {
+  const t = Date.parse(iso || "");
+  if (!Number.isFinite(t)) return "";
+  return new Date(t).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short",
+                                                  hour: "numeric", minute: "2-digit" });
+}
 
 /** Ask the server for the two numbers. Silent on failure by design: this runs
     on sign-in, after every send and on tab focus, and a creator does not need
@@ -4983,7 +5008,9 @@ async function refreshAllowance() {
      older RPC that omits it reads as lifetime (free was, until 21 September
      2026; it is 3 per rolling 7 days now). */
   ALLOWANCE = { used, granted, periodDays: Number(r?.period_days) || 0,
-                plan: typeof r?.plan === "string" ? r.plan : "free" };
+                plan: typeof r?.plan === "string" ? r.plan : "free",
+                dailyMax: Number(r?.daily_max) || 0, used24h: Number(r?.used_24h) || 0,
+                nextRoomAt: typeof r?.next_room_at === "string" ? r.next_room_at : null };
   renderSide();
 }
 

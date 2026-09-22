@@ -210,26 +210,56 @@ grant execute on function public.features_for(uuid) to service_role;
 -- (e) allowance_state — used + the entitlement + features, fail closed
 -- ---------------------------------------------------------------------------
 create or replace function public.allowance_state(p_creator uuid)
-returns jsonb language sql stable security definer set search_path = ''
+returns jsonb language plpgsql stable security definer set search_path = ''
 as $$
-  select jsonb_build_object(
-    'used', (
-      select count(*) from public.lynxr_script_charges c
-       where c.creator_id = p_creator
-         and (coalesce(e.period_days, 0) = 0
-              or c.charged_at > now() - make_interval(days => coalesce(e.period_days, 0)))),
-    'used_24h', (
-      select count(*) from public.lynxr_script_charges c
-       where c.creator_id = p_creator
-         and c.charged_at > now() - interval '24 hours'),
+declare
+  e record;
+  v_used int;
+  v_used_24h int;
+  v_roll_at timestamptz;
+  v_day_at timestamptz;
+begin
+  select * into e from public.entitlement_for(p_creator);
+  select count(*) into v_used from public.lynxr_script_charges c
+   where c.creator_id = p_creator
+     and (coalesce(e.period_days, 0) = 0
+          or c.charged_at > now() - make_interval(days => coalesce(e.period_days, 0)));
+  select count(*) into v_used_24h from public.lynxr_script_charges c
+   where c.creator_id = p_creator and c.charged_at > now() - interval '24 hours';
+
+  -- WHEN THE NEXT SCRIPT IS ALLOWED, if a limit binds. A rolling window opens
+  -- when enough of its oldest charges age out to drop below the grant: the
+  -- charge at offset (used - granted), oldest first, plus the window. The
+  -- 24-hour ceiling works the same way. Both can bind; the later one wins.
+  -- A lifetime grant never reopens, so it has no time.
+  if coalesce(e.period_days, 0) > 0 and v_used >= coalesce(e.granted, 0) then
+    select c.charged_at + make_interval(days => e.period_days) into v_roll_at
+      from public.lynxr_script_charges c
+     where c.creator_id = p_creator
+       and c.charged_at > now() - make_interval(days => e.period_days)
+     order by c.charged_at asc
+     offset greatest(v_used - coalesce(e.granted, 0), 0) limit 1;
+  end if;
+  if coalesce(e.daily_max, 0) > 0 and v_used_24h >= e.daily_max then
+    select c.charged_at + interval '24 hours' into v_day_at
+      from public.lynxr_script_charges c
+     where c.creator_id = p_creator and c.charged_at > now() - interval '24 hours'
+     order by c.charged_at asc
+     offset greatest(v_used_24h - e.daily_max, 0) limit 1;
+  end if;
+
+  return jsonb_build_object(
+    'used', v_used,
+    'used_24h', v_used_24h,
     'granted', coalesce(e.granted, 0),
     'period_days', coalesce(e.period_days, 0),
     'daily_max', coalesce(e.daily_max, 0),
     'plan', coalesce(e.plan_code, 'free'),
-    'features', to_jsonb(public.features_for(p_creator)))
-  from (select 1) x
-  left join lateral public.entitlement_for(p_creator) e on true;
-$$;
+    'features', to_jsonb(public.features_for(p_creator)),
+    'next_room_at', case
+      when coalesce(e.period_days, 0) = 0 and v_used >= coalesce(e.granted, 0) then null
+      else greatest(v_roll_at, v_day_at) end);
+end $$;
 revoke all on function public.allowance_state(uuid) from public, anon, authenticated;
 grant execute on function public.allowance_state(uuid) to service_role;
 -- The worker calls this on the refusal path, so the wall it prints names the
@@ -457,7 +487,7 @@ as $$
                'daily_max', p.daily_max, 'label', p.label,
                'features', to_jsonb(p.features),
                'for_sale', p.provider_price_id is not null))
-        from public.lynxr_billing_plans p where p.code <> 'free'))
+        from public.lynxr_billing_plans p))
   from (select 1) x
   left join public.lynxr_billing b on b.creator_id = auth.uid();
 $$;

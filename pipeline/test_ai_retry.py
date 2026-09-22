@@ -122,13 +122,16 @@ _ORIG_UPSERT_SOURCE = P.upsert_source
 _ORIG_UPSERT_VIDEO = P.upsert_video
 _ORIG_FILL_SOURCE = P.fill_source
 _ORIG_STRUCTURED = P.structured
+_ORIG_RECORD_COST = P.record_cost
 try:
     P.sb = lambda key, path, method="GET", body=None, raw=False: [{"data": {"adaptations": []}}]
+    _cost_calls = []
+    P.record_cost = lambda key, id8, ok, u: _cost_calls.append((id8, ok))
     P.fetch_meta = lambda url: {}
     P.upsert_source = lambda key, a: None
     P.upsert_video = lambda key, a: None
 
-    def _stub_fill_source(a, aclient, key, notes, timings, publish=None):
+    def _stub_fill_source(a, aclient, key, notes, timings, publish=None, usage_sink=None):
         a["source"] = {"platform": "tiktok", "script": {"has_speech": False}, "shots": []}
         return True
 
@@ -150,6 +153,8 @@ try:
 
     P.process_group("fake-key", object(), _group)
 
+    check("source half recorded once, first, under the rep id", _cost_calls[:1], [("e2e00001", False)])
+    check("three cost records: source + two entries", len(_cost_calls), 3)
     check("Defect 3: structured() called exactly once for the whole group",
           len(_structured_calls), 1)
     for _label, _e in (("rep", _e1), ("sibling", _e2)):
@@ -180,6 +185,7 @@ finally:
     P.upsert_video = _ORIG_UPSERT_VIDEO
     P.fill_source = _ORIG_FILL_SOURCE
     P.structured = _ORIG_STRUCTURED
+    P.record_cost = _ORIG_RECORD_COST
 
 # ---- tries count ATTEMPTS, not failed steps -------------------------------
 # WHY THIS CASE STAMPS attemptId, NOT attemptedAt (as the original version of
@@ -240,7 +246,7 @@ try:
     P.upsert_source = lambda key, a: None
     P.upsert_video = lambda key, a: None
 
-    def _stub_fill_source_two_marks(a, aclient, key, notes, timings, publish=None):
+    def _stub_fill_source_two_marks(a, aclient, key, notes, timings, publish=None, usage_sink=None):
         a["source"] = {"platform": "tiktok", "script": {"has_speech": False}, "shots": []}
         notes.append("shot list failed: Error code: 529 - Overloaded")
         P.mark_ai_fail(a, "Error code: 529 - Overloaded")   # shot list
@@ -800,7 +806,7 @@ try:
     P.upsert_source = lambda key, a: None
     P.upsert_video = lambda key, a: None
 
-    def _wall_fill_source(a, aclient, key, notes, timings, publish=None):
+    def _wall_fill_source(a, aclient, key, notes, timings, publish=None, usage_sink=None):
         raise RuntimeError("download failed: ERROR: [TikTok] 1: This post may not be "
                             "comfortable for some audiences. Log in for access.")
 

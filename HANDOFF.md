@@ -110,16 +110,24 @@ the new Upgrade button — do one after the push (it calls the same function tha
    `billing.sql`'s seed and header match; every page's copy and JSON-LD say 3 a week; the dated "until 6 october, 25"
    text and the in-app notice card (`paintFreeNotice`) are gone; `creator.js` falls back to 3 per 7 days and gives free
    its own wall sentence (from `my_allowance().plan`); the worker's walls name the real limit (`wall_note()`, the parked
-   A0.1 hunk plus `cap_week`). **Owner: push** — until then the live worker still tells a walled free creator "used its
-   25 scripts". **Not done:** the unlock time on the wall (needs `next_room_at` in `allowance_state()`, an SQL-editor
-   change) and the app's 24-hour check for pro (A0.2). **Any future free-tier change that affects real accounts needs
-   the terms' 14 days' emailed notice.**
-4. **Edit the Stripe product description** — it still says "unlimited scripts and basic coaching", and it shows at
-   checkout. Coaching is not built.
-5. **Sitewide `SoftwareApplication` JSON-LD** still offers only `price: 0`. Add the $24.99 pro Offer on all 21 pages
-   in one pass and re-parse every block.
-6. **Stripe cleanup:** delete the test coupons/promotion codes — a live 100%-off code must not outlive its test. The
-   pro product's tax code saved as "SaaS – business use"; personal use was intended (minor, editable).
+   A0.1 hunk plus `cap_week`). Pushed and deployed (worker deploy green at `46916a2`). **Any future free-tier change
+   that affects real accounts needs the terms' 14 days' emailed notice.**
+**2026-09-22 batch (uncommitted, stamp `20260922b`):**
+   - **Unlock time + pro's 24-hour check (A0.2 / A2.2 / A2.5):** `allowance_state()` is now plpgsql and returns
+     `next_room_at`; `my_plan()` now includes the free row. **Owner: re-run `supabase/billing.sql` in the SQL editor**
+     (safe to re-run). `creator.js` reads `daily_max`, `used_24h`, `next_room_at`: room is the smaller of the window's
+     and the day's; the wall, the rail and the Plan view name the unlock time, and the app shows pro's 24-hour
+     sentence itself. Works against the old function too (no time shown). Checked in the preview with injected states.
+   - **Metering (roadmap 0.1):** `process_group()` now records the source half (shot list, tags, format) to
+     `lynxr_costs` under the rep id. Push date = `METER_DATE`; measure per-script cost 14 days / 30 charges later.
+   - **JSON-LD:** all 21 `SoftwareApplication` blocks now offer free AND pro ($24.99/month).
+   - **Owner said done 2026-09-22:** delete_account.sql re-run, Stripe product description, test coupons deleted,
+     Search Console / IndexNow. Verified from outside: `billing-cancel` returns 404. Not verifiable from here: Stripe,
+     the delete guard. **Gawin's invited lynxr.io login still exists, unconfirmed (item 8).**
+4. ~~Edit the Stripe product description~~ — owner, 2026-09-22.
+5. ~~Sitewide JSON-LD pro Offer~~ — done 2026-09-22.
+6. ~~Stripe cleanup (test coupons)~~ — owner, 2026-09-22. The pro product's tax code saved as "SaaS – business use";
+   personal use was intended (minor, editable).
 7. **Tier faces:** free=idle, pro=done, max=hyped PNGs are in `~/Desktop/lynxr-tier-logos/` (upload pro's as the
    Stripe product image). In-app, put `lynxrAvatar(mood)` on the plan cards rather than images.
 8. **Google sign-in fork risk:** `gawin@lynxr.io` is still an unconfirmed invited account — have him accept before he

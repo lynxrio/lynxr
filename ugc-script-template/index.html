@@ -25,13 +25,13 @@
 <meta name="twitter:description" content="A four-part UGC script template — hook, beats, turn, close — with a real worked example, what goes in each SAY and DO line, and the mistakes that make UGC scripts read like ads.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/ugc-script-template/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260921g">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260921g">
-<link rel="shortcut icon" href="/favicon.ico?v=20260921g">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260921g">
-<link rel="stylesheet" href="/app.css?v=20260921g">
-<script src="/theme.js?v=20260921g"></script>
-<script src="/backdrop.js?v=20260921g" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260922b">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260922b">
+<link rel="shortcut icon" href="/favicon.ico?v=20260922b">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260922b">
+<link rel="stylesheet" href="/app.css?v=20260922b">
+<script src="/theme.js?v=20260922b"></script>
+<script src="/backdrop.js?v=20260922b" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -175,14 +175,33 @@
         "audienceType": "Short-form video creators who make content for brands, and the people who brief them"
       },
       "isAccessibleForFree": true,
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD",
-        "availability": "https://schema.org/InStock",
-        "url": "https://lynxr.io/pricing/",
-        "description": "Free to start: every account gets 3 scripts a week, no card required. Sign-up is open."
-      },
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Free to start: every account gets 3 scripts a week, no card required. Sign-up is open."
+        },
+        {
+          "@type": "Offer",
+          "name": "lynxr pro",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "24.99",
+            "priceCurrency": "USD",
+            "billingDuration": "P1M",
+            "unitText": "month"
+          },
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Unlimited scripts within fair use (150 in any rolling 30 days, 30 in any 24 hours), billed monthly. Tax is added at checkout where it applies."
+        }
+      ],
       "author": {
         "@id": "https://lynxmediagroup.org/#junsa"
       },
@@ -368,8 +387,8 @@
 
 <!-- The top bar's hide-on-scroll. Public pages only — see the file's
      own header for why it must never reach either app. -->
-<script src="/site.js?v=20260921g" defer></script>
-<script src="/footer.js?v=20260921g" defer></script>
+<script src="/site.js?v=20260922b" defer></script>
+<script src="/footer.js?v=20260922b" defer></script>
 
 </body>
 </html>

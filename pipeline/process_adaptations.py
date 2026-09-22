@@ -2844,6 +2844,19 @@ def process_group(key, aclient, group):
     # phase, not just the representative — otherwise a two-brand send shows
     # one card moving and one frozen.
     pub = lambda phase: publish_phase(key, [(c, e) for c, _d, e in group], phase)  # noqa: E731
+    # SOURCE-HALF COST. fill_source's shot-list (Haiku) and tag (Opus) calls run on
+    # pool threads, and extract_format runs on THIS thread; none of the three ever
+    # reached lynxr_costs, so the ledger showed one Opus call per script. One sink
+    # for all three, recorded under the representative's id8 on both paths.
+    src_usage = {}
+    _USAGE_LOCAL.d = src_usage
+
+    def flush_source_cost(ok_flag):
+        log_usage("source half", src_usage)
+        record_cost(key, rep.get("id"), ok_flag, src_usage)
+        src_usage.clear()
+        _USAGE_LOCAL.d = {}   # this thread is reused by the outer pool; never leak into the next group
+
     # THE TITLE, FETCHED CONCURRENTLY WITH THE SCRIPT. This used to run in
     # run_entry() AFTER the completion graft (1.4s of yt-dlp that the
     # creator should not wait for), which meant source.meta was fetched,
@@ -2862,10 +2875,12 @@ def process_group(key, aclient, group):
     meta_thread.start()
     try:
         with claim_heartbeat(key, cid0, rep.get("id")):
-            ok = fill_source(rep, aclient, key, source_notes, rep_timings, publish=pub)
+            ok = fill_source(rep, aclient, key, source_notes, rep_timings, publish=pub,
+                             usage_sink=src_usage)
             if ok and not fuse and not rep.get("format"):
                 extract_format(aclient, rep, source_notes, rep_timings, publish=pub)
     except Exception as e:  # noqa: BLE001
+        flush_source_cost(False)
         # No sibling in this group has a source either — all fail alike.
         note_key, retryable = fetch_failure(e)
         for cid, data, a in group:
@@ -2891,6 +2906,7 @@ def process_group(key, aclient, group):
         # it, and out of the row, where a creator would.
         log.error("  -> FAILED (source): %s%s", e, "" if retryable else "  [permanent]")
         return
+    flush_source_cost(bool(ok) and (fuse or rep.get("format") is not None))
 
     # Joined here, not in the `try` above: on the failure path the group is
     # already errored and nobody should wait on a lookup nothing will read.
