@@ -114,8 +114,8 @@ the new Upgrade button — do one after the push (it calls the same function tha
    that affects real accounts needs the terms' 14 days' emailed notice.**
 **2026-09-22 batch (uncommitted, stamp `20260922b`):**
    - **Unlock time + pro's 24-hour check (A0.2 / A2.2 / A2.5):** `allowance_state()` is now plpgsql and returns
-     `next_room_at`; `my_plan()` now includes the free row. **Owner: re-run `supabase/billing.sql` in the SQL editor**
-     (safe to re-run). `creator.js` reads `daily_max`, `used_24h`, `next_room_at`: room is the smaller of the window's
+     `next_room_at`; `my_plan()` now includes the free row. **Applied 2026-09-22 and verified live:** 3 temporary charges on an
+     unused account gave next_room_at = oldest + 7 days exactly, then were deleted; `my_plan()` lists free/pro/max. `creator.js` reads `daily_max`, `used_24h`, `next_room_at`: room is the smaller of the window's
      and the day's; the wall, the rail and the Plan view name the unlock time, and the app shows pro's 24-hour
      sentence itself. Works against the old function too (no time shown). Checked in the preview with injected states.
    - **Metering (roadmap 0.1):** `process_group()` now records the source half (shot list, tags, format) to
