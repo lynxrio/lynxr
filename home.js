@@ -180,118 +180,77 @@ for (const el of document.querySelectorAll("[data-carry-utm]")) {
   } catch { /* a malformed query is not worth breaking the only button on */ }
 }
 
-/* THE STAGE PICKER on / ("for any creator, at any stage"). Four toggle
-   buttons, one card. The copy lives in the markup (each button's data-title /
-   data-text, and stage 1's already in the card for a visitor without JS), so
-   this only moves aria-pressed and copies two strings — nothing to drift.
+/* THE HERO'S SIGN-UP BOX (owner, 2026-09-23: "where the lynxr was, put a sign up
+   box", then, on a claude.ai sign-in card: "something like this", "but in our
+   styling").
 
-   THE PAGE DRIVES IT, AT EVERY WIDTH (owner, 2026-09-22: "on desktop keep it
-   the way it was the horizonal dynamic from the vertical scroll", then for the
-   phone "do it so that as i scroll down, this section just scrolls, similar to
-   how the desktop scroll works"). With .hs-live app.css makes the section tall
-   and sticks its .lp-in in the middle of the screen, so the page holds on the
-   block while each quarter of the run selects the next stage. Above 640px that
-   block is a horizontal row of four, below it a column of four; the mechanism
-   is identical and this file does not care which is on screen.
+   IT INVENTS NO AUTH, AND IT IS NOT A <form>. Every control in the box is a
+   `data-gate="up"` / `data-gate="in"` control, exactly like the pricing CTAs:
+   creator.js delegates every [data-gate] click on the document to the real gate
+   (showGate, #gate) and accepts both values. This file adds the two hand-offs
+   nobody else can do, and nothing more:
 
-   A PHONE-ONLY CONTAINED SCROLLER lived here for part of the same day — the
-   column was its own 130px scroll box and a swipe inside it moved the stages.
-   It is deleted, not disabled, on the owner's instruction above.
+     1. THE TYPED ADDRESS. Whatever is in #hxs-email is copied into the gate's own
+        email field (#email) BEFORE the gate opens, so the real create-account
+        form arrives pre-filled instead of asking for it twice.
+     2. GOOGLE. #hxs-google does not start an OAuth flow itself — there is exactly
+        one Google button on this site, the gate's own #oauth-google, and it carries
+        the busy state and oauthStart(). This opens the gate in create-account mode,
+        TICKS ITS AGREEMENT BOX, and CLICKS that button, so the visitor goes straight
+        into the real Google flow from the hero.
+        THE TICK IS THE OWNER'S DECISION, NOT THIS FILE'S (2026-09-23): the hero
+        card says, directly under the buttons, "by continuing you agree to the terms
+        and privacy policy", and the owner ruled that line IS the agreement —
+        "it can go straight through as i say this in the screenshot". So a click on
+        the hero's Google button is the consent the gate's box records; this file
+        records it (checked + change event, so any error state on it clears) and
+        then hands off. If the gate is not offering Google at that moment (it hides
+        the whole provider block when invites are required or seats are closed),
+        nothing is ticked or clicked and the visitor simply lands on the real gate.
 
-   NOTHING HERE IS TOLD A NUMBER. The run is the section's height less the
-   sticky block's, both measured, so app.css can be retuned — different per
-   width, as it is — without touching this file. .hs-live is set only when the
-   block actually fits the screen and never under prefers-reduced-motion; what
-   is left then is the plain click-and-arrow row, which is also the no-JS
-   state. A click or an arrow key scrolls to that stage's quarter rather than
-   fighting the scroll, so position and selection cannot disagree. Unselected
-   avatars are paused in CSS. */
-const stageSec = document.querySelector("section.hs");
-const stageRow = document.querySelector(".hs-row");
-if (stageSec && stageRow && $("hs-title") && $("hs-text")) {
-  const stageIn = stageSec.querySelector(".lp-in");
-  const stages = [...stageRow.querySelectorAll(".hs-stage")];
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)");
-  let current = 0;
-  const paint = (i) => {
-    current = i;
-    stages.forEach((b, k) => b.setAttribute("aria-pressed", String(k === i)));
-    $("hs-title").textContent = stages[i].dataset.title || "";
-    $("hs-text").textContent = stages[i].dataset.text || "";
-    const lbl = stages[i].querySelector(".hs-lbl");
-    if ($("hs-step") && lbl) $("hs-step").textContent = `${i + 1} of ${stages.length} \u00b7 ${lbl.textContent.trim()}`;
-    // The card's action follows the stage (owner, 2026-09-22): data-stage picks the aside (and,
-    // on the last stage, the links instead of the composer) in CSS; the placeholder comes off
-    // the lit button's data-ph so the words stay in the markup.
-    const card = $("hs-card");
-    if (card) {
-      card.dataset.stage = String(i);
-      const field = card.querySelector("input[type=url]");
-      if (field && stages[i].dataset.ph) field.placeholder = stages[i].dataset.ph;
+   WHY THE LISTENER IS ON THE BOX AND NOT ON THE DOCUMENT: creator.js's is on the
+   document, in the bubble phase. A listener on an ancestor nearer the target runs
+   first, so the field is filled before showGate() reads and focuses it. Nothing
+   here calls preventDefault — the gate's handler owns that — and with creator.js
+   absent or broken the email control and the sign-in line are still real links to
+   /?signup=1 and /, which work with JS off entirely.
+
+   ENTER MAY NOT RELOAD THE PAGE. There is no <form> around the field, so the
+   browser cannot implicitly submit it; Enter is routed to the same control by
+   hand instead, so the key still does the obvious thing. */
+const hxsBox = document.querySelector(".hxs");
+if (hxsBox) {
+  const mail = $("hxs-email");
+  /* The gate's fields are looked up at CLICK time, not now: on a page without the
+     gate (there is none today, but this file is shared) every one of these is
+     simply skipped and the plain hrefs still navigate. */
+  const carry = () => {
+    const to = $("email");
+    const v = mail && mail.value.trim();
+    if (to && v) to.value = v;
+  };
+  const toGoogle = () => {
+    const box = $("gate-oauth"), btn = $("oauth-google"), agree = $("agree");
+    if (!(box && btn && !box.hidden && !btn.hidden && !btn.disabled)) return;
+    if (agree && !agree.checked) {
+      agree.checked = true;
+      agree.dispatchEvent(new Event("change", { bubbles: true }));
     }
+    btn.click();
   };
-
-  const live = () => stageSec.classList.contains("hs-live");
-  // Where the run starts in the document, and how long it is. The sticky block
-  // begins holding when its own top reaches its CSS `top` offset, and lets go
-  // when the section's bottom catches it, so the run is the difference in
-  // their heights — measured, never assumed.
-  const span = () => {
-    const top = stageSec.getBoundingClientRect().top + scrollY;
-    const stick = parseFloat(getComputedStyle(stageIn).top) || 0;
-    return { start: top - stick, run: Math.max(1, stageSec.offsetHeight - stageIn.offsetHeight) };
-  };
-  const fromScroll = () => {
-    if (!live()) return;
-    const { start, run } = span();
-    const p = Math.min(Math.max((scrollY - start) / run, 0), 0.9999);
-    const i = Math.floor(p * stages.length);
-    if (i !== current) paint(i);
-  };
-  // Measured, not a magic px: the mode only makes sense when the whole block
-  // can be on screen at once. A landscape phone falls back to the plain row.
-  const setLive = () => {
-    stageSec.classList.toggle("hs-live", !reduce.matches && innerHeight >= stageIn.offsetHeight + 32);
-    fromScroll();
-  };
-  // Straight on the scroll event, not via requestAnimationFrame: a frame callback never runs in a
-  // tab that isn't painting, which froze the stage on the first one it missed. The work is one
-  // rect read and, only when the stage actually changes, four attribute writes.
-  addEventListener("scroll", fromScroll, { passive: true });
-  reduce.addEventListener("change", setLive);
-
-  const select = (i, focus) => {
-    if (i !== current) paint(i);
-    if (focus) stages[i].focus({ preventScroll: true });
-    if (!live()) {
-      // A SAFETY NET, NOT A MODE. The row is a plain grid at both widths today,
-      // so both of these are 0 and this does nothing. If it is ever given an
-      // overflow again, the chosen stage still gets put in view instead of
-      // being selected somewhere off the edge of its own container.
-      const y = stageRow.scrollHeight - stageRow.clientHeight;
-      const x = stageRow.scrollWidth - stageRow.clientWidth;
-      if (x > 0) stageRow.scrollLeft = stages[i].offsetLeft;
-      else if (y > 0) stageRow.scrollTop = stages[i].offsetTop;
-      return;
-    }
-    const { start, run } = span();
-    scrollTo({ top: start + run * (i + 0.5) / stages.length, behavior: reduce.matches ? "auto" : "smooth" });
-  };
-  stageRow.addEventListener("click", (e) => {
-    const i = stages.indexOf(e.target.closest(".hs-stage"));
-    if (i >= 0) select(i, false);
+  hxsBox.addEventListener("click", (e) => {
+    if (!e.target.closest("[data-gate]")) return;
+    carry();
+    // After creator.js's own handler has opened the gate and moved focus to #email.
+    if (e.target.closest("#hxs-google")) setTimeout(toGoogle, 0);
   });
-  stageRow.addEventListener("keydown", (e) => {
-    const i = stages.indexOf(e.target.closest(".hs-stage"));
-    if (i < 0) return;
-    const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: stages.length - 1 }[e.key];
-    if (to === undefined) return;
-    e.preventDefault();
-    select(Math.min(Math.max(to, 0), stages.length - 1), true);
-  });
-  // A resize can cross the breakpoint, change the run, or turn the mode off.
-  addEventListener("resize", setLive);
-  setLive();
+  if (mail) {
+    mail.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();              // no form to submit, but stop any UA default dead
+      $("hxs-go")?.click();            // the same control, so the same gate mode; carry() runs on it
+    });
+  }
 }
 
 /* THE HERO'S INTRO: THE BUDDY PICKS UP A WHISTLE, THEN A PENCIL (owner, 2026-09-22: "have lynxr
@@ -299,17 +258,20 @@ if (stageSec && stageRow && $("hs-title") && $("hs-text")) {
    reveal the coach part, its like a load animation" — then, on mockup H, "have the same
    animation we have now, but have it start with the content coach and then the script writing",
    so the two props swapped places and the reveal targets are now the ONE panel's two rows).
+   (A moving-buddy choreography — start top-left, write along each row — was built and then
+   withdrawn the same day, 2026-09-23: "just keep lynxr on the bottom corner with the animation
+   before the row thing". The buddy stays at rest in the card's bottom band throughout.)
    Same budget, one pass, ~1.8s end to end:
 
-     0.00s  a whistle arrives in the top-right hand; face -> coaching
+     0.00s  a whistle arrives in the buddy's hand; face -> coaching
      0.40s  the panel itself fades in, just ahead of its first row (never an empty glass box)
-     0.45s  the panel's COACH row follows: pill, headline, preview bubble, 52ms apart
-     0.90s  the whistle goes; 1.06s a pencil arrives in the lower-left hand; face -> writing
-     1.30s  the hairline and the panel's SCRIPT row follow, same stagger, last lands at 1.796s
+     0.45s  the panel's COACH row follows: pill, headline, "learn more", 52ms apart
+     0.90s  the whistle goes; 1.06s a pencil arrives; face -> writing
+     1.30s  the hairline and the panel's SCRIPT row follow, same stagger, last lands at 1.744s
      1.80s  prop down, face -> idle, and the ambient "alive" loop below takes over
 
-   The avatar doing all of this is the BIG BUDDY on the left, finished from frame 0 — it has to
-   be, it is the thing performing. It is the same .hx-seam host as before, moved and resized.
+   The avatar doing all of this is the BUDDY IN THE CARD'S BOTTOM BAND, complete from frame 0 —
+   it has to be, it is the thing performing. It is the same .hx-seam host it has always been.
 
    FOUR THINGS IT MAY NOT DO, worst first:
    1. (Was: play once per session. The owner wants it on EVERY load — see armHeroIntro — so the

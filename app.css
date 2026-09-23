@@ -2442,12 +2442,6 @@
   }
   .foot-link:hover { color: var(--text); border-bottom-color: var(--line-2); }
   a.foot-link { text-decoration: none; }
-  /* .rk carries `flex: none`, which only does anything inside a flex parent.
-     .btn is one and gives it an 8px gap; .foot-link is display:block, so when
-     the wait-list link moved into this footer the rocket ended up flush against
-     the label ("try it&#128640;"). Same 8px, stated as a margin because making
-     every footer link a flex container to space one glyph is the wrong trade. */
-  #site-footer .foot-link .rk, .site-footer .foot-link .rk { margin-left: 8px; }
   .foot-legal { padding-top: 22px; color: var(--text-3); font-size: var(--fs-125); }
   /* TWO columns on a phone, not one. At a single column the public footer was
      sixteen links in an unbroken vertical run — the owner's words were "clean
@@ -3976,22 +3970,10 @@
 
      .96em, not 1em: the emoji's own em box is taller than the Latin cap height
      it sits beside, so at 1em it stands a pixel proud of the label. */
-  .rk {
-    display: inline-block; flex: none; font-size: .96em; line-height: 1;
-    transform: translate(0, 0);
-    transition: transform .2s var(--ease);
-  }
-  .btn:hover .rk, .btn:focus-visible .rk,
-  .foot-link:hover .rk, .foot-link:focus-visible .rk {
-    transform: translate(2px, -3px);
-  }
   /* The guard sits in the same block as the rule it disables, per the motion
      policy — a guard 1,000 lines away is one that gets orphaned by the next
      edit. */
   @media (prefers-reduced-motion: reduce) {
-    .rk { transition: none; }
-    .btn:hover .rk, .btn:focus-visible .rk,
-    .foot-link:hover .rk, .foot-link:focus-visible .rk { transform: none; }
   }
 
   .home-alt { color: var(--text-3); font-size: var(--fs-13); border-bottom-color: var(--line); }
@@ -7297,55 +7279,50 @@
      about the hand's own origin, so the two move as one object: the pencil
      takes over the writing wiggle, the whistle takes over the coaching wave.
 
-     WHICH LIMB EACH ONE IS IN (owner, 2026-09-22, in three steps: "put the item
-     in the same limb for both", then "actually put the pencil on the bottom right
-     limb", then "put the whistle on the top right limb"). The four arms are the
-     same rect rotated about (60,62), so the class number says nothing about where
-     an arm lands — these were resolved by measuring the prop's PAINTED centre
-     against the avatar's, at 220px and at 96px:
-       PENCIL  .lx-a2, rotate(135deg) -> DOWN-RIGHT  (measured +44, +43 at 1280), EVERY width
-       WHISTLE .lx-a1, rotate(45deg)  -> UP-RIGHT    (measured +26, -28 at 1280), ABOVE 640px
-               .lx-a3, rotate(-135deg) -> DOWN-LEFT  (measured -26, +25 at 393), 640px AND UNDER
-     The pencil came from .lx-a3 and did not go back. The last line is the owner's
-     "for mobile have the pencil on the right bottom and whistle on the left
-     bottom limb"; the two whistle hands are two GROUPS in the markup (see the
-     note in avatar.js props()) and the two media queries below never overlap, so
-     neither has to un-apply the other.
-     EACH PROP'S MOTION RIDES ITS OWN ARM. The writing wiggle is already on
-     .lx-w2 — the pencil's arm — so the pencil's hold simply joins it. Above
-     640px the coaching wave is already on .lx-w1, the whistle's arm, so the
-     whistle's hold joins that; at 640 and under the wave has to move with it,
-     off .lx-w1 and onto .lx-w3, in ONE rule with the hold so the two start
-     together. Measured on the real intro, arm and hold sit at the same
-     animation currentTime to the millisecond, so neither prop can drift off
-     the hand holding it. */
+     BOTH PROPS ARE IN ONE HAND, AT EVERY WIDTH (owner, 2026-09-23: "put the
+     pencil and whistle on the left top limb"). The four arms are the same rect
+     rotated about (60,62), so the class number says nothing about where an arm
+     lands — which one is TOP-LEFT was resolved by measuring the painted arm's
+     centre against the avatar's, at the buddy's real sizes:
+       .lx-a0  rotate(-45deg)  -> UP-LEFT     (measured -24, -24 at 180px; -13, -13 at 96px)
+       .lx-a1  rotate(45deg)   -> UP-RIGHT
+       .lx-a2  rotate(135deg)  -> DOWN-RIGHT
+       .lx-a3  rotate(-135deg) -> DOWN-LEFT
+     So both props hold .lx-a0. Each keeps the outward tilt it had in the hand it
+     came from, carried over by the same symmetry as its artwork: the pencil's
+     .lx-a2 146deg (11deg clockwise of its 135deg rest) becomes -34deg (11deg
+     clockwise of -45), and the whistle's .lx-a1 30deg (15deg up from 45) becomes
+     -30deg (15deg up from -45). Only one prop class is ever set, so the two poses
+     for one arm cannot both apply.
+     THE PREVIOUS SPLIT IS GONE, NOT DISABLED: pencil bottom-right everywhere,
+     whistle top-right above 640px and bottom-left below it, with the whistle
+     drawn twice in the markup and two media queries picking one. One hand needs
+     one group and no media query, so the second group went with them.
+     THE MOTION MOVES WITH THEM. The writing wiggle lives on .lx-w2 and the
+     coaching wave on .lx-w1 for every other avatar on the site, and those stay;
+     when a prop is held, the loop is taken OFF that arm and put on .lx-w0 and on
+     the prop's .lx-hold in ONE rule, so arm and prop start together. Both wear
+     transform-origin 60px 62px, so they orbit the same point at the same
+     currentTime and the prop cannot drift off the hand. */
   .lx.lx-prop-pencil .lx-x-pencil { display: inline; }
-  .lx.lx-prop-pencil .lx-a2 { transform: rotate(146deg); }
+  .lx.lx-prop-pencil .lx-a0 { transform: rotate(-34deg); }
+  .lx.lx-prop-pencil[data-mood="writing"] .lx-w2 { animation: none; }
+  .lx.lx-prop-pencil[data-mood="writing"] .lx-w0,
   .lx.lx-prop-pencil[data-mood="writing"] .lx-x-pencil .lx-hold { animation: lx-wig .45s ease-in-out infinite alternate; }
+  .lx.lx-prop-whistle .lx-x-whistle { display: inline; }
+  .lx.lx-prop-whistle .lx-a0 { transform: rotate(-30deg); }
   .lx.lx-prop-whistle .lx-toot { animation: lx-toot .74s ease-out infinite; }
+  .lx.lx-prop-whistle[data-mood="coaching"] .lx-w1 { animation: none; }
+  .lx.lx-prop-whistle[data-mood="coaching"] .lx-w0,
+  .lx.lx-prop-whistle[data-mood="coaching"] .lx-x-whistle .lx-hold { animation: lx-wave-arm .6s ease-in-out infinite alternate; }
   /* The entrance grows the prop out of the hand end that holds it, never from
-     its own centre. The exit rules repeat the descendant so they out-specify
-     the entrance ones; transform-origin still comes from the rule above. */
-  .lx.lx-prop-pencil .lx-x-pencil .lx-pop { transform-origin: 75px 84px; animation: lx-prop-in .26s cubic-bezier(.22, 1.15, .36, 1) both; }
-  .lx.lx-prop-out .lx-x-pencil .lx-pop { animation: lx-prop-out .16s ease-in both; }
-  /* ---- the whistle's hand: top-right above 640px ---- */
-  @media (min-width: 641px) {
-    .lx.lx-prop-whistle .lx-x-whistle { display: inline; }
-    .lx.lx-prop-whistle .lx-a1 { transform: rotate(30deg); }
-    .lx.lx-prop-whistle[data-mood="coaching"] .lx-x-whistle .lx-hold { animation: lx-wave-arm .6s ease-in-out infinite alternate; }
-    .lx.lx-prop-whistle .lx-x-whistle .lx-pop { transform-origin: 72px 30px; animation: lx-prop-in .26s cubic-bezier(.22, 1.15, .36, 1) both; }
-    .lx.lx-prop-out .lx-x-whistle .lx-pop { animation: lx-prop-out .16s ease-in both; }
-  }
-  /* ---- ...and bottom-left at 640px and under ---- */
-  @media (max-width: 640px) {
-    .lx.lx-prop-whistle .lx-x-whistle-lo { display: inline; }
-    .lx.lx-prop-whistle .lx-a3 { transform: rotate(-146deg); }
-    .lx.lx-prop-whistle[data-mood="coaching"] .lx-w1 { animation: none; }
-    .lx.lx-prop-whistle[data-mood="coaching"] .lx-w3,
-    .lx.lx-prop-whistle[data-mood="coaching"] .lx-x-whistle-lo .lx-hold { animation: lx-wave-arm .6s ease-in-out infinite alternate; }
-    .lx.lx-prop-whistle .lx-x-whistle-lo .lx-pop { transform-origin: 45px 90px; animation: lx-prop-in .26s cubic-bezier(.22, 1.15, .36, 1) both; }
-    .lx.lx-prop-out .lx-x-whistle-lo .lx-pop { animation: lx-prop-out .16s ease-in both; }
-  }
+     its own centre — the two origins are the same points the old bottom-right /
+     top-right ones were, carried across by the same symmetry as the artwork. The
+     exit rule repeats the descendant so it out-specifies the entrance ones;
+     transform-origin still comes from the rules above. */
+  .lx.lx-prop-pencil .lx-x-pencil .lx-pop { transform-origin: 45px 40px; animation: lx-prop-in .26s cubic-bezier(.22, 1.15, .36, 1) both; }
+  .lx.lx-prop-whistle .lx-x-whistle .lx-pop { transform-origin: 48px 30px; animation: lx-prop-in .26s cubic-bezier(.22, 1.15, .36, 1) both; }
+  .lx.lx-prop-out :is(.lx-x-pencil, .lx-x-whistle) .lx-pop { animation: lx-prop-out .16s ease-in both; }
   @keyframes lx-prop-in { from { opacity: 0; transform: scale(.45) rotate(-20deg); } to { opacity: 1; transform: none; } }
   @keyframes lx-prop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.5) rotate(16deg); } }
   @keyframes lx-toot { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
@@ -7453,14 +7430,10 @@
      pill's true centre: equal side tracks, insets as item margins. */
   .lp-bar .wordmark { margin-left: 20px; }
   .lp-nav { gap: clamp(22px, 2.5vw, 32px); }
-  .lp-bar .lp-actions > .btn {
-    height: 32px; margin-right: 5px;
-    background: var(--surface-flat); color: var(--text);
-    border: 1px solid var(--line-2); font-weight: 700;
-  }
-  /* Not .btn's opacity fade: fading an outlined label lowers its contrast.
-     The edge darkens instead. (0,4,0) also beats `a:hover`'s border colour. */
-  .lp-bar .lp-actions > .btn:hover:not(:disabled) { opacity: 1; border-color: var(--text-3); }
+  /* ONE ACTION STYLE (owner, 2026-09-23: "make all action buttons the same color and style so people
+     can recognize it easily"). This used to be a white, outlined pill; now it is .btn's own ink fill
+     like every other action on the site, only sized for the bar. */
+  .lp-bar .lp-actions > .btn { height: 32px; margin-right: 5px; font-weight: 700; }
   .lp-bar .theme-toggle:focus-visible { outline-color: var(--focus-ring); }
   @media (max-width: 760px) {
     .lp-bar-in, body.home .lp-bar-in { min-height: 56px; }
@@ -7825,7 +7798,8 @@
     body.home .lp-feat:hover .lp-feat-ico { transform: rotate(-8deg) scale(1.08); }
     body.home .lp-feat .lp-feat-ico { transition: transform .5s var(--spring); }
     :is(.btn, .composer-send) { transition: transform .35s var(--spring), background-color .2s ease, border-color .2s ease; }
-    :is(.btn, .composer-send):hover { transform: scale(1.05); }
+    /* No hover grow on actions (owner, 2026-09-23: "for buttons, no need to make them bigger"); the
+       press-down below stays as feedback. */
     :is(.btn, .composer-send):active { transform: scale(.96); }
   }
 
@@ -10214,19 +10188,63 @@
   body.home .lp-plans-fine a { color: var(--text); border-bottom: 1px solid var(--line-2); text-decoration: none; white-space: nowrap; }
   body.home .lp-plans-fine a:hover { border-bottom-color: var(--text-2); }
   @media (max-width: 560px) { :is(body.home, .pane-body) .lp-plan { padding: 24px 20px 22px; } }
+  /* PHONE: the plan cards match the hero panel's measure (owner, 2026-09-23: "have the bottom tier
+     subscription options the same width as the box above"). The hero panel sits 20px in from each
+     edge; .lp-in gives this section 10px, so the list takes the other 10px itself. Measured before:
+     panel x=20 w=353, cards x=10 w=373 at 393px. */
+  @media (max-width: 640px) { body.home .lp-plans { padding-inline: 10px; box-sizing: border-box; } }
+  /* THE PLAN CARD, REFERENCE LAYOUT (owner, 2026-09-23). Mark, name, tagline, price, note, a full-width
+     action, the commitment line, a rule, then the checked list. The lynxr mark is a live avatar
+     ([data-lx-mood], avatar.js renders it) in a different mood per plan: idle / writing / coaching. */
+  body.home .lp-plan { display: flex; flex-direction: column; }
+  body.home .lp-plan-ico { display: block; width: 36px; height: 36px; margin-bottom: 14px; }
+  body.home .lp-plan-ico .lx { display: block; width: 100%; height: 100%; overflow: visible; }
+  body.home .lp-plan-tag { margin: 2px 0 14px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+  body.home .lp-plan-cta, body.home .lp-plan-off { align-self: stretch; margin-top: 16px; text-align: center; }
+  body.home .lp-plan-note { margin: 8px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-align: center; }
+  body.home .lp-plan-hr { border: 0; height: 1px; background: var(--line); margin: 18px 0 14px; }
+  body.home .lp-plan-plus { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--text); }
+  /* border-top: 0 -- the list used to draw its own top rule; .lp-plan-hr draws it now, and both
+     together painted a doubled line (seen on the phone capture). */
+  body.home .lp-plan .lp-plan-list { list-style: none; margin: 0; padding: 0; border-top: 0; }
+  body.home .lp-plan .lp-plan-list li { position: relative; padding-left: 26px; }
+  body.home .lp-plan .lp-plan-list li::before {
+    content: ""; position: absolute; left: 2px; top: .55em; width: 10px; height: 5px;
+    border-left: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(-45deg);
+    background: none; border-radius: 0;
+  }
+  /* PHONE: the footer card takes the same measure as the hero panel and the plan cards (owner,
+     2026-09-23: "same thing with the footer"). The footer IS the card (#site-footer carries the
+     glass, the radius and a 10px inline margin); on the landing it gets the panel's 20px. */
+  @media (max-width: 640px) {
+    /* Specificity matters here: `body.home #lp-main > #site-footer` (further down) sets auto inline
+       margins and a max-width, and a plain `body.home #site-footer` loses to it -- measured: the
+       footer stayed at 10px each side. Same selector, later in the file, explicit margins, no cap. */
+    body.home #lp-main > #site-footer { margin-inline: 20px; max-width: none; width: auto; }
+  }
 
-  /* ================= THE BUDDY HERO + STAGE PICKER (landing, 2026-09-22) =================
-     The owner-approved mockup (H-desktop / H-phone; before it, Home.dc.html's split hero),
-     translated from its inline styles into classes:
-     `style-src 'self'` would drop every one of them. Everything here is scoped to NEW class
-     names (.hx-*, .hs-*) that only index.html wears, under body.home where it touches a shared
-     class (.lp-composer, .lp-in), so /pricing/, /faq/ and the rest cannot move. #lp-main is
-     removed on sign-in (enterApp in creator.js), so both sections go with it.
+  /* ================= THE BUDDY HERO (landing) =================
+     2026-09-23, the owner in three passes: "new design for the landing page, put this lynxr on
+     the bottom right and then have the info above be a speech bubble or something — where the
+     lynxr was, put a sign up box", then "put lynxr inside the box with the info above it", then,
+     on a claude.ai sign-in card as the reference for the box, "but in our styling". Against
+     mockup H that stood here before it:
+       LEFT  = the same headline, and a SIGN-UP BOX (.hxs) where the buddy used to stand;
+       RIGHT = the same one glass panel — coach row, hairline, script row — with the BUDDY
+               (.hx-seam, the unchanged host) in a band at the BOTTOM OF THE SAME CARD,
+               right-aligned, ~180px. The speech-bubble tail of the pass between the two is
+               gone with it: inside the card there is nothing for a tail to point at.
+     The stage picker that shared this block moved to /how-it-works/ the same day; its .hs-*
+     rules are further down under body.hiw and nothing .hs-* is left here.
+     Everything is scoped to NEW class names (.hx-*, .hxs-*) that only index.html wears, under
+     body.home where it touches a shared class (.lp-composer, .btn), so /pricing/, /faq/ and the
+     rest cannot move. #lp-main is removed on sign-in (enterApp in creator.js), so the hero goes
+     with it.
 
      COLOURS: the mockup's values are the LIGHT tokens below; dark gets a deliberate deep-violet
      equivalent (dormant while theme.js forces light, but it must not break if dark returns).
      Text sits on --text / --text-2 / --text-3, so contrast follows the palette's own gates. */
-  body.home .hx, body.home .hs {
+  body.home .hx {
     --hx-w0: rgba(74, 43, 176, 0);
     --hx-w1: rgba(74, 43, 176, .26);
     --hx-w2: rgba(90, 47, 214, .36);
@@ -10243,23 +10261,8 @@
        6.81:1, and the bubble's ink on it 13.23:1. */
     --hx-soon-bg: color-mix(in srgb, var(--hx-soon-t) 12%, transparent);
     --hx-seam-shadow: rgba(0, 0, 0, .5);
-    --hs-on-bg: var(--surface-flat);
-    --hs-on-edge: var(--line-2);
-    --hs-on-shadow: 0 18px 36px -22px rgba(0, 0, 0, .8);
-    --hs-dot-off: rgba(255, 255, 255, .24);
-    --hs-dot-on: #9d86ff;
-    --hs-dot-ring: rgba(157, 134, 255, .25);
-    --hs-track-o: .6;
   }
-  /* The STAGE PICKER's card keeps the original white-card recipe, which is why these three are
-     on .hs and not on .hx any more: the hero's panel now paints the signed-in app's --gl-* glass
-     (see .hx-panel), and two glass recipes in one hero is what this split prevents. */
-  body.home .hs {
-    --hx-card: var(--surface);
-    --hx-card-edge: var(--line-2);
-    --hx-card-shadow: var(--shadow-card);
-  }
-  html[data-theme="light"] body.home :is(.hx, .hs) {
+  html[data-theme="light"] body.home .hx {
     --hx-w0: rgba(237, 230, 255, 0);
     --hx-w1: rgba(237, 230, 255, .75);
     --hx-w2: rgba(233, 224, 255, .95);
@@ -10268,18 +10271,6 @@
     --hx-live-bg: rgba(225, 241, 231, .96);   /* the mockup's .9 measured 4.54:1 over the phone's pink backdrop */
     --hx-soon-t: #4a2bb0;
     --hx-seam-shadow: rgba(70, 30, 100, .3);
-    --hs-on-bg: #ffffff;
-    --hs-on-edge: rgba(20, 18, 43, .14);
-    --hs-on-shadow: 0 18px 36px -22px rgba(70, 30, 100, .5);
-    --hs-dot-off: #d9cdef;
-    --hs-dot-on: #5a2fd6;
-    --hs-dot-ring: rgba(90, 47, 214, .16);
-    --hs-track-o: .45;
-  }
-  html[data-theme="light"] body.home .hs {
-    --hx-card: rgba(255, 255, 255, .82);
-    --hx-card-edge: rgba(255, 255, 255, .95);
-    --hx-card-shadow: 0 24px 50px -32px rgba(70, 30, 100, .45);
   }
 
   /* ---- the split: the buddy on the left, ONE panel on the right ---- */
@@ -10295,7 +10286,8 @@
      THE COMPOSITION IS CAPPED AND CENTRED, and the two sides are a FIXED GAP apart (owner, on a
      ~2000px window: "right now the spacing between the logo and the info on the right is too
      spaced out" — the buddy was on the left wall and the panel on the right one with the whole
-     middle empty). The composition is 440 of buddy + --hx-gap + 560 of panel, and --hx-out is
+     middle empty). The composition is 540 of buddy + --hx-gap + 540 of panel (re-cut 2026-09-23 for the
+     headline "what's next, creator?": 466px at 50px, which the old 400px column wrapped), and --hx-out is
      whatever is left over, halved, so it is CENTRED rather than pushed to the two walls; below
      that it falls back to the nav pill's own small clamp. The tracks are 44fr / 56fr, not
      1fr / 1fr, because the panel's 560 and the buddy's 440 are not the same number and equal
@@ -10327,15 +10319,26 @@
      the same number. */
   body.home .hx {
     --hx-bar-h: 55px;
+    /* The buddy's size, and how far his box sits in from the card's right edge. Named, because
+       the band's padding and the phone override both read them. */
+    --hx-buddy: clamp(120px, 14vw, 180px);
+    --hx-buddy-r: 16px;
     --hx-gap: clamp(36px, 6.3vw, 80px);
-    --hx-out: max(clamp(24px, 3vw, 40px), calc((100vw - 1000px - var(--hx-gap)) / 2));
+    --hx-out: max(clamp(24px, 3vw, 40px), calc((100vw - 1080px - var(--hx-gap)) / 2));
     --hx-in: calc(var(--hx-gap) / 2);
     position: relative; isolation: isolate;
     display: grid;
-    grid-template-columns: var(--hx-out) minmax(0, 44fr) minmax(0, 56fr) var(--hx-out);
+    grid-template-columns: var(--hx-out) minmax(0, 50fr) minmax(0, 50fr) var(--hx-out);
     min-height: max(480px, calc(100svh - var(--hx-bar-h)));
   }
   @media (max-width: 760px) { body.home .hx { --hx-bar-h: 67px; } }
+  /* The ">=1240px: the headline gets its own width" override that used to live here is GONE
+     (2026-09-23). It existed for the 28-character "every creator's second brain" (656px at 52px),
+     which could not sit on one line inside the 44fr track at 1280, and it made the panel
+     non-monotonic (560px at 1239, 492px at 1240). The headline is now the three-word "your
+     second brain" (~350px), which fits the base track at every desktop width, so the panel is
+     560px flat from 1280 up again. If a long headline ever returns, widen the track — do not
+     bring back a stepped breakpoint. */
   /* The lavender: transparent to 30% of the width, full by ~60%, faded out at the top (so the
      bar's zone has no horizontal edge) and the bottom (so the next section has none either). */
   body.home .hx-wash {
@@ -10358,11 +10361,24 @@
      A mono caption and a supporting line lived here until the owner cut both at every width.
      Source order is avatar, then headline; the phone block reverses the column so the words
      come first and the buddy drops onto the panel's edge. */
+  /* CENTRED, at every width (owner, 2026-09-23: "center this"). The column is its whole track, so
+     centring its items centres them on the left half's own centre line; the card keeps its 420px
+     width and the controls inside it stay full-width — only the alignment moved. */
   body.home .hx-col {
     /* No max-width: the column IS its track, which is (1200 - gap) / 2. That makes its left edge
        the composition's left edge and its right edge the gap, at the same time. */
     width: 100%; min-width: 0; overflow-wrap: anywhere;
-    display: flex; flex-direction: column; align-items: flex-start; gap: 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+  }
+  /* .hx-l, not .hx-h: the panel's two headings wear .hx-h too, and centring them centres the
+     whole card (caught in a screenshot once, not in the rule). */
+  body.home .hx-l .hx-h { text-align: center; }
+  /* The demoted headline, under the h1 (owner, 2026-09-23). It sits in the h1's own 18px column
+     gap rather than adding a third: -8px pulls it to a 10px reading gap under the line it
+     belongs to, and the gap to the card below is unchanged. */
+  body.home .hx-sub {
+    margin: -8px 0 0; max-width: 42ch; text-align: center;
+    font-size: 18px; line-height: 1.45; color: var(--text-2); text-wrap: balance;
   }
 
 
@@ -10378,11 +10394,77 @@
      tracked, a dash before it), so every one of those is undone here. */
   body.home .hx-h {
     display: block; margin: 0; color: var(--text);
-    font-family: var(--font-display); font-size: clamp(30px, 4.2vw, 52px); font-weight: 800;
+    font-family: var(--font-display); font-size: clamp(30px, 4vw, 50px); font-weight: 800;
     line-height: 1.02; letter-spacing: -.025em; text-wrap: balance;
   }
   body.home .hx-h2 { font-size: clamp(21px, 2.35vw, 30px); line-height: 1.1; letter-spacing: -.02em; }
   body.home .hx-h::before { display: none; }
+
+  /* ---- THE SIGN-UP BOX (.hxs), left half, under the headline ----
+     STRUCTURE from the owner's reference (a claude.ai sign-in card): provider button, an "or"
+     divider, the email field, the primary button, a consent line. LOOK from here and nowhere
+     else (owner: "but in our styling") — the signed-in app's --gl-* glass, the display/UI faces
+     already on the page, pill radius on every control, the ink .btn for the primary, and the
+     house lowercase left alone except on the one string Google mandates the wording of.
+     NOTHING IN HERE IS ANIMATED. The intro only touches .hx-row children; this box is on screen
+     at frame 0 and never moves, because it is the thing that converts.
+     NO AUTH LIVES HERE. Every control is a [data-gate] control creator.js already delegates to
+     the real gate; home.js only carries the typed address across and hands "continue with
+     Google" to the gate's own Google button. */
+  body.home .hxs {
+    width: 100%; max-width: 420px; box-sizing: border-box;
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 20px 20px 18px; border-radius: 24px;
+    background: var(--gl-fill);
+    -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+    border: 1px solid var(--gl-edge);
+    box-shadow: var(--gl-shadow);
+  }
+  body.home .hxs-lbl { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.4; color: var(--text-3); text-align: center; }
+  /* The provider button. Google's own brand rules own its face (white ground, #747775 hairline,
+     #1f1f1f ink, an 18px mark, and the radius is ours) — the same recipe as .oauth-btn.g in the
+     gate, restated rather than shared so a change to one cannot silently redraw the other. */
+  /* Google's own light button, as it was before the one-action-style pass (owner, 2026-09-23:
+     "keep the google one the way it was"): white, Google's #747775 hairline, their 18px mark bare.
+     The one deliberate exception to "every action is the ink pill" -- it is a provider button and
+     follows the provider's spec, same as the gate's own #oauth-google. */
+  body.home .hxs-oauth {
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 46px;
+    padding: 0 16px; border-radius: var(--r-pill); background: #fff; color: #1f1f1f;
+    border: 1px solid #747775; font-size: var(--fs-15); font-weight: 500; transition: opacity .12s;
+  }
+  body.home .hxs-oauth:hover { opacity: .92; }
+  body.home .hxs-oauth img { width: 18px; height: 18px; flex: none; display: block; }
+  body.home .hxs-oauth img { width: 18px; height: 18px; flex: none; display: block; }
+  /* The divider. Rules are pseudo-elements, so "or" stays a real word for a screen reader. */
+  body.home .hxs-or {
+    display: flex; align-items: center; gap: 12px; margin: 2px 0;
+    font-family: var(--mono); font-size: 12px; color: var(--text-3);
+  }
+  body.home .hxs-or::before, body.home .hxs-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  /* The field takes the hero composer's own paint, so the two read as one family. LITERAL 16px:
+     anything smaller makes iOS Safari zoom the page in on focus and never zoom back out. */
+  body.home .hxs-mail {
+    width: 100%; min-height: 46px; padding: 0 16px; box-sizing: border-box;
+    background: var(--field-input); border: 1px solid var(--field-input-edge);
+    border-radius: var(--r-pill); color: var(--text); font-size: 16px;
+    box-shadow: inset 0 1px 3px var(--field-input-inset);
+  }
+  body.home .hxs-mail::placeholder { color: var(--text-3); }
+  /* The border moves; the visible focus ring is the sitewide :focus-visible outline, which this
+     must not cancel. */
+  body.home .hxs-mail:focus { border-color: var(--focus-ring); }
+  body.home .hxs-go {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 100%; min-height: 46px; padding: 11px 18px; box-sizing: border-box;
+    text-align: center; text-decoration: none;
+  }
+  body.home .hxs-fine { margin: 2px 0 0; font-size: 12px; line-height: 1.55; color: var(--text-3); text-align: center; }
+  body.home .hxs-fine a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+  body.home .hxs-fine a:hover { color: var(--text); }
+  body.home .hxs-alt { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-3); text-align: center; }
+  body.home .hxs-in { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+  body.home .hxs-in:hover { border-bottom-color: var(--text-2); }
 
   /* ---- THE PANEL (right): ONE card, two rows, one hairline ----
      Owner, on seeing mockup H: "make the white box follow the glass morphism look thats in the
@@ -10422,14 +10504,6 @@
   /* The coach preview, INSIDE the panel: a label row and a tinted bubble, not a second card
      (owner: "make it look like one thing"). --hx-soon-bg is the pill's tint, so the two read as
      one voice. It is never hidden and never unlabelled: the coach is not built. */
-  body.home .hx-coach { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-  body.home .hx-coach-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  body.home .hx-coach-av { display: block; width: 22px; height: 22px; flex: none; }
-  body.home .hx-coach-lbl { font-family: var(--mono); font-size: 12px; color: var(--text-3); }
-  body.home .hx-coach-msg {
-    margin: 0; padding: 12px 14px; border-radius: 16px; background: var(--hx-soon-bg);
-    font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--text);
-  }
 
   /* ---- THE INTRO'S REVEALS (home.js adds .hx-anim — read the block there) ----
      THE DEFAULT IS THE FINISHED HERO. Every rule here is under .hx-anim, which script adds
@@ -10437,14 +10511,23 @@
      applies and the whole hero is simply on screen. Removing the class IS the snap to the end
      state, which is what any touch of the hero does.
      THE ORDER IS THE COACH FIRST, THEN THE SCRIPT (owner, mockup H: "have it start with the
-     content coach and then the script writing"), and the avatar doing it is the big buddy on the
-     left, which is finished from frame 0 — it has to be, it is the thing performing. The panel
-     arrives just before its first row so the fold never holds an empty glass box.
+     content coach and then the script writing"), and the avatar doing it is the buddy in the
+     card's bottom band, which is finished from frame 0 — it has to be, it is the thing
+     performing. THE PANEL ITSELF IS THEREFORE NOT ANIMATED ANY MORE: it used to fade in at
+     0.40s, just ahead of its first row, but since the owner moved the buddy INSIDE it (2026-09-23)
+     a fade on the panel would fade the performer with it — a parent's opacity cannot spare a
+     child. So the glass and the buddy are there from the first frame and the ROWS arrive into
+     them, which is also why the fold never holds an empty glass box.
      OPACITY AND A 7px RISE ONLY: nothing here can move a box. The composer is the exception that
      proves it — it fades with no rise at all, because it is live from the first frame and the
      thing people click may not slide under the pointer. `both` holds the first frame through the
      delay and the last one after, so even a dropped timer ends on a finished hero. */
-  body.home .hx.hx-anim .hx-panel { animation: hx-fade .34s ease both; animation-delay: .4s; }
+  /* "learn more →" in the coach row: the outlined pill, sized like the sign-up card's controls,
+     hugging its text (align-self) so it does not stretch across the row like the old bubble. */
+  body.home .hx-learn {
+    align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px;
+    border-radius: 999px; font-size: 15px; font-weight: 600; text-decoration: none;
+  }
   body.home .hx.hx-anim .hx-row > * { animation: hx-rise .34s cubic-bezier(.2, .82, .25, 1) both; }
   body.home .hx.hx-anim .hx-row-coach > :nth-child(1) { animation-delay: .45s; }
   body.home .hx.hx-anim .hx-row-coach > :nth-child(2) { animation-delay: .502s; }
@@ -10457,20 +10540,29 @@
   body.home .hx.hx-anim .hx-row-script > .lp-composer { animation-name: hx-fade; animation-delay: 1.404s; }
   @keyframes hx-rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
   @keyframes hx-fade { from { opacity: 0; } to { opacity: 1; } }
-  /* Belt and braces: home.js never adds the class under reduced motion, and if it somehow did,
-     there is still no animation — the hero is finished, immediately. */
+
   @media (prefers-reduced-motion: reduce) {
-    body.home .hx.hx-anim :is(.hx-panel, .hx-rule, .hx-row > *) { animation: none; }
+    body.home .hx.hx-anim :is(.hx-rule, .hx-row > *) { animation: none; }
   }
 
-  /* THE BUDDY HIMSELF. Live (avatar.js renders the span), never a picture, and the same host
-     element the intro and avatar.js have always driven — moved out of the old absolute seam
-     between two halves and into the left column, at mockup H's 220px. */
+  /* THE BUDDY HIMSELF, NOW AT THE BOTTOM OF THE CARD (owner, 2026-09-23: "put this lynxr on the
+     bottom right", then "put lynxr inside the box with the info above it"). Live (avatar.js
+     renders the span), never a picture, and the SAME host element the intro and avatar.js have
+     always driven — moved, never replaced, so lynxrProp / lynxrMood / HX.hand and the limb media
+     queries (pencil bottom-right everywhere, whistle top-right above 640px and bottom-left below
+     it — all of them on plain .lx, never scoped here) keep working.
+     ITS OWN BAND, not a .hx-row: .hx-row > * is what the intro animates, and this one may never
+     be hidden — it is the performer. Being a real row of the card also means its height is in
+     the panel's layout from frame 0, so no beat of the intro can shift the card. */
+  body.home .hx-buddy {
+    display: flex; justify-content: flex-end; align-items: flex-end;
+    min-width: 0; padding: 0 var(--hx-buddy-r) 10px;
+  }
   body.home .hx-seam {
     display: block; flex: none; pointer-events: none;
-    width: clamp(128px, 18vw, 220px); height: clamp(128px, 18vw, 220px);
+    width: var(--hx-buddy); height: var(--hx-buddy);
   }
-  body.home :is(.hx-seam, .hx-coach-av, .hs-av) .lx { display: block; width: 100%; height: 100%; overflow: visible; }
+  body.home .hx-seam .lx { display: block; width: 100%; height: 100%; overflow: visible; }
   body.home .hx-seam .lx { filter: drop-shadow(0 24px 40px var(--hx-seam-shadow)); }
 
   /* A NARROW DESKTOP / TABLET: the vertical ink only. The horizontal measure is the continuous
@@ -10485,9 +10577,9 @@
     body.home .hx-row { padding: 20px 20px 22px; }
     body.home .hx-rule { margin: 0 20px; }
   }
-  /* A PHONE (mockup H-phone). The two halves stack, and up top the avatar and the words share a
-     ROW — 96px of buddy beside his own caption and headline — so the fold is not three quarters
-     mascot before the panel begins. The panel is the same one shape, at its own smaller padding.
+  /* A PHONE. The two halves stack: headline, then the SIGN-UP BOX, then the panel with the buddy
+     at the bottom of it. The panel is the same one shape, at its own smaller padding, and the
+     buddy drops to 96px so the card's bottom band cannot push the composer off the fold.
      The hero still centres itself in the fold the way the desktop does (the desktop rule's
      expression without its 480px floor, since a phone shorter than its own content should just
      grow). Tablets and up keep the split. The paste field keeps 16px type (iOS zooms below it). */
@@ -10505,25 +10597,26 @@
     body.home :is(.hx-l, .hx-r) { grid-column: 1; }
     body.home .hx-l { padding: 28px 20px 18px; }
     body.home .hx-r { padding: 0 20px 28px; }
-    /* HEADLINE, THEN THE BUDDY, THEN THE PANEL — three clear bands. column-reverse puts the
-       words at the top of the fold and the buddy under them, centred, and the buddy stops ABOVE
-       the panel: nothing of the character crosses the panel's top edge (owner: "dont have the
-       logo cover the box" — an earlier pass overhung it by 48px). The clearance is .hx-l's own
-       bottom padding, so the wash keeps showing between them. */
-    body.home .hx-col {
-      max-width: none; gap: 14px; flex-direction: column-reverse; align-items: center;
-    }
-    body.home .hx-seam { width: 96px; height: 96px; }
+    /* HEADLINE, THEN THE SIGN-UP BOX, THEN THE PANEL. Source order already reads that way, so
+       there is no column-reverse here any more (there was, while the buddy was the second thing
+       in this column and had to be drawn under the words). The box centres itself and keeps its
+       420px cap, so a 320px phone gets 20px of air each side and nothing overflows. */
+    body.home .hx-col { max-width: none; gap: 14px; }
+    /* NO SIGN-UP CARD ON A PHONE (owner, 2026-09-23, on a screenshot of this column: "remove
+       this on mobile"). The headline and its subline stay; the sign-up path here is the bar's
+       "get started" pill and the panel's composer, both of which open the same gate. It is
+       display:none rather than removed from the markup, so the desktop keeps it and the element
+       leaves the tab order entirely on a phone. Nothing in the intro touches it. */
+    body.home .hxs { display: none; }
+    body.home .hx { --hx-buddy: 96px; --hx-buddy-r: 12px; }
     body.home .hx-seam .lx { filter: drop-shadow(0 16px 26px var(--hx-seam-shadow)); }
-    /* .hx-l, not .hx-h: the panel's two headings wear .hx-h too, and centring them centred
-       the whole card (caught in a screenshot, not in the rule). */
     body.home .hx-h { font-size: 30px; line-height: 1.04; }
-    body.home .hx-l .hx-h { text-align: center; }
+    body.home .hx-sub { font-size: 16px; margin-top: -4px; }
     body.home .hx-h2 { font-size: 22px; }
     body.home .hx-panel { max-width: none; }
     body.home .hx-row { padding: 18px 18px 20px; }
     body.home .hx-rule { margin: 0 18px; }
-    body.home .hx-coach-msg { font-size: 15px; }
+    body.home .hx-buddy { padding-bottom: 6px; }
     /* LITERAL 16px, never a token — the same iOS zoom trap documented at the 820px
        block above. That rule (`.composer-row input`) is one class; `.lp-composer
        .composer-row input` is two, so it outranks it whatever the media query, and
@@ -10540,51 +10633,95 @@
     }
   }
 
-  /* ---- for any creator, at any stage ---- */
-  body.home #lp-main > .hs > .lp-in { width: min(960px, var(--pub-col)); }
-  body.home .hs { --hs-gap: 12px; --hs-pb: 14px; }
-  body.home .hs-h { text-align: center; margin: 0 0 32px; text-wrap: balance; }
-  body.home .hs-row {
+  /* ================= FOR ANY CREATOR, AT ANY STAGE (the stage picker) =================
+     IT LIVES ON /how-it-works/ AND /how-it-works/coach/, not on the landing (owner,
+     2026-09-23: "put this section in the how it works section" / "no need for it on the main
+     landing page", then "have that stay there for both script and coach"). It replaced those
+     pages' own hero block and carries each page's <h1>. Everything is therefore scoped to
+     body.hiw — NOTHING .hs-* may go back under the landing's body class — and the parent is the
+     page's `main.hiw-main`, never `#lp-main`, which does not exist on either page. picker.js
+     drives it; that file and this block are the whole feature.
+     The tokens below are the picker's own; the hero's --hx-* stayed with the hero above. */
+  body.hiw .hs {
+    --hs-on-bg: var(--surface-flat);
+    --hs-on-edge: var(--line-2);
+    --hs-on-shadow: 0 18px 36px -22px rgba(0, 0, 0, .8);
+    --hs-dot-off: rgba(255, 255, 255, .24);
+    --hs-dot-on: #9d86ff;
+    --hs-dot-ring: rgba(157, 134, 255, .25);
+    --hs-track-o: .6;
+    /* The card's old white-card recipe. Unused since it went glass (--gl-*) on 2026-09-23;
+       kept with the block it belongs to rather than left behind on the landing. */
+    --hx-card: var(--surface);
+    --hx-card-edge: var(--line-2);
+    --hx-card-shadow: var(--shadow-card);
+  }
+  html[data-theme="light"] body.hiw .hs {
+    --hs-on-bg: #ffffff;
+    --hs-on-edge: rgba(20, 18, 43, .14);
+    --hs-on-shadow: 0 18px 36px -22px rgba(70, 30, 100, .5);
+    --hs-dot-off: #d9cdef;
+    --hs-dot-on: #5a2fd6;
+    --hs-dot-ring: rgba(90, 47, 214, .16);
+    --hs-track-o: .45;
+    --hx-card: rgba(255, 255, 255, .82);
+    --hx-card-edge: rgba(255, 255, 255, .95);
+    --hx-card-shadow: 0 24px 50px -32px rgba(70, 30, 100, .45);
+  }
+  /* FIRST THING UNDER THE BAR, so main.hiw-main's own padding-top is the inset above it. Its
+     column is narrower than the page's 1040 on purpose. */
+  body.hiw .hs { padding: 8px 0 0; --hs-gap: 12px; --hs-pb: 14px; }
+  body.hiw .hs > .lp-in { width: min(960px, 100%); margin-inline: auto; box-sizing: border-box; }
+  /* THE PAGE'S <h1>. It was an <h2> wearing .lp-h2 on the landing; the hero block it replaced
+     held each page's only other one, so it takes the size that block's .hiw-h1 had and restates
+     every heading declaration rather than borrowing a landing class. */
+  body.hiw .hs-h {
+    display: block; margin: 0 0 32px; max-width: none; color: var(--text);
+    font-family: var(--font-display); font-size: clamp(30px, 4.4vw, 50px); font-weight: 800;
+    line-height: 1.04; letter-spacing: -.032em; text-align: center; text-wrap: balance;
+  }
+  body.hiw .hs-h::before { display: none; }
+  body.hiw .hs-row {
     position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--hs-gap);
   }
   /* THE TRACK runs dot to dot, at dot height — below every label, so it can never cross an
      avatar (owner rejected that). Its ends are the first and last column centres. */
-  body.home .hs-track {
+  body.hiw .hs-track {
     position: absolute; z-index: 0; height: 3px; border-radius: 99px; pointer-events: none;
     left: calc((100% - 3 * var(--hs-gap)) / 8); right: calc((100% - 3 * var(--hs-gap)) / 8);
     bottom: calc(var(--hs-pb) + 5.5px);
     background: linear-gradient(90deg, #ffb38a, #ff7eb8 55%, #7b61ff); opacity: var(--hs-track-o);
   }
-  body.home .hs-stage {
+  body.hiw .hs-stage {
     position: relative; z-index: 1; min-width: 0; margin: 0;
     display: flex; flex-direction: column; align-items: center; gap: 10px;
     padding: 14px 10px var(--hs-pb); border-radius: 22px;
     border: 1px solid transparent; background: transparent; box-shadow: none; color: var(--text);
     transition: background-color .2s, border-color .2s, box-shadow .2s;
   }
-  body.home .hs-stage[aria-pressed="true"] {
+  body.hiw .hs-stage[aria-pressed="true"] {
     background: var(--gl-fill); border-color: var(--gl-edge); box-shadow: var(--gl-shadow);
     -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
   }
-  body.home .hs-av { display: block; width: 64px; height: 64px; opacity: .5; transition: opacity .2s; }
-  @media (hover: hover) { body.home .hs-stage:hover .hs-av { opacity: .75; } }
-  body.home .hs-stage[aria-pressed="true"] .hs-av { opacity: 1; }
+  body.hiw .hs-av { display: block; width: 64px; height: 64px; opacity: .5; transition: opacity .2s; }
+  @media (hover: hover) { body.hiw .hs-stage:hover .hs-av { opacity: .75; } }
+  body.hiw .hs-stage[aria-pressed="true"] .hs-av { opacity: 1; }
   /* Only the chosen stage is alive: the others rest in their pose (motion marks the selection). */
-  body.home .hs-stage[aria-pressed="false"] .hs-av .lx,
-  body.home .hs-stage[aria-pressed="false"] .hs-av .lx * { animation: none; }
-  body.home .hs-lbl {
+  body.hiw .hs-stage[aria-pressed="false"] .hs-av .lx,
+  body.hiw .hs-stage[aria-pressed="false"] .hs-av .lx * { animation: none; }
+  body.hiw .hs-lbl {
     display: flex; align-items: center; justify-content: center; min-height: 2.5em;
     font-size: 15px; line-height: 1.25; font-weight: 500; text-align: center;
   }
-  body.home .hs-stage[aria-pressed="true"] .hs-lbl { font-weight: 700; }
-  body.home .hs-dot { display: grid; place-items: center; width: 14px; height: 14px; }
-  body.home .hs-dot::before {
+  body.hiw .hs-stage[aria-pressed="true"] .hs-lbl { font-weight: 700; }
+  body.hiw .hs-dot { display: grid; place-items: center; width: 14px; height: 14px; }
+  body.hiw .hs-dot::before {
     content: ""; display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--hs-dot-off);
   }
-  body.home .hs-stage[aria-pressed="true"] .hs-dot::before {
+  body.hiw .hs-stage[aria-pressed="true"] .hs-dot::before {
     width: 14px; height: 14px; background: var(--hs-dot-on); box-shadow: 0 0 0 4px var(--hs-dot-ring);
   }
-  body.home .hs-card {
+  body.hiw .hs-card {
     /* width: 100% (not shrink-to-fit): the card now carries the composer (owner, 2026-09-22,
        mockup C), and a shrink-to-fit flex item would size itself to the input's intrinsic width.
        The auto inline margins still centre a definite width. */
@@ -10597,99 +10734,113 @@
     -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
     border: 1px solid var(--gl-edge); box-shadow: var(--gl-shadow);
   }
-  body.home .hs-copy { display: flex; flex-direction: column; gap: 8px; align-items: center; }
-  /* THE COMPOSER IN THE CARD. Same control as the hero's, so it gets the hero's sizes (a 44px
-     send button, not .lp-composer's 34px), stretches to the card's inner width, and its note
-     takes no room until say() writes to it. */
-  body.home .hs-card .lp-composer { align-self: stretch; max-width: none; margin: 12px 0 0; }
-  body.home .hs-card .lp-composer .composer-send { width: 44px; height: 44px; }
-  body.home .hs-card .lp-composer .composer-note { text-align: left; }
-  body.home .hs-card .lp-composer .composer-note:empty { display: none; }
-  body.home .hs-card .bp-plat:empty { display: none; }
+  body.hiw .hs-copy { display: flex; flex-direction: column; gap: 8px; align-items: center; }
   /* THE PART OF THE CARD THAT FOLLOWS THE STAGE (owner, 2026-09-22). One aside shows at a
      time, chosen by the card's data-stage; the slot keeps its height when it is a single line
      so the pinned block does not breathe between stages. On the last stage the composer gives
      way to two links of the same height, for the same reason. */
-  body.home .hs-asides { align-self: stretch; min-height: 21px; margin-top: 2px; }
-  body.home .hs-aside { display: none; margin: 0; font-size: 14px; line-height: 1.5; color: var(--text-3); }
-  body.home .hs-aside a { color: var(--accent); font-weight: 600; text-decoration: none; border-bottom: 1px solid transparent; }
-  body.home .hs-aside a:hover { border-bottom-color: currentColor; }
-  body.home .hs-card[data-stage="0"] .hs-aside[data-stage="0"],
-  body.home .hs-card[data-stage="1"] .hs-aside[data-stage="1"],
-  body.home .hs-card[data-stage="2"] .hs-aside[data-stage="2"],
-  body.home .hs-card[data-stage="3"] .hs-aside[data-stage="3"] { display: block; }
-  body.home .hs-links {
+  body.hiw .hs-asides { align-self: stretch; min-height: 21px; margin-top: 2px; }
+  body.hiw .hs-aside { display: none; margin: 0; font-size: 14px; line-height: 1.5; color: var(--text-3); }
+  body.hiw .hs-aside a { color: var(--accent); font-weight: 600; text-decoration: none; border-bottom: 1px solid transparent; }
+  body.hiw .hs-aside a:hover { border-bottom-color: currentColor; }
+  body.hiw .hs-card[data-stage="0"] .hs-aside[data-stage="0"],
+  body.hiw .hs-card[data-stage="1"] .hs-aside[data-stage="1"],
+  body.hiw .hs-card[data-stage="2"] .hs-aside[data-stage="2"],
+  body.hiw .hs-card[data-stage="3"] .hs-aside[data-stage="3"] { display: block; }
+  /* THE ACTION SLOT: one 54px row, four different things in it, so the pinned block cannot
+     jump between stages. Stage 1 is a link BACK TO THE LANDING (owner, asked what its paste box
+     should do here: "link back to the landing") — these pages do not load creator.js, so a
+     form[data-hero] on them would be a paste field that does nothing. Stages 2 and 3 put a
+     visual in the same slot, stage 4 two real links. .hs-go is deliberately NOT .hs-links: one
+     class for both would have shown stage 1's link on stage 4 as well. */
+  body.hiw :is(.hs-links, .hs-go) {
     display: none; align-self: stretch; justify-content: center; align-items: center;
     flex-wrap: wrap; gap: 10px; min-height: 54px; margin-top: 12px;
   }
-  body.home .hs-card[data-stage="3"] .hs-composer { display: none; }
-  body.home .hs-card[data-stage="3"] .hs-links { display: flex; }
+  body.hiw .hs-card[data-stage="0"] .hs-go { display: flex; }
+  body.hiw .hs-card[data-stage="3"] .hs-links { display: flex; }
   /* STAGE VISUALS: stage 2 shows the library strip, stage 3 the week strip, each in place of the
      composer at the composer's height (54px + the same 12px top margin). Tiles and days use
      --surface-flat, not #fff, so a returning dark theme keeps them legible. */
-  body.home .hs-vis { display: none; align-self: stretch; min-height: 54px; margin-top: 12px; box-sizing: border-box; }
-  body.home .hs-card[data-stage="1"] .hs-composer, body.home .hs-card[data-stage="2"] .hs-composer { display: none; }
-  body.home .hs-card[data-stage="1"] .hs-lib { display: flex; }
-  body.home .hs-card[data-stage="2"] .hs-week { display: flex; }
-  body.home .hs-lib { gap: 10px; }
-  body.home .hs-tile {
+  body.hiw .hs-vis { display: none; align-self: stretch; min-height: 54px; margin-top: 12px; box-sizing: border-box; }
+  body.hiw .hs-card[data-stage="1"] .hs-lib { display: flex; }
+  body.hiw .hs-card[data-stage="2"] .hs-week { display: flex; }
+  body.hiw .hs-lib { gap: 10px; }
+  body.hiw .hs-tile {
     flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 6px;
     border-radius: 14px; background: var(--surface-flat); border: 1px solid var(--line); box-sizing: border-box;
   }
-  body.home .hs-tile-thumb {
+  body.hiw .hs-tile-thumb {
     position: relative; width: 30px; height: 40px; flex: none; border-radius: 8px;
     background: linear-gradient(160deg, #2a2440, #14122b);
   }
-  body.home .hs-tile-thumb::after {
+  body.hiw .hs-tile-thumb::after {
     content: ""; position: absolute; left: 12px; top: 15px;
     border-left: 8px solid #fff; border-top: 5px solid transparent; border-bottom: 5px solid transparent;
   }
-  body.home .hs-tile-chip { font-family: var(--mono); font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.hiw .hs-tile-chip { font-family: var(--mono); font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* THE WEEK (owner, 2026-09-23: "improve this somehow"). Three states a glance can tell apart:
      a day you POSTED holds a tiny dark video, TODAY holds the empty frame your next script goes in
      (accent ring, a pulse-dot), and the days NOT YET are ghosts with no frame. Two-letter day
      labels because "t t" and "s s" were ambiguous. The frames pop in, staggered, each time the
      stage lights -- a CSS animation restarts when the strip goes display:none -> flex, so the
      picker's data-stage swap is the trigger and no JS is involved. Off under reduced motion. */
-  body.home .hs-week { gap: 6px; }
-  body.home .hs-day {
+  body.hiw .hs-week { gap: 6px; }
+  body.hiw .hs-day {
     flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
     min-height: 54px; padding: 5px 0; box-sizing: border-box; border-radius: 12px;
     border: 1px dashed var(--line-2); background: transparent; color: var(--text-3);
   }
-  body.home .hs-day-l { font-family: var(--mono); font-size: 11px; line-height: 1.2; }
-  body.home .hs-day-t { position: relative; width: 18px; height: 24px; border-radius: 5px; box-sizing: border-box; }
-  body.home .hs-day.is-done { border: 1px solid var(--line); background: var(--surface-flat); color: var(--text-2); }
-  body.home .hs-day.is-done .hs-day-t { background: linear-gradient(160deg, #2a2440, #14122b); }
-  body.home .hs-day.is-done .hs-day-t::after {
+  body.hiw .hs-day-l { font-family: var(--mono); font-size: 11px; line-height: 1.2; }
+  body.hiw .hs-day-t { position: relative; width: 18px; height: 24px; border-radius: 5px; box-sizing: border-box; }
+  body.hiw .hs-day.is-done { border: 1px solid var(--line); background: var(--surface-flat); color: var(--text-2); }
+  body.hiw .hs-day.is-done .hs-day-t { background: linear-gradient(160deg, #2a2440, #14122b); }
+  body.hiw .hs-day.is-done .hs-day-t::after {
     content: ""; position: absolute; left: 7px; top: 8px;
     border-left: 5px solid #fff; border-top: 3.5px solid transparent; border-bottom: 3.5px solid transparent;
   }
-  body.home .hs-day.is-today { border: 1.5px solid var(--accent); background: var(--surface-flat); color: var(--text); }
-  body.home .hs-day.is-today .hs-day-t { border: 1.5px dashed var(--accent); }
-  body.home .hs-day.is-today .hs-day-t::after {
+  body.hiw .hs-day.is-today { border: 1.5px solid var(--accent); background: var(--surface-flat); color: var(--text); }
+  body.hiw .hs-day.is-today .hs-day-t { border: 1.5px dashed var(--accent); }
+  body.hiw .hs-day.is-today .hs-day-t::after {
     content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
     border-radius: 999px; background: var(--accent); box-shadow: 0 0 0 3px rgba(90, 47, 214, .18);
   }
+  /* THE POP-IN. Keyed on .hs-in, which picker.js's paint() removes and re-adds on every stage
+     change (a reflow between, so the animation restarts). It is NOT keyed on the stage swap alone:
+     an element that sat inside a display:none parent when the page loaded never started its
+     animation when the parent appeared, and with fill-mode BOTH it then sat at the first
+     keyframe -- opacity 0 -- forever. Measured: three tiles laid out at scale(.55), opacity 0.
+     BACKWARDS fill only: hidden during the delay, then the element's own style; if the animation
+     does not run at all the element is simply visible. */
   @keyframes hs-pop { from { transform: scale(.55); opacity: 0; } to { transform: none; opacity: 1; } }
-  body.home :is(.hs-day.is-done, .hs-day.is-today) .hs-day-t, body.home .hs-tile {
-    animation: hs-pop .32s cubic-bezier(.34, 1.3, .6, 1) both;
+  body.hiw .hs-card.hs-in .hs-tile,
+  body.hiw .hs-card.hs-in :is(.hs-day.is-done, .hs-day.is-today) .hs-day-t {
+    animation: hs-pop .32s cubic-bezier(.34, 1.3, .6, 1) backwards;
+    animation-delay: var(--hs-d, 0s);
   }
-  body.home :is(.hs-day, .hs-tile):nth-child(2) { --hs-d: .06s; }
-  body.home :is(.hs-day, .hs-tile):nth-child(3) { --hs-d: .12s; }
-  body.home .hs-day:nth-child(4) { --hs-d: .18s; }
-  body.home .hs-day .hs-day-t, body.home .hs-tile { animation-delay: var(--hs-d, 0s); }
+  body.hiw :is(.hs-day, .hs-tile):nth-child(2) { --hs-d: .06s; }
+  body.hiw :is(.hs-day, .hs-tile):nth-child(3) { --hs-d: .12s; }
+  body.hiw .hs-day:nth-child(4) { --hs-d: .18s; }
   @media (prefers-reduced-motion: reduce) {
-    body.home .hs-day .hs-day-t, body.home .hs-tile { animation: none; }
+    body.hiw .hs-card.hs-in .hs-tile, body.hiw .hs-card.hs-in .hs-day .hs-day-t { animation: none; }
   }
-  body.home .hs-link {
+  body.hiw .hs-link {
     display: inline-flex; align-items: center; min-height: 46px; padding: 0 18px;
     border-radius: 999px; font-size: 15px; font-weight: 600; text-decoration: none;
   }
-  body.home .hs-title { margin: 0; font-size: 24px; line-height: 1.2; letter-spacing: -.015em; font-weight: 700; color: var(--text); }
-  body.home .hs-text { margin: 0; font-size: 17px; line-height: 1.5; color: var(--text-2); }
+  /* The card's own heading. It is an <h2> now (the section heading below the bar is the page's
+     <h1>, so an <h3> here would skip a level), which means the AGENCY EYEBROW rule at the top of
+     this file applies to it — a bare `h2` there is a 12px tracked label with a 22px dash drawn
+     before it. Both halves are undone here; `display: block` is what takes it out of the flex
+     box that dash lived in. */
+  body.hiw .hs-title {
+    display: block; margin: 0; font-size: 24px; line-height: 1.2; letter-spacing: -.015em;
+    font-weight: 700; color: var(--text);
+  }
+  body.hiw .hs-title::before { display: none; }
+  body.hiw .hs-text { margin: 0; font-size: 17px; line-height: 1.5; color: var(--text-2); }
   /* "1 of 4 · just starting": a phone's row drops its labels, so the card names the stage. */
-  body.home .hs-step { display: none; margin: 0; font-family: var(--mono); font-size: 12px; color: var(--text-3); }
+  body.hiw .hs-step { display: none; margin: 0; font-family: var(--mono); font-size: 12px; color: var(--text-3); }
   /* A PHONE: THE ROW BECOMES A COLUMN (owner, 2026-09-22: "i dont like the horizontal look, and
      it looks too squished").
      Four abreast at 393px gave each stage a 90px column — avatars nearly touching, and the labels
@@ -10706,8 +10857,8 @@
      column, and the rail the column version used ran down the right edge on its own. Four rows in
      order already read as an order, and the lit row says which one you are on. */
   @media (max-width: 640px) {
-    body.home .hs { --hs-gap: 8px; --hs-pb: 10px; }
-    body.home .hs-h { margin-bottom: 20px; }
+    body.hiw .hs { --hs-gap: 8px; --hs-pb: 10px; }
+    body.hiw .hs-h { margin-bottom: 20px; }
     /* Capped so the 560-640 end of this range gets a tidy list rather than a 600px-wide row with
        an avatar stranded at one end and a dot at the other. The card takes the same measure so
        the two read as one column. */
@@ -10717,44 +10868,46 @@
        set from the same data-stage the copy uses -- slots it directly beneath whichever row is
        lit: buttons take the odd slots, the card the even one after its row. No markup moves, the
        DOM (and tab order) stays button, button, button, button, card. */
-    body.home .hs-row { display: contents; }
-    body.home .hs-stage, body.home .hs-card { width: 100%; max-width: 420px; margin-inline: auto; }
-    body.home .hs-stage:nth-child(1) { order: 1; } body.home .hs-stage:nth-child(2) { order: 3; }
-    body.home .hs-stage:nth-child(3) { order: 5; } body.home .hs-stage:nth-child(4) { order: 7; }
-    body.home .hs-card[data-stage="0"] { order: 2; } body.home .hs-card[data-stage="1"] { order: 4; }
-    body.home .hs-card[data-stage="2"] { order: 6; } body.home .hs-card[data-stage="3"] { order: 8; }
-    body.home .hs-card { margin-top: 0; }
-    body.home .hs-tile { flex-direction: column; gap: 4px; padding: 5px 4px; }
-    body.home .hs-tile-thumb { width: 30px; height: 22px; }
-    body.home .hs-tile-thumb::after { left: 12px; top: 6px; }
-    body.home .hs-tile-chip { max-width: 100%; }
-    body.home .hs-track { display: none; }
-    body.home .hs-stage {
+    body.hiw .hs-row { display: contents; }
+    body.hiw .hs-stage, body.hiw .hs-card { width: 100%; max-width: 420px; margin-inline: auto; }
+    /* nth-of-TYPE, not nth-child: the row's first child is the (hidden) track span, so nth-child
+       would shift every stage by one and put the last button first -- it did, once. */
+    body.hiw .hs-stage:nth-of-type(1) { order: 1; } body.hiw .hs-stage:nth-of-type(2) { order: 3; }
+    body.hiw .hs-stage:nth-of-type(3) { order: 5; } body.hiw .hs-stage:nth-of-type(4) { order: 7; }
+    body.hiw .hs-card[data-stage="0"] { order: 2; } body.hiw .hs-card[data-stage="1"] { order: 4; }
+    body.hiw .hs-card[data-stage="2"] { order: 6; } body.hiw .hs-card[data-stage="3"] { order: 8; }
+    body.hiw .hs-card { margin-top: 0; }
+    body.hiw .hs-tile { flex-direction: column; gap: 4px; padding: 5px 4px; }
+    body.hiw .hs-tile-thumb { width: 30px; height: 22px; }
+    body.hiw .hs-tile-thumb::after { left: 12px; top: 6px; }
+    body.hiw .hs-tile-chip { max-width: 100%; }
+    body.hiw .hs-track { display: none; }
+    body.hiw .hs-stage {
       flex-direction: row; align-items: center; justify-content: flex-start; text-align: left;
       gap: 14px; padding: 10px 16px; border-radius: 18px;
     }
-    body.home .hs-av { width: 48px; height: 48px; flex: none; }
-    body.home .hs-lbl {
+    body.hiw .hs-av { width: 48px; height: 48px; flex: none; }
+    body.hiw .hs-lbl {
       flex: 1 1 auto; min-height: 0; justify-content: flex-start; text-align: left; font-size: 16px;
     }
-    body.home .hs-dot { flex: none; }
+    body.hiw .hs-dot { flex: none; }
     /* "1 of 4 · just starting" existed because the labels were hidden here. They are not any more,
        and the live row is the one lit, so it would be the same words twice. */
-    body.home .hs-step { display: none; }
-    body.home .hs-card { padding: 20px 18px; border-radius: 22px; }
-    body.home .hs-title { font-size: 20px; }
-    body.home .hs-text { font-size: 15px; }
+    body.hiw .hs-step { display: none; }
+    body.hiw .hs-card { padding: 20px 18px; border-radius: 22px; }
+    body.hiw .hs-title { font-size: 20px; }
+    body.hiw .hs-text { font-size: 15px; }
   }
 
-  /* ================= THE PAGE DRIVES THE STAGES (landing, 2026-09-22) =====================
+  /* ================= THE PAGE DRIVES THE STAGES (/how-it-works/, 2026-09-22) ==============
      THE OWNER'S CALL, TWICE, IN THEIR WORDS: "on desktop keep it the way it was the horizonal
      dynamic from the vertical scroll", then for the phone "do it so that as i scroll down, this
      section just scrolls, similar to how the desktop scroll works". So it is now ONE mechanism at
-     every width: home.js adds .hs-live, the section becomes tall, its .lp-in sticks in the middle
+     every width: picker.js adds .hs-live, the section becomes tall, its .lp-in sticks in the middle
      of the screen, and each quarter of the run selects the next stage. Only the presentation
      differs — a horizontal row of four above 640px, a column of four below it.
      Deleting this block leaves the plain click-and-arrow row at both sizes, which is also the
-     no-JS state; home.js needs no change, because it goes inert without .hs-live.
+     no-JS state; picker.js needs no change, because it goes inert without .hs-live.
 
      TWO THINGS ARE TRIMMED OFF THE ORIGINAL, and neither touches the effect:
      1. NO EMPTY SCREEN BEFORE THE HEADING. The old version pinned a 100svh box with its content
@@ -10768,13 +10921,14 @@
         flicks each.
 
      --hs-inh IS THE ONLY GUESS IN HERE, and a cheap one: it sets where the pin lands, and being a
-     few px off just moves the block a few px off centre. home.js measures the real heights for
+     few px off just moves the block a few px off centre. picker.js measures the real heights for
      everything that matters. Measured WHILE LIVE, which is not the same as the static height —
-     re-measured after the composer and the per-stage line moved into the card (2026-09-22):
-     494px at 1280, 616px at 393 — and checked: the pinned block sits within a few px of centre at
-     both. Stage 4 swaps the composer for two links of the same height, so the block does not
-     jump on the last stage. It grows ~23px on the last stage at 393, where the card's copy takes a third
-     line; the block stays wholly on screen and the drift is not worth a min-height on the card.
+     re-measured on /how-it-works/ after the move off the landing (2026-09-23, both pages, all
+     four stages): 495px at 1280 and 1440, flat across the four; 573/597/573/595 at 393 and
+     604-628 at 360, where the card's copy takes an extra line on two of the stages. 585 is the
+     middle of the phone range, so the worst pin is ~21px off centre and the block is still
+     wholly on screen. Every stage's slot is the same 54px — the stage-1 link, the two strips and
+     stage 4's links — so the card itself does not jump between stages at either width.
 
      THE RUN IS SIZED TO THE SCREEN, NOT COPIED BETWEEN THEM. Desktop: 200svh total, so the run is
      200svh less the block, ~353px per stage at 900 — about 39% of a screen. A phone is taller than
@@ -10787,31 +10941,31 @@
      each stage still owns a third to a half of a screen, so no stage can be flicked past by
      accident — which is what the snap was added for. Say the word and it comes back.
 
-     home.js sets .hs-live only when the block actually fits the screen, and never under
+     picker.js sets .hs-live only when the block actually fits the screen, and never under
      prefers-reduced-motion — that is the static fallback, and every stage is still reachable by
      click and by arrow key there. */
-  body.home #lp-main > .hs.hs-live { padding-block: 0; }
-  body.home #lp-main > .hs.hs-live > .lp-in {
+  body.hiw .hs.hs-live { padding-block: 0; }
+  body.hiw .hs.hs-live > .lp-in {
     position: sticky; top: calc(50svh - var(--hs-inh) / 2);
     display: flex; flex-direction: column;
   }
   @media (max-width: 640px) {
-    body.home #lp-main > .hs.hs-live { --hs-inh: 616px; height: calc(200svh + var(--hs-inh)); }
+    body.hiw .hs.hs-live { --hs-inh: 585px; height: calc(200svh + var(--hs-inh)); }
     /* BLOCK, NOT FLEX, ON A PHONE. The row and the card both centre themselves with auto inline
        margins, and an auto margin on a flex item eats the free space instead of stretching — as a
        flex column this shrank the row to 272px inside a 373px block and the card to 343px, which
        is not the stacked layout that was signed off. The desktop KEEPS the flex: its card has
        always been shrink-to-fit in this mode and that is the look being preserved. */
-    body.home #lp-main > .hs > .lp-in, body.home #lp-main > .hs.hs-live > .lp-in {
+    body.hiw .hs > .lp-in, body.hiw .hs.hs-live > .lp-in {
       display: flex; flex-direction: column; gap: 8px;
     }
   }
   @media (min-width: 641px) {
-    body.home #lp-main > .hs.hs-live { --hs-inh: 494px; height: 200svh; }
+    body.hiw .hs.hs-live { --hs-inh: 495px; height: 200svh; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    body.home .hs-stage, body.home .hs-av { transition: none; }
+    body.hiw .hs-stage, body.hiw .hs-av { transition: none; }
   }
 
   /* ================= HOW IT WORKS: /how-it-works/ and /how-it-works/coach/ (2026-09-22) =================
@@ -10875,7 +11029,12 @@
     mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
   }
 
-  /* ---- the header: on the ground, centred ---- */
+  /* ---- the header: on the ground, centred ----
+     SINCE 2026-09-23 IT HOLDS ONLY THE SCRIPTS|COACH SWITCH (and, on the coach page, the
+     "coming soon" pill): the owner replaced both pages' hero — avatar, eyebrow, h1 and subline —
+     with the stage picker, which now carries each page's <h1>. .hiw-eyebrow and .hiw-h1 went
+     with it; .hiw-lede did NOT, it is still the coach page's closing line, and .hiw-av is still
+     worn by both pages' closing avatar through .hiw-av-close. */
   body.hiw .hiw-head {
     display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
     padding: 24px 0 8px;
@@ -10883,12 +11042,6 @@
   body.hiw .hiw-av { display: block; width: 72px; height: 72px; }
   body.hiw :is(.hiw-av, .hiw-preview-av) .lx { display: block; width: 100%; height: 100%; overflow: visible; }
   body.hiw .hiw-av .lx { filter: drop-shadow(0 12px 16px var(--av-glow)); }
-  body.hiw .hiw-eyebrow { margin: 0; font-family: var(--mono); font-size: 13px; color: var(--text-3); }
-  body.hiw .hiw-h1 {
-    margin: 0; max-width: 18ch; color: var(--text);
-    font-family: var(--font-display); font-size: clamp(34px, 5.2vw, 58px); font-weight: 800;
-    line-height: 1.04; letter-spacing: -.035em; text-wrap: balance;
-  }
   body.hiw .hiw-lede { margin: 0; max-width: 44ch; font-size: 18px; line-height: 1.5; color: var(--text-2); text-wrap: balance; }
   body.hiw .hiw-pill {
     display: inline-flex; align-items: center; font-family: var(--mono); font-size: 12px; line-height: 1.4;
@@ -11006,7 +11159,6 @@
     body.lp.hiw:not(.home) > main.hiw-main { padding-top: 24px; }
     body.hiw .hiw-head { padding-top: 12px; }
     body.hiw .hiw-av { width: 60px; height: 60px; }
-    body.hiw .hiw-h1 { font-size: 34px; }
     body.hiw .hiw-lede { font-size: 16px; }
     /* the 4-card grids stay two-up: each card is one short line, and stacked they made a long scroll */
     body.hiw .hiw-grid-2 { grid-template-columns: minmax(0, 1fr); }

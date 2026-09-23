@@ -71,13 +71,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260923m">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260923m">
-<link rel="shortcut icon" href="/favicon.ico?v=20260923m">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260923m">
-<link rel="stylesheet" href="/app.css?v=20260923m">
-<script src="/theme.js?v=20260923m"></script>
-<script src="/backdrop.js?v=20260923m" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609232e">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609232e">
+<link rel="shortcut icon" href="/favicon.ico?v=202609232e">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609232e">
+<link rel="stylesheet" href="/app.css?v=202609232e">
+<script src="/theme.js?v=202609232e"></script>
+<script src="/backdrop.js?v=202609232e" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -302,7 +302,6 @@
     <nav class="lp-nav" aria-label="Main">
       <a href="/how-it-works/">how it works</a>
       <a href="/faq/">faq</a>
-      <a href="/#pricing">pricing</a>
     </nav>
     <span class="lp-actions">
     <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
@@ -316,7 +315,7 @@
          live. Both live INSIDE .lp-actions (a flex row), not beside it: the
          capsule's grid is a strict 1fr auto 1fr and a fifth item outside this
          span would wrap to a second row. -->
-    <a class="btn" href="/" data-gate="up">get started<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <a class="btn" href="/" data-gate="up">get started</a>
     <!-- Under 760px the nav and the two controls above are display:none and
          this takes their place. aria-expanded carries the state to a screen
          reader AND drives which glyph is drawn, so the two cannot disagree. -->
@@ -333,7 +332,6 @@
   <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
     <a href="/how-it-works/">how it works</a>
     <a href="/faq/">faq</a>
-    <a href="/#pricing">pricing</a>
     <!-- The toggle lives HERE on a phone, not in the bar (owner, 2026-08-26:
          "for mobile put this in the menu when it drops down") — the bar was
          the crowded place and the menu has room for a labelled row. theme.js
@@ -346,59 +344,99 @@
         <span class="tt-knob"></span>
       </button>
     </div>
-    <a class="btn" href="/" data-gate="up">get started<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <a class="btn" href="/" data-gate="up">get started</a>
   </nav>
 </header>
 
 <main id="lp-main">
 
-  <!-- THE BUDDY HERO (owner-approved mockup H, 2026-09-22: "have the lynxr be on
-       the left and then just position him as a content buddy. and then on the
-       right side have the same animation we have now, but have it start with
-       the content coach and then the script writing and make it look like one
-       thing. make lynxr a holistic system for content creation buddy to get
-       better in any regard.")
-       LEFT = THE BUDDY. The live avatar (the same .hx-seam host avatar.js and
-       the intro drive — moved and resized, never replaced) and one headline.
-       RIGHT = ONE PANEL, not two halves: the coach on top, the script below,
-       one hairline between them, one shape, one shadow. It paints the SIGNED-IN
-       app's own card glass (--gl-* : the tokens .pane-body .me-card / .lookup /
-       .plan-now use) on the owner's word, "make the white box follow the glass
-       morphism look thats in the logged in page for users".
+  <!-- THE BUDDY HERO (owner, 2026-09-23, in three passes: "new design for the landing
+       page, put this lynxr on the bottom right and then have the info above be a speech
+       bubble or something — where the lynxr was, put a sign up box", then "put lynxr
+       inside the box with the info above it", then, on a claude.ai sign-in card as the
+       reference for the sign-up box, "but in our styling".)
+       LEFT  = the headline, and a SIGN-UP BOX (.hxs) where the buddy used to stand.
+       RIGHT = ONE glass panel: the coach row, a hairline, the script row with the live
+       composer, and THE BUDDY HIMSELF sitting in a band at the bottom of the same card,
+       right-aligned. (A speech bubble with a tail was built in the pass before this one
+       and removed with it: inside the card the buddy has nothing to point at.)
+       THE BUDDY IS THE SAME HOST ELEMENT as it has always been — .hx-seam with
+       data-lx-mood — moved, never recreated, because avatar.js renders into it and the
+       intro in home.js drives it through lynxrProp / lynxrMood (and the limb media
+       queries put the pencil bottom-right and the whistle top-right / bottom-left by
+       width). It is in the card from frame 0: it is the thing performing the intro, so
+       the panel itself no longer fades — only its two rows and their hairline do.
        THE TWO PILLS ARE NOT DECORATION. A coach-first hero that did not say
        "coming soon" on the coach and "live now" on the script would be selling
        something that does not exist: the coach is not built (see #pricing, and
-       /how-it-works/coach/ from stage 4 of the picker below).
-       Every look lives in app.css (.hx-*) — no inline styles, CSP. -->
+       /how-it-works/coach/).
+       THE SIGN-UP BOX TAKES ITS SHAPE FROM THE REFERENCE AND ITS LOOK FROM HERE:
+       provider button, a mono "or", the email field, the primary button, the consent
+       line — in the --gl-* glass, the pill radius, the ink .btn and the site's tokens.
+       IT INVENTS NO AUTH. Every control is a data-gate="up" / data-gate="in" control,
+       exactly like the pricing CTAs: creator.js delegates every [data-gate] click to
+       the real gate (#gate) and accepts both modes. home.js adds two hand-offs and
+       nothing else — the typed address is copied into the gate's own email field before
+       it opens, and "continue with Google" puts the visitor on the gate's OWN Google
+       button (the only Google button on the site; OAuth is not re-implemented here).
+       ONLY THE PROVIDER THE GATE ACTUALLY OFFERS: creator.js's OAUTH_ON is
+       { google: true, apple: false }, so Google is the only button.
+       IT IS NOT A <form>, and that is deliberate: nothing on this page may submit an
+       address anywhere, and a field with no form around it cannot implicitly submit, so
+       Enter can never reload the page (home.js routes Enter to the same gate).
+       Every look lives in app.css (.hx-*, .hxs-*) — no inline styles, CSP. -->
   <section class="hx" aria-labelledby="hx-buddy-h">
     <div class="hx-wash" aria-hidden="true"></div>
     <div class="hx-half hx-l">
-      <!-- TWO THINGS, and that is the whole half (owner, 2026-09-22: "no need for
-           this sections" on the mono caption and the supporting line, "same goes
-           for desktop"). The caption said what the headline now says, so it went;
-           the line that said "the script today. the coach next." went with it, and
-           that promise is carried by the two PILLS in the panel — "coming soon" on
-           the coach, "live now" on the script — and by the stage picker below.
-           Source order is avatar then headline; the phone block reverses it. -->
       <div class="hx-col">
-        <span class="hx-seam" data-lx-mood="idle" aria-hidden="true"></span>
-        <h1 class="hx-h" id="hx-buddy-h">your content creation buddy</h1>
+        <!-- THE BIG LINE, then the former headline demoted under it (owner, 2026-09-23:
+             keep "your content creation buddy" but "have it smaller and under this text:
+             'every creator's second brain'"). The subline is a <p>, not a heading: it says
+             the same thing the h1 does in plainer words, so a second heading level here
+             would be an outline entry with nothing under it. The id stays on the h1 — the
+             section's aria-labelledby points at it. Source case is left alone; the house
+             rule draws both lowercase. -->
+        <h1 class="hx-h" id="hx-buddy-h">what&rsquo;s next, creator?</h1>
+        <p class="hx-sub">your content creation buddy</p>
+        <!-- THE SIGN-UP BOX. Not animated: it is the thing that converts, so it is on
+             screen at frame 0 and never moves. -->
+        <div class="hxs" role="group" aria-labelledby="hxs-lbl">
+          <p class="hxs-lbl" id="hxs-lbl">create your account</p>
+          <!-- The label keeps its capital G on .oauth-label, the same one-class opt-out
+               of the sitewide lowercase the gate's own Google button uses: Google
+               mandates the wording, and the source string is untouched either way. -->
+          <button type="button" class="hxs-oauth" id="hxs-google" data-gate="up">
+            <img src="/assets/google-g-mark.svg" alt="" aria-hidden="true" width="18" height="18">
+            <span class="oauth-label">continue with Google</span>
+          </button>
+          <p class="hxs-or"><span>or</span></p>
+          <label class="sr-only" for="hxs-email">your email address</label>
+          <input class="hxs-mail" id="hxs-email" type="email" placeholder="you@email.com"
+            autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false">
+          <a class="btn hxs-go" id="hxs-go" href="/?signup=1" data-gate="up">continue with email</a>
+          <!-- Both pages exist and both are linked from every footer. This claims
+               nothing else: lynxr sends no promotional email, so there is no such
+               consent to ask for here. The gate still asks for the agreement tick
+               itself — this line is the plain-language version of the same thing, not
+               a replacement for it. -->
+          <p class="hxs-fine">by continuing you agree to the <a href="/terms/">terms</a>
+            and <a href="/privacy/">privacy policy</a>.</p>
+          <p class="hxs-alt">already have one? <a class="hxs-in" href="/" data-gate="in">sign in</a></p>
+        </div>
       </div>
     </div>
     <div class="hx-half hx-r">
       <div class="hx-panel">
         <!-- THE COACH, first, because the buddy is the product and the script is
-             one of its jobs. A PREVIEW, labelled as one twice over. -->
+             one of its jobs. Not built: the pill says so, and the row's only action
+             is a link to the coach page, which says so at length. -->
         <div class="hx-row hx-row-coach">
           <span class="hx-pill hx-pill-soon">coming soon</span>
           <h2 class="hx-h hx-h2">a coach that's all about you.</h2>
-          <div class="hx-coach">
-            <div class="hx-coach-head">
-              <span class="hx-coach-av" data-lx-mood="coaching" aria-hidden="true"></span>
-              <span class="hx-coach-lbl">your coach &middot; preview</span>
-            </div>
-            <p class="hx-coach-msg">your result-first hooks get the most views. try one next.</p>
-          </div>
+          <!-- The coach row's action (owner, 2026-09-23: "have this say learn more and then go to the how it
+               works page"): a plain link to the coach's how-it-works page, in place of the preview bubble
+               that used to sit here. Third child of the row, so the intro's stagger still lands on it. -->
+          <a class="btn hx-learn" href="/how-it-works/coach/">learn more &rarr;</a>
         </div>
         <div class="hx-rule" aria-hidden="true"></div>
         <!-- THE SCRIPT, live today, with THE APP'S OWN COMPOSER moved in with
@@ -422,130 +460,16 @@
             <p class="composer-note" id="lp-composer-note" role="status" aria-live="polite"></p>
           </div>
         </div>
+        <!-- THE BUDDY, IN THE CARD (owner: "put lynxr inside the box with the info above
+             it"). Its own band, so its height is part of the panel's layout from frame 0
+             and the intro cannot shift the card. -->
+        <div class="hx-buddy">
+          <span class="hx-seam" data-lx-mood="idle" aria-hidden="true"></span>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- FOR ANY CREATOR, AT ANY STAGE. id="how" is kept so old links to /#how
-       still land somewhere sensible; since 2026-09-22 every bar, phone menu and
-       footer links "how it works" to /how-it-works/ instead. Four real toggle buttons (aria-pressed);
-       home.js swaps the card text from each button's data-title / data-text,
-       so the words live in ONE place — this markup — and stage 1's are already
-       in the card for a visitor without JS. The track is drawn at DOT height,
-       under the labels, so it can never pass behind an avatar.
-       THE PAGE'S OWN SCROLL WALKS THE STAGES, at every width, and it is an
-       addition to the buttons rather than a replacement — click, arrow keys,
-       Home/End and a screen reader all work, and this markup is the whole
-       no-JS state. home.js adds .hs-live, the section goes tall and its .lp-in
-       sticks in the middle of the screen; each quarter of the run lights the
-       next stage. Only the shape differs: a row of four above 640px, a column
-       of four below it (a phone-only scroll container lived here for part of
-       2026-09-22 and was deleted the same day).
-       Two things were trimmed off the original: the sticky box no longer
-       reserves an empty screen before this heading, and the run is shorter —
-       about a third of a screen per stage on a desktop and half a screen on a
-       phone, against the 750px it was. The four .hs-snap-pt waypoints that
-       used to sit here are gone with the `scroll-snap-type` they put on <html>.
-       Under prefers-reduced-motion the mode does not run at all; the block is
-       static and every stage is still reachable. -->
-  <section class="lp-sec hs" id="how" aria-labelledby="hs-h">
-    <div class="lp-in">
-      <h2 class="lp-h2 hs-h" id="hs-h">for any creator, at any stage</h2>
-      <div class="hs-row" role="group" aria-label="your stage">
-        <span class="hs-track" aria-hidden="true"></span>
-        <button type="button" class="hs-stage" aria-pressed="true" aria-controls="hs-card"
-          data-ph="paste instagram/tiktok link" data-title="start with a video you love." data-text="get a script, then film it on the teleprompter.">
-          <span class="hs-av" data-lx-mood="idle" aria-hidden="true"></span>
-          <span class="hs-lbl">just starting</span>
-          <span class="hs-dot" aria-hidden="true"></span>
-        </button>
-        <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
-          data-ph="paste a video you wish you'd made" data-title="build a library of winners." data-text="every video you save, broken down by what made it work.">
-          <span class="hs-av" data-lx-mood="reading" aria-hidden="true"></span>
-          <span class="hs-lbl">finding your format</span>
-          <span class="hs-dot" aria-hidden="true"></span>
-        </button>
-        <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
-          data-ph="paste the next one" data-title="never run out of ideas." data-text="any saved video can be your next script.">
-          <span class="hs-av" data-lx-mood="writing" aria-hidden="true"></span>
-          <span class="hs-lbl">posting consistently</span>
-          <span class="hs-dot" aria-hidden="true"></span>
-        </button>
-        <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
-          data-title="get coached as you grow." data-text="unlimited scripts on pro. the coach, coming with max.">
-          <span class="hs-av" data-lx-mood="coaching" aria-hidden="true"></span>
-          <span class="hs-lbl">growing fast</span>
-          <span class="hs-dot" aria-hidden="true"></span>
-        </button>
-      </div>
-      <div class="hs-card" id="hs-card" data-stage="0">
-        <!-- aria-live sits on the COPY only: the stage text swaps as the page scrolls and should be
-             announced; the composer below it never changes and must not be re-read every stage. -->
-        <div class="hs-copy" aria-live="polite">
-          <p class="hs-step" id="hs-step">1 of 4 · just starting</p>
-          <h3 class="hs-title" id="hs-title">start with a video you love.</h3>
-          <p class="hs-text" id="hs-text">get a script, then film it on the teleprompter.</p>
-        </div>
-        <!-- THE COMPOSER, INSIDE THE STAGE CARD (owner, 2026-09-22, picking mockup C: "put the
-             composer inside the stage card like C"). The card says where you are; this is where
-             you paste. It is the SAME form[data-hero] pattern as the hero's composer and the
-             closing CTA's, with no ids on the field or button: creator.js (wireHeroComposer)
-             wires every form[data-hero] on the page and say() writes to the data-note target, so
-             this third one needs no JS of its own. It stays put while the copy above it swaps. -->
-        <div class="composer composer-inline lp-composer hs-composer">
-          <form class="composer-row" data-hero data-note="hs-note" novalidate>
-            <input type="url" placeholder="paste instagram/tiktok link"
-              autocomplete="off" spellcheck="false" aria-label="Paste a video link">
-            <span class="bp-plat"></span>
-            <button type="submit" class="composer-send" aria-label="Get the script">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-            </button>
-          </form>
-          <p class="composer-note" id="hs-note" role="status" aria-live="polite"></p>
-        </div>
-        <!-- STAGE VISUALS (owner, 2026-09-23: "build a library of winners and change the visuals to
-             match" for stage 2; "make this one like a calendar" for stage 3). DECORATIVE: aria-hidden,
-             and no words that claim a feature. The library strip is three saved videos with format
-             chips the site already teaches (storytime, question hook, two-column). The week strip is a
-             METAPHOR for posting consistently -- lynxr has no scheduler, and the stage's copy says
-             nothing about one. Each sits in the composer's slot at the composer's height (54px), so
-             the pinned block does not jump between stages; app.css shows one by data-stage. -->
-        <div class="hs-vis hs-lib" aria-hidden="true">
-          <span class="hs-tile"><span class="hs-tile-thumb"></span><span class="hs-tile-chip">storytime</span></span>
-          <span class="hs-tile"><span class="hs-tile-thumb"></span><span class="hs-tile-chip">question hook</span></span>
-          <span class="hs-tile"><span class="hs-tile-thumb"></span><span class="hs-tile-chip">two-column</span></span>
-        </div>
-        <div class="hs-vis hs-week" aria-hidden="true">
-          <span class="hs-day is-done"><span class="hs-day-l">mo</span><span class="hs-day-t"></span></span>
-          <span class="hs-day is-done"><span class="hs-day-l">tu</span><span class="hs-day-t"></span></span>
-          <span class="hs-day is-done"><span class="hs-day-l">we</span><span class="hs-day-t"></span></span>
-          <span class="hs-day is-today"><span class="hs-day-l">th</span><span class="hs-day-t"></span></span>
-          <span class="hs-day"><span class="hs-day-l">fr</span><span class="hs-day-t"></span></span>
-          <span class="hs-day"><span class="hs-day-l">sa</span><span class="hs-day-t"></span></span>
-          <span class="hs-day"><span class="hs-day-l">su</span><span class="hs-day-t"></span></span>
-        </div>
-        <!-- WHAT CHANGES WITH THE STAGE (owner, 2026-09-22: "have this change for each stage,
-             something that would relate to each stage"). home.js sets data-stage on the card and
-             swaps the field's placeholder from the lit button's data-ph; app.css shows the one
-             .hs-aside whose data-stage matches. Stage 4 has nothing to paste — the coach is not
-             built and pro is bought inside the app — so its card swaps the composer for two real
-             links, sized to the composer's height so the pinned block does not jump. All four
-             are in the markup (no innerHTML; a visitor without JS sees stage 1's), and every
-             claim here is one the pricing section already makes. -->
-        <div class="hs-asides">
-          <p class="hs-aside" data-stage="0">3 free scripts a week. no card.</p>
-          <p class="hs-aside" data-stage="1"><a href="/how-it-works/">see one broken down &rarr;</a></p>
-          <p class="hs-aside" data-stage="2"><a href="/" data-gate="up">open your saved videos &rarr;</a></p>
-          <p class="hs-aside" data-stage="3">$24.99 a month. cancel any time.</p>
-        </div>
-        <div class="hs-links">
-          <a class="btn hs-link" href="#pricing">see pro &rarr;</a>
-          <a class="ghost hs-link" href="/how-it-works/coach/">about the coach &rarr;</a>
-        </div>
-      </div>
-    </div>
-  </section>
   <!-- PRICING (2026-09-21, the day checkout opened). Free / pro / max side by
        side, the way a SaaS landing normally does it, and a link to /pricing/
        for the long version.
@@ -571,39 +495,56 @@
     <div class="lp-in">
       <h2 class="lp-h2">free to start, one plan to pay for</h2>
       <p class="lp-seclede">no card to sign up. when you want more, upgrade from inside the app.</p>
+      <!-- CARD LAYOUT (owner, 2026-09-23, from a reference pricing page: "for the options have this
+           be the same layout"): mark -> name -> one-line tagline -> price -> note -> full-width action
+           -> the commitment line -> a rule -> "everything in X, plus:" -> a checked list. Same facts
+           as before, reordered; every number still mirrors lynxr_billing_plans. -->
       <ul class="lp-plans">
         <li class="lp-plan">
+          <span class="lp-plan-ico" data-lx-mood="idle" aria-hidden="true"></span>
           <h3 class="lp-h3 lp-plan-name">free</h3>
+          <p class="lp-plan-tag">try lynxr</p>
           <p class="lp-plan-price"><strong>$0</strong></p>
           <p class="lp-plan-tax">no card needed</p>
+          <a class="btn lp-plan-cta" href="/" data-gate="up">try for free</a>
+          <p class="lp-plan-note">no commitment</p>
+          <hr class="lp-plan-hr">
           <ul class="lp-plan-list">
             <li>3 scripts in any 7 days</li>
             <li>each one frees up 7 days after you write it</li>
             <li>everything you write stays yours, on any plan</li>
           </ul>
-          <a class="ghost lp-plan-cta" href="/" data-gate="up">try for free</a>
         </li>
         <li class="lp-plan lp-plan-pro">
+          <span class="lp-plan-ico" data-lx-mood="writing" aria-hidden="true"></span>
           <h3 class="lp-h3 lp-plan-name">lynxr pro</h3>
+          <p class="lp-plan-tag">for everyday creating</p>
           <p class="lp-plan-price"><strong>$24.99</strong> <span class="lp-plan-per">a month</span></p>
           <p class="lp-plan-tax">plus tax where applicable</p>
+          <a class="btn lp-plan-cta" href="/" data-gate="up">start free, upgrade in the app</a>
+          <p class="lp-plan-note">no commitment &middot; cancel any time</p>
+          <hr class="lp-plan-hr">
+          <p class="lp-plan-plus">everything in free, plus:</p>
           <ul class="lp-plan-list">
             <li>unlimited scripts &mdash; you never buy them one at a time</li>
             <li>fair use: 150 in any rolling 30 days, 30 in any 24 hours</li>
-            <li>cancel any time; access runs to the end of the period you've paid for</li>
+            <li>access runs to the end of the period you've paid for</li>
+            <li>14-day money-back on your first payment</li>
           </ul>
-          <a class="btn lp-plan-cta" href="/" data-gate="up">start free, upgrade in the app</a>
         </li>
         <li class="lp-plan lp-plan-soon">
+          <span class="lp-plan-ico" data-lx-mood="coaching" aria-hidden="true"></span>
           <h3 class="lp-h3 lp-plan-name">lynxr max <span class="lp-plan-chip">coming soon</span></h3>
+          <p class="lp-plan-tag">for creators who want a coach</p>
           <p class="lp-plan-price"><strong>$74.99</strong> <span class="lp-plan-per">a month</span></p>
           <p class="lp-plan-tax">plus tax where applicable</p>
+          <p class="lp-plan-off">not on sale yet</p>
+          <hr class="lp-plan-hr">
+          <p class="lp-plan-plus">everything in pro, plus:</p>
           <ul class="lp-plan-list">
-            <li>everything in pro</li>
             <li>a higher ceiling: 300 in any rolling 30 days, 40 in any 24 hours</li>
             <li>post tracking, and a coach that reads how your videos did &mdash; neither is built yet</li>
           </ul>
-          <p class="lp-plan-off">not on sale yet</p>
         </li>
       </ul>
       <p class="lp-plans-fine">prices in usd. <span class="entity">Stripe</span> is the merchant of record: it takes the payment and adds any tax at checkout.
@@ -654,7 +595,7 @@
         <!-- Visible label "try it", accessible name "try it — join the wait
              list". The .sr-only tail is inside the <a>, so it is part of the
              name computation rather than a title attribute nobody hears. -->
-        <a class="foot-link" href="/">get started<span class="rk" aria-hidden="true">&#128640;</span><span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
+        <a class="foot-link" href="/">get started<span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
       </div>
       <div class="foot-col">
         <div class="foot-label">guides</div>
@@ -1090,10 +1031,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20260923m" defer></script>
-<script src="/footer.js?v=20260923m" defer></script>
-<script src="/home.js?v=20260923m" defer></script>
-<script src="/avatar.js?v=20260923m" defer></script>
-<script src="/creator.js?v=20260923m" defer></script>
+<script src="/site.js?v=202609232e" defer></script>
+<script src="/footer.js?v=202609232e" defer></script>
+<script src="/home.js?v=202609232e" defer></script>
+<script src="/avatar.js?v=202609232e" defer></script>
+<script src="/creator.js?v=202609232e" defer></script>
 </body>
 </html>

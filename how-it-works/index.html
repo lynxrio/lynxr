@@ -24,13 +24,13 @@
 <meta name="twitter:description" content="How lynxr turns a public TikTok or Instagram link into a script: it transcribes the video, reads it shot by shot, maps the format, and writes it for your brand. Then you film it on the built-in teleprompter.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/how-it-works/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260923m">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260923m">
-<link rel="shortcut icon" href="/favicon.ico?v=20260923m">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260923m">
-<link rel="stylesheet" href="/app.css?v=20260923m">
-<script src="/theme.js?v=20260923m"></script>
-<script src="/backdrop.js?v=20260923m" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609232e">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609232e">
+<link rel="shortcut icon" href="/favicon.ico?v=202609232e">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609232e">
+<link rel="stylesheet" href="/app.css?v=202609232e">
+<script src="/theme.js?v=202609232e"></script>
+<script src="/backdrop.js?v=202609232e" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -265,7 +265,7 @@
       <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
       <span class="tt-knob"></span>
     </button>
-    <a class="btn" href="/">get started<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <a class="btn" href="/">get started</a>
     <!-- Under 760px the nav and the CTA above are display:none and this takes
          their place. aria-expanded carries the state to a screen reader AND
          drives which glyph is drawn, so the two cannot disagree. -->
@@ -282,22 +282,134 @@
   <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
     <a href="/how-it-works/">how it works</a>
     <a href="/faq/">faq</a>
-    <a class="btn" href="/">get started<span class="rk" aria-hidden="true">&#128640;</span></a>
+    <a class="btn" href="/">get started</a>
   </nav>
 </header>
 
 <main class="hiw-main">
 
+  <!-- Only the scripts|coach switch is left of what used to be this page's own
+       hero: the owner replaced the avatar, eyebrow, h1 and subline with the stage
+       picker below (2026-09-23, pointing at both: "replace this with this, and then
+       no need for it on the main landing page"). The switch stays because it is the
+       only way from here to /how-it-works/coach/. -->
   <div class="hiw-head">
-    <span class="hiw-av" data-lx-mood="writing" aria-hidden="true"></span>
-    <p class="hiw-eyebrow">how it works</p>
-    <h1 class="hiw-h1">scripts built on videos that already work</h1>
-    <p class="hiw-lede">how lynxr gets from a link to a script you can film.</p>
     <nav class="hiw-switch" aria-label="how it works">
       <a href="/how-it-works/" aria-current="page">scripts</a>
       <a href="/how-it-works/coach/">coach</a>
     </nav>
   </div>
+
+  <!-- FOR ANY CREATOR, AT ANY STAGE. Moved off the landing page on the owner's
+       word (2026-09-23: "put this section in the how it works section" / "no need
+       for it on the main landing page"), and it is now the FIRST thing on this page
+       and carries its <h1> — the hero block it replaced held the only other one.
+       id="how" travels with it, so an old /#how link still lands on something,
+       though every bar, phone menu and footer has linked "how it works" to
+       /how-it-works/ since 2026-09-22.
+       Four real toggle buttons (aria-pressed); picker.js swaps the card text from
+       each button's data-title / data-text, so the words live in ONE place — this
+       markup — and stage 1's are already in the card for a visitor without JS. The
+       track is drawn at DOT height, under the labels, so it can never pass behind
+       an avatar.
+       THE PAGE'S OWN SCROLL WALKS THE STAGES, at every width, and it is an
+       addition to the buttons rather than a replacement — click, arrow keys,
+       Home/End and a screen reader all work, and this markup is the whole
+       no-JS state. picker.js adds .hs-live, the section goes tall and its .lp-in
+       sticks in the middle of the screen; each quarter of the run lights the
+       next stage. Only the shape differs: a row of four above 640px, a column
+       of four below it.
+       STAGE 1 HAS NO COMPOSER HERE. This page does not load creator.js, so a
+       form[data-hero] on it would be inert — a paste field that does nothing is
+       worse than no field. It is a link back to the landing instead (owner, asked
+       what stage 1 should do here: "link back to the landing"), sized to the same
+       54px slot the other stages' visuals and links use so the pinned block does
+       not jump between stages.
+       Under prefers-reduced-motion the scroll mode does not run at all; the block
+       is static and every stage is still reachable. -->
+  <section class="hs" id="how" aria-labelledby="hs-h">
+    <div class="lp-in">
+      <h1 class="hs-h" id="hs-h">for any creator, at any stage</h1>
+      <div class="hs-row" role="group" aria-label="your stage">
+        <span class="hs-track" aria-hidden="true"></span>
+        <button type="button" class="hs-stage" aria-pressed="true" aria-controls="hs-card"
+          data-title="start with a video you love." data-text="get a script, then film it on the teleprompter.">
+          <span class="hs-av" data-lx-mood="idle" aria-hidden="true"></span>
+          <span class="hs-lbl">just starting</span>
+          <span class="hs-dot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
+          data-title="build a library of winners." data-text="every video you save, broken down by what made it work.">
+          <span class="hs-av" data-lx-mood="reading" aria-hidden="true"></span>
+          <span class="hs-lbl">finding your format</span>
+          <span class="hs-dot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
+          data-title="never run out of ideas." data-text="any saved video can be your next script.">
+          <span class="hs-av" data-lx-mood="writing" aria-hidden="true"></span>
+          <span class="hs-lbl">posting consistently</span>
+          <span class="hs-dot" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
+          data-title="get coached as you grow." data-text="unlimited scripts on pro. the coach, coming with max.">
+          <span class="hs-av" data-lx-mood="coaching" aria-hidden="true"></span>
+          <span class="hs-lbl">growing fast</span>
+          <span class="hs-dot" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="hs-card" id="hs-card" data-stage="0">
+        <!-- aria-live sits on the COPY only: the stage text swaps as the page scrolls and should be
+             announced; the slot below it changes with the stage in CSS and must not be re-read. -->
+        <div class="hs-copy" aria-live="polite">
+          <p class="hs-step" id="hs-step">1 of 4 · just starting</p>
+          <h2 class="hs-title" id="hs-title">start with a video you love.</h2>
+          <p class="hs-text" id="hs-text">get a script, then film it on the teleprompter.</p>
+        </div>
+        <!-- STAGE VISUALS (owner, 2026-09-23: "build a library of winners and change the visuals to
+             match" for stage 2; "make this one like a calendar" for stage 3). DECORATIVE: aria-hidden,
+             and no words that claim a feature. The library strip is three saved videos with format
+             chips the site already teaches (storytime, question hook, two-column). The week strip is a
+             METAPHOR for posting consistently -- lynxr has no scheduler, and the stage's copy says
+             nothing about one. Each sits in the same 54px slot, so the pinned block does not jump
+             between stages; app.css shows one by data-stage. -->
+        <div class="hs-vis hs-lib" aria-hidden="true">
+          <span class="hs-tile"><span class="hs-tile-thumb"></span><span class="hs-tile-chip">storytime</span></span>
+          <span class="hs-tile"><span class="hs-tile-thumb"></span><span class="hs-tile-chip">question hook</span></span>
+          <span class="hs-tile"><span class="hs-tile-thumb"></span><span class="hs-tile-chip">two-column</span></span>
+        </div>
+        <div class="hs-vis hs-week" aria-hidden="true">
+          <span class="hs-day is-done"><span class="hs-day-l">mo</span><span class="hs-day-t"></span></span>
+          <span class="hs-day is-done"><span class="hs-day-l">tu</span><span class="hs-day-t"></span></span>
+          <span class="hs-day is-done"><span class="hs-day-l">we</span><span class="hs-day-t"></span></span>
+          <span class="hs-day is-today"><span class="hs-day-l">th</span><span class="hs-day-t"></span></span>
+          <span class="hs-day"><span class="hs-day-l">fr</span><span class="hs-day-t"></span></span>
+          <span class="hs-day"><span class="hs-day-l">sa</span><span class="hs-day-t"></span></span>
+          <span class="hs-day"><span class="hs-day-l">su</span><span class="hs-day-t"></span></span>
+        </div>
+        <!-- WHAT CHANGES WITH THE STAGE (owner, 2026-09-22: "have this change for each stage,
+             something that would relate to each stage"). picker.js sets data-stage on the card and
+             app.css shows the one .hs-aside whose data-stage matches. Stage 4 has nothing to paste —
+             the coach is not built and pro is bought inside the app — so its card shows two real
+             links instead. All four are in the markup (no innerHTML; a visitor without JS sees
+             stage 1's), and every claim here is one the pricing page already makes. -->
+        <div class="hs-asides">
+          <p class="hs-aside" data-stage="0">3 free scripts a week. no card.</p>
+          <p class="hs-aside" data-stage="1"><a href="/how-it-works/#hiw-ex">see one broken down &rarr;</a></p>
+          <p class="hs-aside" data-stage="2"><a href="/" data-gate="up">open your saved videos &rarr;</a></p>
+          <p class="hs-aside" data-stage="3">$24.99 a month. cancel any time.</p>
+        </div>
+        <!-- STAGE 1'S ACTION: back to the landing, where the composer actually works. Same 54px
+             slot and same button sizing as .hs-links below, so nothing moves between stages. -->
+        <div class="hs-go">
+          <a class="btn hs-link" href="/">paste a link &rarr;</a>
+        </div>
+        <div class="hs-links">
+          <a class="btn hs-link" href="/pricing/">see pro &rarr;</a>
+          <a class="btn hs-link" href="/how-it-works/coach/">about the coach &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <section class="hiw-sec" aria-labelledby="hiw-get">
     <h2 class="hiw-h2" id="hiw-get">how we get the script</h2>
@@ -395,7 +507,7 @@
       <!-- Visible label "try it", accessible name "try it — join the wait
            list". The .sr-only tail is inside the <a>, so it is part of the
            name computation rather than a title attribute nobody hears. -->
-      <a class="foot-link" href="/">get started<span class="rk" aria-hidden="true">&#128640;</span><span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
+      <a class="foot-link" href="/">get started<span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
     </div>
     <div class="foot-col">
       <div class="foot-label">guides</div>
@@ -429,9 +541,13 @@
 
 <!-- The top bar's hide-on-scroll and burger, the footer, and the live avatars
      ([data-lx-mood] spans). Public pages only. -->
-<script src="/site.js?v=20260923m" defer></script>
-<script src="/footer.js?v=20260923m" defer></script>
-<script src="/avatar.js?v=20260923m" defer></script>
+<script src="/site.js?v=202609232e" defer></script>
+<script src="/footer.js?v=202609232e" defer></script>
+<script src="/avatar.js?v=202609232e" defer></script>
+<!-- THE STAGE PICKER, this page only (moved off the landing 2026-09-23). After
+     avatar.js so the stage avatars exist before it measures anything; it goes
+     inert with no `section.hs` on the page, so loading it elsewhere is harmless. -->
+<script src="/picker.js?v=202609232e" defer></script>
 
 </body>
 </html>

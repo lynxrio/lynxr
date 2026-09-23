@@ -27,7 +27,68 @@ naming a path there publishes it.
 
 ### Read this block first. The rest of START HERE below is older and still true unless this says otherwise.
 
-**LANDING + AGENCY HEADER BATCH (2026-09-22, evening) — ALL IN THE WORKING TREE, stamp `20260923k`, uncommitted.**
+**LANDING + AGENCY HEADER BATCH (2026-09-22, evening) — ALL IN THE WORKING TREE, stamp `202609232e`, uncommitted.**
+- **⚠ `picker.js` IS NEW AND UNTRACKED — `git add picker.js` before any commit or both how-it-works pages 404 on it.**
+- **THE STAGE PICKER NO LONGER LIVES ON THE LANDING (owner, 2026-09-23: "put this section in the how it works
+  section… no need for it on the main landing page… for both script and coach").** `section.hs#how` now tops
+  BOTH `/how-it-works/` and `/how-it-works/coach/`, replacing each page's old opening block (avatar, eyebrow,
+  "scripts built on videos that already work", subline); markup byte-identical on the two pages; JS split out of
+  `home.js` into `picker.js`; every `.hs-*` rule re-scoped `body.home` → `body.hiw`. Stage 1's paste box became
+  `paste a link →` to `/` (owner's choice — those pages don't load creator.js). Two hrefs had to change to stay
+  valid there: "see one broken down →" → `/how-it-works/#hiw-ex`, "see pro →" → `/pricing/`. The `scripts | coach`
+  switch was kept above the picker (it is the only nav between the two pages) and so was the coach page's
+  `coming soon · lynxr max` pill — **owner to confirm both**. `--hs-inh` there: 495 desktop / 585 phone.
+  The landing is now hero → pricing → closing CTA.
+- **HERO v3 (owner, 2026-09-23, several rounds):** left column centred — `h1#hx-buddy-h` **"what's next, creator?"** (owner-picked, 2026-09-23, from a three-word-question
+  brainstorm; before that "your second brain" — owner asked for three words; it briefly was "every creator's second brain", which needed a ≥1240px
+  own-width override that made the panel non-monotonic — that override is REMOVED). For the question headline the
+  composition was re-cut 540 + 80 + 540 (was 440 + 80 + 560) with the h1 capped at 50px, so it sits on one line from
+  1280 up with no stepped breakpoint; the panel is 540 flat from 1280 up, `p.hx-sub` "your content creation buddy" under it, then a glass SIGN-UP CARD (`.hxs`): continue with Google → mono
+  "or" → email → continue with email → terms/privacy consent line → "already have one? sign in". The card does NO
+  auth itself: every control opens the real `#gate` (`data-gate` "up"/"in") and carries the typed email into `#email`;
+  Enter never reloads. **The Google button goes STRAIGHT THROUGH** (owner, 2026-09-23: the card's "by continuing you
+  agree to the terms and privacy policy" line IS the agreement — "it can go straight through as i say this in the
+  screenshot"): home.js opens the gate, ticks `#agree` (+ change event) and clicks `#oauth-google`, i.e. the real
+  oauthStart(). It first focused rather than clicked, pending exactly this decision. **The card is hidden ≤640px** (owner: "remove this on mobile"). Right column: ONE glass panel — coach row
+  / hairline / script row with the live composer / **the buddy inside the panel's bottom band** (owner: "put lynxr
+  inside the box with the info above it"); the speech-bubble tail idea was dropped with that. Fine print, kicker,
+  lede all gone, and the coach row's "your coach · preview" label with its 22px avatar too (owner, 2026-09-23); the coach
+  preview bubble became a `learn more →` ghost pill to `/how-it-works/coach/` (owner: "have this say learn more and
+  then go to the how it works page"). Intro unchanged in beats (whistle → coach, pencil → script, 1.84s), every load, any touch snaps.
+- **Limbs, final (owner: "put the pencil and whistle on the left top limb"):** BOTH props on `.lx-a0` (top-left)
+  at every width; `whistle-lo` and the width-split media queries are DELETED; wave + wiggle ride `.lx-w0`; 0ms
+  drift, 0 double-prop frames at both sizes.
+- Dead tokens noticed: `--hx-card*` and `--hs-on-*` have no consumers in `app.css`; moved, not deleted.
+- **A moving-buddy intro (start top-left, "write" along each row, land in the corner) was BUILT by an agent and
+  then REVERTED by hand the same evening** on the owner's reversal ("just keep lynxr on the bottom corner with the
+  animation before the row thing"). Nothing of it remains: no `@keyframes hx-write`, no `--hx-p*` properties, no
+  `hxPath()`. The intro is the stationary one described in `home.js`'s beat comment.
+- **ONE ACTION STYLE (owner, 2026-09-23: "make all action buttons the same color and style so people can recognize
+  it easily"):** every action on the landing and both how-it-works pages is the ink `.btn` pill — the bar's
+  "get started" lost its white outlined override, "learn more →", "try for free" and "about the coach →" lost
+  `.ghost`, and the hero's "continue with Google" was made ink too — then put BACK to Google's white light button on the
+  owner's word ("keep the google one the way it was"): the one deliberate exception. **The rocket emoji is gone
+  from every "get started" on every page** (bar, phone menu, footer — 24 files, 72 instances; owner: "remove the emoji"), and the
+  dead `.rk` rules with it. Text links stay text (sign in, the stage asides, the consent line). The app's own `#gate`
+  Google button is untouched — product surface, Google's light spec.
+- **Landing plan cards re-laid to the reference layout** (owner, 2026-09-23, a claude.ai pricing screenshot: "for the
+  options have this be the same layout"): mark (live avatar, idle/writing/coaching) → name → tagline → price → note →
+  full-width action → "no commitment · cancel any time" → rule → "everything in X, plus:" → checked list. Same facts,
+  reordered; "cancel any time" moved from pro's bullet to its commitment line; pro gained the (true) 14-day
+  money-back bullet from /pricing/. **/pricing/'s own cards use a different structure and were NOT changed** — owner
+  to say if they should match.
+- (Incident, fixed: the plan-card re-lay first cut the old list at the FIRST `</ul>` after it — the free card's inner
+  list — so the old pro/max cards and a stray "try for free" survived below the new list and painted full-width. Caught
+  on a full-page capture, removed at the exact 6-space `</ul>`. `index.html` now has exactly three `.lp-plan`.)
+- **Buttons never grow on hover** (owner: "for buttons, no need to make them bigger") — the `scale(1.05)` hover on
+  `.btn`/`.composer-send` is gone; the `:active` press-down stays.
+- **STANDING STYLE RULE (owner, 2026-09-23): the gradient "rainbow" outline on the pro plan card (`/pricing/`) is
+  the marker for the highlighted option — keep it the same on every similarly-featured thing; never a second style.**
+- **Stamp note:** `20260923z` cannot roll; the batch went to `202609232a` (date + batch digit + letter, the
+  precedent already in this file) and then `202609232b`.
+- **Phone pricing cards match the hero panel's measure** (owner): `body.home .lp-plans { padding-inline: 10px }`
+  under 640px — panel and cards both x=20 / w=353 at 393. Same for the footer card on the landing:
+  `body.home #site-footer { margin-inline: 20px }` under 640px (the footer element IS the glass card).
 Owner drove this live in one session; every item below was verified in painted pixels unless marked.
 - **HERO REBUILT TO MOCKUP H (owner-approved, 2026-09-23): "one buddy for the whole job."** `index.html:355-430`,
   `app.css:10284-10490`, `home.js`, `avatar.js`. Left = the live avatar as the "content buddy" (~220px, SAME
@@ -37,10 +98,7 @@ Owner drove this live in one session; every item below was verified in painted p
   (`coming soon` pill, preview bubble) / hairline / script row (`live now`, the composer moved intact, "3 free
   scripts a week. no card." — that fine print was later REMOVED, owner). `--hx-card*` tokens moved off `.hx`
   onto `.hs` only. **Intro re-sequenced**: whistle → coach row, then pencil → script row, 1.80s measured.
-  **Limbs (owner, several rounds):** pencil bottom-right (`.lx-a2`) everywhere; whistle TOP-right (`.lx-a1`)
-  above 640px and BOTTOM-LEFT (`.lx-a3`) on phones — avatar.js emits the whistle twice (`whistle`,
-  `whistle-lo`) because a prop's hand is baked into an SVG transform CSS cannot reach; two media queries pick
-  one. Zero phase drift, no double-prop frame at either size. **Then the owner cut the kicker and the lede at
+  **Limbs:** SUPERSEDED — see "Limbs, final" above (both props top-left, `.lx-a0`, the doubled whistle deleted). **Then the owner cut the kicker and the lede at
   ALL widths and renamed the h1 "your content creation buddy"** — the only remaining "not built yet" signal
   in the hero is the `coming soon` pill. Phone: headline → avatar (96px) → 18px gap → panel, NO overlap
   (owner: "dont have the logo cover the box"). Desktop: the two halves cluster on a 1080px composition
@@ -61,6 +119,18 @@ Owner drove this live in one session; every item below was verified in painted p
   click showed nothing. Fix: `#nav-lynx[hidden] { display: none; }` (`app.css` beside the other
   `[hidden]` resets). Verified: computed `none` with the attribute, `flex` without. **Needs a push to reach
   lynxr.io** — until then every creator still sees the item.
+- **Picker, later on 2026-09-23 (all verified at 393 and 1280):** (1) the week strip redrawn — posted days
+  hold a tiny video, today holds the empty frame with an accent ring, future days are ghosts; two-letter day
+  labels. (2) The card AND the lit stage row wear the hero panel's glass (`--gl-*`, owner: "use more of the
+  glass morphism"). (3) PHONE ACCORDION: `.hs-row { display: contents }` under 640px so the four buttons and
+  the card share one flex column, and the card's `order` (from `data-stage`) slots it 8px under whichever
+  row is lit (owner: "the tab im looking at and the info underneath right next to each other"). Uses
+  `nth-of-type`, NOT `nth-child` — the row's first child is the hidden track span, and nth-child put the
+  last stage first once. (4) Tiles stack thumb-over-chip on phones so no chip truncates. (5) The pop-in of
+  tiles/thumbs is keyed on `.hs-in`, which `paint()` removes/re-adds with a reflow; fill-mode BACKWARDS —
+  with BOTH, elements that loaded inside a display:none parent sat at opacity 0 forever (measured).
+  `--hs-inh` phone = 608px. (6) "pricing" removed from the landing bar and its phone menu (owner); the
+  other public pages' bars still carry it, and the footer link stays.
 - **Stage visuals (owner, 2026-09-23): stage 2 = "build a library of winners." with a LIBRARY STRIP** (three
   saved-video tiles with format chips: storytime / question hook / two-column) **in place of the composer;
   stage 3 = a WEEK STRIP** (m–s cells, three done, today lit) in place of the composer — a metaphor for
