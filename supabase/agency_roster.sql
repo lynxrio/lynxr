@@ -6,6 +6,12 @@
 -- Dashboard → SQL Editor → New query → paste → Run. Standalone, idempotent.
 -- **No real email address, code or uuid anywhere in this file — the repo is
 -- public.**
+--
+-- SUPERSEDED IN PART, 2026-09-23: supabase/roster_invite_by_email.sql replaces
+-- accept_agency_invite() (no join code — keyed on the signed-in account's own
+-- confirmed email) and my_agency() (adds the creator-facing `campaign`).
+-- Re-running THIS file puts the old my_agency() back — run
+-- roster_invite_by_email.sql again straight after it.
 
 do $$ begin
   if to_regclass('public.lynxr_staff') is null then
@@ -230,54 +236,9 @@ $$;
 revoke all on function public.my_agency_brief(uuid) from public, anon;
 grant execute on function public.my_agency_brief(uuid) to authenticated;
 
--- Returns {"ok": false} for a wrong code, an unknown address and a stale
--- session alike — one answer, no oracle.
-drop function if exists public.accept_agency_invite(text);
-create or replace function public.accept_agency_invite(p_code text)
-returns jsonb
-language plpgsql
-volatile
-security definer
-set search_path = ''
-as $$
-declare
-  v_uid   uuid := auth.uid();
-  v_email text;
-  n       int;
-begin
-  if v_uid is null then
-    raise exception 'not signed in';
-  end if;
-
-  select lower(u.email) into v_email from auth.users u where u.id = v_uid;
-  if v_email is null or v_email = '' then
-    return jsonb_build_object('ok', false);
-  end if;
-
-  -- One account, one seat (decision 3) — pre-checked so the unique index
-  -- never has to raise.
-  if exists (
-    select 1 from public.lynxr_roster
-     where creator_id = v_uid and email <> v_email
-  ) then
-    return jsonb_build_object('ok', false);
-  end if;
-
-  update public.lynxr_roster
-     set creator_id = v_uid, status = 'accepted', accepted_at = now(), left_at = null
-   where email = v_email
-     and btrim(coalesce(p_code, '')) <> ''
-     and upper(code) = upper(btrim(p_code))
-     and (creator_id is null or creator_id = v_uid)
-     and status in ('invited', 'left');
-
-  get diagnostics n = row_count;
-  return jsonb_build_object('ok', n > 0);
-end;
-$$;
-
-revoke all on function public.accept_agency_invite(text) from public, anon;
-grant execute on function public.accept_agency_invite(text) to authenticated;
+-- accept_agency_invite() lives in supabase/roster_invite_by_email.sql since
+-- 2026-09-23 (email-keyed, no code). That file drops the code-keyed version
+-- that stood here; do not bring it back.
 
 drop function if exists public.leave_agency();
 create or replace function public.leave_agency()
@@ -309,8 +270,8 @@ notify pgrst, 'reload schema';
 --   values (lower('them@example.com'), 'Their name', 'wave 1', auth.uid())
 --   on conflict (email) do nothing;
 --
--- The code to read out on Discord:
---   select email, code, status from public.lynxr_roster where status <> 'accepted' order by invited_at;
+-- Who hasn't accepted yet (they see the invite as a popup the next time they open lynxr):
+--   select email, campaign, status, invited_at from public.lynxr_roster where status <> 'accepted' order by invited_at;
 --
 -- Who is on the roster:
 --   select email, status, (creator_id is not null) as has_account, invited_at, accepted_at, left_at

@@ -4901,6 +4901,7 @@ function renderBriefViewer(host, rec, client) {
     </div>
     <p class="bp-msg cb-msg" id="bv-send-msg" role="status" aria-live="polite"></p>
     <div id="cb-send-wrap">${cbSendPanelHtml("brief", rec.id)}${cbSentListHtml("brief", rec.id)}</div>
+    ${bfSectionHtml("brief", rec.id)}
 
     ${briefScriptsHtml(rec, client)}`;
 
@@ -4908,6 +4909,7 @@ function renderBriefViewer(host, rec, client) {
     () => { if (BRIEF_VIEW?.id === rec.id) renderBriefsKeepScroll(); }, "bv-send-msg");
   if (ROSTER === null && !ROSTER_ERR) rostLoad();
   agEnsureSent("brief", rec.id, () => { if (BRIEF_VIEW?.id === rec.id) renderBriefsKeepScroll(); });
+  bfBind(host, "brief", rec.id, () => { if (BRIEF_VIEW?.id === rec.id) renderBriefsKeepScroll(); });
 
   document.getElementById("bv-back").addEventListener("click", () => { BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs(); });
   document.getElementById("bv-clients").addEventListener("click", () => {
@@ -5658,21 +5660,40 @@ async function cbLaneState() {
 const ROST_EMAIL_RE = /^[^@\s]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}$/;
 
 let ROSTER = null;      // array of roster rows, or null = not loaded yet
-let ROSTER_ERR = "";    // "" | "missing" | "denied" | "other" (see cbError)
+let ROSTER_ERR = "";    // "" | "missing" | "migrate" | "denied" | "other" (see cbError, rostLoad)
+// email -> { has_account, confirmed } for rows not yet accepted, from the staff-only
+// roster_accounts() (supabase/roster_invite_by_email.sql). null = unknown: the
+// function isn't installed or the call failed, and the rows then just don't say.
+let ROSTER_ACCTS = null;
 
 async function rostList() {
-  return sbFetch("/rest/v1/lynxr_roster?select=email,code,display_name,status,creator_id,invited_at,accepted_at,left_at&order=invited_at.desc");
+  return sbFetch("/rest/v1/lynxr_roster?select=email,display_name,campaign,status,creator_id,invited_at,accepted_at,left_at&order=invited_at.desc");
 }
 
-async function rostInvite(email, name, note) {
+async function rostAccounts() {
+  try {
+    const rows = await sbFetch("/rest/v1/rpc/roster_accounts", { method: "POST", body: "{}" });
+    return new Map((rows || []).map((a) => [a.email, a]));
+  } catch { return null; }
+}
+
+async function rostInvite(email, name, note, campaign) {
   const clean = String(email || "").trim().toLowerCase();
   if (!clean || clean.length > 254 || !ROST_EMAIL_RE.test(clean)) {
     throw new Error("That doesn't look like an email address.");
   }
+  const prev = (ROSTER || []).find((r) => r.email === clean);
+  const body = { email: clean };
+  // A re-invite only overwrites what was typed this time; blank boxes keep what's there.
+  if (!prev || name) body.display_name = name || "";
+  if (!prev || note) body.note = note || "";
+  if (!prev || campaign) body.campaign = String(campaign || "").trim().slice(0, 80);
+  // Someone who left gets a fresh invite, and the popup again, when invited again.
+  if (prev?.status === "left") { body.status = "invited"; body.left_at = null; }
   return sbFetch("/rest/v1/lynxr_roster", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates" },
-    body: JSON.stringify({ email: clean, display_name: name || "", note: note || "" }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -5698,11 +5719,17 @@ function rostErrorSentence(ex, verb) {
 
 async function rostLoad() {
   try {
-    ROSTER = await rostList();
+    const [rows, accts] = await Promise.all([rostList(), rostAccounts()]);
+    ROSTER = rows;
+    ROSTER_ACCTS = accts;
     ROSTER_ERR = "";
   } catch (ex) {
     ROSTER = null;
-    ROSTER_ERR = cbError(ex);
+    ROSTER_ACCTS = null;
+    // 42703 "column lynxr_roster.campaign does not exist" = this plan's SQL isn't applied
+    // yet. Checked BEFORE cbError, whose /does not exist/ would call it "missing" and
+    // send staff to the wrong file.
+    ROSTER_ERR = /campaign/.test(String(ex?.message || "")) ? "migrate" : cbError(ex);
   }
   if (document.getElementById("roster-host")) renderRoster();
 }
@@ -5730,6 +5757,10 @@ function rosterHtml() {
     return `<div class="section rost-section"><div class="sec-head"><h2>Creators</h2></div>
       <p class="note">The roster isn't installed yet — run <code>supabase/agency_roster.sql</code> in the Supabase SQL editor.</p></div>`;
   }
+  if (ROSTER_ERR === "migrate") {
+    return `<div class="section rost-section"><div class="sec-head"><h2>Creators</h2></div>
+      <p class="note">The roster needs one more update — run <code>supabase/roster_invite_by_email.sql</code> in the Supabase SQL editor.</p></div>`;
+  }
   if (ROSTER_ERR === "denied") {
     return `<div class="section rost-section"><div class="sec-head"><h2>Creators</h2></div>
       <p class="note">This account can't read the roster.</p></div>`;
@@ -5747,6 +5778,10 @@ function rosterHtml() {
           <input type="email" id="rost-email" autocomplete="off" placeholder="them@example.com"></label>
         <label class="ce-field"><span class="lbl">Name (optional)</span>
           <input type="text" id="rost-name" autocomplete="off"></label>
+        <label class="ce-field"><span class="lbl">Campaign (optional)</span>
+          <input type="text" id="rost-campaign" autocomplete="off" maxlength="80"
+            list="rost-campaign-opts" placeholder="e.g. Cloey — shown in their invite">
+          <datalist id="rost-campaign-opts">${rostCampaignOptions()}</datalist></label>
         <label class="ce-field ce-wide"><span class="lbl">Note (optional)</span>
           <input type="text" id="rost-note" autocomplete="off" placeholder="agency only — never reaches the creator"></label>
       </div>
@@ -5759,26 +5794,42 @@ function rosterHtml() {
   </div>`;
 }
 
+/** Suggestions for the Campaign box: the agency's own client names, read straight from the
+    Clients cache. Not through loadClients(), which can write while it reads. A datalist
+    suggests without restricting, the same as the brand form's niche box. */
+function rostCampaignOptions() {
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(CLIENTS_KEY)) || []; } catch {}
+  const names = [...new Set(list.map((c) => String(c?.company || "").trim()).filter(Boolean))].sort();
+  return names.map((n) => `<option value="${escapeHtml(n)}"></option>`).join("");
+}
+
+/** One plain sentence per row: what the creator's side looks like right now. */
+function rostStateLine(r) {
+  if (r.status === "accepted") return "Accepted — you can send them briefs.";
+  if (r.status === "left") return "Left the roster. Invite this email again to send them a new invite.";
+  if (!ROSTER_ACCTS) return "Invited — waiting for them to accept.";
+  const a = ROSTER_ACCTS.get(r.email);
+  if (!a || !a.has_account) return "No lynxr account with this email yet — they'll see the invite when they sign up with it.";
+  if (!a.confirmed) return "Signed up, but hasn't confirmed their email yet — the invite shows once they do.";
+  return "Has a lynxr account — they'll see the invite the next time they open lynxr.";
+}
+
 function rosterListHtml() {
   if (!ROSTER.length) {
     return `<div class="empty">${emptyMark("idle")}<p><strong>No creators yet.</strong></p>
-      <p>Invite one by email — they accept inside their own lynxr account with the code you give them.</p></div>`;
+      <p>Invite one by email — they'll see the invite as a popup the next time they open lynxr with that email.</p></div>`;
   }
   return `<div class="rost-cards">` + ROSTER.map((r) => {
     const chipCls = r.status === "accepted" ? " good" : r.status === "left" ? " bad" : "";
     const dateIso = r.status === "accepted" ? r.accepted_at : r.status === "left" ? r.left_at : r.invited_at;
     const date = escapeHtml(String(dateIso || "").slice(0, 10));
-    const codeRow = r.status !== "accepted"
-      ? `<div class="rost-code-row">
-          <code class="rost-code">${escapeHtml(r.code)}</code>
-          <button type="button" class="ghost rost-copy" data-code="${escapeHtml(r.code)}">Copy code</button>
-        </div>`
-      : "";
+    const campaign = r.campaign ? ` · ${escapeHtml(r.campaign)}` : "";
     return `<article class="bcard rost-card" data-email="${escapeHtml(r.email)}">
       <div class="bcard-main minw0">
         <div class="bcard-title">${escapeHtml(r.display_name || r.email)}</div>
-        <div class="lbl">${escapeHtml(r.email)} · <span class="chip${chipCls}">${escapeHtml(r.status)}</span> · ${date}</div>
-        ${codeRow}
+        <div class="lbl">${escapeHtml(r.email)} · <span class="chip${chipCls}">${escapeHtml(r.status)}</span>${campaign} · ${date}</div>
+        <p class="rost-state">${escapeHtml(rostStateLine(r))}</p>
       </div>
       <button type="button" class="ghost danger icon-only rost-remove"
         aria-label="Remove ${escapeHtml(r.email)} from the roster" title="Remove from roster">${TRASH_SVG}</button>
@@ -5796,13 +5847,17 @@ function bindRoster(host) {
     const emailInput = document.getElementById("rost-email");
     const nameInput = document.getElementById("rost-name");
     const noteInput = document.getElementById("rost-note");
+    const campaignInput = document.getElementById("rost-campaign");
     const go = document.getElementById("rost-invite-go");
+    const was = (ROSTER || []).find((r) => r.email === String(emailInput.value || "").trim().toLowerCase())?.status;
     go.disabled = true;
     try {
-      await rostInvite(emailInput.value, nameInput.value.trim(), noteInput.value.trim());
-      emailInput.value = ""; nameInput.value = ""; noteInput.value = "";
+      await rostInvite(emailInput.value, nameInput.value.trim(), noteInput.value.trim(), campaignInput.value.trim());
+      emailInput.value = ""; nameInput.value = ""; noteInput.value = ""; campaignInput.value = "";
       await rostLoad();
-      cbMsg(document.getElementById("rost-invite-msg"), "Invited. The code is on their card below — read it out to them.", "good", true);
+      cbMsg(document.getElementById("rost-invite-msg"), was === "accepted"
+        ? "Updated. They're already on the roster."
+        : "Invited. They'll see it as a popup the next time they open lynxr with that email.", "good", true);
     } catch (ex) {
       cbMsg(msg, ex?.message && !/^\d/.test(ex.message) ? ex.message : rostErrorSentence(ex, "invite to"), "bad", true);
     } finally {
@@ -5810,13 +5865,6 @@ function bindRoster(host) {
       if (g) g.disabled = false;
     }
   });
-
-  host.querySelectorAll(".rost-copy").forEach((btn) => btn.addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(btn.dataset.code); } catch { /* clipboard denied */ }
-    const old = btn.textContent;
-    btn.textContent = "Copied ✓";
-    setTimeout(() => { if (btn.isConnected) btn.textContent = old; }, 1500);
-  }));
 
   host.querySelectorAll(".rost-remove").forEach((btn) => {
     const card = btn.closest(".rost-card");
@@ -6024,6 +6072,11 @@ function cbSendPanelHtml(sourceKind, sourceId) {
       <p class="note">Sending isn't installed yet — run <code>supabase/agency_roster.sql</code> in the Supabase SQL editor.</p>
     </div>`;
   }
+  if (ROSTER_ERR === "migrate") {
+    return `<div class="section cb-send-panel">
+      <p class="note">Sending needs one more update — run <code>supabase/roster_invite_by_email.sql</code> in the Supabase SQL editor.</p>
+    </div>`;
+  }
   if (ROSTER === null) {
     return `<div class="section cb-send-panel">
       <div class="loader" role="status" aria-live="polite">${loaderMark()}
@@ -6159,6 +6212,306 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
       }
     });
   });
+}
+
+// ---------- Brief files (plan: ~/.claude/plans/brief-file-attachments.md) ----------
+// Logos, fonts and brand guides attached to a brief for the creators it is sent
+// to. SQL: supabase/brief_files.sql. A file belongs to the brief's SOURCE — the
+// same (sourceKind, sourceId) pair agSend records — not to a sent snapshot, so a
+// file attached before the first send, or after it, reaches every creator the
+// brief is delivered to without a re-send (unlike the brief's text, which is a
+// snapshot). Bytes: the PRIVATE bucket below. List: lynxr_brief_files. Creators
+// never touch either from here; they read through my_agency_brief_files() and a
+// storage policy, both in the SQL file.
+const BF_BUCKET = "lynxr-brief-files";
+// Mirrors supabase/brief_files.sql — change both together. The bucket enforces
+// the per-file size and the types, a trigger enforces the per-brief caps; these
+// copies only make a refusal an instant sentence instead of a failed upload.
+const BF_MAX_FILE = 25 * 1048576;
+const BF_MAX_TOTAL = 50 * 1048576;
+const BF_MAX_COUNT = 20;
+// Extension -> the Content-Type sent on upload. Decided HERE from the name and
+// never from file.type: browsers disagree about fonts and zips
+// ("application/x-zip-compressed", "" for .woff2 on some systems), and the
+// bucket's allowed_mime_types would refuse whichever one a browser invented.
+const BF_TYPES = {
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif",
+  svg: "image/svg+xml", pdf: "application/pdf", zip: "application/zip",
+  otf: "font/otf", ttf: "font/ttf", woff: "font/woff", woff2: "font/woff2",
+};
+const BF_ACCEPT = Object.keys(BF_TYPES).map((e) => "." + e).join(",");
+let BF_FILES = new Map();     // agSentKey(kind, id) -> { rows, error } | undefined = not loaded
+const BF_LOADING = new Set(); // keys in flight
+const BF_UP = new Map();      // key -> [{ tmp, name, size, pct, file, mime }] uploads in flight; survives repaints
+let BF_GUARDED = false;       // bfGuardPage() has run
+
+/** STORAGE ANSWERS AN EXPIRED TOKEN WITH HTTP 400, not 401 — the real status
+    is inside the JSON body (storage-api 1.77.5, probed 2026-09-23). So
+    sbFetch's refresh-on-401 never fires for a storage call, and the XHR upload
+    below has no retry at all. Refresh up front instead, when the access token
+    has under two minutes left. Same single-flight SB_REFRESHING as sbFetch. */
+async function sbFreshToken() {
+  let exp = 0;
+  try {
+    exp = JSON.parse(atob(String(SB_TOKEN).split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp || 0;
+  } catch { /* no token, or not a JWT: exp stays 0 */ }
+  if (exp * 1000 - Date.now() > 120000) return;
+  const rt = sbLoadSession()?.refresh_token;
+  if (!rt) return;
+  SB_REFRESHING = SB_REFRESHING || sbRefresh(rt).finally(() => { SB_REFRESHING = null; });
+  try { await SB_REFRESHING; } catch { /* the request itself will fail and say so */ }
+}
+
+/** One object-key segment Supabase Storage accepts and a path cannot escape:
+    [A-Za-z0-9_.-] only, never starting or ending with "." or "-", no "..",
+    at most 100 characters counted from the END so the extension survives.
+    The same alphabet is a CHECK on lynxr_brief_files.path. The file's real
+    name is stored separately (lynxr_brief_files.name) — this is only its key. */
+function bfSafe(s) {
+  const t = String(s || "").normalize("NFKD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^A-Za-z0-9_.-]+/g, "-").replace(/\.{2,}/g, ".").replace(/-{2,}/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "");
+  return t.slice(-100).replace(/^[-.]+/, "") || "file";
+}
+
+function bfSize(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return `${n} B`;
+  if (n < 1048576) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1048576).toFixed(n < 10485760 ? 1 : 0)} MB`;
+}
+
+/** A thrown sbFetch / upload error -> a short phrase, used as "<file>: <phrase>".
+    Storage errors arrive as HTTP 400 with the real status in the body, so the
+    body text is matched, not the status. */
+function bfErrorSentence(ex, verb) {
+  const msg = String(ex?.message || ex || "");
+  if (/Bucket not found|NoSuchBucket|PGRST20[25]|does not exist/i.test(msg))
+    return "attachments aren't installed yet — run supabase/brief_files.sql in the Supabase SQL editor";
+  if (/brief_files_cap/.test(msg)) return `this brief is at its limit (${BF_MAX_COUNT} files, ${bfSize(BF_MAX_TOTAL)})`;
+  if (/maximum allowed size|Payload too large|EntityTooLarge|"413"/i.test(msg)) return `over the ${bfSize(BF_MAX_FILE)} limit`;
+  if (/mime type|InvalidMimeType|invalid_mime_type|"415"/i.test(msg)) return "that file type isn't allowed";
+  if (/row-level security|Unauthorized|AccessDenied|^40[13]\b|42501/i.test(msg)) return "this account can't change brief files";
+  return `couldn't ${verb} — check the connection and try again`;
+}
+
+/** Loads (or reloads with force=true) one source's file list — the same
+    lazy pattern as agEnsureSent. Errors are kept on the entry and shown in
+    the section itself. */
+async function bfEnsure(kind, sourceId, onDone, force) {
+  const key = agSentKey(kind, sourceId);
+  if (!force && (BF_FILES.has(key) || BF_LOADING.has(key))) return;
+  if (force && BF_LOADING.has(key)) return;
+  BF_LOADING.add(key);
+  try {
+    const rows = await sbFetch(`/rest/v1/lynxr_brief_files?source_kind=eq.${encodeURIComponent(kind)}`
+      + `&source_id=eq.${encodeURIComponent(String(sourceId))}`
+      + `&select=id,path,name,size,mime,uploaded_at&order=uploaded_at.asc`);
+    BF_FILES.set(key, { rows: Array.isArray(rows) ? rows : [], error: null });
+  } catch (ex) {
+    BF_FILES.set(key, { rows: [], error: cbError(ex) });
+  } finally {
+    BF_LOADING.delete(key);
+    onDone?.();
+  }
+}
+
+/** One object into the bucket, with upload progress. XMLHttpRequest, not
+    fetch: fetch has no upload progress event. x-upsert false — every path
+    carries a fresh random segment, so a clash means something is wrong and
+    should fail rather than overwrite. Rejects with `${status} ${body}` like
+    sbFetch, so bfErrorSentence reads both the same way. */
+function bfPutObject(path, file, mime, onPct) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${SB_URL}/storage/v1/object/${BF_BUCKET}/${path}`);
+    xhr.setRequestHeader("apikey", SB_KEY);
+    xhr.setRequestHeader("Authorization", `Bearer ${SB_TOKEN || SB_KEY}`);
+    xhr.setRequestHeader("Content-Type", mime);
+    xhr.setRequestHeader("x-upsert", "false");
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onPct(Math.min(100, Math.round((e.loaded / e.total) * 100))); };
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300)
+      ? resolve()
+      : reject(new Error(`${xhr.status} ${String(xhr.responseText || "").slice(0, 160)}`));
+    xhr.onerror = () => reject(new Error("0 network"));
+    xhr.send(file);
+  });
+}
+
+/** Validate, then upload one file at a time — a clear order, and never twenty
+    25 MB uploads racing each other. Per file: bytes first, then its row, so a
+    creator never sees a row whose bytes are missing; a failed row insert
+    deletes the bytes it would have pointed at. Every repaint rebuilds #bf-msg,
+    so refusals and failures are gathered into one sticky message at the end. */
+async function bfUpload(kind, sourceId, files, repaint) {
+  const key = agSentKey(kind, sourceId);
+  const say = (text, tone, sticky) => cbMsg(document.getElementById("bf-msg"), text, tone, sticky);
+  if (!files.length) return;
+  const entry = BF_FILES.get(key);
+  if (!entry || entry.error) { say("Wait for the file list to load, then try again.", "bad", true); return; }
+  const inflight = BF_UP.get(key) || [];
+  let count = entry.rows.length + inflight.length;
+  let total = entry.rows.reduce((s, r) => s + (Number(r.size) || 0), 0) + inflight.reduce((s, u) => s + u.size, 0);
+  const problems = [];
+  const queue = [];
+  for (const file of files) {
+    const dot = file.name.lastIndexOf(".");
+    const mime = dot > 0 ? BF_TYPES[file.name.slice(dot + 1).toLowerCase()] : undefined;
+    if (!mime) { problems.push(`${file.name}: that file type isn't allowed`); continue; }
+    if (!file.size) { problems.push(`${file.name}: the file is empty`); continue; }
+    if (file.size > BF_MAX_FILE) { problems.push(`${file.name}: over ${bfSize(BF_MAX_FILE)}`); continue; }
+    if (count + 1 > BF_MAX_COUNT) { problems.push(`${file.name}: a brief holds ${BF_MAX_COUNT} files at most`); continue; }
+    if (total + file.size > BF_MAX_TOTAL) { problems.push(`${file.name}: this brief's files would pass ${bfSize(BF_MAX_TOTAL)}`); continue; }
+    count += 1;
+    total += file.size;
+    queue.push({ tmp: newId(), name: file.name, size: file.size, pct: 0, file, mime });
+  }
+  if (!queue.length) { say(`Not added — ${problems.join("; ")}.`, "bad", true); return; }
+  BF_UP.set(key, [...inflight, ...queue]);
+  repaint();
+  if (problems.length) say(`Not added — ${problems.join("; ")}.`, "bad", true);
+  let added = 0;
+  for (const u of queue) {
+    const path = `${kind}/${bfSafe(String(sourceId))}/${bfSafe(newId())}/${bfSafe(u.name)}`;
+    try {
+      await sbFreshToken();
+      await bfPutObject(path, u.file, u.mime, (pct) => {
+        u.pct = pct;
+        const el = document.querySelector(`[data-bf-up="${u.tmp}"] .bf-pct`);
+        if (el) el.textContent = `uploading · ${pct}%`;
+      });
+      try {
+        await sbFetch("/rest/v1/lynxr_brief_files", {
+          method: "POST",
+          body: JSON.stringify({ source_kind: kind, source_id: String(sourceId), path,
+            name: u.name.slice(0, 200), size: u.size, mime: u.mime }),
+        });
+      } catch (ex) {
+        sbDeleteFile(BF_BUCKET, path).catch(() => {});   // no row will ever point at these bytes
+        throw ex;
+      }
+      added += 1;
+    } catch (ex) {
+      problems.push(`${u.name}: ${bfErrorSentence(ex, "upload")}`);
+    }
+    BF_UP.set(key, (BF_UP.get(key) || []).filter((x) => x.tmp !== u.tmp));
+  }
+  await bfEnsure(kind, sourceId, null, true);
+  repaint();
+  if (problems.length) {
+    say(`${added ? `Added ${cbPlural(added, "file", "files")}. ` : ""}Not added — ${problems.join("; ")}.`, "bad", true);
+  } else {
+    say(`Added ${cbPlural(added, "file", "files")}.`, "good");
+  }
+}
+
+/** Row first, then bytes: the creator's list and the storage read policy both
+    key on the row, so creators lose the file the moment the row goes. A failed
+    byte delete leaves an orphan no list points at (storage cost, reaches no one). */
+async function bfRemove(id, path) {
+  await sbFetch(`/rest/v1/lynxr_brief_files?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+  await sbFreshToken();
+  await sbDeleteFile(BF_BUCKET, path).catch(() => {});
+}
+
+/** A file dropped anywhere except the zone would make the browser open it in
+    this tab and leave the app. Installed once per page load. */
+function bfGuardPage() {
+  if (BF_GUARDED) return;
+  BF_GUARDED = true;
+  const guard = (e) => {
+    if (!e.dataTransfer || ![...(e.dataTransfer.types || [])].includes("Files")) return;
+    if (e.target instanceof Element && e.target.closest(".bf-drop")) return;
+    e.preventDefault();
+    if (e.type === "dragover") e.dataTransfer.dropEffect = "none";
+  };
+  window.addEventListener("dragover", guard);
+  window.addEventListener("drop", guard);
+}
+
+/** "Files for creators" on a brief page — a .cb-block island like "Campaign
+    requirements", and like it "shown to creators". Every staff-typed string is
+    escaped all the same. Rows in flight come from BF_UP, so a repaint
+    mid-upload (the campaign poll, a send) keeps them and their percentage. */
+function bfSectionHtml(kind, sourceId) {
+  const key = agSentKey(kind, sourceId);
+  const entry = BF_FILES.get(key);
+  const head = (extra = "") => `<div class="cb-block-head"><span class="cb-block-title" id="bf-h">Files for creators</span>
+      <span class="lbl">shown to creators</span>${extra}</div>`;
+  if (!entry || entry.error) {
+    const text = !entry ? "Loading files…"
+      : entry.error === "missing"
+        ? "File attachments aren't installed yet — run <code>supabase/brief_files.sql</code> in the Supabase SQL editor."
+        : "Couldn't load this brief's files.";
+    return `<section class="cb-block bf-section" aria-labelledby="bf-h">${head()}
+      <p class="note">${text}</p>
+      ${entry && entry.error !== "missing" ? `<button type="button" class="ghost cb-small" id="bf-retry">Try again</button>` : ""}
+    </section>`;
+  }
+  const ups = BF_UP.get(key) || [];
+  const total = entry.rows.reduce((s, r) => s + (Number(r.size) || 0), 0);
+  const rows = entry.rows.map((r) => `<li class="bf-row">
+        <span class="bf-name" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</span>
+        <span class="lbl bf-size">${escapeHtml(bfSize(r.size))}</span>
+        <button type="button" class="ghost danger cb-small bf-remove" data-id="${escapeHtml(r.id)}"
+          data-path="${escapeHtml(r.path)}" data-name="${escapeHtml(r.name)}">Remove</button>
+      </li>`).join("") + ups.map((u) => `<li class="bf-row bf-busy" data-bf-up="${escapeHtml(u.tmp)}">
+        <span class="bf-name">${escapeHtml(u.name)}</span>
+        <span class="lbl bf-pct">uploading · ${u.pct}%</span>
+      </li>`).join("");
+  return `<section class="cb-block bf-section" aria-labelledby="bf-h">
+    ${head(`<span class="lbl bf-total">${cbPlural(entry.rows.length, "file", "files")} · ${bfSize(total)} of ${bfSize(BF_MAX_TOTAL)}</span>`)}
+    <label class="bf-drop" id="bf-drop">
+      <input type="file" id="bf-input" class="sr-only" multiple accept="${BF_ACCEPT}">
+      <span class="bf-drop-main">Drop logos, fonts or brand files here, or <span class="bf-drop-pick">choose files</span></span>
+      <span class="lbl">PNG, JPG, WebP, GIF, SVG, PDF, ZIP, OTF, TTF, WOFF · up to ${bfSize(BF_MAX_FILE)} each · ${BF_MAX_COUNT} files and ${bfSize(BF_MAX_TOTAL)} per brief</span>
+    </label>
+    ${rows ? `<ul class="bf-list">${rows}</ul>` : ""}
+    <p class="note">Everyone this brief is sent to can download these. Adding or removing a file here reaches them straight away — no need to send again.</p>
+    <p class="bp-msg cb-msg" id="bf-msg" role="status" aria-live="polite"></p>
+  </section>`;
+}
+
+/** Wires the block above. `repaint` is the caller's own keep-scroll repaint —
+    the same one it hands cbBindSend. Starts the list load on first paint. */
+function bfBind(host, kind, sourceId, repaint) {
+  const key = agSentKey(kind, sourceId);
+  const say = (text, tone, sticky) => cbMsg(document.getElementById("bf-msg"), text, tone, sticky);
+  bfGuardPage();
+  const input = document.getElementById("bf-input");
+  input?.addEventListener("change", () => {
+    const files = [...input.files];
+    input.value = "";
+    bfUpload(kind, sourceId, files, repaint);
+  });
+  const drop = document.getElementById("bf-drop");
+  drop?.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    drop.classList.add("over");
+  });
+  drop?.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop?.addEventListener("drop", (e) => {
+    e.preventDefault();
+    drop.classList.remove("over");
+    bfUpload(kind, sourceId, [...(e.dataTransfer?.files || [])], repaint);
+  });
+  document.getElementById("bf-retry")?.addEventListener("click", () => { BF_FILES.delete(key); repaint(); });
+  host.querySelectorAll(".bf-remove").forEach((btn) => {
+    armDelete(btn, "Remove", async () => {
+      btn.disabled = true;
+      try {
+        await bfRemove(btn.dataset.id, btn.dataset.path);
+        await bfEnsure(kind, sourceId, null, true);
+        repaint();
+        say("Removed.", "good");
+      } catch (ex) {
+        btn.disabled = false;
+        say(`${btn.dataset.name}: ${bfErrorSentence(ex, "remove")}.`, "bad", true);
+      }
+    });
+  });
+  bfEnsure(kind, sourceId, repaint);
 }
 
 // ---- Staff-action request bodies (Step 13's buttons send these verbatim) ----
@@ -7297,8 +7650,6 @@ function renderCampaignView(host, client, id) {
       </div>
       <div class="cb-export">
         <button type="button" class="btn cb-send-btn" id="cb-send-toggle">${CB_ICON.send}<span>Send to creators</span></button>
-        <button type="button" class="ghost" id="cb-copy">Copy brief</button>
-        <button type="button" class="btn cb-pdf-btn" id="cb-pdf">Download PDF</button>
         <button type="button" class="ghost danger icon-only b-del" id="cb-del-campaign"
           aria-label="Delete this campaign brief" title="Delete this campaign brief">${TRASH_SVG}</button>
       </div>
@@ -7312,6 +7663,7 @@ function renderCampaignView(host, client, id) {
       <p class="note cb-lane" id="cb-lane" hidden></p>
     </div>
     ${cbRequirementsHtml(campaign, fe)}
+    ${bfSectionHtml("campaign", id)}
     ${cbAgencyHtml(campaign, fe)}
     <div class="fmt-grid cb-grid" id="cb-grid">
       ${formats.length ? formats.map((f, i) => cbCardHtml(f, i, formats.length)).join("")
@@ -7331,6 +7683,7 @@ function renderCampaignView(host, client, id) {
   if (cbProgress(formats).working > 0) cbEnsurePoll(id); else cbClearPollTimer();
   if (ROSTER === null && !ROSTER_ERR) rostLoad();
   agEnsureSent("campaign", id, () => { if (CAMPAIGN_VIEW?.id === id) renderBriefsKeepScroll(); });
+  bfBind(host, "campaign", id, () => { if (CAMPAIGN_VIEW?.id === id) renderBriefsKeepScroll(); });
 }
 
 /** Progress line, bar, export buttons, not-ready note and lane reason — all
@@ -7356,21 +7709,22 @@ function cbPaintSummary(id) {
   if (fill) fill.style.width = p.total ? `${(p.ready / p.total) * 100}%` : "0%";
   const count = document.getElementById("cb-fcount");
   if (count) count.textContent = cbPlural(p.total, "format", "formats");
-  for (const bid of ["cb-copy", "cb-pdf", "cb-send-toggle"]) {
+  for (const bid of ["cb-send-toggle"]) {
     const b = document.getElementById(bid);
     if (!b) continue;
     b.disabled = p.ready === 0;
     b.title = p.ready === 0 ? "No format is ready yet" : "";
   }
-  // The export note, under the buttons: which formats the PDF/copy carries,
-  // or — with nothing ready — why the buttons are disabled.
+  // The note under the send button: which formats a send carries (agencySendDoc keeps
+  // only status "done"), or — with nothing ready — why the button is disabled. "Copy
+  // brief" and "Download PDF" used to sit beside it; both left on 2026-09-23 (owner).
   const nr = document.getElementById("cb-notready");
   if (nr) {
     const left = p.total - p.ready;
     nr.hidden = !(p.total && (left || !p.ready));
     nr.textContent = !p.ready
-      ? "Download PDF and Copy brief unlock once a format is ready."
-      : `The PDF includes only the ${cbPlural(p.ready, "ready format", "ready formats")} — ${left} still generating or failed.`;
+      ? "Send to creators unlocks once a format is ready."
+      : `A send carries only the ${cbPlural(p.ready, "ready format", "ready formats")} — ${left} still generating or failed.`;
   }
   cbPaintLane(id);
 }
@@ -7843,10 +8197,6 @@ function cbBindView(host, client, id) {
     }
   });
 
-  // ---- Step 14: export ----
-  document.getElementById("cb-copy")?.addEventListener("click", (e) => cbCopyBrief(id, client, e.currentTarget));
-  document.getElementById("cb-pdf")?.addEventListener("click", () => cbSavePdf(id, client));
-
   // ---- add inspiration videos (one row per link) ----
   const addForm = document.getElementById("cb-add");
   const addRows = addForm?.querySelector('[data-rows="add"]');
@@ -7901,62 +8251,10 @@ function cbBindView(host, client, id) {
   });
 }
 
-// ---------- Step 14: export ----------
-
-async function cbCopyBrief(id, client, btn) {
-  const rec = CB_CACHE.get(id);
-  if (!rec) return;
-  const formats = cbSorted(rec);
-  const html = campaignDocHtml(rec.campaign, formats, client);
-  const text = campaignDocText(rec.campaign, formats, client);
-  let ok = false;
-  try {
-    if (window.ClipboardItem && navigator.clipboard?.write) {
-      await navigator.clipboard.write([new ClipboardItem({
-        "text/html": new Blob([html], { type: "text/html" }),
-        "text/plain": new Blob([text], { type: "text/plain" }),
-      })]);
-      ok = true;
-    }
-  } catch { /* rich clipboard refused — plain text below */ }
-  if (!ok) {
-    try { await navigator.clipboard.writeText(text); ok = true; } catch { /* clipboard denied */ }
-  }
-  btn.textContent = ok ? "Copied ✓" : "Copy failed";
-  clearTimeout(btn.cbT);
-  btn.cbT = setTimeout(() => { if (btn.isConnected) btn.textContent = "Copy brief"; }, 1500);
-}
-
-/** "<campaign name> — brief", minus anything a filesystem refuses
-    (\\ / : * ? " < > | and control characters) and trailing dots/spaces. */
-function cbPdfTitle(name) {
-  const clean = String(name || "").replace(/[\\/:*?"<>|\u0000-\u001f\u007f]+/g, " ")
-    .replace(/\s+/g, " ").trim().replace(/[. ]+$/, "").slice(0, 120).trim();
-  return `${clean || "Campaign"} — brief`;
-}
-
-/** Print only the creator document: a detached #cb-print node plus
-    body.cb-printing, which the @media print rules at the end of app.css use
-    to hide everything else. Cleaned up on afterprint. */
-function cbSavePdf(id, client) {
-  const rec = CB_CACHE.get(id);
-  if (!rec) return;
-  document.getElementById("cb-print")?.remove();
-  const node = document.createElement("div");
-  node.id = "cb-print";
-  node.innerHTML = campaignDocHtml(rec.campaign, cbSorted(rec), client);
-  document.body.appendChild(node);
-  document.body.classList.add("cb-printing");
-  const oldTitle = document.title;
-  // Chrome's Save as PDF takes its default filename from the title.
-  document.title = cbPdfTitle(rec.campaign.name);
-  window.addEventListener("afterprint", () => {
-    node.remove();
-    document.body.classList.remove("cb-printing");
-    document.title = oldTitle;
-  }, { once: true });
-  window.print();
-}
+// ---------- (export removed) ----------
+// "Copy brief" and "Download PDF" left the campaign view on 2026-09-23 (owner: "remove
+// this" — both). campaignDocHtml / campaignDocText (above) are now unreferenced; they
+// stay for now because agencySendDoc's comment leans on them as the creator-facing shape.
 
 // ---------- Ops ----------
 /* IS ANYTHING LATE, IS ANYTHING BROKEN, WHAT IS IT COSTING.

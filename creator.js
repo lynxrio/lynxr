@@ -3497,7 +3497,7 @@ const AGENCY_NAME = "Lynx Media Group";
    the logo they sent into one path on the same 24 box the sidebar icons use. `currentColor`, so
    it follows the theme like every other icon; the file lynx-media-mark.svg holds the same path. */
 const AGENCY_MARK = `<svg class="lynx-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.69 22.36L22.46 22.33 22.11 22.18 21.71 21.94 21.16 21.51 20.06 20.86 18.88 20.31 17.84 19.91 16.64 19.56 15.34 19.28 14.08 19.11 12.67 19.01 11.33 19.01 9.89 19.11 8.51 19.31 6.89 19.68 5.67 20.08 4.49 20.59 3.19 21.29 2.69 21.61 2.31 21.91 1.79 22.23 1.62 22.31 1.29 22.36 1.16 22.31 1.08 22.22 1.0 22.05 1.0 21.57 1.18 20.78 3.05 14.9 5.92 5.68 6.11 5.17 6.25 4.88 6.49 4.57 6.84 4.34 7.27 4.32 7.71 4.54 8.0 4.83 8.35 5.37 9.53 7.7 10.17 8.9 10.37 9.2 10.61 9.46 10.84 9.59 11.01 9.59 11.19 9.49 11.35 9.3 11.7 8.65 14.12 2.73 14.42 2.18 14.69 1.89 14.86 1.77 15.23 1.64 15.51 1.67 15.74 1.77 16.07 2.07 16.33 2.53 16.45 2.85 22.82 20.79 22.97 21.45 23.0 21.99 22.9 22.25 22.84 22.31 22.69 22.36Z"/></svg>`;
-let AGENCY = null;                              // { state, briefs: [...] } or null = not asked
+let AGENCY = null;                              // { state, briefs: [...], campaign } or null = not asked
 let AGENCY_STATE = "idle";                      // idle | loading | ready | missing | error
 async function refreshAgency() {
   if (AGENCY_STATE !== "ready") AGENCY_STATE = "loading";
@@ -3518,12 +3518,36 @@ const hasAgency = () => AGENCY?.state === "accepted" || AGENCY?.state === "invit
 async function agencyBriefDoc(id) {
   return sbFetch("/rest/v1/rpc/my_agency_brief", { method: "POST", body: JSON.stringify({ p_id: id }) });
 }
-async function acceptAgency(code) {
-  return sbFetch("/rest/v1/rpc/accept_agency_invite", { method: "POST", body: JSON.stringify({ p_code: code }) });
+/* No argument, no code (2026-09-23): accept_agency_invite() finds the invite by the
+   signed-in account's own confirmed email (supabase/roster_invite_by_email.sql). */
+async function acceptAgency() {
+  return sbFetch("/rest/v1/rpc/accept_agency_invite", { method: "POST", body: "{}" });
 }
-async function leaveAgency() {
-  return sbFetch("/rest/v1/rpc/leave_agency", { method: "POST", body: "{}" });
+
+/** The invite sentence, shared by the popup and the section. Names the campaign only when
+    staff typed one on the invite. A label that already ends in "campaign" isn't doubled. */
+function agencyInviteLine() {
+  const c = String(AGENCY?.campaign || "").trim().replace(/\s+campaign$/i, "");
+  return c
+    ? `${escapeHtml(AGENCY_NAME)} invited you to the ${escapeHtml(c)} campaign.`
+    : `${escapeHtml(AGENCY_NAME)} invited you to their creator roster.`;
 }
+
+/** One accept path for the popup and the section. It re-reads the roster either way, so the
+    answer is what the database now says, not what this tab assumed:
+    "accepted" | "gone" (the invite was withdrawn) | "refused" | "offline". */
+async function runAgencyAccept() {
+  let r;
+  try { r = await acceptAgency(); } catch { return "offline"; }
+  await refreshAgency();
+  if (r?.ok || AGENCY?.state === "accepted") return "accepted";
+  return AGENCY?.state === "invited" ? "refused" : "gone";
+}
+const AGENCY_ACCEPT_SAYS = {
+  offline: "Couldn't reach the server — try again.",
+  refused: "Couldn't accept this invite. Reload lynxr and try again.",
+  gone: "This invite was withdrawn.",
+};
 
 /* WHO COUNTS AS PAYING. The same three the database calls entitled in
    entitlement_for() — including past_due, deliberately: the card failed, the
@@ -4590,31 +4614,95 @@ async function sendFeedback() {
 // exactly (creator.js:3657) — the #side-open toggle, a .pane-title with
 // .bcard-title, and a .pane-sub.
 
-/** Shared by the invited and left states — both ask for the same code. */
-function bindLynxAcceptForm() {
-  const form = document.getElementById("lynx-accept-form");
-  form?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const input = document.getElementById("lynx-code");
-    const code = (input.value || "").trim();
-    if (!code) { input.focus(); return; }
-    const btn = form.querySelector("button[type=submit]");
-    btn.disabled = true;
-    try {
-      const r = await acceptAgency(code);
-      if (r?.ok) {
-        await refreshAgency();
-        renderSide();
-        renderPane();
-        return;
-      }
-      flashMsg("lynx-accept-msg", "That code doesn't match.", "bad");
-    } catch {
-      flashMsg("lynx-accept-msg", "Couldn't reach the server — try again.", "bad");
-    }
-    btn.disabled = false;
+/* THE INVITE POPUP (owner, 2026-09-23: "when they sign in or load up lynxr they get a popup,
+   saying like hey you've been invited to the lynx media group cloey campaign").
+   Built on first use, not written into index.html: the HTML isn't cache-stamped, so markup
+   there could lag this file by a load. It rides on the send overlay's classes
+   (.sendmodal / .sendbox*, which have their own names because .modal-card is declared twice
+   in app.css and the agency app's version wins). The few rules of its own are in app.css's
+   AGENCY ROSTER block. No style="" anywhere — the CSP drops it. */
+let AGENCY_INVITE_SHOWN = false;   // once per page load — see openAgencyInvite()
+
+function ensureAgencyInviteModal() {
+  let modal = document.getElementById("lynx-invite-modal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.className = "modal sendmodal";
+  modal.id = "lynx-invite-modal";
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="sendbox" role="dialog" aria-modal="true" aria-labelledby="lynx-invite-h">
+      <div class="sendbox-head">
+        <span class="sendbox-title lynx-invite-title">${AGENCY_MARK}${escapeHtml(AGENCY_NAME)}</span>
+        <button type="button" class="ghost icon-only" id="lynx-invite-x" aria-label="Close">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="sendbox-body">
+        <p class="lynx-invite-h" id="lynx-invite-h"></p>
+        <p class="bp-hint">Accept and the briefs they send you show up here, under ${escapeHtml(AGENCY_NAME)}.
+          They never see your own scripts, library or plan, and agency scripts never count against your plan.</p>
+        <p class="bp-msg" id="lynx-invite-msg" role="status" aria-live="polite"></p>
+        <div class="sendbox-actions lynx-invite-actions">
+          <button type="button" class="ghost" id="lynx-invite-later">Not now</button>
+          <button type="button" class="btn" id="lynx-invite-accept">Accept</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  // The backdrop, the X and "Not now" all dismiss it. A press on the card itself doesn't.
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.closest?.("#lynx-invite-x, #lynx-invite-later")) closeAgencyInvite();
   });
+  const accept = modal.querySelector("#lynx-invite-accept");
+  accept.addEventListener("click", async () => {
+    accept.disabled = true;
+    const out = await runAgencyAccept();
+    if (out === "accepted") {
+      closeAgencyInvite();
+      go({ kind: "lynx" });   // land on the section: their briefs, or "Waiting on briefs."
+      return;
+    }
+    renderSide();
+    flashMsg("lynx-invite-msg", AGENCY_ACCEPT_SAYS[out], "bad");
+    if (out === "gone") {
+      accept.remove();
+      modal.querySelector("#lynx-invite-later").textContent = "Close";
+      return;
+    }
+    accept.disabled = false;
+  });
+  return modal;
 }
+
+/** Called once the roster answer is back, from unlock() — so on sign-in AND on every page load
+    with a stored session. ONCE PER PAGE LOAD, not per session: the owner asked for it "when they
+    sign in or load up lynxr", so a reload shows it again, and "Not now" only closes it for this
+    load. It never stacks on another open modal. The invite is never lost: #nav-lynx keeps its
+    "1" and the section has its own Accept. */
+function openAgencyInvite() {
+  if (AGENCY_INVITE_SHOWN || AGENCY?.state !== "invited") return;
+  if (document.body.classList.contains("modal-open")) return;
+  AGENCY_INVITE_SHOWN = true;
+  const modal = ensureAgencyInviteModal();
+  modal.querySelector("#lynx-invite-h").innerHTML = agencyInviteLine();
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+  modal.querySelector("#lynx-invite-accept")?.focus();
+}
+
+function closeAgencyInvite() {
+  const modal = document.getElementById("lynx-invite-modal");
+  if (!modal || modal.hidden) return;
+  modal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+// Escape closes it too. The element is null-checked: this modal only exists once built.
+document.addEventListener("keydown", (e) => {
+  const m = document.getElementById("lynx-invite-modal");
+  if (e.key === "Escape" && m && !m.hidden) closeAgencyInvite();
+});
 
 function renderLynx(head, body) {
   head.innerHTML = `
@@ -4642,32 +4730,29 @@ function renderLynx(head, body) {
 
   if (AGENCY.state === "invited") {
     body.innerHTML = `<div class="bcard lynx-card">
-      <p><strong>${escapeHtml(AGENCY_NAME)} invited you to their creator roster.</strong></p>
+      <p><strong>${agencyInviteLine()}</strong></p>
       <p class="bp-hint">You'll see briefs Lynx sends you here. They never see your own scripts,
         library or plan, and agency scripts never count against your plan.</p>
-      <form class="ce-field lynx-accept" id="lynx-accept-form" novalidate>
-        <input type="text" id="lynx-code" placeholder="Join code" autocomplete="off"
-          autocapitalize="characters" spellcheck="false">
-        <button type="submit" class="btn">Accept</button>
-      </form>
+      <div class="bp-actions"><button type="button" class="btn" id="lynx-accept">Accept</button></div>
       <p class="bp-msg" id="lynx-accept-msg" role="status" aria-live="polite"></p>
     </div>`;
-    bindLynxAcceptForm();
+    const btn = document.getElementById("lynx-accept");
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      const out = await runAgencyAccept();
+      if (out === "accepted") { renderSide(); renderPane(); return; }
+      flashMsg("lynx-accept-msg", AGENCY_ACCEPT_SAYS[out], "bad");
+      if (out === "gone") { btn.remove(); renderSide(); return; }
+      btn.disabled = false;
+    });
     return;
   }
 
   if (AGENCY.state === "left") {
     body.innerHTML = `<div class="bcard lynx-card">
-      <p>You left ${escapeHtml(AGENCY_NAME)}'s roster.</p>
-      <p class="bp-hint">Ask for a new code to rejoin — any brief still live from before comes back.</p>
-      <form class="ce-field lynx-accept" id="lynx-accept-form" novalidate>
-        <input type="text" id="lynx-code" placeholder="Join code" autocomplete="off"
-          autocapitalize="characters" spellcheck="false">
-        <button type="submit" class="btn">Accept</button>
-      </form>
-      <p class="bp-msg" id="lynx-accept-msg" role="status" aria-live="polite"></p>
+      <p>You're not on ${escapeHtml(AGENCY_NAME)}'s roster any more.</p>
+      <p class="bp-hint">If the agency invites you again, the invite shows up here.</p>
     </div>`;
-    bindLynxAcceptForm();
     return;
   }
 
@@ -4685,29 +4770,121 @@ function renderLynx(head, body) {
       : /* Owner, 2026-09-22: "when there are no briefs yet, just have it blank or just say something
            simple like waiting on briefs". The avatar that used to sit here had no size outside the
            agency app (.empty-mark is styled under body.agency only), so it filled the pane. */
-        `<p class="note lynx-empty">Waiting on briefs.</p>`}
-    <div class="bp-actions lynx-leave-row">
-      <button type="button" class="ghost danger" id="lynx-leave">Leave the roster</button>
-    </div>
-    <p class="note">Leaving removes Lynx briefs from your account. Anything you copied into your library stays yours.</p>`;
+        `<p class="note lynx-empty">Waiting on briefs.</p>`}`;
+  // No "leave the roster" control here — owner, 2026-09-23: "dont even add this as an
+  // option". The leave_agency() RPC still exists in supabase/agency_roster.sql; nothing
+  // in the interface calls it.
 
   body.querySelectorAll(".lynx-brief-card").forEach((card) => {
     const open = () => go({ kind: "lynxbrief", id: card.dataset.id });
     card.addEventListener("click", open);
     card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
   });
-  const leaveBtn = document.getElementById("lynx-leave");
-  if (leaveBtn) armDelete(leaveBtn, "Leave the roster", async () => {
-    leaveBtn.disabled = true;
-    try {
-      await leaveAgency();
-      await refreshAgency();
-      renderSide();
-      renderPane();
-    } catch {
-      leaveBtn.disabled = false;
-    }
+}
+
+/* FILES FROM LYNX (plan: ~/.claude/plans/brief-file-attachments.md; SQL:
+   supabase/brief_files.sql). Logos, fonts and brand guides the agency
+   attached to a brief. The list comes from my_agency_brief_files(p_id), which
+   applies my_agency_brief()'s own gates (delivered to auth.uid(), not unsent,
+   accepted roster member). The bytes sit in a PRIVATE bucket, and a download
+   is an authenticated GET with this creator's own token that a storage policy
+   re-checks against the same gates — so an object path copied off someone
+   else's page is refused by the database, not merely hidden here. Unlike the
+   brief's text (a snapshot), the list is live: files the agency adds after
+   sending show up the next time the brief is opened. */
+const LYNX_FILES_BUCKET = "lynxr-brief-files";
+/* The only shape of object path the agency app writes (bfSafe in app.js; the
+   same pattern is a CHECK on lynxr_brief_files.path). To this page a path is
+   staff-typed data, so it is checked before it goes into a URL. */
+const LYNX_FILE_PATH = /^(campaign|brief)\/[A-Za-z0-9_][A-Za-z0-9_.-]*\/[A-Za-z0-9_][A-Za-z0-9_.-]*\/[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
+
+/** Never rejects. Not installed yet (404), offline, or no files at all come
+    back as [], and the brief itself still opens — just without the block. */
+async function agencyBriefFiles(id) {
+  try {
+    const r = await sbFetch("/rest/v1/rpc/my_agency_brief_files", { method: "POST", body: JSON.stringify({ p_id: id }) });
+    return Array.isArray(r) ? r : [];
+  } catch { return []; }
+}
+
+/** STORAGE ANSWERS AN EXPIRED TOKEN WITH HTTP 400, not 401 (storage-api
+    1.77.5, probed 2026-09-23), so sbFetch's refresh-on-401 never fires for
+    it. Refresh up front when the token has under two minutes left. Same
+    single-flight SB_REFRESHING as sbFetch. */
+async function sbFreshToken() {
+  let exp = 0;
+  try {
+    exp = JSON.parse(atob(String(SB_TOKEN).split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp || 0;
+  } catch { /* no token, or not a JWT: exp stays 0 */ }
+  if (exp * 1000 - Date.now() > 120000) return;
+  const rt = loadSession()?.refresh_token;
+  if (!rt) return;
+  SB_REFRESHING = SB_REFRESHING || sbRefresh(rt).finally(() => { SB_REFRESHING = null; });
+  try { await SB_REFRESHING; } catch { /* the download itself will fail and say so */ }
+}
+
+/** Fetch with the creator's own token and hand the bytes to the device.
+    A blob and an <a download>, not a navigation: a storage error stays on
+    this page as a message instead of replacing the app with a JSON error
+    page, and no bearer URL lands in the history. Files are capped at 25 MB,
+    so holding one in memory is fine. Checked under this page's real CSP
+    (headless Brave, 2026-09-23): connect-src already admits the Supabase
+    host, and a blob download is not a CSP-governed load. */
+async function lynxFileDownload(path, name) {
+  if (!LYNX_FILE_PATH.test(String(path)) || String(path).includes("..")) throw new Error("bad path");
+  await sbFreshToken();
+  const res = await fetch(`${SB_URL}/storage/v1/object/authenticated/${LYNX_FILES_BUCKET}/${path}`, {
+    headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_TOKEN || SB_KEY}` },
   });
+  if (!res.ok) throw new Error(String(res.status));
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name || "file";
+  a.hidden = true;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function lynxFileSize(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return `${n} B`;
+  if (n < 1048576) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1048576).toFixed(n < 10485760 ? 1 : 0)} MB`;
+}
+
+/** The "files from Lynx" block on a brief page — its own .section, so it is an
+    island like the brief header above it. Nothing at all when there are no
+    files. Every string is staff-typed: escapeHtml on all of it. One line per
+    file: the name (its real casing — it is content), the size, Download. */
+function lynxFilesHtml(files) {
+  if (!Array.isArray(files) || !files.length) return "";
+  return `<div class="section lynx-files">
+    <h3 class="lynx-files-h">Files from Lynx</h3>
+    <ul class="lynx-file-list">${files.map((f) => `<li class="lynx-file">
+      <span class="lynx-file-name" title="${escapeHtml(f.name || "")}">${escapeHtml(f.name || "file")}</span>
+      <span class="lynx-file-size">${escapeHtml(lynxFileSize(f.size))}</span>
+      <button type="button" class="ghost lynx-file-get" data-path="${escapeHtml(f.path || "")}"
+        data-name="${escapeHtml(f.name || "file")}">Download</button>
+    </li>`).join("")}</ul>
+    <p class="bp-msg" id="lynx-files-msg" role="status" aria-live="polite"></p>
+  </div>`;
+}
+
+function bindLynxFiles() {
+  document.querySelectorAll(".lynx-file-get").forEach((btn) => btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "Downloading…";
+    try {
+      await lynxFileDownload(btn.dataset.path, btn.dataset.name);
+    } catch {
+      flashMsg("lynx-files-msg", "Couldn't download that file — try again.", "bad");
+    }
+    btn.disabled = false;
+    btn.textContent = "Download";
+  }));
 }
 
 /** The brief page: read-only (decision 4), loaded via agencyBriefDoc(VIEW.id).
@@ -4733,8 +4910,8 @@ function renderLynxBrief(head, body) {
     if (!VIEW._fetching) {
       VIEW._fetching = true;
       const myView = VIEW;
-      agencyBriefDoc(id)
-        .then((doc) => { if (VIEW === myView) { myView._docId = id; myView._doc = doc || null; renderPane(); } })
+      Promise.all([agencyBriefDoc(id), agencyBriefFiles(id)])
+        .then(([doc, files]) => { if (VIEW === myView) { myView._docId = id; myView._doc = doc || null; myView._files = files; renderPane(); } })
         .catch(() => { if (VIEW === myView) { myView._docId = id; myView._doc = null; renderPane(); } });
     }
     return;
@@ -4766,6 +4943,7 @@ function renderLynxBrief(head, body) {
       <div class="bcard-title">${escapeHtml(doc.title || "Brief")}</div>
       ${top}
     </div>
+    ${lynxFilesHtml(VIEW._files)}
     ${formats.length > 1
       ? `<div class="bp-actions"><button type="button" class="btn" id="lynx-add-all">Add all ${formats.length} to my library</button></div>`
       : ""}
@@ -4773,6 +4951,43 @@ function renderLynxBrief(head, body) {
     <p class="note">Scripts Lynx sends you never count against your plan.</p>`;
 
   bindLynxBriefButtons(doc, formats, id);
+  bindLynxFiles();
+}
+
+/* THE PLATFORMS' OWN MARKS, for the link out under a player (owner, 2026-09-23: "just add the
+   logos"). Simple Icons glyphs (CC0), one path each on a 24 box, currentColor so they follow the
+   theme like every other icon on this page. Never used without a player: see lynxFormatCardHtml. */
+const LYNX_LOGO_TT = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>`;
+const LYNX_LOGO_IG = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/></svg>`;
+/** THE ORIGINAL, PLAYABLE IN PLACE (owner, 2026-09-23: "have the actual video pop up, not just
+    the link saying open here"). An agency brief carries only the post's URL — agencySendDoc and
+    briefSendDoc in app.js withhold f.source (clip, cover) by design — so the platform's own player
+    is the only way to show the video on this page. Returns { src, cls, logo } for ONE TikTok or
+    Instagram post, else null; a null leaves the card exactly as it was: platform, button, URL.
+    TikTok: player/v1 is TikTok's documented embed player. Video only (no header, caption or music
+    rows), autoplay off by default, and rel=0 stops it offering other people's videos at the end.
+    NOT embed/v2, which app.js embedFor() uses on the agency side: that one carries TikTok's own
+    caption chrome and needs a ~9:19.8 box; in this card's 9:16 box it crops the video itself
+    (measured 2026-09-23). Short links (vm./vt.tiktok.com, /t/<code>) carry no video id and this
+    page cannot resolve them (CORS, connect-src), so they return null and keep the link.
+    Instagram: /p/<code>/embed/ plays reels and posts alike, so /reel/, /reels/ and /tv/ fold into
+    it; a username prefix (/<user>/reel/<code>/) is tolerated.
+    SAFE BY CONSTRUCTION: platformOf() checks the hostname (not a substring), and the only
+    staff-typed text that can reach `src` is a capture of digits or [A-Za-z0-9_-]. */
+function lynxEmbedFor(raw) {
+  const plat = platformOf(raw);
+  if (plat !== "TikTok" && plat !== "Instagram") return null;
+  let u;
+  try {
+    const s = String(raw || "").trim();
+    u = new URL(s.includes("://") ? s : "https://" + s);
+  } catch { return null; }
+  if (plat === "TikTok") {
+    const id = (u.pathname.match(/\/video\/(\d{15,})(?:\/|$)/) || [])[1];
+    return id ? { src: `https://www.tiktok.com/player/v1/${id}?rel=0`, cls: "lynx-embed-tt", logo: LYNX_LOGO_TT } : null;
+  }
+  const code = (u.pathname.match(/\/(?:reels?|p|tv)\/([A-Za-z0-9_-]+)/) || [])[1];
+  return code ? { src: `https://www.instagram.com/p/${code}/embed/`, cls: "lynx-embed-ig", logo: LYNX_LOGO_IG } : null;
 }
 
 /** One format, read-only. Reuses the creator app's own script markup —
@@ -4786,6 +5001,7 @@ function lynxFormatCardHtml(f, i) {
   const carry = { do: "", show: "" };
   const href = f.source_url ? safeUrl(f.source_url) : "";
   const plat = f.source_url ? platformLabel(f.source_url) : "";
+  const emb = href ? lynxEmbedFor(f.source_url) : null;
   const needs = Array.isArray(f.needs) && f.needs.length
     ? `<p class="bp-hint"><strong>Needs:</strong> ${escapeHtml(f.needs.join(" • "))}</p>` : "";
   const setup = [["Setting", f.setting], ["Lighting", f.lighting], ["Framing", f.framing], ["Audio", f.audio]]
@@ -4801,15 +5017,29 @@ function lynxFormatCardHtml(f, i) {
     <div class="bp-body">
       ${/* THE VIDEO BESIDE THE SCRIPT (owner, 2026-09-22: "for the creators as well add the videos
             side by side"). The original sits in its own column next to the words, so a creator can
-            watch and read at once instead of hunting for the arrow in the title. There is no player
-            here on purpose: the brief carries a link to someone else's post, not a stored clip, and
-            the page's CSP admits no third-party frames or images — so this is the platform, the
-            address, and a button that opens it in a new tab. */""}
-      <div class="lynx-cols">
+            watch and read at once instead of hunting for the arrow in the title.
+            AND NOW IT PLAYS (owner, 2026-09-23: "have the actual video pop up, not just the link").
+            The brief carries a link to someone else's post, not a stored clip, so the player is the
+            platform's own, in a sandboxed frame (lynxEmbedFor above; frame-src on index.html).
+            Under it, the platform's own mark is the link out (owner: "just add the logos"): a
+            private, deleted or login-walled post fails INSIDE the frame where this page cannot
+            see it, and the mark opens the post on the platform. A card with no player keeps the
+            button and the address, so a link the page can't play is still one click away. */""}
+      <div class="lynx-cols${emb ? " lynx-cols-play" : ""}">
         <div class="lynx-vid">
           <span class="lynx-vid-lbl">the original</span>
-          ${plat ? `<span class="lynx-vid-plat">${escapeHtml(plat)}</span>` : ""}
-          ${href
+          ${plat && !emb ? `<span class="lynx-vid-plat">${escapeHtml(plat)}</span>` : ""}
+          ${emb
+            ? `<iframe class="lynx-embed ${emb.cls}" src="${escapeHtml(emb.src)}"
+                title="The original video on ${escapeHtml(plat)}" loading="lazy" scrolling="no"
+                referrerpolicy="no-referrer" allowfullscreen
+                allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"></iframe>`
+            : ""}
+          ${emb
+            ? `<a class="lynx-vid-logo" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
+                aria-label="Watch it on ${escapeHtml(plat)}" title="Watch it on ${escapeHtml(plat)}">${emb.logo}</a>`
+            : href
             ? `<a class="btn lynx-vid-go" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">watch it${plat && plat !== "Link" ? ` on ${escapeHtml(plat)}` : ""}</a>
                <span class="lynx-vid-url">${escapeHtml(f.source_url)}</span>`
             : `<span class="lynx-vid-url">no link was sent with this one</span>`}
@@ -4852,6 +5082,16 @@ function bindLynxBriefButtons(doc, formats, briefId) {
     const f = formats.find((x) => x.id === btn.dataset.fid);
     const a = f && (ME.adaptations || []).find((x) => x.fromAgency?.formatId === f.id);
     if (a) go({ kind: "brand", id: a.brandId });
+  }));
+  /* A CLOSED CARD MUST STOP TALKING. <details> hides its body, but a player inside it keeps
+     playing, sound and all. Swapping the frame for a fresh copy of itself destroys the one that
+     was playing; the copy is lazy, so it loads again only when the card is reopened. Do NOT
+     "simplify" this to re-setting src: on a lazy iframe that is hidden, the new navigation is
+     deferred and the old document (and its audio) stays alive. */
+  document.querySelectorAll("details.lynx-fmt").forEach((card) => card.addEventListener("toggle", () => {
+    if (card.open) return;
+    const fr = card.querySelector("iframe.lynx-embed");
+    if (fr) fr.replaceWith(fr.cloneNode(false));
   }));
 }
 
@@ -9435,7 +9675,8 @@ function unlock() {
   revealAgencySwitch();
   // Same shape, same reason: paints #nav-lynx in only once the roster answer
   // is back, for the ~1% of creators actually on it.
-  refreshAgency().then(() => { renderSide(); if (VIEW.kind === "lynx") renderPane(); });
+  // …and, when that answer is an open invite, the popup (once per page load).
+  refreshAgency().then(() => { renderSide(); if (VIEW.kind === "lynx") renderPane(); openAgencyInvite(); });
   takeBillingReturn();
 }
 

@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-09-21 (early morning).** Start with the section right below the table.
+Read this, then `README.md` for architecture. **Last updated 2026-09-23 (late evening).** Start with the section right below the table.
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -23,9 +23,163 @@ naming a path there publishes it.
 
 ---
 
-## START HERE — state as of 2026-09-21 (early morning)
+## START HERE — state as of 2026-09-23 (late evening)
 
-### Read this block first. The rest of START HERE below is older and still true unless this says otherwise.
+### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
+
+**BRIEF FILES — built, NOT live until the owner runs `supabase/brief_files.sql` (2026-09-23).** Plan:
+`~/.claude/plans/brief-file-attachments.md`. Staff attach logos, fonts and brand guides to a brief in the agency app — a
+"Files for creators" block with a drop zone on BOTH brief viewers (campaign: under "Campaign requirements"; legacy:
+under the send panel) — and every creator the brief is delivered to gets a "files from lynx" list on the brief page
+with a Download per file. Files belong to the brief's SOURCE (`source_kind` + `source_id`, the pair `agSend` records),
+not the sent snapshot: a file added before or after sending reaches creators with no re-send, and unsend / leaving the
+roster cut the files off with the brief. Bytes: PRIVATE bucket `lynxr-brief-files`. List: `lynxr_brief_files`
+(staff-only RLS). Creators list via `my_agency_brief_files(p_id)` and download with their own token through a storage
+SELECT policy that calls `brief_file_readable(name)` — enforced in the database. Limits: 25 MB a file (bucket), 20 files
+/ 50 MB a brief (trigger), png jpg webp gif svg pdf zip otf ttf woff woff2 (bucket), mirrored as `BF_*` in app.js. No
+CSP change was needed. Files: `supabase/brief_files.sql` (NEW, untracked — include it in the commit), `app.js`,
+`creator.js`, `app.css`, stamp `202609232k` on every stamped page + `404.html`. Executor-verified: Appendix A (agency
+harness) steps A–G and Appendix B (creator harness) steps A–F, each run at both desktop and phone widths, matched the
+plan's expected output line for line with `csp violations: []` in all four runs — including the upload/remove flow,
+the drop-zone focus ring, type/size/empty refusals, the drag-elsewhere guard, and the campaign-view placement between
+"Campaign requirements" and "agency only" on the agency side, and the RPC pair, the real download (blob + `<a
+download>`, saved bytes verified), the "Object not found" message, the bad-path guard, and the empty/error states on
+the creator side. One deviation, not a regression: Appendix A step C's stray-file refusal showed 3 POSTs instead of the
+plan's expected 0 — traced to `POST /rest/v1/rpc/roster_accounts` fired by `rostLoad()` from the roster-invite-by-email
+work that landed in the tree today; zero brief-files POST/PUT occurred for the three rejected files. Painted pixels
+checked in four screenshots (agency brief + campaign, desktop + phone) and two more (creator brief, desktop + phone):
+islands match their neighbours, the dashed zone reads correctly, long names ellipsize on phone, Remove/Download buttons
+align, nothing is cut off. NOT verified (needs the SQL and two sign-ins): a real upload, a real download, the isolation
+proof — the plan's Verification section, owner checks 1–7. **SQL APPLIED by the owner later on 2026-09-23** — confirmed from outside with anonymous probes: `lynxr_brief_files` and `rpc/my_agency_brief_files` → 42501 (exist, denied), bucket `lynxr-brief-files` exists (a missing object says "Object not found", a made-up bucket says "Bucket not found"), anonymous list → `[]`. Left: push, then the live attach/download/isolation checks.
+
+**ROSTER INVITES ARE BY EMAIL — NO JOIN CODE (2026-09-23, plan `~/.claude/plans/roster-invite-by-email.md`).**
+Staff type the creator's email on the agency app's Creators tab, plus an optional name, an optional **campaign**
+(e.g. "Cloey", suggested from client names, CREATOR-FACING) and an agency-only note. Whoever signs in to lynxr with
+that CONFIRMED address gets a popup on every page load until they act — "Lynx Media Group invited you to the Cloey
+campaign." (nothing typed: "…to their creator roster.") — with Accept / Not now; `#nav-lynx` keeps the same invite
+with an Accept button. Each Creators row says whether that email has a lynxr account yet (staff-only
+`roster_accounts()`). **SQL: `supabase/roster_invite_by_email.sql` — the owner must run it BEFORE pushing** (the
+Creators tab reads `campaign`; the new accept takes no code). Status: NOT YET APPLIED, NOT YET PUSHED.
+**This rests on Supabase's "Confirm email" staying ON** (`mailer_autoconfirm: false`, checked 2026-09-23 via
+`/auth/v1/settings`). With it off, anyone could sign up as an invited address and take the seat.
+`invites.sql`'s "autoconfirm can stay on" does NOT apply to the roster. The `code` column and `leave_agency()`
+still exist; nothing calls them. lynxr sends no invite email.
+
+**AGENCY BRIEFS PLAY THE ORIGINAL IN PLACE (2026-09-23, UNCOMMITTED).** Owner: "have the actual video pop up, not
+just the link". Each format card on a creator's brief page (`lynxFormatCardHtml`, creator.js) now paints the
+platform's own player in "the original": TikTok `player/v1/<id>?rel=0` (video only, no autoplay) and Instagram
+`/p/<code>/embed/`, built by `lynxEmbedFor()` from `source_url` alone. Nothing was added to the brief doc.
+`index.html`'s CSP gained `frame-src https://www.tiktok.com https://www.instagram.com` (that page only; the
+creator's own scripts still play the self-hosted clip, no iframe). Short links (vm./vt./`/t/`) and YouTube keep
+the link-only card; under a player the platform's mark is the link out (owner: "just add the logos"; the
+button and URL stay only where nothing can play); closing a card destroys its player so the
+audio stops. Files: `creator.js`, `app.css`, `index.html`, every stamped page + `404.html` (stamp `202609232g`,
+unchanged by this work — `check_stamp.py` already read `ok` at that stamp before this change, from an earlier
+uncommitted edit this same session; it still reads `ok` after). Verified: steps 5 and 7 of the plan both passed —
+a headless-Brave harness against the real CSP showed both frame origins refused before the change and admitted
+after, on desktop and phone, with the TikTok player playing on click and destroyed on card collapse, no CSP
+violations, and the screenshots opened and matched the expected layout. **Not yet seen signed in on a real brief,
+and not yet on lynxr.io.**
+
+**Where the tree is.** Everything below is COMMITTED — the owner committed the whole batch as `9a72c1a` (2026-09-23
+13:23, message "a"), including `picker.js` (tracked now). Stamp **`202609232e`** on 26 pages + `404.html`
+(`./venv/bin/python tools/check_stamp.py` → `ok`). The only uncommitted file after that commit is this one.
+**lynxr.io is serving `202609232e` (checked with curl at the time of writing), so all of it — the `#nav-lynx` fix
+included — is LIVE.** Do one real-browser pass on the live site before calling it done: the hero intro, a paste, the
+sign-up card's Google hand-off, and the stage picker on /how-it-works/.
+
+**Uncommitted since `9a72c1a` (2026-09-23, night) — stamp now `202609232k` on 26 pages + `404.html`
+(`check_stamp.py` → `ok`). Direct edits before the roster-invite plan below:**
+- **No "leave the roster" control in the creator app** (owner: "dont even add this as an option"). `renderLynx`'s
+  accepted state in `creator.js` lost the button, its note and the `armDelete` handler; `leaveAgency()` is gone. The
+  `leave_agency()` RPC in `supabase/agency_roster.sql` still exists, nothing calls it. Not seen live (needs a
+  signed-in roster creator) — `node --check` passes, no dangling references.
+- **Agency header lockup, third pass: LOGOS ONLY** (owner, in order: "have lynxr be the main logo, and then have lynx
+  media group be under it" → "just the logo no words and add a vertical line between it" → "im just talking about
+  the layout, no actual logo changes"). One row: the lynxr mark (`#home-mark`, still the back-to-clients button), a
+  1px hairline in `--line` (the anchor's `::before`), then their mark (`.ag-brand`, still the link out). No words at
+  any width; the names live in the two aria-labels. Same artwork as before. `agencyonly/index.html` + the lockup
+  block in `app.css` (`.ag-home` / `.ag-brand::before`). Verified painted at desktop (30/26px marks, 24px line,
+  34px row in the 52px bar) and at 700px (24/20px, 20px line, no horizontal overflow).
+- **"Copy brief" and "Download PDF" are gone from the campaign brief view** (owner, 2026-09-23: "remove this" →
+  both). `app.js`: the two buttons, their bindings, `cbCopyBrief` / `cbPdfTitle` / `cbSavePdf`; the not-ready note
+  under the head now talks about sending ("Send to creators unlocks once a format is ready" / "A send carries only
+  the N ready formats"). `app.css`: the `#cb-print` / `@page cb-brief` / `@media print` block and both
+  `.cb-pdf-btn` rules. `campaignDocHtml` / `campaignDocText` and the `.cb-doc` rules are now UNREFERENCED and can be
+  deleted in a later pass. Not seen signed in; `node --check` passes.
+- **The inline-video plan (`~/.claude/plans/creator-brief-inline-video.md`) has LANDED** — see the "AGENCY BRIEFS
+  PLAY THE ORIGINAL IN PLACE" paragraph above. Three more plans await the owner's go-ahead, to be executed ONE AT A
+  TIME (all touch creator.js / app.js / app.css): `~/.claude/plans/roster-invite-by-email.md` (invite by email only,
+  no join code, popup on the creator's next load; needs its SQL run first), `~/.claude/plans/agency-edit-briefs.md`
+  (staff edit scripts and briefs, creators stay read-only) and `~/.claude/plans/brief-file-attachments.md` (staff
+  attach brand logos/files to a brief, creators download them; a storage bucket + SQL).
+
+**The landing (`index.html`, `home.js`, `avatar.js`, `app.css` under `body.home`).** Three sections: hero → pricing →
+closing CTA, then the footer. The stage picker is GONE from here.
+- **Hero** (`section.hx`). Left column, centred: `h1#hx-buddy-h` **"what's next, creator?"** (one line at every desktop
+  width; composition 540 + 80 + 540 inside the bar's 1200 column, h1 capped at 50px), `p.hx-sub` **"your content creation
+  buddy"**, then the glass **sign-up card `.hxs`** (desktop only — `display: none` ≤640px): white Google button (Google's
+  own light spec, the one non-ink action) → mono "or" → email → ink "continue with email" → terms/privacy consent line →
+  "already have one? sign in". The card does NO auth: every control opens the real `#gate` via `data-gate` ("up"/"in")
+  and carries the typed email into `#email`; **the Google button ticks `#agree` and clicks the gate's `#oauth-google`**
+  (owner: the card's consent line IS the agreement). Right column: ONE glass `.hx-panel` (`--gl-*`, identical to the
+  signed-in pane's `.me-card`): `coming soon` pill + "a coach that's all about you." + ink **"learn more →"** to
+  `/how-it-works/coach/` / hairline / `live now` pill + "paste a link. get your script." + the LIVE composer
+  (`form#lp-composer-form[data-hero]`, `#lp-composer-url` — creator.js wires it) / **the buddy avatar (`.hx-seam`) at
+  rest in the panel's bottom band, right-aligned** (180px desktop, 96px phone). No kicker, no lede, no fine print, no
+  "your coach · preview" label, no speech bubble — all removed by the owner. Phone: headline → subline → panel.
+- **Intro** (`home.js` `armHeroIntro`, beats ~1.8s): whistle in hand + `coaching` → panel and coach row rise in →
+  pencil + `writing` → hairline and script row → props down, `idle`, `hx-anim` off. **Both props on the top-left arm
+  `.lx-a0` at every width.** Plays on EVERY load (no session gate); skips under reduced motion and in a background
+  tab; the composer is live from frame 0 and any touch of `.hx` snaps to the finished state; default CSS is the finished
+  hero (no-JS safe); zero layout shift. The buddy does NOT move (a moving version was built and reverted).
+- **Pricing** (`#pricing`): three `.lp-plan` cards in the reference layout — live avatar mark (idle / writing /
+  coaching) → name → tagline → price → note → full-width ink action → "no commitment · cancel any time" → rule →
+  "everything in X, plus:" → checked list. Pro keeps its gradient outline. Numbers mirror `lynxr_billing_plans`
+  (free 3/7d, pro $24.99 150/30d + 30/24h, max $74.99 not on sale). Phone: cards and the footer card sit on the hero
+  panel's measure (x=20, w=353 at 393).
+- **Buttons, site-wide rule:** every action is the ink `.btn` pill (bar "get started" included — no white override,
+  no rocket emoji anywhere; the `.rk` rules are gone); text links stay text; no hover grow (`:active` press stays).
+  Exception by the owner's word: Google provider buttons stay white.
+- **Bar:** "how it works" and "faq" only ("pricing" removed from the landing's bar and phone menu; the footer link
+  and the other pages' bars still carry it).
+
+**/how-it-works/ and /how-it-works/coach/ (`body.lp.hiw`, `picker.js`, `app.css` under `body.hiw`).** Each opens on
+`section.hs#how` — "for any creator, at any stage" is the page's `<h1>`; the old opening block is gone. Desktop: the
+four stages in a row, PAGE-scroll-driven (`.hs-live`, sticky `.lp-in`, ~353px of scroll per stage, 0px blank
+lead-in); phone: a vertical column, same mechanism, the card slots 8px under whichever row is lit (`display:
+contents` + `order`, `nth-of-type`). Card and lit row wear the `--gl-*` glass. Stage actions: 1 **"paste a link →"**
+to `/` (no creator.js there) · 2 "build a library of winners." + library strip · 3 week strip (a METAPHOR — no
+scheduler exists; copy claims none) · 4 "see pro →" `/pricing/` + "about the coach →". `--hs-inh` 495 desktop / 585
+phone. The `scripts | coach` switch and, on the coach page, the "coming soon · lynxr max" pill were kept above it.
+
+**Agency app header (`agencyonly/index.html:69-99`).** Capped to the landing's 1200px column (`main` + footer widened
+1132 → 1200 with it — the Database table at 1200 is UNVERIFIED, no staff sign-in). Lockup: Lynx Media Group mark +
+name in **Outfit 700** (THEIR brand font, self-hosted from `fonts/`, `@font-face` at `app.css:25-40`, never for
+lynxr text) linking to lynxmediagroup.org in a new tab, "powered by ✸ lynxr" beneath (`#home-mark`, still the
+button with its `app.js:352` handler). Marks-only under 760px.
+
+**Bugs.** (1) FIXED AND LIVE (deployed with `9a72c1a`): `#nav-lynx` painted for every creator since the roster feature shipped
+(`.side-link { display: flex }` beat `[hidden]`); fix `#nav-lynx[hidden] { display: none }`. The DB gate held. (2)
+Pre-existing, untouched: `app.css` `.pane-body :is(.lookup, #brand-editor)` outranks the app's `--gl-*` glass rule.
+
+**Owner decisions still open.** Proof artifact for the landing (the pilot pair on /how-it-works/ has no input-video
+link); `how-it-works/index.html` still advertises the scraped corpus with a 5.19bn view count against the standing
+decision; whether `/pricing/`'s cards and the app's Plan view should take the new card layout; whether the coach
+page's switch/pill stay; unsend on an agency brief has never been exercised.
+
+**Harness lessons (they cost real time today).** The HTML is not cache-stamped — load with `?cb=<n>` or the browser
+serves stale markup against a new stylesheet. In the desktop app's browser pane `window.scrollTo` dispatches NO
+scroll events — verify scroll-driven UI with real wheel/touch. A raw headless window narrower than ~500px lays out
+wider than asked — capture phones under `Emulation.setDeviceMetricsOverride` (`scratchpad/cdp-rt.mjs`,
+`cdp-full.mjs` in the session scratchpad did this). Two agents writing `app.css` at once lose work — serialize them.
+Mockups of the eight landing directions (A–H) live on a private Design canvas:
+https://claude.ai/artifact/KtXPTDgucXUSxvNwDUFHYH — the live hero has moved past H; iterate on the page, not the canvas.
+
+---
+
+### History of the 2026-09-22 → 23 batch (kept for the reasoning; superseded where it says so)
+
 
 **LANDING + AGENCY HEADER BATCH (2026-09-22, evening) — ALL IN THE WORKING TREE, stamp `202609232e`, uncommitted.**
 - **⚠ `picker.js` IS NEW AND UNTRACKED — `git add picker.js` before any commit or both how-it-works pages 404 on it.**
@@ -214,8 +368,8 @@ run for real; unsend has not been exercised.
 **Later the same day, all pushed:** the Lynx Media Group mark (traced from the owner's logo into
 one path, `lynx-media-mark.svg`, `AGENCY_MARK` in creator.js) now sits in the creator sidebar
 item, that section's heading, the brief page header and the agency app header. The creator's
-brief page shows each **video beside its script** (`.lynx-cols`; a link and a watch button, not a
-player — the CSP admits no third-party frames or images). The empty state is one line,
+brief page shows each **video beside its script** (`.lynx-cols`; since 2026-09-23 the platform's own
+player plays in the card — see the 2026-09-23 note at the top of START HERE). The empty state is one line,
 "Waiting on briefs." — it used to render the lynxr avatar through `.empty-mark`, which is only
 sized under `body.agency`, so it filled the whole pane.
 
@@ -295,7 +449,7 @@ the new Upgrade button — do one after the push (it calls the same function tha
    of START HERE for current status.** Plan: `~/.claude/plans/agency-send-brief-to-creators.md`
    (19 steps; 2 are [OWNER]: apply the SQL, decide the privacy/terms line — both still open).
    Settled with the owner: roster only; staff invite by email and the creator ACCEPTS in lynxr
-   with a join code (autoconfirm means an email match alone proves nothing); one account per
+   with a join code (SUPERSEDED 2026-09-23: accept is by confirmed email, no code — see START HERE); one account per
    person; the creator gets a read-only brief page plus "add to my library"; the copy carries
    name/what-it-sells/audience/features and nothing else off `brand_context` (features added by
    the owner 2026-09-22 — the scripts name them anyway); it never touches the allowance ledger;

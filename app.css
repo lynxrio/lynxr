@@ -7144,22 +7144,6 @@
     .cb-format .bp-beat { grid-template-columns: 72px minmax(0, 1fr); }
   }
 
-  /* Step 14 — Download PDF (the browser's print-to-PDF, which keeps real,
-     clickable link annotations). #cb-print only exists between the button
-     press and afterprint, and everything is scoped to body.cb-printing / the
-     named page `cb-brief`, so printing any other page is untouched — a bare
-     @page rule here would re-margin every page on the site. */
-  #cb-print { display: none; }
-  @page cb-brief { margin: 16mm 15mm 18mm; }
-  @media print {
-    body.cb-printing > :not(#cb-print) { display: none !important; }
-    body.cb-printing #cb-print { display: block; page: cb-brief; color: #000; background: #fff; }
-    body.cb-printing { background: #fff; }
-    body.cb-printing::before { display: none; }
-    /* The page margins paint the ROOT's background, not body's: with the dark
-       theme's color-scheme they came out near-black around a white sheet. */
-    html:has(> body.cb-printing) { background: #fff; color-scheme: light; }
-  }
   .cb-doc, .cb-doc * { text-transform: none; }
   .cb-doc {
     max-width: 720px; margin: 0 auto; padding: 0;
@@ -7185,8 +7169,6 @@
   .cb-doc .cb-doc-video { margin: 0; line-height: 1.4; }
   .cb-doc .cb-doc-video a { font-weight: 600; }
   .cb-doc .cb-doc-url { font-size: 9pt; color: #444; overflow-wrap: anywhere; word-break: break-word; }
-  /* The primary export action: a .btn, trimmed to the ghost buttons' height. */
-  .cb-export .cb-pdf-btn { padding: 7px 15px; font-size: var(--fs-135); }
   /* A card still waiting on its video has nothing to play yet; a full 9:16
      empty frame there is ~390px of nothing. */
   :is(.cb-queued, .cb-running) .cb-ph { aspect-ratio: auto; height: 96px; }
@@ -8971,8 +8953,8 @@
      this block follows it. Geometry (--ag-*) is copied from the creator shell islands block.
      EVERY SELECTOR STARTS WITH body.agency #gate, body.agency #app, body.agency #modal or
      body.agency .score-tip (or is body.agency). Only agencyonly/index.html carries
-     class="agency", so nothing here reaches the landing, the creator app on /, a content page,
-     or #cb-print (the PDF, a direct child of <body>). No outline is declared (focus rings
+     class="agency", so nothing here reaches the landing, the creator app on /, or a content
+     page. No outline is declared (focus rings
      stand); no font-size is set on an input under 16px (iOS zoom). */
   body.agency {
     /* THE MEASURE IS THE LANDING BAR'S (owner, 2026-09-22: "have the agency top nav bar
@@ -9325,7 +9307,6 @@
 
   /* ---- (agency) campaign view: head, progress, blocks and each format are islands ---- */
   body.agency #app main .cb-name-input { font-size: clamp(22px, 2.4vw, 28px); font-weight: 750; letter-spacing: -.025em; padding: 6px 14px; border-radius: var(--ag-radius-in); }
-  body.agency #app main .cb-export .cb-pdf-btn { padding: 9px 18px; }
   body.agency #app main .cb-progress-line { color: var(--text-2); }
   body.agency #app main .cb-bar { height: 6px; background: var(--hover); }
   body.agency #app main .cb-agency > summary { font-size: var(--fs-14); font-weight: 700; color: var(--text); }
@@ -11189,24 +11170,16 @@
      in the markup that produces this: the CSP drops them silently, so
      anything dynamic here is plain classes, not CSSOM writes, because none of
      it is computed at runtime.
-     rost-/lynx- content classes (rost-code, lynx-hook text) are NOT on the
-     lowercase exclusion list — staff-typed and creator-typed text keeps the
-     house lowercase like everything else; only the join code itself
-     (rost-code) is deliberately excluded below, because a code is typed back
-     letter for letter and must never be shown lowercased. */
-  .rost-code { text-transform: none; }
+     rost-/lynx- content classes are NOT on the lowercase exclusion list —
+     staff-typed and creator-typed text keeps the house lowercase like
+     everything else. (The join code once excluded here is gone: invites are
+     keyed on the creator's confirmed email since 2026-09-23.) */
 
   /* ---- Creators tab (agency app) ---- */
   .rost-list { margin-top: 18px; }
   .rost-cards { display: flex; flex-direction: column; gap: 10px; }
   .rost-card { align-items: flex-start; }
-  .rost-code-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-  .rost-code {
-    font-family: var(--mono); font-size: var(--fs-13); letter-spacing: .06em;
-    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-inner);
-    padding: 3px 8px;
-  }
-  .rost-copy { padding: 5px 11px; font-size: var(--fs-125); }
+  .rost-state { margin: 6px 0 0; font-size: var(--fs-125); line-height: 1.45; color: var(--text-2); }
   .rost-remove { flex: none; }
 
   /* ---- Send panel + sent-to list (both brief viewers) ---- */
@@ -11225,114 +11198,66 @@
 
   /* ---- Creator app: #nav-lynx section ---- */
   .lynx-card { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .lynx-accept { flex-direction: row; align-items: center; gap: 8px; max-width: 360px; }
-  .lynx-accept input { flex: 1 1 auto; min-width: 0; }
   .lynx-briefs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
-  .lynx-leave-row { margin-top: 22px; }
   .lynx-brief-head { margin-bottom: 18px; }
   .lynx-formats { display: flex; flex-direction: column; gap: 12px; }
   .lynx-add-row { margin-top: 14px; }
-  /* ---- (agency) THE BRAND LOCKUP (owner, 2026-09-22), the pattern lynxmediagroup.org
-     uses on its own header:
+  /* ---- Creator app: the invite popup (2026-09-23). The card is the send overlay's glass
+     box; only its title row, its sentence and its button row are its own. ---- */
+  .lynx-invite-title { display: inline-flex; align-items: center; gap: 8px; }
+  .lynx-invite-title .lynx-mark { width: 16px; height: 16px; flex: none; }
+  .lynx-invite-h { margin: 16px 0 6px; font-size: var(--fs-15); font-weight: 600; line-height: 1.4; color: var(--text); }
+  .lynx-invite-actions { gap: 8px; margin-top: 14px; }
+  /* ---- (agency) THE BRAND LOCKUP (owner, 2026-09-23, third pass: "just the logo no words and
+     add a vertical line between it"):
 
-         [mark]  Lynx Media Group
-                 powered by  * lynxr
+         *  |  [mark]
 
-     THE HIERARCHY IS FLIPPED from what stood here this morning. Lynx Media Group's mark
-     and name are the primary lockup — this is their workspace — and lynxr is the smaller
-     second line. Before today lynxr was the h1 and their name a --text-3 badge behind a
-     divider, which said the opposite.
-
-     TWO ROWS INSIDE A 52px HEADER. Measured: 18px + 1px + 14px = 33px of text in a bar
-     whose interior is 40px, so the row height does not move and nothing below it shifts.
-
-     THE SECOND ROW'S INDENT IS COMPUTED FROM THE MARK (--ag-mark + --ag-mark-gap), not
-     typed as a number, so "powered by" starts on the same vertical as the name for as
-     long as those two tokens agree — including at the phone size, where both change.
-
-     THE BUTTON IS A SIBLING OF THE ANCHOR, not a child: #home-mark has to stay a real
-     <button> (app.js binds it by id) and a <button> inside an <a> is invalid and dead.
-     So the anchor owns row 1 and the button lives in row 2, and neither can swallow the
-     other's click.
-
-     Everything here is scoped to `body.agency #app > header` — app.css is one file for
-     three front-ends and `header` alone also matches the public bar. ---- */
+     Two marks in one row and nothing else, at every width: lynxr's (still #home-mark, the
+     back-to-clients button), a 1px hairline in --line, then Lynx Media Group's (still the link
+     out). The two earlier passes today put words beside the marks — their name over a "powered
+     by" line, then "lynxr" over "Lynx Media Group" — and both are gone. Each control is held at
+     34px tall, the floor this file uses for targets, so the row never grows the 52px bar.
+     #home-mark is still a real <button> (app.js binds it by id) and a SIBLING of the anchor,
+     never its child. Everything here is scoped to `body.agency #app > header` — app.css is one
+     file for three front-ends and `header` alone also matches the public bar. ---- */
   body.agency #app > header .ag-lockup {
-    --ag-mark: 30px; --ag-mark-gap: 10px;
-    display: flex; flex-direction: column; justify-content: center; gap: 1px;
+    --ag-mark: 30px; --ag-mark-2: 26px; --ag-gap: 12px;
+    display: flex; flex-direction: row; align-items: center;
     flex: none; min-width: 0;
-    /* It is an <h1> and carries no .wordmark any more, so the UA's 2em/bold/1em-margins
-       are undone here rather than inherited from a class that no longer applies. */
-    margin: 0; font-size: var(--fs-15); font-weight: 500;
+    /* It is an <h1> and carries no .wordmark, so the UA's 2em/bold/1em-margins are undone here. */
+    margin: 0; font-size: var(--fs-15); font-weight: 500; line-height: 1;
   }
+  body.agency #app > header .ag-home,
   body.agency #app > header .ag-brand {
-    display: inline-flex; align-items: center; gap: var(--ag-mark-gap);
-    padding: 0; border-left: 0; white-space: nowrap;
-    color: var(--text); font-size: var(--fs-16); line-height: 1.2;
+    display: inline-flex; align-items: center; min-height: 34px;
+    color: var(--text); transition: opacity .12s;
   }
-  body.agency #app > header .ag-brand-mark { width: var(--ag-mark); height: var(--ag-mark); flex: none; }
-  /* Their name in their own face, at the weight their site uses (Outfit 700). Everything
-     else in this header stays Albert Sans -- this is a logo, not a type change. */
-  body.agency #app > header .ag-brand-name { font-family: "Outfit", var(--font-ui); font-weight: 700; letter-spacing: -0.01em; }
-  /* The badge links to lynxmediagroup.org in a new tab (owner, 2026-09-22). The global
-     `a` rule at the top of this file draws its link affordance as a border-bottom, which
-     on a brand lockup reads as an underline under the company name — off here. The hover
-     used to lift the lockup to --text; now that the name IS --text at rest there is
-     nothing to lift, so the whole lockup dims together instead (the same gesture .btn
-     makes) and the keyboard still gets a real ring. */
-  body.agency #app > header a.ag-brand { border-bottom: 0; text-decoration: none; transition: opacity .12s; }
+  body.agency #app > header .ag-home { padding-right: var(--ag-gap); }
+  body.agency #app > header .ag-home .mark { width: var(--ag-mark); height: var(--ag-mark); }
+  /* The hairline is the anchor's ::before, so it is one flex item between the two marks and
+     needs no element in the markup. The global `a` rule's border-bottom affordance is off —
+     this is an icon, not a word. */
+  body.agency #app > header .ag-brand { border-bottom: 0; text-decoration: none; }
+  body.agency #app > header .ag-brand::before {
+    content: ""; width: 1px; height: 24px; flex: none; margin-right: var(--ag-gap);
+    background: var(--line);
+  }
+  body.agency #app > header .ag-brand-mark { width: var(--ag-mark-2); height: var(--ag-mark-2); flex: none; }
+  body.agency #app > header .ag-home:hover,
   body.agency #app > header a.ag-brand:hover { color: var(--text); opacity: .78; }
+  body.agency #app > header .ag-home:focus-visible,
   body.agency #app > header a.ag-brand:focus-visible {
-    outline: 2px solid var(--focus-ring); outline-offset: 3px; border-radius: 10px;
+    outline: 2px solid var(--focus-ring); outline-offset: 3px; border-radius: 8px;
   }
-  @media (prefers-reduced-motion: reduce) { body.agency #app > header a.ag-brand { transition: none; } }
-  /* Row 2. --text-3 against the name's --text is the whole hierarchy flip in one step. */
-  body.agency #app > header .ag-powered {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding-left: calc(var(--ag-mark) + var(--ag-mark-gap));
-    color: var(--text-3); font-size: var(--fs-115); line-height: 1.1; white-space: nowrap;
+  @media (prefers-reduced-motion: reduce) {
+    body.agency #app > header .ag-home, body.agency #app > header a.ag-brand { transition: none; }
   }
-  body.agency #app > header .ag-powered .wordmark-link {
-    gap: 5px; color: var(--text-2);
-    font-family: var(--logo); font-weight: var(--logo-weight);
-    letter-spacing: var(--logo-tracking); font-size: var(--fs-14);
-    transition: color .12s;
-  }
-  body.agency #app > header .ag-powered .wordmark-link:hover { color: var(--text); }
-  body.agency #app > header .ag-powered .wordmark-link:focus-visible { outline-offset: 3px; border-radius: 8px; }
-  @media (prefers-reduced-motion: reduce) { body.agency #app > header .ag-powered .wordmark-link { transition: none; } }
-  /* Not the shared `#app > header .wordmark .mark { 32px }` any more — that sizes a
-     one-line wordmark, and this mark now sits on a 14px line. */
-  body.agency #app > header .ag-powered .mark { width: 15px; height: 15px; }
-
-  /* NARROW: BOTH MARKS, NO WORDS. The old rules dropped their name under 900px and the
-     whole badge under 560px, which on this lockup would leave a half-empty second row
-     and — worse — could take the home control with it. Instead the lockup folds to ONE
-     ROW of the two marks: their logo, still the link out, then lynxr's, still #home-mark.
-     Both targets are held at 34px tall, which is the floor this file uses elsewhere.
-
-     760px, NOT 640px, AND THAT NUMBER IS MEASURED, NOT PICKED. Five tabs + Sign out +
-     the lockup is the tightest row in this app. With the full two-line lockup the row
-     still clears the bar by 40px at 761 (nav ends 608.6, Sign out starts 661.2) and
-     OVERFLOWS below that: 41px over at 700, 94px over at 641, pushing the whole document
-     sideways — and the header was already over its width at 641 BEFORE this lockup
-     existed, the old 640px breakpoint just sat under the damage. The tabs are what the
-     app is for and this file's rule is that they never shrink or wrap, so the brand
-     gives up its words first. 760 is also the width at which the PUBLIC bar sheds its
-     own nav for the burger, so both bars go wordless together. Folded, the row clears
-     the bar at every width down to 320. */
+  /* NARROW: the same row, one size smaller. There are no words left to shed, so the 760px fold
+     the tabs forced on the earlier lockups is just a size step now. */
   @media (max-width: 760px) {
-    body.agency #app > header .ag-lockup {
-      --ag-mark: 24px; --ag-mark-gap: 8px;
-      flex-direction: row; align-items: center; gap: 8px;
-    }
-    body.agency #app > header .ag-brand-name,
-    body.agency #app > header .ag-powered-by,
-    body.agency #app > header .ag-powered .wordmark-link > span { display: none; }
-    body.agency #app > header .ag-powered { padding-left: 0; }
-    body.agency #app > header .ag-powered .mark { width: 22px; height: 22px; }
-    body.agency #app > header .ag-brand,
-    body.agency #app > header .ag-powered .wordmark-link { min-height: 34px; }
+    body.agency #app > header .ag-lockup { --ag-mark: 24px; --ag-mark-2: 20px; --ag-gap: 8px; }
+    body.agency #app > header .ag-brand::before { height: 20px; }
   }
   /* The agency's own mark: in the section title, and in the sidebar where it replaced a placeholder.
      .side-ico-fill exists because the neighbouring icons are strokes and this one is a filled shape. */
@@ -11353,9 +11278,83 @@
   .lynx-vid-plat { font-size: var(--fs-13); color: var(--text-2); }
   .lynx-vid-go { width: 100%; text-align: center; text-decoration: none; }
   .lynx-vid-url { font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); overflow-wrap: anywhere; }
+  /* THE ORIGINAL, PLAYING IN PLACE (owner, 2026-09-23). A card with a player gets a 280px video
+     column: 250px of player plus .lynx-vid's 14px padding and 1px border each side. 250 is
+     measured, not picked: at 230 TikTok's player clips its own fullscreen button. TikTok's
+     player/v1 is video only, so 9:16 is the whole frame. Instagram's /embed/ is a white card
+     (header, media, actions, likes, comment row) whose height is not a ratio of its width; it
+     measured 502px at 250 wide, so 510 never clips the comment row. On a phone the column is the
+     full width and the player stays 250 and centres, rather than growing into a 600px tower.
+     Border, radius and black backing match .ref-video, the creator's own player. */
+  .lynx-cols-play { grid-template-columns: minmax(0, 280px) minmax(0, 1fr); }
+  .lynx-embed {
+    display: block; width: 250px; max-width: 100%; align-self: center;
+    border: 1px solid var(--line); border-radius: var(--r-inner); background: #000;
+  }
+  .lynx-embed-tt { aspect-ratio: 9 / 16; height: auto; }
+  .lynx-embed-ig { height: 510px; background: #fff; }
+  /* The link out under a player: the platform's mark alone (owner, 2026-09-23: "just add the
+     logos"). The global `a` border-bottom affordance is off — this is an icon, not a word — and
+     the 6px padding makes the 22px glyph a 34px target, the floor this file uses elsewhere. */
+  .lynx-vid-logo {
+    display: inline-flex; align-self: center; padding: 6px; border-bottom: 0; text-decoration: none;
+    color: var(--text-2); transition: color .12s;
+  }
+  .lynx-vid-logo:hover { color: var(--text); }
+  .lynx-vid-logo svg { width: 22px; height: 22px; flex: none; }
+  @media (prefers-reduced-motion: reduce) { .lynx-vid-logo { transition: none; } }
   @media (max-width: 760px) {
-    .lynx-cols { grid-template-columns: minmax(0, 1fr); }
+    .lynx-cols, .lynx-cols-play { grid-template-columns: minmax(0, 1fr); }
   }
-  @media (max-width: 640px) {
-    .lynx-accept { flex-direction: column; align-items: stretch; max-width: none; }
+
+  /* ---------- BRIEF FILES (2026-09-23) ----------
+     Plan: ~/.claude/plans/brief-file-attachments.md. bf- classes are agency-app only
+     (bfSectionHtml in app.js — a .cb-block island on both brief viewers, which
+     `body.agency #app main #briefs-host > .cb-block` already dresses as glass);
+     lynx-file* classes are creator-app only (lynxFilesHtml in creator.js — its own
+     .section island on the brief page). No style="" anywhere: the CSP drops it.
+     A file's NAME is content, like a script line, so it keeps its real casing
+     against the house lowercase rule. Rows inside an island are split by one
+     hairline, never boxed: no box inside a box. */
+  .bf-name, .lynx-file-name { text-transform: none; }
+
+  /* ---- agency: drop zone + list ---- */
+  .bf-section .bf-total { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .bf-drop {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 18px 16px; border: 1px dashed var(--line-2); border-radius: var(--r-inner);
+    color: var(--text-2); font-size: var(--fs-135); text-align: center; cursor: pointer;
+    transition: border-color .12s, background-color .12s;
   }
+  /* Children take no pointer events, so dragleave fires on leaving the zone and never on
+     crossing its own text (no flicker), and a click anywhere lands on the label, which
+     opens the visually hidden — still focusable — file input. */
+  .bf-drop > * { pointer-events: none; }
+  .bf-drop:hover, .bf-drop.over { border-color: var(--text-3); background: var(--hover); }
+  .bf-drop.over { border-style: solid; }
+  /* keyboard focus on the hidden input rings the whole zone; a mouse click does not */
+  .bf-drop:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  .bf-drop-pick { color: var(--text); border-bottom: 1px solid var(--line-2); }
+  .bf-list { list-style: none; margin: 10px 0 0; padding: 0; }
+  .bf-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 5px 0; }
+  .bf-row + .bf-row { border-top: 1px solid var(--line); }
+  .bf-name {
+    flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: var(--fs-135); color: var(--text);
+  }
+  .bf-size, .bf-pct { flex: none; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .bf-remove { flex: none; }
+  .bf-busy .bf-name { color: var(--text-2); }
+  @media (prefers-reduced-motion: reduce) { .bf-drop { transition: none; } }
+
+  /* ---- creator: "files from lynx" on a brief page ---- */
+  .lynx-files-h { margin: 0 0 4px; font-family: var(--mono); font-size: var(--fs-12); font-weight: 400; color: var(--text-3); }
+  .lynx-file-list { list-style: none; margin: 0; padding: 0; }
+  .lynx-file { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 0; }
+  .lynx-file + .lynx-file { border-top: 1px solid var(--line); }
+  .lynx-file-name {
+    flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: var(--fs-135); color: var(--text);
+  }
+  .lynx-file-size { flex: none; font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .lynx-file-get { flex: none; }
