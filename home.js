@@ -185,64 +185,125 @@ for (const el of document.querySelectorAll("[data-carry-utm]")) {
    data-text, and stage 1's already in the card for a visitor without JS), so
    this only moves aria-pressed and copies two strings — nothing to drift.
 
-   SCROLL DRIVES IT (owner, 2026-09-22: "instead of the user clicking on each
-   one, have it change as i scroll down"). With `hs-live` on the section it is
-   tall and its content is sticky, so the page holds still on the picker while
-   each quarter of the scroll through it selects the next stage. A click or an
-   arrow key scrolls to that stage's quarter instead of fighting the scroll, so
-   position and selection can never disagree. `hs-live` is only set on a screen
-   tall enough to pin the whole block; otherwise (and without JS) it stays the
-   plain clickable row. Unselected avatars are paused in CSS. */
+   TWO WAYS IN, ONE PER SIZE, and both are additions to the buttons rather than
+   replacements for them: the four stages stay real buttons at every width, so
+   a click, an arrow key, Home/End and a screen reader always work.
+
+   A. DESKTOP — THE PAGE DRIVES IT (owner: "on desktop keep it the way it was
+      the horizonal dynamic from the vertical scroll"). With .hs-live the
+      section is 200svh tall and its .lp-in sticks, so the page holds on the
+      row while each quarter of the run selects the next stage. .hs-live is set
+      only above 640px, only on a screen tall enough for the block, and never
+      under prefers-reduced-motion — that is the static fallback, and it is the
+      no-JS state too. A click or an arrow key scrolls to that stage's quarter
+      instead of fighting the scroll, so position and selection cannot disagree.
+
+   B. PHONE — THE LIST SCROLLS INSIDE ITSELF (owner: "make the vertical for the
+      mobile scrollable so i dont have to individually click it"). app.css
+      turns .hs-row into a 130px window on a column of four rows; whichever
+      stage is snapped to the top is the live one. The PAGE is untouched there:
+      it scrolls past the section normally, and a swipe that runs past the last
+      stage chains on to it.
+
+   Neither branch is told any numbers. A reads the section's and the sticky
+   box's real heights; B reads each stage's own offset inside the scroller and
+   goes inert when the container does not scroll, which is what keeps it silent
+   on a desktop with no media query in here. Unselected avatars are paused in
+   CSS. */
 const stageSec = document.querySelector("section.hs");
 const stageRow = document.querySelector(".hs-row");
 if (stageSec && stageRow && $("hs-title") && $("hs-text")) {
+  const stageIn = stageSec.querySelector(".lp-in");
   const stages = [...stageRow.querySelectorAll(".hs-stage")];
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+  const wide = matchMedia("(min-width: 641px)");
   let current = 0;
-  const pick = (i, focus) => {
+  const paint = (i) => {
     current = i;
     stages.forEach((b, k) => b.setAttribute("aria-pressed", String(k === i)));
     $("hs-title").textContent = stages[i].dataset.title || "";
     $("hs-text").textContent = stages[i].dataset.text || "";
     const lbl = stages[i].querySelector(".hs-lbl");
-    if ($("hs-step") && lbl) $("hs-step").textContent = `${i + 1} of ${stages.length} · ${lbl.textContent.trim()}`;
-    if (focus) stages[i].focus({ preventScroll: true });
+    if ($("hs-step") && lbl) $("hs-step").textContent = `${i + 1} of ${stages.length} \u00b7 ${lbl.textContent.trim()}`;
   };
+
+  /* ---- A. the page-scroll mode (desktop) ---- */
   const live = () => stageSec.classList.contains("hs-live");
-  // Where the pin starts, and how far the page scrolls while it holds.
+  // Where the run starts in the document, and how long it is. The sticky box
+  // begins holding when its own top reaches its CSS `top` offset, and lets go
+  // when the section's bottom catches it, so the run is the difference in
+  // their heights — measured, never assumed, so app.css can be retuned freely.
   const span = () => {
     const top = stageSec.getBoundingClientRect().top + scrollY;
-    return { top, run: Math.max(1, stageSec.offsetHeight - innerHeight) };
+    const stick = parseFloat(getComputedStyle(stageIn).top) || 0;
+    return { start: top - stick, run: Math.max(1, stageSec.offsetHeight - stageIn.offsetHeight) };
   };
   const fromScroll = () => {
-    if (!stageSec.isConnected) { document.documentElement.classList.remove("hs-snap"); return; }
     if (!live()) return;
-    const { top, run } = span();
-    const p = Math.min(Math.max((scrollY - top) / run, 0), 0.9999);
+    const { start, run } = span();
+    const p = Math.min(Math.max((scrollY - start) / run, 0), 0.9999);
     const i = Math.floor(p * stages.length);
-    if (i !== current) pick(i, false);
+    if (i !== current) paint(i);
   };
-  const goTo = (i, focus) => {
-    if (!live()) { pick(i, focus); return; }
-    const { top, run } = span();
-    scrollTo({ top: top + run * (i + 0.5) / stages.length, behavior: reduce.matches ? "auto" : "smooth" });
-    pick(i, focus);
-  };
-  // Pin only when the whole block fits on screen (a landscape phone would clip it).
   const setLive = () => {
-    stageSec.classList.toggle("hs-live", innerHeight >= 560);
-    document.documentElement.classList.toggle("hs-snap", stageSec.isConnected && innerHeight >= 560);
+    stageSec.classList.toggle("hs-live", wide.matches && innerHeight >= 560 && !reduce.matches);
     fromScroll();
   };
   // Straight on the scroll event, not via requestAnimationFrame: a frame callback never runs in a
   // tab that isn't painting, which froze the stage on the first one it missed. The work is one
   // rect read and, only when the stage actually changes, four attribute writes.
   addEventListener("scroll", fromScroll, { passive: true });
-  addEventListener("resize", setLive);
-  setLive();
+  reduce.addEventListener("change", setLive);
+
+  /* ---- B. the contained scroller (phone) ---- */
+  // Whichever axis app.css made scrollable, if either. Both are 0 when the row
+  // is a plain grid, which is what makes this branch inert on a desktop.
+  const axis = () => {
+    const y = stageRow.scrollHeight - stageRow.clientHeight;
+    const x = stageRow.scrollWidth - stageRow.clientWidth;
+    return x > y ? { n: x, at: "scrollLeft", of: "offsetLeft", to: "left", pad: "scrollPaddingLeft" }
+                 : { n: y, at: "scrollTop", of: "offsetTop", to: "top", pad: "scrollPaddingTop" };
+  };
+  // Each stage's own offset IS its snap position, less whatever scroll-padding
+  // insets the snapport (app.css uses some so the snapped row keeps its focus
+  // ring). Read, not hardcoded, so the window size, the row height and the
+  // padding can all be retuned in CSS alone.
+  const snapAt = (i, a) => stages[i][a.of] - (parseFloat(getComputedStyle(stageRow)[a.pad]) || 0);
+  const nearest = (a) => {
+    let best = 0, d = Infinity;
+    stages.forEach((b, i) => { const dd = Math.abs(snapAt(i, a) - stageRow[a.at]); if (dd < d) { d = dd; best = i; } });
+    return best;
+  };
+  // A programmatic smooth scroll passes over the stages in between; without
+  // this the handler would pick each one on the way and fight it.
+  let settleUntil = 0;
+  stageRow.addEventListener("scroll", () => {
+    const a = axis();
+    if (!a.n || performance.now() < settleUntil) return;
+    const i = nearest(a);
+    if (i !== current) paint(i);
+  }, { passive: true });
+
+  /* ---- the buttons, which drive whichever mode is on ---- */
+  const select = (i, focus) => {
+    if (i !== current) paint(i);
+    if (focus) stages[i].focus({ preventScroll: true });
+    const smooth = reduce.matches ? "auto" : "smooth";
+    if (live()) {
+      const { start, run } = span();
+      scrollTo({ top: start + run * (i + 0.5) / stages.length, behavior: smooth });
+      return;
+    }
+    const a = axis();
+    if (!a.n) return;
+    const to = snapAt(i, a);
+    if (Math.abs(stageRow[a.at] - to) < 1) return;
+    settleUntil = performance.now() + 700;
+    stageRow.scrollTo({ [a.to]: to, behavior: smooth });
+  };
   stageRow.addEventListener("click", (e) => {
     const i = stages.indexOf(e.target.closest(".hs-stage"));
-    if (i >= 0) goTo(i, false);
+    if (i >= 0) select(i, false);
   });
   stageRow.addEventListener("keydown", (e) => {
     const i = stages.indexOf(e.target.closest(".hs-stage"));
@@ -250,9 +311,73 @@ if (stageSec && stageRow && $("hs-title") && $("hs-text")) {
     const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: stages.length - 1 }[e.key];
     if (to === undefined) return;
     e.preventDefault();
-    goTo(Math.min(Math.max(to, 0), stages.length - 1), true);
+    select(Math.min(Math.max(to, 0), stages.length - 1), true);
   });
+  // The window can cross the breakpoint in either direction; re-seat whichever
+  // mode is now on so position and selection cannot disagree.
+  addEventListener("resize", () => {
+    setLive();
+    const a = axis();
+    if (!live() && a.n) stageRow[a.at] = snapAt(current, a);
+  });
+  setLive();
 }
+
+/* THE HERO'S INTRO: THE X PICKS UP A PENCIL, THEN A WHISTLE (owner, 2026-09-22: "have lynxr
+   have a pencil and reveal the script writing portion and then have lnxr get a whistle and
+   reveal the coach part, its like a load animation"). One pass, ~1.8s end to end:
+
+     0.00s  a pencil arrives in the lower-left hand, which reaches for it; face -> writing
+     0.45s  the write half follows it in: pill, headline, composer, 52ms apart
+     0.90s  the pencil goes; 1.06s the whistle arrives in the top-right hand; face -> coaching
+     1.30s  the coach half follows, same stagger, last one lands at 1.796s
+     1.80s  prop down, face -> idle, and the ambient "alive" loop below takes over
+
+   FOUR THINGS IT MAY NOT DO, worst first:
+   1. Make anyone sit through it twice. It plays ONCE PER SESSION (sessionStorage), so every
+      later navigation in that tab paints the finished hero on frame one.
+   2. Gate the composer. The field is live from the first frame — never disabled, never moved —
+      and ANY touch of the hero (pointer, focus, key, paste) ends the intro on the spot and
+      leaves the finished hero behind. Delaying the one element that converts, to show a
+      mascot, is not a trade this page makes.
+   3. Hide the hero when scripting is off. The stylesheet's default IS the finished state; all
+      the hiding lives under .hx-anim, which only this file adds and only once it has decided
+      to play. No JS, blocked JS, an error thrown earlier: the whole hero is simply there.
+   4. Move anything. The reveal is opacity plus a 7px rise, and the composer gets opacity only,
+      so the one element people click never shifts under the pointer.
+   Reduced motion: it does not run at all — the hero is finished immediately.
+
+   THE CLASS GOES ON HERE, AT THE TOP LEVEL, not in the DOMContentLoaded handler below: the
+   deferred scripts run before the first paint (measured on this page: DOMContentLoaded 55ms,
+   first paint 68ms), so nothing is ever painted and then hidden. The avatar's own beats have
+   to wait for DOMContentLoaded — avatar.js renders the seam span there — so they are
+   scheduled against this same t0 and the two halves of the timeline cannot drift apart. */
+const HX = { on: false, over: false, t0: 0, timers: [], hand: null };
+const hxAt = (ms, fn) => { HX.timers.push(setTimeout(fn, Math.max(0, ms - (performance.now() - HX.t0)))); };
+const hxEnd = () => {
+  if (HX.over) return;
+  HX.over = true;
+  for (const t of HX.timers) clearTimeout(t);
+  HX.timers.length = 0;
+  const sec = document.querySelector(".hx");
+  if (sec) sec.classList.remove("hx-anim");   // default CSS = the finished hero, so this is the snap
+  if (HX.hand) HX.hand();                      // the avatar: prop down, idle, then alive
+};
+(function armHeroIntro() {
+  const sec = document.querySelector("body.home .hx");
+  if (!sec || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  try {
+    if (sessionStorage.getItem("lx-hx-intro") === "1") return;
+    sessionStorage.setItem("lx-hx-intro", "1");   // set NOW: a reload mid-intro is a second visit
+  } catch (e) { /* private mode throws; play it and move on */ }
+  HX.on = true;
+  HX.t0 = performance.now();
+  sec.classList.add("hx-anim");
+  hxAt(1800, hxEnd);
+  for (const ev of ["pointerdown", "focusin", "keydown", "paste"]) {
+    sec.addEventListener(ev, hxEnd, { capture: true, passive: true });
+  }
+})();
 
 /* THE SEAM AVATAR IS ALIVE (owner, 2026-09-22: "have this wave too from time to time and cycle
    through other emotions randomly", then "make it seem alive almost"). The X between the two
@@ -280,18 +405,19 @@ addEventListener("DOMContentLoaded", () => {
      they're invisible, and they fade back in. The arms already ease between poses in CSS; on this
      one avatar they get a slower, softer curve (set through CSSOM, which the CSP allows). */
   const soft = "transform .9s cubic-bezier(.33, 1.18, .5, 1)";
-  for (const el of svg.querySelectorAll(".lx-arm, .lx-body")) el.style.transition = soft;
+  const armEase = (t) => { for (const el of svg.querySelectorAll(".lx-arm, .lx-body")) el.style.transition = t; };
+  armEase(soft);
   let switching = null;
-  const setMood = (m) => {
+  const setMood = (m, out = 180, back = 320) => {
     if (svg.getAttribute("data-mood") === m) return;
     const layers = [svg.querySelector(".lx-face"), svg.querySelector(".lx-extras")].filter(Boolean);
     if (!layers.length || !layers[0].animate) { svg.setAttribute("data-mood", m); return; }
     if (switching) switching.forEach((a) => a.cancel());
-    const outs = layers.map((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: "ease-in", fill: "forwards" }));
+    const outs = layers.map((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: out, easing: "ease-in", fill: "forwards" }));
     switching = outs;
     outs[0].finished.then(() => {
       svg.setAttribute("data-mood", m);
-      layers.forEach((el) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: "ease-out" }));
+      layers.forEach((el) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: back, easing: "ease-out" }));
       outs.forEach((a) => a.cancel());
       switching = null;
     }).catch(() => {});
@@ -328,7 +454,34 @@ addEventListener("DOMContentLoaded", () => {
     last = pickMood(); setMood(last);
     setTimeout(() => { setMood("idle"); setTimeout(tick, rand(2400, 4400)); }, rand(1800, 3000));
   };
-  setTimeout(() => { wave(); setTimeout(tick, rand(2600, 4000)); }, 900);   // hello on arrival
+  /* HELLO ON ARRIVAL — or, on the first load of a session, after the intro above, which ends
+     on this avatar going idle and would otherwise be greeted over the top of. The intro's
+     avatar beats live here because this is where setMood is; its clock is the intro's t0. */
+  const alive = () => { armEase(soft); setTimeout(() => { wave(); setTimeout(tick, rand(2600, 4000)); }, 260); };
+  /* The intro's own last beat already crossfades the face back to idle; only step in if it
+     did not get that far (a click at 600ms ends the intro from wherever it was). Calling
+     setMood on top of a crossfade CANCELS it, which measured as the face dipping twice. */
+  HX.hand = () => {
+    lynxrProp(svg, null);
+    if (!switching && svg.getAttribute("data-mood") !== "idle") setMood("idle", 120, 260);
+    alive();
+  };
+  if (HX.on && !HX.over) {
+    armEase("transform .34s cubic-bezier(.34, 1.3, .6, 1)");   // a beat, not a 0.9s amble
+    /* The face is SET, not crossfaded, for this first one: setMood fades .lx-extras, which is
+       the layer the props live in, so a crossfade here would dip the pencil to nothing 200ms
+       after it arrived (measured). Nothing has been painted yet either, so there is nothing to
+       fade from. Every later beat puts the face change and the prop change in ONE window. */
+    lynxrMood(svg, "writing");
+    lynxrProp(svg, "pencil");
+    hxAt(900, () => { lynxrProp(svg, "out"); setMood("coaching", 150, 200); });
+    hxAt(1060, () => lynxrProp(svg, "whistle"));
+    hxAt(1640, () => lynxrProp(svg, "out"));
+    hxAt(1690, () => setMood("idle", 90, 200));   // resting face by ~1.78s, as the whistle goes
+    // 1800 is hxEnd's, armed at the top level so it fires even if this handler never ran.
+  } else {
+    setTimeout(() => { wave(); setTimeout(tick, rand(2600, 4000)); }, 900);
+  }
   if ("IntersectionObserver" in window) {
     new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; }).observe(host);
   }

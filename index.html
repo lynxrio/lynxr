@@ -71,13 +71,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260922r">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260922r">
-<link rel="shortcut icon" href="/favicon.ico?v=20260922r">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260922r">
-<link rel="stylesheet" href="/app.css?v=20260922r">
-<script src="/theme.js?v=20260922r"></script>
-<script src="/backdrop.js?v=20260922r" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260922u">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260922u">
+<link rel="shortcut icon" href="/favicon.ico?v=20260922u">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260922u">
+<link rel="stylesheet" href="/app.css?v=20260922u">
+<script src="/theme.js?v=20260922u"></script>
+<script src="/backdrop.js?v=20260922u" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -356,9 +356,11 @@
        section onward keep the old, and start making this mockup on the real
        one"). WRITE on the left — live today — and COACH on the right, which
        does not exist yet and says so twice ("coming soon", "preview").
-       SIDE BY SIDE AT EVERY WIDTH, on the owner's instruction ("half and half
-       like left and right"): a phone shrinks type and padding and drops only
-       the coach preview card; the halves never stack. The right half's lavender
+       SIDE BY SIDE from 641px up, on the owner's instruction ("half and half
+       like left and right"). UNDER 640px THEY STACK — the later instruction the
+       same day ("figure out a better layout for mobile") — and there the coach
+       half becomes one inset rounded panel with the avatar on its top edge, so
+       the two halves are not the same rectangle twice. The right half's lavender
        is a wash (.hx-wash) that fades in across the middle and out at the
        bottom, so there is no edge between the halves; the avatar sits on the
        seam. Every look lives in app.css (.hx-*) — no inline styles, CSP. -->
@@ -392,8 +394,9 @@
         <span class="hx-pill hx-pill-soon">coming soon</span>
         <h2 class="hx-h">a coach that's all about you.</h2>
         <!-- A PREVIEW, labelled as one: the coach is not built (max is "not on
-             sale yet" in #pricing below). Hidden under 560px — the one piece
-             the right half gives up so the halves can stay side by side. -->
+             sale yet" in #pricing below). It is never hidden: on a phone it
+             loses its own card (the half around it is the card) and its 26px
+             avatar (the 76px one on the panel's edge is that face). -->
         <div class="hx-coach">
           <div class="hx-coach-head">
             <span class="hx-coach-av" data-lx-mood="coaching" aria-hidden="true"></span>
@@ -415,9 +418,23 @@
        home.js swaps the card text from each button's data-title / data-text,
        so the words live in ONE place — this markup — and stage 1's are already
        in the card for a visitor without JS. The track is drawn at DOT height,
-       under the labels, so it can never pass behind an avatar. -->
+       under the labels, so it can never pass behind an avatar.
+       TWO WAYS IN, ONE PER SIZE, and both are additions to the buttons rather
+       than replacements — click, arrow keys, Home/End and a screen reader work
+       at every width, and this markup is the whole no-JS state.
+       DESKTOP (>640px) keeps the original effect the owner asked to keep: the
+       PAGE's vertical scroll walks the horizontal row. home.js adds .hs-live,
+       the section goes 200svh tall and its .lp-in sticks. Two things were
+       trimmed: the sticky box no longer reserves an empty screen before this
+       heading, and the run is 200svh rather than 300svh (~350px per stage
+       instead of ~750px). The four .hs-snap-pt waypoints that used to sit here
+       are gone with the `scroll-snap-type` they put on <html>.
+       A PHONE (<=640px) stacks the four buttons — avatar, label, dot — and
+       .hs-row becomes its own 130px scroll container: a swipe walks the
+       stages, the one snapped to the top is live, and the page is untouched.
+       Under prefers-reduced-motion neither mode runs; the row is static and
+       every stage is still reachable. -->
   <section class="lp-sec hs" id="how" aria-labelledby="hs-h">
-    <span class="hs-snap-pt" aria-hidden="true"></span><span class="hs-snap-pt" aria-hidden="true"></span><span class="hs-snap-pt" aria-hidden="true"></span><span class="hs-snap-pt" aria-hidden="true"></span>
     <div class="lp-in">
       <h2 class="lp-h2 hs-h" id="hs-h">for any creator, at any stage</h2>
       <div class="hs-row" role="group" aria-label="your stage">
@@ -998,10 +1015,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20260922r" defer></script>
-<script src="/footer.js?v=20260922r" defer></script>
-<script src="/home.js?v=20260922r" defer></script>
-<script src="/avatar.js?v=20260922r" defer></script>
-<script src="/creator.js?v=20260922r" defer></script>
+<script src="/site.js?v=20260922u" defer></script>
+<script src="/footer.js?v=20260922u" defer></script>
+<script src="/home.js?v=20260922u" defer></script>
+<script src="/avatar.js?v=20260922u" defer></script>
+<script src="/creator.js?v=20260922u" defer></script>
 </body>
 </html>

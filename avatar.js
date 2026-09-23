@@ -88,6 +88,45 @@
       '<circle class="lx-dot lx-dl2" cx="60" cy="8" r="2.6" fill="' + VIO + '"/>' + '<circle class="lx-dot lx-dl4" cx="68" cy="8" r="2.6" fill="' + VIO + '"/>';
     return "";
   }
+  /* PROPS: artwork a mood does NOT own (the landing hero's intro, 2026-09-22).
+     `extras(mood)` is keyed on data-mood, so putting the pencil in "writing"
+     would hand one to every writing avatar on the site — the loader, the
+     composer button, the creator app's states. These two are emitted for every
+     live avatar the same way the extras are, stay display:none like them, and
+     are shown only when the ROOT carries .lx-prop-pencil / .lx-prop-whistle
+     (lynxrProp below). No existing mood renders differently anywhere.
+
+     Each is wrapped twice on purpose, because a CSS transform replaces the
+     whole transform, so one element cannot carry two of them:
+       .lx-hold  rides the hand — app.css gives it the arm's own keyframes and
+                 the arm's origin (60,62), so the prop never drifts off the
+                 hand it is held in;
+       .lx-pop   the prop's own entrance/exit, about its own end of the pencil;
+       the inner <g transform>  places and angles it, as a plain attribute.
+     Both are drawn from the hand OUTWARD: white barrels with a violet edge, so
+     they read over the arm's pink-violet gradient AND over the page behind it —
+     a solid violet prop measured as mush against the arm it is held in. */
+  function props(s) {
+    if (s === "pencil") {
+      /* held in the lower-left hand, pointing down-left at the page */
+      var p = '<rect x="-3.6" y="-16" width="7.2" height="22" rx="2" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2"/>' +
+        '<path d="M-3.6 5.4h7.2L0 16z" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2" stroke-linejoin="round"/>' +
+        '<rect x="-3.6" y="-16" width="7.2" height="5" rx="2" fill="' + VIO + '"/>' +
+        '<path d="M-1.5 11.4h3L0 16z" fill="' + VIO + '"/>';
+      return '<g class="lx-hold"><g class="lx-pop"><g transform="translate(33 93) rotate(45)">' + p + "</g></g></g>";
+    }
+    if (s === "whistle") {
+      /* held up in the top-right hand, mouthpiece toward the face, two toots */
+      var w = '<rect x="-15" y="-3.4" width="14" height="6.8" rx="3" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2"/>' +
+        '<circle cx="4.6" cy="0" r="8.4" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2"/>' +
+        '<circle cx="4.6" cy="-2.6" r="2.1" fill="' + VIO + '"/>' +
+        '<circle cx="13.4" cy="-5.6" r="2.5" fill="none" stroke="' + VIO + '" stroke-width="1.9"/>' +
+        '<g class="lx-toot">' + line("M18.5-5.2q4 5.2 0 10.4", 2.4, VIO) + '</g><g class="lx-toot lx-dl2">' + line("M24-8.6q6.6 8.6 0 17.2", 2.2, VIO) + "</g>";
+      return '<g class="lx-hold"><g class="lx-pop"><g transform="translate(80 24) rotate(-16) scale(.88)">' + w + "</g></g></g>";
+    }
+    return "";
+  }
+  var PROPS = ["pencil", "whistle"];
   var ARM = '<rect x="43" y="10" width="34" height="60" rx="17" fill="#fff"/>';
   function paint(maskId) {
     var m = 'mask="url(#' + maskId + ')"';
@@ -110,6 +149,7 @@
       var x = extras(MOODS[k]);
       if (x) xs += '<g class="lx-x lx-x-' + MOODS[k] + '">' + x + "</g>";
     }
+    for (var q = 0; q < PROPS.length; q++) xs += '<g class="lx-x lx-x-' + PROPS[q] + '">' + props(PROPS[q]) + "</g>";
     return '<svg class="lx' + (cls ? " " + cls : "") + '" data-mood="' + m + '" viewBox="0 0 120 120" aria-hidden="true" focusable="false">' +
       '<defs><mask id="' + id + '" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><g class="lx-spin">' + arms + "</g></mask></defs>" +
       '<g class="lx-loop"><g class="lx-body">' + paint(id) + '<g class="lx-face">' + faces + "</g></g></g>" +
@@ -141,8 +181,19 @@
     if (!svg || MOODS.indexOf(mood) < 0 || svg.getAttribute("data-mood") === mood) return;
     svg.setAttribute("data-mood", mood);
   }
+  /* The only writer of a live avatar's PROP, the same way lynxrMood is the only
+     writer of its mood. `prop` is "pencil", "whistle", null (empty-handed) or
+     "out" — which keeps the prop on screen while app.css plays its exit, so the
+     caller can drop it with lynxrProp(svg, null) once that has finished. */
+  function lynxrProp(svg, prop) {
+    if (!svg) return;
+    if (prop === "out") { svg.classList.add("lx-prop-out"); return; }
+    svg.classList.remove("lx-prop-out");
+    for (var i = 0; i < PROPS.length; i++) svg.classList.toggle("lx-prop-" + PROPS[i], PROPS[i] === prop);
+  }
   root.lynxrAvatar = lynxrAvatar;
   root.lynxrMood = lynxrMood;
+  root.lynxrProp = lynxrProp;
   root.lynxrMark = lynxrMark;
   root.lynxrDefs = lynxrDefs;
   root.LYNXR_MOODS = MOODS.slice();

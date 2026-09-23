@@ -7218,7 +7218,8 @@
      exists for them yet. Numbers are the owner-approved prototype's
      (x-avatar-prototype.html, CON.x.poses). */
   .lx:not(.lx-still) { overflow: visible; }
-  .lx .lx-arm, .lx .lx-w, .lx .lx-spin, .lx .lx-body { transform-box: view-box; transform-origin: 60px 62px; }
+  .lx .lx-arm, .lx .lx-w, .lx .lx-spin, .lx .lx-body, .lx .lx-hold { transform-box: view-box; transform-origin: 60px 62px; }
+  .lx .lx-pop { transform-box: view-box; }
   .lx .lx-arm, .lx .lx-body { transition: transform .6s cubic-bezier(.34, 1.56, .64, 1); }
   .lx .lx-a0 { transform: rotate(-45deg); }
   .lx .lx-a1 { transform: rotate(45deg); }
@@ -7256,6 +7257,35 @@
   .lx[data-mood="sorry"] .lx-f-sorry, .lx[data-mood="coaching"] .lx-f-coaching,
   .lx[data-mood="writing"] .lx-x-writing, .lx[data-mood="hyped"] .lx-x-hyped,
   .lx[data-mood="confused"] .lx-x-confused, .lx[data-mood="sorry"] .lx-x-sorry { display: inline; }
+
+  /* ---- PROPS: a pencil and a whistle (avatar.js `props`, lynxrProp) ----
+     Not moods and not tied to one: the root carries .lx-prop-pencil or
+     .lx-prop-whistle, so every existing mood renders exactly as it did. These
+     rules must stay BELOW the mood poses — .lx.lx-prop-whistle .lx-a1 and
+     .lx[data-mood="coaching"] .lx-a1 have the same specificity, and the hand
+     that holds the whistle wins by source order.
+     HOLDING POSES the hand, and the prop is given the hand's OWN keyframes
+     about the hand's own origin, so the two move as one object: the pencil
+     takes over the writing wiggle (which moves from the idle lower-right arm
+     to the arm actually holding it), the whistle rides the coaching wave. */
+  .lx.lx-prop-pencil .lx-x-pencil, .lx.lx-prop-whistle .lx-x-whistle { display: inline; }
+  .lx.lx-prop-pencil .lx-a3 { transform: rotate(-143deg); }
+  .lx.lx-prop-whistle .lx-a1 { transform: rotate(30deg); }
+  .lx.lx-prop-pencil[data-mood="writing"] .lx-w2 { animation: none; }
+  .lx.lx-prop-pencil[data-mood="writing"] .lx-w3,
+  .lx.lx-prop-pencil[data-mood="writing"] .lx-x-pencil .lx-hold { animation: lx-wig .45s ease-in-out infinite alternate; }
+  .lx.lx-prop-whistle[data-mood="coaching"] .lx-x-whistle .lx-hold { animation: lx-wave-arm .6s ease-in-out infinite alternate; }
+  .lx.lx-prop-whistle .lx-toot { animation: lx-toot .74s ease-out infinite; }
+  /* The entrance grows the prop out of the hand end that holds it, never from
+     its own centre. The exit rules repeat the descendant so they out-specify
+     the entrance ones; transform-origin still comes from the rule above. */
+  .lx.lx-prop-pencil .lx-x-pencil .lx-pop { transform-origin: 44px 83px; animation: lx-prop-in .26s cubic-bezier(.22, 1.15, .36, 1) both; }
+  .lx.lx-prop-whistle .lx-x-whistle .lx-pop { transform-origin: 72px 30px; animation: lx-prop-in .26s cubic-bezier(.22, 1.15, .36, 1) both; }
+  .lx.lx-prop-out .lx-x-pencil .lx-pop,
+  .lx.lx-prop-out .lx-x-whistle .lx-pop { animation: lx-prop-out .16s ease-in both; }
+  @keyframes lx-prop-in { from { opacity: 0; transform: scale(.45) rotate(-20deg); } to { opacity: 1; transform: none; } }
+  @keyframes lx-prop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.5) rotate(16deg); } }
+  @keyframes lx-toot { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
 
   /* reading spins the arms a quarter turn; the X's four-fold symmetry makes that loop seamless */
   .lx[data-mood="reading"] .lx-spin { animation: lx-spin 1.6s linear infinite; }
@@ -10159,11 +10189,21 @@
   }
 
   /* ---- the split: two equal halves at EVERY width (owner: never stacked) ---- */
+  /* HEIGHT = THE REST OF THE SCREEN, not a guessed 620px (owner, 2026-09-22: "center this so
+     that the gap from the top nav bar and the next section have the same space"). The halves
+     centre their content with align-items: center, so the moment the box ends exactly where the
+     fold does, the space above the content and the space below it are equal by construction —
+     the old clamp capped the box at 620px on a 945px screen, which centred the content in the
+     box and left 325px of dead gradient under it. --hx-bar-h is the sticky bar's real measured
+     height (10px top padding + 44px capsule + 1px hairline); it grows with the capsule at 760px.
+     max() keeps a floor so a short laptop window cannot crush the hero. */
   body.home .hx {
+    --hx-bar-h: 55px;
     position: relative; isolation: isolate;
     display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    min-height: clamp(480px, calc(100svh - 150px), 620px);
+    min-height: max(480px, calc(100svh - var(--hx-bar-h)));
   }
+  @media (max-width: 760px) { body.home .hx { --hx-bar-h: 67px; } }
   /* The lavender: transparent to 30% of the width, full by ~60%, faded out at the top (so the
      bar's zone has no horizontal edge) and the bottom (so the next section has none either). */
   body.home .hx-wash {
@@ -10178,8 +10218,10 @@
     position: relative; z-index: 1; min-width: 0; box-sizing: border-box;
     display: flex; align-items: center;
   }
-  body.home .hx-l { justify-content: flex-end; padding: 48px 110px 64px 40px; }
-  body.home .hx-r { justify-content: flex-start; padding: 48px 40px 64px 110px; }
+  /* Top and bottom MUST match: the halves centre their content, so 48/64 quietly pushed it 8px
+     above centre. Same total ink as before (112px), just split evenly. */
+  body.home .hx-l { justify-content: flex-end; padding: 56px 110px 56px 40px; }
+  body.home .hx-r { justify-content: flex-start; padding: 56px 40px 56px 110px; }
   body.home .hx-col {
     width: 100%; max-width: 440px; min-width: 0; overflow-wrap: anywhere;
     display: flex; flex-direction: column; gap: 18px;
@@ -10231,6 +10273,34 @@
   }
   body.home .hx-link:hover { border-bottom-color: currentColor; }
 
+  /* ---- THE INTRO'S REVEALS (home.js adds .hx-anim — read the block there) ----
+     THE DEFAULT IS THE FINISHED HERO. Every rule here is under .hx-anim, which script adds,
+     once per session, before the first paint; with no script, a blocked script or a thrown
+     error, nothing below applies and the whole hero is simply on screen. Removing the class
+     IS the snap to the end state, which is what any touch of the hero does.
+     Targets are the columns' own children, in source order — write: pill, headline, composer;
+     coach: pill, headline, card, link — so the markup needs no hooks and the phone (where the
+     halves stack in the same source order) is the same animation.
+     OPACITY AND A 7px RISE ONLY: nothing here can move a box. The composer is the exception
+     that proves it — it fades with no rise at all, because it is live from the first frame and
+     the thing people click may not slide under the pointer. `both` holds the first frame
+     through the delay and the last one after, so even a dropped timer ends on a finished hero. */
+  body.home .hx.hx-anim .hx-col > * { animation: hx-rise .34s cubic-bezier(.2, .82, .25, 1) both; }
+  body.home .hx.hx-anim .hx-l .hx-col > :nth-child(1) { animation-delay: .45s; }
+  body.home .hx.hx-anim .hx-l .hx-col > :nth-child(2) { animation-delay: .502s; }
+  body.home .hx.hx-anim .hx-l .hx-col > :nth-child(3) { animation-name: hx-fade; animation-delay: .554s; }
+  body.home .hx.hx-anim .hx-r .hx-col > :nth-child(1) { animation-delay: 1.3s; }
+  body.home .hx.hx-anim .hx-r .hx-col > :nth-child(2) { animation-delay: 1.352s; }
+  body.home .hx.hx-anim .hx-r .hx-col > :nth-child(3) { animation-delay: 1.404s; }
+  body.home .hx.hx-anim .hx-r .hx-col > :nth-child(4) { animation-delay: 1.456s; }
+  @keyframes hx-rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+  @keyframes hx-fade { from { opacity: 0; } to { opacity: 1; } }
+  /* Belt and braces: home.js never adds the class under reduced motion, and if it somehow did,
+     there is still no animation — the hero is finished, immediately. */
+  @media (prefers-reduced-motion: reduce) {
+    body.home .hx.hx-anim :is(.hx-col > *, .hx-r) { animation: none; }
+  }
+
   /* The avatar ON the seam. Live (avatar.js renders the span), never a picture. */
   body.home .hx-seam {
     position: absolute; left: 50%; top: 50%; z-index: 2; transform: translate(-50%, -50%);
@@ -10240,24 +10310,87 @@
   body.home .hx-seam .lx { filter: drop-shadow(0 16px 26px var(--hx-seam-shadow)); }
 
   @media (max-width: 960px) {
-    body.home .hx-l { padding: 40px 58px 56px 24px; }
-    body.home .hx-r { padding: 40px 24px 56px 58px; }
+    body.home .hx-l { padding: 48px 58px 48px 24px; }
+    body.home .hx-r { padding: 48px 24px 48px 58px; }
     body.home .hx-seam { width: 72px; height: 72px; }
   }
-  /* A PHONE (owner, 2026-09-22: "figure out a better layout for mobile"). Side by side at 393px
-     squeezed both headlines and the paste field, so on a phone the halves become two full-width
-     panels: write on top, the coach below on its lavender, and the avatar on the join between
-     them. Tablets and up keep the split. The paste field keeps 16px type (iOS zooms below it). */
+  /* A PHONE (owner, 2026-09-22: "figure out a better layout for mobile", then "it looks too
+     square vertically"). Side by side at 393px squeezed both headlines and the paste field, so
+     under 640px the halves stack — write on top, the coach below, the avatar on the join. That
+     first stacked pass drew the two halves as the SAME shape twice: both full-bleed, both left
+     aligned at the same 353px, both pill -> 40px two-line headline -> rounded box. A column of
+     equal rectangles is what reads as square, so the two halves are now told apart:
+
+       WRITE  keeps the full bleed and the big headline — it is the thing you can do today.
+       COACH  becomes ONE inset rounded panel, narrower than the screen, its content centred and
+              its headline a little over half the size — a quiet aside, not a second hero. The
+              avatar sits ON the panel's top edge, so the panel reads as the coach speaking.
+
+     The hero also centres itself in the fold the way it does on a desktop — the desktop rule's
+     expression without its 480px floor, since a phone shorter than its own content should just
+     grow — instead of stopping short with dead lavender beneath it.
+     Tablets and up keep the split. The paste field keeps 16px type (iOS zooms below it). */
   @media (max-width: 640px) {
-    body.home .hx { grid-template-columns: minmax(0, 1fr); min-height: 0; }
-    body.home .hx-l { order: 1; justify-content: flex-start; padding: 32px 20px 48px; }
+    body.home .hx {
+      grid-template-columns: minmax(0, 1fr);
+      /* align-content, not stretch: the three rows keep their own heights (a stretched seam row
+         would tear the avatar off the join) and the stack as a whole centres in the leftover.
+         The expression is the desktop rule's, unchanged: the hero is exactly the screen below
+         the sticky bar, so the space over the headline and the space under the panel match, and
+         the wash's own fade lands on the fold. On a phone too short for it the content is taller
+         and the min-height simply stops applying. (A smaller box was tried, to let the next
+         section peek: at the time .hs was a sticky scroll-driven section whose first 100svh was
+         empty by design, so the "peek" was more blank lavender, not a cue. On a phone .hs is now a
+         plain, self-sized section — the scroll-driven mode is desktop-only since 2026-09-22 — so
+         that objection no longer applies, but the hero keeping the whole fold is the owner's
+         "same space above and below" instruction and is not reopened here.) */
+      min-height: max(0px, calc(100svh - var(--hx-bar-h))); align-content: center;
+    }
+    body.home .hx-l { order: 1; justify-content: center; padding: 24px 20px 34px; }
     body.home .hx-seam {
       order: 2; position: relative; left: auto; top: auto; transform: none;
-      justify-self: center; width: 72px; height: 72px; margin: -36px 0;
+      justify-self: center; width: 76px; height: 76px; margin: -38px 0;
     }
-    body.home .hx-r { order: 3; justify-content: flex-start; padding: 48px 20px 52px; }
-    body.home .hx-col { max-width: none; gap: 14px; }
-    body.home .hx-h { font-size: 40px; }
+    /* THE COACH PANEL. Inset (14px each side) and rounded, so it is not the same rectangle as
+       the half above it; padding-top clears the avatar that overhangs it. */
+    body.home .hx-r {
+      order: 3; justify-content: center;
+      /* 14px each side on a phone; capped so the 560-640 end of this range gets a panel and not
+         a 612px-wide band, and centred on the same measure as the half above it. */
+      width: calc(100% - 28px); max-width: 576px; margin: 0 auto 10px;
+      padding: 48px 18px 22px; border-radius: 28px;
+      background: var(--hx-card); border: 1px solid var(--hx-card-edge); box-shadow: var(--hx-card-shadow);
+    }
+    /* The coach half IS a card here, so on the intro its panel arrives with its contents —
+       left out, an empty white box sits in the fold for the first second and a bit. Opacity
+       only: the panel's own box is what the avatar above it overlaps, and it may not move. */
+    body.home .hx.hx-anim .hx-r { animation: hx-fade .34s ease both; animation-delay: 1.28s; }
+    body.home .hx-col { max-width: 540px; gap: 12px; }
+    body.home .hx-r .hx-col { gap: 10px; align-items: center; text-align: center; }
+    /* .hx-pill and .hx-link both carry align-self: flex-start, which align-items cannot undo. */
+    body.home .hx-r :is(.hx-pill, .hx-link) { align-self: center; }
+    body.home .hx-h { font-size: 38px; }
+    body.home .hx-r .hx-h { font-size: 24px; line-height: 1.16; letter-spacing: -.022em; }
+    /* The pill's white-on-white would vanish now that it sits on the white panel. */
+    body.home .hx-r .hx-pill-soon { background: color-mix(in srgb, var(--hx-soon-t) 12%, transparent); }
+    /* The card became the panel, so inside it the preview is a message rather than a second box,
+       and the 26px avatar in its head row is dropped — the 76px one on the edge is that face. */
+    body.home .hx-coach {
+      padding: 0; gap: 8px; border: 0; background: none; box-shadow: none; align-items: center;
+    }
+    body.home .hx-coach-av { display: none; }
+    body.home .hx-coach-head { justify-content: center; }
+    body.home .hx-coach-msg {
+      padding: 12px 16px; border-radius: 18px; font-size: 15px;
+      background: color-mix(in srgb, var(--hx-soon-t) 8%, transparent);
+    }
+    /* LITERAL 16px, never a token — the same iOS zoom trap documented at the 820px
+       block above. That rule (`.composer-row input`) is one class; `.lp-composer
+       .composer-row input` is two, so it outranks it whatever the media query, and
+       this field measured 14.06px at 393px — under the threshold, so focusing it
+       zoomed the page in and Safari never zooms back out. Restated here, scoped to
+       the hero, so the app's own composer keeps its own sizing. */
+    body.home .hx .lp-composer .composer-row input { font-size: 16px; }
     body.home .hx-wash {
       background-image:
         radial-gradient(90vw 40vh at 80% 80%, var(--hx-glow), var(--hx-glow0) 70%),
@@ -10265,36 +10398,11 @@
       -webkit-mask-image: linear-gradient(180deg, #000 86%, transparent 100%);
       mask-image: linear-gradient(180deg, #000 86%, transparent 100%);
     }
-    body.home #lp-main > .hs { padding-top: 40px; }
   }
 
   /* ---- for any creator, at any stage ---- */
   body.home #lp-main > .hs > .lp-in { width: min(960px, var(--pub-col)); }
   body.home .hs { --hs-gap: 12px; --hs-pb: 14px; }
-  /* Scroll-driven (home.js sets .hs-live): the section is tall and its content
-     sticks, centred in the screen, while each quarter of the scroll selects the
-     next stage. 75svh of scroll per stage (see THE GRACE below). */
-  body.home #lp-main > .hs.hs-live { position: relative; height: calc(100svh + 300svh); padding-block: 0; }
-  /* THE GRACE (owner, 2026-09-22: "a bigger grace period, so users dont accidentally scroll past
-     one of the steps, but also not too long"). 75svh of scroll per stage (was 60) — about one flick
-     — and a PROXIMITY snap point at the middle of each stage's stretch, so a scroll that stops near
-     a stage settles on it. Proximity, never mandatory: a deliberate scroll still passes straight
-     through, and nothing snaps anywhere else on the page. home.js puts .hs-snap on <html> only
-     while the picker is live. Each point sits where scrollY = top + 300svh * (k + .5) / 4. */
-  html.hs-snap { scroll-snap-type: y proximity; }
-  body.home .hs-snap-pt { display: none; }
-  body.home .hs.hs-live > .hs-snap-pt {
-    display: block; position: absolute; left: 0; width: 1px; height: 1px; pointer-events: none;
-    scroll-snap-align: start;
-  }
-  body.home .hs.hs-live > .hs-snap-pt:nth-of-type(1) { top: 37.5svh; }
-  body.home .hs.hs-live > .hs-snap-pt:nth-of-type(2) { top: 112.5svh; }
-  body.home .hs.hs-live > .hs-snap-pt:nth-of-type(3) { top: 187.5svh; }
-  body.home .hs.hs-live > .hs-snap-pt:nth-of-type(4) { top: 262.5svh; }
-  body.home #lp-main > .hs.hs-live > .lp-in {
-    position: sticky; top: 0; min-height: 100svh; box-sizing: border-box;
-    display: flex; flex-direction: column; justify-content: center; padding-block: 72px 24px;
-  }
   body.home .hs-h { text-align: center; margin: 0 0 32px; text-wrap: balance; }
   body.home .hs-row {
     position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--hs-gap);
@@ -10345,19 +10453,124 @@
   body.home .hs-text { margin: 0; font-size: 17px; line-height: 1.5; color: var(--text-2); }
   /* "1 of 4 · just starting": a phone's row drops its labels, so the card names the stage. */
   body.home .hs-step { display: none; margin: 0; font-family: var(--mono); font-size: 12px; color: var(--text-3); }
+  /* A PHONE: THE ROW BECOMES A SCROLLING COLUMN (owner, 2026-09-22: "i dont like the horizontal
+     look, and it looks too squished", then "make the vertical for the mobile scrollable so i dont
+     have to individually click it").
+     Four abreast at 393px gave each stage a 90px column — avatars nearly touching, and the labels
+     clipped to 1px and left for screen readers only, so a visitor saw four near-identical faces
+     and no names. Stacked, each stage is one full-width row: avatar, label, dot.
+
+     AND THE STACK SCROLLS INSIDE ITSELF. .hs-row is its own scroll container — a 130px window on a
+     column of four rows, snapping one stage to its top — so a swipe moves through the stages
+     instead of four separate taps. THIS IS NOT THE OLD SCROLL MODE: that one made the PAGE 300svh
+     tall and pinned it, which is what was removed today. Here the page scrolls past a ~545px
+     section normally and only this 130px box has a scroll of its own; its whole travel is 242px,
+     and a swipe that runs past the last stage chains straight on to the page, so no thumb is
+     trapped.
+
+     SNAPPED TO THE TOP, NOT THE CENTRE. Centre-snapping was built first and looked wrong: it puts
+     blank padding above the live row at rest and shows only the top third of the next one, which
+     measured as a smudge under the fade rather than as a row. Snapping to the start means the
+     live row is crisp at the top with nothing wasted above it, and the window is deliberately
+     sized to cut the NEXT row just below its label — enough to read it and to see it is cut,
+     which is the cue that says this box scrolls.
+
+     EVERY NUMBER COMES FROM THE ROW: a 48px avatar + 10px padding twice + 1px border twice = 70px.
+     --hs-ring is the room the 2px focus outline at 2px offset needs at the top, since overflow-y
+     forces the box to clip; the same amount is added at the bottom for the last row's ring. The
+     scrollbar is hidden — an overlay on a phone, but a real gutter in a narrow desktop window.
+     home.js is told none of these numbers: it reads each stage's own offset back out of the DOM.
+     THE TRACK IS GONE HERE: it is a child of the scroll container, so it scrolled away with the
+     dots it joins and left a stub at one edge. Four rows in a column already read as an order,
+     and the lit row says which one you are on. */
   @media (max-width: 640px) {
-    body.home .hs { --hs-gap: 4px; --hs-pb: 10px; }
-    body.home .hs-h { margin-bottom: 22px; }
-    body.home .hs-stage { padding: 12px 4px var(--hs-pb); gap: 12px; border-radius: 18px; }
-    body.home .hs-av { width: 52px; height: 52px; }
-    /* Four wrapped labels at 393px read as clutter: the row is just avatars and dots, and the
-       card below says which stage this is. The labels stay in the buttons for screen readers. */
-    body.home .hs-lbl { position: absolute; width: 1px; height: 1px; min-height: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-    body.home .hs-step { display: block; }
+    body.home .hs {
+      --hs-gap: 8px; --hs-pb: 10px;
+      --hs-rowh: 70px; --hs-ring: 4px;
+      --hs-win: 130px;
+    }
+    body.home .hs-h { margin-bottom: 20px; }
+    /* Capped so the 560-640 end of this range gets a tidy list rather than a 600px-wide row with
+       an avatar stranded at one end and a dot at the other. The card takes the same measure so
+       the two read as one column. */
+    body.home :is(.hs-row, .hs-card) { max-width: 420px; margin-inline: auto; }
+    body.home .hs-row {
+      grid-template-columns: minmax(0, 1fr);
+      height: var(--hs-win);
+      /* THE END PADDING IS EXACT, AND THE SIGN MATTERS: win - row - ring makes the LAST stage's
+         snap position land exactly on the container's maximum scrollTop. With any more than that
+         (the first cut used + ring, 8px too much) the box keeps a sliver of scroll it can never
+         reach, so it never reports itself as scrolled to the end — and a swipe that runs past the
+         last stage is swallowed instead of chaining on to the page. Measured: the page moved 0px
+         per swipe before this, 202px after, matching a plain nested scroller. */
+      padding-block: var(--hs-ring) calc(var(--hs-win) - var(--hs-rowh) - var(--hs-ring));
+      /* scroll-padding, not just padding: snapping to `start` puts the row's edge ON the
+         container's edge, which clipped the top 4px of its focus ring. This insets the snapport
+         by the same --hs-ring so the snapped row keeps its ring. Measured at 0px of room before
+         this line, 4px after. */
+      scroll-padding-block: var(--hs-ring);
+      overflow-y: auto; overflow-x: hidden; scroll-snap-type: y mandatory;
+      scrollbar-width: none; -ms-overflow-style: none;
+      -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(var(--hs-ring) + var(--hs-rowh)), rgba(0, 0, 0, .35) 100%);
+      mask-image: linear-gradient(180deg, #000 0, #000 calc(var(--hs-ring) + var(--hs-rowh)), rgba(0, 0, 0, .35) 100%);
+    }
+    body.home .hs-row::-webkit-scrollbar { width: 0; height: 0; }
+    body.home .hs-track { display: none; }
+    body.home .hs-stage {
+      flex-direction: row; align-items: center; justify-content: flex-start; text-align: left;
+      gap: 14px; padding: 10px 16px; border-radius: 18px; scroll-snap-align: start;
+    }
+    body.home .hs-av { width: 48px; height: 48px; flex: none; }
+    body.home .hs-lbl {
+      flex: 1 1 auto; min-height: 0; justify-content: flex-start; text-align: left; font-size: 16px;
+    }
+    body.home .hs-dot { flex: none; }
+    /* "1 of 4 · just starting" existed because the labels were hidden here. They are not any more,
+       and the live row is the one lit and on top, so it would be the same words twice. */
+    body.home .hs-step { display: none; }
     body.home .hs-card { padding: 20px 18px; border-radius: 22px; }
     body.home .hs-title { font-size: 20px; }
     body.home .hs-text { font-size: 15px; }
   }
+
+  /* ================= THE DESKTOP SCROLL-DRIVEN ROW (landing, restored 2026-09-22) ==========
+     THE OWNER'S CALL, IN THEIR WORDS: "on desktop keep it the way it was the horizonal dynamic
+     from the vertical scroll". Above the phone breakpoint the four stages stay in one horizontal
+     row and the PAGE's own vertical scroll advances them: home.js adds .hs-live, the section
+     becomes tall, its .lp-in sticks, and each quarter of the run selects the next stage. A
+     contained scroller was tried here first and rejected on sight.
+
+     TWO THINGS ARE TRIMMED, and neither touches the effect itself:
+     1. NO EMPTY SCREEN BEFORE THE HEADING. The old version pinned a 100svh box with its content
+        centred inside it, so scrolling in showed half a screen of bare gradient before the
+        heading ever appeared — the "blank gap" complaint. Now .lp-in is only as tall as its own
+        content and sticks at an offset that lands it in the middle of the screen, so it enters
+        from the bottom edge like any other content and the heading is visible the moment the
+        section is. --hs-inh only has to be near the real height of that content (measured: 404px
+        at 1280): it sets where the pin lands, and home.js measures the true heights itself.
+     2. A SHORTER RUN. It was 300svh for four stages — 750px per stage at a 1000px viewport, which
+        is two flicks each. 200svh total leaves ~345px per stage at a 900px viewport: one
+        unhurried flick, and the section is 1,800px instead of 3,600px.
+
+     NOT RESTORED, on purpose: the four .hs-snap-pt waypoints and `html.hs-snap`. That was a
+     `scroll-snap-type` on a BARE html selector in a stylesheet all three front-ends share, and
+     with the run halved each stage still owns ~345px of scroll, so no stage can be flicked past
+     by accident — which is what the snap was added for. Say the word and it comes back.
+
+     .hs-live is only ever set above 640px, on a screen tall enough to hold the whole block, and
+     never under prefers-reduced-motion — without it this is the plain click-and-arrow row, which
+     is also the no-JS state. */
+  @media (min-width: 641px) {
+    body.home #lp-main > .hs.hs-live {
+      --hs-inh: 404px;
+      height: 200svh; padding-block: 0;
+    }
+    body.home #lp-main > .hs.hs-live > .lp-in {
+      position: sticky; top: calc(50svh - var(--hs-inh) / 2);
+      display: flex; flex-direction: column;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     body.home .hs-stage, body.home .hs-av { transition: none; }
   }

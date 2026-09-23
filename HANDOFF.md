@@ -27,14 +27,12 @@ naming a path there publishes it.
 
 ### Read this block first. The rest of START HERE below is older and still true unless this says otherwise.
 
-**AGENCY SENDS BRIEFS TO ROSTER CREATORS — BUILT, NOT YET LIVE (2026-09-22).** Plan:
-`~/.claude/plans/agency-send-brief-to-creators.md`, all 17 non-owner steps implemented in the
-working tree (uncommitted). **Two SQL dependencies, both required before any of this works:**
-`supabase/staff_gate.sql` and `supabase/invites.sql` must already be applied (they were), and
-**the owner still needs to apply the new `supabase/agency_roster.sql`** in the Supabase SQL
-editor — nothing in this feature works until that lands; every UI surface degrades to a quiet
-"not installed yet" note on the 404 until then. The privacy/terms decision (plan step 19) is
-also still the owner's.
+**AGENCY SENDS BRIEFS TO ROSTER CREATORS — LIVE AND EXERCISED END TO END (2026-09-22).**
+Plan: `~/.claude/plans/agency-send-brief-to-creators.md`, all 17 non-owner steps implemented and
+pushed by the owner (HEAD `0edbd6b`). **All three SQL dependencies are applied:**
+`supabase/staff_gate.sql`, `supabase/invites.sql` and `supabase/agency_roster.sql` — the last
+one was applied by the owner on 2026-09-22, so the feature is no longer inert. The
+privacy/terms decision (plan step 19) is still the owner's.
 
 Where things live: the roster (invite by email, see who's accepted, remove) is the agency
 app's new **Creators** tab (`agencyonly/index.html`). **Send to creators** sits in both brief
@@ -49,14 +47,31 @@ to `status: "done"` with a populated `adaptation`, so `wants_work()`
 Unsend is `revoked_at` on the delivery row, never a delete — the brief snapshot and the roster
 row both survive it.
 
-**Not verified live** (both apps are sign-in gated and the SQL isn't applied yet): the full
-owner click-through in the plan's Verification section, the isolation proof SQL block, and the
-stored-XSS probe. Cold checks (`check_stamp.py`, `404.html`'s stamp, no `style="`, no `${`,
-`node --check` on both files) all pass. Stamp bumped to `20260922l`.
+**The happy path IS proven live** — see the roster state below: an invite was accepted and a
+brief was delivered. **Still not run** (both apps are sign-in gated, so the owner has to do
+them): the rest of the plan's Verification click-through, the isolation proof SQL block, and
+the stored-XSS probe. Cold checks (`check_stamp.py`, `404.html`'s stamp, no `style="`, no
+`${`, `node --check` on both files) all pass.
 
-**Repo.** Last push is `c90805e`. The working tree holds a large uncommitted batch that is **ready to review and
-push**: stamp bumped to **`20260921f`** on all 24 pages plus `404.html` (`check_stamp.py` → `ok`), no Paddle left
-anywhere, all JSON-LD parses, no inline styles in the page sources.
+**Roster state (live, re-read 2026-09-22 evening, straight off the REST API):** one seat,
+junsaemail@gmail.com, status **`accepted`** (invited 21:06 UTC, accepted 21:19). One brief in
+`lynxr_agency_briefs` — client "Cloey", title "test" — and one row in
+`lynxr_agency_deliveries` pointing at it, `revoked_at` null. So invite → accept → send has all
+run for real; unsend has not been exercised.
+
+**Later the same day, all pushed:** the Lynx Media Group mark (traced from the owner's logo into
+one path, `lynx-media-mark.svg`, `AGENCY_MARK` in creator.js) now sits in the creator sidebar
+item, that section's heading, the brief page header and the agency app header. The creator's
+brief page shows each **video beside its script** (`.lynx-cols`; a link and a watch button, not a
+player — the CSP admits no third-party frames or images). The empty state is one line,
+"Waiting on briefs." — it used to render the lynxr avatar through `.empty-mark`, which is only
+sized under `body.agency`, so it filled the whole pane.
+
+**Repo (2026-09-22).** Everything below is PUSHED — HEAD `0edbd6b`, working tree clean, stamp
+`20260922r` on 26 pages plus `404.html` (`check_stamp.py` → `ok`). The paragraphs further down that
+still say "uncommitted" describe work from earlier the same day that went out in these pushes; they
+are kept for what they explain, not for their status. The one thing NOT live is anything that needs
+`supabase/agency_roster.sql`, which the owner has not applied yet.
 
 **What's in the batch:**
 - **Plan view** (`creator.js` `renderPlan`, `app.css`) — built by the ui-ux agent and reviewed: current state first,
@@ -141,7 +156,7 @@ the new Upgrade button — do one after the push (it calls the same function tha
    functions that return only their own rows; nothing writes to `lynxr_creators` from the staff
    side, so the isolation that was verified live still holds.
 
-**AGENCY APP, TWO FIXES FROM GAWIN (2026-09-22, uncommitted, in app.js + app.css).**
+**AGENCY APP, TWO FIXES FROM GAWIN (2026-09-22, pushed; app.js + app.css).**
    1. **A brief saves at any size.** `CART_LIMIT = 10` was both the floor for Save and the ceiling for
    picking; both are gone (one video is enough, no upper stop). Tray reads "n videos in brief".
    Scripts still vary per slot — `tailoredScript()` indexes with `slot % length`.
@@ -151,8 +166,12 @@ the new Upgrade button — do one after the push (it calls the same function tha
    it), and a new **Save client** button writes the client into the Clients tab with no brief
    attached. **UNTESTED BY CLAUDE: the agency app needs a staff sign-in — the owner/Gawin must try
    both flows.**
+   3. **Niche and target audience in the brand-context form are typed, not picked** (owner,
+   2026-09-22: "make all of these typeable"). They are text inputs with a `<datalist>` of the
+   database's own values as suggestions, so an unseen niche can be written down; the picked-video
+   shelf still filters on an exact niche name, so a suggested one keeps that filter working.
 
-**LANDING REDESIGN, TOP HALF BUILT LOCALLY (2026-09-22, uncommitted, stamp `20260922i`).** Above `#pricing`, index.html is now
+**LANDING REDESIGN, TOP HALF — LIVE (2026-09-22, pushed).** Above `#pricing`, index.html is now
    the owner-approved mockup: a split hero (`section.hx`: left "live now · paste a link. get your script." with the
    existing composer moved in unchanged; right "coming soon · a coach that's all about you." + a preview card; the live
    avatar on the seam; halves side by side at every width) and a stage picker (`section.hs#how`, four stages, JS in
@@ -187,7 +206,7 @@ the new Upgrade button — do one after the push (it calls the same function tha
    its own wall sentence (from `my_allowance().plan`); the worker's walls name the real limit (`wall_note()`, the parked
    A0.1 hunk plus `cap_week`). Pushed and deployed (worker deploy green at `46916a2`). **Any future free-tier change
    that affects real accounts needs the terms' 14 days' emailed notice.**
-**2026-09-22 batch (uncommitted, stamp `20260922b`):**
+**2026-09-22 batch (pushed):**
    - **Unlock time + pro's 24-hour check (A0.2 / A2.2 / A2.5):** `allowance_state()` is now plpgsql and returns
      `next_room_at`; `my_plan()` now includes the free row. **Applied 2026-09-22 and verified live:** 3 temporary charges on an
      unused account gave next_room_at = oldest + 7 days exactly, then were deleted; `my_plan()` lists free/pro/max. `creator.js` reads `daily_max`, `used_24h`, `next_room_at`: room is the smaller of the window's
