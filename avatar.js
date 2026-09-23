@@ -108,25 +108,50 @@
      a solid violet prop measured as mush against the arm it is held in. */
   function props(s) {
     if (s === "pencil") {
-      /* held in the lower-left hand, pointing down-left at the page */
+      /* held in the BOTTOM-RIGHT hand (.lx-a2), pointing down-right at the page
+         (owner, 2026-09-22: "actually put the pencil on the bottom right limb",
+         after "put the item in the same limb for both" — so the whistle below
+         moved to this same hand). Was the lower-left hand until then. */
       var p = '<rect x="-3.6" y="-16" width="7.2" height="22" rx="2" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2"/>' +
         '<path d="M-3.6 5.4h7.2L0 16z" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2" stroke-linejoin="round"/>' +
         '<rect x="-3.6" y="-16" width="7.2" height="5" rx="2" fill="' + VIO + '"/>' +
         '<path d="M-1.5 11.4h3L0 16z" fill="' + VIO + '"/>';
-      return '<g class="lx-hold"><g class="lx-pop"><g transform="translate(33 93) rotate(45)">' + p + "</g></g></g>";
+      return '<g class="lx-hold"><g class="lx-pop"><g transform="translate(85 94) rotate(-42)">' + p + "</g></g></g>";
     }
-    if (s === "whistle") {
-      /* held up in the top-right hand, mouthpiece toward the face, two toots */
+    /* THE WHISTLE IS DRAWN TWICE, in two different hands, and CSS shows one
+       (owner, 2026-09-22: "for mobile have the pencil on the right bottom and
+       whistle on the left bottom limb" — on a desktop it stays top-right).
+       IT HAD TO BE TWO GROUPS. The "emit every state, show one" rule holds for
+       MOODS, but not for props: each prop was emitted once, with its hand
+       baked into a plain SVG transform attribute that CSS cannot reach. The
+       .lx-hold wrapper can only orbit the whole object about the avatar's
+       centre, which would carry the artwork round upside down, and .lx-pop is
+       already spent on the entrance/exit. So the second placement is a second
+       group, ~0.4KB of markup per live avatar, and the media query picks it —
+       which keeps the phone rule and the desktop rule fully independent, with
+       no rule having to un-apply another. Both answer the same one class,
+       .lx-prop-whistle, so lynxrProp and PROPS are untouched. */
+    if (s === "whistle" || s === "whistle-lo") {
       var w = '<rect x="-15" y="-3.4" width="14" height="6.8" rx="3" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2"/>' +
         '<circle cx="4.6" cy="0" r="8.4" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2"/>' +
         '<circle cx="4.6" cy="-2.6" r="2.1" fill="' + VIO + '"/>' +
         '<circle cx="13.4" cy="-5.6" r="2.5" fill="none" stroke="' + VIO + '" stroke-width="1.9"/>' +
         '<g class="lx-toot">' + line("M18.5-5.2q4 5.2 0 10.4", 2.4, VIO) + '</g><g class="lx-toot lx-dl2">' + line("M24-8.6q6.6 8.6 0 17.2", 2.2, VIO) + "</g>";
-      return '<g class="lx-hold"><g class="lx-pop"><g transform="translate(80 24) rotate(-16) scale(.88)">' + w + "</g></g></g>";
+      /* whistle    = the TOP-RIGHT hand (.lx-a1), mouthpiece toward the face;
+         whistle-lo = the BOTTOM-LEFT hand (.lx-a3), mouthpiece still toward the
+                      face (up-right from there) so the toots blow away from the
+                      body, down-left, clear of the panel below it on a phone. */
+      var at = s === "whistle"
+        ? 'translate(80 24) rotate(-16) scale(.88)'
+        : 'translate(39 97) rotate(124) scale(.88)';
+      return '<g class="lx-hold"><g class="lx-pop"><g transform="' + at + '">' + w + "</g></g></g>";
     }
     return "";
   }
+  /* The prop NAMES lynxrProp accepts (one class each) and the prop GROUPS drawn
+     (whistle-lo is a second placement of the whistle, not a third prop). */
   var PROPS = ["pencil", "whistle"];
+  var PROP_ART = ["pencil", "whistle", "whistle-lo"];
   var ARM = '<rect x="43" y="10" width="34" height="60" rx="17" fill="#fff"/>';
   function paint(maskId) {
     var m = 'mask="url(#' + maskId + ')"';
@@ -149,7 +174,7 @@
       var x = extras(MOODS[k]);
       if (x) xs += '<g class="lx-x lx-x-' + MOODS[k] + '">' + x + "</g>";
     }
-    for (var q = 0; q < PROPS.length; q++) xs += '<g class="lx-x lx-x-' + PROPS[q] + '">' + props(PROPS[q]) + "</g>";
+    for (var q = 0; q < PROP_ART.length; q++) xs += '<g class="lx-x lx-x-' + PROP_ART[q] + '">' + props(PROP_ART[q]) + "</g>";
     return '<svg class="lx' + (cls ? " " + cls : "") + '" data-mood="' + m + '" viewBox="0 0 120 120" aria-hidden="true" focusable="false">' +
       '<defs><mask id="' + id + '" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><g class="lx-spin">' + arms + "</g></mask></defs>" +
       '<g class="lx-loop"><g class="lx-body">' + paint(id) + '<g class="lx-face">' + faces + "</g></g></g>" +

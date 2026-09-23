@@ -185,38 +185,33 @@ for (const el of document.querySelectorAll("[data-carry-utm]")) {
    data-text, and stage 1's already in the card for a visitor without JS), so
    this only moves aria-pressed and copies two strings — nothing to drift.
 
-   TWO WAYS IN, ONE PER SIZE, and both are additions to the buttons rather than
-   replacements for them: the four stages stay real buttons at every width, so
-   a click, an arrow key, Home/End and a screen reader always work.
+   THE PAGE DRIVES IT, AT EVERY WIDTH (owner, 2026-09-22: "on desktop keep it
+   the way it was the horizonal dynamic from the vertical scroll", then for the
+   phone "do it so that as i scroll down, this section just scrolls, similar to
+   how the desktop scroll works"). With .hs-live app.css makes the section tall
+   and sticks its .lp-in in the middle of the screen, so the page holds on the
+   block while each quarter of the run selects the next stage. Above 640px that
+   block is a horizontal row of four, below it a column of four; the mechanism
+   is identical and this file does not care which is on screen.
 
-   A. DESKTOP — THE PAGE DRIVES IT (owner: "on desktop keep it the way it was
-      the horizonal dynamic from the vertical scroll"). With .hs-live the
-      section is 200svh tall and its .lp-in sticks, so the page holds on the
-      row while each quarter of the run selects the next stage. .hs-live is set
-      only above 640px, only on a screen tall enough for the block, and never
-      under prefers-reduced-motion — that is the static fallback, and it is the
-      no-JS state too. A click or an arrow key scrolls to that stage's quarter
-      instead of fighting the scroll, so position and selection cannot disagree.
+   A PHONE-ONLY CONTAINED SCROLLER lived here for part of the same day — the
+   column was its own 130px scroll box and a swipe inside it moved the stages.
+   It is deleted, not disabled, on the owner's instruction above.
 
-   B. PHONE — THE LIST SCROLLS INSIDE ITSELF (owner: "make the vertical for the
-      mobile scrollable so i dont have to individually click it"). app.css
-      turns .hs-row into a 130px window on a column of four rows; whichever
-      stage is snapped to the top is the live one. The PAGE is untouched there:
-      it scrolls past the section normally, and a swipe that runs past the last
-      stage chains on to it.
-
-   Neither branch is told any numbers. A reads the section's and the sticky
-   box's real heights; B reads each stage's own offset inside the scroller and
-   goes inert when the container does not scroll, which is what keeps it silent
-   on a desktop with no media query in here. Unselected avatars are paused in
-   CSS. */
+   NOTHING HERE IS TOLD A NUMBER. The run is the section's height less the
+   sticky block's, both measured, so app.css can be retuned — different per
+   width, as it is — without touching this file. .hs-live is set only when the
+   block actually fits the screen and never under prefers-reduced-motion; what
+   is left then is the plain click-and-arrow row, which is also the no-JS
+   state. A click or an arrow key scrolls to that stage's quarter rather than
+   fighting the scroll, so position and selection cannot disagree. Unselected
+   avatars are paused in CSS. */
 const stageSec = document.querySelector("section.hs");
 const stageRow = document.querySelector(".hs-row");
 if (stageSec && stageRow && $("hs-title") && $("hs-text")) {
   const stageIn = stageSec.querySelector(".lp-in");
   const stages = [...stageRow.querySelectorAll(".hs-stage")];
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
-  const wide = matchMedia("(min-width: 641px)");
   let current = 0;
   const paint = (i) => {
     current = i;
@@ -225,14 +220,22 @@ if (stageSec && stageRow && $("hs-title") && $("hs-text")) {
     $("hs-text").textContent = stages[i].dataset.text || "";
     const lbl = stages[i].querySelector(".hs-lbl");
     if ($("hs-step") && lbl) $("hs-step").textContent = `${i + 1} of ${stages.length} \u00b7 ${lbl.textContent.trim()}`;
+    // The card's action follows the stage (owner, 2026-09-22): data-stage picks the aside (and,
+    // on the last stage, the links instead of the composer) in CSS; the placeholder comes off
+    // the lit button's data-ph so the words stay in the markup.
+    const card = $("hs-card");
+    if (card) {
+      card.dataset.stage = String(i);
+      const field = card.querySelector("input[type=url]");
+      if (field && stages[i].dataset.ph) field.placeholder = stages[i].dataset.ph;
+    }
   };
 
-  /* ---- A. the page-scroll mode (desktop) ---- */
   const live = () => stageSec.classList.contains("hs-live");
-  // Where the run starts in the document, and how long it is. The sticky box
+  // Where the run starts in the document, and how long it is. The sticky block
   // begins holding when its own top reaches its CSS `top` offset, and lets go
   // when the section's bottom catches it, so the run is the difference in
-  // their heights — measured, never assumed, so app.css can be retuned freely.
+  // their heights — measured, never assumed.
   const span = () => {
     const top = stageSec.getBoundingClientRect().top + scrollY;
     const stick = parseFloat(getComputedStyle(stageIn).top) || 0;
@@ -245,8 +248,10 @@ if (stageSec && stageRow && $("hs-title") && $("hs-text")) {
     const i = Math.floor(p * stages.length);
     if (i !== current) paint(i);
   };
+  // Measured, not a magic px: the mode only makes sense when the whole block
+  // can be on screen at once. A landscape phone falls back to the plain row.
   const setLive = () => {
-    stageSec.classList.toggle("hs-live", wide.matches && innerHeight >= 560 && !reduce.matches);
+    stageSec.classList.toggle("hs-live", !reduce.matches && innerHeight >= stageIn.offsetHeight + 32);
     fromScroll();
   };
   // Straight on the scroll event, not via requestAnimationFrame: a frame callback never runs in a
@@ -255,51 +260,22 @@ if (stageSec && stageRow && $("hs-title") && $("hs-text")) {
   addEventListener("scroll", fromScroll, { passive: true });
   reduce.addEventListener("change", setLive);
 
-  /* ---- B. the contained scroller (phone) ---- */
-  // Whichever axis app.css made scrollable, if either. Both are 0 when the row
-  // is a plain grid, which is what makes this branch inert on a desktop.
-  const axis = () => {
-    const y = stageRow.scrollHeight - stageRow.clientHeight;
-    const x = stageRow.scrollWidth - stageRow.clientWidth;
-    return x > y ? { n: x, at: "scrollLeft", of: "offsetLeft", to: "left", pad: "scrollPaddingLeft" }
-                 : { n: y, at: "scrollTop", of: "offsetTop", to: "top", pad: "scrollPaddingTop" };
-  };
-  // Each stage's own offset IS its snap position, less whatever scroll-padding
-  // insets the snapport (app.css uses some so the snapped row keeps its focus
-  // ring). Read, not hardcoded, so the window size, the row height and the
-  // padding can all be retuned in CSS alone.
-  const snapAt = (i, a) => stages[i][a.of] - (parseFloat(getComputedStyle(stageRow)[a.pad]) || 0);
-  const nearest = (a) => {
-    let best = 0, d = Infinity;
-    stages.forEach((b, i) => { const dd = Math.abs(snapAt(i, a) - stageRow[a.at]); if (dd < d) { d = dd; best = i; } });
-    return best;
-  };
-  // A programmatic smooth scroll passes over the stages in between; without
-  // this the handler would pick each one on the way and fight it.
-  let settleUntil = 0;
-  stageRow.addEventListener("scroll", () => {
-    const a = axis();
-    if (!a.n || performance.now() < settleUntil) return;
-    const i = nearest(a);
-    if (i !== current) paint(i);
-  }, { passive: true });
-
-  /* ---- the buttons, which drive whichever mode is on ---- */
   const select = (i, focus) => {
     if (i !== current) paint(i);
     if (focus) stages[i].focus({ preventScroll: true });
-    const smooth = reduce.matches ? "auto" : "smooth";
-    if (live()) {
-      const { start, run } = span();
-      scrollTo({ top: start + run * (i + 0.5) / stages.length, behavior: smooth });
+    if (!live()) {
+      // A SAFETY NET, NOT A MODE. The row is a plain grid at both widths today,
+      // so both of these are 0 and this does nothing. If it is ever given an
+      // overflow again, the chosen stage still gets put in view instead of
+      // being selected somewhere off the edge of its own container.
+      const y = stageRow.scrollHeight - stageRow.clientHeight;
+      const x = stageRow.scrollWidth - stageRow.clientWidth;
+      if (x > 0) stageRow.scrollLeft = stages[i].offsetLeft;
+      else if (y > 0) stageRow.scrollTop = stages[i].offsetTop;
       return;
     }
-    const a = axis();
-    if (!a.n) return;
-    const to = snapAt(i, a);
-    if (Math.abs(stageRow[a.at] - to) < 1) return;
-    settleUntil = performance.now() + 700;
-    stageRow.scrollTo({ [a.to]: to, behavior: smooth });
+    const { start, run } = span();
+    scrollTo({ top: start + run * (i + 0.5) / stages.length, behavior: reduce.matches ? "auto" : "smooth" });
   };
   stageRow.addEventListener("click", (e) => {
     const i = stages.indexOf(e.target.closest(".hs-stage"));
@@ -313,29 +289,31 @@ if (stageSec && stageRow && $("hs-title") && $("hs-text")) {
     e.preventDefault();
     select(Math.min(Math.max(to, 0), stages.length - 1), true);
   });
-  // The window can cross the breakpoint in either direction; re-seat whichever
-  // mode is now on so position and selection cannot disagree.
-  addEventListener("resize", () => {
-    setLive();
-    const a = axis();
-    if (!live() && a.n) stageRow[a.at] = snapAt(current, a);
-  });
+  // A resize can cross the breakpoint, change the run, or turn the mode off.
+  addEventListener("resize", setLive);
   setLive();
 }
 
-/* THE HERO'S INTRO: THE X PICKS UP A PENCIL, THEN A WHISTLE (owner, 2026-09-22: "have lynxr
+/* THE HERO'S INTRO: THE BUDDY PICKS UP A WHISTLE, THEN A PENCIL (owner, 2026-09-22: "have lynxr
    have a pencil and reveal the script writing portion and then have lnxr get a whistle and
-   reveal the coach part, its like a load animation"). One pass, ~1.8s end to end:
+   reveal the coach part, its like a load animation" — then, on mockup H, "have the same
+   animation we have now, but have it start with the content coach and then the script writing",
+   so the two props swapped places and the reveal targets are now the ONE panel's two rows).
+   Same budget, one pass, ~1.8s end to end:
 
-     0.00s  a pencil arrives in the lower-left hand, which reaches for it; face -> writing
-     0.45s  the write half follows it in: pill, headline, composer, 52ms apart
-     0.90s  the pencil goes; 1.06s the whistle arrives in the top-right hand; face -> coaching
-     1.30s  the coach half follows, same stagger, last one lands at 1.796s
+     0.00s  a whistle arrives in the top-right hand; face -> coaching
+     0.40s  the panel itself fades in, just ahead of its first row (never an empty glass box)
+     0.45s  the panel's COACH row follows: pill, headline, preview bubble, 52ms apart
+     0.90s  the whistle goes; 1.06s a pencil arrives in the lower-left hand; face -> writing
+     1.30s  the hairline and the panel's SCRIPT row follow, same stagger, last lands at 1.796s
      1.80s  prop down, face -> idle, and the ambient "alive" loop below takes over
 
+   The avatar doing all of this is the BIG BUDDY on the left, finished from frame 0 — it has to
+   be, it is the thing performing. It is the same .hx-seam host as before, moved and resized.
+
    FOUR THINGS IT MAY NOT DO, worst first:
-   1. Make anyone sit through it twice. It plays ONCE PER SESSION (sessionStorage), so every
-      later navigation in that tab paints the finished hero on frame one.
+   1. (Was: play once per session. The owner wants it on EVERY load — see armHeroIntro — so the
+      escape hatch below, any touch of the hero ending it instantly, is what keeps it bearable.)
    2. Gate the composer. The field is live from the first frame — never disabled, never moved —
       and ANY touch of the hero (pointer, focus, key, paste) ends the intro on the spot and
       leaves the finished hero behind. Delaying the one element that converts, to show a
@@ -366,10 +344,13 @@ const hxEnd = () => {
 (function armHeroIntro() {
   const sec = document.querySelector("body.home .hx");
   if (!sec || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  try {
-    if (sessionStorage.getItem("lx-hx-intro") === "1") return;
-    sessionStorage.setItem("lx-hx-intro", "1");   // set NOW: a reload mid-intro is a second visit
-  } catch (e) { /* private mode throws; play it and move on */ }
+  /* Opened in a background tab: play nothing. Timers there are throttled to a second at a
+     time, so the beats would land minutes later, over a hero the visitor is already reading.
+     The session is NOT spent — the next arrival with the tab in front gets the intro. */
+  if (document.hidden) return;
+  /* EVERY LOAD (owner, 2026-09-22: "everytime on reload, have the main load animation happen").
+     There was a once-per-session gate here (sessionStorage "lx-hx-intro"); the owner removed it.
+     The two other skips stay: reduced motion, and a tab that opened in the background. */
   HX.on = true;
   HX.t0 = performance.now();
   sec.classList.add("hx-anim");
@@ -469,15 +450,15 @@ addEventListener("DOMContentLoaded", () => {
   if (HX.on && !HX.over) {
     armEase("transform .34s cubic-bezier(.34, 1.3, .6, 1)");   // a beat, not a 0.9s amble
     /* The face is SET, not crossfaded, for this first one: setMood fades .lx-extras, which is
-       the layer the props live in, so a crossfade here would dip the pencil to nothing 200ms
+       the layer the props live in, so a crossfade here would dip the whistle to nothing 200ms
        after it arrived (measured). Nothing has been painted yet either, so there is nothing to
        fade from. Every later beat puts the face change and the prop change in ONE window. */
-    lynxrMood(svg, "writing");
-    lynxrProp(svg, "pencil");
-    hxAt(900, () => { lynxrProp(svg, "out"); setMood("coaching", 150, 200); });
-    hxAt(1060, () => lynxrProp(svg, "whistle"));
+    lynxrMood(svg, "coaching");
+    lynxrProp(svg, "whistle");
+    hxAt(900, () => { lynxrProp(svg, "out"); setMood("writing", 150, 200); });
+    hxAt(1060, () => lynxrProp(svg, "pencil"));
     hxAt(1640, () => lynxrProp(svg, "out"));
-    hxAt(1690, () => setMood("idle", 90, 200));   // resting face by ~1.78s, as the whistle goes
+    hxAt(1690, () => setMood("idle", 90, 200));   // resting face by ~1.78s, as the pencil goes
     // 1800 is hxEnd's, armed at the top level so it fires even if this handler never ran.
   } else {
     setTimeout(() => { wave(); setTimeout(tick, rand(2600, 4000)); }, 900);

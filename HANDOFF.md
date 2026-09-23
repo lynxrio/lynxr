@@ -27,6 +27,88 @@ naming a path there publishes it.
 
 ### Read this block first. The rest of START HERE below is older and still true unless this says otherwise.
 
+**LANDING + AGENCY HEADER BATCH (2026-09-22, evening) — ALL IN THE WORKING TREE, stamp `20260923k`, uncommitted.**
+Owner drove this live in one session; every item below was verified in painted pixels unless marked.
+- **HERO REBUILT TO MOCKUP H (owner-approved, 2026-09-23): "one buddy for the whole job."** `index.html:355-430`,
+  `app.css:10284-10490`, `home.js`, `avatar.js`. Left = the live avatar as the "content buddy" (~220px, SAME
+  `.hx-seam` host, moved not recreated), kicker `lynxr · your content buddy`, `h1#hx-buddy-h`, one lede line.
+  Right = ONE `.hx-panel` in the signed-in app's glass (`--gl-fill/--gl-blur/--gl-edge/--gl-shadow`, measured
+  identical to `.pane-body .me-card`; `.bcard` is NOT glass, it is the flat list row): coach row on top
+  (`coming soon` pill, preview bubble) / hairline / script row (`live now`, the composer moved intact, "3 free
+  scripts a week. no card." — that fine print was later REMOVED, owner). `--hx-card*` tokens moved off `.hx`
+  onto `.hs` only. **Intro re-sequenced**: whistle → coach row, then pencil → script row, 1.80s measured.
+  **Limbs (owner, several rounds):** pencil bottom-right (`.lx-a2`) everywhere; whistle TOP-right (`.lx-a1`)
+  above 640px and BOTTOM-LEFT (`.lx-a3`) on phones — avatar.js emits the whistle twice (`whistle`,
+  `whistle-lo`) because a prop's hand is baked into an SVG transform CSS cannot reach; two media queries pick
+  one. Zero phase drift, no double-prop frame at either size. **Then the owner cut the kicker and the lede at
+  ALL widths and renamed the h1 "your content creation buddy"** — the only remaining "not built yet" signal
+  in the hero is the `coming soon` pill. Phone: headline → avatar (96px) → 18px gap → panel, NO overlap
+  (owner: "dont have the logo cover the box"). Desktop: the two halves cluster on a 1080px composition
+  (440 + 80 gap + 560) centred inside the bar's 1200 column (owner: "too spaced out"). A speech bubble
+  ("hey, I'm lynxr!") was built and then removed on the owner's reversal — nothing of it remains.
+  Dropped: the `about the coach →` link from the hero (H has none; still linked from the picker's stage 4 and
+  /how-it-works/). Verified: no layout shift vs no-JS, composer at final rect at 43ms, reduced-motion skip,
+  overflow 0 at 21 widths, other pages byte-identical. UNVERIFIED: `@supports not (backdrop-filter)` and
+  `prefers-reduced-transparency` fallbacks (token chain only), real iOS Safari.
+  **Pre-existing bug noticed, not touched:** `app.css:8317` `.pane-body :is(.lookup, #brand-editor)` has an id
+  inside `:is()` so it outranks the app's `--gl-*` glass rule — those two cards silently miss the glass.
+- **BUG FOUND 2026-09-23, FIXED IN THE TREE, NOT YET LIVE — the creator sidebar's "Lynx Media Group" item
+  painted for EVERY creator since the feature shipped.** A brand-new, never-invited account
+  (joenguyen41@gmail.com, created 02:17 UTC) saw it. Cause: `#nav-lynx` is `hidden` in the markup and
+  creator.js sets `.hidden` from `my_agency()` correctly, but `.side-link { display: flex }` outranks the
+  UA's `[hidden] { display: none }` — the same trap `app.css` already documents for `.field[hidden]`.
+  The DATABASE gate held throughout: `my_agency()` returns `none` for a non-member (verified live), so a
+  click showed nothing. Fix: `#nav-lynx[hidden] { display: none; }` (`app.css` beside the other
+  `[hidden]` resets). Verified: computed `none` with the attribute, `flex` without. **Needs a push to reach
+  lynxr.io** — until then every creator still sees the item.
+- **Stage visuals (owner, 2026-09-23): stage 2 = "build a library of winners." with a LIBRARY STRIP** (three
+  saved-video tiles with format chips: storytime / question hook / two-column) **in place of the composer;
+  stage 3 = a WEEK STRIP** (m–s cells, three done, today lit) in place of the composer — a metaphor for
+  posting consistently, `aria-hidden`, and the copy deliberately says nothing about a scheduler because
+  lynxr has none. Both sit in the composer's 54px slot so the pinned block does not jump. The card's four
+  actions are now: 1 paste box, 2 library strip, 3 week strip, 4 the pro/coach links.
+- **Stage card carries the composer, and its action follows the stage** (owner, 2026-09-22, from mockup C
+  then "have this change for each stage"): `#hs-card[data-stage]`, a third `form[data-hero]` (creator.js
+  wires it — proven: an empty submit wrote its note), placeholders from each button's `data-ph`, one
+  `.hs-aside` per stage, and stage 4 swaps the composer for "see pro →" / "about the coach →" at the same
+  height so the pinned block does not jump. `--hs-inh` re-measured: 494px desktop, 616px phone.
+- **The intro now plays on EVERY load** (owner: "everytime on reload") — the sessionStorage gate is
+  removed from `home.js`; reduced-motion and background-tab skips remain. Any touch of the hero still
+  ends it instantly.
+- **Hero fills the fold** (`app.css` `body.home .hx`): `min-height: max(480px, calc(100svh - var(--hx-bar-h)))`,
+  `--hx-bar-h` 55px / 67px under 760px; half padding equalised 56/56. Measured 305px above and below the content at
+  1920×1000 — the owner's "same gap from the bar and the next section".
+- **Phone hero** (≤640 block): write half full-bleed at 38px, coach becomes an inset 28px-radius panel at 24px. Found and
+  fixed a LIVE iOS bug on the way: the paste field measured 14.06px (`.lp-composer .composer-row input` outranked the
+  16px rule) so Safari zoomed on focus. Now 16px.
+- **Stage picker `#how`**: KEPT (owner overruled the plan's deletion). Desktop = the original page-scroll-driven row,
+  restored on the owner's word, runway trimmed 3,600 → 1,800px, 0px blank lead-in. Phone = the SAME page-scroll
+  mechanism driving a vertical stack (owner: "as i scroll down, this section just scrolls"), 200svh run ≈ half a screen
+  per stage, 2,213px at 393×852. The contained-scroller experiment is DELETED, not dormant. `.hs-snap-pt` / `html.hs-snap`
+  were NOT restored (bare `html` selector in the shared sheet; ~10 lines if the snap feel is missed).
+- **Hero intro animation** (`home.js:326+`, `avatar.js` `props()`/`lynxrProp`, `app.css:7261+`): pencil → write half
+  reveals → whistle → coach half, 1.80s measured. Once per session (`sessionStorage lx-hx-intro`), composer live from
+  frame 0 (any touch snaps to done), default CSS is the finished hero, reduced-motion skips it, background tabs skip it
+  without spending the session. GIFs of it were captured with headless Brave `--virtual-time-budget`.
+- **Agency header** (`agencyonly/index.html:69-99`, `app.css:8962+`, `10883+`): capped to the landing's 1200px column
+  (measured identical x/w at 7 widths — and this took `main` + footer from 1132 to 1200 with it; **the Database table at
+  1200 is UNVERIFIED**, no staff sign-in). Lockup flipped: Lynx Media Group mark + name (Outfit 700 — THEIR brand font,
+  measured off lynxmediagroup.org; `@font-face` at `app.css:25-40` from the two woff2 files idle in `fonts/` since July;
+  never use it for lynxr text) on row 1, "powered by ✸ lynxr" (`#home-mark`, still a button with its app.js:352 handler)
+  on row 2. Badge links to lynxmediagroup.org in a new tab, no underline. Fold to marks-only moved 640 → 760px (the old
+  header was already overflowing at ~641–690). Seen painted by unhiding the shell client-side, not by signing in.
+- **Seven landing mockups** on a private Design canvas: https://claude.ai/artifact/KtXPTDgucXUSxvNwDUFHYH — A product-first,
+  B proof split, C stage-led, D editorial, E live demo, F app window, G dark hero. **Owner liked C** — specifically the
+  composer living INSIDE the selected stage card, phone and desktop. Not built. Note C-as-hero collides with the split
+  hero + intro and with the scroll-driven picker; the safe hybrid is the composer in the picker's card below the hero.
+- **Still the owner's:** (1) a verifiable proof artifact — the pilot pair on /how-it-works/ has no input-video link in the
+  repo; (2) `how-it-works/index.html:356` advertises the scraped corpus ("100,000+ studied videos · 5,190,673,018
+  views") against the standing decision; (3) unsend on an agency brief has never been exercised; (4) commit `ce09c75`
+  ("a") was made mid-task and captured half-finished `app.css`/`avatar.js` — look before pushing.
+- **Harness lesson, recorded so nobody repeats it:** in the Claude desktop browser pane, `window.scrollTo` dispatched
+  ZERO scroll events, making the working picker look broken. Verify scroll-driven UI with a real wheel/touch
+  (`computer` scroll, or CDP `Input.synthesizeScrollGesture`).
+
 **AGENCY SENDS BRIEFS TO ROSTER CREATORS — LIVE AND EXERCISED END TO END (2026-09-22).**
 Plan: `~/.claude/plans/agency-send-brief-to-creators.md`, all 17 non-owner steps implemented and
 pushed by the owner (HEAD `0edbd6b`). **All three SQL dependencies are applied:**

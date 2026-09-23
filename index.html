@@ -71,13 +71,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260922u">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260922u">
-<link rel="shortcut icon" href="/favicon.ico?v=20260922u">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260922u">
-<link rel="stylesheet" href="/app.css?v=20260922u">
-<script src="/theme.js?v=20260922u"></script>
-<script src="/backdrop.js?v=20260922u" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260923m">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20260923m">
+<link rel="shortcut icon" href="/favicon.ico?v=20260923m">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20260923m">
+<link rel="stylesheet" href="/app.css?v=20260923m">
+<script src="/theme.js?v=20260923m"></script>
+<script src="/backdrop.js?v=20260923m" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -352,64 +352,78 @@
 
 <main id="lp-main">
 
-  <!-- THE SPLIT HERO (owner-approved mockup, 2026-09-22: "from the pricing
-       section onward keep the old, and start making this mockup on the real
-       one"). WRITE on the left — live today — and COACH on the right, which
-       does not exist yet and says so twice ("coming soon", "preview").
-       SIDE BY SIDE from 641px up, on the owner's instruction ("half and half
-       like left and right"). UNDER 640px THEY STACK — the later instruction the
-       same day ("figure out a better layout for mobile") — and there the coach
-       half becomes one inset rounded panel with the avatar on its top edge, so
-       the two halves are not the same rectangle twice. The right half's lavender
-       is a wash (.hx-wash) that fades in across the middle and out at the
-       bottom, so there is no edge between the halves; the avatar sits on the
-       seam. Every look lives in app.css (.hx-*) — no inline styles, CSP. -->
-  <section class="hx" aria-labelledby="hx-write-h">
+  <!-- THE BUDDY HERO (owner-approved mockup H, 2026-09-22: "have the lynxr be on
+       the left and then just position him as a content buddy. and then on the
+       right side have the same animation we have now, but have it start with
+       the content coach and then the script writing and make it look like one
+       thing. make lynxr a holistic system for content creation buddy to get
+       better in any regard.")
+       LEFT = THE BUDDY. The live avatar (the same .hx-seam host avatar.js and
+       the intro drive — moved and resized, never replaced) and one headline.
+       RIGHT = ONE PANEL, not two halves: the coach on top, the script below,
+       one hairline between them, one shape, one shadow. It paints the SIGNED-IN
+       app's own card glass (--gl-* : the tokens .pane-body .me-card / .lookup /
+       .plan-now use) on the owner's word, "make the white box follow the glass
+       morphism look thats in the logged in page for users".
+       THE TWO PILLS ARE NOT DECORATION. A coach-first hero that did not say
+       "coming soon" on the coach and "live now" on the script would be selling
+       something that does not exist: the coach is not built (see #pricing, and
+       /how-it-works/coach/ from stage 4 of the picker below).
+       Every look lives in app.css (.hx-*) — no inline styles, CSP. -->
+  <section class="hx" aria-labelledby="hx-buddy-h">
     <div class="hx-wash" aria-hidden="true"></div>
     <div class="hx-half hx-l">
+      <!-- TWO THINGS, and that is the whole half (owner, 2026-09-22: "no need for
+           this sections" on the mono caption and the supporting line, "same goes
+           for desktop"). The caption said what the headline now says, so it went;
+           the line that said "the script today. the coach next." went with it, and
+           that promise is carried by the two PILLS in the panel — "coming soon" on
+           the coach, "live now" on the script — and by the stage picker below.
+           Source order is avatar then headline; the phone block reverses it. -->
       <div class="hx-col">
-        <span class="hx-pill hx-pill-live"><span class="hx-pill-dot" aria-hidden="true"></span>live now</span>
-        <h1 class="hx-h" id="hx-write-h">paste a link. get your script.</h1>
-        <!-- THE APP'S OWN COMPOSER, moved here from the old centred hero with
-             every id, class and data-* intact: creator.js wires every
-             form[data-hero] (wireHeroComposer), site.js's typewriter and the
-             phone keyboard pin key on #lp-composer-url, and say() falls back
-             to #lp-composer-note. `.lp-composer` is a size modifier only. -->
-        <div class="composer composer-inline lp-composer">
-          <form class="composer-row" id="lp-composer-form" data-hero data-note="lp-composer-note" novalidate>
-            <input type="url" id="lp-composer-url" placeholder="paste instagram/tiktok link"
-              autocomplete="off" spellcheck="false" aria-label="Paste a video link">
-            <span class="bp-plat" id="lp-composer-plat"></span>
-            <button type="submit" class="composer-send" id="lp-composer-send" aria-label="Get the script">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-            </button>
-          </form>
-          <p class="composer-note" id="lp-composer-note" role="status" aria-live="polite"></p>
-        </div>
+        <span class="hx-seam" data-lx-mood="idle" aria-hidden="true"></span>
+        <h1 class="hx-h" id="hx-buddy-h">your content creation buddy</h1>
       </div>
     </div>
     <div class="hx-half hx-r">
-      <div class="hx-col">
-        <span class="hx-pill hx-pill-soon">coming soon</span>
-        <h2 class="hx-h">a coach that's all about you.</h2>
-        <!-- A PREVIEW, labelled as one: the coach is not built (max is "not on
-             sale yet" in #pricing below). It is never hidden: on a phone it
-             loses its own card (the half around it is the card) and its 26px
-             avatar (the 76px one on the panel's edge is that face). -->
-        <div class="hx-coach">
-          <div class="hx-coach-head">
-            <span class="hx-coach-av" data-lx-mood="coaching" aria-hidden="true"></span>
-            <span class="hx-coach-lbl">your coach &middot; preview</span>
+      <div class="hx-panel">
+        <!-- THE COACH, first, because the buddy is the product and the script is
+             one of its jobs. A PREVIEW, labelled as one twice over. -->
+        <div class="hx-row hx-row-coach">
+          <span class="hx-pill hx-pill-soon">coming soon</span>
+          <h2 class="hx-h hx-h2">a coach that's all about you.</h2>
+          <div class="hx-coach">
+            <div class="hx-coach-head">
+              <span class="hx-coach-av" data-lx-mood="coaching" aria-hidden="true"></span>
+              <span class="hx-coach-lbl">your coach &middot; preview</span>
+            </div>
+            <p class="hx-coach-msg">your result-first hooks get the most views. try one next.</p>
           </div>
-          <p class="hx-coach-msg">your result-first hooks get the most views. try one next.</p>
         </div>
-        <!-- The coach's own page (2026-09-22), under "how it works". It says
-             plainly that the coach is not built and max is not on sale. -->
-        <a class="hx-link" href="/how-it-works/coach/">about the coach <span aria-hidden="true">&rarr;</span></a>
+        <div class="hx-rule" aria-hidden="true"></div>
+        <!-- THE SCRIPT, live today, with THE APP'S OWN COMPOSER moved in with
+             every id, class and data-* intact: creator.js wires every
+             form[data-hero] (wireHeroComposer), site.js's typewriter and the
+             phone keyboard pin key on #lp-composer-url, and say() falls back to
+             #lp-composer-note. `.lp-composer` is a size modifier only. -->
+        <div class="hx-row hx-row-script">
+          <span class="hx-pill hx-pill-live"><span class="hx-pill-dot" aria-hidden="true"></span>live now</span>
+          <h2 class="hx-h hx-h2">paste a link. get your script.</h2>
+          <div class="composer composer-inline lp-composer">
+            <form class="composer-row" id="lp-composer-form" data-hero data-note="lp-composer-note" novalidate>
+              <input type="url" id="lp-composer-url" placeholder="paste instagram/tiktok link"
+                autocomplete="off" spellcheck="false" aria-label="Paste a video link">
+              <span class="bp-plat" id="lp-composer-plat"></span>
+              <button type="submit" class="composer-send" id="lp-composer-send" aria-label="Get the script">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              </button>
+            </form>
+            <p class="composer-note" id="lp-composer-note" role="status" aria-live="polite"></p>
+          </div>
+        </div>
       </div>
     </div>
-    <span class="hx-seam" data-lx-mood="idle" aria-hidden="true"></span>
   </section>
 
   <!-- FOR ANY CREATOR, AT ANY STAGE. id="how" is kept so old links to /#how
@@ -419,40 +433,40 @@
        so the words live in ONE place — this markup — and stage 1's are already
        in the card for a visitor without JS. The track is drawn at DOT height,
        under the labels, so it can never pass behind an avatar.
-       TWO WAYS IN, ONE PER SIZE, and both are additions to the buttons rather
-       than replacements — click, arrow keys, Home/End and a screen reader work
-       at every width, and this markup is the whole no-JS state.
-       DESKTOP (>640px) keeps the original effect the owner asked to keep: the
-       PAGE's vertical scroll walks the horizontal row. home.js adds .hs-live,
-       the section goes 200svh tall and its .lp-in sticks. Two things were
-       trimmed: the sticky box no longer reserves an empty screen before this
-       heading, and the run is 200svh rather than 300svh (~350px per stage
-       instead of ~750px). The four .hs-snap-pt waypoints that used to sit here
-       are gone with the `scroll-snap-type` they put on <html>.
-       A PHONE (<=640px) stacks the four buttons — avatar, label, dot — and
-       .hs-row becomes its own 130px scroll container: a swipe walks the
-       stages, the one snapped to the top is live, and the page is untouched.
-       Under prefers-reduced-motion neither mode runs; the row is static and
-       every stage is still reachable. -->
+       THE PAGE'S OWN SCROLL WALKS THE STAGES, at every width, and it is an
+       addition to the buttons rather than a replacement — click, arrow keys,
+       Home/End and a screen reader all work, and this markup is the whole
+       no-JS state. home.js adds .hs-live, the section goes tall and its .lp-in
+       sticks in the middle of the screen; each quarter of the run lights the
+       next stage. Only the shape differs: a row of four above 640px, a column
+       of four below it (a phone-only scroll container lived here for part of
+       2026-09-22 and was deleted the same day).
+       Two things were trimmed off the original: the sticky box no longer
+       reserves an empty screen before this heading, and the run is shorter —
+       about a third of a screen per stage on a desktop and half a screen on a
+       phone, against the 750px it was. The four .hs-snap-pt waypoints that
+       used to sit here are gone with the `scroll-snap-type` they put on <html>.
+       Under prefers-reduced-motion the mode does not run at all; the block is
+       static and every stage is still reachable. -->
   <section class="lp-sec hs" id="how" aria-labelledby="hs-h">
     <div class="lp-in">
       <h2 class="lp-h2 hs-h" id="hs-h">for any creator, at any stage</h2>
       <div class="hs-row" role="group" aria-label="your stage">
         <span class="hs-track" aria-hidden="true"></span>
         <button type="button" class="hs-stage" aria-pressed="true" aria-controls="hs-card"
-          data-title="start with a video you love." data-text="get a script, then film it on the teleprompter.">
+          data-ph="paste instagram/tiktok link" data-title="start with a video you love." data-text="get a script, then film it on the teleprompter.">
           <span class="hs-av" data-lx-mood="idle" aria-hidden="true"></span>
           <span class="hs-lbl">just starting</span>
           <span class="hs-dot" aria-hidden="true"></span>
         </button>
         <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
-          data-title="see why videos work." data-text="every video, broken down and saved.">
+          data-ph="paste a video you wish you'd made" data-title="build a library of winners." data-text="every video you save, broken down by what made it work.">
           <span class="hs-av" data-lx-mood="reading" aria-hidden="true"></span>
           <span class="hs-lbl">finding your format</span>
           <span class="hs-dot" aria-hidden="true"></span>
         </button>
         <button type="button" class="hs-stage" aria-pressed="false" aria-controls="hs-card"
-          data-title="never run out of ideas." data-text="any saved video can be your next script.">
+          data-ph="paste the next one" data-title="never run out of ideas." data-text="any saved video can be your next script.">
           <span class="hs-av" data-lx-mood="writing" aria-hidden="true"></span>
           <span class="hs-lbl">posting consistently</span>
           <span class="hs-dot" aria-hidden="true"></span>
@@ -464,10 +478,71 @@
           <span class="hs-dot" aria-hidden="true"></span>
         </button>
       </div>
-      <div class="hs-card" id="hs-card" aria-live="polite">
-        <p class="hs-step" id="hs-step">1 of 4 · just starting</p>
-        <h3 class="hs-title" id="hs-title">start with a video you love.</h3>
-        <p class="hs-text" id="hs-text">get a script, then film it on the teleprompter.</p>
+      <div class="hs-card" id="hs-card" data-stage="0">
+        <!-- aria-live sits on the COPY only: the stage text swaps as the page scrolls and should be
+             announced; the composer below it never changes and must not be re-read every stage. -->
+        <div class="hs-copy" aria-live="polite">
+          <p class="hs-step" id="hs-step">1 of 4 · just starting</p>
+          <h3 class="hs-title" id="hs-title">start with a video you love.</h3>
+          <p class="hs-text" id="hs-text">get a script, then film it on the teleprompter.</p>
+        </div>
+        <!-- THE COMPOSER, INSIDE THE STAGE CARD (owner, 2026-09-22, picking mockup C: "put the
+             composer inside the stage card like C"). The card says where you are; this is where
+             you paste. It is the SAME form[data-hero] pattern as the hero's composer and the
+             closing CTA's, with no ids on the field or button: creator.js (wireHeroComposer)
+             wires every form[data-hero] on the page and say() writes to the data-note target, so
+             this third one needs no JS of its own. It stays put while the copy above it swaps. -->
+        <div class="composer composer-inline lp-composer hs-composer">
+          <form class="composer-row" data-hero data-note="hs-note" novalidate>
+            <input type="url" placeholder="paste instagram/tiktok link"
+              autocomplete="off" spellcheck="false" aria-label="Paste a video link">
+            <span class="bp-plat"></span>
+            <button type="submit" class="composer-send" aria-label="Get the script">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </form>
+          <p class="composer-note" id="hs-note" role="status" aria-live="polite"></p>
+        </div>
+        <!-- STAGE VISUALS (owner, 2026-09-23: "build a library of winners and change the visuals to
+             match" for stage 2; "make this one like a calendar" for stage 3). DECORATIVE: aria-hidden,
+             and no words that claim a feature. The library strip is three saved videos with format
+             chips the site already teaches (storytime, question hook, two-column). The week strip is a
+             METAPHOR for posting consistently -- lynxr has no scheduler, and the stage's copy says
+             nothing about one. Each sits in the composer's slot at the composer's height (54px), so
+             the pinned block does not jump between stages; app.css shows one by data-stage. -->
+        <div class="hs-vis hs-lib" aria-hidden="true">
+          <span class="hs-tile"><span class="hs-tile-thumb"></span><span class="hs-tile-chip">storytime</span></span>
+          <span class="hs-tile"><span class="hs-tile-thumb"></span><span class="hs-tile-chip">question hook</span></span>
+          <span class="hs-tile"><span class="hs-tile-thumb"></span><span class="hs-tile-chip">two-column</span></span>
+        </div>
+        <div class="hs-vis hs-week" aria-hidden="true">
+          <span class="hs-day is-done"><span class="hs-day-l">mo</span><span class="hs-day-t"></span></span>
+          <span class="hs-day is-done"><span class="hs-day-l">tu</span><span class="hs-day-t"></span></span>
+          <span class="hs-day is-done"><span class="hs-day-l">we</span><span class="hs-day-t"></span></span>
+          <span class="hs-day is-today"><span class="hs-day-l">th</span><span class="hs-day-t"></span></span>
+          <span class="hs-day"><span class="hs-day-l">fr</span><span class="hs-day-t"></span></span>
+          <span class="hs-day"><span class="hs-day-l">sa</span><span class="hs-day-t"></span></span>
+          <span class="hs-day"><span class="hs-day-l">su</span><span class="hs-day-t"></span></span>
+        </div>
+        <!-- WHAT CHANGES WITH THE STAGE (owner, 2026-09-22: "have this change for each stage,
+             something that would relate to each stage"). home.js sets data-stage on the card and
+             swaps the field's placeholder from the lit button's data-ph; app.css shows the one
+             .hs-aside whose data-stage matches. Stage 4 has nothing to paste — the coach is not
+             built and pro is bought inside the app — so its card swaps the composer for two real
+             links, sized to the composer's height so the pinned block does not jump. All four
+             are in the markup (no innerHTML; a visitor without JS sees stage 1's), and every
+             claim here is one the pricing section already makes. -->
+        <div class="hs-asides">
+          <p class="hs-aside" data-stage="0">3 free scripts a week. no card.</p>
+          <p class="hs-aside" data-stage="1"><a href="/how-it-works/">see one broken down &rarr;</a></p>
+          <p class="hs-aside" data-stage="2"><a href="/" data-gate="up">open your saved videos &rarr;</a></p>
+          <p class="hs-aside" data-stage="3">$24.99 a month. cancel any time.</p>
+        </div>
+        <div class="hs-links">
+          <a class="btn hs-link" href="#pricing">see pro &rarr;</a>
+          <a class="ghost hs-link" href="/how-it-works/coach/">about the coach &rarr;</a>
+        </div>
       </div>
     </div>
   </section>
@@ -1015,10 +1090,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20260922u" defer></script>
-<script src="/footer.js?v=20260922u" defer></script>
-<script src="/home.js?v=20260922u" defer></script>
-<script src="/avatar.js?v=20260922u" defer></script>
-<script src="/creator.js?v=20260922u" defer></script>
+<script src="/site.js?v=20260923m" defer></script>
+<script src="/footer.js?v=20260923m" defer></script>
+<script src="/home.js?v=20260923m" defer></script>
+<script src="/avatar.js?v=20260923m" defer></script>
+<script src="/creator.js?v=20260923m" defer></script>
 </body>
 </html>
