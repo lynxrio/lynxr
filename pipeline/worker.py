@@ -101,6 +101,12 @@ SB_URL = "https://esakjfogplfszievvabi.supabase.co"
 AGENCY_LANE = envcfg.get("AGENCY_LANE", "1") not in ("0", "", "false", "False")
 AGENCY_POLL_S = float(envcfg.get("AGENCY_POLL_S", "10"))
 
+# Clips for agency briefs sent to creators (pipeline/brief_clips.py; plan agency-brief-regular-ui.md).
+# Idle-only and Fly-only, like the agency lane: it runs when no creator is queued, no sweep is due
+# and the agency lane has nothing, at most every BRIEF_CLIPS_POLL_S. BRIEF_CLIPS=0 turns it off.
+BRIEF_CLIPS = envcfg.get("BRIEF_CLIPS", "1") not in ("0", "", "false", "False")
+BRIEF_CLIPS_POLL_S = float(envcfg.get("BRIEF_CLIPS_POLL_S", "60"))
+
 # This venv's Python has no system CA bundle — a bare default context fails
 # every request with CERTIFICATE_VERIFY_FAILED. Same guard the rest of the
 # pipeline uses (process_adaptations.py, upload_covers.py, cohort.py).
@@ -246,6 +252,18 @@ def run_agency_pass():
     return rc
 
 
+def run_brief_clips_pass():
+    """One pass of pipeline/brief_clips.py, as its own process for run_pass()'s reason. Never raises."""
+    cmd = [sys.executable, str(ROOT / "pipeline" / "brief_clips.py")]
+    try:
+        return subprocess.run(cmd, cwd=str(ROOT / "pipeline"), timeout=900).returncode
+    except subprocess.TimeoutExpired:
+        log.error("brief clips pass exceeded 15 minutes — killed")
+    except Exception as e:  # noqa: BLE001
+        log.error("brief clips pass failed to start: %s", str(e)[:120])
+    return None
+
+
 def warm_whisper():
     """Page the model weights in before anyone is waiting on them.
 
@@ -366,6 +384,7 @@ def main():
     idle_logged = False
     probe_fails = 0
     agency_next = 0.0
+    clips_next = 0.0
 
     def agency_due(key):
         """True only when the agency lane should run right now. Also the
@@ -452,6 +471,11 @@ def main():
             rc = run_agency_pass()
             agency_next = time.time() + (300 if rc in (None, campaign_queue.PAUSED_EXIT) else 0)
             idle_logged = False
+        elif BRIEF_CLIPS and time.time() >= clips_next:
+            # Idle only, after the agency lane. brief_clips.py logs only when something is waiting,
+            # so an idle minute stays quiet and idle_logged is left alone.
+            run_brief_clips_pass()
+            clips_next = time.time() + BRIEF_CLIPS_POLL_S
         elif not idle_logged:
             log.info("idle — nothing queued")
             idle_logged = True          # say it once, not every two seconds

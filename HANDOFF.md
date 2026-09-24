@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-09-23 (late evening).** Start with the section right below the table.
+Read this, then `README.md` for architecture. **Last updated 2026-09-24.** Start with the section right below the table.
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -26,6 +26,37 @@ naming a path there publishes it.
 ## START HERE — state as of 2026-09-23 (late evening)
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
+
+**AGENCY BRIEFS = THE REGULAR SCRIPT VIEW WITH LYNXR'S OWN PLAYER; FILES ATTACH INSIDE THE SEND PANEL
+(2026-09-24, plan `~/.claude/plans/agency-brief-regular-ui.md`, UNCOMMITTED).** Owner: "have it be the regular ui
+pretty much, make the video on the right side and make sure the agency side can add the files when the briefs
+are sent", then "make the videos the way it is on the actual user side, like native to lynxr". CREATOR SIDE
+(`creator.js` `lynxFormatCardHtml` / `lynxRefPanelHtml` / `renderLynxBrief` / `bindLynxBriefButtons` /
+`lynxWatchClips`): a brief's formats are the creator's own script cards — `.script-grid` tiles with covers, one
+open at a time (a single format opens itself), each opening into `.ref-split` with "The original" playing the
+SELF-HOSTED clip in `refPlayHtml`'s native player (controls, playhead-follow, click-a-beat-to-seek, phone
+mini-player via `wireAdaptationCards`) — RIGHT of the script at >=1180px, ABOVE it below. No embeds: the
+TikTok/Instagram iframes, `lynxEmbedFor`, the logos and `index.html`'s `frame-src` are GONE. A format with no clip
+yet says "Getting the video ready" (the page re-checks every 30s for 10 min); one that can never have a clip
+shows the regular "This one can only be watched on TikTok" panel. "Add to my library" now copies the clip too.
+CLIPS: the sent doc carries `clip`/`cover` (public lynxr-clips / lynxr-covers objects, `sha1(canon_url)[:20]`);
+`agencySendDoc` copies them from campaign formats (which always had them), and the NEW Fly-worker lane
+`pipeline/brief_clips.py` (idle-only, every 60s, `BRIEF_CLIPS=0` turns it off) fills them for any SENT format
+without one — HEAD-reuses an existing object first, else yt-dlp + ffmpeg ($0, no Apify), gives up to
+`clip_state:"failed"` on private/deleted/unsupported links — never touching `lynxr_videos`. `agDocSig` ignores
+the clip keys and `agStampDoc` carries them over, so a clip arriving never reads as an edit. AGENCY SIDE: while
+"Send to creators" is open the files block renders INSIDE the panel ("Files that go with it", one copy,
+`cbSendShowsFiles`); ticks survive the repaint an upload causes (`CB_SEND_PICKS`) — before this, dropping a file
+unticked everyone; a send says "Sent to N creators with N files." No SQL, no new secrets, no Fly config. Stamp
+`202609232t` + `404.html`. Verified: Appendix A and B, both run at desktop (1440) and phone (393) widths against
+the real CSP, every printed line matched the plan's expected output exactly (including `B`'s and `K`'s panel/main
+numbers being identical, proving the brief card is the same UI as a creator's own script card), and
+`csp violations: []` at every run; `pipeline/test_brief_clips.py` printed only `ok` lines and `ALL OK`;
+`pipeline/brief_clips.py --dry-run` against live data listed exactly the 4 formats of the two live briefs
+(`568fed81`, `f5afc538`) as `reuse`, with the unsent legacy brief `f1054b43` absent, then `4 format(s) waiting`.
+NOT verified: the lane running on Fly, a real download, a signed-in brief on lynxr.io (owner checks in the plan).
+CORRECTION to the BRIEF FILES paragraph below: that code was already LIVE — lynxr.io's `app.js`/`creator.js` were
+byte-identical to HEAD `46cddae` on 2026-09-24.
 
 **BRIEF FILES — built, NOT live until the owner runs `supabase/brief_files.sql` (2026-09-23).** Plan:
 `~/.claude/plans/brief-file-attachments.md`. Staff attach logos, fonts and brand guides to a brief in the agency app — a

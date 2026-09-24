@@ -4908,7 +4908,7 @@ function renderBriefViewer(host, rec, client) {
     </div>
     <p class="bp-msg cb-msg" id="bv-send-msg" role="status" aria-live="polite"></p>
     <div id="cb-send-wrap">${cbSendPanelHtml("brief", rec.id)}${cbSentListHtml("brief", rec.id, sendDoc)}</div>
-    ${bfSectionHtml("brief", rec.id)}
+    ${cbSendShowsFiles("brief", rec.id) ? "" : bfSectionHtml("brief", rec.id)}
 
     ${briefScriptsHtml(rec, client)}`;
 
@@ -5391,6 +5391,10 @@ let CB_LISTS = new Map();               // clientId -> { rows, at }
 let AG_SENT = new Map();                // key -> { rows, error } | undefined = not loaded
 const AG_LOADING = new Set();           // keys in flight
 const CB_SEND_OPEN = new Set();         // source ids with the send panel open
+// What is ticked in an OPEN send panel, per source key. A repaint rebuilds the panel (dropping a file
+// repaints the whole viewer in bfUpload; so does the campaign poll), and before 2026-09-24 that
+// unticked everyone and left "Send to 0 creators". Cleared on close, Cancel and a successful send.
+const CB_SEND_PICKS = new Map();         // key -> Set of creator_id
 const agSentKey = (kind, id) => `${kind}:${id}`;
 
 /** Loads (or reloads with force=true) who a source has been sent to. Silent
@@ -5910,9 +5914,14 @@ function bindRoster(host) {
 
     Explicitly absent, and never add: fit, fit_reason, strategy_note,
     internal_note, campaign.internal_notes, regen_note, status, analysis,
-    f.source (transcript, shots, tags, cover, clip), every other
-    brand_context key, and anything at all off lynxr_videos or the client's
-    posts / blueprints / avatar. */
+    f.source's transcript, shots and tags, every other brand_context key, and
+    anything at all off lynxr_videos or the client's posts / blueprints /
+    avatar.
+
+    f.source.clip and f.source.cover ARE sent (owner, 2026-09-24: brief videos
+    play "native to lynxr"): public lynxr-clips / lynxr-covers objects of the
+    post's own video and a frame of it, which the creator's native player
+    needs. Nothing the agency wrote. */
 function agencySendDoc(campaign, formats, client, prev) {
   const bc = campaign.brand_context || {};
   /* `prev` is the doc creators already have (absent on a first send). A format still in this
@@ -5936,7 +5945,7 @@ function agencySendDoc(campaign, formats, client, prev) {
     formats: done.map((f) => {
       if (f.status !== "done") return had.get(f.id);
       const v = cbView(f);
-      return {
+      const out = {
         id: f.id,
         title: v.title || "",
         source_url: f.source_url || "",
@@ -5952,6 +5961,11 @@ function agencySendDoc(campaign, formats, client, prev) {
         caption: v.caption || "",
         note: v.creator_note || "",
       };
+      // Named fields, not a spread: the allowlist above still holds.
+      const src = f.source || {};
+      if (typeof src.clip === "string" && src.clip) out.clip = src.clip;
+      if (typeof src.cover === "string" && src.cover) out.cover = src.cover;
+      return out;
     }),
   };
 }
@@ -6068,6 +6082,22 @@ const agUnsendAll = (briefId) => sbFetch(
     back from a jsonb column, which does not keep the order agencySendDoc/briefSendDoc wrote them
     in — a plain JSON.stringify would call every sent brief "edited". Keys holding undefined are
     skipped, as JSON drops them on the way in. */
+/** Fields on a sent format that nobody at the agency writes: the clip lynxr plays, its cover, and
+    the fetch state pipeline/brief_clips.py keeps. The worker fills them in AFTER a send. So a send or
+    Update carries them over from the version creators already have (same format id AND the same
+    link — a replaced link needs a new clip), and agDocSig ignores them, so a clip arriving never reads
+    as "Edited since they got it" and never moves updated_at. */
+const AG_CLIP_KEYS = ["clip", "cover", "clip_state", "clip_tries"];
+function agCarryClips(formats, prevFormats) {
+  const had = new Map((prevFormats || []).filter((x) => x && x.id).map((x) => [x.id, x]));
+  return (formats || []).map((f) => {
+    const p = f && had.get(f.id);
+    if (!p || p.source_url !== f.source_url || f.clip) return f;
+    const out = { ...f };
+    for (const k of AG_CLIP_KEYS) if (p[k] !== undefined && (out[k] === undefined || out[k] === "")) out[k] = p[k];
+    return out;
+  });
+}
 function agDocCanon(v) {
   if (Array.isArray(v)) return `[${v.map(agDocCanon).join(",")}]`;
   if (v && typeof v === "object") {
@@ -6081,6 +6111,14 @@ function agDocCanon(v) {
 function agDocSig(doc) {
   if (!doc) return "";
   const { sent_at: _sent, updated_at: _updated, ...rest } = doc;
+  if (Array.isArray(rest.formats)) {
+    rest.formats = rest.formats.map((f) => {
+      if (!f || typeof f !== "object") return f;
+      const g = { ...f };
+      for (const k of AG_CLIP_KEYS) delete g[k];
+      return g;
+    });
+  }
   return agDocCanon(rest);
 }
 /** The stamps a creator's copy carries. First send (no prev): the doc as built. Any later write
@@ -6090,7 +6128,7 @@ function agDocSig(doc) {
 function agStampDoc(doc, prev) {
   if (!doc) return null;
   if (!prev) return doc;
-  const out = { ...doc, sent_at: prev.sent_at || doc.sent_at };
+  const out = { ...doc, sent_at: prev.sent_at || doc.sent_at, formats: agCarryClips(doc.formats, prev.formats) };
   delete out.updated_at;
   if (agDocSig(out) !== agDocSig(prev)) out.updated_at = new Date().toISOString();
   else if (prev.updated_at) out.updated_at = prev.updated_at;
@@ -6136,6 +6174,14 @@ function agSendErrorSentence(ex) {
 // Not a modal: the agency app has none for this, and confirm() is forbidden —
 // every unsend below is the existing two-click armDelete pattern instead.
 
+/** True while the open Send panel is drawing the roster picker — and with it the files block. Mirrors
+    cbSendPanelHtml's own branches (open; roster loaded, which also means no ROSTER_ERR; at least one
+    accepted creator), so exactly one copy of bfSectionHtml is on the page at any time. */
+function cbSendShowsFiles(sourceKind, sourceId) {
+  return CB_SEND_OPEN.has(agSentKey(sourceKind, sourceId))
+    && !ROSTER_ERR && ROSTER !== null && rostAccepted().length > 0;
+}
+
 /** The inline "Send this brief to" panel. */
 function cbSendPanelHtml(sourceKind, sourceId) {
   const key = agSentKey(sourceKind, sourceId);
@@ -6165,16 +6211,19 @@ function cbSendPanelHtml(sourceKind, sourceId) {
   }
   const already = new Set((AG_SENT.get(key)?.rows || [])
     .flatMap((b) => (b.lynxr_agency_deliveries || []).filter((d) => !d.revoked_at).map((d) => d.creator_id)));
+  const picked = CB_SEND_PICKS.get(key);
+  const isOn = (id) => (picked ? picked.has(id) : already.has(id));
   return `<div class="section cb-send-panel">
     <h3>Send this brief to</h3>
     <p class="note">They get this brief as it is now. If you edit it later, press Update under Sent to
       and they get the new version.</p>
     <div class="rost-picker">
       ${accepted.map((r) => `<label class="rost-pick-row">
-        <input type="checkbox" class="cb-send-pick" value="${escapeHtml(r.creator_id)}"${already.has(r.creator_id) ? " checked" : ""}>
+        <input type="checkbox" class="cb-send-pick" value="${escapeHtml(r.creator_id)}"${isOn(r.creator_id) ? " checked" : ""}>
         <span>${escapeHtml(r.display_name || r.email)} <span class="lbl">${escapeHtml(r.email)}</span></span>
       </label>`).join("")}
     </div>
+    ${cbSendShowsFiles(sourceKind, sourceId) ? bfSectionHtml(sourceKind, sourceId, { inSend: true }) : ""}
     <div class="bp-actions">
       <button type="button" class="btn" id="cb-send-go" disabled>Send to 0 creators</button>
       <button type="button" class="ghost" id="cb-send-cancel">Cancel</button>
@@ -6244,12 +6293,13 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
   const msgEl = () => document.getElementById(msgId);
 
   document.getElementById("cb-send-toggle")?.addEventListener("click", () => {
-    if (CB_SEND_OPEN.has(key)) CB_SEND_OPEN.delete(key); else CB_SEND_OPEN.add(key);
+    if (CB_SEND_OPEN.has(key)) { CB_SEND_OPEN.delete(key); CB_SEND_PICKS.delete(key); } else CB_SEND_OPEN.add(key);
     if (CB_SEND_OPEN.has(key) && ROSTER === null && !ROSTER_ERR) rostLoad();
     repaint();
   });
   document.getElementById("cb-send-cancel")?.addEventListener("click", () => {
     CB_SEND_OPEN.delete(key);
+    CB_SEND_PICKS.delete(key);
     repaint();
   });
   document.getElementById("cb-send-goto-roster")?.addEventListener("click", () => activateTab("tab-roster"));
@@ -6259,7 +6309,10 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
     const go = document.getElementById("cb-send-go");
     if (go) { go.disabled = n === 0; go.textContent = `Send to ${cbPlural(n, "creator", "creators")}`; }
   };
-  host.querySelectorAll(".cb-send-pick").forEach((cb) => cb.addEventListener("change", updateGo));
+  host.querySelectorAll(".cb-send-pick").forEach((cb) => cb.addEventListener("change", () => {
+    CB_SEND_PICKS.set(key, new Set([...host.querySelectorAll(".cb-send-pick:checked")].map((c) => c.value)));
+    updateGo();
+  }));
   updateGo();
 
   document.getElementById("cb-send-go")?.addEventListener("click", async (e) => {
@@ -6276,8 +6329,11 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
       await agSend(doc, sourceKind, sourceId, creatorIds, existing);
       await agEnsureSent(sourceKind, sourceId, null, true);
       CB_SEND_OPEN.delete(key);
+      CB_SEND_PICKS.delete(key);
       repaint();
-      cbMsg(msgEl(), `Sent to ${cbPlural(creatorIds.length, "creator", "creators")}.`, "good");
+      // Files ride on the brief's source, so every file listed now reaches these creators.
+      const nFiles = (BF_FILES.get(key)?.rows || []).length;
+      cbMsg(msgEl(), `Sent to ${cbPlural(creatorIds.length, "creator", "creators")}${nFiles ? ` with ${cbPlural(nFiles, "file", "files")}` : ""}.`, "good");
     } catch (ex) {
       e.currentTarget.disabled = false;
       cbMsg(document.getElementById("cb-send-msg"), agSendErrorSentence(ex), "bad", true);
@@ -6556,21 +6612,31 @@ function bfGuardPage() {
 /** "Files for creators" on a brief page — a .cb-block island like "Campaign
     requirements", and like it "shown to creators". Every staff-typed string is
     escaped all the same. Rows in flight come from BF_UP, so a repaint
-    mid-upload (the campaign poll, a send) keeps them and their percentage. */
-function bfSectionHtml(kind, sourceId) {
+    mid-upload (the campaign poll, a send) keeps them and their percentage.
+    { inSend: true } draws the SAME block inside the open Send panel
+    (cbSendPanelHtml; owner, 2026-09-24: "make sure the agency side can add the
+    files when the briefs are sent"): no island of its own — it sits in one —
+    a heading in the panel's h3 voice, and a note about sending. Its ids are
+    fixed (#bf-h, #bf-drop, #bf-input, #bf-msg), so only ONE copy may be on a
+    page: the two viewers skip theirs while cbSendShowsFiles() is true. */
+function bfSectionHtml(kind, sourceId, { inSend = false } = {}) {
   const key = agSentKey(kind, sourceId);
   const entry = BF_FILES.get(key);
-  const head = (extra = "") => `<div class="cb-block-head"><span class="cb-block-title" id="bf-h">Files for creators</span>
+  const head = (extra = "") => inSend
+    ? `<div class="cb-block-head"><h3 id="bf-h">Files that go with it</h3>${extra}</div>`
+    : `<div class="cb-block-head"><span class="cb-block-title" id="bf-h">Files for creators</span>
       <span class="lbl">shown to creators</span>${extra}</div>`;
+  const wrap = (inner) => inSend
+    ? `<div class="bf-section bf-in-send" role="group" aria-labelledby="bf-h">${inner}</div>`
+    : `<section class="cb-block bf-section" aria-labelledby="bf-h">${inner}</section>`;
   if (!entry || entry.error) {
     const text = !entry ? "Loading files…"
       : entry.error === "missing"
         ? "File attachments aren't installed yet — run <code>supabase/brief_files.sql</code> in the Supabase SQL editor."
         : "Couldn't load this brief's files.";
-    return `<section class="cb-block bf-section" aria-labelledby="bf-h">${head()}
+    return wrap(`${head()}
       <p class="note">${text}</p>
-      ${entry && entry.error !== "missing" ? `<button type="button" class="ghost cb-small" id="bf-retry">Try again</button>` : ""}
-    </section>`;
+      ${entry && entry.error !== "missing" ? `<button type="button" class="ghost cb-small" id="bf-retry">Try again</button>` : ""}`);
   }
   const ups = BF_UP.get(key) || [];
   const total = entry.rows.reduce((s, r) => s + (Number(r.size) || 0), 0);
@@ -6583,7 +6649,7 @@ function bfSectionHtml(kind, sourceId) {
         <span class="bf-name">${escapeHtml(u.name)}</span>
         <span class="lbl bf-pct">uploading · ${u.pct}%</span>
       </li>`).join("");
-  return `<section class="cb-block bf-section" aria-labelledby="bf-h">
+  return wrap(`
     ${head(`<span class="lbl bf-total">${cbPlural(entry.rows.length, "file", "files")} · ${bfSize(total)} of ${bfSize(BF_MAX_TOTAL)}</span>`)}
     <label class="bf-drop" id="bf-drop">
       <input type="file" id="bf-input" class="sr-only" multiple accept="${BF_ACCEPT}">
@@ -6591,9 +6657,10 @@ function bfSectionHtml(kind, sourceId) {
       <span class="lbl">PNG, JPG, WebP, GIF, SVG, PDF, ZIP, OTF, TTF, WOFF · up to ${bfSize(BF_MAX_FILE)} each · ${BF_MAX_COUNT} files and ${bfSize(BF_MAX_TOTAL)} per brief</span>
     </label>
     ${rows ? `<ul class="bf-list">${rows}</ul>` : ""}
-    <p class="note">Everyone this brief is sent to can download these. Adding or removing a file here reaches them straight away — no need to send again.</p>
-    <p class="bp-msg cb-msg" id="bf-msg" role="status" aria-live="polite"></p>
-  </section>`;
+    <p class="note">${inSend
+      ? "Everyone you send this to can download these from the brief. Adding or removing a file later reaches them too — no need to send again."
+      : "Everyone this brief is sent to can download these. Adding or removing a file here reaches them straight away — no need to send again."}</p>
+    <p class="bp-msg cb-msg" id="bf-msg" role="status" aria-live="polite"></p>`);
 }
 
 /** Wires the block above. `repaint` is the caller's own keep-scroll repaint —
@@ -7794,7 +7861,7 @@ function renderCampaignView(host, client, id) {
       <p class="note cb-lane" id="cb-lane" hidden></p>
     </div>
     ${cbRequirementsHtml(campaign, fe)}
-    ${bfSectionHtml("campaign", id)}
+    ${cbSendShowsFiles("campaign", id) ? "" : bfSectionHtml("campaign", id)}
     ${cbAgencyHtml(campaign, fe)}
     <div class="fmt-grid cb-grid" id="cb-grid">
       ${formats.length ? formats.map((f, i) => cbCardHtml(f, i, formats.length)).join("")

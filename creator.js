@@ -4887,6 +4887,28 @@ function bindLynxFiles() {
   }));
 }
 
+/** A clip being made while the creator is on the page (pipeline/brief_clips.py runs on the Fly
+    worker about once a minute). While any format is still pending, re-read the brief every 30s — at
+    most 20 times (10 minutes) per visit — and repaint only when a clip actually arrived; a repaint
+    keeps the open card open (VIEW._openFid) and a playing video playing (openDisclosures). State
+    lives on the VIEW object, so leaving the page ends it. */
+const LYNX_CLIP_POLL_MS = 30000;
+function lynxWatchClips(id) {
+  const myView = VIEW;
+  if (myView._clipTimer || (myView._clipPolls || 0) >= 20) return;
+  if (!(myView._doc?.formats || []).some(lynxClipPending)) return;
+  const sig = (doc) => JSON.stringify((doc?.formats || []).map((f) => [f.id, lynxClipOf(f), f.clip_state || ""]));
+  myView._clipTimer = setTimeout(async () => {
+    myView._clipPolls = (myView._clipPolls || 0) + 1;
+    let doc = null;
+    try { doc = await agencyBriefDoc(id); } catch { /* offline: try again next tick */ }
+    myView._clipTimer = null;
+    if (VIEW !== myView) return;
+    if (doc && sig(doc) !== sig(myView._doc)) { myView._doc = doc; renderPane(); return; }
+    lynxWatchClips(id);
+  }, LYNX_CLIP_POLL_MS);
+}
+
 /** The brief page: read-only (decision 4), loaded via agencyBriefDoc(VIEW.id).
     The fetch result is kept on the VIEW object itself, not a module cache —
     each go({kind:"lynxbrief", id}) is a NEW VIEW object, so navigating away
@@ -4895,9 +4917,12 @@ function bindLynxFiles() {
     detected, the same pattern liveRec() uses elsewhere in this file. */
 function renderLynxBrief(head, body) {
   const id = VIEW.id;
+  /* The brief's name is the page's name, the way a brand page's head is the brand (renderBrand).
+     "Brief" only until the doc has arrived. */
+  const title = (VIEW._docId === id && VIEW._doc && VIEW._doc.title) || "Brief";
   head.innerHTML = `
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div class="pane-title"><div class="bcard-title">Brief</div></div>
+    <div class="pane-title"><div class="bcard-title">${escapeHtml(title)}</div></div>
     <p class="pane-sub lynx-from">${AGENCY_MARK}From ${escapeHtml(AGENCY_NAME)}.</p>`;
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
@@ -4948,130 +4973,149 @@ function renderLynxBrief(head, body) {
     ? `<p class="bp-hint lynx-updated">Updated ${escapeHtml(updatedOn)}.${hasCopy ? " Scripts already in your library keep the version you added." : ""}</p>`
     : "";
   const formats = Array.isArray(doc.formats) ? doc.formats : [];
+  /* ONE FORMAT OPENS ITSELF; SEVERAL WAIT AS TILES — the Library's own rule (libraryItemHtml: "A single
+     script opens expanded: you opened the video to read it. Several stay collapsed, because then the
+     list IS the choice"). VIEW._openFid lives on this VIEW object, so it survives a repaint of the same
+     view (Add to my library, a clip arriving) and resets when go() makes a new one. */
+  if (VIEW._openFid === undefined) VIEW._openFid = formats.length === 1 ? lynxFid(formats[0], 0) : null;
+  const facts = updated + top;
   body.innerHTML = `
-    <div class="section lynx-brief-head">
-      <div class="bcard-title">${escapeHtml(doc.title || "Brief")}</div>
-      ${updated}
-      ${top}
-    </div>
+    ${facts ? `<div class="section lynx-brief-head">${facts}</div>` : ""}
     ${lynxFilesHtml(VIEW._files)}
     ${formats.length > 1
       ? `<div class="bp-actions"><button type="button" class="btn" id="lynx-add-all">Add all ${formats.length} to my library</button></div>`
       : ""}
-    <div class="lynx-formats">${formats.map((f, i) => lynxFormatCardHtml(f, i)).join("")}</div>
+    <div class="bp-list script-grid lynx-grid">${formats.map((f, i) => lynxFormatCardHtml(f, i, lynxFid(f, i) === VIEW._openFid)).join("")}</div>
     <p class="note">Scripts Lynx sends you never count against your plan.</p>`;
 
   bindLynxBriefButtons(doc, formats, id);
   bindLynxFiles();
+  lynxWatchClips(id);
 }
 
-/* THE PLATFORMS' OWN MARKS, for the link out under a player (owner, 2026-09-23: "just add the
-   logos"). Simple Icons glyphs (CC0), one path each on a 24 box, currentColor so they follow the
-   theme like every other icon on this page. Never used without a player: see lynxFormatCardHtml. */
-const LYNX_LOGO_TT = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>`;
-const LYNX_LOGO_IG = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/></svg>`;
-/** THE ORIGINAL, PLAYABLE IN PLACE (owner, 2026-09-23: "have the actual video pop up, not just
-    the link saying open here"). An agency brief carries only the post's URL — agencySendDoc and
-    briefSendDoc in app.js withhold f.source (clip, cover) by design — so the platform's own player
-    is the only way to show the video on this page. Returns { src, cls, logo } for ONE TikTok or
-    Instagram post, else null; a null leaves the card exactly as it was: platform, button, URL.
-    TikTok: player/v1 is TikTok's documented embed player. Video only (no header, caption or music
-    rows), autoplay off by default, and rel=0 stops it offering other people's videos at the end.
-    NOT embed/v2, which app.js embedFor() uses on the agency side: that one carries TikTok's own
-    caption chrome and needs a ~9:19.8 box; in this card's 9:16 box it crops the video itself
-    (measured 2026-09-23). Short links (vm./vt.tiktok.com, /t/<code>) carry no video id and this
-    page cannot resolve them (CORS, connect-src), so they return null and keep the link.
-    Instagram: /p/<code>/embed/ plays reels and posts alike, so /reel/, /reels/ and /tv/ fold into
-    it; a username prefix (/<user>/reel/<code>/) is tolerated.
-    SAFE BY CONSTRUCTION: platformOf() checks the hostname (not a substring), and the only
-    staff-typed text that can reach `src` is a capture of digits or [A-Za-z0-9_-]. */
-function lynxEmbedFor(raw) {
-  const plat = platformOf(raw);
-  if (plat !== "TikTok" && plat !== "Instagram") return null;
-  let u;
-  try {
-    const s = String(raw || "").trim();
-    u = new URL(s.includes("://") ? s : "https://" + s);
-  } catch { return null; }
-  if (plat === "TikTok") {
-    const id = (u.pathname.match(/\/video\/(\d{15,})(?:\/|$)/) || [])[1];
-    return id ? { src: `https://www.tiktok.com/player/v1/${id}?rel=0`, cls: "lynx-embed-tt", logo: LYNX_LOGO_TT } : null;
+/* THE BRIEF'S VIDEO, PLAYED THE WAY A CREATOR'S OWN SCRIPT PLAYS IT (owner, 2026-09-24: "make the
+   videos the way it is on the actual user side, like native to lynxr"). A sent format carries
+   `clip` and `cover`: the same public lynxr-clips / lynxr-covers objects a creator's own paste
+   produces, named sha1(canonical url)[:20]. Campaign formats have them from the agency lane's read
+   (app.js agencySendDoc copies them); pipeline/brief_clips.py fills them in on the Fly worker for
+   any sent format without one. The doc is staff- and worker-written data, so only those two exact
+   object shapes are trusted; anything else counts as no clip (and media-src would refuse it). */
+const LYNX_CLIP_PREFIX = `${SB_PUBLIC_PREFIX}lynxr-clips/`;
+const LYNX_COVER_PREFIX = `${SB_PUBLIC_PREFIX}lynxr-covers/`;
+function lynxClipOf(f) {
+  const u = String((f && f.clip) || "");
+  return u.startsWith(LYNX_CLIP_PREFIX) && /^[0-9a-f]{20}\.mp4$/.test(u.slice(LYNX_CLIP_PREFIX.length)) ? u : "";
+}
+function lynxCoverOf(f) {
+  const u = String((f && f.cover) || "");
+  return u.startsWith(LYNX_COVER_PREFIX) && /^[0-9a-f]{20}\.jpg$/.test(u.slice(LYNX_COVER_PREFIX.length)) ? u : "";
+}
+/** True while the worker may still make this format a clip: a TikTok or Instagram link (the only
+    hosts it downloads — SUPPORTED_HOSTS in pipeline/process_adaptations.py), no trusted clip yet,
+    and not given up on (clip_state "failed", written by pipeline/brief_clips.py). */
+function lynxClipPending(f) {
+  const plat = platformOf((f && f.source_url) || "");
+  return (plat === "TikTok" || plat === "Instagram") && !lynxClipOf(f) && f.clip_state !== "failed";
+}
+
+/** The key a format card is remembered by (VIEW._openFid, data-fid, and the panel's data-refid /
+    the video's data-refvid, which openDisclosures uses to keep a playing video playing across a
+    repaint). f.id is a uuid on a campaign brief and the video URL on a legacy one (briefSendDoc);
+    the index is only a fallback for a doc that carries neither. */
+function lynxFid(f, i) {
+  return String(f.id || `i${i}`);
+}
+
+/** "The original" for one format — the regular card's details.ref-panel (see referenceHtml):
+    - a trusted clip: refPlayHtml's own native player, the same function a creator's script uses;
+    - no clip yet but one is coming: a line saying so and the link out, in the no-clip panel's shape;
+    - no clip possible: refPlayHtml's own no-clip branch ("This one can only be watched on …").
+    "" with no link at all, so refSplitHtml leaves the script on its own, as a regular card with no
+    source. Never an embed (owner, 2026-09-24: "native to lynxr not like this screenshot"). */
+function lynxRefPanelHtml(f, key) {
+  const href = f.source_url ? safeUrl(f.source_url) : "";
+  if (!href) return "";
+  const clip = lynxClipOf(f);
+  let play;
+  if (clip) {
+    play = refPlayHtml({ id: key, sourceUrl: f.source_url, source: { clip, cover: lynxCoverOf(f) } }, key);
+  } else if (lynxClipPending(f)) {
+    const plat = platformLabel(f.source_url);
+    play = `<div class="ref-play ref-play-none lynx-clip-wait">
+      <p class="bp-hint">Getting the video ready — it plays here in a few minutes.</p>
+      <a class="ref-watch" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
+        >Watch it on ${escapeHtml(plat)} <span aria-hidden="true">↗</span></a>
+    </div>`;
+  } else {
+    play = refPlayHtml({ sourceUrl: f.source_url, source: {} }, key);
   }
-  const code = (u.pathname.match(/\/(?:reels?|p|tv)\/([A-Za-z0-9_-]+)/) || [])[1];
-  return code ? { src: `https://www.instagram.com/p/${code}/embed/`, cls: "lynx-embed-ig", logo: LYNX_LOGO_IG } : null;
+  return `<details class="bp-item ref-panel" open data-refid="${escapeHtml(key)}">
+    <summary>
+      <span class="bp-caret" aria-hidden="true">▸</span>
+      <span class="bp-name">The original</span>
+    </summary>
+    <div class="bp-body">${play}</div>
+  </details>`;
 }
 
-/** One format, read-only. Reuses the creator app's own script markup —
-    .bp-item/.bp-beats/beatRow — rather than inventing new markup, so the
-    existing caret, motion and one-open-at-a-time rules apply unchanged.
-    beatRow's own guard is `adid === undefined` (see its comment) — an
-    omitted (not null) adid is what makes the beats read-only: no
-    contenteditable, no +add-a-beat button, no bp-editable class. */
-function lynxFormatCardHtml(f, i) {
+/** One format, read-only, AS THE CREATOR'S OWN SCRIPT CARD (owner, 2026-09-24: "have it be the
+    regular ui pretty much, make the video on the right side"). The same markup as adaptationHtml's
+    finished card — a .script-grid tile that opens into a full-width row, the script in .ref-main and
+    "The original" beside it via refSplitHtml — so the regular CSS lays it out (video RIGHT at
+    >=1180px, ABOVE below that) and wireAdaptationCards gives it the regular player behaviour.
+    Read-only by construction: beatRow's `adid === undefined` guard emits no contenteditable, and
+    nothing here carries data-adid, data-edit or an .ad-* button, so nothing record-specific in
+    wireAdaptationCards can fire on it. Kept from the regular card: the hook card, "Your script",
+    the beats, CTA and caption, the copy icon, the cover. Left out: edit in place, + add a beat,
+    delete, revert, "Also write this for". Brief-only: the chip, Add to my library, filming notes. */
+function lynxFormatCardHtml(f, i, open = false) {
   const silent = f.delivery === "silent";
   const carry = { do: "", show: "" };
+  const fid = lynxFid(f, i);
+  const key = `lynx:${fid}`;
   const href = f.source_url ? safeUrl(f.source_url) : "";
   const plat = f.source_url ? platformLabel(f.source_url) : "";
-  const emb = href ? lynxEmbedFor(f.source_url) : null;
+  const name = f.title || f.hook || "Untitled format";
   const needs = Array.isArray(f.needs) && f.needs.length
     ? `<p class="bp-hint"><strong>Needs:</strong> ${escapeHtml(f.needs.join(" • "))}</p>` : "";
   const setup = [["Setting", f.setting], ["Lighting", f.lighting], ["Framing", f.framing], ["Audio", f.audio]]
     .filter(([, v]) => v)
     .map(([lbl, v]) => `<p class="bp-hint"><strong>${lbl}:</strong> ${escapeHtml(v)}</p>`).join("");
   const already = (ME.adaptations || []).find((a) => a.fromAgency?.formatId === f.id);
-  return `<details class="bp-item lynx-fmt" open>
-    <summary>
-      <span class="bp-caret" aria-hidden="true">▸</span>
-      <span class="bp-name">${i + 1}. ${escapeHtml(f.title || f.hook || "Untitled format")}</span>
-      ${href ? openOriginalHtml(href, plat) : ""}
-    </summary>
-    <div class="bp-body">
-      ${/* THE VIDEO BESIDE THE SCRIPT (owner, 2026-09-22: "for the creators as well add the videos
-            side by side"). The original sits in its own column next to the words, so a creator can
-            watch and read at once instead of hunting for the arrow in the title.
-            AND NOW IT PLAYS (owner, 2026-09-23: "have the actual video pop up, not just the link").
-            The brief carries a link to someone else's post, not a stored clip, so the player is the
-            platform's own, in a sandboxed frame (lynxEmbedFor above; frame-src on index.html).
-            Under it, the platform's own mark is the link out (owner: "just add the logos"): a
-            private, deleted or login-walled post fails INSIDE the frame where this page cannot
-            see it, and the mark opens the post on the platform. A card with no player keeps the
-            button and the address, so a link the page can't play is still one click away. */""}
-      <div class="lynx-cols${emb ? " lynx-cols-play" : ""}">
-        <div class="lynx-vid">
-          <span class="lynx-vid-lbl">the original</span>
-          ${plat && !emb ? `<span class="lynx-vid-plat">${escapeHtml(plat)}</span>` : ""}
-          ${emb
-            ? `<iframe class="lynx-embed ${emb.cls}" src="${escapeHtml(emb.src)}"
-                title="The original video on ${escapeHtml(plat)}" loading="lazy" scrolling="no"
-                referrerpolicy="no-referrer" allowfullscreen
-                allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"></iframe>`
-            : ""}
-          ${emb
-            ? `<a class="lynx-vid-logo" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
-                aria-label="Watch it on ${escapeHtml(plat)}" title="Watch it on ${escapeHtml(plat)}">${emb.logo}</a>`
-            : href
-            ? `<a class="btn lynx-vid-go" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">watch it${plat && plat !== "Link" ? ` on ${escapeHtml(plat)}` : ""}</a>
-               <span class="lynx-vid-url">${escapeHtml(f.source_url)}</span>`
-            : `<span class="lynx-vid-url">no link was sent with this one</span>`}
-        </div>
-        <div class="lynx-script">
+  const script = `
       ${needs}${setup}
-      ${f.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>“${escapeHtml(f.hook)}”</div>` : ""}
+      ${f.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">${silent ? "Opening card" : "Hook"}</span>“<span class="bp-val bp-hookval">${escapeHtml(f.hook)}</span>”</div>` : ""}
+      ${silent ? `<p class="bp-hint">No voiceover — put the SHOW line on screen at each beat.</p>` : `<div class="bp-heading">Your script</div>`}
       <ol class="bp-beats bp-notime">${(f.beats || []).map((b, bi) => beatRow(b, carry, silent, undefined, bi)).join("")}</ol>
-      ${f.cta ? `<p class="bp-hint"><strong>CTA:</strong> “${escapeHtml(f.cta)}”</p>` : ""}
-      ${f.caption ? `<p class="bp-hint"><strong>Caption:</strong> ${escapeHtml(f.caption)}</p>` : ""}
-      ${f.note ? `<p class="bp-hint"><strong>Note:</strong> ${escapeHtml(f.note)}</p>` : ""}
-        </div>
-      </div>
-      <div class="bp-actions lynx-add-row">
+      ${f.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> <span class="bp-val">${escapeHtml(f.cta)}</span></p>` : ""}
+      ${f.caption ? `<p class="bp-hint"><strong>Caption:</strong> <span class="bp-val">${escapeHtml(f.caption)}</span></p>` : ""}
+      ${f.note ? `<p class="bp-hint"><strong>Note:</strong> ${escapeHtml(f.note)}</p>` : ""}`;
+  const foot = `
+      <div class="bp-actions">
         ${already
           ? `<button type="button" class="btn" disabled>In your library ✓</button>
              <button type="button" class="linkish lynx-open-brand" data-fid="${escapeHtml(f.id)}">open it</button>`
           : `<button type="button" class="btn lx-add" data-fid="${escapeHtml(f.id)}">Add to my library</button>`}
+        <span class="bp-icons">
+          <button type="button" class="ghost icon-only lx-copy" data-fid="${escapeHtml(f.id)}"
+            aria-label="Copy this script" title="Copy this script">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+              ><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          </button>
+        </span>
       </div>
-      ${already ? `<p class="bp-hint">Saved to your ${escapeHtml(already.brandName || "")} folder — edit it there.</p>` : ""}
-    </div>
+      ${already ? `<p class="bp-hint">Saved to your ${escapeHtml(already.brandName || "")} folder — edit it there.</p>` : ""}`;
+  const chip = already ? statusChip("good", "in your library", "added") : statusChip("", "from Lynx", "");
+  return `<details class="bp-item lynx-fmt"${open ? " open" : ""} data-fid="${escapeHtml(fid)}">
+    <summary>
+      <span class="bp-caret" aria-hidden="true">▸</span>
+      ${thumbHtml(lynxCoverOf(f), name, f.source_url, { tile: true, kind: plat })}
+      <span class="bp-name">${i + 1}. ${escapeHtml(name)}</span>
+      ${chip}
+      ${href ? openOriginalHtml(href, plat) : ""}
+    </summary>
+    <div class="bp-body">${refSplitHtml(null, script, foot, key, lynxRefPanelHtml(f, key))}</div>
   </details>`;
 }
 
@@ -5094,15 +5138,52 @@ function bindLynxBriefButtons(doc, formats, briefId) {
     const a = f && (ME.adaptations || []).find((x) => x.fromAgency?.formatId === f.id);
     if (a) go({ kind: "brand", id: a.brandId });
   }));
-  /* A CLOSED CARD MUST STOP TALKING. <details> hides its body, but a player inside it keeps
-     playing, sound and all. Swapping the frame for a fresh copy of itself destroys the one that
-     was playing; the copy is lazy, so it loads again only when the card is reopened. Do NOT
-     "simplify" this to re-setting src: on a lazy iframe that is hidden, the new navigation is
-     deferred and the old document (and its audio) stays alive. */
-  document.querySelectorAll("details.lynx-fmt").forEach((card) => card.addEventListener("toggle", () => {
-    if (card.open) return;
-    const fr = card.querySelector("iframe.lynx-embed");
-    if (fr) fr.replaceWith(fr.cloneNode(false));
+
+  const grid = document.querySelector("#pane-body .lynx-grid");
+  if (!grid) return;
+  /* THE REGULAR PLAYER WIRING, from the one function that wires a creator's own cards:
+     stopSummaryLinks, lynxr's controls (wireRefControls), one video at a time, the beat that follows
+     the playhead, click a beat to seek, closing "The original" stops it, and the floating corner
+     player on phones (wireRefMini). Safe here: everything else it wires keys on data-adid,
+     data-edit or an .ad-* button, and the brief's markup carries none of them (beatRow is called
+     with no adid; the brief's own buttons are .lx-*). Then the Library's close animation. */
+  wireAdaptationCards(grid);
+  wireDisclosureMotion(grid);
+
+  /* COPY — the regular card's icon and the regular clipboard text. scriptText() reads the same
+     { hook, delivery, beats, cta, caption } shape addAgencyFormat saves, so this copies exactly what
+     "Add to my library" would give. Casing is the source's: lowercase is CSS only. */
+  grid.querySelectorAll(".lx-copy").forEach((btn) => btn.addEventListener("click", async () => {
+    const f = formats.find((x) => x.id === btn.dataset.fid);
+    if (!f) return;
+    try {
+      await navigator.clipboard.writeText(scriptText({
+        brandName: doc.client?.name || "", sourceUrl: f.source_url || "",
+        adaptation: { hook: f.hook, delivery: f.delivery, beats: f.beats, cta: f.cta, caption: f.caption },
+      }));
+      const face = btn.innerHTML;
+      btn.innerHTML = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+        ><path d="M20 6L9 17l-5-5"/></svg>`;
+      btn.classList.add("ok");
+      setTimeout(() => { btn.innerHTML = face; btn.classList.remove("ok"); }, 1400);
+    } catch { /* clipboard denied */ }
+  }));
+
+  /* ONE FORMAT OPEN AT A TIME — wireAdaptationCards' rule for the creator's own cards, which keys on
+     data-adid and so does not reach these. A card closing stops and undocks its video, as a closing
+     regular card does. `toggle` does not bubble, so the panel's own toggle never reaches a card's
+     listener; setting .open on the others re-fires theirs, and they exit on the !open branch. */
+  const cards = [...grid.querySelectorAll(":scope > details.lynx-fmt")];
+  cards.forEach((card) => card.addEventListener("toggle", () => {
+    if (!card.open) {
+      stopRefVideos(card);
+      undockRefMini(card);
+      if (VIEW._openFid === card.dataset.fid) VIEW._openFid = null;
+      return;
+    }
+    VIEW._openFid = card.dataset.fid;
+    cards.forEach((other) => { if (other !== card) other.open = false; });
   }));
 }
 
@@ -6938,11 +7019,13 @@ function addAgencyFormat(doc, f, briefId) {
     // status:"done" with a populated adaptation is what keeps the worker away
     // from this record — wants_work() (pipeline/process_adaptations.py:1085)
     // only ever claims queued/running/error, so charge_scripts() is never
-    // called for it, on any tier (decision 6). No `source` key: it carries no
-    // tags and no transcript, and faking one would make hasTags() count it as
-    // a tagged video in the rail.
+    // called for it, on any tier (decision 6). `source` (below) carries ONLY the
+    // brief's clip and cover, so the copy plays in the library as it did on the
+    // brief: hasTags() reads source.tags and hasSourceScript() reads
+    // source.script/shots, so neither counts it as a tagged or transcribed video.
     status: "done", addedAt: new Date().toISOString(), code: trackCode(b.name || ""),
     adaptation: { hook: f.hook, delivery: f.delivery, beats: f.beats, cta: f.cta, caption: f.caption },
+    ...(lynxClipOf(f) ? { source: { clip: lynxClipOf(f), cover: lynxCoverOf(f) } } : {}),
     fromAgency: { briefId, formatId: f.id, client: doc.client?.name || "", at: new Date().toISOString() },
   });
 
@@ -7135,7 +7218,9 @@ function refPlayHtml(a, key = a.id) {
         : "This one can only be watched where it came from."}</p>${watch}
     </div>` : "";
   }
-  const cover = coverUrl({ libraryId: a.libraryId, canon: canonUrl(a.sourceUrl || "") });
+  /* The record's own cover first — an agency brief's format has one and no library entry for
+     coverUrl() to find. For a creator's own record this is the same image coverUrl() returns. */
+  const cover = (a.source || {}).cover || coverUrl({ libraryId: a.libraryId, canon: canonUrl(a.sourceUrl || "") });
   /* LYNXR'S OWN CONTROLS, 2026-08-24. `controls` is gone: the browser's default
      chrome was the one part of this card that did not look like the app, and it
      looked different on every browser.
@@ -7884,12 +7969,14 @@ function referenceHtml(a, key = a.id) {
  *  card then looks exactly as it does today; an empty panel would read as a
  *  broken one. Measured on the 2026-08-23 backup: 5 of 47 records carry no
  *  `source` at all. */
-function refSplitHtml(a, scriptHtml, footHtml = "", key = a.id) {
+function refSplitHtml(a, scriptHtml, footHtml = "", key = a.id, panel = null) {
   /* `key` names the panel and its <video> (data-refid / data-refvid). It is the
      record id everywhere except the original-script view, which passes
      `<id>:orig` so it can sit in the same Library card as that record's brand
      script without the two players sharing an identity. See adaptationHtml. */
-  const ref = referenceHtml(a, key);
+  /* `panel`, when given, is a ready-made "The original" (an agency brief's, lynxRefPanelHtml) and
+     `a` is not read at all — the brief has no record. "" still means "no panel". */
+  const ref = panel !== null ? panel : referenceHtml(a, key);
   if (!ref) return scriptHtml + footHtml;
   /*  The foot goes UNDER the split, never inside .ref-main. At >=1180px
       app.css turns .ref-split into minmax(0,1.4fr) minmax(0,1fr), so an

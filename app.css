@@ -11274,8 +11274,6 @@
   .lynx-card { flex-direction: column; align-items: flex-start; gap: 10px; }
   .lynx-briefs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
   .lynx-brief-head { margin-bottom: 18px; }
-  .lynx-formats { display: flex; flex-direction: column; gap: 12px; }
-  .lynx-add-row { margin-top: 14px; }
   /* ---- Creator app: the invite popup (2026-09-23). The card is the send overlay's glass
      box; only its title row, its sentence and its button row are its own. ---- */
   .lynx-invite-title { display: inline-flex; align-items: center; gap: 8px; }
@@ -11340,46 +11338,13 @@
   .lynx-empty { margin: 4px 0 22px; }
   .lynx-from .lynx-mark { width: 16px; height: 16px; flex: none; }
   .side-link .side-ico-fill { stroke: none; }
-  /* The original video beside its script (owner, 2026-09-22). One column of video, one of words;
-     on a phone the video sits above the script rather than squeezing beside it. */
-  .lynx-cols { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr); gap: 16px; align-items: start; }
-  .lynx-script { min-width: 0; }
-  .lynx-vid {
-    display: flex; flex-direction: column; gap: 8px; align-items: flex-start; min-width: 0;
-    padding: 14px; border-radius: var(--r-card); background: var(--surface-2); border: 1px solid var(--line);
-  }
-  .lynx-vid-lbl { font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); }
-  .lynx-vid-plat { font-size: var(--fs-13); color: var(--text-2); }
-  .lynx-vid-go { width: 100%; text-align: center; text-decoration: none; }
-  .lynx-vid-url { font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); overflow-wrap: anywhere; }
-  /* THE ORIGINAL, PLAYING IN PLACE (owner, 2026-09-23). A card with a player gets a 280px video
-     column: 250px of player plus .lynx-vid's 14px padding and 1px border each side. 250 is
-     measured, not picked: at 230 TikTok's player clips its own fullscreen button. TikTok's
-     player/v1 is video only, so 9:16 is the whole frame. Instagram's /embed/ is a white card
-     (header, media, actions, likes, comment row) whose height is not a ratio of its width; it
-     measured 502px at 250 wide, so 510 never clips the comment row. On a phone the column is the
-     full width and the player stays 250 and centres, rather than growing into a 600px tower.
-     Border, radius and black backing match .ref-video, the creator's own player. */
-  .lynx-cols-play { grid-template-columns: minmax(0, 280px) minmax(0, 1fr); }
-  .lynx-embed {
-    display: block; width: 250px; max-width: 100%; align-self: center;
-    border: 1px solid var(--line); border-radius: var(--r-inner); background: #000;
-  }
-  .lynx-embed-tt { aspect-ratio: 9 / 16; height: auto; }
-  .lynx-embed-ig { height: 510px; background: #fff; }
-  /* The link out under a player: the platform's mark alone (owner, 2026-09-23: "just add the
-     logos"). The global `a` border-bottom affordance is off — this is an icon, not a word — and
-     the 6px padding makes the 22px glyph a 34px target, the floor this file uses elsewhere. */
-  .lynx-vid-logo {
-    display: inline-flex; align-self: center; padding: 6px; border-bottom: 0; text-decoration: none;
-    color: var(--text-2); transition: color .12s;
-  }
-  .lynx-vid-logo:hover { color: var(--text); }
-  .lynx-vid-logo svg { width: 22px; height: 22px; flex: none; }
-  @media (prefers-reduced-motion: reduce) { .lynx-vid-logo { transition: none; } }
-  @media (max-width: 760px) {
-    .lynx-cols, .lynx-cols-play { grid-template-columns: minmax(0, 1fr); }
-  }
+  /* THE BRIEF PAGE IS THE REGULAR SCRIPT VIEW (owner, 2026-09-24: "have it be the regular ui pretty
+     much, make the video on the right side", then "make the videos the way it is on the actual user
+     side, like native to lynxr"). creator.js renders each format as the creator's own card — a
+     .script-grid tile that opens into .ref-split, with refPlayHtml's native player in
+     details.bp-item.ref-panel — so the layout, the player, the sticky 350px column at >=1180px, the
+     video-above-script stacking below it and the phone mini-player all come from the regular rules
+     above. The .lynx-cols layout and the TikTok/Instagram embed styles that stood here are gone. */
 
   /* ---------- BRIEF FILES (2026-09-23) ----------
      Plan: ~/.claude/plans/brief-file-attachments.md. bf- classes are agency-app only
@@ -11419,6 +11384,11 @@
   .bf-size, .bf-pct { flex: none; font-family: var(--mono); font-variant-numeric: tabular-nums; }
   .bf-remove { flex: none; }
   .bf-busy .bf-name { color: var(--text-2); }
+  /* ---- agency: the same block inside the Send panel (2026-09-24, owner: "make sure the agency side can
+     add the files when the briefs are sent"). It sits inside the panel's glass island, so it takes a
+     hairline above and no box of its own — no box inside a box. ---- */
+  .cb-send-panel .bf-in-send { margin: 16px 0 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .cb-send-panel .bf-in-send h3 { margin: 0; }
   @media (prefers-reduced-motion: reduce) { .bf-drop { transition: none; } }
 
   /* ---- creator: "files from lynx" on a brief page ---- */

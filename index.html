@@ -18,18 +18,11 @@
      bucket at an unguessable, content-hashed path — anyone holding the URL
      can fetch the video bytes with no sign-in. Row-level security protects
      which creator can see which row, not the file once its URL is known.
-     frame-src, ADDED 2026-09-23, for ONE surface only: the "the original"
-     card on an agency brief (lynxEmbedFor in creator.js; owner: "have the
-     actual video pop up, not just the link"). A brief carries only the
-     post's URL, never a clip or a cover, so the platform's own player is
-     the only way to show it. Two origins: TikTok's documented player/v1
-     and Instagram's /embed/, each frame sandboxed with no referrer. The
-     trade, made knowingly: those two sites run their own code and set their
-     own cookies inside that box while a creator is signed in to lynxr. The
-     frame cannot read this page, its storage or the session (it is
-     cross-origin). The frame-ancestors 'none' header Cloudflare adds to
-     lynxr.io governs who may frame THIS page, not what this page frames. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; media-src 'self' blob: https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; frame-src https://www.tiktok.com https://www.instagram.com; form-action 'none'; base-uri 'none'; object-src 'none'">
+     frame-src, REMOVED 2026-09-24. It was added on 2026-09-23 for one surface only, the TikTok and
+     Instagram players on an agency brief's "the original". Briefs now play the self-hosted clip in the
+     same native <video> as a creator's own scripts (owner: "native to lynxr"), so nothing on this page
+     frames anything and default-src 'none' refuses every frame again. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; media-src 'self' blob: https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; form-action 'none'; base-uri 'none'; object-src 'none'">
 <!-- maximum-scale=1 SUPPRESSES iOS SAFARI'S FOCUS-ZOOM, and it is here in
      exchange for the find bar's type size: the search and sort controls came
      off the 16px floor on 2026-08-19 (owner's call) so they sit proportionally
@@ -82,13 +75,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609232s">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609232s">
-<link rel="shortcut icon" href="/favicon.ico?v=202609232s">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609232s">
-<link rel="stylesheet" href="/app.css?v=202609232s">
-<script src="/theme.js?v=202609232s"></script>
-<script src="/backdrop.js?v=202609232s" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609232t">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609232t">
+<link rel="shortcut icon" href="/favicon.ico?v=202609232t">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609232t">
+<link rel="stylesheet" href="/app.css?v=202609232t">
+<script src="/theme.js?v=202609232t"></script>
+<script src="/backdrop.js?v=202609232t" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -1056,10 +1049,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=202609232s" defer></script>
-<script src="/footer.js?v=202609232s" defer></script>
-<script src="/home.js?v=202609232s" defer></script>
-<script src="/avatar.js?v=202609232s" defer></script>
-<script src="/creator.js?v=202609232s" defer></script>
+<script src="/site.js?v=202609232t" defer></script>
+<script src="/footer.js?v=202609232t" defer></script>
+<script src="/home.js?v=202609232t" defer></script>
+<script src="/avatar.js?v=202609232t" defer></script>
+<script src="/creator.js?v=202609232t" defer></script>
 </body>
 </html>
