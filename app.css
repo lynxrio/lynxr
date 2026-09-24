@@ -9223,6 +9223,11 @@
      ones, which would not round-trip. A block, so the edit stripe runs the caption's full height
      rather than only its first line. ---- */
   body.agency #app .cb-note > .bp-val.ag-caption[contenteditable] { display: block; white-space: pre-wrap; }
+  /* ---- (agency) a campaign format's setup values and creator note edit in place too (2026-09-23,
+     app.js cbDetailHtml). They keep the type their row already sets: the generic .bp-val size is for
+     script lines, and without this the words would shrink the moment they became editable. ---- */
+  body.agency #app .cb-setup-val > .bp-val[contenteditable],
+  body.agency #app .cb-note > .bp-val[data-field="creator_note"][contenteditable] { font-size: inherit; line-height: inherit; }
   /* ---- (agency) an editable hook or campaign CTA draws its curly quotes itself (app.js agTopHtml).
      The edit stripe sits 7px left of the words, which is where a literal opening quote stood, so the
      stripe cut through it and the field's wash half covered it. Drawn inside the field, the quotes
@@ -10049,8 +10054,10 @@
   /* THE PLAN YOU ARE ON. An edge, not a fill: a filled card would read as the
      recommended one, and the point of the mark is "this is yours". */
   .pane-body .lp-plan.lp-plan-mine { border-color: color-mix(in srgb, var(--text) 40%, var(--gl-edge)); }
-  .pane-body .lp-plan-head { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
-  .pane-body .lp-plan-head .lp-plan-name { flex: 1 1 auto; min-width: 0; margin: 0; }
+  /* The head row is shared with the landing's #pricing cards (2026-09-23). A selector LIST, not
+     :is(): each half keeps its own specificity, so the Plan view's cascade is exactly as before. */
+  .pane-body .lp-plan-head, body.home .lp-plan-head { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
+  .pane-body .lp-plan-head .lp-plan-name, body.home .lp-plan-head .lp-plan-name { flex: 1 1 auto; min-width: 0; margin: 0; }
   /* An <h2> for the outline, so the global h2 eyebrow dash comes off. */
   .pane-body .lp-plan-name::before { display: none; }
   .pane-body .lp-plan-av { flex: none; width: 40px; height: 40px; }
@@ -10174,26 +10181,29 @@
      edge; .lp-in gives this section 10px, so the list takes the other 10px itself. Measured before:
      panel x=20 w=353, cards x=10 w=373 at 393px. */
   @media (max-width: 640px) { body.home .lp-plans { padding-inline: 10px; box-sizing: border-box; } }
-  /* THE PLAN CARD, REFERENCE LAYOUT (owner, 2026-09-23). Mark, name, tagline, price, note, a full-width
-     action, the commitment line, a rule, then the checked list. The lynxr mark is a live avatar
-     ([data-lx-mood], avatar.js renders it) in a different mood per plan: idle / writing / coaching. */
+  /* THE PLAN CARD, PLAN-VIEW LAYOUT (owner, 2026-09-23, second pass: "make it look like the options in
+     the plan tab"; a friend on the phone view: "too much white space"). The creator app's Plan view is
+     the reference and is NOT restyled here. The landing now uses its head row (.lp-plan-head, shared
+     above): the live mark at the Plan view's 40px beside the name, the tagline tucked under the name
+     in the same row (.lp-plan-id), then price, tax line, the action, the commitment line, a hairline
+     and the Plan view's own dot list (the shared .lp-plan-list rules, no longer overridden to ticks).
+     Gaps are the Plan view's: 14 under the head, 6/18 around the tax line, 18 either side of the
+     hairline, 10 between bullets. Measured at 390px (free card): 515px before, see HANDOFF after.
+     The mark is a live avatar ([data-lx-mood], avatar.js renders it): idle / writing / coaching. */
   body.home .lp-plan { display: flex; flex-direction: column; }
-  body.home .lp-plan-ico { display: block; width: 36px; height: 36px; margin-bottom: 14px; }
+  body.home .lp-plan-ico { flex: none; display: block; width: 40px; height: 40px; }
   body.home .lp-plan-ico .lx { display: block; width: 100%; height: 100%; overflow: visible; }
-  body.home .lp-plan-tag { margin: 2px 0 14px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
-  body.home .lp-plan-cta, body.home .lp-plan-off { align-self: stretch; margin-top: 16px; text-align: center; }
-  body.home .lp-plan-note { margin: 8px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-align: center; }
-  body.home .lp-plan-hr { border: 0; height: 1px; background: var(--line); margin: 18px 0 14px; }
-  body.home .lp-plan-plus { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--text); }
-  /* border-top: 0 -- the list used to draw its own top rule; .lp-plan-hr draws it now, and both
-     together painted a doubled line (seen on the phone capture). */
-  body.home .lp-plan .lp-plan-list { list-style: none; margin: 0; padding: 0; border-top: 0; }
-  body.home .lp-plan .lp-plan-list li { position: relative; padding-left: 26px; }
-  body.home .lp-plan .lp-plan-list li::before {
-    content: ""; position: absolute; left: 2px; top: .55em; width: 10px; height: 5px;
-    border-left: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(-45deg);
-    background: none; border-radius: 0;
-  }
+  body.home .lp-plan-id { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  body.home .lp-plan-head .lp-plan-name { line-height: 1.3; }
+  body.home .lp-plan-tag { margin: 0; font-size: 14px; line-height: 1.35; color: var(--text-2); }
+  /* The tax line's 18px bottom margin is the gap above the action; no second margin on top of it. */
+  body.home .lp-plan-cta, body.home .lp-plan-off { align-self: stretch; margin-top: 0; text-align: center; }
+  body.home .lp-plan-note { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-align: center; }
+  body.home .lp-plan-hr { border: 0; height: 1px; background: var(--line); margin: 18px 0; }
+  body.home .lp-plan-plus { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--text); }
+  /* border-top / padding-top: 0 -- .lp-plan-hr draws the rule (both together painted a doubled line
+     on the phone). Everything else -- 15px/1.5, 10px gap, 18px indent, 6px dot -- is the shared rule. */
+  body.home .lp-plan .lp-plan-list { margin: 0; padding: 0; border-top: 0; }
   /* PHONE: the footer card takes the same measure as the hero panel and the plan cards (owner,
      2026-09-23: "same thing with the footer"). The footer IS the card (#site-footer carries the
      glass, the radius and a 10px inline margin); on the landing it gets the panel's 20px. */

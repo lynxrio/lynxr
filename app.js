@@ -4875,6 +4875,13 @@ function renderBriefViewer(host, rec, client) {
   // briefs are newest-first, so a lower index is a later week
   const total = client.briefs.length;
   const idx = client.briefs.findIndex((b) => b.id === rec.id);
+  /* THE BRIEF AS IT IS NOW, read fresh on every call. `rec` is this render's copy and goes stale after
+     the first in-place line edit (those write to a fresh loadClients() list and redraw only the
+     script), so building from `rec` sent the pre-edit version — that was a bug in Send too. */
+  const sendDoc = () => {
+    const c = loadClients().find((x) => x.id === client.id) || client;
+    return briefSendDoc((c.briefs || []).find((b) => b.id === rec.id) || rec, c);
+  };
   if (BRIEF_VIEW.expanded != null)
     BRIEF_VIEW.expanded = Math.max(0, Math.min(BRIEF_VIEW.expanded, rec.items.length - 1));
   host.innerHTML = `
@@ -4900,12 +4907,12 @@ function renderBriefViewer(host, rec, client) {
       </div>
     </div>
     <p class="bp-msg cb-msg" id="bv-send-msg" role="status" aria-live="polite"></p>
-    <div id="cb-send-wrap">${cbSendPanelHtml("brief", rec.id)}${cbSentListHtml("brief", rec.id)}</div>
+    <div id="cb-send-wrap">${cbSendPanelHtml("brief", rec.id)}${cbSentListHtml("brief", rec.id, sendDoc)}</div>
     ${bfSectionHtml("brief", rec.id)}
 
     ${briefScriptsHtml(rec, client)}`;
 
-  cbBindSend(host, "brief", rec.id, () => briefSendDoc(rec, client),
+  cbBindSend(host, "brief", rec.id, sendDoc,
     () => { if (BRIEF_VIEW?.id === rec.id) renderBriefsKeepScroll(); }, "bv-send-msg");
   if (ROSTER === null && !ROSTER_ERR) rostLoad();
   agEnsureSent("brief", rec.id, () => { if (BRIEF_VIEW?.id === rec.id) renderBriefsKeepScroll(); });
@@ -5906,9 +5913,15 @@ function bindRoster(host) {
     f.source (transcript, shots, tags, cover, clip), every other
     brand_context key, and anything at all off lynxr_videos or the client's
     posts / blueprints / avatar. */
-function agencySendDoc(campaign, formats, client) {
+function agencySendDoc(campaign, formats, client, prev) {
   const bc = campaign.brand_context || {};
-  const done = formats.filter((f) => f.status === "done");
+  /* `prev` is the doc creators already have (absent on a first send). A format still in this
+     campaign but not ready right now — regenerating, re-queued after "Replace link", or a retry that
+     failed — keeps the version creators already have instead of vanishing from their brief. prev's
+     formats were built by this same function, so the allowlist below still holds for them. A format
+     staff DELETED is not in `formats` at all, so it does leave. Order stays the campaign's. */
+  const had = new Map((prev?.formats || []).filter((x) => x && x.id).map((x) => [x.id, x]));
+  const done = formats.filter((f) => f.status === "done" || had.has(f.id));
   return {
     v: 1,
     client: {
@@ -5921,6 +5934,7 @@ function agencySendDoc(campaign, formats, client) {
     instructions: campaign.instructions || "",
     sent_at: new Date().toISOString(),
     formats: done.map((f) => {
+      if (f.status !== "done") return had.get(f.id);
       const v = cbView(f);
       return {
         id: f.id,
@@ -6031,9 +6045,10 @@ async function agSentFor(sourceKind, sourceId) {
   // may resolve in either order, so baking the lookup in at fetch time could
   // freeze in a blank email if ROSTER lands second. cbSentListHtml resolves
   // the address at PAINT time instead, off whatever ROSTER holds then.
+  // `doc` is the snapshot creators have: the Sent to list compares it with this page, and Update/Send carry in-progress formats over from it.
   return sbFetch(`/rest/v1/lynxr_agency_briefs?source_kind=eq.${encodeURIComponent(sourceKind)}`
     + `&source_id=eq.${encodeURIComponent(String(sourceId))}`
-    + `&select=id,created_at,lynxr_agency_deliveries(creator_id,sent_at,revoked_at)`);
+    + `&select=id,created_at,doc,lynxr_agency_deliveries(creator_id,sent_at,revoked_at)`);
 }
 
 const agUnsend = (briefId, creatorId) => sbFetch(
@@ -6043,6 +6058,64 @@ const agUnsend = (briefId, creatorId) => sbFetch(
 const agUnsendAll = (briefId) => sbFetch(
   `/rest/v1/lynxr_agency_deliveries?brief_id=eq.${encodeURIComponent(briefId)}&revoked_at=is.null`,
   { method: "PATCH", body: JSON.stringify({ revoked_at: new Date().toISOString() }) });
+
+// ---- Updating a brief that was already sent (owner, 2026-09-23: "allow the agency side the edit
+// the scripts and briefs, dont allow the creators to"). A sent brief is a SNAPSHOT
+// (lynxr_agency_briefs.doc) that my_agency_brief() hands a creator on every open, so rewriting that
+// one column is the whole mechanism: no delivery row changes, nobody unsent is sent it again. ----
+
+/** A doc as one comparable string. Keys are sorted at every level because the stored copy comes
+    back from a jsonb column, which does not keep the order agencySendDoc/briefSendDoc wrote them
+    in — a plain JSON.stringify would call every sent brief "edited". Keys holding undefined are
+    skipped, as JSON drops them on the way in. */
+function agDocCanon(v) {
+  if (Array.isArray(v)) return `[${v.map(agDocCanon).join(",")}]`;
+  if (v && typeof v === "object") {
+    return `{${Object.keys(v).filter((k) => v[k] !== undefined).sort()
+      .map((k) => `${JSON.stringify(k)}:${agDocCanon(v[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v ?? null);
+}
+/** Everything a creator can read, minus the two stamps ABOUT the doc (sent_at, updated_at). Two
+    docs with the same sig are the same version. "" for no doc. */
+function agDocSig(doc) {
+  if (!doc) return "";
+  const { sent_at: _sent, updated_at: _updated, ...rest } = doc;
+  return agDocCanon(rest);
+}
+/** The stamps a creator's copy carries. First send (no prev): the doc as built. Any later write
+    over an existing snapshot (Update, or Send again): sent_at stays the original, and updated_at
+    moves only when something a creator can read actually changed — so "Updated <date>" on their
+    brief page (creator.js renderLynxBrief) never marks a re-send that changed nothing. */
+function agStampDoc(doc, prev) {
+  if (!doc) return null;
+  if (!prev) return doc;
+  const out = { ...doc, sent_at: prev.sent_at || doc.sent_at };
+  delete out.updated_at;
+  if (agDocSig(out) !== agDocSig(prev)) out.updated_at = new Date().toISOString();
+  else if (prev.updated_at) out.updated_at = prev.updated_at;
+  return out;
+}
+/** Rewrite one sent brief's snapshot in place. Only this lynxr_agency_briefs row changes — the
+    delivery rows are not touched, so every sent_at and every unsend stays as it was.
+    select=id with return=representation turns a write that matched no row (the brief was deleted,
+    or RLS refused it without an error) into a thrown error instead of a false "Updated". */
+async function agUpdateSent(briefId, doc) {
+  const rows = await sbFetch(`/rest/v1/lynxr_agency_briefs?id=eq.${encodeURIComponent(briefId)}&select=id`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ client_name: doc.client?.name || "", title: doc.title || "", doc }),
+  });
+  if (!Array.isArray(rows) || !rows.length) throw new Error("0 no sent brief was updated");
+}
+/** agSendErrorSentence's shape for Update: its "denied" sentence is about an unaccepted invite,
+    which cannot be the reason an update of an existing snapshot is refused. */
+function agUpdateErrorSentence(ex) {
+  const kind = cbError(ex);
+  if (kind === "missing") return "Sending isn't installed yet — run supabase/agency_roster.sql in the Supabase SQL editor.";
+  if (kind === "denied") return "This account can't update sent briefs.";
+  return "Couldn't update — check the connection and try again.";
+}
 
 /** Same shape as cbErrorSentence, plus the one error specific to sending: a
     403 on the deliveries insert means the target rostered address is not
@@ -6094,8 +6167,8 @@ function cbSendPanelHtml(sourceKind, sourceId) {
     .flatMap((b) => (b.lynxr_agency_deliveries || []).filter((d) => !d.revoked_at).map((d) => d.creator_id)));
   return `<div class="section cb-send-panel">
     <h3>Send this brief to</h3>
-    <p class="note">They get a copy of this brief as it is now. Editing it here afterwards does not
-      change what they see — send it again to update them.</p>
+    <p class="note">They get this brief as it is now. If you edit it later, press Update under Sent to
+      and they get the new version.</p>
     <div class="rost-picker">
       ${accepted.map((r) => `<label class="rost-pick-row">
         <input type="checkbox" class="cb-send-pick" value="${escapeHtml(r.creator_id)}"${already.has(r.creator_id) ? " checked" : ""}>
@@ -6115,7 +6188,7 @@ function cbSendPanelHtml(sourceKind, sourceId) {
     not the send panel itself is open. Shows nothing about whether a creator
     opened or copied a brief — there is no such data, and there must not be
     (decision 7). */
-function cbSentListHtml(sourceKind, sourceId) {
+function cbSentListHtml(sourceKind, sourceId, getDoc) {
   const entry = AG_SENT.get(agSentKey(sourceKind, sourceId));
   if (!entry || entry.error || !entry.rows.length) return "";
   const byId = new Map((ROSTER || []).map((r) => [r.creator_id, r.email]));
@@ -6124,10 +6197,28 @@ function cbSentListHtml(sourceKind, sourceId) {
   if (!deliveries.length) return "";
   deliveries.sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at));
   const anyLive = deliveries.some((d) => !d.revoked_at);
+  /* UPDATE WHAT THEY SEE. `stale` compares this page with the snapshot WHEN THIS LIST IS DRAWN. An
+     in-place edit made after that does not flip it until the next draw, so the note only ever says
+     "older" when that was true at draw time; the button is offered either way and says so when
+     nothing changed. getDoc is the caller's sendDoc (renderCampaignView / renderBriefViewer). */
+  const liveRow = entry.rows.find((b) => (b.lynxr_agency_deliveries || []).some((d) => !d.revoked_at)) || null;
+  const liveN = liveRow ? liveRow.lynxr_agency_deliveries.filter((d) => !d.revoked_at).length : 0;
+  let stale = false;
+  if (liveRow?.doc && getDoc) {
+    try { stale = agDocSig(getDoc(liveRow.doc)) !== agDocSig(liveRow.doc); } catch { stale = false; }
+  }
+  const theirs = liveRow
+    ? String(liveRow.doc?.updated_at || liveRow.doc?.sent_at || liveRow.created_at || "").slice(0, 10) : "";
   return `<div class="section cb-sent-section">
     <div class="sec-head"><h3>Sent to</h3>
       ${anyLive ? `<button type="button" class="ghost danger cb-unsend-all" data-brief="${escapeHtml(deliveries[0].briefId)}">Unsend for everyone</button>` : ""}
     </div>
+    ${liveRow ? `<p class="note cb-push-note">${stale
+        ? "Edited since they got it — they still see the older version."
+        : "Edits here reach them when you press Update."}${theirs ? ` Their version is from ${escapeHtml(theirs)}.` : ""}</p>
+      <div class="bp-actions cb-push-row">
+        <button type="button" class="${stale ? "btn" : "ghost"} cb-push" data-brief="${escapeHtml(liveRow.id)}">Update for ${cbPlural(liveN, "creator", "creators")}</button>
+      </div>` : ""}
     ${anyLive ? `<p class="note">Unsending removes it from their app. Anything they already copied into their own library stays theirs.</p>` : ""}
     <div class="cb-sent-list">
       ${deliveries.map((d) => `<article class="bcard cb-sent-row">
@@ -6174,9 +6265,12 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
   document.getElementById("cb-send-go")?.addEventListener("click", async (e) => {
     const creatorIds = [...host.querySelectorAll(".cb-send-pick:checked")].map((c) => c.value);
     if (!creatorIds.length) return;
-    const doc = getDoc();
+    // Sending again over an existing snapshot is an update too: keep in-progress formats
+    // (agencySendDoc's prev), keep the first sent_at, move updated_at only if something changed.
+    const prevRow = AG_SENT.get(key)?.rows?.[0] || null;
+    const doc = agStampDoc(getDoc(prevRow?.doc || null), prevRow?.doc || null);
     if (!doc) return;
-    const existing = AG_SENT.get(key)?.rows?.[0]?.id;
+    const existing = prevRow?.id;
     e.currentTarget.disabled = true;
     try {
       await agSend(doc, sourceKind, sourceId, creatorIds, existing);
@@ -6201,6 +6295,36 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
       }
     });
   });
+  /* UPDATE (owner, 2026-09-23): rewrite the snapshot creators read with this page's version
+     (agUpdateSent). Delivery rows are not touched: nobody unsent gets it back, every sent_at stays.
+     A press with nothing changed writes nothing and says so. Not armed — nothing is lost that is not
+     still on this page. The button is drawn by cbSentListHtml. */
+  host.querySelectorAll(".cb-push").forEach((btn) => btn.addEventListener("click", async () => {
+    const row = (AG_SENT.get(key)?.rows || []).find((b) => b.id === btn.dataset.brief);
+    if (!row) return;
+    const prev = row.doc || null;
+    const doc = agStampDoc(getDoc(prev), prev);
+    if (!doc) return;
+    if (!Array.isArray(doc.formats) || !doc.formats.length) {
+      cbMsg(msgEl(), "No format is ready to send — wait for one to finish, or unsend it instead.", "bad", true);
+      return;
+    }
+    if (prev && agDocSig(doc) === agDocSig(prev)) {
+      cbMsg(msgEl(), "They already have this version.", "good");
+      return;
+    }
+    const live = (row.lynxr_agency_deliveries || []).filter((d) => !d.revoked_at).length;
+    btn.disabled = true;
+    try {
+      await agUpdateSent(row.id, doc);
+      await agEnsureSent(sourceKind, sourceId, null, true);
+      repaint();
+      cbMsg(msgEl(), `Updated — ${cbPlural(live, "creator sees", "creators see")} it next time they open the brief.`, "good");
+    } catch (ex) {
+      btn.disabled = false;
+      cbMsg(msgEl(), agUpdateErrorSentence(ex), "bad", true);
+    }
+  }));
   host.querySelectorAll(".cb-unsend-all").forEach((btn) => {
     armDelete(btn, "Unsend for everyone", async () => {
       try {
@@ -7369,7 +7493,7 @@ function cbDetailHtml(f) {
       ${f.internal_note ? `<div class="cb-sec"><div class="bp-heading">Internal note</div><p>${escapeHtml(f.internal_note)}</p></div>` : ""}
       ${why.length ? `<div class="cb-sec"><div class="bp-heading">Why the original works</div>${why.map((w) => `<p>${escapeHtml(w)}</p>`).join("")}</div>` : ""}
     </div>` : "";
-  // Hook, CTA and caption edit in place too, into edited.hook / .cta / .caption (cbBindCard).
+  // Hook, CTA, caption, the four setup values and the creator note edit in place too, into edited.<field> (cbBindCard's writeTop saves any field it is handed). Needs and the title stay pencil-only.
   const top = { ag: "cb", id: f.id };
   // AGENCY SCRIPT LOOK (2026-09-15): the creator's hook card, beat cards and split.
   return `<div class="ref-split cb-split">
@@ -7377,11 +7501,11 @@ function cbDetailHtml(f) {
       ${v.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>${agTopHtml(v.hook, "hook", top, { quoted: true })}</div>` : ""}
       ${sec("Needs", needs.length ? `<ul class="cb-needs">${needs.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : "")}
       ${sec("Setup", setup.length ? `<div class="cb-setup">${setup.map(([l, x]) =>
-        `<div class="cb-setup-row"><span class="cb-setup-lbl">${l}</span><span class="cb-setup-val">${escapeHtml(x)}</span></div>`).join("")}</div>` : "")}
+        `<div class="cb-setup-row"><span class="cb-setup-lbl">${l}</span><span class="cb-setup-val">${agTopHtml(x, l, top)}</span></div>`).join("")}</div>` : "")}
       ${sec("Script", agBeatsHtml(beats, timed))}
       ${sec("CTA", v.cta ? `<p class="cb-note">${agTopHtml(v.cta, "cta", top, { quoted: true })}</p>` : "")}
       ${sec("Post caption", v.caption ? `<p class="cb-note">${agTopHtml(v.caption, "caption", top)}</p>` : "")}
-      ${sec("Creator note", v.creator_note ? `<p class="cb-note">${escapeHtml(v.creator_note)}</p>` : "")}
+      ${sec("Creator note", v.creator_note ? `<p class="cb-note">${agTopHtml(v.creator_note, "creator_note", top, { label: "creator note", multiline: true, cls: "ag-caption" })}</p>` : "")}
       ${internal}
     </div>
     <details class="bp-item ref-panel ag-original" open>
@@ -7636,6 +7760,13 @@ function renderCampaignView(host, client, id) {
   const { campaign } = rec;
   const formats = cbSorted(rec);
   const fe = CB_FIELD_EDIT && CB_FIELD_EDIT.id === id ? CB_FIELD_EDIT.field : null;
+  /* THE CAMPAIGN AS IT IS NOW. Read from CB_CACHE on every call, not from this render's `rec`, so an
+     in-place edit made since the page drew is in what gets sent. `prev` is the doc creators already
+     have (agencySendDoc keeps their version of a format that is mid-regeneration). */
+  const sendDoc = (prev) => {
+    const r = CB_CACHE.get(id) || rec;
+    return agencySendDoc(r.campaign, cbSorted(r), client, prev);
+  };
   const name = campaign.name || "Untitled campaign";
   host.innerHTML = `
     ${cbCrumbsHtml(client, name)}
@@ -7656,7 +7787,7 @@ function renderCampaignView(host, client, id) {
     </div>
     <p class="note cb-notready" id="cb-notready" hidden></p>
     <p class="bp-msg cb-msg" id="cb-view-msg" role="status" aria-live="polite"></p>
-    <div id="cb-send-wrap">${cbSendPanelHtml("campaign", id)}${cbSentListHtml("campaign", id)}</div>
+    <div id="cb-send-wrap">${cbSendPanelHtml("campaign", id)}${cbSentListHtml("campaign", id, sendDoc)}</div>
     <div class="cb-progress">
       <div class="cb-progress-line" id="cb-progress-text" role="status" aria-live="polite"></div>
       <div class="cb-bar" aria-hidden="true"><div class="cb-bar-fill" id="cb-bar-fill"></div></div>
@@ -7674,7 +7805,7 @@ function renderCampaignView(host, client, id) {
   cbBindCrumbs();
   host.querySelectorAll(".cb-format").forEach((card) => cbBindCard(card, id));
   cbBindView(host, client, id);
-  cbBindSend(host, "campaign", id, () => agencySendDoc(rec.campaign, cbSorted(rec), client),
+  cbBindSend(host, "campaign", id, sendDoc,
     () => { if (CAMPAIGN_VIEW?.id === id) renderBriefsKeepScroll(); });
   cbWireGrow(host);
   cbPaintSummary(id);

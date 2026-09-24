@@ -4937,10 +4937,21 @@ function renderLynxBrief(head, body) {
     doc.instructions ? `<p class="bp-hint"><strong>Instructions:</strong> ${escapeHtml(doc.instructions)}</p>` : "",
   ].filter(Boolean).join("");
 
+  /* UPDATED BY THE AGENCY (owner, 2026-09-23: "allow the agency side the edit the scripts and
+     briefs"). Staff can now rewrite a brief they already sent (app.js agStampDoc / agUpdateSent), and
+     the doc says when in updated_at — set only when something readable changed. Said once, under the
+     title. A script this creator already added from this brief lives in their own library, which the
+     agency cannot write, so it did NOT change: say that too, only when there is one. */
+  const updatedOn = /^\d{4}-\d{2}-\d{2}/.test(String(doc.updated_at || "")) ? String(doc.updated_at).slice(0, 10) : "";
+  const hasCopy = (ME.adaptations || []).some((a) => a.fromAgency?.briefId === id);
+  const updated = updatedOn
+    ? `<p class="bp-hint lynx-updated">Updated ${escapeHtml(updatedOn)}.${hasCopy ? " Scripts already in your library keep the version you added." : ""}</p>`
+    : "";
   const formats = Array.isArray(doc.formats) ? doc.formats : [];
   body.innerHTML = `
     <div class="section lynx-brief-head">
       <div class="bcard-title">${escapeHtml(doc.title || "Brief")}</div>
+      ${updated}
       ${top}
     </div>
     ${lynxFilesHtml(VIEW._files)}

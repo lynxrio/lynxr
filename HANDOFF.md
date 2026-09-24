@@ -88,8 +88,19 @@ and not yet on lynxr.io.**
 included — is LIVE.** Do one real-browser pass on the live site before calling it done: the hero intro, a paste, the
 sign-up card's Google hand-off, and the stage picker on /how-it-works/.
 
-**Uncommitted since `9a72c1a` (2026-09-23, night) — stamp now `202609232k` on 26 pages + `404.html`
+**Uncommitted since `9a72c1a` (2026-09-23, night) — stamp now `202609232m` on 26 pages + `404.html`
 (`check_stamp.py` → `ok`). Direct edits before the roster-invite plan below:**
+- **Landing `#pricing` cards now take the Plan tab's layout (2026-09-23; owner: "make it look like the options in
+  the plan tab", a friend on the phone view: "too much white space").** `index.html` #pricing: each card's mark,
+  name and tagline sit in ONE head row — the Plan view's own `.lp-plan-head` (its two rules in `app.css` are now a
+  selector list `.pane-body …, body.home …`, so the Plan view's specificity is unchanged) with a new `.lp-plan-id`
+  holding name over tagline; mark 40px like the Plan view's. Then price, tax line, CTA (no extra top margin), the
+  commitment line 6px under it, a hairline with 18px either side, and the Plan view's 6px-dot list (the landing's
+  tick override is gone). The landing-only block in `app.css` is "THE PLAN CARD, PLAN-VIEW LAYOUT". Measured with
+  device emulation at 390px: free card **515px → 408px**, pro 623 → 517, max 509 → 406; at 1280px all three are
+  534px with the three actions level (y equal). The Plan view, re-measured with its markup injected into a
+  `.pane-body`, is identical to the pixel before and after. Only `index.html` renders these cards (`/pricing/` is
+  prose). The live avatars still animate on the landing (the Plan view stills them) — left as it was.
 - **No "leave the roster" control in the creator app** (owner: "dont even add this as an option"). `renderLynx`'s
   accepted state in `creator.js` lost the button, its note and the `armDelete` handler; `leaveAgency()` is gone. The
   `leave_agency()` RPC in `supabase/agency_roster.sql` still exists, nothing calls it. Not seen live (needs a
@@ -107,12 +118,29 @@ sign-up card's Google hand-off, and the stage picker on /how-it-works/.
   the N ready formats"). `app.css`: the `#cb-print` / `@page cb-brief` / `@media print` block and both
   `.cb-pdf-btn` rules. `campaignDocHtml` / `campaignDocText` and the `.cb-doc` rules are now UNREFERENCED and can be
   deleted in a later pass. Not seen signed in; `node --check` passes.
-- **The inline-video plan (`~/.claude/plans/creator-brief-inline-video.md`) has LANDED** — see the "AGENCY BRIEFS
-  PLAY THE ORIGINAL IN PLACE" paragraph above. Three more plans await the owner's go-ahead, to be executed ONE AT A
-  TIME (all touch creator.js / app.js / app.css): `~/.claude/plans/roster-invite-by-email.md` (invite by email only,
-  no join code, popup on the creator's next load; needs its SQL run first), `~/.claude/plans/agency-edit-briefs.md`
-  (staff edit scripts and briefs, creators stay read-only) and `~/.claude/plans/brief-file-attachments.md` (staff
-  attach brand logos/files to a brief, creators download them; a storage bucket + SQL).
+- **Tab title is now "lynxr — your content creation buddy"** (owner, 2026-09-23: "have this say your content creation
+  buddy"), replacing "any video becomes tailored scripts" in `index.html`'s `<title>` and in the WebPage JSON-LD
+  `name` (both parse). HTML is not stamped — hard reload. Other pages' titles untouched.
+- **Plans that LANDED today, in order** (each has its own paragraph above or bullet here): inline video
+  (`~/.claude/plans/creator-brief-inline-video.md`), invite by email (`roster-invite-by-email.md`, SQL applied),
+  brief file attachments (`brief-file-attachments.md`, SQL applied), agency edits reach sent briefs
+  (`agency-edit-briefs.md`, O1–O4 NOT done: library copies stay editable). **Two plans are being written**
+  (2026-09-23 evening): `~/.claude/plans/brand-from-link.md` (does add-brand-by-link work; manual questions shown
+  while it resolves) and `~/.claude/plans/script-accuracy.md` (creator-side generation audit + fixes). Executors run
+  ONE AT A TIME; all of this touches creator.js / app.js / app.css.
+- **Agency edits reach creators through an Update button; creators still can't edit a brief** (owner:
+  "allow the agency side the edit the scripts and briefs, dont allow the creators to"). Plan
+  `~/.claude/plans/agency-edit-briefs.md`. Staff could already edit nearly every campaign field (pencil +
+  click-to-edit hook/beats/CTA/caption; setup values and the creator note are now click-to-edit too) and
+  legacy-brief hook/beats/CTA — but a SENT brief is a snapshot (`lynxr_agency_briefs.doc`) that edits never
+  reached. "Sent to" now has **Update for N creators** (`agUpdateSent`: PATCHes the doc only — delivery
+  rows, unsends and sent_at untouched) and says when the page is newer than what creators have
+  (`agDocSig`, computed when the view draws). A format mid-regeneration keeps its sent version
+  (`agencySendDoc`'s new `prev`). The creator's brief page says "Updated <date>." (`doc.updated_at`,
+  stamped by `agStampDoc` only when something readable changed). Also fixed: re-sending a legacy brief
+  after an in-place edit sent the pre-edit script. Library copies a creator already made do not change.
+  No SQL. Stamp `202609232m`. Not seen live — needs a staff and a roster sign-in; the
+  harnesses (stubbed network, real CSP) pass.
 
 **The landing (`index.html`, `home.js`, `avatar.js`, `app.css` under `body.home`).** Three sections: hero → pricing →
 closing CTA, then the footer. The stage picker is GONE from here.
