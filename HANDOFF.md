@@ -81,67 +81,28 @@ after, on desktop and phone, with the TikTok player playing on click and destroy
 violations, and the screenshots opened and matched the expected layout. **Not yet seen signed in on a real brief,
 and not yet on lynxr.io.**
 
-**Where the tree is.** Everything below is COMMITTED — the owner committed the whole batch as `9a72c1a` (2026-09-23
-13:23, message "a"), including `picker.js` (tracked now). Stamp **`202609232e`** on 26 pages + `404.html`
-(`./venv/bin/python tools/check_stamp.py` → `ok`). The only uncommitted file after that commit is this one.
-**lynxr.io is serving `202609232e` (checked with curl at the time of writing), so all of it — the `#nav-lynx` fix
-included — is LIVE.** Do one real-browser pass on the live site before calling it done: the hero intro, a paste, the
-sign-up card's Google hand-off, and the stage picker on /how-it-works/.
-
-**Uncommitted since `9a72c1a` (2026-09-23, night) — stamp now `202609232m` on 26 pages + `404.html`
-(`check_stamp.py` → `ok`). Direct edits before the roster-invite plan below:**
-- **Landing `#pricing` cards now take the Plan tab's layout (2026-09-23; owner: "make it look like the options in
-  the plan tab", a friend on the phone view: "too much white space").** `index.html` #pricing: each card's mark,
-  name and tagline sit in ONE head row — the Plan view's own `.lp-plan-head` (its two rules in `app.css` are now a
-  selector list `.pane-body …, body.home …`, so the Plan view's specificity is unchanged) with a new `.lp-plan-id`
-  holding name over tagline; mark 40px like the Plan view's. Then price, tax line, CTA (no extra top margin), the
-  commitment line 6px under it, a hairline with 18px either side, and the Plan view's 6px-dot list (the landing's
-  tick override is gone). The landing-only block in `app.css` is "THE PLAN CARD, PLAN-VIEW LAYOUT". Measured with
-  device emulation at 390px: free card **515px → 408px**, pro 623 → 517, max 509 → 406; at 1280px all three are
-  534px with the three actions level (y equal). The Plan view, re-measured with its markup injected into a
-  `.pane-body`, is identical to the pixel before and after. Only `index.html` renders these cards (`/pricing/` is
-  prose). The live avatars still animate on the landing (the Plan view stills them) — left as it was.
-- **No "leave the roster" control in the creator app** (owner: "dont even add this as an option"). `renderLynx`'s
-  accepted state in `creator.js` lost the button, its note and the `armDelete` handler; `leaveAgency()` is gone. The
-  `leave_agency()` RPC in `supabase/agency_roster.sql` still exists, nothing calls it. Not seen live (needs a
-  signed-in roster creator) — `node --check` passes, no dangling references.
-- **Agency header lockup, third pass: LOGOS ONLY** (owner, in order: "have lynxr be the main logo, and then have lynx
-  media group be under it" → "just the logo no words and add a vertical line between it" → "im just talking about
-  the layout, no actual logo changes"). One row: the lynxr mark (`#home-mark`, still the back-to-clients button), a
-  1px hairline in `--line` (the anchor's `::before`), then their mark (`.ag-brand`, still the link out). No words at
-  any width; the names live in the two aria-labels. Same artwork as before. `agencyonly/index.html` + the lockup
-  block in `app.css` (`.ag-home` / `.ag-brand::before`). Verified painted at desktop (30/26px marks, 24px line,
-  34px row in the 52px bar) and at 700px (24/20px, 20px line, no horizontal overflow).
-- **"Copy brief" and "Download PDF" are gone from the campaign brief view** (owner, 2026-09-23: "remove this" →
-  both). `app.js`: the two buttons, their bindings, `cbCopyBrief` / `cbPdfTitle` / `cbSavePdf`; the not-ready note
-  under the head now talks about sending ("Send to creators unlocks once a format is ready" / "A send carries only
-  the N ready formats"). `app.css`: the `#cb-print` / `@page cb-brief` / `@media print` block and both
-  `.cb-pdf-btn` rules. `campaignDocHtml` / `campaignDocText` and the `.cb-doc` rules are now UNREFERENCED and can be
-  deleted in a later pass. Not seen signed in; `node --check` passes.
-- **Tab title is now "lynxr — your content creation buddy"** (owner, 2026-09-23: "have this say your content creation
-  buddy"), replacing "any video becomes tailored scripts" in `index.html`'s `<title>` and in the WebPage JSON-LD
-  `name` (both parse). HTML is not stamped — hard reload. Other pages' titles untouched.
-- **Plans that LANDED today, in order** (each has its own paragraph above or bullet here): inline video
-  (`~/.claude/plans/creator-brief-inline-video.md`), invite by email (`roster-invite-by-email.md`, SQL applied),
-  brief file attachments (`brief-file-attachments.md`, SQL applied), agency edits reach sent briefs
-  (`agency-edit-briefs.md`, O1–O4 NOT done: library copies stay editable). **Two plans are being written**
-  (2026-09-23 evening): `~/.claude/plans/brand-from-link.md` (does add-brand-by-link work; manual questions shown
-  while it resolves) and `~/.claude/plans/script-accuracy.md` (creator-side generation audit + fixes). Executors run
-  ONE AT A TIME; all of this touches creator.js / app.js / app.css.
-- **Agency edits reach creators through an Update button; creators still can't edit a brief** (owner:
-  "allow the agency side the edit the scripts and briefs, dont allow the creators to"). Plan
-  `~/.claude/plans/agency-edit-briefs.md`. Staff could already edit nearly every campaign field (pencil +
-  click-to-edit hook/beats/CTA/caption; setup values and the creator note are now click-to-edit too) and
-  legacy-brief hook/beats/CTA — but a SENT brief is a snapshot (`lynxr_agency_briefs.doc`) that edits never
-  reached. "Sent to" now has **Update for N creators** (`agUpdateSent`: PATCHes the doc only — delivery
-  rows, unsends and sent_at untouched) and says when the page is newer than what creators have
-  (`agDocSig`, computed when the view draws). A format mid-regeneration keeps its sent version
-  (`agencySendDoc`'s new `prev`). The creator's brief page says "Updated <date>." (`doc.updated_at`,
-  stamped by `agStampDoc` only when something readable changed). Also fixed: re-sending a legacy brief
-  after an in-place edit sent the pre-edit script. Library copies a creator already made do not change.
-  No SQL. Stamp `202609232m`. Not seen live — needs a staff and a roster sign-in; the
-  harnesses (stubbed network, real CSP) pass.
-
+**Where the tree is (re-checked 2026-09-24, ~00:40).** `HEAD` is `46cddae` (owner, 2026-09-23 20:42, "a") — a
+34-file commit that also carried another session's Supabase work (`brief_files.sql`, `roster_invite_by_email.sql`).
+**That commit DROPPED the landing's plan-card CSS block** ("THE PLAN CARD, REFERENCE LAYOUT": icon size, tagline,
+full-width action, the rule, the "plus" header, the check-mark bullets) while keeping the new card MARKUP — so the
+live site served the new cards with the old round bullets, no card styling and no pro outline. The owner's iPhone
+screenshot caught it; Safari on the Mac reproduced it with the same stylesheet, so it was never a WebKit
+difference. `git log -S` shows the block added in `9a72c1a` (13:23) and removed in `46cddae` (20:42) — two
+sessions committing into one working copy (and the repo lives in iCloud, see memory) is the likely mechanism.
+**RESTORED on 2026-09-24 in the working tree; stamp now `202609232s`** (the owner's later commits had already taken
+it to `m`; several bumps followed while iterating). UNCOMMITTED: `app.css`, `home.js`, `index.html`, the 26 stamped
+pages, `404.html`, this file.
+**And a real WebKit bug, fixed the same night:** the pro card's gradient ring (`.lp-plan-pro::before`, the masked-ring
+technique) never painted in Safari — iPhone or Mac — because the `-webkit-mask` shorthand carried `var(--mask-solid)`;
+with the var() form WebKit resolved a mask that hid the whole pseudo-element, Chromium was fine. All four ring rules
+that used that two-line form now use literal `linear-gradient(#000 0 0)` layers plus an unprefixed `mask:`; verified
+in Safari on the Mac (ring visible) and Chromium (unchanged). No `var(--mask-solid)` usage remains in a mask shorthand (the token itself still exists; only comments mention
+it) — if any masked element is ever missing on an iPhone, a `var()` inside `-webkit-mask` is the first suspect.
+Also true now, in every engine: the plan card's mark sits BESIDE the name (icon + name/tagline row), which is how the
+20:42 commit's surviving rules lay it out — not the stacked form of the 23rd, and not a bug.
+Everything else from the 23rd survived `46cddae` — checked marker by marker: footer/plan phone measure, white Google
+button, `#nav-lynx[hidden]`, learn-more pill, no hover grow, week strip, no `.rk`, no `hx-write`, the headline.
+**Do a real-phone check of /#pricing after the next deploy** — that is the surface that regressed.
 **The landing (`index.html`, `home.js`, `avatar.js`, `app.css` under `body.home`).** Three sections: hero → pricing →
 closing CTA, then the footer. The stage picker is GONE from here.
 - **Hero** (`section.hx`). Left column, centred: `h1#hx-buddy-h` **"what's next, creator?"** (one line at every desktop
@@ -151,16 +112,25 @@ closing CTA, then the footer. The stage picker is GONE from here.
   "already have one? sign in". The card does NO auth: every control opens the real `#gate` via `data-gate` ("up"/"in")
   and carries the typed email into `#email`; **the Google button ticks `#agree` and clicks the gate's `#oauth-google`**
   (owner: the card's consent line IS the agreement). Right column: ONE glass `.hx-panel` (`--gl-*`, identical to the
-  signed-in pane's `.me-card`): `coming soon` pill + "a coach that's all about you." + ink **"learn more →"** to
+  signed-in pane's `.me-card`): `coming soon` pill + **"a coach for every level."** (2026-09-24, owner: show it coaches all levels; replaced "a coach
+  that's all about you."; longer lines such as "a coach from first post to full-time." wrap to two lines on a 393px
+  phone, and "…to pro" collides with the pro plan name) + ink **"learn more →"** to
   `/how-it-works/coach/` / hairline / `live now` pill + "paste a link. get your script." + the LIVE composer
   (`form#lp-composer-form[data-hero]`, `#lp-composer-url` — creator.js wires it) / **the buddy avatar (`.hx-seam`) at
   rest in the panel's bottom band, right-aligned** (180px desktop, 96px phone). No kicker, no lede, no fine print, no
   "your coach · preview" label, no speech bubble — all removed by the owner. Phone: headline → subline → panel.
-- **Intro** (`home.js` `armHeroIntro`, beats ~1.8s): whistle in hand + `coaching` → panel and coach row rise in →
+- **Intro** (`home.js` `armHeroIntro`, snap at 2.0s): whistle in hand + `coaching` → panel and coach row rise in →
   pencil + `writing` → hairline and script row → props down, `idle`, `hx-anim` off. **Both props on the top-left arm
   `.lx-a0` at every width.** Plays on EVERY load (no session gate); skips under reduced motion and in a background
   tab; the composer is live from frame 0 and any touch of `.hx` snaps to the finished state; default CSS is the finished
   hero (no-JS safe); zero layout shift. The buddy does NOT move (a moving version was built and reverted).
+  **The two panel headlines TYPE OUT** (2026-09-24, owner: "make it more like typed out"): `armHeroIntro` splits each
+  `.hx-h2` into per-character `.hx-ch` spans (createElement, aria-label on the h2, spans aria-hidden, per-span delay via
+  CSSOM) — coach line .45–.80s, script line 1.30–1.62s — and a 2px caret (each span's `::after`, lit for its own slot)
+  walks behind the text. Each row's action waits for its line (learn more at .80s, composer at 1.62s), so the snap moved
+  1800 → 2000ms. **The keying is `1ms linear`, NOT `steps(1)`**: Chrome finishes a 1ms animation delayed past ~1s at
+  progress 0.9999…, which a step rounds to 0 — the whole script line stayed invisible while its caret walked (measured;
+  the coach line, under 1s, was fine). Verified by page-side sampling at 393 and frames at 1440/393.
 - **Pricing** (`#pricing`): three `.lp-plan` cards in the reference layout — live avatar mark (idle / writing /
   coaching) → name → tagline → price → note → full-width ink action → "no commitment · cancel any time" → rule →
   "everything in X, plus:" → checked list. Pro keeps its gradient outline. Numbers mirror `lynxr_billing_plans`

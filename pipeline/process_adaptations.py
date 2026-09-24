@@ -84,6 +84,12 @@ import envcfg  # the one place a secret or config value is read; see its docstri
 ROOT = Path(__file__).parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
 MODEL = "claude-opus-5"
+# Opus 5 thinks adaptively at effort "high" by default, and thinking counts
+# against max_tokens. 3000/4000 left a finished adapt call at 3,088 of 4,000
+# output tokens (lynxr_costs, 2026-09-11) and one format extraction with no
+# text block at all (2026-09-02). 16000 costs nothing unless used and stays
+# under the installed SDK's non-streaming limit (it raises above ~21,333).
+STRUCTURED_MAX_TOKENS = 16000
 # The creator path's tagger is declared HERE, not imported from
 # retag_with_audio, because that module's MODEL also drives the bulk
 # re-tag of the 9,016-row lynxr_videos corpus (Batch API, latency
@@ -108,6 +114,14 @@ TAG_EFFORT = envcfg.get("TAG_EFFORT", "low")
 # only on the failure path. Measured, not assumed: pipeline/test_ai_retry.py
 # counts the requests against a local socket.
 ANTHROPIC_MAX_RETRIES = int(envcfg.get("ANTHROPIC_MAX_RETRIES", "5"))
+# The SDK retries a timeout too (max_retries above), so one call's worst case
+# is ~6x120s; claim_heartbeat (45s) keeps the claim alive meanwhile. The point
+# is to cut a HUNG SOCKET at 2 minutes instead of the SDK's own default of 10.
+# One value for every call, not a smaller one for tags/format: 16000 max_tokens
+# (below) lengthens a legitimate adapt call, and a timeout tuned to the
+# shortest call would abort the longest one mid-answer. Closes HANDOFF's
+# "timeouts on every model call".
+ANTHROPIC_TIMEOUT_S = float(envcfg.get("ANTHROPIC_TIMEOUT_S", "120"))
 
 
 def anthropic_client(api_key, base_url=None):
@@ -116,7 +130,7 @@ def anthropic_client(api_key, base_url=None):
     point it at a local socket and count attempts instead of taking the docs'
     word for it."""
     import anthropic
-    kw = {"api_key": api_key, "max_retries": ANTHROPIC_MAX_RETRIES}
+    kw = {"api_key": api_key, "max_retries": ANTHROPIC_MAX_RETRIES, "timeout": ANTHROPIC_TIMEOUT_S}
     if base_url:
         kw["base_url"] = base_url
     return anthropic.Anthropic(**kw)
@@ -319,7 +333,7 @@ def delivery_mode_text(a):
             "The original is spoken to camera. Set delivery=\"spoken\".")
 
 
-def fused_format_and_adapt(aclient, a, brand, creator, max_tokens=6000):
+def fused_format_and_adapt(aclient, a, brand, creator, max_tokens=STRUCTURED_MAX_TOKENS):
     """One Opus call producing both the format and its adaptation for `brand`.
 
     Behind FUSE_FORMAT_ADAPT (default off — see the comment above). Only
@@ -1597,13 +1611,20 @@ def undouble(obj):
     return obj
 
 
-def structured(client, system, schema, content, max_tokens=3000):
+def structured(client, system, schema, content, max_tokens=STRUCTURED_MAX_TOKENS):
     msg = client.messages.create(
         model=MODEL, max_tokens=max_tokens,
         system=sys_block(system),
         output_config={"format": {"type": "json_schema", "schema": schema}},
         messages=[{"role": "user", "content": content}])
     note_usage(MODEL, msg)
+    stop = getattr(msg, "stop_reason", None)
+    if stop == "max_tokens":
+        # "malformed model response" keeps it on the transient retry schedule.
+        raise RuntimeError(f"malformed model response: stopped at max_tokens={max_tokens}")
+    if stop == "refusal":
+        # No transient needle in this text, so ai_failure_kind() files it as "content".
+        raise RuntimeError("the model declined to answer (stop_reason=refusal)")
     try:
         return undouble(json.loads(first_text(msg)))
     except Exception as e:  # noqa: BLE001
@@ -2561,7 +2582,7 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=Non
             # retry that usually works, versus handing someone an empty
             # script or making them wait out the six-hour cooldown.
             with stage(timings, "adapt"):
-                ad = structured(aclient, ADAPT_SYSTEM, ADAPT_SCHEMA, prompt, max_tokens=4000)
+                ad = structured(aclient, ADAPT_SYSTEM, ADAPT_SCHEMA, prompt)
                 if thin_script(ad, a.get("format")):
                     log.warning("  -> adaptation came back thin (%d beats against a %d-beat "
                                 "format); asking again", len(ad.get("beats") or []),
@@ -2573,8 +2594,7 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=Non
                         f"{len((a.get('format') or {}).get('beats') or [])}-beat format, "
                         "which is not a usable script. Write the full beat list: one beat "
                         "per beat of the format above, each with `say`, `do` and `show` "
-                        "filled in as the delivery requires.",
-                        max_tokens=4000)
+                        "filled in as the delivery requires.")
         if not (ad.get("beats") or []):
             raise RuntimeError("the model returned a script with no beats")
         a["adaptation"] = ad

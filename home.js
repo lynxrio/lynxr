@@ -315,8 +315,39 @@ const hxEnd = () => {
      The two other skips stay: reduced motion, and a tab that opened in the background. */
   HX.on = true;
   HX.t0 = performance.now();
+  /* TYPED OUT (owner, 2026-09-24: "for the loading animation, make it more like typed out"). The
+     panel's two headlines arrive one character at a time inside their row's own window — the
+     coach line over .45–.80s, the script line over 1.30–1.62s, while the buddy holds the pencil.
+     Done by splitting each h2 into per-character spans (createElement + textContent, never
+     innerHTML) that app.css fades in on a per-character delay: the FULL text is in the layout from
+     frame 0, only opacity moves, so the line wraps exactly as it will when finished and nothing
+     shifts. The h2 keeps its text for assistive tech via aria-label; the spans are aria-hidden.
+     Only done here, on the path that plays the intro — no JS, reduced motion and background tabs
+     never split anything. Snapping (hxEnd) removes .hx-anim and every span is simply text. */
+  const windows = [[".hx-row-coach .hx-h2", 0.45, 0.35], [".hx-row-script .hx-h2", 1.30, 0.32]];
+  for (const [selector, t0, span] of windows) {
+    const h2 = sec.querySelector(selector);
+    if (!h2 || h2.classList.contains("hx-type")) continue;
+    const text = h2.textContent;
+    h2.setAttribute("aria-label", text);
+    h2.textContent = "";
+    const chars = Array.from(text);
+    const dt = span / Math.max(1, chars.length);
+    chars.forEach((ch, i) => {
+      const el = document.createElement("span");
+      el.className = "hx-ch";
+      el.textContent = ch;
+      el.setAttribute("aria-hidden", "true");
+      const at = (t0 + i * dt).toFixed(3) + "s";
+      el.style.animationDelay = at;                       // this character keys in here
+      el.style.setProperty("--hx-d", at);                 // ...and its caret shows from here
+      el.style.setProperty("--hx-hold", (i === chars.length - 1 ? 0.3 : dt).toFixed(3) + "s");
+      h2.appendChild(el);
+    });
+    h2.classList.add("hx-type");
+  }
   sec.classList.add("hx-anim");
-  hxAt(1800, hxEnd);
+  hxAt(2000, hxEnd);   // 1800 before typing: each row's action now waits for its line, so the composer lands ~1.96s
   for (const ev of ["pointerdown", "focusin", "keydown", "paste"]) {
     sec.addEventListener(ev, hxEnd, { capture: true, passive: true });
   }

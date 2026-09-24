@@ -7738,7 +7738,12 @@
   body.home .lp-feat .lp-feat-ico::before {
     content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
     background: var(--logo-grad); pointer-events: none;
-    -webkit-mask: var(--mask-solid) content-box, var(--mask-solid);
+    /* Literal gradients, not var(--mask-solid): Safari (the owner's iPhone, 2026-09-24, and Safari on
+       the Mac) painted NO ring with the var() form — the shorthand resolved to a mask that hid the
+       whole pseudo-element — while Chromium was fine. Both composites stay: the prefixed one is what
+       Blink/WebKit read, the standard one is what Gecko reads. */
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude;
   }
   body.home .lp-feat .lp-h3 { min-height: 0; display: block; margin: 0 0 6px; }
@@ -7889,7 +7894,12 @@
   body.agency :is(#app, #modal) .bp-beats.bp-notime > .bp-beat::before {
     content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
     background: var(--logo-grad); pointer-events: none;
-    -webkit-mask: var(--mask-solid) content-box, var(--mask-solid);
+    /* Literal gradients, not var(--mask-solid): Safari (the owner's iPhone, 2026-09-24, and Safari on
+       the Mac) painted NO ring with the var() form — the shorthand resolved to a mask that hid the
+       whole pseudo-element — while Chromium was fine. Both composites stay: the prefixed one is what
+       Blink/WebKit read, the standard one is what Gecko reads. */
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude;
   }
 
@@ -8882,7 +8892,12 @@
   body.agency :is(#app, #modal) .bp-beats.bp-orig > .bp-beat::before {
     content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
     background: var(--logo-grad); pointer-events: none;
-    -webkit-mask: var(--mask-solid) content-box, var(--mask-solid);
+    /* Literal gradients, not var(--mask-solid): Safari (the owner's iPhone, 2026-09-24, and Safari on
+       the Mac) painted NO ring with the var() form — the shorthand resolved to a mask that hid the
+       whole pseudo-element — while Chromium was fine. Both composites stay: the prefixed one is what
+       Blink/WebKit read, the standard one is what Gecko reads. */
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude;
     opacity: 0; transition: opacity .25s ease;
   }
@@ -10156,7 +10171,12 @@
   :is(body.home, .pane-body) .lp-plan-pro::before {
     content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 2px;
     background: var(--logo-grad); pointer-events: none;
-    -webkit-mask: var(--mask-solid) content-box, var(--mask-solid);
+    /* Literal gradients, not var(--mask-solid): Safari (the owner's iPhone, 2026-09-24, and Safari on
+       the Mac) painted NO ring with the var() form — the shorthand resolved to a mask that hid the
+       whole pseudo-element — while Chromium was fine. Both composites stay: the prefixed one is what
+       Blink/WebKit read, the standard one is what Gecko reads. */
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude;
   }
   :is(body.home, .pane-body) .lp-plan-chip {
@@ -10181,6 +10201,31 @@
      edge; .lp-in gives this section 10px, so the list takes the other 10px itself. Measured before:
      panel x=20 w=353, cards x=10 w=373 at 393px. */
   @media (max-width: 640px) { body.home .lp-plans { padding-inline: 10px; box-sizing: border-box; } }
+  /* THE PLAN CARD, REFERENCE LAYOUT (owner, 2026-09-23). Mark, name, tagline, price, note, a full-width
+     action, the commitment line, a rule, then the checked list. The lynxr mark is a live avatar
+     ([data-lx-mood], avatar.js renders it) in a different mood per plan: idle / writing / coaching.
+     RESTORED 2026-09-24: this block was written on the 23rd, verified in Chromium, and then vanished
+     from the tree between the owner's commits (never in any commit: `git log -S` finds nothing) —
+     the markup it styles survived, so the live site shipped the new cards with the OLD list bullets
+     and no card styling. The owner's iPhone screenshot is what caught it. */
+  body.home .lp-plan { display: flex; flex-direction: column; }
+  body.home .lp-plan-ico { display: block; width: 36px; height: 36px; margin-bottom: 14px; }
+  body.home .lp-plan-ico .lx { display: block; width: 100%; height: 100%; overflow: visible; }
+  body.home .lp-plan-tag { margin: 2px 0 14px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+  body.home .lp-plan-cta, body.home .lp-plan-off { align-self: stretch; margin-top: 16px; text-align: center; }
+  body.home .lp-plan-note { margin: 8px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-align: center; }
+  body.home .lp-plan-hr { border: 0; height: 1px; background: var(--line); margin: 18px 0 14px; }
+  body.home .lp-plan-plus { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--text); }
+  /* border-top: 0 -- the list used to draw its own top rule; .lp-plan-hr draws it now, and both
+     together painted a doubled line. */
+  body.home .lp-plan .lp-plan-list { list-style: none; margin: 0; padding: 0; border-top: 0; }
+  body.home .lp-plan .lp-plan-list li { position: relative; padding-left: 26px; }
+  body.home .lp-plan .lp-plan-list li::before {
+    content: ""; position: absolute; left: 2px; top: .55em; width: 10px; height: 5px;
+    border-left: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
+    -webkit-transform: rotate(-45deg); transform: rotate(-45deg);
+    background: none; border-radius: 0;
+  }
   /* THE PLAN CARD, PLAN-VIEW LAYOUT (owner, 2026-09-23, second pass: "make it look like the options in
      the plan tab"; a friend on the phone view: "too much white space"). The creator app's Plan view is
      the reference and is NOT restyled here. The landing now uses its head row (.lp-plan-head, shared
@@ -10522,18 +10567,37 @@
   body.home .hx.hx-anim .hx-row > * { animation: hx-rise .34s cubic-bezier(.2, .82, .25, 1) both; }
   body.home .hx.hx-anim .hx-row-coach > :nth-child(1) { animation-delay: .45s; }
   body.home .hx.hx-anim .hx-row-coach > :nth-child(2) { animation-delay: .502s; }
-  body.home .hx.hx-anim .hx-row-coach > :nth-child(3) { animation-delay: .554s; }
+  body.home .hx.hx-anim .hx-row-coach > :nth-child(3) { animation-delay: .8s; }
   body.home .hx.hx-anim .hx-rule { animation: hx-fade .34s ease both; animation-delay: 1.3s; }
   body.home .hx.hx-anim .hx-row-script > :nth-child(1) { animation-delay: 1.3s; }
   body.home .hx.hx-anim .hx-row-script > :nth-child(2) { animation-delay: 1.352s; }
   /* Same specificity as the :nth-child(3) rule this replaces would have; source order is what
      makes it win, deliberately. */
-  body.home .hx.hx-anim .hx-row-script > .lp-composer { animation-name: hx-fade; animation-delay: 1.404s; }
+  body.home .hx.hx-anim .hx-row-script > .lp-composer { animation-name: hx-fade; animation-delay: 1.62s; }
   @keyframes hx-rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+  /* TYPED OUT (owner, 2026-09-24). A headline that home.js has split (.hx-type) does not rise as a
+     block: it is visible from its row's start and its characters key in one after another, each on
+     the delay home.js set through CSSOM. The keying is a 1ms change, not a fade -- that is what
+     reads as typing. LINEAR, not steps(1): Chrome's float timing finishes a 1ms animation delayed
+     past ~1s at progress 0.9999..., which a step rounds to 0 -- the whole script line stayed
+     invisible while its caret walked (measured). Linear lands at 0.9999... opacity, i.e. shown. The caret is each character's own ::after, lit only for that character's slot
+     (--hx-d for --hx-hold), so it walks along behind the text; absolutely placed, so it takes no
+     width and nothing reflows. Default state (no .hx-anim, or a snap): the spans are plain text. */
+  body.home .hx.hx-anim .hx-type { animation: none; opacity: 1; }
+  body.home .hx.hx-anim .hx-type .hx-ch { position: relative; animation: hx-key 1ms linear both; }
+  body.home .hx.hx-anim .hx-type .hx-ch::after {
+    content: ""; position: absolute; left: 100%; top: .14em; bottom: .06em; width: 2px; margin-left: 1px;
+    background: currentColor; opacity: 0;
+    animation-name: hx-caret; animation-timing-function: step-end; animation-fill-mode: none;
+    animation-delay: var(--hx-d); animation-duration: var(--hx-hold);
+  }
+  @keyframes hx-key { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes hx-caret { from { opacity: 1; } to { opacity: 1; } }
   @keyframes hx-fade { from { opacity: 0; } to { opacity: 1; } }
 
   @media (prefers-reduced-motion: reduce) {
-    body.home .hx.hx-anim :is(.hx-rule, .hx-row > *) { animation: none; }
+    body.home .hx.hx-anim :is(.hx-rule, .hx-row > *, .hx-ch) { animation: none; opacity: 1; }
+    body.home .hx.hx-anim .hx-type::after { display: none; }
   }
 
   /* THE BUDDY HIMSELF, NOW AT THE BOTTOM OF THE CARD (owner, 2026-09-23: "put this lynxr on the
