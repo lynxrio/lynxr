@@ -7044,7 +7044,11 @@
     background: var(--surface-2); border: 1px solid var(--line-2); border-radius: var(--r-inner);
     color: var(--text); padding: 4px 10px;
   }
-  .cb-export { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 0 0 auto; }
+  /* flex-shrink 1 + max-width 100% (2026-09-25): with four actions (send, copy to new brief, download
+     pdf, delete) a non-shrinking row stayed one max-content line and ran off a 393px screen. The
+     head still wraps the whole row onto its own line first (flex base size decides that); only
+     then does the row shrink to the line and wrap its own buttons. */
+  .cb-export { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
   .cb-notready { margin: -8px 0 12px; }
   .cb-progress { margin: 0 0 22px; }
   .cb-progress-line { font-size: var(--fs-13); color: var(--text-2); margin: 0 0 8px; }
@@ -7144,6 +7148,24 @@
     .cb-format .bp-beat { grid-template-columns: 72px minmax(0, 1fr); }
   }
 
+  /* Download PDF (the browser's print-to-PDF, which keeps real, clickable link annotations).
+     Removed 2026-09-23 with the button, restored as it was 2026-09-25 (owner: "bring back the
+     download as pdf option"). #cb-print only exists between the button press and afterprint,
+     and everything is scoped to body.cb-printing / the named page `cb-brief`, so printing any
+     other page is untouched — a bare @page rule here would re-margin every page on the site. */
+  #cb-print { display: none; }
+  @page cb-brief { margin: 16mm 15mm 18mm; }
+  @media print {
+    body.cb-printing > :not(#cb-print) { display: none !important; }
+    body.cb-printing #cb-print { display: block; page: cb-brief; color: #000; background: #fff; }
+    body.cb-printing { background: #fff; }
+    body.cb-printing::before { display: none; }
+    /* The page margins paint the ROOT's background, not body's: with the dark
+       theme's color-scheme they came out near-black around a white sheet. */
+    html:has(> body.cb-printing) { background: #fff; color-scheme: light; }
+  }
+  /* The PDF action: a .btn, trimmed to the ghost buttons' height. */
+  .cb-export .cb-pdf-btn { padding: 7px 15px; font-size: var(--fs-135); }
   .cb-doc, .cb-doc * { text-transform: none; }
   .cb-doc {
     max-width: 720px; margin: 0 auto; padding: 0;
@@ -9327,6 +9349,7 @@
 
   /* ---- (agency) campaign view: head, progress, blocks and each format are islands ---- */
   body.agency #app main .cb-name-input { font-size: clamp(22px, 2.4vw, 28px); font-weight: 750; letter-spacing: -.025em; padding: 6px 14px; border-radius: var(--ag-radius-in); }
+  body.agency #app main .cb-export .cb-pdf-btn { padding: 9px 18px; }
   body.agency #app main .cb-progress-line { color: var(--text-2); }
   body.agency #app main .cb-bar { height: 6px; background: var(--hover); }
   body.agency #app main .cb-agency > summary { font-size: var(--fs-14); font-weight: 700; color: var(--text); }
@@ -10617,6 +10640,9 @@
     display: block; flex: none; pointer-events: none;
     width: var(--hx-buddy); height: var(--hx-buddy);
   }
+  /* The phone's quiet sign-up link, beside the buddy (see the 640px block). Never on a desktop,
+     which has the whole .hxs card. */
+  body.home .hx-new { display: none; }
   body.home .hx-seam .lx { display: block; width: 100%; height: 100%; overflow: visible; }
   body.home .hx-seam .lx { filter: drop-shadow(0 24px 40px var(--hx-seam-shadow)); }
 
@@ -10649,9 +10675,19 @@
          reopened here. */
       min-height: max(0px, calc(100svh - var(--hx-bar-h))); align-content: center;
     }
+    /* ...REOPENED 2026-09-25 (owner, on a phone screenshot: "it looks cluttered but also blank space
+       where it isnt needed"). Holding the whole fold left ~130px of nothing over the headline and a
+       screen-tall gap before pricing. The hero now takes its content's height from the top, with the
+       two gaps the owner then asked for ("add a gap on the top nav bar and the text and the gap main
+       box and the free to start text"): 52px under the bar, 80px from the panel to the pricing
+       heading (40 here + the section's own 40 below). Chosen from the mockup "with the two bigger
+       gaps". */
+    body.home .hx { min-height: 0; align-content: start; }
     body.home :is(.hx-l, .hx-r) { grid-column: 1; }
-    body.home .hx-l { padding: 28px 20px 18px; }
-    body.home .hx-r { padding: 0 20px 28px; }
+    body.home .hx-l { padding: 52px 20px 18px; }
+    body.home .hx-r { padding: 0 20px 40px; }
+    body.home .lp-sec { padding-block: 40px; }
+    body.home #site-footer .foot-wordmark { margin-bottom: 18px; }
     /* HEADLINE, THEN THE SIGN-UP BOX, THEN THE PANEL. Source order already reads that way, so
        there is no column-reverse here any more (there was, while the buddy was the second thing
        in this column and had to be drawn under the words). The box centres itself and keeps its
@@ -10663,7 +10699,7 @@
        display:none rather than removed from the markup, so the desktop keeps it and the element
        leaves the tab order entirely on a phone. Nothing in the intro touches it. */
     body.home .hxs { display: none; }
-    body.home .hx { --hx-buddy: 96px; --hx-buddy-r: 12px; }
+    body.home .hx { --hx-buddy: 64px; --hx-buddy-r: 12px; }
     body.home .hx-seam .lx { filter: drop-shadow(0 16px 26px var(--hx-seam-shadow)); }
     body.home .hx-h { font-size: 30px; line-height: 1.04; }
     body.home .hx-sub { font-size: 16px; margin-top: -4px; }
@@ -10671,7 +10707,13 @@
     body.home .hx-panel { max-width: none; }
     body.home .hx-row { padding: 18px 18px 20px; }
     body.home .hx-rule { margin: 0 18px; }
-    body.home .hx-buddy { padding-bottom: 6px; }
+    /* The band under the paste box was ~120px holding only the buddy. It is now one row: the
+       sign-up link on the left, a 64px buddy on the right (owner's pick, mockup "L"). */
+    body.home .hx-row-script { padding-bottom: 12px; }
+    body.home .hx-buddy { justify-content: space-between; align-items: center; gap: 12px; padding: 0 16px 12px 18px; }
+    body.home .hx-new { display: block; margin: 0; min-width: 0; font-size: 14px; line-height: 1.4; color: var(--text-2); }
+    body.home .hx-new-link { color: var(--text); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
+    body.home .hx-new-link:hover { text-decoration-color: var(--text-2); }
     /* LITERAL 16px, never a token — the same iOS zoom trap documented at the 820px
        block above. That rule (`.composer-row input`) is one class; `.lp-composer
        .composer-row input` is two, so it outranks it whatever the media query, and
@@ -11402,3 +11444,108 @@
   }
   .lynx-file-size { flex: none; font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
   .lynx-file-get { flex: none; }
+
+  /* ---------- BRIEF FILES ON BEATS (2026-09-25) ----------
+     Plan: ~/.claude/plans/brief-files-at-beats.md. AGENCY: .bfb is the row bfbPaint (app.js) puts
+     under a beat — a chip per file on it, then "+ add file", which opens in place into a button per
+     file — and .bf-main / .bf-at are the files block's "on format 1 · beat 1" line. CREATOR:
+     .bp-lbl-add + .lynx-bfb are the "add" line lynxBeatFilesHtml (creator.js) puts inside a brief's
+     beat. Each side is scoped to its own shell (body.agency #app main / .pane-body), so the landing
+     and the other app cannot match. A file's name is content and keeps its casing. No inline style
+     anywhere: the CSP drops it. */
+  .bf-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .bf-main > .bf-name { flex: none; }
+  .bf-at { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---- agency: the row under a beat. A full-width grid row at the END of the beat card: `order`
+     keeps it below the line editor's tick-and-cross (.edit-confirm), which is appended later. ---- */
+  body.agency #app main li.bp-beat > .bfb {
+    grid-column: 1 / -1; order: 1; min-width: 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  }
+  body.agency #app main .bfb-chip {
+    display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; min-height: 28px;
+    padding: 2px 3px 2px 11px; border: 1px solid var(--line-2); border-radius: var(--r-pill);
+    font-size: var(--fs-125); color: var(--text);
+  }
+  body.agency #app main .bfb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; }
+  body.agency #app main .bfb-stale { border-style: dashed; border-color: var(--even-line); }
+  body.agency #app main .bfb-why { flex: none; color: var(--even); font-size: var(--fs-115); white-space: nowrap; }
+  body.agency #app main :is(.bfb-x, .bfb-keep) { font: inherit; background: none; border: 0; }
+  body.agency #app main .bfb-x {
+    flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0;
+    border-radius: var(--r-round); color: var(--text-3);
+  }
+  body.agency #app main .bfb-x svg { display: block; width: 12px; height: 12px; }
+  body.agency #app main .bfb-x:hover:not(:disabled) { color: var(--bad); background: var(--surface-2); }
+  body.agency #app main .bfb-keep {
+    flex: none; padding: 0 2px; font-size: var(--fs-115); font-weight: 600; white-space: nowrap;
+    color: var(--text); border-bottom: 1px solid var(--line-2);
+  }
+  body.agency #app main .bfb-keep:hover:not(:disabled) { border-bottom-color: var(--text-2); }
+  body.agency #app main .bfb-add { min-width: 0; max-width: 100%; }
+  body.agency #app main .bfb-add[open] { flex-basis: 100%; }
+  body.agency #app main .bfb-sum {
+    display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 0 10px;
+    list-style: none; cursor: pointer; user-select: none; border-radius: var(--r-pill);
+    font-size: var(--fs-125); color: var(--text-3);
+  }
+  body.agency #app main .bfb-sum::-webkit-details-marker { display: none; }
+  /* alone on its row, the words line up with the SAY / DO pills above; the padding is only for the hover wash */
+  body.agency #app main .bfb > .bfb-add:first-child > .bfb-sum { margin-left: -10px; }
+  body.agency #app main .bfb-sum:hover,
+  body.agency #app main .bfb-add[open] > .bfb-sum { color: var(--text); background: var(--surface-2); }
+  body.agency #app main .bfb-menu { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  /* A file to pick is FILLED like the DO pill and borderless; a file already on the beat is an outlined chip with an x. */
+  body.agency #app main .bfb-pick {
+    max-width: 100%; min-height: 32px; padding: 4px 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font: inherit; border: 1px solid transparent; border-radius: var(--r-pill); background: var(--lbl-do-bg);
+    color: var(--text); font-size: var(--fs-125); text-transform: none;
+  }
+  body.agency #app main .bfb-pick:hover:not(:disabled) { border-color: var(--line-2); }
+  body.agency #app main :is(.bfb-x, .bfb-keep, .bfb-pick):disabled { opacity: .45; cursor: default; }
+
+  /* ---- creator: the "add" line inside a brief's beat. The pill sits in the beat's label column
+     like SAY and DO (same pill rule); the buttons fill the value column and wrap. ---- */
+  .pane-body .bp-beats.bp-notime > .bp-beat > .bp-lbl.bp-lbl-add { margin-top: 6px; }   /* level with the first button */
+  .pane-body .lynx-bfb { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+  .pane-body .lynx-bfb-get {
+    display: inline-flex; align-items: center; gap: 7px; max-width: 100%; min-width: 0; min-height: 32px;
+    padding: 4px 13px 4px 10px; border: 1px solid var(--line-2); border-radius: var(--r-pill);
+    background: none; color: var(--text); font-size: var(--fs-13); font-weight: 500; text-transform: none;
+  }
+  .pane-body .lynx-bfb-get svg { flex: none; width: 14px; height: 14px; }
+  .pane-body .lynx-bfb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pane-body .lynx-bfb-get:hover:not(:disabled) { background: var(--surface-2); }
+  .pane-body .lynx-bfb-get:disabled { opacity: .55; cursor: progress; }
+
+  /* ---------- FORMAT LIBRARY (2026-09-25) ----------
+     Plan: ~/.claude/plans/campaign-format-library.md. #cb-lib (cbLibHtml in app.js) is a <details> .cb-block
+     island between "agency only" and the format grid; `body.agency #app main #briefs-host > .cb-block` already
+     dresses it as glass. Groups and rows inside are split by one hairline, never boxed: no box inside a box.
+     Titles and brief names are content — .cb-title / .cb-name keep their casing. [hidden] is restated because
+     display:flex outranks the UA's [hidden] (the #nav-lynx trap, HANDOFF 2026-09-23). No style="" anywhere. */
+  .cb-lib > summary { cursor: pointer; }
+  .cb-lib[open] > summary { margin-bottom: 12px; }
+  .cb-lib-sum { margin-left: 10px; }
+  .cb-lib-find { margin: 0 0 10px; }
+  .cb-lib-group + .cb-lib-group { border-top: 1px solid var(--line); }
+  .cb-lib-group > summary { cursor: pointer; padding: 10px 0; }
+  .cb-lib-group > summary .lbl { margin-left: 6px; }
+  .cb-lib-gact { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 4px; }
+  .cb-lib-gact .lbl { margin-right: auto; }
+  .cb-lib-list { list-style: none; margin: 0 0 8px; padding: 0; }
+  .cb-lib-row { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 6px 0; }
+  .cb-lib-row + .cb-lib-row { border-top: 1px solid var(--line); }
+  .cb-lib-row[hidden], .cb-lib-group[hidden] { display: none; }
+  .cb-lib-thumb {
+    flex: none; display: block; width: 32px; height: 57px; border-radius: 6px; object-fit: cover;
+    background: var(--surface-2); border: 1px solid var(--line);
+  }
+  .cb-lib-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .cb-lib-title { font-size: var(--fs-135); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cb-lib-add, .cb-lib-here { flex: none; }
+  .cb-lib-legacy { margin: 8px 0 0; }
+  @media (max-width: 640px) {
+    .cb-lib-title { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  }

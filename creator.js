@@ -4887,6 +4887,100 @@ function bindLynxFiles() {
   }));
 }
 
+/* FILES ON BEATS (plan: ~/.claude/plans/brief-files-at-beats.md; SQL: supabase/brief_file_beats.sql).
+   The agency can put a brief's file on one beat of one format ("the logo on the opening beat"). That
+   beat then carries an "add" line naming the file, and pressing it downloads the file exactly as the
+   "files from lynx" list does: lynxFileDownload, this creator's own token, the delivery-gated storage
+   policy. The placements come from my_agency_brief_file_beats(p_id), which applies
+   my_agency_brief()'s gates, and like the files they are LIVE. A placement names its beat by index
+   AND by fingerprints of the beat's words, so it lands on the beat that reads the same in THIS
+   creator's copy of the brief, which can be older or newer than the agency's (lynxResolveBeat). When
+   no beat reads the same it is drawn on no beat; the file is still in the list above. lynxBeatSig and
+   lynxResolveBeat are copies of bfBeatSig / bfResolve in app.js: change them together.
+   Not carried into "Add to my library": a library copy is the creator's own script, and these files
+   download only while the brief is delivered to them. */
+
+/** Never rejects: not installed yet, offline, or none at all come back as [], and the brief opens. */
+async function agencyBriefFileBeats(id) {
+  try {
+    const r = await sbFetch("/rest/v1/rpc/my_agency_brief_file_beats", { method: "POST", body: JSON.stringify({ p_id: id }) });
+    return Array.isArray(r) ? r : [];
+  } catch { return []; }
+}
+
+/** = bfBeatSig in app.js. { say: "Line 1", do: "A move" } is "0d4743b8" in both. */
+function lynxBeatSig(b) {
+  const n = (v) => String(v ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+  const s = `${n(b?.say)}\n${n(b?.do)}\n${n(b?.show)}`;
+  let h = 0x811c9dc5;
+  for (let k = 0; k < s.length; k++) { h ^= s.charCodeAt(k); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, "0");
+}
+
+/** = bfResolve in app.js: the placement's own index while that beat reads the same, else the nearest
+    beat that does, else -1. */
+function lynxResolveBeat(p, sigs) {
+  const want = new Set(Array.isArray(p.sigs) ? p.sigs : []);
+  const at = Math.max(0, Number(p.beat) || 0);
+  if (at < sigs.length && want.has(sigs[at])) return at;
+  let best = -1;
+  for (let j = 0; j < sigs.length; j++) {
+    if (want.has(sigs[j]) && (best < 0 || Math.abs(j - at) < Math.abs(best - at))) best = j;
+  }
+  return best;
+}
+
+/** Beat index -> the files to add on that beat, for one format of this brief. Only files that are in
+    the brief's list (so only paths the list RPC returned), each once per beat. */
+function lynxBeatFiles(f, files, places) {
+  const out = new Map();
+  if (!Array.isArray(places) || !places.length || !Array.isArray(files) || !files.length) return out;
+  const byPath = new Map(files.map((x) => [x.path, x]));
+  const sigs = (f.beats || []).map(lynxBeatSig);
+  for (const p of places) {
+    if (!p || String(p.format_id) !== String(f.id)) continue;
+    const file = byPath.get(p.path);
+    if (!file) continue;
+    const i = lynxResolveBeat(p, sigs);
+    if (i < 0) continue;
+    const list = out.get(i) || [];
+    if (!list.includes(file)) list.push(file);
+    out.set(i, list);
+  }
+  return out;
+}
+
+/* Files on beats, what the creator sees: the "add" line inside a beat. */
+const LYNX_DL_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>`;
+
+/** The "add" line inside a beat: an ADD pill in the beat's label column (beside SAY and DO), then a
+    download button per file. The name keeps its real casing (it is content). */
+function lynxBeatFilesHtml(list) {
+  if (!list || !list.length) return "";
+  return `<span class="bp-lbl bp-lbl-add">ADD</span><span class="lynx-bfb">${list.map((file) => {
+    const name = escapeHtml(file.name || "file");
+    return `<button type="button" class="lynx-bfb-get" data-path="${escapeHtml(file.path || "")}" data-name="${name}"
+      title="Download ${name}">${LYNX_DL_SVG}<span class="sr-only">Download </span><span class="lynx-bfb-name">${name}</span></button>`;
+  }).join("")}</span>`;
+}
+
+/** The beat buttons download like the list's Download. A failure is said under that format's beats. */
+function bindLynxBeatFiles() {
+  document.querySelectorAll("#pane-body .lynx-bfb-get").forEach((btn) => btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.setAttribute("aria-busy", "true");
+    try {
+      await lynxFileDownload(btn.dataset.path, btn.dataset.name);
+    } catch {
+      const msg = btn.closest("ol.bp-beats")?.nextElementSibling;
+      if (msg && msg.id.startsWith("lynx-bfb-msg-")) flashMsg(msg.id, "Couldn't download that file — try again.", "bad");
+    }
+    btn.disabled = false;
+    btn.removeAttribute("aria-busy");
+  }));
+}
+
 /** A clip being made while the creator is on the page (pipeline/brief_clips.py runs on the Fly
     worker about once a minute). While any format is still pending, re-read the brief every 30s — at
     most 20 times (10 minutes) per visit — and repaint only when a clip actually arrived; a repaint
@@ -4935,8 +5029,8 @@ function renderLynxBrief(head, body) {
     if (!VIEW._fetching) {
       VIEW._fetching = true;
       const myView = VIEW;
-      Promise.all([agencyBriefDoc(id), agencyBriefFiles(id)])
-        .then(([doc, files]) => { if (VIEW === myView) { myView._docId = id; myView._doc = doc || null; myView._files = files; renderPane(); } })
+      Promise.all([agencyBriefDoc(id), agencyBriefFiles(id), agencyBriefFileBeats(id)])
+        .then(([doc, files, beats]) => { if (VIEW === myView) { myView._docId = id; myView._doc = doc || null; myView._files = files; myView._fileBeats = beats; renderPane(); } })
         .catch(() => { if (VIEW === myView) { myView._docId = id; myView._doc = null; renderPane(); } });
     }
     return;
@@ -4985,11 +5079,12 @@ function renderLynxBrief(head, body) {
     ${formats.length > 1
       ? `<div class="bp-actions"><button type="button" class="btn" id="lynx-add-all">Add all ${formats.length} to my library</button></div>`
       : ""}
-    <div class="bp-list script-grid lynx-grid">${formats.map((f, i) => lynxFormatCardHtml(f, i, lynxFid(f, i) === VIEW._openFid)).join("")}</div>
+    <div class="bp-list script-grid lynx-grid">${formats.map((f, i) => lynxFormatCardHtml(f, i, lynxFid(f, i) === VIEW._openFid, lynxBeatFiles(f, VIEW._files, VIEW._fileBeats))).join("")}</div>
     <p class="note">Scripts Lynx sends you never count against your plan.</p>`;
 
   bindLynxBriefButtons(doc, formats, id);
   bindLynxFiles();
+  bindLynxBeatFiles();
   lynxWatchClips(id);
 }
 
@@ -5068,7 +5163,7 @@ function lynxRefPanelHtml(f, key) {
     wireAdaptationCards can fire on it. Kept from the regular card: the hook card, "Your script",
     the beats, CTA and caption, the copy icon, the cover. Left out: edit in place, + add a beat,
     delete, revert, "Also write this for". Brief-only: the chip, Add to my library, filming notes. */
-function lynxFormatCardHtml(f, i, open = false) {
+function lynxFormatCardHtml(f, i, open = false, onBeat = new Map()) {
   const silent = f.delivery === "silent";
   const carry = { do: "", show: "" };
   const fid = lynxFid(f, i);
@@ -5086,7 +5181,8 @@ function lynxFormatCardHtml(f, i, open = false) {
       ${needs}${setup}
       ${f.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">${silent ? "Opening card" : "Hook"}</span>“<span class="bp-val bp-hookval">${escapeHtml(f.hook)}</span>”</div>` : ""}
       ${silent ? `<p class="bp-hint">No voiceover — put the SHOW line on screen at each beat.</p>` : `<div class="bp-heading">Your script</div>`}
-      <ol class="bp-beats bp-notime">${(f.beats || []).map((b, bi) => beatRow(b, carry, silent, undefined, bi)).join("")}</ol>
+      <ol class="bp-beats bp-notime">${(f.beats || []).map((b, bi) => beatRow(b, carry, silent, undefined, bi, lynxBeatFilesHtml(onBeat.get(bi)))).join("")}</ol>
+      ${onBeat.size ? `<p class="bp-msg" id="lynx-bfb-msg-${i}" role="status" aria-live="polite"></p>` : ""}
       ${f.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> <span class="bp-val">${escapeHtml(f.cta)}</span></p>` : ""}
       ${f.caption ? `<p class="bp-hint"><strong>Caption:</strong> <span class="bp-val">${escapeHtml(f.caption)}</span></p>` : ""}
       ${f.note ? `<p class="bp-hint"><strong>Note:</strong> ${escapeHtml(f.note)}</p>` : ""}`;
@@ -7085,7 +7181,7 @@ function beatStart(t) {
   return m ? Number(m[1]) : null;
 }
 
-function beatRow(bt, carry, silent, adid, idx) {
+function beatRow(bt, carry, silent, adid, idx, tail = "") {
   let say = (bt.say || "").trim();
   let doIt = (bt.do || "").trim();
   let show = (bt.show || "").trim();
@@ -7149,7 +7245,7 @@ function beatRow(bt, carry, silent, adid, idx) {
      cannot slide the whole list out of step with the playhead. Absent when
      beatStart() could not parse `t`; see beatStart. */
   const st = beatStart(bt.t);
-  return `<li class="bp-beat"${st === null ? "" : ` data-t="${st}"`}>${rows.join("")}</li>`;
+  return `<li class="bp-beat"${st === null ? "" : ` data-t="${st}"`}>${rows.join("")}${tail}</li>`;
 }
 
 function scriptText(a) {

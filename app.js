@@ -4988,6 +4988,7 @@ function renderBriefViewer(host, rec, client) {
       if (!it || !vscript) { renderBriefs(); return; }
       vscript.innerHTML = agScriptBodyHtml(agScriptFor(it, r.ctx, openIdx), { ag: "br", id: String(openIdx) });
       wireScript();
+      bfRepaint("brief", rec.id);                  // its files-on-beats rows, and the files block's lines
       syncRevert(agItemEdited(it));
     };
     const wireScript = () => agWireInlineEdit(vscript, () => ({
@@ -5016,7 +5017,7 @@ function renderBriefViewer(host, rec, client) {
         it[field === "hook" ? "editedHook" : "editedCta"] = agTopStored(agScriptFor(it, r.ctx, openIdx), field, val);
         persistClients(fresh);
       },
-      saved: () => { agMarkEdited(vscript.querySelector(".bp-heading")); syncRevert(true); },
+      saved: () => { agMarkEdited(vscript.querySelector(".bp-heading")); syncRevert(true); bfRepaint("brief", rec.id); },
       repaint: drawScript,   // the script only: redrawing the card would stop a playing video
     }));
     wireScript();
@@ -5976,6 +5977,17 @@ function agencySendDoc(campaign, formats, client, prev) {
   };
 }
 
+/** A legacy script's beats as the sent doc carries them ({ t, say, do, show }): briefSendDoc's own
+    mapping, shared with the files-on-beats rows (bfbFormats) so the fingerprints staff place against
+    are made from exactly the words creators receive. */
+function agDocBeats(s) {
+  const mode = agScriptMode(s);
+  return (s.beats || []).map((bt) => {
+    const p = agBeatParse(bt, mode);
+    return { t: p.t || "", say: p.say?.v || "", do: p.do?.v || "", show: p.show?.v || "" };
+  });
+}
+
 /** Same delivery, second source (A1): a legacy picked-video brief, sent
     through the identical doc shape agencySendDoc produces above, so the
     creator side needs no branch on where a brief came from.
@@ -6012,10 +6024,7 @@ function briefSendDoc(rec, client) {
     formats: (rec.items || []).map((row, i) => {
       const s = agScriptFor(row, ctx, i);
       const mode = agScriptMode(s);
-      const beats = (s.beats || []).map((bt) => {
-        const p = agBeatParse(bt, mode);
-        return { t: p.t || "", say: p.say?.v || "", do: p.do?.v || "", show: p.show?.v || "" };
-      });
+      const beats = agDocBeats(s);
       return {
         id: row.url || String(i),
         title: s.heading || "",
@@ -6069,6 +6078,31 @@ async function agSentFor(sourceKind, sourceId) {
   return sbFetch(`/rest/v1/lynxr_agency_briefs?source_kind=eq.${encodeURIComponent(sourceKind)}`
     + `&source_id=eq.${encodeURIComponent(String(sourceId))}`
     + `&select=id,created_at,doc,lynxr_agency_deliveries(creator_id,sent_at,revoked_at)`);
+}
+
+/** A RENAME REACHES CREATORS STRAIGHT AWAY (owner, 2026-09-25: "when i change the name of brief, have it
+    change on the creator side that has the brief as well even if it was already sent out"). Everything
+    else a creator has is a snapshot that moves only on Update; the name is the one exception. Only the
+    title moves — the row's `title` column (the creator's brief list, via my_agency()) and `doc.title`
+    (the brief page, via my_agency_brief()) — so edits staff have NOT sent yet stay unsent, and
+    sent_at (their "version is from" date) is left alone. Rows are read fresh, not from AG_SENT, so a
+    doc another staff member just updated is not written back stale. Returns how many copies changed
+    and how many could not be. RLS: "staff update agency briefs" (agency_roster.sql). */
+async function agRenameSent(sourceKind, sourceId, title) {
+  let rows;
+  try { rows = await agSentFor(sourceKind, sourceId); } catch { return { renamed: 0, failed: -1 }; }
+  let renamed = 0, failed = 0;
+  for (const r of rows || []) {
+    if (!r || !r.id || !r.doc || typeof r.doc !== "object" || r.doc.title === title) continue;
+    try {
+      await sbFetch(`/rest/v1/lynxr_agency_briefs?id=eq.${encodeURIComponent(r.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title, doc: { ...r.doc, title } }),
+      });
+      renamed += 1;
+    } catch { failed += 1; }
+  }
+  return { renamed, failed };
 }
 
 const agUnsend = (briefId, creatorId) => sbFetch(
@@ -6646,12 +6680,17 @@ function bfSectionHtml(kind, sourceId, { inSend = false } = {}) {
   }
   const ups = BF_UP.get(key) || [];
   const total = entry.rows.reduce((s, r) => s + (Number(r.size) || 0), 0);
-  const rows = entry.rows.map((r) => `<li class="bf-row">
-        <span class="bf-name" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</span>
+  const fmts = bfbFormats(kind, sourceId);
+  const rows = entry.rows.map((r) => {
+    const where = bfbWhere(kind, sourceId, r.id, fmts);
+    return `<li class="bf-row">
+        <span class="bf-main"><span class="bf-name" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</span>${where
+          ? `<span class="lbl bf-at" title="${escapeHtml(where)}">${escapeHtml(where)}</span>` : ""}</span>
         <span class="lbl bf-size">${escapeHtml(bfSize(r.size))}</span>
         <button type="button" class="ghost danger cb-small bf-remove" data-id="${escapeHtml(r.id)}"
           data-path="${escapeHtml(r.path)}" data-name="${escapeHtml(r.name)}">Remove</button>
-      </li>`).join("") + ups.map((u) => `<li class="bf-row bf-busy" data-bf-up="${escapeHtml(u.tmp)}">
+      </li>`;
+  }).join("") + ups.map((u) => `<li class="bf-row bf-busy" data-bf-up="${escapeHtml(u.tmp)}">
         <span class="bf-name">${escapeHtml(u.name)}</span>
         <span class="lbl bf-pct">uploading · ${u.pct}%</span>
       </li>`).join("");
@@ -6663,6 +6702,7 @@ function bfSectionHtml(kind, sourceId, { inSend = false } = {}) {
       <span class="lbl">PNG, JPG, WebP, GIF, SVG, PDF, ZIP, OTF, TTF, WOFF · up to ${bfSize(BF_MAX_FILE)} each · ${BF_MAX_COUNT} files and ${bfSize(BF_MAX_TOTAL)} per brief</span>
     </label>
     ${rows ? `<ul class="bf-list">${rows}</ul>` : ""}
+    ${bfbNoteHtml(kind, sourceId)}
     <p class="note">${inSend
       ? "Everyone you send this to can download these from the brief. Adding or removing a file later reaches them too — no need to send again."
       : "Everyone this brief is sent to can download these. Adding or removing a file here reaches them straight away — no need to send again."}</p>
@@ -6680,6 +6720,7 @@ function bfSectionHtml(kind, sourceId, { inSend = false } = {}) {
     redraws whichever copy is showing, or does nothing. Only the file list feeds the block, and the
     one reader outside it (the "Sent to … with N files" line) reads BF_FILES at send time. */
 function bfRepaint(kind, sourceId) {
+  bfbPaint(kind, sourceId);                     // the rows under the beats read the same two lists
   const key = agSentKey(kind, sourceId);
   const cur = [...document.querySelectorAll(".bf-section")].find((el) => el.dataset.bfKey === key);
   if (!cur) return;
@@ -6701,7 +6742,9 @@ function bfBind(host, kind, sourceId) {
   const key = agSentKey(kind, sourceId);
   const sec = [...host.querySelectorAll(".bf-section")].find((el) => el.dataset.bfKey === key);
   if (sec) bfWire(sec, kind, sourceId);
-  bfEnsure(kind, sourceId, () => bfRepaint(kind, sourceId));
+  bfbPaint(kind, sourceId, host);                                   // beat rows from what is cached
+  bfEnsure(kind, sourceId, () => bfFilesArrived(kind, sourceId));   // first load: the list, then the placements
+  bfPlacesEnsure(kind, sourceId, () => bfRepaint(kind, sourceId));  // the list was cached already
 }
 
 /** The block's own listeners, scoped to one drawn copy of it. */
@@ -6729,14 +6772,22 @@ function bfWire(sec, kind, sourceId) {
   });
   sec.querySelector("#bf-retry")?.addEventListener("click", () => {
     BF_FILES.delete(key);
+    BF_PLACES.delete(key);
     repaint();                                   // "Loading files…"
-    bfEnsure(kind, sourceId, repaint);           // the viewer used to start this load on its repaint
+    bfEnsure(kind, sourceId, () => bfFilesArrived(kind, sourceId));
+  });
+  sec.querySelector("#bf-places-retry")?.addEventListener("click", (e) => {
+    e.currentTarget.disabled = true;
+    BF_PLACES.delete(key);
+    bfPlacesEnsure(kind, sourceId, repaint);
   });
   sec.querySelectorAll(".bf-remove").forEach((btn) => {
     armDelete(btn, "Remove", async () => {
       btn.disabled = true;
       try {
         await bfRemove(btn.dataset.id, btn.dataset.path);
+        const pl = BF_PLACES.get(key);           // the database dropped its placements with it (cascade)
+        if (pl) pl.rows = pl.rows.filter((p) => p.file_id !== btn.dataset.id);
         await bfEnsure(kind, sourceId, null, true);
         repaint();
         say("Removed.", "good");
@@ -6746,6 +6797,340 @@ function bfWire(sec, kind, sourceId) {
       }
     });
   });
+}
+
+// ---------- Files on beats (plan: ~/.claude/plans/brief-files-at-beats.md) ----------
+// Staff put one of a brief's files on a beat of one of its formats ("the logo goes on the opening
+// beat"), and every creator the brief reaches sees that file on that beat, with a download.
+// SQL: supabase/brief_file_beats.sql. One placement = one row of lynxr_brief_file_beats:
+//   file_id    the file. It goes when the file goes: the foreign key cascades.
+//   format_id  the id the SENT DOC gives that format (agencySendDoc: the campaign format's uuid;
+//              briefSendDoc: the legacy item's video URL, else its index).
+//   beat       the beat's 0-based index when it was placed.
+//   sigs       up to BF_MAX_SIGS fingerprints of that beat's words (bfBeatSig).
+// LIVE, like the files: no re-send. An index shifts when a beat is added, deleted or regenerated, so a
+// placement lands on the beat whose words still match, nearest its index (bfResolve). When no beat
+// matches (the beat was reworded, deleted, or the format regenerated), staff see the file flagged
+// "beat changed" on the beat at its old index, with Keep here, and creators see it only in their
+// files list, never on a beat it may not belong to. "Restore previous version" brings the words back,
+// and the placement with them. bfBeatSig / bfResolve are copied in creator.js as lynxBeatSig /
+// lynxResolveBeat: change them together.
+// NEVER REPAINTS A VIEWER. A placement action redraws the rows under the beats (bfbPaint) and the
+// files block (bfRepaint) and nothing else, so an open editor keeps its typed text and an open Send
+// panel keeps its ticks (owner, 2026-09-25).
+let BF_PLACES = new Map();           // agSentKey(kind, id) -> { rows, error } | undefined = not loaded
+const BF_PLACES_LOADING = new Set(); // keys in flight
+const BF_MAX_SIGS = 4;               // mirrors the CHECK in supabase/brief_file_beats.sql
+
+/** A beat's fingerprint: FNV-1a over its say / do / show, ignoring case and runs of whitespace. The
+    time is left out: retiming a beat does not make it another beat. 8 hex characters. creator.js has
+    the same function as lynxBeatSig and the two must agree: { say: "Line 1", do: "A move" } is
+    "0d4743b8" in both. */
+function bfBeatSig(b) {
+  const n = (v) => String(v ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+  const s = `${n(b?.say)}\n${n(b?.do)}\n${n(b?.show)}`;
+  let h = 0x811c9dc5;
+  for (let k = 0; k < s.length; k++) { h ^= s.charCodeAt(k); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, "0");
+}
+
+/** Where placement p lands among beats whose fingerprints are `sigs`: its own index while that beat
+    still reads the same, else the nearest beat that does, else -1. Same as lynxResolveBeat. */
+function bfResolve(p, sigs) {
+  const want = new Set(Array.isArray(p.sigs) ? p.sigs : []);
+  const at = Math.max(0, Number(p.beat) || 0);
+  if (at < sigs.length && want.has(sigs[at])) return at;
+  let best = -1;
+  for (let j = 0; j < sigs.length; j++) {
+    if (want.has(sigs[j]) && (best < 0 || Math.abs(j - at) < Math.abs(best - at))) best = j;
+  }
+  return best;
+}
+
+/** Where the agency side DRAWS a placement: the beat it resolves to, or (flagged stale) the beat at
+    its old index, the last beat when there are fewer now. null when the format has no beats. */
+function bfbShown(p, sigs) {
+  if (!sigs.length) return null;
+  const j = bfResolve(p, sigs);
+  return j >= 0 ? { at: j, stale: false }
+    : { at: Math.min(Math.max(0, Number(p.beat) || 0), sigs.length - 1), stale: true };
+}
+
+/** The formats of one brief as staff see them NOW, in on-screen order: [{ id, n, word, beats }].
+    id is the sent doc's format id, n the card's number, word what the agency calls one ("format" on
+    a campaign, "script" on a legacy brief), beats [{ say, do, show }], or null while the format has
+    no script to put a file on. */
+function bfbFormats(kind, sourceId) {
+  if (kind === "campaign") {
+    const rec = CB_CACHE.get(sourceId);
+    if (!rec || !Array.isArray(rec.formats)) return [];
+    return cbSorted(rec).map((f, i) => ({
+      id: f.id, n: i + 1, word: "format",
+      beats: f.script || f.edited ? (cbView(f).beats || []) : null,
+    }));
+  }
+  for (const c of loadClients()) {
+    const rec = (c.briefs || []).find((b) => b.id === sourceId);
+    if (!rec) continue;
+    const ctx = rec.ctx || {};
+    return (rec.items || []).map((row, i) => ({
+      id: row.url || String(i), n: i + 1, word: "script", beats: agDocBeats(agScriptFor(row, ctx, i)),
+    }));
+  }
+  return [];
+}
+
+/** Loads (force: reloads) where this brief's files sit. The query is by file id, so it needs the file
+    list first: bfBind calls it for a list that was cached, bfFilesArrived for one that just loaded.
+    No files: nothing to ask, and nothing to draw. */
+async function bfPlacesEnsure(kind, sourceId, onDone, force) {
+  const key = agSentKey(kind, sourceId);
+  const files = BF_FILES.get(key);
+  if (!files || files.error) return;
+  if (BF_PLACES_LOADING.has(key) || (!force && BF_PLACES.has(key))) return;
+  const ids = files.rows.map((r) => r.id).filter(Boolean);
+  if (!ids.length) { BF_PLACES.set(key, { rows: [], error: null }); onDone?.(); return; }
+  BF_PLACES_LOADING.add(key);
+  try {
+    const rows = await sbFetch(`/rest/v1/lynxr_brief_file_beats?file_id=in.(${ids.map(encodeURIComponent).join(",")})`
+      + `&select=id,file_id,format_id,beat,sigs&order=placed_at.asc`);
+    BF_PLACES.set(key, { rows: Array.isArray(rows) ? rows : [], error: null });
+  } catch (ex) {
+    BF_PLACES.set(key, { rows: [], error: cbError(ex) });
+  } finally {
+    BF_PLACES_LOADING.delete(key);
+    onDone?.();
+  }
+}
+
+/** The file list just arrived (first load, or Try again): draw it, then load where the files sit. */
+function bfFilesArrived(kind, sourceId) {
+  bfRepaint(kind, sourceId);
+  bfPlacesEnsure(kind, sourceId, () => bfRepaint(kind, sourceId));
+}
+
+/** Put a file on a beat. The new row is added to BF_PLACES. Two rows for the same file and beat are
+    harmless (bfbPaint draws one chip), so there is no unique key to trip over when a placement's
+    stored index has drifted from the beat it is drawn on. */
+async function bfPlace(kind, sourceId, fileId, formatId, beat, sig) {
+  const rows = await sbFetch("/rest/v1/lynxr_brief_file_beats?select=id,file_id,format_id,beat,sigs", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ file_id: fileId, format_id: String(formatId), beat, sigs: [sig] }),
+  });
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!row) throw new Error("0 nothing was placed");
+  BF_PLACES.get(agSentKey(kind, sourceId))?.rows.push(row);
+}
+
+/** Take a file off a beat. The file itself stays in the brief. */
+async function bfUnplace(kind, sourceId, id) {
+  await sbFetch(`/rest/v1/lynxr_brief_file_beats?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
+  const pl = BF_PLACES.get(agSentKey(kind, sourceId));
+  if (pl) pl.rows = pl.rows.filter((r) => r.id !== id);
+}
+
+/** Keep here: a flagged placement now means beat `beat` as it reads today. Its older fingerprints are
+    kept (the newest BF_MAX_SIGS), so a creator whose copy still has the older words keeps seeing the
+    file on the right beat until staff press Update. */
+async function bfKeep(row, beat, sig) {
+  const sigs = [...(row.sigs || []).filter((s) => s !== sig), sig].slice(-BF_MAX_SIGS);
+  const rows = await sbFetch(`/rest/v1/lynxr_brief_file_beats?id=eq.${encodeURIComponent(row.id)}`
+    + `&select=id,file_id,format_id,beat,sigs`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ beat, sigs }),
+  });
+  if (!Array.isArray(rows) || !rows.length) throw new Error("0 no placement was updated");
+  Object.assign(row, rows[0]);
+}
+
+// ---- Files on beats: what staff see — the row under each beat, and the files block's lines ----
+
+/** A failed placement action, in a few words: it shows under the script's beats. */
+function bfbErrorSentence(ex) {
+  const kind = cbError(ex);
+  if (kind === "missing") return "Putting files on beats isn't installed yet.";
+  if (kind === "denied") return "This account can't change where files go.";
+  return "Couldn't save that — check the connection and try again.";
+}
+
+/** One line under a script's beats for a failed file action; "" removes it. Its own element, so it
+    never overwrites the line editor's message (agLineMsg). */
+function bfbMsg(li, text) {
+  const list = li?.closest("ol.bp-beats");
+  if (!list) return;
+  let m = list.nextElementSibling?.classList.contains("bfb-msg") ? list.nextElementSibling : null;
+  if (!text) { m?.remove(); return; }
+  if (!m) {
+    m = document.createElement("p");
+    m.className = "bp-msg bfb-msg show bad";
+    m.setAttribute("role", "status");
+    list.after(m);
+  }
+  m.textContent = text;
+}
+
+/** One file's row in the files block, second line: "on format 1 · beat 1, format 2 · beat 4 (beat
+    changed)". "" when it is on no beat. A placement on a format that was deleted is not listed. */
+function bfbWhere(kind, sourceId, fileId, formats) {
+  const pl = BF_PLACES.get(agSentKey(kind, sourceId));
+  if (!pl || pl.error) return "";
+  const byId = new Map(formats.map((f) => [f.id, f]));
+  const spots = new Map();                        // "n:at" -> { n, word, at, stale }: one per beat, a match beats a flag
+  for (const p of pl.rows) {
+    if (p.file_id !== fileId) continue;
+    const f = byId.get(p.format_id);
+    if (!f) continue;
+    const s = bfbShown(p, (f.beats || []).map(bfBeatSig))
+      || { at: Math.max(0, Number(p.beat) || 0), stale: true };
+    const had = spots.get(`${f.n}:${s.at}`);
+    if (!had || (had.stale && !s.stale)) spots.set(`${f.n}:${s.at}`, { n: f.n, word: f.word, at: s.at, stale: s.stale });
+  }
+  const out = [...spots.values()].sort((a, b) => a.n - b.n || a.at - b.at);
+  return out.length
+    ? `on ${out.map((o) => `${o.word} ${o.n} · beat ${o.at + 1}${o.stale ? " (beat changed)" : ""}`).join(", ")}` : "";
+}
+
+/** The files block's line about beats: not installed, couldn't load, or how to use it. Only once the
+    brief has a file, since there is nothing to place before that. */
+function bfbNoteHtml(kind, sourceId) {
+  const key = agSentKey(kind, sourceId);
+  const files = BF_FILES.get(key);
+  const pl = BF_PLACES.get(key);
+  if (!files || files.error || !files.rows.length || !pl) return "";
+  if (pl.error === "missing") {
+    return `<p class="note bf-beats-note">Putting files on beats needs one more update — run <code>supabase/brief_file_beats.sql</code> in the Supabase SQL editor.</p>`;
+  }
+  if (pl.error) {
+    return `<p class="note bf-beats-note">Couldn't load which beats these files are on.</p>
+      <button type="button" class="ghost cb-small" id="bf-places-retry">Try again</button>`;
+  }
+  return `<p class="note bf-beats-note">To show creators a file at one moment of the video, press + Add file under that beat in the script.</p>`;
+}
+
+/** The row under one beat: a chip per file on it (a flagged one says "beat changed" and offers Keep
+    here), then "+ Add file", which opens IN PLACE — no popover to position — into a button per file
+    of the brief that is not on this beat yet. */
+function bfbRowHtml(i, entries, files) {
+  const on = new Set(entries.map((e) => e.file.id));
+  const chips = entries.map(({ p, file, stale }) => `<span class="bfb-chip${stale ? " bfb-stale" : ""}">
+      <span class="bfb-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+      ${stale ? `<span class="bfb-why">beat changed</span>
+      <button type="button" class="bfb-keep" data-pid="${escapeHtml(p.id)}"
+        aria-label="Keep ${escapeHtml(file.name)} on beat ${i + 1}">Keep here</button>` : ""}
+      <button type="button" class="bfb-x" data-pid="${escapeHtml(p.id)}"
+        aria-label="Take ${escapeHtml(file.name)} off beat ${i + 1}" title="Take off this beat">${CB_X_SVG}</button>
+    </span>`).join("");
+  const left = files.filter((f) => !on.has(f.id));
+  const add = left.length ? `<details class="bfb-add">
+      <summary class="bfb-sum"><span aria-hidden="true">+</span> Add file<span class="sr-only"> to beat ${i + 1}</span></summary>
+      <div class="bfb-menu" role="group" aria-label="Files you can put on beat ${i + 1}">${left.map((f) =>
+        `<button type="button" class="bfb-pick" data-file="${escapeHtml(f.id)}" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</button>`).join("")}</div>
+    </details>` : "";
+  return `<div class="bfb" data-bfb-beat="${i}">${chips}${add}</div>`;
+}
+
+/** Puts focus back into a beat's rebuilt row: its + Add file, else its last button. */
+function bfbFocus(scope, beat) {
+  const row = [...scope.querySelectorAll("li.bp-beat > .bfb")].find((r) => Number(r.dataset.bfbBeat) === beat);
+  const el = row?.querySelector(".bfb-sum") || [...(row?.querySelectorAll("button") || [])].pop();
+  el?.focus({ preventScroll: true });
+}
+
+/** Draws the file row under every beat of this brief that is on screen (only those under `root` when
+    given), replacing the rows drawn before. Nothing else in a card is touched: a line being typed,
+    the pencil form, a playing clip. Draws nothing until the file list and the placements have both
+    loaded, when the brief has no files, or while placements are not installed (the files block says
+    so). Beats are found by their editable lines' data-beat, which is the index into the beats. */
+function bfbPaint(kind, sourceId, root = document) {
+  if ((kind === "campaign" ? CAMPAIGN_VIEW : BRIEF_VIEW)?.id !== sourceId) return;
+  const key = agSentKey(kind, sourceId);
+  const files = BF_FILES.get(key);
+  const pl = BF_PLACES.get(key);
+  const ready = !!files && !files.error && files.rows.length > 0 && !!pl && !pl.error;
+  const formats = bfbFormats(kind, sourceId);
+  const scopes = [];
+  if (kind === "campaign") {
+    const cards = root.matches?.(".cb-format[data-fid]") ? [root] : [...root.querySelectorAll(".cb-format[data-fid]")];
+    for (const card of cards) {
+      const info = card.querySelector(".cb-info");
+      if (info) scopes.push([formats.find((f) => f.id === card.dataset.fid) || null, info]);
+    }
+  } else {
+    const list = root.matches?.(".vscript") ? [root] : [...root.querySelectorAll(".fmt-card[data-idx] .vscript")];
+    for (const vs of list) scopes.push([formats[Number(vs.closest(".fmt-card[data-idx]")?.dataset.idx)] || null, vs]);
+  }
+  const a = document.activeElement;
+  for (const [fmt, scope] of scopes) {
+    let back = null;                              // the beat whose row held focus
+    scope.querySelectorAll("li.bp-beat > .bfb").forEach((row) => {
+      if (a && row.contains(a)) back = Number(row.dataset.bfbBeat);
+      row.remove();
+    });
+    if (!ready || !fmt || !fmt.beats || !fmt.beats.length) continue;
+    const sigs = fmt.beats.map(bfBeatSig);
+    const fileById = new Map(files.rows.map((r) => [r.id, r]));
+    const at = new Map();                         // beat index -> [{ p, file, stale }]
+    for (const p of pl.rows) {
+      if (p.format_id !== fmt.id || !fileById.has(p.file_id)) continue;
+      const s = bfbShown(p, sigs);
+      if (!s) continue;
+      const list = at.get(s.at) || [];
+      const entry = { p, file: fileById.get(p.file_id), stale: s.stale };
+      const dup = list.findIndex((e) => e.file.id === p.file_id);
+      if (dup < 0) list.push(entry);
+      else if (list[dup].stale && !s.stale) list[dup] = entry;   // one chip a file: the matching one wins
+      at.set(s.at, list);
+    }
+    scope.querySelectorAll("li.bp-beat").forEach((li) => {
+      const i = Number(li.querySelector('[data-edit="beat"][data-beat]')?.dataset.beat);
+      if (!Number.isInteger(i) || i < 0 || i >= sigs.length) return;
+      li.insertAdjacentHTML("beforeend", bfbRowHtml(i, at.get(i) || [], files.rows));
+      bfbWire(li.lastElementChild, kind, sourceId, fmt.id, i, sigs[i]);
+    });
+    if (back != null) bfbFocus(scope, back);
+  }
+}
+
+/** One beat row's controls. Each action writes, then redraws the beat rows and the files block
+    (bfRepaint), and puts focus back in this beat's row. A failure is said under the script. */
+function bfbWire(row, kind, sourceId, formatId, i, sig) {
+  const li = row.closest("li.bp-beat");
+  const scope = li.closest(".cb-info, .vscript") || document;
+  const key = agSentKey(kind, sourceId);
+  const act = async (write) => {
+    row.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    bfbMsg(li, "");
+    let err = null;
+    try { await write(); } catch (ex) { err = ex; }
+    if (err && cbError(err) === "missing") {
+      const pl = BF_PLACES.get(key);
+      if (pl) pl.error = "missing";               // the files block now says what to run
+    }
+    bfRepaint(kind, sourceId);
+    if (err) bfbMsg(li, bfbErrorSentence(err));
+    bfbFocus(scope, i);
+  };
+  const add = row.querySelector(".bfb-add");
+  add?.addEventListener("toggle", () => {
+    if (add.open) document.querySelectorAll("details.bfb-add[open]").forEach((d) => { if (d !== add) d.open = false; });
+  });
+  add?.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !add.open) return;
+    e.preventDefault();
+    e.stopPropagation();
+    add.open = false;
+    add.querySelector(".bfb-sum")?.focus();
+  });
+  row.querySelectorAll(".bfb-pick").forEach((btn) => btn.addEventListener("click", () =>
+    act(() => bfPlace(kind, sourceId, btn.dataset.file, formatId, i, sig))));
+  row.querySelectorAll(".bfb-x").forEach((btn) => btn.addEventListener("click", () =>
+    act(() => bfUnplace(kind, sourceId, btn.dataset.pid))));
+  row.querySelectorAll(".bfb-keep").forEach((btn) => btn.addEventListener("click", () => act(async () => {
+    const p = BF_PLACES.get(key)?.rows.find((r) => r.id === btn.dataset.pid);
+    if (p) await bfKeep(p, i, sig);
+  })));
 }
 
 // ---- Staff-action request bodies (Step 13's buttons send these verbatim) ----
@@ -6873,6 +7258,19 @@ const CB_LOADING = new Set();
 const CB_LOAD_ERR = new Map();    // campaign id -> cbError kind of the failed first load
 let CB_LANE = null;               // { value, at, fetching }
 let CB_ADD_KEEP = null;           // { id, values } typed add-video rows carried across a repaint
+
+/* THE FORMAT LIBRARY (plan: ~/.claude/plans/campaign-format-library.md, 2026-09-25). Every READY
+   format of this client's OTHER campaign briefs, grouped by brief, newest first, added to the open
+   brief as a COPY born status "done" — the worker never claims it and no model is called. Keyed by
+   the OPEN brief's id: its library is "every brief but this one". */
+const CB_LIB = new Map();          // open campaign id -> { clientId, groups: [{ c, formats, files }], at } | { error, at }
+const CB_LIB_LOADING = new Set();  // open campaign ids with a library load in flight
+const CB_LIB_OPEN = new Map();     // open campaign id -> library <details> open (true) / shut (false), once toggled
+const CB_LIB_GROUPS = new Map();   // open campaign id -> Set of group (source campaign) ids shown open
+const CB_LIB_Q = new Map();        // open campaign id -> the filter's text
+let CB_LIB_BUSY = false;           // a library copy is in flight: every Add is disabled
+let CB_COPYING = false;            // "Copy to new brief" is in flight
+const CB_LIB_FILTER_AT = 12;       // the filter box shows above this many formats
 
 const cbPlural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
@@ -7891,6 +8289,8 @@ function renderCampaignView(host, client, id) {
       </div>
       <div class="cb-export">
         <button type="button" class="btn cb-send-btn" id="cb-send-toggle">${CB_ICON.send}<span>Send to creators</span></button>
+        <button type="button" class="ghost cb-copy-new" id="cb-copy-new" data-title="Start the next brief with this one's ready formats, requirements and files. Nothing is regenerated.">Copy to new brief</button>
+        <button type="button" class="btn cb-pdf-btn" id="cb-pdf" data-title="Save the creator brief as a PDF: ready formats only, no agency notes.">Download PDF</button>
         <button type="button" class="ghost danger icon-only b-del" id="cb-del-campaign"
           aria-label="Delete this campaign brief" title="Delete this campaign brief">${TRASH_SVG}</button>
       </div>
@@ -7906,15 +8306,17 @@ function renderCampaignView(host, client, id) {
     ${cbRequirementsHtml(campaign, fe)}
     ${cbSendShowsFiles("campaign", id) ? "" : bfSectionHtml("campaign", id)}
     ${cbAgencyHtml(campaign, fe)}
+    ${cbLibHtml(client, id)}
     <div class="fmt-grid cb-grid" id="cb-grid">
       ${formats.length ? formats.map((f, i) => cbCardHtml(f, i, formats.length)).join("")
-        : `<div class="empty"><p>No formats in this campaign yet. Add a link below.</p></div>`}
+        : `<div class="empty"><p>No formats in this brief yet. Add one from the format library above, or paste a link below.</p></div>`}
     </div>
     ${cbAddHtml(formats)}`;
 
   cbBindCrumbs();
   host.querySelectorAll(".cb-format").forEach((card) => cbBindCard(card, id));
   cbBindView(host, client, id);
+  cbLibWireView(host, client, id);   // format library + "Copy to new brief" (campaign-format-library.md)
   cbBindSend(host, "campaign", id, sendDoc,
     () => { if (CAMPAIGN_VIEW?.id === id) renderBriefsKeepScroll(); });
   cbWireGrow(host);
@@ -7950,11 +8352,11 @@ function cbPaintSummary(id) {
   if (fill) fill.style.width = p.total ? `${(p.ready / p.total) * 100}%` : "0%";
   const count = document.getElementById("cb-fcount");
   if (count) count.textContent = cbPlural(p.total, "format", "formats");
-  for (const bid of ["cb-send-toggle"]) {
+  for (const bid of ["cb-send-toggle", "cb-copy-new", "cb-pdf"]) {
     const b = document.getElementById(bid);
     if (!b) continue;
     b.disabled = p.ready === 0;
-    b.title = p.ready === 0 ? "No format is ready yet" : "";
+    b.title = p.ready === 0 ? "No format is ready yet" : (b.dataset.title || "");
   }
   // The note under the send button: which formats a send carries (agencySendDoc keeps
   // only status "done"), or — with nothing ready — why the button is disabled. "Copy
@@ -7964,8 +8366,8 @@ function cbPaintSummary(id) {
     const left = p.total - p.ready;
     nr.hidden = !(p.total && (left || !p.ready));
     nr.textContent = !p.ready
-      ? "Send to creators unlocks once a format is ready."
-      : `A send carries only the ${cbPlural(p.ready, "ready format", "ready formats")} — ${left} still generating or failed.`;
+      ? "Send to creators and Download PDF unlock once a format is ready."
+      : `A send or the PDF carries only the ${cbPlural(p.ready, "ready format", "ready formats")} — ${left} still generating or failed.`;
   }
   cbPaintLane(id);
 }
@@ -8078,6 +8480,7 @@ function cbRepaintCard(campaignId, fid, focusSel) {
   old.replaceWith(card);
   cbBindCard(card, campaignId);
   cbWireGrow(card);
+  bfRepaint("campaign", campaignId);               // its files-on-beats rows, and the files block's "on … beat" lines
   if (focusSel) (card.querySelector(focusSel) || card).focus();
 }
 
@@ -8146,6 +8549,7 @@ function cbBindCard(card, campaignId) {
     },
     failText: (ex) => cbErrorSentence(ex, "save"),
     saved: (field) => {
+      bfRepaint("campaign", campaignId);           // a reworded beat may now be flagged "beat changed"
       // an untitled format is headed by its hook: keep the head in step without a repaint
       const v = get() && cbView(get());
       const title = card.querySelector(".cb-title");
@@ -8374,6 +8778,19 @@ function cbBindView(host, client, id) {
       CB_FIELD_EDIT = null;
       renderBriefsKeepScroll();
       document.getElementById("cb-rename")?.focus();
+      // The name also goes to every creator who already has this brief (agRenameSent). Then the Sent to
+      // list is re-read so it does not show the rename as an unsent edit; that repaint waits while an
+      // editor is open (cbEditorBusy / CB_PENDING), the same rule the campaign poll keeps.
+      agRenameSent("campaign", id, name).then(async ({ renamed, failed }) => {
+        if (renamed) await agEnsureSent("campaign", id, null, true);
+        if (CAMPAIGN_VIEW?.id !== id) return;
+        if (renamed) { if (cbEditorBusy()) CB_PENDING = true; else renderBriefsKeepScroll(); }
+        if (failed) {
+          cbMsg(vmsg(), "Renamed here, but creators who have this brief still see the old name — press Update under Sent to.", "bad", true);
+        } else if (renamed) {
+          cbMsg(vmsg(), "Renamed — creators who have this brief see the new name.", "good");
+        }
+      });
     } catch (ex) {
       nameInput.disabled = false;
       nameInput.focus();
@@ -8438,6 +8855,9 @@ function cbBindView(host, client, id) {
     }
   });
 
+  // ---- Download PDF (back 2026-09-25, owner: "bring back the download as pdf option") ----
+  document.getElementById("cb-pdf")?.addEventListener("click", () => cbSavePdf(id, client));
+
   // ---- add inspiration videos (one row per link) ----
   const addForm = document.getElementById("cb-add");
   const addRows = addForm?.querySelector('[data-rows="add"]');
@@ -8492,10 +8912,620 @@ function cbBindView(host, client, id) {
   });
 }
 
-// ---------- (export removed) ----------
-// "Copy brief" and "Download PDF" left the campaign view on 2026-09-23 (owner: "remove
-// this" — both). campaignDocHtml / campaignDocText (above) are now unreferenced; they
-// stay for now because agencySendDoc's comment leans on them as the creator-facing shape.
+// ---------- The format library + copies (plan: ~/.claude/plans/campaign-format-library.md) ----------
+
+/** A library row: light columns only — `source` (the worker's whole read) is never listed. */
+const CB_LIB_FMT = "id,campaign_id,position,source_url,cover:source->>cover,platform:source->>platform,"
+  + "duration:source->>duration,s_title:script->>title,s_hook:script->>hook,e_title:edited->>title,e_hook:edited->>hook";
+/** What a copy reads off its source row: every column a finished format's breakdown lives in. */
+const CB_COPY_COLS = "id,campaign_id,position,source_url,job,source,analysis,script,edited,internal_note";
+
+/** The title a format card heads with (cbCardHtml: v.title || v.hook), from the light columns. An edit that
+    has the key wins even when it is "" — the same as cbView's spread. */
+const cbLibTitle = (f) => (f.e_title ?? f.s_title) || (f.e_hook ?? f.s_hook) || cbShortUrl(f.source_url);
+/** Canonical links already in the open brief — the identity cbParseLinks already refuses a duplicate on. */
+const cbLibHere = (id) => new Set((CB_CACHE.get(id)?.formats || []).map((f) => canonUrl(f.source_url)));
+
+async function cbLibLoad(clientId, openId) {
+  const camps = await sbFetch(`/rest/v1/lynxr_campaigns?client_id=eq.${encodeURIComponent(clientId)}`
+    + `&id=neq.${openId}&select=id,name,instructions,internal_notes,created_at&order=created_at.desc`);
+  let formats = [], files = [];
+  if (camps.length) {
+    const ids = camps.map((c) => c.id).join(",");
+    formats = await sbFetch(`/rest/v1/lynxr_campaign_formats?campaign_id=in.(${ids})&status=eq.done`
+      + `&select=${CB_LIB_FMT}&order=position.asc`);
+    // Files are optional here: unreadable (not installed, a blip) just means the groups don't count them.
+    files = await sbFetch(`/rest/v1/lynxr_brief_files?source_kind=eq.campaign&source_id=in.(${ids})`
+      + `&select=id,source_id,path,name,size,mime,uploaded_at&order=uploaded_at.asc`).catch(() => []);
+  }
+  const groups = camps.map((c) => ({
+    c,
+    formats: formats.filter((f) => f.campaign_id === c.id).sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+    files: (files || []).filter((f) => f.source_id === c.id),
+  })).filter((g) => g.formats.length);
+  const rec = { clientId, groups, at: Date.now() };
+  CB_LIB.set(openId, rec);
+  return rec;
+}
+
+/** Load once, reuse for 60s; force=true reloads. Repaints only the library block when it lands. */
+function cbLibEnsure(client, id, force) {
+  const cur = CB_LIB.get(id);
+  if (!force && cur && Date.now() - cur.at < 60000) return;
+  if (CB_LIB_LOADING.has(id)) return;
+  CB_LIB_LOADING.add(id);
+  cbLibLoad(client.id, id)
+    .catch((ex) => { CB_LIB.set(id, { error: cbError(ex), at: Date.now() }); })
+    .finally(() => { CB_LIB_LOADING.delete(id); if (CAMPAIGN_VIEW?.id === id) cbLibRepaint(client, id); });
+}
+
+/** Copies finished formats into campaign `targetId` as READY rows. Nothing is regenerated: each new row is
+    born status "done" with the source's link, worker read (`source`), analysis, script, staff edits and
+    internal note, so the worker's claim (pipeline/campaign_queue.py: status queued, or running with a stale
+    lease) never matches it and no model is called. RESET, not copied: id, campaign_id, position (appended
+    from startPos), created_at/updated_at (defaults), attempts 0, phase "", retry_at/claimed_* and error_*
+    (column defaults), regen_note "", script_prev null (no "Restore previous version" of another brief's
+    history), timings null, finished_at = now. A source that is not "done" any more, or whose link is already
+    in the target (`here`), is skipped; `room` caps how many land. Returns { added, pairs, skipped } — added
+    are CB_FULL-shaped rows for CB_CACHE, pairs are { from: source row (CB_COPY_COLS), to: added row }. */
+async function cbCopyFormats(targetId, ids, { startPos = 0, room = CB_MAX_FORMATS, here = new Set() } = {}) {
+  const skipped = { here: 0, full: 0, notReady: 0 };
+  if (!ids.length) return { added: [], pairs: [], skipped };
+  const src = await sbFetch(`/rest/v1/lynxr_campaign_formats?id=in.(${ids.join(",")})&status=eq.done`
+    + `&select=${CB_COPY_COLS}&order=position.asc`);
+  skipped.notReady = ids.length - src.length;
+  const seen = new Set(here);
+  const take = [];
+  for (const f of src) {
+    const k = canonUrl(f.source_url);
+    if (seen.has(k)) { skipped.here++; continue; }
+    if (take.length >= room) { skipped.full++; continue; }
+    seen.add(k);
+    take.push(f);
+  }
+  if (!take.length) return { added: [], pairs: [], skipped };
+  const now = new Date().toISOString();
+  const rows = take.map((f, i) => ({
+    campaign_id: targetId, position: startPos + i, source_url: f.source_url,
+    job: f.job || "script", status: "done", phase: "", attempts: 0,
+    source: f.source ?? null, analysis: f.analysis ?? null, script: f.script ?? null,
+    edited: f.edited ?? null, internal_note: f.internal_note || "",
+    script_prev: null, regen_note: "", finished_at: now,
+  }));
+  const made = await sbFetch("/rest/v1/lynxr_campaign_formats?select=id,position,created_at,updated_at", {
+    method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(rows),
+  });
+  // The cards need CB_FULL's shape. Re-read it; if that read fails the rows DID land, so build the same
+  // shape from what was sent rather than report a failure that would invite a duplicate retry.
+  let full = null;
+  try {
+    full = await sbFetch(`/rest/v1/lynxr_campaign_formats?id=in.(${made.map((m) => m.id).join(",")})&select=${CB_FULL}`);
+  } catch { full = null; }
+  const pairs = [];
+  for (const m of made) {
+    const i = rows.findIndex((r) => r.position === m.position);
+    if (i < 0) continue;
+    let to = (full || []).find((x) => x.id === m.id);
+    if (!to) {
+      const b = rows[i], s = b.source || {};
+      to = { ...b, id: m.id, created_at: m.created_at, updated_at: m.updated_at,
+        retry_at: null, error_kind: "", error_detail: "", retryable: true,
+        cover: s.cover ?? null, clip: s.clip ?? null, platform: s.platform ?? null,
+        duration: s.duration ?? null, title: s.meta?.title ?? null };
+      delete to.source;                        // CB_CACHE never holds the worker's whole read (see CB_FULL)
+    }
+    pairs.push({ from: take[i], to });
+  }
+  return { added: pairs.map((p) => p.to), pairs, skipped };
+}
+
+/** Copies brief files onto campaign `targetId`, each as NEW bytes at a NEW path — never a second row on the
+    same object: bfRemove deletes the bytes and brief_file_readable() gates a creator's download by path, so a
+    shared object would vanish from one brief when removed from the other, and be readable through either.
+    Storage copies server-side (POST /storage/v1/object/copy: SELECT on the source object + INSERT on the
+    destination — brief_files.sql's "staff or delivered creator read" and "staff upload" policies), so nothing
+    is re-uploaded. Never x-upsert (that needs an UPDATE policy staff don't have, and would overwrite). A file
+    already on the target with the same name and size is reused, not copied. The per-brief caps are checked
+    first (the trigger enforces them anyway). Bytes first, then the row; a failed row insert deletes the new
+    bytes — bfUpload's order. Returns { copied, here, failed: [{ name, why }], map: source file id -> target
+    row } — the map is what cbCopyPlacements points the copied placements at. */
+async function bfCopyFiles(srcFiles, targetId) {
+  const kind = "campaign", key = agSentKey(kind, targetId);
+  const out = { copied: 0, here: 0, failed: [], map: new Map() };
+  if (!srcFiles.length) return out;
+  await bfEnsure(kind, targetId, null, true);
+  const entry = BF_FILES.get(key);
+  if (!entry || entry.error) {
+    const why = entry?.error === "missing" ? "attachments aren't installed yet" : "couldn't read this brief's files";
+    out.failed = srcFiles.map((f) => ({ name: f.name, why }));
+    return out;
+  }
+  const rows = [...entry.rows];
+  const inflight = BF_UP.get(key) || [];
+  let count = rows.length + inflight.length;
+  let total = rows.reduce((s, r) => s + (Number(r.size) || 0), 0) + inflight.reduce((s, u) => s + u.size, 0);
+  for (const f of srcFiles) {
+    const same = rows.find((r) => r.name === f.name && Number(r.size) === Number(f.size));
+    if (same) { out.here++; out.map.set(f.id, same); continue; }
+    if (count + 1 > BF_MAX_COUNT) { out.failed.push({ name: f.name, why: `a brief holds ${BF_MAX_COUNT} files at most` }); continue; }
+    if (total + (Number(f.size) || 0) > BF_MAX_TOTAL) { out.failed.push({ name: f.name, why: `this brief's files would pass ${bfSize(BF_MAX_TOTAL)}` }); continue; }
+    const path = `${kind}/${bfSafe(String(targetId))}/${bfSafe(newId())}/${bfSafe(String(f.path).split("/").pop())}`;
+    try {
+      await sbFreshToken();                      // storage answers an expired token with 400, not 401
+      await sbFetch("/storage/v1/object/copy", {
+        method: "POST", body: JSON.stringify({ bucketId: BF_BUCKET, sourceKey: f.path, destinationKey: path }),
+      });
+      let made;
+      try {
+        made = await sbFetch("/rest/v1/lynxr_brief_files?select=id,path,name,size,mime,uploaded_at", {
+          method: "POST", headers: { Prefer: "return=representation" },
+          body: JSON.stringify({ source_kind: kind, source_id: String(targetId), path,
+            name: f.name, size: f.size, mime: f.mime || "" }),
+        });
+      } catch (ex) {
+        sbDeleteFile(BF_BUCKET, path).catch(() => {});   // no row will ever point at these bytes
+        throw ex;
+      }
+      const row = made[0];
+      rows.push(row); count += 1; total += Number(f.size) || 0;
+      out.copied += 1; out.map.set(f.id, row);
+    } catch (ex) {
+      out.failed.push({ name: f.name, why: bfErrorSentence(ex, "copy") });
+    }
+  }
+  await bfEnsure(kind, targetId, null, true);
+  bfRepaint(kind, targetId);                     // the files block + beat rows, and only if on screen
+  return out;
+}
+
+/** "Add all": fill THIS brief's campaign requirements and internal notes from the source brief's — only where
+    this brief's are empty, and never under that field's open editor. brand_context is never copied here.
+    Returns "req" (requirements copied), "notes" (only notes), or false. */
+async function cbFillBriefFields(id, src) {
+  const rec = CB_CACHE.get(id);
+  if (!rec) return false;
+  const fe = CB_FIELD_EDIT?.id === id ? CB_FIELD_EDIT.field : null;
+  const empty = (s) => !String(s || "").trim();
+  const fields = {};
+  if (fe !== "instructions" && empty(rec.campaign.instructions) && !empty(src.instructions)) fields.instructions = src.instructions;
+  if (fe !== "internal_notes" && empty(rec.campaign.internal_notes) && !empty(src.internal_notes)) fields.internal_notes = src.internal_notes;
+  if (!Object.keys(fields).length) return false;
+  try { await cbPatchCampaign(id, fields); } catch { return false; }
+  Object.assign(rec.campaign, fields);
+  // In place, so an open editor elsewhere on the page keeps its text; the catch-up repaint draws the same.
+  if (fields.instructions) {
+    const p = document.querySelector('section[aria-labelledby="cb-req-h"] > p');
+    if (p) {
+      const n = document.createElement("p");
+      n.className = "cb-instructions";
+      n.textContent = fields.instructions;
+      p.replaceWith(n);
+    }
+  }
+  return fields.instructions ? "req" : "notes";
+}
+
+function cbLibHtml(client, id) {
+  const lib = CB_LIB.get(id);
+  const rec = CB_CACHE.get(id);
+  const count = rec?.formats.length || 0;
+  const open = CB_LIB_OPEN.has(id) ? CB_LIB_OPEN.get(id) : count < 3;
+  const wrap = (sum, inner) => `<details class="cb-block cb-lib" id="cb-lib"${open ? " open" : ""}>
+    <summary><span class="cb-block-title" id="cb-lib-h">Format library</span>${sum ? `<span class="lbl cb-lib-sum">${sum}</span>` : ""}</summary>
+    <div class="cb-lib-body">${inner}
+      <p class="bp-msg cb-msg" id="cb-lib-msg" role="status" aria-live="polite"></p></div>
+  </details>`;
+  const legacy = (client.briefs || []).length
+    ? `<p class="note cb-lib-legacy">Picked-video briefs aren't listed — they have no stored breakdown to copy.</p>` : "";
+  if (!lib) return wrap("", `<p class="note">Loading the library…</p>`);
+  if (lib.error) {
+    return wrap("", `<p class="note">${lib.error === "denied" ? "This account can't read campaign briefs."
+      : `Couldn't load the library. <button type="button" class="ghost cb-small" id="cb-lib-retry">Try again</button>`}</p>`);
+  }
+  const total = lib.groups.reduce((n, g) => n + g.formats.length, 0);
+  if (!total) {
+    return wrap("", `<p class="note">No other <span class="cb-name">${escapeHtml(client.company)}</span> brief has a ready format yet. This brief's formats show up here in the next one.</p>${legacy}`);
+  }
+  const here = cbLibHere(id);
+  const room = CB_MAX_FORMATS - count;
+  const off = CB_LIB_BUSY || room <= 0;
+  const q = (CB_LIB_Q.get(id) || "").trim().toLowerCase();
+  if (!CB_LIB_GROUPS.has(id)) CB_LIB_GROUPS.set(id, new Set([lib.groups[0].c.id]));
+  const shown = CB_LIB_GROUPS.get(id);
+  const groups = lib.groups.map((g) => {
+    let hits = 0, todo = 0;
+    const rows = g.formats.map((f) => {
+      const title = cbLibTitle(f);
+      const key = `${title} ${f.source_url || ""}`.toLowerCase();
+      const hit = !q || key.includes(q);
+      if (hit) hits++;
+      const inHere = here.has(canonUrl(f.source_url));
+      if (!inHere) todo++;
+      const cover = f.cover ? safeUrl(f.cover) : "";
+      const plat = platformOf(f.source_url || "") || (f.platform ? String(f.platform) : "video");
+      const dur = Number(f.duration) > 0 ? ` · ${Math.round(Number(f.duration))}s` : "";
+      return `<li class="cb-lib-row" data-fid="${escapeHtml(f.id)}" data-q="${escapeHtml(key)}"${hit ? "" : " hidden"}>
+        ${cover ? `<img class="cb-lib-thumb" src="${escapeHtml(cover)}" alt="" loading="lazy">` : `<span class="cb-lib-thumb" aria-hidden="true"></span>`}
+        <span class="cb-lib-text"><span class="cb-lib-title cb-title">${escapeHtml(title)}</span><span class="lbl">${escapeHtml(plat)}${dur}</span></span>
+        ${inHere ? `<span class="chip cb-lib-here">In this brief</span>`
+          : `<button type="button" class="ghost cb-small cb-lib-add" data-fid="${escapeHtml(f.id)}" data-group="${escapeHtml(g.c.id)}"
+              aria-label="Add ${escapeHtml(title)} to this brief"${off ? " disabled" : ""}>Add</button>`}
+      </li>`;
+    }).join("");
+    const meta = [String(g.c.created_at || "").slice(0, 10), cbPlural(g.formats.length, "format", "formats")];
+    if (g.files.length) meta.push(cbPlural(g.files.length, "file", "files"));
+    const isOpen = q ? hits > 0 : shown.has(g.c.id);
+    return `<details class="cb-lib-group" data-group="${escapeHtml(g.c.id)}"${isOpen ? " open" : ""}${hits ? "" : " hidden"}>
+      <summary><span class="cb-lib-gname cb-name">${escapeHtml(g.c.name || "Untitled brief")}</span> <span class="lbl">${escapeHtml(meta.join(" · "))}</span></summary>
+      <div class="cb-lib-gact">
+        ${g.files.length ? `<span class="lbl">Add all brings its ${cbPlural(g.files.length, "file", "files")} too.</span>` : ""}
+        <button type="button" class="ghost cb-small cb-lib-all" data-group="${escapeHtml(g.c.id)}"
+          title="Adds every format not in this brief, plus its files. Fills this brief's requirements only if they're empty."${off || !todo ? " disabled" : ""}>${todo ? `Add all ${todo}` : "All in this brief"}</button>
+      </div>
+      <ul class="cb-lib-list">${rows}</ul>
+    </details>`;
+  }).join("");
+  const full = room <= 0
+    ? `<p class="note cb-lib-full">This brief holds the maximum of ${CB_MAX_FORMATS} formats. Delete one to add from the library.</p>` : "";
+  const find = total > CB_LIB_FILTER_AT
+    ? `<label class="ce-field cb-lib-find"><span class="sr-only">Filter the library</span><input type="search" id="cb-lib-q"
+        value="${escapeHtml(CB_LIB_Q.get(id) || "")}" placeholder="Filter by title or link" autocomplete="off" spellcheck="false"></label>` : "";
+  return wrap(`${cbPlural(total, "format", "formats")} from ${cbPlural(lib.groups.length, "other brief", "other briefs")} · added as copies, nothing regenerated`,
+    `${full}${find}${groups}${legacy}`);
+}
+
+/** Redraws the library block and nothing else — the bfRepaint pattern. Keeps a focused filter focused. */
+function cbLibRepaint(client, id) {
+  const cur = document.getElementById("cb-lib");
+  if (!cur || CAMPAIGN_VIEW?.id !== id) return;
+  const typing = document.activeElement?.id === "cb-lib-q";
+  const tpl = document.createElement("template");
+  tpl.innerHTML = cbLibHtml(client, id).trim();
+  const next = tpl.content.firstElementChild;
+  if (!next) return;
+  cur.replaceWith(next);
+  cbLibWire(next, client, id);
+  if (typing) {
+    const q = next.querySelector("#cb-lib-q");
+    q?.focus({ preventScroll: true });
+    q?.setSelectionRange?.(q.value.length, q.value.length);
+  }
+}
+
+/** Filtering hides rows and groups in place — typing never repaints anything. */
+function cbLibFilter(box, id) {
+  const q = (CB_LIB_Q.get(id) || "").trim().toLowerCase();
+  const shown = CB_LIB_GROUPS.get(id) || new Set();
+  box.querySelectorAll(".cb-lib-group").forEach((g) => {
+    let hits = 0;
+    g.querySelectorAll(".cb-lib-row").forEach((r) => {
+      const hit = !q || r.dataset.q.includes(q);
+      r.hidden = !hit;
+      if (hit) hits++;
+    });
+    g.hidden = hits === 0;
+    g.open = q ? hits > 0 : shown.has(g.dataset.group);
+  });
+}
+
+function cbLibWire(box, client, id) {
+  box.addEventListener("toggle", () => CB_LIB_OPEN.set(id, box.open));   // "toggle" does not bubble
+  box.querySelectorAll(".cb-lib-group").forEach((g) => g.addEventListener("toggle", () => {
+    if ((CB_LIB_Q.get(id) || "").trim()) return;   // a filter opens and shuts groups itself — not a choice to keep
+    const s = CB_LIB_GROUPS.get(id) || new Set();
+    if (g.open) s.add(g.dataset.group); else s.delete(g.dataset.group);
+    CB_LIB_GROUPS.set(id, s);
+  }));
+  box.querySelector("#cb-lib-retry")?.addEventListener("click", () => {
+    CB_LIB.delete(id);
+    cbLibRepaint(client, id);                        // "Loading the library…"
+    cbLibEnsure(client, id, true);
+  });
+  const q = box.querySelector("#cb-lib-q");
+  q?.addEventListener("input", () => { CB_LIB_Q.set(id, q.value); cbLibFilter(box, id); });
+  box.querySelectorAll(".cb-lib-add").forEach((b) => b.addEventListener("click", () =>
+    cbLibAdd(client, id, [b.dataset.fid], b.dataset.group, "one")));
+  box.querySelectorAll(".cb-lib-all").forEach((b) => b.addEventListener("click", () => {
+    const g = CB_LIB.get(id)?.groups?.find((x) => x.c.id === b.dataset.group);
+    if (g) cbLibAdd(client, id, g.formats.map((f) => f.id), g.c.id, "all");
+  }));
+}
+
+/** After an add the pressed button is gone: move to the next Add in that group, else the group, else the
+    library — unless the user has already put focus somewhere else. */
+function cbLibFocusAfter(groupId, fid) {
+  const box = document.getElementById("cb-lib");
+  const a = document.activeElement;
+  if (!box || (a && a !== document.body && !box.contains(a))) return;
+  const g = [...box.querySelectorAll(".cb-lib-group")].find((x) => x.dataset.group === groupId);
+  const rows = g ? [...g.querySelectorAll(".cb-lib-row:not([hidden])")] : [];
+  const at = fid ? rows.findIndex((r) => r.dataset.fid === fid) : -1;
+  const order = at >= 0 ? [...rows.slice(at + 1), ...rows.slice(0, at)] : rows;
+  const next = order.map((r) => r.querySelector(".cb-lib-add:not([disabled])")).find(Boolean);
+  (next || g?.querySelector("summary") || box.querySelector("summary"))?.focus({ preventScroll: true });
+}
+
+/** Called by renderCampaignView after every full render. */
+function cbLibWireView(host, client, id) {
+  const box = document.getElementById("cb-lib");
+  if (box) cbLibWire(box, client, id);
+  document.getElementById("cb-copy-new")?.addEventListener("click", () => cbCopyToNewBrief(client, id));
+  cbLibEnsure(client, id);
+}
+
+/** Appends new format cards to #cb-grid without touching any other card. */
+function cbAppendCards(id, newIds) {
+  const rec = CB_CACHE.get(id);
+  const grid = document.getElementById("cb-grid");
+  if (!rec || !grid) return;
+  grid.querySelector(":scope > .empty")?.remove();
+  const before = [...grid.querySelectorAll(":scope > .cb-format")];
+  const prevLast = before[before.length - 1];
+  const formats = cbSorted(rec);
+  for (const fid of newIds) {
+    const i = formats.findIndex((f) => f.id === fid);
+    if (i < 0 || document.getElementById(`cb-f-${fid}`)) continue;
+    const tpl = document.createElement("template");
+    tpl.innerHTML = cbCardHtml(formats[i], i, formats.length).trim();
+    const card = tpl.content.firstElementChild;
+    grid.append(card);
+    cbBindCard(card, id);
+    cbWireGrow(card);
+  }
+  // The card that was last can move down now (its edit form keeps the arrow off — cbCardHtml).
+  const down = prevLast?.querySelector(".cb-down");
+  if (down && !CB_EDITING.has(prevLast.dataset.fid)) down.disabled = false;
+}
+
+function cbLibAfterAdd(client, id, newIds) {
+  if (newIds.length) {
+    cbAppendCards(id, newIds);
+    bfRepaint("campaign", id);         // the new cards' beat-file rows (bfbPaint) and the files block's "on … beat" lines
+  }
+  cbPaintSummary(id);
+  cbLibRepaint(client, id);
+  if (!newIds.length) return;
+  CB_PENDING = true;   // the add box's numbering and "up to N more" catch up in one full repaint…
+  const playing = [...document.querySelectorAll("#cb-grid video")].some((v) => !v.paused);
+  if (!playing) cbFlushPending(id);   // …now if nothing is open, else when the open editor closes
+}
+
+const CB_PLACES_LOST = "Couldn't copy which beats its files sit on — put them back with + Add file under each beat.";
+
+function cbLibResult({ mode, title, from, n, files, req, skipped, placesLost }) {
+  const bits = [];
+  if (!n && !files.copied && !req) {
+    bits.push(skipped.full ? `This brief holds ${CB_MAX_FORMATS} formats — delete one to add another.`
+      : "Nothing to add — it's all in this brief already.");
+  } else if (mode === "one" && n === 1) {
+    bits.push(`Added “${title}”${files.copied ? ` with ${cbPlural(files.copied, "file", "files")}` : ""} — ready, nothing regenerated.`);
+  } else {
+    bits.push(`Added ${cbPlural(n, "format", "formats")}${files.copied ? ` and ${cbPlural(files.copied, "file", "files")}` : ""}`
+      + ` from ${from}${req === "req" ? ", plus its campaign requirements" : ""} — ready, nothing regenerated.`);
+  }
+  if (n && skipped.full) bits.push(`${cbPlural(skipped.full, "format", "formats")} didn't fit — a brief holds ${CB_MAX_FORMATS}.`);
+  if (skipped.notReady) bits.push(`${cbPlural(skipped.notReady, "format isn't", "formats aren't")} ready any more — skipped.`);
+  if (files.failed.length) bits.push(`Not copied: ${files.failed.map((x) => `${x.name} (${x.why})`).join("; ")}.`);
+  if (placesLost) bits.push(CB_PLACES_LOST);
+  const bad = files.failed.length > 0 || skipped.full > 0 || !!placesLost || (!n && !files.copied && !req);
+  return { text: bits.join(" "), tone: bad ? "bad" : "good", sticky: bad };
+}
+
+/** mode "one": fids = [one source format]; mode "all": every format of that source brief. Order: formats,
+    then files, then placements (they need both the new format ids and the target's file rows). */
+async function cbLibAdd(client, id, fids, groupId, mode) {
+  const rec = CB_CACHE.get(id);
+  const g = CB_LIB.get(id)?.groups?.find((x) => x.c.id === groupId);
+  if (!rec || !g || CB_LIB_BUSY || !fids.length) return;
+  const room = CB_MAX_FORMATS - rec.formats.length;
+  if (room <= 0) {
+    cbMsg(document.getElementById("cb-lib-msg"), `This brief holds ${CB_MAX_FORMATS} formats — delete one to add another.`, "bad", true);
+    return;
+  }
+  const title = cbLibTitle(g.formats.find((f) => f.id === fids[0]) || {});
+  CB_LIB_BUSY = true;
+  cbLibRepaint(client, id);                          // every Add disabled while this runs
+  let out = null;                                    // said AFTER the last repaint (a repaint rebuilds #cb-lib-msg)
+  let newIds = [];
+  try {
+    const startPos = rec.formats.reduce((m, f) => Math.max(m, f.position ?? 0), -1) + 1;
+    let res;
+    try {
+      res = await cbCopyFormats(id, fids, { startPos, room, here: cbLibHere(id) });
+    } catch (ex) {
+      out = { text: cbErrorSentence(ex, "copy formats into"), tone: "bad", sticky: true };
+      return;
+    }
+    // The formats are in: cache first, so they show whatever happens to the files.
+    const cur = CB_CACHE.get(id);
+    if (cur) for (const f of res.added) if (!cur.formats.some((x) => x.id === f.id)) cur.formats.push(f);
+    newIds = res.added.map((f) => f.id);
+    const places = g.files.length ? await cbSourcePlaces(g.files) : { rows: [], skip: null };
+    const srcFiles = mode === "all" ? g.files : cbPlacedFiles(g.files, places, res.pairs.map((p) => p.from.id));
+    let files = { copied: 0, here: 0, failed: [], map: new Map() };
+    if (srcFiles.length) files = await bfCopyFiles(srcFiles, id);
+    const placed = await cbCopyPlacements(res.pairs, files.map, id, places);
+    const req = mode === "all" ? await cbFillBriefFields(id, g.c) : false;
+    out = cbLibResult({ mode, title, from: g.c.name || "Untitled brief", n: res.added.length, files, req,
+      skipped: res.skipped, placesLost: places.skip === "error" || placed.failed });
+  } finally {
+    CB_LIB_BUSY = false;
+    for (const k of [...CB_LIB.keys()]) if (k !== id) CB_LIB.delete(k);   // other briefs' libraries now count stale
+    CB_LISTS.delete(client.id);                                          // the client page's per-brief counts too
+    if (CAMPAIGN_VIEW?.id === id) {
+      cbLibAfterAdd(client, id, newIds);
+      if (out) cbMsg(document.getElementById("cb-lib-msg"), out.text, out.tone, out.sticky);
+      cbLibFocusAfter(groupId, mode === "one" ? fids[0] : null);
+    }
+  }
+}
+
+/** One click: a new campaign brief for the same client, pre-filled from this one — every READY format as a
+    ready copy, every file as new bytes, every placement on the copied formats, and the requirements,
+    internal notes and brand context — then open it. Names it with the next free number ("Week 1" ->
+    "Week 2"), else "Brief N". */
+async function cbCopyToNewBrief(client, id) {
+  const rec = CB_CACHE.get(id);
+  const vmsg = () => document.getElementById("cb-view-msg");
+  if (!rec || CB_COPYING) return;
+  if (cbEditorBusy()) { cbMsg(vmsg(), "Save or cancel the open edit first — the copy takes what's saved.", "bad", true); return; }
+  const ready = cbSorted(rec).filter((f) => f.status === "done").map((f) => f.id);
+  if (!ready.length) { cbMsg(vmsg(), "No format is ready yet.", "bad", true); return; }
+  CB_COPYING = true;
+  const btn = document.getElementById("cb-copy-new");
+  const face = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = "Copying…"; }
+  const fail = (text) => {
+    CB_COPYING = false;
+    if (btn?.isConnected) { btn.disabled = false; btn.textContent = face; }
+    cbMsg(vmsg(), text, "bad", true);
+  };
+  const src = rec.campaign;
+  if (!CB_LISTS.get(client.id)?.rows) await cbListCampaigns(client.id).catch(() => {});
+  const names = new Set((CB_LISTS.get(client.id)?.rows || []).map((r) => r.name));
+  let name = cbNextBriefName(client);
+  const m = /^(.*?)(\d+)\s*$/.exec(src.name || "");
+  if (m) { let k = Number(m[2]) + 1; while (names.has(`${m[1]}${k}`)) k++; name = `${m[1]}${k}`; }
+  let nid;
+  try {
+    const made = await sbFetch("/rest/v1/lynxr_campaigns?select=id", {
+      method: "POST", headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ client_id: client.id, name, instructions: src.instructions || "",
+        internal_notes: src.internal_notes || "", brand_context: src.brand_context || {}, created_by: SB_EMAIL || "" }),
+    });
+    nid = made[0].id;
+  } catch (ex) { fail(cbErrorSentence(ex, "create")); return; }
+  let res;
+  try {
+    res = await cbCopyFormats(nid, ready, { startPos: 0, room: CB_MAX_FORMATS, here: new Set() });
+  } catch (ex) {
+    await cbDeleteCampaign(nid).catch(() => {});   // never leave an empty half-made brief behind
+    fail(cbErrorSentence(ex, "copy formats into"));
+    return;
+  }
+  await bfEnsure("campaign", id, null, true);
+  const srcFiles = BF_FILES.get(agSentKey("campaign", id))?.rows || [];
+  const places = srcFiles.length ? await cbSourcePlaces(srcFiles) : { rows: [], skip: null };
+  const files = await bfCopyFiles(srcFiles, nid);
+  const placed = await cbCopyPlacements(res.pairs, files.map, nid, places);
+  await cbLoadCampaign(nid).catch(() => {});        // open on real rows; renderCampaignView loads it if this failed
+  await agEnsureSent("campaign", nid);              // pre-warm AG_SENT: renderCampaignView's own call would
+                                                      // otherwise still be in flight on a brand-new id and its
+                                                      // completion would renderBriefsKeepScroll() over this
+                                                      // function's own result message below
+  CB_COPYING = false;
+  CB_LISTS.delete(client.id);
+  CB_LIB.clear();
+  CAMPAIGN_VIEW = { id: nid }; BRIEF_VIEW = null;
+  renderBriefs();
+  window.scrollTo({ top: 0 });
+  const left = rec.formats.length - res.added.length;
+  const lost = places.skip === "error" || placed.failed;
+  const bits = [`${name} is ready — copied from ${src.name || "Untitled brief"}: ${cbPlural(res.added.length, "format", "formats")}`
+    + `${files.copied ? `, ${cbPlural(files.copied, "file", "files")}` : ""}`
+    + `${String(src.instructions || "").trim() ? " and the campaign requirements" : ""}. Nothing was regenerated.`];
+  if (left) bits.push(`${cbPlural(left, "format", "formats")} still generating or failed — not copied.`);
+  if (files.failed.length) bits.push(`Not copied: ${files.failed.map((x) => `${x.name} (${x.why})`).join("; ")}.`);
+  if (lost) bits.push(CB_PLACES_LOST);
+  const bad = files.failed.length > 0 || lost;
+  cbMsg(document.getElementById("cb-view-msg"), bits.join(" "), bad ? "bad" : "good", bad);
+}
+
+/** Where the SOURCE brief's files sit on beats: rows of lynxr_brief_file_beats (supabase/brief_file_beats.sql,
+    ~/.claude/plans/brief-files-at-beats.md), read by file id — the same query bfPlacesEnsure makes, but for a
+    brief that may not be on screen. { rows, skip }: skip "missing" = that SQL isn't run yet, so copies carry no
+    placements and say nothing about it; skip "error" = couldn't read them, and the result message says so. */
+async function cbSourcePlaces(srcFiles) {
+  const ids = srcFiles.map((f) => f.id).filter(Boolean);
+  if (!ids.length) return { rows: [], skip: null };
+  try {
+    const rows = await sbFetch(`/rest/v1/lynxr_brief_file_beats?file_id=in.(${ids.map(encodeURIComponent).join(",")})`
+      + `&select=id,file_id,format_id,beat,sigs&order=placed_at.asc`);
+    return { rows: Array.isArray(rows) ? rows : [], skip: null };
+  } catch (ex) {
+    return { rows: [], skip: cbError(ex) === "missing" ? "missing" : "error" };
+  }
+}
+
+/** The files a single Add carries: those placed on a beat of one of these source formats. Without placements
+    (not installed, unreadable, none) nothing ties a file to a format, so a single Add carries none. */
+function cbPlacedFiles(srcFiles, places, fromIds) {
+  const want = new Set(fromIds.map(String));
+  const ids = new Set(places.rows.filter((p) => want.has(String(p.format_id))).map((p) => p.file_id));
+  return srcFiles.filter((f) => ids.has(f.id));
+}
+
+/** Re-creates the source's placements on the copies: target file row, new format id, SAME beat index, SAME
+    fingerprints. The beats were copied word for word, so each file lands on the same beat — and a placement
+    that was "beat changed" on the source stays flagged on the copy, exactly as it was. A placement whose file
+    didn't copy is dropped (that file is named in the result). The new rows join the target's cached
+    placements, then bfRepaint redraws the files block and the rows under the beats — never the viewer.
+    Returns { copied, failed }. */
+async function cbCopyPlacements(pairs, fileMap, targetId, places) {
+  const out = { copied: 0, failed: false };
+  if (!places || places.skip || !places.rows.length || !pairs.length) return out;
+  const toOf = new Map(pairs.map((p) => [String(p.from.id), String(p.to.id)]));
+  const body = [];
+  for (const p of places.rows) {
+    const formatId = toOf.get(String(p.format_id));
+    const file = fileMap.get(p.file_id);
+    if (!formatId || !file) continue;
+    body.push({ file_id: file.id, format_id: formatId, beat: Number(p.beat) || 0, sigs: Array.isArray(p.sigs) ? p.sigs : [] });
+  }
+  if (!body.length) return out;
+  const key = agSentKey("campaign", targetId);
+  try {
+    const rows = await sbFetch("/rest/v1/lynxr_brief_file_beats?select=id,file_id,format_id,beat,sigs", {
+      method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(body),
+    });
+    out.copied = Array.isArray(rows) ? rows.length : 0;
+    const pl = BF_PLACES.get(key);
+    if (pl && !pl.error && Array.isArray(rows)) pl.rows.push(...rows);
+    else await bfPlacesEnsure("campaign", targetId, null, true);   // not loaded yet (a brand-new brief): read them
+  } catch {
+    out.failed = true;
+  }
+  bfRepaint("campaign", targetId);
+  return out;
+}
+
+// ---------- Download PDF ----------
+// "Copy brief" and "Download PDF" left the campaign view on 2026-09-23 (owner: "remove this" —
+// both). Download PDF came BACK on 2026-09-25 (owner: "bring back the download as pdf option"),
+// restored exactly as it was before commit 5cc5260; Copy brief stays gone, so campaignDocText
+// (above) is still unreferenced. The PDF prints campaignDocHtml: done formats only, never an
+// agency-only field.
+
+/** "<campaign name> — brief", minus anything a filesystem refuses
+    (\\ / : * ? " < > | and control characters) and trailing dots/spaces. */
+function cbPdfTitle(name) {
+  const clean = String(name || "").replace(/[\\/:*?"<>|\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ").trim().replace(/[. ]+$/, "").slice(0, 120).trim();
+  return `${clean || "Campaign"} — brief`;
+}
+
+/** Print only the creator document: a detached #cb-print node plus
+    body.cb-printing, which the @media print rules in app.css ("Download PDF") use
+    to hide everything else. Cleaned up on afterprint. */
+function cbSavePdf(id, client) {
+  const rec = CB_CACHE.get(id);
+  if (!rec) return;
+  document.getElementById("cb-print")?.remove();
+  const node = document.createElement("div");
+  node.id = "cb-print";
+  node.innerHTML = campaignDocHtml(rec.campaign, cbSorted(rec), client);
+  document.body.appendChild(node);
+  document.body.classList.add("cb-printing");
+  const oldTitle = document.title;
+  // Chrome's Save as PDF takes its default filename from the title.
+  document.title = cbPdfTitle(rec.campaign.name);
+  window.addEventListener("afterprint", () => {
+    node.remove();
+    document.body.classList.remove("cb-printing");
+    document.title = oldTitle;
+  }, { once: true });
+  window.print();
+}
 
 // ---------- Ops ----------
 /* IS ANYTHING LATE, IS ANYTHING BROKEN, WHAT IS IT COSTING.

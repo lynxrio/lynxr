@@ -27,7 +27,92 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
-**FILE ACTIONS NO LONGER ERASE OPEN EDITS (2026-09-25, UNCOMMITTED, stamp now `202609232v`).** Owner: "When I add a
+**PHONE LANDING: LESS DEAD SPACE, AND A QUIET SIGN-UP LINK (2026-09-25, UNCOMMITTED, stamp `202609233b`).** Owner, on a
+phone screenshot: "it looks cluttered but also blank space where it isnt needed", after picking mockup "L" for a phone
+sign-up ("a quiet link under the paste box") from three rounds of mockups (the full card, then minimal versions, all
+"too cluttered"). Built exactly as the approved mockup "with the two bigger gaps" (≤640px only): the hero no longer holds
+the whole fold (`min-height: 0; align-content: start` — that "same space above and below" rule is REOPENED and noted in
+app.css), 52px under the bar, 80px from the panel to "free to start"; the panel's empty ~120px band under the paste box
+is now one row — `p.hx-new` "new here? create your free account" (a `[data-gate="up"]` link; `display:none` above 640px,
+where the .hxs card lives) left, a 64px buddy (was 96) right; `.lp-sec` padding 40px on phones; footer wordmark gap 18px.
+Page is ~340px shorter. Verified headless at 393: gaps measured 53/80, link and buddy centred on each other, no overlap,
+no sideways scroll; the link opens the real gate in sign-up mode; the intro still types with the row steady from frame 0;
+scrolled screenshots show NO seam (the "hard edge" in the mockups was a full-page-capture artifact: body::before is a
+FIXED 100vh backdrop, painted once at the top of a captureBeyondViewport shot); desktop 1440 geometry identical to a
+before-capture (hero, h1, .hxs card, panel, buddy, pricing, page height); `csp violations: []`.
+
+**A CAMPAIGN RENAME REACHES CREATORS WHO ALREADY HAVE IT (2026-09-25, UNCOMMITTED, stamp `202609233a`).** Owner: "when i
+change the name of brief, have it change on the creator side that has the brief as well even if it was already sent
+out". Sent briefs are snapshots that move only on Update; the NAME is now the one exception. After the rename saves,
+`agRenameSent()` (app.js, beside `agSentFor`) re-reads this source's sent rows and PATCHes each one's `title` column (the
+creator's list, via `my_agency()`) and `doc.title` (the brief page, via `my_agency_brief()`) — nothing else in the doc, so
+unsent edits stay unsent and `sent_at` ("their version is from") is untouched. RLS already allowed it ("staff update
+agency briefs"). The Sent to list is then re-read so a rename alone never reads as "edited since they got it"; that
+repaint waits while an editor is open. Verified headless against a stubbed database: no other edits → both titles change,
+instructions and sent_at unchanged, list stays "up to date"; an unsent requirements edit → only the name went out and the
+list still says they have the older version; a failed write → a sticky "creators still see the old name — press Update"
+message. Legacy picked-video briefs have no rename, so they are untouched. bf-keep regression still passes.
+
+**DOWNLOAD PDF IS BACK ON THE CAMPAIGN BRIEF (2026-09-25, UNCOMMITTED, stamp `202609232z`).** Owner: "bring back the
+download as pdf option". It left with "Copy brief" in `5cc5260` (2026-09-23, owner: "remove this" — both); only Download
+PDF returns, restored exactly as it was: the `#cb-pdf` `.btn` in the campaign head (after "Copy to new brief"),
+`cbPdfTitle` + `cbSavePdf` in app.js (print a detached `#cb-print` of `campaignDocHtml` — done formats only, no
+agency-only field), the `@page cb-brief` / `body.cb-printing` print rules and both `.cb-pdf-btn` sizes in app.css. It is
+disabled until a format is ready, like Send and Copy to new brief. **Also fixed: the head's action row overflowed a
+393px phone** once it held four actions — `.cb-export` was `flex: 0 0 auto`, so it stayed one max-content line; now
+`flex: 0 1 auto; min-width: 0; max-width: 100%`, and the buttons wrap under the title on a phone (desktop unchanged, one
+row). Verified headless at 1440 and 393: the real print path produced a PDF with the brief and none of the agency notes
+(the stub campaign carried "AGENCY" markers in internal_note / internal_notes — absent), the filename title strips
+`/ : ?`, afterprint restores the page; the file-erase regression suite (scratchpad `bf-keep.mjs`, recreated after a
+scratchpad reset) passes at both widths on top of the library build; `csp violations: []`.
+
+**FORMAT LIBRARY + COPY TO NEW BRIEF (2026-09-25, plan `~/.claude/plans/campaign-format-library.md`,
+UNCOMMITTED).**
+- The campaign brief view has a "Format library" island, between "agency only" and the formats. It lists every
+  READY format of the client's other campaign briefs, grouped by brief.
+- "Add" and "Add all N" insert COPIES born `status: "done"`, carrying the same source/analysis/script/edits.
+  The worker never claims them: no model call, $0.
+- "Copy to new brief" (head) starts the next brief, named with the next number, with every ready format, file,
+  file-on-beat placement and the requirements.
+- Files are copied server-side to NEW paths, never shared, because `bfRemove` deletes bytes.
+- Placements (`lynxr_brief_file_beats`) are re-created on the copied file rows and new format ids, with the same
+  beat and fingerprints. They are skipped quietly until `supabase/brief_file_beats.sql` is run.
+- Legacy picked-video briefs are excluded (no stored breakdown).
+- No SQL of its own. Stamp `202609232y` + `404.html`.
+- Fix found and made during verification: `cbCopyToNewBrief` now `await agEnsureSent("campaign", nid)` before
+  its own `renderBriefs()` — on a brand-new campaign id, `renderCampaignView`'s own (pre-existing) call to
+  `agEnsureSent` was still in flight, and its completion unconditionally called `renderBriefsKeepScroll()`,
+  wiping this function's own result message a few hundred ms after it was set. Pre-warming the cache makes that
+  in-view call a no-op hit.
+- Verified: Appendix A (this plan's own harness) at 1440 and 393, `csp violations: []`, every line matching the
+  plan's expected output including the result message. Regression: the beats plan's own Appendix A
+  (`~/.claude/plans/brief-files-at-beats.md`) re-run clean at both widths as a stand-in for the scratchpad
+  `bf-keep.mjs` harness, which did not survive a scratchpad reset between sessions — `headSurvived`/`cardSurvived`/
+  `panelSurvived` all `true` throughout, `csp violations: []`.
+- NOT verified: a signed-in run on lynxr.io (owner checks in the plan).
+
+**FILES ON BEATS — built, NOT live until the owner runs `supabase/brief_file_beats.sql` BEFORE pushing (2026-09-25).**
+Plan: `~/.claude/plans/brief-files-at-beats.md`. Owner: "add a component to the briefs where the files that I would
+drop in can be placed at a certain beat". AGENCY: once a brief has files, every beat of an open script (campaign
+cards; the expanded script of a legacy brief) ends in a quiet "+ add file" that opens in place into the brief's files;
+a pick pins that file to the beat as a chip (× takes it off in one click; the file stays). The files block says where
+each file sits ("on format 1 · beat 1"). CREATOR: that beat gains an "add" line with a download button per file, same
+download path as "files from lynx". MODEL: `lynxr_brief_file_beats` (file_id cascades with the file; format_id = the
+sent doc's format id; beat index + up to 4 word fingerprints `sigs`), staff-only RLS; creators read
+`my_agency_brief_file_beats(p_id)` with `my_agency_brief()`'s gates. LIVE like the files, no re-send. A placement
+follows its beat's words through added/deleted beats; a reworded, deleted or regenerated beat flags it "beat changed"
+for staff (Keep here re-anchors and keeps the old fingerprint so older copies still match) and takes it off the
+creator's beats (still in their list). Decisions made without the owner (plan's A1–A9): not carried into "Add to my
+library"; × is one click, not armed; not in the export, copy-script, teleprompter or tiles. Before the SQL runs the
+agency files block says to run it and no beat gets a control; creators see nothing new. Files:
+`supabase/brief_file_beats.sql` (NEW, untracked — include it in the commit), `app.js`, `creator.js`, `app.css`,
+stamp `202609232x` on every stamped page + `404.html`. Executor-verified: Appendix A and Appendix B both ran clean at
+1440×900 (desktop) and 393×852 (phone, CDP device emulation), every printed line matching the plan's expected output
+exactly (helpers, sig, setup/A–K for the agency run; helpers, sig, A–H for the creator run), with `csp violations: []`
+in all four runs. NOT verified: the SQL applied, a real placement, a real signed-in download, the isolation check —
+owner checks in the plan's Verification section.
+
+**FILE ACTIONS NO LONGER ERASE OPEN EDITS (2026-09-25, PUSHED in `da1e30e`; stamp re-bumped to `202609232w`, UNCOMMITTED — see the Cloudflare note below).** Owner: "When I add a
 file into briefs, all the edits I make on the previous parts get erased." Every file action in the agency app (the
 list arriving, an upload starting and finishing, a remove, a retry) called the brief viewer's whole-page repaint, and
 a repaint rebuilds every editor from its SAVED value — an open "Campaign requirements" field, the rename box, a
@@ -47,6 +132,15 @@ campaign brief went out without its clip and creators waited ~1 min for `pipelin
 It now reads `f.clip` / `f.cover` first, `f.source` as fallback. Verified in the real page: a loaded-shape format
 carries both, the nested shape still does, nothing else leaks, no clip means no key, `agDocSig` still ignores clips;
 live `lynxr_campaign_formats` rows (4, all `done`) return clip + cover through those exact aliases (read-only probe).
+
+**CLOUDFLARE CACHES A STAMPED ASSET FETCHED BEFORE THE DEPLOY LANDS (2026-09-25).** lynxr.io is proxied by
+Cloudflare (`server: cloudflare`, `cf-cache-status`), which caches .js/.css with `max-age=14400` (4 h). Checking the
+`da1e30e` push, `https://lynxr.io/app.js?v=202609232v` was requested ~25 s after the push, while GitHub Pages still
+served the previous build — Cloudflare's BOS edge stored the OLD app.js under the NEW stamp (`cf-cache-status: HIT`,
+`last-modified` of the old build). Pages then deployed correctly, but anyone routed through that edge would get the
+pre-fix agency code for hours. Recovery: stamp bumped `v` → `w` (never requested anywhere), owner pushes again.
+**Rule: after a push, first poll an HTML page with a unique `?cb=` until it shows the new stamp; only then request
+any `?v=` asset URL.** A Cloudflare purge of the URL would also work, but the stamp bump needs no dashboard.
 
 **AGENCY BRIEFS = THE REGULAR SCRIPT VIEW WITH LYNXR'S OWN PLAYER; FILES ATTACH INSIDE THE SEND PANEL
 (2026-09-24, plan `~/.claude/plans/agency-brief-regular-ui.md`, UNCOMMITTED).** Owner: "have it be the regular ui

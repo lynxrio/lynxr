@@ -75,13 +75,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609232v">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609232v">
-<link rel="shortcut icon" href="/favicon.ico?v=202609232v">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609232v">
-<link rel="stylesheet" href="/app.css?v=202609232v">
-<script src="/theme.js?v=202609232v"></script>
-<script src="/backdrop.js?v=202609232v" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233b">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233b">
+<link rel="shortcut icon" href="/favicon.ico?v=202609233b">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609233b">
+<link rel="stylesheet" href="/app.css?v=202609233b">
+<script src="/theme.js?v=202609233b"></script>
+<script src="/backdrop.js?v=202609233b" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -468,6 +468,12 @@
              it"). Its own band, so its height is part of the panel's layout from frame 0
              and the intro cannot shift the card. -->
         <div class="hx-buddy">
+          <!-- THE PHONE'S SIGN-UP (owner, 2026-09-25, picked mockup "L": "a quiet link under the
+               paste box"). The desktop has the full .hxs card in the left column, so this is
+               display:none above 640px and only a phone ever shows it. A plain [data-gate="up"]
+               link, like every other sign-up control on the page: creator.js opens the real gate,
+               which asks for the terms agreement itself. -->
+          <p class="hx-new">new here? <a class="hx-new-link" href="/?signup=1" data-gate="up">create your free account</a></p>
           <span class="hx-seam" data-lx-mood="idle" aria-hidden="true"></span>
         </div>
       </div>
@@ -1049,10 +1055,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=202609232v" defer></script>
-<script src="/footer.js?v=202609232v" defer></script>
-<script src="/home.js?v=202609232v" defer></script>
-<script src="/avatar.js?v=202609232v" defer></script>
-<script src="/creator.js?v=202609232v" defer></script>
+<script src="/site.js?v=202609233b" defer></script>
+<script src="/footer.js?v=202609233b" defer></script>
+<script src="/home.js?v=202609233b" defer></script>
+<script src="/avatar.js?v=202609233b" defer></script>
+<script src="/creator.js?v=202609233b" defer></script>
 </body>
 </html>
