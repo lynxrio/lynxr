@@ -27,6 +27,12 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**NO "GOT YOUR VIDEO" NOTE ON THE SIGN-UP (2026-09-25, UNCOMMITTED, stamp `202609233p`).** Owner: "get rid of this" (the
+`#gate-paste` banner). Hidden by ONE rule at the end of app.css (`#gate .gate-paste { display: none; }`) instead of cut
+from creator.js, because the two plans in flight (instagram-thumbnail-lookup, email-link-signup) anchor on that code; the
+email-link plan (runs second) deletes the element, its code and its CSS for good. Verified: after a TikTok or Instagram
+paste the note no longer shows; the blurred tease and thumbnail are unchanged; `csp violations: []`.
+
 **A BLURRED SCRIPT BEHIND THE SIGN-UP AFTER A PASTE, WITH THEIR VIDEO'S THUMBNAIL (2026-09-25, UNCOMMITTED, stamp
 `202609233o`).** Owner: "once I paste in a link and it leads me to the login, have a blurred screen of their script in the
 background", then (after mockups A/B) "get rid of the your script for this box, and then add the video they added

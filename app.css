@@ -11671,3 +11671,10 @@
     .gate-tease-vid { display: none; }
     .gate-tease-title { margin-top: 70px; font-size: 22px; }
   }
+
+  /* NO "GOT YOUR VIDEO" NOTE ON THE SIGN-UP (owner, 2026-09-25: "get rid of this"). The blurred script and the
+     video's thumbnail behind the card (#gate-tease) say it now. Hidden here rather than cut from creator.js,
+     because two plans in flight (instagram-thumbnail-lookup, email-link-signup) quote that code as anchors; the
+     second one to run removes the element and its code for good. Same selector weight as the rule above, and
+     later, so it wins. */
+  #gate .gate-paste { display: none; }
