@@ -4916,7 +4916,7 @@ function renderBriefViewer(host, rec, client) {
     () => { if (BRIEF_VIEW?.id === rec.id) renderBriefsKeepScroll(); }, "bv-send-msg");
   if (ROSTER === null && !ROSTER_ERR) rostLoad();
   agEnsureSent("brief", rec.id, () => { if (BRIEF_VIEW?.id === rec.id) renderBriefsKeepScroll(); });
-  bfBind(host, "brief", rec.id, () => { if (BRIEF_VIEW?.id === rec.id) renderBriefsKeepScroll(); });
+  bfBind(host, "brief", rec.id);   // file actions redraw only the files block — never this viewer
 
   document.getElementById("bv-back").addEventListener("click", () => { BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs(); });
   document.getElementById("bv-clients").addEventListener("click", () => {
@@ -5391,9 +5391,10 @@ let CB_LISTS = new Map();               // clientId -> { rows, at }
 let AG_SENT = new Map();                // key -> { rows, error } | undefined = not loaded
 const AG_LOADING = new Set();           // keys in flight
 const CB_SEND_OPEN = new Set();         // source ids with the send panel open
-// What is ticked in an OPEN send panel, per source key. A repaint rebuilds the panel (dropping a file
-// repaints the whole viewer in bfUpload; so does the campaign poll), and before 2026-09-24 that
-// unticked everyone and left "Send to 0 creators". Cleared on close, Cancel and a successful send.
+// What is ticked in an OPEN send panel, per source key. A repaint rebuilds the panel (the campaign
+// poll, the roster arriving; dropping a file did too until 2026-09-25 — bfRepaint now redraws only
+// the files block), and before 2026-09-24 that unticked everyone and left "Send to 0 creators".
+// Cleared on close, Cancel and a successful send.
 const CB_SEND_PICKS = new Map();         // key -> Set of creator_id
 const agSentKey = (kind, id) => `${kind}:${id}`;
 
@@ -5961,10 +5962,15 @@ function agencySendDoc(campaign, formats, client, prev) {
         caption: v.caption || "",
         note: v.creator_note || "",
       };
-      // Named fields, not a spread: the allowlist above still holds.
+      // Named fields, not a spread: the allowlist above still holds. A loaded format carries its clip and
+      // cover as top-level aliases (CB_FULL selects `clip:source->>clip, cover:source->>cover` and never
+      // `source` itself), so read those first. Reading only `f.source` sent every campaign brief WITHOUT
+      // its clip until 2026-09-25, and creators waited on pipeline/brief_clips.py to fill it in.
       const src = f.source || {};
-      if (typeof src.clip === "string" && src.clip) out.clip = src.clip;
-      if (typeof src.cover === "string" && src.cover) out.cover = src.cover;
+      const clip = typeof f.clip === "string" && f.clip ? f.clip : src.clip;
+      const cover = typeof f.cover === "string" && f.cover ? f.cover : src.cover;
+      if (typeof clip === "string" && clip) out.clip = clip;
+      if (typeof cover === "string" && cover) out.cover = cover;
       return out;
     }),
   };
@@ -6627,8 +6633,8 @@ function bfSectionHtml(kind, sourceId, { inSend = false } = {}) {
     : `<div class="cb-block-head"><span class="cb-block-title" id="bf-h">Files for creators</span>
       <span class="lbl">shown to creators</span>${extra}</div>`;
   const wrap = (inner) => inSend
-    ? `<div class="bf-section bf-in-send" role="group" aria-labelledby="bf-h">${inner}</div>`
-    : `<section class="cb-block bf-section" aria-labelledby="bf-h">${inner}</section>`;
+    ? `<div class="bf-section bf-in-send" data-bf-key="${escapeHtml(key)}" role="group" aria-labelledby="bf-h">${inner}</div>`
+    : `<section class="cb-block bf-section" data-bf-key="${escapeHtml(key)}" aria-labelledby="bf-h">${inner}</section>`;
   if (!entry || entry.error) {
     const text = !entry ? "Loading files…"
       : entry.error === "missing"
@@ -6663,19 +6669,53 @@ function bfSectionHtml(kind, sourceId, { inSend = false } = {}) {
     <p class="bp-msg cb-msg" id="bf-msg" role="status" aria-live="polite"></p>`);
 }
 
-/** Wires the block above. `repaint` is the caller's own keep-scroll repaint —
-    the same one it hands cbBindSend. Starts the list load on first paint. */
-function bfBind(host, kind, sourceId, repaint) {
+/** Redraws THIS brief's files block and nothing else. Every file action — the list arriving, an
+    upload starting or finishing, a remove, a retry — used to repaint the whole brief viewer, and a
+    viewer repaint rebuilds every editor from its SAVED value: an open requirements field, the
+    rename box, a format's edit form and a legacy script line all lost what had been typed
+    (owner, 2026-09-25: "When I add a file into briefs, all the edits I make on the previous parts
+    get erased"). The campaign poll never repaints over an open editor (cbEditorBusy); the files
+    block now never repaints anything but itself. The block is found by its data-bf-key, so a
+    finish that lands after the page has moved on (another brief, a viewer repaint mid-upload)
+    redraws whichever copy is showing, or does nothing. Only the file list feeds the block, and the
+    one reader outside it (the "Sent to … with N files" line) reads BF_FILES at send time. */
+function bfRepaint(kind, sourceId) {
+  const key = agSentKey(kind, sourceId);
+  const cur = [...document.querySelectorAll(".bf-section")].find((el) => el.dataset.bfKey === key);
+  if (!cur) return;
+  const hadFocus = cur.contains(document.activeElement);
+  const tpl = document.createElement("template");
+  tpl.innerHTML = bfSectionHtml(kind, sourceId, { inSend: cur.classList.contains("bf-in-send") }).trim();
+  const next = tpl.content.firstElementChild;
+  if (!next) return;
+  cur.replaceWith(next);
+  bfWire(next, kind, sourceId);
+  // Focus was on the file input or a Remove button that no longer exists: keep it in the block.
+  if (hadFocus) next.querySelector("#bf-input, #bf-retry")?.focus({ preventScroll: true });
+}
+
+/** Starts the list load on first paint and wires the block the viewer just drew (standalone or
+    inside the open Send panel — whichever cbSendShowsFiles picked). */
+function bfBind(host, kind, sourceId) {
+  bfGuardPage();
+  const key = agSentKey(kind, sourceId);
+  const sec = [...host.querySelectorAll(".bf-section")].find((el) => el.dataset.bfKey === key);
+  if (sec) bfWire(sec, kind, sourceId);
+  bfEnsure(kind, sourceId, () => bfRepaint(kind, sourceId));
+}
+
+/** The block's own listeners, scoped to one drawn copy of it. */
+function bfWire(sec, kind, sourceId) {
   const key = agSentKey(kind, sourceId);
   const say = (text, tone, sticky) => cbMsg(document.getElementById("bf-msg"), text, tone, sticky);
-  bfGuardPage();
-  const input = document.getElementById("bf-input");
+  const repaint = () => bfRepaint(kind, sourceId);
+  const input = sec.querySelector("#bf-input");
   input?.addEventListener("change", () => {
     const files = [...input.files];
     input.value = "";
     bfUpload(kind, sourceId, files, repaint);
   });
-  const drop = document.getElementById("bf-drop");
+  const drop = sec.querySelector("#bf-drop");
   drop?.addEventListener("dragover", (e) => {
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
@@ -6687,8 +6727,12 @@ function bfBind(host, kind, sourceId, repaint) {
     drop.classList.remove("over");
     bfUpload(kind, sourceId, [...(e.dataTransfer?.files || [])], repaint);
   });
-  document.getElementById("bf-retry")?.addEventListener("click", () => { BF_FILES.delete(key); repaint(); });
-  host.querySelectorAll(".bf-remove").forEach((btn) => {
+  sec.querySelector("#bf-retry")?.addEventListener("click", () => {
+    BF_FILES.delete(key);
+    repaint();                                   // "Loading files…"
+    bfEnsure(kind, sourceId, repaint);           // the viewer used to start this load on its repaint
+  });
+  sec.querySelectorAll(".bf-remove").forEach((btn) => {
     armDelete(btn, "Remove", async () => {
       btn.disabled = true;
       try {
@@ -6702,7 +6746,6 @@ function bfBind(host, kind, sourceId, repaint) {
       }
     });
   });
-  bfEnsure(kind, sourceId, repaint);
 }
 
 // ---- Staff-action request bodies (Step 13's buttons send these verbatim) ----
@@ -7881,7 +7924,7 @@ function renderCampaignView(host, client, id) {
   if (cbProgress(formats).working > 0) cbEnsurePoll(id); else cbClearPollTimer();
   if (ROSTER === null && !ROSTER_ERR) rostLoad();
   agEnsureSent("campaign", id, () => { if (CAMPAIGN_VIEW?.id === id) renderBriefsKeepScroll(); });
-  bfBind(host, "campaign", id, () => { if (CAMPAIGN_VIEW?.id === id) renderBriefsKeepScroll(); });
+  bfBind(host, "campaign", id);    // file actions redraw only the files block — open editors keep their text
 }
 
 /** Progress line, bar, export buttons, not-ready note and lane reason — all

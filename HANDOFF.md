@@ -27,6 +27,27 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**FILE ACTIONS NO LONGER ERASE OPEN EDITS (2026-09-25, UNCOMMITTED, stamp now `202609232v`).** Owner: "When I add a
+file into briefs, all the edits I make on the previous parts get erased." Every file action in the agency app (the
+list arriving, an upload starting and finishing, a remove, a retry) called the brief viewer's whole-page repaint, and
+a repaint rebuilds every editor from its SAVED value — an open "Campaign requirements" field, the rename box, a
+format's edit form, a legacy script line. The campaign poll already refused to repaint over an open editor
+(`cbEditorBusy`); the files code skipped that guard. Now `bfRepaint(kind, sourceId)` in app.js redraws ONLY the files
+block (found by its `data-bf-key`) and `bfWire` re-binds that one copy; `bfBind(host, kind, sourceId)` no longer takes
+the viewer's repaint, and the retry button starts its own reload. Verified in headless Brave against the real CSP, at
+1440 and 393: with the pre-fix app.js served in its place the same script lost the typed requirements text and the
+unsaved rename on the first drop; with the fix, typed text survived mid-upload, after upload, a second drop (proves the
+re-bind), a remove and a failed-list retry; the rename survived an upload; on a legacy brief the open Send panel, its
+tick and the expanded script were the SAME DOM nodes after an upload; `csp violations: []`. Harness:
+scratchpad `bf-keep.mjs` (never committed). Files: `app.js`, the stamp on every page + `404.html`, this file.
+
+**CAMPAIGN SENDS NOW CARRY THE CLIP (2026-09-25, same uncommitted batch).** `agencySendDoc` read `f.source.clip`,
+but a loaded campaign format has no `source` — `CB_FULL` selects it as top-level `clip` / `cover` aliases — so every
+campaign brief went out without its clip and creators waited ~1 min for `pipeline/brief_clips.py` to fill it in.
+It now reads `f.clip` / `f.cover` first, `f.source` as fallback. Verified in the real page: a loaded-shape format
+carries both, the nested shape still does, nothing else leaks, no clip means no key, `agDocSig` still ignores clips;
+live `lynxr_campaign_formats` rows (4, all `done`) return clip + cover through those exact aliases (read-only probe).
+
 **AGENCY BRIEFS = THE REGULAR SCRIPT VIEW WITH LYNXR'S OWN PLAYER; FILES ATTACH INSIDE THE SEND PANEL
 (2026-09-24, plan `~/.claude/plans/agency-brief-regular-ui.md`, UNCOMMITTED).** Owner: "have it be the regular ui
 pretty much, make the video on the right side and make sure the agency side can add the files when the briefs
