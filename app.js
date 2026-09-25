@@ -5551,13 +5551,24 @@ const CB_ERROR_TEXT = {
   fetch_generic: "The video couldn't be downloaded.",
   ai_ours: "The writing step failed on our side after several tries.",
   ai_content: "lynxr couldn't write a usable format from this video.",
+  too_long: "This video is longer than lynxr works from.",
 };
-const cbErrorText = (kind) => CB_ERROR_TEXT[kind] || "Something went wrong with this format.";
+/* too_long names the video's length and the limit. The worker writes both onto `source`
+   (process_campaigns.py; the limit is pipeline/video_limits.py MAX_SOURCE_SECONDS), so no
+   limit is written here; the sentence above is only the fallback for a row without them. */
+const cbErrorText = (kind, f) => {
+  const d = Math.round(Number(f?.duration)), lim = Math.round(Number(f?.max_duration) / 60);
+  if (kind === "too_long" && d > 0 && lim > 0) {
+    return `This video is ${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")} — lynxr works from videos up to ${lim} minutes.`;
+  }
+  return CB_ERROR_TEXT[kind] || "Something went wrong with this format.";
+};
 
 const CB_LIGHT = "id,status,job,phase,attempts,retry_at,error_kind,retryable,updated_at";
 const CB_FULL = CB_LIGHT + ",campaign_id,position,source_url,error_detail,regen_note,analysis,"
   + "script,script_prev,edited,internal_note,finished_at,cover:source->>cover,clip:source->>clip,"
-  + "platform:source->>platform,duration:source->>duration,title:source->meta->>title";
+  + "platform:source->>platform,duration:source->>duration,title:source->meta->>title,"
+  + "max_duration:source->>maxDuration";
 
 /** Campaigns for one client, with a done/working/failed count per campaign.
     Populates CB_LISTS; call renderBriefsKeepScroll() after to paint it. */
@@ -8129,7 +8140,7 @@ function cbCardHtml(f, i, total) {
   } else {
     head = `<h3 class="cb-fh"><span class="cb-fnum">${n}.</span> ${srcLink}</h3><span class="chip bad">failed</span>`;
     body = `<div class="cb-err-body">
-      <p class="cb-err-text">${escapeHtml(cbErrorText(f.error_kind))}</p>
+      <p class="cb-err-text">${escapeHtml(cbErrorText(f.error_kind, f))}</p>
       ${f.error_detail ? `<details class="cb-err-detail"><summary>details</summary><p class="cb-raw">${escapeHtml(f.error_detail)}</p></details>` : ""}
       <div class="bp-actions">
         ${f.retryable ? `<button type="button" class="ghost cb-retry">Try again</button>` : ""}

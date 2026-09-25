@@ -2,33 +2,29 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Static prose. No scripts, no network calls of any kind, so the CSP is the
-     tightest on the site: stylesheet and font from self, nothing else. Same as
-     /privacy/, which this page is the pair to. -->
-<!-- `script-src 'self'` was ADDED 2026-08-19, and it is the narrowest thing
-     that makes this page's own top bar work. These three legal pages carried no
-     script at all, so `default-src 'none'` covered script-src by fallback — and
-     when the shared bar and its burger menu arrived, site.js was silently
-     BLOCKED here and nowhere else. It failed exactly the way CSP failures fail:
-     the markup was right, the file 200'd, and the only trace was one console
-     line. No 'unsafe-inline', no host: one same-origin file. -->
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>lynxr — refund policy</title>
-<meta name="description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.">
-<meta property="og:title" content="lynxr — refund policy">
-<meta property="og:description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.">
-<meta property="og:type" content="website">
+<title>Hook and payoff: why a strong hook still loses the viewer</title>
+<meta name="description" content="A hook and its payoff have to match. What a payoff is, the three promise types, where the payoff has to land, and how to fix a hook that over-promises.">
+<meta property="og:title" content="Hook and payoff: why a strong hook still loses the viewer">
+<meta property="og:description" content="A hook and its payoff have to match. What a payoff is, the three promise types, where the payoff has to land, and how to fix a hook that over-promises.">
+<meta property="og:type" content="article">
 <meta property="og:site_name" content="lynxr">
-<meta property="og:url" content="https://lynxr.io/refunds/">
+<meta property="og:url" content="https://lynxr.io/blog/hook-payoff/">
 <meta property="og:image" content="https://lynxr.io/og-v3.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="lynxr — refund policy">
-<meta name="twitter:description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.">
+<meta name="twitter:title" content="Hook and payoff: why a strong hook still loses the viewer">
+<meta name="twitter:description" content="A hook and its payoff have to match. What a payoff is, the three promise types, where the payoff has to land, and how to fix a hook that over-promises.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
-<link rel="canonical" href="https://lynxr.io/refunds/">
+<link rel="canonical" href="https://lynxr.io/blog/hook-payoff/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233o">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233o">
 <link rel="shortcut icon" href="/favicon.ico?v=202609233o">
@@ -74,10 +70,24 @@
       ],
       "founder": [
         {
-          "@id": "https://lynxmediagroup.org/#gawin"
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": [
+            "https://www.instagram.com/junsahwang/"
+          ]
         },
         {
-          "@id": "https://lynxmediagroup.org/#junsa"
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": [
+            "https://www.instagram.com/gawinhsu/"
+          ]
         }
       ],
       "knowsAbout": [
@@ -112,36 +122,11 @@
       ],
       "founder": [
         {
-          "@id": "https://lynxmediagroup.org/#gawin"
+          "@id": "https://lynxr.io/#junsa-hwang"
         },
         {
-          "@id": "https://lynxmediagroup.org/#junsa"
+          "@id": "https://lynxr.io/#gawin-hsu"
         }
-      ]
-    },
-    {
-      "@type": "Person",
-      "@id": "https://lynxmediagroup.org/#junsa",
-      "name": "Junsa Hwang",
-      "jobTitle": "Co-founder & CTO",
-      "description": "Co-founder and CTO of Lynx Media Group and creator of lynxr.",
-      "worksFor": {
-        "@id": "https://lynxmediagroup.org/#org"
-      },
-      "sameAs": [
-        "https://www.instagram.com/junsahwang/"
-      ]
-    },
-    {
-      "@type": "Person",
-      "@id": "https://lynxmediagroup.org/#gawin",
-      "name": "Gawin Hsu",
-      "jobTitle": "Co-founder & CEO",
-      "worksFor": {
-        "@id": "https://lynxmediagroup.org/#org"
-      },
-      "sameAs": [
-        "https://www.instagram.com/gawinhsu/"
       ]
     },
     {
@@ -149,13 +134,10 @@
       "@id": "https://lynxr.io/#website",
       "url": "https://lynxr.io/",
       "name": "lynxr",
-      "alternateName": [
-        "lynxr.io",
-        "lynxr app",
-        "lynxr script tool"
-      ],
       "inLanguage": "en",
-      "publisher": { "@id": "https://lynxr.io/#organization" },
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
       "about": {
         "@id": "https://lynxr.io/#lynxr"
       }
@@ -206,15 +188,12 @@
           "description": "Unlimited scripts within fair use (150 in any rolling 30 days, 30 in any 24 hours), billed monthly. Tax is added at checkout where it applies."
         }
       ],
-      "author": {
-        "@id": "https://lynxmediagroup.org/#junsa"
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
       },
-      "publisher": { "@id": "https://lynxr.io/#organization" },
-      "sameAs": [
-        "https://www.instagram.com/lynxr.io/",
-        "https://www.tiktok.com/@lynxr.io",
-        "https://www.linkedin.com/company/lynxr"
-      ],
+      "creator": {
+        "@id": "https://lynxr.io/#organization"
+      },
       "alternateName": "lynxr.io"
     }
   ]
@@ -224,15 +203,19 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebPage",
-  "@id": "https://lynxr.io/refunds/#webpage",
-  "url": "https://lynxr.io/refunds/",
-  "name": "lynxr — refund policy",
-  "description": "How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.",
+  "@type": "BlogPosting",
+  "@id": "https://lynxr.io/blog/hook-payoff/#article",
+  "headline": "Hook and payoff: why a strong hook still loses the viewer",
+  "description": "A hook and its payoff have to match. What a payoff is, the three promise types, where the payoff has to land, and how to fix a hook that over-promises.",
+  "image": "https://lynxr.io/og-v3.png",
   "inLanguage": "en",
-  "dateModified": "2026-09-21",
+  "datePublished": "2026-09-25",
+  "dateModified": "2026-09-25",
+  "author": { "@id": "https://lynxr.io/#organization" },
+  "publisher": { "@id": "https://lynxr.io/#organization" },
   "isPartOf": { "@id": "https://lynxr.io/#website" },
-  "about": { "@id": "https://lynxr.io/#lynxr" }
+  "mentions": { "@id": "https://lynxr.io/#lynxr" },
+  "mainEntityOfPage": "https://lynxr.io/blog/hook-payoff/"
 }
 </script>
 <script type="application/ld+json">
@@ -241,12 +224,21 @@
   "@type": "BreadcrumbList",
   "itemListElement": [
     { "@type": "ListItem", "position": 1, "name": "lynxr", "item": "https://lynxr.io/" },
-    { "@type": "ListItem", "position": 2, "name": "refund policy", "item": "https://lynxr.io/refunds/" }
+    { "@type": "ListItem", "position": 2, "name": "blog", "item": "https://lynxr.io/blog/" },
+    { "@type": "ListItem", "position": 3, "name": "Hook and payoff", "item": "https://lynxr.io/blog/hook-payoff/" }
   ]
 }
 </script>
 </head>
-<body>
+<!-- This page's visible copy is written in normal sentence case in the
+     source, unlike the lowercase-with-exceptions convention the rest of the
+     site uses. Painted output is identical either way — text-transform:
+     lowercase in app.css flattens all of it — but a model reading the source
+     sees real casing here, because this page carries no JSON-LD twin of its
+     prose the way /faq/ does, so the body text is the only machine-readable
+     copy there is. .lp unsets the app's bare main{} container so the sections
+     below can be full-bleed. See the marketing-page block in app.css. -->
+<body class="lp">
 <svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
 
 <header class="lp-bar">
@@ -286,66 +278,82 @@
   </nav>
 </header>
 
-<main class="legal">
-  <section>
-  <h1>refund policy</h1>
-  <p class="legal-date">last updated 21 september 2026</p>
+<main>
 
-  <p>this policy covers lynxr pro, which is <strong>$24.99 a month, billed
-    monthly in advance</strong>. it forms part of the
-    <a href="/terms/">terms of service</a>.</p>
+  <section class="lp-hero">
+    <div class="lp-in">
+      <nav class="post-crumbs" aria-label="Breadcrumb"><a href="/">lynxr</a> / <a href="/blog/">blog</a></nav>
+      <h1 class="lp-h1">Hook and payoff: why a strong hook still loses the viewer</h1>
+      <p class="lp-lede">A payoff is wherever a video actually delivers on the promise its hook opened: proof for a claim, an answer for a question, a resolution for a situation left hanging. A hook that promises more than the video pays off keeps the viewer long enough to disappoint them, which costs more than never hooking them at all.</p>
+      <p class="post-meta">Published <time datetime="2026-09-25">25 September 2026</time></p>
+    </div>
   </section>
 
-  <section>
-  <h2>who you are paying</h2>
-  <p><span class="entity">Stripe</span> is the merchant of record for every
-    purchase of lynxr pro. <span class="entity">Stripe</span> takes the
-    payment, issues the invoice, collects any tax that is due where you are, and
-    issues any refund. your card statement shows <strong>LYNXR</strong>, which
-    may appear next to <span class="entity">Stripe</span> or
-    <span class="entity">Link</span>, who process the payment.</p>
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="what-a-payoff-does">What does a payoff actually do?</h2>
+      <p class="lp-p">A payoff closes the gap the <a href="/glossary/#hook">hook</a> opened. Every hook shape in <a href="/how-to-write-a-hook/">how to write a hook for a short-form video</a> makes a promise of some kind — a claim, a question, a situation — and the payoff is whatever the video hands over in return. A hook can be well written and still fail if nothing in the video ever settles the promise it made.</p>
+      <p class="lp-p">This is a different failure than a weak hook. A weak hook never earns the first three seconds. A hook-payoff mismatch earns them, then spends them on nothing, which costs more: the viewer feels misled rather than merely uninterested, and that's the version that gets a video reported or skipped for good.</p>
+
+      <h2 class="lp-h2" id="promise-types">What payoff does each kind of promise need?</h2>
+      <p class="lp-p">The hook's shape sets what the payoff has to be. A claim needs proof. A question needs an answer. A situation needs a resolution. Match the wrong payoff to the promise and the video reads as unfinished, even if it technically ends.</p>
+      <div class="post-table">
+        <table>
+          <thead><tr><th scope="col">Promise</th><th scope="col">Payoff it needs</th><th scope="col">Where it lands</th></tr></thead>
+          <tbody>
+            <tr><td>Cold claim (&ldquo;I fixed ten years of X&rdquo;)</td><td>Visible proof the claim happened</td><td>The turn</td></tr>
+            <tr><td>Open question</td><td>A direct answer to that exact question</td><td>The turn</td></tr>
+            <tr><td>Situation left unresolved</td><td>What changed, shown or stated plainly</td><td>The turn</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="lp-p">Notice all three land in the same place. A claim video that shows proof in the first beat has nothing left to hold the middle open, and a claim video that never shows proof has made a promise it never spends.</p>
+
+      <h2 class="lp-h2" id="where-the-payoff-lands">Where does the payoff have to land?</h2>
+      <p class="lp-p">The payoff lands at the <a href="/glossary/#the-turn">turn</a>, the same place <a href="/blog/question-hooks/#where-the-answer-lands">question hooks says the answer has to land</a>. Everything between the hook and the turn is a <a href="/glossary/#beat">beat</a> that narrows the promise without spending it: a partial proof, a ruled-out possibility, a detail that raises the stakes. Pay off the promise before the turn and the rest of the video is an appendix nobody needs. Never pay it off and the video reads as a hook with no video behind it.</p>
+      <p class="lp-p">For a brand video the turn is also where the product enters, so the payoff and the product arrive together. That only works if the payoff was earned. A product that shows up as the proof of a claim nobody built toward reads as an ad cutting into a video, not as the answer the hook promised.</p>
+
+      <h2 class="lp-h2" id="auditing-a-script">How do you audit a script for a mismatch?</h2>
+      <p class="lp-p">Read the hook line and write down, in one sentence, exactly what it promises. Then read the rest of the script and circle the single line that pays it off. If you can't circle one, the script doesn't have a payoff yet — it has an ending. If the line you circled promises something narrower or wider than the hook, one of the two needs to change, and it's almost always cheaper to change the hook.</p>
+      <p class="lp-p">Do this before filming, not after. A script that fails this check on paper fails it on camera too, and by then the only fix is a reshoot.</p>
+
+      <h2 class="lp-h2" id="fixing-an-over-promise">How do you fix a hook that promises too much?</h2>
+      <p class="lp-p">Shrink the hook until it matches a payoff the video can actually deliver. A promise that can't be proven, answered or resolved inside one video isn't a bad payoff problem — it's a hook that belongs to a different, longer piece of content. Narrowing the claim, the question or the situation is almost always the faster fix, because the payoff you already have often turns out to be honest proof of a smaller promise.</p>
+      <figure class="post-script">
+        <figcaption>Example script — written for this guide, for a stain-remover pen, hook over-promised</figcaption>
+        <ol class="ps-beats">
+          <li><span class="ps-part">hook</span><span class="ps-say">say: &ldquo;This gets out every stain I've ever thrown at it.&rdquo;</span><span class="ps-do">do: Hold up a shirt with three different stains circled in marker.</span></li>
+          <li><span class="ps-part">beat 1</span><span class="ps-say">say: &ldquo;Coffee, obviously.&rdquo;</span><span class="ps-do">do: Dab the coffee stain, blot it once.</span></li>
+          <li><span class="ps-part">turn</span><span class="ps-say">say: &ldquo;And that's basically it.&rdquo;</span><span class="ps-do">do: Hold the shirt up again, coffee stain gone, the other two circles untouched.</span></li>
+        </ol>
+      </figure>
+      <p class="lp-p">The hook promised every stain; the turn only proves one. The fix isn't a longer video — it's a hook that only promises what the turn already proves.</p>
+      <figure class="post-script">
+        <figcaption>Example script — written for this guide, for a stain-remover pen, hook narrowed to match the payoff</figcaption>
+        <ol class="ps-beats">
+          <li><span class="ps-part">hook</span><span class="ps-say">say: &ldquo;Does this actually get coffee out, or just fade it?&rdquo;</span><span class="ps-do">do: Hold up a shirt with one coffee stain circled in marker.</span></li>
+          <li><span class="ps-part">beat 1</span><span class="ps-say">say: &ldquo;It's been sitting since this morning, so it's had time to set.&rdquo;</span><span class="ps-do">do: Dab the pen along the stain, blot it once.</span></li>
+          <li><span class="ps-part">turn</span><span class="ps-say">say: &ldquo;Gone, not faded. Gone.&rdquo;</span><span class="ps-do">do: Hold the same shirt up to the light, the circle empty.</span></li>
+          <li><span class="ps-part">close</span><span class="ps-say">say: &ldquo;This is the one I keep in my bag. Linked below.&rdquo;</span><span class="ps-do">do: Drop the pen into a bag pocket next to keys and a wallet.</span></li>
+        </ol>
+      </figure>
+      <p class="lp-p">Same product, same turn, and now the hook and the payoff are the same promise said twice.</p>
+    </div>
   </section>
 
-  <section>
-  <h2>14-day money-back on your first payment</h2>
-  <p><strong>if lynxr has not worked for you, ask within 14 days of your first
-    payment and it is refunded in full.</strong> you do not have to justify it.</p>
-  <p><strong>a refund ends access straight away.</strong> a refunded month is
-    not a month you keep &mdash; the account returns to the free tier when the
-    refund is issued.</p>
+  <section class="lp-band post-end">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="do-it-with-lynxr">Do it with lynxr</h2>
+      <p class="lp-p">If a video's hook and payoff already line up, lynxr keeps that match when it rewrites the format. Paste a public TikTok or Instagram link on <a href="/">the homepage</a> and lynxr works out the format — hook, beats, turn, close — and writes it as a script for the company you make content for. Free to start: <a href="/faq/#what-it-costs">3 scripts a week, no card</a>.</p>
+      <h2 class="lp-h2" id="keep-reading">Keep reading</h2>
+      <ul class="lp-list">
+        <li><b><a href="/how-to-write-a-hook/">How to write a hook for a short-form video</a></b> — the four hook shapes a payoff has to match.</li>
+        <li><b><a href="/blog/question-hooks/">Question hooks: asking one a viewer can't scroll past</a></b> — where a question hook's answer has to land.</li>
+        <li><b><a href="/blog/">All posts on the lynxr blog</a></b> — every guide, grouped by topic.</li>
+      </ul>
+    </div>
   </section>
 
-  <section>
-  <h2>cancelling</h2>
-  <p>you can cancel at any time from the plan page in the app: sign in, open
-    <strong>plan</strong>, choose <strong>cancel subscription</strong>, and confirm on
-    <span class="entity">Stripe</span>'s page. if you would rather, email
-    <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> or reply to the receipt you were emailed, and we
-    will cancel it for you.</p>
-  <p><strong>there is no pro-rata refund on cancellation.</strong> cancelling
-    takes effect at the end of the period you have already paid for: your
-    access and your script allowance stay until then, and the unused part of
-    that period is not refunded.</p>
-  </section>
-
-  <section>
-  <h2>after the first 14 days</h2>
-  <p>beyond the 14 days, refunds are at our discretion. ask and we will look at
-    it &mdash; we would rather hear that something went wrong than not.</p>
-  </section>
-
-  <section>
-  <h2>if a payment fails</h2>
-  <p><span class="entity">Stripe</span> retries a failed payment for a few days
-    before access drops back to the free tier. <strong>nothing you have already
-    written is deleted</strong>, and your scripts stay readable.</p>
-  </section>
-
-  <section>
-  <h2>how to ask for a refund</h2>
-  <p>reply to the receipt you were emailed, or use feedback in the app. either
-    reaches us.</p>
-  </section>
 </main>
 
 <footer id="site-footer">
@@ -380,7 +388,7 @@
       <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
       <a class="foot-link" href="/privacy/">privacy policy</a>
       <a class="foot-link" href="/terms/">terms of service</a>
-      <a class="foot-link" href="/refunds/" aria-current="page">refund policy</a>
+      <a class="foot-link" href="/refunds/">refund policy</a>
       <a class="foot-link" href="/accessibility/">accessibility</a>
     </div>
     <div class="foot-col">
@@ -397,8 +405,8 @@
   </div>
 </footer>
 
-<!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
-     see the file's own header for why it must never reach either app. -->
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
 <script src="/site.js?v=202609233o" defer></script>
 <script src="/footer.js?v=202609233o" defer></script>
 

@@ -131,7 +131,7 @@ try:
     P.upsert_source = lambda key, a: None
     P.upsert_video = lambda key, a: None
 
-    def _stub_fill_source(a, aclient, key, notes, timings, publish=None, usage_sink=None):
+    def _stub_fill_source(a, aclient, key, notes, timings, publish=None, usage_sink=None, **_kw):
         a["source"] = {"platform": "tiktok", "script": {"has_speech": False}, "shots": []}
         return True
 
@@ -246,7 +246,7 @@ try:
     P.upsert_source = lambda key, a: None
     P.upsert_video = lambda key, a: None
 
-    def _stub_fill_source_two_marks(a, aclient, key, notes, timings, publish=None, usage_sink=None):
+    def _stub_fill_source_two_marks(a, aclient, key, notes, timings, publish=None, usage_sink=None, **_kw):
         a["source"] = {"platform": "tiktok", "script": {"has_speech": False}, "shots": []}
         notes.append("shot list failed: Error code: 529 - Overloaded")
         P.mark_ai_fail(a, "Error code: 529 - Overloaded")   # shot list
@@ -806,7 +806,7 @@ try:
     P.upsert_source = lambda key, a: None
     P.upsert_video = lambda key, a: None
 
-    def _wall_fill_source(a, aclient, key, notes, timings, publish=None, usage_sink=None):
+    def _wall_fill_source(a, aclient, key, notes, timings, publish=None, usage_sink=None, **_kw):
         raise RuntimeError("download failed: ERROR: [TikTok] 1: This post may not be "
                             "comfortable for some audiences. Log in for access.")
 

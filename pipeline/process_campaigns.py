@@ -295,7 +295,7 @@ def finalize_patch(kind, row, now, **parts):
             body["edited"] = None
         return body
     if kind == "error":
-        return {
+        body = {
             "status": "error", "phase": "",
             "error_kind": parts["error_kind"],
             "error_detail": parts.get("error_detail", ""),
@@ -304,6 +304,11 @@ def finalize_patch(kind, row, now, **parts):
             "claimed_by": "", "claimed_at": None,
             "timings": timings,
         }
+        # Only the length gate passes one: {"duration", "maxDuration"}, so the
+        # card can say "This video is 7:12 — … up to 5 minutes" (app.js cbErrorText).
+        if parts.get("source") is not None:
+            body["source"] = parts["source"]
+        return body
     raise ValueError(f"unknown finalize kind: {kind}")
 
 
@@ -450,11 +455,23 @@ def run_format(key, aclient, row, campaign):
             meta_thread = threading.Thread(target=fetch_meta_bg, daemon=True)
             meta_thread.start()
 
+            def length_hint(wait):
+                meta_thread.join(timeout=wait)
+                return (meta_holder.get("meta") or {}).get("duration")
+
             frames_out = []
             try:
                 P.fill_source(a, aclient, key, notes, timings,
-                               on_frames=frames_out.extend, usage_sink=sink)
+                               on_frames=frames_out.extend, usage_sink=sink,
+                               length_hint=length_hint)
             except Exception as e:  # noqa: BLE001
+                if isinstance(e, P.CreatorFacing):
+                    # The length gate: final, never retried, no model call made.
+                    finalize("error", error_kind=e.key, error_detail=str(e)[:200],
+                             retryable=e.retryable,
+                             source={"duration": e.nums.get("secs"),
+                                     "maxDuration": e.nums.get("limit")})
+                    return
                 note_key, retryable = P.fetch_failure(e)
                 attempts = int(row.get("attempts") or 0)
                 if retryable and attempts + 1 < FETCH_MAX_ATTEMPTS:

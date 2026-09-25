@@ -7421,7 +7421,10 @@
     -webkit-backdrop-filter: none; backdrop-filter: none;
   }
   .lp-bar-in, body.home .lp-bar-in {
-    max-width: 1200px; min-height: 44px; margin: 0 auto; padding: 0;
+    /* 52px, was 44 (owner, 2026-09-25: "make this slightly thicker"). Desktop only in effect: under 760px
+       the capsule's own padding already makes it 56px, taller than this minimum. body.home .hx reads the
+       bar's height as --hx-bar-h, so that moved with it (55 -> 63). */
+    max-width: 1200px; min-height: 52px; margin: 0 auto; padding: 0;
     border: 1px solid var(--bar-edge); border-radius: var(--r-pill);
     background: var(--glass-solid);
     -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
@@ -10381,7 +10384,7 @@
      than the nav pill's on an engine with a classic scrollbar; with overlay scrollbars they are
      the same number. */
   body.home .hx {
-    --hx-bar-h: 55px;
+    --hx-bar-h: 63px;   /* 10px top inset + the 52px capsule + its 1px border line; was 55 with the 44px capsule */
     /* The buddy's size, and how far his box sits in from the card's right edge. Named, because
        the band's padding and the phone override both read them. */
     --hx-buddy: clamp(120px, 14vw, 180px);
@@ -11603,3 +11606,68 @@
   }
   .composer-row:focus-within, .wait-form:focus-within { outline: none !important; }
   .composer-row:focus-within { border-color: var(--line-2) !important; }
+
+  /* THE BAR'S CONTENTS, SCALED TO THE 52px CAPSULE (owner, 2026-09-25: "make this slightly thicker", then
+     "match the button sizes and stuff"). Desktop and tablet only (761px up): a phone's capsule is 56px with
+     a 44px button already. The CTA goes 32 -> 40px so it sits 6px in from the top, bottom AND right, the
+     concentric inset the phone bar has (it was 10 / 10 / 6 after the capsule grew, which read as a small
+     button floating in a big pill). The logo, wordmark and nav links step up one notch with it. */
+  @media (min-width: 761px) {
+    .lp-bar .lp-actions > .btn { height: 40px; margin-right: 5px; padding-inline: 18px; font-size: 13px; }   /* 5px + the capsule's 1px border = 6, level with top and bottom */
+    .lp-bar .wordmark { font-size: 20px; }
+    .lp-bar .wordmark .mark { width: 34px; height: 34px; }
+    .lp-nav a { font-size: 14px; }
+  }
+  /* ...and on a phone, every page's CTA matches the 44px menu button beside it, as the home page's already
+     did (`body.home .lp-actions > .btn`, owner: "match these sizes"); the content pages were still 32px. */
+  @media (max-width: 760px) {
+    .lp-bar .lp-actions > .btn { height: 44px; padding: 0 16px; }
+  }
+
+  /* ============== THE TEASE BEHIND THE SIGN-UP (index.html #gate-tease, 2026-09-25) ==============
+     Owner: "once I paste in a link and it leads me to the login, have a blurred screen of their script in
+     the background", then "get rid of the your script for this box, and then add the video they added
+     thumbnail". Only the paste path shows it (creator.js). The script column is a heavily blurred STAND-IN;
+     the video frame holds THEIR thumbnail (TikTok) or a gradient (Instagram), blurred only lightly so it is
+     recognisably their video. The card stays on top; the tease clips itself so it can never widen the page.
+     On a phone the card covers almost the whole screen, so only the script's edges show and the frame is
+     left out (it would sit entirely under the card). */
+  #gate { position: relative; }
+  #gate > .gate-card { position: relative; z-index: 1; }
+  .gate-tease {
+    position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; user-select: none;
+    display: grid; place-items: center; padding: 28px;
+  }
+  .gate-tease[hidden] { display: none; }
+  .gate-tease-sheet { width: min(980px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 28px; opacity: .88; }
+  .gate-tease-main { display: flex; flex-direction: column; gap: 12px; filter: blur(7px); }
+  .gate-tease-title { margin: 0 0 4px; font: 800 28px/1.1 var(--font-display); letter-spacing: -.02em; color: var(--text); }
+  .gate-tease-hook {
+    padding: 18px 20px; border-radius: 22px; border: 2px solid transparent;
+    background-image: linear-gradient(#fff, #fff), linear-gradient(120deg, #ff8fb7, #a57bff);
+    background-origin: border-box; background-clip: padding-box, border-box;
+    font: 700 20px/1.3 var(--font-display); color: var(--text);
+  }
+  .gate-tease-lbl { margin: 6px 0 0; font: 600 14px var(--font-ui); color: var(--text-2); }
+  .gate-tease-beat {
+    display: grid; grid-template-columns: 44px 1fr; gap: 6px 12px; padding: 14px 18px; border-radius: 18px;
+    background: rgba(255, 255, 255, .85); border: 1px solid var(--line); font: 400 16px/1.4 var(--font-ui); color: var(--text);
+  }
+  .gate-tease-chip { height: fit-content; padding: 3px 0; border-radius: 999px; text-align: center; font: 600 11px var(--mono); color: #6a4fd6; background: #efe9ff; }
+  .gate-tease-do { color: var(--text-2); }
+  .gate-tease-vid {
+    position: relative; overflow: hidden; aspect-ratio: 9 / 16; border-radius: 24px; filter: blur(2.5px);
+    background: linear-gradient(160deg, #ffd3c4, #f6b6d8 45%, #b9a2ff);
+  }
+  .gate-tease-vid img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .gate-tease-vid img[hidden] { display: none; }
+  .gate-tease-vid::after {
+    content: ""; position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px;
+    border-radius: 50%; background: rgba(255, 255, 255, .8);
+  }
+  @media (max-width: 640px) {
+    .gate-tease { padding: 16px; align-items: start; }
+    .gate-tease-sheet { grid-template-columns: minmax(0, 1fr); }
+    .gate-tease-vid { display: none; }
+    .gate-tease-title { margin-top: 70px; font-size: 22px; }
+  }

@@ -3290,9 +3290,11 @@ function libraryItemHtml(item, scopeBrandId) {
        short face swaps the words for the figure; see statusChip and .st-n. */
     : done ? statusChip("good", done > 1 ? `${plural(done, "script")} ready` : "ready",
         "ready", false, done)
-    // Same two buckets as the card chip: only a source failure is a fetch
-    // failure. `noteKind` is absent on rows written before the worker stamped
-    // it, and those keep the old wording.
+    // Same two buckets as the card chip, plus `length` (too long), its own chip.
+    // Only a source failure is a fetch failure. `noteKind` is absent on rows
+    // written before the worker stamped it, and those keep the old wording.
+    : made.some((a) => a.noteKind === "length")
+      ? statusChip("bad", "too long", "too long")
     : made.some((a) => a.noteKind && a.noteKind !== "fetch")
       ? statusChip("bad", "couldn't write", "no script")
       : statusChip("bad", "couldn't fetch", "no video");
@@ -6083,8 +6085,15 @@ function wireOneHero(form) {
         ? `got your ${plat.toLowerCase()} video — “${title}”. your script starts writing the second you're in.`
         : `got your ${plat.toLowerCase()} video. your script starts writing the second you're in.`;
     }
+    const thumb = document.getElementById("gate-tease-thumb");
+    if (thumb) {
+      if (m && m.thumb) { thumb.src = m.thumb; thumb.hidden = false; }
+      else { thumb.removeAttribute("src"); thumb.hidden = true; }   // Instagram, or oEmbed said nothing: the gradient frame
+    }
     showGate("up");
     if (banner && banner.textContent) banner.hidden = false;
+    const tease = document.getElementById("gate-tease");
+    if (tease) tease.hidden = false;
     /* The composer restores UNDER the gate, so Back lands on a usable hero
        rather than a dead spinner. */
     input.disabled = false;
@@ -6288,6 +6297,9 @@ async function fetchSourceMeta(url) {
         return {
           caption: String(d.title),
           creator: String(d.author_name || d.author_unique_id || "").replace(/^@/, ""),
+          // The video's own thumbnail, for the blurred tease behind the sign-up (index.html #gate-tease).
+          // Only TikTok's image CDN is kept: the page's img-src allows exactly those hosts.
+          thumb: /^https:\/\/[a-z0-9.-]+\.tiktokcdn(?:-us|-eu)?\.com\//i.test(String(d.thumbnail_url || "")) ? String(d.thumbnail_url) : "",
         };
       }
     } catch { /* fall through to the proxies */ }
@@ -6998,7 +7010,11 @@ document.addEventListener("input", (e) => {
 
 /** Companies that do NOT already have a script from this source video. */
 function brandsWithout(item) {
-  const taken = new Set(libScripts(item).filter((a) => a.status !== "error").map((a) => a.brandId));
+  const recs = libScripts(item);
+  /* A video the worker refused as too long (noteKind "length"; pipeline/video_limits.py) is too
+     long for every brand, so offering it again would only queue the same refusal. */
+  if (recs.some((a) => a.noteKind === "length")) return [];
+  const taken = new Set(recs.filter((a) => a.status !== "error").map((a) => a.brandId));
   return ME.brands.filter((b) => !taken.has(b.id) && (b.name || "").trim());
 }
 
@@ -8581,7 +8597,9 @@ function adaptationHtml(a, liveName, opts = {}) {
      everything else it named (`noteKind` is stamped by
      process_adaptations.set_note) is ours. Rows written before `noteKind`
      existed have none, so they keep today's wording rather than silently
-     changing meaning.
+     changing meaning. `noteKind "length"` (a video over the 5-minute limit,
+     pipeline/video_limits.py) gets its own "too long" chip and the confused
+     mood, because the link was the problem, not us.
 
      THE LAST ARM IS THE LEGACY-ROW FALLBACK. It is only reachable with a
      truthy `brandId` — the `!a.brandId` test sits directly above it — so what
@@ -8591,7 +8609,8 @@ function adaptationHtml(a, liveName, opts = {}) {
      writes that state at all (fill_adaptation raises instead of returning
      "done"), so the only rows that can land here are ones written before that. */
   const chip = a.status === "error"
-    ? (a.noteKind && a.noteKind !== "fetch"
+    ? (a.noteKind === "length" ? statusChip("bad", "too long", "too long")
+      : a.noteKind && a.noteKind !== "fetch"
         ? statusChip("bad", "couldn't write", "no script")
         : statusChip("bad", "couldn't fetch", "no video"))
     : a.status !== "done" ? statusChip("bp-wait", "writing your script", "writing", true)
@@ -8649,7 +8668,7 @@ function adaptationHtml(a, liveName, opts = {}) {
     /* The avatar that was writing this card says what happened: confused when
        the LINK was the problem (the chip's own "couldn't fetch" bucket), sorry
        when we failed. */
-    const mood = a.noteKind && a.noteKind !== "fetch" ? "sorry" : "confused";
+    const mood = a.noteKind && a.noteKind !== "fetch" && a.noteKind !== "length" ? "sorry" : "confused";
     body = `<div class="loader bp-fail">${loaderMark(mood)}<div class="loader-text"><p class="bp-hint bad">${escapeHtml(note || "That video couldn't be downloaded.")}</p></div></div>
       ${canRetry
         ? `<div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`
@@ -8985,11 +9004,11 @@ function adaptationHtml(a, liveName, opts = {}) {
       ${/* THE STATUS CHIP. On a tile it leads the META ROW under the title —
             the same rule that places a library card's, widened rather than
             copied. (Both comments claimed the cover until 2026-08-23; the CSS
-            had moved the chip into the row long before.) Seven faces reach it
-            (see `chip` above): couldn't fetch / couldn't write (red), writing
-            your script (grey + dot), original script and script ready (green),
-            poor fit (plain), no script (red). All of them move together, and
-            no count is invented for a card that is one script. */""}
+            had moved the chip into the row long before.) Eight faces reach it
+            (see `chip` above): couldn't fetch / couldn't write / too long (red),
+            writing your script (grey + dot), original script and script ready
+            (green), poor fit (plain), no script (red). All of them move together,
+            and no count is invented for a card that is one script. */""}
       ${nested && a.status === "done" ? "" : chip}
       ${nested ? "" : metaFactsHtml({ rec: a })}
       ${/* Same for the timestamp: the entry above carries the video's own. */""}
@@ -10319,6 +10338,8 @@ function showGate(mode) {
      The submit path un-hides it again right after calling this. */
   const gp = document.getElementById("gate-paste");
   if (gp) gp.hidden = true;
+  const tease = document.getElementById("gate-tease");   // same rule for the blurred script behind the card
+  if (tease) tease.hidden = true;
   document.body.classList.add("gate-on");
   setGateMode(mode);
   // A real history entry, so the browser Back button closes the card. The

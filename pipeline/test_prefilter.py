@@ -277,13 +277,13 @@ def _drive_to_termination(entry, brands, fill_source_stub, structured_stub):
         P.fill_source, P.structured = orig_fill_source, orig_structured
 
 
-def _term_fill_source_ok(a, aclient, key, notes, timings, publish=None):
+def _term_fill_source_ok(a, aclient, key, notes, timings, publish=None, **_kw):
     a["source"] = {"platform": "tiktok",
                    "script": {"has_speech": False, "text": ""}, "shots": []}
     return True
 
 
-def _term_fill_source_wall(a, aclient, key, notes, timings, publish=None):
+def _term_fill_source_wall(a, aclient, key, notes, timings, publish=None, **_kw):
     raise RuntimeError("download failed: ERROR: [TikTok] 1: This post may not be "
                        "comfortable for some audiences. Log in for access.")
 

@@ -10,6 +10,7 @@ owner's machine like every other pipeline stage, does the work:
 
     queued adaptation
       -> download the source (yt-dlp)
+      -> refuse it if it runs over 5 minutes     (video_limits.py; before any spend)
       -> Whisper verbatim script + segments        (local, free)
       -> frames at beat starts -> shot list        (analyze_visuals)
       -> locked-taxonomy tags                      (retag_with_audio)
@@ -79,6 +80,7 @@ from analyze_visuals import download_video, extract_frames, frame_times, yt_dlp_
 from retag_with_audio import SYSTEM as TAG_SYSTEM
 from retag_with_audio import user_content
 from taxonomy import TAG_SCHEMA, TAG_SCHEMA_VISION, length_bucket
+from video_limits import MAX_SOURCE_SECONDS, as_seconds, media_duration, too_long, whole_seconds
 import envcfg  # the one place a secret or config value is read; see its docstring.
 
 ROOT = Path(__file__).parent.parent
@@ -714,6 +716,12 @@ CREATOR_NOTES = {
                      "Try another link.", "fetch"),
     "fetch_generic": ("We couldn't read that video. It may be a temporary problem — "
                       "try again.", "fetch"),
+    # Its OWN kind, "length" — never "fetch": watchdog.py pages fetch-wall:burst
+    # on 3+ distinct "fetch" failures in 6h, and a creator pasting three long
+    # videos is expected behaviour, not a broken extractor. Slots are filled by
+    # refuse_if_long(); {lm} derives from video_limits.MAX_SOURCE_SECONDS.
+    "too_long":     ("This video is {m}:{s:02d} — lynxr works from videos up to "
+                     "{lm} minutes. Nothing was used from your allowance.", "length"),
     # Reached only if a key is ever mistyped. set_note must never raise: it
     # runs inside except handlers, and a KeyError there would cost the
     # creator their error card as well as their script.
@@ -786,9 +794,32 @@ class CreatorFacing(Exception):
     CREATOR_NOTES key, never prose, so run_entry's handler can honour it
     without classifying."""
 
-    def __init__(self, key, *, retryable=True, detail=""):
+    def __init__(self, key, *, retryable=True, detail="", **nums):
         super().__init__(detail or key)
         self.key, self.retryable = key, retryable
+        # Number-only slots for the sentence (set_note drops anything else).
+        self.nums = nums
+
+
+# How long a failed or silent ffprobe may wait on the caller's concurrent
+# yt-dlp metadata lookup (fetch_meta has its own 90s ceiling). Only paid on
+# the rare path where the file itself could not say how long it is.
+LENGTH_HINT_WAIT_S = 10
+
+
+def refuse_if_long(seconds, how):
+    """Raise CreatorFacing("too_long") when `seconds` is a KNOWN length over
+    video_limits.MAX_SOURCE_SECONDS; return None otherwise (unknown is
+    allowed — see video_limits' docstring). `how` names the measurement for
+    the log and the agency's staff-only error_detail, never the creator."""
+    if not too_long(seconds):
+        return
+    w = whole_seconds(seconds)
+    raise CreatorFacing(
+        "too_long", retryable=False,
+        detail=f"too long: {w}s by {how}, limit {MAX_SOURCE_SECONDS}s",
+        m=w // 60, s=w % 60, lm=MAX_SOURCE_SECONDS // 60,
+        secs=w, limit=MAX_SOURCE_SECONDS)
 
 
 def begin_attempt(a):
@@ -917,7 +948,7 @@ def final_reason(a, *, retryable=True):
     it. Order matters: a recognised permanent wall wins over any counter.
     """
     if not retryable:
-        return "wall"                    # age-gated/private/deleted/brand gone
+        return "wall"                    # age-gated/private/deleted/brand gone/too long
     f = a.get("aiFail") or {}
     if f and not has_usable_result(a):
         if f.get("kind") not in AI_RETRY_KINDS:
@@ -1761,7 +1792,7 @@ def cached_source(key, url):
     """
     q = urllib.parse.quote(canon_url(url), safe="")
     rows = sb(key, f"/rest/v1/lynxr_sources?canonical_url=eq.{q}"
-                   "&select=platform,script,shots,tags,format,clip&limit=1")
+                   "&select=platform,script,shots,tags,format,clip,duration&limit=1")
     r = (rows or [None])[0]
     if not r or not r.get("format") or not r.get("script"):
         return None
@@ -2216,7 +2247,8 @@ def upsert_video(key, a):
 # ============================================================================
 
 
-def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, usage_sink=None):
+def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, usage_sink=None,
+                 length_hint=None):
     """The video-dependent half of a script: download, transcribe, cover,
     frames, shots, tags. Populates a["source"]. Independent of brand, so
     main() runs this ONCE per distinct video and deep-copies the result onto
@@ -2237,6 +2269,14 @@ def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, u
     writes into. Both `on_frames` and `usage_sink` default to None, and the
     creator path passes neither, so it behaves exactly as before.
 
+    `length_hint`, when given, is `hint(wait_s) -> seconds or None`: the
+    platform's own reported length from the caller's concurrent fetch_meta,
+    waiting at most `wait_s` for it. process_group and process_campaigns pass
+    one; ab_format_adapt.py and eval_scripts.py do not, and get ffprobe alone.
+
+    THE LENGTH GATE (video_limits.py) runs here, before Whisper and before
+    any model call: raises CreatorFacing("too_long", retryable=False).
+
     Returns True if there is a usable source to proceed with; False only for
     the "no ANTHROPIC_API_KEY" case, where the transcript is all there ever
     will be. Raises on a hard failure (nothing downloaded at all) — the same
@@ -2250,6 +2290,14 @@ def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, u
         with stage(timings, "source_cache"):
             cached = cached_source(key, url)
         if cached:
+            # A library hit skips the download, so the gate uses what the
+            # library stored: its duration column (yt-dlp's number, or the
+            # transcript's end when that was empty) and the transcript's own
+            # end, a lower bound. Nothing over the limit can enter the library
+            # after this change; this keeps the rule true if the limit moves.
+            refuse_if_long(max(as_seconds(cached.get("duration")) or 0,
+                               as_seconds((cached.get("script") or {}).get("duration")) or 0),
+                           "library")
             # A cache hit skips both "reading" and "watching" outright — there
             # is nothing left mid-run for a phase to describe, and publishing
             # one here would cost a graft to say something already over.
@@ -2277,14 +2325,39 @@ def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, u
     if publish:
         publish("reading")
 
+    # THE LENGTH GATE, first chance: the platform's own number, ONLY if the
+    # caller's concurrent lookup has already answered. Never waited on here —
+    # that would add ~1s to every paste for a rare case.
+    refuse_if_long(length_hint(0) if length_hint else None, "metadata")
+
     with tempfile.TemporaryDirectory() as td_s:
         td = Path(td_s)
-        with stage(timings, "download"):
-            media, err = download_video(str(url).strip(), td)
-            if not media:
-                media, err2 = fetch_audio(url, td)   # video refused; audio still scripts it
+        try:
+            with stage(timings, "download"):
+                media, err = download_video(str(url).strip(), td)
                 if not media:
-                    raise RuntimeError(f"download failed: {err or err2}")
+                    media, err2 = fetch_audio(url, td)   # video refused; audio still scripts it
+                    if not media:
+                        raise RuntimeError(f"download failed: {err or err2}")
+        except Exception:  # noqa: BLE001 — re-raised below unless the video is simply too long
+            # A long video is the likeliest reason a download runs past its 180s
+            # timeout. If the platform says it is over the limit, that is the
+            # true and final answer, not a retryable fetch error.
+            refuse_if_long(length_hint(LENGTH_HINT_WAIT_S) if length_hint else None, "metadata")
+            raise
+
+        # THE AUTHORITATIVE CHECK: the file we actually have, before Whisper and
+        # before any model call. `probed` is also what script-quality.md step 14
+        # should reuse for src["duration"] — do not run ffprobe a second time.
+        with stage(timings, "length"):
+            probed = media_duration(media)
+        if probed:
+            refuse_if_long(probed, "ffprobe")
+        else:
+            hinted = length_hint(LENGTH_HINT_WAIT_S) if length_hint else None
+            refuse_if_long(hinted, "metadata")
+            if as_seconds(hinted) is None:
+                log.warning("  length unknown (ffprobe and metadata both silent) — allowed")
 
         with stage(timings, "transcribe"):
             t = transcribe(str(media), WHISPER_MODEL)
@@ -2893,19 +2966,30 @@ def process_group(key, aclient, group):
         target=lambda: meta_box.update(m=fetch_meta(rep.get("sourceUrl") or "")),
         daemon=True)
     meta_thread.start()
+
+    def length_hint(wait):
+        """The platform's reported length for the length gate (see fill_source)."""
+        meta_thread.join(timeout=wait)
+        return (meta_box.get("m") or {}).get("duration")
+
     try:
         with claim_heartbeat(key, cid0, rep.get("id")):
             ok = fill_source(rep, aclient, key, source_notes, rep_timings, publish=pub,
-                             usage_sink=src_usage)
+                             usage_sink=src_usage, length_hint=length_hint)
             if ok and not fuse and not rep.get("format"):
                 extract_format(aclient, rep, source_notes, rep_timings, publish=pub)
     except Exception as e:  # noqa: BLE001
         flush_source_cost(False)
         # No sibling in this group has a source either — all fail alike.
-        note_key, retryable = fetch_failure(e)
+        # A CreatorFacing here is the length gate: its sentence and its
+        # retryable=False are already decided, so it is honoured, not classified.
+        if isinstance(e, CreatorFacing):
+            note_key, retryable, nums = e.key, e.retryable, e.nums
+        else:
+            (note_key, retryable), nums = fetch_failure(e), {}
         for cid, data, a in group:
             a["status"] = "error"
-            set_note(a, note_key)
+            set_note(a, note_key, **nums)
             # False means Try again is pointless and creator.js hides it. Only
             # ever written here, and only False for a recognised permanent
             # wall — see FETCH_FAILURES.
@@ -2924,7 +3008,10 @@ def process_group(key, aclient, group):
             graft_adaptations(key, cid, [a])
         # The raw stderr stays in the log, where whoever is debugging can see
         # it, and out of the row, where a creator would.
-        log.error("  -> FAILED (source): %s%s", e, "" if retryable else "  [permanent]")
+        if isinstance(e, CreatorFacing):
+            log.info("  -> REFUSED (source): %s", e)
+        else:
+            log.error("  -> FAILED (source): %s%s", e, "" if retryable else "  [permanent]")
         return
     flush_source_cost(bool(ok) and (fuse or rep.get("format") is not None))
 
@@ -3283,12 +3370,20 @@ def refund(key, a, why):
     every model-side failure and flatly untrue after a give-up. The model
     spend is OURS; the allowance is theirs, and they got nothing.
     """
-    try:
-        sb(key, "/rest/v1/rpc/refund_script", method="POST", body={"p_id": a["id"]})
-        log.info("  refunded the allowance charge (%s)", why)
-    except Exception as e:  # noqa: BLE001
-        log.warning("  refund not recorded for %s: %s",
-                    str(a.get("id"))[:8], str(e)[:90])
+    # TWO ATTEMPTS, one second apart: a refused or failed paste promises
+    # "Nothing was used from your allowance", and one dropped request would
+    # make that false with nothing left to retry it (the entry is final).
+    for attempt in (1, 2):
+        try:
+            sb(key, "/rest/v1/rpc/refund_script", method="POST", body={"p_id": a["id"]})
+            log.info("  refunded the allowance charge (%s)", why)
+            return
+        except Exception as e:  # noqa: BLE001
+            if attempt == 2:
+                log.warning("  refund not recorded for %s: %s",
+                            str(a.get("id"))[:8], str(e)[:90])
+            else:
+                time.sleep(1)
 
 
 def graft_adaptations(key, cid, touched):

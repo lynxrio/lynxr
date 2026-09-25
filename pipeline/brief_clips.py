@@ -64,6 +64,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import process_adaptations as P  # noqa: E402
 import envcfg  # noqa: E402
 from analyze_visuals import download_video  # noqa: E402
+from video_limits import media_duration, too_long  # noqa: E402
 
 log = logging.getLogger("brief_clips")
 
@@ -141,6 +142,11 @@ def make_one(key, url):
         if not media:
             kind, retryable = P.fetch_failure(err or "download failed")
             return {"fail": kind, "retryable": retryable}
+        # The length gate (video_limits.py), before the CPU-heavy encode. Only
+        # legacy picked-video briefs can reach it: a campaign format over the
+        # limit is refused by the agency lane before it can be sent.
+        if too_long(media_duration(media)):
+            return {"fail": "too_long", "retryable": False}
         blob = P.make_clip(media, td)
         if not blob:
             return {"fail": "clip", "retryable": True}

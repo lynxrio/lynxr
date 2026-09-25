@@ -27,6 +27,34 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**A BLURRED SCRIPT BEHIND THE SIGN-UP AFTER A PASTE, WITH THEIR VIDEO'S THUMBNAIL (2026-09-25, UNCOMMITTED, stamp
+`202609233o`).** Owner: "once I paste in a link and it leads me to the login, have a blurred screen of their script in the
+background", then (after mockups A/B) "get rid of the your script for this box, and then add the video they added
+thumbnail". `#gate-tease` in index.html (static, aria-hidden, inert): a heavily blurred STAND-IN script (their script does
+not exist until they sign up — consumePendingPaste sends it; the banner says so) and a 9:16 frame. creator.js: the paste
+path fills the frame from the oEmbed `thumbnail_url` it already fetches for the banner title (`fetchSourceMeta` now
+returns `thumb`, kept only for `*.tiktokcdn(-us|-eu).com`), then shows the tease after `showGate`; `showGate` hides it for
+every other way in. **CSP: index.html img-src gained `https://*.tiktokcdn.com https://*.tiktokcdn-us.com
+https://*.tiktokcdn-eu.com`** — the page already calls tiktok.com's oEmbed from the browser, so TikTok learns nothing new;
+the img is `referrerpolicy="no-referrer"`. Instagram has no sign-in-free thumbnail (only paid Apify), so it keeps the
+gradient. Phones: the card covers the screen, so the frame is left out there. Verified under the real CSP: TikTok paste →
+thumbnail loaded 1080×1920, `csp violations: []`; Instagram paste → gradient; a bare "get started" → no tease; Back
+closes it; no sideways scroll. (Localhost cannot reach TikTok's oEmbed, so the test stubbed only that lookup with a real
+oEmbed response fetched server-side.)
+
+**VIDEOS OVER 5 MINUTES ARE REFUSED BEFORE ANY SPEND (2026-09-25, UNCOMMITTED, plan `~/.claude/plans/max-video-length.md`).** Owner: "when someone adds a video that is longer than 5 minutes, dont run it". One constant, `pipeline/video_limits.py` `MAX_SOURCE_SECONDS = 300` (5:00 runs, 5:01 is refused; whole seconds, half up; an unknown length runs). `fill_source` checks yt-dlp's reported length if it has already arrived (never waited on), then ffprobe on the downloaded file, before Whisper and before any model call. A failed or timed-out download of a video the platform says is long is refused as too long, not as a fetch error. Creator card: chip "too long", confused avatar, "this video is 7:12 — lynxr works from videos up to 5 minutes. nothing was used from your allowance.", no Try again and no "also write this for" chips. The charge is refunded (`refund()` now tries twice). `noteKind "length"` + `finalWhy "wall"` means it never pages. Agency: `error_kind "too_long"`, the same sentence without the allowance clause, Replace link only; the numbers ride on `source.duration`/`source.maxDuration`. `brief_clips.py` gives up on clips over 5 min. No SQL. Tests: `pipeline/test_video_limits.py` (76 checks); also fixed 4 `test_prefilter.py` checks failing since 2026-09-14 (stubs lacked `usage_sink`). Stamp `202609233n` + `404.html`. Relation to script-quality step 14: reuse `video_limits.media_duration` and the `probed` value; don't add a second ffprobe. NOT verified live (owner check in the plan).
+
+**THE TOP BAR IS THICKER AND ITS CONTENTS MATCH (2026-09-25; the thickness went out in `dc1d591`, the rest is UNCOMMITTED,
+stamp `202609233m`).** Owner: "make this slightly thicker", then "match the button sizes and stuff". Desktop capsule 44 →
+52px (`.lp-bar-in` min-height; `--hx-bar-h` 55 → 63 so the home hero still ends at the fold). Then, ≥761px only (the last
+block of app.css): the CTA 32 → 40px with an even 6px top/bottom/right inset, logo 34px, wordmark 20px, nav 14px. ≤760px:
+EVERY page's CTA is 44px like the menu button beside it (only the home page was; content pages were 32). Measured on /
+and /faq/ at 1440, 900 and 393. Note: the owner's push `dc1d591` (15:21) landed mid-session with the thicker bar but
+before the button resize, so live shows a 32px button in the 52px bar until the next push. Also since that push:
+today's SEO unit (`/blog/hook-payoff/`, see the SEO ROUTINE line) and the footer "lynxr turns…" brand sentence.
+
+**SEO ROUTINE (standing):** latest unit Q1 /blog/hook-payoff/ on 2026-09-25, uncommitted, with links from blog, how-to-write-a-hook, blog/question-hooks, glossary. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
+
 **"COMING SOON" STAYS ABOVE ITS HEADLINE (2026-09-25).** A version with the pill to the right of "a coach for every level."
 was built and verified (owner: "put this on the right side"), then withdrawn minutes later ("nevermind, just keep the
 coming soon at the top"). Everything it touched is back as it was: stacked row, 22px phone headlines, pill first in the

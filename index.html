@@ -22,7 +22,7 @@
      Instagram players on an agency brief's "the original". Briefs now play the self-hosted clip in the
      same native <video> as a creator's own scripts (owner: "native to lynxr"), so nothing on this page
      frames anything and default-src 'none' refuses every frame again. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; media-src 'self' blob: https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokcdn-eu.com; media-src 'self' blob: https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; form-action 'none'; base-uri 'none'; object-src 'none'">
 <!-- maximum-scale=1 SUPPRESSES iOS SAFARI'S FOCUS-ZOOM, and it is here in
      exchange for the find bar's type size: the search and sort controls came
      off the 16px floor on 2026-08-19 (owner's call) so they sit proportionally
@@ -75,13 +75,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233l">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233l">
-<link rel="shortcut icon" href="/favicon.ico?v=202609233l">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609233l">
-<link rel="stylesheet" href="/app.css?v=202609233l">
-<script src="/theme.js?v=202609233l"></script>
-<script src="/backdrop.js?v=202609233l" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233o">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233o">
+<link rel="shortcut icon" href="/favicon.ico?v=202609233o">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609233o">
+<link rel="stylesheet" href="/app.css?v=202609233o">
+<script src="/theme.js?v=202609233o"></script>
+<script src="/backdrop.js?v=202609233o" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -610,7 +610,7 @@
     <div class="foot-grid foot-grid-wide">
       <div class="foot-brand">
         <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
-        <p>your content creator buddy, from <span class="entity">lynxr LLC</span>, a partner company of <span class="entity">Lynx Media Group</span>, the <span class="entity">UGC</span> agency.</p>
+        <p>lynxr turns a TikTok or Instagram video into a script for the brand you make content for. made by <span class="entity">lynxr LLC</span>, a partner company of <span class="entity">Lynx Media Group</span>, the <span class="entity">UGC</span> agency.</p>
       </div>
       <div class="foot-col">
         <div class="foot-label">lynxr</div>
@@ -657,6 +657,30 @@
 </main>
 
 <div id="gate">
+  <!-- THE TEASE BEHIND THE SIGN-UP (owner, 2026-09-25: "once I paste in a link and it leads me to the
+       login, have a blurred screen of their script in the background to entice them", then "get rid of
+       the your script for this box, and then add the video they added thumbnail"). Shown ONLY on the
+       paste path (creator.js wireHeroComposer; showGate hides it for every other way in). The script
+       is a blurred STAND-IN with a script's shape — theirs does not exist until they sign up, when
+       consumePendingPaste sends it; the banner says exactly that. The frame on the right shows THEIR
+       video's thumbnail when TikTok's oEmbed (already fetched for the banner's title) returns one;
+       Instagram has no sign-in-free thumbnail, so it keeps the gradient. aria-hidden and inert:
+       decoration, never read or focused. -->
+  <div class="gate-tease" id="gate-tease" aria-hidden="true" inert hidden>
+    <div class="gate-tease-sheet">
+      <div class="gate-tease-main">
+        <p class="gate-tease-title">your script</p>
+        <div class="gate-tease-hook">"i spent a month doing this the hard way"</div>
+        <p class="gate-tease-lbl">your script</p>
+        <div class="gate-tease-beat"><span class="gate-tease-chip">say</span><span>open on the moment it went wrong — no intro</span><span class="gate-tease-chip">do</span><span class="gate-tease-do">look straight into the lens, phone at chest height</span></div>
+        <div class="gate-tease-beat"><span class="gate-tease-chip">say</span><span>name the one thing you wish you'd known sooner</span><span class="gate-tease-chip">do</span><span class="gate-tease-do">cut to the product in your hand</span></div>
+        <div class="gate-tease-beat"><span class="gate-tease-chip">say</span><span>show it working in under three seconds</span><span class="gate-tease-chip">do</span><span class="gate-tease-do">close-up, natural light from the window</span></div>
+        <div class="gate-tease-beat"><span class="gate-tease-chip">say</span><span>say who it's for, in your own words</span><span class="gate-tease-chip">do</span><span class="gate-tease-do">back to you, a half step closer</span></div>
+        <div class="gate-tease-beat"><span class="gate-tease-chip">say</span><span>end on the question your viewers keep asking</span><span class="gate-tease-chip">do</span><span class="gate-tease-do">hold the last frame for a beat</span></div>
+      </div>
+      <div class="gate-tease-vid"><img id="gate-tease-thumb" alt="" referrerpolicy="no-referrer" decoding="async" hidden></div>
+    </div>
+  </div>
   <div class="gate-card">
     <!-- FIRST CHILD, so it reads before the wordmark rather than after the
          form. Closes the gate: a real history entry was pushed when the gate
@@ -1058,10 +1082,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=202609233l" defer></script>
-<script src="/footer.js?v=202609233l" defer></script>
-<script src="/home.js?v=202609233l" defer></script>
-<script src="/avatar.js?v=202609233l" defer></script>
-<script src="/creator.js?v=202609233l" defer></script>
+<script src="/site.js?v=202609233o" defer></script>
+<script src="/footer.js?v=202609233o" defer></script>
+<script src="/home.js?v=202609233o" defer></script>
+<script src="/avatar.js?v=202609233o" defer></script>
+<script src="/creator.js?v=202609233o" defer></script>
 </body>
 </html>
