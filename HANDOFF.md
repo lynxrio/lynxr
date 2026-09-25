@@ -27,7 +27,50 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
-**PHONE LANDING: LESS DEAD SPACE, AND A QUIET SIGN-UP LINK (2026-09-25, UNCOMMITTED, stamp `202609233b`).** Owner, on a
+**"COMING SOON" STAYS ABOVE ITS HEADLINE (2026-09-25).** A version with the pill to the right of "a coach for every level."
+was built and verified (owner: "put this on the right side"), then withdrawn minutes later ("nevermind, just keep the
+coming soon at the top"). Everything it touched is back as it was: stacked row, 22px phone headlines, pill first in the
+intro. If it comes back: the pair needs 342px, a 393 phone row has 315, so the headline must drop to 20px on phones and
+the row rule needs TWO classes (`.hx-row.hx-row-coach`) to beat the later `.hx-row { flex-direction: column }`.
+
+**RIPPLING DOTS, A GREEN "COMING SOON", AND NO FOCUS RING ON TEXT FIELDS (2026-09-25, UNCOMMITTED, stamp now `202609233i`).**
+- "have these ripple": `.hx-rule` now holds three `<i>` (index.html); each lifts and sends a soft same-colour ring,
+  180ms apart, under a second of a 3.6s cycle. `hx-ripple-dot` / `hx-ripple-ring`; none under reduced motion.
+- THE PANEL WRITES ITSELF TOP TO BOTTOM (stamp `202609233i`). Owner: "have the ripple start on the load", then "have
+  everything load from top to bottom, like lynxr is wriitng the landing page", then "i mean just in this box". So ONLY
+  the panel animates (headline, subline and the desktop sign-up card are on screen from frame 0, untouched): coach row
+  .45s (headline types .45–.80, "learn more" .80) → the dots are written at 1.08s and ripple as they land (ripple delays
+  1.1/1.28/1.46s, the same with or without the intro) → script headline types 1.30–1.62 → paste box 1.62 → the phone's
+  "new here" row 1.9s. Buddy: whistle from 0, pencil 1.06–1.9s, idle; `hxEnd` at 2.3s. A brief top-to-bottom version
+  that also typed the page headline and subline was built and withdrawn within minutes. Verified in real-time captures
+  at 1440 and 393: order correct, no box moves, `csp violations: []`.
+- "make these green": `.hx-pill-soon` uses the removed live pill's pair (`--hx-live-t` / `--hx-live-bg`).
+- "get rid of this input field highlight effect for everyhing": ONE block at the very END of app.css (read its comment)
+  — `outline: none !important; border-color: var(--line-2) !important` on focused text-like inputs, textareas and
+  selects, plus `.composer-row` / `.wait-form` focus-within. Buttons, links, checkboxes, radios, range and the file-drop
+  zone KEEP their keyboard ring (accessibility; the caret marks a text field). !important is deliberate: ~20 earlier
+  rules re-add the ring per field. KEEP THAT SELECTOR ON ONE LINE — the first version wrapped between two `:not()`s,
+  which is a descendant combinator, and matched nothing. Verified: landing card email, paste box, gate email and the
+  agency sign-in email all focus with no outline and the neutral edge; a keyboard-focused button still shows the ring.
+
+**THE PANEL'S DIVIDER IS THREE BRAND DOTS; NO "LIVE NOW" PILL (2026-09-25, UNCOMMITTED, stamp now `202609233f`).** Owner: "you
+can get rid of this" (the `live now` pill — markup removed from index.html; the coach keeps `coming soon`), then "find a
+more creative way to replace the horizonatal line" → five mockups → picked E. `.hx-rule` is now a 46×8 box painting
+three radial-gradient dots (`--hx-dot-a/b/c`: the avatar's violet, pink, peach), centred with auto margins at every
+width (the two phone-only side-margin rules were removed). No markup change for the dots; the intro's `hx-fade` at 1.3s
+still reveals them. Verified at 1440 and 393 (panel centred, phone gaps unchanged, sign-up link opens the gate, CSP clean).
+Also new (not in the repo): a SessionStart hook in `.claude/settings.local.json` injects the owner's standing request —
+every session adds the next SEO/GEO blog piece — see `~/.claude/plans/lynxr-seo-session-routine.md`.
+
+**LIVE CHECK OF `802b106` (2026-09-25).** Pushed by the owner; GitHub Pages, secret scan and stamp check all green.
+Checked in the safe order (HTML with a unique `?cb=` until it showed `202609233b` — ~60 s — and only then any `?v=`
+asset): app.js, creator.js, app.css and home.js on lynxr.io are byte-identical to the commit; no stale Cloudflare copy.
+The phone landing re-measured on lynxr.io itself matched the local build exactly (53/80px gaps, link opens the gate,
+`csp violations: []`), and the desktop hero geometry is unchanged. The campaign-library, beats, PDF and rename features
+are live code but were verified only against stubbed data — the signed-in checks in their entries below are still the
+owner's. `supabase/brief_file_beats.sql` is committed AND applied (anonymous probe: its RPC answers 401, not 404).
+
+**PHONE LANDING: LESS DEAD SPACE, AND A QUIET SIGN-UP LINK (2026-09-25, PUSHED in `802b106`, live-verified 2026-09-25, stamp `202609233b`).** Owner, on a
 phone screenshot: "it looks cluttered but also blank space where it isnt needed", after picking mockup "L" for a phone
 sign-up ("a quiet link under the paste box") from three rounds of mockups (the full card, then minimal versions, all
 "too cluttered"). Built exactly as the approved mockup "with the two bigger gaps" (≤640px only): the hero no longer holds
@@ -41,7 +84,7 @@ scrolled screenshots show NO seam (the "hard edge" in the mockups was a full-pag
 FIXED 100vh backdrop, painted once at the top of a captureBeyondViewport shot); desktop 1440 geometry identical to a
 before-capture (hero, h1, .hxs card, panel, buddy, pricing, page height); `csp violations: []`.
 
-**A CAMPAIGN RENAME REACHES CREATORS WHO ALREADY HAVE IT (2026-09-25, UNCOMMITTED, stamp `202609233a`).** Owner: "when i
+**A CAMPAIGN RENAME REACHES CREATORS WHO ALREADY HAVE IT (2026-09-25, PUSHED in `802b106`, live-verified 2026-09-25; stamp now `202609233b`).** Owner: "when i
 change the name of brief, have it change on the creator side that has the brief as well even if it was already sent
 out". Sent briefs are snapshots that move only on Update; the NAME is now the one exception. After the rename saves,
 `agRenameSent()` (app.js, beside `agSentFor`) re-reads this source's sent rows and PATCHes each one's `title` column (the
@@ -53,7 +96,7 @@ instructions and sent_at unchanged, list stays "up to date"; an unsent requireme
 list still says they have the older version; a failed write → a sticky "creators still see the old name — press Update"
 message. Legacy picked-video briefs have no rename, so they are untouched. bf-keep regression still passes.
 
-**DOWNLOAD PDF IS BACK ON THE CAMPAIGN BRIEF (2026-09-25, UNCOMMITTED, stamp `202609232z`).** Owner: "bring back the
+**DOWNLOAD PDF IS BACK ON THE CAMPAIGN BRIEF (2026-09-25, PUSHED in `802b106`, live-verified 2026-09-25; stamp now `202609233b`).** Owner: "bring back the
 download as pdf option". It left with "Copy brief" in `5cc5260` (2026-09-23, owner: "remove this" — both); only Download
 PDF returns, restored exactly as it was: the `#cb-pdf` `.btn` in the campaign head (after "Copy to new brief"),
 `cbPdfTitle` + `cbSavePdf` in app.js (print a detached `#cb-print` of `campaignDocHtml` — done formats only, no
@@ -112,7 +155,7 @@ exactly (helpers, sig, setup/A–K for the agency run; helpers, sig, A–H for t
 in all four runs. NOT verified: the SQL applied, a real placement, a real signed-in download, the isolation check —
 owner checks in the plan's Verification section.
 
-**FILE ACTIONS NO LONGER ERASE OPEN EDITS (2026-09-25, PUSHED in `da1e30e`; stamp re-bumped to `202609232w`, UNCOMMITTED — see the Cloudflare note below).** Owner: "When I add a
+**FILE ACTIONS NO LONGER ERASE OPEN EDITS (2026-09-25, PUSHED in `da1e30e`; the stamp re-bump past the poisoned `v` shipped in `802b106` — see the Cloudflare note below).** Owner: "When I add a
 file into briefs, all the edits I make on the previous parts get erased." Every file action in the agency app (the
 list arriving, an upload starting and finishing, a remove, a retry) called the brief viewer's whole-page repaint, and
 a repaint rebuilds every editor from its SAVED value — an open "Campaign requirements" field, the rename box, a
@@ -126,7 +169,7 @@ re-bind), a remove and a failed-list retry; the rename survived an upload; on a 
 tick and the expanded script were the SAME DOM nodes after an upload; `csp violations: []`. Harness:
 scratchpad `bf-keep.mjs` (never committed). Files: `app.js`, the stamp on every page + `404.html`, this file.
 
-**CAMPAIGN SENDS NOW CARRY THE CLIP (2026-09-25, same uncommitted batch).** `agencySendDoc` read `f.source.clip`,
+**CAMPAIGN SENDS NOW CARRY THE CLIP (2026-09-25, PUSHED in `802b106`).** `agencySendDoc` read `f.source.clip`,
 but a loaded campaign format has no `source` — `CB_FULL` selects it as top-level `clip` / `cover` aliases — so every
 campaign brief went out without its clip and creators waited ~1 min for `pipeline/brief_clips.py` to fill it in.
 It now reads `f.clip` / `f.cover` first, `f.source` as fallback. Verified in the real page: a loaded-shape format
@@ -261,7 +304,7 @@ closing CTA, then the footer. The stage picker is GONE from here.
   signed-in pane's `.me-card`): `coming soon` pill + **"a coach for every level."** (2026-09-24, owner: show it coaches all levels; replaced "a coach
   that's all about you."; longer lines such as "a coach from first post to full-time." wrap to two lines on a 393px
   phone, and "…to pro" collides with the pro plan name) + ink **"learn more →"** to
-  `/how-it-works/coach/` / hairline / `live now` pill + "paste a link. get your script." + the LIVE composer
+  `/how-it-works/coach/` / hairline / "paste a link. get your script." (its `live now` pill REMOVED 2026-09-25, owner: "you can get rid of this"; the coach keeps `coming soon`) + the LIVE composer
   (`form#lp-composer-form[data-hero]`, `#lp-composer-url` — creator.js wires it) / **the buddy avatar (`.hx-seam`) at
   rest in the panel's bottom band, right-aligned** (180px desktop, 96px phone). No kicker, no lede, no fine print, no
   "your coach · preview" label, no speech bubble — all removed by the owner. Phone: headline → subline → panel.

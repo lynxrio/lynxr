@@ -75,13 +75,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233b">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233b">
-<link rel="shortcut icon" href="/favicon.ico?v=202609233b">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609233b">
-<link rel="stylesheet" href="/app.css?v=202609233b">
-<script src="/theme.js?v=202609233b"></script>
-<script src="/backdrop.js?v=202609233b" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233l">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233l">
+<link rel="shortcut icon" href="/favicon.ico?v=202609233l">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609233l">
+<link rel="stylesheet" href="/app.css?v=202609233l">
+<script src="/theme.js?v=202609233l"></script>
+<script src="/backdrop.js?v=202609233l" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -442,14 +442,17 @@
                that used to sit here. Third child of the row, so the intro's stagger still lands on it. -->
           <a class="btn hx-learn" href="/how-it-works/coach/">learn more &rarr;</a>
         </div>
-        <div class="hx-rule" aria-hidden="true"></div>
+        <div class="hx-rule" aria-hidden="true"><i></i><i></i><i></i></div>
         <!-- THE SCRIPT, live today, with THE APP'S OWN COMPOSER moved in with
              every id, class and data-* intact: creator.js wires every
              form[data-hero] (wireHeroComposer), site.js's typewriter and the
              phone keyboard pin key on #lp-composer-url, and say() falls back to
              #lp-composer-note. `.lp-composer` is a size modifier only. -->
         <div class="hx-row hx-row-script">
-          <span class="hx-pill hx-pill-live"><span class="hx-pill-dot" aria-hidden="true"></span>live now</span>
+          <!-- No "live now" pill (owner, 2026-09-25: "you can get rid of this"). The coach row keeps its
+               "coming soon" pill: that one carries information (the coach is not built). With the pill
+               gone the h2 is this row's first child, and the intro still lands on time: nth-child(1)
+               is 1.3s, the same moment the typing starts, and .lp-composer has its own rule (1.62s). -->
           <h2 class="hx-h hx-h2">paste a link. get your script.</h2>
           <div class="composer composer-inline lp-composer">
             <form class="composer-row" id="lp-composer-form" data-hero data-note="lp-composer-note" novalidate>
@@ -1055,10 +1058,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=202609233b" defer></script>
-<script src="/footer.js?v=202609233b" defer></script>
-<script src="/home.js?v=202609233b" defer></script>
-<script src="/avatar.js?v=202609233b" defer></script>
-<script src="/creator.js?v=202609233b" defer></script>
+<script src="/site.js?v=202609233l" defer></script>
+<script src="/footer.js?v=202609233l" defer></script>
+<script src="/home.js?v=202609233l" defer></script>
+<script src="/avatar.js?v=202609233l" defer></script>
+<script src="/creator.js?v=202609233l" defer></script>
 </body>
 </html>

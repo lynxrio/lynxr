@@ -261,14 +261,18 @@ if (hxsBox) {
    (A moving-buddy choreography — start top-left, write along each row — was built and then
    withdrawn the same day, 2026-09-23: "just keep lynxr on the bottom corner with the animation
    before the row thing". The buddy stays at rest in the card's bottom band throughout.)
-   Same budget, one pass, ~1.8s end to end:
+   THE PANEL WRITES ITSELF TOP TO BOTTOM (owner, 2026-09-25: "have everything load from top to
+   bottom, like lynxr is writing the landing page", then "i mean just in this box" — so the headline,
+   subline and sign-up card outside the panel stay on screen from frame 0). One pass, ~2.3s. The
+   panel glass and the buddy are on screen from frame 0 — the buddy is the one writing:
 
-     0.00s  a whistle arrives in the buddy's hand; face -> coaching
-     0.40s  the panel itself fades in, just ahead of its first row (never an empty glass box)
-     0.45s  the panel's COACH row follows: pill, headline, "learn more", 52ms apart
+     0.00s  a whistle in the buddy's hand; face -> coaching
+     0.45s  the COACH row: pill, then its headline types (.45-.80s), "learn more" at .80s
      0.90s  the whistle goes; 1.06s a pencil arrives; face -> writing
-     1.30s  the hairline and the panel's SCRIPT row follow, same stagger, last lands at 1.744s
-     1.80s  prop down, face -> idle, and the ambient "alive" loop below takes over
+     1.08s  the three dots are written and start to ripple
+     1.30s  the SCRIPT headline types (to 1.62s); the paste box fades in at 1.62s
+     1.90s  the "new here? create your free account" row (phone) fades in; prop down, face -> idle
+     2.30s  the intro ends and the ambient "alive" loop takes over
 
    The avatar doing all of this is the BUDDY IN THE CARD'S BOTTOM BAND, complete from frame 0 —
    it has to be, it is the thing performing. It is the same .hx-seam host it has always been.
@@ -324,6 +328,8 @@ const hxEnd = () => {
      shifts. The h2 keeps its text for assistive tech via aria-label; the spans are aria-hidden.
      Only done here, on the path that plays the intro — no JS, reduced motion and background tabs
      never split anything. Snapping (hxEnd) removes .hx-anim and every span is simply text. */
+  /* The panel's two headlines only (owner, 2026-09-25: "i mean just in this box" — the headline and
+     subline outside the panel stay on screen from frame 0). */
   const windows = [[".hx-row-coach .hx-h2", 0.45, 0.35], [".hx-row-script .hx-h2", 1.30, 0.32]];
   for (const [selector, t0, span] of windows) {
     const h2 = sec.querySelector(selector);
@@ -347,7 +353,7 @@ const hxEnd = () => {
     h2.classList.add("hx-type");
   }
   sec.classList.add("hx-anim");
-  hxAt(2000, hxEnd);   // 1800 before typing: each row's action now waits for its line, so the composer lands ~1.96s
+  hxAt(2300, hxEnd);   // the panel writes top to bottom; its last row ("new here", phone) lands ~2.2s
   for (const ev of ["pointerdown", "focusin", "keydown", "paste"]) {
     sec.addEventListener(ev, hxEnd, { capture: true, passive: true });
   }
@@ -450,9 +456,9 @@ addEventListener("DOMContentLoaded", () => {
     lynxrProp(svg, "whistle");
     hxAt(900, () => { lynxrProp(svg, "out"); setMood("writing", 150, 200); });
     hxAt(1060, () => lynxrProp(svg, "pencil"));
-    hxAt(1640, () => lynxrProp(svg, "out"));
-    hxAt(1690, () => setMood("idle", 90, 200));   // resting face by ~1.78s, as the pencil goes
-    // 1800 is hxEnd's, armed at the top level so it fires even if this handler never ran.
+    hxAt(1900, () => lynxrProp(svg, "out"));
+    hxAt(1950, () => setMood("idle", 90, 200));   // resting face by ~2.05s, as the pencil goes
+    // 2300 is hxEnd's, armed at the top level so it fires even if this handler never ran.
   } else {
     setTimeout(() => { wave(); setTimeout(tick, rand(2600, 4000)); }, 900);
   }
