@@ -75,13 +75,13 @@
 <meta name="twitter:description" content="Send a link. Get it back as a script written for whichever company you make videos for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233p">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233p">
-<link rel="shortcut icon" href="/favicon.ico?v=202609233p">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609233p">
-<link rel="stylesheet" href="/app.css?v=202609233p">
-<script src="/theme.js?v=202609233p"></script>
-<script src="/backdrop.js?v=202609233p" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233s">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233s">
+<link rel="shortcut icon" href="/favicon.ico?v=202609233s">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609233s">
+<link rel="stylesheet" href="/app.css?v=202609233s">
+<script src="/theme.js?v=202609233s"></script>
+<script src="/backdrop.js?v=202609233s" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -420,9 +420,8 @@
           <a class="btn hxs-go" id="hxs-go" href="/?signup=1" data-gate="up">continue with email</a>
           <!-- Both pages exist and both are linked from every footer. This claims
                nothing else: lynxr sends no promotional email, so there is no such
-               consent to ask for here. The gate still asks for the agreement tick
-               itself — this line is the plain-language version of the same thing, not
-               a replacement for it. -->
+               consent to ask for here. The gate carries the same line and, since 2026-09-25,
+               no tick box — this line IS the agreement. -->
           <p class="hxs-fine">by continuing you agree to the <a href="/terms/">terms</a>
             and <a href="/privacy/">privacy policy</a>.</p>
           <p class="hxs-alt">already have one? <a class="hxs-in" href="/" data-gate="in">sign in</a></p>
@@ -475,7 +474,7 @@
                paste box"). The desktop has the full .hxs card in the left column, so this is
                display:none above 640px and only a phone ever shows it. A plain [data-gate="up"]
                link, like every other sign-up control on the page: creator.js opens the real gate,
-               which asks for the terms agreement itself. -->
+               which shows the same agreement line. -->
           <p class="hx-new">new here? <a class="hx-new-link" href="/?signup=1" data-gate="up">create your free account</a></p>
           <span class="hx-seam" data-lx-mood="idle" aria-hidden="true"></span>
         </div>
@@ -662,7 +661,7 @@
        the your script for this box, and then add the video they added thumbnail"). Shown ONLY on the
        paste path (creator.js wireHeroComposer; showGate hides it for every other way in). The script
        is a blurred STAND-IN with a script's shape — theirs does not exist until they sign up, when
-       consumePendingPaste sends it; the banner says exactly that. The frame on the right shows THEIR
+       consumePendingPaste sends it. The frame on the right shows THEIR
        video's thumbnail when TikTok's oEmbed (already fetched for the banner's title) returns one;
        Instagram has no sign-in-free thumbnail, so it keeps the gradient. aria-hidden and inert:
        decoration, never read or focused. -->
@@ -689,10 +688,15 @@
     <button type="button" class="linkish gate-back" id="gate-back">&larr; back to lynxr</button>
     <h1 class="wordmark"><svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg><span>lynxr</span></h1>
     <p class="tagline" id="gate-tagline">for creators</p>
-    <!-- Filled by the hero composer's submit path only: the paste that brought
-         this visitor here, named back to them. Text only, set via textContent
-         — the title comes from a third-party oEmbed. -->
-    <p class="gate-paste" id="gate-paste" hidden></p>
+    <!-- THE AGREEMENT (owner, 2026-09-25: replace the tick box with a plain line, the way the landing's
+         .hxs card already reads). Above every way to continue — the Google button and the email form — so
+         it is read before either is pressed. setGateMode() shows it in create and sign-in (Google on the
+         sign-in card makes an account for a new address) and hides it for reset and "check your email".
+         The privacy link opens the in-page policy (creator.js openPolicy); terms opens in a new tab so the
+         card is not lost. -->
+    <p class="gate-consent" id="gate-consent">By continuing you agree to the
+      <a href="/terms/" target="_blank" rel="noopener">terms</a> and
+      <a href="/privacy/">privacy policy</a>.</p>
     <!-- PROVIDER SIGN-IN. Above the email form because it is the shorter path,
          and because Apple's guidelines ask that its button be no less prominent
          than the ones beside it — equal width and equal height is how that is
@@ -751,16 +755,22 @@
         <input type="text" id="invite" placeholder="Invite code"
                autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false">
       </div>
-      <!-- Shown only when creating an account (see setGateMode). Signing in is
-           not the moment you agree to anything — you already did. A ticked-by-
-           default box would not be agreement at all, so it starts empty and the
-           submit is refused without it. -->
-      <label class="gate-agree" id="agree-wrap" hidden>
-        <input type="checkbox" id="agree">
-        <span>i agree to the <a href="/privacy/" target="_blank" rel="noopener">privacy policy</a></span>
-      </label>
       <button type="submit" class="btn" id="gate-go">Enter</button>
     </form>
+    <!-- CHECK YOUR EMAIL (owner, 2026-09-25). Shown only in setGateMode("sent"), after a sign-up; filled
+         by showSent() in creator.js: which address, what the link does, a resend with a cooldown, and a
+         way back to fix a typo. No word about a pasted video — the old "got your video" banner was removed
+         at the owner's request ("get rid of this"); the blurred tease behind the card stays. -->
+    <div class="gate-sent" id="gate-sent" hidden>
+      <p class="gate-sent-to" id="gate-sent-to" tabindex="-1">We sent a confirmation link to <strong id="gate-sent-addr"></strong></p>
+      <p class="gate-sent-how">Open it to confirm your email — it signs you straight in.</p>
+      <p class="gate-other">Nothing yet? Check spam, or
+        <button type="button" class="linkish" id="gate-sent-resend">send it again</button></p>
+      <p class="gate-other"><button type="button" class="linkish" id="gate-sent-change">Use a different email</button></p>
+      <!-- The link was opened in another tab of this browser (creator.js listens for the session appearing). -->
+      <p class="gate-other" id="gate-sent-done" hidden>You're signed in on the tab the link opened.
+        <button type="button" class="linkish" id="gate-sent-here">Continue here</button></p>
+    </div>
     <div class="err" id="err" role="status" aria-live="polite"></div>
     <!-- SEATS-FULL FALLBACK, HOME ONLY. applySeatState() in creator.js reveals
          this when SEATS_OPEN === false; hidden otherwise. data-carry-utm is
@@ -785,8 +795,8 @@
          on to put in. A policy linked only from the public home page is not
          reachable from the app at all — a creator handed this URL directly
          never sees that page. -->
-    <!-- Agreement is now an explicit tick above, so this is only a way to reach
-         the policy — it no longer claims you agreed by being here. -->
+    <!-- Shown only where the agreement line above is hidden (reset, check your email), so the policy is
+         always one tap away without printing it twice. It claims no agreement. -->
     <p class="gate-fine"><a href="/privacy/">privacy policy</a></p>
   </div>
 </div>
@@ -1082,10 +1092,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=202609233p" defer></script>
-<script src="/footer.js?v=202609233p" defer></script>
-<script src="/home.js?v=202609233p" defer></script>
-<script src="/avatar.js?v=202609233p" defer></script>
-<script src="/creator.js?v=202609233p" defer></script>
+<script src="/site.js?v=202609233s" defer></script>
+<script src="/footer.js?v=202609233s" defer></script>
+<script src="/home.js?v=202609233s" defer></script>
+<script src="/avatar.js?v=202609233s" defer></script>
+<script src="/creator.js?v=202609233s" defer></script>
 </body>
 </html>

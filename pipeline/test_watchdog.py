@@ -550,6 +550,57 @@ finally:
     if _saved_server is not None:
         os.environ["NTFY_SERVER"] = _saved_server
 
+# ---- thumb-ceiling: digest only, this month only ---------------------------
+_month = NOW.strftime("%Y-%m")
+alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("no thumb.ceiling row -> no thumb-ceiling", "thumb-ceiling" in keys_of(alarms), False)
+alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW, now=NOW,
+                     thumb_ceiling={"month": _month, "usd": 1.4985, "cap": 1.5})
+_tc = [a for a in alarms if a["key"] == "thumb-ceiling"]
+check("this month's ceiling -> one thumb-ceiling", len(_tc), 1)
+check("thumb-ceiling never pages", _tc[0]["page"] if _tc else None, False)
+check("thumb-ceiling body carries no http", "http" in (_tc[0]["body"] if _tc else ""), False)
+alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW, now=NOW,
+                     thumb_ceiling={"month": "2000-01", "usd": 1.5, "cap": 1.5})
+check("an old month's ceiling -> silent", "thumb-ceiling" in keys_of(alarms), False)
+alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW, now=NOW, thumb_ceiling="garbage")
+check("malformed thumb.ceiling -> silent, no raise", "thumb-ceiling" in keys_of(alarms), False)
+
+# ---- _prune_thumb_meter: expired rows only, hourly, never raises -----------
+_orig_urlopen = W.urllib.request.urlopen
+_seen = []
+
+
+class _Resp:
+    def read(self):
+        return b""
+
+
+def _fake_urlopen(req, timeout=None, context=None):
+    _seen.append((req.get_method(), req.full_url))
+    return _Resp()
+
+
+def _boom(*a, **k):
+    raise OSError("no such table")
+
+
+try:
+    W._THUMB_PRUNE["at"] = 0.0
+    W.urllib.request.urlopen = _fake_urlopen
+    W._prune_thumb_meter("k")
+    check("prune issues one DELETE", [m for m, _ in _seen], ["DELETE"])
+    check("prune targets expired rows only",
+          "/rest/v1/lynxr_thumb_meter?expires_at=lt." in (_seen[0][1] if _seen else ""), True)
+    W._prune_thumb_meter("k")
+    check("prune runs at most once an hour", len(_seen), 1)
+    W._THUMB_PRUNE["at"] = 0.0
+    W.urllib.request.urlopen = _boom
+    W._prune_thumb_meter("k")
+    check("prune swallows a failure", True, True)
+finally:
+    W.urllib.request.urlopen = _orig_urlopen
+
 print()
 if FAILS:
     print(f"{len(FAILS)} FAILED: {', '.join(FAILS)}")

@@ -4129,18 +4129,6 @@
   /* The policy link under the creator sign-in gate. Quiet by design — it is a
      reference, not a step — but present, because this is where accounts are
      created. */
-  /* The signup agreement tick. Sits inside the form, above the submit, because
-     it is a step in creating the account rather than a footnote about it. The
-     whole row is a <label>, so the words are part of the hit area — the box
-     alone is a 13px target on a phone. */
-  .gate-agree {
-    display: flex; align-items: flex-start; gap: 9px; margin: 2px 0 4px;
-    font-size: var(--fs-12); color: var(--text-2); line-height: 1.5; cursor: pointer;
-  }
-  .gate-agree[hidden] { display: none; }
-  .gate-agree input { margin: 2px 0 0; flex: none; accent-color: var(--text); cursor: pointer; }
-  .gate-agree a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
-  .gate-agree a:hover { color: var(--text); }
   .gate-fine { margin: 20px 0 0; font-size: var(--fs-115); color: var(--text-3); line-height: 1.6; }
   /* Settings footer: the signed-in account on the left, where to find us and
      the privacy policy on the right, one line. */
@@ -4300,14 +4288,6 @@
   body.home.gate-on .lp-bar { display: none; }
   .gate-back { display: block; margin: 0 0 22px; color: var(--text-3); border-bottom: 0; }
   .gate-back:hover { color: var(--text); }
-  /* The paste banner on the gate — the visitor's own video named back to
-     them, above the form that unlocks it. */
-  .gate-paste {
-    margin: 4px 0 14px; padding: 9px 12px;
-    background: var(--surface-2); border: 1px solid var(--line);
-    border-radius: var(--r-inner);
-    color: var(--text-2); font-size: var(--fs-125); line-height: 1.5;
-  }
   body:not(.home) .gate-back { display: none; }
 
   /* THE <main> ON THESE PAGES CARRIES NOTHING. There is a bare
@@ -6874,7 +6854,6 @@
   #gate-form input[aria-invalid="true"],
   #brief-form input[aria-invalid="true"],
   #av-form input[aria-invalid="true"] { border-color: var(--bad); }
-  #gate-form .gate-agree:has(input[aria-invalid="true"]) { color: var(--bad); }
   /* #err carries "Signing in…" and "check your email" too — it is red only
      while one of the gate's own fields is flagged by it. */
   #gate-form:has([aria-invalid="true"]) ~ #err { color: var(--bad); }
@@ -7527,10 +7506,13 @@
      the gate.
 
      backdrop.js adds the life: on desktop each blob breathes on its own slow
-     cycle (CSS, .blob-in), and the script leans only the blobs NEAR the cursor
-     (or a finger) toward it and squashes them a touch with scroll speed. It
-     moves nothing more than ~30px, so the overlaps stay the ones the gate
-     measured. Reduced motion: still. */
+     cycle (CSS, .blob-in), and the script SHOVES the blobs near the cursor away
+     from it (up to ~100px), squashes whichever one it drives into a window edge
+     and squashes them all a touch with scroll speed. Since 2026-09-25 no two
+     blobs may close nearer than the resting gap below, so however far they are
+     pushed the overlaps are never worse than the ones the gate measured — see
+     the header of backdrop.js for the numbers. The cursor light that used to
+     live here (.spot) is gone with that change. Reduced motion: still. */
   :root {
     --b1: rgba(150, 76, 58, .5);   --b1z: rgba(150, 76, 58, 0);
     --b2: rgba(122, 44, 90, .7);   --b2z: rgba(122, 44, 90, 0);
@@ -7561,17 +7543,6 @@
     --m5: rgba(255, 126, 184, .33);
   }
   .backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-  /* The cursor light (backdrop.js, mouse screens only). White over the light
-     ground only ever raises luminance, so it cannot cost text contrast. */
-  :root { --spot-core: rgba(255, 255, 255, 0); --spot-fade: rgba(255, 255, 255, 0); }
-  html[data-theme="light"] { --spot-core: rgba(255, 255, 255, .7); }
-  .spot {
-    position: absolute; left: 0; top: 0; width: 560px; height: 560px; margin: -280px 0 0 -280px;
-    border-radius: 50%; background: radial-gradient(closest-side, var(--spot-core), var(--spot-fade));
-    opacity: 0; transition: opacity .5s ease; will-change: transform;
-  }
-  .backdrop.has-spot .spot { opacity: 1; }
-  @media (hover: none), (prefers-reduced-motion: reduce) { .spot { display: none; } }
   .blob {
     position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h);
     translate: -50% -50%; will-change: transform;
@@ -8575,11 +8546,6 @@
     background: var(--gl-fill); border-color: var(--gl-edge); box-shadow: var(--gl-shadow);
   }
   .pane-body .lib-group { background: var(--gl-fill); border-color: var(--gl-edge); box-shadow: var(--gl-shadow); }
-  /* ---- nested inside a blurred sheet or card: the well's tint and a hairline, never a blur ---- */
-  #gate .gate-paste {
-    background: var(--gl-well-fill); border-color: var(--line); box-shadow: var(--gl-well-shadow);
-  }
-
   /* ---- (well) inputs: the paste field as it was, never blurred; no font-size (the iOS 16px floor stays) ---- */
   .composer-row, body.home .lp-hero .composer-row,
   #gate .field.login input[type="email"], #gate .pw-wrap input,
@@ -11661,6 +11627,11 @@
   }
   .gate-tease-vid img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .gate-tease-vid img[hidden] { display: none; }
+  /* A cover that arrives AFTER the gate opened (Instagram, supabase/functions/ig-thumb — usually 6–16s after the
+     paste) fades over the gradient instead of popping in. creator.js adds .tease-late, unhides, then .tease-in. */
+  .gate-tease-vid img.tease-late { opacity: 0; transition: opacity .4s ease; }
+  .gate-tease-vid img.tease-late.tease-in { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .gate-tease-vid img.tease-late { transition: none; } }
   .gate-tease-vid::after {
     content: ""; position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px;
     border-radius: 50%; background: rgba(255, 255, 255, .8);
@@ -11672,9 +11643,23 @@
     .gate-tease-title { margin-top: 70px; font-size: 22px; }
   }
 
-  /* NO "GOT YOUR VIDEO" NOTE ON THE SIGN-UP (owner, 2026-09-25: "get rid of this"). The blurred script and the
-     video's thumbnail behind the card (#gate-tease) say it now. Hidden here rather than cut from creator.js,
-     because two plans in flight (instagram-thumbnail-lookup, email-link-signup) quote that code as anchors; the
-     second one to run removes the element and its code for good. Same selector weight as the rule above, and
-     later, so it wins. */
-  #gate .gate-paste { display: none; }
+  /* ============== SIMPLER SIGN-UP (2026-09-25, plan email-link-signup) ==============
+     One password field, no tick box: index.html #gate-consent (the agreement line) and #gate-sent
+     (check your email); creator.js setGateMode() decides which show. /agencyonly/ has none of these
+     ids, so nothing here reaches it. The agreement line reads as the tagline's second line: 14px under
+     it (the tagline's 36px margin, less 22), then 22px to the first button. */
+  #gate .gate-consent {
+    margin: -22px 0 22px; font-size: var(--fs-12); line-height: 1.55; color: var(--text-3); text-align: center;
+  }
+  #gate .gate-consent a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
+  #gate .gate-consent a:hover { color: var(--text); }
+  #gate .gate-consent[hidden], #gate .gate-sent[hidden], #gate .gate-fine[hidden] { display: none; }
+  /* Check your email: where it went, what it does, then the two ways out (the .gate-other rows). */
+  #gate .gate-sent { text-align: center; }
+  #gate .gate-sent-to {
+    margin: 0 0 6px; font-size: var(--fs-14); line-height: 1.5; color: var(--text);
+    overflow-wrap: anywhere; outline: none;
+  }
+  #gate .gate-sent-to strong { font-weight: 600; }
+  #gate .gate-sent-how { margin: 0 0 6px; font-size: var(--fs-13); line-height: 1.5; color: var(--text-2); }
+  #gate .gate-sent .linkish:disabled { color: var(--text-3); border-bottom-color: transparent; cursor: default; }

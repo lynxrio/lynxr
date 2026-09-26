@@ -677,20 +677,53 @@ async function sbSignUp(email, password, invite) {
   // localhost, so every confirmation email sent a real user to a page only the
   // developer's laptop could serve. location.origin is whatever host actually
   // served this page, so the link always comes back to the same deployment.
-  const back = encodeURIComponent(location.origin + CREATOR_PATH);
+  // …and, when a pasted video is waiting, that video rides along on it (confirmRedirect).
+  const back = encodeURIComponent(confirmRedirect());
   const res = await fetch(`${SB_URL}/auth/v1/signup?redirect_to=${back}`, {
     method: "POST",
     headers: { apikey: SB_KEY, "Content-Type": "application/json" },
     // The invite code rides along as signup metadata. GoTrue writes `data` into
     // raw_user_meta_data BEFORE the gate trigger runs, which is the only way the
     // trigger can see a value that isn't the email or the password.
-    body: JSON.stringify(invite ? { email, password, data: { invite } }
-                                : { email, password }),
+    // The agreement rides in the same metadata, so the account carries what it agreed to (consentStamp).
+    body: JSON.stringify({ email, password,
+      data: invite ? { invite, consent: consentStamp("password") } : { consent: consentStamp("password") } }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error_description || body.msg || body.message || "Sign-up failed");
   if (body.access_token) { adoptSession(body, email); return "in"; }
   return "confirm";
+}
+
+/* What the agreement line was agreeing to, stamped onto a NEW account's user metadata (GoTrue writes
+   `data` into raw_user_meta_data on signup and ignores it for an existing account). */
+const consentStamp = (via) => ({ privacy: PRIVACY_VERSION, terms: TERMS_VERSION, at: new Date().toISOString(), via });
+
+/* Where the confirmation link lands: this app, plus the pasted video when one is waiting (?paste=).
+   The paste rides INSIDE the link because a confirmation link opens in a new tab — often a different
+   browser — where this tab's sessionStorage does not exist; before this, that is exactly where the
+   paste was lost. Same two-hour window as the stash. */
+function confirmRedirect() {
+  const u = new URL(CREATOR_PATH, location.origin);
+  let p = null;
+  try { p = JSON.parse(sessionStorage.getItem(PASTE_KEY) || "null"); } catch {}
+  if (p && p.url && Date.now() - (p.at || 0) <= PASTE_TTL_MS && !linkProblem(p.url)) u.searchParams.set("paste", p.url);
+  return u.href;
+}
+
+/* The confirmation mail again — from "check your email" and from a sign-in refused with "Email not
+   confirmed". Throws "<status> <error_code> <message>" for resendError(). */
+async function sbResendSignup(email) {
+  const back = encodeURIComponent(confirmRedirect());
+  const res = await fetch(`${SB_URL}/auth/v1/resend?redirect_to=${back}`, {
+    method: "POST",
+    headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "signup", email }),
+  });
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    throw new Error(`${res.status} ${b.error_code || ""} ${b.error_description || b.msg || b.message || "failed"}`.replace(/\s+/g, " ").trim());
+  }
 }
 
 /* SEATS. The invited group is finite and the front door closes by itself —
@@ -733,6 +766,18 @@ let INVITE_REQUIRED = false;
    on their phone and the app on a laptop. */
 const INVITE = new URLSearchParams(location.search).get("c") || "";
 const INVITED_EMAIL = new URLSearchParams(location.search).get("e") || "";
+/* THE PASTE THAT RODE THE CONFIRMATION EMAIL (see confirmRedirect). Read once and wiped off the
+   address bar at load — the #fragment is kept, sessionFromLink() still needs it. Acted on ONLY in
+   resume(), and only when a fresh session arrived in this same load: a bare lynxr.io/?paste=… does
+   nothing. */
+const LINK_PASTE = (() => {
+  const u = new URL(location.href);
+  if (!u.searchParams.has("paste")) return "";
+  const v = (u.searchParams.get("paste") || "").slice(0, 500);
+  u.searchParams.delete("paste");
+  try { history.replaceState(history.state, "", u.pathname + u.search + u.hash); } catch {}
+  return v;
+})();
 
 // What we assume when the RPC does not answer: sign-in stays possible, and the
 // invite field is shown. See the block above for why those two go opposite ways.
@@ -844,6 +889,20 @@ function signupError(raw) {
   if (/signups? not allowed|signup.*disabled|not allowed for this instance/i.test(s))
     return "Sign-ups are closed right now — ask Lynx for an invite.";
   return "Couldn't create the account — check your connection and try again.";
+}
+
+/* WHAT A FAILED RESEND SAYS, plus how long the button should wait. GoTrue (2026) refuses a second mail
+   to one address within 60 s with 429 "For security purposes, you can only request this after N
+   seconds." — that number becomes the cooldown. The rate check runs before MAILER_FAILURE because its
+   error_code (over_email_send_rate_limit) would match that pattern's /email_send/. */
+function resendError(raw) {
+  const s = String(raw || "");
+  const wait = s.match(/after (\d+) seconds?/i);
+  if (wait) return { text: `We sent one moments ago — you can ask for another in ${wait[1]} seconds.`, cooldown: Number(wait[1]) };
+  if (/rate|too many|\b429\b/i.test(s)) return { text: "Too many emails just now — wait a few minutes, then try again.", cooldown: 0 };
+  if (MAILER_FAILURE.test(s))
+    return { text: "We couldn't send the email — that's a problem on our end, not your connection. Try again later.", cooldown: 0 };
+  return { text: "Couldn't send it — check your connection and try again.", cooldown: 0 };
 }
 
 async function sbRefresh(refresh_token) {
@@ -1669,9 +1728,8 @@ function focusComposer() {
    to the app's own composer once sign-in lands here. ONE SHOT: the key is
    removed the moment it is read, whatever the outcome, so a stale link can
    never resurface on a later visit. TWO-HOUR TTL: sessionStorage already dies
-   with the tab, but a confirmation email opens a NEW tab (see Assumption 1),
-   so this only ever fires for a same-tab sign-IN — the window is generous
-   because there is no reason to be strict once it is this narrow already.
+   with the tab, and a confirmation link opens a NEW tab, so the link carries the paste itself
+   (?paste=, see confirmRedirect) and resume() puts it back here (stashLinkPaste).
    DOES NOT AUTO-SEND — see the Do-not list; a send spends one of this week's
    free scripts and a brand-new account has no brands yet to write for. */
 function consumePendingPaste() {
@@ -1679,7 +1737,7 @@ function consumePendingPaste() {
   try { p = JSON.parse(sessionStorage.getItem(PASTE_KEY) || "null"); } catch {}
   try { sessionStorage.removeItem(PASTE_KEY); } catch {}   // one shot, always
   if (!p || !p.url) return;
-  if (Date.now() - (p.at || 0) > 2 * 60 * 60 * 1000) return;  // two hours
+  if (Date.now() - (p.at || 0) > PASTE_TTL_MS) return;  // two hours
   const input = document.getElementById("composer-url");
   if (!input) return;
   input.value = p.url;
@@ -1697,6 +1755,14 @@ function consumePendingPaste() {
     focusComposer();
     say("your link is ready — press send when you are.", "good");
   }
+}
+
+/** A paste that rode the confirmation link back into this tab's stash, where consumePendingPaste()
+    finds it. The same checks as a hand-typed paste: an unsupported or malformed address is dropped. */
+function stashLinkPaste(raw) {
+  if (linkProblem(raw)) return;
+  const url = normalizeUrl(raw);
+  try { sessionStorage.setItem(PASTE_KEY, JSON.stringify({ url, at: Date.now(), plat: platformOf(url) })); } catch {}
 }
 
 /* KEYBOARD-AWARE HEIGHT ------------------------------------------------------
@@ -6002,6 +6068,10 @@ function wireComposer() {
   });
 }
 
+/* Which paste the tease behind the sign-up belongs to. A late Instagram cover (fetchIgThumb) is painted
+   only if no newer paste has happened since it was asked for. */
+let TEASE_SEQ = 0;
+
 /* THE MERGED HOME'S SIGNED-OUT COMPOSER. Lives here rather than in a new file
    so PLATFORMS / platformOf() / normalizeUrl() / SUPPORTED_LIST stay a single
    copy — see the Do-not list. Mirrors wireComposer()'s live badge and
@@ -6046,6 +6116,14 @@ function wireOneHero(form) {
     const url = normalizeUrl(raw);
     const plat = platformOf(url);
 
+    /* INSTAGRAM'S COVER, asked for now so the paid lookup (usually 6–16s) runs under the loading beat
+       instead of after it. Only where the tease's video frame is painted: at ≤640px app.css hides
+       `.gate-tease-vid`, so a lookup there would be paid for and never seen. TikTok needs none of this —
+       its thumbnail rides on fetchSourceMeta's oEmbed, unchanged. */
+    const teaseSeq = ++TEASE_SEQ;
+    const igThumb = plat === "Instagram" && !matchMedia("(max-width: 640px)").matches
+      ? fetchIgThumb(url) : null;
+
     try { sessionStorage.setItem(PASTE_KEY, JSON.stringify({ url, at: Date.now(), plat })); }
     catch { /* private mode: the link is lost, the signup is not */ }
     const link = document.getElementById("gate-full-link");
@@ -6059,12 +6137,10 @@ function wireOneHero(form) {
 
     /* THE LOADING BEAT (owner: "add a bit of loading time, making it look
        like its loading" — and it is not only looking: the dwell is spent on a
-       REAL oEmbed read, which is why the gate can greet them with their own
-       video's title). ~1.7s minimum so the beat registers, 2.4s cap so a slow
-       relay cannot hold the signup hostage. The gate's banner never says the
-       script is ready — it is not; it says what is TRUE and about to happen:
-       consumePendingPaste() auto-sends the moment they are in, because the
-       press that landed them here WAS the send gesture. */
+       REAL oEmbed read, which is where the tease's thumbnail comes from).
+       ~1.7s minimum so the beat registers, 2.4s cap so a slow relay cannot
+       hold the signup hostage. consumePendingPaste() auto-sends the moment
+       they are in, because the press that landed them here WAS the send gesture. */
     const send = form.querySelector(".composer-send");
     const face = send ? send.innerHTML : "";
     input.disabled = true;
@@ -6078,22 +6154,33 @@ function wireOneHero(form) {
     } catch { /* no metadata is fine; the beat still paces */ }
     await new Promise((r) => setTimeout(r, Math.max(0, 1700 - (Date.now() - t0))));
 
-    const banner = document.getElementById("gate-paste");
-    if (banner) {
-      const title = (m && m.caption ? m.caption : "").replace(/\s+/g, " ").trim().slice(0, 80);
-      banner.textContent = title
-        ? `got your ${plat.toLowerCase()} video — “${title}”. your script starts writing the second you're in.`
-        : `got your ${plat.toLowerCase()} video. your script starts writing the second you're in.`;
-    }
     const thumb = document.getElementById("gate-tease-thumb");
     if (thumb) {
+      thumb.onload = null;                                // a late cover from an EARLIER paste must not land here
+      thumb.classList.remove("tease-late", "tease-in");
       if (m && m.thumb) { thumb.src = m.thumb; thumb.hidden = false; }
       else { thumb.removeAttribute("src"); thumb.hidden = true; }   // Instagram, or oEmbed said nothing: the gradient frame
     }
     showGate("up");
-    if (banner && banner.textContent) banner.hidden = false;
     const tease = document.getElementById("gate-tease");
     if (tease) tease.hidden = false;
+    /* The Instagram cover lands whenever the lookup does — usually after the gate is already open, because
+       the beat above never waits past 2.4s. It fades over the gradient only if THIS paste's tease is still
+       on screen: a newer paste, Back, or any other way into the gate (showGate hides the tease) leaves it
+       alone. A cover that fails to load simply never appears. */
+    if (igThumb && thumb && tease) {
+      igThumb.then((src) => {
+        if (!src || teaseSeq !== TEASE_SEQ || tease.hidden || !document.body.classList.contains("gate-on")) return;
+        thumb.onload = () => {
+          thumb.onload = null;
+          if (teaseSeq !== TEASE_SEQ || tease.hidden) return;
+          thumb.classList.add("tease-late");
+          thumb.hidden = false;
+          requestAnimationFrame(() => requestAnimationFrame(() => thumb.classList.add("tease-in")));
+        };
+        thumb.src = src;
+      });
+    }
     /* The composer restores UNDER the gate, so Back lands on a usable hero
        rather than a dead spinner. */
     input.disabled = false;
@@ -6331,6 +6418,26 @@ async function fetchSourceMeta(url) {
     } catch { /* next relay */ }
   }
   return best || { caption: "", creator: "" };
+}
+
+/* THE INSTAGRAM COVER FOR THE SIGN-UP TEASE (supabase/functions/ig-thumb). Instagram has no
+   sign-in-free thumbnail, so a server-side lookup — the paid Apify actor behind view counts, gated by
+   per-visitor, daily and monthly limits on the server — copies the cover into our public lynxr-covers
+   bucket and answers with that address. Resolves to the image URL or "": it never rejects, and every
+   limit, refusal or timeout just leaves the tease's gradient frame. A plain-text POST is a CORS "simple
+   request" (no preflight), and the function answers 200 even when it says no, so a refusal is silent
+   in the console. Only an address in OUR bucket is accepted. */
+const IG_THUMB_FN = `${SB_URL}/functions/v1/ig-thumb`;
+async function fetchIgThumb(url) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 40000);
+  try {
+    const res = await fetch(IG_THUMB_FN, { method: "POST", body: JSON.stringify({ url }), signal: ctl.signal });
+    if (!res.ok) return "";
+    const d = await res.json();
+    const src = String((d && d.thumb) || "");
+    return src.startsWith(`${SB_PUBLIC_PREFIX}lynxr-covers/`) ? src : "";
+  } catch { return ""; } finally { clearTimeout(t); }
 }
 
 /** Best-effort, fired after the card is already on screen: saving stays instant
@@ -10094,22 +10201,35 @@ function startLiveSync() {
    policy changes in a way that matters — the date in privacy/index.html is the
    human version of the same thing. Old rows keep the version they accepted.
 
-   IT DOES NOT RE-PROMPT ANYONE. This constant is read in exactly one place —
-   the signup handler, which stamps it onto a brand-new row — so bumping it
+   IT DOES NOT RE-PROMPT ANYONE. It is stamped only onto accounts that have no record yet
+   (consentStamp, oauthStart, resume) — so bumping it
    records the new wording for everyone who signs up FROM NOW ON and changes
    nothing for an existing creator: no banner, no dialog, no second agreement.
    Do not treat a bump here as consent re-taken. The policy's own "changes to
    this policy" section promises an email for a material change, and that email
    is the mechanism; this is only the label on it. */
-const PRIVACY_VERSION = "2026-09-16";
+const PRIVACY_VERSION = "2026-09-25";
+/* The terms' version, from terms/index.html's "last updated" line. The sign-in card's agreement line
+   names the terms too since 2026-09-25, so the record says which terms. Bump with that page's date. */
+const TERMS_VERSION = "2026-09-21";
 
 /* THE MERGED HOME. `/` hosts three layers in one document — #lp-main
    (marketing), #gate (auth) and #app (the app). HOME is false on any other
    page that loads this file, so every branch below is inert there. */
 const HOME = !!document.getElementById("lp-main");
 const PASTE_KEY = "lynxr_pending_paste";
+const PASTE_TTL_MS = 2 * 60 * 60 * 1000;   // a waiting paste is good for two hours (consumePendingPaste, confirmRedirect)
 
 let GATE_MODE = "in";
+/* ONE PASSWORD FIELD ON SIGN-UP — AND ITS ROLLBACK SWITCH (owner, 2026-09-25: make sign-up more
+   frictionless). true: "create your account" asks for the password once; the eye (#toggle-pw) is how
+   a typo is caught, and "Forgot your password?" is the way back from one. false: the "Confirm password"
+   field returns to sign-up and must match, as before. The agreement tick box does not come back
+   either way. Flip, bump the ?v= stamp (and 404.html), push. */
+const SIGNUP_ONE_PASSWORD = true;
+// The "check your email" state (showSent / startSentCooldown). Declared up here, before anything at
+// load can call setGateMode, because `let` is unreadable until its line has run.
+let SENT_TO = "", SENT_T = null, SENT_LEFT = 0;
 
 /* THE GATE'S FIELD ERRORS — markInvalid() on the gate's own surface. The
    message stays where every gate message already goes, #err (one line under
@@ -10128,7 +10248,6 @@ const GATE_FIELD_OK = {
   email: (el) => emailShapeOk(el.value.trim()),
   pw:    (el) => (GATE_MODE === "in" ? el.value.length > 0 : el.value.length >= 8),
   pw2:   (el) => el.value === document.getElementById("pw").value,
-  agree: (el) => el.checked,
 };
 let GATE_ERR_TEXT = "";
 function gateFieldError(id, text) {
@@ -10182,6 +10301,7 @@ function clearGateErrors() {
 const OAUTH_ON = { google: true, apple: false };
 const OAUTH_FLAG = "lynxr_oauth";
 let OAUTH_RETURN = null;
+let LINK_USER = null;   // /auth/v1/user from the landing link, read by resume() for the consent record
 
 /* WHAT WE LEFT ON THE DOORSTEP. sessionStorage, not localStorage: it belongs to
    this tab and this trip, and a stale one must not outlive the tab. It carries
@@ -10209,7 +10329,7 @@ function oauthStart(provider) {
   try {
     sessionStorage.setItem(OAUTH_FLAG, JSON.stringify({
       provider, mode: GATE_MODE, at: Date.now(),
-      agreed: GATE_MODE === "up" ? PRIVACY_VERSION : "",
+      agreed: PRIVACY_VERSION,   // the agreement line shows beside Google in both modes
     }));
   } catch {}
   const back = encodeURIComponent(location.origin + CREATOR_PATH);
@@ -10239,13 +10359,8 @@ function applyOauthState() {
 
 for (const p of ["google", "apple"]) {
   document.getElementById("oauth-" + p)?.addEventListener("click", () => {
-    /* Agreement belongs to creating an account, and a provider button is not a
-       way around the tick. Same field, same flag, same sentence shape as the
-       submit path — gateFieldError already knows "agree". */
-    if (GATE_MODE === "up" && !document.getElementById("agree").checked) {
-      gateFieldError("agree", "Tick the box to agree to the privacy policy, then continue.");
-      return;
-    }
+    /* No tick box (owner, 2026-09-25): the line above the buttons — "by continuing you agree to the
+       terms and privacy policy" — is the agreement, and oauthStart() carries its version home. */
     document.getElementById("oauth-google").disabled = true;
     document.getElementById("oauth-apple").disabled = true;
     document.getElementById("gate-go").disabled = true;
@@ -10268,28 +10383,30 @@ function setGateMode(mode) {
   // The email is known from the link; asking for it again invites a typo that
   // would silently reset nothing.
   document.getElementById("email").hidden = reset;
-  document.getElementById("pw2-wrap").hidden = !(up || reset);
+  // Sign-up asks once (SIGNUP_ONE_PASSWORD; the eye catches a typo). Reset still asks twice.
+  document.getElementById("pw2-wrap").hidden = !(reset || (up && !SIGNUP_ONE_PASSWORD));
   document.getElementById("pw2").value = "";
-  // Agreement belongs to creating an account and nothing else. It is also
-  // cleared on every mode change, so switching away and back cannot leave a
-  // tick behind that the creator never made.
-  document.getElementById("agree-wrap").hidden = !up;
-  document.getElementById("agree").checked = false;
+  /* THE AGREEMENT LINE (owner, 2026-09-25: no tick box). Shown wherever an account can be made —
+     create, and sign-in too, where "Continue with Google" makes one for a new address. Where it is
+     hidden (reset, check your email) the quiet privacy link under the card takes over, so the
+     policy is never printed twice. */
+  const consent = up || mode === "in";
+  document.getElementById("gate-consent").hidden = !consent;
+  const fine = document.querySelector("#gate .gate-fine");
+  if (fine) fine.hidden = consent;
   /* THE INVITE FIELD IS HIDDEN HERE TOO — the reset that was missing.
      applySeatState() owns SHOWING it, but it opens with
      `if (GATE_MODE !== "up") return;` and setGateMode only calls it when `up`,
      so nothing ever hid it on the way back. An invite box left over from the
      create form then sat on the SIGN-IN form asking existing creators for a
      code that has never applied to signing in (owner, 2026-09-07: "why is there
-     an invite code"). Same shape as the agreement tick above: it belongs to
-     creating an account, so every mode change re-decides it.
+     an invite code"). It belongs to creating an account, so every mode change re-decides it.
 
-     THE VALUE IS DELIBERATELY NOT CLEARED, unlike the tick. An invite link
+     THE VALUE IS DELIBERATELY NOT CLEARED. An invite link
      (?e=…&c=…) prefills this field AFTER setGateMode("up") has run, and that
      prefill happens once at load — so clearing on every mode change would cost
      an invited creator their code the first time they toggled to sign-in and
-     back, with nowhere to get it again. Consent must be freshly given; an
-     invite code must not be silently thrown away. */
+     back, with nowhere to get it again. An invite code must not be silently thrown away. */
   document.getElementById("invite-wrap").hidden = !(up && INVITE_REQUIRED);
   document.getElementById("gate-go").textContent =
     reset ? "Save new password" : up ? "Create account" : "Enter";
@@ -10301,6 +10418,14 @@ function setGateMode(mode) {
      password box that cannot work is the app inviting a failure it already
      knows about. */
   document.getElementById("gate-form").hidden = sent;
+  // ...and the check-your-email block takes its place (filled by showSent). Leaving "sent" stops
+  // the resend countdown and forgets the other-tab notice.
+  document.getElementById("gate-sent").hidden = !sent;
+  if (!sent) {
+    clearInterval(SENT_T);
+    SENT_LEFT = 0;
+    document.getElementById("gate-sent-done").hidden = true;
+  }
   // Nothing to switch to mid-reset, and no point offering another reset mail.
   document.querySelector(".gate-switch").hidden = reset;
   document.getElementById("forgot-wrap").hidden = up || reset || sent;
@@ -10333,12 +10458,10 @@ function setGateMode(mode) {
    layer among three, so opening and closing it are real actions. */
 function showGate(mode) {
   if (!HOME) return;
-  /* A banner about a paste belongs only to the paste path — "sign in" or a
-     bare get-started must not inherit one from an abandoned earlier paste.
-     The submit path un-hides it again right after calling this. */
-  const gp = document.getElementById("gate-paste");
-  if (gp) gp.hidden = true;
-  const tease = document.getElementById("gate-tease");   // same rule for the blurred script behind the card
+  /* The blurred script behind the card belongs only to the paste path — "sign in" or a
+     bare get-started must not inherit it from an abandoned earlier paste. The paste
+     path un-hides it again right after calling this. */
+  const tease = document.getElementById("gate-tease");
   if (tease) tease.hidden = true;
   document.body.classList.add("gate-on");
   setGateMode(mode);
@@ -10460,16 +10583,7 @@ document.getElementById("gate-resend").addEventListener("click", async () => {
   btn.disabled = true;
   err.textContent = "Sending…";
   try {
-    // Same per-request redirect as signup, so the link comes back to whichever
-    // host served this page rather than the project's single Site URL.
-    const back = encodeURIComponent(location.origin + CREATOR_PATH);
-    const res = await fetch(`${SB_URL}/auth/v1/resend?redirect_to=${back}`, {
-      method: "POST",
-      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "signup", email }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error_description || body.msg || body.message || "failed");
+    await sbResendSignup(email);   // same redirect as sign-up, pasted video included
     err.textContent = "Sent — check your inbox, and your spam folder.";
     document.getElementById("resend-wrap").hidden = true;
   } catch (ex) {
@@ -10488,6 +10602,67 @@ document.getElementById("switch-mode").addEventListener("click", () => {
   setGateMode(GATE_MODE === "up" ? "in" : "up");
   document.getElementById(document.getElementById("email").value ? "pw" : "email").focus();
 });
+
+/* CHECK YOUR EMAIL (owner, 2026-09-25) — after a sign-up. The resend waits out the same 60 seconds
+   Supabase enforces per address (or whatever a 429 says is left), so the button never offers what the
+   server will refuse. */
+function startSentCooldown(seconds) {
+  clearInterval(SENT_T);
+  SENT_LEFT = Math.max(0, Math.ceil(Number(seconds) || 0));
+  const b = document.getElementById("gate-sent-resend");
+  if (!b) return;
+  const paint = () => {
+    b.disabled = SENT_LEFT > 0;
+    b.textContent = SENT_LEFT > 0 ? `send it again in ${SENT_LEFT}s` : "send it again";
+  };
+  paint();
+  if (SENT_LEFT > 0) SENT_T = setInterval(() => {
+    SENT_LEFT -= 1;
+    paint();
+    if (SENT_LEFT <= 0) clearInterval(SENT_T);
+  }, 1000);
+}
+function showSent(email, wait) {
+  SENT_TO = email;
+  setGateMode("sent");
+  document.getElementById("gate-sent-done").hidden = true;
+  document.getElementById("gate-sent-addr").textContent = email;
+  startSentCooldown(wait);
+  // Programmatic focus on the sentence (tabindex -1), so a screen reader reads where the mail went.
+  document.getElementById("gate-sent-to").focus();
+}
+document.getElementById("gate-sent-resend")?.addEventListener("click", async () => {
+  if (SENT_LEFT > 0 || !SENT_TO) return;
+  const err = document.getElementById("err");
+  document.getElementById("gate-sent-resend").disabled = true;
+  gateBusy(err, "Sending…");
+  try {
+    await sbResendSignup(SENT_TO);
+    err.textContent = "Sent again — check your inbox and spam folder.";
+    startSentCooldown(60);
+  } catch (ex) {
+    const out = resendError(ex.message);
+    err.textContent = out.text;
+    startSentCooldown(out.cooldown);
+  }
+});
+// A typo in the address: back to the create form with the address selected. The password was cleared
+// after the sign-up went out, so it is typed again.
+document.getElementById("gate-sent-change")?.addEventListener("click", () => {
+  setGateMode("up");
+  const e = document.getElementById("email");
+  e.focus();
+  e.select();
+});
+/* THE LINK OPENED IN ANOTHER TAB OF THIS BROWSER: the session appears in localStorage. Say so instead
+   of leaving this tab on "check your email" forever, and drop THIS tab's copy of the pending paste —
+   the other tab has already sent it (queueAdaptation's per-video dedupe is the backstop). */
+addEventListener("storage", (e) => {
+  if (e.key !== SB_SESSION_KEY || !e.newValue || GATE_MODE !== "sent" || unlocked) return;
+  try { sessionStorage.removeItem(PASTE_KEY); } catch {}
+  document.getElementById("gate-sent-done").hidden = false;
+});
+document.getElementById("gate-sent-here")?.addEventListener("click", () => location.reload());
 
 document.getElementById("gate-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -10537,15 +10712,7 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
     // signup goes ahead and the trigger decides — the check is a courtesy.
     if (SEATS_OPEN === false) { err.textContent = FULL_MSG; return; }
     if (pw.value.length < 8) { gateFieldError("pw", "Use at least 8 characters for your password."); return; }
-    if (pw.value !== pw2.value) { gateFieldError("pw2", "Those two passwords don't match — retype the second one."); return; }
-    /* Checked here rather than with the `required` attribute: this form shares
-       one submit handler with sign-in and password reset, where the box is
-       hidden — and a hidden `required` control blocks submission with a browser
-       bubble pointing at something nobody can see. */
-    if (!document.getElementById("agree").checked) {
-      gateFieldError("agree", "Tick the box to agree to the privacy policy, then create your account.");
-      return;
-    }
+    if (!SIGNUP_ONE_PASSWORD && pw.value !== pw2.value) { gateFieldError("pw2", "Those two passwords don't match — retype the second one."); return; }
     clearGateErrors();
     btn.disabled = true;
     err.textContent = "Creating your account…";
@@ -10553,25 +10720,13 @@ document.getElementById("gate-form").addEventListener("submit", async (e) => {
       const code = (document.getElementById("invite")?.value || INVITE).trim();
       const outcome = await sbSignUp(email, pw.value, code);
       pw.value = ""; pw2.value = "";
-      if (outcome === "confirm") {
-        /* "sent" hides the form outright. Nothing in it works until the link in
-           their inbox is clicked, so leaving a password box on screen only
-           invites an attempt that is refused. The "already have an account?
-           sign in" line below the message covers the other case this branch
-           lands on — a re-used address, where no email is sent — without
-           naming which of the two happened, which sbSignUp deliberately will
-           not reveal. */
-        setGateMode("sent");
-        err.textContent = "thanks — your account is created. "
-          + "check your email for the link that signs you in.";
-        return;
-      }
+      /* Nothing in the form works until the link is clicked, so the check-your-email block replaces
+         it. Its "Already have an account? Sign in" line covers the re-used address, where Supabase
+         sends nothing and deliberately will not say so. */
+      if (outcome === "confirm") { showSent(email, 60); return; }
       await pull();
-      /* Record the agreement on the creator's own row, the same way the wait
-         list records its consent tag: a version and a timestamp, so "what did
-         this person actually agree to" stays answerable after the policy is
-         reworded. Set before unlock() so the first save carries it. */
-      ME.privacyAccepted = { version: PRIVACY_VERSION, at: new Date().toISOString() };
+      // The agreement, on the row (the same shape resume() writes for a link landing).
+      ME.privacyAccepted = { version: PRIVACY_VERSION, terms: TERMS_VERSION, at: new Date().toISOString(), via: "password" };
       save();
       unlock();
     } catch (ex) {
@@ -10753,12 +10908,14 @@ async function sessionFromLink() {
 
   const err = p.get("error_description") || p.get("error");
   if (err) {
-    // The card the creator was actually on when they left, not always "up".
-    if (HOME) showGate(oa && oa.mode === "in" ? "in" : "up");
+    // A provider refusal reopens the card they left from; a spent confirmation link opens sign-in,
+    // because the account already exists and signing in is how an unconfirmed one gets a new link.
+    if (HOME) showGate(oa ? (oa.mode === "in" ? "in" : "up") : "in");
     document.getElementById("err").textContent = oa
       ? oauthReturnError(p)
       : /expired|invalid/i.test(err)
-        ? "That confirmation link has expired — sign up again to get a new one."
+        ? "That confirmation link has expired or was already used. Sign in below — if your email still "
+          + "needs confirming, you'll be offered a new link."
         : decodeURIComponent(err).replace(/\+/g, " ");
     return false;
   }
@@ -10769,7 +10926,8 @@ async function sessionFromLink() {
     const res = await fetch(`${SB_URL}/auth/v1/user`, {
       headers: { apikey: SB_KEY, Authorization: `Bearer ${access_token}` } });
     if (!res.ok) return false;
-    adoptSession({ access_token, refresh_token, user: await res.json() });
+    LINK_USER = await res.json();
+    adoptSession({ access_token, refresh_token, user: LINK_USER });
     OAUTH_RETURN = oa;
     // A recovery link authenticates but does NOT change the password. Dropping
     // straight into the app would look like success while leaving the old
@@ -10793,22 +10951,28 @@ async function sessionFromLink() {
     return;
   }
   if (link) {
+    /* The paste that rode the confirmation email (?paste=, see confirmRedirect). Honoured ONLY here —
+       a fresh session came in this same load's fragment — so a crafted lynxr.io/?paste=… can never
+       make a signed-in creator spend a script. consumePendingPaste() sends it once the app renders. */
+    if (LINK_PASTE && !OAUTH_RETURN) stashLinkPaste(LINK_PASTE);
     const had = restoreLocalMe();   // same reason as the session path below
     try { await pull(); } catch (ex) {
       if (!had) { document.getElementById("err").textContent = accountLoadError(ex.message || ""); return; }
       SYNC_OK = false;
       if (DIRTY) scheduleRetry();
     }
-    /* Consent, recorded the way the password signup records it (see the "up"
-       branch of the gate submit). The create form's tick gates the provider
-       buttons too, and a provider button pressed on the SIGN-IN form still
-       creates the account when there isn't one — so the version and the moment
-       are written here, once, for any account that reaches the app without them. */
-    if (OAUTH_RETURN && !ME.privacyAccepted) {
+    /* CONSENT, RECORDED ON THE ROW (owner, 2026-09-25: the tick box became the line "by continuing you
+       agree to the terms and privacy policy"). Any account that reaches the app through a link —
+       confirmation or provider — without a record gets one here, once: the versions and moment from the
+       signup metadata when there are some (consentStamp), otherwise the versions in force now. Before
+       this, an account confirmed by email never got a record at all. */
+    if (!ME.privacyAccepted) {
+      const c = (LINK_USER && LINK_USER.user_metadata && LINK_USER.user_metadata.consent) || {};
       ME.privacyAccepted = {
-        version: OAUTH_RETURN.agreed || PRIVACY_VERSION,
-        at: new Date().toISOString(),
-        via: OAUTH_RETURN.provider,
+        version: c.privacy || (OAUTH_RETURN && OAUTH_RETURN.agreed) || PRIVACY_VERSION,
+        terms: c.terms || TERMS_VERSION,
+        at: c.at || new Date().toISOString(),
+        via: OAUTH_RETURN ? OAUTH_RETURN.provider : (c.via || "email"),
       };
       save();
     }

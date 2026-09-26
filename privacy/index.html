@@ -28,13 +28,13 @@
 <meta name="twitter:description" content="What lynxr collects, why, who it is shared with, how long it is kept, and how to have it deleted.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/privacy/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233p">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233p">
-<link rel="shortcut icon" href="/favicon.ico?v=202609233p">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609233p">
-<link rel="stylesheet" href="/app.css?v=202609233p">
-<script src="/theme.js?v=202609233p"></script>
-<script src="/backdrop.js?v=202609233p" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233s">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233s">
+<link rel="shortcut icon" href="/favicon.ico?v=202609233s">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609233s">
+<link rel="stylesheet" href="/app.css?v=202609233s">
+<script src="/theme.js?v=202609233s"></script>
+<script src="/backdrop.js?v=202609233s" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -289,7 +289,7 @@
 
   <section>
   <h1>privacy</h1>
-  <p class="legal-date">last updated 16 september 2026</p>
+  <p class="legal-date">last updated 25 september 2026</p>
 
   <p>lynxr is run by <span class="entity">lynxr LLC</span>
     (&ldquo;we&rdquo;, &ldquo;us&rdquo;), a
@@ -437,6 +437,17 @@
     address. we have no contract with them and they are not storing it for us
     &mdash; if you would rather that did not happen, the title simply does not
     load, and everything else about the script still works.</p>
+  <p>if you paste an Instagram link on our home page before you have an
+    account, we look up that video&rsquo;s cover image so the sign-up screen
+    can show it. the link goes to our server and from there to Apify, which
+    reads the public post for us. we keep a copy of the cover on a public
+    address worked out from the video&rsquo;s own link &mdash; the same image
+    for everyone who pastes that video, and not filed under you. to stop the
+    lookup being abused, we also keep a scrambled (hashed) form of your IP
+    address for up to two days, used only to count how many lookups come from
+    one connection; it is never linked to an account or used for anything
+    else. no lookup is made on a phone-sized screen, where the cover would not
+    be shown.</p>
   <p>we do not sell personal information, and we do not share it with anyone for
     advertising.</p>
   </section>
@@ -601,8 +612,8 @@
 
 <!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
      see the file's own header for why it must never reach either app. -->
-<script src="/site.js?v=202609233p" defer></script>
-<script src="/footer.js?v=202609233p" defer></script>
+<script src="/site.js?v=202609233s" defer></script>
+<script src="/footer.js?v=202609233s" defer></script>
 
 </body>
 </html>

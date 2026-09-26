@@ -192,21 +192,16 @@ for (const el of document.querySelectorAll("[data-carry-utm]")) {
 
      1. THE TYPED ADDRESS. Whatever is in #hxs-email is copied into the gate's own
         email field (#email) BEFORE the gate opens, so the real create-account
-        form arrives pre-filled instead of asking for it twice.
+        form arrives pre-filled instead of asking for it twice. The cursor then goes
+        to the password, the one thing left to type.
      2. GOOGLE. #hxs-google does not start an OAuth flow itself — there is exactly
         one Google button on this site, the gate's own #oauth-google, and it carries
-        the busy state and oauthStart(). This opens the gate in create-account mode,
-        TICKS ITS AGREEMENT BOX, and CLICKS that button, so the visitor goes straight
-        into the real Google flow from the hero.
-        THE TICK IS THE OWNER'S DECISION, NOT THIS FILE'S (2026-09-23): the hero
-        card says, directly under the buttons, "by continuing you agree to the terms
-        and privacy policy", and the owner ruled that line IS the agreement —
-        "it can go straight through as i say this in the screenshot". So a click on
-        the hero's Google button is the consent the gate's box records; this file
-        records it (checked + change event, so any error state on it clears) and
-        then hands off. If the gate is not offering Google at that moment (it hides
-        the whole provider block when invites are required or seats are closed),
-        nothing is ticked or clicked and the visitor simply lands on the real gate.
+        the busy state and oauthStart(). This opens the gate in create-account mode and CLICKS that button, so the visitor goes
+        straight into the real Google flow from the hero. There is no tick box any more (owner,
+        2026-09-25): the line under these buttons, "by continuing you agree to the terms and privacy
+        policy", is the agreement, and the gate shows the same line. If the gate is not offering
+        Google at that moment (it hides the provider block when invites are required or seats are
+        closed), nothing is clicked and the visitor simply lands on the real gate.
 
    WHY THE LISTENER IS ON THE BOX AND NOT ON THE DOCUMENT: creator.js's is on the
    document, in the bubble phase. A listener on an ancestor nearer the target runs
@@ -230,12 +225,8 @@ if (hxsBox) {
     if (to && v) to.value = v;
   };
   const toGoogle = () => {
-    const box = $("gate-oauth"), btn = $("oauth-google"), agree = $("agree");
+    const box = $("gate-oauth"), btn = $("oauth-google");
     if (!(box && btn && !box.hidden && !btn.hidden && !btn.disabled)) return;
-    if (agree && !agree.checked) {
-      agree.checked = true;
-      agree.dispatchEvent(new Event("change", { bubbles: true }));
-    }
     btn.click();
   };
   hxsBox.addEventListener("click", (e) => {
@@ -243,6 +234,8 @@ if (hxsBox) {
     carry();
     // After creator.js's own handler has opened the gate and moved focus to #email.
     if (e.target.closest("#hxs-google")) setTimeout(toGoogle, 0);
+    // The typed address is already in the form, so the next thing to type is the password.
+    else if (e.target.closest("#hxs-go") && mail && mail.value.trim()) setTimeout(() => $("pw")?.focus(), 0);
   });
   if (mail) {
     mail.addEventListener("keydown", (e) => {

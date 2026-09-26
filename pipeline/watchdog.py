@@ -61,6 +61,10 @@ DIGEST ONLY (page: False) — still reported, once a day, in digest()'s
                       hit on 3+ of the last 5 finished scripts — worst visible
                       outcome is a library card with a generic title or no
                       thumbnail, on a script that was still delivered.
+    thumb-ceiling     the sign-up tease's Instagram cover lookups (supabase/
+                      functions/ig-thumb) hit this month's dollar ceiling —
+                      visitors see a gradient instead of their video's cover.
+                      Nobody lost a script and view counts are untouched.
 
 p95 latency is DELIBERATELY not here — it lives in the daily digest instead.
 The watchdog's first-ever run failed on `p95 1548s > 60s`, and at n=7 samples
@@ -392,7 +396,7 @@ def clear_alarm(key, alarm_key, note):
 # =============================================================================
 
 def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
-              role="external", fallback_alive=None):
+              role="external", fallback_alive=None, thumb_ceiling=None):
     """The list of currently-breached invariants, each a dict with keys
     "key", "title", "body", "priority", "tags", "page". A pure function of
     its arguments — same reason LR.build_report is pure: it has to be
@@ -406,7 +410,10 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
     `role` and `fallback_alive` default to today's behaviour too (every
     existing test call and latency-watch.yml's plain `--once` unaffected):
     `role="external"` runs the worker-down check as before, and
-    `fallback_alive=None` produces the "fallback status unknown" wording."""
+    `fallback_alive=None` produces the "fallback status unknown" wording.
+
+    `thumb_ceiling` is lynxr_ops 'thumb.ceiling''s value (or None); it only
+    ever adds the digest-only thumb-ceiling line."""
     now = now or datetime.now(timezone.utc)
     alarms = []
 
@@ -593,6 +600,25 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
                              f"softFails.{subsystem}. fly logs"),
                     "priority": 2, "tags": "warning", "page": False,
                 })
+
+    # ---- thumb-ceiling ------------------------------------------------------
+    # DIGEST ONLY: supabase/ig_thumb.sql's ig_thumb_take() writes lynxr_ops
+    # 'thumb.ceiling' the first time a month's budget for the sign-up tease's
+    # Instagram covers refuses a lookup. A visitor sees a gradient instead of
+    # their video's cover — nobody lost a script, so this never pages.
+    tc = thumb_ceiling if isinstance(thumb_ceiling, dict) else {}
+    if tc.get("month") == now.strftime("%Y-%m"):
+        try:
+            spent = f"${float(tc.get('usd') or 0):.2f} of ${float(tc.get('cap') or 0):.2f}"
+        except (TypeError, ValueError):
+            spent = "the monthly ceiling"
+        alarms.append({
+            "key": "thumb-ceiling",
+            "title": "sign-up cover lookups paused for the month",
+            "body": (f"instagram covers for the sign-up tease hit {spent} for {tc['month']}. "
+                     "the tease shows a gradient until the 1st (UTC). view counts unaffected."),
+            "priority": 2, "tags": "warning", "page": False,
+        })
 
     # ---- worker-down --------------------------------------------------------
     # Evaluated only when role != "fly". The Fly-side caller writes
@@ -860,6 +886,33 @@ def _apify_spend():
     return value
 
 
+_THUMB_PRUNE = {"at": 0.0}
+
+
+def _prune_thumb_meter(key):
+    """Delete expired rows from lynxr_thumb_meter (supabase/ig_thumb.sql), at most once an hour.
+
+    privacy/index.html promises the hashed IP addresses the sign-up cover lookup
+    counts with are gone within two days. ig_thumb_take() prunes too, but only
+    when a paid lookup happens, so a quiet week would keep them; this makes the
+    promise true on the clock. Never raises: before the SQL is applied the table
+    does not exist, and that is a logged no-op."""
+    now = time.time()
+    if now - _THUMB_PRUNE["at"] < 3600:
+        return
+    _THUMB_PRUNE["at"] = now
+    try:
+        iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        req = urllib.request.Request(
+            f"{LR.SB_URL}/rest/v1/lynxr_thumb_meter?expires_at=lt.{urllib.parse.quote(iso, safe='')}",
+            method="DELETE")
+        req.add_header("apikey", key)
+        req.add_header("Authorization", f"Bearer {key}")
+        urllib.request.urlopen(req, timeout=10, context=SSL_CTX).read()
+    except Exception as e:  # noqa: BLE001
+        log.info("_prune_thumb_meter skipped: %s", str(e)[:90])
+
+
 def _maybe_digest(key, rows, now, open_alarms=None, force=False):
     if not force:
         if now.hour < DIGEST_HOUR_UTC:
@@ -903,8 +956,9 @@ def run_once(key, dry_run=False, beat=False, force_digest=False, role="external"
         charges_24h = _charges_count(key, since=now - timedelta(hours=24))
         fallback_seen_at = _fallback_seen_at(key)
         fallback_alive = _fallback_alive(fallback_seen_at, now, role)
+        thumb_ceiling = (ops_get(key, "thumb.ceiling") or {}).get("value")
         alarms = check_all(rows, sources_recent, worker_seen_at, now, charges_24h=charges_24h,
-                            role=role, fallback_alive=fallback_alive)
+                            role=role, fallback_alive=fallback_alive, thumb_ceiling=thumb_ceiling)
 
         if dry_run:
             return alarms
@@ -945,6 +999,7 @@ def run_once(key, dry_run=False, beat=False, force_digest=False, role="external"
         spend = _apify_spend()
         if spend is not None:
             ops_put(key, "cost.apify", spend)
+        _prune_thumb_meter(key)
 
         _maybe_digest(key, rows, now, open_alarms=alarms, force=force_digest)
         return alarms
