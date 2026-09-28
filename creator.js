@@ -10411,7 +10411,7 @@ function setGateMode(mode) {
   document.getElementById("gate-go").textContent =
     reset ? "Save new password" : up ? "Create account" : "Enter";
   pw.setAttribute("autocomplete", up || reset ? "new-password" : "current-password");
-  pw.placeholder = up || reset ? "Password — 8 characters or more" : "Password";
+  pw.placeholder = up || reset ? "Password (8+ characters)" : "Password";
   /* "sent" is the state after a successful signup: the account exists and the
      only thing left is the link in their inbox. The whole form goes, because
      every field in it is refused until they confirm — offering a filled-in
