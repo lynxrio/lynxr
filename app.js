@@ -28,6 +28,57 @@ function unlock(rows) {
   renderApp(rows);
   startLiveSync();
   revealCreatorSwitch();   // staff only, decided by the database; not awaited
+  agBarHide();
+}
+
+/* THE HEADER HIDES ON THE WAY DOWN AND COMES BACK ON THE WAY UP (owner, 2026-09-28: "have the top nav bar
+   behave the same way the creator side behaves"). The creator side's bar is the one on lynxr.io: site.js's
+   scroll block toggles .lp-bar-away on .lp-bar. site.js cannot be loaded here — it binds only to .lp-bar
+   and its own header keeps it off both apps — so this is a COPY of that block's rules, kept in step by
+   hand the way PLATFORMS is copied between creator.js and app.js: shown within TOP px of the top, a DELTA
+   px dead zone against trackpad jitter, at most one read per animation frame, clamped against iOS
+   rubber-banding, never under reduced motion, and brought back when keyboard focus lands in it.
+   THE CLASS AND THE CSS ARE THE LANDING'S OWN: app.css's "THE BAR SLIDES AWAY AND BACK" block lists
+   body.agency #app > header beside .lp-bar, so timing and easing live in one place.
+   TWO AGENCY-ONLY ADDITIONS. (1) The page height is re-measured by a ResizeObserver on #app, not only on
+   resize: this app re-renders its column on every tab switch, client open and sync, and a height cached
+   at load would clamp every later scroll to a page that no longer exists. (2) It will not hide while a
+   KEYBOARD focus (:focus-visible) is inside it, so a Page Down from a focused tab cannot leave focus on
+   something invisible. A mouse click leaves no :focus-visible, so clicking a tab and scrolling still hides it. */
+function agBarHide() {
+  const bar = document.querySelector("#app > header");
+  if (!bar || bar.dataset.hideWired) return;
+  bar.dataset.hideWired = "1";
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const TOP = 8, DELTA = 14;   // site.js's two numbers — change them there too
+  let last = 0, ticking = false, hidden = false, maxScroll = 0;
+  const setHidden = (v) => {
+    if (v && bar.querySelector(":focus-visible")) v = false;
+    if (v === hidden) return;
+    hidden = v;
+    bar.classList.toggle("lp-bar-away", v);   // a class, never a style attribute (CSP)
+  };
+  const remeasure = () => { maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight); };
+  const read = () => {
+    ticking = false;
+    if (reduced.matches) { setHidden(false); return; }
+    const y = Math.min(Math.max(0, window.scrollY), maxScroll);
+    if (y <= TOP) { setHidden(false); last = y; return; }
+    const d = y - last;
+    if (Math.abs(d) < DELTA) return;   // `last` deliberately not moved: a slow drag still accumulates
+    setHidden(d > 0);
+    last = y;
+  };
+  const onScroll = () => { if (ticking) return; ticking = true; requestAnimationFrame(read); };
+  addEventListener("scroll", onScroll, { passive: true });
+  addEventListener("resize", () => { remeasure(); onScroll(); }, { passive: true });
+  addEventListener("orientationchange", () => { remeasure(); onScroll(); }, { passive: true });
+  const app = document.getElementById("app");
+  if (app && typeof ResizeObserver === "function") new ResizeObserver(remeasure).observe(app);
+  bar.addEventListener("focusin", () => setHidden(false));
+  reduced.addEventListener("change", () => { if (reduced.matches) setHidden(false); });
+  remeasure();
+  read();
 }
 
 /** Put the gate's status line into a working state: the four-arm mark at text
@@ -351,7 +402,7 @@ document.getElementById("signout").addEventListener("click", () => {
 // cl-back), reachable from any tab.
 document.getElementById("home-mark").addEventListener("click", () => {
   activateTab("tab-briefs");
-  CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null;
+  CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; CLIENT_ADD = false;
   renderBriefs();
 });
 
@@ -601,12 +652,14 @@ function renderStats(rows) {
 // ---------- Tabs ----------
 const TABS = [
   ["tab-database", "panel-database"],
-  ["tab-brief", "panel-brief"],
   ["tab-briefs", "panel-briefs"],
   ["tab-roster", "panel-roster"],
   ["tab-ops", "panel-ops"],
 ];
 function activateTab(tabId) {
+  // The New Client tab (tab-brief) was retired 2026-09-28. Any caller still naming it, or any id that is
+  // not a tab, lands on Clients rather than hiding every panel.
+  if (!TABS.some(([t]) => t === tabId)) tabId = "tab-briefs";
   for (const [t, p] of TABS) {
     const on = t === tabId;
     document.getElementById(t).setAttribute("aria-selected", String(on));
@@ -3226,6 +3279,7 @@ async function copyScripts() {
 
 // ---------- Clients tab: folders -> client page -> brief flip-through ----------
 let CLIENT_VIEW = null;  // { id } when a client folder is open
+let CLIENT_ADD = false;  // true while the Add client view is open (renderClientAdd)
 let BRIEF_VIEW = null;   // { id, page, dir } when a brief inside it is open
 
 // Two-step delete used everywhere something is gone forever.
@@ -3321,15 +3375,28 @@ function renderBriefs() {
     cbStopPoll();
   }
 
+  if (CLIENT_ADD) { renderClientAdd(host); return; }
+
   // AGENCY GLASS PASS (2026-09-15): each view's heading and content float as one island.
+  // Add client (2026-09-28) opens renderClientAdd — the New Client tab's replacement.
+  const addBtn = `<button type="button" class="lib-plus" id="cl-add" title="Add a client by typing in their details"
+    aria-label="Add client">${CB_ICON.plus}<span class="lib-plus-txt" aria-hidden="true">Add client</span></button>`;
+  const openAdd = () => {
+    document.getElementById("cl-add").addEventListener("click", () => {
+      CLIENT_ADD = true; CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null;
+      renderBriefs();
+      window.scrollTo({ top: 0 });
+    });
+  };
   if (!list.length) {
-    host.innerHTML = `<div class="section"><h2>Clients</h2>
+    host.innerHTML = `<div class="section"><div class="sec-head"><h2>Clients</h2>${addBtn}</div>
       <div class="empty">${emptyMark("idle")}<p><strong>No clients yet.</strong></p>
-        <p>Save a brief in the New Client tab — its company becomes your first client folder.</p></div></div>`;
+        <p>Add your first client — only the company name is required.</p></div></div>`;
+    openAdd();
     return;
   }
 
-  host.innerHTML = `<div class="section"><h2>Clients <span class="pill">${list.length}</span></h2>
+  host.innerHTML = `<div class="section"><div class="sec-head"><h2>Clients <span class="pill">${list.length}</span></h2>${addBtn}</div>
     <div class="brief-stack">` + list.map((c) => `
       <article class="bcard opens" data-id="${escapeHtml(c.id)}"
         role="button" tabindex="0" aria-label="Open ${escapeHtml(c.company)}">
@@ -3350,6 +3417,97 @@ function renderBriefs() {
       renderBriefs();
     });
   });
+  openAdd();
+}
+
+/* ---------- Add client (cofounder, 2026-09-28) ----------
+   "Get rid of this 'new client' tab and just have a button on the 'Clients' tab to add a new client
+   and write out all the info in there … let me manually add in the information." A view inside the
+   Clients tab, opened by the list's Add client button. EVERY field is typed by hand: the company name,
+   then exactly the fields Edit brand edits (brandFormHtml — the same form, so the two cannot drift),
+   the website being one optional field among them. Nothing is read from the site: the retired tab's
+   reader (readClientSite/analyzeSite) is left in this file, unused.
+   Typing is kept in the retired tab's draft key on every keystroke, so a reload does not lose it (a
+   draft left behind in the old tab is carried over once), and live sync never repaints this view
+   (cbUnsavedWork). Cancel discards; the Clients crumb leaves and keeps the draft. */
+function clientAddDraft() {
+  const d = loadClientDraft();
+  const blank = brandContextFromClient({ company: "", ctx: {} });
+  if (d.v === 2) return { company: d.company || "", bc: { ...blank, ...(d.bc || {}) } };
+  // The retired New Client tab's shape: { brand, niche, audience, feats, stats, habits, goals, problems }.
+  return {
+    company: d.brand || "",
+    bc: { ...blank, name: d.brand || "", niche: d.niche || "", audience: d.audience || "",
+      features: String(d.feats || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 8),
+      audienceNotes: d.stats || "", habits: d.habits || "", goals: d.goals || "", painPoints: d.problems || "" },
+  };
+}
+function clearClientDraft() {
+  try { localStorage.removeItem(CLIENT_DRAFT_KEY); } catch { /* private window */ }
+}
+
+function renderClientAdd(host) {
+  const draft = clientAddDraft();
+  host.innerHTML = `
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <button type="button" class="crumb-link" id="cla-back">Clients</button>
+      <span class="crumb-sep">›</span>
+      <span class="crumb-here">New client</span>
+    </nav>
+    <div class="page-head">
+      <div class="minw0">
+        <div class="bcard-title">New client</div>
+        <div class="lbl">Only the company name is required. Everything can be changed later with Edit brand.</div>
+      </div>
+    </div>
+    <form class="client-details cb-brand-box" id="cl-add-form" novalidate>
+      <div class="ce-grid">
+        <label class="ce-field ce-wide"><span class="lbl">Company name</span>
+          <input type="text" id="cla-company" value="${escapeHtml(draft.company)}" placeholder="e.g. OncourseAI" autocomplete="off"></label>
+      </div>
+      ${brandFormHtml(draft.bc, "cla")}
+      <div class="bp-actions">
+        <button type="submit" class="btn" id="cla-save">Save client</button>
+        <button type="button" class="ghost" id="cla-cancel">Cancel</button>
+      </div>
+      <p class="bp-msg cb-msg" id="cla-msg" role="status" aria-live="polite"></p>
+    </form>`;
+
+  const form = document.getElementById("cl-add-form");
+  const company = document.getElementById("cla-company");
+  const msg = document.getElementById("cla-msg");
+  cbWireGrow(form);
+  let draftT = null;
+  const keep = () => saveClientDraft({ v: 2, company: company.value, bc: readBrandForm(form.querySelector(".cb-brand-form")) });
+  form.addEventListener("input", () => { clearTimeout(draftT); draftT = setTimeout(keep, 400); });
+  form.addEventListener("change", keep);
+  company.addEventListener("input", () => {
+    if (company.value.trim() && clearInvalid(company)) msg.className = "bp-msg cb-msg";
+  });
+  const leave = () => { CLIENT_ADD = false; renderBriefs(); window.scrollTo({ top: 0 }); };
+  document.getElementById("cla-back").addEventListener("click", () => { clearTimeout(draftT); keep(); leave(); });
+  document.getElementById("cla-cancel").addEventListener("click", () => { clearTimeout(draftT); clearClientDraft(); leave(); });
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = company.value.trim();
+    const refuse = (text) => { cbMsg(msg, text, "bad", true); markInvalid(company, "cla-msg"); company.focus(); };
+    if (!name) { refuse("Add a company name first."); return; }
+    const list = loadClients();
+    const dupe = list.find((c) => (c.company || "").trim().toLowerCase() === name.toLowerCase());
+    if (dupe) { refuse(`${dupe.company} is already a client. Open it from the list and use Edit brand to change its details.`); return; }
+    const bc = readBrandForm(form.querySelector(".cb-brand-form"));
+    if (!bc.name) bc.name = name;
+    const c = { id: newId(), company: name, ctx: {}, niche: "", createdAt: new Date().toISOString(), briefs: [], posts: [] };
+    cbApplyBrandToClient(c, bc);
+    list.unshift(c);
+    persistClients(list);
+    clearTimeout(draftT);
+    clearClientDraft();
+    CLIENT_ADD = false; CLIENT_VIEW = { id: c.id }; BRIEF_VIEW = null; CAMPAIGN_VIEW = null;
+    renderBriefs();
+    window.scrollTo({ top: 0 });
+  });
+  company.focus();
 }
 
 /** Build the next brief straight from the videos ticked in Suggestions.
@@ -3448,7 +3606,7 @@ function clientDetailsHtml(client) {
       ${brow("cta", ctx.cta)}
       ${brow("site", ctx.site)}
       ${row("briefs", client.briefs.length)}
-      ${row("blueprints", (client.blueprints || []).length)}
+      ${SHOW_BLUEPRINTS ? row("blueprints", (client.blueprints || []).length) : ""}
       ${row("added", (client.createdAt || "").slice(0, 10))}
     </div>
     ${avatar.length ? `<div class="avatar-grid">${avatar.map(([label, text]) => `
@@ -3812,7 +3970,10 @@ function agKeepInView(el) {
   if (!el?.isConnected) return;
   const vv = window.visualViewport;
   const r = el.getBoundingClientRect();
-  const head = document.querySelector("#app > header")?.getBoundingClientRect().bottom || 0;
+  // Where the header's bottom edge sits when it is SHOWN, not where it is drawn right now: it hides on the
+  // way down and returns on the way up (agBarHide), and scrolling a line up into view is a way up.
+  const hd = document.querySelector("#app > header");
+  const head = hd ? (parseFloat(getComputedStyle(hd).top) || 0) + hd.offsetHeight : 0;
   const top = Math.max(vv ? vv.offsetTop : 0, head) + 8;
   const bottom = (vv ? vv.offsetTop + vv.height : innerHeight) - 12;
   if (r.bottom > bottom) window.scrollBy(0, Math.min(r.bottom - bottom, r.top - top));
@@ -3998,6 +4159,14 @@ const BP_EDITING = new Set();
    "" (cleared). A blueprint has no CTA or caption line. Revert drops both overrides. */
 const bpHook = (b, s) => b.editedHook ?? s?.hook ?? "";
 const bpEdited = (b) => !!b.editedBeats || b.editedHook != null;
+
+/* VIDEO BLUEPRINTS ARE HIDDEN (owner decision, 2026-09-28). Nothing runs pipeline/process_blueprints.py
+   any more — the Fly worker runs process_adaptations, process_campaigns and brief_clips, GitHub runs
+   process_adaptations — so a pasted link sat at "waiting for pipeline" for good; and the section told
+   staff "nothing goes to a third party" while its shot list and tags call Anthropic. HIDDEN, NOT
+   DELETED: every client's `blueprints` array stays in its record and syncs untouched, and
+   blueprintsBoxHtml / bindBlueprints are kept whole. true brings the section back exactly as it was. */
+const SHOW_BLUEPRINTS = false;
 
 function blueprintsBoxHtml(client) {
   const bps = client.blueprints || [];
@@ -4775,26 +4944,33 @@ function renderClientPage(host, client) {
       <span class="crumb-sep">\u203a</span>
       <span class="crumb-here">${escapeHtml(client.company)}</span>
     </nav>
-    <div class="page-head">
+    <div class="page-head cl-head">
       <div class="minw0">
         <div class="bcard-title">${escapeHtml(client.company)}</div>
         <div class="lbl">${escapeHtml(client.niche || "All niches")}${client.ctx?.audience ? " \u00b7 " + escapeHtml(client.ctx.audience) : ""}</div>
       </div>
+      ${/* New brief sits in the head (cofounder, 2026-09-28: the briefs are what you open a client for).
+            The SAME button the Briefs section carried \u2014 id, classes and aria unchanged \u2014 so
+            bindBriefsSection wires it exactly as before and it still opens #cb-compose below. */""}
+      <button type="button" class="lib-plus" id="cb-new" aria-expanded="false" aria-controls="cb-compose"
+        title="New brief from inspiration links" aria-label="New brief from inspiration links">${CB_ICON.plus}<span class="lib-plus-txt" aria-hidden="true">New brief</span></button>
       <button type="button" class="ghost" id="cl-brand" aria-expanded="false" aria-controls="cl-brand-box">Edit brand</button>
       <button type="button" class="ghost" id="cl-details" aria-expanded="false">Details</button>
     </div>
     ${clientDetailsHtml(client)}
     ${clientBrandBoxHtml(client)}
 
+    ${/* Every brief, both kinds, in one list — see briefsSectionHtml. FIRST under the head
+          (cofounder, 2026-09-28: "most of the time I'll want to access the briefs as the first
+          thing"); only its placement changed. */""}
+    ${briefsSectionHtml(client)}
+
     ${suggestionsBoxHtml(client)}
 
-    ${blueprintsBoxHtml(client)}
-
-    ${/* Every brief, both kinds, in one list — see briefsSectionHtml. */""}
-    ${briefsSectionHtml(client)}
+    ${SHOW_BLUEPRINTS ? blueprintsBoxHtml(client) : ""}
 `;
 
-  bindBlueprints(host, client);
+  if (SHOW_BLUEPRINTS) bindBlueprints(host, client);
   bindSuggestions(host, client);
   bindClientBrand(host, client);
   bindBriefsSection(host, client);
@@ -7341,6 +7517,7 @@ function cbUnsavedWork() {
   if ((document.getElementById("cb-name")?.value || "").trim()) return true;
   if ((document.getElementById("cb-instructions")?.value || "").trim()) return true;
   if (document.querySelector("#cl-brand-box:not([hidden])")) return true;
+  if (document.getElementById("cl-add-form")) return true;   // the Add client view is open
   return CB_EDITING.size > 0 || CB_REGEN.size > 0 || CB_REPLACE.size > 0 || !!CB_FIELD_EDIT;
 }
 
@@ -7686,7 +7863,7 @@ function cbBriefListHtml(client) {
   if (!items.length) {
     if (!entry) return quiet;
     return `<div class="empty">${emptyMark("idle")}<p><strong>No briefs yet.</strong></p>
-      <p>Hit + to paste 1–10 inspiration links — each video becomes a production format.</p></div>${quiet}`;
+      <p>Hit New brief to paste 1–10 inspiration links — each video becomes a production format.</p></div>${quiet}`;
   }
   const trash = (what) => `<button type="button" class="ghost danger icon-only br-del"
       aria-label="Delete this ${what}" title="Delete this ${what}">${TRASH_SVG}</button>`;
@@ -7728,8 +7905,7 @@ function briefsSectionHtml(client) {
         ${picks
           ? `<button type="button" class="btn sec-cta" id="cl-nextbrief">${picks} pick${picks === 1 ? "" : "s"} → brief ${client.briefs.length + 1}</button>`
           : `<span id="cl-nextbrief" hidden></span>`}
-        <button type="button" class="lib-plus" id="cb-new" aria-expanded="false" aria-controls="cb-compose"
-          title="New brief from inspiration links" aria-label="New brief from inspiration links">${CB_ICON.plus}<span class="lib-plus-txt" aria-hidden="true">New brief</span></button>
+        ${/* #cb-new (New brief) moved to the client page head, 2026-09-28 — renderClientPage. */""}
       </span>
     </div>
     <form class="client-details cb-compose" id="cb-compose" novalidate hidden>
@@ -10385,7 +10561,6 @@ function renderApp(rows) {
     if (e.key === "ArrowRight") { BRIEF_VIEW.expanded++; renderBriefs(); }
   });
   initControls();
-  initBrief();
   initFooter(rows);
   applyFilters();
 }

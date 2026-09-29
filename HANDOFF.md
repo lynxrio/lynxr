@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-09-24.** Start with the section right below the table.
+Read this, then `README.md` for architecture. **Last updated 2026-09-28.** Start with the section right below the table.
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -23,21 +23,48 @@ naming a path there publishes it.
 
 ---
 
-## START HERE — state as of 2026-09-23 (late evening)
+## START HERE — state as of 2026-09-28
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
-**SIMPLER SIGN-UP: ONE PASSWORD FIELD, NO TICK BOX, THE PASTE SURVIVES CONFIRMATION (2026-09-25, UNCOMMITTED, plan `~/.claude/plans/email-link-signup.md`, stamp `202609233s`).** The owner's decision: "only send a confirmation email when people make an account" (no magic-link sign-in — sign-in stays email + password, no email sent), and the tick box replaced by "by continuing you agree to the terms and privacy policy." The sign-up form now asks for one password (`SIGNUP_ONE_PASSWORD` in creator.js is the rollback switch — flip to `false` to bring back "confirm password"); reset still asks twice. `#agree` is gone everywhere — the gate, `home.js`'s `toGoogle`, the submit guards and the Google handler. Consent is recorded instead: in the signup metadata (`data.consent`) and on the creator row as `privacyAccepted {version, terms, at, via}`. Before this, every email-confirmed account got no consent record at all — there is no backfill. Today's flow LOST the pasted video when the confirmation link opened a new tab (a real bug, confirmed from the code); now it rides the link as `?paste=` and is honoured only when a fresh session lands in that same page load — a bare `lynxr.io/?paste=…` does nothing. New "check your email" state: the address it went to, a 60s resend with cooldown, "use a different email", and an other-tab notice when the link is opened elsewhere in the same browser. The `#gate-paste` "got your … video" banner is deleted for good (owner: "get rid of this"). **"Confirm email" MUST stay ON** in Supabase — roster invites and the confirmation link both rest on it. Not verified with real email in this session; the owner's live checks are in the plan's Verification section.
+**AT A GLANCE — 2026-09-28. Read this first.**
+- **Live:** `main` at `b1f0123` (2026-09-28), stamp `202609233t`. Everything below dated 2026-09-25 or earlier is
+  shipped; the stale "UNCOMMITTED" labels on those entries were corrected on 2026-09-28.
+- **In the working tree, not pushed (stamp `202609233u`):** the agency change directly below (no New Client tab, typed
+  Add client, briefs first, the header hides on scroll, video blueprints hidden) and SEO unit Q2
+  `/blog/how-long-should-a-script-be/` (see the SEO ROUTINE line).
+- **Planned, not built:** the backdrop rewrite: no orbiting around the cursor (a "stir" on a critically damped
+  spring) plus an "alive" idle presence on every view. Plan `~/.claude/plans/backdrop-smooth.md`, being revised; it
+  needs the owner's OK. If `202609233u` has not been pushed yet, it reuses that stamp instead of bumping again.
+- **Waiting on the owner:**
+  1. **Instagram cover lookup.** Create an Apify token, then run `supabase/ig_thumb.sql`, then deploy `ig-thumb`
+     with JWT verification OFF, then set the secret `APIFY_API_TOKEN` (kill switch: `IG_THUMB_MODE=off`). Until
+     then Instagram pastes show the gradient (harmless, verified live on 2026-09-25).
+  2. **Supabase Auth.** Keep "Confirm email" ON (roster invites depend on it) and keep `https://lynxr.io/**` in the
+     Redirect URLs. The built-in email sender is rate-limited, so a batch of sign-ups should use Google.
+  3. **Script quality.** Grade the 32 blind sheets in `~/Lynxr-evals/sheets/`, then approve the ≈$26 fix loop
+     (`~/.claude/plans/script-quality.md`, steps 10–19).
+  4. **After the next push:** SEO Step 7 (live poll, then IndexNow) for Q2.
+- **Next build (owner, 2026-09-28): max-tier post tracking, now, alongside growth.** Plan
+  `~/.claude/plans/lynxr-post-detection.md`, written 2026-09-21: re-check it against the code before executing.
+  The owner will settle max's details while building it.
+- **Strategy, pricing reasoning and usage numbers are private.** They live in the owner's Claude Project context
+  file and in Claude's memory, never in this public file.
 
-**INSTAGRAM PASTES GET THEIR REAL COVER IN THE SIGN-UP TEASE (2026-09-25, UNCOMMITTED, stamp `202609233q`, plan `~/.claude/plans/instagram-thumbnail-lookup.md`).** Owner: "ok lets stil go with it so that any video that is allowed to be pasted from any platform gets the thumbnail". New Edge Function `supabase/functions/ig-thumb` (Verify JWT OFF; secrets `APIFY_API_TOKEN` — a DEDICATED Apify token, not Fly's — and optional `IG_THUMB_MODE` off|cache|on plus limit overrides) + `supabase/ig_thumb.sql` (lynxr_thumb_cache, lynxr_thumb_meter, `ig_thumb_take()`; service-role only; self-test NOTICE on Run). Order: cache by shortcode → the pipeline's own `lynxr-covers/<sha20>.jpg` → limits (4/visitor/hour, 8/visitor/day on an HMAC of the IP, 40/day, $1.50/UTC month) → Apify ledger (≥$2 left, ≤2 of 5 run slots busy) → `apify~instagram-scraper` (the view-count actor, $0.0027) → the `displayUrl` JPEG copied to `lynxr-covers/tease/ig/<shortcode>.jpg` (Instagram's own URLs expire in ~4–5 days). Every refusal is a quiet 200 `{"thumb":null}`. creator.js `fetchIgThumb` fires it in parallel with the loading beat, Instagram links at >640px only (the frame is hidden on phones); the cover fades into the already-open tease (`.tease-late`/`.tease-in`), dropped if Back, another paste or another way into the gate happened first. TikTok path unchanged. No CSP change. watchdog: digest-only `thumb-ceiling` from lynxr_ops `thumb.ceiling`, hourly purge of expired meter rows (privacy promises 2 days). Privacy page: one new paragraph + date + `PRIVACY_VERSION`. Tests: `node --experimental-strip-types supabase/functions/test_edge_ig_thumb.mjs` (61/61), `pipeline/test_watchdog.py`. Kill switch: secret `IG_THUMB_MODE=off` (instant, no redeploy). NOT live until the owner runs the SQL, deploys the function and sets the secret — in that order, BEFORE pushing the front end.
 
-**NO "GOT YOUR VIDEO" NOTE ON THE SIGN-UP (2026-09-25, UNCOMMITTED, stamp `202609233p`).** Owner: "get rid of this" (the
+**AGENCY: NO NEW CLIENT TAB, TYPED ADD CLIENT, BRIEFS FIRST, THE HEADER HIDES ON SCROLL (2026-09-28, UNCOMMITTED, plan `~/.claude/plans/agency-clients-tab-and-briefs-top.md`, stamp `202609233u`).** Cofounder feedback. The New Client tab (site URL → shelf) is gone; the Clients list has an "Add client" pill that opens a typed form — company name plus exactly Edit brand's fields (`brandFormHtml`), the website one optional field. Nothing reads the site any more (both CORS relays failed 5 of 6 tries on 2026-09-28); the reader, the shelf and `renderBrief` are still in app.js, unused. A draft typed in the old tab carries over (`lynxr_client_draft`, now `{ v: 2, company, bc }`). A duplicate company name is refused, not merged. A client page now reads header (with New brief — the same `#cb-new`, moved) → Briefs → Suggested videos. The agency header hides on the way down and returns on the way up using the landing's own `.lp-bar-away` rules (app.css) and `agBarHide()` in app.js, a copy of site.js's scroll rules — change TOP/DELTA in both. [Video blueprints are hidden (`SHOW_BLUEPRINTS = false` in app.js): nothing runs `process_blueprints.py`, and its shot list/tags call Anthropic; every client's blueprints data is untouched.]
+
+**SIMPLER SIGN-UP: ONE PASSWORD FIELD, NO TICK BOX, THE PASTE SURVIVES CONFIRMATION (2026-09-25, SHIPPED — in `main` by `84e9cb4`, plan `~/.claude/plans/email-link-signup.md`, stamp `202609233s`).** The owner's decision: "only send a confirmation email when people make an account" (no magic-link sign-in — sign-in stays email + password, no email sent), and the tick box replaced by "by continuing you agree to the terms and privacy policy." The sign-up form now asks for one password (`SIGNUP_ONE_PASSWORD` in creator.js is the rollback switch — flip to `false` to bring back "confirm password"); reset still asks twice. `#agree` is gone everywhere — the gate, `home.js`'s `toGoogle`, the submit guards and the Google handler. Consent is recorded instead: in the signup metadata (`data.consent`) and on the creator row as `privacyAccepted {version, terms, at, via}`. Before this, every email-confirmed account got no consent record at all — there is no backfill. Today's flow LOST the pasted video when the confirmation link opened a new tab (a real bug, confirmed from the code); now it rides the link as `?paste=` and is honoured only when a fresh session lands in that same page load — a bare `lynxr.io/?paste=…` does nothing. New "check your email" state: the address it went to, a 60s resend with cooldown, "use a different email", and an other-tab notice when the link is opened elsewhere in the same browser. The `#gate-paste` "got your … video" banner is deleted for good (owner: "get rid of this"). **"Confirm email" MUST stay ON** in Supabase — roster invites and the confirmation link both rest on it. Not verified with real email in this session; the owner's live checks are in the plan's Verification section.
+
+**INSTAGRAM PASTES GET THEIR REAL COVER IN THE SIGN-UP TEASE (2026-09-25, SHIPPED — in `main` by `84e9cb4`, stamp `202609233q`, plan `~/.claude/plans/instagram-thumbnail-lookup.md`).** Owner: "ok lets stil go with it so that any video that is allowed to be pasted from any platform gets the thumbnail". New Edge Function `supabase/functions/ig-thumb` (Verify JWT OFF; secrets `APIFY_API_TOKEN` — a DEDICATED Apify token, not Fly's — and optional `IG_THUMB_MODE` off|cache|on plus limit overrides) + `supabase/ig_thumb.sql` (lynxr_thumb_cache, lynxr_thumb_meter, `ig_thumb_take()`; service-role only; self-test NOTICE on Run). Order: cache by shortcode → the pipeline's own `lynxr-covers/<sha20>.jpg` → limits (4/visitor/hour, 8/visitor/day on an HMAC of the IP, 40/day, $1.50/UTC month) → Apify ledger (≥$2 left, ≤2 of 5 run slots busy) → `apify~instagram-scraper` (the view-count actor, $0.0027) → the `displayUrl` JPEG copied to `lynxr-covers/tease/ig/<shortcode>.jpg` (Instagram's own URLs expire in ~4–5 days). Every refusal is a quiet 200 `{"thumb":null}`. creator.js `fetchIgThumb` fires it in parallel with the loading beat, Instagram links at >640px only (the frame is hidden on phones); the cover fades into the already-open tease (`.tease-late`/`.tease-in`), dropped if Back, another paste or another way into the gate happened first. TikTok path unchanged. No CSP change. watchdog: digest-only `thumb-ceiling` from lynxr_ops `thumb.ceiling`, hourly purge of expired meter rows (privacy promises 2 days). Privacy page: one new paragraph + date + `PRIVACY_VERSION`. Tests: `node --experimental-strip-types supabase/functions/test_edge_ig_thumb.mjs` (61/61), `pipeline/test_watchdog.py`. Kill switch: secret `IG_THUMB_MODE=off` (instant, no redeploy). NOT live until the owner runs the SQL, deploys the function and sets the secret — in that order, BEFORE pushing the front end.
+
+**NO "GOT YOUR VIDEO" NOTE ON THE SIGN-UP (2026-09-25, SHIPPED — in `main` by `84e9cb4`, stamp `202609233p`).** Owner: "get rid of this" (the
 `#gate-paste` banner). Hidden by ONE rule at the end of app.css (`#gate .gate-paste { display: none; }`) instead of cut
 from creator.js, because the two plans in flight (instagram-thumbnail-lookup, email-link-signup) anchor on that code; the
 email-link plan (runs second) deletes the element, its code and its CSS for good. Verified: after a TikTok or Instagram
 paste the note no longer shows; the blurred tease and thumbnail are unchanged; `csp violations: []`.
 
-**A BLURRED SCRIPT BEHIND THE SIGN-UP AFTER A PASTE, WITH THEIR VIDEO'S THUMBNAIL (2026-09-25, UNCOMMITTED, stamp
+**A BLURRED SCRIPT BEHIND THE SIGN-UP AFTER A PASTE, WITH THEIR VIDEO'S THUMBNAIL (2026-09-25, SHIPPED — in `main` by `84e9cb4`, stamp
 `202609233o`).** Owner: "once I paste in a link and it leads me to the login, have a blurred screen of their script in the
 background", then (after mockups A/B) "get rid of the your script for this box, and then add the video they added
 thumbnail". `#gate-tease` in index.html (static, aria-hidden, inert): a heavily blurred STAND-IN script (their script does
@@ -52,9 +79,9 @@ thumbnail loaded 1080×1920, `csp violations: []`; Instagram paste → gradient;
 closes it; no sideways scroll. (Localhost cannot reach TikTok's oEmbed, so the test stubbed only that lookup with a real
 oEmbed response fetched server-side.)
 
-**VIDEOS OVER 5 MINUTES ARE REFUSED BEFORE ANY SPEND (2026-09-25, UNCOMMITTED, plan `~/.claude/plans/max-video-length.md`).** Owner: "when someone adds a video that is longer than 5 minutes, dont run it". One constant, `pipeline/video_limits.py` `MAX_SOURCE_SECONDS = 300` (5:00 runs, 5:01 is refused; whole seconds, half up; an unknown length runs). `fill_source` checks yt-dlp's reported length if it has already arrived (never waited on), then ffprobe on the downloaded file, before Whisper and before any model call. A failed or timed-out download of a video the platform says is long is refused as too long, not as a fetch error. Creator card: chip "too long", confused avatar, "this video is 7:12 — lynxr works from videos up to 5 minutes. nothing was used from your allowance.", no Try again and no "also write this for" chips. The charge is refunded (`refund()` now tries twice). `noteKind "length"` + `finalWhy "wall"` means it never pages. Agency: `error_kind "too_long"`, the same sentence without the allowance clause, Replace link only; the numbers ride on `source.duration`/`source.maxDuration`. `brief_clips.py` gives up on clips over 5 min. No SQL. Tests: `pipeline/test_video_limits.py` (76 checks); also fixed 4 `test_prefilter.py` checks failing since 2026-09-14 (stubs lacked `usage_sink`). Stamp `202609233n` + `404.html`. Relation to script-quality step 14: reuse `video_limits.media_duration` and the `probed` value; don't add a second ffprobe. NOT verified live (owner check in the plan).
+**VIDEOS OVER 5 MINUTES ARE REFUSED BEFORE ANY SPEND (2026-09-25, SHIPPED — in `main` by `84e9cb4`, plan `~/.claude/plans/max-video-length.md`).** Owner: "when someone adds a video that is longer than 5 minutes, dont run it". One constant, `pipeline/video_limits.py` `MAX_SOURCE_SECONDS = 300` (5:00 runs, 5:01 is refused; whole seconds, half up; an unknown length runs). `fill_source` checks yt-dlp's reported length if it has already arrived (never waited on), then ffprobe on the downloaded file, before Whisper and before any model call. A failed or timed-out download of a video the platform says is long is refused as too long, not as a fetch error. Creator card: chip "too long", confused avatar, "this video is 7:12 — lynxr works from videos up to 5 minutes. nothing was used from your allowance.", no Try again and no "also write this for" chips. The charge is refunded (`refund()` now tries twice). `noteKind "length"` + `finalWhy "wall"` means it never pages. Agency: `error_kind "too_long"`, the same sentence without the allowance clause, Replace link only; the numbers ride on `source.duration`/`source.maxDuration`. `brief_clips.py` gives up on clips over 5 min. No SQL. Tests: `pipeline/test_video_limits.py` (76 checks); also fixed 4 `test_prefilter.py` checks failing since 2026-09-14 (stubs lacked `usage_sink`). Stamp `202609233n` + `404.html`. Relation to script-quality step 14: reuse `video_limits.media_duration` and the `probed` value; don't add a second ffprobe. NOT verified live (owner check in the plan).
 
-**THE TOP BAR IS THICKER AND ITS CONTENTS MATCH (2026-09-25; the thickness went out in `dc1d591`, the rest is UNCOMMITTED,
+**THE TOP BAR IS THICKER AND ITS CONTENTS MATCH (2026-09-25; the thickness went out in `dc1d591`, the rest is SHIPPED — in `main` by `84e9cb4`,
 stamp `202609233m`).** Owner: "make this slightly thicker", then "match the button sizes and stuff". Desktop capsule 44 →
 52px (`.lp-bar-in` min-height; `--hx-bar-h` 55 → 63 so the home hero still ends at the fold). Then, ≥761px only (the last
 block of app.css): the CTA 32 → 40px with an even 6px top/bottom/right inset, logo 34px, wordmark 20px, nav 14px. ≤760px:
@@ -63,7 +90,7 @@ and /faq/ at 1440, 900 and 393. Note: the owner's push `dc1d591` (15:21) landed 
 before the button resize, so live shows a 32px button in the 52px bar until the next push. Also since that push:
 today's SEO unit (`/blog/hook-payoff/`, see the SEO ROUTINE line) and the footer "lynxr turns…" brand sentence.
 
-**SEO ROUTINE (standing):** latest unit Q1 /blog/hook-payoff/ on 2026-09-25, uncommitted, with links from blog, how-to-write-a-hook, blog/question-hooks, glossary. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
+**SEO ROUTINE (standing):** latest unit Q2 /blog/how-long-should-a-script-be/ on 2026-09-28, uncommitted, with links from blog, short-form-script-structure, blog/two-column-script. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
 
 **"COMING SOON" STAYS ABOVE ITS HEADLINE (2026-09-25).** A version with the pill to the right of "a coach for every level."
 was built and verified (owner: "put this on the right side"), then withdrawn minutes later ("nevermind, just keep the
@@ -71,7 +98,7 @@ coming soon at the top"). Everything it touched is back as it was: stacked row, 
 intro. If it comes back: the pair needs 342px, a 393 phone row has 315, so the headline must drop to 20px on phones and
 the row rule needs TWO classes (`.hx-row.hx-row-coach`) to beat the later `.hx-row { flex-direction: column }`.
 
-**RIPPLING DOTS, A GREEN "COMING SOON", AND NO FOCUS RING ON TEXT FIELDS (2026-09-25, UNCOMMITTED, stamp now `202609233i`).**
+**RIPPLING DOTS, A GREEN "COMING SOON", AND NO FOCUS RING ON TEXT FIELDS (2026-09-25, SHIPPED — in `main` by `84e9cb4`, stamp now `202609233i`).**
 - "have these ripple": `.hx-rule` now holds three `<i>` (index.html); each lifts and sends a soft same-colour ring,
   180ms apart, under a second of a 3.6s cycle. `hx-ripple-dot` / `hx-ripple-ring`; none under reduced motion.
 - THE PANEL WRITES ITSELF TOP TO BOTTOM (stamp `202609233i`). Owner: "have the ripple start on the load", then "have
@@ -91,7 +118,7 @@ the row rule needs TWO classes (`.hx-row.hx-row-coach`) to beat the later `.hx-r
   which is a descendant combinator, and matched nothing. Verified: landing card email, paste box, gate email and the
   agency sign-in email all focus with no outline and the neutral edge; a keyboard-focused button still shows the ring.
 
-**THE PANEL'S DIVIDER IS THREE BRAND DOTS; NO "LIVE NOW" PILL (2026-09-25, UNCOMMITTED, stamp now `202609233f`).** Owner: "you
+**THE PANEL'S DIVIDER IS THREE BRAND DOTS; NO "LIVE NOW" PILL (2026-09-25, SHIPPED — in `main` by `84e9cb4`, stamp now `202609233f`).** Owner: "you
 can get rid of this" (the `live now` pill — markup removed from index.html; the coach keeps `coming soon`), then "find a
 more creative way to replace the horizonatal line" → five mockups → picked E. `.hx-rule` is now a 46×8 box painting
 three radial-gradient dots (`--hx-dot-a/b/c`: the avatar's violet, pink, peach), centred with auto margins at every
@@ -148,7 +175,7 @@ row). Verified headless at 1440 and 393: the real print path produced a PDF with
 scratchpad reset) passes at both widths on top of the library build; `csp violations: []`.
 
 **FORMAT LIBRARY + COPY TO NEW BRIEF (2026-09-25, plan `~/.claude/plans/campaign-format-library.md`,
-UNCOMMITTED).**
+SHIPPED — in `main` by `84e9cb4`).**
 - The campaign brief view has a "Format library" island, between "agency only" and the formats. It lists every
   READY format of the client's other campaign briefs, grouped by brief.
 - "Add" and "Add all N" insert COPIES born `status: "done"`, carrying the same source/analysis/script/edits.
@@ -224,7 +251,7 @@ pre-fix agency code for hours. Recovery: stamp bumped `v` → `w` (never request
 any `?v=` asset URL.** A Cloudflare purge of the URL would also work, but the stamp bump needs no dashboard.
 
 **AGENCY BRIEFS = THE REGULAR SCRIPT VIEW WITH LYNXR'S OWN PLAYER; FILES ATTACH INSIDE THE SEND PANEL
-(2026-09-24, plan `~/.claude/plans/agency-brief-regular-ui.md`, UNCOMMITTED).** Owner: "have it be the regular ui
+(2026-09-24, plan `~/.claude/plans/agency-brief-regular-ui.md`, SHIPPED — in `main` by `84e9cb4`).** Owner: "have it be the regular ui
 pretty much, make the video on the right side and make sure the agency side can add the files when the briefs
 are sent", then "make the videos the way it is on the actual user side, like native to lynxr". CREATOR SIDE
 (`creator.js` `lynxFormatCardHtml` / `lynxRefPanelHtml` / `renderLynxBrief` / `bindLynxBriefButtons` /
@@ -292,7 +319,7 @@ Creators tab reads `campaign`; the new accept takes no code). Status: NOT YET AP
 `invites.sql`'s "autoconfirm can stay on" does NOT apply to the roster. The `code` column and `leave_agency()`
 still exist; nothing calls them. lynxr sends no invite email.
 
-**AGENCY BRIEFS PLAY THE ORIGINAL IN PLACE (2026-09-23, UNCOMMITTED).** Owner: "have the actual video pop up, not
+**AGENCY BRIEFS PLAY THE ORIGINAL IN PLACE (2026-09-23, SHIPPED — in `main` by `84e9cb4`).** Owner: "have the actual video pop up, not
 just the link". Each format card on a creator's brief page (`lynxFormatCardHtml`, creator.js) now paints the
 platform's own player in "the original": TikTok `player/v1/<id>?rel=0` (video only, no autoplay) and Instagram
 `/p/<code>/embed/`, built by `lynxEmbedFor()` from `source_url` alone. Nothing was added to the brief doc.
@@ -317,7 +344,7 @@ screenshot caught it; Safari on the Mac reproduced it with the same stylesheet, 
 difference. `git log -S` shows the block added in `9a72c1a` (13:23) and removed in `46cddae` (20:42) — two
 sessions committing into one working copy (and the repo lives in iCloud, see memory) is the likely mechanism.
 **RESTORED on 2026-09-24 in the working tree; stamp now `202609232s`** (the owner's later commits had already taken
-it to `m`; several bumps followed while iterating). UNCOMMITTED: `app.css`, `home.js`, `index.html`, the 26 stamped
+it to `m`; several bumps followed while iterating). SHIPPED (in `main` by `84e9cb4`): `app.css`, `home.js`, `index.html`, the 26 stamped
 pages, `404.html`, this file.
 **And a real WebKit bug, fixed the same night:** the pro card's gradient ring (`.lp-plan-pro::before`, the masked-ring
 technique) never painted in Safari — iPhone or Mac — because the `-webkit-mask` shorthand carried `var(--mask-solid)`;

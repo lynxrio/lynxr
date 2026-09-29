@@ -7630,19 +7630,22 @@
      invisible and takes no pointer events, so it cannot trap a click on the
      content under it, and site.js brings it back if keyboard focus lands in
      it. Reduced motion: the bar stays. */
-  .lp-bar, body.home .lp-bar {
+  /* body.agency #app > header rides these same rules (owner, 2026-09-28: the agency bar behaves like
+     this one); app.js agBarHide() toggles the same class. Every added selector starts body.agency. */
+  .lp-bar, body.home .lp-bar, body.agency #app > header {
     transform: none; opacity: 1;
     transition: transform .5s cubic-bezier(.16, 1, .3, 1), opacity .42s cubic-bezier(.16, 1, .3, 1),
                 background-color .25s ease, border-color .25s ease;
   }
-  .lp-bar.lp-bar-away, body.home .lp-bar.lp-bar-away {
+  .lp-bar.lp-bar-away, body.home .lp-bar.lp-bar-away, body.agency #app > header.lp-bar-away {
     transform: translateY(-22px); opacity: 0; pointer-events: none;
     transition: transform .3s cubic-bezier(.4, 0, .2, 1), opacity .24s ease,
                 background-color .25s ease, border-color .25s ease;
   }
   .lp-bar.lp-menu-live.lp-bar-away, body.home .lp-bar.lp-menu-live.lp-bar-away { transform: none; opacity: 1; pointer-events: auto; }
   @media (prefers-reduced-motion: reduce) {
-    .lp-bar, body.home .lp-bar, .lp-bar.lp-bar-away, body.home .lp-bar.lp-bar-away { transform: none; opacity: 1; pointer-events: auto; transition: none; }
+    .lp-bar, body.home .lp-bar, .lp-bar.lp-bar-away, body.home .lp-bar.lp-bar-away,
+    body.agency #app > header, body.agency #app > header.lp-bar-away { transform: none; opacity: 1; pointer-events: auto; transition: none; }
   }
 
   /* ONE NAV MARK SIZE EVERYWHERE (owner, 2026-09-15: "make both sizes of the
@@ -9050,7 +9053,7 @@
   body.agency #app main .bars-grid h2 { font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; color: var(--text-2); margin: 0 0 10px; }
   body.agency #app main .ops-tile > h2 { font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; color: var(--text-2); margin: 0; }
   body.agency #app main #briefs-host > .section:only-child > h2,
-  body.agency #app main #panel-brief > .section > h2,
+  body.agency #app main #briefs-host > .section:only-child > .sec-head > h2,
   body.agency #app main .page-head .bcard-title {
     font-size: clamp(22px, 2.4vw, 28px); font-weight: 750; letter-spacing: -.025em; line-height: 1.15; color: var(--text);
   }
@@ -9282,16 +9285,25 @@
   body.agency #app main .blueprints-box .sec-head { margin-bottom: 0; }
   body.agency #app main .lib-plus { width: 40px; height: 40px; background: var(--surface-flat); border-color: var(--line); color: var(--text); box-shadow: inset 0 1px 0 var(--glass-hi), var(--app-soft); }
   body.agency #app main .lib-plus:hover { background: var(--surface-flat); border-color: var(--line-2); }
-  body.agency #app main #cb-new {
+  body.agency #app main :is(#cb-new, #cl-add) {
     width: auto; height: 44px; padding: 0 20px 0 16px; gap: 8px; display: inline-flex; align-items: center;
     background: var(--fill); color: var(--on-fill); border-color: var(--fill); font-weight: 600; font-size: var(--fs-15); box-shadow: var(--ico-glow);
   }
-  body.agency #app main #cb-new:hover { background: var(--fill); color: var(--on-fill); border-color: var(--fill); }
-  body.agency #app main #cb-new svg { width: 16px; height: 16px; }
-  body.agency #app main #cb-new .lib-plus-txt { display: inline; }
+  body.agency #app main :is(#cb-new, #cl-add):hover { background: var(--fill); color: var(--on-fill); border-color: var(--fill); }
+  body.agency #app main :is(#cb-new, #cl-add) svg { width: 16px; height: 16px; }
+  body.agency #app main :is(#cb-new, #cl-add) .lib-plus-txt { display: inline; }
   @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-    body.agency #app main #cb-new { transition: transform .35s var(--spring), box-shadow .3s ease; }
-    body.agency #app main #cb-new:hover { transform: scale(1.04); }
+    body.agency #app main :is(#cb-new, #cl-add) { transition: transform .35s var(--spring), box-shadow .3s ease; }
+    body.agency #app main :is(#cb-new, #cl-add):hover { transform: scale(1.04); }
+  }
+
+  /* (agency) the client page head carries New brief, Edit brand and Details (2026-09-28). The pill's
+     .lib-plus margin-left:auto would push a wrapped row right, so it is zeroed; on a phone the title
+     takes its own row and the three actions wrap beneath it. */
+  body.agency #app main .page-head.cl-head #cb-new { margin-left: 0; }
+  @media (max-width: 640px) {
+    body.agency #app main .page-head.cl-head { flex-wrap: wrap; row-gap: 12px; }
+    body.agency #app main .page-head.cl-head > .minw0 { flex: 1 1 100%; }
   }
 
   /* ---- (agency) suggestions: tiles on the backdrop; their grid tracks and gap come from the creator's own .script-grid rule (Step 6a) ---- */

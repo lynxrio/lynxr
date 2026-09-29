@@ -80,7 +80,7 @@
   <!-- The blog hub and its posts, added in batches. -->
   <url>
     <loc>https://lynxr.io/blog/</loc>
-    <lastmod>2026-09-25</lastmod>
+    <lastmod>2026-09-28</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
@@ -111,6 +111,11 @@
   <url>
     <loc>https://lynxr.io/blog/hook-payoff/</loc>
     <lastmod>2026-09-25</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/how-long-should-a-script-be/</loc>
+    <lastmod>2026-09-28</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
