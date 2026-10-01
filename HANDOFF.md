@@ -27,15 +27,16 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
-**AT A GLANCE — 2026-09-28. Read this first.**
-- **Live:** `main` at `b1f0123` (2026-09-28), stamp `202609233t`. Everything below dated 2026-09-25 or earlier is
-  shipped; the stale "UNCOMMITTED" labels on those entries were corrected on 2026-09-28.
-- **In the working tree, not pushed (stamp `202609233u`):** the agency change directly below (no New Client tab, typed
+**AT A GLANCE — 2026-09-30. Read this first.**
+- **Live:** `main` at `6813707` (2026-09-28), stamp `202609233u`: the agency change below (no New Client tab, typed
   Add client, briefs first, the header hides on scroll, video blueprints hidden) and SEO unit Q2
-  `/blog/how-long-should-a-script-be/` (see the SEO ROUTINE line).
-- **Planned, not built:** the backdrop rewrite: no orbiting around the cursor (a "stir" on a critically damped
-  spring) plus an "alive" idle presence on every view. Plan `~/.claude/plans/backdrop-smooth.md`, being revised; it
-  needs the owner's OK. If `202609233u` has not been pushed yet, it reuses that stamp instead of bumping again.
+  `/blog/how-long-should-a-script-be/` (IndexNow 200). Everything dated 2026-09-28 or earlier is shipped.
+- **In the working tree, not pushed (stamp `202609233v`):** the backdrop rewrite plus the Clients-list brief-count
+  fix (see the paragraph just below this block), and SEO unit G1, the glossary catch-up (see the SEO ROUTINE line).
+- **Built, not pushed:** the backdrop rewrite: no orbiting around the cursor (a "stir" on a critically damped
+  spring) plus an "alive" idle presence on every view. Plan `~/.claude/plans/backdrop-smooth.md`, executed and gated
+  2026-09-30 — all gates pass, stamp bumped to `202609233v` (it could not reuse `202609233u`: that stamp was already
+  pushed live in `6813707`).
 - **Waiting on the owner:**
   1. **Instagram cover lookup.** Create an Apify token, then run `supabase/ig_thumb.sql`, then deploy `ig-thumb`
      with JWT verification OFF, then set the secret `APIFY_API_TOKEN` (kill switch: `IG_THUMB_MODE=off`). Until
@@ -51,6 +52,17 @@ naming a path there publishes it.
 - **Strategy, pricing reasoning and usage numbers are private.** They live in the owner's Claude Project context
   file and in Claude's memory, never in this public file.
 
+**BACKDROP ALIVE + CLIENTS-LIST BRIEF COUNT FIX (2026-09-30, UNCOMMITTED, plan `~/.claude/plans/backdrop-smooth.md`,
+stamp `202609233v`).** The backdrop is alive in every view now — breathes, sways on desktop/tablet, notices the
+first input after a quiet spell, ripples from a click or tap, and hushes while you type or a dialog is open; the
+old orbiting-around-the-cursor push is gone, replaced by a "stir" that carries nearby colour along the cursor's own
+path and lets it drift home (nothing can circle). All gates passed (orbit, notice, life, phones, reduced-motion,
+perf, and contrast at all nine viewports) — see `backdrop.js`'s own header for the measured numbers. Separately,
+the agency app's Clients list was undercounting: it showed only legacy `client.briefs`, so a client whose briefs
+now live in `lynxr_campaigns` (post campaign-brief rewrite) read "0 briefs" there while its own page showed the
+real count. Fixed in `app.js` (`cbClientBriefCount`, `cbLoadCampaignCounts`, the new `.cl-brief-count` span in
+`renderBriefs()`): the list now shows legacy + campaign briefs together, and shows nothing (never "0 briefs") when
+the count isn't known yet or the query fails.
 
 **AGENCY: NO NEW CLIENT TAB, TYPED ADD CLIENT, BRIEFS FIRST, THE HEADER HIDES ON SCROLL (2026-09-28, UNCOMMITTED, plan `~/.claude/plans/agency-clients-tab-and-briefs-top.md`, stamp `202609233u`).** Cofounder feedback. The New Client tab (site URL → shelf) is gone; the Clients list has an "Add client" pill that opens a typed form — company name plus exactly Edit brand's fields (`brandFormHtml`), the website one optional field. Nothing reads the site any more (both CORS relays failed 5 of 6 tries on 2026-09-28); the reader, the shelf and `renderBrief` are still in app.js, unused. A draft typed in the old tab carries over (`lynxr_client_draft`, now `{ v: 2, company, bc }`). A duplicate company name is refused, not merged. A client page now reads header (with New brief — the same `#cb-new`, moved) → Briefs → Suggested videos. The agency header hides on the way down and returns on the way up using the landing's own `.lp-bar-away` rules (app.css) and `agBarHide()` in app.js, a copy of site.js's scroll rules — change TOP/DELTA in both. [Video blueprints are hidden (`SHOW_BLUEPRINTS = false` in app.js): nothing runs `process_blueprints.py`, and its shot list/tags call Anthropic; every client's blueprints data is untouched.]
 
@@ -90,7 +102,7 @@ and /faq/ at 1440, 900 and 393. Note: the owner's push `dc1d591` (15:21) landed 
 before the button resize, so live shows a 32px button in the 52px bar until the next push. Also since that push:
 today's SEO unit (`/blog/hook-payoff/`, see the SEO ROUTINE line) and the footer "lynxr turns…" brand sentence.
 
-**SEO ROUTINE (standing):** latest unit Q2 /blog/how-long-should-a-script-be/ on 2026-09-28, uncommitted, with links from blog, short-form-script-structure, blog/two-column-script. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
+**SEO ROUTINE (standing):** latest unit G1 (Q3) glossary catch-up on 2026-09-30, uncommitted: glossary gains #two-column-script and #storytime-video (DefinedTerm + go-deeper links) and go-deeper lines under #format, #hook, #the-turn, #script, #brief; sitemap glossary lastmod bumped. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
 
 **"COMING SOON" STAYS ABOVE ITS HEADLINE (2026-09-25).** A version with the pill to the right of "a coach for every level."
 was built and verified (owner: "put this on the right side"), then withdrawn minutes later ("nevermind, just keep the

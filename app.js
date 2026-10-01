@@ -3403,7 +3403,7 @@ function renderBriefs() {
         <div class="bcard-main">
           <div class="bcard-title">${escapeHtml(c.company)}</div>
           <div class="lbl">${escapeHtml(c.niche || "All niches")}${c.ctx?.audience ? " · " + escapeHtml(c.ctx.audience) : ""}
-            · ${c.briefs.length} brief${c.briefs.length === 1 ? "" : "s"}</div>
+            <span class="cl-brief-count" data-cid="${escapeHtml(c.id)}">${cbClientCountText(c)}</span></div>
         </div>
         <button type="button" class="ghost danger icon-only b-del"
           aria-label="Delete this client" title="Delete this client">${TRASH_SVG}</button>
@@ -3418,6 +3418,21 @@ function renderBriefs() {
     });
   });
   openAdd();
+  // The campaign half of the count (CB_COUNTS) is a single cheap query, re-run on every
+  // Clients-list render; a cached value already painted synchronously above via
+  // cbClientCountText, this only fills in what wasn't known yet or refreshes what was stale.
+  // Only the .cl-brief-count spans are touched, never a full re-render, so nothing flickers
+  // and no focus is lost — and only while the Clients list is still the current view.
+  cbLoadCampaignCounts().then(() => {
+    if (CLIENT_VIEW || CLIENT_ADD || CAMPAIGN_VIEW) return;
+    const host2 = document.getElementById("briefs-host");
+    if (!host2) return;
+    const fresh = loadClients();
+    host2.querySelectorAll(".cl-brief-count").forEach((span) => {
+      const client = fresh.find((cl) => cl.id === span.dataset.cid);
+      if (client) span.textContent = cbClientCountText(client);
+    });
+  });
 }
 
 /* ---------- Add client (cofounder, 2026-09-28) ----------
@@ -5560,6 +5575,7 @@ const CB_POLL_MS = 5000;
 let CAMPAIGN_VIEW = null;               // { id } when a campaign brief is open
 let CB_CACHE = new Map();               // campaign id -> { campaign, formats, at }
 let CB_LISTS = new Map();               // clientId -> { rows, at }
+let CB_COUNTS = { map: null, error: false, at: 0 };   // clientId -> number of lynxr_campaigns rows, for the Clients list
 
 // Sending: who a campaign/legacy brief has been sent to, and whether the send
 // panel is open. Keyed by `${sourceKind}:${sourceId}` so campaign and legacy
@@ -5767,6 +5783,24 @@ async function cbListCampaigns(clientId) {
   const withCounts = rows.map((r) => ({ ...r, counts: counts.get(r.id) || { total: 0, ready: 0, working: 0, failed: 0 } }));
   CB_LISTS.set(clientId, { rows: withCounts, at: Date.now() });
   return withCounts;
+}
+
+/** Every client's campaign-brief count in one cheap query, for the Clients
+    list card (cbClientBriefCount) — the list used to count only the legacy
+    `client.briefs`, so a client with campaign briefs and no legacy ones read
+    "0 briefs" there while its own page showed the real number. Never throws:
+    on failure it keeps whatever map it already had and flags the error, so a
+    caller can always .then() it without a catch. */
+async function cbLoadCampaignCounts() {
+  try {
+    const rows = await sbFetch("/rest/v1/lynxr_campaigns?select=client_id");
+    const map = new Map();
+    for (const r of rows) map.set(r.client_id, (map.get(r.client_id) || 0) + 1);
+    CB_COUNTS = { map, error: false, at: Date.now() };
+  } catch (ex) {
+    CB_COUNTS = { map: CB_COUNTS.map, error: true, at: Date.now() };
+  }
+  return CB_COUNTS;
 }
 
 /** Create a campaign and its formats in two writes. Returns the new campaign id. */
@@ -7851,6 +7885,26 @@ function cbBriefItems(client) {
 
 /** "Brief N" for a new campaign brief whose name was left empty. */
 const cbNextBriefName = (client) => `Brief ${cbBriefItems(client).length + 1}`;
+
+/** The Clients-list brief count for one client — legacy briefs plus campaign
+    briefs, the same total cbBriefItems(client).length gives on that client's
+    own page. Prefers CB_LISTS (freshest: it's what the client page itself
+    shows) and falls back to the all-clients CB_COUNTS map. null means "not
+    known yet" — the list must never render that as "0 briefs". */
+function cbClientBriefCount(c) {
+  const legacy = (c.briefs || []).length;
+  const listed = CB_LISTS.get(c.id);
+  const campaigns = Array.isArray(listed?.rows)
+    ? listed.rows.length
+    : (CB_COUNTS.map ? (CB_COUNTS.map.get(c.id) || 0) : null);
+  return campaigns === null ? null : legacy + campaigns;
+}
+
+/** " · N briefs" for a known count, "" (nothing) when the count isn't known yet. */
+function cbClientCountText(c) {
+  const n = cbClientBriefCount(c);
+  return n === null ? "" : ` · ${n} brief${n === 1 ? "" : "s"}`;
+}
 
 function cbBriefListHtml(client) {
   const entry = CB_LISTS.get(client.id);

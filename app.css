@@ -7505,14 +7505,18 @@
      If you add, move or strengthen a blob, change --field to match and re-run
      the gate.
 
-     backdrop.js adds the life: on desktop each blob breathes on its own slow
-     cycle (CSS, .blob-in), and the script SHOVES the blobs near the cursor away
-     from it (up to ~100px), squashes whichever one it drives into a window edge
-     and squashes them all a touch with scroll speed. Since 2026-09-25 no two
-     blobs may close nearer than the resting gap below, so however far they are
-     pushed the overlaps are never worse than the ones the gate measured — see
-     the header of backdrop.js for the numbers. The cursor light that used to
-     live here (.spot) is gone with that change. Reduced motion: still. */
+     backdrop.js adds the life (since 2026-09-28, on every view): each blob
+     breathes on its own clock (the breath column below, read by the script)
+     and only ever draws in, sways a few px on desktop and tablet, notices the
+     first input after a quiet spell, ripples away from a click or tap, and
+     goes still while you type or a dialog is open. A moving cursor STIRS the
+     colour: it carries the blobs near it along its own path (up to ~90px) and
+     they drift home once it stops, so nothing circles it; whichever one it
+     drives into a window edge squashes, and scroll speed squashes them all a
+     touch. No two blobs may close nearer than the resting gap below, so
+     however far they are carried the overlaps are never worse than the ones
+     the gate measured — see the header of backdrop.js for the numbers.
+     Reduced motion: still. */
   :root {
     --b1: rgba(150, 76, 58, .5);   --b1z: rgba(150, 76, 58, 0);
     --b2: rgba(122, 44, 90, .7);   --b2z: rgba(122, 44, 90, 0);
@@ -7560,17 +7564,13 @@
   .blob-4 { --x: 10%; --y: 92%; --w: 49vw;   --h: 63vh;   --c: var(--b4); --cz: var(--b4z); --shape: 48% 52% 64% 36% / 60% 38% 62% 40%; --r: 24deg;  --t: 24s; }
   .blob-5 { --x: 92%; --y: 58%; --w: 22.4vw; --h: 30.8vh; --c: var(--b5); --cz: var(--b5z); --shape: 64% 36% 46% 54% / 40% 58% 42% 60%; --r: 32deg;  --t: 17s; --soft: 12px; }
   .blob-6 { --x: 38%; --y: 60%; --w: 18.2vw; --h: 25.2vh; --c: var(--b6); --cz: var(--b6z); --shape: 38% 62% 58% 42% / 55% 45% 55% 45%; --r: -20deg; --t: 19s; --soft: 12px; }
-  /* Breathing is desktop-only: every blurred bar above re-samples each frame it
-     runs, which phones pay for in battery. Phones still get the lean and the
-     scroll squash, which only run while you are touching or scrolling. */
-  @keyframes blob-breathe {
-    0%   { transform: scale(1, 1); }
-    50%  { transform: scale(1.04, .97); }
-    100% { transform: scale(.97, 1.04); }
-  }
-  @media (min-width: 761px) and (prefers-reduced-motion: no-preference) {
-    .blob-in { animation: blob-breathe var(--t) ease-in-out infinite alternate; will-change: transform; }
-  }
+  /* Breathing lives in backdrop.js since 2026-09-28, on every view, and the
+     --t column above is its clock (x 0.4). It moves the outer .blob, whose
+     blurred inside is drawn once and then only moved, so nothing re-blurs
+     each frame, and a breath only ever draws a blob in. Don't add a CSS
+     animation to .blob or .blob-in: on .blob it would override the script's
+     transform, and either could grow a blob past what the contrast gate
+     measured. */
   /* PHONES GET THEIR OWN COMPOSITION (owner, 2026-09-15: "the background blobs
      for mobile look bad"). The desktop layers turned into dim tall smudges on a
      portrait screen, and faint peach on black reads as brown. Instead there are
