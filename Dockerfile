@@ -69,6 +69,14 @@ ENV PYTHONUNBUFFERED=1
 # cover frames) and slow every build for nothing.
 COPY pipeline/ ./pipeline/
 
+# Fail the BUILD, not the creator. On 2026-10-04 a routine rebuild pulled PyAV
+# 19, which broke faster-whisper's audio decode; the image built and deployed
+# cleanly, and every video then failed in production. This runs ffmpeg,
+# ffprobe, the PyAV decode and the baked model on a generated two-second clip.
+# If any of them breaks, the build fails, fly-deploy / fly-refresh go red, and
+# the running machine keeps its last good image. See pipeline/smoke_media.py.
+RUN python pipeline/smoke_media.py
+
 # Don't run as root. The worker downloads and executes nothing but its own
 # code, but it does fetch arbitrary creator-supplied URLs with yt-dlp, and that
 # is the sort of surface where "it was only a video" ages badly.

@@ -27,7 +27,19 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
-**TRANSCRIPTION BROKE ON THE WORKER: PyAV 19 (FIXED 2026-10-04, UNCOMMITTED: `requirements-ci.txt` only).** All 8
+**GUARD + CPU NOTE (2026-10-04, UNCOMMITTED: `pipeline/smoke_media.py`, `Dockerfile`, `adaptations.yml`).**
+`smoke_media.py` runs ffmpeg, ffprobe, faster-whisper's PyAV decode and the baked model on a generated 2s clip. The
+Dockerfile runs it at build time, so a broken dependency fails the deploy and the old machine keeps serving.
+`adaptations.yml` runs it with `SMOKE_MODEL=0` right after `pip install`. Verified: it passes with av 18.1.0 locally
+and on the live Fly image, and fails on av 19.0.1 with the production TypeError.
+
+**Shared-CPU throttling is real.** After the 8 re-queued formats, the worker (shared-cpu-2x, 4GB) ran a CPU loop in
+11.8s that takes 0.15s on the Mac. In the same period a 69s video transcribed in 314s; normal is about 20s. The
+heaviest source was a 1080p60 VP9 Instagram file whose 480p clip encode timed out at 300s. That clip was rebuilt on
+the Mac and grafted onto format `7aace7f5`, so all 8 formats have script + clip + cover. A performance-2x (4GB) costs
+$66/mo against about $25/mo today: the owner's call.
+
+**TRANSCRIPTION BROKE ON THE WORKER: PyAV 19 (FIXED 2026-10-04, pushed `72d8d75`).** All 8
 formats of an agency brief failed on 2026-10-04 with `open() got an unexpected keyword argument 'metadata_errors'`,
 shown to staff as "the video couldn't be downloaded" (error_kind `fetch_generic`). Cause: PyAV 19.0.0 (2026-09-29)
 dropped that argument from `av.open()`, faster-whisper 1.2.1 still passes it, and nothing pinned `av`, so the

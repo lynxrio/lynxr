@@ -127,6 +127,18 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-ci.txt
 
+      - name: Smoke-test the media stack
+        # Same check the Fly image runs at build time (pipeline/smoke_media.py):
+        # ffmpeg, ffprobe and faster-whisper's PyAV decode on a generated clip.
+        # Added 2026-10-04 after PyAV 19 broke every transcription. Failing here,
+        # before any creator row is claimed, beats failing each creator's video.
+        # The model step is skipped (SMOKE_MODEL=0) because the weights are only
+        # restored from cache further down.
+        timeout-minutes: 5
+        env:
+          SMOKE_MODEL: "0"
+        run: python pipeline/smoke_media.py
+
       - name: Cache the Whisper weights
         # ~500MB for `small`; downloading it every 15 minutes would dominate
         # the run time and hammer the model host for no reason.
