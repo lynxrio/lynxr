@@ -618,7 +618,15 @@ let SYNC_OK = false;
 // card asks once and then stops. See ASK_QS.
 const BLANK_ME = { name: "", niches: [], brands: [], adaptations: [], library: [],
                    trash: [], contactEmail: "", emailOptIn: false,
-                   about: "", never: "", askDone: [], theme: "", noticesSeen: [] };
+                   about: "", never: "", askDone: [], theme: "", noticesSeen: [],
+                   // priority "deals" | "rate" | "perform" | "grow" (what the creator cares about most; an older build stored
+                   // views | followers | engagement, which migrateUgc() maps on read);
+                   // goal {metric: that priority, target, at}; setup {v, steps:{<id>:"done"|"skipped"|"later"}, at}:
+                   // the setup stepper's answers. tour {at, how:"done"|"skipped"}: the sidebar walkthrough was seen, so it
+                   // does not repeat on another device.
+                   // deals [{at, brand}]: brand deals the creator logged by hand (the "deals" goal counts this month's).
+                   // rate {usd, at}: the creator's own current rate per video, self-reported (the "rate" goal's progress).
+                   priority: null, goal: null, setup: null, tour: null, deals: [], rate: null };
 
 /** Delete a script the recoverable way: it moves to the trash with a stamp and
  *  the name of the company it was written for, so Settings can offer it back.
@@ -1036,6 +1044,7 @@ function restoreLocalMe() {
   if (!saved?.data) return false;
   ME = { ...BLANK_ME, ...saved.data };
   if (saved.dirty) DIRTY = true;
+  if (migrateUgc()) DIRTY = true;
   return true;
 }
 
@@ -1127,9 +1136,10 @@ document.addEventListener("visibilitychange", () => {
 function normalizeMe() {
   ME = { ...BLANK_ME, ...ME };
   let changed = false;
-  for (const k of ["niches", "brands", "adaptations", "library", "trash", "askDone", "noticesSeen"]) {
+  for (const k of ["niches", "brands", "adaptations", "library", "trash", "askDone", "noticesSeen", "deals"]) {
     if (!Array.isArray(ME[k])) { ME[k] = []; changed = true; }
   }
+  if (migrateUgc()) changed = true;
 
   // The Library holds one entry per VIDEO, account-wide. An earlier build kept
   // a separate copy per brand, so the same link sent to three brands showed up
@@ -1255,6 +1265,7 @@ function renderSyncBadge(state) {
     : SYNC_OK ? "● synced"
     : DIRTY ? "● offline — retrying"
     : "● not syncing";
+  paintAcctDots();   // the account row wears a red dot while sync is failing
 }
 
 // ---------- transient messages ----------
@@ -1599,6 +1610,7 @@ function closeSendOverlay() {
 }
 
 function go(view) {
+  closeAcctMenu(false);    // a route change closes the account menu; focus goes to the pane below, not back to the row
   releaseCardLanding();
   // Leaving the Library abandons whatever entry a send was pointed at —
   // switching views by hand is a deliberate move elsewhere.
@@ -1657,22 +1669,22 @@ function renderNewScript(head, body) {
   // `composer-row` pair is what all its styling hangs off, and rebuilding it
   // with a different structure dropped those classes and made the input and
   // send button vanish entirely.
+  /* THIS IS HOME (owner, 2026-10-02): the welcome dashboard. The paste box is still the main thing on it and its markup is
+     untouched; the goal, the linked profiles and the latest scripts sit under it. The cards are painted by paintHome(),
+     which can run again on its own when the plan, the profiles or the tracked videos arrive, without touching the composer. */
+  const mascot = typeof lynxrAvatar === "function" ? lynxrAvatar("done", "home-lx") : "";
   body.innerHTML = `
-    <div class="newscript">
-      <div class="newscript-greet">
-        <svg class="newscript-mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
-        ${/* One line, doing both jobs. "What are we making?" asked a question
-              the composer below already asks, and needed a second line of
-              small text to explain what to put in it — so the screen opened
-              with a prompt, an explanation, and only then the box. This says
-              what lynxr does and what to do next in the same five words, which
-              is all a returning creator needs and enough for a new one. */""}
-        <h1 class="newscript-h">paste a video, get a script</h1>
+    <div class="newscript home">
+      <div class="newscript-greet home-greet">
+        <div class="home-av">${mascot}</div>
+        <h1 class="newscript-h" id="home-h"></h1>
       </div>
+      <div id="home-writing"></div>
       ${firstRun ? `<p class="nobrand">
         <button type="button" class="linkish" id="nobrand-add">Add a brand</button>
         to get scripts written for them</p>` : ""}
       <div class="composer composer-inline" id="composer">
+        <p class="home-lead" id="home-lead">Paste a link. Get your script.</p>
         <div class="composer-for" id="composer-for"></div>
         <form class="composer-row" id="composer-form" novalidate>
           <input type="url" id="composer-url" placeholder="Paste a TikTok or Instagram link"
@@ -1685,11 +1697,17 @@ function renderNewScript(head, body) {
         </form>
         <p class="composer-note" id="composer-note" role="status" aria-live="polite"></p>
       </div>
+      <div id="home-cards" class="home-cards"></div>
     </div>`;
+  // The name is the user's own data: text, never markup.
+  paintHomeHeadline();
 
   renderComposeFor();
   wireComposer();
   consumePendingPaste();
+  paintHomeWriting();
+  paintHome();
+  maybeStartTour();                      // waits for its own conditions and starts after the page has painted
   document.getElementById("nobrand-add")?.addEventListener("click", addBrand);
   // Focus on desktop only — on a phone the keyboard would spring up and cover
   // the company picker before you've chosen who the script is for.
@@ -1797,8 +1815,88 @@ function trackVisibleHeight() {
 }
 trackVisibleHeight();
 
+/* THE RAIL HAS ONE FOLD: the account row at the bottom opens a menu upward (see openAcctMenu). Brands used to be a fold of
+   their own here; since 2026-10-03 (plan lynxr-rail-simplify.md) they live in Library, which groups scripts by brand. */
+const ACCT = { open: false };     // the account menu
+(function dropOldBrandsFold() { try { localStorage.removeItem("lynxr.side.brands"); } catch {} })();
+
+/** The account row's name, initial and plan, from what the rail already knows. The plan is the one the Plan view reads
+    (my_plan()): staff and comped accounts show what they are entitled to. Blank until the plan has answered. */
+function paintAcct() {
+  const name = setupName() || String(SB_EMAIL || "").split("@")[0] || "Account";
+  const ch = (name.match(/[\p{L}\p{N}]/u) || ["•"])[0];
+  const plan = PLAN && PLAN_STATE === "ok" ? capFirst(planIsPaid() && PLAN.plan_code ? PLAN.plan_code : "free") : "";
+  document.getElementById("acct-av").textContent = ch.toUpperCase();
+  document.getElementById("acct-name").textContent = name;
+  document.getElementById("acct-plan").textContent = plan ? ` · ${plan}` : "";
+  document.getElementById("nav-account")?.classList.toggle("on",
+    !ACCT.open && ["plan", "feedback", "you"].includes(VIEW.kind));
+}
+
+/** At most one dot on the account row: a failing sync wins over unfinished setup. */
+function paintAcctDots() {
+  const bad = !!document.getElementById("sync-state")?.classList.contains("bad");
+  const due = setupUnfinished();
+  const sync = document.getElementById("acct-sync-dot");
+  const setup = document.getElementById("nav-you-dot");
+  if (sync) sync.hidden = !bad;
+  if (setup) setup.hidden = bad || !due;
+}
+
+/* THE ACCOUNT MENU. The row at the bottom of the rail opens it UPWARD (app.css anchors it to the row). Closes on an outside
+   click, Escape, choosing an item or any route change (go()). Focus moves into the menu on open and back to the row on a
+   close the creator caused; a route change leaves focus to go(), which sends it to the pane. Arrow keys, Home and End move
+   between the items; Tab leaves the menu and closes it. The items are the rail rows this menu replaced and keep their ids
+   and click handlers (nav-plan, nav-feedback, nav-you, and nav-agency for staff). */
+const acctItems = () => [...document.querySelectorAll('#acct-menu [role="menuitem"]')].filter((e) => !e.hidden);
+function openAcctMenu() {
+  const menu = document.getElementById("acct-menu");
+  const row = document.getElementById("nav-account");
+  if (!menu || !row || ACCT.open) return;
+  ACCT.open = true;
+  menu.hidden = false;
+  row.setAttribute("aria-expanded", "true");
+  document.getElementById("acct")?.classList.add("open");
+  row.classList.remove("on");
+  acctItems()[0]?.focus({ preventScroll: true });
+}
+function closeAcctMenu(refocus) {
+  if (!ACCT.open) return;
+  ACCT.open = false;
+  const menu = document.getElementById("acct-menu");
+  const row = document.getElementById("nav-account");
+  if (menu) menu.hidden = true;
+  row?.setAttribute("aria-expanded", "false");
+  document.getElementById("acct")?.classList.remove("open");
+  if (refocus) row?.focus({ preventScroll: true });
+  paintAcct();
+}
+function wireAcctMenu() {
+  const acct = document.getElementById("acct");
+  const row = document.getElementById("nav-account");
+  if (!acct || !row) return;
+  row.addEventListener("click", () => (ACCT.open ? closeAcctMenu(true) : openAcctMenu()));
+  acct.addEventListener("click", (e) => { if (e.target.closest('[role="menuitem"]')) closeAcctMenu(false); });
+  acct.addEventListener("keydown", (e) => {
+    const items = acctItems();
+    const at = items.indexOf(document.activeElement);
+    if (e.key === "Escape" && ACCT.open) { e.preventDefault(); e.stopPropagation(); closeAcctMenu(true); return; }
+    if (!ACCT.open) {
+      if (e.target === row && (e.key === "ArrowUp" || e.key === "ArrowDown")) { e.preventDefault(); openAcctMenu(); }
+      return;
+    }
+    if (e.key === "ArrowDown") { e.preventDefault(); items[(at + 1) % items.length]?.focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); items[(at <= 0 ? items.length : at) - 1]?.focus(); }
+    else if (e.key === "Home") { e.preventDefault(); items[0]?.focus(); }
+    else if (e.key === "End") { e.preventDefault(); items[items.length - 1]?.focus(); }
+    else if (e.key === "Tab") closeAcctMenu(false);
+  });
+  document.addEventListener("click", (e) => { if (ACCT.open && !e.target.closest("#acct")) closeAcctMenu(false); });
+}
+
 function renderSide() {
   document.getElementById("side-who").textContent = SB_EMAIL || "";
+  paintAcct();
   /* THE SERVER'S NUMBER WHEN THERE IS ONE. `granted` is per-account
      (lynxr_allowance.granted), so it is not always free's 3 — raising one creator's
      limit is one UPDATE and this rail has to say the new number, not the
@@ -1825,9 +1923,14 @@ function renderSide() {
   document.getElementById("side-quota-fill").style.width =
     `${grant > 0 ? (used / grant) * 100 : 100}%`;
   quota.classList.toggle("spent", used >= grant);
-  document.getElementById("nav-library-n").textContent = taggedVideoCount();
   document.getElementById("nav-new").classList.toggle("on", VIEW.kind === "new");
-  document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library");
+  // A brand's page is a place inside the Library, so the Library row stays lit while one is open.
+  document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library" || VIEW.kind === "brand");
+  const navPosts = document.getElementById("nav-posts");
+  if (navPosts) {
+    navPosts.hidden = !showPostsNav();
+    navPosts.classList.toggle("on", VIEW.kind === "posts");
+  }
   document.getElementById("nav-you").classList.toggle("on", VIEW.kind === "you");
   document.getElementById("nav-plan").classList.toggle("on", VIEW.kind === "plan");
   document.getElementById("nav-feedback").classList.toggle("on", VIEW.kind === "feedback");
@@ -1843,29 +1946,7 @@ function renderSide() {
       : AGENCY?.state === "accepted" && AGENCY.briefs.length ? String(AGENCY.briefs.length) : "";
   }
 
-  const host = document.getElementById("side-list");
-  if (!ME.brands.length) {
-    host.innerHTML = `<p class="side-empty">No brands yet — add the first company you make videos for.</p>`;
-    return;
-  }
-  // Original scripts are NOT listed here. The rail is companies you write for,
-  // and a script that belongs to no company is not one of them — it reached
-  // this list once and read as a brand called "Original scripts". They live in
-  // the Library, as its third grouping mode.
-  host.innerHTML = ME.brands.map((b) => {
-    const n = brandScripts(b).length;
-    const on = VIEW.kind === "brand" && VIEW.id === b.id;
-    // A zero PRINTS. `n || ""` used to blank it, and an empty slot beside a
-    // company that has 4 next to it does not read as "none yet" — it reads as
-    // a number that failed to arrive. A brand with no scripts is a normal
-    // state (you add the company before you script for it), so say so.
-    return `<button type="button" class="side-item${on ? " on" : ""}" data-bid="${escapeHtml(b.id)}">
-      <span class="side-label">${escapeHtml(b.name || "Untitled brand")}</span>
-      <span class="side-count">${n}</span>
-    </button>`;
-  }).join("");
-  host.querySelectorAll(".side-item").forEach((el) =>
-    el.addEventListener("click", () => go({ kind: "brand", id: el.dataset.bid })));
+  paintSetupDue();
 }
 
 /* renderOriginals() lived here: a standalone page listing every script that
@@ -2043,6 +2124,7 @@ function renderPaneInner() {
   if (VIEW.kind === "new") return renderNewScript(head, body);
   if (VIEW.kind === "plan") return renderPlan(head, body);
   if (VIEW.kind === "you") return renderYou(head, body);
+  if (VIEW.kind === "posts") return renderPosts(head, body);
   if (VIEW.kind === "feedback") return renderFeedback(head, body);
   if (VIEW.kind === "lynx") return renderLynx(head, body);
   if (VIEW.kind === "lynxbrief") return renderLynxBrief(head, body);
@@ -2250,6 +2332,7 @@ function renderBrand(head, body, b) {
 
   head.innerHTML = `
     <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <p class="pane-crumb"><button type="button" class="linkish" id="brand-back">Library <span aria-hidden="true">\u203a</span></button></p>
     <div class="pane-title">
       <div class="bcard-title" id="brand-heading">${escapeHtml(b.name || "Untitled brand")}</div>
       ${/* No standing script COUNT here any more — the list of scripts is
@@ -2561,9 +2644,11 @@ function renderBrand(head, body, b) {
     // Deleting the last brand used to land on the Library, which is a list of
     // what you have saved — the least useful answer to "I just cleared this
     // out." The new-script page is where the next thing starts, so go there.
-    go(ME.brands.length ? { kind: "brand", id: ME.brands[0].id } : { kind: "new" });
+    // With the rail no longer listing brands, the Library (grouped by brand) is the place the rest of them are.
+    go(ME.brands.length ? { kind: "library" } : { kind: "new" });
   };
   armDelete(head.querySelector(".b-del"), "Delete this brand", removeBrand);
+  document.getElementById("brand-back")?.addEventListener("click", () => go({ kind: "library" }));
 
 
   renderScripts(b);
@@ -2576,8 +2661,10 @@ function renderBrand(head, body, b) {
 let LIB_Q = "";
 // "brand" answers "what does this client have?"; "all" answers "what have I
 // saved?". Both are real questions, so the Library offers both rather than
-// picking one. Not persisted — it resets to By company each visit.
-let LIB_MODE = "brand";
+// picking one. Not persisted. Until the viewer picks one (or a send lands on All videos) it follows the account: By brand
+// once there is at least one named brand, All videos before that. Read it through libMode().
+let LIB_MODE = null;
+const libMode = () => LIB_MODE || (namedBrands().length ? "brand" : "all");
 const LIB_SEARCH_AT = 4;      // searching three items is noise; the box stays hidden
 
 /* ================= FINDING A SCRIPT =================
@@ -2958,6 +3045,8 @@ function renderLibrary(head, body) {
     <div class="pane-title"><div class="bcard-title">Library</div>
       <span class="pill">${taggedVideoCount()}</span>
       <div class="spacer"></div>
+      ${/* Brands live here now (the rail no longer lists them): this is the old rail's "new brand" row, same flow. */""}
+      <button type="button" class="ghost lib-newbrand" id="lib-new-brand">New brand</button>
       <button type="button" class="lib-plus" id="lib-add" title="New script" aria-label="New script">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
           aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -2984,16 +3073,16 @@ function renderLibrary(head, body) {
                 tabs already does), and a 0-width pill parked at the left edge
                 would be a stray dot if this script never ran. */""}
           <span class="lib-modes-ind" id="lib-modes-ind" aria-hidden="true" hidden></span>
-          <button type="button" class="lib-mode${LIB_MODE === "brand" ? " on" : ""}"
-            id="lib-mode-brand" role="tab" aria-selected="${LIB_MODE === "brand"}">By brand</button>
-          <button type="button" class="lib-mode${LIB_MODE === "all" ? " on" : ""}"
-            id="lib-mode-all" role="tab" aria-selected="${LIB_MODE === "all"}">All videos</button>
+          <button type="button" class="lib-mode${libMode() === "brand" ? " on" : ""}"
+            id="lib-mode-brand" role="tab" aria-selected="${libMode() === "brand"}">By brand</button>
+          <button type="button" class="lib-mode${libMode() === "all" ? " on" : ""}"
+            id="lib-mode-all" role="tab" aria-selected="${libMode() === "all"}">All videos</button>
           ${/* The third question this list answers: "what did the video itself
                 say?" — the scripts that belong to no company. They are otherwise
                 only visible as a loose block at the bottom of By company, which
                 is where they go to be missed. */""}
-          <button type="button" class="lib-mode${LIB_MODE === "original" ? " on" : ""}"
-            id="lib-mode-original" role="tab" aria-selected="${LIB_MODE === "original"}">Original scripts</button>
+          <button type="button" class="lib-mode${libMode() === "original" ? " on" : ""}"
+            id="lib-mode-original" role="tab" aria-selected="${libMode() === "original"}">Original scripts</button>
         </div>
       </div>
       <p class="composer-note" id="lib-flash" role="status" aria-live="polite"></p>
@@ -3006,6 +3095,7 @@ function renderLibrary(head, body) {
     </div>`;
 
   document.getElementById("lib-add").addEventListener("click", () => go({ kind: "new" }));
+  document.getElementById("lib-new-brand").addEventListener("click", addBrand);
   /* SWITCHING MODE NO LONGER REBUILDS THIS VIEW. It used to call
      renderLibrary(), which rewrites body.innerHTML — so the tab strip, the
      indicator and the search field were all destroyed and recreated on every
@@ -3015,7 +3105,7 @@ function renderLibrary(head, body) {
      repaints only the list. Side effect worth having: typing a filter, then
      switching mode, no longer throws away the caret. */
   const setMode = (m) => {
-    if (LIB_MODE === m) return;
+    if (LIB_MODE === m) return;       // (null, the account's default, is not a pick: pressing the tab already showing still picks it)
     LIB_MODE = m; FOCUS_LID = null;
     document.querySelectorAll(".lib-modes .lib-mode").forEach((b) => {
       const on = b.id === `lib-mode-${m}`;
@@ -3037,6 +3127,22 @@ function renderLibrary(head, body) {
   paintLibraryList();
 }
 
+/** A brand with no scripts yet is still a place the creator has to be able to open (the rail no longer lists brands), so
+    Library shows it as a group of its own with nothing in it. */
+function bareBrandGroupHtml(b) {
+  return `<details class="lib-group lib-group-bare" data-gid="${escapeHtml(b.id)}">
+    <summary class="lib-group-head">
+      <button type="button" class="lib-group-name linkish" data-bid="${escapeHtml(b.id)}">${escapeHtml(b.name || "Untitled company")}</button>
+      <span class="lib-group-meta">no scripts yet</span>
+    </summary>
+  </details>`;
+}
+/** A brand's name opens that brand's page. */
+function wireBrandNames(host) {
+  host.querySelectorAll(".lib-group-name[data-bid]").forEach((el) =>
+    el.addEventListener("click", () => go({ kind: "brand", id: el.dataset.bid })));
+}
+
 /** Just the list — so a keystroke in the search box does not rebuild the
     composer underneath the cursor. */
 function paintLibraryList() {
@@ -3050,8 +3156,9 @@ function paintLibraryList() {
       <p>Find a video worth remaking, paste the link, and pick who it's for. We write the script
       and it shows up here — one entry per video, however many companies you script it for.</p>
       <div class="bp-actions"><button type="button" class="btn" id="lib-empty-cta">Add your first script</button></div>
-    </div>`;
+    </div>${ME.brands.map((b) => bareBrandGroupHtml(b)).join("")}`;
     host.querySelector("#lib-empty-cta").addEventListener("click", () => go({ kind: "new" }));
+    wireBrandNames(host);
     return;
   }
 
@@ -3090,7 +3197,7 @@ function paintLibraryList() {
     const tagged = taggedVideoCount();
     tally.textContent =
       shown.length !== saved ? `${shown.length} of ${saved}`
-      : (LIB_MODE === "all" || LIB_MODE === "original") && tagged !== saved
+      : (libMode() === "all" || libMode() === "original") && tagged !== saved
         ? `${tagged} tagged of ${saved} saved`
         : "";
   }
@@ -3107,13 +3214,13 @@ function paintLibraryList() {
     return;
   }
 
-  if (LIB_MODE === "brand") {
+  if (libMode() === "brand") {
     // One block per company, so "what does Cloey actually have?" is answerable
     // at a glance. A video reused across three companies appears under each —
     // that repetition IS the answer to the question this view asks.
     const blocks = ME.brands.map((b) => {
       const items = shown.filter((it) => libScripts(it).some((a) => a.brandId === b.id));
-      if (!items.length) return "";
+      if (!items.length) return q ? "" : bareBrandGroupHtml(b);     // not while searching: a brand with nothing to match is noise
       const ready = ME.adaptations.filter((a) => a.brandId === b.id && a.status === "done").length;
       const busy = ME.adaptations.filter((a) => a.brandId === b.id && isWriting(a)).length;
       /* A DETAILS, OPEN BY DEFAULT (owner, 2026-08-26: "add a box around the
@@ -3156,9 +3263,8 @@ function paintLibraryList() {
        causing it. */
     host.innerHTML = (blocks + loose("Not scripted yet", orphans, "saved, not tagged yet"))
       || `<div class="empty"><p>No scripts yet. Send a link and they'll group by brand here.</p></div>`;
-    host.querySelectorAll(".lib-group-name[data-bid]").forEach((el) =>
-      el.addEventListener("click", () => go({ kind: "brand", id: el.dataset.bid })));
-  } else if (LIB_MODE === "original") {
+    wireBrandNames(host);
+  } else if (libMode() === "original") {
     /* Every video that has an original script — NOT just the ones whose only
        script is original. A video can be scripted for a company AND have the
        video's own words kept; asking for original scripts should show that one
@@ -3526,6 +3632,34 @@ const BILLING_LIVE = true;
    BILLING_LIVE = false still hides it: that switch stops everything. */
 const PORTAL_LIVE = true;
 const portalOn = () => BILLING_LIVE && (PORTAL_LIVE || location.origin === "http://localhost:8811");
+
+/* SETUP STEPPER, PROFILES AND THE GOAL (plan lynxr-onboarding-and-post-tracking.md, 2026-10), reshaped for UGC creators on
+   2026-10-03 (plan lynxr-ugc-pivot.md): lynxr is the ugc creator tool, so the priority, the goal and the numbers that
+   follow are about brand deals, rates and the videos on the creator's linked accounts. */
+const ONBOARD_LIVE = true;                    // kill switch: the setup stepper (both hosts), the Settings marker, the profile UI
+const PROFILES_MAX = 4;                       // mirrors supabase/profiles.sql
+const TRACKING_LIVE = true;                   // kill switch: the Posts view and its link in the rail (the data comes from the pipeline)
+const GOAL_WEEK_DAY = 7, GOAL_LAST_N = 5;     // perform goal: the average views at day 7 over the latest 5 tracked videos
+/* What a creator can name as their main priority, and the goal chips that go with it. The stored target is the number:
+   "10+" brand deals stores 10 and "$1k+" stores 1000 (goalChipLabel / goalLabel say it back). Progress per priority:
+     deals    the deals the creator logged this calendar month (ME.deals), no tracking involved
+     rate     the creator's own current rate (ME.rate), self-reported
+     perform  the average views at day 7 over the latest 5 videos lynxr tracks on the creator's linked accounts (lynxr_posts)
+     grow     the followers of the creator's own verified profiles */
+const GOAL_KINDS = {
+  deals:   { steps: [1, 3, 5, 10] },
+  rate:    { steps: [100, 250, 500, 1000] },
+  perform: { steps: [1000, 10000, 100000, 1000000] },
+  grow:    { steps: [1000, 10000, 100000, 1000000] },
+};
+const PRIORITIES = Object.keys(GOAL_KINDS);
+const PRIORITY_LABEL = { deals: "Land more brand deals", rate: "Raise my rates", perform: "Make videos that perform for brands", grow: "Grow my own account" };
+/* What an older build stored, mapped on read (migrateUgc). Engagement was likes per video: no UGC priority fits it. */
+const LEGACY_PRIORITY = { views: "perform", followers: "grow", engagement: "grow" };
+const DEALS_KEEP = 300;                       // logged deals kept on the row (the row is bounded at 1 MB)
+const SETUP_SEEN_KEY = "lynxr_setup_seen";    // sessionStorage: the overlay already opened by itself in this tab
+const SETUP_ALL_MANDATORY = ["tiktok_code", "instagram_code"];   // profiles are optional again (owner 2026-10-03), but once a username is entered its bio code must be found
+const SETUP_ALL = ["priority", "goal", "tiktok", "tiktok_code", "instagram", "instagram_code"];  // the full stepper, in order
 
 /* PRO'S NUMBERS COME FROM THE LEDGER. lynxr_billing_plans is the one enforcing
    place for the fair-use cap, and hardcoding it here meant this page said 300
@@ -3985,6 +4119,8 @@ function renderPlan(head, body) {
             ? `<li>${freeGrant} scripts in any ${freePeriod} days</li>
                <li>Each one frees up ${freePeriod} days after you write it</li>`
             : `<li>${freeGrant} scripts for the life of the account</li>`}
+          <li>Post tracking &mdash; lynxr follows every video on the TikTok and Instagram accounts you link</li>
+          <li>Basic coaching tips <span class="plan-dim">Coming soon</span></li>
           <li>Everything you write stays yours, on any plan</li>
         </ul>
         ${cardCta("free", "", "")}
@@ -4004,13 +4140,15 @@ function renderPlan(head, body) {
             : `<li>Fair use applies, so one account can't run up an unlimited bill
                  <span class="plan-dim">The limit shows here once your plan loads</span></li>`}
           <li>Cancel any time; access runs to the end of the period you've paid for</li>
+          <li>Post tracking of the TikTok and Instagram accounts you link</li>
+          <li>More coaching tips <span class="plan-dim">Coming soon</span></li>
           <li>14-day money-back on your first payment</li>
         </ul>
         ${gain}
         ${cardCta("pro", "Upgrade to pro", "Not open for checkout right now")}
       </li>
 
-      ${/* MAX: ANNOUNCED, NOT SOLD. Neither feature it is sold on exists yet,
+      ${/* MAX: ANNOUNCED, NOT SOLD. The coach it is sold on does not exist yet (post tracking is live on every plan),
             and lynxr_billing_plans holds no price id for it — so asking to buy
             it is refused by the edge function itself, not merely hidden in
             this markup. planForSale('max') flips the day the owner sets that
@@ -4021,10 +4159,8 @@ function renderPlan(head, body) {
         <p class="lp-plan-tax">Plus tax where applicable</p>
         <ul class="lp-plan-list">
           <li>Everything in pro, with a higher ceiling${max && max.granted ? `: ${planFairUse(max)}` : ""}</li>
-          <li>Post tracking &mdash; lynxr follows how your public TikTok or Instagram videos do
-            <span class="plan-dim">Not built yet</span></li>
-          <li>A coach that reads those numbers back and says what to make next
-            <span class="plan-dim">Not built yet</span></li>
+          <li>Full coaching and advice &mdash; a coach that reads your tracked numbers back and says what to make next
+            <span class="plan-dim">Coming soon</span></li>
         </ul>
         ${cardCta("max", "Upgrade to max", "Not on sale yet")}
       </li>
@@ -4127,6 +4263,8 @@ function renderYou(head, body) {
      scripts / account). Markup only: every id, and so every handler below,
      is unchanged, and the one Save still reads all of the fields. */
   body.innerHTML = `
+    ${/* "Finish setup": filled by paintSetupDue() while any applicable setup step is unanswered. First, so it is seen. */""}
+    <div class="section me-card setup-due-card" id="setup-due-card" hidden></div>
     <div class="section me-card">
       <h2 class="me-card-h">You</h2>
       <div class="ce-grid">
@@ -4184,6 +4322,9 @@ function renderYou(head, body) {
       <p class="bp-msg" id="me-msg" role="status" aria-live="polite"></p>
     </div>
 
+    ${/* Goal, the profiles lynxr verifies, and the creators you look up to. Filled by paintProfiles(). */""}
+    <div class="section me-card" id="prof-card" hidden></div>
+
     <div class="section me-card">
       <h2 class="me-card-h">Deleted scripts <span class="pill">${(ME.trash || []).length}</span></h2>
       <div id="trash-list"></div>
@@ -4196,6 +4337,7 @@ function renderYou(head, body) {
             appeared before the thing they would sign out of or delete — you
             read the action, then found out whose account it was. */""}
       ${SB_EMAIL ? `<p class="note me-who">${escapeHtml(SB_EMAIL)}</p>` : ""}
+      ${TOUR_LIVE ? `<p class="note me-tour"><button type="button" class="linkish" id="replay-tour">Replay tour</button></p>` : ""}
       ${/* .me-actions opts this row out of the phone rule that makes action
             buttons grow to fill the row. That rule is right on a script card,
             where the buttons are the point and want big tap targets — here it
@@ -4259,6 +4401,7 @@ function renderYou(head, body) {
   // Single click: signing out is reversible, so the two-click arm the repo
   // uses for real deletes would just be friction. It already sits behind a
   // page rather than in the rail, which is the protection that matters.
+  document.getElementById("replay-tour")?.addEventListener("click", () => startTour(true));
   document.getElementById("signout").addEventListener("click", () => {
     clearSession();
     // The mirror goes with the session. A phone gets handed around, and the
@@ -4343,6 +4486,8 @@ function renderYou(head, body) {
     save();
   });
 
+  paintSetupDue();
+  paintProfiles();
 }
 
 /** The trash list inside Settings. Restore puts a script back on its company;
@@ -5765,6 +5910,15 @@ const scriptsUsedWindow = () => {
    server number is closer to the truth than the local one, which the creator
    can edit. */
 let ALLOWANCE = null;  // { used, granted, periodDays, plan, dailyMax, used24h, nextRoomAt } or null
+// The profiles table's rows (null = not loaded, or supabase/profiles.sql not applied: the profile steps then do not apply),
+// and the in-memory copy of "the setup window already opened in this tab" for when sessionStorage is blocked.
+let PROFILES = null; let SETUP_SEEN_MEM = false;
+// The tracked videos (each with its lynxr_post_views snapshots) and the daily follower counts: null until first read.
+// POSTS_STATE: idle | loading | ok | error. Both tables are written by the pipeline only; a creator can only read them.
+let POSTS = null; let FOLLOWERS = null; let POSTS_STATE = "idle";
+// The sidebar walkthrough: TOUR is the live run (null = none), SETUP_DECIDED turns true once the setup stepper has either
+// opened or been ruled out for this visit (the tour never starts before that), TOUR_TIMER holds the pending start.
+let TOUR = null; let TOUR_TIMER = null; let SETUP_DECIDED = false;
 
 /** How many more scripts this account may write, and out of how many.
     A COURTESY, not the enforcement point — the worker charges against the
@@ -5839,6 +5993,1741 @@ async function refreshAllowance() {
                 dailyMax: Number(r?.daily_max) || 0, used24h: Number(r?.used_24h) || 0,
                 nextRoomAt: typeof r?.next_room_at === "string" ? r.next_room_at : null };
   renderSide();
+}
+
+/* ---------- SETUP, PROFILES AND THE GOAL: data layer ----------
+   Plan: ~/.claude/plans/lynxr-onboarding-and-post-tracking.md (Phase A, as revised by the owner 2026-10-01: ACCOUNT FIRST).
+   The account exists before any question is asked, so every answer is saved straight to its place:
+   - the creator's own row (ME.priority, ME.goal, ME.setup), written through save() like everything else;
+   - lynxr_profiles (PROFILES), a table the creator can read but never write: verification state must not be
+     theirs to set, so every change goes through an RPC (the database also makes the bio code). */
+
+const PLAT_NAME = { tiktok: "TikTok", instagram: "Instagram" };
+
+/** The creator's profiles, from the table. Silent on failure: with the SQL not applied, or offline, the old
+    value (null at first) stays and the profile steps simply do not apply. */
+async function refreshProfiles() {
+  if (!ONBOARD_LIVE) return;
+  try {
+    const rows = await sbFetch("/rest/v1/lynxr_profiles?select=platform,handle,verify_code,verified_at,status,verify_tries,last_checked_at,last_scan_ok_at&order=added_at.asc");
+    if (Array.isArray(rows)) PROFILES = rows;
+  } catch { /* keep the old value */ }
+  if (typeof paintProfiles === "function") paintProfiles();
+  if (typeof paintSetupDue === "function") paintSetupDue();
+  if (typeof paintHome === "function") paintHome();
+}
+
+/** A username out of what a person typed or pasted: "@Name", "name", a profile link. Pure.
+    -> { ok: true, platform: "tiktok" | "instagram" | null, handle } or { ok: false, why }. */
+function parseHandle(raw, platform = null) {
+  let s = String(raw || "").trim();
+  if (!s) return { ok: false, why: "shape" };
+  if (/^https?:\/\//i.test(s) || /(^|\.)(tiktok|instagram)\.com\b/i.test(s) || /\.[a-z]{2,}\//i.test(s)) {
+    let u;
+    try { u = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`); } catch { return { ok: false, why: "shape" }; }
+    const host = u.hostname.toLowerCase().replace(/^(www\.|m\.)/, "");
+    const segs = u.pathname.split("/").filter(Boolean);
+    if (host === "tiktok.com" || host.endsWith(".tiktok.com")) {
+      const at = segs.find((x) => x.startsWith("@"));
+      if (!at) return { ok: false, why: "post" };
+      platform = "tiktok"; s = at;
+    } else if (host === "instagram.com") {
+      const first = (segs[0] || "").toLowerCase();
+      if (!first || ["p", "reel", "reels", "tv", "stories", "explore", "accounts"].includes(first)) return { ok: false, why: "post" };
+      platform = "instagram"; s = first;
+    } else return { ok: false, why: "host" };
+  }
+  const h = s.replace(/^@/, "").toLowerCase();
+  if (!/^[a-z0-9._]{1,30}$/.test(h)) return { ok: false, why: "shape" };
+  return { ok: true, platform, handle: h };
+}
+
+const HANDLE_WHY = {
+  shape: "That doesn't look like a username.",
+  host: "TikTok or Instagram only.",
+  post: "That's a video link — use the profile link or @name.",
+  bad_handle: "That doesn't look like a username.",
+  wrong_tiktok: "That's an Instagram link — this one is for TikTok.",
+  wrong_instagram: "That's a TikTok link — this one is for Instagram.",
+  taken: "Another lynxr account verified that profile. Email hello@lynxr.io if it's yours.",
+  too_many_profiles: "That's 4 profiles — remove one in Settings first.",
+  too_many: "That's too many checks for this profile — email hello@lynxr.io.",
+  no_profile: "That profile isn't waiting for a check.",
+  network: "Couldn't save that — try again.",
+};
+
+/** The metric the goal is about: the priority picked, else the goal's own, else null (nothing chosen yet). */
+const goalMetric = () => (GOAL_KINDS[ME.priority] ? ME.priority : GOAL_KINDS[ME.goal?.metric] ? ME.goal.metric : null);
+
+/** What an older build stored, in the UGC vocabulary. views -> perform, followers -> grow, engagement -> grow; a goal whose
+    metric no longer fits is cleared (engagement was likes per video, which no UGC priority measures), and so is a goal that
+    belongs to a different priority than the one picked. A cleared goal's step is asked again. Returns whether anything
+    changed, so the caller saves only then. Pure apart from ME. */
+function migrateUgc() {
+  let changed = false;
+  const clearGoal = () => {
+    ME.goal = null;
+    if (ME.setup?.steps) delete ME.setup.steps.goal;
+    changed = true;
+  };
+  if (ME.priority && LEGACY_PRIORITY[ME.priority]) { ME.priority = LEGACY_PRIORITY[ME.priority]; changed = true; }
+  else if (ME.priority && !GOAL_KINDS[ME.priority]) { ME.priority = null; changed = true; }
+  const g = ME.goal;
+  if (g !== null && g !== undefined) {
+    if (!g || typeof g !== "object") clearGoal();
+    else if (g.metric === "engagement") clearGoal();
+    else {
+      const m = LEGACY_PRIORITY[g.metric] || g.metric;
+      if (!GOAL_KINDS[m] || !GOAL_KINDS[m].steps.includes(Number(g.target))) clearGoal();
+      else {
+        if (m !== g.metric) { g.metric = m; changed = true; }
+        if (ME.priority && ME.priority !== m) clearGoal();
+      }
+    }
+  }
+  return changed;
+}
+
+/** The text on a goal chip: "1" "3" "5" "10+" / "$100" ... "$1k+" / "1k" "10k" "100k" "1m". */
+function goalChipLabel(n, metric = goalMetric()) {
+  if (metric === "deals") return n >= 10 ? "10+" : String(n);
+  if (metric === "rate") return n >= 1000 ? "$1k+" : `$${n}`;
+  return viewsLabel(n);
+}
+/** The goal said back as a phrase: "5 brand deals a month", "$500 a video", "10k views on each video", "10k followers". */
+function goalLabel(n, metric = goalMetric()) {
+  switch (metric) {
+    case "deals": return `${goalChipLabel(n, "deals")} brand ${n === 1 ? "deal" : "deals"} a month`;
+    case "rate": return `${goalChipLabel(n, "rate")} a video`;
+    case "perform": return `${viewsLabel(n)} views on each video`;
+    case "grow": return `${viewsLabel(n)} followers`;
+    default: return "";
+  }
+}
+/** The question that asks for the goal, and the line under it. */
+const GOAL_ASK = {
+  deals:   ["How many brand deals a month?", "Your goal. You can change it in Settings."],
+  rate:    ["What rate per video are you aiming for?", "In US dollars. You can change it in Settings."],
+  perform: ["How many views on each video?", "Your goal. You can change it in Settings."],
+  grow:    ["How many followers are you aiming for?", "Across your own accounts. You can change it in Settings."],
+};
+
+function setGoal(n) {
+  const metric = goalMetric();
+  ME.goal = n && metric ? { metric, target: n, at: new Date().toISOString() } : null;
+  setupMark("goal", "done");
+  save();
+}
+/** The main priority. A goal under another priority means nothing under a new one, so it is cleared and its step asked again. */
+function setPriority(p) {
+  if (!GOAL_KINDS[p]) return;
+  ME.priority = p;
+  if (ME.goal && ME.goal.metric !== p) {
+    ME.goal = null;
+    if (ME.setup?.steps) delete ME.setup.steps.goal;
+  }
+  setupMark("priority", "done");
+  save();
+}
+
+/* ---- brand deals (self-logged) and the current rate (self-reported): both live in the creator's own row, no SQL ---- */
+
+/** The deals logged in the current calendar month (local time). */
+function dealsThisMonth(now = new Date()) {
+  return (Array.isArray(ME.deals) ? ME.deals : []).filter((d) => {
+    const t = new Date(d?.at);
+    return !isNaN(t.getTime()) && t.getFullYear() === now.getFullYear() && t.getMonth() === now.getMonth();
+  }).length;
+}
+/** Log one deal; the brand is optional and at most 60 characters. Returns the entry. */
+function logDeal(brand) {
+  const entry = { at: new Date().toISOString(), brand: String(brand || "").replace(/[\u0000-\u001f]+/g, " ").trim().slice(0, 60) };
+  ME.deals = [...(Array.isArray(ME.deals) ? ME.deals : []), entry].slice(-DEALS_KEEP);
+  save();
+  return entry;
+}
+/** Take the last logged deal back. Returns the entry removed, or null. */
+function undoDeal() {
+  if (!Array.isArray(ME.deals) || !ME.deals.length) return null;
+  const gone = ME.deals[ME.deals.length - 1];
+  ME.deals = ME.deals.slice(0, -1);
+  save();
+  return gone;
+}
+/** The current rate per video in whole US dollars, or null to clear it. Returns whether it was accepted. */
+function setRate(raw) {
+  const t = String(raw ?? "").trim();
+  if (!t) { ME.rate = null; save(); return true; }
+  const n = Math.round(Number(t.replace(/[$,\s]/g, "")));
+  if (!Number.isFinite(n) || n < 1 || n > 1000000) return false;
+  ME.rate = { usd: n, at: new Date().toISOString() };
+  save();
+  return true;
+}
+const rateNow = () => (ME.rate && Number(ME.rate.usd) > 0 ? Number(ME.rate.usd) : null);
+
+/** One RPC on the profiles table. A failure is an answer, never a throw. */
+async function profileRpc(fn, args) {
+  try {
+    return await sbFetch(`/rest/v1/rpc/${fn}`, { method: "POST", body: JSON.stringify(args) });
+  } catch { return { ok: false, why: "network" }; }
+}
+
+/** Add a profile (the database makes its bio code). `platform` is the screen's own platform: a link for the
+    other one is refused. -> { ok, verify_code, ... } or { ok: false, why }. */
+async function saveProfile(platform, raw) {
+  const p = parseHandle(raw, platform);
+  if (!p.ok) return p;
+  if (p.platform && p.platform !== platform) return { ok: false, why: `wrong_${platform}` };
+  const r = await profileRpc("set_my_profile", { p_platform: platform, p_handle: p.handle });
+  if (r && r.ok) await refreshProfiles();
+  return r || { ok: false, why: "network" };
+}
+
+async function removeProfile(platform, handle) {
+  const r = await profileRpc("remove_my_profile", { p_platform: platform, p_handle: handle });
+  await refreshProfiles();
+  return r === true;
+}
+
+/** Ask the worker to look at a profile's bio now. It answers within minutes (TikTok) — the extra refreshes
+    pick the verdict up without the creator reloading. */
+async function checkProfile(platform, handle) {
+  const r = await profileRpc("request_profile_check", { p_platform: platform, p_handle: handle });
+  if (r && r.ok) { setTimeout(refreshProfiles, 90e3); setTimeout(refreshProfiles, 360e3); }
+  return r || { ok: false, why: "network" };
+}
+
+/* ---- the setup state ---- */
+
+/** Record one step: "done" | "skipped" | "later". The caller save()s. */
+function setupMark(id, value) {
+  if (!ME.setup || typeof ME.setup !== "object") ME.setup = { v: 1, steps: {}, at: null };
+  if (!ME.setup.steps || typeof ME.setup.steps !== "object") ME.setup.steps = {};
+  ME.setup.steps[id] = value;
+  ME.setup.at = new Date().toISOString();
+}
+
+/** A step's state: what was recorded, else what the data already shows, else null (still to ask). */
+function setupStatus(id) {
+  // A bio code cannot be skipped: only the data answers it. The username screens can (profiles are optional, 2026-10-03),
+  // and the goal and priority screens too.
+  const rec = SETUP_ALL_MANDATORY.includes(id) ? null : ME.setup?.steps?.[id];
+  if (rec) return rec;
+  if (id === "priority") return ME.priority ? "done" : null;
+  if (id === "goal") return ME.goal ? "done" : null;
+  if (id === "tiktok" || id === "instagram") return (PROFILES || []).some((p) => p.platform === id) ? "done" : null;
+  if (id === "tiktok_code" || id === "instagram_code") {
+    const plat = id.replace("_code", "");
+    return (PROFILES || []).some((p) => p.platform === plat && p.verified_at) ? "done" : null;
+  }
+  return null;
+}
+
+/** Does this step exist for this account right now? The goal needs a priority; the profile steps need the table; a code screen
+    needs a profile. */
+function setupApplies(id) {
+  if (id === "goal") return !!GOAL_KINDS[ME.priority];          // the goal is asked about the priority picked: no priority, no goal question
+  if (id === "tiktok" || id === "instagram") return Array.isArray(PROFILES);
+  if (id === "tiktok_code" || id === "instagram_code") {
+    const plat = id.replace("_code", "");
+    return Array.isArray(PROFILES) && PROFILES.some((p) => p.platform === plat);
+  }
+  return true;
+}
+/* What counts as "left to do" (the Settings dot, the Finish setup card, whether the overlay opens by itself): the priority, the goal
+   that follows it, and the bio code of a username that was entered. The username screens are asked in the stepper but never counted:
+   profiles are optional (owner 2026-10-03). */
+const SETUP_COUNTED = ["priority", "goal", "tiktok_code", "instagram_code"];
+const setupPending = () => SETUP_COUNTED.filter((id) => setupApplies(id) && !setupStatus(id));
+const setupUnfinished = () => ONBOARD_LIVE && setupPending().length > 0;
+
+/* Has the overlay already opened by itself in this tab? (sessionStorage, with an in-memory copy.) */
+function setupSeen() {
+  try { if (sessionStorage.getItem(SETUP_SEEN_KEY) === "1") return true; } catch {}
+  return SETUP_SEEN_MEM;
+}
+function markSetupSeen() {
+  SETUP_SEEN_MEM = true;
+  try { sessionStorage.setItem(SETUP_SEEN_KEY, "1"); } catch {}
+}
+
+/* ---- the name the stepper greets ---- */
+const NAME_GENERIC = new Set(["info", "hello", "contact", "admin", "creator", "team", "mail", "me", "hi", "support", "official", "the", "its", "im"]);
+const capFirst = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+/** A first name out of an email address, or "". Drops everything after "+", splits on . _ - and digits, and takes the
+    first token only if it looks like a name: 2-15 letters, not a generic word, no letter three times running, and at
+    least one vowel. Pure. */
+function nameFromEmail(email) {
+  const local = String(email || "").split("@")[0].split("+")[0];
+  const tok = local.split(/[._\-\d]+/).find(Boolean) || "";
+  if (!/^[a-z]{2,15}$/i.test(tok)) return "";
+  const t = tok.toLowerCase();
+  if (NAME_GENERIC.has(t) || /(.)\1\1/.test(t) || !/[aeiouy]/.test(t)) return "";
+  return capFirst(t);
+}
+
+/** Google's given_name, else the first word of its full name, else the email's first name, else "". Every caller
+    puts the result on screen through textContent or escapeHtml: it is the user's own data. */
+function setupName() {
+  const md = loadSession()?.user?.user_metadata || LINK_USER?.user_metadata || {};
+  const clean = (v) => String(v || "").replace(/[\u0000-\u001f<>]/g, "").trim();
+  const g = clean(md.given_name) || clean(md.full_name || md.name).split(/\s+/)[0];
+  if (g) return capFirst(g.slice(0, 30));
+  return nameFromEmail(SB_EMAIL);
+}
+
+/** A brand-new account: made in the last day and never started setup. It gets the full-screen first run; everyone else
+    the overlay. A session with no created_at (none known) counts as existing. */
+function isNewAccount() {
+  if (ME.setup) return false;
+  const t = Date.parse(loadSession()?.user?.created_at || LINK_USER?.created_at || "");
+  return Number.isFinite(t) && Date.now() - t < 24 * 3600e3;
+}
+
+/* ---------- THE SETUP STEPPER: one question per screen ----------
+   One renderer, one host (#setup-modal). A NEW account gets it full-screen straight after its first sign-in, opening on a
+   welcome screen; an existing account that has not finished gets it as an overlay (once per tab session) plus the
+   Settings dot and the "Finish setup" card. Closing is not finishing: nothing is marked done by closing.
+   The copy echoes earlier answers (name, first creator, goal). Every value on screen goes through textContent.
+   renderSetup never calls renderPane(). */
+let SETUP_AT = null;       // the current screen id
+let SETUP_FULL = false;    // full-screen first run, with a welcome screen
+
+const setupHost = () => document.getElementById("setup-body-post");
+const setupOrder = () => [...(SETUP_FULL ? ["welcome"] : []), ...SETUP_ALL.filter(setupApplies), "done"];
+/** Where the stepper opens: the first thing that counts as left to do, else the first unanswered (optional) screen, else the end. */
+const setupFirstPending = () => SETUP_ALL.filter(setupApplies).find((id) => SETUP_COUNTED.includes(id) && !setupStatus(id))
+  || SETUP_ALL.filter(setupApplies).find((id) => !setupStatus(id)) || "done";
+/** The next pending id after the current one, else the "done" screen. */
+function setupNext() {
+  const o = setupOrder();
+  return o.slice(o.indexOf(SETUP_AT) + 1).find((id) => id !== "done" && id !== "welcome" && !setupStatus(id)) || "done";
+}
+/** The previous question, whatever its status. null on the first (the welcome screen is not a question). */
+function setupBack() {
+  const o = setupOrder();
+  const pv = o[o.indexOf(SETUP_AT) - 1];
+  return pv && pv !== "welcome" ? pv : null;
+}
+
+/** [question, one-line why] for a screen, echoing what the creator already said. Plain strings: callers use textContent. */
+function setupCopy(id) {
+  const name = setupName();
+  const goal = ME.goal?.target;
+  const metric = goalMetric();
+  const plat = id.replace("_code", "");
+  const hasTikTok = (PROFILES || []).some((p) => p.platform === "tiktok");
+  const optional = "Link the accounts you post on and lynxr tracks every video automatically. Skip if you don't post your own.";
+  switch (id) {
+    case "welcome":
+      return [name ? `Hey ${name}! I'm lynxr, your UGC buddy.` : "Hey! I'm lynxr, your UGC buddy.",
+        "Let's land your next brand deal. A few quick questions, and you can skip any of them."];
+    case "priority":
+      return [name ? `${name}, what's your main priority?` : "What's your main priority?", "Pick one. You can change it later."];
+    case "goal":
+      return GOAL_ASK[metric] || GOAL_ASK.perform;
+    case "tiktok":
+      return ["Where do you post your own content?", optional];
+    case "instagram":
+      return [hasTikTok ? "And on Instagram?" : "Do you post on Instagram?", optional];
+    case "tiktok_code":
+    case "instagram_code":
+      return [`One thing${name ? `, ${name}` : ""}: put this in your ${PLAT_NAME[plat]} bio`,
+        "Add it to your bio and save, then press the button. You can take it out once you're verified."];
+    default: {
+      const bits = [];
+      if (goal) bits.push(`Goal: ${goalLabel(goal, ME.goal.metric)}.`);
+      else if (ME.priority) bits.push(`Priority: ${PRIORITY_LABEL[ME.priority].toLowerCase()}.`);
+      return [name ? `You're set, ${name}!` : "You're set!", bits.join(" ") || "Settings has your goal and profiles."];
+    }
+  }
+}
+
+/** The x's face for a screen, from the moods avatar.js already has: happy to greet, curious for the first two questions,
+    its plain blink for usernames, talking (encouraging) for the bio code, starry-eyed when done. */
+const setupMood = (id) => ({ welcome: "done", priority: "reading", goal: "reading", tiktok_code: "coaching", instagram_code: "coaching", done: "hyped" }[id] || "idle");
+const setupReducedMotion = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+let SETUP_BUSY = false;
+/** A chip was tapped: the x does a quick happy hop (under 300ms) and then the next screen comes up. Without motion, at once. */
+function setupCelebrate(then) {
+  if (SETUP_BUSY) return;
+  const av = setupHost()?.querySelector(".setup-av");
+  if (!av || setupReducedMotion()) { then(); return; }
+  SETUP_BUSY = true;
+  lynxrMood(av.querySelector(".lx"), "done");
+  av.classList.remove("hop");
+  void av.offsetWidth;                       // restart the animation if it already ran
+  av.classList.add("hop");
+  setTimeout(() => { SETUP_BUSY = false; then(); }, 260);
+}
+
+/** The goal chips, shared by the stepper and Settings. */
+const goalChipsHtml = (selected, labelId, metric = goalMetric()) => !GOAL_KINDS[metric] ? "" :
+  `<div class="setup-chips goal-chips" role="group" aria-labelledby="${escapeHtml(labelId || "setup-q-post")}">`
+  + GOAL_KINDS[metric].steps.map((n) => `<button type="button" class="chip pick goal-chip" data-goal="${n}" aria-pressed="${selected === n ? "true" : "false"}">${escapeHtml(goalChipLabel(n, metric))}</button>`).join("")
+  + `</div>`;
+
+/** The priority chips, shared by the stepper and Settings. */
+const priorityChipsHtml = (selected, labelId) =>
+  `<div class="setup-chips prio-chips" role="group" aria-labelledby="${escapeHtml(labelId || "setup-q-post")}">`
+  + PRIORITIES.map((p) => `<button type="button" class="chip pick prio-chip" data-priority="${p}" aria-pressed="${selected === p ? "true" : "false"}">${escapeHtml(PRIORITY_LABEL[p])}</button>`).join("")
+  + `</div>`;
+
+/** The newest profile of a platform that is still waiting for its code to be seen. */
+const setupCodeProfile = (plat) => [...(PROFILES || [])].filter((p) => p.platform === plat && !p.verified_at).pop() || null;
+
+function renderSetup() {
+  const host = setupHost();
+  if (!host) return;
+  const order = setupOrder();
+  if (!order.includes(SETUP_AT)) SETUP_AT = setupFirstPending();
+  const id = SETUP_AT;
+  const steps = order.filter((x) => x !== "done" && x !== "welcome");
+  const at = steps.indexOf(id);
+  const [q, why] = setupCopy(id);
+  const plat = id.replace("_code", "");
+  let control = "", nav = "", prefill = null, savedLine = null, codeText = null;
+  const back = setupBack() ? `<button type="button" class="linkish" data-setup="back">Back</button>` : "";
+  const navRow = (inner) => `<div class="setup-nav">${back}<span class="setup-nav-r">${inner}</span></div>`;
+  // Profiles are OPTIONAL again (owner 2026-10-03): a username screen has Back, Skip and Next. What stays mandatory is the bio
+  // code of a username that was entered (back or "use a different username" takes it out).
+  const nextOnly = `<button type="button" class="linkish" data-setup="skip">Skip</button><button type="button" class="btn" data-setup="next">Next</button>`;
+  const field = (ph, label) => `<form class="setup-form" novalidate><label class="lbl setup-in-lbl" for="setup-in-post">${label}</label>`
+    + `<input type="text" class="setup-in" id="setup-in-post" placeholder="${ph}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="setup-why-post"></form>`;
+  if (id === "welcome") {
+    nav = `<div class="setup-nav setup-nav-c"><button type="button" class="btn" data-setup="start">Let's go</button></div>`
+      + `<p class="setup-notnow"><button type="button" class="linkish" data-setup="notnow">Not now</button></p>`;
+  } else if (id === "priority") {
+    control = priorityChipsHtml(ME.priority, "setup-q-post");
+    nav = navRow(`<button type="button" class="linkish" data-setup="skip">Skip</button>`);
+  } else if (id === "goal") {
+    control = goalChipsHtml(ME.goal?.target, "setup-q-post");
+    nav = navRow(`<button type="button" class="linkish" data-setup="skip">Skip</button>`);
+  } else if (id === "tiktok" || id === "instagram") {
+    const have = (PROFILES || []).find((p) => p.platform === id);
+    if (have) {
+      control = `<p class="setup-saved"></p>`
+        + (have.verified_at ? "" : `<p class="setup-notnow"><button type="button" class="linkish" data-setup="change">Use a different username</button></p>`);
+      savedLine = `@${have.handle} — saved. Manage profiles in Settings.`;
+      nav = navRow(`<button type="button" class="btn" data-setup="next">Next</button>`);
+    } else {
+      control = field("@name", `${PLAT_NAME[id]} username`);
+      nav = navRow(nextOnly);
+    }
+  } else if (id === "tiktok_code" || id === "instagram_code") {
+    const p = setupCodeProfile(plat);
+    if (p) {
+      control = `<p class="setup-code-row"><code class="setup-code" id="setup-code-post"></code> <button type="button" class="ghost" data-setup="copy">Copy</button></p>`;
+      codeText = p.verify_code;
+      nav = navRow(`<button type="button" class="btn" data-setup="checkbio">Check my bio</button>`);
+    } else {
+      control = `<p class="setup-saved"></p>`;
+      savedLine = "That profile is verified. You can take the code out of your bio.";
+      nav = navRow(`<button type="button" class="btn" data-setup="next">Next</button>`);
+    }
+  } else {
+    control = `<button type="button" class="btn" data-setup="finish">Done</button>`;
+  }
+  const dots = at < 0 ? "" : `<div class="setup-dots" role="img" aria-label="Step ${at + 1} of ${steps.length}">`
+    + steps.map((s, i) => `<i${i === at ? ` class="on"` : setupStatus(s) ? ` class="done"` : ""}></i>`).join("") + `</div>`;
+  const av = typeof lynxrAvatar === "function"
+    ? `<div class="setup-av${id === "welcome" || id === "done" ? " hop" : ""}">${lynxrAvatar(setupMood(id), "setup-lx")}</div>` : "";
+  host.innerHTML = `${dots}${av}<h2 class="setup-q" id="setup-q-post"></h2><p class="setup-why" id="setup-why-post"></p>${control}<p class="setup-err" role="alert" hidden></p>${nav}`;
+  // User data (names, handles, codes) goes in as text, never as markup.
+  host.querySelector(".setup-q").textContent = q;
+  host.querySelector(".setup-why").textContent = why;
+  if (prefill !== null) host.querySelector(".setup-in").value = prefill;
+  if (savedLine) host.querySelector(".setup-saved").textContent = savedLine;
+  if (codeText) host.querySelector(".setup-code").textContent = codeText;
+  const f = host.querySelector(".setup-in") || host.querySelector('.goal-chip[aria-pressed="true"], .prio-chip[aria-pressed="true"]') || host.querySelector(".goal-chip, .prio-chip")
+    || host.querySelector('[data-setup="checkbio"]') || host.querySelector('[data-setup="start"]')
+    || host.querySelector('[data-setup="finish"]') || host.querySelector('[data-setup="next"]');
+  if (f) f.focus({ preventScroll: true });
+}
+
+function setupErr(text) {
+  const host = setupHost();
+  const el = host?.querySelector(".setup-err");
+  if (!el) return;
+  el.textContent = text;
+  el.hidden = false;
+  host.querySelector(".setup-in")?.setAttribute("aria-invalid", "true");
+}
+
+/** Go to the next screen. */
+function setupAdvance() {
+  paintSetupDue();
+  SETUP_AT = setupNext();
+  renderSetup();
+}
+
+function setupSkip() {
+  setupMark(SETUP_AT, "skipped");
+  save();
+  setupAdvance();
+}
+
+async function setupNextPress() {
+  const id = SETUP_AT;
+  const host = setupHost();
+  const input = host?.querySelector(".setup-in");
+  const val = input ? input.value : "";
+  if (id === "tiktok" || id === "instagram") {
+    if (!input) return setupAdvance();                          // a saved-profile screen: Next just advances
+    if (!String(val).trim()) return setupSkip();                // optional: an empty field is a skip
+    const p = parseHandle(val, id);
+    if (!p.ok) return setupErr(HANDLE_WHY[p.why]);
+    if (p.platform && p.platform !== id) return setupErr(HANDLE_WHY[`wrong_${id}`]);
+    const btn = host.querySelector('[data-setup="next"]');
+    if (btn) btn.disabled = true;
+    const r = await saveProfile(id, p.handle);
+    if (r && r.ok) { setupMark(id, "done"); save(); return setupAdvance(); }   // its code screen comes next
+    if (btn) btn.disabled = false;
+    return setupErr(HANDLE_WHY[r?.why] || HANDLE_WHY.network);
+  }
+  return setupAdvance();                                         // a code screen with nothing to code
+}
+
+/** A chip answer moves on by itself, to the very next screen in order (also when the creator came Back to re-answer: an
+    answered screen is not skipped). The tapped chip shows as selected first, then the short hop, then the screen. */
+function setupAdvanceChip(dataKey, value) {
+  const host = setupHost();
+  host?.querySelectorAll(".prio-chip, .goal-chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset[dataKey] === String(value))));
+  setupCelebrate(() => {
+    const o = setupOrder();
+    SETUP_AT = o[o.indexOf(SETUP_AT) + 1] || "done";
+    paintSetupDue();
+    renderSetup();
+  });
+}
+function setupPickPriority(p) {
+  if (!GOAL_KINDS[p] || SETUP_BUSY) return;
+  setPriority(p);
+  setupAdvanceChip("priority", p);
+}
+function setupPickGoal(n) {
+  const kind = GOAL_KINDS[goalMetric()];
+  if (!kind || !kind.steps.includes(n) || SETUP_BUSY) return;
+  setGoal(n);
+  setupAdvanceChip("goal", n);
+}
+
+async function onSetupClick(e) {
+  const prio = e.target.closest(".prio-chip");
+  if (prio) { setupPickPriority(prio.dataset.priority); return; }
+  const chip = e.target.closest(".goal-chip");
+  if (chip) { setupPickGoal(Number(chip.dataset.goal)); return; }
+  const b = e.target.closest("[data-setup]");
+  if (!b || b.disabled) return;
+  const act = b.dataset.setup;
+  const id = SETUP_AT;
+  const host = setupHost();
+  if (act === "start") { SETUP_AT = setupFirstPending(); renderSetup(); return; }
+  if (act === "notnow" || act === "finish") { closeSetupModal(); return; }
+  if (act === "next") { await setupNextPress(); return; }
+  if (act === "skip") { setupSkip(); return; }
+  if (act === "back") { const pv = setupBack(); if (pv) { SETUP_AT = pv; renderSetup(); } return; }
+  if (act === "copy") {
+    const codeEl = document.getElementById("setup-code-post");
+    if (!codeEl) return;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("no clipboard");
+      await navigator.clipboard.writeText(codeEl.textContent);
+      b.textContent = "Copied";
+    } catch {
+      try { getSelection().selectAllChildren(codeEl); } catch {}
+      const why = host.querySelector(".setup-why");
+      if (why) why.textContent = "Press and hold the code to copy it.";
+    }
+    return;
+  }
+  if (act === "change") {
+    // Back onto a username that was saved but not verified: remove it so the question can be answered again.
+    const prof = (PROFILES || []).find((x) => x.platform === id);
+    b.disabled = true;
+    if (prof) await removeProfile(id, prof.handle);
+    if (ME.setup?.steps) { delete ME.setup.steps[id]; delete ME.setup.steps[`${id}_code`]; }
+    save();
+    renderSetup();
+    return;
+  }
+  if (act === "checkbio") { await setupCheckBio(b); }
+}
+
+/** What to tell a creator whose bio check came back without a match. */
+function setupBioMessage(p) {
+  const h = `@${p.handle}`;
+  switch (p.status) {
+    case "private": return `${h} is private, so lynxr can't read it. Make it public, then try again.`;
+    case "not_found": return `lynxr couldn't find ${h}. Go back and check the spelling.`;
+    case "unavailable": return `${PLAT_NAME[p.platform] || "The platform"} didn't answer. Try again in a moment.`;
+    case "taken": return HANDLE_WHY.taken;
+    default: return `Couldn't find ${p.verify_code} in ${h}'s bio yet. Save your bio, then try again.`;
+  }
+}
+
+let SETUP_CHECK = 0;       // which "check my bio" press is live (a later press or a screen change cancels an earlier poll)
+/** The bio code is MANDATORY: there is no way past this screen until the code is found. Requests a check, then watches the
+    profile row until the worker has answered (it runs checks within seconds, see worker.py track_fast_due). */
+async function setupCheckBio(btn) {
+  const id = SETUP_AT;
+  const plat = id.replace("_code", "");
+  const p = setupCodeProfile(plat);
+  const host = setupHost();
+  if (!p) { setupAdvance(); return; }
+  if (plat === "instagram" && Number(p.verify_tries) >= IG_VERIFY_TRIES) { setupErr(HANDLE_WHY.too_many); return; }
+  const mine = ++SETUP_CHECK;
+  const lx = host.querySelector(".lx");
+  const whyEl = host.querySelector(".setup-why");
+  const was = { label: btn.textContent, why: whyEl.textContent };
+  const rest = (msg) => {          // back to waiting for a press, optionally saying why the last one failed
+    if (SETUP_CHECK !== mine || SETUP_AT !== id) return;
+    btn.disabled = false; btn.textContent = was.label; whyEl.textContent = was.why;
+    lynxrMood(lx, "coaching");
+    if (msg) setupErr(msg);
+  };
+  btn.disabled = true; btn.textContent = "Checking…";
+  whyEl.textContent = "Checking your bio…";
+  host.querySelector(".setup-err").hidden = true;
+  lynxrMood(lx, "reading");         // the x is thinking
+  const before = p.last_checked_at || null;
+  const r = await checkProfile(plat, p.handle);
+  if (!r || !r.ok) { rest(HANDLE_WHY[r?.why] || HANDLE_WHY.network); return; }
+  const poll = (typeof OBTEST !== "undefined" && OBTEST) ? 700 : 3000;
+  const deadline = Date.now() + 90e3;
+  while (Date.now() < deadline) {
+    await new Promise((res) => setTimeout(res, poll));
+    if (SETUP_CHECK !== mine || SETUP_AT !== id) return;
+    await refreshProfiles();
+    const cur = (PROFILES || []).find((x) => x.platform === plat && x.handle === p.handle);
+    if (!cur) { rest(); return; }
+    if (cur.verified_at) {
+      setupMark(id, "done"); save();
+      lynxrMood(lx, "done");
+      whyEl.textContent = "Verified!";
+      setupCelebrate(setupAdvance);
+      return;
+    }
+    if (cur.last_checked_at && cur.last_checked_at !== before) {
+      rest(plat === "instagram" && Number(cur.verify_tries) >= IG_VERIFY_TRIES ? HANDLE_WHY.too_many : setupBioMessage(cur));
+      return;
+    }
+  }
+  rest("Still checking. Give it a minute, then press Check my bio again.");
+}
+
+(() => {
+  const host = setupHost();
+  if (!host) return;
+  host.addEventListener("click", (e) => { onSetupClick(e); });
+  host.addEventListener("submit", (e) => { e.preventDefault(); setupNextPress(); });
+  // Editing the field lifts its error, so aria-invalid never says one thing while the screen says another.
+  host.addEventListener("input", (e) => {
+    if (!e.target.classList?.contains("setup-in")) return;
+    e.target.removeAttribute("aria-invalid");
+    const er = host.querySelector(".setup-err");
+    if (er) er.hidden = true;
+  });
+})();
+
+/* ---- opening and closing ---- */
+
+/** `full`: the first-run, full-screen version for a new account (its own page, the app hidden behind it). */
+function openSetupModal(full = false) {
+  if (!ONBOARD_LIVE) return;
+  SETUP_FULL = !!full;
+  SETUP_AT = SETUP_FULL ? "welcome" : setupFirstPending();
+  const m = document.getElementById("setup-modal");
+  if (!m) return;
+  m.classList.toggle("setup-full", SETUP_FULL);
+  document.body.classList.toggle("setup-full-on", SETUP_FULL);
+  m.hidden = false;
+  document.body.classList.add("modal-open");
+  renderSetup();
+}
+function closeSetupModal() {
+  const m = document.getElementById("setup-modal");
+  if (!m) return;
+  const wasOpen = !m.hidden;
+  const wasFull = m.classList.contains("setup-full");
+  m.hidden = true;
+  m.classList.remove("setup-full");
+  document.body.classList.remove("modal-open", "setup-full-on");
+  paintSetupDue();                   // closing is never finishing: nothing is marked here
+  if (wasOpen) afterSetupClosed(wasFull);
+}
+
+/** The questions are over (finished, skipped or closed). A new account lands on Home, now holding its goal and profiles, and
+    the tour, which was waiting for this, can start. `SETUP_CLOSED_HOOK` is the dev preview's way in (?obtest=1). */
+let SETUP_CLOSED_HOOK = null;
+function afterSetupClosed(wasFull) {
+  SETUP_DECIDED = true;
+  if (typeof SETUP_CLOSED_HOOK === "function") SETUP_CLOSED_HOOK();
+  if (!unlocked) return;
+  if (wasFull) go({ kind: "new" }); else paintHome();
+  maybeStartTour();
+}
+document.getElementById("setup-close")?.addEventListener("click", closeSetupModal);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.getElementById("setup-modal")?.hidden) closeSetupModal();
+});
+
+/* ---- after sign-in: open the stepper when it is polite, and mark Settings ---- */
+
+/** Runs after renderAll(), which is where consumePendingPaste() has already sent a pasted link: setup never delays the
+    first script. */
+async function setupAfterUnlock(agencyReady) {
+  if (!ONBOARD_LIVE) { SETUP_DECIDED = true; maybeStartTour(); return; }
+  await refreshProfiles();   // PROFILES known before deciding anything
+  paintSetupDue();
+  try { await agencyReady; } catch {}
+  maybeOpenSetup();
+  SETUP_DECIDED = true;      // opened or ruled out: from here the tour may start (it waits while the stepper is open)
+  maybeStartTour();
+}
+
+/** Opens by itself only when all of these hold. A new account gets the full-screen first run, an existing one the overlay.
+    Reloading the same tab does not reopen it (sessionStorage); a new tab or a browser restart does. If a script was
+    writing at load, it waits for the next load with nothing writing: setup never covers a script being written. */
+function maybeOpenSetup() {
+  if (!setupUnfinished() || setupSeen()) return;
+  if (writingQueue().length) return;                       // never over a script being written
+  try { if (sessionStorage.getItem(PASTE_KEY)) return; } catch {}   // a pasted link is about to be sent
+  if (BILLING_RETURN || AGENCY?.state === "invited") return;       // the roster invite popup goes first
+  if (document.body.classList.contains("modal-open")) return;
+  markSetupSeen();
+  openSetupModal(isNewAccount());
+}
+
+/** The Settings dot, the phone burger's dot and the "Finish setup" card. */
+function paintSetupDue() {
+  const due = setupUnfinished();
+  paintAcctDots();
+  document.body.classList.toggle("setup-due", due);
+  const card = document.getElementById("setup-due-card");
+  if (!card) return;
+  const n = setupPending().length;
+  if (!due) { card.hidden = true; card.innerHTML = ""; card.dataset.n = ""; return; }
+  if (!card.hidden && card.dataset.n === String(n)) return;
+  card.dataset.n = String(n);
+  card.hidden = false;
+  card.innerHTML = `<h2 class="me-card-h">Finish setup</h2><p class="ce-hint">${n} ${n === 1 ? "step" : "steps"} left.</p>`
+    + `<button type="button" class="btn" id="setup-continue">Continue</button>`;
+  card.querySelector("#setup-continue").addEventListener("click", () => openSetupModal(false));   // user-initiated: allowed whenever pressed
+}
+
+/* ================================================================================================================
+   DEV ONLY — localhost ?obtest=1 onboarding preview; inert in production.
+   Owner, 2026-10-01: see the full-screen onboarding without an account. Hard gate: the hostname is exactly "localhost" or
+   "127.0.0.1" AND the URL carries ?obtest=1; anywhere else (lynxr.io) nothing below runs and sign-in is untouched. With it:
+   typing any email and pressing "continue with email" on the landing card (or submitting the sign-in / create form) skips
+   Supabase entirely and opens the first run, greeting by that email. No network call is made: sbFetch and save are
+   replaced by logs to the console, and the profile RPCs are answered from memory. DELETE THIS BLOCK BEFORE SHIPPING it
+   if the preview is no longer wanted.
+
+   POSTS PREVIEW (Phase B): http://localhost:8811/?obtest=1&view=posts opens the signed-in app on the Posts view with FAKE
+   tracked videos and follower counts, and a small switcher at the bottom to flip between the four UGC priorities
+   (deals, rate, perform, grow) and the other states (no goal, no priority, nothing measured yet, no verified profile, free plan,
+   a failing sync, which shows the red dot on the account row). &metric=<name> picks the starting one. Log a deal and set a rate work against in-memory fakes. Nothing is
+   read from or written to any database.
+
+   HOME AND TOUR PREVIEW (2026-10-02):
+     ?obtest=1                     the first run as before; when the questions finish (or are skipped) it lands on the welcome
+                                   dashboard and the tour runs. The account is a FREE one (add &plan=max for a tracked one).
+     ?obtest=1&view=home           straight to the welcome dashboard, signed in, with fake data and the same state switcher as
+                                   Posts (plus "free plan" and "script writing"); the tour does not run by itself.
+     ?obtest=1&view=home&tour=1    the same, and the tour starts at once. The switcher's "run tour" button starts it any time.
+   ================================================================================================================ */
+const OBTEST = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+  && new URLSearchParams(location.search).get("obtest") === "1";
+if (OBTEST) {
+  const log = (...a) => console.log("[obtest]", ...a);
+  const fakeProfiles = [];
+  const presses = {};
+  const OBFAKE = { posts: [], followers: [], profiles: null, plan: { status: "active", plan_code: "max", features: ["post_tracking", "advanced_coaching"], plans: { max: { label: "max" } }, has_customer: false } };
+  sbFetch = async function (path, opts = {}) {      // eslint-disable-line no-func-assign -- preview only
+    const body = opts.body ? JSON.parse(opts.body) : null;
+    log("no network:", opts.method || "GET", path, body);
+    if (path.includes("/rest/v1/lynxr_posts")) return OBFAKE.posts;
+    if (path.includes("/rest/v1/lynxr_profile_followers")) return OBFAKE.followers;
+    if (path.includes("/rpc/my_plan")) return OBFAKE.plan;
+    if (path.includes("/rpc/set_my_profile")) {
+      const h = String(body.p_handle || "").toLowerCase().replace(/^@/, "");
+      if (!fakeProfiles.some((p) => p.platform === body.p_platform && p.handle === h)) {
+        fakeProfiles.push({ platform: body.p_platform, handle: h, verify_code: "lynxr-test01", verified_at: null,
+          status: "unverified", verify_tries: 0, last_checked_at: null, last_scan_ok_at: null });
+      }
+      return { ok: true, platform: body.p_platform, handle: h, verify_code: "lynxr-test01", status: "unverified" };
+    }
+    if (path.includes("/rpc/remove_my_profile")) {
+      const i = fakeProfiles.findIndex((p) => p.platform === body.p_platform && p.handle === body.p_handle);
+      if (i >= 0) fakeProfiles.splice(i, 1);
+      return i >= 0;
+    }
+    if (path.includes("/rpc/request_profile_check")) {
+      // The first "check my bio" press comes back not-found, the second verified, so both states can be seen.
+      const k = `${body.p_platform}|${body.p_handle}`;
+      presses[k] = (presses[k] || 0) + 1;
+      const n = presses[k];
+      setTimeout(() => {
+        const pr = fakeProfiles.find((p) => `${p.platform}|${p.handle}` === k);
+        if (!pr) return;
+        pr.last_checked_at = new Date().toISOString();
+        pr.verify_tries += 1;
+        if (n >= 2) { pr.status = "verified"; pr.verified_at = pr.last_checked_at; } else pr.status = "code_not_found";
+      }, 1500);
+      return { ok: true };
+    }
+    if (path.includes("/rest/v1/lynxr_profiles")) return OBFAKE.profiles ? OBFAKE.profiles.slice() : fakeProfiles.slice();
+    return null;
+  };
+  save = function () { log("save (no-op)", JSON.stringify({ priority: ME.priority, goal: ME.goal, setup: ME.setup })); };   // eslint-disable-line no-func-assign
+  // (the literal, not TOUR_SEEN_KEY: that const is declared further down and is not initialised yet when this block runs)
+  try { sessionStorage.removeItem("lynxr_tour_seen"); } catch {}  // a reload of the preview shows the tour again
+  const qs = new URLSearchParams(location.search);
+  if (qs.get("plan") !== "max" && !["posts", "home"].includes(qs.get("view"))) OBFAKE.plan = { ...OBFAKE.plan, plan_code: "free", features: [] };   // a new account is a free one
+  const start = (email) => {
+    SB_EMAIL = String(email || "").trim() || "preview@example.com";
+    ME = { ...BLANK_ME };
+    PROFILES = [];
+    TOUR_TAB_SEEN = false;
+    // When the questions close, open the app behind them (there is no sign-in here); Home and the tour follow from that.
+    SETUP_CLOSED_HOOK = () => { if (!unlocked) { markSetupSeen(); unlock(); } };
+    log("first run for", SB_EMAIL);
+    openSetupModal(true);
+  };
+  // Capture phase, so these run before home.js's and the gate's own handlers.
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest?.("#hxs-go")) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    start(document.getElementById("hxs-email")?.value);
+  }, true);
+  document.addEventListener("submit", (e) => {
+    if (e.target.id !== "gate-form") return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    start(document.getElementById("email")?.value);
+  }, true);
+
+  /* ---- the Posts preview: fake tracked videos for each goal ---- */
+  const wantView = qs.get("view");
+  const wantPosts = wantView === "posts" || wantView === "home";
+  if (wantPosts) setTimeout(() => {            // after the whole script has run: unlock() and `unlocked` are not ready before
+    const DAY = 864e5, NOW0 = Date.now();
+    const at = (ms) => new Date(ms).toISOString();
+    // [day, views, likes, comments] snapshots, as the pipeline writes them
+    const mk = (id, plat, ageDays, cap, views, likes, comments, snaps) => {
+      const posted = NOW0 - ageDays * DAY;
+      return { id, platform: plat, handle: "maya.makes",
+        url: plat === "tiktok" ? `https://www.tiktok.com/@maya.makes/video/${id}` : `https://www.instagram.com/reel/OB${id}/`,
+        caption: cap, posted_at: at(posted), views, likes, comments, metrics_at: at(NOW0 - 3600e3),
+        lynxr_post_views: snaps.map(([d, v, l, c]) => ({ day: d, views: v, likes: l, comments: c, at: at(posted + d * DAY) })) };
+    };
+    const ALL_POSTS = [
+      mk(1, "tiktok", 0.1, "just posted: 3 things i wish i knew before my first week as an EMT\nmore below", null, null, null, []),
+      mk(2, "instagram", 2, "studying with a timer, but make it a game", 1200, 88, 9, [[0, 300, 20, 2], [1, 1200, 88, 9]]),
+      mk(3, "tiktok", 3.4, "Nobody talks about the boring part of nursing school", 0, 0, 0, [[0, 0, 0, 0], [1, 0, 0, 0], [3, 0, 0, 0]]),
+      mk(4, "tiktok", 9, "My 5am routine as an esthetician, honestly", 12400, 810, 64, [[0, 640, 52, 3], [1, 3100, 210, 18], [3, 8000, 520, 40], [7, 11200, 790, 60]]),
+      mk(5, "instagram", 12, "what i charge for a first facial (and why)", 6300, 430, 31, [[0, 400, 30, 2], [1, 2200, 160, 11], [3, 4400, 300, 20], [7, 6100, 410, 28]]),
+      mk(6, "tiktok", 16, "day in my life: back to back clients", 9000, 660, 48, [[0, 500, 40, 3], [1, 3000, 240, 17], [3, 6400, 480, 33], [7, 8800, 650, 46]]),
+      mk(7, "tiktok", 20, "the one product i would never use again", 4000, 230, 19, [[0, 200, 12, 1], [1, 1400, 80, 6], [3, 2900, 160, 12], [7, 3900, 220, 18]]),
+      mk(8, "instagram", 24, "how i book out a month ahead", 9400, 600, 40, [[0, 700, 50, 3], [1, 3500, 260, 14], [3, 6800, 440, 26], [7, 9100, 580, 38]]),
+      mk(9, "tiktok", 33, "answering your skincare questions, part 3", 15200, 1100, 90, [[0, 900, 70, 5], [1, 4800, 360, 30], [3, 9800, 720, 58], [7, 13100, 960, 77], [30, 15200, 1100, 90]]),
+    ];
+    const mkDeals = (n) => [
+      ...Array.from({ length: n }, (_, i) => ({ at: at(NOW0 - i * 60e3), brand: i === 0 ? "Glow Skincare" : "" })),
+      { at: at(NOW0 - 40 * DAY), brand: "An earlier month" }];
+    // Two profiles, 30 days of follower counts each, growing.
+    const ALL_FOLLOWERS = [];
+    for (let i = 29; i >= 0; i -= 1) {
+      const d = new Date(NOW0 - i * DAY).toISOString().slice(0, 10);
+      ALL_FOLLOWERS.push({ platform: "tiktok", handle: "maya.makes", day: d, followers: 4800 + (29 - i) * 24 + ((29 - i) % 4) * 6 });
+      ALL_FOLLOWERS.push({ platform: "instagram", handle: "maya.makes", day: d, followers: 2900 + (29 - i) * 4 });
+    }
+    ALL_FOLLOWERS.reverse();                    // newest first, as the query returns them
+    const verified = [["tiktok", "maya.makes"], ["instagram", "maya.makes"]].map(([platform, handle]) => ({
+      platform, handle, verify_code: "lynxr-test01", verified_at: at(NOW0 - 20 * DAY), status: "verified", verify_tries: 1,
+      last_checked_at: at(NOW0 - 20 * DAY), last_scan_ok_at: at(NOW0 - 3600e3) }));
+    const DEFAULT_STATE = wantView === "posts" ? "perform" : "deals";
+    // A free or pro account offers pro for sale; anything else is a max one. Tracking is the same for all of them.
+    const planFor = (st) => (st.plan === "free" || st.plan === "pro")
+      ? { ...OBFAKE.plan, plan_code: st.plan, features: [], plans: { pro: { label: "lynxr pro", for_sale: true }, max: { label: "max" } } }
+      : { ...OBFAKE.plan, plan_code: "max", features: st.features || ["post_tracking", "advanced_coaching"] };
+    const STATES = {
+      deals:        { label: "deals goal", priority: "deals", goal: 5, deals: 2 },
+      dealsnone:    { label: "deals, none logged", priority: "deals", goal: 5, deals: 0 },
+      rate:         { label: "rate goal", priority: "rate", goal: 500, rate: 250 },
+      ratenone:     { label: "rate, not set", priority: "rate", goal: 500, rate: null },
+      perform:      { label: "perform goal", priority: "perform", goal: 10000 },
+      performempty: { label: "perform, nothing measured", priority: "perform", goal: 10000, posts: [] },
+      performnoprof:{ label: "perform, no profile", priority: "perform", goal: 10000, posts: [], followers: [], profiles: [] },
+      performfree:  { label: "perform, free plan", priority: "perform", goal: 10000, plan: "free", profiles: [{ ...verified[0] }] },
+      grow:         { label: "grow goal", priority: "grow", goal: 10000 },
+      noprofile:    { label: "grow, no profile", priority: "grow", goal: 10000, posts: [], followers: [], profiles: [] },
+      nogoal:       { label: "no goal", priority: "deals", goal: null },
+      nobrands:     { label: "no brands", priority: "deals", goal: 5, deals: 2, nobrands: true },
+      nopriority:   { label: "no priority (setup dot)", priority: null, goal: null },
+      syncfail:     { label: "not syncing (red dot)", priority: "deals", goal: 5, deals: 2, syncfail: true },
+      syncsetup:    { label: "not syncing + setup", priority: null, goal: null, syncfail: true },
+      free:         { label: "free plan", priority: "deals", goal: 3, deals: 1, plan: "free", profiles: [{ ...verified[0], verified_at: null, status: "unverified" }, { ...verified[1] }] },
+    };
+    if (wantView === "home") {
+      STATES.writing = { label: "script writing", priority: "deals", goal: 5, deals: 2, writing: true };
+    }
+    // Fake Library: three videos with a script each, so "recent scripts" has something in it.
+    let st0 = {};
+    const fakeLib = () => {
+      const lib = [], ads = [];
+      [["EMT", "3 things i wish i knew before my first week as an EMT", "done"], ["nursing", "Nobody talks about the boring part of nursing school", "done"],
+        ["esthetician", "My 5am routine as an esthetician, honestly", "error"]].forEach(([k, title, st], i) => {
+        const url = `https://www.tiktok.com/@demo.${k}/video/77000000000000000${i}`;
+        const at = new Date(NOW0 - (i + 1) * DAY).toISOString();
+        lib.push({ id: `ob-l${i}`, url, canon: canonUrl(url), title, platform: "tiktok", addedAt: at });
+        // The first two videos are scripted for the fake brands, the third has no brand yet, so Library's By brand view has groups.
+        const bid = st0.nobrands ? null : i === 0 ? "ob-b1" : i === 1 ? "ob-b2" : null;
+        ads.push({ id: `ob-a${i}`, libraryId: `ob-l${i}`, sourceUrl: url, brandId: bid, brandName: bid ? (bid === "ob-b1" ? "Glow Skincare" : "Northwind Coffee") : "", title, status: st, addedAt: at, processedAt: at });
+      });
+      return { lib, ads };
+    };
+    const apply = (key) => {
+      const st = STATES[key] || STATES[DEFAULT_STATE];
+      st0 = st;
+      // Fake brands in Library: two named ones with scripts, one named one with none yet. The "no brands" state has none at all.
+      ME.brands = st.nobrands ? [] : [
+        { id: "ob-b1", name: "Glow Skincare", site: "glowskincare.example", description: "", objective: "", niche: "skincare", code: "LYNX-OB1" },
+        { id: "ob-b2", name: "Northwind Coffee", site: "", description: "", objective: "", niche: "coffee", code: "LYNX-OB2" },
+        { id: "ob-b3", name: "Daily Greens", site: "", description: "", objective: "", niche: "", code: "LYNX-OB3" }];
+      ME.priority = st.priority;
+      ME.goal = st.goal ? { metric: st.priority, target: st.goal, at: at(NOW0) } : null;
+      if (!st.priority || !st.goal) ME.setup = null;      // setup answers recorded earlier in this tab must not hide the "setup not finished" dot
+      ME.deals = mkDeals(st.deals ?? 2);
+      ME.rate = st.rate ? { usd: st.rate, at: at(NOW0) } : null;
+      OBFAKE.posts = (st.posts || ALL_POSTS).map((x) => ({ ...x }));
+      OBFAKE.followers = st.followers || ALL_FOLLOWERS;
+      OBFAKE.plan = planFor(st);
+      PLAN = OBFAKE.plan;
+      PROFILES = st.profiles || verified;
+      OBFAKE.profiles = PROFILES;
+      {
+        const f = fakeLib();
+        if (st.writing) {
+          const url = "https://www.tiktok.com/@demo.new/video/770000000000000009";
+          f.lib.unshift({ id: "ob-lw", url, canon: canonUrl(url), title: "", platform: "tiktok", addedAt: at(NOW0) });
+          f.ads.unshift({ id: "ob-aw", libraryId: "ob-lw", sourceUrl: url, brandId: null, brandName: "", title: "", status: "running", phase: "transcribing", addedAt: at(NOW0 - 20e3) });
+        }
+        ME.library = f.lib; ME.adaptations = f.ads;
+      }
+      POSTS = OBFAKE.posts; FOLLOWERS = OBFAKE.followers; POSTS_STATE = "ok";
+      SYNC_OK = !st.syncfail; renderSyncBadge();
+      renderSide();
+      go(wantView === "home" ? { kind: "new" } : { kind: "posts" });
+      bar.querySelectorAll("button[data-state]").forEach((b) => {
+        if (b.dataset.state === "tour") return;
+        const on = b.dataset.state === key;
+        b.setAttribute("aria-pressed", String(on));
+        b.style.background = on ? "#fff" : "rgba(255,255,255,.1)";
+        b.style.color = on ? "#14122b" : "#fff";
+      });
+      const u = new URL(location.href); u.searchParams.set("metric", key); history.replaceState(null, "", u);
+    };
+    // The switcher: a fixed strip at the bottom, styled through CSSOM (the CSP drops inline style attributes).
+    const bar = document.createElement("div");
+    bar.id = "obtest-bar"; bar.setAttribute("role", "group"); bar.setAttribute("aria-label", "Preview state (dev only)");
+    Object.assign(bar.style, { position: "fixed", left: "50%", bottom: "10px", transform: "translateX(-50%)", zIndex: "99999",
+      display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "6px", maxWidth: "calc(100vw - 16px)", padding: "8px",
+      background: "rgba(20,18,43,.92)", border: "1px solid rgba(255,255,255,.25)", borderRadius: "14px", font: "12px/1.2 system-ui, sans-serif" });
+    const tag = document.createElement("button");     // pressing it folds the strip away (it covers the bottom of a phone screen)
+    tag.type = "button";
+    Object.assign(tag.style, { color: "#d8d4ee", alignSelf: "center", padding: "4px", textTransform: "none", background: "none", border: "0", cursor: "pointer", font: "inherit" });
+    const setOpen = (open) => {
+      tag.setAttribute("aria-expanded", String(open));
+      tag.textContent = `dev preview, fake data ${open ? "\u25be" : "\u25b4"}`;
+      bar.querySelectorAll("button[data-state]").forEach((b) => { b.hidden = !open; });
+    };
+    tag.addEventListener("click", () => setOpen(tag.getAttribute("aria-expanded") !== "true"));
+    bar.appendChild(tag);
+    for (const [key, st] of Object.entries(STATES)) {
+      const b = document.createElement("button");
+      b.type = "button"; b.dataset.state = key; b.textContent = st.label; b.setAttribute("aria-pressed", "false");
+      Object.assign(b.style, { minHeight: "32px", padding: "4px 10px", borderRadius: "999px", border: "1px solid rgba(255,255,255,.35)",
+        background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", font: "inherit", textTransform: "none" });
+      b.addEventListener("click", () => apply(key));
+      bar.appendChild(b);
+    }
+    if (wantView === "home") {
+      const tb = document.createElement("button");
+      tb.type = "button"; tb.textContent = "run tour";
+      Object.assign(tb.style, { minHeight: "32px", padding: "4px 10px", borderRadius: "999px", border: "1px solid rgba(255,255,255,.6)",
+        background: "rgba(255,255,255,.1)", color: "#fff", cursor: "pointer", font: "inherit", textTransform: "none" });
+      tb.dataset.state = "tour";
+      tb.addEventListener("click", () => startTour(true));
+      bar.appendChild(tb);
+    }
+    document.body.appendChild(bar);
+    setOpen(innerWidth >= 600);                  // folded on a phone: the strip would cover the page
+    SB_EMAIL = "maya@example.com";
+    ME = { ...BLANK_ME, name: "Maya", setup: { v: 1, at: at(NOW0), steps: Object.fromEntries(SETUP_ALL.map((k) => [k, "done"])) },
+      tour: { at: at(NOW0), how: "done" } };      // the tour runs only when asked for (&tour=1 or the "run tour" button)
+    markSetupSeen();                            // never open the setup overlay over the preview
+    SETUP_DECIDED = true;
+    PLAN_STATE = "ok";
+    // What unlock()'s own plan and profile reads will be answered with, set BEFORE it runs: they resolve after apply() and
+    // would otherwise overwrite the state it paints.
+    const first = STATES[new URLSearchParams(location.search).get("metric")] || STATES[DEFAULT_STATE];
+    OBFAKE.plan = planFor(first);
+    OBFAKE.profiles = first.profiles || verified;
+    unlock();
+    apply(new URLSearchParams(location.search).get("metric") || DEFAULT_STATE);
+    if (wantView === "home" && qs.get("tour") === "1") setTimeout(() => startTour(true), 300);
+  }, 0);
+}
+
+/* ---------- SETTINGS: goal, profiles, creators you look up to ---------- */
+const IG_VERIFY_TRIES = 10;   // mirrors supabase/profiles.sql and pipeline/track_posts.py TRACK_IG_VERIFY_TRIES
+
+/** One profile's status sentence and whether Check is offered. */
+function profStatus(p) {
+  const name = PLAT_NAME[p.platform] || p.platform;
+  const code = `<code class="setup-code">${escapeHtml(p.verify_code)}</code>`;
+  const out = (line, check) => ({ line, check });
+  const spent = p.platform === "instagram" && Number(p.verify_tries) >= IG_VERIFY_TRIES;
+  let r;
+  switch (p.status) {
+    case "verified": return out("Verified. You can take the code out of your bio.", false);
+    case "private": return out("This profile is private, so lynxr can't read it.", false);
+    case "taken": return out(HANDLE_WHY.taken, false);
+    case "not_found": return out("lynxr couldn't find this username. Check the spelling.", false);
+    case "code_not_found": r = out(`lynxr couldn't see ${code} in your bio yet.`, true); break;
+    case "changed": r = out(`This username now belongs to a different account. Put ${code} in the bio again.`, true); break;
+    case "unavailable": r = out(`${name} didn't answer. lynxr will try again.`, p.platform === "instagram"); break;
+    default: r = out(`Put ${code} in your ${name} bio.${p.platform === "tiktok" ? " lynxr checks by itself." : " Then press Check."}`, true);
+  }
+  if (spent && r.check) return out(escapeHtml(HANDLE_WHY.too_many), false);
+  return r;
+}
+
+function profCardHtml() {
+  let h = `<h2 class="me-card-h">Your goal and profiles</h2>`;
+  const m = goalMetric();
+  h += `<p class="lbl" id="prof-prio-lbl">Main priority</p>${priorityChipsHtml(ME.priority, "prof-prio-lbl")}`;
+  if (m) h += `<p class="lbl" id="prof-goal-lbl">${escapeHtml(GOAL_ASK[m][0])}</p>${goalChipsHtml(ME.goal?.target, "prof-goal-lbl")}`;
+  if (m === "rate") h += rateFormHtml("prof-rate");
+  if (Array.isArray(PROFILES)) {
+    h += `<p class="lbl">Your own accounts (optional)</p>`;
+    for (const p of PROFILES) {
+      const st = profStatus(p);
+      h += `<div class="prof-row" data-plat="${escapeHtml(p.platform)}" data-handle="${escapeHtml(p.handle)}">`
+        + `<span class="prof-name">@${escapeHtml(p.handle)}</span> <span class="prof-plat">${escapeHtml(PLAT_NAME[p.platform] || p.platform)}</span>`
+        + `<p class="prof-status">${st.line}</p>`
+        + `<div class="prof-actions">${st.check ? `<button type="button" class="ghost prof-check">Check</button>` : ""}`
+        + `<button type="button" class="ghost prof-remove">Remove</button></div></div>`;
+    }
+    if (PROFILES.length < PROFILES_MAX) {
+      h += `<form class="prof-add" novalidate><select class="prof-plat-in" aria-label="Platform"><option value="tiktok">TikTok</option><option value="instagram">Instagram</option></select>`
+        + `<input type="text" class="prof-in" id="prof-in" placeholder="@name or profile link" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Username">`
+        + `<button type="submit" class="btn">Add</button></form>`;
+    }
+    h += `<p class="bp-msg" id="prof-msg" role="status" aria-live="polite"></p>`;
+  }
+  if (!Array.isArray(PROFILES)) h += `<p class="bp-msg" id="prof-msg" role="status" aria-live="polite"></p>`;
+  h += `<p class="ce-hint">Only if you post your own content. Public usernames only — lynxr never asks for a password. Removing a profile deletes what lynxr found on it. Once a profile is verified, lynxr follows how every video on it does.</p>`;
+  return h;
+}
+
+/** Repaint the card in place. Never renderPane(), and never while the creator is typing in it. */
+function paintProfiles() {
+  const card = document.getElementById("prof-card");
+  if (!card) return;
+  const a = document.activeElement;
+  if (a && card.contains(a) && (a.tagName === "INPUT" || a.tagName === "SELECT")) return;
+  card.hidden = !ONBOARD_LIVE;
+  card.innerHTML = profCardHtml();
+  wireProfCard(card);
+}
+
+function wireProfCard(card) {
+  card.querySelectorAll(".prio-chip").forEach((chip) => chip.addEventListener("click", () => {
+    setPriority(chip.dataset.priority);
+    paintProfiles();
+    paintSetupDue();
+  }));
+  card.querySelectorAll(".goal-chip").forEach((chip) => chip.addEventListener("click", () => {
+    setGoal(Number(chip.dataset.goal));
+    paintProfiles();
+    paintSetupDue();
+  }));
+  wireRateForms(card, () => paintProfiles());
+  const add = card.querySelector(".prof-add");
+  if (add) add.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = add.querySelector(".prof-in");
+    const sel = add.querySelector(".prof-plat-in");
+    const p = parseHandle(input.value, sel.value);
+    if (!p.ok) return fieldError(input, "prof-msg", HANDLE_WHY[p.why]);
+    clearFieldError(input, "prof-msg");
+    const btn = add.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    const r = await saveProfile(sel.value, input.value);
+    if (!r || !r.ok) {
+      btn.disabled = false;
+      flashMsg("prof-msg", HANDLE_WHY[r?.why] || HANDLE_WHY.network, "bad");
+    }
+    // On success saveProfile() refreshed PROFILES, which repainted this card (a focused field holds the repaint
+    // until it blurs): bring the new row up now.
+    else { input.blur(); paintProfiles(); paintSetupDue(); }
+  });
+  card.querySelectorAll(".prof-row").forEach((row) => {
+    const plat = row.dataset.plat, handle = row.dataset.handle;
+    row.querySelector(".prof-check")?.addEventListener("click", async () => {
+      const r = await checkProfile(plat, handle);
+      flashMsg("prof-msg", r && r.ok ? "Checking — give it a few minutes." : (HANDLE_WHY[r?.why] || HANDLE_WHY.network),
+        r && r.ok ? "good" : "bad");
+    });
+    const rm = row.querySelector(".prof-remove");
+    if (rm) armDelete(rm, "Remove", async () => { await removeProfile(plat, handle); paintSetupDue(); });
+  });
+}
+
+/* ---------- POSTS: the videos tracked on the creator's verified profiles, against the goal ----------
+   Plans: ~/.claude/plans/lynxr-onboarding-and-post-tracking.md (Phase B) and lynxr-remove-brand-paste.md (owner 2026-10-03:
+   no manual paste; tracking = the linked accounts, automatic).
+   pipeline/track_posts.py (Fly) writes lynxr_posts, lynxr_post_views (the counts at day 0, 1, 3, 7 and 30) and
+   lynxr_profile_followers (one count per profile per day). A creator can read them and write none of them. Every row is a
+   video found on one of the creator's own verified profiles. Tracking is for EVERY tier (owner, 2026-10-03: the tiers sell the
+   coaching, which is not built yet); the pipeline no longer asks whether an account holds post_tracking.
+   What a goal measures follows its priority:
+     deals       the deals the creator logged this calendar month (self-logged, ME.deals)
+     rate        the creator's own current rate against the target (self-reported, ME.rate)
+     perform     the average views at day 7 over the latest 5 tracked videos
+     grow        the latest follower count (every verified profile added up) against the target, and the change since tracking began
+   hasTracking() is the ONE place that decides who sees tracking in the interface (the Posts link, the goal empty states, the
+   tour). Today it is true for every account while TRACKING_LIVE is on, so TRACKING_LIVE stays the kill switch; if tracking is
+   ever limited by tier again, this is the one function to change. */
+const hasTracking = () => TRACKING_LIVE;
+/** The Posts link in the rail. */
+const showPostsNav = () => hasTracking();
+/** Does the creator have at least one verified linked profile? (What tracking needs before it can find a video.) */
+const hasVerifiedProfile = () => (PROFILES || []).some((x) => x.verified_at);
+
+/** Read the videos and the follower counts. Silent on failure: with the SQL not applied the lists stay as they were (null). */
+async function refreshPosts() {
+  if (!TRACKING_LIVE) return;
+  if (POSTS_STATE !== "ok") POSTS_STATE = "loading";
+  const [p, f] = await Promise.allSettled([
+    sbFetch("/rest/v1/lynxr_posts?select=id,platform,handle,url,caption,posted_at,views,likes,comments,metrics_at,lynxr_post_views(day,views,likes,comments,at)&order=posted_at.desc.nullslast&limit=200"),
+    sbFetch("/rest/v1/lynxr_profile_followers?select=platform,handle,day,followers&order=day.desc&limit=1000"),
+  ]);
+  if (p.status === "fulfilled" && Array.isArray(p.value)) { POSTS = p.value; POSTS_STATE = "ok"; }
+  else POSTS_STATE = POSTS ? "ok" : "error";
+  if (f.status === "fulfilled" && Array.isArray(f.value)) FOLLOWERS = f.value;
+  renderSide();
+  if (VIEW.kind === "posts") paintPosts(); else paintHome();
+}
+
+/** One post's count of `field` ("views" | "likes" | "comments") at `d` days: the earliest snapshot taken at or after day d
+    that has the count, else null (absent is not zero). Pure. */
+function metricAtDay(p, d, field) {
+  let best = null;
+  for (const s of p?.lynxr_post_views || []) {
+    if (s.day >= d && s[field] != null && (best === null || s.day < best.day)) best = s;
+  }
+  return best ? Number(best[field]) : null;
+}
+const viewsAtDay = (p, d) => metricAtDay(p, d, "views");
+
+/** The follower counts added up across profiles: { days, series, value, delta, since, profiles } or null. A profile's
+    count is carried forward between its snapshots, and back to its first one before it, so adding a second profile
+    part-way through never reads as a jump in followers. Pure. rows: [{ platform, handle, day: "YYYY-MM-DD", followers }]. */
+function followerStats(rows) {
+  const by = new Map();
+  for (const r of Array.isArray(rows) ? rows : []) {
+    const n = Number(r?.followers);
+    if (!r?.day || !Number.isFinite(n) || n < 0) continue;
+    const k = `${r.platform}|${r.handle}`;
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push({ day: String(r.day), n });
+  }
+  if (!by.size) return null;
+  const lists = [...by.values()];
+  for (const a of lists) a.sort((x, y) => (x.day < y.day ? -1 : x.day > y.day ? 1 : 0));
+  const days = [...new Set(lists.flatMap((a) => a.map((x) => x.day)))].sort();
+  const series = days.map((day) => lists.reduce((sum, a) => {
+    let v = a[0].n;
+    for (const x of a) { if (x.day <= day) v = x.n; else break; }
+    return sum + v;
+  }, 0));
+  return { days, series, value: series[series.length - 1], delta: series[series.length - 1] - series[0], since: days[0], profiles: lists.length };
+}
+
+/** Where a goal stands. Pure. goal: { metric, target }; posts: the tracked videos (they feed `perform`); followers: the daily
+    rows; self: { deals, rate } as the creator logged them (default: read from ME).
+    -> { metric, target, value, n, basis, pct, ... }
+       deals:    value = the deals logged this calendar month (0 is a real answer), basis "month".
+       rate:     value = the creator's own current rate, or null when they have not said (no bar then), basis "self".
+       perform:  basis "week" = the mean views at day 7 over the latest GOAL_LAST_N tracked videos that have a day-7 count;
+                 else basis "so far" = the mean of what the latest tracked videos have now; else value null.
+       grow:     basis "latest" with delta, since and series; value null until the first count. */
+function goalProgress(goal, posts, followers, self) {
+  const metric = GOAL_KINDS[goal?.metric] ? goal.metric : null;
+  const target = Number(goal?.target) || 0;
+  const pct = (v) => (target > 0 && v != null ? Math.max(0, Math.min(100, Math.round((v / target) * 100))) : 0);
+  if (!metric) return { metric: null, target, value: null, n: 0, basis: null, pct: 0 };
+  const mine = self || { deals: dealsThisMonth(), rate: rateNow() };
+  if (metric === "deals") return { metric, target, value: mine.deals, n: mine.deals, basis: "month", pct: pct(mine.deals) };
+  if (metric === "rate") {
+    return mine.rate == null ? { metric, target, value: null, n: 0, basis: null, pct: 0 }
+      : { metric, target, value: mine.rate, n: 1, basis: "self", pct: pct(mine.rate) };
+  }
+  if (metric === "grow") {
+    const f = followerStats(followers);
+    if (!f) return { metric, target, value: null, n: 0, basis: null, pct: 0 };
+    return { metric, target, value: f.value, n: f.profiles, basis: "latest", delta: f.delta, since: f.since, series: f.series, pct: pct(f.value) };
+  }
+  const when = (p) => Date.parse(p.posted_at || "") || 0;
+  const list = [...(Array.isArray(posts) ? posts : [])].sort((a, b) => when(b) - when(a));
+  const mean = (a) => Math.round(a.reduce((sum, x) => sum + x, 0) / a.length);
+  const week = [];
+  for (const p of list) {
+    const v = metricAtDay(p, GOAL_WEEK_DAY, "views");
+    if (v != null) week.push(v);
+    if (week.length >= GOAL_LAST_N) break;
+  }
+  if (week.length) { const value = mean(week); return { metric, target, value, n: week.length, basis: "week", pct: pct(value) }; }
+  const sofar = list.filter((p) => p.views != null).slice(0, GOAL_LAST_N).map((p) => Number(p.views));
+  if (sofar.length) { const value = mean(sofar); return { metric, target, value, n: sofar.length, basis: "so far", pct: pct(value) }; }
+  return { metric, target, value: null, n: 0, basis: null, pct: 0 };
+}
+
+const goalHeading = (g) => `Goal: ${goalLabel(g.target, g.metric)}`;
+const moneyLabel = (n) => `$${Number(n).toLocaleString("en-US")}`;
+const signedLabel = (n) => (n > 0 ? `+${viewsLabel(n)}` : n < 0 ? `−${viewsLabel(-n)}` : "no change");
+const HEART_SVG = `<svg class="ico-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>`;
+const CHAT_SVG = `<svg class="ico-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-5a8.4 8.4 0 0 1-.8-3.6 8.4 8.4 0 0 1 8.4-8.4h.5a8.4 8.4 0 0 1 8 8Z"/></svg>`;
+
+/** One count with its icon: a number, a muted dash when the platform gave none (absent is not zero), 0 as "0". */
+function postStatHtml(icon, n, unit) {
+  const none = n == null;
+  const txt = none ? "—" : (viewsLabel(n) || "0");
+  return `<span class="lib-stat post-stat${none ? " lib-views-none" : ""}">${icon}<span aria-hidden="true">${txt}</span>`
+    + `<span class="sr-only">${none ? `No ${unit} count yet` : `${Number(n).toLocaleString("en-US")} ${unit}`}</span></span>`;
+}
+
+/** What the goal card says under its heading, for the numbers it has. */
+function postsProgressHtml(gp) {
+  if (gp.metric === "deals") {
+    return `<p class="posts-prog"><strong>${Number(gp.value)}</strong> of ${Number(gp.target)} brand deals this month</p>`;
+  }
+  if (gp.metric === "rate") {
+    return gp.value == null ? `<p class="posts-prog">Add your current rate to see how close you are.</p>`
+      : `<p class="posts-prog"><strong>${escapeHtml(moneyLabel(gp.value))}</strong> of ${escapeHtml(moneyLabel(gp.target))} a video</p>`;
+  }
+  if (gp.value == null) {
+    return `<p class="posts-prog">${gp.metric === "grow" ? "No follower count yet. lynxr reads it once a day." : "Progress shows here once lynxr has measured your first video."}</p>`;
+  }
+  const v = escapeHtml(viewsLabel(gp.value) || "0");
+  if (gp.metric === "grow") {
+    const trend = gp.series.length > 1
+      ? ` <span class="posts-trend">${escapeHtml(signedLabel(gp.delta))} since ${escapeHtml(asOfLabel(`${gp.since}T12:00:00`) || gp.since)}</span>` : "";
+    const pts = gp.series.slice(-30);
+    const lo = Math.min(...pts), hi = Math.max(...pts);
+    const spark = pts.length > 1
+      ? `<div class="spark" role="img" aria-label="Followers over the last ${pts.length} days">`
+        + pts.map((x) => `<i data-pct="${hi === lo ? 60 : Math.round(15 + ((x - lo) / (hi - lo)) * 85)}"></i>`).join("") + `</div>` : "";
+    return `<p class="posts-prog"><strong>${v}</strong> followers${trend}</p>${spark}`;
+  }
+  const last = `Your last ${gp.n} video${gp.n === 1 ? "" : "s"}`;
+  if (gp.basis === "week") return `<p class="posts-prog">${last}: <strong>${v}</strong> views each after a week</p>`;
+  return `<p class="posts-prog">${last}: <strong>${v}</strong> views each so far</p><p class="ce-hint">None has a week of numbers yet.</p>`;
+}
+
+function postDaysHtml(p) {
+  const snaps = [...(p.lynxr_post_views || [])].filter((s) => s.day >= 1).sort((a, b) => a.day - b.day);
+  if (!snaps.length) return "";
+  return `<p class="post-days">` + snaps.map((s) => {
+    const bits = [];
+    if (s.views != null) bits.push(`${viewsLabel(s.views) || "0"} views`);
+    if (s.likes != null) bits.push(`${viewsLabel(s.likes) || "0"} likes`);
+    return `<span class="post-day"><b>day ${Number(s.day)}</b> ${escapeHtml(bits.join(" · ") || "—")}</span>`;
+  }).join("") + `</p>`;
+}
+
+function postRowHtml(p) {
+  const plat = PLAT_NAME[p.platform] || p.platform;
+  const when = asOfLabel(p.posted_at);
+  const url = safeUrl(p.url);
+  const cap = String(p.caption || "").split("\n")[0].trim();
+  const capShort = cap.length > 90 ? `${cap.slice(0, 89).trimEnd()}…` : cap;
+  return `<li class="post-row">`
+    + `<div class="post-top"><span class="post-plat">${escapeHtml(plat)}</span>`
+    + `<span class="post-when">${escapeHtml(when || "date unknown")}</span>`
+    + `<span class="post-stats">${postStatHtml(EYE_SVG, p.views, "views")}${postStatHtml(HEART_SVG, p.likes, "likes")}${postStatHtml(CHAT_SVG, p.comments, "comments")}</span>`
+    + (url ? `<a class="post-open" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open this video on ${escapeHtml(plat)}">↗</a>` : "")
+    + `</div>`
+    + (capShort ? `<p class="post-cap">${escapeHtml(capShort)}</p>` : "")
+    + postDaysHtml(p)
+    + `</li>`;
+}
+
+/** Widths and heights come from data attributes through CSSOM: the CSP drops inline style attributes. */
+function paintPostsBars(root) {
+  root.querySelectorAll(".goal-bar > i").forEach((el) => { el.style.width = `${Number(el.dataset.pct) || 0}%`; });
+  root.querySelectorAll(".spark > i").forEach((el) => { el.style.height = `${Number(el.dataset.pct) || 0}%`; });
+}
+
+/* ---- the goal card, shared by Home and Posts ---- */
+
+/** The deals box on a "deals" goal card: a Log a deal button that opens a one-field form (the brand is optional), and an undo
+    for the last entry. Every value a creator typed goes in through textContent or escapeHtml. */
+function dealActionsHtml(id) {
+  const n = Array.isArray(ME.deals) ? ME.deals.length : 0;
+  return `<div class="deal-box" data-deals="${id}">`
+    + `<form class="deal-form" novalidate hidden><label class="sr-only" for="${id}-brand">Brand (optional)</label>`
+    + `<input type="text" class="deal-in" id="${id}-brand" maxlength="60" placeholder="Brand (optional)" autocomplete="off" spellcheck="false">`
+    + `<button type="submit" class="btn">Add</button><button type="button" class="linkish" data-deal="cancel">Cancel</button></form>`
+    + `<div class="deal-row"><button type="button" class="btn" id="${id}-deal-open" data-deal="open">Log a deal</button>`
+    + (n ? `<button type="button" class="linkish" data-deal="undo">Undo last deal</button>` : "") + `</div>`
+    + `<p class="bp-msg deal-msg" id="${id}-deal-msg" role="status" aria-live="polite"></p></div>`;
+}
+function wireDealForms(root, after) {
+  root.querySelectorAll("[data-deals]").forEach((box) => {
+    const id = box.dataset.deals;
+    const form = box.querySelector(".deal-form");
+    const open = box.querySelector('[data-deal="open"]');
+    const input = box.querySelector(".deal-in");
+    open.addEventListener("click", () => { form.hidden = false; open.hidden = true; input.focus(); });
+    box.querySelector('[data-deal="cancel"]').addEventListener("click", () => { form.hidden = true; open.hidden = false; input.value = ""; open.focus(); });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      logDeal(input.value);
+      input.blur();
+      after();
+      document.getElementById(`${id}-deal-open`)?.focus({ preventScroll: true });
+      flashMsg(`${id}-deal-msg`, "Logged.", "good");
+    });
+    box.querySelector('[data-deal="undo"]')?.addEventListener("click", () => {
+      undoDeal();
+      after();
+      (document.getElementById(`${id}-deal-open`) || document.body).focus?.({ preventScroll: true });
+      flashMsg(`${id}-deal-msg`, "Took your last deal back.", "good");
+    });
+  });
+}
+
+/** The "your current rate" field of a "rate" goal: whole US dollars, saved on the creator's own row. Empty clears it. */
+function rateFormHtml(id) {
+  const v = rateNow();
+  return `<form class="rate-form" data-rate-form novalidate><label class="lbl" for="${id}">Your current rate per video</label>`
+    + `<span class="rate-row"><span class="rate-cur" aria-hidden="true">$</span>`
+    + `<input type="number" class="rate-in" id="${id}" inputmode="numeric" min="1" max="1000000" step="1" placeholder="e.g. 250" value="${v == null ? "" : v}" autocomplete="off" aria-describedby="${id}-msg">`
+    + `<button type="submit" class="btn">Save</button></span>`
+    + `<p class="bp-msg rate-msg" id="${id}-msg" role="status" aria-live="polite"></p></form>`;
+}
+function wireRateForms(root, after) {
+  root.querySelectorAll("[data-rate-form]").forEach((f) => {
+    const input = f.querySelector(".rate-in");
+    const msgId = f.querySelector(".rate-msg").id;
+    input.addEventListener("input", () => clearFieldError(input, msgId));
+    f.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!setRate(input.value)) { fieldError(input, msgId, "Enter your rate in whole dollars."); return; }
+      const said = rateNow() ? "Saved." : "Cleared.";
+      input.blur();
+      after();
+      flashMsg(msgId, said, "good");
+    });
+  });
+}
+
+/** The goal card's inner HTML. where: "home" | "posts" (it only sets element ids). No priority -> the priority chips; a priority
+    with no goal -> the goal chips; a goal -> its heading, its real progress (never a made-up number), what the creator can do about
+    it, and the bar. */
+function goalCardHtml(where) {
+  const id = `${where}-goal`;
+  const metric = goalMetric();
+  const goal = ME.goal && ME.goal.target && GOAL_KINDS[ME.goal.metric] ? ME.goal : null;
+  if (!metric) {
+    return `<h2 class="me-card-h">Set your priority</h2><p class="home-sub" id="${id}-lbl">What matters most right now?</p>${priorityChipsHtml(null, `${id}-lbl`)}`;
+  }
+  if (!goal) {
+    return `<h2 class="me-card-h">Set a goal</h2><p class="home-sub" id="${id}-lbl">${escapeHtml(GOAL_ASK[metric][0])}</p>${goalChipsHtml(null, `${id}-lbl`)}`;
+  }
+  const gp = goalProgress(goal, POSTS, FOLLOWERS);
+  let prog;
+  if (metric === "grow" && gp.value == null && !hasVerifiedProfile()) {
+    prog = `<p class="posts-prog">Add your own account in Settings and verify it, so lynxr can count your followers.</p>`;
+  } else if (metric === "perform" && gp.value == null) {
+    // Nothing to average yet: say what is missing, in the order a creator can fix it. No number is ever invented.
+    if (POSTS === null && POSTS_STATE !== "error") prog = `<p class="posts-prog">Checking your videos…</p>`;
+    else if (!hasVerifiedProfile()) prog = `<p class="posts-prog">Link your TikTok or Instagram and lynxr tracks every video on it automatically. <button type="button" class="linkish" data-home="settings">Open Settings</button></p>`;
+    else prog = postsProgressHtml(gp);
+  } else prog = postsProgressHtml(gp);
+  const noBar = (metric === "rate" || metric === "perform") && gp.value == null;
+  const pct = gp.value == null ? "—" : `${gp.pct}%`;
+  return `<h2 class="me-card-h" id="${id}-h">${escapeHtml(goalHeading(goal))}</h2>`
+    + `<p class="home-sub">Priority: ${escapeHtml(PRIORITY_LABEL[metric])}</p>`
+    + prog
+    + (metric === "deals" ? dealActionsHtml(id) : "")
+    + (metric === "rate" ? rateFormHtml(`${id}-rate`) : "")
+    + (noBar ? "" : `<div class="goal-bar" role="img" aria-label="${gp.pct}% of your goal"><i data-pct="${gp.pct}"></i></div>`)
+    + `<p class="goal-meta"><span>${noBar ? "" : pct}</span><span class="home-links">`
+    + (where === "home" && (metric === "perform" || metric === "grow") && showPostsNav() ? `<button type="button" class="linkish" data-home="posts">Your videos</button>` : "")
+    + `<button type="button" class="linkish" data-home="settings">Change goal</button></span></p>`;
+}
+
+/** Chips, deals and rate inside a goal card (or anything holding the same controls). `after` repaints the caller. */
+function wireGoalCard(root, after) {
+  root.querySelectorAll(".prio-chip").forEach((chip) => chip.addEventListener("click", () => { setPriority(chip.dataset.priority); after(); }));
+  root.querySelectorAll(".goal-chip").forEach((chip) => chip.addEventListener("click", () => { setGoal(Number(chip.dataset.goal)); after(); }));
+  wireDealForms(root, after);
+  wireRateForms(root, after);
+}
+
+/** Paint what changes in the Posts view: the goal card and the list of tracked videos. */
+function paintPosts() {
+  const body = document.getElementById("posts-goal");
+  if (!body || VIEW.kind !== "posts") return;
+  const a = document.activeElement;
+  const busy = (el) => !!(a && el && el.contains(a) && (a.tagName === "INPUT" || a.tagName === "SELECT"));
+
+  if (!busy(body)) {
+    body.innerHTML = goalCardHtml("posts");
+    paintPostsBars(body);
+    wireGoalCard(body, () => { paintPosts(); paintSetupDue(); });
+    body.querySelectorAll("[data-home]").forEach((b) => b.addEventListener("click", () => {
+      go({ kind: b.dataset.home === "plan" ? "plan" : "you" });
+    }));
+  }
+
+  const own = document.getElementById("posts-list");
+  const mine = Array.isArray(POSTS) ? POSTS : [];
+  const verified = hasVerifiedProfile();
+  own.innerHTML = `<h2 class="me-card-h">Your videos <span class="pill">${mine.length}</span></h2>`
+    + (POSTS === null ? `<p class="posts-note">${POSTS_STATE === "error" ? "Couldn't load your videos. Try again in a moment." : "Loading…"}</p>`
+      : mine.length ? `<ul class="post-rows">${mine.map(postRowHtml).join("")}</ul>`
+      : !verified ? `<p class="posts-note">Link your TikTok or Instagram in Settings and lynxr tracks every video on it automatically.</p><button type="button" class="ghost" id="posts-settings">Open Settings</button>`
+      : `<p class="posts-note">lynxr checks your accounts once a day. New videos show up here.</p>`);
+  document.getElementById("posts-settings")?.addEventListener("click", () => go({ kind: "you" }));
+}
+
+function renderPosts(head, body) {
+  head.innerHTML = `
+    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="pane-title"><div class="bcard-title">Posts</div></div>
+    <p class="pane-sub">How the videos on your linked accounts perform.</p>`;
+  document.getElementById("side-open").addEventListener("click", (e) => {
+    const open = document.body.classList.toggle("side-open");
+    e.currentTarget.setAttribute("aria-expanded", open);
+  });
+
+  body.innerHTML = `
+    <div class="section me-card" id="posts-goal"></div>
+    <div class="section me-card" id="posts-list"></div>`;
+  paintPosts();
+}
+
+/* ---------- HOME: the welcome dashboard under the paste box ----------
+   Owner, 2026-10-02: Home is the creator app's first view (VIEW.kind "new"). The paste box keeps the top of the page; under
+   it sit the goal (with progress), the linked profiles and the latest scripts. renderNewScript() draws the frame once;
+   paintHome() fills the cards and can run again alone when the plan, the profiles or the tracked videos arrive, so a link
+   half-typed in the box is never rebuilt under the creator. Everything shown comes from state already in memory: no
+   request is made to draw it. */
+
+const CHECK_SVG = `<svg class="home-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
+
+/** What the page says to this creator, by priority (no priority yet reads as the deals one, like the first-run greeting). */
+const HOME_HEADLINE = {
+  deals: "Let's land your next brand deal", rate: "Let's raise your rate",
+  perform: "Let's make brands rebook you", grow: "Let's grow your account",
+};
+function homeHeadline() {
+  const who = setupName();
+  const base = HOME_HEADLINE[ME.priority] || HOME_HEADLINE.deals;
+  return who ? `${base}, ${who}.` : `${base}.`;
+}
+/** The name is the user's own data: text, never markup. */
+function paintHomeHeadline() {
+  const h = document.getElementById("home-h");
+  if (h) h.textContent = homeHeadline();
+}
+
+/** The goal card on Home: priority and goal with their real progress (see goalCardHtml). */
+const homeGoalHtml = () => goalCardHtml("home");
+
+/** The creator's own accounts, each verified or not. An unverified one opens Settings. Empty string = no card: the table is not
+    there, or they added none (profiles are optional, 2026-10-03; a "grow" goal says what to do itself). */
+function homeProfilesHtml() {
+  if (!ONBOARD_LIVE || !Array.isArray(PROFILES) || !PROFILES.length) return "";
+  const h = `<h2 class="me-card-h">Your own accounts</h2>`;
+  return h + `<ul class="home-profs">` + PROFILES.map((p) => {
+    const ok = !!p.verified_at;
+    const plat = PLAT_NAME[p.platform] || p.platform;
+    const inner = `<span class="home-prof-plat">${escapeHtml(plat)}</span><span class="home-prof-h">@${escapeHtml(p.handle)}</span>`
+      + `<span class="home-prof-st">${ok ? CHECK_SVG : ""}${ok ? "verified" : "unverified"}</span>`;
+    return ok ? `<li><span class="home-prof ok">${inner}</span></li>`
+      : `<li><button type="button" class="home-prof warn" data-home="settings" aria-label="@${escapeHtml(p.handle)} on ${escapeHtml(plat)} is unverified. Open Settings to verify it.">${inner}</button></li>`;
+  }).join("") + `</ul>`;
+}
+
+/** The latest three videos from the Library, with where each script stands. Empty string = no card. */
+function homeRecentHtml() {
+  if (!(ME.library || []).length) return "";
+  const items = findSort(ME.library, "new", sourceLabel, null).slice(0, 3);
+  return `<h2 class="me-card-h">Recent scripts</h2><ul class="home-recent">` + items.map((it) => {
+    const ads = libScripts(it);
+    const st = ads.some(isWriting) ? "writing" : ads.some((a) => a.status === "done") ? "ready" : ads.some((a) => a.status === "error") ? "failed" : "saved";
+    return `<li><button type="button" class="home-rec" data-lid="${escapeHtml(it.id)}"><span class="home-rec-t">${escapeHtml(sourceLabel(it))}</span>`
+      + `<span class="home-rec-s ${st}">${st}</span></button></li>`;
+  }).join("") + `</ul>`;
+}
+
+/** Open a Library entry from Home, the same landing a send uses. */
+function openLibraryEntry(lid) {
+  if (!lid) { go({ kind: "library" }); return; }
+  LIB_MODE = "all";
+  FOCUS_LID = lid;
+  go({ kind: "library" });
+  focusLibraryEntry({ scroll: true });
+}
+
+/** A script being written, shown above the paste box with the same progress block the Library uses. */
+function paintHomeWriting() {
+  const host = document.getElementById("home-writing");
+  if (!host || VIEW.kind !== "new") return;
+  const q = writingQueue();
+  if (!q.length) { host.innerHTML = ""; return; }
+  const a = q[0];
+  const brand = a.brandId ? ((brandById(a.brandId) || {}).name || a.brandName || "this brand") : "";
+  const stage = brand ? `Writing it for ${escapeHtml(brand)}` : "Reading the video for its original script";
+  host.innerHTML = `<div class="section me-card home-writing">${etaBlockHtml(a, stage)}`
+    + `<p class="home-writing-foot">${q.length > 1 ? `${q.length - 1} more after this one. ` : ""}`
+    + `<button type="button" class="linkish" id="home-writing-open">See it in your library</button></p></div>`;
+  document.getElementById("home-writing-open").addEventListener("click", () => openLibraryEntry(a.libraryId));
+  paintEta(host);
+}
+
+/** Fill the cards. Safe to call any time; does nothing off Home. */
+function paintHome() {
+  const host = document.getElementById("home-cards");
+  if (!host || VIEW.kind !== "new") return;
+  const a = document.activeElement;
+  if (a && host.contains(a) && a.tagName === "INPUT") return;   // a brand or a rate being typed: a late arrival must not wipe it
+  const keep = a && host.contains(a) && a.dataset?.goal ? `[data-goal="${a.dataset.goal}"]` : null;
+  const prof = homeProfilesHtml();
+  const rec = homeRecentHtml();
+  paintHomeHeadline();
+  host.innerHTML = `<div class="section me-card home-card" id="home-goal">${homeGoalHtml()}</div>`
+    + (prof || rec ? `<div class="home-pair">`
+      + (prof ? `<div class="section me-card home-card" id="home-profs">${prof}</div>` : "")
+      + (rec ? `<div class="section me-card home-card" id="home-rec">${rec}</div>` : "")
+      + `</div>` : "");
+  paintPostsBars(host);
+  wireGoalCard(host, () => { paintHome(); paintSetupDue(); });
+  host.querySelectorAll("[data-home]").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.home;
+    if (k === "plan") go({ kind: "plan" });
+    else if (k === "posts") { go({ kind: "posts" }); refreshPosts(); }
+    else go({ kind: "you" });
+  }));
+  host.querySelectorAll(".home-rec").forEach((b) => b.addEventListener("click", () => openLibraryEntry(b.dataset.lid)));
+  if (keep) host.querySelector(keep)?.focus({ preventScroll: true });
+}
+
+/* ---------- THE TOUR: a skippable walk down the sidebar ----------
+   Owner, 2026-10-02. The x points at each rail item in turn with one short line. It shows once per account (ME.tour, on the
+   creator's own row, so another device does not repeat it): to a new account right after the questions, to an existing one the
+   first time it reaches Home. It never starts over a script being written, a pasted link about to be sent, or any open popup;
+   if the setup stepper opens that visit, the tour waits until it closes (afterSetupClosed). "Replay tour" in Settings runs it
+   again. On a phone the rail is a drawer, so the tour opens it and closes it again at the end.
+   THE STOPS follow the rail as it is (2026-10-03, the three-row rail): New script, Library, Posts, Lynx Media Group, then the
+   account row. Tracking is for every tier, so every account gets the Posts stop (it follows showPostsNav / hasTracking, so a
+   kill switch removes it). The account menu is never opened by the tour. */
+const TOUR_LIVE = true;
+const TOUR_SEEN_KEY = "lynxr_tour_seen";        // sessionStorage: the tour already started in this tab (a fallback if the save is slow)
+let TOUR_TAB_SEEN = false;
+const tourSeenInTab = () => { try { if (sessionStorage.getItem(TOUR_SEEN_KEY) === "1") return true; } catch {} return TOUR_TAB_SEEN; };
+
+/** Something that should keep the tour away: a script writing, a paste about to send, a billing return, any open popup. */
+function tourBlocked() {
+  if (writingQueue().length) return true;
+  try { if (sessionStorage.getItem(PASTE_KEY)) return true; } catch {}
+  if (BILLING_RETURN) return true;
+  if (document.body.classList.contains("modal-open")) return true;
+  const setup = document.getElementById("setup-modal");
+  return !!(setup && !setup.hidden);
+}
+
+/** Start the tour on its own when every condition holds; otherwise do nothing, and the next paint of Home asks again. */
+function maybeStartTour() {
+  if (!TOUR_LIVE || TOUR || TOUR_TIMER || ME.tour || TOUR_TAB_SEEN || tourSeenInTab()) return;
+  if (!unlocked || !SETUP_DECIDED || VIEW.kind !== "new") return;
+  if (PLAN_STATE !== "ok" && PLAN_STATE !== "error") return;      // the Posts stop depends on the plan: wait for it
+  if (tourBlocked()) return;
+  TOUR_TIMER = setTimeout(() => {                                  // after the page has painted, never during the paste
+    TOUR_TIMER = null;
+    if (TOUR || ME.tour || VIEW.kind !== "new" || tourBlocked()) return;
+    startTour(false);
+  }, 500);
+}
+
+/** The stops for this account, from what the rail actually shows right now. */
+function tourStops() {
+  const shown = (id) => { const e = document.getElementById(id); return e && !e.hidden && e.getClientRects().length > 0; };
+  const out = [];
+  const add = (id, line) => { if (shown(id)) out.push({ id, line }); };
+  add("nav-new", "Paste a link, get a script for your next UGC video.");
+  add("nav-library", "Every script you've made, grouped by the brands you make them for.");
+  add("nav-posts", "Every video on your linked accounts, tracked automatically.");
+  add("nav-lynx", "Briefs your agency sends you.");
+  add("nav-account", "Your plan, feedback and settings live here.");
+  return out;
+}
+
+/** The tour's elements, built once and kept (hidden) between runs. Every string goes in as text. */
+function tourEls() {
+  let root = document.getElementById("tour");
+  if (!root) {
+    root = document.createElement("div");
+    root.id = "tour";
+    root.hidden = true;
+    root.innerHTML = `<div class="tour-block"></div><div class="tour-spot" aria-hidden="true"></div>`
+      + `<div class="tour-card" role="dialog" aria-modal="true" aria-label="Quick tour">`
+      + `<div class="tour-av" aria-hidden="true"></div>`
+      + `<div class="tour-main"><p class="tour-line" id="tour-line" role="status" aria-live="polite"></p>`
+      + `<div class="tour-foot"><span class="tour-n"></span><span class="tour-btns">`
+      + `<button type="button" class="linkish" data-tour="skip">Skip tour</button>`
+      + `<button type="button" class="btn" data-tour="next">Next</button></span></div></div></div>`;
+    document.body.appendChild(root);
+    const av = root.querySelector(".tour-av");
+    if (typeof lynxrAvatar === "function") av.innerHTML = lynxrAvatar("done", "tour-lx");
+    // Stops here: a click inside the tour must not reach the document handler that closes the phone drawer.
+    root.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const b = e.target.closest("[data-tour]");
+      if (!b || !TOUR) return;
+      if (b.dataset.tour === "skip") endTour("skipped");
+      else if (TOUR.i + 1 < TOUR.stops.length) showTourStop(TOUR.i + 1);
+      else endTour("done");
+    });
+  }
+  return { root, spot: root.querySelector(".tour-spot"), card: root.querySelector(".tour-card"), av: root.querySelector(".tour-av"),
+    line: root.querySelector(".tour-line"), n: root.querySelector(".tour-n"), next: root.querySelector('[data-tour="next"]'),
+    skip: root.querySelector('[data-tour="skip"]') };
+}
+
+function startTour(forced) {
+  if (TOUR || !document.getElementById("app")) return;
+  if (document.body.classList.contains("modal-open")) return;
+  clearTimeout(TOUR_TIMER); TOUR_TIMER = null;
+  TOUR_TAB_SEEN = true;
+  try { sessionStorage.setItem(TOUR_SEEN_KEY, "1"); } catch {}
+  const phone = window.matchMedia("(max-width: 820px)").matches;
+  TOUR = { i: 0, stops: [], phone, forced: !!forced, prevFocus: document.activeElement,
+    drawerWasOpen: document.body.classList.contains("side-open") };
+  const e = tourEls();
+  e.root.hidden = false;
+  document.body.classList.add("tour-on");
+  if (phone) {                                       // the rail is a drawer on a phone: open it for the walk
+    document.body.classList.add("side-open");
+    document.getElementById("side-open")?.setAttribute("aria-expanded", "true");
+  }
+  document.getElementById("app").inert = true;       // nothing behind the tour takes focus or a click
+  document.addEventListener("keydown", tourKey, true);
+  document.addEventListener("focusin", tourFocus, true);
+  window.addEventListener("resize", tourPlace);
+  window.addEventListener("scroll", tourPlace, true);
+  TOUR.stops = tourStops();
+  if (!TOUR.stops.length) { endTour("skipped"); return; }
+  showTourStop(0);
+  requestAnimationFrame(() => e.spot.classList.add("anim"));   // glide between stops, but not in from the corner
+}
+
+function showTourStop(i) {
+  const t = TOUR;
+  if (!t) return;
+  t.i = i;
+  const stop = t.stops[i];
+  const last = i === t.stops.length - 1;
+  const e = tourEls();
+  e.line.textContent = stop.line;
+  e.n.textContent = `${i + 1} of ${t.stops.length}`;
+  e.next.textContent = last ? "Done" : "Next";
+  if (typeof lynxrMood === "function") lynxrMood(e.av.querySelector(".lx"), last ? "hyped" : "done");
+  document.getElementById(stop.id)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  tourPlace();
+  e.next.focus({ preventScroll: true });
+}
+
+/** Put the highlight on the current item and the card beside it (desktop) or at the far end of the screen (phone). */
+function tourPlace() {
+  const t = TOUR;
+  if (!t) return;
+  const e = tourEls();
+  const target = document.getElementById(t.stops[t.i].id);
+  const r = target ? target.getBoundingClientRect() : null;
+  if (!r || !r.width) { e.spot.hidden = true; return; }
+  e.spot.hidden = false;
+  const pad = 4;
+  Object.assign(e.spot.style, { left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px` });
+  const vw = document.documentElement.clientWidth, vh = window.innerHeight;
+  const phone = window.matchMedia("(max-width: 820px)").matches;
+  e.card.classList.toggle("phone", phone);
+  if (phone) {
+    e.card.style.left = ""; e.card.style.top = "";
+    e.card.dataset.pos = r.top + r.height / 2 > vh / 2 ? "top" : "bottom";   // never on top of the item it points at
+  } else {
+    delete e.card.dataset.pos;
+    const cw = e.card.offsetWidth, ch = e.card.offsetHeight;
+    const left = Math.min(r.right + pad + 18, Math.max(12, vw - cw - 12));
+    const top = Math.max(12, Math.min(r.top + r.height / 2 - ch / 2, vh - ch - 12));
+    e.card.style.left = `${left}px`;
+    e.card.style.top = `${top}px`;
+    e.card.style.setProperty("--tour-caret", `${Math.max(18, Math.min(ch - 18, r.top + r.height / 2 - top))}px`);
+  }
+}
+
+function tourKey(e) {
+  if (!TOUR) return;
+  if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); endTour("skipped"); return; }
+  if (e.key !== "Tab") return;
+  // Focus stays on the card's two buttons.
+  const card = tourEls().card;
+  const f = [...card.querySelectorAll("button")].filter((b) => !b.disabled);
+  if (!f.length) return;
+  const at = document.activeElement;
+  if (!card.contains(at)) { e.preventDefault(); f[0].focus(); }
+  else if (e.shiftKey && at === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+  else if (!e.shiftKey && at === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+}
+function tourFocus(e) {
+  if (!TOUR) return;
+  const el = tourEls();
+  if (!el.root.contains(e.target)) el.next.focus({ preventScroll: true });
+}
+
+/** how: "done" | "skipped". Records it on the creator's row, closes a drawer the tour opened, and gives focus back. */
+function endTour(how) {
+  const t = TOUR;
+  if (!t) return;
+  TOUR = null;
+  document.removeEventListener("keydown", tourKey, true);
+  document.removeEventListener("focusin", tourFocus, true);
+  window.removeEventListener("resize", tourPlace);
+  window.removeEventListener("scroll", tourPlace, true);
+  const e = tourEls();
+  e.root.hidden = true;
+  e.spot.classList.remove("anim");
+  document.body.classList.remove("tour-on");
+  const app = document.getElementById("app");
+  if (app) app.inert = false;
+  if (t.phone && !t.drawerWasOpen) {
+    document.body.classList.remove("side-open");
+    document.getElementById("side-open")?.setAttribute("aria-expanded", "false");
+  }
+  if (!t.forced || !ME.tour) { ME.tour = { at: new Date().toISOString(), how }; save(); }
+  const back = t.prevFocus;
+  if (back && back !== document.body && back.isConnected && !back.disabled) back.focus({ preventScroll: true });
+  else document.getElementById("pane-head")?.focus({ preventScroll: true });
 }
 
 /** Which companies the pasted link is for. Links are sent from one place now,
@@ -9996,7 +11885,12 @@ function unlock() {
   // Same shape, same reason: paints #nav-lynx in only once the roster answer
   // is back, for the ~1% of creators actually on it.
   // …and, when that answer is an open invite, the popup (once per page load).
-  refreshAgency().then(() => { renderSide(); if (VIEW.kind === "lynx") renderPane(); openAgencyInvite(); });
+  const agencyReady = refreshAgency().then(() => { renderSide(); if (VIEW.kind === "lynx") renderPane(); openAgencyInvite(); });
+  // Setup answers are saved and the overlay decided AFTER renderAll(), which is where a pasted link has already been
+  // sent: setup never delays the first script.
+  setupAfterUnlock(agencyReady);
+  // The plan first (it says whether this account is tracked, which decides the Posts link), then the tracked videos.
+  refreshPlan().then(() => { renderSide(); paintHome(); refreshPosts(); maybeStartTour(); });
   takeBillingReturn();
 }
 
@@ -10043,11 +11937,13 @@ async function revealAgencySwitch() {
   try {
     staff = (await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" })) === true;
   } catch { return; }                        // offline, or no is_staff(): no link
-  const before = document.getElementById("nav-you");
+  const before = document.getElementById("nav-you");     // it joins the account menu, ahead of Settings
   if (!staff || !before || document.getElementById("nav-agency")) return;
   const a = document.createElement("a");
   a.className = "side-link";
   a.id = "nav-agency";
+  a.setAttribute("role", "menuitem");
+  a.tabIndex = -1;
   a.href = "/agencyonly/";
   a.innerHTML = `<svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3.5-3.5"/><path d="M20 16H7l3.5 3.5"/></svg><span class="side-label">Agency app</span>`;
   before.parentNode.insertBefore(a, before);
@@ -10187,6 +12083,7 @@ function startLiveSync() {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) return;
     refreshAllowance();
+    if (hasTracking()) refreshPosts();
     tick();
   });
 }
@@ -10208,10 +12105,10 @@ function startLiveSync() {
    Do not treat a bump here as consent re-taken. The policy's own "changes to
    this policy" section promises an email for a material change, and that email
    is the mechanism; this is only the label on it. */
-const PRIVACY_VERSION = "2026-09-25";
+const PRIVACY_VERSION = "2026-10-03";
 /* The terms' version, from terms/index.html's "last updated" line. The sign-in card's agreement line
    names the terms too since 2026-09-25, so the record says which terms. Bump with that page's date. */
-const TERMS_VERSION = "2026-09-21";
+const TERMS_VERSION = "2026-10-01";
 
 /* THE MERGED HOME. `/` hosts three layers in one document — #lp-main
    (marketing), #gate (auth) and #app (the app). HOME is false on any other
@@ -10788,8 +12685,6 @@ document.getElementById("toggle-pw").addEventListener("click", () => {
   pw.focus();
 });
 
-document.getElementById("side-new").addEventListener("click", addBrand);
-
 // Always a FRESH composer, exactly like pressing new-chat: re-rendering the
 // view is what clears the field and resets the company picker.
 document.getElementById("nav-new").addEventListener("click", () => go({ kind: "new" }));
@@ -10820,6 +12715,7 @@ document.addEventListener("click", (e) => {
    is never left on a control that just slid off-screen. */
 function closeSideDrawer() {
   if (!document.body.classList.contains("side-open")) return;
+  closeAcctMenu(false);
   document.body.classList.remove("side-open");
   const toggle = document.getElementById("side-open");
   toggle?.setAttribute("aria-expanded", "false");
@@ -10838,6 +12734,8 @@ document.getElementById("nav-home")?.addEventListener("click", () => {
   document.getElementById("pane-head")?.focus({ preventScroll: true });
 });
 document.getElementById("nav-library").addEventListener("click", () => go({ kind: "library" }));
+wireAcctMenu();
+document.getElementById("nav-posts")?.addEventListener("click", () => { go({ kind: "posts" }); refreshPosts(); });
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
 document.getElementById("nav-plan").addEventListener("click", () => go({ kind: "plan" }));
 document.getElementById("nav-lynx").addEventListener("click", () => go({ kind: "lynx" }));

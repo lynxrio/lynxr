@@ -65,6 +65,13 @@ DIGEST ONLY (page: False) — still reported, once a day, in digest()'s
                       functions/ig-thumb) hit this month's dollar ceiling —
                       visitors see a gradient instead of their video's cover.
                       Nobody lost a script and view counts are untouched.
+    tracking-stale    the post-tracking lane (pipeline/track_posts.py, Fly) has
+                      not written lynxr_ops 'track.health' in 3 hours although
+                      the worker was seen in the last 10 minutes. Tracking is
+                      max-only: late numbers, never a lost script.
+    tracking-budget   the Apify spend guard (80% of the cap) has been closed for
+                      over 3 hours: Instagram checks, view counts and follower
+                      counts are paused. TikTok is unaffected.
 
 p95 latency is DELIBERATELY not here — it lives in the daily digest instead.
 The watchdog's first-ever run failed on `p95 1548s > 60s`, and at n=7 samples
@@ -395,8 +402,19 @@ def clear_alarm(key, alarm_key, note):
 # 3c. check_all() — pure, no network, no Supabase
 # =============================================================================
 
+def _parse_iso(v):
+    """An aware datetime from an ISO string, or None for anything else (a missing, malformed or non-string value)."""
+    if not isinstance(v, str) or not v:
+        return None
+    try:
+        d = datetime.fromisoformat(v.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
 def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
-              role="external", fallback_alive=None, thumb_ceiling=None):
+              role="external", fallback_alive=None, thumb_ceiling=None, track_health=None):
     """The list of currently-breached invariants, each a dict with keys
     "key", "title", "body", "priority", "tags", "page". A pure function of
     its arguments — same reason LR.build_report is pure: it has to be
@@ -413,7 +431,11 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
     `fallback_alive=None` produces the "fallback status unknown" wording.
 
     `thumb_ceiling` is lynxr_ops 'thumb.ceiling''s value (or None); it only
-    ever adds the digest-only thumb-ceiling line."""
+    ever adds the digest-only thumb-ceiling line.
+
+    `track_health` is lynxr_ops 'track.health''s value (or None), written by
+    pipeline/track_posts.py at the end of every pass; it only ever adds the
+    digest-only tracking-stale and tracking-budget lines."""
     now = now or datetime.now(timezone.utc)
     alarms = []
 
@@ -617,6 +639,37 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
             "title": "sign-up cover lookups paused for the month",
             "body": (f"instagram covers for the sign-up tease hit {spent} for {tc['month']}. "
                      "the tease shows a gradient until the 1st (UTC). view counts unaffected."),
+            "priority": 2, "tags": "warning", "page": False,
+        })
+
+    # ---- tracking-stale / tracking-budget -----------------------------------
+    # DIGEST ONLY, both. pipeline/track_posts.py (the post-tracking lane) writes lynxr_ops 'track.health' at the end of
+    # every pass. Tracking is max-only and max is not for sale yet, so a stalled lane means a granted account's numbers
+    # are late, not that a creator lost a script: it belongs in the digest, never on a phone.
+    #   tracking-stale   the lane has not written health for 3 hours although the worker itself was seen in the last
+    #                    10 minutes (so it is not just "Fly is down", which worker-down already covers).
+    #   tracking-budget  `apify_closed_since` (the first pass that found the Apify spend guard closed, cleared the next
+    #                    time it is open) is more than 3 hours old: Instagram checks and counts have been paused that long.
+    # When max goes on sale a tracking-down PAGE is warranted; that is a later decision, not this one.
+    th = track_health if isinstance(track_health, dict) else {}
+    th_at = _parse_iso(th.get("at"))
+    if (th_at is not None and worker_seen_at is not None
+            and (now - worker_seen_at).total_seconds() <= 10 * 60
+            and (now - th_at).total_seconds() > 3 * 3600):
+        alarms.append({
+            "key": "tracking-stale",
+            "title": "post tracking has not run for 3 hours",
+            "body": ("the tracking lane has not reported in 3 hours although the worker is up. "
+                     "profile checks, new videos and counts are late. fly logs: grep track_posts"),
+            "priority": 2, "tags": "warning", "page": False,
+        })
+    closed = _parse_iso(th.get("apify_closed_since"))
+    if closed is not None and (now - closed).total_seconds() > 3 * 3600:
+        alarms.append({
+            "key": "tracking-budget",
+            "title": "instagram tracking paused: apify budget",
+            "body": ("the Apify spend guard has been closed for over 3 hours, so instagram checks, view counts "
+                     "and follower counts are paused. tiktok is unaffected. it reopens on the 1st or with a bigger plan."),
             "priority": 2, "tags": "warning", "page": False,
         })
 
@@ -957,8 +1010,10 @@ def run_once(key, dry_run=False, beat=False, force_digest=False, role="external"
         fallback_seen_at = _fallback_seen_at(key)
         fallback_alive = _fallback_alive(fallback_seen_at, now, role)
         thumb_ceiling = (ops_get(key, "thumb.ceiling") or {}).get("value")
+        track_health = (ops_get(key, "track.health") or {}).get("value")
         alarms = check_all(rows, sources_recent, worker_seen_at, now, charges_24h=charges_24h,
-                            role=role, fallback_alive=fallback_alive, thumb_ceiling=thumb_ceiling)
+                            role=role, fallback_alive=fallback_alive, thumb_ceiling=thumb_ceiling,
+                            track_health=track_health)
 
         if dry_run:
             return alarms

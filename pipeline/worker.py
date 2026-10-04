@@ -62,6 +62,15 @@ AGENCY LANE
     brief. The GitHub fallback workflow does NOT run this lane — it is Fly-only.
     AGENCY_LANE=0 turns it off entirely; AGENCY_POLL_S paces how often an idle
     loop even asks whether the lane has work.
+
+TRACK LANE
+    Runs pipeline/track_posts.py as a subprocess, idle only, after the agency
+    lane and the brief clips (creators first, always): bio-code verification of
+    the TikTok / Instagram profiles creators add (every tier) and, from Phase B,
+    scans and measurements of every verified profile (all tiers, max first under the Apify budget). One pass at most
+    every TRACK_POLL_S, or within ~TRACK_FAST_S of a creator pressing "check my bio" (setup waits on it); TRACK_POSTS=0
+    turns it off. Fly-only like the others.
+    Plan: ~/.claude/plans/lynxr-onboarding-and-post-tracking.md.
 """
 
 import argparse
@@ -77,7 +86,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -106,6 +115,15 @@ AGENCY_POLL_S = float(envcfg.get("AGENCY_POLL_S", "10"))
 # and the agency lane has nothing, at most every BRIEF_CLIPS_POLL_S. BRIEF_CLIPS=0 turns it off.
 BRIEF_CLIPS = envcfg.get("BRIEF_CLIPS", "1") not in ("0", "", "false", "False")
 BRIEF_CLIPS_POLL_S = float(envcfg.get("BRIEF_CLIPS_POLL_S", "60"))
+
+# Profile verification (and, from Phase B, post tracking) — pipeline/track_posts.py. Idle-only and Fly-only,
+# after the agency lane and the brief clips, at most every TRACK_POLL_S. TRACK_POSTS=0 turns it off.
+TRACK_POSTS = envcfg.get("TRACK_POSTS", "1") not in ("0", "", "false", "False")
+TRACK_POLL_S = float(envcfg.get("TRACK_POLL_S", "300"))
+# FAST PATH: setup blocks on the bio-code check (a creator cannot move on until the code is found), so a press on
+# "check my bio" must not wait for the next 5-minute pass. Every TRACK_FAST_S an idle worker asks one cheap question
+# (is there a check requested in the last 3 minutes?) and runs the pass at once if so.
+TRACK_FAST_S = float(envcfg.get("TRACK_FAST_S", "8"))
 
 # This venv's Python has no system CA bundle — a bare default context fails
 # every request with CERTIFICATE_VERIFY_FAILED. Same guard the rest of the
@@ -233,6 +251,22 @@ def queued_formats(key):
         return None
 
 
+def track_check_waiting(key):
+    """True when a creator pressed "check my bio" in the last 3 minutes on a profile not yet verified. False on any
+    transport error: this only makes the pass sooner, the 5-minute pass still finds the request."""
+    since = urllib.parse.quote((datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat(), safe="")
+    url = (f"{SB_URL}/rest/v1/lynxr_profiles?verified_at=is.null&check_requested_at=gte.{since}"
+           "&select=creator_id&limit=1")
+    req = urllib.request.Request(url)
+    req.add_header("apikey", key)
+    req.add_header("Authorization", f"Bearer {key}")
+    try:
+        with urllib.request.urlopen(req, timeout=15, context=SSL_CTX) as r:
+            return bool(json.load(r))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def run_agency_pass():
     """One pass of the agency lane, as its own process — same reasoning as
     run_pass(): process_campaigns imports process_adaptations, which is
@@ -261,6 +295,18 @@ def run_brief_clips_pass():
         log.error("brief clips pass exceeded 15 minutes — killed")
     except Exception as e:  # noqa: BLE001
         log.error("brief clips pass failed to start: %s", str(e)[:120])
+    return None
+
+
+def run_track_pass():
+    """One pass of pipeline/track_posts.py, as its own process for run_pass()'s reason. Never raises."""
+    cmd = [sys.executable, str(ROOT / "pipeline" / "track_posts.py")]
+    try:
+        return subprocess.run(cmd, cwd=str(ROOT / "pipeline"), timeout=900).returncode
+    except subprocess.TimeoutExpired:
+        log.error("track pass exceeded 15 minutes — killed")
+    except Exception as e:  # noqa: BLE001
+        log.error("track pass failed to start: %s", str(e)[:120])
     return None
 
 
@@ -385,6 +431,16 @@ def main():
     probe_fails = 0
     agency_next = 0.0
     clips_next = 0.0
+    track_next = 0.0
+    track_probe_next = 0.0
+
+    def track_fast_due():
+        """The fast path's throttle: ask the one cheap question at most every TRACK_FAST_S."""
+        nonlocal track_probe_next
+        if time.time() < track_probe_next:
+            return False
+        track_probe_next = time.time() + TRACK_FAST_S
+        return track_check_waiting(key)
 
     def agency_due(key):
         """True only when the agency lane should run right now. Also the
@@ -476,6 +532,11 @@ def main():
             # so an idle minute stays quiet and idle_logged is left alone.
             run_brief_clips_pass()
             clips_next = time.time() + BRIEF_CLIPS_POLL_S
+        elif TRACK_POSTS and (time.time() >= track_next or track_fast_due()):
+            # Idle only, after the agency lane and brief clips: profile checks (every tier) and, from Phase B,
+            # scans and measurements (every tier). pipeline/track_posts.py logs one line per pass.
+            run_track_pass()
+            track_next = time.time() + TRACK_POLL_S
         elif not idle_logged:
             log.info("idle — nothing queued")
             idle_logged = True          # say it once, not every two seconds

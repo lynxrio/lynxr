@@ -39,6 +39,11 @@ all (`id8` only, by design), and it is a few kilobytes. Free to carry, so
 carry it — never at the cost of a Tier 1 table. This decision is written down
 here because it is exactly the sort that gets re-litigated.
 
+Post tracking (supabase/profiles.sql, supabase/post_tracking.sql, 2026-10): `lynxr_profiles` and `lynxr_posts` are
+Tier 2 (a creator's verified profiles and the videos found on them are slow to re-find and cost Apify results to
+re-measure); the snapshot tables `lynxr_post_views` and `lynxr_profile_followers` are Tier 3. Until the SQL is applied a
+missing table is only a warning.
+
 The auth roster is captured separately through the admin API. IT CANNOT
 INCLUDE PASSWORD HASHES — the admin endpoint does not return them, so this is
 a roster of who exists, not a set of credentials you could restore people
@@ -106,6 +111,10 @@ TABLES = (
     ("lynxr_waitlist", 2),
     ("lynxr_feedback", 2),
     ("lynxr_sources", 2),
+    ("lynxr_profiles", 2),
+    ("lynxr_posts", 2),
+    ("lynxr_post_views", 3),
+    ("lynxr_profile_followers", 3),
     ("lynxr_costs", 3),
 )
 

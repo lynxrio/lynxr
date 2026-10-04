@@ -566,6 +566,36 @@ check("an old month's ceiling -> silent", "thumb-ceiling" in keys_of(alarms), Fa
 alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW, now=NOW, thumb_ceiling="garbage")
 check("malformed thumb.ceiling -> silent, no raise", "thumb-ceiling" in keys_of(alarms), False)
 
+# ---- tracking-stale / tracking-budget: digest only --------------------------
+def _th(**kw):
+    return W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW - timedelta(minutes=1), now=NOW, **kw)
+
+
+alarms = _th()
+check("no track.health row -> neither tracking alarm", keys_of(alarms) & {"tracking-stale", "tracking-budget"}, set())
+alarms = _th(track_health={"at": ago(NOW, 2 * 3600 + 59 * 60)})
+check("track.health 2h59m old -> silent", "tracking-stale" in keys_of(alarms), False)
+alarms = _th(track_health={"at": ago(NOW, 3 * 3600 + 60)})
+_ts = [a for a in alarms if a["key"] == "tracking-stale"]
+check("track.health 3h01m old while the worker is up -> tracking-stale", len(_ts), 1)
+check("tracking-stale never pages", _ts[0]["page"] if _ts else None, False)
+check("tracking-stale body carries no @ and no http", ("@" in _ts[0]["body"] or "http" in _ts[0]["body"]) if _ts else None, False)
+alarms = W.check_all(healthy_rows, sources_recent=1, worker_seen_at=NOW - timedelta(minutes=30), now=NOW,
+                     track_health={"at": ago(NOW, 5 * 3600)})
+check("stale health but the worker itself is down too -> not tracking-stale (worker-down covers it)", "tracking-stale" in keys_of(alarms), False)
+alarms = _th(track_health={"at": ago(NOW, 60), "apify_ok": False, "apify_closed_since": ago(NOW, 3 * 3600 + 60)})
+_tb = [a for a in alarms if a["key"] == "tracking-budget"]
+check("apify guard closed for over 3h -> tracking-budget", len(_tb), 1)
+check("tracking-budget never pages", _tb[0]["page"] if _tb else None, False)
+check("tracking-budget body carries no @ and no http", ("@" in _tb[0]["body"] or "http" in _tb[0]["body"]) if _tb else None, False)
+alarms = _th(track_health={"at": ago(NOW, 60), "apify_closed_since": ago(NOW, 2 * 3600)})
+check("apify guard closed for 2h -> silent", "tracking-budget" in keys_of(alarms), False)
+alarms = _th(track_health={"at": ago(NOW, 60), "apify_ok": True, "apify_closed_since": None})
+check("apify open -> silent", "tracking-budget" in keys_of(alarms), False)
+for _junk in ("garbage", 5, ["x"], {"at": 5, "apify_closed_since": "nope"}, {"at": "not a date"}):
+    alarms = _th(track_health=_junk)
+    check(f"malformed track.health {_junk!r} -> silent, no raise", keys_of(alarms) & {"tracking-stale", "tracking-budget"}, set())
+
 # ---- _prune_thumb_meter: expired rows only, hourly, never raises -----------
 _orig_urlopen = W.urllib.request.urlopen
 _seen = []

@@ -6,7 +6,7 @@
 > in — and rewrites that format as a script for the company you are making
 > content for.
 
-lynxr is your content creator buddy. It is made by lynxr LLC, a partner company of
+lynxr is the ugc creator tool, built for creators who make videos for brands. It is made by lynxr LLC, a partner company of
 Lynx Media Group LLC, the UGC agency in Allston, Massachusetts. The agency's site is https://lynxmediagroup.org/. Sign-up is open to everyone and free: every account gets
 3 scripts a week, with no card required. The app lives at lynxr.io itself — paste a
 link on the homepage and create an account when you send it. There is no file
@@ -21,9 +21,9 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 
 - [lynxr](https://lynxr.io/): What lynxr is and how it works in three steps.
 - [Questions and answers](https://lynxr.io/faq/): Straight answers about what lynxr does with a link, which platforms it reads, what it costs, who owns the scripts, and how access works.
-- [Pricing](https://lynxr.io/pricing/): What lynxr costs. Free to start: 3 scripts in any rolling 7 days; no card required. lynxr pro is $24.99 a month for unlimited scripts (fair use: 150 in any rolling 30 days, 30 in any 24 hours); tax is added where it applies. lynxr max, $74.99 a month, adds the content coach and post tracking, and is not on sale yet.
+- [Pricing](https://lynxr.io/pricing/): What lynxr costs. Free to start: 3 scripts in any rolling 7 days; no card required. lynxr pro is $24.99 a month for unlimited scripts (fair use: 150 in any rolling 30 days, 30 in any 24 hours); tax is added where it applies. Post tracking of the TikTok and Instagram accounts you link is live on every plan. Coaching tips are coming soon: basic tips on free, more on pro, and the full coaching and advice on lynxr max ($74.99 a month), which is not on sale yet.
 - [How scripts work](https://lynxr.io/how-it-works/): How lynxr gets from a public TikTok or Instagram link to a script: it transcribes the video, reads the frames shot by shot, and maps the format (the hook, the beats, the turn, the close), then writes it for your brand. Includes a real before-and-after example and the built-in teleprompter.
-- [The coach](https://lynxr.io/how-it-works/coach/): The content coach planned for lynxr max. It is not built yet and lynxr max is not on sale; there is no date. When it arrives it will track your public TikTok and Instagram posts, match each to its script, and tell you what to make next.
+- [The coach](https://lynxr.io/how-it-works/coach/): The content coach planned for every plan (basic tips on free, more on pro, the full coaching and advice on lynxr max). It is not built yet and lynxr max is not on sale; there is no date. Post tracking, which it will read, is already live on every plan; when the coach arrives it will match each tracked post to its script and tell you what to make next.
 - [About lynxr](https://lynxr.io/about/): Who makes lynxr — lynxr LLC, a partner company of Lynx Media Group, the UGC agency — and how the two fit together.
 
 ## Guides

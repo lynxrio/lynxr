@@ -2248,13 +2248,13 @@
      it is a transition on transform, so it can never delay the handler. 0.97
      and 90ms: enough to feel, not enough to see as an animation. */
   .btn, .ghost, .tab, .lib-mode, .for-chip, .vpick, .vdetails, .crumb-link,
-  .side-new, .side-link, .side-item, .composer-send, .lib-plus, .db-mode, .tp-save {
+  .side-new, .side-link, .composer-send, .lib-plus, .db-mode, .tp-save {
     transition: background .14s var(--ease), color .14s var(--ease),
                 border-color .14s var(--ease), opacity .12s, transform .09s var(--ease);
   }
   .btn:active:not(:disabled), .ghost:active:not(:disabled), .tab:active,
   .lib-mode:active, .for-chip:active, .vpick:active, .vdetails:active,
-  .crumb-link:active, .side-new:active, .side-link:active, .side-item:active,
+  .crumb-link:active, .side-new:active, .side-link:active,
   .composer-send:active:not(:disabled), .lib-plus:active, .db-mode:active {
     transform: scale(.97);
   }
@@ -2684,25 +2684,18 @@
   }
   .side-new:hover { opacity: .85; }
 
-  .side-link, .side-item {
+  .side-link {
     display: flex; align-items: center; gap: 9px; width: 100%;
     padding: 8px 10px; text-align: left; border-radius: var(--r-pill);
     background: none; border: 1px solid transparent;
     color: var(--text-2); font-size: var(--fs-135); min-width: 0;
   }
-  .side-link:hover, .side-item:hover { background: var(--hover); color: var(--text); }
-  .side-link.on, .side-item.on { background: var(--surface-2); color: var(--text); border-color: var(--line); }
+  .side-link:hover { background: var(--hover); color: var(--text); }
+  .side-link.on { background: var(--surface-2); color: var(--text); border-color: var(--line); }
   .side-ico { flex: none; width: 15px; height: 15px; opacity: .8; }
   .side-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .side-count { flex: none; font-size: var(--fs-11); color: var(--text-3); font-family: var(--mono); }
-  .side-item.on .side-count { color: var(--text-2); }
 
-  .side-head {
-    font-size: var(--fs-10); letter-spacing: .1em; text-transform: lowercase;
-    color: var(--text-3); padding: 16px 10px 6px;
-  }
-  .side-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
-  .side-empty { color: var(--text-3); font-size: var(--fs-125); padding: 4px 10px; line-height: 1.5; }
   .side-foot { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px; }
   .side-who { color: var(--text-3); font-size: var(--fs-115); padding: 0 10px 8px; overflow: hidden; text-overflow: ellipsis; }
   /* Scripts used / allowed. Quiet until it is spent, then it is the answer to
@@ -3596,7 +3589,7 @@
        title above a script costs more than it tells you. */
     .pane-head { position: static; }
     /* Comfortable thumb targets in the drawer. */
-    .side-item, .side-link, .side-new { min-height: 46px; }
+    .side-link, .side-new { min-height: 46px; }
 
     /* Promoted from the 560px block below (C3): the drawer engaging at 820px
        IS "this is a touch device" — a phone in LANDSCAPE is 844px and was
@@ -4873,22 +4866,7 @@
   .composer-inline .composer-for { margin-bottom: 10px; }
   .composer-inline .composer-note { margin-top: 10px; }
 
-  /* A second action button in the rail, quieter than "New brand" so the two
-     do not compete for the same attention. */
   .side-new .side-count { margin-left: auto; color: var(--on-fill); opacity: .55; }
-  /* Adding a brand is setup you do a handful of times — it should not compete
-     with the button you press every day. */
-  /* The two ADD actions read as a pair: same shape, same weight, same + icon —
-     New script filled because it is the thing you came to do, New brand
-     outlined because it is the same kind of action one step down. Library and
-     the rest stay plain rows, because they are places you go rather than
-     things you make. */
-  .side-brand-add {
-    padding: 9px 10px; margin-bottom: 14px;
-    border-color: var(--line); color: var(--text); font-weight: 600;
-  }
-  .side-brand-add:hover { background: var(--hover); border-color: var(--line-2); }
-  .side-brand-add .side-ico { opacity: 1; }
 
   /* ==========================================================================
      HOUSE STYLE: NO CAPITALS
@@ -4930,8 +4908,7 @@
      Three of these are classes worn by BOTH kinds of text, which is exactly
      what the opt-in attempt kept getting wrong — so each is scoped to the
      variant that actually holds content:
-       .side-label     — the rail's own "new brand"/"library" AND a brand name.
-                         Only the brand row (.side-item) is content.
+       .side-label     — the rail's own words (library, posts ...). Since 2026-10-03 the rail lists no brand names.
        .bcard-title    — the pane title: our own word on the library, settings
                          and feedback pages, the BRAND NAME on a brand page.
                          Only the latter carries #brand-heading.
@@ -4942,7 +4919,7 @@
      class on the chip when it carries a company name, so the "original
      script" face (our own copy) stays lowercased. */
   .bp-val, .bp-hook, .bp-name, .lib-cap, .ex-title, .lp-quote,
-  .lib-group-name[data-bid], .side-item .side-label, #brand-heading,
+  .lib-group-name[data-bid], #brand-heading,
   .loader-stage, td, input, textarea, .chip.pick, .lib-also .chip, .chip.trash-brand,
   .tp-words, .tp-cue, .tp-brand, .for-chip,
   .cb-name, .cb-title, .cb-needs, .cb-setup-val, .cb-note, .cb-instructions, .cb-internal,
@@ -8736,7 +8713,6 @@
       -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
       border: 1px solid var(--gl-edge); box-shadow: var(--gl-shadow);
     }
-    .shell > .side .side-brand-add { margin-top: 2px; }
   }
   @media (max-width: 820px) {
     .shell > .side {
@@ -8753,31 +8729,20 @@
   }
   /* the one dark primary sits ON the glass */
   .shell > .side .side-new { box-shadow: var(--app-soft); }
-  /* the two secondary places are wells (never blurred: they sit inside a blurred panel) */
-  .shell > .side :is(.side-brand-add, #nav-library) {
-    padding: 9px 12px; margin-bottom: 0;
-    background: var(--gl-well-fill); border: 1px solid var(--gl-well-edge); box-shadow: var(--gl-well-shadow);
-    color: var(--text); font-weight: 600;
-  }
-  .shell > .side :is(.side-brand-add, #nav-library):hover { background: var(--gl-well-fill); border-color: var(--line-2); }
-  .shell > .side #nav-library .side-ico { opacity: 1; }
-  /* where you are: a plain row becomes a well; the library pill (already one) takes the darker edge */
-  .shell > .side :is(.side-link, .side-item).on {
-    background: var(--gl-well-fill); border-color: var(--gl-well-edge); box-shadow: var(--gl-well-shadow); color: var(--text);
-  }
-  .shell > .side #nav-library.on { border-color: var(--line-2); }
-  .shell > .side :is(.side-link, .side-item):hover { color: var(--text); }
+  /* LIBRARY AND POSTS ARE ONE PLAIN ROW STYLE (2026-10-03, plan lynxr-rail-simplify.md): no border, no pill, no count. New
+     script above them is the only filled control. The place you are in takes one soft fill, the same on every row. */
+  .shell > .side .side-link { padding: 9px 12px; color: var(--text-2); font-weight: 500; }
+  .shell > .side .side-link:hover { background: var(--hover); color: var(--text); }
+  .shell > .side .side-link.on { background: var(--surface-2); border-color: transparent; box-shadow: none; color: var(--text); font-weight: 600; }
+  .shell > .side .side-link .side-ico { opacity: .85; }
+  .shell > .side .side-link.on .side-ico { opacity: 1; }
   .shell > .side .side-count { color: var(--text-2); font-variant-numeric: tabular-nums; }
-  /* no tiny tracked label: "brands" is a normal-size quiet heading */
-  .shell > .side .side-head { font-size: var(--fs-125); letter-spacing: 0; font-weight: 600; color: var(--text-2); padding: 14px 12px 4px; }
   .shell > .side :is(.side-quota, .side-who) { color: var(--text-2); }
   .shell > .side .side-quota.spent { color: var(--bad); }
   /* scoped to the rail: .plan-now reuses .quota-bar */
   .shell > .side .quota-bar { height: 4px; background: var(--line); }
   .shell > .side .quota-bar > i { background: var(--text); border-radius: inherit; }
   .shell > .side .side-quota.spent .quota-bar > i { background: var(--bad); }
-  /* .side-list is overflow-y:auto and clipped the 2px-offset ring's top and bottom on brand rows */
-  .shell > .side .side-item:focus-visible { outline-offset: -2px; }
 
   /* ---- the header island (desktop; the phone pill above already floats) ---- */
   @media (min-width: 821px) {
@@ -11675,3 +11640,341 @@
   #gate .gate-sent-to strong { font-weight: 600; }
   #gate .gate-sent-how { margin: 0 0 6px; font-size: var(--fs-13); line-height: 1.5; color: var(--text-2); }
   #gate .gate-sent .linkish:disabled { color: var(--text-3); border-bottom-color: transparent; cursor: default; }
+
+  /* ── SETUP STEPPER, PROFILES AND POSTS (2026-10) ──
+     Plan: lynxr-onboarding-and-post-tracking.md. The stepper (creator.js renderSetup) lives in #setup-modal, after
+     sign-in: full-screen for a brand-new account (.setup-full), an overlay for an existing one. No new tokens. */
+  #setup-modal[hidden] { display: none; }
+  /* The overlay (an existing account that has not finished): a centred card on wide screens, full-screen on a phone (the existing .modal-card rule is the model;
+     the second .modal-card declaration further up would otherwise make it 880px wide). */
+  .setup-modal .modal-card.setup-card {
+    position: relative; width: min(440px, calc(100vw - 32px)); max-width: 440px; margin: 0 auto;
+    max-height: 92vh; overflow: auto; padding: 40px 24px 24px; text-align: center;
+  }
+  @media (max-width: 560px) {
+    .setup-modal .modal-card.setup-card {
+      width: 100%; max-width: none; height: 100%; max-height: 100%; margin: 0; border: 0; border-radius: 0;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+  }
+  .setup-close { position: absolute; top: 6px; right: 6px; min-width: 44px; min-height: 44px; }
+  .setup-body { text-align: center; }
+  .setup-dots { display: flex; justify-content: center; gap: 8px; margin: 0 0 22px; }
+  .setup-dots i { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--line-2); }
+  .setup-dots i.done { background: var(--line-2); }   /* owner 2026-10-02: only the current dot is dark; visited ones match the upcoming ones */
+  .setup-dots i.on { background: var(--text); }
+  /* The x above each question (avatar.js: the moods it already has; poses are its own classes). A short hop on arrival
+     and when a chip is tapped, under 300ms, off with reduced motion. */
+  .setup-av { display: flex; justify-content: center; margin: 0 0 12px; }
+  .setup-lx { width: 64px; height: 64px; flex: none; }
+  .setup-av.hop { animation: setup-hop .26s var(--ease); }
+  @keyframes setup-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-9px); } 100% { transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .setup-av.hop { animation: none; } }
+  @media (max-width: 560px) { .setup-lx { width: 52px; height: 52px; } .setup-av { margin-bottom: 8px; } .setup-dots { margin-bottom: 14px; } }
+  .setup-q { display: block; margin: 0 0 8px; font-size: var(--fs-21); font-weight: 700; letter-spacing: -.01em; line-height: 1.25; color: var(--text); text-align: center; }
+  .setup-q::before { display: none; }
+  .setup-why { margin: 0 0 20px; font-size: var(--fs-13); line-height: 1.5; color: var(--text-2); }
+  .setup-in {
+    display: block; width: 100%; min-height: 44px; box-sizing: border-box; padding: 11px 15px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-pill);
+    color: var(--text); font-family: var(--mono); font-size: var(--fs-15); letter-spacing: 0.02em; text-align: left;
+  }
+  .setup-in::placeholder { font-family: inherit; letter-spacing: 0; color: var(--text-3); }
+  .setup-in:focus { outline: none; border-color: var(--line-2); background: var(--surface-2); }
+  .setup-in[aria-invalid="true"] { border-color: var(--bad); }
+  .setup-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .setup-chips .chip.pick { min-height: 44px; padding: 10px 18px; font-size: var(--fs-15); text-transform: lowercase; }
+  /* The pressed chip reads as the same selected state the "for" chips use. */
+  .goal-chip[aria-pressed="true"], .prio-chip[aria-pressed="true"] { color: var(--text); border-style: solid; border-color: var(--text-3); background: var(--surface-2); font-weight: 600; }
+  .setup-saved { margin: 0 0 4px; font-size: var(--fs-15); color: var(--text); overflow-wrap: anywhere; }
+  .setup-code-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; margin: 0 0 8px; }
+  /* The bio code must copy exactly: no case change, and one tap or click selects all of it. */
+  .setup-code {
+    font-family: var(--mono); font-size: var(--fs-18); padding: 6px 12px; border: 1px solid var(--line-2);
+    border-radius: 10px; user-select: all; text-transform: none; color: var(--text);
+  }
+  .setup-err { margin: 12px 0 0; font-size: var(--fs-13); line-height: 1.5; color: var(--bad); }
+  .setup-err[hidden] { display: none; }
+  .setup-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 22px; }
+  .setup-nav-r { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-left: auto; }
+  .setup-nav .linkish { color: var(--text-3); }
+  .setup-nav .linkish:hover { color: var(--text); }
+  .setup-nav-c { justify-content: center; margin-top: 26px; }
+  .setup-notnow { margin: 18px 0 0; font-size: var(--fs-125); color: var(--text-3); }
+  .setup-notnow .linkish { color: var(--text-3); }
+  .setup-notnow .linkish:hover { color: var(--text); }
+  /* THE FIRST RUN: full-screen, its own page. The app (rail, pane, landing, gate) is hidden behind it, and the page
+     backdrop shows through, as it does on the sign-up card. No close button: Not now, Skip and Escape are the ways out. */
+  body.setup-full-on > :not(.backdrop):not(#setup-modal):not(script):not(svg) { visibility: hidden; }
+  .setup-modal.setup-full { background: transparent; padding: 24px; }
+  .setup-modal.setup-full .modal-card.setup-card {
+    width: min(520px, 100%); max-width: 520px; height: auto; max-height: none; overflow: visible;
+    background: transparent; border: 0; box-shadow: none; padding: 0; margin: 0 auto;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .setup-modal.setup-full .setup-close { display: none; }
+  .setup-modal.setup-full .setup-q { font-size: var(--fs-27); }
+  .setup-modal.setup-full .setup-why { font-size: var(--fs-15); }
+  /* The marker: a dot on Settings in the rail, and on the burger on phones (the rail is a drawer behind it). */
+  #nav-you-dot:not([hidden]) { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; margin-left: auto; background: var(--text); }
+  @media (max-width: 820px) {
+    body.setup-due .side-toggle { position: relative; }
+    body.setup-due .side-toggle::after {
+      content: ""; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--text);
+    }
+  }
+  /* Settings: the Finish setup card and the goal and profiles card. */
+  .pane-body #setup-due-card[hidden], .pane-body #prof-card[hidden] { display: none; }
+  .pane-body .setup-due-card .ce-hint { margin: 0 0 14px; }
+  .pane-body #prof-card .lbl { display: block; margin: 18px 0 8px; font-size: var(--fs-135); font-weight: 600; color: var(--text-2); }
+  .pane-body #prof-card .lbl:first-of-type { margin-top: 0; }
+  .pane-body #prof-card :is(.goal-chips, .prio-chips) { justify-content: flex-start; gap: 8px; }
+  .pane-body #prof-card .ce-hint { margin: 16px 0 0; }
+  .pane-body .prof-row { padding: 12px 0; border-top: 1px solid var(--line); }
+  .pane-body .prof-name { font-family: var(--mono); font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+  .pane-body .prof-plat { margin-left: 8px; font-size: var(--fs-12); color: var(--text-3); }
+  .pane-body .prof-status { margin: 6px 0 10px; font-size: var(--fs-13); line-height: 1.6; color: var(--text-2); }
+  .pane-body .prof-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pane-body .prof-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .pane-body .prof-add :is(select, input) {
+    min-height: 40px; box-sizing: border-box; padding: 9px 12px; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: var(--r-pill); color: var(--text); font: inherit; font-size: var(--fs-14); min-width: 0; max-width: none;
+  }
+  .pane-body .prof-add .prof-in { flex: 1 1 180px; }
+  .pane-body .prof-add :is(select, input):focus { outline: none; border-color: var(--line-2); }
+  .pane-body .prof-add :is(select, input)[aria-invalid="true"] { border-color: var(--bad); }
+  @media (max-width: 820px) {
+    .pane-body .prof-add :is(select, input), .setup-in { font-size: 16px; }
+    .pane-body .prof-add .btn { min-height: 40px; }
+  }
+
+  /* ── POSTS (2026-10, plan lynxr-onboarding-and-post-tracking.md, Phase B) ──
+     creator.js renderPosts(): the goal card and the list of tracked videos. Widths and heights come from data-pct through
+     CSSOM (paintPostsBars): the CSP drops inline style attributes. No new tokens. */
+  #nav-posts[hidden] { display: none; }
+  .pane-body #posts-goal .me-card-h { margin-bottom: 10px; }
+  .pane-body .posts-prog { margin: 0 0 12px; font-size: var(--fs-15); line-height: 1.5; color: var(--text-2); }
+  .pane-body .posts-prog strong { font-size: var(--fs-19); font-weight: 700; color: var(--text); }
+  .pane-body .posts-trend { margin-left: 6px; font-size: var(--fs-13); color: var(--text-2); }
+  .pane-body #posts-goal .ce-hint { margin: -6px 0 12px; }
+  .goal-bar { height: 8px; border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
+  .goal-bar > i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--text); }
+  .pane-body .goal-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 0; font-family: var(--mono); font-size: var(--fs-13); color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .pane-body .goal-meta .linkish { font-family: inherit; color: var(--text-3); }
+  .pane-body .goal-meta .linkish:hover { color: var(--text); }
+  /* Followers: one bar per day, the latest on the right. Heights are percentages of the track. */
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 40px; margin: 0 0 14px; }
+  .spark > i { display: block; flex: 1 1 0; min-width: 2px; max-width: 14px; height: 0; border-radius: 2px; background: var(--text-3); }
+  .spark > i:last-child { background: var(--text); }
+  .pane-body #posts-goal .lbl { display: block; margin: 0 0 8px; font-size: var(--fs-135); font-weight: 600; color: var(--text-2); }
+  .pane-body #posts-goal :is(.goal-chips, .prio-chips) { justify-content: flex-start; gap: 8px; }
+  .pane-body .posts-note { margin: 0 0 12px; font-size: var(--fs-14); line-height: 1.55; color: var(--text-2); }
+  .pane-body .post-rows { list-style: none; margin: 0; padding: 0; }
+  .pane-body .post-row { padding: 12px 0; border-top: 1px solid var(--line); }
+  .pane-body .post-row:first-child { border-top: 0; padding-top: 4px; }
+  .pane-body .post-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+  .pane-body .post-plat { font-size: var(--fs-13); font-weight: 600; color: var(--text); }
+  .pane-body .post-when { font-size: var(--fs-13); color: var(--text-3); }
+  .pane-body .post-stats { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+  .pane-body .post-stats .lib-stat { font-size: var(--fs-13); color: var(--text-2); }
+  .pane-body .post-open {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; margin-left: auto;
+    border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--text-2); font-size: var(--fs-16); text-decoration: none;
+  }
+  .pane-body .post-open:hover { color: var(--text); border-color: var(--line-2); }
+  /* On a phone the first line is platform, date and the link; the counts take the line under it. */
+  @media (max-width: 560px) {
+    .pane-body .post-open { order: 2; }
+    .pane-body .post-stats { order: 3; flex: 1 0 100%; }
+  }
+  /* A caption is the creator's own words: never lowercased. */
+  .pane-body .post-cap { margin: 4px 0 0; font-size: var(--fs-14); line-height: 1.45; color: var(--text); text-transform: none; overflow-wrap: anywhere; }
+  .pane-body .post-days { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0 0; font-size: var(--fs-13); color: var(--text-2); }
+  .pane-body .post-day b { margin-right: 4px; font-weight: 600; color: var(--text-3); }
+
+  /* ── UGC REPOSITIONING (2026-10-03, plan lynxr-ugc-pivot.md) ──
+     The four priorities' goal cards (log a deal, your current rate) and the optional username label in the setup stepper.
+     Inputs match the profile field above; no new tokens. */
+  .setup-in-lbl { display: block; margin: 0 0 6px; text-align: left; font-size: var(--fs-13); font-weight: 600; color: var(--text-2); }
+  .pane-body :is(.deal-in, .rate-in) {
+    min-height: 40px; box-sizing: border-box; padding: 9px 14px; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: var(--r-pill); color: var(--text); font: inherit; font-size: var(--fs-14); min-width: 0; max-width: none; text-transform: none;
+  }
+  .pane-body :is(.deal-in, .rate-in):focus { outline: none; border-color: var(--line-2); }
+  .pane-body :is(.deal-in, .rate-in)[aria-invalid="true"] { border-color: var(--bad); }
+  .pane-body :is(.deal-in, .rate-in)::placeholder { color: var(--text-3); }
+  @media (max-width: 820px) { .pane-body :is(.deal-in, .rate-in) { font-size: 16px; } }
+  .pane-body .deal-box { margin: 0 0 14px; }
+  .pane-body .deal-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .pane-body .deal-row .linkish { color: var(--text-3); }
+  .pane-body .deal-row .linkish:hover { color: var(--text); }
+  .pane-body .deal-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .pane-body .deal-form[hidden], .pane-body .deal-row [hidden] { display: none; }
+  .pane-body .deal-form .deal-in { flex: 1 1 180px; }
+  .pane-body .deal-form .linkish { color: var(--text-3); }
+  .pane-body .deal-msg, .pane-body .rate-msg { margin: 6px 0 0; }
+  .pane-body .rate-form { margin: 0 0 14px; }
+  .pane-body .rate-form .lbl { display: block; margin: 0 0 6px; font-size: var(--fs-135); font-weight: 600; color: var(--text-2); }
+  .pane-body .rate-row { display: flex; align-items: center; gap: 8px; }
+  .pane-body .rate-cur { font-family: var(--mono); color: var(--text-2); }
+  .pane-body .rate-in { width: 130px; flex: 0 1 130px; font-family: var(--mono); }
+  .pane-body :is(.posts-note, .posts-prog) .linkish { color: var(--text-2); }
+
+  /* ── HOME (the welcome dashboard) AND THE TOUR (2026-10-02) ──
+     creator.js renderNewScript() / paintHome() / startTour(). Home is the New script view with the goal, the linked profiles and
+     the latest scripts under the paste box, which keeps its markup and its place. No new tokens. Bar widths come from data-pct
+     through CSSOM (paintPostsBars): the CSP drops inline style attributes. */
+  .newscript.home { justify-content: flex-start; min-height: 0; max-width: 680px; gap: 16px; padding-top: clamp(0px, 2vh, 20px); }
+  .home-greet { gap: 6px; }
+  .home-av { display: flex; justify-content: center; }
+  .home-lx { width: 64px; height: 64px; flex: none; }
+  .newscript.home .newscript-h { text-wrap: balance; }
+  .home-lead { margin: 0 0 10px; text-align: center; font-size: var(--fs-14); color: var(--text-2); }
+  #home-writing:empty { display: none; }
+  .pane-body .home-writing { margin: 0; padding: 14px 18px; }
+  .home-writing-foot { margin: 10px 0 0; font-size: var(--fs-13); color: var(--text-3); }
+  .home-writing-foot .linkish { color: var(--text-2); }
+  .home-cards { display: flex; flex-direction: column; gap: 14px; }
+  .pane-body .home-card { margin: 0; padding: 18px 20px 20px; }
+  .pane-body .home-card > .me-card-h { margin: 0 0 8px; font-size: var(--fs-16); }
+  .home-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+  .home-pair > * { min-width: 0; }
+  .home-sub { margin: 0 0 10px; font-size: var(--fs-13); color: var(--text-2); }
+  .home-quiet { margin: 14px 0 0; font-size: var(--fs-125); line-height: 1.5; color: var(--text-3); }
+  .home-quiet .linkish { color: var(--text-2); }
+  .home-links { display: inline-flex; align-items: center; gap: 16px; }
+  .pane-body .home-card :is(.goal-chips, .prio-chips) { justify-content: flex-start; gap: 8px; }
+  .pane-body .home-card .chip.pick { min-height: 40px; padding: 8px 16px; text-transform: lowercase; }
+  .pane-body #posts-goal .chip.pick { min-height: 40px; padding: 8px 16px; text-transform: lowercase; }
+  .home-profs, .home-recent { list-style: none; margin: 0; padding: 0; }
+  .home-profs { display: flex; flex-direction: column; gap: 8px; }
+  .home-prof {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; width: 100%; box-sizing: border-box; min-height: 44px;
+    padding: 8px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2);
+    color: var(--text); font: inherit; font-size: var(--fs-13); text-align: left;
+  }
+  button.home-prof.warn { cursor: pointer; border-style: dashed; border-color: var(--line-2); }
+  button.home-prof.warn:hover { border-color: var(--text-3); }
+  .home-prof-plat { font-size: var(--fs-12); color: var(--text-3); }
+  .home-prof-h { font-family: var(--mono); font-weight: 600; overflow-wrap: anywhere; }
+  .home-prof-st { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--text-2); }
+  .home-prof.ok .home-prof-st { color: var(--text); }
+  .home-ico { width: 14px; height: 14px; flex: none; }
+  .home-rec {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 8px 0;
+    background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; color: var(--text);
+    font: inherit; font-size: var(--fs-14); text-align: left; cursor: pointer;
+  }
+  .home-recent li:first-child .home-rec { border-top: 0; }
+  .home-rec:hover .home-rec-t { text-decoration: underline; }
+  /* A video's title is its own words, not ours: never lowercased. */
+  .home-rec-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; }
+  .home-rec-s { flex: none; font-size: var(--fs-12); color: var(--text-3); }
+  .home-rec-s.writing, .home-rec-s.ready { color: var(--text); }
+  .home-rec-s.failed { color: var(--bad); }
+  @media (max-width: 640px) { .home-pair { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 560px) {
+    .home-lx { width: 52px; height: 52px; }
+    .pane-body .home-card { padding: 16px; }
+    .newscript.home { gap: 14px; }
+  }
+
+  /* THE TOUR. Three layers above everything (the drawer is 40, modals 100-110): a transparent catcher so nothing behind it is
+     clicked, the spotlight (a ring on the item plus a huge shadow that dims the rest), and the card. Position and size of the
+     spotlight and the card are set from creator.js through CSSOM. Motion is one 200ms glide, off with reduced motion. */
+  #tour[hidden] { display: none; }
+  .tour-block { position: fixed; inset: 0; z-index: 9000; }
+  .tour-spot {
+    position: fixed; z-index: 9001; pointer-events: none; border-radius: 16px;
+    box-shadow: 0 0 0 2px var(--text), 0 0 0 100vmax var(--scrim-soft);
+  }
+  .tour-spot[hidden] { display: none; }
+  .tour-spot.anim { transition: left .2s var(--ease), top .2s var(--ease), width .2s var(--ease), height .2s var(--ease); }
+  .tour-card {
+    position: fixed; z-index: 9002; box-sizing: border-box; width: min(330px, calc(100vw - 24px)); display: flex; gap: 12px; align-items: flex-start;
+    padding: 14px 16px; background: var(--glass-solid); color: var(--text); border: 1px solid var(--glass-edge); border-radius: 20px;
+    box-shadow: var(--shadow-pop); animation: tour-in .2s var(--ease);
+  }
+  @keyframes tour-in { from { opacity: 0; } to { opacity: 1; } }
+  /* The pointer: a notch on the card's left edge, level with the item (desktop, where the card sits beside the rail). */
+  .tour-card:not(.phone)::before {
+    content: ""; position: absolute; left: -7px; top: calc(var(--tour-caret, 30px) - 6px); width: 12px; height: 12px;
+    background: var(--glass-solid); border-left: 1px solid var(--glass-edge); border-bottom: 1px solid var(--glass-edge); transform: rotate(45deg);
+  }
+  .tour-card.phone { left: 12px; right: 12px; width: auto; }
+  .tour-card.phone[data-pos="top"] { top: max(12px, env(safe-area-inset-top)); }
+  .tour-card.phone[data-pos="bottom"] { bottom: max(12px, env(safe-area-inset-bottom)); }
+  .tour-av { flex: none; }
+  .tour-lx { width: 44px; height: 44px; display: block; }
+  .tour-main { flex: 1 1 auto; min-width: 0; }
+  .tour-line { margin: 2px 0 0; font-size: var(--fs-15); line-height: 1.45; color: var(--text); }
+  .tour-foot { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  .tour-n { font-family: var(--mono); font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .tour-btns { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+  .tour-btns .linkish { color: var(--text-3); }
+  .tour-btns .linkish:hover { color: var(--text); }
+  body.tour-on #obtest-bar { display: none !important; }
+  @media (max-width: 820px) {
+    .tour-btns .linkish { min-height: 40px; }
+    .tour-btns .btn { min-height: 40px; }
+    body.tour-on .shell > .side, body.tour-on.side-open .shell > .side { transition: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tour-spot.anim { transition: none; }
+    .tour-card { animation: none; }
+  }
+
+  /* ── THE ACCOUNT ROW (2026-10-03, plans lynxr-remove-brand-paste.md Part 2 and lynxr-rail-simplify.md) ──
+     Owner: a footer like Claude's: the person's name and plan, a chevron, a menu that opens up. creator.js openAcctMenu(); markup in
+     index.html. Rows keep the .side-link height and icon alignment. No new tokens. At the end of the file because of the CSS ORDER
+     TRAP: the glass block above restates .side-link, and only a later rule beats it. */
+  /* .acct-menu lays out with display: flex, which beats the UA's [hidden] { display: none }. */
+  #acct-menu[hidden] { display: none; }
+  .side-chev { flex: none; width: 14px; height: 14px; opacity: .7; transition: transform .15s var(--ease); }
+  .acct.open .acct-chev { transform: rotate(180deg); }
+  /* The footer sits at the bottom: the spacer is this margin. */
+  .shell > .side .side-foot { margin-top: auto; }
+  .acct { position: relative; }
+  .acct-row {
+    display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; min-height: 40px;
+    padding: 6px 10px; text-align: left; border-radius: var(--r-pill);
+    background: none; border: 1px solid transparent; color: var(--text); font-size: var(--fs-135);
+  }
+  .acct-row:hover { background: var(--hover); }
+  .acct-row.on, .acct.open .acct-row {
+    background: var(--gl-well-fill, var(--surface-2)); border-color: var(--gl-well-edge, var(--line));
+    box-shadow: var(--gl-well-shadow, none);
+  }
+  .acct-av {
+    flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--fill); color: var(--on-fill); font-size: var(--fs-12); font-weight: 700; text-transform: uppercase;
+  }
+  .acct-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acct-name { font-weight: 600; }
+  .acct-plan { color: var(--text-2); }
+  #acct-sync-dot:not([hidden]) { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+  .acct-row .side-dot { margin-left: 0; }
+  /* The menu opens UP from the row. Solid glass, so the quota meter behind it never shows through. */
+  .acct-menu {
+    position: absolute; left: 0; right: 0; bottom: calc(100% + 6px); z-index: 5;
+    display: flex; flex-direction: column; gap: 2px; padding: 6px;
+    background: var(--glass-solid); border: 1px solid var(--glass-edge); border-radius: var(--r-card); box-shadow: var(--shadow-pop);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  }
+  .acct-who { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px 8px; margin: 0; overflow: hidden; text-transform: none; }
+  .acct-who #side-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acct-menu .side-link { min-height: 40px; }
+  @media (max-width: 820px) {
+    .acct-row, .acct-menu .side-link { min-height: 46px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .side-chev { transition: none; }
+  }
+
+  /* Library: the "New brand" button beside the title, and a brand page's way back ("library ›"). */
+  .pane-head .lib-newbrand { flex: none; min-height: 34px; padding: 5px 14px; font-size: var(--fs-13); }
+  .pane-head .pane-crumb { margin: 0 0 2px; font-size: var(--fs-13); }
+  .pane-head .pane-crumb .linkish { color: var(--text-3); }
+  .pane-head .pane-crumb .linkish:hover { color: var(--text); }
+  /* A brand with no scripts yet: a header-only group in Library's By brand view. */
+  .lib-group-bare > summary { cursor: pointer; }

@@ -28,13 +28,13 @@
 <meta name="twitter:description" content="What lynxr collects, why, who it is shared with, how long it is kept, and how to have it deleted.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/privacy/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=202609233v">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=202609233v">
-<link rel="shortcut icon" href="/favicon.ico?v=202609233v">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=202609233v">
-<link rel="stylesheet" href="/app.css?v=202609233v">
-<script src="/theme.js?v=202609233v"></script>
-<script src="/backdrop.js?v=202609233v" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261003i">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261003i">
+<link rel="shortcut icon" href="/favicon.ico?v=20261003i">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261003i">
+<link rel="stylesheet" href="/app.css?v=20261003i">
+<script src="/theme.js?v=20261003i"></script>
+<script src="/backdrop.js?v=20261003i" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -229,7 +229,7 @@
   "name": "lynxr — privacy",
   "description": "What lynxr collects, why, who it is shared with, how long it is kept, and how to have it deleted.",
   "inLanguage": "en",
-  "dateModified": "2026-09-16",
+  "dateModified": "2026-10-03",
   "isPartOf": { "@id": "https://lynxr.io/#website" },
   "about": { "@id": "https://lynxr.io/#lynxr" }
 }
@@ -289,7 +289,7 @@
 
   <section>
   <h1>privacy</h1>
-  <p class="legal-date">last updated 25 september 2026</p>
+  <p class="legal-date">last updated 3 october 2026</p>
 
   <p>lynxr is run by <span class="entity">lynxr LLC</span>
     (&ldquo;we&rdquo;, &ldquo;us&rdquo;), a
@@ -311,6 +311,9 @@
       is enforced by the database rather than by the interface.</li>
     <li><strong>we can see the video links you paste.</strong> not your notes,
       your companies, or your scripts.</li>
+    <li>you can add the public tiktok and instagram usernames you post from. we
+      check a code in the bio to confirm each is yours. we never ask for a
+      password and never post anything for you.</li>
     <li>we do not sell data, we do not run ads, and there is no analytics or
       tracking on this site.</li>
     <li>you can delete your account yourself, instantly, from settings.</li>
@@ -380,6 +383,35 @@
   </section>
 
   <section>
+  <h2>your setup answers and your profiles</h2>
+  <p>once you have created your account, lynxr asks a few setup questions: what
+    matters most to you (landing brand deals, raising your rates, making videos
+    that perform for brands, or growing your own account), your goal for it, and,
+    only if you post your own content, the public usernames you post from. each
+    answer is saved to your account as you give it, and every question can be
+    skipped. if you log a brand deal or tell us your current rate, that is saved
+    to your account too, and shown only to you.</p>
+  <p>for each username you add, we check that the profile is yours by looking
+    for a short code in its public bio &mdash; for TikTok we read the public
+    profile page ourselves; for Instagram the check goes through our data
+    provider, Apify, and only when you ask for it. once it is confirmed we keep
+    the platform&rsquo;s account number for that profile, so we can tell if the
+    username later passes to someone else.</p>
+  <p>on every plan, we check each confirmed profile once a day. for each new
+    video we store its link, when it was posted, its caption, and its public
+    view, like and comment counts, and we read those numbers again over the
+    following month. we also store the profile&rsquo;s public follower count
+    once a day. for Instagram these checks go through Apify. your videos and
+    their numbers are shown only to you &mdash; never to other creators, and
+    never added to our shared library of video formats. <strong>what our staff
+    can see:</strong> your usernames, the videos stored here and their numbers.</p>
+  <p>removing a profile deletes it and everything found on it, and deleting
+    your account deletes all of it.</p>
+  <p><strong>lawful basis:</strong> your consent, which you give by answering
+    and adding a profile and withdraw by removing it.</p>
+  </section>
+
+  <section>
   <h2>videos we collect from public platforms</h2>
   <p>lynxr is built on a database of thousands of publicly posted videos from
     TikTok, Instagram and YouTube. for each one we hold the link, the account
@@ -420,7 +452,7 @@
     <li><strong>Fly.io</strong> &mdash; the machine that downloads a video,
       transcribes it and runs the pipeline</li>
     <li><strong>Resend</strong> &mdash; sends our emails</li>
-    <li><strong>Apify</strong> &mdash; collecting publicly posted video data</li>
+    <li><strong>Apify</strong> &mdash; collecting publicly posted video data, including checking the bio of an instagram profile you add and reading its public posts, their counts and its follower count</li>
     <li><strong>Google</strong> &mdash; sign-in, if you choose it; and a copy of
       the wait list is mirrored into a private spreadsheet, so that signups
       land somewhere we actually look</li>
@@ -470,6 +502,9 @@
     account and everything in it goes, your companies, saved links and scripts
     included. we cannot undo it for you. if you would rather we did it, email us
     and we will action it within 30 days.</p>
+  <p><strong>profiles you add, and anything found on them,</strong> are kept
+    while your account is open, and deleted when you remove the profile or
+    delete your account.</p>
   <p>one thing survives, and we want to be straight about it: the <strong>link
     you pasted</strong>, and what we extracted from that public video &mdash;
     its transcript, shot list and structure &mdash; stay in our shared library
@@ -534,6 +569,8 @@
     asked to log in on every page, and a cached copy of your own work, so it
     loads instantly. both are required for the app to function, neither is used
     to track you, and both are cleared when you sign out.</p>
+  <p>this tab also remembers that the setup window has been shown, so it does
+    not keep reopening; that note is gone when you close the tab.</p>
   </section>
 
   <section>
@@ -612,8 +649,8 @@
 
 <!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
      see the file's own header for why it must never reach either app. -->
-<script src="/site.js?v=202609233v" defer></script>
-<script src="/footer.js?v=202609233v" defer></script>
+<script src="/site.js?v=20261003i" defer></script>
+<script src="/footer.js?v=20261003i" defer></script>
 
 </body>
 </html>
