@@ -22,3 +22,18 @@ regexes = ['''sb_publishable_[A-Za-z0-9_-]{20,}''']
 [[allowlists]]
 description = "gate13 probe's deliberately-fake env value — not real key material"
 regexes = ['''gate13-probe-deliberately-unusable-key''']
+
+# Names, not secrets — flagged by `generic-api-key` on entropy in 07b162f (post tracking, 2026-10-03), where the
+# secret scan reported "Leaks detected". Checked the same day: none of the real values in .env appear anywhere in that
+# commit or in HEAD. Each entry is anchored to the WHOLE matched value, so a real key never slips through:
+#   - `tracking-stale` / `tracking-budget`: watchdog alarm keys in pipeline/watchdog.py ("key": "tracking-stale").
+#   - `lynxr-ab12cd`-style values: fake bio-verification codes in pipeline/test_track_posts.py. Real codes are made
+#     by the database for a signed-in creator and are never committed.
+#   - `TRACK_*`: environment-variable NAMES in pipeline/envcfg.py's SANITIZED list.
+[[allowlists]]
+description = "post-tracking names that look random: alarm keys, fake bio codes in tests, env var names"
+regexes = [
+  '''^tracking-(stale|budget)$''',
+  '''^lynxr-[0-9a-z]{6}$''',
+  '''^TRACK_[A-Z_]+$''',
+]

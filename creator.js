@@ -1638,6 +1638,16 @@ function go(view) {
   document.getElementById("pane-head")?.focus({ preventScroll: true });
 }
 
+/** The phone top bar: the menu button and the current page's name (small, muted), in the pill that carries the x. It is navigation,
+    not a page header, so it stays a bar of its own (hidden on desktop, where the rail is always there and already says where you
+    are). Owner, 2026-10-03: no visible page titles; each view's head holds this bar and a screen-reader-only <h1> (pageH1). */
+function paneBarHtml(name) {
+  return `<div class="pane-bar"><button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><span class="pane-bar-name" id="pane-bar-name">${escapeHtml(name || "")}</span></div>`;
+}
+
+/** The page's name for screen readers only. */
+const pageH1 = (name) => `<h1 class="sr-only">${escapeHtml(name)}</h1>`;
+
 // ---------- New script ----------
 // Modelled on a chat app's new-chat screen: opening lynxr lands here with an
 // empty composer, and pressing "New script" from anywhere returns here empty.
@@ -1646,7 +1656,7 @@ function renderNewScript(head, body) {
   // No page title — the greeting below is the title, and repeating it twice
   // above a one-field form is exactly the clutter this view is avoiding.
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>`;
+    ${paneBarHtml("New script")}`;
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
     e.currentTarget.setAttribute("aria-expanded", open);
@@ -1669,22 +1679,26 @@ function renderNewScript(head, body) {
   // `composer-row` pair is what all its styling hangs off, and rebuilding it
   // with a different structure dropped those classes and made the input and
   // send button vanish entirely.
-  /* THIS IS HOME (owner, 2026-10-02): the welcome dashboard. The paste box is still the main thing on it and its markup is
-     untouched; the goal, the linked profiles and the latest scripts sit under it. The cards are painted by paintHome(),
-     which can run again on its own when the plan, the profiles or the tracked videos arrive, without touching the composer. */
+  /* THIS IS HOME (owner, 2026-10-03: "this dashboard looks messy and cluttered, make it simpler"; "put the goals somewhere else").
+     The x and the headline, centred above; the paste box at the bottom like a chat composer, with one quiet line of brands
+     attached above it. No cards and no nudge: goals live at the top of Posts, linked accounts in Settings, recent scripts in
+     Library. */
   const mascot = typeof lynxrAvatar === "function" ? lynxrAvatar("done", "home-lx") : "";
   body.innerHTML = `
     <div class="newscript home">
+      <div id="home-writing"></div>
       <div class="newscript-greet home-greet">
         <div class="home-av">${mascot}</div>
         <h1 class="newscript-h" id="home-h"></h1>
       </div>
-      <div id="home-writing"></div>
+      ${/* THE PASTE BOX LIVES AT THE BOTTOM, like a chat composer (owner, 2026-10-03). The dock is position: sticky (not fixed), so it
+            rides the bottom of the screen when the page is short and simply follows the content when it is taller. The brands (or
+            "add a brand") sit directly above the box, attached to it. */""}
+      <div class="home-dock">
       ${firstRun ? `<p class="nobrand">
         <button type="button" class="linkish" id="nobrand-add">Add a brand</button>
         to get scripts written for them</p>` : ""}
       <div class="composer composer-inline" id="composer">
-        <p class="home-lead" id="home-lead">Paste a link. Get your script.</p>
         <div class="composer-for" id="composer-for"></div>
         <form class="composer-row" id="composer-form" novalidate>
           <input type="url" id="composer-url" placeholder="Paste a TikTok or Instagram link"
@@ -1697,7 +1711,7 @@ function renderNewScript(head, body) {
         </form>
         <p class="composer-note" id="composer-note" role="status" aria-live="polite"></p>
       </div>
-      <div id="home-cards" class="home-cards"></div>
+      </div>
     </div>`;
   // The name is the user's own data: text, never markup.
   paintHomeHeadline();
@@ -2331,10 +2345,10 @@ function renderBrand(head, body, b) {
   const writing = scripts.filter(isWriting).length;
 
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    ${paneBarHtml("Library")}
     <p class="pane-crumb"><button type="button" class="linkish" id="brand-back">Library <span aria-hidden="true">\u203a</span></button></p>
     <div class="pane-title">
-      <div class="bcard-title" id="brand-heading">${escapeHtml(b.name || "Untitled brand")}</div>
+      <div class="bcard-title" id="brand-heading" role="heading" aria-level="1">${escapeHtml(b.name || "Untitled brand")}</div>
       ${/* No standing script COUNT here any more — the list of scripts is
             directly below and counts itself, and on a phone that chip pushed
             Details and the bin onto a second line.
@@ -2439,14 +2453,6 @@ function renderBrand(head, body, b) {
     ${(b.name || "").trim() ? `
     <div class="lib-head">
       <h2>Scripts <span class="pill">${scripts.length}</span></h2>
-      ${/* APP GLASS PASS, brand page (owner, 2026-09-15: "the brand page needs a
-            revamp too"): the + carries its word, so it reads as the page's main
-            action. The word is aria-hidden because the button's aria-label
-            already says the same thing. */""}
-      <button type="button" class="lib-plus" id="brand-add" title="New script" aria-label="New script">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
-          aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="lib-plus-txt" aria-hidden="true">New script</span>
-      </button>
     </div>
     <div id="ad-list"></div>` : ""}`;
 
@@ -2619,16 +2625,6 @@ function renderBrand(head, body, b) {
   bind(".b-name", "name"); bind(".b-site", "site"); bind(".b-desc", "description");
   bind(".b-obj", "objective"); bind(".b-niche", "niche");
   wireGrow(editor.querySelector(".b-desc"));
-
-  // Same plus as the Library's, and it does one thing more: standing in a
-  // company is the answer to "who is this for", so it arrives at the composer
-  // with this company already ticked instead of asking again.
-  // Only rendered once the brand has a name, so there is nothing to guard
-  // against here any more — the optional chaining covers the unnamed case.
-  document.getElementById("brand-add")?.addEventListener("click", () => {
-    COMPOSE_FOR = new Set([b.id]);
-    go({ kind: "new" });
-  });
 
   // Deleting a brand takes its scripts — to the trash, not to nothing, so a
   // mistyped company name deleted in a hurry doesn't cost a dozen scripts.
@@ -3037,27 +3033,8 @@ const SCOPE_ORIGINAL = Symbol("original scripts only");
 
 function renderLibrary(head, body) {
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    ${/* The + sits on the title row, not down with the tabs. On a phone it had
-          a line of its own between the tabs and the first video, which read as
-          a stray control belonging to neither. Up here it pairs with the
-          heading it acts on, and the tabs get the full width back. */""}
-    <div class="pane-title"><div class="bcard-title">Library</div>
-      <span class="pill">${taggedVideoCount()}</span>
-      <div class="spacer"></div>
-      ${/* Brands live here now (the rail no longer lists them): this is the old rail's "new brand" row, same flow. */""}
-      <button type="button" class="ghost lib-newbrand" id="lib-new-brand">New brand</button>
-      <button type="button" class="lib-plus" id="lib-add" title="New script" aria-label="New script">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
-          aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-      </button></div>
-    ${/* The sub-line is where the pill above it is explained. It has to be:
-          the pill counts TAGGED videos and the list below counts every saved
-          one, so without a sentence naming the difference the two disagree on
-          screen with no reason given — which is the complaint that started
-          this. See taggedVideoCount. */""}
-    <p class="pane-sub">Every video you've sent. The number counts the tagged ones — a video
-      is tagged when its first script is written.</p>`;
+    ${paneBarHtml("Library")}
+    ${pageH1("Library")}`;
 
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
@@ -3084,6 +3061,8 @@ function renderLibrary(head, body) {
           <button type="button" class="lib-mode${libMode() === "original" ? " on" : ""}"
             id="lib-mode-original" role="tab" aria-selected="${libMode() === "original"}">Original scripts</button>
         </div>
+        ${/* Brands live in Library (the rail lists none): the old rail's "new brand" row, same flow, quiet, top right. */""}
+        <button type="button" class="ghost lib-newbrand" id="lib-new-brand">New brand</button>
       </div>
       <p class="composer-note" id="lib-flash" role="status" aria-live="polite"></p>
       ${ME.library.length >= LIB_SEARCH_AT ? findBarHtml({
@@ -3094,7 +3073,6 @@ function renderLibrary(head, body) {
       <div id="lib-list"></div>
     </div>`;
 
-  document.getElementById("lib-add").addEventListener("click", () => go({ kind: "new" }));
   document.getElementById("lib-new-brand").addEventListener("click", addBrand);
   /* SWITCHING MODE NO LONGER REBUILDS THIS VIEW. It used to call
      renderLibrary(), which rewrites body.innerHTML — so the tab strip, the
@@ -3933,9 +3911,8 @@ function paintBillingReturn() {
    top. */
 function renderPlan(head, body) {
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div class="pane-title"><div class="bcard-title">Plan</div></div>
-    <p class="pane-sub">What you're on, and what you'd get.</p>`;
+    ${paneBarHtml("Plan")}
+    ${pageH1("Plan")}`;
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
     e.currentTarget.setAttribute("aria-expanded", open);
@@ -4248,11 +4225,8 @@ function renderPlan(head, body) {
 
 function renderYou(head, body) {
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    ${/* APP GLASS PASS (owner, 2026-09-15: "the settings page needs a revamp
-          too"): a small idle lynxr leads the title. Decorative, aria-hidden. */""}
-    <div class="pane-title">${typeof lynxrAvatar === "function" ? lynxrAvatar("idle", "me-av") : ""}<div class="bcard-title">Settings</div></div>
-    <p class="pane-sub">Goes into every script, so it sounds like you.</p>`;
+    ${paneBarHtml("Settings")}
+    ${pageH1("Settings")}`;
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
     e.currentTarget.setAttribute("aria-expanded", open);
@@ -4698,9 +4672,8 @@ function renderTrash() {
 
 function renderFeedback(head, body) {
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div class="pane-title"><div class="bcard-title">Feedback</div></div>
-    <p class="pane-sub">Early software — tell us what's broken.</p>`;
+    ${paneBarHtml("Feedback")}
+    ${pageH1("Feedback")}`;
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
     e.currentTarget.setAttribute("aria-expanded", open);
@@ -4919,9 +4892,8 @@ document.addEventListener("keydown", (e) => {
 
 function renderLynx(head, body) {
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div class="pane-title"><div class="bcard-title">${AGENCY_MARK}${escapeHtml(AGENCY_NAME)}</div></div>
-    <p class="pane-sub">Briefs sent to you from the agency.</p>`;
+    ${paneBarHtml(AGENCY_NAME)}
+    ${pageH1(AGENCY_NAME)}`;
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
     e.currentTarget.setAttribute("aria-expanded", open);
@@ -5228,7 +5200,7 @@ function renderLynxBrief(head, body) {
      "Brief" only until the doc has arrived. */
   const title = (VIEW._docId === id && VIEW._doc && VIEW._doc.title) || "Brief";
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    ${paneBarHtml(AGENCY_NAME)}
     <div class="pane-title"><div class="bcard-title">${escapeHtml(title)}</div></div>
     <p class="pane-sub lynx-from">${AGENCY_MARK}From ${escapeHtml(AGENCY_NAME)}.</p>`;
   document.getElementById("side-open").addEventListener("click", (e) => {
@@ -6350,6 +6322,10 @@ function setupCopy(id) {
 const setupMood = (id) => ({ welcome: "done", priority: "reading", goal: "reading", tiktok_code: "coaching", instagram_code: "coaching", done: "hyped" }[id] || "idle");
 const setupReducedMotion = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 let SETUP_BUSY = false;
+/* A chip answer that has been tapped but not confirmed with Next (owner, 2026-10-03: "click an answer and then a next button
+   pops up" -- this reverses the 2026-10-02 auto-advance). { id: "priority" | "goal", v } for the screen it was tapped on; it is
+   only applied (and saved) by Next, and forgotten on any other screen. */
+let SETUP_PICK = null;
 /** A chip was tapped: the x does a quick happy hop (under 300ms) and then the next screen comes up. Without motion, at once. */
 function setupCelebrate(then) {
   if (SETUP_BUSY) return;
@@ -6384,6 +6360,7 @@ function renderSetup() {
   const order = setupOrder();
   if (!order.includes(SETUP_AT)) SETUP_AT = setupFirstPending();
   const id = SETUP_AT;
+  if (SETUP_PICK && SETUP_PICK.id !== id) SETUP_PICK = null;
   const steps = order.filter((x) => x !== "done" && x !== "welcome");
   const at = steps.indexOf(id);
   const [q, why] = setupCopy(id);
@@ -6400,11 +6377,13 @@ function renderSetup() {
     nav = `<div class="setup-nav setup-nav-c"><button type="button" class="btn" data-setup="start">Let's go</button></div>`
       + `<p class="setup-notnow"><button type="button" class="linkish" data-setup="notnow">Not now</button></p>`;
   } else if (id === "priority") {
-    control = priorityChipsHtml(ME.priority, "setup-q-post");
-    nav = navRow(`<button type="button" class="linkish" data-setup="skip">Skip</button>`);
+    const sel = SETUP_PICK?.id === "priority" ? SETUP_PICK.v : ME.priority;      // a tapped-but-unconfirmed chip, else the saved answer
+    control = priorityChipsHtml(sel, "setup-q-post");
+    nav = navRow(`<button type="button" class="linkish" data-setup="skip">Skip</button>${sel ? SETUP_NEXT_BTN : ""}`);
   } else if (id === "goal") {
-    control = goalChipsHtml(ME.goal?.target, "setup-q-post");
-    nav = navRow(`<button type="button" class="linkish" data-setup="skip">Skip</button>`);
+    const sel = SETUP_PICK?.id === "goal" ? SETUP_PICK.v : ME.goal?.target;
+    control = goalChipsHtml(sel, "setup-q-post");
+    nav = navRow(`<button type="button" class="linkish" data-setup="skip">Skip</button>${sel ? SETUP_NEXT_BTN : ""}`);
   } else if (id === "tiktok" || id === "instagram") {
     const have = (PROFILES || []).find((p) => p.platform === id);
     if (have) {
@@ -6490,28 +6469,47 @@ async function setupNextPress() {
   return setupAdvance();                                         // a code screen with nothing to code
 }
 
-/** A chip answer moves on by itself, to the very next screen in order (also when the creator came Back to re-answer: an
-    answered screen is not skipped). The tapped chip shows as selected first, then the short hop, then the screen. */
-function setupAdvanceChip(dataKey, value) {
+/** The "next" that appears once a chip is selected. Present in the markup on a screen that already has an answer; added with a
+    short fade when the first chip is tapped (app.css .setup-next-in; no animation under prefers-reduced-motion). */
+const SETUP_NEXT_BTN = `<button type="button" class="btn" data-setup="pick-next">Next</button>`;
+
+/** Tapping a chip SELECTS it and does not advance: the chosen chip shows as pressed, any other is released, and Next appears. */
+function setupSelectChip(id, dataKey, value) {
+  if (SETUP_BUSY) return;
+  SETUP_PICK = { id, v: value };
   const host = setupHost();
   host?.querySelectorAll(".prio-chip, .goal-chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset[dataKey] === String(value))));
+  const row = host?.querySelector(".setup-nav-r");
+  if (row && !row.querySelector('[data-setup="pick-next"]')) {
+    row.insertAdjacentHTML("beforeend", SETUP_NEXT_BTN);
+    row.lastElementChild.classList.add("setup-next-in");
+  }
+}
+function setupPickPriority(p) {
+  if (!GOAL_KINDS[p]) return;
+  setupSelectChip("priority", "priority", p);
+}
+function setupPickGoal(n) {
+  const kind = GOAL_KINDS[goalMetric()];
+  if (!kind || !kind.steps.includes(n)) return;
+  setupSelectChip("goal", "goal", n);
+}
+/** Next on a chip screen: save the selected answer, then go to the very next screen in order, exactly as the auto-advance did
+    (also when the creator came Back to re-answer: an answered screen is not skipped). */
+function setupConfirmPick() {
+  const id = SETUP_AT;
+  const pick = SETUP_PICK?.id === id ? SETUP_PICK.v : (id === "priority" ? ME.priority : ME.goal?.target);
+  if (!pick || SETUP_BUSY) return;
+  if (id === "priority") { if (!GOAL_KINDS[pick]) return; setPriority(pick); }
+  else if (id === "goal") { if (!GOAL_KINDS[goalMetric()]?.steps.includes(pick)) return; setGoal(pick); }
+  else return;
+  SETUP_PICK = null;
   setupCelebrate(() => {
     const o = setupOrder();
     SETUP_AT = o[o.indexOf(SETUP_AT) + 1] || "done";
     paintSetupDue();
     renderSetup();
   });
-}
-function setupPickPriority(p) {
-  if (!GOAL_KINDS[p] || SETUP_BUSY) return;
-  setPriority(p);
-  setupAdvanceChip("priority", p);
-}
-function setupPickGoal(n) {
-  const kind = GOAL_KINDS[goalMetric()];
-  if (!kind || !kind.steps.includes(n) || SETUP_BUSY) return;
-  setGoal(n);
-  setupAdvanceChip("goal", n);
 }
 
 async function onSetupClick(e) {
@@ -6527,6 +6525,7 @@ async function onSetupClick(e) {
   if (act === "start") { SETUP_AT = setupFirstPending(); renderSetup(); return; }
   if (act === "notnow" || act === "finish") { closeSetupModal(); return; }
   if (act === "next") { await setupNextPress(); return; }
+  if (act === "pick-next") { setupConfirmPick(); return; }
   if (act === "skip") { setupSkip(); return; }
   if (act === "back") { const pv = setupBack(); if (pv) { SETUP_AT = pv; renderSetup(); } return; }
   if (act === "copy") {
@@ -7339,7 +7338,7 @@ function wireRateForms(root, after) {
   });
 }
 
-/** The goal card's inner HTML. where: "home" | "posts" (it only sets element ids). No priority -> the priority chips; a priority
+/** The goal card's inner HTML (it lives at the top of Posts; Home no longer shows a goal). where only sets element ids. No priority -> the priority chips; a priority
     with no goal -> the goal chips; a goal -> its heading, its real progress (never a made-up number), what the creator can do about
     it, and the bar. */
 function goalCardHtml(where) {
@@ -7371,7 +7370,6 @@ function goalCardHtml(where) {
     + (metric === "rate" ? rateFormHtml(`${id}-rate`) : "")
     + (noBar ? "" : `<div class="goal-bar" role="img" aria-label="${gp.pct}% of your goal"><i data-pct="${gp.pct}"></i></div>`)
     + `<p class="goal-meta"><span>${noBar ? "" : pct}</span><span class="home-links">`
-    + (where === "home" && (metric === "perform" || metric === "grow") && showPostsNav() ? `<button type="button" class="linkish" data-home="posts">Your videos</button>` : "")
     + `<button type="button" class="linkish" data-home="settings">Change goal</button></span></p>`;
 }
 
@@ -7412,9 +7410,8 @@ function paintPosts() {
 
 function renderPosts(head, body) {
   head.innerHTML = `
-    <button type="button" class="side-toggle" id="side-open" aria-label="Menu" title="Menu" aria-expanded="${document.body.classList.contains("side-open")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div class="pane-title"><div class="bcard-title">Posts</div></div>
-    <p class="pane-sub">How the videos on your linked accounts perform.</p>`;
+    ${paneBarHtml("Posts")}
+    ${pageH1("Posts")}`;
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
     e.currentTarget.setAttribute("aria-expanded", open);
@@ -7426,14 +7423,10 @@ function renderPosts(head, body) {
   paintPosts();
 }
 
-/* ---------- HOME: the welcome dashboard under the paste box ----------
-   Owner, 2026-10-02: Home is the creator app's first view (VIEW.kind "new"). The paste box keeps the top of the page; under
-   it sit the goal (with progress), the linked profiles and the latest scripts. renderNewScript() draws the frame once;
-   paintHome() fills the cards and can run again alone when the plan, the profiles or the tracked videos arrive, so a link
-   half-typed in the box is never rebuilt under the creator. Everything shown comes from state already in memory: no
-   request is made to draw it. */
-
-const CHECK_SVG = `<svg class="home-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
+/* ---------- HOME: the x and the paste box ----------
+   Owner, 2026-10-03: Home is the creator app's first view (VIEW.kind "new"): the x and a headline, and the paste box at the
+   bottom. renderNewScript() draws the frame once; paintHome() only repaints the headline, so a link half-typed in the box is
+   never rebuilt under the creator. Everything shown comes from state already in memory: no request is made to draw it. */
 
 /** What the page says to this creator, by priority (no priority yet reads as the deals one, like the first-run greeting). */
 const HOME_HEADLINE = {
@@ -7443,42 +7436,12 @@ const HOME_HEADLINE = {
 function homeHeadline() {
   const who = setupName();
   const base = HOME_HEADLINE[ME.priority] || HOME_HEADLINE.deals;
-  return who ? `${base}, ${who}.` : `${base}.`;
+  return who ? `${base}, ${who}!` : `${base}!`;
 }
 /** The name is the user's own data: text, never markup. */
 function paintHomeHeadline() {
   const h = document.getElementById("home-h");
   if (h) h.textContent = homeHeadline();
-}
-
-/** The goal card on Home: priority and goal with their real progress (see goalCardHtml). */
-const homeGoalHtml = () => goalCardHtml("home");
-
-/** The creator's own accounts, each verified or not. An unverified one opens Settings. Empty string = no card: the table is not
-    there, or they added none (profiles are optional, 2026-10-03; a "grow" goal says what to do itself). */
-function homeProfilesHtml() {
-  if (!ONBOARD_LIVE || !Array.isArray(PROFILES) || !PROFILES.length) return "";
-  const h = `<h2 class="me-card-h">Your own accounts</h2>`;
-  return h + `<ul class="home-profs">` + PROFILES.map((p) => {
-    const ok = !!p.verified_at;
-    const plat = PLAT_NAME[p.platform] || p.platform;
-    const inner = `<span class="home-prof-plat">${escapeHtml(plat)}</span><span class="home-prof-h">@${escapeHtml(p.handle)}</span>`
-      + `<span class="home-prof-st">${ok ? CHECK_SVG : ""}${ok ? "verified" : "unverified"}</span>`;
-    return ok ? `<li><span class="home-prof ok">${inner}</span></li>`
-      : `<li><button type="button" class="home-prof warn" data-home="settings" aria-label="@${escapeHtml(p.handle)} on ${escapeHtml(plat)} is unverified. Open Settings to verify it.">${inner}</button></li>`;
-  }).join("") + `</ul>`;
-}
-
-/** The latest three videos from the Library, with where each script stands. Empty string = no card. */
-function homeRecentHtml() {
-  if (!(ME.library || []).length) return "";
-  const items = findSort(ME.library, "new", sourceLabel, null).slice(0, 3);
-  return `<h2 class="me-card-h">Recent scripts</h2><ul class="home-recent">` + items.map((it) => {
-    const ads = libScripts(it);
-    const st = ads.some(isWriting) ? "writing" : ads.some((a) => a.status === "done") ? "ready" : ads.some((a) => a.status === "error") ? "failed" : "saved";
-    return `<li><button type="button" class="home-rec" data-lid="${escapeHtml(it.id)}"><span class="home-rec-t">${escapeHtml(sourceLabel(it))}</span>`
-      + `<span class="home-rec-s ${st}">${st}</span></button></li>`;
-  }).join("") + `</ul>`;
 }
 
 /** Open a Library entry from Home, the same landing a send uses. */
@@ -7506,31 +7469,10 @@ function paintHomeWriting() {
   paintEta(host);
 }
 
-/** Fill the cards. Safe to call any time; does nothing off Home. */
+/** Repaint the headline (the priority or the name may have just arrived). Safe to call any time; does nothing off Home. */
 function paintHome() {
-  const host = document.getElementById("home-cards");
-  if (!host || VIEW.kind !== "new") return;
-  const a = document.activeElement;
-  if (a && host.contains(a) && a.tagName === "INPUT") return;   // a brand or a rate being typed: a late arrival must not wipe it
-  const keep = a && host.contains(a) && a.dataset?.goal ? `[data-goal="${a.dataset.goal}"]` : null;
-  const prof = homeProfilesHtml();
-  const rec = homeRecentHtml();
+  if (VIEW.kind !== "new") return;
   paintHomeHeadline();
-  host.innerHTML = `<div class="section me-card home-card" id="home-goal">${homeGoalHtml()}</div>`
-    + (prof || rec ? `<div class="home-pair">`
-      + (prof ? `<div class="section me-card home-card" id="home-profs">${prof}</div>` : "")
-      + (rec ? `<div class="section me-card home-card" id="home-rec">${rec}</div>` : "")
-      + `</div>` : "");
-  paintPostsBars(host);
-  wireGoalCard(host, () => { paintHome(); paintSetupDue(); });
-  host.querySelectorAll("[data-home]").forEach((b) => b.addEventListener("click", () => {
-    const k = b.dataset.home;
-    if (k === "plan") go({ kind: "plan" });
-    else if (k === "posts") { go({ kind: "posts" }); refreshPosts(); }
-    else go({ kind: "you" });
-  }));
-  host.querySelectorAll(".home-rec").forEach((b) => b.addEventListener("click", () => openLibraryEntry(b.dataset.lid)));
-  if (keep) host.querySelector(keep)?.focus({ preventScroll: true });
 }
 
 /* ---------- THE TOUR: a skippable walk down the sidebar ----------
