@@ -5,6 +5,17 @@ anthropic>=0.40
 faster-whisper>=1.0
 certifi
 
+# PyAV BELOW 19, deliberately. PyAV 19.0.0 (2026-09-29) removed the
+# `metadata_errors` argument from av.open(), and faster-whisper (1.2.1, its
+# latest release) still passes it when it decodes audio. Nothing here pinned
+# av, so the 2026-10-03 worker rebuild pulled 19.0.1 and every transcription
+# failed with "open() got an unexpected keyword argument 'metadata_errors'".
+# That surfaced as "the video couldn't be downloaded": all 8 formats of an
+# agency brief failed on 2026-10-04. Verified: av 18.1.0 accepts the argument,
+# 19.0.1 raises exactly that TypeError. Lift this only once a faster-whisper
+# release stops passing metadata_errors, and re-test transcription first.
+av>=11,<19
+
 # yt-dlp WITHOUT the curl-cffi extra, deliberately.
 #
 # curl-cffi 0.15.0 breaks the TikTok extractor outright: every TikTok URL —

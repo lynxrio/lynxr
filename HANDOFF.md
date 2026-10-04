@@ -27,6 +27,17 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**TRANSCRIPTION BROKE ON THE WORKER: PyAV 19 (FIXED 2026-10-04, UNCOMMITTED: `requirements-ci.txt` only).** All 8
+formats of an agency brief failed on 2026-10-04 with `open() got an unexpected keyword argument 'metadata_errors'`,
+shown to staff as "the video couldn't be downloaded" (error_kind `fetch_generic`). Cause: PyAV 19.0.0 (2026-09-29)
+dropped that argument from `av.open()`, faster-whisper 1.2.1 still passes it, and nothing pinned `av`, so the
+2026-10-03 Fly rebuild pulled 19.0.1. Fix: `av>=11,<19` in `requirements-ci.txt`, which feeds the Fly image and the
+GitHub runners alike. A push triggers `fly-deploy.yml`. Verified in a fresh venv: av 18.1.0 decodes, while 19.0.1
+reproduces the exact TypeError. One creator paste (2026-10-04 15:11Z) also failed in the reading phase ("We couldn't
+read that video"; creator records don't keep the raw error). It cost no allowance: there is no
+`lynxr_script_charges` row after 2026-09-30. After the deploy, re-queue the failed formats ("try again"). Note that the weekly `fly-refresh.yml` rebuild pulls the newest
+unpinned packages every Monday.
+
 **AT A GLANCE — 2026-09-30. Read this first.**
 - **Live:** `main` at `6813707` (2026-09-28), stamp `202609233u`: the agency change below (no New Client tab, typed
   Add client, briefs first, the header hides on scroll, video blueprints hidden) and SEO unit Q2
