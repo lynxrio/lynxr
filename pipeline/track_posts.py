@@ -975,7 +975,13 @@ def run(key, dry=False):
     sc = scan_pass(key, datetime.now(timezone.utc), dry=dry, cache=cache)
     m = measure_pass(key, datetime.now(timezone.utc), dry=dry, cache=cache)
     f = followers_pass(key, datetime.now(timezone.utc), dry=dry, cache=cache)
-    stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS)}
+    shw = {}
+    try:
+        import showcase as SHOWCASE_LANE              # local import: pass THIS module in, see showcase.py's docstring
+        shw = SHOWCASE_LANE.showcase_pass(key, datetime.now(timezone.utc), dry=dry, T=sys.modules[__name__])
+    except Exception as e:  # noqa: BLE001
+        log.warning("showcase pass failed: %s", str(e)[:120])
+    stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS), "showcase": shw}
     n = APIFY_RESULTS
     log.info("track_posts: verify %d (verified %d, budget-skipped %d) · scan tt %d ig %d (new %d, failed %d, changed %d) · "
              "measure %d (failed %d) · followers %d (failed %d) · budget skips max %d pro %d free %d · apify ~%d results (~$%.4f)",

@@ -27,6 +27,46 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**SHOWCASE: "MADE WITH LYNXR" ON THE LANDING PAGE (2026-10-05, UNCOMMITTED, stamp `20261005h`; plan
+`~/.claude/plans/lynxr-showcase.md`).** The landing hero's right card can show real videos made with lynxr scripts, with
+lynxr-measured numbers, once there are at least 3 approved, consented, measured entries AND a real "typical" figure
+(median day-7 views over at least 30 tracked videos from at least 5 creators). Until then the card is exactly as before;
+nothing is ever invented. **Built:** `supabase/showcase.sql` (tables, one anonymous RPC `showcase_public()`, creator and
+staff functions, a self-test that rolls itself back) - **OWNER MUST RUN IT in the Supabase SQL editor (NOT applied yet)**;
+`pipeline/showcase.py` (fetches and checks the video, copies its cover to the lynxr-covers bucket, measures, sweeps;
+runs inside track_posts.py's pass, Fly only); `showcase.js` (the landing logic and bubble); a creator Settings "Showcase"
+switch and a "made with a lynxr script" control on Posts (creator.js); a staff "Showcase" tab in /agencyonly/ (app.js);
+"the showcase" sections in /privacy/ and /terms/ (versions now 2026-10-05). **Kill switches, fastest first:**
+`revoke execute on function public.showcase_public() from anon;` (SQL, instant), `SHOWCASE_LIVE = false` in showcase.js,
+`SHOWCASE=0` Fly secret, `SHOWCASE_APP_LIVE = false` in creator.js. **Dev preview (localhost only):**
+`/?obtest=1&showcase=sample|few|notypical|error|slow`; the sample is built in code and never touches a database.
+`?obtest=1&view=posts` and `view=home` show the creator controls with fake data. **Tests:**
+`./venv/bin/python pipeline/test_showcase.py`, `node tools/test_showcase.mjs`. Proof a video is "made with lynxr" is
+`lynxr_script_charges` (charged before the video was posted), never the creator-writable adaptations blob. Not yet
+proven live: Instagram cover read, Fly worker line `showcase: covers ...`, the private-window check of lynxr.io.
+
+**UGC ANSWER AGENT (daily, automatic, commits to main):** .github/workflows/ugc-agent.yml runs
+tools/ugc_agent once a day on GitHub's runner: 2–3 articles answering UGC questions at /blog/<slug>/, each with a
+Q&A on /faq/<topic>/, plus sitemap/llms.txt. Owner-approved exception to "Claude never commits": only this
+workflow commits, only allowlisted files, as "lynxr ugc agent". main moves every day — git pull --rebase before
+committing. Never edit between UGC AGENT markers (faq/index.html, blog/index.html, sitemap.xml, llms.txt).
+Pause: repo variable UGC_AGENT_ENABLED=false. Withdraw: run the workflow with mode=withdraw. Failures open a GitHub
+issue labelled ugc-agent. The per-session SEO routine is retired.
+
+**AGENCY SCRIPT VIEW: EACH BEAT KNOWS ITS MOMENT IN "THE ORIGINAL" (2026-10-05, UNCOMMITTED, stamp `20261005i`; plan
+`~/.claude/plans/lynxr-agency-beat-sync.md`).** Why: a beat's `t` is the new script's own plan, not a moment of the
+original, and the docked video was a bare `<video>` wired to nothing. The original's moment is now `orig` ("8-12s", the
+original's own seconds). Where it comes from: the worker writes it with every agency script (rule 17 in
+`AGENCY_SCRIPT_SYSTEM`, `norm_orig`, a deep-copied `AGENCY_BEAT`; the creator lane's `ADAPT_SCHEMA` is untouched), and
+"keep it exactly" beats get `orig = t`. Agency card: "orig 0:08" chips play that stretch and stop at its end; a click on
+a beat only moves the playhead (no sound); the matching beat lights and is kept on screen while the original plays; a
+beat with no `orig` is unlinked and never lights. Layout: the player is sticky beside the beats from 821px up, and a
+compact sticky player on phones. Editor: an "Original" field and a Play button per beat; a value that is not seconds is
+refused at Save. Backfill: `pipeline/backfill_beat_orig.py` with `--plan` (paid, ran 2026-10-05 for $0.47 on Opus, 30
+beat lists on 21 formats; the plan file is in `~/Lynxr-evals/beat-sync/`, outside the repo) and `--apply` (no model
+call). `--apply` is NOT RUN: the owner runs it after pushing, because the old editor drops unknown beat keys on Save.
+Not changed: the creator app and sent briefs (they still seek by `t`), the PDF, `agencySendDoc`/`agDocSig`.
+
 **AGENCY BRIEFS: COMPARE, KEEP IT EXACTLY, NEEDS AS MOMENTS, NO SLOTS (2026-10-04, UNCOMMITTED, stamp `20261004c`;
 plan `~/.claude/plans/agency-brief-compare-verbatim-needs.md`).** From the cofounder's feedback on agency campaign
 briefs. **Editor:** the format editor now plays the original beside it (side by side from 821px, stacked on phones with
@@ -44,6 +84,26 @@ the editor shows one needs field. **Cost:** keep-it-exactly saves the $0.08-0.17
 Regenerate does one extra read (about $0.06-0.10) because it predates `key_moments`; the repair call runs only when a
 slot survives. **Tests:** `pipeline/test_campaigns.py` (j)-(s), `test_script_checks.py` slot_texts. **The paid check
 (about $0.63):** before/after report in `~/Lynxr-evals/needs/` (outside the repo).
+
+**CREATORS NEVER SEE A FAILED SCRIPT FOR A BAD LINK (2026-10-05, UNCOMMITTED, stamp `20261005g`; plan
+`~/.claude/plans/lynxr-no-failed-scripts.md`; NOT verified live until the first real deploy).** A creator pasted a
+cut-off Instagram link (`.../reels/OB5/`), nothing checked it, yt-dlp said "There is no video in this post", no rule
+matched, and the entry was re-run with no schedule until `gave-up:dad0e821` paged. **Refused at paste and at claim:**
+`linkShape()` in `creator.js` and `link_shape()` in `process_adaptations.py` return ok / cut_off / profile / photo /
+page rule for rule (Instagram code at least 10 characters, TikTok id 19-20 digits, TikTok short-link code at least 9;
+short links are NOT refused). Refused links never reach `charge_scripts`, so nothing is charged. One fixture,
+`pipeline/link_shapes.json`, is tested by both. **Read failures are classified** (`FETCH_RULES`, first match wins) into
+input (final at once, specific sentence, no page), unclear (retried, then "unreachable", no page) and ours (retried, then
+the gave-up sentence, pages); a failure after the download (Whisper, ffprobe) is always ours. **Retry window:** six tries
+over about 30 minutes (`FETCH_RETRY_MINUTES`), then final; a `fetchFail` marker carries the schedule and a `retrying` flag
+makes the card read "still trying" instead of red (model-side retries too). **Instagram fallback:** when yt-dlp fails, the
+post is fetched through Apify (`apify_fetch`); kill switch `FETCH_FALLBACK_APIFY=0`. `m.tiktok.com` is rewritten to
+`www.` for the download only (`fetch_url`); the stored `sourceUrl` is never rewritten. **Alarms:** input never pages and
+never counts toward `fetch-wall:burst`; "unreachable" and refused links go to the digest line
+(`N unreachable · N bad links`); only our own failures page. **Tests:** `pipeline/test_link_checks.py` (parts A-E),
+`node tools/test_link_shape.mjs`, plus the extended `test_ai_retry.py`, `test_watchdog.py`, `test_video_limits.py`.
+**OWNER, not run:** push, then relabel the cut-off card with the dry-run script in the plan (Step 13d); a pipeline push
+redeploys Fly, so check the queue is idle first.
 
 **ADD A BEAT IN BETWEEN (2026-10-04, UNCOMMITTED, stamp `20261004b`).** Owner: "allow me to add a beat in-between
 two beats when I edit in agency side and honestly creator side too". A "+ add beat here" pill sits on each beat's
@@ -153,7 +213,7 @@ and /faq/ at 1440, 900 and 393. Note: the owner's push `dc1d591` (15:21) landed 
 before the button resize, so live shows a 32px button in the 52px bar until the next push. Also since that push:
 today's SEO unit (`/blog/hook-payoff/`, see the SEO ROUTINE line) and the footer "lynxr turns…" brand sentence.
 
-**SEO ROUTINE (standing):** latest unit G1 (Q3) glossary catch-up on 2026-09-30, uncommitted: glossary gains #two-column-script and #storytime-video (DefinedTerm + go-deeper links) and go-deeper lines under #format, #hook, #the-turn, #script, #brief; sitemap glossary lastmod bumped. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
+**SEO ROUTINE:** retired 2026-10-05, replaced by the UGC answer agent above.
 
 **"COMING SOON" STAYS ABOVE ITS HEADLINE (2026-09-25).** A version with the pill to the right of "a coach for every level."
 was built and verified (owner: "put this on the right side"), then withdrawn minutes later ("nevermind, just keep the

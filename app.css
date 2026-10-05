@@ -7170,8 +7170,8 @@
      loads, then once every 3s: the wave takes the first ~1.4s of each cycle and
      the arm rests for the remaining ~1.6s. Reduced motion: no wave.
      2026-09-22, REVERSED: "have this logo at the top stop moving, just have it static". The
-     identity marks (bar, footer, gate, rail) no longer wave; the life moved to the live avatar on
-     the landing's seam (home.js), which waves and changes mood on its own. The resting pose stays. */
+     identity marks (bar, footer, gate, rail) no longer wave. (The landing's nav-logo intro waves a
+     separate live avatar over the mark — home.js perform — and never touches this mask.) */
   #lx-idle rect:nth-child(2) {
     transform-box: view-box; transform-origin: 60px 62px;
     transform: rotate(45deg);
@@ -7184,8 +7184,7 @@
      exists for them yet. Numbers are the owner-approved prototype's
      (x-avatar-prototype.html, CON.x.poses). */
   .lx:not(.lx-still) { overflow: visible; }
-  .lx .lx-arm, .lx .lx-w, .lx .lx-spin, .lx .lx-body, .lx .lx-hold { transform-box: view-box; transform-origin: 60px 62px; }
-  .lx .lx-pop { transform-box: view-box; }
+  .lx .lx-arm, .lx .lx-w, .lx .lx-spin, .lx .lx-body { transform-box: view-box; transform-origin: 60px 62px; }
   .lx .lx-arm, .lx .lx-body { transition: transform .6s cubic-bezier(.34, 1.56, .64, 1); }
   .lx .lx-a0 { transform: rotate(-45deg); }
   .lx .lx-a1 { transform: rotate(45deg); }
@@ -7215,72 +7214,21 @@
   .lx[data-mood="sorry"] .lx-a3 { transform: rotate(-145deg); }
   .lx[data-mood="sorry"] .lx-body { transform: translateY(2px) rotate(4deg); }
   .lx[data-mood="coaching"] .lx-a1 { transform: rotate(14deg); }
+  /* giggle (the landing's perched x, tickled): arms drawn in a little, like hugging itself */
+  .lx[data-mood="giggle"] .lx-a0 { transform: rotate(-36deg); }
+  .lx[data-mood="giggle"] .lx-a1 { transform: rotate(36deg); }
+  .lx[data-mood="giggle"] .lx-a2 { transform: rotate(142deg); }
+  .lx[data-mood="giggle"] .lx-a3 { transform: rotate(-142deg); }
 
   .lx .lx-f, .lx .lx-x { display: none; }
   .lx[data-mood="idle"] .lx-f-idle, .lx[data-mood="reading"] .lx-f-reading,
   .lx[data-mood="writing"] .lx-f-writing, .lx[data-mood="done"] .lx-f-done,
   .lx[data-mood="hyped"] .lx-f-hyped, .lx[data-mood="confused"] .lx-f-confused,
   .lx[data-mood="sorry"] .lx-f-sorry, .lx[data-mood="coaching"] .lx-f-coaching,
+  .lx[data-mood="giggle"] .lx-f-giggle,
   .lx[data-mood="writing"] .lx-x-writing, .lx[data-mood="hyped"] .lx-x-hyped,
   .lx[data-mood="confused"] .lx-x-confused, .lx[data-mood="sorry"] .lx-x-sorry { display: inline; }
 
-  /* ---- PROPS: a pencil and a whistle (avatar.js `props`, lynxrProp) ----
-     Not moods and not tied to one: the root carries .lx-prop-pencil or
-     .lx-prop-whistle, so every existing mood renders exactly as it did. These
-     rules must stay BELOW the mood poses — .lx.lx-prop-whistle .lx-a1 and
-     .lx[data-mood="coaching"] .lx-a1 have the same specificity, and the hand
-     that holds the whistle wins by source order.
-     HOLDING POSES the hand, and the prop is given the hand's OWN keyframes
-     about the hand's own origin, so the two move as one object: the pencil
-     takes over the writing wiggle, the whistle takes over the coaching wave.
-
-     BOTH PROPS ARE IN ONE HAND, AT EVERY WIDTH (owner, 2026-09-23: "put the
-     pencil and whistle on the left top limb"). The four arms are the same rect
-     rotated about (60,62), so the class number says nothing about where an arm
-     lands — which one is TOP-LEFT was resolved by measuring the painted arm's
-     centre against the avatar's, at the buddy's real sizes:
-       .lx-a0  rotate(-45deg)  -> UP-LEFT     (measured -24, -24 at 180px; -13, -13 at 96px)
-       .lx-a1  rotate(45deg)   -> UP-RIGHT
-       .lx-a2  rotate(135deg)  -> DOWN-RIGHT
-       .lx-a3  rotate(-135deg) -> DOWN-LEFT
-     So both props hold .lx-a0. Each keeps the outward tilt it had in the hand it
-     came from, carried over by the same symmetry as its artwork: the pencil's
-     .lx-a2 146deg (11deg clockwise of its 135deg rest) becomes -34deg (11deg
-     clockwise of -45), and the whistle's .lx-a1 30deg (15deg up from 45) becomes
-     -30deg (15deg up from -45). Only one prop class is ever set, so the two poses
-     for one arm cannot both apply.
-     THE PREVIOUS SPLIT IS GONE, NOT DISABLED: pencil bottom-right everywhere,
-     whistle top-right above 640px and bottom-left below it, with the whistle
-     drawn twice in the markup and two media queries picking one. One hand needs
-     one group and no media query, so the second group went with them.
-     THE MOTION MOVES WITH THEM. The writing wiggle lives on .lx-w2 and the
-     coaching wave on .lx-w1 for every other avatar on the site, and those stay;
-     when a prop is held, the loop is taken OFF that arm and put on .lx-w0 and on
-     the prop's .lx-hold in ONE rule, so arm and prop start together. Both wear
-     transform-origin 60px 62px, so they orbit the same point at the same
-     currentTime and the prop cannot drift off the hand. */
-  .lx.lx-prop-pencil .lx-x-pencil { display: inline; }
-  .lx.lx-prop-pencil .lx-a0 { transform: rotate(-34deg); }
-  .lx.lx-prop-pencil[data-mood="writing"] .lx-w2 { animation: none; }
-  .lx.lx-prop-pencil[data-mood="writing"] .lx-w0,
-  .lx.lx-prop-pencil[data-mood="writing"] .lx-x-pencil .lx-hold { animation: lx-wig .45s ease-in-out infinite alternate; }
-  .lx.lx-prop-whistle .lx-x-whistle { display: inline; }
-  .lx.lx-prop-whistle .lx-a0 { transform: rotate(-30deg); }
-  .lx.lx-prop-whistle .lx-toot { animation: lx-toot .74s ease-out infinite; }
-  .lx.lx-prop-whistle[data-mood="coaching"] .lx-w1 { animation: none; }
-  .lx.lx-prop-whistle[data-mood="coaching"] .lx-w0,
-  .lx.lx-prop-whistle[data-mood="coaching"] .lx-x-whistle .lx-hold { animation: lx-wave-arm .6s ease-in-out infinite alternate; }
-  /* The entrance grows the prop out of the hand end that holds it, never from
-     its own centre — the two origins are the same points the old bottom-right /
-     top-right ones were, carried across by the same symmetry as the artwork. The
-     exit rule repeats the descendant so it out-specifies the entrance ones;
-     transform-origin still comes from the rules above. */
-  .lx.lx-prop-pencil .lx-x-pencil .lx-pop { transform-origin: 45px 40px; animation: lx-prop-in .26s cubic-bezier(.22, 1.15, .36, 1) both; }
-  .lx.lx-prop-whistle .lx-x-whistle .lx-pop { transform-origin: 48px 30px; animation: lx-prop-in .26s cubic-bezier(.22, 1.15, .36, 1) both; }
-  .lx.lx-prop-out :is(.lx-x-pencil, .lx-x-whistle) .lx-pop { animation: lx-prop-out .16s ease-in both; }
-  @keyframes lx-prop-in { from { opacity: 0; transform: scale(.45) rotate(-20deg); } to { opacity: 1; transform: none; } }
-  @keyframes lx-prop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.5) rotate(16deg); } }
-  @keyframes lx-toot { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
 
   /* reading spins the arms a quarter turn; the X's four-fold symmetry makes that loop seamless */
   .lx[data-mood="reading"] .lx-spin { animation: lx-spin 1.6s linear infinite; }
@@ -7322,6 +7270,38 @@
   @keyframes lx-bob { 50% { transform: translateY(-3px); } }
   @keyframes lx-sigh { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.025, .955); } }
   @keyframes lx-drip { 0% { transform: translateY(-2px); opacity: 0; } 25% { opacity: 1; } 100% { transform: translateY(7px); opacity: 0; } }
+  /* GESTURE "hello" (avatar.js lynxrGesture; the landing's nav-logo intro, 2026-10-05). One-shot,
+     ~0.7s. The up-right arm (.lx-a1, rest 45deg — restated in the first and last keyframe because an
+     animation REPLACES the rule's transform) wags twice between 22 and 64deg; the whole X rocks about
+     its feet at the same time. NOT toward vertical: at 34px a near-vertical arm merges with the
+     up-left one into a single lump (captured at 3x), which reads as the X closing, not as a hand. The rock is on the ROOT svg, so a caller that moves the avatar must do
+     it on a wrapper (the landing's .hx-perf does). A running animation outranks the mood poses'
+     static transforms whatever their specificity, and no mood animates .lx-a1 itself (the coaching
+     wave is on .lx-w1, inside it), so this composes with any face. Under reduced motion the block
+     below stops it like every other loop. */
+  .lx.lx-g-hello { transform-origin: 50% 90%; animation: lx-hello-rock .7s ease-in-out both; }
+  .lx.lx-g-hello .lx-a1 { animation: lx-hello-arm .7s ease-in-out both; }
+  @keyframes lx-hello-arm {
+    0% { transform: rotate(45deg); } 22% { transform: rotate(22deg); } 42% { transform: rotate(64deg); }
+    62% { transform: rotate(22deg); } 82% { transform: rotate(60deg); } 100% { transform: rotate(45deg); }
+  }
+  @keyframes lx-hello-rock {
+    0%, 100% { transform: none; } 22% { transform: rotate(-5deg); } 42% { transform: rotate(4deg); }
+    62% { transform: rotate(-4deg); } 82% { transform: rotate(3deg); }
+  }
+  /* GESTURE "point" (avatar.js lynxrGesture(svg, "point", dir); the landing's companion pointing at a
+     target, 2026-10-05). The arm on the target's side swings out toward it, holds, and comes back, 0.5s.
+     The arms are the same capsule rotated about (60,62), so pointing is a rotation: right is 90deg (the
+     up-right arm, rest 45), left -90 (up-left, rest -45), down 180 (down-right, rest 135; down-left,
+     rest -135). Each keyframe restates the rest pose, as for hello. */
+  .lx.lx-g-point[data-lx-dir="r"] .lx-a1 { animation: lx-point-r .5s ease-out both; }
+  .lx.lx-g-point[data-lx-dir="l"] .lx-a0 { animation: lx-point-l .5s ease-out both; }
+  .lx.lx-g-point[data-lx-dir="d"] .lx-a2 { animation: lx-point-d .5s ease-out both; }
+  .lx.lx-g-point[data-lx-dir="dl"] .lx-a3 { animation: lx-point-dl .5s ease-out both; }
+  @keyframes lx-point-r { 0%, 100% { transform: rotate(45deg); } 30%, 75% { transform: rotate(88deg); } }
+  @keyframes lx-point-l { 0%, 100% { transform: rotate(-45deg); } 30%, 75% { transform: rotate(-88deg); } }
+  @keyframes lx-point-d { 0%, 100% { transform: rotate(135deg); } 30%, 75% { transform: rotate(168deg); } }
+  @keyframes lx-point-dl { 0%, 100% { transform: rotate(-135deg); } 30%, 75% { transform: rotate(-168deg); } }
   /* Every loop stops; the state change still happens (poses jump, faces swap). */
   @media (prefers-reduced-motion: reduce) {
     .lx, .lx * { animation: none !important; transition: none !important; }
@@ -7682,9 +7662,6 @@
   body.home .lp-steps { gap: 18px; }
   body.home .lp-step { padding: 28px 26px 30px; text-align: center; }
   body.home .lp-step .lp-p { margin-inline: auto; max-width: 30ch; }
-  .lp-av { display: block; width: 96px; height: 96px; margin: 0 auto 16px; }
-  .lp-av .lx { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 12px 16px var(--av-glow)); }
-  .lp-av-close { width: 88px; height: 88px; margin-bottom: 10px; }
 
   /* ---- landing: what you get = four glass tiles, no exhibit ---- */
   body.home .lp-panel:not(.lp-stat) { background: none; border: 0; box-shadow: none; padding: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -10134,8 +10111,6 @@
      the markup it styles survived, so the live site shipped the new cards with the OLD list bullets
      and no card styling. The owner's iPhone screenshot is what caught it. */
   body.home .lp-plan { display: flex; flex-direction: column; }
-  body.home .lp-plan-ico { display: block; width: 36px; height: 36px; margin-bottom: 14px; }
-  body.home .lp-plan-ico .lx { display: block; width: 100%; height: 100%; overflow: visible; }
   body.home .lp-plan-tag { margin: 2px 0 14px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
   body.home .lp-plan-cta, body.home .lp-plan-off { align-self: stretch; margin-top: 16px; text-align: center; }
   body.home .lp-plan-note { margin: 8px 0 0; font-size: 13px; line-height: 1.4; color: var(--text-3); text-align: center; }
@@ -10159,10 +10134,8 @@
      and the Plan view's own dot list (the shared .lp-plan-list rules, no longer overridden to ticks).
      Gaps are the Plan view's: 14 under the head, 6/18 around the tax line, 18 either side of the
      hairline, 10 between bullets. Measured at 390px (free card): 515px before, see HANDOFF after.
-     The mark is a live avatar ([data-lx-mood], avatar.js renders it): idle / writing / coaching. */
+     (The live x mark that sat beside the name went 2026-10-05: one x on the landing page.) */
   body.home .lp-plan { display: flex; flex-direction: column; }
-  body.home .lp-plan-ico { flex: none; display: block; width: 40px; height: 40px; }
-  body.home .lp-plan-ico .lx { display: block; width: 100%; height: 100%; overflow: visible; }
   body.home .lp-plan-id { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   body.home .lp-plan-head .lp-plan-name { line-height: 1.3; }
   body.home .lp-plan-tag { margin: 0; font-size: 14px; line-height: 1.35; color: var(--text-2); }
@@ -10191,10 +10164,9 @@
      on a claude.ai sign-in card as the reference for the box, "but in our styling". Against
      mockup H that stood here before it:
        LEFT  = the same headline, and a SIGN-UP BOX (.hxs) where the buddy used to stand;
-       RIGHT = the same one glass panel — coach row, hairline, script row — with the BUDDY
-               (.hx-seam, the unchanged host) in a band at the BOTTOM OF THE SAME CARD,
-               right-aligned, ~180px. The speech-bubble tail of the pass between the two is
-               gone with it: inside the card there is nothing for a tail to point at.
+       RIGHT = the same one glass panel — coach row, hairline, script row. (A buddy avatar sat in
+               a band at the bottom of this card from 2026-09-23; removed 2026-10-05, owner: "have
+               it just be the one" — the one x on the page is the nav logo's, see .hx-perf.)
      The stage picker that shared this block moved to /how-it-works/ the same day; its .hs-*
      rules are further down under body.hiw and nothing .hs-* is left here.
      Everything is scoped to NEW class names (.hx-*, .hxs-*) that only index.html wears, under
@@ -10221,7 +10193,6 @@
        around. Measured in painted pixels on the built panel: #4a2bb0 on the resulting ground is
        6.81:1, and the bubble's ink on it 13.23:1. */
     --hx-soon-bg: color-mix(in srgb, var(--hx-soon-t) 12%, transparent);
-    --hx-seam-shadow: rgba(0, 0, 0, .5);
     /* The three dots between the panel's rows (.hx-rule): the avatar's own violet, pink and peach. */
     --hx-dot-a: rgba(123, 97, 255, .6);
     --hx-dot-b: rgba(255, 126, 184, .75);
@@ -10235,7 +10206,6 @@
     --hx-live-t: #146b3e;
     --hx-live-bg: rgba(225, 241, 231, .96);   /* the mockup's .9 measured 4.54:1 over the phone's pink backdrop */
     --hx-soon-t: #4a2bb0;
-    --hx-seam-shadow: rgba(70, 30, 100, .3);
   }
 
   /* ---- the split: the buddy on the left, ONE panel on the right ---- */
@@ -10284,10 +10254,6 @@
      the same number. */
   body.home .hx {
     --hx-bar-h: 63px;   /* 10px top inset + the 52px capsule + its 1px border line; was 55 with the 44px capsule */
-    /* The buddy's size, and how far his box sits in from the card's right edge. Named, because
-       the band's padding and the phone override both read them. */
-    --hx-buddy: clamp(120px, 14vw, 180px);
-    --hx-buddy-r: 16px;
     --hx-gap: clamp(36px, 6.3vw, 80px);
     --hx-out: max(clamp(24px, 3vw, 40px), calc((100vw - 1080px - var(--hx-gap)) / 2));
     --hx-in: calc(var(--hx-gap) / 2);
@@ -10558,28 +10524,100 @@
     body.home .hx.hx-anim .hx-type::after { display: none; }
   }
 
-  /* THE BUDDY HIMSELF, NOW AT THE BOTTOM OF THE CARD (owner, 2026-09-23: "put this lynxr on the
-     bottom right", then "put lynxr inside the box with the info above it"). Live (avatar.js
-     renders the span), never a picture, and the SAME host element the intro and avatar.js have
-     always driven — moved, never replaced, so lynxrProp / lynxrMood / HX.hand and the limb media
-     queries (pencil bottom-right everywhere, whistle top-right above 640px and bottom-left below
-     it — all of them on plain .lx, never scoped here) keep working.
-     ITS OWN BAND, not a .hx-row: .hx-row > * is what the intro animates, and this one may never
-     be hidden — it is the performer. Being a real row of the card also means its height is in
-     the panel's layout from frame 0, so no beat of the intro can shift the card. */
-  body.home .hx-buddy {
-    display: flex; justify-content: flex-end; align-items: flex-end;
-    min-width: 0; padding: 0 var(--hx-buddy-r) 10px;
+  /* ---- THE NAV LOGO'S PERFORMANCE (home.js: HX_ROUTE / perform; owner, 2026-10-05) ----
+     HOLD: armed but not started. Every animation of the card's intro is paused in its delay (each is
+     `both`, so it sits on its first frame: the rows invisible, the dots unrippled) until the performer
+     first lands and home.js removes the class. Only home.js adds it, only alongside .hx-anim, and
+     a 4.5s watchdog there removes it whatever happens; with no JS none of this exists.
+     !important because every rule it pauses sets the `animation` SHORTHAND, which resets
+     animation-play-state to running, and the typed characters' rule (.hx-anim .hx-type .hx-ch)
+     out-specifies this one — measured: without it the headlines typed on the old clock behind a
+     paused card. */
+  body.home .hx.hx-hold :is(.hx-row > *, .hx-rule, .hx-rule i, .hx-ch, .hx-new),
+  body.home .hx.hx-hold :is(.hx-rule i, .hx-ch)::after { animation-play-state: paused !important; }
+  /* THE PERFORMER. Fixed and at the origin while it bounces — home.js moves it with transform only,
+     turning and growing about its centre — then .hx-perf-sat parks it INSIDE .hxs, perched on the card's top edge, so it
+     scrolls and resizes with the card (the card is display:none at 640px and under, and the x goes with
+     it). It never takes a click and never takes layout. Above the sticky bar (30), below every modal. */
+  body.home .hx-perf {
+    position: fixed; left: 0; top: 0; z-index: 40; pointer-events: none;
+    transform-origin: 50% 50%;
   }
-  body.home .hx-seam {
-    display: block; flex: none; pointer-events: none;
-    width: var(--hx-buddy); height: var(--hx-buddy);
+  body.home .hx-perf.hx-perf-moving { will-change: transform; }   /* only while it flies or glides */
+  body.home .hx-perf.hx-perf-sat { position: absolute; left: auto; z-index: 1; }
+  /* Perched and alive (home.js live): the mascot alone takes the pointer, for the tickle. Its box sits
+     above the card's edge and clear of every line of text (measured), so it can take nothing from a
+     control. The hearts it pops are pointer-events: none like everything else here. */
+  body.home .hx-perf.hx-perf-live { pointer-events: auto; cursor: default; touch-action: manipulation; }
+  /* While it rides or hops it takes no pointer (it is in motion over the page); ducked out — no clear
+     spot on the right edge at this scroll position — it is invisible until the next rest finds one. */
+  body.home .hx-perf.hx-perf-moving, body.home .hx-perf.hx-perf-duck { pointer-events: none; }
+  body.home .hx-perf { transition: opacity .18s ease; }
+  body.home .hx-perf.hx-perf-duck { opacity: 0; }
+  body.home .hx-perf-host { position: relative; }   /* a sitting x's containing block; moves nothing */
+  body.home .hx-perf-heart {
+    position: absolute; left: 50%; top: 2px; width: 11px; height: 11px; pointer-events: none; opacity: 0;
   }
-  /* The phone's quiet sign-up link, beside the buddy (see the 640px block). Never on a desktop,
-     which has the whole .hxs card. */
+  body.home .hx-perf-sq { width: 100%; height: 100%; transform-origin: 50% 100%; }   /* squash about the feet */
+  body.home .hx-perf .lx { display: block; width: 100%; height: 100%; overflow: visible; }
+  /* SETTLED, IT BREATHES (Revision 11: "nearly still"): a 3% swell every 4.4s, about its feet. Only while
+     it is alive and not moving; a squash or the arrival twirl (scripted) plays over it and hands back. */
+  body.home .hx-perf.hx-perf-live:not(.hx-perf-moving) .hx-perf-sq { animation: hx-perf-breathe 4.4s ease-in-out infinite; }
+  @keyframes hx-perf-breathe { 0%, 100% { transform: none; } 50% { transform: scale(1.03); } }
+  /* fill-box so the impact blink squeezes the eyes about their own middle, not the viewBox's corner */
+  body.home .hx-perf .lx-face { transition: transform .3s ease-out; transform-box: fill-box; transform-origin: center; }
+  /* CONTACT CUES (home.js shadowFor / puff): a soft shadow ellipse on the surface it is about to land
+     on, and three small brand dots on each impact. Placed through CSSOM, animated by home.js with
+     transform and opacity only, removed as soon as they have played. */
+  body.home .hx-perf-shadow {
+    position: fixed; z-index: 39; height: 8px; border-radius: 50%; pointer-events: none; opacity: 0;
+    background: radial-gradient(closest-side, rgba(58, 20, 120, .55), rgba(58, 20, 120, 0));
+  }
+  body.home .hx-perf-puff { position: fixed; z-index: 41; width: 0; height: 0; pointer-events: none; }
+  body.home .hx-perf-puff b {
+    position: absolute; left: 0; top: 0; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--hx-dot-b, rgba(255, 126, 184, .75)); transform: translate(-50%, -50%);
+  }
+  body.home .hx-perf-puff b:nth-child(1) { background: var(--hx-dot-a, rgba(123, 97, 255, .6)); }
+  body.home .hx-perf-puff b:nth-child(3) { background: var(--hx-dot-c, rgba(255, 160, 120, .75)); }
+  body.home .hxs { position: relative; }   /* the perch's containing block; moves nothing */
+  /* THE NAV'S OWN X. Hidden instantly under the performer while it waves there (.hx-perf-src — the two
+     are the same art, so the swap cannot be seen), then, once the performer has drifted off, its spot
+     CLOSES (.hx-perf-gone on the link: the mark's width and the link's gap go to 0 over .3s) and the
+     home link is just the word (owner: "have it just be the one"). It does not come back: the x rides
+     down the page with the reader (home.js follow). On a phone the bar shows no word, so home.js keeps
+     the mark's width there (opacity 0) rather than leave an empty link. Only home.js sets either class;
+     with no JS the nav is untouched. */
+  /* PHONES (home.js closeSpot, Revision 10): the bar shows the mark only, so when the x has left it the
+     home link leaves the layout and "get started" takes its place at the left end (home.js plays the
+     glide as a transform); the menu button stays at the right end. Only home.js adds the class. */
+  body.home .lp-bar-in.hx-bar-left { grid-template-columns: minmax(0, 1fr); }
+  body.home .lp-bar-in.hx-bar-left > a.wordmark { display: none; }
+  body.home .lp-bar-in.hx-bar-left > .lp-actions { justify-self: stretch; justify-content: space-between; margin-left: 20px; }
+  body.home .lp-bar a.wordmark { transition: gap .3s ease; }
+  body.home .lp-bar .wordmark .mark { transition: opacity .2s ease-out, width .3s ease; }
+  body.home .lp-bar .wordmark .mark.hx-perf-src { opacity: 0; transition: width .3s ease; }
+  body.home .lp-bar a.wordmark.hx-perf-gone { gap: 0; }
+  /* Going is instant (opacity 0s): the perched x is coming into view, and two may never paint at once. */
+  body.home .lp-bar a.wordmark.hx-perf-gone .mark { width: 0; opacity: 0; transition: opacity 0s, width .3s ease; }
+  /* ONE soft ring on the target the x arrives at (home.js ring, once per target per page view): an
+     element laid over the target with the target's own radius, so the target's box, paint and hit
+     area are untouched; transform and opacity only, animated and removed by home.js. */
+  body.home .hx-perf-ring {
+    position: fixed; z-index: 39; pointer-events: none; box-sizing: border-box;
+    box-shadow: 0 0 0 2px rgba(123, 97, 255, .32);   /* soft (Revision 11) */
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.home .lp-bar a.wordmark, body.home .lp-bar .wordmark .mark { transition: none; }
+  }
+
+  /* THE CARD'S LAST BAND (.hx-band): the phone's quiet sign-up line, and nothing else. It held the
+     buddy avatar until 2026-10-05 (owner: "have it just be the one and the visual get rid of the
+     lynxr"); with the buddy gone the band is RECLAIMED: above 640px it has nothing to show (the
+     desktop has the whole .hxs card) so it is not drawn at all, and the script row is the card's
+     last row. Not a .hx-row: .hx-row > * is what the intro animates; .hx-new has its own beat. */
+  body.home .hx-band { display: none; }
   body.home .hx-new { display: none; }
-  body.home .hx-seam .lx { display: block; width: 100%; height: 100%; overflow: visible; }
-  body.home .hx-seam .lx { filter: drop-shadow(0 24px 40px var(--hx-seam-shadow)); }
 
   /* A NARROW DESKTOP / TABLET: the vertical ink only. The horizontal measure is the continuous
      expression above, deliberately — see the note there. */
@@ -10633,17 +10671,15 @@
        display:none rather than removed from the markup, so the desktop keeps it and the element
        leaves the tab order entirely on a phone. Nothing in the intro touches it. */
     body.home .hxs { display: none; }
-    body.home .hx { --hx-buddy: 64px; --hx-buddy-r: 12px; }
-    body.home .hx-seam .lx { filter: drop-shadow(0 16px 26px var(--hx-seam-shadow)); }
     body.home .hx-h { font-size: 30px; line-height: 1.04; }
     body.home .hx-sub { font-size: 16px; margin-top: -4px; }
     body.home .hx-h2 { font-size: 22px; }
     body.home .hx-panel { max-width: none; }
     body.home .hx-row { padding: 18px 18px 20px; }
-    /* The band under the paste box was ~120px holding only the buddy. It is now one row: the
-       sign-up link on the left, a 64px buddy on the right (owner's pick, mockup "L"). */
+    /* The band under the paste box: the sign-up line alone (owner's pick, mockup "L"; the 64px buddy
+       that stood beside it went 2026-10-05). Same insets and gap to the paste box as before. */
     body.home .hx-row-script { padding-bottom: 12px; }
-    body.home .hx-buddy { justify-content: space-between; align-items: center; gap: 12px; padding: 0 16px 12px 18px; }
+    body.home .hx-band { display: flex; align-items: center; min-width: 0; padding: 0 16px 16px 18px; }
     body.home .hx-new { display: block; margin: 0; min-width: 0; font-size: 14px; line-height: 1.4; color: var(--text-2); }
     body.home .hx-new-link { color: var(--text); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2); }
     body.home .hx-new-link:hover { text-decoration-color: var(--text-2); }
@@ -11996,10 +12032,10 @@
      >=1180px the shared .ref-split rules already put "The original" in a sticky 350px column beside it. */
   body.agency #app main .cb-ed-split .cb-editor { margin-top: 0; padding-top: 0; border-top: 0; }
   /* 821-1179px: the shared rules stack the split, which leaves the video a screen above the beat being
-     edited. The editor keeps it beside instead, in a sticky 240px column. */
+     read or edited. The finished card and the editor keep it beside instead, in a sticky 240px column. */
   @media (min-width: 821px) and (max-width: 1179.98px) {
-    body.agency #app main .cb-ed-split { grid-template-columns: minmax(0, 1fr) 240px; gap: 18px; }
-    body.agency #app main .cb-ed-split > .ag-original { order: 0; align-self: start; position: sticky; top: 76px; }
+    body.agency #app main .cb-split { grid-template-columns: minmax(0, 1fr) 240px; gap: 18px; }
+    body.agency #app main .cb-split > .ag-original { order: 0; align-self: start; position: sticky; top: 76px; }
   }
   /* Below 1180px the editor column is too narrow for four beat fields in a row. */
   @media (max-width: 1179.98px) {
@@ -12007,8 +12043,25 @@
   }
   /* Phones: stacked with the original first (the shared order: -1), smaller so the editor starts on the
      first screen; the panel is a <details> and folds away. */
+  /* Phones: stacked with the original first (the shared order: -1), and while it is open it rides along at the
+     top as a compact player (96px video, the link and length beside it) so the lit beat and the video stay on
+     one screen. Under the agency header (--ag-top + 52px + --ag-gap), below its z-index (20). While a field
+     in the editor has focus the keyboard owns half the screen, so the player stops riding along. */
   @media (max-width: 820px) {
-    body.agency #app main .cb-ed-split .ag-original .ref-dock { width: min(100%, 200px); }
+    body.agency #app main .cb-split > .ag-original[open] {
+      position: sticky; top: calc(var(--ag-top) + 52px + var(--ag-gap)); z-index: 3;
+      background: var(--surface-flat); border: 1px solid var(--line); border-radius: var(--ag-radius-in);
+      box-shadow: var(--app-soft);
+    }
+    body.agency #app main .cb-split > .ag-original[open] > summary { padding: 8px 12px; }
+    body.agency #app main .cb-split > .ag-original[open] > .bp-body { padding: 0 10px 10px; }
+    body.agency #app main .cb-split > .ag-original .cb-dock {
+      display: grid; grid-template-columns: 96px minmax(0, 1fr); align-content: end; gap: 4px 12px; width: 100%;
+    }
+    body.agency #app main .cb-split > .ag-original .cb-dock > :is(.cb-clip, .cb-cover, .cb-ph) {
+      grid-row: 1 / span 2; border-radius: 12px;
+    }
+    body.agency #app main .cb-ed-split:has(.cb-editor :is(input, textarea):focus) > .ag-original { position: static; }
   }
   /* The keep-it-exactly switch: under the link field (not under "Video N"), in the regenerate row and
      under the replace-link field. */
@@ -12020,4 +12073,133 @@
   body.agency #app main .cb-regen-row .ce-field[hidden] { display: none; }
   @media (max-width: 560px) {
     body.agency #app main .cb-row > .cb-keep { grid-column: 1; }
+  }
+
+  /* SHOWCASE: Settings card + Posts "made with" (plan lynxr-showcase.md). The Settings card reuses .me-card, .cb-check,
+     .ce-hint and .bp-msg; only the Posts line under each tracked video needs a rule of its own. */
+  .post-made { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: var(--fs-12); color: var(--text-2); }
+  .post-made select { max-width: 100%; min-width: 0; }
+  .post-made .bp-msg { flex-basis: 100%; margin-top: 0; }
+  #showcase-card .cb-check { margin-top: 2px; }
+  /* LITERAL 16px, never a token: iOS zooms the page in on a focused field under 16px (see the phone block of the landing page). */
+  @media (max-width: 640px) {
+    .post-made select { font-size: 16px; }
+  }
+
+  /* SHOWCASE TAB (staff, plan lynxr-showcase.md): layout only, on the agency vocabulary (.section, .bcard, .chip, .pill, .lbl,
+     .ce-field, .bp-actions). Every selector starts body.agency #panel-showcase. */
+  body.agency #panel-showcase .sc-section { margin-bottom: 18px; }
+  body.agency #panel-showcase .sc-line { margin: 0 0 6px; }
+  body.agency #panel-showcase .sc-group { margin: 16px 0 6px; }
+  body.agency #panel-showcase .sc-cand { margin-top: 10px; display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-width: 0; text-align: left; }
+  body.agency #panel-showcase .sc-cand-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; overflow-wrap: anywhere; }
+  body.agency #panel-showcase .sc-fs { border: 0; margin: 0; padding: 0; min-width: 0; }
+  body.agency #panel-showcase .sc-fs legend { padding: 0; margin-bottom: 2px; }
+  body.agency #panel-showcase .sc-fs input[type="text"] { width: 100%; max-width: 100%; box-sizing: border-box; margin-top: 4px; }
+  body.agency #panel-showcase .sc-fs input[type="text"][hidden] { display: none; }
+  body.agency #panel-showcase .sc-entry { margin-top: 8px; display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+  body.agency #panel-showcase .sc-entry-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  body.agency #panel-showcase .sc-thumb { flex: none; width: 48px; height: 85px; object-fit: cover; border-radius: 8px; background: var(--line); }
+  body.agency #panel-showcase .sc-meta { margin: 0; font-size: var(--fs-12); color: var(--text-2); overflow-wrap: anywhere; }
+  body.agency #panel-showcase .sc-rank { display: inline-flex; align-items: center; gap: 6px; }
+  body.agency #panel-showcase .sc-rank input { width: 72px; }
+  body.agency #panel-showcase .sc-log-list { margin: 0; padding-left: 18px; font-size: var(--fs-12); color: var(--text-2); }
+  body.agency #panel-showcase #sc-add > summary { cursor: pointer; list-style: none; }
+  body.agency #panel-showcase #sc-add > summary::-webkit-details-marker { display: none; }
+  body.agency #panel-showcase #sc-add .ce-wide { grid-column: 1 / -1; }
+  @media (max-width: 640px) {
+    body.agency #panel-showcase :is(input[type="text"], input[type="url"], input[type="number"], input[type="date"], select) { font-size: 16px; }
+  }
+
+  /* THE SHOWCASE BUBBLE (plan lynxr-showcase.md): showcase.js adds .sc inside the landing hero's right-hand card and .sc-on on
+     the card once it has real, approved entries. Until then none of this matches anything and the card is exactly as
+     index.html wrote it. The card keeps the size it had (min-height = the painted height measured 2026-10-05 at 1440,
+     1024, 768 and 393 wide), so swapping the content never moves the page. */
+  body.home .hx-panel.sc-on { min-height: 346px; }
+  @media (min-width: 1200px) { body.home .hx-panel.sc-on { min-height: 359px; } }
+  @media (max-width: 820px)  { body.home .hx-panel.sc-on { min-height: 315px; } }
+  @media (max-width: 640px)  { body.home .hx-panel.sc-on { min-height: 334px; } }
+  body.home .hx-panel.sc-on :is(.hx-row, .hx-rule, .hx-band) { display: none; }
+  body.home .hx-panel.sc-on .sc {
+    --sc-cover-h: 188px; position: relative; flex: 1 1 auto; min-width: 0; box-sizing: border-box; padding: 26px 28px 24px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px 12px;
+    grid-template-areas: "k nav" "stage stage" "foot foot";
+  }
+  @media (min-width: 1200px) { body.home .hx-panel.sc-on .sc { --sc-cover-h: 200px; } }
+  @media (max-width: 820px)  { body.home .hx-panel.sc-on .sc { --sc-cover-h: 170px; padding: 20px 20px 20px; } }
+  @media (max-width: 640px)  { body.home .hx-panel.sc-on .sc { --sc-cover-h: 188px; padding: 18px 18px 18px; } }
+  body.home .sc-k { grid-area: k; margin: 0; align-self: center; font-size: 13px; font-weight: 600; letter-spacing: .01em; color: var(--text-2); }
+  body.home .sc-stage { grid-area: stage; display: grid; min-width: 0; align-items: center; }
+  /* every slide sits in the same cell, so the stage is as tall as the tallest and the card never jumps between slides */
+  body.home .sc-slide { grid-area: 1 / 1; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; min-width: 0; animation: hx-fade .3s ease both; }
+  body.home .sc-slide[hidden] { display: grid; visibility: hidden; animation: none; }
+  body.home .sc-tile {
+    position: relative; display: block; height: var(--sc-cover-h); aspect-ratio: 9 / 16; border-radius: 14px; overflow: hidden;
+    background: var(--line); box-shadow: 0 0 0 1px var(--line-2) inset;
+  }
+  body.home .sc-cover { display: block; width: 100%; height: 100%; object-fit: cover; }
+  body.home .sc-plat { position: absolute; left: 6px; bottom: 6px; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #fff; background: rgba(0, 0, 0, .55); }
+  body.home .sc-data { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  body.home .sc-handle { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; }
+  body.home .sc-handle:hover { text-decoration: underline; text-underline-offset: 3px; }
+  body.home .sc-big { margin: 0; font-size: clamp(21px, 2.35vw, 30px); line-height: 1.1; letter-spacing: -.02em; color: var(--text); }
+  body.home .sc-big b { font-weight: 700; }
+  body.home :is(.sc-when, .sc-fol, .sc-tag) { margin: 0; font-size: 12px; line-height: 1.35; color: var(--text-2); overflow-wrap: anywhere; }
+  body.home .sc-chart { position: relative; height: 34px; margin: 4px 0 2px; color: var(--text); }
+  body.home .sc-spark { display: block; width: 100%; height: 100%; overflow: visible; }
+  body.home .sc-spark polyline { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  body.home .sc-dot { position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: currentColor; }
+  body.home .sc-nav { grid-area: nav; display: flex; align-items: center; gap: 12px; }
+  body.home .sc-dot-btn { position: relative; width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: var(--line-2); cursor: pointer; }
+  /* a 24px target around an 8px dot (WCAG 2.5.8) */
+  body.home .sc-dot-btn::after { content: ""; position: absolute; inset: -8px; }
+  body.home .sc-dot-btn[aria-current="true"] { background: var(--text); }
+  body.home .sc-pause { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; }
+  body.home .sc-pause:hover { color: var(--text); }
+  body.home .sc-foot { grid-area: foot; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  /* The typical line is the FTC disclosure: always on screen, plain text colour (not a muted one), 13px or more. */
+  body.home .sc-typ { flex: 1 1 150px; margin: 0; min-width: 0; font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text); }
+  body.home .sc-typ b { font-weight: 700; }
+  body.home .sc-go { flex: none; white-space: nowrap; }
+  body.home :is(.sc-dot-btn, .sc-pause, .sc-handle, .sc-tile):focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+  /* dev preview only (?obtest=1&showcase=sample on localhost): neither is ever drawn for a visitor */
+  body.home .sc-cover-fake { display: grid; place-items: center; width: 100%; height: 100%; font: 700 11px/1 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; color: #fff; background: linear-gradient(160deg, var(--hx-dot-a), var(--hx-dot-b) 55%, var(--hx-dot-c)); }
+  body.home .sc-dev { position: absolute; top: 2px; left: 8px; right: 8px; margin: 0; padding: 0 6px; font: 9px/1.3 ui-monospace, monospace; text-align: center; color: var(--text-2); border: 1px dashed var(--line-2); border-radius: 6px; }
+  @media (max-width: 640px) { body.home .sc-big { font-size: 22px; } }
+  @media (prefers-reduced-motion: reduce) { body.home .sc-slide { animation: none; } }
+
+  /* ================= AGENCY: BEATS AND "THE ORIGINAL" PLAY TOGETHER (2026-10-05) =================
+     Plan ~/.claude/plans/lynxr-agency-beat-sync.md. app.js cbWireOriginal moves .on / .bp-seekable /
+     aria-current; these paint them with the creator's own lit-beat recipe (.pane-body .bp-beats.bp-orig >
+     .bp-beat.on: --surface-flat ground, --beat-glow, the --logo-grad ring that ::before already draws at
+     opacity 0 for agency beats). Every selector starts body.agency #app main. */
+  body.agency #app main .cb-split .bp-beats > .bp-beat.on {
+    background: var(--surface-flat); border-color: transparent; box-shadow: var(--beat-glow);
+  }
+  body.agency #app main .cb-split .bp-beats > .bp-beat.on::before { opacity: 1; }
+  body.agency #app main .cb-split .bp-beats > .bp-beat.bp-seekable { cursor: pointer; }
+  /* "orig 0:08": under the beat's own planned time, in the same right-hand column. */
+  body.agency #app main .bp-beats.bp-orig > .bp-beat > .cb-origt { grid-column: 3; grid-row: 2; justify-self: end; align-self: start; }
+  body.agency #app main .bp-beats.bp-notime > .bp-beat > .cb-origt { grid-column: 1 / -1; justify-self: start; }
+  body.agency #app main .cb-origt {
+    display: inline-flex; align-items: center; gap: 4px; min-height: 22px; padding: 1px 8px;
+    border: 1px solid var(--line); border-radius: var(--r-pill); background: transparent;
+    font: inherit; font-size: var(--fs-115); font-weight: 600; line-height: 1.4;
+    font-variant-numeric: tabular-nums; color: var(--text-2); white-space: nowrap; cursor: pointer;
+  }
+  body.agency #app main .cb-origt:hover { border-color: var(--line-2); color: var(--text); }
+  body.agency #app main .cb-origt:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  body.agency #app main :is(.cb-origt, .cb-beat-play) svg { display: block; width: 9px; height: 9px; flex: none; }
+  @media (pointer: coarse) { body.agency #app main .cb-origt { min-height: 32px; padding: 4px 10px; } }
+  /* The editor: Time, Original and Play share the first column of a beat. */
+  body.agency #app main .cb-beat-times { display: grid; gap: 8px; align-content: start; min-width: 0; }
+  body.agency #app main .cb-beat-play { justify-self: start; display: inline-flex; align-items: center; gap: 5px; }
+  body.agency #app main .cb-beat-play:disabled { opacity: .45; cursor: default; }
+  body.agency #app main .cb-ed-split:not(:has(video.cb-clip)) .cb-beat-play { display: none; }
+  body.agency #app main .cb-ed-split .cb-beat-field.on { border-color: var(--accent); box-shadow: var(--beat-glow); }
+  @media (max-width: 1179.98px) {
+    body.agency #app main .cb-ed-split .cb-beat-times { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.agency #app main .cb-split .bp-beats > .bp-beat, body.agency #app main .cb-split .bp-beats > .bp-beat::before { transition: none; }
   }

@@ -6,7 +6,7 @@
 > in — and rewrites that format as a script for the company you are making
 > content for.
 
-lynxr is the ugc creator tool, built for creators who make videos for brands. It is made by lynxr LLC, a partner company of
+lynxr is the UGC creator tool, built for UGC creators: people who make short-form videos for brands. It is made by lynxr LLC, a partner company of
 Lynx Media Group LLC, the UGC agency in Allston, Massachusetts. The agency's site is https://lynxmediagroup.org/. Sign-up is open to everyone and free: every account gets
 3 scripts a week, with no card required. The app lives at lynxr.io itself — paste a
 link on the homepage and create an account when you send it. There is no file
@@ -28,24 +28,27 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 
 ## Guides
 
-- [What a video format is](https://lynxr.io/what-is-a-video-format/): The difference between a video's format and its topic, and why a format travels between brands when a topic does not.
-- [How to turn a video into a script for a brand](https://lynxr.io/turn-a-video-into-a-script/): The step-by-step method, by hand and with lynxr.
-- [The parts of a short-form video script](https://lynxr.io/short-form-script-structure/): Hook, setup, beats, turn, close, and what each one is doing.
+- [What a UGC video format is](https://lynxr.io/what-is-a-video-format/): The difference between a video's format and its topic, and why a format travels between brands when a topic does not.
+- [How to turn a viral video into a UGC script for a brand](https://lynxr.io/turn-a-video-into-a-script/): The step-by-step method, by hand and with lynxr.
+- [The parts of a UGC video script](https://lynxr.io/short-form-script-structure/): Hook, setup, beats, turn, close, and what each one is doing.
 - [How to write a hook](https://lynxr.io/how-to-write-a-hook/): The four hook shapes that keep working, and how to steal a hook's shape without stealing its words.
 - [A UGC script template that holds up](https://lynxr.io/ugc-script-template/): The four-part template with a real worked example, and the mistakes that make UGC read like an ad.
 - [Remake a viral video without copying it](https://lynxr.io/remake-a-viral-video/): What to keep, what to replace, and the line between a remake and a copy.
-- [Short-form video glossary](https://lynxr.io/glossary/): Plain definitions of the terms lynxr uses.
+- [UGC and short-form video glossary](https://lynxr.io/glossary/): Plain definitions of the terms lynxr uses.
 
 ## Blog
 
 - [The lynxr blog](https://lynxr.io/blog/): Every post, grouped by topic.
-- [Question hooks: asking one a viewer can't scroll past](https://lynxr.io/blog/question-hooks/): Question hook examples for short-form video: why yes-or-no questions lose the viewer, how to ask an open one, and where the answer should land in the script.
-- [The two-column script: SAY and DO side by side](https://lynxr.io/blog/two-column-script/): A blank two-column video script template for short-form video: spoken words on the left, what the camera shows on the right, plus a filled example.
-- [How to script a storytime video for a brand](https://lynxr.io/blog/storytime-script/): How to write a storytime script for a brand: the beat map of a storytime video, where the story should turn into the product, and which backstory to cut.
-- [How to find a video worth remaking in your niche](https://lynxr.io/blog/find-a-video-worth-remaking/): How to find viral videos in your niche that are worth remaking for a brand: the signals to trust, where to look, a five-line test, and the red flags to skip.
+- [Question hooks: asking one a viewer can't scroll past](https://lynxr.io/blog/question-hooks/): Question hook examples for UGC videos: why yes-or-no questions lose the viewer, how to ask an open one, and where the answer should land in the script.
+- [The two-column script: SAY and DO side by side](https://lynxr.io/blog/two-column-script/): A blank two-column UGC script template: spoken words on the left, what the camera shows on the right, plus a filled example for a brand video.
+- [How to script a storytime video for a brand](https://lynxr.io/blog/storytime-script/): How to write a storytime UGC script for a brand: the beat map of a storytime video, where the story should turn into the product, and which backstory to cut.
+- [How to find a video worth remaking in your niche](https://lynxr.io/blog/find-a-video-worth-remaking/): How to find viral videos worth remaking as UGC for a brand: the signals to trust, where to look, a five-line test, and the red flags to skip.
 - [How to turn a brand brief into a script](https://lynxr.io/blog/brief-to-script/): How to write a UGC script from a brief: mark what must and must not be said, pick the format before writing, and place brand lines so they do not sound recited.
-- [Hook and payoff: why a strong hook still loses the viewer](https://lynxr.io/blog/hook-payoff/): A hook and its payoff have to match. What a payoff is, the three promise types, where the payoff has to land, and how to fix a hook that over-promises.
-- [How long should a short-form video script be?](https://lynxr.io/blog/how-long-should-a-script-be/): How long should a TikTok script be? Length follows the beat count, not a word count — a shape for short, medium and long scripts.
+- [Hook and payoff: why a strong hook still loses the viewer](https://lynxr.io/blog/hook-payoff/): A hook and its payoff have to match in a UGC video: what a payoff is, the three promise types, where the payoff lands, and how to fix a hook that over-promises.
+- [How long should a UGC script be?](https://lynxr.io/blog/how-long-should-a-script-be/): How long should a UGC script be? Length follows the beat count, not a word count: a shape for short, medium and long scripts for brand videos.
+
+<!-- BEGIN UGC AGENT -->
+<!-- END UGC AGENT -->
 
 ## Policies
 

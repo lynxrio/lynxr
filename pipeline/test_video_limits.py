@@ -145,10 +145,13 @@ try:
     check("download failed + metadata 1800 -> too long, not a fetch error",
           run_fill(hint=1800.0, dl=_dl_fail), "refused 30:00")
     check("download timed out + metadata 1800 -> too long", run_fill(hint=1800.0, dl=_dl_timeout), "refused 30:00")
+    # Both are now a FetchFailed (a RuntimeError subclass): process_group classifies it with
+    # fetch_class(), and a download TIMEOUT is wrapped too so it is retried as "ours" rather than
+    # falling through as an unclassified exception. Still a fetch error, not a length verdict.
     check("download failed + metadata unknown -> the fetch error is unchanged",
-          run_fill(hint=None, dl=_dl_fail), "RuntimeError")
-    check("download timed out + metadata 120 -> the timeout is unchanged",
-          run_fill(hint=120.0, dl=_dl_timeout), "TimeoutExpired")
+          run_fill(hint=None, dl=_dl_fail), "FetchFailed")
+    check("download timed out + metadata 120 -> still a fetch error (now wrapped)",
+          run_fill(hint=120.0, dl=_dl_timeout), "FetchFailed")
     check("video refused, audio-only fallback 400s -> refused",
           run_fill(probed=400.0, dl=_dl_fail, audio=lambda url, dest: (dest / "a.mp3", None)), "refused 6:40")
 

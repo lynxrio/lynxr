@@ -73,6 +73,11 @@ the database, not the interface — verified live, see HANDOFF.md.
   renders as literal text on the page.
 - **A waitlist CSV never goes inside the repo.** One `git add -A` would publish
   every address. Export to `~/Desktop` or outside the project.
+- **main moves daily.** The UGC answer agent (.github/workflows/ugc-agent.yml)
+  commits to main once a day — the one approved exception to manual git. Pull
+  before you commit, never edit between UGC AGENT markers, and leave
+  tools/ugc_agent/articles/ to the agent (withdraw articles with the workflow's
+  withdraw mode).
 
 ## Two agents: plan on Opus, execute on Sonnet
 

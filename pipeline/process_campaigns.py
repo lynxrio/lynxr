@@ -24,9 +24,11 @@ claim never disagree about what "claimable" means.
 """
 import argparse
 import base64
+import copy
 import json
 import logging
 import os
+import re
 import sys
 import threading
 import urllib.error
@@ -117,6 +119,19 @@ fails without that exact thing. Unlike `production`, a moment may name the app o
 product on screen — the agency reads these as they are."""
 
 BEAT = P.ADAPT_SCHEMA["properties"]["beats"]          # same {t, say, do, show} beat, minItems 1
+# orig (plan ~/.claude/plans/lynxr-agency-beat-sync.md): where in the ORIGINAL each beat sits. Agency only — a
+# deep copy, so the creator lane's ADAPT_SCHEMA is untouched. ORIG_RULE is shared with backfill_beat_orig.py.
+ORIG_DESC = ("the stretch of the ORIGINAL video this beat recreates, in the original's own seconds, e.g. "
+             "'8-12s' (not this beat's own timing); empty string when the beat has no counterpart in the original")
+ORIG_RULE = """`orig` ties each beat to the ORIGINAL video: the stretch of the original this
+   beat recreates, in the original's own seconds, written like `t` ("8-12s"). Read it from the
+   ORIGINAL VIDEO block (the [start-end s] of its spoken lines and the [t s] of its shots), never
+   from this beat's own `t`, which is the new video's timing and often differs. Several beats may
+   share one stretch. Leave it an empty string only when the beat has no counterpart in the
+   original at all: an added brand card or end screen, a call to action the original did not have."""
+AGENCY_BEAT = copy.deepcopy(BEAT)
+AGENCY_BEAT["items"]["properties"]["orig"] = {"type": "string", "description": ORIG_DESC}
+AGENCY_BEAT["items"]["required"] = [*AGENCY_BEAT["items"]["required"], "orig"]
 AGENCY_SCRIPT_SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
     "title":      {"type": "string", "description": "the headline this format is filed under in the brief — normally the hook, trimmed"},
     "fit":        P.ADAPT_SCHEMA["properties"]["fit"],
@@ -126,7 +141,7 @@ AGENCY_SCRIPT_SCHEMA = {"type": "object", "additionalProperties": False, "proper
     "needs":      {"type": "array", "items": {"type": "string"}, "description": "3-6 must-have moments from the example video, in order, each a concrete instruction under 25 words — not a setup checklist"},
     "setting":    {"type": "string"}, "lighting": {"type": "string"},
     "framing":    {"type": "string"}, "audio": {"type": "string"},
-    "beats":      BEAT,
+    "beats":      AGENCY_BEAT,
     "cta":        P.ADAPT_SCHEMA["properties"]["cta"],
     "caption":    P.ADAPT_SCHEMA["properties"]["caption"],
     "creator_note":  {"type": "string", "description": "one or two practical filming tips; shown to creators"},
@@ -180,7 +195,7 @@ different creators will film from, with the original video attached.
    produced a result for the creator ("it saved me three hours a day", "it got me a
    250"). Rule 8's last paragraph and rule 14 still apply.
 16. `strategy_note` is read by the agency team only and is never shown to creators,
-   so no other field may depend on it."""
+   so no other field may depend on it.""" + "\n17. " + ORIG_RULE
 
 
 # ============================================================================
@@ -291,6 +306,45 @@ def _one_line(s):
     return " ".join(str(s or "").split())
 
 
+_ORIG_T = r"(\d+:\d{1,2}(?:\.\d+)?|\d+(?:\.\d+)?)"
+_ORIG_RE = re.compile(rf"^\s*{_ORIG_T}\s*s?\s*(?:(?:[-–—]|to)\s*{_ORIG_T}\s*s?\s*)?$")
+
+
+def _tsec(tok):
+    if ":" in tok:
+        m, s = tok.split(":", 1)
+        return int(m) * 60 + float(s)
+    return float(tok)
+
+
+def norm_orig(value, duration=0):
+    """A beat's `orig` in its one stored shape, "a-bs" in the original's seconds, or "" when it names no
+    usable moment. Accepts "8-12s", "8.1 - 12 s", "0:08-0:12", "8s". A lone start, or an end not after the
+    start, gets a 2s window (app.js cbOrigParse does the same). With a known duration the window is clamped
+    to it and a start at or past the end is dropped; a stored duration of 0 (some silent reads) clamps
+    nothing — the browser clamps against the real clip."""
+    m = _ORIG_RE.match(str(value or ""))
+    if not m:
+        return ""
+    a = _tsec(m.group(1))
+    b = _tsec(m.group(2)) if m.group(2) else None
+    if b is None or b <= a:
+        b = a + 2.0
+    d = float(duration or 0)
+    if d > 0:
+        if a >= d - 0.05:
+            return ""
+        b = min(b, d)
+    return f"{_secs(a)}-{_secs(b)}s"
+
+
+def with_orig(script, duration=0):
+    """The script with every beat's `orig` normalised; a beat the model left without one gets ""."""
+    beats = [{**b, "orig": norm_orig(b.get("orig"), duration)} for b in (script.get("beats") or [])
+             if isinstance(b, dict)]
+    return {**script, "beats": beats}
+
+
 def verbatim_beats(source):
     """The video's own words and shots as {t, say, do, show} beats ("keep it exactly"). A port of
     app.js realScript(): spoken videos group Whisper segments into ~5 beats (at least 4s each) and take
@@ -338,7 +392,8 @@ def verbatim_beats(source):
         beats = []
         for st, en, words in groups:
             hs = shots_for(st, en)
-            beats.append({"t": f"{_secs(st)}-{_secs(en)}s", "say": " ".join(words),
+            t = f"{_secs(st)}-{_secs(en)}s"
+            beats.append({"t": t, "orig": t, "say": " ".join(words),
                           "do": " → ".join(uniq(h.get("visual") for h in hs)),
                           "show": " / ".join(uniq(h.get("onscreen_text") for h in hs))})
         return beats
@@ -353,12 +408,15 @@ def verbatim_beats(source):
                 continue
             runs.append([0.0 if i == 0 else float(h.get("t") or 0), text, [vis] if vis else []])
         end_all = max(dur, float(shots[-1].get("t") or 0) + 1.0)
-        return [{"t": f"{_secs(st)}-{_secs(runs[k + 1][0] if k + 1 < len(runs) else end_all)}s",
-                 "say": "", "do": " → ".join(vis), "show": text}
-                for k, (st, text, vis) in enumerate(runs)]
+        out = []
+        for k, (st, text, vis) in enumerate(runs):
+            tt = f"{_secs(st)}-{_secs(runs[k + 1][0] if k + 1 < len(runs) else end_all)}s"
+            out.append({"t": tt, "orig": tt, "say": "", "do": " → ".join(vis), "show": text})
+        return out
     text = _one_line(sc.get("text"))
     if text:
-        return [{"t": f"0-{_secs(dur)}s" if dur else "", "say": text, "do": "", "show": ""}]
+        t = f"0-{_secs(dur)}s" if dur else ""
+        return [{"t": t, "orig": t, "say": text, "do": "", "show": ""}]
     return []
 
 
@@ -825,7 +883,7 @@ def run_format(key, aclient, row, campaign):
 
         if left:
             log.info("format %s: %d [slot](s) left after the repair", fid[:8], left)
-        finalize("done", script=out)
+        finalize("done", script=with_orig(out, (a.get("source") or {}).get("duration")))
         ok_for_cost = True
     finally:
         stop.set()

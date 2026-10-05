@@ -44,6 +44,10 @@ Tier 2 (a creator's verified profiles and the videos found on them are slow to r
 re-measure); the snapshot tables `lynxr_post_views` and `lynxr_profile_followers` are Tier 3. Until the SQL is applied a
 missing table is only a warning.
 
+Showcase (supabase/showcase.sql, 2026-10): `lynxr_showcase_consent`, `lynxr_showcase_entries` and `lynxr_showcase_log` are
+Tier 2 (consent and the staff's decisions are slow to redo, but a missing table before the SQL is applied must only
+warn, and tier 1 would abort the whole backup); `lynxr_showcase_points` is Tier 3 (re-measurable public counts).
+
 The auth roster is captured separately through the admin API. IT CANNOT
 INCLUDE PASSWORD HASHES — the admin endpoint does not return them, so this is
 a roster of who exists, not a set of credentials you could restore people
@@ -113,8 +117,12 @@ TABLES = (
     ("lynxr_sources", 2),
     ("lynxr_profiles", 2),
     ("lynxr_posts", 2),
+    ("lynxr_showcase_consent", 2),     # showcase (supabase/showcase.sql): tier 2, not 1 — a missing table must only warn
+    ("lynxr_showcase_entries", 2),
+    ("lynxr_showcase_log", 2),
     ("lynxr_post_views", 3),
     ("lynxr_profile_followers", 3),
+    ("lynxr_showcase_points", 3),
     ("lynxr_costs", 3),
 )
 

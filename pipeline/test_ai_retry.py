@@ -84,8 +84,8 @@ for _key in P.CREATOR_NOTES:
 # ---- every FETCH_FAILURES key (and the default) exists in CREATOR_NOTES ----
 # A typo here would KeyError inside an except handler in production — set_note
 # falls back safely, but fetch_failure()'s caller expects a real sentence.
-for _retryable, _key, _needles in P.FETCH_FAILURES:
-    check(f"FETCH_FAILURES key {_key!r} is a real CREATOR_NOTES entry",
+for _cls, _key, _needles in P.FETCH_RULES:
+    check(f"FETCH_RULES key {_key!r} is a real CREATOR_NOTES entry",
           _key in P.CREATOR_NOTES, True)
 _default_key, _default_retryable = P.fetch_failure("something nobody has seen before")
 check("fetch_failure()'s default key is a real CREATOR_NOTES entry",
@@ -490,8 +490,9 @@ check("private is permanent",
       P.fetch_failure("ERROR: [youtube] x: Private video. Sign in if you have access")[1], False)
 check("deleted is permanent",
       P.fetch_failure("ERROR: Video unavailable")[1], False)
-check("404 is permanent",
-      P.fetch_failure("ERROR: unable to download: HTTP Error 404: Not Found")[1], False)
+# a 404 is ambiguous: measured 2026-10-05 on m.tiktok.com for a live video
+check("404 is ambiguous, so retryable",
+      P.fetch_failure("ERROR: unable to download: HTTP Error 404: Not Found")[1], True)
 check("unsupported link is permanent",
       P.fetch_failure("ERROR: Unsupported URL: https://example.com/nope")[1], False)
 check("geo block is permanent",

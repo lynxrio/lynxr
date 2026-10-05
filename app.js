@@ -654,6 +654,7 @@ const TABS = [
   ["tab-database", "panel-database"],
   ["tab-briefs", "panel-briefs"],
   ["tab-roster", "panel-roster"],
+  ["tab-showcase", "panel-showcase"],
   ["tab-ops", "panel-ops"],
 ];
 function activateTab(tabId) {
@@ -672,6 +673,7 @@ function activateTab(tabId) {
   // background poller in a tab left open all day is a database bill for nobody.
   if (tabId === "tab-ops") ensureOps();
   if (tabId === "tab-roster") rostLoad();
+  if (tabId === "tab-showcase") scLoad();
 }
 function initTabs() {
   for (const [tabId] of TABS) {
@@ -3751,7 +3753,7 @@ const AG_TIMED = { ol: "bp-beats bp-orig", li: "bp-beat", time: "bp-time", trail
  *  dim in a spoken script, the way creator.js dims them; a silent script dims nothing, because
  *  there the direction IS the script. The time goes last in the first row (or first, if the
  *  creator's landed grid leads with it), so a second row leaves that grid cell empty. */
-function agBeatHtml(t, rows, spoken, timed, edit) {
+function agBeatHtml(t, rows, spoken, timed, edit, orig = null) {
   /* EDITABLE IN PLACE (owner, 2026-09-16), creator.js beatRow's model: with `edit` ({ ag, id, mode,
      i }) the value span IS the input. data-ag / data-agid say which script it belongs to, data-agmode
      how its stored beat is parsed, data-beat and data-field which part of which beat; agWireInlineEdit
@@ -3766,10 +3768,15 @@ function agBeatHtml(t, rows, spoken, timed, edit) {
       `<span class="bp-val bp-${kind}${spoken && kind !== "say" ? " bp-dim" : ""}"${attrs}>${escapeHtml(value)}</span>`;
   });
   if (!pairs.length) return "";
-  if (!timed) return `<li class="bp-beat">${pairs.join("")}</li>`;
+  const os = orig ? ` data-os="${orig.s}" data-oe="${orig.e}"` : "";
+  const chip = orig ? `<button type="button" class="cb-origt" data-os="${orig.s}" data-oe="${orig.e}"`
+    + ` aria-label="Play the original from ${cbClock(orig.s)} to ${cbClock(orig.e)}"`
+    + ` title="Play this moment of the original (${cbClock(orig.s)}–${cbClock(orig.e)})">`
+    + `${CB_PLAY_SVG}<span>orig ${cbClock(orig.s)}</span></button>` : "";
+  if (!timed) return `<li class="bp-beat"${os}>${pairs.join("")}${chip}</li>`;
   const time = t ? `<span class="${AG_TIMED.time}">${escapeHtml(t)}</span>` : "";
   const first = AG_TIMED.trailing ? pairs[0] + time : time + pairs[0];
-  return `<li class="${AG_TIMED.li}">${first}${pairs.slice(1).join("")}</li>`;
+  return `<li class="${AG_TIMED.li}"${os}>${first}${chip}${pairs.slice(1).join("")}</li>`;
 }
 /** The list: the creator's timed list when the beats carry times, its brand-script list when not. */
 function agBeatsHtml(items, timed) {
@@ -5728,6 +5735,31 @@ function cbSlotCount(v) {
     still working or failed by what it will be made as. */
 const cbIsExact = (f) => (f.status === "done" ? !!f.script?.verbatim : f.script_mode === "verbatim");
 
+/* ===== BEATS AND "THE ORIGINAL" PLAY TOGETHER (owner, 2026-10-05: "why is the video and the lines of what to
+   do/say/show not going together") — plan ~/.claude/plans/lynxr-agency-beat-sync.md.
+   A beat's `t` is the NEW video's planned time. Where the beat sits in the original is `orig` ("8-12s", the
+   original's own seconds): written with the script by the worker (process_campaigns.py rule 17), by
+   pipeline/backfill_beat_orig.py for older formats, or typed in the editor's "Original" field. A beat with no
+   `orig` is not linked — it never lights and moves nothing — because lighting the wrong moment is worse than
+   lighting none. Never fall back to `t`. */
+const CB_PLAY_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>`;
+const CB_ORIG_RE = /^\s*(\d+:\d{1,2}(?:\.\d+)?|\d+(?:\.\d+)?)\s*s?\s*(?:(?:[-–—]|to)\s*(\d+:\d{1,2}(?:\.\d+)?|\d+(?:\.\d+)?)\s*s?\s*)?$/;
+const cbTok = (x) => (x.includes(":") ? Number(x.split(":")[0]) * 60 + Number(x.split(":")[1]) : Number(x));
+/** { s, e } seconds, or null. Same rules as process_campaigns.py norm_orig (a lone start gets 2s). */
+function cbOrigParse(str) {
+  const m = CB_ORIG_RE.exec(String(str ?? ""));
+  if (!m) return null;
+  const s = cbTok(m[1]);
+  const e = m[2] != null && cbTok(m[2]) > s ? cbTok(m[2]) : s + 2;
+  return Number.isFinite(s) && Number.isFinite(e) ? { s, e } : null;
+}
+const cbSecs = (x) => { const r = Math.round(x * 10) / 10; return Number.isInteger(r) ? String(r) : r.toFixed(1); };
+/** What the editor stores: "8-12s" for anything parseable, the trimmed text otherwise (save refuses it). */
+const cbOrigCanon = (str) => { const o = cbOrigParse(str); return o ? `${cbSecs(o.s)}-${cbSecs(o.e)}s` : String(str ?? "").trim(); };
+const cbClock = (s) => { const n = Math.max(0, Math.floor(s)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`; };
+/** A finished card's beat link: only with a playable clip, only from `orig`. */
+const cbOrigOf = (b, f) => (f && f.clip ? cbOrigParse(b?.orig) : null);
+
 function cbProgress(formats) {
   const total = formats.length;
   let ready = 0, failed = 0;
@@ -6173,6 +6205,291 @@ function bindRoster(host) {
         cbMsg(document.getElementById("rost-invite-msg"), rostErrorSentence(ex, "remove from"), "bad", true);
       }
     });
+  });
+}
+
+// ---------- Showcase: "made with lynxr" entries (plan ~/.claude/plans/lynxr-showcase.md) ----------
+// Staff approve which creators' videos the landing page may show. The tables and every rule live in supabase/showcase.sql;
+// this tab reads them (staff policies) and writes only through the staff_showcase_* functions. Rendering is further down.
+let SC = null;        // { candidates, entries, log, pub } once loaded
+let SC_ERR = "";      // "" | "missing" (SQL not applied) | "denied" | "other"
+
+async function scLoad() {
+  try {
+    const [candidates, entries, log, pub] = await Promise.all([
+      sbFetch("/rest/v1/rpc/staff_showcase_candidates", { method: "POST", body: "{}" }),
+      sbFetch("/rest/v1/lynxr_showcase_entries?select=id,pub_id,kind,platform,handle,url,posted_at,status,check_status,check_fails,cover_path,connection,sponsor,sponsor_note,consent_note,consent_on,made_with,made_with_note,rank,note,added_at,decided_at&order=decided_at.desc.nullslast&limit=200"),
+      sbFetch("/rest/v1/lynxr_showcase_log?select=at,entry_id,actor_role,action,detail&order=at.desc&limit=100"),
+      sbFetch("/rest/v1/rpc/showcase_public", { method: "POST", body: "{}" }),
+    ]);
+    SC = { candidates: Array.isArray(candidates) ? candidates : [], entries: Array.isArray(entries) ? entries : [],
+      log: Array.isArray(log) ? log : [], pub: pub && typeof pub === "object" ? pub : {} };
+    SC_ERR = "";
+  } catch (ex) {
+    SC = null;
+    SC_ERR = cbError(ex);
+  }
+  if (document.getElementById("showcase-host")) renderShowcase();
+}
+
+const SC_WHY = {
+  connection_hidden: "This creator is on the roster or has a free plan — pick that connection.",
+  has_account_no_consent: "This creator has a lynxr account. They need to turn on 'Feature my videos' in their Settings.",
+  duplicate: "That video is already live.",
+  bad_url: "Paste the video's own TikTok or Instagram link.",
+  bad_handle: "Type the account's username (needed for Instagram).",
+  bad_choice: "Pick a connection and say whether it is a paid video.",
+  consent: "Write who agreed, how, and the date (10+ characters).",
+  made_with: "Say how we know lynxr wrote it (10+ characters).",
+  brand_note: "Say which brand agreed and how.",
+  format: "That format no longer exists.",
+  handle_mismatch: "The handle doesn't match the link.",
+  not_candidate: "This video can't be approved any more (consent or the script link changed).",
+  no_consent: "The creator has turned the showcase off.",
+};
+const scWhy = (why) => SC_WHY[why] || "Couldn't save — check the connection and try again.";
+
+/** One staff write: POST the function, reload the tab on success. -> { ok } or { ok: false, why }. */
+async function scRpc(fn, args) {
+  try {
+    const r = await sbFetch(`/rest/v1/rpc/${fn}`, { method: "POST", body: JSON.stringify(args) });
+    if (r && r.ok) { await scLoad(); return { ok: true }; }
+    return { ok: false, why: (r && r.why) || "other" };
+  } catch { return { ok: false, why: "other" }; }
+}
+const scDecide = (postId, decision, f = {}) => scRpc("staff_showcase_decide", {
+  p_post_id: postId, p_decision: decision, p_connection: f.connection || null, p_sponsor: f.sponsor || null,
+  p_sponsor_note: f.sponsorNote || null, p_note: f.note || null });
+const scAddAgency = (f) => scRpc("staff_showcase_add_agency", {
+  p_url: f.url, p_handle: f.handle || null, p_consent_note: f.consentNote, p_consent_on: f.consentOn || null,
+  p_made_with_note: f.madeWith, p_format_id: f.formatId || null, p_sponsor: f.sponsor, p_sponsor_note: f.sponsorNote || null,
+  p_connection: f.connection, p_note: f.note || null });
+const scSet = (id, action, rank, note) => scRpc("staff_showcase_set", { p_id: id, p_action: action, p_rank: rank ?? null, p_note: note ?? null });
+
+/** An entry that counts toward the 3 the landing page needs: approved, checked, with its cover stored. */
+const scReady = (e) => e.status === "approved" && e.check_status === "ok" && !!e.cover_path;
+
+// ---------- The Showcase tab: render (plan ~/.claude/plans/lynxr-showcase.md) ----------
+// Renders into #showcase-host (agencyonly/index.html). Reuses the agency vocabulary (.section, .sec-head, .bcard, .chip, .pill,
+// .lbl, .ce-field, .bp-actions, .ghost, .btn, .note); the few layout rules live in the SHOWCASE block at the end of app.css.
+// The sections are separate boxes so a reload never rebuilds the "add a video" form while someone is typing in it.
+const SC_PLAT = { tiktok: "TikTok", instagram: "Instagram" };
+const SC_CHECK = { pending: "fetching cover…", ok: "ready", not_found: "video gone", mismatch: "handle doesn't match", failed: "couldn't read" };
+const SC_STATUS_ORDER = ["approved", "rejected", "removed", "withdrawn"];
+const scDay = (iso) => (iso ? String(iso).slice(0, 10) : "");
+const scLink = (url, handle) => { const u = safeUrl(url); return u ? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">@${escapeHtml(handle)}</a>` : `@${escapeHtml(handle)}`; };
+
+function renderShowcase() {
+  const host = document.getElementById("showcase-host");
+  if (!host) return;
+  if (!host.querySelector("#sc-status")) {
+    host.innerHTML = `<div class="section sc-section" id="sc-status"></div><div class="section sc-section" id="sc-cand"></div>`
+      + `<div class="section sc-section" id="sc-entries"></div><div class="section sc-section" id="sc-addwrap"></div>`
+      + `<div class="section sc-section" id="sc-log"></div>`;
+    buildShowcaseAdd(document.getElementById("sc-addwrap"));
+    bindShowcase(host);
+  }
+  const box = (id) => document.getElementById(id);
+  const status = box("sc-status");
+  const rest = ["sc-cand", "sc-entries", "sc-addwrap", "sc-log"].map(box);
+  if (!SC) {
+    rest.forEach((el) => { el.hidden = true; });
+    if (!SC_ERR) {
+      status.innerHTML = `<div class="sec-head"><h2>Showcase</h2></div><div class="loader" role="status" aria-live="polite">${loaderMark()}`
+        + `<div class="loader-text"><div class="lbl">Loading the showcase…</div></div></div>`;
+    } else if (SC_ERR === "missing") {
+      status.innerHTML = `<div class="sec-head"><h2>Showcase</h2></div><p class="note">Run <code>supabase/showcase.sql</code> in the Supabase SQL editor.</p>`;
+    } else if (SC_ERR === "denied") {
+      status.innerHTML = `<div class="sec-head"><h2>Showcase</h2></div><p class="note">This account can't read the showcase.</p>`;
+    } else {
+      status.innerHTML = `<div class="sec-head"><h2>Showcase</h2></div><p class="note">Couldn't load the showcase. <button type="button" class="ghost" data-sc="retry">Try again</button></p>`;
+    }
+    return;
+  }
+  rest.forEach((el) => { el.hidden = false; });
+  const ready = SC.entries.filter(scReady).length;
+  const live = (SC.pub.entries || []).length;
+  const typ = SC.pub.typical;
+  status.innerHTML = `<div class="sec-head"><h2>Showcase</h2></div>`
+    + `<p class="sc-line"><strong>${live ? `Live on lynxr.io: ${live}` : `Not on lynxr.io yet — ${ready} of 3 ready`}</strong></p>`
+    + `<p class="sc-line">${typ ? `Typical figure: ${compact(typ.views)} views at day 7 from ${Number(typ.n)} videos`
+      : "Typical figure: not enough data yet (needs 30 videos with a week of numbers, from 5 creators)"}</p>`
+    + `<p class="note">The landing page shows the showcase only when both are ready.</p>`;
+
+  box("sc-cand").innerHTML = `<div class="sec-head"><h2>Waiting for a decision <span class="pill">${SC.candidates.length}</span></h2></div>`
+    + (SC.candidates.length ? SC.candidates.map(scCandidateHtml).join("")
+      : `<p class="note">No videos waiting. Creators appear here when they turn on "Feature my videos" and mark a video as made with a lynxr script.</p>`);
+
+  const groups = SC_STATUS_ORDER.map((st) => [st, SC.entries.filter((e) => e.status === st)]).filter(([, rows]) => rows.length);
+  box("sc-entries").innerHTML = `<div class="sec-head"><h2>Entries <span class="pill">${SC.entries.length}</span></h2></div>`
+    + (groups.length ? groups.map(([st, rows]) => `<h3 class="lbl sc-group">${escapeHtml(st)} · ${rows.length}</h3>${rows.map(scEntryHtml).join("")}`).join("")
+      : `<p class="note">Nothing here yet.</p>`);
+  box("sc-entries").querySelectorAll('[data-sc="remove"]').forEach((b) => {
+    armDelete(b, "Remove?", async () => {
+      const r = await scSet(Number(b.dataset.id), "remove");
+      if (!r.ok) scRowMsg(b.closest(".sc-entry"), scWhy(r.why));
+    });
+  });
+
+  box("sc-log").innerHTML = `<div class="sec-head"><h2>History</h2></div>`
+    + (SC.log.length ? `<ul class="sc-log-list">${SC.log.map((l) => {
+      const d = l.detail && typeof l.detail === "object" ? l.detail : {};
+      const bits = ["withdrawn", "post_id"].filter((k) => d[k] !== undefined).map((k) => `${k} ${Number(d[k])}`);
+      return `<li>${escapeHtml(String(l.at || "").slice(0, 16).replace("T", " "))} · ${escapeHtml(l.actor_role)} · ${escapeHtml(l.action)}`
+        + `${l.entry_id != null ? ` · #${Number(l.entry_id)}` : ""}${bits.length ? ` · ${escapeHtml(bits.join(", "))}` : ""}</li>`;
+    }).join("")}</ul>` : `<p class="note">No history yet.</p>`);
+}
+
+function scCandidateHtml(c) {
+  const id = Number(c.post_id);
+  const hint = ["agency", "comp"].includes(c.hint) ? c.hint : "none";
+  const conn = (v, label) => `<label class="cb-check"><input type="radio" name="sc-conn-${id}" value="${v}"${hint === v ? " checked" : ""}`
+    + `${v === "none" && hint !== "none" ? ` disabled title="This creator is on the roster or has a free plan, so the tile has to say so."` : ""}> <span>${label}</span></label>`;
+  return `<div class="bcard sc-cand" data-post="${id}">`
+    + `<div class="sc-cand-top"><span class="chip">${escapeHtml(SC_PLAT[c.platform] || c.platform)}</span> ${scLink(c.url, c.handle)}`
+    + ` <span>${c.views == null ? "no views yet" : `${compact(c.views)} views`}</span>`
+    + ` <span>posted ${escapeHtml(scDay(c.posted_at) || "date unknown")}</span> <span>script written ${escapeHtml(scDay(c.script_at))}</span>`
+    + `${c.again ? ` <span class="chip">asked before</span>` : ""}</div>`
+    + `<fieldset class="sc-fs"><legend class="lbl">Connection</legend>${conn("none", "None")}${conn("agency", "Lynx Media Group roster")}${conn("comp", "Free lynxr plan")}</fieldset>`
+    + `<fieldset class="sc-fs"><legend class="lbl">Sponsored</legend>`
+    + `<label class="cb-check"><input type="radio" name="sc-spon-${id}" value="none" checked> <span>Not a paid video for a brand</span></label>`
+    + `<label class="cb-check"><input type="radio" name="sc-spon-${id}" value="brand_ok"> <span>Paid for a brand — the brand agreed</span></label>`
+    + `<input type="text" class="sc-sponsor-note" maxlength="500" placeholder="Which brand agreed, and how" aria-label="Which brand agreed, and how" hidden></fieldset>`
+    + `<label class="ce-field"><span class="lbl">Note (optional)</span><input type="text" class="sc-note" maxlength="500" autocomplete="off"></label>`
+    + `<div class="bp-actions"><button type="button" class="btn" data-sc="approve">Approve</button> <button type="button" class="ghost" data-sc="reject">Reject</button></div>`
+    + `<p class="bp-msg" role="status" aria-live="polite"></p></div>`;
+}
+
+function scEntryHtml(e) {
+  const id = Number(e.id);
+  const thumb = e.cover_path ? `<img class="sc-thumb" src="${escapeHtml(coverBase() + e.cover_path)}" alt="" width="48" height="85" loading="lazy">` : `<span class="sc-thumb sc-nothumb"></span>`;
+  const chips = [e.kind, e.status, SC_CHECK[e.check_status] || e.check_status,
+    e.connection === "agency" ? "roster" : e.connection === "comp" ? "free plan" : "", e.sponsor === "brand_ok" ? "paid for a brand" : ""]
+    .filter(Boolean).map((t) => `<span class="chip">${escapeHtml(t)}</span>`).join(" ");
+  const agency = e.kind === "agency"
+    ? `<p class="sc-meta">Consent: ${escapeHtml(e.consent_note || "")} (${escapeHtml(scDay(e.consent_on))})<br>Made with lynxr: ${escapeHtml(e.made_with_note || "")}</p>` : "";
+  const back = e.status === "removed" || e.status === "rejected"
+    ? `<button type="button" class="ghost" data-sc="restore" data-id="${id}">Restore</button>` : "";
+  const rank = e.status === "approved"
+    ? `<label class="sc-rank"><span class="lbl">Rank</span><input type="number" min="-100" max="100" step="1" value="${Number(e.rank) || 0}" aria-label="Rank, higher shows first"></label>`
+      + ` <button type="button" class="ghost" data-sc="rank" data-id="${id}">Save</button>`
+      + ` <button type="button" class="ghost" data-sc="remove" data-id="${id}">Remove</button>` : "";
+  return `<div class="bcard sc-entry" data-id="${id}">${thumb}<div class="sc-entry-main">`
+    + `<div class="sc-cand-top">${scLink(e.url, e.handle)} ${chips}</div>${agency}`
+    + `<div class="bp-actions">${rank}${back}</div><p class="bp-msg" role="status" aria-live="polite"></p></div></div>`;
+}
+
+/** Show a sentence under a card or row. */
+function scRowMsg(el, text) {
+  const m = el && el.querySelector(".bp-msg");
+  if (!m) return;
+  m.textContent = text;
+  m.className = "bp-msg show bad";
+}
+
+/** The "add an agency creator's video" form: built once, never rebuilt by a reload. */
+function buildShowcaseAdd(wrap) {
+  wrap.innerHTML = `<details id="sc-add"><summary class="sec-head"><h2>Add an agency creator's video</h2></summary>`
+    + `<form class="client-details" id="sc-add-form" novalidate>`
+    + `<div class="ce-grid">`
+    + `<label class="ce-field ce-wide"><span class="lbl">Video link</span><input type="url" id="sc-url" autocomplete="off" placeholder="https://www.tiktok.com/@name/video/…"></label>`
+    + `<label class="ce-field"><span class="lbl">Handle (needed for Instagram)</span><input type="text" id="sc-handle" autocomplete="off" maxlength="31"></label>`
+    + `<label class="ce-field"><span class="lbl">Consent date</span><input type="date" id="sc-consent-on"></label>`
+    + `<label class="ce-field ce-wide"><span class="lbl">Who agreed, and how</span><input type="text" id="sc-consent" maxlength="500" autocomplete="off" placeholder="e.g. Maya agreed by DM on 5 Oct 2026; screenshot in the drive"></label>`
+    + `<label class="ce-field ce-wide"><span class="lbl">How we know lynxr wrote it</span><input type="text" id="sc-madewith" maxlength="500" autocomplete="off" placeholder="e.g. from the Glow campaign brief, format 3"></label>`
+    + `<label class="ce-field ce-wide"><span class="lbl">Format it came from (optional)</span><select id="sc-format"><option value="">None</option></select></label>`
+    + `</div>`
+    + `<fieldset class="sc-fs"><legend class="lbl">Sponsored</legend>`
+    + `<label class="cb-check"><input type="radio" name="sc-add-spon" value="none" checked> <span>Not a paid video for a brand</span></label>`
+    + `<label class="cb-check"><input type="radio" name="sc-add-spon" value="brand_ok"> <span>Paid for a brand — the brand agreed</span></label>`
+    + `<input type="text" id="sc-add-sponsor-note" maxlength="500" placeholder="Which brand agreed, and how" aria-label="Which brand agreed, and how" hidden></fieldset>`
+    + `<fieldset class="sc-fs"><legend class="lbl">Connection</legend>`
+    + `<label class="cb-check"><input type="radio" name="sc-add-conn" value="agency" checked> <span>Lynx Media Group roster</span></label>`
+    + `<label class="cb-check"><input type="radio" name="sc-add-conn" value="comp"> <span>Free lynxr plan</span></label>`
+    + `<label class="cb-check"><input type="radio" name="sc-add-conn" value="none"> <span>None</span></label></fieldset>`
+    + `<label class="ce-field"><span class="lbl">Note (optional)</span><input type="text" id="sc-add-note" maxlength="500" autocomplete="off"></label>`
+    + `<div class="bp-actions"><button type="submit" class="btn" id="sc-add-go">Add</button></div>`
+    + `<p class="note" id="sc-add-msg" role="status" aria-live="polite"></p>`
+    + `</form></details>`;
+  const q = (id) => wrap.querySelector(`#${id}`);
+  q("sc-consent-on").max = new Date().toISOString().slice(0, 10);
+  // The handle is read off a TikTok link; typing one by hand stops that.
+  q("sc-handle").addEventListener("input", () => { q("sc-handle").dataset.touched = "1"; });
+  q("sc-url").addEventListener("input", () => {
+    const m = /tiktok\.com\/@([a-z0-9._]{1,30})\/video\//i.exec(q("sc-url").value);
+    if (m && !q("sc-handle").dataset.touched) q("sc-handle").value = m[1].toLowerCase();
+  });
+  let formatsLoaded = false;
+  q("sc-add").addEventListener("toggle", async () => {
+    if (!q("sc-add").open || formatsLoaded) return;
+    formatsLoaded = true;
+    try {
+      const rows = await sbFetch("/rest/v1/lynxr_campaign_formats?select=id,position,lynxr_campaigns(name)&status=eq.done&order=created_at.desc&limit=100");
+      for (const f of Array.isArray(rows) ? rows : []) {
+        const o = document.createElement("option");
+        o.value = f.id;
+        o.textContent = `${f.lynxr_campaigns?.name || "Campaign"} · format ${Number(f.position) + 1}`;
+        q("sc-format").appendChild(o);
+      }
+    } catch { formatsLoaded = false; }
+  });
+  wrap.querySelectorAll('input[name="sc-add-spon"]').forEach((r) => r.addEventListener("change", () => {
+    q("sc-add-sponsor-note").hidden = wrap.querySelector('input[name="sc-add-spon"]:checked').value !== "brand_ok";
+  }));
+  q("sc-add-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const go = q("sc-add-go"), msg = q("sc-add-msg");
+    const val = (id) => q(id).value.trim();
+    go.disabled = true;
+    msg.textContent = "";
+    const r = await scAddAgency({
+      url: val("sc-url"), handle: val("sc-handle"), consentNote: val("sc-consent"), consentOn: q("sc-consent-on").value,
+      madeWith: val("sc-madewith"), formatId: q("sc-format").value, note: val("sc-add-note"),
+      sponsor: wrap.querySelector('input[name="sc-add-spon"]:checked').value, sponsorNote: val("sc-add-sponsor-note"),
+      connection: wrap.querySelector('input[name="sc-add-conn"]:checked').value });
+    go.disabled = false;
+    if (r.ok) {
+      q("sc-add-form").reset();
+      delete q("sc-handle").dataset.touched;
+      q("sc-add-sponsor-note").hidden = true;
+      msg.textContent = "Added. The cover is fetched within a few minutes.";
+    } else msg.textContent = scWhy(r.why);
+  });
+}
+
+/** Clicks and changes inside the Showcase tab, bound once on the host. */
+function bindShowcase(host) {
+  host.addEventListener("change", (ev) => {
+    if (!/^sc-spon-/.test(ev.target.name || "")) return;
+    const card = ev.target.closest(".sc-cand");
+    card.querySelector(".sc-sponsor-note").hidden = card.querySelector('input[name^="sc-spon-"]:checked').value !== "brand_ok";
+  });
+  host.addEventListener("click", async (ev) => {
+    const b = ev.target.closest("[data-sc]");
+    if (!b || b.disabled) return;
+    const kind = b.dataset.sc;
+    if (kind === "retry") { SC_ERR = ""; renderShowcase(); scLoad(); return; }
+    if (kind === "approve" || kind === "reject") {
+      const card = b.closest(".sc-cand");
+      const id = Number(card.dataset.post);
+      const picked = (name) => card.querySelector(`input[name="${name}-${id}"]:checked`)?.value;
+      card.querySelectorAll("button").forEach((x) => { x.disabled = true; });
+      const r = await scDecide(id, kind, { connection: picked("sc-conn"), sponsor: picked("sc-spon"),
+        sponsorNote: card.querySelector(".sc-sponsor-note").value.trim(), note: card.querySelector(".sc-note").value.trim() });
+      if (!r.ok) { card.querySelectorAll("button").forEach((x) => { x.disabled = false; }); scRowMsg(card, scWhy(r.why)); }
+      return;
+    }
+    const row = b.closest(".sc-entry");
+    const id = Number(b.dataset.id);
+    if (kind === "restore") {
+      b.disabled = true;
+      const r = await scSet(id, "restore");
+      if (!r.ok) { b.disabled = false; scRowMsg(row, scWhy(r.why)); }
+    } else if (kind === "rank") {
+      b.disabled = true;
+      const r = await scSet(id, "rank", Number(row.querySelector(".sc-rank input").value) || 0);
+      if (!r.ok) { b.disabled = false; scRowMsg(row, scWhy(r.why)); }
+    }
   });
 }
 
@@ -8337,7 +8654,7 @@ function cbDetailHtml(f) {
   // Each line edits in place (cbBindCard); the beats are fields already, so nothing is parsed.
   const beats = (v.beats || []).map((b, i) => agBeatHtml(b.t || "",
     [["SAY", "say", b.say], ["DO", "do", b.do], ["ON SCREEN", "onscreen", b.show]], spoken, timed,
-    { ag: "cb", id: f.id, mode: "fields", i })).join("");
+    { ag: "cb", id: f.id, mode: "fields", i }, cbOrigOf(b, f))).join("");
   const why = [f.analysis?.format?.why_it_works, f.analysis?.production?.hook_mechanism,
     f.analysis?.production?.repeatable_because].filter(Boolean);
   const internal = (v.strategy_note || f.internal_note || why.length) ? `
@@ -8376,8 +8693,15 @@ function cbBeatFieldHtml(b, i) {
     <button type="button" class="ghost cb-small cb-beat-insert" title="Add a beat here"
       aria-label="Add a beat above beat ${i + 1}">+ add beat here</button>
     <div class="cb-beat-grid">
-      <label class="ce-field"><span class="lbl">Time</span>
-        <input type="text" data-bt="t" value="${escapeHtml(b.t || "")}" placeholder="0-3s" autocomplete="off"></label>
+      <div class="cb-beat-times">
+        <label class="ce-field"><span class="lbl">Time</span>
+          <input type="text" data-bt="t" value="${escapeHtml(b.t || "")}" placeholder="0-3s" autocomplete="off"></label>
+        <label class="ce-field"><span class="lbl">Original</span>
+          <input type="text" data-bt="orig" value="${escapeHtml(b.orig || "")}" placeholder="8-12s" autocomplete="off"
+            title="Where this beat happens in the original video, in its own seconds"></label>
+        <button type="button" class="ghost cb-small cb-beat-play"${cbOrigParse(b.orig) ? "" : " disabled"}
+          aria-label="Play the original for beat ${i + 1}">${CB_PLAY_SVG}<span>Play</span></button>
+      </div>
       ${area("say", "Say")}${area("do", "Do")}${area("show", "On screen")}
     </div>
     <button type="button" class="ghost cb-small cb-beat-remove">Remove beat</button>
@@ -8424,7 +8748,7 @@ function cbReadEditor(form) {
   const val = (k) => (form.querySelector(`[data-ed="${k}"]`)?.value || "").trim();
   const beats = [...form.querySelectorAll(".cb-beat-field")].map((fs) => {
     const g = (k) => (fs.querySelector(`[data-bt="${k}"]`)?.value || "").trim();
-    return { t: g("t"), say: g("say"), do: g("do"), show: g("show") };
+    return { t: g("t"), say: g("say"), do: g("do"), show: g("show"), orig: cbOrigCanon(g("orig")) };
   }).filter((b) => b.say || b.do || b.show);
   const own = form.querySelector('[data-ed="staff_needs"]');
   return {
@@ -9028,6 +9352,7 @@ function cbBindCard(card, campaignId) {
     const renumber = () => form.querySelectorAll(".cb-beat-field").forEach((fs, k) => {
       fs.querySelector(".cb-beat-n").textContent = String(k + 1);
       fs.querySelector(".cb-beat-insert")?.setAttribute("aria-label", `Add a beat above beat ${k + 1}`);
+      fs.querySelector(".cb-beat-play")?.setAttribute("aria-label", `Play the original for beat ${k + 1}`);
     });
     const wireRemove = (fs) => fs.querySelector(".cb-beat-remove").addEventListener("click", () => {
       const next = fs.nextElementSibling || fs.previousElementSibling;
@@ -9076,6 +9401,15 @@ function cbBindCard(card, campaignId) {
       e.preventDefault();
       const f = get();
       if (!f) return;
+      const badOrig = [...form.querySelectorAll('.cb-beat-field [data-bt="orig"]')]
+        .find((inp) => inp.value.trim() && !cbOrigParse(inp.value));
+      if (badOrig) {
+        const n = [...form.querySelectorAll(".cb-beat-field")].indexOf(badOrig.closest(".cb-beat-field")) + 1;
+        markInvalid(badOrig, `cb-fmsg-${fid}`);
+        cbMsg(fmsg(), `Beat ${n}: write where it is in the original in seconds, like 8-12s or 0:08-0:12.`, "bad", true);
+        badOrig.focus();
+        return;
+      }
       const body = cbReadEditor(form);
       // Nothing changed: close without writing, so an unchanged Save does not
       // mark the format "edited".
@@ -9083,7 +9417,7 @@ function cbBindCard(card, campaignId) {
       const same = Object.keys(body.edited).every((k) =>
         JSON.stringify(body.edited[k]) === JSON.stringify(k === "needs" || k === "beats"
           ? (k === "needs" ? (v.needs || []).map((s) => String(s).trim()).filter(Boolean)
-            : (v.beats || []).map((b) => ({ t: (b.t || "").trim(), say: (b.say || "").trim(), do: (b.do || "").trim(), show: (b.show || "").trim() }))
+            : (v.beats || []).map((b) => ({ t: (b.t || "").trim(), say: (b.say || "").trim(), do: (b.do || "").trim(), show: (b.show || "").trim(), orig: cbOrigCanon(b.orig || "") }))
               .filter((b) => b.say || b.do || b.show))
           : String(v[k] || "").trim()));
       const ownNow = (Array.isArray(f.staff_needs) ? f.staff_needs : []).map((s) => String(s).trim()).filter(Boolean);
@@ -9124,6 +9458,140 @@ function cbBindCard(card, campaignId) {
     } catch (ex) {
       cbMsg(fmsg(), cbErrorSentence(ex, "delete"), "bad", true);
     }
+  });
+  cbWireOriginal(card);
+}
+
+/* ---- THE ORIGINAL FOLLOWS THE BEATS: wiring (plan ~/.claude/plans/lynxr-agency-beat-sync.md) ----
+   Per card, every render. A beat with an `orig` lights while the playhead is inside its stretch (several can
+   light: two beats may recreate one moment). Clicking a beat MOVES the playhead and never starts sound — the
+   creator app's rule (owner, 2026-08-25), and lines here are edited in place too. The "orig 0:08" chip, or an
+   editor beat's Play, plays that stretch and pauses at its end. While it plays, the lit beat is kept on screen
+   by moving the page the least it can: never while someone is typing, nor for 6s after they scroll or press a
+   navigation key themselves. The player's own controls are exempt — scrubbing is "take me there". */
+let CB_HANDS_OFF = 0;
+let CB_HANDS_WIRED = false;
+function cbWireHandsOff() {
+  if (CB_HANDS_WIRED) return;
+  CB_HANDS_WIRED = true;
+  const off = (e) => {
+    if (e.target?.closest?.(".ag-original")) return;
+    CB_HANDS_OFF = Date.now() + 6000;
+  };
+  document.addEventListener("wheel", off, { passive: true, capture: true });
+  document.addEventListener("touchmove", off, { passive: true, capture: true });
+  document.addEventListener("pointerdown", off, true);
+  document.addEventListener("keydown", (e) => {
+    if (/^(Arrow|Page|Home|End|Tab)/.test(e.key) || e.key === " "
+      || e.target?.closest?.("[data-edit], input, textarea")) off(e);
+  }, true);
+}
+const cbTyping = () => {
+  const el = document.activeElement;
+  return !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
+};
+function cbFollow(el, split) {
+  if (Date.now() < CB_HANDS_OFF || cbTyping() || el.closest("details:not([open])")) return;
+  const r = el.getBoundingClientRect();
+  if (!r.height) return;
+  const panel = split.querySelector(":scope > .ag-original[open]");
+  const p = panel ? panel.getBoundingClientRect() : null;
+  // Stacked (phones): the sticky player covers the top of the screen, so "in view" starts under it.
+  const over = !!p && p.left < r.right && p.right > r.left && p.top < innerHeight / 2
+    && getComputedStyle(panel).position === "sticky";
+  const top = over ? p.bottom + 8 : 84;          // 84 = under the agency header (12px inset + 52px bar) + air
+  const bottom = innerHeight - 16;
+  let dy = 0;
+  if (r.top < top) dy = r.top - top;
+  else if (r.bottom > bottom) dy = Math.min(r.top - top, r.bottom - bottom);
+  if (Math.abs(dy) < 2) return;
+  window.scrollBy({ top: dy, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+
+function cbWireOriginal(card) {
+  const split = card.querySelector(".cb-split");
+  const vid = split?.querySelector(":scope > .ag-original video.cb-clip");
+  if (!split || !vid) return;                    // a busy or failed card, or no clip: nothing to follow
+  cbWireHandsOff();
+  const ed = split.classList.contains("cb-ed-split");
+  const lis = ed ? [] : [...split.querySelectorAll(".ref-main li.bp-beat[data-os]")];
+  lis.forEach((li) => {
+    li.classList.add("bp-seekable");
+    li.title = `Move the original to ${cbClock(Number(li.dataset.os))}`;
+  });
+  // The editor's links are read live from its Original fields, so a typed value works at once.
+  const targets = () => (ed
+    ? [...split.querySelectorAll(".cb-beat-field")].map((el) => [el, cbOrigParse(el.querySelector('[data-bt="orig"]')?.value)])
+    : lis.map((li) => [li, { s: Number(li.dataset.os), e: Number(li.dataset.oe) }]));
+  let lit = [], stopAt = null, raf = 0, ours = false, wasFocused = false, touched = false;
+  const mark = (follow) => {
+    if (!touched) return;                                   // nothing lights until the video is played or moved
+    const t = vid.currentTime;
+    const dur = Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : Infinity;
+    const now = targets().filter(([, o]) => {
+      if (!o || o.s >= dur - 0.05) return false;           // a stretch past the clip's end never lights
+      const end = Math.min(o.e, dur);
+      return t >= o.s && (t < end || (end >= dur - 0.05 && t >= dur - 0.05));
+    }).map(([el]) => el);
+    if (now.length === lit.length && now.every((el, k) => el === lit[k])) return;
+    lit.forEach((el) => { el.classList.remove("on"); el.removeAttribute("aria-current"); });
+    now.forEach((el) => { el.classList.add("on"); el.setAttribute("aria-current", "true"); });
+    lit = now;
+    if (follow && now[0]) cbFollow(now[0], split);
+  };
+  const stopLoop = () => { if (raf) cancelAnimationFrame(raf); raf = 0; };
+  const watch = () => {                                     // frame-accurate stop at the stretch's end
+    raf = 0;
+    if (stopAt == null || vid.paused) return;
+    if (vid.currentTime >= stopAt - 0.04) { vid.pause(); return; }
+    raf = requestAnimationFrame(watch);
+  };
+  const jump = (s, then) => {
+    if (vid.closest("details:not([open])")) return;          // never into a panel that is shut
+    CB_HANDS_OFF = 0;                                         // an explicit "take me there" re-arms follow
+    // +0.01s: land INSIDE the stretch, so the beat that asked lights even if the seek rounds down a frame.
+    const go = () => { ours = true; try { vid.currentTime = s + 0.01; } catch { ours = false; } then?.(); };
+    if (vid.readyState >= 1) go(); else vid.addEventListener("loadedmetadata", go, { once: true });
+  };
+  const playRange = (o) => jump(o.s, () => { stopAt = o.e; vid.play().catch(() => { stopAt = null; }); });
+  vid.addEventListener("timeupdate", () => mark(!vid.paused));
+  vid.addEventListener("seeking", () => { touched = true; if (!ours) stopAt = null; });   // a scrub cancels the stop
+  vid.addEventListener("seeked", () => { ours = false; mark(true); });
+  vid.addEventListener("play", () => {
+    touched = true;
+    document.querySelectorAll("video.cb-clip").forEach((v) => { if (v !== vid && !v.paused) v.pause(); });
+    mark(true);
+    if (lit[0]) cbFollow(lit[0], split);     // pressing play on an already-lit beat (mark saw no change) still brings it on screen
+    if (stopAt != null && !raf) raf = requestAnimationFrame(watch);
+  });
+  vid.addEventListener("pause", () => { stopAt = null; ours = false; stopLoop(); });
+  split.addEventListener("pointerdown", (e) => {            // was this line already being edited?
+    const f = e.target.closest?.("[data-edit]");
+    wasFocused = !!f && document.activeElement === f;
+  }, true);
+  split.addEventListener("click", (e) => {
+    const btn = e.target.closest(".cb-origt, .cb-beat-play");
+    if (btn) {
+      const o = btn.classList.contains("cb-beat-play")
+        ? cbOrigParse(btn.closest(".cb-beat-field")?.querySelector('[data-bt="orig"]')?.value)
+        : { s: Number(btn.dataset.os), e: Number(btn.dataset.oe) };
+      if (o) playRange(o);
+      return;
+    }
+    if (ed || e.target.closest("button, a, input, textarea, .ag-original, .bfb")) return;
+    if (wasFocused) return;                                   // refining a selection must not yank the video
+    const li = e.target.closest("li.bp-beat[data-os]");
+    const sel = window.getSelection();
+    if (!li || (sel && !sel.isCollapsed)) return;
+    stopAt = null;
+    jump(Number(li.dataset.os));
+  });
+  if (ed) split.addEventListener("input", (e) => {
+    if (!e.target.matches?.('[data-bt="orig"]')) return;
+    clearInvalid(e.target);
+    const b = e.target.closest(".cb-beat-field")?.querySelector(".cb-beat-play");
+    if (b) b.disabled = !cbOrigParse(e.target.value);
+    if (vid.currentTime > 0 || !vid.paused) mark(false);
   });
 }
 

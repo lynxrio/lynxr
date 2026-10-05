@@ -348,6 +348,7 @@ function wireDisclosureMotion(root) {
     });
   });
 }
+/* LINK-SHAPE:BEGIN — pure, URL-only; sliced out by tools/test_link_shape.mjs */
 function normalizeUrl(raw) {
   const s = String(raw || "").trim();
   if (!s) return null;
@@ -433,22 +434,68 @@ const platformLabel = (u) => platformOf(u) || "Link";
    gate accepted instagram.com/explore/ and painted the loading beat for a
    FEED (owner: "dont allow the explore page to be read come on"). The
    platform decides the shape a single video's path must have:
-     instagram: /reel/<id>, /reels/<id>, /p/<id>, /tv/<id>
-     tiktok:    /@user/video/<digits>, /t/<code>, and the vm./vt. short hosts
-   Everything else on an accepted host — profiles, /explore/, /foryou — is a
-   page, and refusing it here costs nothing instead of a download. */
-function videoLikePath(raw) {
-  const plat = platformOf(raw);
-  if (!plat) return false;
-  let u; try { u = new URL(String(raw).includes("://") ? raw : "https://" + raw); } catch { return false; }
+     instagram: /reel/<code>, /reels/<code>, /p/<code>, /tv/<code>, optionally
+                behind a /<username> prefix; the code is at least 10 characters
+     tiktok:    /@user/video/<19-20 digits>, /t/<code>, and the vm./vt. short
+                hosts (code at least 9 characters)
+   Everything else on an accepted host is not a video: a profile, a photo post,
+   /explore/, /foryou, or a link cut off mid-paste. Refusing it here costs
+   nothing instead of a download. linkShape() says WHICH of those it is, so the
+   sentence can be specific; videoLikePath() is its yes/no. */
+/* linkShape(raw) -> "ok" | "cut_off" | "profile" | "photo" | "page".
+   A RULE-FOR-RULE MIRROR of link_shape() in pipeline/process_adaptations.py,
+   which refuses the same links at claim time (the console can walk around this
+   one). pipeline/link_shapes.json is the shared truth, tested in Python
+   (test_link_checks.py) and here (tools/test_link_shape.mjs): change one, change
+   both. The caller has already checked platformOf(raw). */
+function linkShape(raw) {
+  const IG_CODE_MIN = 10, TT_SHORT_MIN = 9;   // measured: see link_shape()
+  const IG_POST = ["p", "reel", "reels", "tv"];
+  const IG_RESERVED = ["share", "stories", "explore", "accounts", "direct"];
+  let u;
+  try { u = new URL(String(raw).includes("://") ? raw : "https://" + raw); } catch { return "page"; }
   const host = u.hostname.toLowerCase().replace(/^(www|m)\./, "");
-  const path = u.pathname;
-  if (plat === "Instagram") return /^\/(reels?|p|tv)\/[A-Za-z0-9_-]+/.test(path);
-  if (plat === "TikTok") {
-    if (host === "vm.tiktok.com" || host === "vt.tiktok.com") return /^\/[A-Za-z0-9]+/.test(path);
-    return /^\/@[^/]+\/video\/\d+/.test(path) || /^\/t\/[A-Za-z0-9]+/.test(path);
+  const segs = u.pathname.split("/").filter(Boolean);
+  if (host === "instagram.com") {
+    if (!segs.length || IG_RESERVED.includes(segs[0])) return "page";
+    let code;
+    if (IG_POST.includes(segs[0])) {
+      if (segs.length < 2) return "page";
+      code = segs[1];
+    } else if (segs.length >= 3 && IG_POST.includes(segs[1])) {
+      code = segs[2];
+    } else return "profile";
+    if (code === "audio" || !/^[A-Za-z0-9_-]+$/.test(code)) return "page";
+    return code.length < IG_CODE_MIN ? "cut_off" : "ok";
   }
-  return false;
+  if (host === "vm.tiktok.com" || host === "vt.tiktok.com") {
+    const code = segs[0] || "";
+    if (!/^[A-Za-z0-9]+$/.test(code)) return "page";
+    return code.length < TT_SHORT_MIN ? "cut_off" : "ok";
+  }
+  if (host === "tiktok.com") {
+    if (!segs.length) return "page";
+    if (segs[0] === "t") {
+      const code = segs[1] || "";
+      if (!/^[A-Za-z0-9]+$/.test(code)) return "page";
+      return code.length < TT_SHORT_MIN ? "cut_off" : "ok";
+    }
+    if (segs[0].startsWith("@")) {
+      if (segs.length === 1) return "profile";
+      if (segs[1] === "video") {
+        const id = segs[2] || "";
+        if (/^[0-9]{19,20}$/.test(id)) return "ok";   // every id since 2016 (unix-seconds top bits)
+        if (/^[0-9]{0,18}$/.test(id)) return "cut_off";
+        return "page";
+      }
+      if (segs[1] === "photo") return "photo";
+    }
+    return "page";
+  }
+  return "page";
+}
+function videoLikePath(raw) {
+  return !!platformOf(raw) && linkShape(raw) === "ok";
 }
 /** THE PASTE BOX'S ONE VERDICT: null for a link lynxr will read, otherwise the
     sentence saying why not and what to paste instead. Both composers (the app's
@@ -462,13 +509,20 @@ function linkProblem(raw) {
   const url = normalizeUrl(s);
   if (!url) return `That isn't a link — paste the address of a ${SUPPORTED_LIST} video, like tiktok.com/@name/video/…`;
   const plat = platformOf(url);
-  if (plat && !videoLikePath(url)) return "That's a page, not a video — paste the link to one specific video.";
+  if (plat) {
+    const shape = linkShape(url);
+    if (shape === "cut_off") return "That link looks cut off — copy the full link from the share button and paste it again.";
+    if (shape === "profile") return "That's a profile, not a video — open the video itself and copy its link from the share button.";
+    if (shape === "photo") return "That's a photo post — lynxr works from videos. Paste a video link instead.";
+    if (shape !== "ok") return "That's a page, not a video — paste the link to one specific video.";
+  }
   if (!plat) {
     const h = hostOf(url);
     return `lynxr only reads ${SUPPORTED_LIST} links` + (h ? ` — that one is from ${h}.` : ".");
   }
   return null;
 }
+/* LINK-SHAPE:END */
 /** Wire a paste box's clear-when-fixed: once flagged, each edit re-asks
     linkProblem(), and a link that now passes — or a box emptied to start over —
     drops the error at once rather than on the next send. A still-wrong edit
@@ -3440,11 +3494,18 @@ function libraryItemHtml(item, scopeBrandId) {
        short face swaps the words for the figure; see statusChip and .st-n. */
     : done ? statusChip("good", done > 1 ? `${plural(done, "script")} ready` : "ready",
         "ready", false, done)
-    // Same two buckets as the card chip, plus `length` (too long), its own chip.
+    // The worker is still working on a failed entry by itself (`retrying`):
+    // quiet "still trying", the same as the card, not a red failure.
+    : made.some((a) => a.status === "error" && a.retrying)
+      ? statusChip("bp-wait", "still trying", "trying", true)
+    // Same two buckets as the card chip, plus `length` (too long) and `link`
+    // (check the link), each its own chip.
     // Only a source failure is a fetch failure. `noteKind` is absent on rows
     // written before the worker stamped it, and those keep the old wording.
     : made.some((a) => a.noteKind === "length")
       ? statusChip("bad", "too long", "too long")
+    : made.some((a) => a.noteKind === "link")
+      ? statusChip("bad", "check the link", "check link")
     : made.some((a) => a.noteKind && a.noteKind !== "fetch")
       ? statusChip("bad", "couldn't write", "no script")
       : statusChip("bad", "couldn't fetch", "no video");
@@ -3617,6 +3678,7 @@ const portalOn = () => BILLING_LIVE && (PORTAL_LIVE || location.origin === "http
 const ONBOARD_LIVE = true;                    // kill switch: the setup stepper (both hosts), the Settings marker, the profile UI
 const PROFILES_MAX = 4;                       // mirrors supabase/profiles.sql
 const TRACKING_LIVE = true;                   // kill switch: the Posts view and its link in the rail (the data comes from the pipeline)
+const SHOWCASE_APP_LIVE = true;               // kill switch: the Settings "Showcase" card and the "made with" control on Posts (plan lynxr-showcase.md)
 const GOAL_WEEK_DAY = 7, GOAL_LAST_N = 5;     // perform goal: the average views at day 7 over the latest 5 tracked videos
 /* What a creator can name as their main priority, and the goal chips that go with it. The stored target is the number:
    "10+" brand deals stores 10 and "$1k+" stores 1000 (goalChipLabel / goalLabel say it back). Progress per priority:
@@ -4299,6 +4361,9 @@ function renderYou(head, body) {
     ${/* Goal, the profiles lynxr verifies, and the creators you look up to. Filled by paintProfiles(). */""}
     <div class="section me-card" id="prof-card" hidden></div>
 
+    ${/* The showcase switch (plan lynxr-showcase.md). Filled by paintShowcaseCard(). */""}
+    <div class="section me-card" id="showcase-card" hidden></div>
+
     <div class="section me-card">
       <h2 class="me-card-h">Deleted scripts <span class="pill">${(ME.trash || []).length}</span></h2>
       <div id="trash-list"></div>
@@ -4462,6 +4527,7 @@ function renderYou(head, body) {
 
   paintSetupDue();
   paintProfiles();
+  paintShowcaseCard();
 }
 
 /** The trash list inside Settings. Restore puts a script back on its company;
@@ -5888,6 +5954,7 @@ let PROFILES = null; let SETUP_SEEN_MEM = false;
 // The tracked videos (each with its lynxr_post_views snapshots) and the daily follower counts: null until first read.
 // POSTS_STATE: idle | loading | ok | error. Both tables are written by the pipeline only; a creator can only read them.
 let POSTS = null; let FOLLOWERS = null; let POSTS_STATE = "idle";
+let SHOWCASE_ME = null;     // { featured, changed_at, approved: [post ids] } from my_showcase(), or { missing: true } when the SQL is not applied
 // The sidebar walkthrough: TOUR is the live run (null = none), SETUP_DECIDED turns true once the setup stepper has either
 // opened or been ruled out for this visit (the tour never starts before that), TOUR_TIMER holds the pending start.
 let TOUR = null; let TOUR_TIMER = null; let SETUP_DECIDED = false;
@@ -6745,13 +6812,26 @@ if (OBTEST) {
   const log = (...a) => console.log("[obtest]", ...a);
   const fakeProfiles = [];
   const presses = {};
-  const OBFAKE = { posts: [], followers: [], profiles: null, plan: { status: "active", plan_code: "max", features: ["post_tracking", "advanced_coaching"], plans: { max: { label: "max" } }, has_customer: false } };
+  const OBFAKE = { posts: [], followers: [], profiles: null, showcase: { featured: false, changed_at: null, approved: [] }, plan: { status: "active", plan_code: "max", features: ["post_tracking", "advanced_coaching"], plans: { max: { label: "max" } }, has_customer: false } };
   sbFetch = async function (path, opts = {}) {      // eslint-disable-line no-func-assign -- preview only
     const body = opts.body ? JSON.parse(opts.body) : null;
     log("no network:", opts.method || "GET", path, body);
     if (path.includes("/rest/v1/lynxr_posts")) return OBFAKE.posts;
     if (path.includes("/rest/v1/lynxr_profile_followers")) return OBFAKE.followers;
     if (path.includes("/rpc/my_plan")) return OBFAKE.plan;
+    if (path.includes("/rpc/my_showcase")) return { ...OBFAKE.showcase };
+    if (path.includes("/rpc/set_my_showcase_consent")) {
+      OBFAKE.showcase = { featured: !!body.p_on, changed_at: new Date().toISOString(), approved: body.p_on ? OBFAKE.showcase.approved : [] };
+      return { ok: true, featured: !!body.p_on, withdrawn: 0 };
+    }
+    if (path.includes("/rpc/link_my_post_script")) {
+      const post = OBFAKE.posts.find((x) => x.id === body.p_post_id);
+      if (!post) return { ok: false, why: "no_post" };
+      const aid = body.p_adaptation_id;
+      if (aid && ![...(ME.adaptations || []), ...(ME.trash || [])].some((a) => a.id === aid)) return { ok: false, why: "no_record" };
+      post.adaptation_id = aid || null;
+      return { ok: true };
+    }
     if (path.includes("/rpc/set_my_profile")) {
       const h = String(body.p_handle || "").toLowerCase().replace(/^@/, "");
       if (!fakeProfiles.some((p) => p.platform === body.p_platform && p.handle === h)) {
@@ -6820,7 +6900,7 @@ if (OBTEST) {
       const posted = NOW0 - ageDays * DAY;
       return { id, platform: plat, handle: "maya.makes",
         url: plat === "tiktok" ? `https://www.tiktok.com/@maya.makes/video/${id}` : `https://www.instagram.com/reel/OB${id}/`,
-        caption: cap, posted_at: at(posted), views, likes, comments, metrics_at: at(NOW0 - 3600e3),
+        caption: cap, posted_at: at(posted), views, likes, comments, metrics_at: at(NOW0 - 3600e3), adaptation_id: null,
         lynxr_post_views: snaps.map(([d, v, l, c]) => ({ day: d, views: v, likes: l, comments: c, at: at(posted + d * DAY) })) };
     };
     const ALL_POSTS = [
@@ -6918,6 +6998,7 @@ if (OBTEST) {
         ME.library = f.lib; ME.adaptations = f.ads;
       }
       POSTS = OBFAKE.posts; FOLLOWERS = OBFAKE.followers; POSTS_STATE = "ok";
+      SHOWCASE_ME = { ...OBFAKE.showcase };
       SYNC_OK = !st.syncfail; renderSyncBadge();
       renderSide();
       go(wantView === "home" ? { kind: "new" } : { kind: "posts" });
@@ -7113,16 +7194,92 @@ const hasVerifiedProfile = () => (PROFILES || []).some((x) => x.verified_at);
 async function refreshPosts() {
   if (!TRACKING_LIVE) return;
   if (POSTS_STATE !== "ok") POSTS_STATE = "loading";
-  const [p, f] = await Promise.allSettled([
-    sbFetch("/rest/v1/lynxr_posts?select=id,platform,handle,url,caption,posted_at,views,likes,comments,metrics_at,lynxr_post_views(day,views,likes,comments,at)&order=posted_at.desc.nullslast&limit=200"),
+  const [p, f, sh] = await Promise.allSettled([
+    sbFetch("/rest/v1/lynxr_posts?select=id,platform,handle,url,caption,posted_at,views,likes,comments,metrics_at,adaptation_id,lynxr_post_views(day,views,likes,comments,at)&order=posted_at.desc.nullslast&limit=200"),
     sbFetch("/rest/v1/lynxr_profile_followers?select=platform,handle,day,followers&order=day.desc&limit=1000"),
+    SHOWCASE_APP_LIVE ? profileRpc("my_showcase", {}) : Promise.resolve(null),
   ]);
   if (p.status === "fulfilled" && Array.isArray(p.value)) { POSTS = p.value; POSTS_STATE = "ok"; }
   else POSTS_STATE = POSTS ? "ok" : "error";
   if (f.status === "fulfilled" && Array.isArray(f.value)) FOLLOWERS = f.value;
+  if (SHOWCASE_APP_LIVE && sh.status === "fulfilled" && sh.value) {
+    SHOWCASE_ME = sh.value.featured !== undefined ? { featured: !!sh.value.featured, changed_at: sh.value.changed_at || null,
+      approved: Array.isArray(sh.value.approved) ? sh.value.approved : [] } : { missing: true };
+  }
   renderSide();
   if (VIEW.kind === "posts") paintPosts(); else paintHome();
+  paintShowcaseCard();
 }
+
+/** The Settings "Showcase" card: one switch, off by default. It acts on change and does NOT wait for the Save button (like the
+    theme select): turning it off has to take the videos down at once, and a switch that only took effect after a later Save
+    would leave them up. No dialog: turning it on is the opt-in, and turning it off is the safe direction. */
+function paintShowcaseCard() {
+  const card = document.getElementById("showcase-card");
+  if (!card) return;
+  const ok = SHOWCASE_APP_LIVE && SHOWCASE_ME && !SHOWCASE_ME.missing;
+  card.hidden = !ok;
+  if (!ok) { card.innerHTML = ""; return; }
+  const n = (SHOWCASE_ME.approved || []).length;
+  const say = SHOWCASE_ME.featured ? (n ? `On. ${n} approved for lynxr.io.` : "On.") : "";
+  const live = document.getElementById("sc-feature");
+  if (live && card.contains(live) && card.contains(document.activeElement)) {      // keep the focused box; only the line changes
+    live.checked = !!SHOWCASE_ME.featured;
+    const m = document.getElementById("sc-msg");
+    if (m) { m.textContent = say; m.className = `bp-msg${say ? " show" : ""}`; }
+    return;
+  }
+  card.innerHTML = `<h2 class="me-card-h">Showcase</h2>`
+    + `<label class="cb-check"><input type="checkbox" id="sc-feature"${SHOWCASE_ME.featured ? " checked" : ""}> <span>Feature my videos on lynxr.io</span></label>`
+    + `<p class="ce-hint">Only videos you mark as made with a lynxr script on Posts, and only after we approve each one. Shown: the video and its cover, your username and its public numbers. Turn this off and they come down at once. <a href="/terms/#showcase" target="_blank" rel="noopener noreferrer">How it works</a></p>`
+    + `<p class="bp-msg${say ? " show" : ""}" id="sc-msg" role="status" aria-live="polite">${escapeHtml(say)}</p>`;
+  const box = document.getElementById("sc-feature");
+  box.addEventListener("change", async () => {
+    const want = box.checked;
+    const had = document.activeElement === box;
+    box.disabled = true;
+    const r = await setShowcaseConsent(want);
+    box.disabled = false;
+    if (had) box.focus();
+    if (r && r.ok) { paintShowcaseCard(); return; }
+    box.checked = !want;                      // restore the previous state, and say so
+    const msg = document.getElementById("sc-msg");
+    if (msg) { msg.textContent = SHOWCASE_WHY.network; msg.className = "bp-msg show bad"; }
+  });
+}
+
+/** The showcase switch: whether the creator lets lynxr feature their videos on lynxr.io (plan lynxr-showcase.md). Turning it
+    off withdraws every approved video at once, in the database. -> { ok, featured, withdrawn } or { ok: false, why }. */
+async function setShowcaseConsent(on) {
+  const r = await profileRpc("set_my_showcase_consent", { p_on: !!on, p_terms: TERMS_VERSION });
+  if (r && r.ok) SHOWCASE_ME = { ...(SHOWCASE_ME || {}), featured: !!on, approved: on ? (SHOWCASE_ME?.approved || []) : [] };
+  return r || { ok: false, why: "network" };
+}
+
+/** Mark a tracked video as made with one of the creator's lynxr scripts, or (adaptationId null) unmark it. The database
+    accepts only a script lynxr charged this account for before the video went up. */
+async function linkPostScript(postId, adaptationId) {
+  const r = await profileRpc("link_my_post_script", { p_post_id: postId, p_adaptation_id: adaptationId || null });
+  if (r && r.ok) await refreshPosts();
+  return r || { ok: false, why: "network" };
+}
+
+/** The scripts a video could have come from: finished, the creator's own (not a copy from an agency brief), written before
+    `postedAt` when that is known, newest first, at most 50. */
+function scriptsBefore(postedAt) {
+  const cutoff = postedAt ? Date.parse(postedAt) : NaN;
+  return (ME.adaptations || [])
+    .filter((a) => a.status === "done" && !isAgencyCopy(a) && (Number.isNaN(cutoff) || Date.parse(a.addedAt || "") <= cutoff))
+    .sort((a, b) => Date.parse(b.addedAt || "") - Date.parse(a.addedAt || ""))
+    .slice(0, 50);
+}
+
+const SHOWCASE_WHY = {
+  no_record: "lynxr has no record of writing that script for you.",
+  after_post: "That script was written after this video went up.",
+  no_post: "That video isn't in your list any more.",
+  network: "Couldn't save that. Try again.",
+};
 
 /** One post's count of `field` ("views" | "likes" | "comments") at `d` days: the earliest snapshot taken at or after day d
     that has the count, else null (absent is not zero). Pure. */
@@ -7251,6 +7408,75 @@ function postDaysHtml(p) {
   }).join("") + `</p>`;
 }
 
+/** "Made with a lynxr script" under a tracked video (plan lynxr-showcase.md): the proof the showcase needs. Empty when the
+    showcase is off or its SQL is not applied. "approved", never "on lynxr.io": the landing page may not be showing yet. */
+function postMadeHtml(p) {
+  if (!SHOWCASE_APP_LIVE || !SHOWCASE_ME || SHOWCASE_ME.missing) return "";
+  const id = Number(p.id);
+  if (!p.adaptation_id) return `<div class="post-made" data-post="${id}"><button type="button" class="linkish post-made-ask">Made with a lynxr script?</button></div>`;
+  const a = [...(ME.adaptations || []), ...(ME.trash || [])].find((x) => x.id === p.adaptation_id);
+  const label = a ? escapeHtml(entryLabel(a)) : "";
+  return `<div class="post-made" data-post="${id}"><span class="post-made-is">${label ? `Made with: ${label}` : "Made with a lynxr script"}</span>`
+    + ((SHOWCASE_ME.approved || []).includes(p.id) ? `<span class="pill post-made-live">approved for lynxr.io</span>` : "")
+    + `<button type="button" class="linkish post-made-undo">Unmark</button></div>`;
+}
+
+/** The inline script picker that replaces the "Made with a lynxr script?" link. Only scripts written before the video went up
+    are offered; the database checks the same thing against lynxr's own charge record. */
+function openPostMadePicker(box, p) {
+  const opts = scriptsBefore(p.posted_at);
+  box.textContent = "";
+  if (!opts.length) {
+    const none = document.createElement("span");
+    none.textContent = "No scripts written before this video was posted.";
+    box.appendChild(none);
+  } else {
+    const lbl = document.createElement("label");
+    lbl.className = "lbl"; lbl.htmlFor = `pm-${p.id}`; lbl.textContent = "Which script?";
+    const sel = document.createElement("select");
+    sel.id = `pm-${p.id}`;
+    for (const a of opts) {
+      const o = document.createElement("option");
+      o.value = a.id; o.textContent = `${entryLabel(a)} · ${asOfLabel(a.addedAt)}`;
+      sel.appendChild(o);
+    }
+    const ok = document.createElement("button");
+    ok.type = "button"; ok.className = "btn"; ok.textContent = "Confirm";
+    const msg = document.createElement("p");
+    msg.className = "bp-msg"; msg.setAttribute("role", "status"); msg.setAttribute("aria-live", "polite");
+    ok.addEventListener("click", async () => {
+      ok.disabled = true;
+      box.classList.add("pm-closing");        // lets the repaint that follows a save replace this picker
+      const r = await linkPostScript(p.id, sel.value);
+      if (r && r.ok) return;                  // refreshPosts() has already repainted the row
+      box.classList.remove("pm-closing");
+      ok.disabled = false;
+      msg.textContent = SHOWCASE_WHY[r && r.why] || SHOWCASE_WHY.network;
+      msg.className = "bp-msg show bad";
+    });
+    box.append(lbl, sel, ok);
+    box.appendChild(msg);
+  }
+  const cancel = document.createElement("button");
+  cancel.type = "button"; cancel.className = "ghost"; cancel.textContent = "Cancel";
+  cancel.addEventListener("click", () => { box.classList.add("pm-closing"); paintPosts(); });
+  box.insertBefore(cancel, box.querySelector(".bp-msg"));
+}
+
+/** Wire the "made with" controls of the rows just painted. Unmarking withdraws a featured video, so it is a two-click arm. */
+function wirePostMade(root) {
+  root.querySelectorAll(".post-made").forEach((box) => {
+    const p = (POSTS || []).find((x) => x.id === Number(box.dataset.post));
+    if (!p) return;
+    box.querySelector(".post-made-ask")?.addEventListener("click", () => openPostMadePicker(box, p));
+    const undo = box.querySelector(".post-made-undo");
+    if (undo) armDelete(undo, "Unmark?", async () => {
+      const r = await linkPostScript(p.id, null);
+      if (!(r && r.ok)) flashMsg("posts-made-flash", SHOWCASE_WHY[r && r.why] || SHOWCASE_WHY.network, "bad");
+    });
+  });
+}
+
 function postRowHtml(p) {
   const plat = PLAT_NAME[p.platform] || p.platform;
   const when = asOfLabel(p.posted_at);
@@ -7265,6 +7491,7 @@ function postRowHtml(p) {
     + `</div>`
     + (capShort ? `<p class="post-cap">${escapeHtml(capShort)}</p>` : "")
     + postDaysHtml(p)
+    + postMadeHtml(p)
     + `</li>`;
 }
 
@@ -7398,14 +7625,16 @@ function paintPosts() {
   }
 
   const own = document.getElementById("posts-list");
+  if (own.querySelector(".post-made:not(.pm-closing) select")) return;     // a script picker is open: do not rebuild it under the creator
   const mine = Array.isArray(POSTS) ? POSTS : [];
   const verified = hasVerifiedProfile();
   own.innerHTML = `<h2 class="me-card-h">Your videos <span class="pill">${mine.length}</span></h2>`
     + (POSTS === null ? `<p class="posts-note">${POSTS_STATE === "error" ? "Couldn't load your videos. Try again in a moment." : "Loading…"}</p>`
-      : mine.length ? `<ul class="post-rows">${mine.map(postRowHtml).join("")}</ul>`
+      : mine.length ? `<ul class="post-rows">${mine.map(postRowHtml).join("")}</ul><p class="bp-msg" id="posts-made-flash" role="status" aria-live="polite"></p>`
       : !verified ? `<p class="posts-note">Link your TikTok or Instagram in Settings and lynxr tracks every video on it automatically.</p><button type="button" class="ghost" id="posts-settings">Open Settings</button>`
       : `<p class="posts-note">lynxr checks your accounts once a day. New videos show up here.</p>`);
   document.getElementById("posts-settings")?.addEventListener("click", () => go({ kind: "you" }));
+  wirePostMade(own);
 }
 
 function renderPosts(head, body) {
@@ -7730,12 +7959,12 @@ function wireComposer() {
     let plat = u ? platformOf(u) : null;
     /* Right site, wrong shape — /explore/, a profile, /foryou — badges as its
        own state so the refusal reads before send. */
-    if (plat && !videoLikePath(u)) plat = null, badge.dataset.page = "1";
-    else delete badge.dataset.page;
+    const shape = plat ? linkShape(u) : null;
+    if (plat && shape !== "ok") { plat = null; badge.dataset.page = "1"; } else delete badge.dataset.page;
     // Say no while they are still typing, not on submit. The badge already sits
     // in the paste field and is where the eye is, so an unsupported link reads
     // as refused before anyone reaches for the button.
-    badge.textContent = u ? (plat || (badge.dataset.page ? "not a video" : "not supported")) : "";
+    badge.textContent = u ? (plat || (shape === "cut_off" ? "link cut off" : badge.dataset.page ? "not a video" : "not supported")) : "";
     badge.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
   };
   input.addEventListener("input", showPlat);
@@ -7926,9 +8155,9 @@ function wireOneHero(form) {
     let plat = u ? platformOf(u) : null;
     /* Right site, wrong shape — /explore/, a profile, /foryou — badges as its
        own state so the refusal reads before send. */
-    if (plat && !videoLikePath(u)) plat = null, badge.dataset.page = "1";
-    else delete badge.dataset.page;
-    badge.textContent = u ? (plat || (badge.dataset.page ? "not a video" : "not supported")) : "";
+    const shape = plat ? linkShape(u) : null;
+    if (plat && shape !== "ok") { plat = null; badge.dataset.page = "1"; } else delete badge.dataset.page;
+    badge.textContent = u ? (plat || (shape === "cut_off" ? "link cut off" : badge.dataset.page ? "not a video" : "not supported")) : "";
     badge.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
   };
   input.addEventListener("input", showPlat);
@@ -10547,7 +10776,9 @@ function adaptationHtml(a, liveName, opts = {}) {
      writes that state at all (fill_adaptation raises instead of returning
      "done"), so the only rows that can land here are ones written before that. */
   const chip = a.status === "error"
-    ? (a.noteKind === "length" ? statusChip("bad", "too long", "too long")
+    ? (a.retrying ? statusChip("bp-wait", "still trying", "trying", true)
+      : a.noteKind === "length" ? statusChip("bad", "too long", "too long")
+      : a.noteKind === "link" ? statusChip("bad", "check the link", "check link")
       : a.noteKind && a.noteKind !== "fetch"
         ? statusChip("bad", "couldn't write", "no script")
         : statusChip("bad", "couldn't fetch", "no video"))
@@ -10586,9 +10817,16 @@ function adaptationHtml(a, liveName, opts = {}) {
          to watch; the questions are what we do with the wait, not instead of
          it. See askCardHtml. */
       + askCardHtml(a);
+  } else if (a.status === "error" && a.retrying) {
+    /* STILL TRYING, NOT FAILED. The worker flags `retrying` while it is working
+       on this entry by itself (a read that failed once and is on its ~30-minute
+       schedule, or a model step on a retry timer). A red card with Try again
+       would tell the creator to do something the worker is already doing, so
+       this is the quiet loader with the sentence and no button. */
+    body = `<div class="loader">${loaderMark()}<div class="loader-text"><p class="bp-hint">${escapeHtml(a.noteKind ? a.note : "Still trying — this one is taking a little longer.")}</p></div></div>`;
   } else if (a.status === "error") {
     /* NO RETRY BUTTON ON A WALL. `retryable: false` is written by the worker
-       (see FETCH_FAILURES in process_adaptations.py) for the failures whose
+       (see FETCH_RULES in process_adaptations.py) for the failures whose
        answer cannot change — age-gated, private, deleted, geo-blocked, or a
        link that was never a video. Offering Try again there sends the creator
        round a loop that fails identically every time, which is what makes a
@@ -10606,7 +10844,7 @@ function adaptationHtml(a, liveName, opts = {}) {
     /* The avatar that was writing this card says what happened: confused when
        the LINK was the problem (the chip's own "couldn't fetch" bucket), sorry
        when we failed. */
-    const mood = a.noteKind && a.noteKind !== "fetch" && a.noteKind !== "length" ? "sorry" : "confused";
+    const mood = a.noteKind && a.noteKind !== "fetch" && a.noteKind !== "length" && a.noteKind !== "link" ? "sorry" : "confused";
     body = `<div class="loader bp-fail">${loaderMark(mood)}<div class="loader-text"><p class="bp-hint bad">${escapeHtml(note || "That video couldn't be downloaded.")}</p></div></div>
       ${canRetry
         ? `<div class="bp-actions"><button type="button" class="ghost ad-retry" data-adid="${id}">Try again</button></div>`
@@ -11567,6 +11805,9 @@ function wireAdaptationCards(host) {
     // card that fails a second time on a different step would show the FIRST
     // run's chip wording.
     delete a.note; delete a.noteKind; delete a.attemptedAt;
+    // A creator's Try again starts a fresh retry window — without this an entry
+    // already at 12 passes is final again after one failure.
+    delete a.fetchFail; delete a.retrying; delete a.fetchClass; delete a.passes; delete a.final; delete a.finalWhy;
     // `phase` and `phaseAt` belong to the run that FAILED. Left behind, the
     // re-queued card shows that run's progress — "finding the format", with a
     // clock counting from a timestamp minutes old — until the worker happens to
@@ -12074,10 +12315,10 @@ function startLiveSync() {
    Do not treat a bump here as consent re-taken. The policy's own "changes to
    this policy" section promises an email for a material change, and that email
    is the mechanism; this is only the label on it. */
-const PRIVACY_VERSION = "2026-10-03";
+const PRIVACY_VERSION = "2026-10-05";
 /* The terms' version, from terms/index.html's "last updated" line. The sign-in card's agreement line
    names the terms too since 2026-09-25, so the record says which terms. Bump with that page's date. */
-const TERMS_VERSION = "2026-10-01";
+const TERMS_VERSION = "2026-10-05";
 
 /* THE MERGED HOME. `/` hosts three layers in one document — #lp-main
    (marketing), #gate (auth) and #app (the app). HOME is false on any other

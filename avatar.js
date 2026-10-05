@@ -28,7 +28,9 @@
 (function (root) {
   "use strict";
   var W = "#fff", VIO = "#7b61ff", SWEAT = "#6fb5ff";
-  var MOODS = ["idle", "reading", "writing", "done", "hyped", "confused", "sorry", "coaching"];
+  /* "giggle" (2026-10-05, the landing's perched x: "have it be like im tickling it and he laughs"):
+     eyes squeezed into tight happy arcs, an open smile. Only the landing sets it. */
+  var MOODS = ["idle", "reading", "writing", "done", "hyped", "confused", "sorry", "coaching", "giggle"];
   var L = [51, 55], R = [69, 55], EW = 8, EH = 13;
   var uid = 0;
   function n(v) { return Math.round(v * 100) / 100; }
@@ -57,6 +59,8 @@
       case "writing":  return '<g class="lx-nod">' + pill(L[0], L[1] + h * 0.28, w, h * 0.5) + pill(R[0], R[1] + h * 0.28, w, h * 0.5) + "</g>";
       case "done":     return line("M" + n(L[0] - w * 0.75) + " " + n(L[1] + h * 0.15) + "q" + n(w * 0.75) + " " + n(-h * 0.6) + " " + n(w * 1.5) + " 0" +
                                    "M" + n(R[0] - w * 0.75) + " " + n(R[1] + h * 0.15) + "q" + n(w * 0.75) + " " + n(-h * 0.6) + " " + n(w * 1.5) + " 0", n(w * 0.45));
+      case "giggle":   return line("M" + n(L[0] - w * 0.7) + " " + n(L[1] + h * 0.2) + "q" + n(w * 0.7) + " " + n(-h * 0.85) + " " + n(w * 1.4) + " 0" +
+                                   "M" + n(R[0] - w * 0.7) + " " + n(R[1] + h * 0.2) + "q" + n(w * 0.7) + " " + n(-h * 0.85) + " " + n(w * 1.4) + " 0", n(w * 0.5));
       case "hyped":    return star(L[0], L[1], h * 0.56, W, "lx-tw") + star(R[0], R[1], h * 0.56, W, "lx-tw lx-dl1");
       case "confused": return pill(L[0], L[1], w, h) + pill(R[0], R[1] - h * 0.18, w * 0.9, h * 0.55);
       // sheepish: droopy eyes glancing aside (no brows: owner, 2026-09-15)
@@ -72,6 +76,7 @@
       case "reading":  inner = line("M-3.5 0h7", 3); break;
       case "writing":  inner = line("M-3 .5q3-1.6 6 0", 2.8); break;
       case "done":     inner = line("M-8-1q8 8 16 0", 3.4); break;
+      case "giggle":   inner = '<path d="M-8-2.5h16q-.6 10.5-8 10.5t-8-10.5z" fill="' + W + '"/>'; break;
       case "hyped":    inner = '<path d="M-7.5-2.5h15q-.5 9.5-7.5 9.5t-7.5-9.5z" fill="' + W + '"/>'; break;
       case "confused": inner = line("M-8 0q2-3 4 0t4 0t4 0t4 0", 2.8); break;
       case "sorry":    inner = line("M-4.5 3q4.5-4.2 9 0", 2.8); break;
@@ -88,71 +93,6 @@
       '<circle class="lx-dot lx-dl2" cx="60" cy="8" r="2.6" fill="' + VIO + '"/>' + '<circle class="lx-dot lx-dl4" cx="68" cy="8" r="2.6" fill="' + VIO + '"/>';
     return "";
   }
-  /* PROPS: artwork a mood does NOT own (the landing hero's intro, 2026-09-22).
-     `extras(mood)` is keyed on data-mood, so putting the pencil in "writing"
-     would hand one to every writing avatar on the site — the loader, the
-     composer button, the creator app's states. These two are emitted for every
-     live avatar the same way the extras are, stay display:none like them, and
-     are shown only when the ROOT carries .lx-prop-pencil / .lx-prop-whistle
-     (lynxrProp below). No existing mood renders differently anywhere.
-
-     Each is wrapped twice on purpose, because a CSS transform replaces the
-     whole transform, so one element cannot carry two of them:
-       .lx-hold  rides the hand — app.css gives it the arm's own keyframes and
-                 the arm's origin (60,62), so the prop never drifts off the
-                 hand it is held in;
-       .lx-pop   the prop's own entrance/exit, about its own end of the pencil;
-       the inner <g transform>  places and angles it, as a plain attribute.
-     Both are drawn from the hand OUTWARD: white barrels with a violet edge, so
-     they read over the arm's pink-violet gradient AND over the page behind it —
-     a solid violet prop measured as mush against the arm it is held in. */
-  function props(s) {
-    if (s === "pencil") {
-      /* held in the TOP-LEFT hand (.lx-a0), pointing up-left away from the body
-         (owner, 2026-09-23: "put the pencil and whistle on the left top limb" —
-         BOTH props are in this one hand now, at every width). This placement is
-         the exact 180-degree image about the avatar's centre (60,62) of the
-         bottom-right one it replaces: translate(85 94) rotate(-42) -> translate
-         (35 30) rotate(138), which keeps the eraser end in the hand and the tip
-         pointing outward, the way it was drawn. */
-      var p = '<rect x="-3.6" y="-16" width="7.2" height="22" rx="2" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2"/>' +
-        '<path d="M-3.6 5.4h7.2L0 16z" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2" stroke-linejoin="round"/>' +
-        '<rect x="-3.6" y="-16" width="7.2" height="5" rx="2" fill="' + VIO + '"/>' +
-        '<path d="M-1.5 11.4h3L0 16z" fill="' + VIO + '"/>';
-      return '<g class="lx-hold"><g class="lx-pop"><g transform="translate(35 30) rotate(138)">' + p + "</g></g></g>";
-    }
-    /* ONE PLACEMENT AGAIN, in the same TOP-LEFT hand as the pencil (owner,
-       2026-09-23: "put the pencil and whistle on the left top limb").
-       IT USED TO BE DRAWN TWICE — top-right above 640px, bottom-left below it —
-       because a prop's hand is baked into a plain SVG transform attribute that
-       CSS cannot reach (the .lx-hold wrapper can only orbit the whole object
-       about the avatar's centre, and .lx-pop is spent on the entrance/exit), so
-       a second hand meant a second group and a media query to pick it. With one
-       hand at every width that second group and both media queries are gone
-       rather than left dead: PROP_ART is back to the two real props.
-       The placement is the MIRROR of the top-right one about x=60 — translate
-       (80 24) rotate(-16) scale(.88) -> translate(40 24) rotate(16)
-       scale(-.88 .88) — so the mouthpiece still faces the avatar's own face and
-       the toots still blow outward, away from the body. The +2,+3 on that
-       mirrored origin is a nudge measured on the built page at 180px and 96px:
-       the arm's hold pose is -30deg rather than the -45 the mirror assumed, so
-       the hand sits a little further round and the barrel was floating just off
-       it. */
-    if (s === "whistle") {
-      var w = '<rect x="-15" y="-3.4" width="14" height="6.8" rx="3" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2"/>' +
-        '<circle cx="4.6" cy="0" r="8.4" fill="' + W + '" stroke="' + VIO + '" stroke-width="2.2"/>' +
-        '<circle cx="4.6" cy="-2.6" r="2.1" fill="' + VIO + '"/>' +
-        '<circle cx="13.4" cy="-5.6" r="2.5" fill="none" stroke="' + VIO + '" stroke-width="1.9"/>' +
-        '<g class="lx-toot">' + line("M18.5-5.2q4 5.2 0 10.4", 2.4, VIO) + '</g><g class="lx-toot lx-dl2">' + line("M24-8.6q6.6 8.6 0 17.2", 2.2, VIO) + "</g>";
-      return '<g class="lx-hold"><g class="lx-pop"><g transform="translate(42 27) rotate(16) scale(-.88 .88)">' + w + "</g></g></g>";
-    }
-    return "";
-  }
-  /* The prop NAMES lynxrProp accepts, one class and one group each. There was a
-     third GROUP (whistle-lo, a second placement of the whistle) until both props
-     moved into one hand on 2026-09-23; names and art are the same list again. */
-  var PROPS = ["pencil", "whistle"];
-  var PROP_ART = PROPS;
   var ARM = '<rect x="43" y="10" width="34" height="60" rx="17" fill="#fff"/>';
   function paint(maskId) {
     var m = 'mask="url(#' + maskId + ')"';
@@ -175,7 +115,6 @@
       var x = extras(MOODS[k]);
       if (x) xs += '<g class="lx-x lx-x-' + MOODS[k] + '">' + x + "</g>";
     }
-    for (var q = 0; q < PROP_ART.length; q++) xs += '<g class="lx-x lx-x-' + PROP_ART[q] + '">' + props(PROP_ART[q]) + "</g>";
     return '<svg class="lx' + (cls ? " " + cls : "") + '" data-mood="' + m + '" viewBox="0 0 120 120" aria-hidden="true" focusable="false">' +
       '<defs><mask id="' + id + '" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><g class="lx-spin">' + arms + "</g></mask></defs>" +
       '<g class="lx-loop"><g class="lx-body">' + paint(id) + '<g class="lx-face">' + faces + "</g></g></g>" +
@@ -207,19 +146,31 @@
     if (!svg || MOODS.indexOf(mood) < 0 || svg.getAttribute("data-mood") === mood) return;
     svg.setAttribute("data-mood", mood);
   }
-  /* The only writer of a live avatar's PROP, the same way lynxrMood is the only
-     writer of its mood. `prop` is "pencil", "whistle", null (empty-handed) or
-     "out" — which keeps the prop on screen while app.css plays its exit, so the
-     caller can drop it with lynxrProp(svg, null) once that has finished. */
-  function lynxrProp(svg, prop) {
+  /* GESTURES: a one-shot MOTION a live avatar plays over whatever mood it is in
+     (the landing's nav-logo intro, 2026-10-05: "have the logo on the top left
+     start out by waving"). Not a mood: a mood owns a face and loops for as long
+     as it is set; a gesture owns no art and no face, only keyframes, so it is one ROOT CLASS (.lx-g-hello)
+     that app.css animates, and the caller picks the face with lynxrMood as it
+     always does. No existing avatar renders differently: nothing sets the class
+     but the caller that asks for it.
+       hello  the up-right arm (.lx-a1, inside the mask, the same arm the coaching
+              wave moves) wags twice while the whole X
+              rocks about its feet, ~0.9s, then everything is back at rest.
+       point  the arm on the side of a target reaches toward it and holds
+              (the landing's companion, pointing at what the owner wants seen), 0.5s.
+              `dir` says where the target is: "r" right, "l" left, "d" below, "dl"
+              below-left; it is written to data-lx-dir, which app.css keys on.
+     `name` is "hello", "point" or null (stop). */
+  var GESTURES = ["hello", "point"];
+  function lynxrGesture(svg, name, dir) {
     if (!svg) return;
-    if (prop === "out") { svg.classList.add("lx-prop-out"); return; }
-    svg.classList.remove("lx-prop-out");
-    for (var i = 0; i < PROPS.length; i++) svg.classList.toggle("lx-prop-" + PROPS[i], PROPS[i] === prop);
+    for (var i = 0; i < GESTURES.length; i++) svg.classList.toggle("lx-g-" + GESTURES[i], GESTURES[i] === name);
+    if (name === "point") svg.setAttribute("data-lx-dir", dir || "r");
+    else svg.removeAttribute("data-lx-dir");
   }
   root.lynxrAvatar = lynxrAvatar;
   root.lynxrMood = lynxrMood;
-  root.lynxrProp = lynxrProp;
+  root.lynxrGesture = lynxrGesture;
   root.lynxrMark = lynxrMark;
   root.lynxrDefs = lynxrDefs;
   root.LYNXR_MOODS = MOODS.slice();

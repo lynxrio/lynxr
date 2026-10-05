@@ -165,6 +165,9 @@ Access is therefore split three ways:
   only. Do not loosen it; it is shared across every creator.
 - **`lynxr_waitlist`** is the one table `anon` may write, insert-only, so a
   public form cannot read the list back.
+- **`showcase_public()`** is the one function `anon` may call that returns creator data. It returns only approved,
+  consented, checked "made with lynxr" entries, as a fixed field list. `anon` has no grant on any showcase table.
+  Kill switch: `revoke execute on function public.showcase_public() from anon;`.
 
 Verified live rather than assumed, with throwaway accounts — see HANDOFF.md.
 **No write policies exist on the video rows**, so a browser session can read

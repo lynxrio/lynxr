@@ -29,8 +29,11 @@ PAGES THE PHONE (page: True):
     gave-up:<id8>     the automatic retry loop stopped and the creator has no
                       script (finalWhy gave_up/no_script/exhausted) — a
                       permanent platform wall does NOT page here, see below
-    fetch-wall:burst  3+ DISTINCT source videos refused to download inside 6h
-                      — suspect a yt-dlp extractor break, not one bad link
+    fetch-wall:burst  3+ DISTINCT source videos failed to download or read
+                      inside 6h — suspect a yt-dlp, ffmpeg or whisper break, not
+                      one bad link. Failures that are the creator's INPUT
+                      (fetchClass "input": cut-off link, private, deleted) never
+                      count; post-download read failures (fetchClass "ours") do
     spend-24h         process_adaptations.py's --daily-cap circuit breaker has
                       tripped — the worker is refusing ALL new work, so a
                       quiet queue means "capped", not "healthy"
@@ -510,6 +513,8 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
             # is the creator's link, is answered accurately on the card, and
             # cannot be fixed by anyone being woken up. Live count on the
             # corpus: 0.
+            # "wall" and "unreachable" (the platform never said why) are NOT in the
+            # set below, so neither pages: they go to the digest's quality line.
             settled = LR.parse_iso(a.get("attemptedAt") or a.get("claimedAt"))
             if (status == "error" and a.get("final")
                     and a.get("finalWhy") in ("gave_up", "no_script", "exhausted")
@@ -526,7 +531,11 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
                 })
 
             # ---- fetch-wall:burst (accumulate; alarm raised after the loop) -
-            if status == "error" and a.get("noteKind") == "fetch":
+            # Input-class failures (a cut-off link, a private video) are the
+            # creator's, so they never count; a failure AFTER the download
+            # (Whisper, ffprobe) is ours and does, though its noteKind is "ours".
+            if (status == "error" and a.get("fetchClass") != "input"
+                    and (a.get("noteKind") == "fetch" or a.get("fetchClass") == "ours")):
                 claimed = LR.parse_iso(a.get("claimedAt") or a.get("addedAt"))
                 if claimed is not None and (now - claimed).total_seconds() <= FETCH_WALL_WINDOW_H * 3600:
                     fetch_walls.add(a.get("sourceUrl"))
@@ -581,8 +590,8 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
         alarms.append({
             "key": "fetch-wall:burst",
             "title": f"{len(fetch_walls)} videos refused in {FETCH_WALL_WINDOW_H}h",
-            "body": (f"{len(fetch_walls)} distinct source videos failed to download "
-                     f"in {FETCH_WALL_WINDOW_H}h — suspect a yt-dlp extractor break. "
+            "body": (f"{len(fetch_walls)} distinct source videos failed to download or read "
+                     f"in {FETCH_WALL_WINDOW_H}h — suspect a yt-dlp, ffmpeg or whisper break. "
                      "fly logs"),
             "priority": 4, "tags": "rotating_light", "page": True,
         })
@@ -780,7 +789,24 @@ def digest(rows, sources_total, worker_seen_at, now, open_alarms=None, fallback_
         if a.get("finalWhy") == "gave_up"
         and (now - (LR.parse_iso(a.get("attemptedAt") or a.get("claimedAt")) or now))
             .total_seconds() <= 24 * 3600)
-    line_quality = f"quality: {thin_hits} thin · {given_up_hits} given up (24h)"
+    # The two ways a creator's paste ends without a script that are NOT paged:
+    # "unreachable" (the platform never said why after ~30 min of trying) and a
+    # refused bad link. The stamp is claimedAt, falling back to addedAt, because
+    # link refusals are never claimed. Missing stamp counts as inside.
+    def _in_24h(a):
+        return (now - (LR.parse_iso(a.get("claimedAt") or a.get("addedAt")) or now)
+                ).total_seconds() <= 24 * 3600
+    unreachable = sum(
+        1 for row in rows
+        for a in (row.get("data") or {}).get("adaptations") or []
+        if a.get("finalWhy") == "unreachable" and _in_24h(a))
+    bad_links = sum(
+        1 for row in rows
+        for a in (row.get("data") or {}).get("adaptations") or []
+        if a.get("finalWhy") == "wall" and a.get("noteKind") in ("link", "fetch")
+        and a.get("fetchClass") == "input" and _in_24h(a))
+    line_quality = (f"quality: {thin_hits} thin · {given_up_hits} given up · "
+                    f"{unreachable} unreachable · {bad_links} bad links (24h)")
     hits = raw_notes(rows)
     line3_notes = "notes: clean" if not hits else \
         f"notes: {len(hits)} with raw text ({', '.join(hits[:5])})"

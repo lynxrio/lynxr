@@ -1,0 +1,578 @@
+[
+  {
+    "id": "q001",
+    "theme": "ugc-rates-and-pay",
+    "priority": 1,
+    "question": "How do UGC creators get paid?",
+    "slug": "how-do-ugc-creators-get-paid",
+    "target_query": "how do ugc creators get paid",
+    "angle": "Payment structures: flat fee per video, usage add-ons, raw footage, bundles, retainers, product-only deals and when to decline one; deposits; invoices; payment timing agreed in writing. No amounts."
+  },
+  {
+    "id": "q002",
+    "theme": "ugc-rates-and-pay",
+    "priority": 1,
+    "question": "How do you work out what to charge for a UGC video?",
+    "slug": "how-to-set-ugc-rates",
+    "target_query": "how much to charge for ugc",
+    "angle": "A method, not numbers: what goes into a rate (time, deliverables, usage, revisions), base rate plus add-ons, when and how to raise it. No amounts or market claims."
+  },
+  {
+    "id": "q003",
+    "theme": "ugc-rates-and-pay",
+    "priority": 1,
+    "question": "What are usage rights in UGC?",
+    "slug": "what-are-ugc-usage-rights",
+    "target_query": "ugc usage rights",
+    "angle": "Organic vs paid use, duration, channels; why they change the price; what to put in writing. No claims about law."
+  },
+  {
+    "id": "q004",
+    "theme": "ugc-rates-and-pay",
+    "priority": 1,
+    "question": "What is whitelisting in UGC?",
+    "slug": "what-is-whitelisting-in-ugc",
+    "target_query": "ugc whitelisting",
+    "angle": "A brand running ads from the creator's own handle; what access means; scoping duration and approvals in writing; how it differs from usage rights. Name no ad products."
+  },
+  {
+    "id": "q005",
+    "theme": "ugc-rates-and-pay",
+    "priority": 2,
+    "question": "Should you charge extra for raw footage in UGC?",
+    "slug": "raw-footage-in-ugc",
+    "target_query": "ugc raw footage",
+    "angle": "What raw footage is, why it lets a brand make more ads, pricing it as its own line, what to hand over. No amounts."
+  },
+  {
+    "id": "q006",
+    "theme": "ugc-rates-and-pay",
+    "priority": 2,
+    "question": "What should a UGC rate card include?",
+    "slug": "ugc-rate-card",
+    "target_query": "ugc rate card",
+    "angle": "Line items (base video, extra hooks, raw footage, usage, rush) and how to present them; a template table whose price column says \"your price\"."
+  },
+  {
+    "id": "q007",
+    "theme": "ugc-rates-and-pay",
+    "priority": 2,
+    "question": "What should you agree in writing before a UGC job starts?",
+    "slug": "agree-in-writing-before-ugc",
+    "target_query": "ugc contract checklist",
+    "angle": "Practical checklist: deliverables, revisions, usage, deadline, payment timing, approvals. Not legal advice; no claims about law."
+  },
+  {
+    "id": "q008",
+    "theme": "ugc-rates-and-pay",
+    "priority": 3,
+    "question": "How do you price a bundle of UGC videos?",
+    "slug": "ugc-video-bundles",
+    "target_query": "ugc video packages",
+    "angle": "Building packages (videos, hooks, raw footage), why bundles help both sides, what changes per extra video. No amounts."
+  },
+  {
+    "id": "q009",
+    "theme": "ugc-getting-started",
+    "priority": 1,
+    "question": "What is a UGC creator?",
+    "slug": "what-is-a-ugc-creator",
+    "target_query": "what is a ugc creator",
+    "angle": "Definition; difference from an influencer (the brand buys the video, not the audience); the day-to-day work."
+  },
+  {
+    "id": "q010",
+    "theme": "ugc-getting-started",
+    "priority": 1,
+    "question": "Do you need followers to be a UGC creator?",
+    "slug": "do-you-need-followers-for-ugc",
+    "target_query": "do you need followers for ugc",
+    "angle": "No: brands buy the video; when an audience does matter (whitelisting, posting on your account); what to build instead."
+  },
+  {
+    "id": "q011",
+    "theme": "ugc-getting-started",
+    "priority": 1,
+    "question": "What should a UGC portfolio include?",
+    "slug": "what-to-put-in-a-ugc-portfolio",
+    "target_query": "ugc portfolio",
+    "angle": "Sample videos across formats, hook variations, a short intro, contact; where to host it described generically; what to leave out."
+  },
+  {
+    "id": "q012",
+    "theme": "ugc-getting-started",
+    "priority": 2,
+    "question": "How do you make UGC samples before any brand hires you?",
+    "slug": "ugc-samples-without-a-brand",
+    "target_query": "ugc portfolio with no experience",
+    "angle": "Products you already own; pick formats; script as if from a real brief; never imply a brand partnership that did not happen."
+  },
+  {
+    "id": "q013",
+    "theme": "ugc-getting-started",
+    "priority": 2,
+    "question": "What equipment do you need to start making UGC?",
+    "slug": "ugc-equipment-to-start",
+    "target_query": "ugc equipment for beginners",
+    "angle": "Phone, light, sound, a stable mount, a clean background, as categories only; what not to buy yet."
+  },
+  {
+    "id": "q014",
+    "theme": "ugc-getting-started",
+    "priority": 2,
+    "question": "Should UGC creators pick a niche?",
+    "slug": "should-ugc-creators-pick-a-niche",
+    "target_query": "ugc niche",
+    "angle": "Trade-offs; choosing product categories you actually use; how a niche shapes the portfolio; when to widen."
+  },
+  {
+    "id": "q015",
+    "theme": "ugc-getting-started",
+    "priority": 3,
+    "question": "Can you make UGC without showing your face?",
+    "slug": "faceless-ugc",
+    "target_query": "faceless ugc",
+    "angle": "Hands-only, voiceover and screen-recorded formats; follow the brief; scripting for no face."
+  },
+  {
+    "id": "q016",
+    "theme": "ugc-getting-started",
+    "priority": 3,
+    "question": "What skills does a UGC creator need?",
+    "slug": "ugc-creator-skills",
+    "target_query": "ugc creator skills",
+    "angle": "Scripting, hooks, on-camera delivery, light and sound basics, editing, reading briefs, communication; how to practise each."
+  },
+  {
+    "id": "q017",
+    "theme": "ugc-brand-deals",
+    "priority": 1,
+    "question": "How do you write a UGC pitch email to a brand?",
+    "slug": "ugc-pitch-email",
+    "target_query": "ugc pitch email",
+    "angle": "One specific idea for their product, proof via portfolio link, a clear ask; a filled example for a described brand; what to cut."
+  },
+  {
+    "id": "q018",
+    "theme": "ugc-brand-deals",
+    "priority": 1,
+    "question": "How do you find brands that hire UGC creators?",
+    "slug": "find-brands-for-ugc",
+    "target_query": "how to find ugc brands",
+    "angle": "Signals a brand buys UGC (creator-style ads in your feed, products you use), building a list, where to pitch. Name no platforms or marketplaces."
+  },
+  {
+    "id": "q019",
+    "theme": "ugc-brand-deals",
+    "priority": 2,
+    "question": "What should you send a brand with a UGC pitch?",
+    "slug": "what-to-send-with-a-ugc-pitch",
+    "target_query": "what to send brands ugc",
+    "angle": "Portfolio link, one relevant sample, a hook idea for their product, rates on request; what not to attach."
+  },
+  {
+    "id": "q020",
+    "theme": "ugc-brand-deals",
+    "priority": 2,
+    "question": "How do you follow up when a brand doesn't reply to a UGC pitch?",
+    "slug": "follow-up-ugc-pitch",
+    "target_query": "ugc pitch follow up",
+    "angle": "When and how often, adding something new each time, a short example follow-up, when to stop."
+  },
+  {
+    "id": "q021",
+    "theme": "ugc-brand-deals",
+    "priority": 2,
+    "question": "How do you get a brand to book you again for UGC?",
+    "slug": "get-rebooked-ugc",
+    "target_query": "ugc repeat clients",
+    "angle": "On-time organised delivery, extra hook options, asking for feedback, proposing the next video with a concrete idea."
+  },
+  {
+    "id": "q022",
+    "theme": "ugc-brand-deals",
+    "priority": 3,
+    "question": "Can you pitch a brand whose product you haven't tried?",
+    "slug": "pitch-a-product-you-havent-tried",
+    "target_query": "pitching ugc without the product",
+    "angle": "Honest options: ask for a sample, say you haven't tried it, script only what you will verify; never claim use you don't have."
+  },
+  {
+    "id": "q023",
+    "theme": "ugc-brand-deals",
+    "priority": 3,
+    "question": "What makes a brand choose one UGC creator over another?",
+    "slug": "why-brands-pick-a-ugc-creator",
+    "target_query": "how to stand out as a ugc creator",
+    "angle": "Craft signals the creator controls (hooks, clear audio, following a brief, turnaround). No claims about what brands report or prefer in general."
+  },
+  {
+    "id": "q024",
+    "theme": "ugc-briefs",
+    "priority": 1,
+    "question": "What goes in a UGC brief?",
+    "slug": "what-goes-in-a-ugc-brief",
+    "target_query": "ugc brief",
+    "angle": "Product, audience, key message, must-say / never-say, format, deliverables, deadline; how to read one; questions to ask. Link brief-to-script rather than repeat it."
+  },
+  {
+    "id": "q025",
+    "theme": "ugc-briefs",
+    "priority": 2,
+    "question": "What do you do when a UGC brief is vague?",
+    "slug": "vague-ugc-brief",
+    "target_query": "unclear ugc brief",
+    "angle": "Questions to send back, proposing two directions, writing assumptions down before filming."
+  },
+  {
+    "id": "q026",
+    "theme": "ugc-briefs",
+    "priority": 2,
+    "question": "How should revisions work on a UGC job?",
+    "slug": "ugc-revisions",
+    "target_query": "ugc revisions",
+    "angle": "Agree rounds in writing; revision vs new video; script approval before filming to avoid re-shoots."
+  },
+  {
+    "id": "q027",
+    "theme": "ugc-briefs",
+    "priority": 2,
+    "question": "What do you do when brand feedback would break the video?",
+    "slug": "ugc-feedback-that-breaks-the-video",
+    "target_query": "ugc brand feedback",
+    "angle": "Word changes vs format changes; explaining in one sentence; offering an alternative that meets the note."
+  },
+  {
+    "id": "q028",
+    "theme": "ugc-briefs",
+    "priority": 2,
+    "question": "What should you deliver at the end of a UGC job?",
+    "slug": "ugc-deliverables",
+    "target_query": "ugc deliverables",
+    "angle": "Final cuts, hook variations, raw footage if agreed, captions file, naming, a short handover note."
+  },
+  {
+    "id": "q029",
+    "theme": "ugc-briefs",
+    "priority": 3,
+    "question": "How do you name and send UGC files to a brand?",
+    "slug": "sending-ugc-files",
+    "target_query": "how to send ugc files",
+    "angle": "Naming scheme, folders, versions, delivery-link hygiene. Name no services."
+  },
+  {
+    "id": "q030",
+    "theme": "ugc-briefs",
+    "priority": 3,
+    "question": "What do you do when a brand asks for changes after delivery?",
+    "slug": "ugc-changes-after-delivery",
+    "target_query": "ugc changes after delivery",
+    "angle": "Check what was agreed; small fixes vs new work; quoting extra work politely."
+  },
+  {
+    "id": "q031",
+    "theme": "ugc-scripts",
+    "priority": 1,
+    "question": "What goes in a UGC script for a skincare brand?",
+    "slug": "ugc-script-for-skincare",
+    "target_query": "ugc script for skincare",
+    "angle": "HAND-WRITTEN (Appendix E); ships as the pending article; never generated."
+  },
+  {
+    "id": "q032",
+    "theme": "ugc-scripts",
+    "priority": 1,
+    "question": "How do you write a UGC script for an app?",
+    "slug": "ugc-script-for-an-app",
+    "target_query": "ugc script for an app",
+    "angle": "The product is a screen: screen-recorded beats, phone-in-hand DO lines, one moment of value instead of a feature tour; example script."
+  },
+  {
+    "id": "q033",
+    "theme": "ugc-scripts",
+    "priority": 2,
+    "question": "How do you write a UGC script for a food or drink brand?",
+    "slug": "ugc-script-for-food-and-drink",
+    "target_query": "food ugc script",
+    "angle": "Taste can't be filmed: reaction, sound, texture; the first bite as the turn; no health claims; example script."
+  },
+  {
+    "id": "q034",
+    "theme": "ugc-scripts",
+    "priority": 2,
+    "question": "How do you write a UGC script for a clothing brand?",
+    "slug": "ugc-script-for-clothing",
+    "target_query": "clothing ugc script",
+    "angle": "Fit information as the beats (size worn, how it sits, movement); try-on structure; honest sizing lines; example script."
+  },
+  {
+    "id": "q035",
+    "theme": "ugc-scripts",
+    "priority": 2,
+    "question": "How do you write a UGC script for a home or cleaning product?",
+    "slug": "ugc-script-for-home-products",
+    "target_query": "cleaning product ugc script",
+    "angle": "Show the mess and the process; a real before and after in one take; no exaggerated results; example script."
+  },
+  {
+    "id": "q036",
+    "theme": "ugc-scripts",
+    "priority": 2,
+    "question": "How do you write a fitness UGC script without promising results?",
+    "slug": "ugc-script-for-fitness-products",
+    "target_query": "fitness ugc script",
+    "angle": "No body-change promises; routine and process formats; what to say instead; example script."
+  },
+  {
+    "id": "q037",
+    "theme": "ugc-scripts",
+    "priority": 2,
+    "question": "How do you write a UGC script that doesn't sound scripted?",
+    "slug": "ugc-script-that-sounds-natural",
+    "target_query": "ugc script that sounds natural",
+    "angle": "Writing for the mouth, the read-aloud test, word-for-word lines vs talking points, a rehearsal pass; example marked line by line."
+  },
+  {
+    "id": "q038",
+    "theme": "ugc-scripts",
+    "priority": 2,
+    "question": "How do you write a call to action for a UGC ad?",
+    "slug": "ugc-call-to-action",
+    "target_query": "ugc call to action",
+    "angle": "One ask tied to the last beat; per-goal examples (link, save, comment, shop); earned vs ad-sounding table. No ad-policy claims."
+  },
+  {
+    "id": "q039",
+    "theme": "ugc-scripts",
+    "priority": 2,
+    "question": "How is a UGC ad script different from an organic post?",
+    "slug": "ugc-ad-vs-organic",
+    "target_query": "ugc ad script",
+    "angle": "Same format, different viewer: name who it's for and the product sooner, explicit close; comparison table; example. No ad-policy claims."
+  },
+  {
+    "id": "q040",
+    "theme": "ugc-scripts",
+    "priority": 3,
+    "question": "How do you write a UGC script for a pet product?",
+    "slug": "ugc-script-for-pet-products",
+    "target_query": "pet product ugc script",
+    "angle": "The pet won't follow a script: plan around real behaviour, film more than you need, owner POV; no health claims; example."
+  },
+  {
+    "id": "q041",
+    "theme": "ugc-hooks",
+    "priority": 1,
+    "question": "How many hooks should you film for one UGC video?",
+    "slug": "ugc-hook-variations",
+    "target_query": "ugc hook variations",
+    "angle": "Why brands ask for hook options; variations that change one thing; filming them in one session; table of variants; example. No testing statistics."
+  },
+  {
+    "id": "q042",
+    "theme": "ugc-hooks",
+    "priority": 2,
+    "question": "What makes a UGC hook work in an ad?",
+    "slug": "ugc-ad-hooks",
+    "target_query": "ugc ad hooks",
+    "angle": "The viewer doesn't know you: name the situation and the person fast, show the product's world in the first frame; examples; no algorithm claims."
+  },
+  {
+    "id": "q043",
+    "theme": "ugc-hooks",
+    "priority": 2,
+    "question": "How do you hook a UGC video when the product is in the first frame?",
+    "slug": "product-first-frame-hook",
+    "target_query": "product video hook",
+    "angle": "Make the product the question, not the answer; withhold the result; a before/after pair of scripts."
+  },
+  {
+    "id": "q044",
+    "theme": "ugc-hooks",
+    "priority": 2,
+    "question": "What is a visual hook in UGC?",
+    "slug": "ugc-visual-hooks",
+    "target_query": "visual hook examples",
+    "angle": "The DO line of the first second; vague vs filmable table; motion vs still; example."
+  },
+  {
+    "id": "q045",
+    "theme": "ugc-hooks",
+    "priority": 3,
+    "question": "How do you write a negative hook a brand will approve?",
+    "slug": "negative-hooks-ugc",
+    "target_query": "negative hook examples",
+    "angle": "Aim at a habit, never the person or a competitor; brand-safe limits; table; example."
+  },
+  {
+    "id": "q046",
+    "theme": "ugc-hooks",
+    "priority": 3,
+    "question": "How do you write on-screen text for a UGC hook?",
+    "slug": "ugc-on-screen-text-hook",
+    "target_query": "on screen text hook",
+    "angle": "Text that complements the spoken line, short enough to read while it's up (no second counts), silent viewing; example."
+  },
+  {
+    "id": "q047",
+    "theme": "ugc-hooks",
+    "priority": 3,
+    "question": "How do you write UGC hooks a brand can test against each other?",
+    "slug": "testable-ugc-hooks",
+    "target_query": "ugc hook testing",
+    "angle": "Change one variable per hook (shape, opening line, first visual), keep the rest identical; table; example. No statistics."
+  },
+  {
+    "id": "q048",
+    "theme": "ugc-filming",
+    "priority": 1,
+    "question": "How do you film UGC on a phone so it looks good?",
+    "slug": "film-ugc-on-a-phone",
+    "target_query": "how to film ugc on your phone",
+    "angle": "Clean lens, back vs front camera, face the light, vertical framing, a stable mount, several takes. No device or app names."
+  },
+  {
+    "id": "q049",
+    "theme": "ugc-filming",
+    "priority": 2,
+    "question": "What B-roll should you film for a UGC video?",
+    "slug": "ugc-b-roll",
+    "target_query": "ugc b roll",
+    "angle": "A shot list of product, hands, setting and reaction shots; filming extra for edits; tie it to the script."
+  },
+  {
+    "id": "q050",
+    "theme": "ugc-filming",
+    "priority": 2,
+    "question": "How do you light a UGC video at home?",
+    "slug": "light-ugc-at-home",
+    "target_query": "ugc lighting at home",
+    "angle": "Window light, facing the light, avoiding mixed colour, a simple lamp setup, what to avoid."
+  },
+  {
+    "id": "q051",
+    "theme": "ugc-filming",
+    "priority": 2,
+    "question": "How do you get clear audio in a UGC video?",
+    "slug": "ugc-audio",
+    "target_query": "ugc audio tips",
+    "angle": "Room choice, distance to the phone, soft furnishings, a clip-on mic as a category, checking with headphones."
+  },
+  {
+    "id": "q052",
+    "theme": "ugc-filming",
+    "priority": 2,
+    "question": "How do you film a product demo so it looks real?",
+    "slug": "film-a-ugc-product-demo",
+    "target_query": "ugc product demo",
+    "angle": "One continuous take for the key moment, hands in frame, real conditions, no sped-up results."
+  },
+  {
+    "id": "q053",
+    "theme": "ugc-filming",
+    "priority": 3,
+    "question": "Should UGC creators edit their own videos?",
+    "slug": "should-ugc-creators-edit",
+    "target_query": "ugc editing",
+    "angle": "Follow the brief; raw vs edited deliverables; a basic edit pass (cut silences, captions, pacing). No app names."
+  },
+  {
+    "id": "q054",
+    "theme": "ugc-filming",
+    "priority": 3,
+    "question": "How should captions work in a UGC video?",
+    "slug": "ugc-captions",
+    "target_query": "ugc captions",
+    "angle": "Burned-in vs separate, short lines that match the speech, placement clear of on-screen controls (no pixel numbers)."
+  },
+  {
+    "id": "q055",
+    "theme": "ugc-filming",
+    "priority": 3,
+    "question": "How do you film hands-only UGC?",
+    "slug": "hands-only-ugc",
+    "target_query": "hands only ugc",
+    "angle": "Top-down and side angles, tidy hands and background, a voiceover script, a shot list."
+  },
+  {
+    "id": "q056",
+    "theme": "ugc-formats",
+    "priority": 1,
+    "question": "What are the main types of UGC video?",
+    "slug": "types-of-ugc-videos",
+    "target_query": "types of ugc videos",
+    "angle": "One line each: testimonial, demo, unboxing, GRWM, problem-solution, before-and-after, day in the life, POV, comparison, tutorial; link live format answers. Not \"most common\"."
+  },
+  {
+    "id": "q057",
+    "theme": "ugc-formats",
+    "priority": 2,
+    "question": "How do you script an unboxing UGC video?",
+    "slug": "ugc-unboxing-video",
+    "target_query": "unboxing ugc script",
+    "angle": "The first-open moment is the hook, not the box; beats; example."
+  },
+  {
+    "id": "q058",
+    "theme": "ugc-formats",
+    "priority": 2,
+    "question": "How do you script a get-ready-with-me UGC video?",
+    "slug": "ugc-grwm-video",
+    "target_query": "grwm ugc script",
+    "angle": "The talk track is a separate story from the routine; the product at the step where it belongs; example."
+  },
+  {
+    "id": "q059",
+    "theme": "ugc-formats",
+    "priority": 2,
+    "question": "How do you script a testimonial-style UGC video?",
+    "slug": "ugc-testimonial-video",
+    "target_query": "testimonial ugc script",
+    "angle": "Real experience only; expectation → use → honest verdict with one real downside; example."
+  },
+  {
+    "id": "q060",
+    "theme": "ugc-formats",
+    "priority": 2,
+    "question": "How do you script a problem-solution UGC video?",
+    "slug": "ugc-problem-solution-video",
+    "target_query": "problem solution ugc",
+    "angle": "Show the problem before the product exists in the video; the product at the turn; example."
+  },
+  {
+    "id": "q061",
+    "theme": "ugc-formats",
+    "priority": 2,
+    "question": "How do you script a before-and-after UGC video honestly?",
+    "slug": "ugc-before-and-after-video",
+    "target_query": "before and after ugc",
+    "angle": "Scripting the in-between; same light and angle; never staging an after; example."
+  },
+  {
+    "id": "q062",
+    "theme": "ugc-formats",
+    "priority": 3,
+    "question": "How do you script a day-in-the-life UGC video?",
+    "slug": "ugc-day-in-the-life",
+    "target_query": "day in the life ugc",
+    "angle": "One moment for the product, not every scene; example."
+  },
+  {
+    "id": "q063",
+    "theme": "ugc-formats",
+    "priority": 3,
+    "question": "How do you script a POV UGC video?",
+    "slug": "ugc-pov-video",
+    "target_query": "pov ugc script",
+    "angle": "Who the camera is; the POV label; the failure mode of a label on a non-POV video; example."
+  },
+  {
+    "id": "q064",
+    "theme": "ugc-formats",
+    "priority": 3,
+    "question": "How do you script a UGC comparison video without naming a competitor?",
+    "slug": "ugc-comparison-video",
+    "target_query": "comparison ugc video",
+    "angle": "Compare methods or categories, state the criteria first, no rigged results; example."
+  }
+]

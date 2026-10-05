@@ -4,7 +4,7 @@
     {
       "name": "lynxr",
       "runtimeExecutable": "./venv/bin/python",
-      "runtimeArgs": ["-m", "http.server", "8811"],
+      "runtimeArgs": ["-m", "http.server", "8811", "--bind", "127.0.0.1"],
       "port": 8811
     }
   ]

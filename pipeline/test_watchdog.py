@@ -158,6 +158,52 @@ alarms = W.check_all(two_distinct, sources_recent=1, worker_seen_at=NOW, now=NOW
 check("2 distinct sourceUrls -> none (under the threshold)",
       "fetch-wall:burst" in keys_of(alarms), False)
 
+# ---- fetch-wall:burst ignores the creator's own input, counts our read failures
+def classed_rows(kind, cls, n=3):
+    entries = [
+        {"id": f"k888888{i}", "status": "error", "noteKind": kind, "fetchClass": cls,
+         "claimedAt": ago(NOW, 60), "sourceUrl": f"https://tiktok.com/@x/video/{i}"}
+        for i in range(n)
+    ]
+    return [row("c11", entries)]
+
+alarms = W.check_all(classed_rows("fetch", "input"), sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("3 distinct fetch failures of class input -> no fetch-wall:burst (their links, not our break)",
+      "fetch-wall:burst" in keys_of(alarms), False)
+alarms = W.check_all(classed_rows("link", None), sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("3 distinct refused links (noteKind link) -> no fetch-wall:burst",
+      "fetch-wall:burst" in keys_of(alarms), False)
+alarms = W.check_all(classed_rows("ours", "ours"), sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("3 distinct post-download read failures (noteKind ours, fetchClass ours) -> fetch-wall:burst",
+      "fetch-wall:burst" in keys_of(alarms), True)
+alarms = W.check_all(classed_rows("fetch", None), sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("legacy shape (noteKind fetch, no fetchClass) still fires",
+      "fetch-wall:burst" in keys_of(alarms), True)
+alarms = W.check_all(classed_rows("fetch", "unclear"), sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("3 distinct unclear fetch failures still count (a systemic outage looks like this)",
+      "fetch-wall:burst" in keys_of(alarms), True)
+body = next(a for a in alarms if a["key"] == "fetch-wall:burst")["body"]
+check("fetch-wall:burst body: names download or read, no URL",
+      ("download or read" in body, "http" in body), (True, False))
+
+# ---- gave-up never pages for "unreachable"; the relabelled dad0e821 shape is quiet
+unreachable_rows = [row("c12", [
+    {"id": "m7777771", "status": "error", "final": True, "finalWhy": "unreachable",
+     "noteKind": "fetch", "fetchClass": "unclear", "retryable": True,
+     "claimedAt": ago(NOW, 600), "attemptedAt": ago(NOW, 600),
+     "sourceUrl": "https://tiktok.com/@x/video/1"}])]
+alarms = W.check_all(unreachable_rows, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("finalWhy unreachable inside 24h -> no gave-up (digest only)",
+      any(k.startswith("gave-up:") for k in keys_of(alarms)), False)
+relabelled = [row("c13", [
+    {"id": "dad0e821", "status": "error", "final": True, "finalWhy": "wall",
+     "noteKind": "link", "fetchClass": "input", "retryable": False,
+     "claimedAt": ago(NOW, 600), "attemptedAt": ago(NOW, 600), "passes": 12,
+     "sourceUrl": "https://www.instagram.com/reels/OB5/"}])]
+alarms = W.check_all(relabelled, sources_recent=1, worker_seen_at=NOW, now=NOW)
+check("the relabelled dad0e821 shape (error, final, wall, link, input) -> no alarms at all",
+      keys_of(alarms), set())
+
 # ---- rerun: THE EXPLICIT MARKER ONLY, not attempts >= 2 --------------------
 # DELIBERATELY INVALIDATED, and made its own opposite: `done + attempts:2 +
 # no aiFail` is exactly the shape a SUCCESSFUL transient retry ends in — proven
@@ -450,6 +496,25 @@ check("digest() sources line carries the fallback timestamp",
 digest_body_no_fb = W.digest(healthy_rows, 1, NOW, NOW, fallback_seen_at=None)
 check("digest() with fallback_seen_at=None -> 'fallback never seen'",
       "fallback never seen" in digest_body_no_fb, True)
+
+# ---- digest(): the two quiet counts ----------------------------------------
+quiet_rows = [row("c14", [
+    {"id": "n6666661", "status": "error", "final": True, "finalWhy": "unreachable",
+     "noteKind": "fetch", "fetchClass": "unclear", "claimedAt": ago(NOW, 600),
+     "sourceUrl": "https://tiktok.com/@x/video/1"},
+    {"id": "n6666662", "status": "error", "final": True, "finalWhy": "wall",
+     "noteKind": "link", "fetchClass": "input", "addedAt": ago(NOW, 600),
+     "sourceUrl": "https://www.instagram.com/reels/OB5/"},
+    {"id": "n6666663", "status": "error", "final": True, "finalWhy": "wall",
+     "noteKind": "link", "fetchClass": "input", "addedAt": ago(NOW, 3 * 86400),
+     "sourceUrl": "https://www.instagram.com/reels/OB5/"},
+])]
+quiet_digest = W.digest(quiet_rows, 1, NOW, NOW)
+check("digest(): one unreachable", "1 unreachable" in quiet_digest, True)
+check("digest(): one bad link (a link refusal has no claimedAt; one 3 days old is outside 24h)",
+      "1 bad links" in quiet_digest, True)
+check("digest(): quality line shape",
+      "quality: 0 thin · 0 given up · 1 unreachable · 1 bad links (24h)" in quiet_digest, True)
 
 # ---- raw_notes() / digest()'s "notes: clean" line ---------------------------
 # The sentence is HARD-CODED here, not imported from process_adaptations —

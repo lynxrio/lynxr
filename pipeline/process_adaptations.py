@@ -579,40 +579,110 @@ def api_reason(e):
 # and the card must not show a Try again button (creator.js reads it).
 # Anything unrecognised stays retryable — a network blip must not be
 # mistaken for a permanent wall.
-FETCH_FAILURES = (
-    (False, "fetch_age",
+#
+# THREE CLASSES, because "couldn't read it" has three different truths:
+#   input    the link itself can never work (no video in the post, private,
+#            deleted, age-gated, a bad URL). Final at once, a specific sentence,
+#            NO page: it is the creator's input, not our fault.
+#   unclear  the platform would not hand it over and we cannot tell why (TikTok
+#            answers "your IP address is blocked" for ids that do not exist;
+#            Instagram answers "empty media response" for the same; a 404 was
+#            measured on a LIVE video). Retried for ~30 minutes, then a neutral
+#            sentence and a line in the digest. No page.
+#   ours     extractor rot, rate limits, timeouts, anything unrecognised. Retried
+#            for ~30 minutes, then the gave-up sentence AND a page.
+# FIRST MATCH WINS, so the order below is load-bearing: the specific input rules
+# come before the ambiguous 404 rule, which comes before the "ours" catch-alls
+# (a "Unable to download webpage: HTTP Error 404" line holds needles from two
+# rules). Needles are matched lowercase; the bracket after each is its source.
+FETCH_RULES = (
+    ("input", "fetch_no_video",
+     # yt-dlp instagram.py:524; measured live on reels/OB5 and p/BsOGulcndj-
+     ("there is no video in this post",)),
+    ("input", "fetch_age",
+     # the original four, plus instagram.py:489-490
      ("may not be comfortable", "log in for access", "age-restricted",
-      "sign in to confirm your age")),
-    (False, "fetch_private",
-     ("private video", "this video is private", "is private")),
-    (False, "fetch_gone",
+      "sign in to confirm your age", "restricted video")),
+    ("input", "fetch_private",
+     # the original three, plus tiktok.py:991, instagram.py:496, and
+     # instagram.py:739 (measured live on /stories/instagram/)
+     ("private video", "this video is private", "is private",
+      "you do not have permission to view this post",
+      "only available for registered users who follow this account",
+      "you need to log in to access this content")),
+    ("input", "fetch_gone",
+     # "post does not exist" is Apify's `not_found`, measured 2026-08-19
+     # (apify_item_views docstring). "http error 404" and "not found" moved OUT
+     # to the unclear rule: a 404 was measured on a live video.
      ("video unavailable", "has been removed", "no longer available",
-      "content isn't available", "http error 404", "not found")),
-    (False, "fetch_unreadable",
-     ("unsupported url", "is not a valid url", "unable to extract")),
-    (False, "fetch_geo",
+      "content isn't available", "post does not exist")),
+    ("input", "fetch_unreadable",
+     # "unable to extract" moved OUT: it is extractor rot (tiktok.py:220, :316),
+     # which is ours.
+     ("unsupported url", "is not a valid url")),
+    ("input", "fetch_geo",
      # yt-dlp's real wording is "The uploader has not made this video available
      # in your country", so match the tail rather than a phrasing that never
      # appears — the first draft used "not available in your country" and
      # silently matched nothing.
      ("available in your country", "geo restricted", "geo-restricted",
       "blocked in your country", "not available from your location")),
-    (False, "fetch_bot",
+    ("input", "fetch_bot",
      ("sign in to confirm you", "confirm you're not a bot", "captcha")),
+    ("unclear", "fetch_unreachable",
+     # tiktok.py:994 — measured live: returned for the NON-EXISTENT ids
+     # 671833539 and 7000000000000000001 from a Mac that downloads real TikToks
+     # fine. instagram.py:515 — measured live for non-existent codes. "empty or
+     # private data" is Apify's `no_items` (data/instagram_raw.json). "http
+     # error 404"/"not found": m.tiktok.com 404s a live video (2026-10-05).
+     # tiktok.py:995 for the last.
+     ("your ip address is blocked from accessing this post",
+      "instagram sent an empty media response", "empty or private data",
+      "http error 404", "not found", "video not available, status code")),
+    ("ours", "fetch_ours",
+     # "unexpected response from webpage request": requirements-ci.txt,
+     # 2026-08-12. "requested format is not available": analyze_visuals.py
+     # comment, 2026-08-25. "rate-limit for accessing posts anonymously":
+     # instagram.py:503. "http error 5": yt-dlp networking/exceptions.py:63
+     # `HTTP Error {status}: {reason}`. "timed out": transcribe.fetch_audio
+     # "download timed out" and subprocess.TimeoutExpired.
+     ("unable to extract", "unexpected response from webpage request",
+      "requested format is not available",
+      "rate-limit for accessing posts anonymously", "too many requests",
+      "http error 429", "http error 5", "timed out", "unable to download")),
 )
 
 
-def fetch_failure(err):
-    """(CREATOR_NOTES key, retryable) for a yt-dlp/download error.
+def fetch_class(err):
+    """(CREATOR_NOTES key, class) for a download error, class being "input",
+    "unclear" or "ours". The creator lane uses this; the agency lane uses
+    fetch_failure() below.
 
-    Unrecognised errors keep the generic wording and STAY retryable. Guessing
-    "permanent" on an unknown string would hide a transient outage behind a
-    card with no way forward, which is worse than one pointless retry.
-    """
+    Anything unmatched is OURS: an unknown string is more likely our breakage
+    than the creator's link, and it becomes a page after ~30 minutes, which is
+    how a new needle gets found."""
     low = str(err).lower()
-    for retryable, key, needles in FETCH_FAILURES:
+    for cls, key, needles in FETCH_RULES:
         if any(n in low for n in needles):
-            return key, retryable
+            return key, cls
+    return "fetch_ours", "ours"
+
+
+def fetch_failure(err):
+    """(CREATOR_NOTES key, retryable) for a yt-dlp/download error — the
+    COMPAT WRAPPER for the agency lane and brief_clips, whose app.js
+    (CB_ERROR_TEXT) only knows the old keys. The creator lane uses
+    fetch_class(). Input keys come back unchanged and permanent, except
+    fetch_no_video (new) which the agency sees as fetch_unreadable;
+    unclear and ours both become the old retryable fetch_generic.
+
+    Unrecognised errors stay retryable. Guessing "permanent" on an unknown
+    string would hide a transient outage behind a card with no way forward,
+    which is worse than one pointless retry.
+    """
+    key, cls = fetch_class(err)
+    if cls == "input":
+        return ("fetch_unreadable" if key == "fetch_no_video" else key), False
     return "fetch_generic", True
 
 
@@ -665,6 +735,15 @@ AI_MAX_TRIES = 8          # ~5.25h of transient retrying (5+10+20+40+60x4), or
 # count one per pass.
 FINAL_MAX_PASSES = 12
 
+# THE SOURCE-FAILURE SCHEDULE. A download/read that fails for a reason we cannot
+# call permanent is retried on this ladder: minutes to wait after the 1st, 2nd,
+# ... 5th failed try. Six tries span about 30 minutes, which replaces the
+# uncontrolled re-run that took adaptation 4c6724bb to 12 passes in 7.6 minutes
+# (source-phase failures never stamped attemptedAt, so cooled() was True on every
+# sweep) and dad0e821 to 12 passes over a day. See mark_fetch_fail/fetch_retry_due.
+FETCH_RETRY_MINUTES = (1, 2, 4, 8, 15)
+FETCH_MAX_TRIES = len(FETCH_RETRY_MINUTES) + 1
+
 
 def ai_failure_kind(reason):
     r = (reason or "").lower()
@@ -703,6 +782,35 @@ CREATOR_NOTES = {
                      "menu — nothing you've written is gone.", "cap"),
     "off_platform": ("lynxr only reads TikTok and Instagram "
                      "links. Nothing was used from your allowance.", "platform"),
+    # Refused at claim time, before any charge or download (link_verdict).
+    "link_cut_off": ("That link looks cut off — copy the full link from the share "
+                     "button and paste it again. Nothing was used from your "
+                     "allowance.", "link"),
+    "link_profile": ("That's a profile, not a video — open the video itself and copy "
+                     "its link from the share button. Nothing was used from your "
+                     "allowance.", "link"),
+    "link_photo":   ("That's a photo post — lynxr works from videos. Paste a video "
+                     "link instead. Nothing was used from your allowance.", "link"),
+    "link_page":    ("That's a page, not a video — paste the link to one specific "
+                     "video. Nothing was used from your allowance.", "link"),
+    "fetch_no_video": ("That post has no video in it — lynxr works from videos. "
+                       "Paste a reel or video link instead. Nothing was used from "
+                       "your allowance.", "fetch"),
+    "fetch_unreachable": ("We couldn't open this video — it may have been deleted or "
+                          "made private, or the link may be incomplete. Check it plays "
+                          "in the app, then try again. Nothing was used from your "
+                          "allowance.", "fetch"),
+    "fetch_retrying": ("The platform didn't hand this video over on the first try "
+                       "— lynxr is trying again on its own. Nothing was used from "
+                       "your allowance.", "fetch"),
+    # Only ever shown while retrying (same sentence as fetch_retrying); the
+    # final sentence is set by process_group.
+    "fetch_ours":   ("The platform didn't hand this video over on the first try "
+                     "— lynxr is trying again on its own. Nothing was used from "
+                     "your allowance.", "fetch"),
+    "read_ours":    ("Something on our side went wrong reading this video — lynxr "
+                     "is trying again on its own. Nothing was used from your "
+                     "allowance.", "ours"),
     "fetch_age":    ("This video is age-restricted, so we can't open it. "
                      "Try another link.", "fetch"),
     "fetch_private": ("This video is private, so we can't open it. "
@@ -802,6 +910,13 @@ class CreatorFacing(Exception):
         self.nums = nums
 
 
+class FetchFailed(RuntimeError):
+    """The download itself failed; the message starts with 'download failed:'.
+    process_group classifies it with fetch_class(). Anything raised AFTER the
+    download (Whisper, ffprobe, frames) is NOT this, and is never blamed on the
+    creator's link."""
+
+
 # How long a failed or silent ffprobe may wait on the caller's concurrent
 # yt-dlp metadata lookup (fetch_meta has its own 90s ceiling). Only paid on
 # the rare path where the file itself could not say how long it is.
@@ -898,6 +1013,45 @@ def ai_retry_due(a):
     return minutes_since(f.get("at")) >= sched[min(tries - 1, len(sched) - 1)]
 
 
+def mark_fetch_fail(a, cls, key, err):
+    """Stamp the source-failure marker. `cls` is "unclear" or "ours" (or "input"
+    for a retryable CreatorFacing); `key` the CREATOR_NOTES key; `err` the raw
+    exception, kept only as a diagnosis string (creator.js never renders
+    fetchFail). `tries` counts passes that failed to read the video, across the
+    whole retry window, and `first` is when the window opened."""
+    prev = a.get("fetchFail") or {}
+    a["fetchFail"] = {"cls": cls, "key": key,
+                      "first": prev.get("first") or now_iso(),
+                      "at": now_iso(),
+                      "tries": int(prev.get("tries") or 0) + 1,
+                      "reason": str(err)[:160]}
+
+
+def fetch_retry_due(a):
+    """Is this entry, which failed to read its video, due another go?"""
+    f = a.get("fetchFail")
+    if not f:
+        return False
+    tries = max(1, int(f.get("tries") or 1))
+    if tries >= FETCH_MAX_TRIES:
+        return True       # only reachable when `final` was never written; the next pass finalises it
+    return minutes_since(f.get("at")) >= FETCH_RETRY_MINUTES[min(tries - 1, len(FETCH_RETRY_MINUTES) - 1)]
+
+
+def mark_retrying(a):
+    """THE ONLY WRITER OF a["retrying"]. True means lynxr is still working on
+    this entry by itself, so creator.js shows "still trying" instead of a red
+    failure card. Set when the entry is an unfinished error that will be picked
+    up again (a source-read retry in progress, or a model failure on a retry
+    schedule); popped otherwise, so a finished or final entry never keeps it."""
+    if (a.get("status") == "error" and not a.get("final")
+            and a.get("retryable") is not False
+            and (a.get("fetchFail") or (a.get("aiFail") or {}).get("kind") in AI_RETRY_KINDS)):
+        a["retrying"] = True
+    else:
+        a.pop("retrying", None)
+
+
 def has_usable_result(a):
     """Is there anything on this entry the creator can actually use?
 
@@ -947,9 +1101,15 @@ def final_reason(a, *, retryable=True):
 
     Pure, so pipeline/test_prefilter.py can drive the whole state space through
     it. Order matters: a recognised permanent wall wins over any counter.
+    Returns "wall", "unreachable", "gave_up", "no_script", "exhausted" or "".
     """
     if not retryable:
         return "wall"                    # age-gated/private/deleted/brand gone/too long
+    ff = a.get("fetchFail") or {}
+    if ff and int(ff.get("tries") or 0) >= FETCH_MAX_TRIES:
+        # Out of tries on the read. "unreachable" (the platform never said why;
+        # digest line, no page) versus "gave_up" (ours; pages).
+        return "unreachable" if ff.get("cls") == "unclear" else "gave_up"
     f = a.get("aiFail") or {}
     if f and not has_usable_result(a):
         if f.get("kind") not in AI_RETRY_KINDS:
@@ -1145,6 +1305,10 @@ def wants_work(a, *, cooldown_hours, lease_minutes, min_age_seconds, redo_ai):
         # floor, not a lock.
         if a.get("final") and not redo_ai:
             return False
+        # A failed READ of the video has its own bounded schedule (6 tries over
+        # ~30 minutes); it must not fall through to the 6-hour cooled() floor.
+        if a.get("fetchFail"):
+            return fetch_retry_due(a)
         # A dry balance is not the same kind of failure as a video that
         # cannot be downloaded, and it was getting the same six-hour wait.
         # A brand adaptation that fails on billing RAISES (no beats), so it
@@ -1300,6 +1464,14 @@ APIFY_BUDGET_TTL_S   = int(envcfg.get("APIFY_BUDGET_TTL_S", "600"))
 APIFY_PRICE_PER_LOOKUP_USD = 0.0027  # FREE tier, measured 2026-09-12 (BRONZE is 0.0023) — for
 # the refresh_views() summary log line ONLY; not authoritative for spend
 # decisions, apify_budget_ok() reads Apify's own ledger for that.
+# When yt-dlp cannot download an INSTAGRAM post, ask Apify for the video file
+# (and, as a side effect, for its verdict on the post). Costs one lookup
+# (APIFY_PRICE_PER_LOOKUP_USD) per Instagram yt-dlp failure from the shared
+# monthly cap, and fails closed through apify_budget_ok(). FETCH_FALLBACK_APIFY=0
+# switches it off without a deploy of code.
+FETCH_FALLBACK_APIFY = envcfg.get("FETCH_FALLBACK_APIFY", "1") not in ("0", "", "false", "False")
+APIFY_VIDEO_TIMEOUT_S = 120
+APIFY_VIDEO_MAX_BYTES = 300 * 1024 * 1024
 
 # Shown to the creator in the app, so it reads as an answer rather than a fault.
 OFF_PLATFORM_NOTE = note_text("off_platform")
@@ -1326,6 +1498,145 @@ def supported_url(url):
     if host.startswith("www."):
         host = host[4:]
     return any(host == d or host.endswith("." + d) for d in SUPPORTED_HOSTS)
+
+
+# ---------- IS THIS A LINK TO ONE VIDEO? (the claim-time mirror of the paste box) ----------
+#
+# supported_url() above answers "is this an accepted site"; link_shape() answers
+# "is this a link to ONE VIDEO on it". They mirror linkShape() in creator.js rule
+# for rule, and pipeline/link_shapes.json is the shared truth both are tested
+# against (test_link_checks.py here, tools/test_link_shape.mjs in Node): change
+# one, change both.
+#
+# A cut-off Instagram link (reels/OB5) used to sail through, cost a download,
+# and fail as a generic retryable error. Real shortcodes are 11 characters in
+# 1418/1418 lynxr_videos rows, 87/87 lynxr_sources rows and 35/36 creator
+# pastes (the 36th was OB5). yt-dlp's own tests carry real 10-character codes
+# from 2013-2016 (-Cmh1cukG2, 9o6LshA7zy, aye83DjauH), so the floor is 10, not
+# 11: 11 would refuse real old videos.
+IG_CODE_MIN = 10
+# A TikTok id's top 32 bits are unix seconds, so every id since 2016 has 19
+# digits until 2043. Measured: 6702/6702 rows and all 18 creator pastes.
+TT_ID_RE = re.compile(r"[0-9]{19,20}")  # ASCII digits: JS \d is ASCII-only, Python's is not
+# Every TikTok short-link code seen is 9 characters (ZPLRQ8b33, ZSb25aj9m,
+# ZTDAvAjfE, ZP8vEvdAQ; yt-dlp's own ZTRC5xgJp, ZTR45GpSF).
+TT_SHORT_MIN = 9
+_IG_POST = ("p", "reel", "reels", "tv")
+_IG_RESERVED = ("share", "stories", "explore", "accounts", "direct")
+
+
+def link_shape(url):
+    """"ok" | "cut_off" | "profile" | "photo" | "page" for a URL that already
+    passed supported_url(). Pure. Mirrors linkShape() in creator.js."""
+    try:
+        parts = urllib.parse.urlsplit(str(url or "").strip())
+        host = (parts.hostname or "").lower()
+    except ValueError:
+        return "page"
+    for pre in ("www.", "m."):
+        if host.startswith(pre):
+            host = host[len(pre):]
+            break
+    segs = [x for x in parts.path.split("/") if x]
+    if host == "instagram.com":
+        if not segs or segs[0] in _IG_RESERVED:
+            return "page"
+        if segs[0] in _IG_POST:
+            if len(segs) < 2:
+                return "page"
+            code = segs[1]
+        elif len(segs) >= 3 and segs[1] in _IG_POST:
+            code = segs[2]
+        else:
+            return "profile"
+        if code == "audio" or not re.fullmatch(r"[A-Za-z0-9_-]+", code):
+            return "page"
+        return "cut_off" if len(code) < IG_CODE_MIN else "ok"
+    if host in ("vm.tiktok.com", "vt.tiktok.com"):
+        code = segs[0] if segs else ""
+        if not code or not re.fullmatch(r"[A-Za-z0-9]+", code):
+            return "page"
+        return "cut_off" if len(code) < TT_SHORT_MIN else "ok"
+    if host == "tiktok.com":
+        if not segs:
+            return "page"
+        if segs[0] == "t":
+            code = segs[1] if len(segs) > 1 else ""
+            if not code or not re.fullmatch(r"[A-Za-z0-9]+", code):
+                return "page"
+            return "cut_off" if len(code) < TT_SHORT_MIN else "ok"
+        if segs[0].startswith("@"):
+            if len(segs) == 1:
+                return "profile"
+            if segs[1] == "video":
+                vid = segs[2] if len(segs) > 2 else ""
+                if TT_ID_RE.fullmatch(vid):
+                    return "ok"
+                if re.fullmatch(r"[0-9]{0,18}", vid):
+                    return "cut_off"
+                return "page"
+            if segs[1] == "photo":
+                return "photo"
+        return "page"
+    return "page"
+
+
+# link_shape() verdict -> the CREATOR_NOTES key that explains the refusal.
+LINK_NOTE = {"cut_off": "link_cut_off", "profile": "link_profile",
+             "photo": "link_photo", "page": "link_page"}
+
+
+def link_verdict(url):
+    """The CREATOR_NOTES key refusing this link before any charge or download,
+    or None when the worker should read it."""
+    if not supported_url(url):
+        return "off_platform"
+    return LINK_NOTE.get(link_shape(url))
+
+
+def refuse_bad_links(adaptations, wants):
+    """Refuse every wanted entry whose link the worker will not read, and return
+    the entries changed (the caller grafts them). Pure but for the mutation.
+
+    Run BEFORE charge_scripts: these entries are never charged and never
+    fetched, so no refund is needed. mark_final() makes wants() False
+    afterwards, so each refusal is written exactly once. One extra guard: an
+    entry already final with this very sentence is skipped, because
+    --redo-ai makes wants() True for a final entry and would otherwise
+    rewrite it on every pass."""
+    refused = []
+    for a in adaptations:
+        if not wants(a):
+            continue
+        key = link_verdict(a.get("sourceUrl"))
+        if not key:
+            continue
+        if a.get("final") and a.get("note") == note_text(key):
+            continue
+        a["status"] = "error"
+        set_note(a, key)
+        a["retryable"] = False            # a cut-off link never becomes a video
+        a["fetchClass"] = "input"
+        a.pop("fetchFail", None)
+        a.pop("retrying", None)
+        mark_final(a, "wall")
+        refused.append(a)
+    return refused
+
+
+def fetch_url(url):
+    """The URL to HAND TO THE DOWNLOADER. m.tiktok.com is rewritten to
+    www.tiktok.com: measured 2026-10-05, m.tiktok.com/@.../video/<live id> gives
+    `ERROR: [generic] ...: Unable to download webpage: HTTP Error 404: Not
+    Found`, while the bare tiktok.com host downloads. The stored sourceUrl is
+    NEVER rewritten (canon_url, the library and the source cache key on it)."""
+    try:
+        parts = urllib.parse.urlsplit(str(url or "").strip())
+    except ValueError:
+        return url
+    if (parts.hostname or "").lower() == "m.tiktok.com":
+        return urllib.parse.urlunsplit(parts._replace(netloc="www.tiktok.com"))
+    return url
 
 
 # Tokens spent THIS SCRIPT, per model — one dict per thread. Cost per script is
@@ -1972,26 +2283,14 @@ def apify_item_views(items):
 _APIFY_CALLS = 0   # paid lookups attempted this process; read by refresh_views
 
 
-def apify_views(url):
-    """The Instagram play count for ONE post URL, via the Apify actor the
-    agency scrape already uses. Returns an int, or None. NEVER raises, and
-    never returns 0 to mean failure — absent is None everywhere in this
-    file (see trusted_views / source_metrics).
+def apify_post_items(url):
+    """The raw dataset items for ONE Instagram post URL from the Apify actor,
+    or None when we could not ask (no token, over budget, network failure).
+    NEVER raises. Shared by apify_views() (the play count) and apify_fetch()
+    (the video file). Each call is one paid lookup and counts in _APIFY_CALLS.
 
-    Measured live 2026-08-19 (plan Appendix A): apify/instagram-scraper,
-    directUrls with a single post URL, returns videoPlayCount for /reel/,
-    /reels/ and /p/ shapes alike, at $0.0023 a lookup and 7-23s. Scope is
-    public post metadata and nothing else.
-
-    Called over plain urllib rather than the apify_client SDK ON PURPOSE:
-    apify-client is NOT in requirements-ci.txt, so it is in neither the Fly
-    image nor GitHub CI, and adding an import that can fail at module load
-    to the file every test and backfill imports is a worse trade than one
-    HTTP request. run-sync-get-dataset-items does the whole thing in a
-    single POST — no run id, no polling, no dataset read.
-
-    The token goes in an Authorization header, NEVER in the query string,
-    so it cannot reach a log line or an exception message.
+    The token goes in an Authorization header, NEVER in the query string, so it
+    cannot reach a log line or an exception message.
     """
     global _APIFY_CALLS
     token = apify_token()
@@ -2017,9 +2316,82 @@ def apify_views(url):
                 req, timeout=APIFY_RUN_TIMEOUT_S + 15, context=SSL_CTX) as r:
             items = json.loads(r.read())
     except Exception as e:  # noqa: BLE001
-        log.info("  apify_views failed: %s — %s", str(url)[:60], str(e)[:90])
+        log.info("  apify lookup failed: %s — %s", str(url)[:60], str(e)[:90])
         return None
-    return apify_item_views(items)
+    return items if isinstance(items, list) else None
+
+
+def apify_views(url):
+    """The Instagram play count for ONE post URL, via the Apify actor the
+    agency scrape already uses. Returns an int, or None. NEVER raises, and
+    never returns 0 to mean failure — absent is None everywhere in this
+    file (see trusted_views / source_metrics).
+
+    Measured live 2026-08-19 (plan Appendix A): apify/instagram-scraper,
+    directUrls with a single post URL, returns videoPlayCount for /reel/,
+    /reels/ and /p/ shapes alike, at $0.0023 a lookup and 7-23s. Scope is
+    public post metadata and nothing else.
+
+    Called over plain urllib rather than the apify_client SDK ON PURPOSE:
+    apify-client is NOT in requirements-ci.txt, so it is in neither the Fly
+    image nor GitHub CI, and adding an import that can fail at module load
+    to the file every test and backfill imports is a worse trade than one
+    HTTP request. run-sync-get-dataset-items does the whole thing in a
+    single POST — no run id, no polling, no dataset read.
+
+    The token goes in an Authorization header, NEVER in the query string,
+    so it cannot reach a log line or an exception message.
+    """
+    return apify_item_views(apify_post_items(url))
+
+
+def apify_fetch(url, dest):
+    """(path|None, verdict|None): the Instagram fallback download. Asks Apify
+    for the post and streams its `videoUrl` into dest/v.mp4.
+
+    path    a file was written.
+    verdict an error string classified by fetch_class(): Apify's answer about
+            the post (gone / private / no video in it) outranks yt-dlp's.
+    (None, None) means we could not tell: no token, over budget, an empty
+            answer, or the file download itself failed.
+
+    NEVER raises. Never logs the token or the videoUrl."""
+    items = apify_post_items(url)
+    if not items:
+        return None, None
+    for item in items:
+        if isinstance(item, dict) and item.get("error"):
+            return None, f"apify {item.get('error')}: {item.get('errorDescription')}"[:160]
+    item = next((i for i in items if isinstance(i, dict)), None)
+    if item is None:
+        return None, None
+    video_url = item.get("videoUrl")
+    if not video_url:
+        return None, f"There is no video in this post (apify type {item.get('type') or '?'})"
+    out = Path(dest) / "v.mp4"
+    try:
+        if urllib.parse.urlsplit(str(video_url)).scheme not in ("http", "https"):
+            raise ValueError("not an http(s) video url")
+        req = urllib.request.Request(str(video_url), headers={"User-Agent": "Mozilla/5.0"})
+        total = 0
+        with urllib.request.urlopen(req, timeout=APIFY_VIDEO_TIMEOUT_S, context=SSL_CTX) as r, \
+                open(out, "wb") as f:
+            while True:
+                chunk = r.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > APIFY_VIDEO_MAX_BYTES:
+                    raise ValueError("video over the size ceiling")
+                f.write(chunk)
+        return out, None
+    except Exception as e:  # noqa: BLE001 — a failed fallback must never cost more than the fallback
+        log.warning("  apify video download failed: %s", type(e).__name__)
+        try:
+            out.unlink()
+        except OSError:
+            pass
+        return None, None
 
 
 def trusted_views(url, raw):
@@ -2345,17 +2717,31 @@ def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, u
         td = Path(td_s)
         try:
             with stage(timings, "download"):
-                media, err = download_video(str(url).strip(), td)
+                # fetch_url() only fixes the host the DOWNLOADER sees; the
+                # stored sourceUrl is never rewritten.
+                dl_url = fetch_url(str(url).strip())
+                media, err = download_video(dl_url, td)
                 if not media:
-                    media, err2 = fetch_audio(url, td)   # video refused; audio still scripts it
+                    media, err2 = fetch_audio(dl_url, td)   # video refused; audio still scripts it
+                    if not media and FETCH_FALLBACK_APIFY and platform_of(url) == "instagram":
+                        with stage(timings, "apify_fetch"):
+                            media, verdict = apify_fetch(url, td)
+                        if media:
+                            (a.setdefault("source", {}))["fetchedVia"] = "apify"
+                        elif verdict:
+                            # Apify's answer about the post outranks yt-dlp's.
+                            err, err2 = verdict, None
                     if not media:
-                        raise RuntimeError(f"download failed: {err or err2}")
-        except Exception:  # noqa: BLE001 — re-raised below unless the video is simply too long
+                        raise FetchFailed(f"download failed: {err or err2}")
+        except Exception as e:  # noqa: BLE001 — re-raised below unless the video is simply too long
             # A long video is the likeliest reason a download runs past its 180s
             # timeout. If the platform says it is over the limit, that is the
             # true and final answer, not a retryable fetch error.
             refuse_if_long(length_hint(LENGTH_HINT_WAIT_S) if length_hint else None, "metadata")
-            raise
+            if isinstance(e, FetchFailed):
+                raise
+            # subprocess.TimeoutExpired and friends: still a download failure.
+            raise FetchFailed(f"download failed: {str(e)[:160]}") from e
 
         # THE AUTHORITATIVE CHECK: the file we actually have, before Whisper and
         # before any model call. `probed` is also what script-quality.md step 14
@@ -2819,6 +3205,7 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
             else:
                 a["status"] = "done"
             a["processedAt"] = now_iso()
+            mark_retrying(a)
             with stage(timings, "graft"):
                 graft_adaptations(key, cid, [a])   # the creator has it NOW
             # The value here was fetched by process_group's prefetch — a
@@ -2902,6 +3289,7 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
                              tries=int((a.get("aiFail") or {}).get("tries") or AI_MAX_TRIES))
                 mark_final(a, why)
             log.error("  -> FAILED: %s", e)
+            mark_retrying(a)
             graft_adaptations(key, cid, [a])
             # OPTION (b) ONLY — see Step 12. After the graft, so a slow or
             # failing RPC can never delay the creator's error card.
@@ -2996,19 +3384,32 @@ def process_group(key, aclient, group):
         # A CreatorFacing here is the length gate: its sentence and its
         # retryable=False are already decided, so it is honoured, not classified.
         if isinstance(e, CreatorFacing):
-            note_key, retryable, nums = e.key, e.retryable, e.nums
-        else:
-            (note_key, retryable), nums = fetch_failure(e), {}
+            note_key, cls, retryable, nums = e.key, "input", e.retryable, e.nums
+        elif isinstance(e, FetchFailed) or str(e).startswith("download failed"):
+            (note_key, cls), nums = fetch_class(e), {}
+            retryable = cls != "input"
+        else:   # past the download: Whisper, ffprobe, frames. Ours, never the link (PyAV 19, 2026-10-04)
+            note_key, cls, retryable, nums = "read_ours", "ours", True, {}
         for cid, data, a in group:
             a["status"] = "error"
-            set_note(a, note_key, **nums)
+            a["fetchClass"] = cls
             # False means Try again is pointless and creator.js hides it. Only
-            # ever written here, and only False for a recognised permanent
-            # wall — see FETCH_FAILURES.
+            # False for a recognised permanent wall (an "input" failure).
             a["retryable"] = retryable
+            if retryable:
+                mark_fetch_fail(a, cls, note_key, e)
+                set_note(a, "read_ours" if note_key == "read_ours" else "fetch_retrying")
+            else:
+                a.pop("fetchFail", None)
+                set_note(a, note_key, **nums)
             why = final_reason(a, retryable=retryable)
             if why:
                 mark_final(a, why)
+                if why == "unreachable":
+                    set_note(a, "fetch_unreachable")
+                elif why in ("gave_up", "exhausted"):
+                    set_note(a, "gave_up", tries=int((a.get("fetchFail") or {}).get("tries") or FETCH_MAX_TRIES))
+            mark_retrying(a)
             # Reached only when fill_source raised, i.e. before extract_format
             # and before any Anthropic call — nothing was spent on this entry,
             # so a charge taken for it (main() charges before the claim, this
@@ -3019,13 +3420,25 @@ def process_group(key, aclient, group):
             refund(key, a, "source failed before any model call")
             graft_adaptations(key, cid, [a])
         # The raw stderr stays in the log, where whoever is debugging can see
-        # it, and out of the row, where a creator would.
+        # it, and out of the row, where a creator would. A URL's query string
+        # (tracking ids) is cut from the logged text.
         if isinstance(e, CreatorFacing):
             log.info("  -> REFUSED (source): %s", e)
         else:
-            log.error("  -> FAILED (source): %s%s", e, "" if retryable else "  [permanent]")
+            log.error("  -> FAILED (source, %s/%s): %s", cls, note_key,
+                      re.sub(r"(https?://[^\s?#]+)[?#]\S*", r"\1", str(e)))
         return
     flush_source_cost(bool(ok) and (fuse or rep.get("format") is not None))
+    for _cid, _data, entry in group:
+        # The read worked. If it had been failing, say it healed (breadcrumb,
+        # like aiFail -> healed) and drop the "still trying" sentence.
+        healed = entry.pop("fetchFail", None)
+        if healed:
+            entry["fetchHealed"] = {"tries": int(healed.get("tries") or 0),
+                                    "cls": healed.get("cls"), "at": now_iso()}
+            clear_note(entry)
+        entry.pop("fetchClass", None)
+        entry.pop("retrying", None)
 
     # Joined here, not in the `try` above: on the failure path the group is
     # already errored and nobody should wait on a lookup nothing will read.
@@ -3739,7 +4152,7 @@ def main():
         # how many are allowed.
         candidates = sorted(
             (a for a in (data.get("adaptations") or [])
-             if wants_work(a) and supported_url(a.get("sourceUrl"))),
+             if wants_work(a) and link_verdict(a.get("sourceUrl")) is None),
             key=lambda a: a.get("addedAt") or "")
         ready, over = candidates, []
         if args.cap:
@@ -3787,30 +4200,24 @@ def main():
                     for a in fresh_over:
                         a["status"] = "error"
                         set_note(a, note_key, **nums)
+                        a.pop("retrying", None)
                     log.info("[%s] refusing %d over the allowance (%s)",
                              data.get("name") or cid[:8], len(fresh_over), note_key)
                     graft_adaptations(key, cid, fresh_over)
 
-        # OFF-PLATFORM LINKS, refused before anything is spent — the same
-        # allowlist creator.js applies at the paste box, enforced here because
-        # that one lives in a row the creator owns and the console can walk
-        # around it. A Netflix or news URL otherwise costs a download, a Whisper
-        # pass and four model calls before failing on something unrelated.
-        # Only WRITTEN when the note is not already there: an "error" entry
-        # becomes eligible again once it cools, and re-marking it every pass
-        # would be an endless write loop for no change.
-        off = [a for a in (data.get("adaptations") or [])
-               if wants_work(a) and not supported_url(a.get("sourceUrl"))]
-        fresh_off = [a for a in off if a.get("note") != OFF_PLATFORM_NOTE]
-        if fresh_off:
-            for a in fresh_off:
-                a["status"] = "error"
-                set_note(a, "off_platform")
-                a["retryable"] = False        # a Netflix link never becomes a video
-                mark_final(a, "wall")
-            log.info("[%s] refusing %d off-platform link(s)",
-                     data.get("name") or cid[:8], len(fresh_off))
-            graft_adaptations(key, cid, fresh_off)
+        # LINKS THE WORKER WILL NOT READ, refused before anything is spent — an
+        # off-platform site (the same allowlist creator.js applies at the paste
+        # box, enforced here because that one lives in a row the creator owns
+        # and the console can walk around it) or a link that is not one video
+        # (cut off, a profile, a photo, a page; see link_verdict). A Netflix URL
+        # or a truncated shortcode otherwise costs a download, a Whisper pass
+        # and four model calls before failing on something unrelated. Written
+        # once: mark_final() takes the entry out of wants_work().
+        refused = refuse_bad_links(data.get("adaptations") or [], wants_work)
+        if refused:
+            log.info("[%s] refusing %d link(s) the worker will not read",
+                     data.get("name") or cid[:8], len(refused))
+            graft_adaptations(key, cid, refused)
 
         batch = ready[:args.max_per_creator] if args.max_per_creator else ready
         if not batch:

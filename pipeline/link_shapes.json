@@ -1,0 +1,202 @@
+[
+ {
+  "url": "https://www.instagram.com/reel/CDUMkliABpa/",
+  "expect": "ok",
+  "why": "full reel link"
+ },
+ {
+  "url": "https://www.instagram.com/reels/Cop84x6u7CP/",
+  "expect": "ok",
+  "why": "full reels link"
+ },
+ {
+  "url": "https://www.instagram.com/p/BsOGulcndj-/",
+  "expect": "ok",
+  "why": "photo post: the shape is ok, the worker decides"
+ },
+ {
+  "url": "https://instagram.com/p/-Cmh1cukG2/",
+  "expect": "ok",
+  "why": "real 10-char code, 2013-2016 era"
+ },
+ {
+  "url": "https://www.instagram.com/tv/aye83DjauH/",
+  "expect": "ok",
+  "why": "real 10-char code on /tv/"
+ },
+ {
+  "url": "https://www.instagram.com/marvelskies.fc/reel/CWqAgUZgCku/",
+  "expect": "ok",
+  "why": "username-prefixed link, which yt-dlp accepts"
+ },
+ {
+  "url": "https://www.instagram.com/reel/CDUMkliABpa/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==",
+  "expect": "ok",
+  "why": "share-button link with tracking query"
+ },
+ {
+  "url": "https://www.tiktok.com/@leenabhushan/video/6748451240264420610",
+  "expect": "ok",
+  "why": "full tiktok video link"
+ },
+ {
+  "url": "https://www.tiktok.com/@patroxofficial/video/6742501081818877190?langCountry=en",
+  "expect": "ok",
+  "why": "tiktok video link with query"
+ },
+ {
+  "url": "https://tiktok.com/@leenabhushan/video/6748451240264420610",
+  "expect": "ok",
+  "why": "tiktok video link without www"
+ },
+ {
+  "url": "https://m.tiktok.com/@leenabhushan/video/6748451240264420610",
+  "expect": "ok",
+  "why": "tiktok mobile host"
+ },
+ {
+  "url": "https://www.tiktok.com/t/ZTRC5xgJp",
+  "expect": "ok",
+  "why": "tiktok /t/ short link"
+ },
+ {
+  "url": "https://vm.tiktok.com/ZTR45GpSF/",
+  "expect": "ok",
+  "why": "tiktok vm short link"
+ },
+ {
+  "url": "https://vt.tiktok.com/ZTR45GpSF/",
+  "expect": "ok",
+  "why": "tiktok vt short link"
+ },
+ {
+  "url": "https://www.instagram.com/reels/OB5/",
+  "expect": "cut_off",
+  "why": "the 2026-10-04 incident: 3-char code"
+ },
+ {
+  "url": "https://www.instagram.com/reel/CDUMkliAB/",
+  "expect": "cut_off",
+  "why": "reel code one char short"
+ },
+ {
+  "url": "https://www.tiktok.com/@leenabhushan/video/674845124026442",
+  "expect": "cut_off",
+  "why": "tiktok id truncated"
+ },
+ {
+  "url": "https://www.tiktok.com/@leenabhushan/video/",
+  "expect": "cut_off",
+  "why": "tiktok id missing"
+ },
+ {
+  "url": "https://www.tiktok.com/t/ZTRC5xg",
+  "expect": "cut_off",
+  "why": "tiktok /t/ code too short"
+ },
+ {
+  "url": "https://vm.tiktok.com/ZTR45/",
+  "expect": "cut_off",
+  "why": "tiktok vm code too short"
+ },
+ {
+  "url": "https://www.instagram.com/instagram/",
+  "expect": "profile",
+  "why": "instagram profile"
+ },
+ {
+  "url": "https://www.instagram.com/marvelskies.fc/reels/",
+  "expect": "profile",
+  "why": "instagram profile reels tab"
+ },
+ {
+  "url": "https://www.tiktok.com/@leenabhushan",
+  "expect": "profile",
+  "why": "tiktok profile"
+ },
+ {
+  "url": "https://www.tiktok.com/@leenabhushan?lang=en",
+  "expect": "profile",
+  "why": "tiktok profile with query"
+ },
+ {
+  "url": "https://www.tiktok.com/@leenabhushan/photo/7350000000000000000",
+  "expect": "photo",
+  "why": "tiktok photo post"
+ },
+ {
+  "url": "https://www.instagram.com/",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.instagram.com/explore/",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.instagram.com/reels/",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.instagram.com/stories/instagram/",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.instagram.com/share/reel/BAxyz12345/",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.instagram.com/reels/audio/1234567890/",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://business.instagram.com/reel/CDUMkliABpa/",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.tiktok.com/",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.tiktok.com/foryou",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.tiktok.com/tag/fyp",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.tiktok.com/@leenabhushan/video/abc",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.tiktok.com/embed/6748451240264420610",
+  "expect": "page",
+  "why": "a page on an accepted host"
+ },
+ {
+  "url": "https://www.youtube.com/shorts/aqz-KE-bpKQ",
+  "expect": "off_platform",
+  "why": "not an accepted platform"
+ },
+ {
+  "url": "https://instagram.com.example.net/reel/CDUMkliABpa/",
+  "expect": "off_platform",
+  "why": "not an accepted platform"
+ },
+ {
+  "url": "https://example.com/?from=tiktok.com",
+  "expect": "off_platform",
+  "why": "not an accepted platform"
+ }
+]

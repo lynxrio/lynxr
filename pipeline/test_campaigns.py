@@ -268,6 +268,7 @@ check("verbatim_beats silent: beat 0 do joins the shots",
 check("verbatim_beats silent: beat 0 show", _vb[0]["show"], "Out of snacks again?")
 check("verbatim_beats silent: beat 1 window", _vb[1]["t"], "2.6-4.2s")
 check("verbatim_beats silent: beat 2 runs to the end", _vb[2]["t"], "4.2-16.3s")
+check("verbatim_beats silent: orig is the beat's own window", [b["orig"] for b in _vb], [b["t"] for b in _vb])
 
 SPOKEN_SOURCE = {"script": {"has_speech": True, "segments": [
     [0, 2, "Stop scrolling."], [2, 4.5, "This app plans my week."],
@@ -277,7 +278,7 @@ SPOKEN_SOURCE = {"script": {"has_speech": True, "segments": [
 _vs = C.verbatim_beats(SPOKEN_SOURCE)
 check("verbatim_beats spoken: four beats", len(_vs), 4)
 check("verbatim_beats spoken: beat 0",
-      _vs[0], {"t": "0-2s", "say": "Stop scrolling.", "do": "Face to camera", "show": ""})
+      _vs[0], {"t": "0-2s", "orig": "0-2s", "say": "Stop scrolling.", "do": "Face to camera", "show": ""})
 check("verbatim_beats spoken: beat 1 takes the nearest shot", _vs[1]["do"], "Screen recording of the app")
 check("verbatim_beats spoken: beat 3 takes the shot exactly 4s away", _vs[3]["do"], "Screen recording of the app")
 
@@ -382,7 +383,8 @@ def _fake_structured(client, system, schema, content, max_tokens=None):
                 "key_moments": ["Open on the jar"]}
     return {"title": "t", "fit": 0.5, "fit_reason": "r", "delivery": "silent", "hook": "h", "needs": ["n"],
             "setting": "", "lighting": "", "framing": "", "audio": "",
-            "beats": [{"t": "0-2s", "say": "", "do": "d", "show": "s"}, {"t": "2-4s", "say": "", "do": "d", "show": "s"}],
+            "beats": [{"t": "0-2s", "say": "", "do": "d", "show": "s", "orig": "8.14-12s"},
+                      {"t": "2-4s", "say": "", "do": "d", "show": "s", "orig": "99-100s"}],
             "cta": "", "caption": "", "creator_note": "", "strategy_note": ""}
 
 
@@ -424,6 +426,7 @@ try:
     check_true("route 5: script call carries the agency's needs and the moments",
                len(_sc) == 1 and "THE AGENCY'S OWN NEEDS" in _sc[0][1] and "MUST-HAVE MOMENTS" in _sc[0][1]
                and f and f["status"] == "done")
+    check("route 5: orig normalised against the source's 16.3s", [b["orig"] for b in f["script"]["beats"]], ["8.1-12s", ""])
     # 6. verbatim with nothing to keep
     f = _run({"job": "script", "script_mode": "verbatim", "analysis": KM, "source": {}})
     check_true("route 6: nothing to keep is a retryable verbatim_empty error back to the read job",
@@ -437,6 +440,20 @@ try:
                and f["source"] == SILENT_SOURCE)
 finally:
     C.sbx, P.fill_source, P.fetch_meta, P.structured, C.pool_source, C.record_agency_cost = _saved
+
+# ---- (t) orig -----------------------------------------------------------------------
+check_true("AGENCY beat requires orig", "orig" in C.AGENCY_SCRIPT_SCHEMA["properties"]["beats"]["items"]["required"])
+check_true("creator lane's ADAPT_SCHEMA beat has no orig",
+           "orig" not in P.ADAPT_SCHEMA["properties"]["beats"]["items"]["properties"])
+check_true("AGENCY_SCRIPT_SYSTEM carries rule 17", "17. `orig`" in C.AGENCY_SCRIPT_SYSTEM)
+for _in, _d, _want in [("8-12s", 16.3, "8-12s"), ("8.14 - 12.06 s", 0, "8.1-12.1s"), ("0:08-0:12", 0, "8-12s"),
+                       ("3.5–7.5s", 0, "3.5-7.5s"), ("15", 16.3, "15-16.3s"), ("12-8s", 0, "12-14s"),
+                       ("17-20s", 16.3, ""), ("", 16.3, ""), ("abc", 0, ""), (None, 0, "")]:
+    check(f"norm_orig({_in!r}, {_d})", C.norm_orig(_in, _d), _want)
+_wo = C.with_orig({"hook": "h", "beats": [{"t": "0-2s", "say": "a", "do": "", "show": ""},
+                                          {"t": "2-4s", "say": "b", "do": "", "show": "", "orig": "4 - 6"}]}, 10)
+check("with_orig: missing -> '', present -> canonical", [b["orig"] for b in _wo["beats"]], ["", "4-6s"])
+check("with_orig: other fields untouched", (_wo["hook"], _wo["beats"][1]["say"]), ("h", "b"))
 
 print()
 if FAILS:
