@@ -9490,26 +9490,50 @@ const cbTyping = () => {
   const el = document.activeElement;
   return !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
 };
-function cbFollow(el, split) {
-  if (Date.now() < CB_HANDS_OFF || cbTyping() || el.closest("details:not([open])")) return;
+/** How far to scroll so `el` sits clear of whatever covers the screen: the agency header, and on phones the
+    sticky player. 0 when it already is. One geometry for cbFollow and cbWireFieldFocus. */
+function cbClearDy(el, split) {
   const r = el.getBoundingClientRect();
-  if (!r.height) return;
+  if (!r.height) return 0;
   const panel = split.querySelector(":scope > .ag-original[open]");
   const p = panel ? panel.getBoundingClientRect() : null;
   // Stacked (phones): the sticky player covers the top of the screen, so "in view" starts under it.
   const over = !!p && p.left < r.right && p.right > r.left && p.top < innerHeight / 2
     && getComputedStyle(panel).position === "sticky";
   const top = over ? p.bottom + 8 : 84;          // 84 = under the agency header (12px inset + 52px bar) + air
-  const bottom = innerHeight - 16;
+  // The on-screen keyboard shrinks the visual viewport, not innerHeight.
+  const bottom = (window.visualViewport ? visualViewport.offsetTop + visualViewport.height : innerHeight) - 16;
   let dy = 0;
   if (r.top < top) dy = r.top - top;
   else if (r.bottom > bottom) dy = Math.min(r.top - top, r.bottom - bottom);
-  if (Math.abs(dy) < 2) return;
+  return Math.abs(dy) < 2 ? 0 : dy;
+}
+function cbFollow(el, split) {
+  if (Date.now() < CB_HANDS_OFF || cbTyping() || el.closest("details:not([open])")) return;
+  const dy = cbClearDy(el, split);
+  if (!dy) return;
   window.scrollBy({ top: dy, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+/* The editor (polish 2026-10-05): a field that gains focus is never left under the header or the phone's
+   sticky player. CSS already parks the player while an input has focus, but a field reached by Tab, by
+   Save's "Beat N: …" refusal, or landed on by the browser's own focus scroll can still sit under the
+   header — or, for a focused button, under the player. Two frames later (after the CSS has switched the
+   player to static), move the page the least it can, instantly: the person is about to type. */
+function cbWireFieldFocus(split) {
+  split.addEventListener("focusin", (e) => {
+    const el = e.target;
+    if (!el?.closest?.(".cb-editor")) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (document.activeElement !== el) return;
+      const dy = cbClearDy(el, split);
+      if (dy) window.scrollBy({ top: dy, behavior: "auto" });
+    }));
+  });
 }
 
 function cbWireOriginal(card) {
   const split = card.querySelector(".cb-split");
+  if (split?.classList.contains("cb-ed-split")) cbWireFieldFocus(split);   // with or without a clip
   const vid = split?.querySelector(":scope > .ag-original video.cb-clip");
   if (!split || !vid) return;                    // a busy or failed card, or no clip: nothing to follow
   cbWireHandsOff();

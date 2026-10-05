@@ -262,8 +262,8 @@
       ]
     }
   ],
-  "status": "pending",
-  "published": null,
+  "status": "live",
+  "published": "2026-10-05",
   "withdrawn": null,
   "origin": "seed",
   "hooks": [],

@@ -48,6 +48,15 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 - [How long should a UGC script be?](https://lynxr.io/blog/how-long-should-a-script-be/): How long should a UGC script be? Length follows the beat count, not a word count: a shape for short, medium and long scripts for brand videos.
 
 <!-- BEGIN UGC AGENT -->
+## Questions UGC creators ask
+
+- [UGC rates, pay and usage rights](https://lynxr.io/faq/ugc-rates-and-pay/): How UGC creators get paid, how to work out a rate, and what usage rights, raw footage and whitelisting mean for the price.
+  - [How do UGC creators get paid?](https://lynxr.io/blog/how-do-ugc-creators-get-paid/): How UGC creators get paid: flat fees per video, usage and raw footage add-ons, bundles, retainers, deposits, invoices and what to do when payment runs late.
+- [Finding UGC brand deals](https://lynxr.io/faq/ugc-brand-deals/): How to find brands that hire UGC creators, how to pitch them, what to send, how to follow up and how to get booked again.
+  - [How do you write a UGC pitch email to a brand?](https://lynxr.io/blog/ugc-pitch-email/): How to write a UGC pitch email: lead with one video idea for the brand's product, prove it with a portfolio link, ask clearly, and cut the rest.
+- [Writing UGC scripts](https://lynxr.io/faq/ugc-scripts/): How to write UGC scripts for different kinds of product, from skincare to apps, with an example script in every answer.
+  - [What goes in a UGC script for a skincare brand?](https://lynxr.io/blog/ugc-script-for-skincare/): What a UGC script for a skincare brand needs: a hook built on a skin situation, the routine, texture on camera, an honest timeline, and the claims to leave out.
+
 <!-- END UGC AGENT -->
 
 ## Policies

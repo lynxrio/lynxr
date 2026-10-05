@@ -456,6 +456,37 @@ check("with_orig: missing -> '', present -> canonical", [b["orig"] for b in _wo[
 check("with_orig: other fields untouched", (_wo["hook"], _wo["beats"][1]["say"]), ("h", "b"))
 
 print()
+# ---- keep it exactly: silent stretches get their own beat (2026-10-05) ----------------
+# Real timings from format 64d8e3d0: first word at 4.7s of 10.8s, and the agency frame plan's six opening
+# frames (0.3-4.1s). Before the fix the kept script started at 4.7s and the opening was lost.
+_op_shot = lambda t, v, s="": {"t": t, "visual": v, "onscreen_text": s}
+OPENING_SOURCE = {"duration": 10.8, "script": {"has_speech": True, "hook": "",
+    "segments": [[4.7, 10.8, "Every day's a prize with the right app"]]},
+    "shots": [_op_shot(0.3, "mouth wide open, shocked gasp"), _op_shot(1.0, "mouth wide open, shocked gasp"),
+              _op_shot(2.6, "hands on cheeks", "wait what"), _op_shot(4.1, "hands on cheeks", "wait what"),
+              _op_shot(4.7, "show the app's tabs", "Cards"), _op_shot(9.2, "scroll the notes")]}
+_ob = C.verbatim_beats(OPENING_SOURCE)
+check("silent opening: becomes beat 1", [b["t"] for b in _ob], ["0-4.7s", "4.7-10.8s"])
+check("silent opening: no words, its shots", (_ob[0]["say"], _ob[0]["do"], _ob[0]["show"]),
+      ("", "mouth wide open, shocked gasp → hands on cheeks", "wait what"))
+check("silent opening: the spoken beat keeps only its own shots", _ob[1]["do"], "show the app's tabs → scroll the notes")
+check("silent opening: hook is the first SPOKEN line",
+      C.verbatim_script(OPENING_SOURCE, {})["hook"], "Every day's a prize with the right app")
+_mid = {"duration": 8, "script": {"has_speech": True, "segments": [[0, 2, "one"], [6, 8, "two"]]},
+        "shots": [_op_shot(1, "a"), _op_shot(3.5, "silent action"), _op_shot(7, "b")]}
+check("silent middle: its own beat", [(b["t"], b["say"], b["do"]) for b in C.verbatim_beats(_mid)],
+      [("0-2s", "one", "a"), ("2-6s", "", "silent action"), ("6-8s", "two", "b")])
+_tail = {"duration": 8, "script": {"has_speech": True, "segments": [[0, 3, "talk"]]},
+         "shots": [_op_shot(1, "a"), _op_shot(5, "closing shot", "follow")]}
+check("silent ending: its own beat", [(b["t"], b["say"], b["show"]) for b in C.verbatim_beats(_tail)],
+      [("0-3s", "talk", ""), ("3-8s", "", "follow")])
+_short = {"duration": 5, "script": {"has_speech": True, "segments": [[1.0, 5, "quick start"]]},
+          "shots": [_op_shot(0.5, "breath"), _op_shot(2, "talking")]}
+check("a pause under 1.5s adds no beat", [b["t"] for b in C.verbatim_beats(_short)], ["1-5s"])
+_noshot = {"duration": 10, "script": {"has_speech": True, "segments": [[4, 10, "late start"]]},
+           "shots": [_op_shot(5, "talking")]}
+check("a silent stretch with no shot in it adds no beat", [b["t"] for b in C.verbatim_beats(_noshot)], ["4-10s"])
+
 if FAILS:
     print(f"{len(FAILS)} FAILED:")
     for f in FAILS:

@@ -25,7 +25,6 @@ REPO = HERE.parent.parent
 
 import agent as A  # noqa: E402
 import gate as G  # noqa: E402
-import llm as L  # noqa: E402
 import render as R  # noqa: E402
 
 FAILS = []
@@ -38,7 +37,8 @@ def check(name, cond, detail=""):
 
 
 def make_fixture(tmp):
-    """Copy the real pages and the agent into tmp; return the fixture root."""
+    """Copy the real pages and the toolbox into tmp, then reset to a clean 'no agent articles yet' state:
+    the hand-written sample pending, every agent page gone, the generated regions empty."""
     root = pathlib.Path(tmp) / "site"
     root.mkdir()
     for d in ("blog", "glossary", "faq", "about", "how-it-works", "pricing", "what-is-a-video-format",
@@ -48,6 +48,20 @@ def make_fixture(tmp):
     for f in ("index.html", "404.html", "sitemap.xml", "llms.txt"):
         shutil.copy2(REPO / f, root / f)
     shutil.copytree(REPO / "tools/ugc_agent", root / "tools/ugc_agent", ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copy2(REPO / "tools/check_stamp.py", root / "tools/check_stamp.py")
+    arts = root / "tools/ugc_agent/articles"
+    sample = json.loads((arts / "ugc-script-for-skincare.json").read_text(encoding="utf-8"))
+    for f in arts.glob("*.json"):
+        slug = json.loads(f.read_text(encoding="utf-8"))["slug"]
+        shutil.rmtree(root / "blog" / slug, ignore_errors=True)
+        f.unlink()
+    for d in (root / "faq").glob("ugc-*"):
+        shutil.rmtree(d)
+    sample.update({"status": "pending", "published": None})
+    (arts / "ugc-script-for-skincare.json").write_text(json.dumps(sample, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (root / "tools/ugc_agent/attempts.json").write_text("{}\n", encoding="utf-8")
+    (root / "tools/ugc_agent/questions-auto.json").write_text("[]\n", encoding="utf-8")
+    R.render_all(root)
     return root
 
 
@@ -76,6 +90,257 @@ def first_block(art, kind, section=None):
             if b["kind"] == kind:
                 return b
     raise KeyError(kind)
+
+
+PY = sys.executable
+SCORES5 = {"answers_first": 5, "useful_specific": 5, "ugc_focus": 5, "originality": 4, "voice": 5}
+
+
+def sh(args, cwd, env=None):
+    e = dict(os.environ, UGC_AGENT_TODAY="2026-10-06", PYTHONDONTWRITEBYTECODE="1", GIT_TERMINAL_PROMPT="0")
+    e.pop("ANTHROPIC_API_KEY", None)
+    if env:
+        e.update(env)
+    return subprocess.run(args, cwd=str(cwd), env=e, capture_output=True, text=True)
+
+
+def git(args, cwd):
+    return sh(["git", "-c", "user.name=t", "-c", "user.email=t@example.com"] + args, cwd)
+
+
+def routine_site(tmp, protect_main=False, questions=None):
+    """A throwaway git repo (the fixture site) with a bare origin, the way the cloud routine's clone looks."""
+    work = make_fixture(tmp)
+    # the stub writer's text is the sample's; take the sample out of the fixture so it is not its own duplicate
+    sample_json = work / "tools/ugc_agent/articles/ugc-script-for-skincare.json"
+    shutil.move(str(sample_json), str(pathlib.Path(tmp) / "sample-content.json"))
+    if questions is not None:
+        qp = work / "tools/ugc_agent/questions.json"
+        qp.write_text(json.dumps(json.loads(qp.read_text(encoding="utf-8"))[:questions], indent=2) + "\n", encoding="utf-8")
+    origin = pathlib.Path(tmp) / "origin.git"
+    git(["init", "-q", "--bare", "-b", "main", str(origin)], tmp)
+    git(["init", "-q", "-b", "main"], work)
+    git(["add", "-A"], work)
+    git(["commit", "-q", "-m", "initial"], work)
+    git(["remote", "add", "origin", str(origin)], work)
+    git(["push", "-q", "origin", "main"], work)
+    if protect_main:
+        hook = origin / "hooks" / "pre-receive"
+        hook.write_text('#!/bin/sh\nwhile read old new ref; do\n  if [ "$ref" = "refs/heads/main" ]; then\n'
+                        '    echo "remote: error: GH006: Protected branch update failed for refs/heads/main." >&2\n    exit 1\n  fi\ndone\n')
+        hook.chmod(0o755)
+    return work, origin
+
+
+def stub_candidate(work, out, slug, mutate=None):
+    """The stub writer: the hand-written sample's content under this question's slug."""
+    s = json.loads((pathlib.Path(work).parent / "sample-content.json").read_text(encoding="utf-8"))
+    cand = {k: copy.deepcopy(s[k]) for k in ("description", "short_answer", "sections")}
+    if mutate:
+        mutate(cand)
+    p = pathlib.Path(out) / "candidates" / (slug + ".json")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(cand, ensure_ascii=False, indent=2), encoding="utf-8")
+    return p
+
+
+def stub_review(out, slug, verdict="pass", issues=()):
+    """The stub reviewer: writes a verdict file in the reviewer schema."""
+    p = pathlib.Path(out) / "verdicts" / (slug + ".json")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    v = {"verdict": verdict, "scores": dict(SCORES5), "blocking_issues": list(issues), "revision_notes": []}
+    p.write_text(json.dumps(v), encoding="utf-8")
+    return p
+
+
+def routine_tests():
+    # ---- the API path is gone
+    check("no API: llm.py and requirements.txt are deleted", not (HERE / "llm.py").exists() and not (HERE / "requirements.txt").exists())
+    src = "\n".join((HERE / f).read_text(encoding="utf-8") for f in ("agent.py", "gate.py", "render.py", "schema.py"))
+    check("no API: no anthropic import, key or messages call in the toolbox",
+          not re.search(r"import anthropic|from anthropic|messages\.create|ANTHROPIC_API_KEY|api\.anthropic", src))
+    wf = (REPO / ".github/workflows/ugc-agent.yml").read_text(encoding="utf-8")
+    check("no API: the workflow has no schedule, secret, API key or UGC_AGENT_ENABLED",
+          not re.search(r"ANTHROPIC|UGC_AGENT_ENABLED|schedule:|cron:|secrets\.", wf) and "withdraw" in wf and "publish-check" in wf)
+    rt = (HERE / "ROUTINE.md").read_text(encoding="utf-8")
+    check("routine: ROUTINE.md covers next, check, judge-context, publish, fail, render, gate, check_stamp, commit.sh, PR and issue",
+          all(s in rt for s in ("agent.py next", "agent.py check", "judge-context", "agent.py publish", "agent.py fail", "agent.py render",
+                                "agent.py gate", "check_stamp.py", "commit.sh", "gh pr create", "gh issue create", "claude/ugc-", "SEPARATE subagent")))
+
+    # ---- A: stub writer + stub reviewer, one article passes, one fails, then render/gate/stamp/finish/commit.sh
+    tmp = tempfile.TemporaryDirectory()
+    work, origin = routine_site(tmp.name)
+    agent = [PY, str(work / "tools/ugc_agent/agent.py")]
+    out = pathlib.Path(tmp.name) / "out"
+    initial = git(["rev-parse", "HEAD"], work).stdout.strip()
+    r = sh(agent + ["next", "--out", str(out), "--n", "2"], work)
+    summ = json.loads(r.stdout) if r.returncode == 0 else {"briefs": []}
+    check("routine: next exits 0 and writes two briefs", r.returncode == 0 and len(summ["briefs"]) == 2 and all(pathlib.Path(b["brief"]).is_file() for b in summ["briefs"]), r.stdout + r.stderr)
+    good, bad = summ["briefs"][0]["slug"], summ["briefs"][1]["slug"]
+    brief = json.loads(pathlib.Path(summ["briefs"][0]["brief"]).read_text(encoding="utf-8"))
+    check("routine: a brief holds the question, schema, link inventory, hooks, related pages and the paths",
+          all(k in brief for k in ("question", "slug", "topic", "schema", "link_inventory", "existing_hooks", "same_topic_answers",
+                                   "topic_pillars", "candidate_path", "verdict_path", "reference_answer")) and brief["link_inventory"], list(brief))
+    cp = stub_candidate(work, out, good)
+    r = sh(agent + ["check", str(cp)], work)
+    check("routine: check passes the stub writer's article", r.returncode == 0 and "PASS" in r.stdout, r.stdout)
+    r = sh(agent + ["judge-context", str(cp)], work)
+    jc = json.loads(r.stdout) if r.returncode == 0 else {}
+    check("routine: judge-context prints the article with link targets and the site page list",
+          r.returncode == 0 and "[link to:" in jc.get("answer", "") and jc.get("links_used") and jc.get("site_pages", {}).get("guides")
+          and "Already verified" in jc.get("link_check", ""), r.stdout[:200] + r.stderr)
+    vp = stub_review(out, good, "revise", ["a blocking issue"])
+    r = sh(agent + ["publish", str(cp), "--verdict", str(vp)], work)
+    check("routine: publish refuses a revise verdict and writes nothing",
+          r.returncode == 1 and "REFUSED" in r.stdout and not (work / "tools/ugc_agent/articles" / (good + ".json")).exists(), r.stdout)
+    low = stub_review(out, good, "pass")
+    v = json.loads(low.read_text()); v["scores"]["voice"] = 3; low.write_text(json.dumps(v))
+    r = sh(agent + ["publish", str(cp), "--verdict", str(low)], work)
+    check("routine: publish refuses a pass verdict with a score under 4", r.returncode == 1 and "REFUSED" in r.stdout, r.stdout)
+    vp = stub_review(out, good, "pass")
+    r = sh(agent + ["publish", str(cp), "--verdict", str(vp)], work)
+    art_path = work / "tools/ugc_agent/articles" / (good + ".json")
+    art = json.loads(art_path.read_text(encoding="utf-8")) if art_path.exists() else {}
+    check("routine: publish writes the article live with the verdict scores",
+          r.returncode == 0 and art.get("status") == "live" and art.get("published") == "2026-10-06" and art.get("judge", {}).get("scores") == SCORES5, r.stdout)
+    att = json.loads((work / "tools/ugc_agent/attempts.json").read_text())
+    check("routine: publish records the attempt", any(v.get("published") == "2026-10-06" for v in att.values()), att)
+    cb = stub_candidate(work, out, bad)
+    r = sh(agent + ["check", str(cb)], work)
+    check("routine: a second article that repeats the first fails check (in-run overlap and hook)",
+          r.returncode == 1 and "originality" in r.stdout, r.stdout)
+    r2 = sh(agent + ["check", str(cb)], work)
+    check("routine: the same candidate still fails on re-check", r2.returncode == 1)
+    vbad = stub_review(out, bad, "pass")
+    r = sh(agent + ["publish", str(cb), "--verdict", str(vbad)], work)
+    check("routine: publish refuses a candidate that fails the gate, even with a pass verdict",
+          r.returncode == 1 and "code gate" in r.stdout and not (work / "tools/ugc_agent/articles" / (bad + ".json")).exists(), r.stdout)
+    r = sh(agent + ["fail", bad, "--reason", "originality: hook repeats an existing line"], work)
+    att = json.loads((work / "tools/ugc_agent/attempts.json").read_text())
+    check("routine: fail records the attempt", r.returncode == 0 and any(v.get("fails") == 1 for v in att.values()), r.stdout)
+    r = sh(agent + ["check", str(out / "candidates/not-a-question.json")], work)
+    check("routine: check on a missing candidate is a usage error (exit 2)", r.returncode == 2, r.stdout)
+    bad_shape = pathlib.Path(tmp.name) / "shape" / (good + ".json")
+    bad_shape.parent.mkdir()
+    bad_shape.write_text(json.dumps({"description": "x", "short_answer": "y", "sections": [{"heading": "h"}]}))
+    r = sh(agent + ["check", str(bad_shape)], work)
+    check("routine: a candidate in the wrong shape fails with schema problems", r.returncode in (1, 2) and ("schema" in r.stdout or "already" in r.stdout), r.stdout)
+    r = sh(agent + ["render"], work)
+    check("routine: render writes the article page, topic page and regions", r.returncode == 0 and ("blog/%s/index.html" % good) in r.stdout and "sitemap.xml" in r.stdout, r.stdout)
+    r = sh(agent + ["gate"], work)
+    check("routine: the site gate is clean", r.returncode == 0 and "site gate ok" in r.stdout, r.stdout)
+    r = sh([PY, "tools/check_stamp.py"], work)
+    check("routine: check_stamp.py is ok", r.returncode == 0 and r.stdout.startswith("ok"), r.stdout + r.stderr)
+    r = sh(agent + ["finish", "--out", str(out)], work, {"UGC_AGENT_MIN_PUBLISH": "2"})
+    check("routine: finish exits 3 when fewer than the minimum were published, with an empty manifest",
+          r.returncode == 3 and (out / "manifest.txt").read_text() == "", r.stdout)
+    r = sh(agent + ["finish", "--out", str(out)], work)
+    mf = (out / "manifest.txt").read_text().split()
+    subj = (out / "commit-subject.txt").read_text().strip()
+    check("routine: finish writes an allowlisted manifest and the commit subject",
+          r.returncode == 0 and mf and all(A.ALLOW_PATH.match(p) for p in mf) and ("blog/%s/index.html" % good) in mf
+          and "tools/ugc_agent/attempts.json" in mf and subj == "ugc-agent: articles 2026-10-06 (1): %s" % good, (mf, subj))
+    r = sh(["bash", str(work / "tools/ugc_agent/commit.sh"), str(out / "manifest.txt"), str(out / "commit-subject.txt")], work,
+           {"UGC_FALLBACK_BRANCH": "claude/ugc-test"})
+    files = git(["show", "--name-only", "--format=", "HEAD"], work).stdout.split()
+    head = git(["rev-parse", "HEAD"], work).stdout.strip()
+    omain = sh(["git", "--git-dir", str(origin), "rev-parse", "main"], work).stdout.strip()
+    check("routine: commit.sh pushes one commit to main touching only allowlisted files",
+          r.returncode == 0 and head != initial and omain == head and files and all(A.ALLOW_PATH.match(f) for f in files)
+          and git(["log", "-1", "--format=%s"], work).stdout.strip() == subj and not (out / "pushed-branch.txt").exists(), (r.stdout, r.stderr, files))
+    check("routine: nothing else is left changed after the commit", git(["status", "--porcelain"], work).stdout.strip() == "")
+    # the queue now skips the published question and remembers the failure
+    r = sh(agent + ["next", "--out", str(out), "--n", "3"], work)
+    again = [b["slug"] for b in json.loads(r.stdout)["briefs"]]
+    check("routine: next does not pick the published question again", good not in again, again)
+    r = sh(agent + ["next", "--out", str(out), "--n", "3"], work)
+    check("routine: next stops when a commit for today already exists", json.loads(r.stdout).get("status") == "already ran today", r.stdout)
+    tmp.cleanup()
+
+    # ---- B: nothing passes -> nothing is committed; four failures retire a question; add-questions; low and empty queues
+    tmp = tempfile.TemporaryDirectory()
+    work, origin = routine_site(tmp.name)
+    agent = [PY, str(work / "tools/ugc_agent/agent.py")]
+    out = pathlib.Path(tmp.name) / "out"
+    initial = git(["rev-parse", "HEAD"], work).stdout.strip()
+    r = sh(agent + ["next", "--out", str(out), "--n", "1"], work)
+    slug = json.loads(r.stdout)["briefs"][0]["slug"]
+    cp = stub_candidate(work, out, slug, lambda c: c["sections"][0]["blocks"][0].__setitem__("text", c["sections"][0]["blocks"][0]["text"] + " It takes 3 days."))
+    r = sh(agent + ["check", str(cp)], work)
+    check("routine B: a candidate with a figure fails check", r.returncode == 1 and "a digit" in r.stdout, r.stdout)
+    r = sh(agent + ["publish", str(cp), "--verdict", str(stub_review(out, slug))], work)
+    check("routine B: publish refuses it", r.returncode == 1 and not (work / "tools/ugc_agent/articles" / (slug + ".json")).exists())
+    sh(agent + ["fail", slug, "--reason", "a digit"], work)
+    r = sh(agent + ["render"], work)
+    r2 = sh(agent + ["gate"], work)
+    r3 = sh(agent + ["finish", "--out", str(out)], work)
+    check("routine B: render and gate are clean; finish exits 3 with a manifest of only the attempts state",
+          "no changes" in r.stdout and r2.returncode == 0 and r3.returncode == 3
+          and (out / "manifest.txt").read_text().split() == ["tools/ugc_agent/attempts.json"], (r.stdout, r3.stdout))
+    r = sh(["bash", str(work / "tools/ugc_agent/commit.sh"), str(out / "manifest.txt"), str(out / "commit-subject.txt")], work)
+    changed = git(["show", "--name-only", "--format=", "HEAD"], work).stdout.split()
+    check("routine B: commit.sh commits only attempts.json, so the next run moves past the failed question",
+          r.returncode == 0 and git(["rev-parse", "HEAD"], work).stdout.strip() != initial and changed == ["tools/ugc_agent/attempts.json"]
+          and git(["status", "--porcelain"], work).stdout.strip() == "", (r.stdout + r.stderr, changed))
+    check("routine B: the attempts-only commit reached origin main",
+          git(["rev-parse", "HEAD"], work).stdout.strip() == git(["rev-parse", "main"], origin).stdout.strip())
+    for _ in range(3):
+        sh(agent + ["fail", slug, "--reason", "again"], work)
+    r = sh(agent + ["next", "--out", str(out), "--n", "3", "--force"], work)
+    check("routine B: four failures retire a question", slug not in [b["slug"] for b in json.loads(r.stdout)["briefs"]], r.stdout)
+    qfile = pathlib.Path(tmp.name) / "new-questions.json"
+    qfile.write_text(json.dumps({"questions": [
+        {"topic": "ugc-filming", "question": "How do you plan a UGC shoot day?", "slug": "plan-a-ugc-shoot-day", "target_query": "plan a ugc shoot", "angle": "what to do"},
+        {"topic": "ugc-filming", "question": "How do you plan a UGC shoot day?", "slug": "plan-a-ugc-shoot-day-again", "target_query": "x", "angle": "dupe"},
+        {"topic": "ugc-filming", "question": "How much do you earn from UGC?", "slug": "earn-from-ugc", "target_query": "x", "angle": "off limits"}]}))
+    r = sh(agent + ["add-questions", str(qfile)], work)
+    auto = json.loads((work / "tools/ugc_agent/questions-auto.json").read_text())
+    check("routine B: add-questions validates, dedupes and appends", r.returncode == 0 and "1 accepted, 2 rejected" in r.stdout and len(auto) == 1 and auto[0]["id"] == "a001", r.stdout)
+    qfile.write_text(json.dumps({"questions": [{"topic": "x"}]}))
+    r = sh(agent + ["add-questions", str(qfile)], work)
+    check("routine B: add-questions rejects a file in the wrong shape (exit 2)", r.returncode == 2, r.stdout)
+    tmp.cleanup()
+
+    tmp = tempfile.TemporaryDirectory()
+    work, origin = routine_site(tmp.name, questions=5)
+    agent = [PY, str(work / "tools/ugc_agent/agent.py")]
+    r = sh(agent + ["next", "--out", str(pathlib.Path(tmp.name) / "out"), "--n", "1"], work)
+    s = json.loads(r.stdout)
+    rb = pathlib.Path(s["replenish_brief"]) if s.get("replenish_brief") else None
+    check("routine C: a short queue is flagged and a replenish brief is written",
+          s.get("queue_low") is True and rb and rb.is_file() and json.loads(rb.read_text())["topics_with_room"], r.stdout)
+    tmp.cleanup()
+    tmp = tempfile.TemporaryDirectory()
+    work, origin = routine_site(tmp.name, questions=0)
+    agent = [PY, str(work / "tools/ugc_agent/agent.py")]
+    r = sh(agent + ["next", "--out", str(pathlib.Path(tmp.name) / "out")], work)
+    check("routine C: an empty queue exits 4 and still writes the replenish brief", r.returncode == 4 and (pathlib.Path(tmp.name) / "out/replenish-brief.json").is_file(), r.stdout)
+    tmp.cleanup()
+
+    # ---- D: main is protected -> the same commit goes to claude/ugc-<date>, ready for a pull request
+    tmp = tempfile.TemporaryDirectory()
+    work, origin = routine_site(tmp.name, protect_main=True)
+    agent = [PY, str(work / "tools/ugc_agent/agent.py")]
+    out = pathlib.Path(tmp.name) / "out"
+    initial = git(["rev-parse", "HEAD"], work).stdout.strip()
+    r = sh(agent + ["next", "--out", str(out), "--n", "1"], work)
+    slug = json.loads(r.stdout)["briefs"][0]["slug"]
+    cp = stub_candidate(work, out, slug)
+    ok = (sh(agent + ["check", str(cp)], work).returncode == 0
+          and sh(agent + ["publish", str(cp), "--verdict", str(stub_review(out, slug))], work).returncode == 0
+          and sh(agent + ["render"], work).returncode == 0 and sh(agent + ["gate"], work).returncode == 0
+          and sh(agent + ["finish", "--out", str(out)], work).returncode == 0)
+    r = sh(["bash", str(work / "tools/ugc_agent/commit.sh"), str(out / "manifest.txt"), str(out / "commit-subject.txt")], work,
+           {"UGC_FALLBACK_BRANCH": "claude/ugc-2026-10-06"})
+    head = git(["rev-parse", "HEAD"], work).stdout.strip()
+    omain = sh(["git", "--git-dir", str(origin), "rev-parse", "main"], work).stdout.strip()
+    obranch = sh(["git", "--git-dir", str(origin), "rev-parse", "claude/ugc-2026-10-06"], work).stdout.strip()
+    check("routine D: a protected main refuses the push, so the same commit lands on claude/ugc-<date>",
+          ok and r.returncode == 0 and omain == initial and obranch == head
+          and (out / "pushed-branch.txt").read_text().strip() == "claude/ugc-2026-10-06", (r.stdout, r.stderr))
+    r = sh(["bash", str(work / "tools/ugc_agent/commit.sh"), str(out / "manifest.txt"), str(out / "commit-subject.txt")], work)
+    check("routine D: without a fallback branch a refused push exits 1", r.returncode == 1 or "nothing" in r.stdout, r.stdout)
+    tmp.cleanup()
 
 
 def main():
@@ -282,14 +547,6 @@ def main():
     check("picker: a topic at its cap is skipped", "q003" not in ids, ids)
     check("picker: the rest stays queued", ids == ["q004", "q005", "q006"], ids)
 
-    # ---- cost
-    pr = cfg["price_per_mtok"]
-    check("cost: 1M input tokens = 4.00", abs(L.cost_usd({"input_tokens": 1_000_000}, pr) - 4.00) < 1e-9)
-    check("cost: 1M output tokens = 20.00", abs(L.cost_usd({"output_tokens": 1_000_000}, pr) - 20.00) < 1e-9)
-    check("cost: cache write is 1.25x and read 0.1x input",
-          abs(L.cost_usd({"cache_creation_input_tokens": 1_000_000}, pr) - 5.00) < 1e-9
-          and abs(L.cost_usd({"cache_read_input_tokens": 1_000_000}, pr) - 0.40) < 1e-9)
-
     # ---- replenisher acceptance
     qs2 = [{"id": "q001", "theme": "ugc-scripts", "priority": 1, "question": "How do you write a UGC script for an app?", "slug": "ugc-script-for-an-app",
             "target_query": "", "angle": ""}]
@@ -391,75 +648,7 @@ def main():
     check("writer prompt: steers to reasoned advice and one placeholder style",
           "advice with its reason" in sysp and "[NAME], [PRODUCT], [DATE], [NUMBER]" in sysp)
 
-    # ---- end to end with a fake model: the gate runs before the judge, and the judge sees link targets
-    class FakeLLM:
-        def __init__(self, cfg, root=None):
-            self.total, self.notes = 0.0, []
-            self.calls, self.judge_ctx, self.revise_problems = [], [], []
-            FakeLLM.last = self
-
-        def info(self):
-            return {"model": "fake", "stop_reason": "end_turn", "usage": {}, "cost": 0.01}
-
-        def good(self):
-            return {k: copy.deepcopy(base[k]) for k in ("description", "short_answer", "sections")}
-
-        def generate(self, payload):
-            self.calls.append("generate")
-            d = self.good()
-            blk = d["sections"][1]["blocks"][1]
-            blk["text"] += " Also read [a page that is not there](/no-such-page/)."
-            return d, self.info()
-
-        def revise(self, payload, previous, problems):
-            self.calls.append("revise")
-            self.revise_problems += problems
-            return self.good(), self.info()
-
-        def judge(self, context):
-            self.calls.append("judge")
-            self.judge_ctx.append(context)
-            return {"verdict": "pass", "scores": {"answers_first": 5, "useful_specific": 5, "ugc_focus": 5, "originality": 4, "voice": 5},
-                    "blocking_issues": [], "revision_notes": []}, self.info()
-
-        def replenish(self, context):
-            raise AssertionError("the queue is long enough; no replenish call expected")
-    tmp2 = tempfile.TemporaryDirectory()
-    root2 = make_fixture(tmp2.name)
-    (root2 / "tools/ugc_agent/articles/ugc-script-for-skincare.json").unlink()
-    old_llm, old_env = A.LLM, {k: os.environ.get(k) for k in ("UGC_AGENT_PER_DAY", "UGC_AGENT_MIN_PASS")}
-    A.LLM = FakeLLM
-    os.environ["UGC_AGENT_PER_DAY"], os.environ["UGC_AGENT_MIN_PASS"] = "1", "1"
-    ns2 = argparse.Namespace(root=str(root2), manifest=str(pathlib.Path(tmp2.name) / "out/manifest.txt"),
-                             summary=str(pathlib.Path(tmp2.name) / "out/summary.md"), dry_run=True, attempts_cache=None, slugs=None)
-    try:
-        rc2 = A.cmd_daily(ns2)
-    finally:
-        A.LLM = old_llm
-        for k, v in old_env.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-    fk = FakeLLM.last
-    check("end to end: the daily run exits 0", rc2 == 0, (pathlib.Path(tmp2.name) / "out/summary.md").read_text() if (pathlib.Path(tmp2.name) / "out/summary.md").exists() else "")
-    check("end to end: a dead link is caught by code, so the first draft never reaches the judge",
-          fk.calls == ["generate", "revise", "judge"], fk.calls)
-    check("end to end: the revision was told about the broken link", has(fk.revise_problems, "broken internal link /no-such-page/"), fk.revise_problems)
-    check("end to end: the judge got link targets with titles and the site page list",
-          len(fk.judge_ctx) == 1 and fk.judge_ctx[0]["links_used"] and "site_pages" in fk.judge_ctx[0]
-          and "page_title" in fk.judge_ctx[0]["links_used"][0])
-    cdir = pathlib.Path(tmp2.name) / "out/candidates"
-    cands = list(cdir.glob("*.json")) if cdir.is_dir() else []
-    cj = json.loads(cands[0].read_text()) if cands else {}
-    check("end to end: the dry run saves every attempt and its judge verdict",
-          len(cands) == 1 and cj.get("result") == "pass" and [a["stage"] for a in cj["attempts"]] == ["generate", "revise"]
-          and cj["attempts"][0]["gate_problems"] and cj["attempts"][1]["judge"]["verdict"] == "pass", cj.get("result"))
-    mf2 = (pathlib.Path(tmp2.name) / "out/manifest.txt").read_text().split()
-    check("end to end: the manifest holds only allowlisted paths and the new article",
-          mf2 and all(A.ALLOW_PATH.match(p) for p in mf2) and "blog/how-do-ugc-creators-get-paid/index.html" in mf2, mf2)
-    check("end to end: the site gate is clean after the run", G.site_problems(root2) == [], G.site_problems(root2))
-    tmp2.cleanup()
+    routine_tests()
 
     tmp.cleanup()
     print()

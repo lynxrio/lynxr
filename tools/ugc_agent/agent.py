@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
-"""The daily UGC answer agent: pick questions, write, gate, judge, render, and hand a manifest to commit.sh.
+"""The UGC answer agent's toolbox. No model is called from here: a Claude Code routine does the writing and the
+reviewing (see ROUTINE.md), and these commands do everything that must be exact.
 
-    agent.py daily [--dry-run] [--attempts-cache FILE]
-    agent.py withdraw --slugs a,b
-    agent.py render | gate | publish-check | smoke
-
-Common options: --root DIR (default: the repo), --manifest FILE, --summary FILE.
-Never run from an interactive Claude session against the real repo with --dry-run omitted:
-the real daily run belongs to .github/workflows/ugc-agent.yml.
+Routine commands
+    next [--n 3] [--out DIR]        pick queued questions and write one brief per question
+    check CANDIDATE.json            the code gate for one candidate (links resolved in code); exit 1 on problems
+    judge-context CANDIDATE.json    exactly what a reviewer receives (article with link targets + site page list)
+    publish CANDIDATE.json --verdict VERDICT.json    gate + verdict thresholds, then write the article, live
+    fail SLUG --reason TEXT         record a failed attempt (retry policy: 4 failures retire a question)
+    add-questions FILE.json         validate, dedupe and append proposed questions to questions-auto.json
+    render                          render every agent-owned page and marker region from the article JSON
+    gate                            the site gate on the whole tree
+    finish [--out DIR]              manifest + commit subject for commit.sh; exit 3 when nothing was published
+Workflow commands
+    withdraw --slugs a,b            take live articles down (noindex stub), render, gate, manifest
+    publish-check --manifest FILE   poll the live site, then ping IndexNow (GitHub's runner only)
+Common option: --root DIR (default: the repo).
 """
 import sys
 
@@ -26,11 +34,10 @@ import subprocess
 import tempfile
 import time
 import urllib.request
-import zoneinfo
 
 import gate as G
 import render as R
-from llm import LLM, BudgetExceeded, LLMError
+import schema as SCH
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent.parent
@@ -40,7 +47,13 @@ Q_BANNED = re.compile(r"\d|\$|%|tax|legal|lawyer|\blaw\b|copyright|trademark|ftc
                       r"doctor|cure|acne|weight|salary|income|how much|earn|make money", re.I)
 ALLOW_PATH = re.compile(r"^(blog/[a-z0-9-]+/index\.html|blog/index\.html|faq/index\.html|faq/ugc-[a-z-]+/index\.html|"
                         r"sitemap\.xml|llms\.txt|tools/ugc_agent/(articles/[a-z0-9-]+\.json|attempts\.json|questions-auto\.json))$")
+STATE_PATHS = ("tools/ugc_agent/attempts.json", "tools/ugc_agent/questions-auto.json")
 UA = "lynxr-ugc-agent/1.0 (+https://lynxr.io/)"
+EX_USAGE, EX_NOTHING, EX_EMPTY = 2, 3, 4
+
+
+class UsageError(Exception):
+    pass
 
 
 # ---------------------------------------------------------------- small helpers
@@ -49,7 +62,70 @@ def today_str():
     forced = os.environ.get("UGC_AGENT_TODAY")
     if forced:
         return forced
-    return datetime.datetime.now(zoneinfo.ZoneInfo("America/New_York")).date().isoformat()
+    try:
+        import zoneinfo
+        return datetime.datetime.now(zoneinfo.ZoneInfo("America/New_York")).date().isoformat()
+    except Exception:  # a minimal image can lack the tz database: US Eastern standard time is close enough
+        return (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=5)).date().isoformat()
+
+
+def default_out():
+    return pathlib.Path(tempfile.gettempdir()) / "ugc-agent-run"
+
+
+def accept_replenished(cands, cfg, questions, arts, root):
+    """Keep a proposed question only when every rule holds. Returns (accepted entries, [(slug, reason)] rejected)."""
+    topics = {t["slug"] for t in cfg["topics"]}
+    counts = live_counts(arts)
+    slugs = {q["slug"] for q in questions} | set(arts) | (
+        {p.name for p in (pathlib.Path(root) / "blog").iterdir() if p.is_dir()} if (pathlib.Path(root) / "blog").is_dir() else set())
+    existing = [q["question"] for q in questions]
+    nums = [int(q["id"][1:]) for q in questions if re.fullmatch(r"a\d+", q["id"])]
+    nxt = max(nums) + 1 if nums else 1
+    out, rejected = [], []
+    for c in cands:
+        q = c.get("question", "").strip()
+        s = c.get("slug", "").strip()
+        why = None
+        if c.get("topic") not in topics:
+            why = "unknown topic"
+        elif counts.get(c.get("topic"), 0) >= cfg["topic_cap"]:
+            why = "topic is at its cap"
+        elif s in slugs or not SLUG_RE.match(s):
+            why = "slug exists or is malformed"
+        elif len(q) > 70 or not Q_START.match(q):
+            why = "question is over 70 characters or does not start with a question word"
+        elif any(jaccard_words(q, e) >= 0.6 for e in existing):
+            why = "too close to an existing question"
+        elif Q_BANNED.search(q) or Q_BANNED.search(c.get("target_query", "")):
+            why = "off-limits topic (figures, law, tax, income, medical)"
+        elif len(out) >= 15:
+            why = "more than 15 in one batch"
+        if why:
+            rejected.append((s or q[:30], why))
+            continue
+        out.append({"id": "a%03d" % nxt, "theme": c["topic"], "priority": 3, "question": q, "slug": s,
+                    "target_query": c.get("target_query", "").strip().lower(), "angle": c.get("angle", "").strip()})
+        nxt += 1
+        slugs.add(s)
+        existing.append(q)
+    return out, rejected
+
+
+def write_outputs(manifest, summary_path, paths, subject, summary_lines, dry_run, root):
+    manifest = pathlib.Path(manifest)
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text("".join(p + "\n" for p in paths), encoding="utf-8")
+    (manifest.parent / "commit-subject.txt").write_text((subject or "") + "\n", encoding="utf-8")
+    if summary_path:
+        pathlib.Path(summary_path).parent.mkdir(parents=True, exist_ok=True)
+        pathlib.Path(summary_path).write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
+
+
+def default_paths(args):
+    base = pathlib.Path(tempfile.gettempdir()) / ("ugc-agent-%d" % os.getpid())
+    base.mkdir(parents=True, exist_ok=True)
+    return (args.manifest or str(base / "manifest.txt")), (args.summary or str(base / "summary.md"))
 
 
 def clamp(n, lo, hi):
@@ -85,21 +161,6 @@ def load_questions(root):
     auto = d / "questions-auto.json"
     if auto.is_file():
         out += R.load_json(auto)
-    return out
-
-
-def merge_attempts(base, cache):
-    out = {k: dict(v) for k, v in base.items()}
-    for k, v in (cache or {}).items():
-        cur = out.get(k)
-        if not cur:
-            out[k] = dict(v)
-            continue
-        if v.get("fails", 0) > cur.get("fails", 0):
-            cur["fails"] = v["fails"]
-        if (v.get("last_fail") or "") > (cur.get("last_fail") or ""):
-            cur["last_fail"] = v["last_fail"]
-            cur["last_error"] = v.get("last_error", "")
     return out
 
 
@@ -145,41 +206,6 @@ def jaccard_words(a, b):
     B = set(re.findall(r"[a-z0-9]+", b.lower()))
     return len(A & B) / len(A | B) if A | B else 0.0
 
-
-def accept_replenished(cands, cfg, questions, arts, root):
-    """Step 21a: keep a model-proposed question only when every rule holds. Returns (accepted, rejected_count)."""
-    topics = {t["slug"] for t in cfg["topics"]}
-    counts = live_counts(arts)
-    slugs = {q["slug"] for q in questions} | set(arts) | (
-        {p.name for p in (pathlib.Path(root) / "blog").iterdir() if p.is_dir()} if (pathlib.Path(root) / "blog").is_dir() else set())
-    existing = [q["question"] for q in questions]
-    nums = [int(q["id"][1:]) for q in questions if re.fullmatch(r"a\d+", q["id"])]
-    nxt = max(nums) + 1 if nums else 1
-    out = []
-    for c in cands:
-        q = c.get("question", "").strip()
-        s = c.get("slug", "").strip()
-        if c.get("topic") not in topics or counts.get(c.get("topic"), 0) >= cfg["topic_cap"]:
-            continue
-        if s in slugs or not SLUG_RE.match(s):
-            continue
-        if len(q) > 70 or not Q_START.match(q):
-            continue
-        if any(jaccard_words(q, e) >= 0.6 for e in existing):
-            continue
-        if Q_BANNED.search(q) or Q_BANNED.search(c.get("target_query", "")):
-            continue
-        out.append({"id": "a%03d" % nxt, "theme": c["topic"], "priority": 3, "question": q, "slug": s,
-                    "target_query": c.get("target_query", "").strip().lower(), "angle": c.get("angle", "").strip()})
-        nxt += 1
-        slugs.add(s)
-        existing.append(q)
-        if len(out) >= 15:
-            break
-    return out, len(cands) - len(out)
-
-
-# ---------------------------------------------------------------- payload and text
 
 def h2s(text):
     return [(m.group(1), re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(2))).strip())
@@ -358,8 +384,6 @@ def judge_passes(j):
     return j["verdict"] == "pass" and all(v >= 4 for v in j["scores"].values()) and not j["blocking_issues"]
 
 
-# ---------------------------------------------------------------- snapshots / manifest
-
 def snapshot(root):
     root = pathlib.Path(root)
     out = {}
@@ -387,251 +411,6 @@ def changed_paths(root, before, dry_run):
     after = snapshot(root)
     return sorted(p for p in set(before) | set(after) if before.get(p) != after.get(p))
 
-
-def write_outputs(manifest, summary_path, paths, subject, summary_lines, dry_run, root):
-    manifest = pathlib.Path(manifest)
-    manifest.parent.mkdir(parents=True, exist_ok=True)
-    manifest.write_text("".join(p + "\n" for p in paths), encoding="utf-8")
-    (manifest.parent / "commit-subject.txt").write_text((subject or "") + "\n", encoding="utf-8")
-    if summary_path:
-        pathlib.Path(summary_path).parent.mkdir(parents=True, exist_ok=True)
-        pathlib.Path(summary_path).write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
-    if dry_run:
-        out = manifest.parent / "dry-run-out"
-        if out.exists():
-            shutil.rmtree(out)
-        for p in paths:
-            src = pathlib.Path(root) / p
-            if src.is_file():
-                dst = out / p
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src, dst)
-
-
-def default_paths(args):
-    base = pathlib.Path(tempfile.gettempdir()) / ("ugc-agent-%d" % os.getpid())
-    base.mkdir(parents=True, exist_ok=True)
-    return (args.manifest or str(base / "manifest.txt")), (args.summary or str(base / "summary.md"))
-
-
-def dump_candidate(args, manifest, q, log, result, problems, cost):
-    """Dry runs keep every generated article and every judge verdict, passed or failed, beside the manifest."""
-    if not args.dry_run:
-        return
-    d = pathlib.Path(manifest).parent / "candidates"
-    wjson(d / (q["slug"] + ".json"), {"question": q, "result": result, "problems": problems,
-                                      "cost_usd": round(cost, 4), "attempts": log})
-
-
-# ---------------------------------------------------------------- daily
-
-def cmd_daily(args):
-    root = pathlib.Path(args.root).resolve()
-    manifest, summary_path = default_paths(args)
-    today = today_str()
-    yday = (datetime.date.fromisoformat(today) - datetime.timedelta(days=1)).isoformat()
-    S = ["# UGC answer agent: %s%s" % (today, " (dry run)" if args.dry_run else ""), ""]
-    if not args.dry_run and (root / ".git").exists():
-        try:
-            subjects = subprocess.run(["git", "log", "-n", "40", "--format=%s"], cwd=root, capture_output=True,
-                                      text=True, check=True).stdout
-        except Exception:
-            subjects = ""
-        if "ugc-agent: articles %s" % today in subjects:
-            write_outputs(manifest, summary_path, [], "", S + ["already ran today"], False, root)
-            print("already ran today")
-            return 0
-    cfg = R.load_config(root)
-    arts = R.load_articles(root)
-    questions = load_questions(root)
-    attempts = merge_attempts(R.load_json(root / "tools/ugc_agent/attempts.json"),
-                              R.load_json(args.attempts_cache) if args.attempts_cache and pathlib.Path(args.attempts_cache).is_file() else {})
-    before = snapshot(root)
-
-    probs = G.site_problems(root)
-    if probs:
-        S += ["The untouched tree fails the site gate; nothing was built on it:", ""] + ["- " + p for p in probs]
-        write_outputs(manifest, summary_path, [], "", S, False, root)
-        print("site gate failed on the untouched tree:\n" + "\n".join(probs))
-        return 1
-
-    llm = LLM(cfg, root)
-    queue = build_queue(cfg, questions, arts, attempts)
-    if len(queue) < cfg["replenish_below"]:
-        try:
-            counts = live_counts(arts)
-            ctx = {"topics_with_room": [{"slug": t["slug"], "title": t["title"], "answers_so_far": counts.get(t["slug"], 0),
-                                         "room": cfg["topic_cap"] - counts.get(t["slug"], 0)} for t in cfg["topics"]
-                                        if counts.get(t["slug"], 0) < cfg["topic_cap"]],
-                   "existing_questions": [q["question"] for q in questions]}
-            data, info = llm.replenish(ctx)
-            acc, rej = accept_replenished(data["questions"], cfg, questions, arts, root)
-            if acc:
-                auto = root / "tools/ugc_agent/questions-auto.json"
-                wjson(auto, R.load_json(auto) + acc)
-                questions = load_questions(root)
-                queue = build_queue(cfg, questions, arts, attempts)
-            S.append("Replenisher: %d accepted, %d rejected, $%.3f." % (len(acc), rej, info["cost"]))
-        except (LLMError, BudgetExceeded, KeyError) as e:
-            S.append("Replenisher failed (not fatal): %s" % e)
-    if not queue:
-        S.append("queue empty: add questions or a topic")
-        write_outputs(manifest, summary_path, [], "", S, False, root)
-        print("queue empty — add questions or a topic")
-        return 1
-
-    per_day = clamp(env_int("UGC_AGENT_PER_DAY", cfg["per_day_default"]), 1, 3)
-    min_pass = clamp(env_int("UGC_AGENT_MIN_PASS", cfg["min_pass_default"]), 1, per_day)
-    picks = pick(queue, per_day, attempts, today, yday)
-    S.append("Picked %d of %d queued: %s. Need %d to pass." % (len(picks), len(queue), ", ".join(q["slug"] for q in picks), min_pass))
-
-    gctx = G.Context(root)
-    ch = R.chrome(root, cfg)
-    passed, failures = [], []
-    run_arts = dict(arts)
-    stopped = False
-    for q in picks:
-        if stopped:
-            break
-        cost = 0.0
-        res = {"q": q, "problems": [], "art": None}
-        log = []
-        try:
-            payload = build_payload(root, cfg, run_arts, q)
-            topic_title = payload["topic_title"]
-            data, info = llm.generate(payload)
-            cost += info["cost"]
-            model = info["model"]
-            art = make_art(q, data)
-            problems = G.article_problems(root, art, run_arts, gctx, cfg, ch)
-            entry = {"stage": "generate", "article": data, "gate_problems": problems, "judge": None, "cost": info["cost"]}
-            log.append(entry)
-            issues, verdict = [], None
-            if not problems:
-                j, ji = llm.judge(judge_context(root, cfg, run_arts, q, topic_title, art))
-                cost += ji["cost"]
-                entry["judge"], entry["cost"] = j, entry["cost"] + ji["cost"]
-                if judge_passes(j):
-                    verdict = j
-                else:
-                    issues = ["judge: " + x for x in j["blocking_issues"] + j["revision_notes"]]
-                    if not issues:
-                        issues = ["judge: scores below 4: %s" % json.dumps(j["scores"])]
-            if not problems and verdict is None or problems:
-                data2, info2 = llm.revise(payload, data, problems + issues)
-                cost += info2["cost"]
-                model = info2["model"]
-                art = make_art(q, data2)
-                problems = G.article_problems(root, art, run_arts, gctx, cfg, ch)
-                entry = {"stage": "revise", "article": data2, "gate_problems": problems, "judge": None, "cost": info2["cost"]}
-                log.append(entry)
-                if not problems:
-                    j, ji = llm.judge(judge_context(root, cfg, run_arts, q, topic_title, art))
-                    cost += ji["cost"]
-                    entry["judge"], entry["cost"] = j, entry["cost"] + ji["cost"]
-                    if judge_passes(j):
-                        verdict = j
-                    else:
-                        problems = ["judge: " + x for x in (j["blocking_issues"] + j["revision_notes"])] or \
-                                   ["judge: scores below 4: %s" % json.dumps(j["scores"])]
-            if problems or verdict is None:
-                res["problems"] = problems or ["no verdict"]
-            else:
-                art["model"] = model
-                art["cost_usd"] = round(cost, 4)
-                art["judge"] = {"verdict": verdict["verdict"], "scores": verdict["scores"]}
-                art["hooks"] = [R.plain(h) for h in G.hook_lines(art)]
-                res["art"] = art
-        except BudgetExceeded as e:
-            S.append("Budget cap reached: %s" % e)
-            stopped = True
-            dump_candidate(args, manifest, q, log, "budget cap", [str(e)], cost)
-            continue
-        except LLMError as e:
-            res["problems"] = ["model call failed: %s" % e]
-        dump_candidate(args, manifest, q, log, "pass" if res["art"] else "fail", res["problems"], cost)
-        res["cost"] = cost
-        if res["art"]:
-            passed.append(res)
-            run_arts[q["slug"]] = res["art"]
-            tmp = dict(res["art"], status="live", published=today)
-            tmp_all = dict(run_arts)
-            tmp_all[q["slug"]] = tmp
-            gctx.extra["blog/%s/index.html" % q["slug"]] = G.shingles(G.words_of(
-                G.parse(R.render_article_page(root, cfg, ch, tmp, tmp_all)).text))
-        else:
-            failures.append(res)
-            a = attempts.setdefault(q["id"], {"fails": 0})
-            a["fails"] = a.get("fails", 0) + 1
-            a["last_fail"] = today
-            a["last_error"] = res["problems"][0][:200]
-
-    if args.attempts_cache:
-        wjson(args.attempts_cache, attempts)
-    for res in passed:
-        S.append("- PASS %s ($%.3f) scores %s" % (res["q"]["slug"], res["cost"], json.dumps(res["art"]["judge"]["scores"])))
-    for res in failures:
-        S.append("- FAIL %s ($%.3f): %s" % (res["q"]["slug"], res.get("cost", 0), "; ".join(res["problems"][:6])))
-    S.append("Run total: $%.3f%s" % (llm.total, (" (" + ", ".join(llm.notes) + ")") if llm.notes else ""))
-    if len(passed) < min_pass:
-        S += ["", "Only %d of %d needed passed: nothing was rendered or committed." % (len(passed), min_pass)]
-        write_outputs(manifest, summary_path, [], "", S, False, root)
-        print("only %d passed (need %d); see the summary" % (len(passed), min_pass))
-        return 1
-
-    # publish: generated passes, then any pending article that passes the gate
-    published = []
-    for res in passed:
-        a = res["art"]
-        a["status"], a["published"] = "live", today
-        wjson(root / "tools/ugc_agent/articles" / (a["slug"] + ".json"), a)
-        published.append(a)
-    arts_now = R.load_articles(root)
-    for slug, a in sorted(arts_now.items()):
-        if a["status"] != "pending":
-            continue
-        others = {k: v for k, v in arts_now.items() if k != slug}
-        problems = G.article_problems(root, a, others, gctx, cfg, ch)
-        if problems:
-            S.append("- PENDING %s stays pending: %s" % (slug, "; ".join(problems[:6])))
-            continue
-        a["status"], a["published"] = "live", today
-        wjson(root / "tools/ugc_agent/articles" / (slug + ".json"), a)
-        published.append(a)
-        S.append("- PENDING %s is now live" % slug)
-    wjson(root / "tools/ugc_agent/attempts.json", attempts)
-    try:
-        R.render_all(root)
-    except ValueError as e:
-        S.append("render failed: %s" % e)
-        write_outputs(manifest, summary_path, [], "", S, False, root)
-        print("render failed: %s" % e)
-        return 1
-    probs = G.site_problems(root)
-    if probs:
-        S += ["", "Site gate failed after rendering:"] + ["- " + p for p in probs]
-        write_outputs(manifest, summary_path, [], "", S, False, root)
-        print("site gate failed after rendering:\n" + "\n".join(probs))
-        return 1
-    paths = changed_paths(root, before, args.dry_run)
-    bad = [p for p in paths if not ALLOW_PATH.match(p)]
-    if bad:
-        S += ["", "Changed paths outside the allowlist: " + ", ".join(bad)]
-        write_outputs(manifest, summary_path, [], "", S, False, root)
-        print("changed paths outside the allowlist: %s" % bad)
-        return 1
-    subject = "ugc-agent: articles %s (%d): %s" % (today, len(published), ", ".join(a["slug"] for a in published))
-    S += ["", "## Published", ""]
-    for a in published:
-        S.append("- %s: https://lynxr.io/blog/%s/ (topic %s, scores %s, $%s)"
-                 % (a["title"], a["slug"], a["theme"], json.dumps(a.get("judge", {}).get("scores", {})), a.get("cost_usd", 0)))
-    S += ["", "Commit subject: " + subject]
-    write_outputs(manifest, summary_path, paths, subject, S, args.dry_run, root)
-    print("ok: %d article(s); manifest %s; run total $%.3f" % (len(published), manifest, llm.total))
-    return 0
-
-
-# ---------------------------------------------------------------- other commands
 
 def cmd_withdraw(args):
     root = pathlib.Path(args.root).resolve()
@@ -757,36 +536,310 @@ def cmd_publish_check(args, sleep=time.sleep, fetch=http_get, run=subprocess.run
     return 0
 
 
-def cmd_smoke(args):
-    cfg = R.load_config(pathlib.Path(args.root).resolve())
-    llm = LLM(cfg, args.root)
-    data, info = llm.smoke()
-    print("model", info["model"])
-    print("stop_reason", info["stop_reason"])
-    print("usage", json.dumps(info["usage"]))
-    print("cost $%.4f" % info["cost"])
-    print("ok", data.get("ok"))
-    if llm.notes:
-        print(", ".join(llm.notes))
+# ---------------------------------------------------------------- routine commands
+
+def load_state(root):
+    root = pathlib.Path(root).resolve()
+    cfg = R.load_config(root)
+    arts = R.load_articles(root)
+    questions = load_questions(root)
+    attempts_path = root / "tools/ugc_agent/attempts.json"
+    attempts = R.load_json(attempts_path) if attempts_path.is_file() else {}
+    return root, cfg, arts, questions, attempts
+
+
+def load_candidate(path, questions):
+    """(question, article content) from a candidate file: {description, short_answer, sections[, slug]}."""
+    p = pathlib.Path(path)
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise UsageError("cannot read candidate %s: %s" % (path, e))
+    if not isinstance(data, dict):
+        raise UsageError("candidate %s must be a JSON object" % path)
+    slug = data.pop("slug", None) or p.stem
+    q = next((x for x in questions if x["slug"] == slug), None)
+    if q is None:
+        raise UsageError("no queued question has the slug %r (the candidate's slug, or its file name)" % slug)
+    return q, data
+
+
+def candidate_problems(root, cfg, arts, q, data, ctx=None, ch=None):
+    """Schema first, then the code gate (which resolves every internal link). Returns (problems, article dict or None)."""
+    shape = SCH.validate(SCH.ARTICLE, data)
+    if shape:
+        return ["schema: " + s for s in shape[:12]], None
+    art = make_art(q, data)
+    existing = arts.get(q["slug"])
+    if existing and existing["status"] in ("live", "withdrawn"):
+        return ["this question already has a %s article" % existing["status"]], art
+    if any(a["question_id"] == q["id"] and a["status"] in ("live", "withdrawn") for a in arts.values()):
+        return ["this question already has an article under another slug"], art
+    ch = ch or R.chrome(root, cfg)
+    ctx = ctx or G.Context(root)
+    # articles published earlier in this run have JSON but no rendered page yet: compare against them in memory
+    for slug, a in arts.items():
+        rel = "blog/%s/index.html" % slug
+        if a["status"] == "live" and not (pathlib.Path(root) / rel).is_file():
+            ctx.extra[rel] = G.shingles(G.words_of(G.parse(R.render_article_page(root, cfg, ch, a, arts)).text))
+    return G.article_problems(root, art, arts, ctx, cfg, ch), art
+
+
+def print_problems(problems):
+    print("%d problem(s):" % len(problems))
+    for p in problems:
+        print("  - " + p)
+
+
+def read_verdict(path):
+    try:
+        v = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise UsageError("cannot read verdict %s: %s" % (path, e))
+    shape = SCH.validate(SCH.JUDGE, v)
+    if shape:
+        raise UsageError("verdict is not in the reviewer schema: " + "; ".join(shape[:6]))
+    return v
+
+
+def replenish_brief(cfg, arts, questions, out):
+    counts = live_counts(arts)
+    return {"instructions": "Follow tools/ugc_agent/prompts/replenish.txt. Write {\"questions\": [...]} to new_questions_path, "
+                            "then run: python3 tools/ugc_agent/agent.py add-questions <that file>.",
+            "topics_with_room": [{"slug": t["slug"], "title": t["title"], "answers_so_far": counts.get(t["slug"], 0),
+                                  "room": cfg["topic_cap"] - counts.get(t["slug"], 0)} for t in cfg["topics"]
+                                 if counts.get(t["slug"], 0) < cfg["topic_cap"]],
+            "existing_questions": [q["question"] for q in questions],
+            "schema": SCH.REPLENISH, "new_questions_path": str(out / "new-questions.json")}
+
+
+def build_brief(root, cfg, arts, q, out):
+    payload = build_payload(root, cfg, arts, q)
+    payload.pop("revision", None)
+    topic = R.topic_map(cfg)[q["theme"]]
+    ref = pathlib.Path(root) / "tools/ugc_agent/articles/ugc-script-for-skincare.json"
+    sample = None
+    if ref.is_file():
+        a = R.load_json(ref)
+        sample = {k: a[k] for k in ("description", "short_answer", "sections")}
+    payload.update({
+        "topic": q["theme"],
+        "instructions": "Write the article per tools/ugc_agent/prompts/system.txt. Write ONE JSON file at candidate_path "
+                        "(an object with description, short_answer, sections: nothing else) that matches schema.",
+        "schema": SCH.ARTICLE,
+        "candidate_path": str(out / "candidates" / (q["slug"] + ".json")),
+        "verdict_path": str(out / "verdicts" / (q["slug"] + ".json")),
+        "topic_pillars": [{"url": p, "title": page_title(root, p.strip("/"))} for p in topic["pillars"]],
+        "reference_answer": sample,
+        "reference_answer_note": "REFERENCE ANSWER (voice and depth only; reuse none of its sentences, hooks or examples)",
+    })
+    return payload
+
+
+def git_subjects(root, n=40):
+    if not (pathlib.Path(root) / ".git").exists():
+        return ""
+    try:
+        return subprocess.run(["git", "log", "-n", str(n), "--format=%s"], cwd=root, capture_output=True,
+                              text=True, check=True).stdout
+    except Exception:
+        return ""
+
+
+def cmd_next(args):
+    root, cfg, arts, questions, attempts = load_state(args.root)
+    today = today_str()
+    yday = (datetime.date.fromisoformat(today) - datetime.timedelta(days=1)).isoformat()
+    out = pathlib.Path(args.out) if args.out else default_out()
+    if not args.force and ("ugc-agent: articles %s" % today) in git_subjects(root):
+        print(json.dumps({"status": "already ran today", "briefs": []}))
+        return 0
+    probs = G.site_problems(root)
+    if probs:
+        print("the untouched tree fails the site gate; nothing is built on it:")
+        print_problems(probs)
+        return 1
+    queue = build_queue(cfg, questions, arts, attempts)
+    out.mkdir(parents=True, exist_ok=True)
+    for d in ("briefs", "candidates", "verdicts"):
+        (out / d).mkdir(exist_ok=True)
+    for old in (out / "briefs").glob("*.json"):
+        old.unlink()
+    low = len(queue) < cfg["replenish_below"]
+    if low:
+        wjson(out / "replenish-brief.json", replenish_brief(cfg, arts, questions, out))
+    n = clamp(args.n or env_int("UGC_AGENT_PER_RUN", cfg["per_day_default"]), 1, 3)
+    summary = {"today": today, "out": str(out), "queue_size": len(queue), "queue_low": low,
+               "replenish_brief": str(out / "replenish-brief.json") if low else None,
+               "min_publish": clamp(env_int("UGC_AGENT_MIN_PUBLISH", cfg["min_publish_default"]), 1, 3), "briefs": []}
+    if not queue:
+        print(json.dumps(dict(summary, status="queue empty: replenish, then run next again"), indent=2))
+        return EX_EMPTY
+    for q in pick(queue, n, attempts, today, yday):
+        path = out / "briefs" / (q["slug"] + ".json")
+        wjson(path, build_brief(root, cfg, arts, q, out))
+        summary["briefs"].append({"slug": q["slug"], "question": q["question"], "topic": q["theme"], "brief": str(path),
+                                  "candidate_path": str(out / "candidates" / (q["slug"] + ".json")),
+                                  "verdict_path": str(out / "verdicts" / (q["slug"] + ".json"))})
+    wjson(out / "snapshot.json", snapshot(root))
+    print(json.dumps(summary, indent=2))
+    return 0
+
+
+def cmd_check(args):
+    root, cfg, arts, questions, attempts = load_state(args.root)
+    q, data = load_candidate(args.candidate, questions)
+    problems, art = candidate_problems(root, cfg, arts, q, data)
+    if problems:
+        print("FAIL %s" % q["slug"])
+        print_problems(problems)
+        return 1
+    print("PASS %s (gate ok, every internal link resolves)" % q["slug"])
+    return 0
+
+
+def cmd_judge_context(args):
+    root, cfg, arts, questions, attempts = load_state(args.root)
+    q, data = load_candidate(args.candidate, questions)
+    problems, art = candidate_problems(root, cfg, arts, q, data)
+    if problems:
+        print("the candidate does not pass the code gate, so it cannot be reviewed yet:", file=sys.stderr)
+        for p in problems:
+            print("  - " + p, file=sys.stderr)
+        return 1
+    run_arts = dict(arts)
+    run_arts[q["slug"]] = art
+    ctx = judge_context(root, cfg, run_arts, q, R.topic_map(cfg)[q["theme"]]["title"], art)
+    print(json.dumps(ctx, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_publish(args):
+    root, cfg, arts, questions, attempts = load_state(args.root)
+    q, data = load_candidate(args.candidate, questions)
+    verdict = read_verdict(args.verdict)
+    problems, art = candidate_problems(root, cfg, arts, q, data)
+    if problems:
+        print("REFUSED %s: the code gate fails" % q["slug"])
+        print_problems(problems)
+        return 1
+    if not judge_passes(verdict):
+        print("REFUSED %s: the verdict is not a pass (verdict=%s, scores=%s, %d blocking issue(s))"
+              % (q["slug"], verdict["verdict"], json.dumps(verdict["scores"]), len(verdict["blocking_issues"])))
+        return 1
+    today = today_str()
+    art.update({"status": "live", "published": today, "origin": "agent",
+                "model": os.environ.get("UGC_AGENT_MODEL", "claude-code-routine"), "cost_usd": 0.0,
+                "judge": {"verdict": verdict["verdict"], "scores": verdict["scores"]},
+                "hooks": [R.plain(h) for h in G.hook_lines(art)]})
+    wjson(root / "tools/ugc_agent/articles" / (q["slug"] + ".json"), art)
+    attempts[q["id"]] = dict(attempts.get(q["id"], {"fails": 0}), published=today)
+    wjson(root / "tools/ugc_agent/attempts.json", attempts)
+    print("published %s (live, %s)" % (q["slug"], today))
+    return 0
+
+
+def cmd_fail(args):
+    root, cfg, arts, questions, attempts = load_state(args.root)
+    q = next((x for x in questions if x["slug"] == args.slug), None)
+    if q is None:
+        raise UsageError("no question has the slug %r" % args.slug)
+    a = attempts.setdefault(q["id"], {"fails": 0})
+    a["fails"] = a.get("fails", 0) + 1
+    a["last_fail"] = today_str()
+    a["last_error"] = (args.reason or "").strip()[:200]
+    wjson(root / "tools/ugc_agent/attempts.json", attempts)
+    print("recorded failure %d for %s%s" % (a["fails"], q["slug"], " (retired after 4)" if a["fails"] >= 4 else ""))
+    return 0
+
+
+def cmd_add_questions(args):
+    root, cfg, arts, questions, attempts = load_state(args.root)
+    try:
+        data = json.loads(pathlib.Path(args.file).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise UsageError("cannot read %s: %s" % (args.file, e))
+    if isinstance(data, list):
+        data = {"questions": data}
+    shape = SCH.validate(SCH.REPLENISH, data)
+    if shape:
+        raise UsageError("not in the replenish schema: " + "; ".join(shape[:6]))
+    accepted, rejected = accept_replenished(data["questions"], cfg, questions, arts, root)
+    if accepted:
+        auto = root / "tools/ugc_agent/questions-auto.json"
+        wjson(auto, R.load_json(auto) + accepted)
+    print("%d accepted, %d rejected" % (len(accepted), len(rejected)))
+    for a in accepted:
+        print("  + %s %s" % (a["id"], a["slug"]))
+    for s, why in rejected:
+        print("  - %s: %s" % (s, why))
+    return 0
+
+
+def cmd_finish(args):
+    root, cfg, arts, questions, attempts = load_state(args.root)
+    today = today_str()
+    out = pathlib.Path(args.out) if args.out else default_out()
+    manifest = pathlib.Path(args.manifest) if args.manifest else out / "manifest.txt"
+    before = {}
+    if not (root / ".git").exists() and (out / "snapshot.json").is_file():
+        before = R.load_json(out / "snapshot.json")
+    paths = changed_paths(root, before, False)
+    bad = [p for p in paths if not ALLOW_PATH.match(p)]
+    if bad:
+        write_outputs(manifest, None, [], "", [], False, root)
+        print("REFUSED: changed paths outside the allowlist: %s" % ", ".join(bad))
+        return 1
+    published = []
+    for p in paths:
+        m = re.fullmatch(r"tools/ugc_agent/articles/([a-z0-9-]+)\.json", p)
+        if m and (root / p).is_file():
+            a = R.load_json(root / p)
+            if a.get("status") == "live" and a.get("published") == today:
+                published.append(a["slug"])
+    need = clamp(env_int("UGC_AGENT_MIN_PUBLISH", cfg["min_publish_default"]), 1, 3)
+    if len(published) < need:
+        # Nothing published: still commit the attempts/queue state on its own, so the next run moves past the
+        # questions that just failed instead of retrying them forever. Any other changed path means commit nothing.
+        state = [p for p in paths if p in STATE_PATHS]
+        if published or not state or len(state) != len(paths):
+            write_outputs(manifest, None, [], "", [], False, root)
+            print("%d article(s) published, %d needed: nothing to commit" % (len(published), need))
+            return EX_NOTHING
+        write_outputs(manifest, None, state, "ugc-agent: no article passed %s (attempts recorded)" % today, [], False, root)
+        print("0 articles published, %d needed: manifest %s holds only the attempts state (%d paths)" % (need, manifest, len(state)))
+        return EX_NOTHING
+    subject = "ugc-agent: articles %s (%d): %s" % (today, len(published), ", ".join(sorted(published)))
+    write_outputs(manifest, None, paths, subject, [], False, root)
+    print("manifest %s (%d paths)\nsubject: %s" % (manifest, len(paths), subject))
     return 0
 
 
 def main(argv=None):
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--root", default=str(REPO))
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("mode", choices=["daily", "withdraw", "render", "gate", "publish-check", "smoke"])
-    ap.add_argument("--root", default=str(REPO))
-    ap.add_argument("--manifest")
-    ap.add_argument("--summary")
-    ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--attempts-cache")
-    ap.add_argument("--slugs")
+    sub = ap.add_subparsers(dest="mode", required=True)
+    p = sub.add_parser("next", parents=[common]); p.add_argument("--n", type=int); p.add_argument("--out"); p.add_argument("--force", action="store_true")
+    p = sub.add_parser("check", parents=[common]); p.add_argument("candidate")
+    p = sub.add_parser("judge-context", parents=[common]); p.add_argument("candidate")
+    p = sub.add_parser("publish", parents=[common]); p.add_argument("candidate"); p.add_argument("--verdict", required=True)
+    p = sub.add_parser("fail", parents=[common]); p.add_argument("slug"); p.add_argument("--reason", required=True)
+    p = sub.add_parser("add-questions", parents=[common]); p.add_argument("file")
+    p = sub.add_parser("finish", parents=[common]); p.add_argument("--out"); p.add_argument("--manifest")
+    sub.add_parser("render", parents=[common])
+    sub.add_parser("gate", parents=[common])
+    p = sub.add_parser("withdraw", parents=[common]); p.add_argument("--slugs"); p.add_argument("--manifest"); p.add_argument("--summary")
+    p = sub.add_parser("publish-check", parents=[common]); p.add_argument("--manifest"); p.add_argument("--summary")
     args = ap.parse_args(argv)
+    fn = {"next": cmd_next, "check": cmd_check, "judge-context": cmd_judge_context, "publish": cmd_publish,
+          "fail": cmd_fail, "add-questions": cmd_add_questions, "finish": cmd_finish, "render": cmd_render,
+          "gate": cmd_gate, "withdraw": cmd_withdraw, "publish-check": cmd_publish_check}[args.mode]
     try:
-        return {"daily": cmd_daily, "withdraw": cmd_withdraw, "render": cmd_render, "gate": cmd_gate,
-                "publish-check": cmd_publish_check, "smoke": cmd_smoke}[args.mode](args)
-    except LLMError as e:
-        print("model call failed: %s" % e)
-        return 1
+        return fn(args)
+    except UsageError as e:
+        print("error: %s" % e)
+        return EX_USAGE
 
 
 if __name__ == "__main__":

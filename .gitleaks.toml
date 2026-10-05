@@ -37,3 +37,18 @@ regexes = [
   '''^lynxr-[0-9a-z]{6}$''',
   '''^TRACK_[A-Z_]+$''',
 ]
+
+# More names, not secrets — the scan failed again on 4f5a043 (2026-10-05). Checked the same day: none of the real
+# values in .env appear in that commit, in HEAD or in the working tree. Each entry is anchored to the whole value:
+#   - `ANTHROPIC_API_KEY`: the environment-variable NAME in .github/workflows/ugc-agent.yml and tools/ugc_agent/.
+#   - `P.urllib.request.urlopen`: a function path patched in pipeline/test_link_checks.py.
+#   - `lynxr_pending_paste`: a browser storage key name in showcase.js.
+#   - `cache_creation_input_tokens`: an Anthropic API usage field name.
+[[allowlists]]
+description = "names that look random: an env var name, a patched function path, a storage key, an API field"
+regexes = [
+  '''^ANTHROPIC_API_KEY$''',
+  '''^P\.urllib\.request\.urlopen$''',
+  '''^lynxr_pending_paste$''',
+  '''^cache_creation_input_tokens$''',
+]

@@ -8289,11 +8289,26 @@ async function readCompanySite(url) {
   catch { return await readViaCodetabs(url); }
 }
 
+/* A FETCHED PAGE LOSES ITS INLINE STYLES BEFORE DOMParser SEES IT (2026-10-05). DOMParser holds what it
+   parses to THIS page's CSP, and style-src 'self' refuses every <style> block and style attribute in a
+   third-party page: one "Applying inline style violates…" console error apiece, 175 at once for a single
+   Instagram link pasted on the landing page, although the parsed copy is never shown and nothing read from
+   it is a style. Comments, scripts, <title> and <textarea> pass through untouched, and attributes are
+   matched one at a time, so a caption that merely mentions style= keeps its words. A tag this cannot read
+   is left exactly as it was (the worst case is that tag's console error, as before). */
+function withoutInlineStyles(html) {
+  return String(html).replace(
+    /(<!--[\s\S]*?-->|<(script|title|textarea)\b[^>]*>[\s\S]*?<\/\2\s*>)|(<style\b[^>]*>[\s\S]*?<\/style\s*>)|<[a-z][^\s/>]*(?:\s+[^\s"'>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?)*\s*\/?>/gi,
+    (tag, keep, raw, styleBlock) => (keep ? tag : styleBlock ? "" : tag.replace(
+      /(\s+)([^\s"'>/=]+)(\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?/g,
+      (attr, space, name) => (name.toLowerCase() === "style" ? "" : attr))));
+}
+
 /** DOMParser never executes scripts in the parsed document, so a hostile page
     cannot run anything here — it is inert markup by the time we read it. */
 function parseSiteHtml(html) {
   if (!html || html.length < 200) throw new Error("empty read");
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = new DOMParser().parseFromString(withoutInlineStyles(html), "text/html");
   const meta = (sel) => doc.querySelector(sel)?.getAttribute("content") || "";
   return {
     title: (doc.querySelector("title")?.textContent || meta('meta[property="og:title"]')).trim(),
@@ -8405,7 +8420,7 @@ const PLATFORM_BOILERPLATE =
   /^(tiktok(\s*-\s*make your day)?|instagram|youtube|login\s*[•·|]\s*instagram|instagram photos and videos|before you continue to youtube)$/i;
 
 function metaFromHtml(html) {
-  const doc = new DOMParser().parseFromString(html || "", "text/html");
+  const doc = new DOMParser().parseFromString(withoutInlineStyles(html || ""), "text/html");
   const meta = (s) => doc.querySelector(s)?.getAttribute("content") || "";
   const og = meta('meta[property="og:title"]') || doc.querySelector("title")?.textContent || "";
   const desc = meta('meta[property="og:description"]');

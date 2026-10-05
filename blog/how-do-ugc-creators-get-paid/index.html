@@ -2,33 +2,29 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Static prose. No scripts, no network calls of any kind, so the CSP is the
-     tightest on the site: stylesheet and font from self, nothing else. Same as
-     /privacy/, which this page is the pair to. -->
-<!-- `script-src 'self'` was ADDED 2026-08-19, and it is the narrowest thing
-     that makes this page's own top bar work. These three legal pages carried no
-     script at all, so `default-src 'none'` covered script-src by fallback — and
-     when the shared bar and its burger menu arrived, site.js was silently
-     BLOCKED here and nowhere else. It failed exactly the way CSP failures fail:
-     the markup was right, the file 200'd, and the only trace was one console
-     line. No 'unsafe-inline', no host: one same-origin file. -->
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>lynxr — refund policy</title>
-<meta name="description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.">
-<meta property="og:title" content="lynxr — refund policy">
-<meta property="og:description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.">
-<meta property="og:type" content="website">
+<title>How do UGC creators get paid?</title>
+<meta name="description" content="How UGC creators get paid: flat fees per video, usage and raw footage add-ons, bundles, retainers, deposits, invoices and what to do when payment runs late.">
+<meta property="og:title" content="How do UGC creators get paid?">
+<meta property="og:description" content="How UGC creators get paid: flat fees per video, usage and raw footage add-ons, bundles, retainers, deposits, invoices and what to do when payment runs late.">
+<meta property="og:type" content="article">
 <meta property="og:site_name" content="lynxr">
-<meta property="og:url" content="https://lynxr.io/refunds/">
+<meta property="og:url" content="https://lynxr.io/blog/how-do-ugc-creators-get-paid/">
 <meta property="og:image" content="https://lynxr.io/og-v3.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="lynxr — refund policy">
-<meta name="twitter:description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.">
+<meta name="twitter:title" content="How do UGC creators get paid?">
+<meta name="twitter:description" content="How UGC creators get paid: flat fees per video, usage and raw footage add-ons, bundles, retainers, deposits, invoices and what to do when payment runs late.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
-<link rel="canonical" href="https://lynxr.io/refunds/">
+<link rel="canonical" href="https://lynxr.io/blog/how-do-ugc-creators-get-paid/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261005j">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261005j">
 <link rel="shortcut icon" href="/favicon.ico?v=20261005j">
@@ -74,10 +70,24 @@
       ],
       "founder": [
         {
-          "@id": "https://lynxmediagroup.org/#gawin"
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": [
+            "https://www.instagram.com/junsahwang/"
+          ]
         },
         {
-          "@id": "https://lynxmediagroup.org/#junsa"
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": [
+            "https://www.instagram.com/gawinhsu/"
+          ]
         }
       ],
       "knowsAbout": [
@@ -112,36 +122,11 @@
       ],
       "founder": [
         {
-          "@id": "https://lynxmediagroup.org/#gawin"
+          "@id": "https://lynxr.io/#junsa-hwang"
         },
         {
-          "@id": "https://lynxmediagroup.org/#junsa"
+          "@id": "https://lynxr.io/#gawin-hsu"
         }
-      ]
-    },
-    {
-      "@type": "Person",
-      "@id": "https://lynxmediagroup.org/#junsa",
-      "name": "Junsa Hwang",
-      "jobTitle": "Co-founder & CTO",
-      "description": "Co-founder and CTO of Lynx Media Group and creator of lynxr.",
-      "worksFor": {
-        "@id": "https://lynxmediagroup.org/#org"
-      },
-      "sameAs": [
-        "https://www.instagram.com/junsahwang/"
-      ]
-    },
-    {
-      "@type": "Person",
-      "@id": "https://lynxmediagroup.org/#gawin",
-      "name": "Gawin Hsu",
-      "jobTitle": "Co-founder & CEO",
-      "worksFor": {
-        "@id": "https://lynxmediagroup.org/#org"
-      },
-      "sameAs": [
-        "https://www.instagram.com/gawinhsu/"
       ]
     },
     {
@@ -149,13 +134,10 @@
       "@id": "https://lynxr.io/#website",
       "url": "https://lynxr.io/",
       "name": "lynxr",
-      "alternateName": [
-        "lynxr.io",
-        "lynxr app",
-        "lynxr script tool"
-      ],
       "inLanguage": "en",
-      "publisher": { "@id": "https://lynxr.io/#organization" },
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
       "about": {
         "@id": "https://lynxr.io/#lynxr"
       }
@@ -206,15 +188,12 @@
           "description": "Unlimited scripts within fair use (150 in any rolling 30 days, 30 in any 24 hours), billed monthly. Tax is added at checkout where it applies."
         }
       ],
-      "author": {
-        "@id": "https://lynxmediagroup.org/#junsa"
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
       },
-      "publisher": { "@id": "https://lynxr.io/#organization" },
-      "sameAs": [
-        "https://www.instagram.com/lynxr.io/",
-        "https://www.tiktok.com/@lynxr.io",
-        "https://www.linkedin.com/company/lynxr"
-      ],
+      "creator": {
+        "@id": "https://lynxr.io/#organization"
+      },
       "alternateName": "lynxr.io"
     }
   ]
@@ -224,15 +203,27 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebPage",
-  "@id": "https://lynxr.io/refunds/#webpage",
-  "url": "https://lynxr.io/refunds/",
-  "name": "lynxr — refund policy",
-  "description": "How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.",
+  "@type": "BlogPosting",
+  "@id": "https://lynxr.io/blog/how-do-ugc-creators-get-paid/#article",
+  "headline": "How do UGC creators get paid?",
+  "description": "How UGC creators get paid: flat fees per video, usage and raw footage add-ons, bundles, retainers, deposits, invoices and what to do when payment runs late.",
+  "image": "https://lynxr.io/og-v3.png",
   "inLanguage": "en",
-  "dateModified": "2026-09-21",
-  "isPartOf": { "@id": "https://lynxr.io/#website" },
-  "about": { "@id": "https://lynxr.io/#lynxr" }
+  "datePublished": "2026-10-05",
+  "dateModified": "2026-10-05",
+  "author": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "publisher": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "isPartOf": {
+    "@id": "https://lynxr.io/#website"
+  },
+  "mentions": {
+    "@id": "https://lynxr.io/#lynxr"
+  },
+  "mainEntityOfPage": "https://lynxr.io/blog/how-do-ugc-creators-get-paid/"
 }
 </script>
 <script type="application/ld+json">
@@ -240,13 +231,43 @@
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    { "@type": "ListItem", "position": 1, "name": "lynxr", "item": "https://lynxr.io/" },
-    { "@type": "ListItem", "position": 2, "name": "refund policy", "item": "https://lynxr.io/refunds/" }
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "lynxr",
+      "item": "https://lynxr.io/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "questions and answers",
+      "item": "https://lynxr.io/faq/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "UGC rates, pay and usage rights",
+      "item": "https://lynxr.io/faq/ugc-rates-and-pay/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "How do UGC creators get paid?",
+      "item": "https://lynxr.io/blog/how-do-ugc-creators-get-paid/"
+    }
   ]
 }
 </script>
 </head>
-<body>
+<!-- This page's visible copy is written in normal sentence case in the
+     source, unlike the lowercase-with-exceptions convention the rest of the
+     site uses. Painted output is identical either way — text-transform:
+     lowercase in app.css flattens all of it — but a model reading the source
+     sees real casing here, because this page carries no JSON-LD twin of its
+     prose the way /faq/ does, so the body text is the only machine-readable
+     copy there is. .lp unsets the app's bare main{} container so the sections
+     below can be full-bleed. See the marketing-page block in app.css. -->
+<body class="lp">
 <svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
 
 <header class="lp-bar">
@@ -286,66 +307,102 @@
   </nav>
 </header>
 
-<main class="legal">
-  <section>
-  <h1>refund policy</h1>
-  <p class="legal-date">last updated 21 september 2026</p>
+<main>
 
-  <p>this policy covers lynxr pro, which is <strong>$24.99 a month, billed
-    monthly in advance</strong>. it forms part of the
-    <a href="/terms/">terms of service</a>.</p>
+  <section class="lp-hero">
+    <div class="lp-in">
+      <nav class="post-crumbs" aria-label="Breadcrumb"><a href="/">lynxr</a> / <a href="/faq/">questions</a> / <a href="/faq/ugc-rates-and-pay/">rates and pay</a></nav>
+      <h1 class="lp-h1">How do <span class="acr">UGC</span> creators get paid?</h1>
+      <p class="lp-lede">You can be paid a fee per video or bundle, plus separate lines for usage rights, raw footage or a monthly retainer, collected by sending an invoice. A brand may offer product instead of a fee, which suits you only when nothing else is asked. Agree the fee, deposit and payment date in writing before you film, so you can point to it if payment is late.</p>
+      <p class="post-meta">Published <time datetime="2026-10-05">5 October 2026</time></p>
+    </div>
   </section>
 
-  <section>
-  <h2>who you are paying</h2>
-  <p><span class="entity">Stripe</span> is the merchant of record for every
-    purchase of lynxr pro. <span class="entity">Stripe</span> takes the
-    payment, issues the invoice, collects any tax that is due where you are, and
-    issues any refund. your card statement shows <strong>LYNXR</strong>, which
-    may appear next to <span class="entity">Stripe</span> or
-    <span class="entity">Link</span>, who process the payment.</p>
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="what-payment-structures-can-a-ugc">What payment structures can a <span class="acr">UGC</span> deal use?</h2>
+      <p class="lp-p">A <span class="acr">UGC</span> deal can pay per video, per bundle, on retainer or in product, with usage rights and raw footage priced as extras.</p>
+      <p class="lp-p">Each structure answers a different question about a <a href="/glossary/#ugc"><span class="acr">UGC</span></a> job: what you are making, where and for how long the brand can run it, and who edits it. Read the <a href="/glossary/#brief">brief</a> with those three questions in mind before you quote, because the deliverables decide which structure fits. The steps in <a href="/blog/brief-to-script/#marking-up-the-brief">marking up a brand brief</a> help you separate what is fixed from what you get to choose, and the same markup tells you what to price.</p>
+      <div class="post-table">
+        <table>
+          <thead><tr><th scope="col">Structure</th><th scope="col">What the brand pays for</th><th scope="col">When it suits you</th></tr></thead>
+          <tbody>
+            <tr><td>Flat fee per video</td><td>One finished, edited video delivered as agreed</td><td>A single test video or a first job with a new brand</td></tr>
+            <tr><td>Usage add-on</td><td>The right to run your video somewhere beyond what the base fee covers, for an agreed period</td><td>Any time the video will appear in ads or on the brand's own pages</td></tr>
+            <tr><td>Raw footage</td><td>Your unedited clips, so the brand's team can recut them</td><td>When the brand wants to edit its own versions</td></tr>
+            <tr><td>Bundle</td><td>Several videos, or several hooks on one video, for one price</td><td>When the brief asks for variations you can film in one session</td></tr>
+            <tr><td>Retainer</td><td>An agreed number of videos each month for an agreed period</td><td>When you already work well with the brand and want steady work</td></tr>
+            <tr><td>Product only</td><td>The product, with no fee</td><td>Only when the conditions further down are all met</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 class="lp-h2" id="how-do-usage-rights-and-raw">How do usage rights and raw footage change what you charge?</h2>
+      <p class="lp-p">Usage rights and raw footage give the brand more than one finished video, so price each as a separate line.</p>
+      <p class="lp-p">Before you quote usage, ask three things: where will the video run, for how long, and will it be used in paid ads? Write the answers into the agreement word for word. If the brand asks for more usage after delivery, quote it as a new line, because your original fee was set for the original terms. Ask whether the brand wants raw footage before the shoot, not after, because it changes how you film: you need clean takes without talking over cuts or transitions.</p>
+      <ul class="lp-list">
+        <li>Base fee: one edited video with [NUMBER] hooks, delivered by [DATE]: [AMOUNT].</li>
+        <li>Usage: [WHERE], for [NUMBER] months from first post: [AMOUNT].</li>
+        <li>Raw footage: all usable clips from the shoot, delivered with the edit: [AMOUNT].</li>
+        <li>Extra revision round beyond the one included: [AMOUNT].</li>
+      </ul>
+
+      <h2 class="lp-h2" id="when-should-you-turn-down-a">When should you turn down a product-only deal?</h2>
+      <p class="lp-p">Turn down a product-only deal when the brand wants usage rights, raw footage, several videos or a deadline, because those are paid work.</p>
+      <p class="lp-p">A product-only deal can make sense early on, when you would buy the product anyway and want a real video for your portfolio. Check it against this list before you say yes.</p>
+      <ul class="lp-list">
+        <li>You can post the video yourself and show it to other brands. If you cannot, you get nothing you can use.</li>
+        <li>The brand gets no usage rights. If it wants to run the video as an ad, that is a paid deliverable.</li>
+        <li>There is one video and no fixed deadline. Rushed or repeated work is labour, not a swap.</li>
+        <li>The product is something you would use honestly. You will only say what you noticed, so it has to be worth filming.</li>
+      </ul>
+      <p class="lp-p">If a <a href="/glossary/#brand">brand</a> fails that list, decline politely and leave the door open: Thanks for thinking of me. For a video with usage rights my fee starts at [AMOUNT], and I'm happy to send a full quote if that fits your budget.</p>
+
+      <h2 class="lp-h2" id="should-you-ask-for-a-deposit">Should you ask for a deposit before you film?</h2>
+      <p class="lp-p">Ask for a deposit when the job is large, the brand is new to you, or you have to buy props or travel.</p>
+      <p class="lp-p">A deposit commits both sides before you spend time and money on a shoot. Split the fee into part upfront and the balance on delivery, and put both dates in writing. For a retainer, agree whether you invoice at the start or the end of each month, because that decides whether you are ever working ahead of payment. You can copy this line into your quote: I take [AMOUNT] upfront to book the shoot, with the balance due within [NUMBER] days of delivery. I'll send the deposit invoice as soon as you confirm.</p>
+
+      <h2 class="lp-h2" id="what-should-go-on-a-ugc">What should go on a <span class="acr">UGC</span> invoice?</h2>
+      <p class="lp-p">A <span class="acr">UGC</span> invoice should list who you are, who pays, what you delivered, each priced line, the payment date and how to pay.</p>
+      <ul class="lp-list">
+        <li>Your name, contact details and a unique invoice number, so both sides can refer to it later.</li>
+        <li>The brand's legal name and the contact who approved the work.</li>
+        <li>Each deliverable as its own line: videos, hooks, usage, raw footage, revisions. Match the wording in your agreement.</li>
+        <li>Any deposit already paid, subtracted from the total.</li>
+        <li>The due date and your payment details, exactly as you agreed them.</li>
+        <li>A reference or order number if the brand's finance team asks for one. Ask your contact before you send, so it reaches the right person first time.</li>
+      </ul>
+      <p class="lp-p">If you are unsure which tax details belong on an invoice where you live, ask someone qualified rather than guessing.</p>
+
+      <h2 class="lp-h2" id="what-do-you-do-when-a">What do you do when a brand pays late?</h2>
+      <p class="lp-p">Send a polite reminder the day after the agreed date, attach the invoice again, and quote the payment terms you agreed in writing.</p>
+      <ul class="lp-list">
+        <li>First reminder: Hi [NAME], a quick note that invoice [NUMBER] for [AMOUNT], for the videos delivered on [DATE], was due on [DATE]. I've attached it again. Could you confirm when it will be paid?</li>
+        <li>If there is no reply after a week, send the same message again and copy in the finance contact, because your usual contact may not handle payments.</li>
+        <li>Hold any new deliverables until the overdue invoice is paid, and say so plainly so it reads as a process, not a threat.</li>
+        <li>Keep every message, the agreement and the invoice together, so you can show exactly what was agreed if anyone asks.</li>
+      </ul>
+      <p class="lp-p">Getting the fee, deposit and due date in writing before you film gives you something concrete to point to if payment is late. Keep that agreement in the same folder as the brief and the invoice, so it is ready before you need it.</p>
+    </div>
   </section>
 
-  <section>
-  <h2>14-day money-back on your first payment</h2>
-  <p><strong>if lynxr has not worked for you, ask within 14 days of your first
-    payment and it is refunded in full.</strong> you do not have to justify it.</p>
-  <p><strong>a refund ends access straight away.</strong> a refunded month is
-    not a month you keep &mdash; the account returns to the free tier when the
-    refund is issued.</p>
+  <section class="lp-band post-end">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="do-it-with-lynxr">Write your next <span class="acr">UGC</span> script with lynxr</h2>
+      <p class="lp-p">Paste a public TikTok or Instagram link on <a href="/">the homepage</a> and lynxr works out the format — hook, beats, turn, close — and writes it as a script for the brand you make content for. <a href="/how-it-works/">How lynxr writes scripts</a> shows each step. Free to start: <a href="/faq/#what-it-costs">3 scripts a week, no card</a>.</p>
+      <h2 class="lp-h2" id="more-questions">More questions about <span class="acr">UGC</span> rates, pay and usage rights</h2>
+      <ul class="lp-list">
+        <li><b><a href="/faq/ugc-rates-and-pay/">All questions about <span class="acr">UGC</span> rates, pay and usage rights</a></b> — getting paid and pricing your work.</li>
+      </ul>
+      <h2 class="lp-h2" id="keep-reading">Keep reading</h2>
+      <ul class="lp-list">
+        <li><b><a href="/blog/brief-to-script/">How to turn a brand brief into a script</a></b></li>
+        <li><b><a href="/ugc-script-template/">A <span class="acr">UGC</span> script template that holds up</a></b></li>
+        <li><b><a href="/faq/">Questions and answers</a></b> — about lynxr, and every topic <span class="acr">UGC</span> creators ask about.</li>
+      </ul>
+    </div>
   </section>
 
-  <section>
-  <h2>cancelling</h2>
-  <p>you can cancel at any time from the plan page in the app: sign in, open
-    <strong>plan</strong>, choose <strong>cancel subscription</strong>, and confirm on
-    <span class="entity">Stripe</span>'s page. if you would rather, email
-    <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> or reply to the receipt you were emailed, and we
-    will cancel it for you.</p>
-  <p><strong>there is no pro-rata refund on cancellation.</strong> cancelling
-    takes effect at the end of the period you have already paid for: your
-    access and your script allowance stay until then, and the unused part of
-    that period is not refunded.</p>
-  </section>
-
-  <section>
-  <h2>after the first 14 days</h2>
-  <p>beyond the 14 days, refunds are at our discretion. ask and we will look at
-    it &mdash; we would rather hear that something went wrong than not.</p>
-  </section>
-
-  <section>
-  <h2>if a payment fails</h2>
-  <p><span class="entity">Stripe</span> retries a failed payment for a few days
-    before access drops back to the free tier. <strong>nothing you have already
-    written is deleted</strong>, and your scripts stay readable.</p>
-  </section>
-
-  <section>
-  <h2>how to ask for a refund</h2>
-  <p>reply to the receipt you were emailed, or use feedback in the app. either
-    reaches us.</p>
-  </section>
 </main>
 
 <footer id="site-footer">
@@ -380,7 +437,7 @@
       <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
       <a class="foot-link" href="/privacy/">privacy policy</a>
       <a class="foot-link" href="/terms/">terms of service</a>
-      <a class="foot-link" href="/refunds/" aria-current="page">refund policy</a>
+      <a class="foot-link" href="/refunds/">refund policy</a>
       <a class="foot-link" href="/accessibility/">accessibility</a>
     </div>
     <div class="foot-col">
@@ -397,8 +454,8 @@
   </div>
 </footer>
 
-<!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
-     see the file's own header for why it must never reach either app. -->
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
 <script src="/site.js?v=20261005j" defer></script>
 <script src="/footer.js?v=20261005j" defer></script>
 

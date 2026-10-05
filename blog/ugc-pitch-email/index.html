@@ -2,33 +2,29 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Static prose. No scripts, no network calls of any kind, so the CSP is the
-     tightest on the site: stylesheet and font from self, nothing else. Same as
-     /privacy/, which this page is the pair to. -->
-<!-- `script-src 'self'` was ADDED 2026-08-19, and it is the narrowest thing
-     that makes this page's own top bar work. These three legal pages carried no
-     script at all, so `default-src 'none'` covered script-src by fallback — and
-     when the shared bar and its burger menu arrived, site.js was silently
-     BLOCKED here and nowhere else. It failed exactly the way CSP failures fail:
-     the markup was right, the file 200'd, and the only trace was one console
-     line. No 'unsafe-inline', no host: one same-origin file. -->
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>lynxr — refund policy</title>
-<meta name="description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.">
-<meta property="og:title" content="lynxr — refund policy">
-<meta property="og:description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.">
-<meta property="og:type" content="website">
+<title>How do you write a UGC pitch email to a brand?</title>
+<meta name="description" content="How to write a UGC pitch email: lead with one video idea for the brand's product, prove it with a portfolio link, ask clearly, and cut the rest.">
+<meta property="og:title" content="How do you write a UGC pitch email to a brand?">
+<meta property="og:description" content="How to write a UGC pitch email: lead with one video idea for the brand's product, prove it with a portfolio link, ask clearly, and cut the rest.">
+<meta property="og:type" content="article">
 <meta property="og:site_name" content="lynxr">
-<meta property="og:url" content="https://lynxr.io/refunds/">
+<meta property="og:url" content="https://lynxr.io/blog/ugc-pitch-email/">
 <meta property="og:image" content="https://lynxr.io/og-v3.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="lynxr — refund policy">
-<meta name="twitter:description" content="How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.">
+<meta name="twitter:title" content="How do you write a UGC pitch email to a brand?">
+<meta name="twitter:description" content="How to write a UGC pitch email: lead with one video idea for the brand's product, prove it with a portfolio link, ask clearly, and cut the rest.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
-<link rel="canonical" href="https://lynxr.io/refunds/">
+<link rel="canonical" href="https://lynxr.io/blog/ugc-pitch-email/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261005j">
 <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261005j">
 <link rel="shortcut icon" href="/favicon.ico?v=20261005j">
@@ -74,10 +70,24 @@
       ],
       "founder": [
         {
-          "@id": "https://lynxmediagroup.org/#gawin"
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": [
+            "https://www.instagram.com/junsahwang/"
+          ]
         },
         {
-          "@id": "https://lynxmediagroup.org/#junsa"
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": [
+            "https://www.instagram.com/gawinhsu/"
+          ]
         }
       ],
       "knowsAbout": [
@@ -112,36 +122,11 @@
       ],
       "founder": [
         {
-          "@id": "https://lynxmediagroup.org/#gawin"
+          "@id": "https://lynxr.io/#junsa-hwang"
         },
         {
-          "@id": "https://lynxmediagroup.org/#junsa"
+          "@id": "https://lynxr.io/#gawin-hsu"
         }
-      ]
-    },
-    {
-      "@type": "Person",
-      "@id": "https://lynxmediagroup.org/#junsa",
-      "name": "Junsa Hwang",
-      "jobTitle": "Co-founder & CTO",
-      "description": "Co-founder and CTO of Lynx Media Group and creator of lynxr.",
-      "worksFor": {
-        "@id": "https://lynxmediagroup.org/#org"
-      },
-      "sameAs": [
-        "https://www.instagram.com/junsahwang/"
-      ]
-    },
-    {
-      "@type": "Person",
-      "@id": "https://lynxmediagroup.org/#gawin",
-      "name": "Gawin Hsu",
-      "jobTitle": "Co-founder & CEO",
-      "worksFor": {
-        "@id": "https://lynxmediagroup.org/#org"
-      },
-      "sameAs": [
-        "https://www.instagram.com/gawinhsu/"
       ]
     },
     {
@@ -149,13 +134,10 @@
       "@id": "https://lynxr.io/#website",
       "url": "https://lynxr.io/",
       "name": "lynxr",
-      "alternateName": [
-        "lynxr.io",
-        "lynxr app",
-        "lynxr script tool"
-      ],
       "inLanguage": "en",
-      "publisher": { "@id": "https://lynxr.io/#organization" },
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
       "about": {
         "@id": "https://lynxr.io/#lynxr"
       }
@@ -206,15 +188,12 @@
           "description": "Unlimited scripts within fair use (150 in any rolling 30 days, 30 in any 24 hours), billed monthly. Tax is added at checkout where it applies."
         }
       ],
-      "author": {
-        "@id": "https://lynxmediagroup.org/#junsa"
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
       },
-      "publisher": { "@id": "https://lynxr.io/#organization" },
-      "sameAs": [
-        "https://www.instagram.com/lynxr.io/",
-        "https://www.tiktok.com/@lynxr.io",
-        "https://www.linkedin.com/company/lynxr"
-      ],
+      "creator": {
+        "@id": "https://lynxr.io/#organization"
+      },
       "alternateName": "lynxr.io"
     }
   ]
@@ -224,15 +203,27 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebPage",
-  "@id": "https://lynxr.io/refunds/#webpage",
-  "url": "https://lynxr.io/refunds/",
-  "name": "lynxr — refund policy",
-  "description": "How refunds work on lynxr pro: 14-day money-back on your first payment, no pro-rata on cancellation, and Stripe as the merchant of record.",
+  "@type": "BlogPosting",
+  "@id": "https://lynxr.io/blog/ugc-pitch-email/#article",
+  "headline": "How do you write a UGC pitch email to a brand?",
+  "description": "How to write a UGC pitch email: lead with one video idea for the brand's product, prove it with a portfolio link, ask clearly, and cut the rest.",
+  "image": "https://lynxr.io/og-v3.png",
   "inLanguage": "en",
-  "dateModified": "2026-09-21",
-  "isPartOf": { "@id": "https://lynxr.io/#website" },
-  "about": { "@id": "https://lynxr.io/#lynxr" }
+  "datePublished": "2026-10-05",
+  "dateModified": "2026-10-05",
+  "author": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "publisher": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "isPartOf": {
+    "@id": "https://lynxr.io/#website"
+  },
+  "mentions": {
+    "@id": "https://lynxr.io/#lynxr"
+  },
+  "mainEntityOfPage": "https://lynxr.io/blog/ugc-pitch-email/"
 }
 </script>
 <script type="application/ld+json">
@@ -240,13 +231,43 @@
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    { "@type": "ListItem", "position": 1, "name": "lynxr", "item": "https://lynxr.io/" },
-    { "@type": "ListItem", "position": 2, "name": "refund policy", "item": "https://lynxr.io/refunds/" }
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "lynxr",
+      "item": "https://lynxr.io/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "questions and answers",
+      "item": "https://lynxr.io/faq/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Finding UGC brand deals",
+      "item": "https://lynxr.io/faq/ugc-brand-deals/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "How do you write a UGC pitch email to a brand?",
+      "item": "https://lynxr.io/blog/ugc-pitch-email/"
+    }
   ]
 }
 </script>
 </head>
-<body>
+<!-- This page's visible copy is written in normal sentence case in the
+     source, unlike the lowercase-with-exceptions convention the rest of the
+     site uses. Painted output is identical either way — text-transform:
+     lowercase in app.css flattens all of it — but a model reading the source
+     sees real casing here, because this page carries no JSON-LD twin of its
+     prose the way /faq/ does, so the body text is the only machine-readable
+     copy there is. .lp unsets the app's bare main{} container so the sections
+     below can be full-bleed. See the marketing-page block in app.css. -->
+<body class="lp">
 <svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
 
 <header class="lp-bar">
@@ -286,66 +307,92 @@
   </nav>
 </header>
 
-<main class="legal">
-  <section>
-  <h1>refund policy</h1>
-  <p class="legal-date">last updated 21 september 2026</p>
+<main>
 
-  <p>this policy covers lynxr pro, which is <strong>$24.99 a month, billed
-    monthly in advance</strong>. it forms part of the
-    <a href="/terms/">terms of service</a>.</p>
+  <section class="lp-hero">
+    <div class="lp-in">
+      <nav class="post-crumbs" aria-label="Breadcrumb"><a href="/">lynxr</a> / <a href="/faq/">questions</a> / <a href="/faq/ugc-brand-deals/">brand deals</a></nav>
+      <h1 class="lp-h1">How do you write a <span class="acr">UGC</span> pitch email to a brand?</h1>
+      <p class="lp-lede">A <span class="acr">UGC</span> pitch email gives a brand one specific video idea for its product, links to your portfolio as proof, and ends with a single clear ask. Keep it short enough to read on a phone. Name the product, describe the opening seconds of the video you would make, and cut your life story, your follower numbers and any list of services.</p>
+      <p class="post-meta">Published <time datetime="2026-10-05">5 October 2026</time></p>
+    </div>
   </section>
 
-  <section>
-  <h2>who you are paying</h2>
-  <p><span class="entity">Stripe</span> is the merchant of record for every
-    purchase of lynxr pro. <span class="entity">Stripe</span> takes the
-    payment, issues the invoice, collects any tax that is due where you are, and
-    issues any refund. your card statement shows <strong>LYNXR</strong>, which
-    may appear next to <span class="entity">Stripe</span> or
-    <span class="entity">Link</span>, who process the payment.</p>
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="what-goes-into-a-ugc-pitch">What goes into a <span class="acr">UGC</span> pitch email, part by part?</h2>
+      <p class="lp-p">A pitch email needs five parts: a subject line, one opening line about you, one video idea, one portfolio link and one ask.</p>
+      <p class="lp-p">Each part has one job, and the whole email works as a small preview of how you think as a <a href="/glossary/#ugc"><span class="acr">UGC</span></a> creator. The idea is the part that does the selling, because it shows you have already looked at their product and pictured the video. If you have never broken a video into its parts before, read <a href="/what-is-a-video-format/">what a <span class="acr">UGC</span> video format is</a> first, since your idea will be a format applied to their product.</p>
+      <div class="post-table">
+        <table>
+          <thead><tr><th scope="col">Part</th><th scope="col">What to write</th><th scope="col">Why it works</th></tr></thead>
+          <tbody>
+            <tr><td>Subject line</td><td>The product name plus the idea in a few words.</td><td>It tells the reader what the email is before they open it.</td></tr>
+            <tr><td>Opening line</td><td>Who you are and what kind of products you film, in one sentence.</td><td>It places you without asking them to read a bio.</td></tr>
+            <tr><td>The idea</td><td>The first few seconds of the video, then what happens after.</td><td>It proves you looked at their product, not a list of brands.</td></tr>
+            <tr><td>Proof</td><td>One portfolio link and which video in it to watch.</td><td>It puts your style one tap away from the idea.</td></tr>
+            <tr><td>The ask</td><td>One question they can answer with yes or no.</td><td>It gives the email one clear next step.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 class="lp-h2" id="how-do-you-come-up-with">How do you come up with one specific idea for their product?</h2>
+      <p class="lp-p">Start from a real moment where someone reaches for the product, then describe the first shot and the first line of that video.</p>
+      <ul class="lp-list">
+        <li>Look at the brand's own page and note which products they post most. Pitch one of those, because you are adding to something they already care about.</li>
+        <li>Write down three moments in an ordinary day when the product gets used. Pick the one you can film in your own home.</li>
+        <li>Choose a <a href="/glossary/#format">format</a> that fits that moment, such as a storytime, a routine or a side-by-side test. If you need a starting point, <a href="/blog/find-a-video-worth-remaking/">how to find a video worth remaking in your niche</a> shows how to spot one.</li>
+        <li>Write the <a href="/glossary/#hook">hook</a> you would open with. One line in the email lets the brand hear your video before you film it, and <a href="/how-to-write-a-hook/">how to write a <span class="acr">UGC</span> hook that stops the scroll</a> has shapes to try.</li>
+        <li>Describe the opening shot in plain words. Say what the camera sees, not what the viewer will feel.</li>
+      </ul>
+      <p class="lp-p">Pitch one idea, not three. A single idea reads as a decision, and it gives the brand one thing to say yes or no to.</p>
+
+      <h2 class="lp-h2" id="what-does-a-filled-ugc-pitch">What does a filled <span class="acr">UGC</span> pitch email look like?</h2>
+      <p class="lp-p">Here is a full pitch to a small brand that sells a refillable cleaning spray in a glass bottle, written by a creator who films home content.</p>
+      <p class="lp-p">Subject: A video idea for your refill spray: the under-sink cupboard</p>
+      <p class="lp-p">Hi [NAME], I'm [YOUR NAME], a <span class="acr">UGC</span> creator who films cleaning and home videos in my own flat. I have one idea for your refillable glass spray.</p>
+      <p class="lp-p">The video opens on the cupboard under my sink, packed with half-used plastic bottles. My first line: I own seven sprays and I reach for one of them. Then I clear the shelf down to your bottle, show the refill going in, and use it on the hob in one continuous take.</p>
+      <p class="lp-p">You can see how I film home products here: [LINK]. The second video is the closest to this idea. Would you like me to film this one for your page or your ads? If yes, I'll send a short script and my rates. Thanks, [YOUR NAME]</p>
+      <p class="lp-p">Only write a line like the hook above if it is true for you. If you don't own the product yet, describe the idea as what you would film once you have it, and never say you use something you haven't tried. The ask at the end works like a <a href="/glossary/#call-to-action">call to action</a> in a video: one step, easy to take.</p>
+
+      <h2 class="lp-h2" id="what-should-you-cut-from-a">What should you cut from a pitch email?</h2>
+      <p class="lp-p">Cut anything the brand can't use to picture your video, because every extra line pushes your idea further down the screen.</p>
+      <ul class="lp-list">
+        <li>Your backstory. One sentence on who you are is enough; the portfolio does the rest.</li>
+        <li>Follower numbers. You're pitching your filming, not your audience, so lead with the work.</li>
+        <li>A list of every service you offer. Name the one video you're pitching and save the menu for the reply.</li>
+        <li>Praise with no detail. If you like the brand, show it by naming a product and a moment, not by saying you love them.</li>
+        <li>Attachments. Send a link instead, so the email stays light and your work opens in one tap.</li>
+        <li>An open ask such as let me know if you need anything. Replace it with a yes-or-no question about the idea.</li>
+      </ul>
+
+      <h2 class="lp-h2" id="what-should-your-portfolio-link-show">What should your portfolio link show when you pitch?</h2>
+      <p class="lp-p">Your portfolio link should open on work close to the idea you pitched, so the brand sees proof of that exact video.</p>
+      <p class="lp-p">If you pitch a home product, point to a home video. If you have nothing close, film a short sample with a product you already own and put it first, so the first thing they see matches what you pitched. Name which video to watch in the email itself, as in the second video, so nobody has to guess. Check that the link opens on a phone without a login before you send.</p>
+
+      <h2 class="lp-h2" id="what-do-you-do-if-the">What do you do if the brand doesn't reply to your pitch?</h2>
+      <p class="lp-p">Send one short follow-up with a new detail, then move on to the next brand if there is still no answer.</p>
+      <p class="lp-p">Pick a gap you're comfortable with, such as a week, and reply in the same thread so the first idea stays visible. Add something, rather than just checking in. For example: Hi [NAME], one more thought on the under-sink idea: I could also film a version for [PRODUCT] showing the refill from start to finish. Happy to send a script if either one fits. If the brand replies with a <a href="/glossary/#brief">brief</a>, follow it over your own pitch, and reply with a short list of what you'll deliver so you both know what's being filmed.</p>
+    </div>
   </section>
 
-  <section>
-  <h2>14-day money-back on your first payment</h2>
-  <p><strong>if lynxr has not worked for you, ask within 14 days of your first
-    payment and it is refunded in full.</strong> you do not have to justify it.</p>
-  <p><strong>a refund ends access straight away.</strong> a refunded month is
-    not a month you keep &mdash; the account returns to the free tier when the
-    refund is issued.</p>
+  <section class="lp-band post-end">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="do-it-with-lynxr">Write your next <span class="acr">UGC</span> script with lynxr</h2>
+      <p class="lp-p">Paste a public TikTok or Instagram link on <a href="/">the homepage</a> and lynxr works out the format — hook, beats, turn, close — and writes it as a script for the brand you make content for. <a href="/how-it-works/">How lynxr writes scripts</a> shows each step. Free to start: <a href="/faq/#what-it-costs">3 scripts a week, no card</a>.</p>
+      <h2 class="lp-h2" id="more-questions">More questions about Finding <span class="acr">UGC</span> brand deals</h2>
+      <ul class="lp-list">
+        <li><b><a href="/faq/ugc-brand-deals/">All questions about Finding <span class="acr">UGC</span> brand deals</a></b> — finding brands and pitching them.</li>
+      </ul>
+      <h2 class="lp-h2" id="keep-reading">Keep reading</h2>
+      <ul class="lp-list">
+        <li><b><a href="/blog/find-a-video-worth-remaking/">How to find a video worth remaking in your niche</a></b></li>
+        <li><b><a href="/ugc-script-template/">A <span class="acr">UGC</span> script template that holds up</a></b></li>
+        <li><b><a href="/faq/">Questions and answers</a></b> — about lynxr, and every topic <span class="acr">UGC</span> creators ask about.</li>
+      </ul>
+    </div>
   </section>
 
-  <section>
-  <h2>cancelling</h2>
-  <p>you can cancel at any time from the plan page in the app: sign in, open
-    <strong>plan</strong>, choose <strong>cancel subscription</strong>, and confirm on
-    <span class="entity">Stripe</span>'s page. if you would rather, email
-    <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> or reply to the receipt you were emailed, and we
-    will cancel it for you.</p>
-  <p><strong>there is no pro-rata refund on cancellation.</strong> cancelling
-    takes effect at the end of the period you have already paid for: your
-    access and your script allowance stay until then, and the unused part of
-    that period is not refunded.</p>
-  </section>
-
-  <section>
-  <h2>after the first 14 days</h2>
-  <p>beyond the 14 days, refunds are at our discretion. ask and we will look at
-    it &mdash; we would rather hear that something went wrong than not.</p>
-  </section>
-
-  <section>
-  <h2>if a payment fails</h2>
-  <p><span class="entity">Stripe</span> retries a failed payment for a few days
-    before access drops back to the free tier. <strong>nothing you have already
-    written is deleted</strong>, and your scripts stay readable.</p>
-  </section>
-
-  <section>
-  <h2>how to ask for a refund</h2>
-  <p>reply to the receipt you were emailed, or use feedback in the app. either
-    reaches us.</p>
-  </section>
 </main>
 
 <footer id="site-footer">
@@ -380,7 +427,7 @@
       <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
       <a class="foot-link" href="/privacy/">privacy policy</a>
       <a class="foot-link" href="/terms/">terms of service</a>
-      <a class="foot-link" href="/refunds/" aria-current="page">refund policy</a>
+      <a class="foot-link" href="/refunds/">refund policy</a>
       <a class="foot-link" href="/accessibility/">accessibility</a>
     </div>
     <div class="foot-col">
@@ -397,8 +444,8 @@
   </div>
 </footer>
 
-<!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
-     see the file's own header for why it must never reach either app. -->
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
 <script src="/site.js?v=20261005j" defer></script>
 <script src="/footer.js?v=20261005j" defer></script>
 

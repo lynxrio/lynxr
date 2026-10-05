@@ -345,6 +345,11 @@ def with_orig(script, duration=0):
     return {**script, "beats": beats}
 
 
+# "Keep it exactly": a stretch with no speech at least this long gets its own beat. 1.5s, because a short
+# breath before the first word is normal and not a moment anyone films on purpose.
+SILENT_GAP_S = 1.5
+
+
 def verbatim_beats(source):
     """The video's own words and shots as {t, say, do, show} beats ("keep it exactly"). A port of
     app.js realScript(): spoken videos group Whisper segments into ~5 beats (at least 4s each) and take
@@ -384,18 +389,52 @@ def verbatim_beats(source):
         groups = []   # [start, end, [words]]
         for g in segs:
             st, en, txt = float(g[0] or 0), float(g[1] or 0), _one_line(g[2])
-            if not groups or (en - groups[-1][0]) > target:
+            # A long silence also ends a group, so the silent stretch can get a beat of its own.
+            if not groups or (en - groups[-1][0]) > target or (st - groups[-1][1]) >= SILENT_GAP_S:
                 groups.append([st, en, [txt]])
             else:
                 groups[-1][1] = en
                 groups[-1][2].append(txt)
+
+        # THE SILENT PARTS ARE PART OF THE VIDEO TOO (owner, 2026-10-05: "go ahead and fix the keep it exactly
+        # gap"). Grouping only the speech dropped everything before the first word: one test video's kept
+        # script started at 4.7s, so its 4.7-second shocked-face opening was gone. Any stretch with no speech
+        # that is at least SILENT_GAP_S long (before the first word, between groups, after the last word)
+        # becomes a beat built from the shots that fall inside it. A stretch with no shot in it adds nothing:
+        # there is no record of what happens there to keep.
+        def silent_beat(a, b):
+            hs = [h for h in shots if a <= float(h.get("t") or 0) < b]
+            if b - a < SILENT_GAP_S or not hs:
+                return None
+            t = f"{_secs(a)}-{_secs(b)}s"
+            return {"t": t, "orig": t, "say": "",
+                    "do": " → ".join(uniq(h.get("visual") for h in hs)),
+                    "show": " / ".join(uniq(h.get("onscreen_text") for h in hs))}
+
+        end_all = max(dur, groups[-1][1])
         beats = []
+        prev_end = 0.0
         for st, en, words in groups:
-            hs = shots_for(st, en)
+            gap = silent_beat(prev_end, st)
+            if gap:
+                beats.append(gap)
+                # Never borrow a shot back from the silent beat just written: the shots inside this window,
+                # else the nearest LATER one within 4s.
+                hs = [h for h in shots if st <= float(h.get("t") or 0) < en]
+                if not hs:
+                    later = [h for h in shots if 0 <= float(h.get("t") or 0) - en <= 4]
+                    hs = later[:1]
+            else:
+                hs = shots_for(st, en)
             t = f"{_secs(st)}-{_secs(en)}s"
             beats.append({"t": t, "orig": t, "say": " ".join(words),
                           "do": " → ".join(uniq(h.get("visual") for h in hs)),
                           "show": " / ".join(uniq(h.get("onscreen_text") for h in hs))})
+            prev_end = en
+        tail = silent_beat(prev_end, end_all + 0.01)
+        if tail:
+            tail["t"] = tail["orig"] = f"{_secs(prev_end)}-{_secs(end_all)}s"
+            beats.append(tail)
         return beats
     if shots:
         runs = []   # [start, text, [visuals]]
@@ -432,7 +471,8 @@ def verbatim_script(source, analysis):
     beats = verbatim_beats(s)
     spoken = bool(sc.get("has_speech") and sc.get("segments"))
     if spoken:
-        hook = str(sc.get("hook") or "").strip() or (beats[0]["say"] if beats else "")
+        # The first SPOKEN beat: a silent opening beat now comes first and has no words.
+        hook = str(sc.get("hook") or "").strip() or next((b["say"] for b in beats if b["say"]), "")
     else:
         hook = next((b["show"] for b in beats if b["show"]), "") or (beats[0]["do"] if beats else "")
     first = _one_line(hook)

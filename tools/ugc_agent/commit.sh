@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Commit and push ONLY the agent's own files. Usage: commit.sh <manifest> <commit-subject-file>
-# Runs on GitHub's runner inside .github/workflows/ugc-agent.yml. Never `git add -A`, never --force.
+# Used by the Claude Code cloud routine (ROUTINE.md) and by the workflow's withdraw mode. Never `git add -A`, never --force.
 set -euo pipefail
 
 manifest="$1"
@@ -43,11 +43,21 @@ if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-s
 fi
 git commit -F "$subject"
 
-# 4. Push to main, rebasing over anything that landed meanwhile (up to three tries).
+# 4. Push to main, rebasing over anything that landed meanwhile (up to three tries). A protected main refuses the
+#    push outright: when UGC_FALLBACK_BRANCH is set, push the same commit to that branch instead and record it in
+#    pushed-branch.txt so the caller can open a pull request. Exit 0 either way; exit 1 when nothing was pushed.
+outdir="$(dirname "$manifest")"
+refused=0
 for attempt in 1 2 3; do
-  if git push origin HEAD:main; then
-    git rev-parse HEAD > "$(dirname "$manifest")/pushed.txt"
+  if out=$(git push origin HEAD:main 2>&1); then
+    echo "$out"
+    git rev-parse HEAD > "$outdir/pushed.txt"
     exit 0
+  fi
+  echo "$out"
+  if echo "$out" | grep -qiE 'protected branch|GH006|GH013|rule violation|not allowed|declined'; then
+    refused=1
+    break
   fi
   echo "push attempt $attempt failed; rebasing"
   if ! git pull --rebase origin main; then
@@ -55,7 +65,15 @@ for attempt in 1 2 3; do
     echo "::error::rebase conflict while pulling main"
     exit 1
   fi
-  python tools/check_stamp.py || exit 1
+  python3 tools/check_stamp.py || exit 1
 done
-echo "::error::could not push after three tries"
+if [ -n "${UGC_FALLBACK_BRANCH:-}" ]; then
+  echo "main refused the push (or kept failing); pushing the same commit to $UGC_FALLBACK_BRANCH"
+  if git push origin "HEAD:refs/heads/$UGC_FALLBACK_BRANCH"; then
+    git rev-parse HEAD > "$outdir/pushed.txt"
+    echo "$UGC_FALLBACK_BRANCH" > "$outdir/pushed-branch.txt"
+    exit 0
+  fi
+fi
+echo "::error::could not push (main refused: $refused)"
 exit 1

@@ -1,8 +1,5 @@
 {
-  "model": "claude-opus-5-5",
-  "effort_default": "high",
-  "price_per_mtok": {"input": 4.00, "output": 20.00, "cache_write": 5.00, "cache_read": 0.40},
-  "per_day_default": 3, "min_pass_default": 2, "max_run_usd_default": 4.0,
+  "per_day_default": 3, "min_publish_default": 1,
   "topic_cap": 60, "replenish_below": 15,
   "model_page": "blog/question-hooks/index.html",
   "topics": [

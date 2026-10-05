@@ -27,6 +27,16 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**KEEP IT EXACTLY: SILENT STRETCHES GET A BEAT (2026-10-05, UNCOMMITTED: `pipeline/process_campaigns.py`,
+`pipeline/test_campaigns.py`; no css/js, no stamp).** `verbatim_beats` built spoken videos from speech segments
+alone, so anything before the first word was dropped (format 64d8e3d0 started at 4.7s and lost its shocked-face
+opening). Now any stretch with no speech of at least `SILENT_GAP_S` = 1.5s (before the first word, between
+groups, after the last word) becomes a beat from the shots inside it. No shots there means no beat. The hook is
+the first SPOKEN line. It needs opening frames to work from: formats read before `agency_frame_times` shipped
+(2026-10-05, 89f3bb6) have none (64d8e3d0's shots start at 4.7s), so they gain the beat only after a re-read
+(Regenerate / Try again). Re-run on the 13 stored spoken formats, nothing changes until then. The new plan for
+64d8e3d0 samples 6 frames before 4.7s. 6 new checks in test_campaigns.py; all pass.
+
 **SHOWCASE: "MADE WITH LYNXR" ON THE LANDING PAGE (2026-10-05, UNCOMMITTED, stamp `20261005h`; plan
 `~/.claude/plans/lynxr-showcase.md`).** The landing hero's right card can show real videos made with lynxr scripts, with
 lynxr-measured numbers, once there are at least 3 approved, consented, measured entries AND a real "typical" figure
@@ -45,13 +55,18 @@ switch and a "made with a lynxr script" control on Posts (creator.js); a staff "
 `lynxr_script_charges` (charged before the video was posted), never the creator-writable adaptations blob. Not yet
 proven live: Instagram cover read, Fly worker line `showcase: covers ...`, the private-window check of lynxr.io.
 
-**UGC ANSWER AGENT (daily, automatic, commits to main):** .github/workflows/ugc-agent.yml runs
-tools/ugc_agent once a day on GitHub's runner: 2–3 articles answering UGC questions at /blog/<slug>/, each with a
-Q&A on /faq/<topic>/, plus sitemap/llms.txt. Owner-approved exception to "Claude never commits": only this
-workflow commits, only allowlisted files, as "lynxr ugc agent". main moves every day — git pull --rebase before
-committing. Never edit between UGC AGENT markers (faq/index.html, blog/index.html, sitemap.xml, llms.txt).
-Pause: repo variable UGC_AGENT_ENABLED=false. Withdraw: run the workflow with mode=withdraw. Failures open a GitHub
-issue labelled ugc-agent. The per-session SEO routine is retired.
+**UGC ANSWER AGENT (a Claude Code cloud routine, on the owner's subscription, NO API key):** a scheduled routine
+(prompt: "read and follow tools/ugc_agent/ROUTINE.md") writes 1–3 articles per run answering UGC questions at
+/blog/<slug>/, each with a Q&A on /faq/<topic>/, plus sitemap/llms.txt. It writes each article itself, a separate
+subagent reviews it (prompts/judge.txt), and tools/ugc_agent/agent.py does everything exact: pick (next), code gate
+(check, links resolved), publish, render, finish. Owner-approved exception to "Claude never commits": only the routine
+commits, only allowlisted files (commit.sh), as "lynxr ugc agent", straight to main — or, if main refuses, to
+claude/ugc-<date> plus a PR. main moves daily: git pull --rebase before committing. Never edit between UGC AGENT
+markers (faq/index.html, blog/index.html, sitemap.xml, llms.txt). The routine's sandbox cannot reach lynxr.io or
+IndexNow, so the workflow .github/workflows/ugc-agent.yml waits for the deploy and pings IndexNow after a push to
+main that changes tools/ugc_agent/articles/**. Withdraw: run that workflow (slugs). Zero passing articles = nothing
+committed. Three articles are live as of 2026-10-05 (skincare, pay, pitch email). The per-session SEO routine is
+retired. The old API/dry-run path is gone (llm.py deleted).
 
 **AGENCY SCRIPT VIEW: EACH BEAT KNOWS ITS MOMENT IN "THE ORIGINAL" (2026-10-05, UNCOMMITTED, stamp `20261005i`; plan
 `~/.claude/plans/lynxr-agency-beat-sync.md`).** Why: a beat's `t` is the new script's own plan, not a moment of the

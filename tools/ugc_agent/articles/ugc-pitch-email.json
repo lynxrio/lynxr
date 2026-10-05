@@ -1,0 +1,262 @@
+{
+  "question_id": "q017",
+  "slug": "ugc-pitch-email",
+  "theme": "ugc-brand-deals",
+  "title": "How do you write a UGC pitch email to a brand?",
+  "description": "How to write a UGC pitch email: lead with one video idea for the brand's product, prove it with a portfolio link, ask clearly, and cut the rest.",
+  "short_answer": "A UGC pitch email gives a brand one specific video idea for its product, links to your portfolio as proof, and ends with a single clear ask. Keep it short enough to read on a phone. Name the product, describe the opening seconds of the video you would make, and cut your life story, your follower numbers and any list of services.",
+  "sections": [
+    {
+      "heading": "What goes into a UGC pitch email, part by part?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A pitch email needs five parts: a subject line, one opening line about you, one video idea, one portfolio link and one ask.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Each part has one job, and the whole email works as a small preview of how you think as a [UGC](/glossary/#ugc) creator. The idea is the part that does the selling, because it shows you have already looked at their product and pictured the video. If you have never broken a video into its parts before, read [what a UGC video format is](/what-is-a-video-format/) first, since your idea will be a format applied to their product.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Part",
+            "What to write",
+            "Why it works"
+          ],
+          "table_rows": [
+            [
+              "Subject line",
+              "The product name plus the idea in a few words.",
+              "It tells the reader what the email is before they open it."
+            ],
+            [
+              "Opening line",
+              "Who you are and what kind of products you film, in one sentence.",
+              "It places you without asking them to read a bio."
+            ],
+            [
+              "The idea",
+              "The first few seconds of the video, then what happens after.",
+              "It proves you looked at their product, not a list of brands."
+            ],
+            [
+              "Proof",
+              "One portfolio link and which video in it to watch.",
+              "It puts your style one tap away from the idea."
+            ],
+            [
+              "The ask",
+              "One question they can answer with yes or no.",
+              "It gives the email one clear next step."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you come up with one specific idea for their product?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Start from a real moment where someone reaches for the product, then describe the first shot and the first line of that video.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Look at the brand's own page and note which products they post most. Pitch one of those, because you are adding to something they already care about.",
+            "Write down three moments in an ordinary day when the product gets used. Pick the one you can film in your own home.",
+            "Choose a [format](/glossary/#format) that fits that moment, such as a storytime, a routine or a side-by-side test. If you need a starting point, [how to find a video worth remaking in your niche](/blog/find-a-video-worth-remaking/) shows how to spot one.",
+            "Write the [hook](/glossary/#hook) you would open with. One line in the email lets the brand hear your video before you film it, and [how to write a UGC hook that stops the scroll](/how-to-write-a-hook/) has shapes to try.",
+            "Describe the opening shot in plain words. Say what the camera sees, not what the viewer will feel."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Pitch one idea, not three. A single idea reads as a decision, and it gives the brand one thing to say yes or no to.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a filled UGC pitch email look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here is a full pitch to a small brand that sells a refillable cleaning spray in a glass bottle, written by a creator who films home content.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Subject: A video idea for your refill spray: the under-sink cupboard",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Hi [NAME], I'm [YOUR NAME], a UGC creator who films cleaning and home videos in my own flat. I have one idea for your refillable glass spray.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The video opens on the cupboard under my sink, packed with half-used plastic bottles. My first line: I own seven sprays and I reach for one of them. Then I clear the shelf down to your bottle, show the refill going in, and use it on the hob in one continuous take.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "You can see how I film home products here: [LINK]. The second video is the closest to this idea. Would you like me to film this one for your page or your ads? If yes, I'll send a short script and my rates. Thanks, [YOUR NAME]",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Only write a line like the hook above if it is true for you. If you don't own the product yet, describe the idea as what you would film once you have it, and never say you use something you haven't tried. The ask at the end works like a [call to action](/glossary/#call-to-action) in a video: one step, easy to take.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you cut from a pitch email?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Cut anything the brand can't use to picture your video, because every extra line pushes your idea further down the screen.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Your backstory. One sentence on who you are is enough; the portfolio does the rest.",
+            "Follower numbers. You're pitching your filming, not your audience, so lead with the work.",
+            "A list of every service you offer. Name the one video you're pitching and save the menu for the reply.",
+            "Praise with no detail. If you like the brand, show it by naming a product and a moment, not by saying you love them.",
+            "Attachments. Send a link instead, so the email stays light and your work opens in one tap.",
+            "An open ask such as let me know if you need anything. Replace it with a yes-or-no question about the idea."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should your portfolio link show when you pitch?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Your portfolio link should open on work close to the idea you pitched, so the brand sees proof of that exact video.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you pitch a home product, point to a home video. If you have nothing close, film a short sample with a product you already own and put it first, so the first thing they see matches what you pitched. Name which video to watch in the email itself, as in the second video, so nobody has to guess. Check that the link opens on a phone without a login before you send.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you do if the brand doesn't reply to your pitch?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Send one short follow-up with a new detail, then move on to the next brand if there is still no answer.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Pick a gap you're comfortable with, such as a week, and reply in the same thread so the first idea stays visible. Add something, rather than just checking in. For example: Hi [NAME], one more thought on the under-sink idea: I could also film a version for [PRODUCT] showing the refill from start to finish. Happy to send a script if either one fits. If the brand replies with a [brief](/glossary/#brief), follow it over your own pitch, and reply with a short list of what you'll deliver so you both know what's being filmed.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-05",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-opus-5-5",
+  "cost_usd": 0.3186,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
