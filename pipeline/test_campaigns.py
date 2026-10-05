@@ -237,6 +237,207 @@ try:
 finally:
     urllib.request.urlopen = _orig_urlopen
 
+# ---- (j) agency_frame_times -----------------------------------------------------
+_ft = C.agency_frame_times({"segments": []}, 16.2)
+check_true("agency_frame_times (silent 16s): sorted, <= 14, has the opening plan",
+           _ft == sorted(_ft) and len(_ft) <= 14 and all(x in _ft for x in (0.3, 1.0, 1.8, 2.6, 3.4)))
+check_true("agency_frame_times (silent 16s): every frame inside the video", all(x < 16.05 for x in _ft))
+check_true("agency_frame_times (silent 16s): neighbours >= 0.5s apart",
+           min(b - a for a, b in zip(_ft, _ft[1:])) >= 0.5 - 1e-9)
+_ft2 = C.agency_frame_times({"segments": []}, 2.0)
+check_true("agency_frame_times (2s video): at least 5 frames, all inside", len(_ft2) >= 5 and all(x < 1.85 for x in _ft2))
+_ft3 = C.agency_frame_times({"segments": [[s, s + 1, "w"] for s in (0, 2.1, 4.5, 7.0, 9.8, 12.3)]}, 68.8)
+# 2.1 is within 0.5s of the opening frame at 1.8, so the plan drops it; the later beat starts survive.
+check_true("agency_frame_times (spoken 69s): capped at 14, keeps beat starts 4.5 and 7.0",
+           len(_ft3) <= 14 and 4.5 in _ft3 and 7.0 in _ft3)
+
+# ---- (k)-(m) verbatim_beats -------------------------------------------------------
+SILENT_SOURCE = {"duration": 16.3, "caption": "an invented caption", "script": {"has_speech": False, "text": ""},
+                 "shots": [
+                     {"t": 0.3, "visual": "Stand centred holding an empty jar", "onscreen_text": "Out of snacks again?"},
+                     {"t": 1.0, "visual": "Tip the jar upside down", "onscreen_text": "Out of snacks again?"},
+                     {"t": 1.8, "visual": "Shake it", "onscreen_text": "Out of snacks\nagain?"},
+                     {"t": 2.6, "visual": "Toss the jar", "onscreen_text": "try this!"},
+                     {"t": 4.2, "visual": "Point at the shelf", "onscreen_text": "stock up"}]}
+_vb = C.verbatim_beats(SILENT_SOURCE)
+check("verbatim_beats silent: three runs of on-screen text", len(_vb), 3)
+check("verbatim_beats silent: beat 0 window", _vb[0]["t"], "0-2.6s")
+check("verbatim_beats silent: beat 0 say is empty", _vb[0]["say"], "")
+check("verbatim_beats silent: beat 0 do joins the shots",
+      _vb[0]["do"], "Stand centred holding an empty jar → Tip the jar upside down → Shake it")
+check("verbatim_beats silent: beat 0 show", _vb[0]["show"], "Out of snacks again?")
+check("verbatim_beats silent: beat 1 window", _vb[1]["t"], "2.6-4.2s")
+check("verbatim_beats silent: beat 2 runs to the end", _vb[2]["t"], "4.2-16.3s")
+
+SPOKEN_SOURCE = {"script": {"has_speech": True, "segments": [
+    [0, 2, "Stop scrolling."], [2, 4.5, "This app plans my week."],
+    [4.5, 9, "Every single Sunday."], [9, 12, "Link in bio."]]},
+    "shots": [{"t": 0.5, "visual": "Face to camera", "onscreen_text": ""},
+              {"t": 5.0, "visual": "Screen recording of the app", "onscreen_text": "my week"}]}
+_vs = C.verbatim_beats(SPOKEN_SOURCE)
+check("verbatim_beats spoken: four beats", len(_vs), 4)
+check("verbatim_beats spoken: beat 0",
+      _vs[0], {"t": "0-2s", "say": "Stop scrolling.", "do": "Face to camera", "show": ""})
+check("verbatim_beats spoken: beat 1 takes the nearest shot", _vs[1]["do"], "Screen recording of the app")
+check("verbatim_beats spoken: beat 3 takes the shot exactly 4s away", _vs[3]["do"], "Screen recording of the app")
+
+check("verbatim_beats: nothing to keep gives no beats", C.verbatim_beats({}), [])
+_vt = C.verbatim_beats({"script": {"text": "just some words"}})
+check_true("verbatim_beats: text only is one beat carrying the text", len(_vt) == 1 and _vt[0]["say"] == "just some words")
+
+# ---- (n) verbatim_script ----------------------------------------------------------
+KM_ANALYSIS = {**FIXTURE_ANALYSIS, "production": {"hook_mechanism": "x", "camera": "cam", "setting": "a room"},
+               "key_moments": ["Open on the jar", "Toss it"]}
+_vsc = C.verbatim_script(SILENT_SOURCE, KM_ANALYSIS)
+check_true("verbatim_script: carries every required script field",
+           set(C.AGENCY_SCRIPT_SCHEMA["required"]) <= set(_vsc))
+check_true("verbatim_script: marked verbatim, no fit", _vsc["verbatim"] is True and _vsc["fit"] is None)
+check("verbatim_script: needs are the key moments", _vsc["needs"], KM_ANALYSIS["key_moments"])
+check("verbatim_script: framing is the read's camera", _vsc["framing"], "cam")
+check("verbatim_script: silent video delivers silent", _vsc["delivery"], "silent")
+check("verbatim_script: caption is the original post's", _vsc["caption"], "an invented caption")
+
+# ---- (o) script_prompt blocks -----------------------------------------------------
+_km_prompt = C.script_prompt({}, {**FIXTURE_ANALYSIS, "key_moments": ["Open on the jar"]}, {"instructions": ""})
+check_true("script_prompt: must-have moments block lists each moment",
+           "MUST-HAVE MOMENTS" in _km_prompt and "Open on the jar" in _km_prompt)
+_own_prompt = C.script_prompt({}, FIXTURE_ANALYSIS, {"instructions": ""}, staff_needs=["Mine"])
+check_true("script_prompt: the agency's own needs block", "THE AGENCY'S OWN NEEDS" in _own_prompt and "- Mine" in _own_prompt)
+check_true("script_prompt: neither block with no moments and no own needs",
+           "MUST-HAVE MOMENTS" not in no_instr and "THE AGENCY'S OWN NEEDS" not in no_instr)
+
+# ---- (p) finalize_patch carries the read ------------------------------------------
+_dn = C.finalize_patch("done", ROW_BASE, NOW, script={"hook": "h"}, source={"s": 1}, analysis={"a": 1})
+check_true("finalize_patch done with source+analysis: sets both and job=script",
+           _dn.get("source") == {"s": 1} and _dn.get("analysis") == {"a": 1} and _dn.get("job") == "script")
+_dn2 = C.finalize_patch("done", ROW_BASE, NOW, script={"hook": "h"})
+check_true("finalize_patch done without them: sets neither and no job",
+           "source" not in _dn2 and "analysis" not in _dn2 and "job" not in _dn2)
+check("finalize_patch error with job: sets job", C.finalize_patch("error", ROW_BASE, NOW, error_kind="x", job="read").get("job"), "read")
+
+# ---- (q) prompts -------------------------------------------------------------------
+check_true("AGENCY_SCRIPT_SYSTEM: rule 15 says no slots", "NO SLOTS" in C.AGENCY_SCRIPT_SYSTEM)
+check_true("ADAPT_SYSTEM (creator lane) still leaves slots", "LEAVE A SLOT" in P.ADAPT_SYSTEM)
+check_true("AGENCY_READ_SCHEMA requires key_moments", "key_moments" in C.AGENCY_READ_SCHEMA["required"])
+
+# ---- (r) write_script --------------------------------------------------------------
+_orig_structured = P.structured
+
+
+def _script(say):
+    return {"beats": [{"t": "0-2s", "say": say, "do": "d", "show": ""}, {"t": "2-4s", "say": "ok", "do": "d", "show": ""}]}
+
+
+def _stub(answers):
+    calls = []
+
+    def fake(client, system, schema, content, max_tokens=None):
+        calls.append(content)
+        a = answers.pop(0)
+        if isinstance(a, Exception):
+            raise a
+        return a
+    return fake, calls
+
+
+try:
+    P.structured, _c = _stub([_script("I had [how many] tabs open"), _script("I had five tabs open")])
+    _o, _left = C.write_script(object(), "prompt", FIXTURE_ANALYSIS)
+    check_true("write_script: a slot is repaired once", _left == 0 and len(_c) == 2 and "five tabs" in _o["beats"][0]["say"])
+    P.structured, _c = _stub([_script("I had five tabs open")])
+    _o, _left = C.write_script(object(), "prompt", FIXTURE_ANALYSIS)
+    check_true("write_script: no slot, one call", _left == 0 and len(_c) == 1)
+    P.structured, _c = _stub([_script("I had [how many] tabs open"), RuntimeError("boom")])
+    _o, _left = C.write_script(object(), "prompt", FIXTURE_ANALYSIS)
+    check_true("write_script: a failed repair keeps the first answer", _left == 1 and "[how many]" in _o["beats"][0]["say"])
+finally:
+    P.structured = _orig_structured
+
+# ---- (s) run_format routing ---------------------------------------------------------
+_saved = (C.sbx, P.fill_source, P.fetch_meta, P.structured, C.pool_source, C.record_agency_cost)
+_patches, _structured_calls, _plans = [], [], []
+_FILL_RAISES = []
+
+
+def _fake_sbx(key, path, method="GET", body=None, prefer=None):
+    _patches.append((method, body))
+    return [{"id": "x"}] if prefer else None
+
+
+def _fake_fill(a, aclient, key, notes, timings, publish=None, on_frames=None, usage_sink=None,
+               length_hint=None, frame_plan=None):
+    _plans.append(frame_plan)
+    if _FILL_RAISES:
+        raise _FILL_RAISES[0]
+    a["source"] = {**SILENT_SOURCE}
+    if on_frames:
+        on_frames([(0.3, b"x")])
+    return True
+
+
+def _fake_structured(client, system, schema, content, max_tokens=None):
+    _structured_calls.append((schema, content))
+    if schema is C.AGENCY_READ_SCHEMA:
+        return {"format": FIXTURE_ANALYSIS["format"], "production": {"hook_mechanism": "x", "camera": "cam"},
+                "key_moments": ["Open on the jar"]}
+    return {"title": "t", "fit": 0.5, "fit_reason": "r", "delivery": "silent", "hook": "h", "needs": ["n"],
+            "setting": "", "lighting": "", "framing": "", "audio": "",
+            "beats": [{"t": "0-2s", "say": "", "do": "d", "show": "s"}, {"t": "2-4s", "say": "", "do": "d", "show": "s"}],
+            "cta": "", "caption": "", "creator_note": "", "strategy_note": ""}
+
+
+def _run(row):
+    _patches.clear(); _structured_calls.clear(); _plans.clear()
+    base = {"id": "fmtroute", "source_url": "https://www.tiktok.com/@x/video/1", "attempts": 0,
+            "campaign_id": "c1", "regen_note": "", "script": None, "edited": None}
+    C.run_format("k", object(), {**base, **row}, {"instructions": "", "brand_context": {}})
+    final = [b for m, b in _patches if isinstance(b, dict) and "status" in b]
+    return final[-1] if final else None
+
+
+try:
+    C.sbx, P.fill_source, P.fetch_meta, P.structured = _fake_sbx, _fake_fill, (lambda u: {"title": "cap"}), _fake_structured
+    C.pool_source, C.record_agency_cost = (lambda key, subject: "pooled"), (lambda *a, **k: None)
+    KM = {**FIXTURE_ANALYSIS, "key_moments": ["Open on the jar"]}
+    # 1. read job, keep it exactly
+    f = _run({"job": "read", "script_mode": "verbatim"})
+    check_true("route 1: verbatim read job reads once, never writes",
+               [c[0] is C.AGENCY_READ_SCHEMA for c in _structured_calls] == [True])
+    check_true("route 1: ends done with a verbatim script, source, analysis, job=script",
+               f and f["status"] == "done" and f["script"]["verbatim"] is True
+               and f["script"]["needs"] == ["Open on the jar"] and "source" in f and "analysis" in f and f["job"] == "script")
+    check_true("route 1: the agency frame plan reaches fill_source", _plans == [C.agency_frame_times])
+    # 2. script job, verbatim, read already has key moments
+    f = _run({"job": "script", "script_mode": "verbatim", "analysis": KM, "source": SILENT_SOURCE})
+    check_true("route 2: no model call, done", not _structured_calls and f and f["status"] == "done")
+    # 3. script job, verbatim, analysis predates key_moments
+    f = _run({"job": "script", "script_mode": "verbatim", "analysis": FIXTURE_ANALYSIS, "source": SILENT_SOURCE})
+    check_true("route 3: re-reads once, then done",
+               [c[0] is C.AGENCY_READ_SCHEMA for c in _structured_calls] == [True] and f and f["status"] == "done")
+    # 4. read job, column absent
+    f = _run({"job": "read"})
+    check_true("route 4: no script_mode key means adapt: queued for the script job",
+               f and f["status"] == "queued" and f["job"] == "script")
+    # 5. script job, adapt, staff needs
+    f = _run({"job": "script", "script_mode": "adapt", "staff_needs": ["Mine"], "analysis": KM, "source": SILENT_SOURCE})
+    _sc = [c for c in _structured_calls if c[0] is C.AGENCY_SCRIPT_SCHEMA]
+    check_true("route 5: script call carries the agency's needs and the moments",
+               len(_sc) == 1 and "THE AGENCY'S OWN NEEDS" in _sc[0][1] and "MUST-HAVE MOMENTS" in _sc[0][1]
+               and f and f["status"] == "done")
+    # 6. verbatim with nothing to keep
+    f = _run({"job": "script", "script_mode": "verbatim", "analysis": KM, "source": {}})
+    check_true("route 6: nothing to keep is a retryable verbatim_empty error back to the read job",
+               f and f["status"] == "error" and f["error_kind"] == "verbatim_empty" and f["job"] == "read")
+    # 7. upgrade re-read cannot download: keep the old read
+    _FILL_RAISES.append(RuntimeError("download failed: ERROR: Video unavailable"))
+    f = _run({"job": "script", "attempts": 1, "script_mode": "adapt", "analysis": FIXTURE_ANALYSIS, "source": SILENT_SOURCE})
+    _FILL_RAISES.clear()
+    check_true("route 7: a failed upgrade re-read falls back to the old read, no failed card",
+               f and f["status"] == "queued" and f["job"] == "script" and f["analysis"]["key_moments"] == []
+               and f["source"] == SILENT_SOURCE)
+finally:
+    C.sbx, P.fill_source, P.fetch_meta, P.structured, C.pool_source, C.record_agency_cost = _saved
+
 print()
 if FAILS:
     print(f"{len(FAILS)} FAILED:")

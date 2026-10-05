@@ -200,7 +200,7 @@ def extract_frames(video, times, dest):
     return sorted((r for r in results if r), key=lambda r: r[0])
 
 
-def analyze(client, frames):
+def analyze(client, frames, max_tokens=1500):
     content = []
     for t, path in frames:
         content.append({"type": "text", "text": f"Frame at t={t}s:"})
@@ -209,7 +209,7 @@ def analyze(client, frames):
             "data": base64.b64encode(path.read_bytes()).decode()}})
     content.append({"type": "text", "text": PROMPT})
     msg = client.messages.create(
-        model=MODEL, max_tokens=1500,
+        model=MODEL, max_tokens=max_tokens,
         output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
         messages=[{"role": "user", "content": content}])
     return json.loads(next(b.text for b in msg.content if b.type == "text"))

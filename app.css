@@ -11989,3 +11989,35 @@
     .cb-beat-field > .cb-beat-insert,
     .bp-beats.bp-editable > .bp-beat > .bp-insbeat { transition: none; }
   }
+
+  /* ================= AGENCY: EDIT BESIDE THE ORIGINAL, KEEP IT EXACTLY (2026-10-04) =================
+     Plan ~/.claude/plans/agency-brief-compare-verbatim-needs.md. Agency only: every selector starts
+     body.agency #app main. The format editor sits in the same .ref-split as the finished card, so at
+     >=1180px the shared .ref-split rules already put "The original" in a sticky 350px column beside it. */
+  body.agency #app main .cb-ed-split .cb-editor { margin-top: 0; padding-top: 0; border-top: 0; }
+  /* 821-1179px: the shared rules stack the split, which leaves the video a screen above the beat being
+     edited. The editor keeps it beside instead, in a sticky 240px column. */
+  @media (min-width: 821px) and (max-width: 1179.98px) {
+    body.agency #app main .cb-ed-split { grid-template-columns: minmax(0, 1fr) 240px; gap: 18px; }
+    body.agency #app main .cb-ed-split > .ag-original { order: 0; align-self: start; position: sticky; top: 76px; }
+  }
+  /* Below 1180px the editor column is too narrow for four beat fields in a row. */
+  @media (max-width: 1179.98px) {
+    body.agency #app main .cb-ed-split .cb-beat-grid { grid-template-columns: minmax(0, 1fr); }
+  }
+  /* Phones: stacked with the original first (the shared order: -1), smaller so the editor starts on the
+     first screen; the panel is a <details> and folds away. */
+  @media (max-width: 820px) {
+    body.agency #app main .cb-ed-split .ag-original .ref-dock { width: min(100%, 200px); }
+  }
+  /* The keep-it-exactly switch: under the link field (not under "Video N"), in the regenerate row and
+     under the replace-link field. */
+  body.agency #app main .cb-row > .cb-keep { grid-column: 2; margin: 0 0 2px; }
+  body.agency #app main .cb-keep { align-items: flex-start; }
+  body.agency #app main .cb-keep > span { min-width: 0; overflow-wrap: anywhere; }
+  body.agency #app main :is(.cb-err-body, .cb-regen-row) > .cb-keep { margin: 10px 0 0; }
+  body.agency #app main .cb-regen-row > .cb-keep + .ce-field { margin-top: 10px; }
+  body.agency #app main .cb-regen-row .ce-field[hidden] { display: none; }
+  @media (max-width: 560px) {
+    body.agency #app main .cb-row > .cb-keep { grid-column: 1; }
+  }

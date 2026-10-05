@@ -76,6 +76,7 @@ import urllib.request
 from transcribe import MODEL as WHISPER_MODEL
 from transcribe import fetch_audio, transcribe
 from analyze_visuals import analyze as analyze_frames
+from analyze_visuals import MAX_FRAMES as SHOT_FRAMES_MAX
 from analyze_visuals import download_video, extract_frames, frame_times, yt_dlp_bin
 from retag_with_audio import SYSTEM as TAG_SYSTEM
 from retag_with_audio import user_content
@@ -2247,8 +2248,14 @@ def upsert_video(key, a):
 # ============================================================================
 
 
+def shots_max_tokens(n_frames):
+    """The shot list's output ceiling: the old 1500 for the creator path's <= 6 frames, ~300 per
+    frame beyond that (the agency lane's denser plan; a shot with on-screen UI text runs ~150)."""
+    return 1500 if n_frames <= SHOT_FRAMES_MAX else 300 * n_frames
+
+
 def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, usage_sink=None,
-                 length_hint=None):
+                 length_hint=None, frame_plan=None):
     """The video-dependent half of a script: download, transcribe, cover,
     frames, shots, tags. Populates a["source"]. Independent of brand, so
     main() runs this ONCE per distinct video and deep-copies the result onto
@@ -2273,6 +2280,10 @@ def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, u
     platform's own reported length from the caller's concurrent fetch_meta,
     waiting at most `wait_s` for it. process_group and process_campaigns pass
     one; ab_format_adapt.py and eval_scripts.py do not, and get ffprobe alone.
+
+    `frame_plan`, when given, is `plan(t, duration) -> [seconds]` and replaces
+    analyze_visuals.frame_times for the frames, the shot list and on_frames. The agency lane passes one
+    (process_campaigns.agency_frame_times); the creator path passes none and is unchanged.
 
     THE LENGTH GATE (video_limits.py) runs here, before Whisper and before
     any model call: raises CreatorFacing("too_long", retryable=False).
@@ -2390,7 +2401,7 @@ def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, u
         if publish:
             publish("watching")
         with stage(timings, "frames"):
-            frames = extract_frames(media, frame_times(t, t["duration"]), td)
+            frames = extract_frames(media, (frame_plan or frame_times)(t, t["duration"]), td)
 
         if on_frames and frames:
             try:
@@ -2406,7 +2417,8 @@ def fill_source(a, aclient, key, notes, timings, publish=None, on_frames=None, u
                 return
             try:
                 with stage(timings, "shots"):
-                    src["shots"] = analyze_frames(MeteredClient(aclient), frames)["shots"]
+                    src["shots"] = analyze_frames(MeteredClient(aclient), frames,
+                                                 max_tokens=shots_max_tokens(len(frames)))["shots"]
                 log.info("  shot list: %d frame(s)", len(frames))
             except Exception as e:  # noqa: BLE001
                 notes.append(f"shot list failed: {api_reason(e)}")

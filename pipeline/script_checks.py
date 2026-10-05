@@ -162,9 +162,9 @@ def runs_past(ad, src):
 _SLOT = re.compile(r"\[[^\]]{3,80}\]")
 
 
-def slots(ad):
-    """Count of [bracketed slots] across hook, cta, caption and every beat's
-    say/show."""
+def slot_texts(ad):
+    """The [bracketed slots] themselves, in field order: hook, cta, caption,
+    then every beat's say, then every beat's show."""
     ad = ad or {}
     beats = ad.get("beats") or []
     text = " ".join(
@@ -172,7 +172,13 @@ def slots(ad):
         + [str(b.get("say") or "") for b in beats]
         + [str(b.get("show") or "") for b in beats]
     )
-    return len(_SLOT.findall(text))
+    return _SLOT.findall(text)
+
+
+def slots(ad):
+    """Count of [bracketed slots] across hook, cta, caption and every beat's
+    say/show."""
+    return len(slot_texts(ad))
 
 
 def unbacked_tokens(ad, brand):

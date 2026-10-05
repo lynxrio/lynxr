@@ -99,6 +99,9 @@ check("runs_past: no beats -> False", S.runs_past({"beats": []}, {"duration": 30
 check("slots: counts bracketed slots across every field",
       S.slots({"hook": "[your own hook]", "cta": "go now", "caption": "post it [handle]",
                "beats": [beat(say="[what you use it for]", show="[on-screen slot]")]}), 4)
+check("slot_texts: lists each slot",
+      S.slot_texts({"hook": "[a b c]", "cta": "", "caption": "", "beats": [beat(say="x [d e f]")]}),
+      ["[a b c]", "[d e f]"])
 check("slots: a short bracket run under 3 chars does not count",
       S.slots({"hook": "[ab]", "cta": "", "caption": "", "beats": []}), 0)
 

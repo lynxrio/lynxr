@@ -5,6 +5,10 @@ are never delayed by an agency pass.
 
 Plan: ~/.claude/plans/agency-batch-campaign-brief.md.
 
+A format whose `script_mode` is 'verbatim' ("keep it exactly",
+supabase/campaign_mode_needs.sql) skips the script call: its script is the
+video's own words and shots (verbatim_script).
+
 AGENCY LANE. No daily spend cap (owner decision 2026-09-14, reversing the
 plan's original $25/day design): agency work is metered under
 `lynxr_costs.lane='agency'` for visibility only, and never enforces a stop.
@@ -36,12 +40,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import process_adaptations as P  # noqa: E402
 import campaign_queue as Q  # noqa: E402
+import script_checks as SC  # noqa: E402
 import envcfg  # noqa: E402
 
 log = logging.getLogger("campaigns")
 CLAIM_ID = uuid.uuid4().hex[:12]
 
 AGENCY_PER_PASS = int(envcfg.get("AGENCY_PER_PASS", "2"))
+MODES = ("adapt", "verbatim")   # lynxr_campaign_formats.script_mode (supabase/campaign_mode_needs.sql)
+AGENCY_FRAME_CAP = 14
+AGENCY_OPENING = (0.3, 1.0, 1.8, 2.6, 3.4)
 MAX_TOKENS = 8000
 FETCH_MAX_ATTEMPTS = 2
 AI_MAX_ATTEMPTS = 4
@@ -74,9 +82,13 @@ PRODUCTION_SCHEMA = {"type": "object", "additionalProperties": False, "propertie
     "repeatable_because": {"type": "string", "description": "one sentence: what makes this format repeatable for another product"}},
   "required": ["hook_mechanism","speaking_style","scene_count","pacing","camera","shot_types","setting","lighting",
                "overlays","on_screen_media","transitions","pattern_interrupts","reveal","cta_structure","audio","repeatable_because"]}
+KEY_MOMENTS = {"type": "array", "items": {"type": "string"},
+               "description": "3-6 must-have moments of THIS video in the order they happen, the opening first: "
+                              "concrete, visible actions, framing and on-screen elements a recreation must not "
+                              "skip, each one instruction to the creator under 25 words"}
 AGENCY_READ_SCHEMA = {"type": "object", "additionalProperties": False,
-    "properties": {"format": P.FORMAT_SCHEMA, "production": PRODUCTION_SCHEMA},
-    "required": ["format", "production"]}
+    "properties": {"format": P.FORMAT_SCHEMA, "production": PRODUCTION_SCHEMA, "key_moments": KEY_MOMENTS},
+    "required": ["format", "production", "key_moments"]}
 AGENCY_READ_SYSTEM = P.FORMAT_SYSTEM + """
 
 ---
@@ -87,7 +99,22 @@ list — what a creator must copy to get the same effect. Describe what is visib
 Where the frames cannot show something (music, the rhythm between sampled frames),
 say what the transcript and shot list imply, and write "unclear" rather than
 invent. Keep brand and product names out of `production` too: "a screen recording
-of an app's upload flow", not the original app's name."""
+of an app's upload flow", not the original app's name.
+
+---
+
+ALSO RETURN `key_moments`: the 3 to 6 moments this video cannot work without, in the
+order they happen — what a creator recreating it must not skip or change. Read them
+from the frames first; the transcript and shot list fill the gaps between frames.
+Lead with the opening: the exact first action, what is in frame, how the person is
+framed and where they look. Then the moments that carry the format — a reveal, a
+cut to a screen or a product, a caption that changes the meaning, the payoff pose.
+Write each as one instruction to the creator, under 25 words, concrete enough to
+film without asking: "Open full-body and centred, dropping a full grocery bag on the
+counter, eyes on the lens". Name what is visible. Never a setup checklist (tripod,
+a clean wall, good lighting, caption styling, background music) unless the video
+fails without that exact thing. Unlike `production`, a moment may name the app or
+product on screen — the agency reads these as they are."""
 
 BEAT = P.ADAPT_SCHEMA["properties"]["beats"]          # same {t, say, do, show} beat, minItems 1
 AGENCY_SCRIPT_SCHEMA = {"type": "object", "additionalProperties": False, "properties": {
@@ -96,7 +123,7 @@ AGENCY_SCRIPT_SCHEMA = {"type": "object", "additionalProperties": False, "proper
     "fit_reason": P.ADAPT_SCHEMA["properties"]["fit_reason"],
     "delivery":   P.ADAPT_SCHEMA["properties"]["delivery"],
     "hook":       P.ADAPT_SCHEMA["properties"]["hook"],
-    "needs":      {"type": "array", "items": {"type": "string"}, "description": "pre-production checklist, 3-10 short items"},
+    "needs":      {"type": "array", "items": {"type": "string"}, "description": "3-6 must-have moments from the example video, in order, each a concrete instruction under 25 words — not a setup checklist"},
     "setting":    {"type": "string"}, "lighting": {"type": "string"},
     "framing":    {"type": "string"}, "audio": {"type": "string"},
     "beats":      BEAT,
@@ -121,10 +148,17 @@ different creators will film from, with the original video attached.
    screen recording of a named flow in the product, a photo, the product in hand),
    when to cut, and any movement. Match the original's production wherever the
    brand allows.
-11. `needs` is the pre-production checklist YOUR beats imply: every shot type,
-   setting, prop, screen recording, screenshot, overlay and audio the creator must
-   have before filming. 3 to 10 short items, no duplicates, nothing the beats do
-   not use.
+11. `needs` lists the MOMENTS this video cannot work without: 3 to 6 short, concrete
+   instructions tied to the example video, in the order they happen, each under 25
+   words. Lead with the opening shot: the exact first action, what is in frame and how
+   the creator is framed. Then the beats a creator must not skip: the reveal, the cut
+   to the product or a screen recording of a named flow, the payoff. Where the MUST-HAVE
+   MOMENTS block lists a moment, keep its action and framing exactly and change only
+   what this brand requires (its product, its app screen). `setting`, `lighting`,
+   `framing` and `audio` already carry the general setup, so a need is never a tripod,
+   a room, a clean wall, lighting, caption styling or background music unless the video
+   fails without it. Never repeat or contradict THE AGENCY'S OWN NEEDS; they print
+   first and yours follow them.
 12. `setting`, `lighting`, `framing` and `audio` describe the setup once for the
    whole video, based on the original's production. Where a campaign rule already
    sets one of them, follow the rule.
@@ -132,8 +166,19 @@ different creators will film from, with the original video attached.
    contradict them, and do not repeat them inside beats.
 14. If the BRAND block gives a call to action, `cta` uses it. Never invent a
    discount, code, price or offer.
-15. You know nothing about the creators beyond the campaign rules. Rule 8 applies
-   to every one of them: biography is a [slot].
+15. NO SLOTS IN THIS BRIEF — this replaces rule 8's [slot] instruction here. Several
+   creators film this exactly as written and none of them will fill in a blank, so
+   never write square brackets anywhere. Where a line needs a personal detail you were
+   not given — a number, a timespan, a routine, a situation, an item of clothing —
+   write a specific, plausible one as the creator's own words: "I was paying for five
+   of them at once", "three weeks before my exam". Keep it ordinary, believable and
+   right for the brand's audience, and never claim professional authority (a doctor,
+   a nurse, a dermatologist) the campaign rules do not give. The invented detail is
+   only ever about the creator's own life. NEVER invent anything about the PRODUCT or
+   the brand: no statistic, result, time saved, score, price, discount, feature or
+   ranking unless the BRAND block states it, and never say or imply the product
+   produced a result for the creator ("it saved me three hours a day", "it got me a
+   250"). Rule 8's last paragraph and rule 14 still apply.
 16. `strategy_note` is read by the agency team only and is never shown to creators,
    so no other field may depend on it."""
 
@@ -217,7 +262,138 @@ def read_content(a, frames):
     return content
 
 
-def script_prompt(a, analysis, campaign, regen_note=None, prev_hook=None):
+def agency_frame_times(t, duration):
+    """Frame times for the agency lane's shot list and read call: denser than the creator path's
+    analyze_visuals.frame_times, and dense at the opening. Measured 2026-10-04 on a live 16s agency
+    format: the base plan sampled 0.5s and 4.0s and missed a 1.0-3.4s opening action — the one moment
+    the agency's own needs named. Priority when capping: the opening, then the base plan, then an even
+    spread. Never more than AGENCY_FRAME_CAP; never two frames closer than min(0.5s, duration/12)."""
+    base = P.frame_times(t, duration)
+    d = float(duration or 0) or ((max(base) + 1.0) if base else 20.0)
+    gap = min(0.5, d / 12)
+    picked = []
+    for x in [*AGENCY_OPENING, *base, *(d * k / 8 for k in range(1, 8))]:
+        x = round(float(x), 1)
+        if x < 0 or x > d - 0.15 or any(abs(x - y) < gap for y in picked):
+            continue
+        picked.append(x)
+        if len(picked) >= AGENCY_FRAME_CAP:
+            break
+    return sorted(picked)
+
+
+def _secs(x):
+    x = round(float(x or 0), 1)
+    return str(int(x)) if x == int(x) else f"{x:.1f}"
+
+
+def _one_line(s):
+    return " ".join(str(s or "").split())
+
+
+def verbatim_beats(source):
+    """The video's own words and shots as {t, say, do, show} beats ("keep it exactly"). A port of
+    app.js realScript(): spoken videos group Whisper segments into ~5 beats (at least 4s each) and take
+    direction + on-screen text from the shots inside each beat's window (else the nearest shot within
+    4s); silent videos are the shot list, one beat per run of the same on-screen text; a transcript
+    with no timings is one beat. [] when there is nothing to keep."""
+    s = source or {}
+    sc = s.get("script") or {}
+    segs = [g for g in (sc.get("segments") or [])
+            if isinstance(g, (list, tuple)) and len(g) >= 3 and _one_line(g[2])]
+    shots = sorted((h for h in (s.get("shots") or []) if isinstance(h, dict)),
+                   key=lambda h: float(h.get("t") or 0))
+    dur = float(s.get("duration") or sc.get("duration") or 0)
+
+    def uniq(values):
+        out = []
+        for v in values:
+            v = str(v or "").strip()
+            if v and v not in out:
+                out.append(v)
+        return out
+
+    def dist(h, a, b):
+        t = float(h.get("t") or 0)
+        return min(abs(t - a), abs(t - b))
+
+    def shots_for(a, b):
+        inside = [h for h in shots if a <= float(h.get("t") or 0) < b]
+        if inside:
+            return inside
+        near = min(shots, key=lambda h: dist(h, a, b), default=None)
+        return [near] if near is not None and dist(near, a, b) <= 4 else []
+
+    if sc.get("has_speech") and segs:
+        total = float(segs[-1][1] or 0) or 1.0
+        target = max(4.0, total / 5)
+        groups = []   # [start, end, [words]]
+        for g in segs:
+            st, en, txt = float(g[0] or 0), float(g[1] or 0), _one_line(g[2])
+            if not groups or (en - groups[-1][0]) > target:
+                groups.append([st, en, [txt]])
+            else:
+                groups[-1][1] = en
+                groups[-1][2].append(txt)
+        beats = []
+        for st, en, words in groups:
+            hs = shots_for(st, en)
+            beats.append({"t": f"{_secs(st)}-{_secs(en)}s", "say": " ".join(words),
+                          "do": " → ".join(uniq(h.get("visual") for h in hs)),
+                          "show": " / ".join(uniq(h.get("onscreen_text") for h in hs))})
+        return beats
+    if shots:
+        runs = []   # [start, text, [visuals]]
+        for i, h in enumerate(shots):
+            text = str(h.get("onscreen_text") or "").strip()
+            vis = str(h.get("visual") or "").strip()
+            if runs and _one_line(runs[-1][1]) == _one_line(text):
+                if vis and vis not in runs[-1][2]:
+                    runs[-1][2].append(vis)
+                continue
+            runs.append([0.0 if i == 0 else float(h.get("t") or 0), text, [vis] if vis else []])
+        end_all = max(dur, float(shots[-1].get("t") or 0) + 1.0)
+        return [{"t": f"{_secs(st)}-{_secs(runs[k + 1][0] if k + 1 < len(runs) else end_all)}s",
+                 "say": "", "do": " → ".join(vis), "show": text}
+                for k, (st, text, vis) in enumerate(runs)]
+    text = _one_line(sc.get("text"))
+    if text:
+        return [{"t": f"0-{_secs(dur)}s" if dur else "", "say": text, "do": "", "show": ""}]
+    return []
+
+
+def verbatim_script(source, analysis):
+    """A "keep it exactly" format in AGENCY_SCRIPT_SCHEMA's shape, built with no model call. needs =
+    the read call's key_moments; setup = the read's production block; caption = the original post's.
+    `verbatim: True` is not in the schema: it marks this version for the card's "kept exactly" chip
+    and is never exported (agencySendDoc and campaignDocHtml pick named fields)."""
+    s = source or {}
+    sc = s.get("script") or {}
+    an = analysis or {}
+    prod = an.get("production") or {}
+    beats = verbatim_beats(s)
+    spoken = bool(sc.get("has_speech") and sc.get("segments"))
+    if spoken:
+        hook = str(sc.get("hook") or "").strip() or (beats[0]["say"] if beats else "")
+    else:
+        hook = next((b["show"] for b in beats if b["show"]), "") or (beats[0]["do"] if beats else "")
+    first = _one_line(hook)
+    title = (first[:87].rstrip() + "…") if len(first) > 90 else first
+    return {
+        "title": title or str((an.get("format") or {}).get("name") or ""),
+        "fit": None, "fit_reason": "",
+        "delivery": "spoken" if spoken else "silent",
+        "hook": hook,
+        "needs": [str(x).strip() for x in (an.get("key_moments") or []) if str(x).strip()][:8],
+        "setting": str(prod.get("setting") or ""), "lighting": str(prod.get("lighting") or ""),
+        "framing": str(prod.get("camera") or ""), "audio": str(prod.get("audio") or ""),
+        "beats": beats, "cta": "", "caption": str(s.get("caption") or "")[:2200],
+        "creator_note": "", "strategy_note": "",
+        "verbatim": True,
+    }
+
+
+def script_prompt(a, analysis, campaign, regen_note=None, prev_hook=None, staff_needs=None):
     instructions = (campaign or {}).get("instructions") or ""
     prompt = (
         "Write this format of the campaign brief for the brand below.\n\n"
@@ -229,6 +405,16 @@ def script_prompt(a, analysis, campaign, regen_note=None, prev_hook=None):
         "=== CAMPAIGN RULES (apply to every format; printed at the top of the brief "
         f"— do not repeat them) ===\n{instructions[:2000] or '(none)'}"
     )
+    moments = [str(x).strip() for x in ((analysis or {}).get("key_moments") or []) if str(x).strip()]
+    if moments:
+        prompt += ("\n\n=== MUST-HAVE MOMENTS IN THE ORIGINAL (keep each one's action and framing; "
+                   "change only what this brand requires) ===\n"
+                   + "\n".join(f"- {m[:300]}" for m in moments[:8]))
+    own = [str(x).strip() for x in (staff_needs or []) if str(x).strip()]
+    if own:
+        prompt += ("\n\n=== THE AGENCY'S OWN NEEDS FOR THIS FORMAT (binding; they print first in the "
+                   "brief — follow them and never repeat them in `needs`) ===\n"
+                   + "\n".join(f"- {n[:300]}" for n in own[:12]))
     if regen_note or prev_hook:
         prompt += (
             "\n\n=== WHAT THE AGENCY WANTS FROM THIS NEW VERSION ===\n"
@@ -236,6 +422,46 @@ def script_prompt(a, analysis, campaign, regen_note=None, prev_hook=None):
             f"The previous version opened with: {prev_hook}"
         )
     return prompt
+
+
+def slot_repair_text(found):
+    listed = "; ".join(found[:12])
+    return ("\n\n=== IMPORTANT ===\nYour last answer left "
+            f"{len(found)} fill-in slot(s) in square brackets: {listed}. Creators film this brief exactly "
+            "as written, so follow rule 15: replace each with a specific, plausible value in the "
+            "creator's own words ('five of them', 'about three weeks', 'a white tee and light jeans'), "
+            "never a product fact or result the BRAND block does not state. Return the whole format "
+            "again with no square brackets anywhere.")
+
+
+def write_script(aclient, prompt, analysis):
+    """The script job's model calls. One write; one retry when the answer is thin (unchanged); then
+    rule 15's BACKSTOP: if any [slot] survived, one repair call (~$0.08-0.17, only then). A repair that
+    fails or does not reduce the slots is dropped and the first answer kept; any slot still left shows
+    on the agency card as "N blanks to fill" (app.js cbSlotCount). Errors from the first two calls
+    propagate exactly as before. Returns (script, slots_left)."""
+    out = P.structured(aclient, AGENCY_SCRIPT_SYSTEM, AGENCY_SCRIPT_SCHEMA, prompt, max_tokens=MAX_TOKENS)
+    if P.thin_script(out, (analysis or {}).get("format")):
+        out = P.structured(
+            aclient, AGENCY_SCRIPT_SYSTEM, AGENCY_SCRIPT_SCHEMA,
+            prompt + "\n\n=== IMPORTANT ===\nYour last answer had "
+            f"{len(out.get('beats') or [])} beat(s) against a "
+            f"{len(((analysis or {}).get('format') or {}).get('beats') or [])}-beat format, "
+            "which is not a usable script. Write the full beat list: one beat "
+            "per beat of the format above, each with `say`, `do` and `show` "
+            "filled in as the delivery requires.",
+            max_tokens=MAX_TOKENS)
+    found = SC.slot_texts(out)
+    if found:
+        try:
+            fixed = P.structured(aclient, AGENCY_SCRIPT_SYSTEM, AGENCY_SCRIPT_SCHEMA,
+                                 prompt + slot_repair_text(found), max_tokens=MAX_TOKENS)
+            if (fixed.get("beats") or []) and SC.slots(fixed) < len(found) \
+                    and not P.thin_script(fixed, (analysis or {}).get("format")):
+                out = fixed
+        except Exception as e:  # noqa: BLE001 — a failed repair never fails the format
+            log.warning("slot repair failed: %s", str(e)[:120])
+    return out, SC.slots(out)
 
 
 def ai_retry_minutes(fail_kind, attempts):
@@ -290,6 +516,12 @@ def finalize_patch(kind, row, now, **parts):
             "attempts": attempts + 1, "retry_at": None,
             "timings": timings,
         }
+        if parts.get("source") is not None:
+            body["source"] = parts["source"]
+        if parts.get("analysis") is not None:
+            body["analysis"] = parts["analysis"]
+        if "source" in body or "analysis" in body:
+            body["job"] = "script"
         if row.get("script"):
             body["script_prev"] = {"script": row.get("script"), "edited": row.get("edited")}
             body["edited"] = None
@@ -308,6 +540,8 @@ def finalize_patch(kind, row, now, **parts):
         # card can say "This video is 7:12 — … up to 5 minutes" (app.js cbErrorText).
         if parts.get("source") is not None:
             body["source"] = parts["source"]
+        if parts.get("job"):
+            body["job"] = parts["job"]
         return body
     raise ValueError(f"unknown finalize kind: {kind}")
 
@@ -442,7 +676,30 @@ def run_format(key, aclient, row, campaign):
             return
 
         job = row.get("job")
-        if job == "read" or (job == "script" and not row.get("analysis")):
+        mode = row.get("script_mode") if row.get("script_mode") in MODES else "adapt"   # column absent = adapt
+        raw_own = row.get("staff_needs")
+        staff_needs = [str(x).strip() for x in raw_own if str(x).strip()] if isinstance(raw_own, list) else []
+        have = row.get("analysis") or {}
+        old_read = bool(row.get("analysis") and row.get("source"))
+
+        def keep_old_read():
+            """An upgrade re-read (the analysis predates key_moments) that cannot complete: keep the read the
+            format already has, marked so it is not retried, instead of turning a finished format into a
+            failed card."""
+            old = dict(row["analysis"])
+            old.setdefault("key_moments", [])
+            if mode == "verbatim":
+                finalize("done", script=verbatim_script(row["source"], old), analysis=old)
+            else:
+                finalize("requeue_script", source=row["source"], analysis=old)
+
+        if job == "read" or not row.get("analysis") or "key_moments" not in have:
+            if job != "read":
+                try:
+                    sbx(key, f"/rest/v1/{Q.TABLE}?id=eq.{fid}&claimed_by=eq.{CLAIM_ID}",
+                        method="PATCH", body={"phase": "reading"})
+                except Exception as e:  # noqa: BLE001
+                    log.warning("phase patch (reading) failed for %s: %s", fid[:8], str(e)[:90])
             # ---- READ JOB ----
             meta_holder = {}
 
@@ -463,7 +720,7 @@ def run_format(key, aclient, row, campaign):
             try:
                 P.fill_source(a, aclient, key, notes, timings,
                                on_frames=frames_out.extend, usage_sink=sink,
-                               length_hint=length_hint)
+                               length_hint=length_hint, frame_plan=agency_frame_times)
             except Exception as e:  # noqa: BLE001
                 if isinstance(e, P.CreatorFacing):
                     # The length gate: final, never retried, no model call made.
@@ -476,6 +733,8 @@ def run_format(key, aclient, row, campaign):
                 attempts = int(row.get("attempts") or 0)
                 if retryable and attempts + 1 < FETCH_MAX_ATTEMPTS:
                     finalize("requeue_fetch")
+                elif old_read:
+                    keep_old_read()
                 else:
                     finalize("error", error_kind=note_key, error_detail=str(e)[:200],
                               retryable=retryable)
@@ -502,6 +761,8 @@ def run_format(key, aclient, row, campaign):
                 attempts = int(row.get("attempts") or 0)
                 if kind in P.AI_RETRY_KINDS and attempts + 1 < AI_MAX_ATTEMPTS:
                     finalize("ai_requeue", fail_kind=kind)
+                elif old_read:
+                    keep_old_read()
                 else:
                     err_kind = "ai_content" if kind == "content" else "ai_ours"
                     finalize("error", error_kind=err_kind, error_detail=reason[:200], retryable=True)
@@ -514,13 +775,29 @@ def run_format(key, aclient, row, campaign):
             if pooled == "skipped":
                 analysis["diag"] = (analysis["diag"] + "; not pooled: incomplete source")[:300]
 
-            finalize("requeue_script", source=a["source"], analysis=analysis)
+            if mode == "verbatim":
+                script = verbatim_script(a["source"], analysis)
+                if script["beats"]:
+                    finalize("done", script=script, source=a["source"], analysis=analysis)
+                else:
+                    finalize("error", error_kind="verbatim_empty", retryable=True, job="read",
+                             error_detail="keep it exactly: no transcript or shot list to keep")
+            else:
+                finalize("requeue_script", source=a["source"], analysis=analysis)
             ok_for_cost = True
             return
 
         # ---- SCRIPT JOB ----
         a["source"] = row.get("source")
         analysis = row.get("analysis")
+        if mode == "verbatim":
+            script = verbatim_script(a["source"], analysis)
+            if script["beats"]:
+                finalize("done", script=script)
+            else:
+                finalize("error", error_kind="verbatim_empty", retryable=True, job="read",
+                         error_detail="keep it exactly: no transcript or shot list to keep")
+            return
         try:
             sbx(key, f"/rest/v1/{Q.TABLE}?id=eq.{fid}&claimed_by=eq.{CLAIM_ID}",
                 method="PATCH", body={"phase": "writing"})
@@ -529,21 +806,10 @@ def run_format(key, aclient, row, campaign):
 
         regen_note = row.get("regen_note") or ""
         prev_hook = (row.get("script") or {}).get("hook") if (regen_note or row.get("script")) else None
-        prompt = script_prompt(a, analysis, campaign, regen_note, prev_hook)
+        prompt = script_prompt(a, analysis, campaign, regen_note, prev_hook, staff_needs=staff_needs)
 
         try:
-            out = P.structured(aclient, AGENCY_SCRIPT_SYSTEM, AGENCY_SCRIPT_SCHEMA,
-                                prompt, max_tokens=MAX_TOKENS)
-            if P.thin_script(out, analysis.get("format")):
-                out = P.structured(
-                    aclient, AGENCY_SCRIPT_SYSTEM, AGENCY_SCRIPT_SCHEMA,
-                    prompt + "\n\n=== IMPORTANT ===\nYour last answer had "
-                    f"{len(out.get('beats') or [])} beat(s) against a "
-                    f"{len((analysis.get('format') or {}).get('beats') or [])}-beat format, "
-                    "which is not a usable script. Write the full beat list: one beat "
-                    "per beat of the format above, each with `say`, `do` and `show` "
-                    "filled in as the delivery requires.",
-                    max_tokens=MAX_TOKENS)
+            out, left = write_script(aclient, prompt, analysis)
             if not (out.get("beats") or []):
                 raise RuntimeError("no beats")
         except Exception as e:  # noqa: BLE001
@@ -557,6 +823,8 @@ def run_format(key, aclient, row, campaign):
                 finalize("error", error_kind=err_kind, error_detail=reason[:200], retryable=True)
             return
 
+        if left:
+            log.info("format %s: %d [slot](s) left after the repair", fid[:8], left)
         finalize("done", script=out)
         ok_for_cost = True
     finally:

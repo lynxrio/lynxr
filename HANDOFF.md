@@ -27,6 +27,34 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**AGENCY BRIEFS: COMPARE, KEEP IT EXACTLY, NEEDS AS MOMENTS, NO SLOTS (2026-10-04, UNCOMMITTED, stamp `20261004c`;
+plan `~/.claude/plans/agency-brief-compare-verbatim-needs.md`).** From the cofounder's feedback on agency campaign
+briefs. **Editor:** the format editor now plays the original beside it (side by side from 821px, stacked on phones with
+the original first). **Keep it exactly:** a per-link switch (composer, add-videos, Regenerate, Replace link) sets
+`script_mode='verbatim'`: the worker builds the format from the transcript and shot list with no script call
+(`process_campaigns.py` `verbatim_script`), the card shows a "kept exactly" chip, and Try again / Replace link /
+Regenerate keep the mode. **Needs:** generated needs are now the video's must-have moments, from a new `key_moments`
+field on the read call; agency reads sample up to 14 frames, dense at the opening, versus 5-6 (`agency_frame_times`).
+**Staff needs:** the agency's own needs live in `staff_needs`, print first (card, PDF, send doc) and survive a
+regeneration. **No slots:** agency scripts carry no `[slots]` (rule 15 in `AGENCY_SCRIPT_SYSTEM`; the creator lane keeps
+its slots), with one repair call as the backstop and a "N blanks to fill" chip when one survives.
+**OWNER SQL, NOT RUN:** `supabase/campaign_mode_needs.sql`, run AFTER `fly status` shows the worker that carries this
+change (an older worker would rewrite a kept format). Until then the switch refuses with a message naming the file and
+the editor shows one needs field. **Cost:** keep-it-exactly saves the $0.08-0.17 script call; an older format's first
+Regenerate does one extra read (about $0.06-0.10) because it predates `key_moments`; the repair call runs only when a
+slot survives. **Tests:** `pipeline/test_campaigns.py` (j)-(s), `test_script_checks.py` slot_texts. **The paid check
+(about $0.63):** before/after report in `~/Lynxr-evals/needs/` (outside the repo).
+
+**ADD A BEAT IN BETWEEN (2026-10-04, UNCOMMITTED, stamp `20261004b`).** Owner: "allow me to add a beat in-between
+two beats when I edit in agency side and honestly creator side too". A "+ add beat here" pill sits on each beat's
+top edge and inserts a beat above it. On a mouse it shows on hover or focus; on touch it is always shown, faint.
+Agency (`app.js` cbBeatFieldHtml + the editor wiring): the beat goes into the DOM with no repaint, so typed text in
+other beats stays. Creator (`creator.js` addBeatAt): the card repaints, so unconfirmed lines are carried across and
+shown pending again; "+ add a beat" now uses the same path. The pill is positioned with `translate`, not `transform`,
+because `.ghost:active { transform: scale(.98) }` made it jump mid-press and eat the click (caught by a real-mouse
+test). Beat-pinned files follow their beat by fingerprint, so an insert cannot misplace them. Verified at 1440 and
+393 with real clicks in both apps: inserts anywhere, renumbers, focus lands in the new beat, `csp violations: []`.
+
 **GUARD + CPU NOTE (2026-10-04, UNCOMMITTED: `pipeline/smoke_media.py`, `Dockerfile`, `adaptations.yml`).**
 `smoke_media.py` runs ffmpeg, ffprobe, faster-whisper's PyAV decode and the baked model on a generated 2s clip. The
 Dockerfile runs it at build time, so a broken dependency fails the deploy and the old machine keeps serving.
