@@ -4932,6 +4932,9 @@
      footer link, a paragraph and a heading, and it has to survive whichever of
      those is lowercasing around it. Wrap the name in it wherever it appears. */
   .entity { text-transform: none; }
+  /* ACRONYMS KEEP THEIR CAPITALS (owner, 2026-10-04: "ugc should be all caps UGC"). An abbreviation drawn lowercase reads
+     as a word nobody knows. Same one-class shape as .entity: wrap the acronym in it wherever it appears in copy. */
+  .acr { text-transform: none; }
 
 
   /* ---------- CREATOR: THE SCRIPT GRID, AND FINDING ONE ----------
@@ -11942,3 +11945,47 @@
   .newscript.home .composer-for { max-width: 100%; }
   .newscript.home .composer-for { margin: 0 2px 8px; }
   .pane-body .lib-newbrand { margin-left: auto; }
+
+  /* ---- ADD A BEAT IN BETWEEN (owner, 2026-10-04: "allow me to add a beat in-between two beats when I
+     edit in agency side and honestly creator side too") ----
+     A small pill straddling the top edge of each beat; it inserts a beat ABOVE that one. On a mouse it
+     shows while that beat is hovered or anything in it has keyboard focus, so it never reads as part of
+     the script. On touch, which has no hover, it is always there but faint. Agency editor:
+     .cb-beat-insert on each .cb-beat-field. Creator editor: .bp-insbeat in each editable .bp-beat. */
+  .cb-beat-field { position: relative; }
+  .bp-beats.bp-editable > .bp-beat { position: relative; }
+  .cb-beat-field > .cb-beat-insert,
+  .bp-beats.bp-editable > .bp-beat > .bp-insbeat {
+    position: absolute; top: 0; left: 50%; z-index: 1;
+    /* `translate`, NOT `transform`: `.ghost:active { transform: scale(.98) }` would replace a transform
+       mid-press, the pill would jump half its own size, and the click would land beside it. */
+    translate: -50% -50%;
+    min-height: 0; height: 24px; padding: 0 10px; margin: 0;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: var(--surface-flat, #fff); color: var(--text-2);
+    font-size: var(--fs-115); line-height: 22px; white-space: nowrap; cursor: pointer;
+    box-shadow: none;
+    transition: opacity .15s ease, color .15s ease;
+  }
+  /* A fieldset's border is drawn through the middle of its legend, ~9px above the padding box that
+     `top: 0` measures from, so the agency pill is lifted onto the drawn line. */
+  .cb-beat-field > .cb-beat-insert { top: calc(-.5 * var(--cb-legend-h, 18px)); }
+  .cb-beat-field > .cb-beat-insert:hover,
+  .bp-beats.bp-editable > .bp-beat > .bp-insbeat:hover { color: var(--text); }
+  @media (hover: hover) {
+    .cb-beat-field > .cb-beat-insert,
+    .bp-beats.bp-editable > .bp-beat > .bp-insbeat { opacity: 0; }
+    .cb-beat-field:hover > .cb-beat-insert,
+    .cb-beat-field:focus-within > .cb-beat-insert,
+    .bp-beats.bp-editable > .bp-beat:hover > .bp-insbeat,
+    .bp-beats.bp-editable > .bp-beat:focus-within > .bp-insbeat,
+    .cb-beat-insert:focus-visible, .bp-insbeat:focus-visible { opacity: 1; }
+  }
+  @media (hover: none) {
+    .cb-beat-field > .cb-beat-insert,
+    .bp-beats.bp-editable > .bp-beat > .bp-insbeat { opacity: .7; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cb-beat-field > .cb-beat-insert,
+    .bp-beats.bp-editable > .bp-beat > .bp-insbeat { transition: none; }
+  }

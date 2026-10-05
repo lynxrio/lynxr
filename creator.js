@@ -10651,8 +10651,13 @@ function adaptationHtml(a, liveName, opts = {}) {
             position among rendered rows — beatRow returns "" for a beat whose
             every line is blank or carried over, so the two drift apart and an
             edit would land on the wrong beat. */""}
+      ${/* "+ add beat here" rides on each beat's top edge and inserts a beat ABOVE it (owner,
+            2026-10-04: "allow me to add a beat in-between two beats"); "+ add a beat" below still
+            appends. It goes in beatRow's tail so it lives inside the beat's own <li>. */""}
       <ol class="bp-beats bp-notime bp-editable">${(ad.beats || [])
-        .map((b, i) => beatRow(b, carry, silent, id, i)).join("")}</ol>
+        .map((b, i) => beatRow(b, carry, silent, id, i,
+          `<button type="button" class="bp-insbeat" data-adid="${id}" data-at="${i}" title="Add a beat here"
+            aria-label="Add a beat above this one">+ add beat here</button>`)).join("")}</ol>
       <button type="button" class="linkish bp-addbeat" data-adid="${id}">+ add a beat</button>
       ${ad.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> <span
         class="bp-val" contenteditable="plaintext-only" role="textbox" tabindex="0" spellcheck="false"
@@ -11707,15 +11712,37 @@ function wireAdaptationCards(host) {
     });
   });
 
-  host.querySelectorAll(".bp-addbeat").forEach((btn) => btn.addEventListener("click", () => {
-    const a = beatsOf(btn.dataset.adid);
-    if (!a) return;
-    a.adaptation.beats = [...(a.adaptation.beats || []), { say: "", do: "Describe the shot", show: "" }];
+  /* Adding a beat changes every later beat's index, so the card is rebuilt, and a rebuild would
+     drop any line typed but not yet confirmed with its tick. Those lines are carried across: read
+     before the repaint, shifted past the new beat, typed back in, and shown pending again (the
+     same tick and cross), so nothing is saved that the creator did not confirm. */
+  const addBeatAt = (a, at) => {
+    const pending = [...host.querySelectorAll("[data-edit].is-pending")].map((el) => ({
+      adid: el.dataset.adid, edit: el.dataset.edit, field: el.dataset.field,
+      beat: el.dataset.beat === undefined ? null : Number(el.dataset.beat), text: el.textContent }));
+    const beats = [...(a.adaptation.beats || [])];
+    beats.splice(at, 0, { say: "", do: "Describe the shot", show: "" });
+    a.adaptation.beats = beats;
     a.editedAt = new Date().toISOString();
     save({ now: true });
     renderPane(); keepOpenAll(a.id);
+    for (const p of pending) {
+      const beat = p.edit === "beat" && p.adid === a.id && p.beat >= at ? p.beat + 1 : p.beat;
+      const el = document.querySelector(`[data-edit="${CSS.escape(p.edit)}"][data-adid="${CSS.escape(p.adid)}"]`
+        + `[data-field="${CSS.escape(p.field)}"]${beat === null ? "" : `[data-beat="${beat}"]`}`);
+      if (el) { el.textContent = p.text; el.dispatchEvent(new Event("input")); }
+    }
     // Land the caret in the line just added rather than making them find it.
-    document.querySelector(`[data-adid="${CSS.escape(a.id)}"][data-beat="${a.adaptation.beats.length - 1}"]`)?.focus();
+    document.querySelector(`[data-adid="${CSS.escape(a.id)}"][data-beat="${at}"]`)?.focus();
+  };
+  host.querySelectorAll(".bp-addbeat").forEach((btn) => btn.addEventListener("click", () => {
+    const a = beatsOf(btn.dataset.adid);
+    if (a) addBeatAt(a, (a.adaptation.beats || []).length);
+  }));
+  host.querySelectorAll(".bp-insbeat").forEach((btn) => btn.addEventListener("click", () => {
+    const a = beatsOf(btn.dataset.adid);
+    const at = Number(btn.dataset.at);
+    if (a && Number.isInteger(at) && at >= 0) addBeatAt(a, Math.min(at, (a.adaptation.beats || []).length));
   }));
 
   /* Bring the revert button into being the moment the first edit is confirmed,

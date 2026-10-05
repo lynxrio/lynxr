@@ -8267,8 +8267,12 @@ function cbDetailHtml(f) {
 function cbBeatFieldHtml(b, i) {
   const area = (k, label) => `<label class="ce-field"><span class="lbl">${label}</span>
     <textarea class="grow" rows="1" data-bt="${k}">${escapeHtml(b[k] || "")}</textarea></label>`;
+  /* "+ add beat here" sits on this beat's top edge and inserts a new beat ABOVE it (owner, 2026-10-04:
+     "allow me to add a beat in-between two beats"). With "Add beat" at the end, that covers every gap. */
   return `<fieldset class="cb-beat-field">
     <legend class="cb-lbl">Beat <span class="cb-beat-n">${i + 1}</span></legend>
+    <button type="button" class="ghost cb-small cb-beat-insert" title="Add a beat here"
+      aria-label="Add a beat above beat ${i + 1}">+ add beat here</button>
     <div class="cb-beat-grid">
       <label class="ce-field"><span class="lbl">Time</span>
         <input type="text" data-bt="t" value="${escapeHtml(b.t || "")}" placeholder="0-3s" autocomplete="off"></label>
@@ -8904,24 +8908,36 @@ function cbBindCard(card, campaignId) {
   // ---- the format editor ----
   const form = card.querySelector(".cb-editor");
   if (form) {
-    const renumber = () => form.querySelectorAll(".cb-beat-n").forEach((s, k) => { s.textContent = String(k + 1); });
+    const renumber = () => form.querySelectorAll(".cb-beat-field").forEach((fs, k) => {
+      fs.querySelector(".cb-beat-n").textContent = String(k + 1);
+      fs.querySelector(".cb-beat-insert")?.setAttribute("aria-label", `Add a beat above beat ${k + 1}`);
+    });
     const wireRemove = (fs) => fs.querySelector(".cb-beat-remove").addEventListener("click", () => {
       const next = fs.nextElementSibling || fs.previousElementSibling;
       fs.remove();
       renumber();
       (next?.querySelector("input, textarea") || form.querySelector(".cb-beat-add")).focus();
     });
-    form.querySelectorAll(".cb-beat-field").forEach(wireRemove);
-    form.querySelector(".cb-beat-add").addEventListener("click", () => {
-      const list = form.querySelector(".cb-beat-list");
+    /* A new, empty beat. It goes into the DOM beside the others rather than through a repaint, so
+       whatever has been typed into the other beats stays exactly where it is. Its time is left blank:
+       the neighbours' times are never shifted behind the editor's back. */
+    const newBeat = (place) => {
       const tpl = document.createElement("template");
-      tpl.innerHTML = cbBeatFieldHtml({}, list.children.length).trim();
+      tpl.innerHTML = cbBeatFieldHtml({}, 0).trim();
       const fs = tpl.content.firstElementChild;
-      list.appendChild(fs);
-      wireRemove(fs);
+      place(fs);
+      wireBeat(fs);
       cbWireGrow(fs);
+      renumber();
       fs.querySelector("input").focus();
-    });
+    };
+    const wireBeat = (fs) => {
+      wireRemove(fs);
+      fs.querySelector(".cb-beat-insert").addEventListener("click", () => newBeat((n) => fs.before(n)));
+    };
+    form.querySelectorAll(".cb-beat-field").forEach(wireBeat);
+    form.querySelector(".cb-beat-add").addEventListener("click", () =>
+      newBeat((n) => form.querySelector(".cb-beat-list").appendChild(n)));
     const close = (sel) => { CB_EDITING.delete(fid); repaint(sel); cbFlushPending(campaignId); };
     form.querySelector(".cb-ed-cancel").addEventListener("click", () => close(".cb-edit"));
     form.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); close(".cb-edit"); } });

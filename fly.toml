@@ -60,7 +60,14 @@ kill_timeout = "300s"
 # stops being true, `fly scale count 2` is the whole change: process_adaptations
 # claims an adaptation before it spends, so two workers never take the same one.
 [[vm]]
-  cpu_kind = "shared"
+  # PERFORMANCE, not shared (owner, 2026-10-04: "upgrade the worker to
+  # performance-2x"; about $66/mo against about $25 on shared-cpu-2x). Shared vCPUs
+  # are throttled once their burst balance runs out. After an 8-format agency brief
+  # the worker ran a CPU loop ~80x slower than normal: a 69s video took 314s to
+  # transcribe, and a 1080p60 VP9 clip encode hit its 300s timeout. Dedicated
+  # cores don't throttle. Changing this back to "shared" re-introduces that.
+  size = "performance-2x"
+  cpu_kind = "performance"
   cpus = 2
   # 4GB, not the 1GB default. Whisper `small` holds ~2GB while transcribing and
   # an OOM here looks like a script that silently never finishes.
