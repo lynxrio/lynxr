@@ -12068,7 +12068,7 @@
     }
     body.agency #app main .cb-split > .ag-original .cb-dock > .cb-cover img { object-fit: contain; }
     body.agency #app main .cb-split > .ag-original[open] .cb-dock > .cb-open {
-      position: absolute; top: 0; right: 12px; display: inline-flex; align-items: center; min-height: 36px;
+      position: absolute; top: 18px; right: 12px; translate: 0 -50%;
     }
     body.agency #app main .cb-split > .ag-original[open] .cb-dock > .lbl { display: none; }
     body.agency #app main .cb-ed-split:has(.cb-editor :is(input, textarea):focus) > .ag-original { position: static; }
@@ -12206,14 +12206,15 @@
   body.agency #app main .cb-beat-play { justify-self: start; display: inline-flex; align-items: center; gap: 5px; }
   body.agency #app main .cb-beat-play:disabled { opacity: .45; cursor: default; }
   body.agency #app main .cb-ed-split:not(:has(video.cb-clip)) .cb-beat-play { display: none; }
-  /* The editor's lit beat (polish 2026-10-05): the finished card's lit beat — surface ground, --beat-glow and
-     the --logo-grad ring — drawn over the flat hairline. The flat rule (":is(... #ops-spend ..., .cb-beat-field)")
+  /* The editor's lit beat (polish 2026-10-05): the finished card's lit beat — --beat-glow and the --logo-grad
+     ring — drawn over the flat hairline. Not its solid --surface-flat ground: the fields are glass wells and
+     wash out on white, so the ground stays the page's. The flat rule (":is(... #ops-spend ..., .cb-beat-field)")
      carries an id, so the lit field names #briefs-host to outrank it; nothing else about the flat field changes,
      and the padding stays put so a beat lighting up never moves the fields. A fieldset draws its edge through
      the middle of its legend, ~half a legend above the padding box, so the ring starts there (the same lift
-     as .cb-beat-insert) and the legend sits on the surface above it, a notch in the ring. */
+     as .cb-beat-insert) and the legend sits on a pill above it, a notch in the ring. */
   body.agency #app main #briefs-host .cb-ed-split .cb-beat-field.on {
-    background: var(--surface-flat); border-top-color: transparent; border-radius: 20px; box-shadow: var(--beat-glow);
+    border-top-color: transparent; border-radius: 20px; box-shadow: var(--beat-glow);
   }
   body.agency #app main .cb-ed-split .cb-beat-field::before {
     content: ""; position: absolute; inset: calc(-.5 * var(--cb-legend-h, 18px)) 0 0; border-radius: 20px; padding: 2px;
