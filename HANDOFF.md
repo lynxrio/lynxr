@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-09-28.** Start with the section right below the table.
+Read this, then `README.md` for architecture. **Last updated 2026-10-06.** Start with the section right below the table.
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -23,11 +23,37 @@ naming a path there publishes it.
 
 ---
 
-## START HERE — state as of 2026-09-28
+## START HERE — state as of 2026-10-06
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
-**KEEP IT EXACTLY: SILENT STRETCHES GET A BEAT (2026-10-05, UNCOMMITTED: `pipeline/process_campaigns.py`,
+**SESSION SUMMARY 2026-10-06 — READ THIS FIRST.** The tree is clean and in sync with `origin/main`; the stamp is
+`20261005k`; the Fly worker is on v52+ and runs track_posts, the showcase pass and the creator lanes. Everything the
+paragraphs below call "UNCOMMITTED" was committed and pushed by the owner on 2026-10-05 (`4f5a043`, `532faeb`,
+`13378a8`). **Live and verified:** link checks at paste (a cut-off Instagram link shows "link cut off" on lynxr.io) and
+the failure classes from `lynxr-no-failed-scripts.md`; the landing mascot (one x only, attention targets set in
+markup with `data-lx-spot`, documented at the top of `<main>` in index.html); the agency beat ↔ original sync and its
+polish; the CSP noise fix (pasted pages are parsed with inline styles stripped — `withoutInlineStyles()` in creator.js;
+`app.js` `parseHtmlRead` has the same pattern, staff-only, NOT fixed); the showcase SQL (applied 2026-10-05; anonymous
+and probe-account isolation checks passed, recorded in the private tracking-numbers file). **Done in the database:**
+`dad0e821` (the cut-off link) relabelled so its creator sees the cut-off sentence; `4c6724bb` (failed on our PyAV bug)
+re-queued and finished on its first pass. **Waiting on the owner (not built or not applied):**
+(1) the agency "orig" backfill: `./venv/bin/python pipeline/backfill_beat_orig.py --apply ~/Lynxr-evals/beat-sync/orig-plan-20261005.json`
+(21 formats; skips any edited since the plan) — needs the owner's OK; (2) the self-healing watchdog agent, plan
+`~/.claude/plans/lynxr-fixer-agent.md` (replaces `lynxr-script-canary.md`) — needs "go" plus two answers: may a GitHub bot
+push `fixer/*` branches and open PRs (never main), and which Claude login (subscription token vs API key); (3) the
+landing's right card: the owner's latest direction is a **"made with lynxr" dashboard that cycles 6 real videos**
+(mocked in chat with sample data; the built showcase still rotates single entries and stays hidden until its gate:
+3 approved entries + a typical figure from 30 videos / 5 creators — the owner must choose keep-the-gate vs. launch on
+entries with a lawyer-checked disclosure). The first two links the owner sent need answers before they can be entries:
+one is a staff (cofounder) account posted 2025-07-02, before lynxr existed (first commit 2026-07-30), so it cannot be
+"made with lynxr"; the other (posted 2026-08-30) needs confirmation it came from a lynxr script or brief, plus the
+creator's consent; (4) the coach v1 plan `~/.claude/plans/lynxr-coach-v1.md` — needs "go" plus the owner's principles
+list and 10–20 example breakdowns; (5) hello@lynxr.io must receive mail and a lawyer should read the showcase
+disclosure before any entry goes live; (6) Apify is still on the free $5 plan. **Not verified anywhere:** Safari,
+Firefox and a real phone for the mascot and the agency phone player; the iOS keyboard behaviour of the pinned player.
+
+**KEEP IT EXACTLY: SILENT STRETCHES GET A BEAT (2026-10-05, PUSHED by 2026-10-05: `pipeline/process_campaigns.py`,
 `pipeline/test_campaigns.py`; no css/js, no stamp).** `verbatim_beats` built spoken videos from speech segments
 alone, so anything before the first word was dropped (format 64d8e3d0 started at 4.7s and lost its shocked-face
 opening). Now any stretch with no speech of at least `SILENT_GAP_S` = 1.5s (before the first word, between
@@ -37,12 +63,12 @@ the first SPOKEN line. It needs opening frames to work from: formats read before
 (Regenerate / Try again). Re-run on the 13 stored spoken formats, nothing changes until then. The new plan for
 64d8e3d0 samples 6 frames before 4.7s. 6 new checks in test_campaigns.py; all pass.
 
-**SHOWCASE: "MADE WITH LYNXR" ON THE LANDING PAGE (2026-10-05, UNCOMMITTED, stamp `20261005h`; plan
+**SHOWCASE: "MADE WITH LYNXR" ON THE LANDING PAGE (2026-10-05, PUSHED by 2026-10-05, stamp `20261005h`; plan
 `~/.claude/plans/lynxr-showcase.md`).** The landing hero's right card can show real videos made with lynxr scripts, with
 lynxr-measured numbers, once there are at least 3 approved, consented, measured entries AND a real "typical" figure
 (median day-7 views over at least 30 tracked videos from at least 5 creators). Until then the card is exactly as before;
 nothing is ever invented. **Built:** `supabase/showcase.sql` (tables, one anonymous RPC `showcase_public()`, creator and
-staff functions, a self-test that rolls itself back) - **OWNER MUST RUN IT in the Supabase SQL editor (NOT applied yet)**;
+staff functions, a self-test that rolls itself back) - **applied by the owner 2026-10-05; isolation probes passed**;
 `pipeline/showcase.py` (fetches and checks the video, copies its cover to the lynxr-covers bucket, measures, sweeps;
 runs inside track_posts.py's pass, Fly only); `showcase.js` (the landing logic and bubble); a creator Settings "Showcase"
 switch and a "made with a lynxr script" control on Posts (creator.js); a staff "Showcase" tab in /agencyonly/ (app.js);
@@ -68,7 +94,7 @@ main that changes tools/ugc_agent/articles/**. Withdraw: run that workflow (slug
 committed. Three articles are live as of 2026-10-05 (skincare, pay, pitch email). The per-session SEO routine is
 retired. The old API/dry-run path is gone (llm.py deleted).
 
-**AGENCY SCRIPT VIEW: EACH BEAT KNOWS ITS MOMENT IN "THE ORIGINAL" (2026-10-05, UNCOMMITTED, stamp `20261005i`; plan
+**AGENCY SCRIPT VIEW: EACH BEAT KNOWS ITS MOMENT IN "THE ORIGINAL" (2026-10-05, PUSHED by 2026-10-05, stamp `20261005i`; plan
 `~/.claude/plans/lynxr-agency-beat-sync.md`).** Why: a beat's `t` is the new script's own plan, not a moment of the
 original, and the docked video was a bare `<video>` wired to nothing. The original's moment is now `orig` ("8-12s", the
 original's own seconds). Where it comes from: the worker writes it with every agency script (rule 17 in
@@ -82,7 +108,7 @@ beat lists on 21 formats; the plan file is in `~/Lynxr-evals/beat-sync/`, outsid
 call). `--apply` is NOT RUN: the owner runs it after pushing, because the old editor drops unknown beat keys on Save.
 Not changed: the creator app and sent briefs (they still seek by `t`), the PDF, `agencySendDoc`/`agDocSig`.
 
-**AGENCY BRIEFS: COMPARE, KEEP IT EXACTLY, NEEDS AS MOMENTS, NO SLOTS (2026-10-04, UNCOMMITTED, stamp `20261004c`;
+**AGENCY BRIEFS: COMPARE, KEEP IT EXACTLY, NEEDS AS MOMENTS, NO SLOTS (2026-10-04, PUSHED by 2026-10-05, stamp `20261004c`;
 plan `~/.claude/plans/agency-brief-compare-verbatim-needs.md`).** From the cofounder's feedback on agency campaign
 briefs. **Editor:** the format editor now plays the original beside it (side by side from 821px, stacked on phones with
 the original first). **Keep it exactly:** a per-link switch (composer, add-videos, Regenerate, Replace link) sets
@@ -100,7 +126,7 @@ Regenerate does one extra read (about $0.06-0.10) because it predates `key_momen
 slot survives. **Tests:** `pipeline/test_campaigns.py` (j)-(s), `test_script_checks.py` slot_texts. **The paid check
 (about $0.63):** before/after report in `~/Lynxr-evals/needs/` (outside the repo).
 
-**CREATORS NEVER SEE A FAILED SCRIPT FOR A BAD LINK (2026-10-05, UNCOMMITTED, stamp `20261005g`; plan
+**CREATORS NEVER SEE A FAILED SCRIPT FOR A BAD LINK (2026-10-05, PUSHED by 2026-10-05, stamp `20261005g`; plan
 `~/.claude/plans/lynxr-no-failed-scripts.md`; NOT verified live until the first real deploy).** A creator pasted a
 cut-off Instagram link (`.../reels/OB5/`), nothing checked it, yt-dlp said "There is no video in this post", no rule
 matched, and the entry was re-run with no schedule until `gave-up:dad0e821` paged. **Refused at paste and at claim:**
@@ -117,10 +143,10 @@ post is fetched through Apify (`apify_fetch`); kill switch `FETCH_FALLBACK_APIFY
 never counts toward `fetch-wall:burst`; "unreachable" and refused links go to the digest line
 (`N unreachable · N bad links`); only our own failures page. **Tests:** `pipeline/test_link_checks.py` (parts A-E),
 `node tools/test_link_shape.mjs`, plus the extended `test_ai_retry.py`, `test_watchdog.py`, `test_video_limits.py`.
-**OWNER, not run:** push, then relabel the cut-off card with the dry-run script in the plan (Step 13d); a pipeline push
-redeploys Fly, so check the queue is idle first.
+**Done 2026-10-05:** pushed and deployed; the cut-off card (`dad0e821`) relabelled with Step 13d; the live paste of
+`.../reels/OB5/` on lynxr.io shows "link cut off".
 
-**ADD A BEAT IN BETWEEN (2026-10-04, UNCOMMITTED, stamp `20261004b`).** Owner: "allow me to add a beat in-between
+**ADD A BEAT IN BETWEEN (2026-10-04, PUSHED by 2026-10-05, stamp `20261004b`).** Owner: "allow me to add a beat in-between
 two beats when I edit in agency side and honestly creator side too". A "+ add beat here" pill sits on each beat's
 top edge and inserts a beat above it. On a mouse it shows on hover or focus; on touch it is always shown, faint.
 Agency (`app.js` cbBeatFieldHtml + the editor wiring): the beat goes into the DOM with no repaint, so typed text in
@@ -130,7 +156,7 @@ because `.ghost:active { transform: scale(.98) }` made it jump mid-press and eat
 test). Beat-pinned files follow their beat by fingerprint, so an insert cannot misplace them. Verified at 1440 and
 393 with real clicks in both apps: inserts anywhere, renumbers, focus lands in the new beat, `csp violations: []`.
 
-**GUARD + CPU NOTE (2026-10-04, UNCOMMITTED: `pipeline/smoke_media.py`, `Dockerfile`, `adaptations.yml`).**
+**GUARD + CPU NOTE (2026-10-04, PUSHED by 2026-10-05: `pipeline/smoke_media.py`, `Dockerfile`, `adaptations.yml`).**
 `smoke_media.py` runs ffmpeg, ffprobe, faster-whisper's PyAV decode and the baked model on a generated 2s clip. The
 Dockerfile runs it at build time, so a broken dependency fails the deploy and the old machine keeps serving.
 `adaptations.yml` runs it with `SMOKE_MODEL=0` right after `pip install`. Verified: it passes with av 18.1.0 locally
@@ -656,7 +682,7 @@ Owner drove this live in one session; every item below was verified in painted p
   inside `:is()` so it outranks the app's `--gl-*` glass rule — those two cards silently miss the glass.
 - **BUG FOUND 2026-09-23, FIXED IN THE TREE, NOT YET LIVE — the creator sidebar's "Lynx Media Group" item
   painted for EVERY creator since the feature shipped.** A brand-new, never-invited account
-  (joenguyen41@gmail.com, created 02:17 UTC) saw it. Cause: `#nav-lynx` is `hidden` in the markup and
+  (a creator account created 02:17 UTC; address removed from this public file 2026-10-06) saw it. Cause: `#nav-lynx` is `hidden` in the markup and
   creator.js sets `.hidden` from `my_agency()` correctly, but `.side-link { display: flex }` outranks the
   UA's `[hidden] { display: none }` — the same trap `app.css` already documents for `.field[hidden]`.
   The DATABASE gate held throughout: `my_agency()` returns `none` for a non-member (verified live), so a
@@ -750,7 +776,7 @@ the stored-XSS probe. Cold checks (`check_stamp.py`, `404.html`'s stamp, no `sty
 `${`, `node --check` on both files) all pass.
 
 **Roster state (live, re-read 2026-09-22 evening, straight off the REST API):** one seat,
-junsaemail@gmail.com, status **`accepted`** (invited 21:06 UTC, accepted 21:19). One brief in
+the owner's personal account, status **`accepted`** (invited 21:06 UTC, accepted 21:19). One brief in
 `lynxr_agency_briefs` — client "Cloey", title "test" — and one row in
 `lynxr_agency_deliveries` pointing at it, `revoked_at` null. So invite → accept → send has all
 run for real; unsend has not been exercised.
@@ -4630,7 +4656,7 @@ records between them hold 8 scripts. Zero placeholder titles remain in
 
 - **9,016 videos** in `lynxr_videos` (older docs say 9,905 / 2,640 — both wrong).
 - **5 auth accounts, 1 staff row** (`lynxmedianetwork@gmail.com`).
-  **`junsaemail@gmail.com` is NOT staff** — signing into the agency app with it
+  **`the owner's personal account` is NOT staff** — signing into the agency app with it
   shows an empty dashboard. That is the gate working, not a bug.
 - **Creator isolation holds.** Proven with two throwaway accounts: a non-staff
   creator reads 0 rows from every table, cannot select/update/**delete**
