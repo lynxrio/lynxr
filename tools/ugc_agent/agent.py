@@ -213,9 +213,8 @@ def h2s(text):
 
 
 def page_title(root, rel):
-    t = (pathlib.Path(root) / rel / "index.html").read_text(encoding="utf-8")
-    m = re.search(r"<h1[^>]*>(.*?)</h1>", t, re.S)
-    return R.strip_tags(m.group(1)) if m else rel
+    h1 = R.first_h1((pathlib.Path(root) / rel / "index.html").read_text(encoding="utf-8"))
+    return R.strip_tags(h1) if h1 is not None else rel
 
 
 def link_inventory(root, cfg, arts, q):
@@ -278,8 +277,8 @@ def title_for_target(root, target, arts):
     if not f.is_file():
         return target, None
     text = f.read_text(encoding="utf-8")
-    m = re.search(r"<h1[^>]*>(.*?)</h1>", text, re.S)
-    page = R.strip_tags(m.group(1)) if m else path
+    h1 = R.first_h1(text)
+    page = R.strip_tags(h1) if h1 is not None else path
     sec = None
     if frag:
         m = re.search(r'\bid="%s"[^>]*>(.*?)</' % re.escape(frag), text, re.S)

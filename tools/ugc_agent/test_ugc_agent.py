@@ -342,6 +342,43 @@ def routine_tests():
     check("routine D: without a fallback branch a refused push exits 1", r.returncode == 1 or "nothing" in r.stdout, r.stdout)
     tmp.cleanup()
 
+    # ---- E: main gets a ?v= stamp bump while the run is working -> commit.sh rebases, re-renders and still lands
+    tmp = tempfile.TemporaryDirectory()
+    work, origin = routine_site(tmp.name)
+    agent = [PY, str(work / "tools/ugc_agent/agent.py")]
+    out = pathlib.Path(tmp.name) / "out"
+    r = sh(agent + ["next", "--out", str(out), "--n", "1"], work)
+    slug = json.loads(r.stdout)["briefs"][0]["slug"]
+    cp = stub_candidate(work, out, slug)
+    ok = (sh(agent + ["check", str(cp)], work).returncode == 0
+          and sh(agent + ["publish", str(cp), "--verdict", str(stub_review(out, slug))], work).returncode == 0
+          and sh(agent + ["render"], work).returncode == 0 and sh(agent + ["gate"], work).returncode == 0
+          and sh(agent + ["finish", "--out", str(out)], work).returncode == 0)
+    other = pathlib.Path(tmp.name) / "other"
+    git(["clone", "-q", str(origin), str(other)], tmp.name)
+    old = re.search(r"\?v=(\d{8}[a-z]+)", (other / "index.html").read_text(encoding="utf-8")).group(1)
+    for f in other.rglob("*.html"):
+        t = f.read_text(encoding="utf-8")
+        if "?v=" + old in t:
+            f.write_text(t.replace("?v=" + old, "?v=20991231z"), encoding="utf-8")
+    git(["commit", "-qam", "owner: stamp bump"], other)
+    bumped = git(["push", "-q", "origin", "main"], other).returncode == 0
+    r = sh(["bash", str(work / "tools/ugc_agent/commit.sh"), str(out / "manifest.txt"), str(out / "commit-subject.txt")], work,
+           {"UGC_FALLBACK_BRANCH": "claude/ugc-2026-10-06"})
+    head = git(["rev-parse", "HEAD"], work).stdout.strip()
+    omain = sh(["git", "--git-dir", str(origin), "rev-parse", "main"], work).stdout.strip()
+    page = (work / "blog" / slug / "index.html").read_text(encoding="utf-8")
+    files = git(["show", "--name-only", "--format=", "HEAD"], work).stdout.split()
+    manifest = (out / "manifest.txt").read_text().split()
+    check("routine E: after a mid-run stamp bump on main, the agent's commit lands on main on top of it",
+          ok and bumped and r.returncode == 0 and omain == head and "owner: stamp bump" in git(["log", "-2", "--format=%s"], work).stdout,
+          (r.stdout, r.stderr))
+    check("routine E: the re-rendered article carries the new stamp, the site is consistent, and nothing is left over",
+          "?v=20991231z" in page and "?v=" + old not in page and sh([PY, "tools/check_stamp.py"], work).returncode == 0
+          and git(["status", "--porcelain"], work).stdout.strip() == "", page[:300])
+    check("routine E: the amended commit still touches only manifest paths", files and set(files) <= set(manifest), (files, manifest))
+    tmp.cleanup()
+
 
 def main():
     tmp = tempfile.TemporaryDirectory()
@@ -623,6 +660,13 @@ def main():
     arts_run["run-article"] = dict(runart, status="withdrawn")
     lp, tg, ps = G.link_problems(root, cand, arts_run)
     check("links in code: a link to a withdrawn answer is a problem", has(lp, "withdrawn"), lp)
+
+    # ---- page titles ignore "<h1>" written inside an HTML comment (it leaked comment text into the reviewer's page list)
+    fake = '<!-- this section carries its <h1> — the hero block it replaced held the only other one. -->\n<h1 class="x">Real <span>title</span></h1>'
+    check("titles: first_h1 skips an <h1> mentioned inside a comment", R.strip_tags(R.first_h1(fake) or "") == "Real title", R.first_h1(fake))
+    check("titles: first_h1 is None on a page without one", R.first_h1("<p>no heading</p><!-- <h1>x</h1> -->") is None)
+    check("titles: /how-it-works/ gets its real headline in the reviewer's page list",
+          A.page_title(REPO, "how-it-works") == "for UGC creators, at every stage", A.page_title(REPO, "how-it-works"))
 
     # ---- fix 1b: what the judge sees
     q0 = {"id": "q001", "question": "How do you test links?", "target_query": "test links", "theme": "ugc-scripts", "slug": "link-test"}

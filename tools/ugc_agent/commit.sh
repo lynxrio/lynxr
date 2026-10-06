@@ -55,7 +55,7 @@ for attempt in 1 2 3; do
     exit 0
   fi
   echo "$out"
-  if echo "$out" | grep -qiE 'protected branch|GH006|GH013|rule violation|not allowed|declined'; then
+  if echo "$out" | grep -qiE 'protected branch|GH006|GH013|rule violation|not allowed|declined|403|permission|not accessible'; then
     refused=1
     break
   fi
@@ -65,6 +65,18 @@ for attempt in 1 2 3; do
     echo "::error::rebase conflict while pulling main"
     exit 1
   fi
+  # main moved while this run was working (often a ?v= stamp bump or a footer edit). The agent's pages were rendered
+  # from the old chrome, so re-render from the new model page, fold the result into the agent's own unpushed commit,
+  # and prove the re-render touched nothing outside the manifest.
+  python3 tools/ugc_agent/agent.py render >/dev/null
+  git add --pathspec-from-file="$manifest"
+  if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+    echo "::error::re-rendering after the rebase changed files outside the manifest:"
+    git diff --name-only
+    git ls-files --others --exclude-standard
+    exit 1
+  fi
+  git diff --cached --quiet || git commit -q --amend --no-edit
   python3 tools/check_stamp.py || exit 1
 done
 if [ -n "${UGC_FALLBACK_BRANCH:-}" ]; then

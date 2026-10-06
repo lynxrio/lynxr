@@ -113,6 +113,13 @@ def strip_tags(s):
     return " ".join(html.unescape(re.sub(r"<[^>]+>", "", s)).split())
 
 
+def first_h1(text):
+    """Inner HTML of the page's first real <h1>, or None. Comments go first: /how-it-works/ has a comment that
+    mentions "<h1>" ahead of its real one, and matching that leaked the comment text as the page title."""
+    m = re.search(r"<h1[^>]*>(.*?)</h1>", re.sub(r"<!--.*?-->", "", text, flags=re.S), re.S)
+    return m.group(1) if m else None
+
+
 # ---------------------------------------------------------------- chrome
 
 def chrome(root, cfg):
@@ -141,10 +148,10 @@ def chrome(root, cfg):
 
 def pillar_label(root, path):
     t = (pathlib.Path(root) / path.strip("/") / "index.html").read_text(encoding="utf-8")
-    m = re.search(r"<h1[^>]*>(.*?)</h1>", t, re.S)
-    if not m:
+    h1 = first_h1(t)
+    if h1 is None:
         raise ValueError("pillar page has no h1: " + path)
-    return to_html(strip_tags(m.group(1)))
+    return to_html(strip_tags(h1))
 
 
 # ---------------------------------------------------------------- page assembly
