@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-10-06.** Start with the section right below the table.
+Read this, then `README.md` for architecture. **Last updated 2026-10-06 (evening).** Start with the section right below the table.
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -27,33 +27,52 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
-**SESSION SUMMARY 2026-10-06 — READ THIS FIRST.** The tree is clean and in sync with `origin/main`; the stamp is
-`20261005k`; the Fly worker is on v52+ and runs track_posts, the showcase pass and the creator lanes. Everything the
-paragraphs below call "UNCOMMITTED" was committed and pushed by the owner on 2026-10-05 (`4f5a043`, `532faeb`,
-`13378a8`). **Live and verified:** link checks at paste (a cut-off Instagram link shows "link cut off" on lynxr.io) and
-the failure classes from `lynxr-no-failed-scripts.md`; the landing mascot (one x only, attention targets set in
-markup with `data-lx-spot`, documented at the top of `<main>` in index.html); the agency beat ↔ original sync and its
-polish; the CSP noise fix (pasted pages are parsed with inline styles stripped — `withoutInlineStyles()` in creator.js;
-`app.js` `parseHtmlRead` has the same pattern, staff-only, NOT fixed); the showcase SQL (applied 2026-10-05; anonymous
-and probe-account isolation checks passed, recorded in the private tracking-numbers file). **Done in the database:**
-`dad0e821` (the cut-off link) relabelled so its creator sees the cut-off sentence; `4c6724bb` (failed on our PyAV bug)
-re-queued and finished on its first pass. **Waiting on the owner (not built or not applied):**
-(1) the agency "orig" backfill: `./venv/bin/python pipeline/backfill_beat_orig.py --apply ~/Lynxr-evals/beat-sync/orig-plan-20261005.json`
-(21 formats; skips any edited since the plan) — needs the owner's OK; (2) the self-healing watchdog agent, plan
-`~/.claude/plans/lynxr-fixer-agent.md` (replaces `lynxr-script-canary.md`) — needs "go" plus two answers: may a GitHub bot
-push `fixer/*` branches and open PRs (never main), and which Claude login (subscription token vs API key); (3) the
-landing's right card: the owner's latest direction is a **"made with lynxr" dashboard that cycles 6 real videos**
-(mocked in chat with sample data; the built showcase still rotates single entries and stays hidden until its gate:
-3 approved entries + a typical figure from 30 videos / 5 creators — the owner must choose keep-the-gate vs. launch on
-entries with a lawyer-checked disclosure). The first two links the owner sent need answers before they can be entries:
-one is a staff (cofounder) account posted 2025-07-02, before lynxr existed (first commit 2026-07-30), so it cannot be
-"made with lynxr"; the other (posted 2026-08-30) needs confirmation it came from a lynxr script or brief, plus the
-creator's consent; (4) the coach v1 plan `~/.claude/plans/lynxr-coach-v1.md` — needs "go" plus the owner's principles
-list and 10–20 example breakdowns; (5) hello@lynxr.io must receive mail and a lawyer should read the showcase
-disclosure before any entry goes live; (6) Apify is still on the free $5 plan. **Not verified anywhere:** Safari,
-Firefox and a real phone for the mascot and the agency phone player; the iOS keyboard behaviour of the pinned player.
+**SESSION SUMMARY 2026-10-06 (evening) — READ THIS FIRST.** The tree has a LARGE UNCOMMITTED batch (everything `git
+status` shows is from this one session; nothing stray): the landing redesign below, the fixer agent and canary (next
+paragraph), and the stamp moved to **`20261006o`** on all 34 stamped pages plus `404.html` (`tools/check_stamp.py` says ok).
+**Before pushing:** run the read-only idle check (canary plan `~/.claude/plans/lynxr-script-canary.md`, Step 11b) and push
+only when creator queued / running and agency busy are all 0 — `pipeline/**` changed, so the push redeploys Fly. **After
+pushing:** wait until lynxr.io's HTML shows `20261006o` before requesting any `?v=` asset (Cloudflare caches a premature
+fetch of the old file under the new stamp for 4h), then do the fixer's owner setup (its plan, Step 19). **Still waiting on
+the owner:** (1) the agency "orig" backfill (`./venv/bin/python pipeline/backfill_beat_orig.py --apply
+~/Lynxr-evals/beat-sync/orig-plan-20261005.json`, 21 formats, needs an OK); (2) the coach v1 plan
+(`~/.claude/plans/lynxr-coach-v1.md`, needs "go" + the owner's principles and 10–20 example breakdowns); (3) hello@lynxr.io
+must receive mail, and the showcase's disclosure wording is an open item for the owner (private plan
+`~/.claude/plans/lynxr-showcase.md`) before any real creator entry goes live; (4) Apify is still on the free $5 plan.
+**Not verified anywhere:** Safari / Firefox / a real iPhone for anything below — every check was headless Brave over CDP.
 
-**THE FIXER AGENT AND THE CANARY (2026-10-06, UNCOMMITTED, stamp `20261005m`; plan `~/.claude/plans/lynxr-fixer-agent.md`; NOT verified live until Steps 19-20 of that plan).**
+**THE LANDING, REDESIGNED (2026-10-06, UNCOMMITTED, stamp `20261006o`; `index.html`, `home.js`, `avatar.js`, `showcase.js`,
+`app.css`, `assets/showcase/`, `tools/test_showcase.mjs`).** All home-only (`body.home`); every other page keeps its capsule
+bar, its slide-away and its old dropdown. Verified at 1440×900, 1000×576 and 393×852 (headless Brave, CDP), CSP clean, no
+errors; `node tools/test_showcase.mjs` ALL OK.
+- **Hero.** The h1 is now the word **lynxr**, huge (`.hx-name`); "your UGC buddy" is in the brand gradient with a constant
+  glint (`hx-sub-shine`); "continue with Google" pulses a ring every 2s (never moves). Desktop: sign-up card 520px, video card
+  3:4 up to 560px, hero = the whole screen, content centred. **Phone: the sign-up card replaces the video card** (`.hx-r` is
+  not drawn and `showcase.js` does not load at all there).
+- **Nav (direction B).** Fixed; it opens with the whole bar down (`.hx-bar-intro`, set before first paint), which goes up
+  as the x lifts off while the wordmark's letters dissolve (`nameLeaves`); past 8px (site.js `.is-scrolled`) a frosted band
+  slides down with the word, "how it works · faq" grouped right and "get started"; pinned while scrolling (overrides the
+  site-wide slide-away on home). Phone: same behaviour; the menu is full-screen (`.lp-menu`, "sign in" + "get started" at the
+  foot) with the bar's row painted above it (z 31) so its × shows. Keyboard focus in the bar brings it down
+  (`:has(:focus-visible)`), a tap's focus does not.
+- **The x (home.js `perform`).** New moods `shock` / `hmm` / `cool` in avatar.js. Desktop route as the owner drew it: out of
+  the logo, a sweep over the headline, down just right of its ink onto the sign-up card's top-right (a gasp at the Google
+  and email buttons), a short hop to its home just left of the video card; "hmm" then "cool". Phone: straight down to the
+  sign-up card's top-left. After the intro it **docks**: whenever the bar is down it flies into it beside the word (the logo
+  again, logo-sized, no pointer); back at the top it flies home. The cursor-follow and the phone station guide built earlier
+  the same day are gone. Each plan has its own x beside its price (`.lp-plan-x`, `planBuddies`): free idle, pro happy,
+  max hyped, with a greeting that scales with the plan.
+- **Showcase (`showcase.js`).** Full-bleed card (cover + muted clip that plays, `entry.clip` / `CLIP_RE`), story bars,
+  arrows, swipe, sideways trackpad scroll, ← →. Gold badge "top N videos this week" only when ≥3 approved entries have a
+  MEASURED gain this week (`topOfWeek`); otherwise the RPC's entries under "made with lynxr". **Until real entries qualify
+  it falls back to `assets/showcase/founder.json`**: five of the cofounder's own public reels (shown with his OK; covers and
+  12s muted clips in `assets/showcase/`, 3.3MB; numbers read once on 2026-10-06), gold "top 5 videos", each labelled
+  "lynxr cofounder" and "posted … · views as of …" — never "made with lynxr" or "this week". Real entries override it
+  automatically. The terms' showcase licence covers covers, not video: real creators' clips need the terms updated first.
+  Localhost preview: `?obtest=1&showcase=sample` (its one real-looking entry reads media from the gitignored
+  `output/showcase-sample/`).
+
+**THE FIXER AGENT AND THE CANARY (2026-10-06, UNCOMMITTED, stamp since moved on to `20261006o` with the landing batch; plan `~/.claude/plans/lynxr-fixer-agent.md`; NOT verified live until Steps 19-20 of that plan).**
 Built and tested offline; nothing acts until the owner pushes and does the setup below. **The canary** (`pipeline/canary.py`,
 `pipeline/canary.json`) runs known-good PUBLIC videos (lynxr's own TikToks, two Instagram reels from yt-dlp's test suite) through
 the real `fill_source()` on the idle Fly worker (Fly only, last in the idle chain, killed within ~5s when a creator queues): a
