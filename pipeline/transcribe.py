@@ -87,9 +87,27 @@ def already_done(require_segments=False):
     return done
 
 
+# IMPERSONATION IS OPTIONAL, AND ASKING FOR IT WHEN IT IS MISSING KILLS THE DOWNLOAD.
+# yt-dlp's --impersonate needs curl_cffi. When that import is absent yt-dlp does not
+# fall back — it raises "Impersonate target chrome is not available" and exits before
+# touching the network, so EVERY audio fetch fails in ~0.2s. That is what was happening
+# on the Fly worker (image has no curl_cffi), which silently disabled both the match
+# lane's only download path and process_adaptations' "video refused; audio still
+# scripts it" fallback. Found 2026-10-07 by running the real command on the worker;
+# plain TikTok downloads succeed there in about a second without impersonation.
+# So: ask for it only when it can actually be served, and keep working when it cannot.
+def _can_impersonate():
+    try:
+        import curl_cffi  # noqa: F401 -- presence is the whole test
+        return True
+    except Exception:      # noqa: BLE001 -- any import failure means the target is unavailable
+        return False
+
+
 def fetch_audio(url, dest_dir):
     """Audio-only download. Returns the file path, or None if unavailable."""
     out_tmpl = str(dest_dir / "%(id)s.%(ext)s")
+    impersonate = ["--impersonate", "chrome"] if _can_impersonate() else []
     cmd = [
         yt_dlp_bin(),
         # TikTok lists every format as carrying aac, but the h265 ("bytevc1")
@@ -99,8 +117,9 @@ def fetch_audio(url, dest_dir):
         # them explicitly. Verified: the same video fails on bytevc1_1080p and
         # succeeds on h264_540p.
         "-f", "bestaudio/best[vcodec^=avc]/best[vcodec^=h264]/best",
-        # TikTok increasingly requires browser impersonation (curl-cffi).
-        "--impersonate", "chrome",
+        # TikTok increasingly requires browser impersonation (curl-cffi). Only sent when
+        # curl_cffi is importable — see _can_impersonate() above.
+        *impersonate,
         "-x", "--audio-format", "mp3", "--audio-quality", "5",
         "--no-playlist", "--no-warnings", "--quiet",
         "--socket-timeout", "20", "--retries", "2",
