@@ -23,7 +23,11 @@ PREAMBLE = (
     "this person. It does NOT outrank the PRECEDENCE block: nothing here is a fact the script may\n"
     "state, and nothing here is about the product.\n"
     "NONE OF IT GOES IN THE SCRIPT. No view counts, no medians, no \"my videos that...\", no mention\n"
-    "of their posting history. It changes what you write, never what they say.")
+    "of their posting history. It changes what you write, never what they say.\n"
+    "A PATTERN IS NOT A LICENCE TO INVENT. Where a pattern below needs material the script does not\n"
+    "already have — a number, a quantity, a date, something they own — take it from the source video\n"
+    "or the brand facts. If it is not there, DROP THE PATTERN. A detail made up to fit a pattern is\n"
+    "worse than not matching the pattern at all.")
 
 GOAL_USED = "views on each video"   # the only goal metric a single script can move
 MAX_SAMPLES = 4                     # captions quoted, newest first
@@ -113,6 +117,44 @@ def _performance(w, platform_fallback=None):
     return out
 
 
+def _share(x):
+    """A 0-1 share as a whole percent, or None when it is not a number in range."""
+    if isinstance(x, bool) or not isinstance(x, (int, float)) or not 0 <= x <= 1:
+        return None
+    return int(round(x * 100))
+
+
+def _watch(w):
+    """The 'How long people actually watch' bullets, or [] when there is no usable median. Plan: ~/.claude/plans/lynxr-social-insights.md.
+    TWO POINTS ON THE CURVE, never the curve: how long the average viewer stayed, and one completion-ish share (TikTok: finished; Instagram:
+    skipped inside the first three seconds). Neither platform exposes a retention graph, so no line here may imply one."""
+    sec = w.get("your_median_seconds")
+    if isinstance(sec, bool) or not isinstance(sec, (int, float)) or sec <= 0:
+        return []
+    out = [f"The average viewer stays about {_n(sec)}s ({w.get('measured')}, {_videos(w.get('posts_counted'))} on {w.get('platform')})."]
+    frac = _share(w.get("your_median_watched_fraction"))
+    if frac is not None:
+        out.append(f"That is about {frac}% of the way through their videos.")
+    if w.get("platform") == "tiktok":                 # each platform renders its OWN share and never the other's
+        rate = _share(w.get("your_median_finished_rate"))
+        if rate is not None:
+            out.append(f"About {rate}% of viewers finish.")
+    elif w.get("platform") == "instagram":
+        rate = _share(w.get("your_median_skipped_3s_rate"))
+        if rate is not None:
+            out.append(f"About {rate}% skip inside the first three seconds.")
+    for key, label in (("they_stayed_longest", "They stayed longest on one"), ("they_left_soonest", "They left soonest on one")):
+        items = w.get(key) if isinstance(w.get(key), list) else []
+        item = items[0] if items and isinstance(items[0], dict) else None
+        if not item:
+            continue
+        cap = usable_samples([item.get("caption")], limit=1)     # a caption that strips to nothing says nothing: drop the line
+        secs, of = item.get("seconds"), item.get("of_seconds")
+        if cap and all(isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 for v in (secs, of)):
+            out.append(f"{label} captioned \"{cap[0]}\" — {_n(secs)}s of {_n(of)}s.")
+    return out
+
+
 def creator_block(body, now=None):
     """The block for this brain body, or "" meaning emit nothing. Pure: no network, no clock but `now`."""
     if not isinstance(body, dict) or body.get("v") != 1:
@@ -139,6 +181,13 @@ def creator_block(body, now=None):
         if perf:
             substantive.append("How their videos actually do:")
             substantive += [f"  - {p}" for p in perf]
+        # IDENTITY IS LOAD-BEARING. A body with no `how_people_watch` key makes _watch() return [] and this branch add nothing, so the block is
+        # byte-identical to what it was before watch time existed. That is what keeps the --dry-prompt hash test (flag on and off) passing for
+        # every creator who has not connected an account. Inside the `ready` branch for the same reason as the performance bullets above.
+        watch = _watch(_dict(body.get("how_people_watch")))
+        if watch:
+            substantive.append("How long people actually watch them:")
+            substantive += [f"  - {x}" for x in watch]
     if not substantive:
         return ""
 

@@ -23,6 +23,7 @@ TESTS = [
     "pipeline/test_costs.py",
     "pipeline/test_envcfg.py",
     "pipeline/test_fixer.py",
+    "pipeline/test_insights.py",
     "pipeline/test_link_checks.py",
     "pipeline/test_prefilter.py",
     "pipeline/test_script_checks.py",

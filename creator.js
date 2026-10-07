@@ -3679,6 +3679,7 @@ const ONBOARD_LIVE = true;                    // kill switch: the setup stepper 
 const PROFILES_MAX = 4;                       // mirrors supabase/profiles.sql
 const TRACKING_LIVE = true;                   // kill switch: the Posts view and its link in the rail (the data comes from the pipeline)
 const SHOWCASE_APP_LIVE = true;               // kill switch: the Settings "Showcase" card and the "made with" control on Posts (plan lynxr-showcase.md)
+const INSIGHTS_APP_LIVE = true;               // kill switch: the Settings "Connected accounts" card (plan lynxr-social-insights.md). Which platforms are OFFERED comes from my_insights(), never from here.
 const GOAL_WEEK_DAY = 7, GOAL_LAST_N = 5;     // perform goal: the average views at day 7 over the latest 5 tracked videos
 /* What a creator can name as their main priority, and the goal chips that go with it. The stored target is the number:
    "10+" brand deals stores 10 and "$1k+" stores 1000 (goalChipLabel / goalLabel say it back). Progress per priority:
@@ -4361,6 +4362,9 @@ function renderYou(head, body) {
     ${/* Goal, the profiles lynxr verifies, and the creators you look up to. Filled by paintProfiles(). */""}
     <div class="section me-card" id="prof-card" hidden></div>
 
+    ${/* Connected accounts (plan lynxr-social-insights.md): connect an Instagram or TikTok account so lynxr can read how long people watch. The wording is a promise: privacy/ and data-deletion/ both say "settings → connected accounts → disconnect". A card of its own, not a row in the one above. Filled by paintInsightsCard(). */""}
+    <div class="section me-card" id="insights-card" hidden></div>
+
     ${/* The showcase switch (plan lynxr-showcase.md). Filled by paintShowcaseCard(). */""}
     <div class="section me-card" id="showcase-card" hidden></div>
 
@@ -4528,6 +4532,7 @@ function renderYou(head, body) {
   paintSetupDue();
   paintProfiles();
   paintShowcaseCard();
+  paintInsightsCard();
 }
 
 /** The trash list inside Settings. Restore puts a script back on its company;
@@ -5955,6 +5960,8 @@ let PROFILES = null; let SETUP_SEEN_MEM = false;
 // POSTS_STATE: idle | loading | ok | error. Both tables are written by the pipeline only; a creator can only read them.
 let POSTS = null; let FOLLOWERS = null; let POSTS_STATE = "idle";
 let SHOWCASE_ME = null;     // { featured, changed_at, approved: [post ids] } from my_showcase(), or { missing: true } when the SQL is not applied
+let INSIGHTS_ME = null;     // { platforms: {instagram, tiktok}, connected: [{platform, handle, since, status}] } from my_insights(), or { missing: true } when the SQL is not applied
+let INSIGHTS_NOTE = null;   // { text, tone } shown inside the Connected accounts card until the creator acts: where they landed, and what happened
 // The sidebar walkthrough: TOUR is the live run (null = none), SETUP_DECIDED turns true once the setup stepper has either
 // opened or been ruled out for this visit (the tour never starts before that), TOUR_TIMER holds the pending start.
 let TOUR = null; let TOUR_TIMER = null; let SETUP_DECIDED = false;
@@ -6052,6 +6059,7 @@ async function refreshProfiles() {
     if (Array.isArray(rows)) PROFILES = rows;
   } catch { /* keep the old value */ }
   if (typeof paintProfiles === "function") paintProfiles();
+  if (typeof paintInsightsCard === "function") paintInsightsCard();
   if (typeof paintSetupDue === "function") paintSetupDue();
   if (typeof paintHome === "function") paintHome();
 }
@@ -6812,7 +6820,7 @@ if (OBTEST) {
   const log = (...a) => console.log("[obtest]", ...a);
   const fakeProfiles = [];
   const presses = {};
-  const OBFAKE = { posts: [], followers: [], profiles: null, showcase: { featured: false, changed_at: null, approved: [] }, plan: { status: "active", plan_code: "max", features: ["post_tracking", "advanced_coaching"], plans: { max: { label: "max" } }, has_customer: false } };
+  const OBFAKE = { insights: { platforms: { instagram: true, tiktok: new URLSearchParams(location.search).get("obins") === "both" }, connected: new URLSearchParams(location.search).get("obins") === "connected" ? [{ platform: "instagram", handle: "maya.makes", since: new Date(Date.now() - 864e5).toISOString(), status: "active" }] : [] }, posts: [], followers: [], profiles: null, showcase: { featured: false, changed_at: null, approved: [] }, plan: { status: "active", plan_code: "max", features: ["post_tracking", "advanced_coaching"], plans: { max: { label: "max" } }, has_customer: false } };
   sbFetch = async function (path, opts = {}) {      // eslint-disable-line no-func-assign -- preview only
     const body = opts.body ? JSON.parse(opts.body) : null;
     log("no network:", opts.method || "GET", path, body);
@@ -6820,6 +6828,11 @@ if (OBTEST) {
     if (path.includes("/rest/v1/lynxr_profile_followers")) return OBFAKE.followers;
     if (path.includes("/rpc/my_plan")) return OBFAKE.plan;
     if (path.includes("/rpc/my_showcase")) return { ...OBFAKE.showcase };
+    if (path.includes("/rpc/my_insights")) return JSON.parse(JSON.stringify(OBFAKE.insights));     // ?obins=both also offers TikTok; ?obins=connected starts with Instagram connected
+    if (path.includes("/rpc/disconnect_my_insights")) {
+      OBFAKE.insights.connected = OBFAKE.insights.connected.filter((c) => !(c.platform === body.p_platform && c.handle === body.p_handle));
+      return { ok: true, removed: 1 };
+    }
     if (path.includes("/rpc/set_my_showcase_consent")) {
       OBFAKE.showcase = { featured: !!body.p_on, changed_at: new Date().toISOString(), approved: body.p_on ? OBFAKE.showcase.approved : [] };
       return { ok: true, featured: !!body.p_on, withdrawn: 0 };
@@ -7194,10 +7207,11 @@ const hasVerifiedProfile = () => (PROFILES || []).some((x) => x.verified_at);
 async function refreshPosts() {
   if (!TRACKING_LIVE) return;
   if (POSTS_STATE !== "ok") POSTS_STATE = "loading";
-  const [p, f, sh] = await Promise.allSettled([
+  const [p, f, sh, ins] = await Promise.allSettled([
     sbFetch("/rest/v1/lynxr_posts?select=id,platform,handle,url,caption,posted_at,views,likes,comments,metrics_at,adaptation_id,lynxr_post_views(day,views,likes,comments,at)&order=posted_at.desc.nullslast&limit=200"),
     sbFetch("/rest/v1/lynxr_profile_followers?select=platform,handle,day,followers&order=day.desc&limit=1000"),
     SHOWCASE_APP_LIVE ? profileRpc("my_showcase", {}) : Promise.resolve(null),
+    INSIGHTS_APP_LIVE ? profileRpc("my_insights", {}) : Promise.resolve(null),
   ]);
   if (p.status === "fulfilled" && Array.isArray(p.value)) { POSTS = p.value; POSTS_STATE = "ok"; }
   else POSTS_STATE = POSTS ? "ok" : "error";
@@ -7206,9 +7220,11 @@ async function refreshPosts() {
     SHOWCASE_ME = sh.value.featured !== undefined ? { featured: !!sh.value.featured, changed_at: sh.value.changed_at || null,
       approved: Array.isArray(sh.value.approved) ? sh.value.approved : [] } : { missing: true };
   }
+  if (INSIGHTS_APP_LIVE && ins.status === "fulfilled" && ins.value) setInsightsMe(ins.value);
   renderSide();
   if (VIEW.kind === "posts") paintPosts(); else paintHome();
   paintShowcaseCard();
+  paintInsightsCard();
 }
 
 /** The Settings "Showcase" card: one switch, off by default. It acts on change and does NOT wait for the Save button (like the
@@ -7254,6 +7270,138 @@ async function setShowcaseConsent(on) {
   const r = await profileRpc("set_my_showcase_consent", { p_on: !!on, p_terms: TERMS_VERSION });
   if (r && r.ok) SHOWCASE_ME = { ...(SHOWCASE_ME || {}), featured: !!on, approved: on ? (SHOWCASE_ME?.approved || []) : [] };
   return r || { ok: false, why: "network" };
+}
+
+/* ---------- SETTINGS: CONNECTED ACCOUNTS (plan lynxr-social-insights.md) ----------
+   A creator connects their OWN Instagram (and, once TikTok approves lynxr, TikTok) account so lynxr can read how long the average viewer
+   watched each video: two points on the curve (average time watched, and one share), never a retention graph, so no copy here promises one.
+
+   THE WORDING IS A PROMISE. privacy/ ("connecting an instagram or tiktok account") and data-deletion/ ("disconnecting an instagram or
+   tiktok account") are live and say: settings -> connected accounts -> disconnect; lynxr never asks for a platform password (the platform
+   asks, and hands lynxr a token); and disconnecting DELETES the token and the figures read with it. So the card is called "Connected
+   accounts", and Disconnect calls disconnect_my_insights(), which deletes, not merely stops.
+
+   WHICH PLATFORMS ARE OFFERED is not decided here. my_insights().platforms comes from the lynxr_ops row 'insights.platforms': the day Meta
+   approves, one SQL upsert makes the Connect button appear, with no code edit and no stamp bump. Until then the card is not drawn at all
+   (never a hardcoded "coming soon"). Only VERIFIED profiles are listed: the function refuses an unverified one anyway.
+
+   No inline style="" anywhere in this markup (strict CSP drops it). */
+const INSIGHTS_WHY = {
+  not_offered: "Connecting isn't open for that account yet.",
+  not_verified: "Verify that account above first.",
+  not_configured: "Connecting isn't switched on yet.",
+  not_ready: "Connecting isn't ready yet. Try again later.",
+  network: "Couldn't start that. Try again.",
+};
+
+/** my_insights() answer -> INSIGHTS_ME. A failed read keeps what was there (a blip must not hide the card); no read at all is "missing". */
+function setInsightsMe(r) {
+  if (r && r.platforms && typeof r.platforms === "object") {
+    INSIGHTS_ME = { platforms: { instagram: r.platforms.instagram === true, tiktok: r.platforms.tiktok === true },
+      connected: Array.isArray(r.connected) ? r.connected : [] };
+  } else if (!INSIGHTS_ME) INSIGHTS_ME = { missing: true };
+}
+
+async function refreshInsights() {
+  if (!INSIGHTS_APP_LIVE) return;
+  setInsightsMe(await profileRpc("my_insights", {}));
+  paintInsightsCard();
+}
+
+/** Start a connect: POST to the insights-connect function and go where it says (the platform's own sign-in).
+    Deliberately `fetch`, not `sbFetch`, exactly as billingAction() is: the path is /functions/v1/…, and NO `apikey` header (the live
+    Upgrade bug, 2026-09-21: the function's preflight allows only what its cors() lists, and an extra header kills the POST before it
+    leaves the page). One 401 refresh-and-retry through SB_REFRESHING. -> { ok: false, why } on any failure, never a throw. */
+async function connectInsights(platform, handle) {
+  const attempt = () => fetch(`${SB_URL}/functions/v1/insights-connect`, {
+    method: "POST",
+    headers: { "content-type": "application/json", Authorization: `Bearer ${SB_TOKEN || SB_KEY}` },
+    body: JSON.stringify({ action: "start", platform, handle }),
+  });
+  try {
+    let res = await attempt();
+    if (res.status === 401 && loadSession()?.refresh_token) {
+      try {
+        SB_REFRESHING = SB_REFRESHING
+          || sbRefresh(loadSession().refresh_token).finally(() => { SB_REFRESHING = null; });
+        await SB_REFRESHING;
+        res = await attempt();
+      } catch { /* fall through to the normal error */ }
+    }
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !j.url) return { ok: false, why: INSIGHTS_WHY[j.error] ? j.error : "network" };
+    location.href = j.url;
+    return { ok: true };
+  } catch { return { ok: false, why: "network" }; }
+}
+
+function insightsRowHtml(p, conn) {
+  const name = PLAT_NAME[p.platform] || p.platform;
+  const lost = conn && conn.status === "needs_reconnect";
+  const live = conn && !lost;
+  let line;
+  if (live) {
+    const d = new Date(conn.since || 0);
+    const when = Number.isNaN(d.getTime()) ? "" : ` ${d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+    line = `Connected${when}. lynxr reads how long people watch your videos.`;
+  } else if (lost) line = "lynxr lost access to this account. Connect it again.";
+  else line = "Not connected. Connect it and lynxr can read how long people watch your videos.";
+  // The TikTok warning goes where the decision is made, before the button, in plain words: not in a tooltip, not after the fact.
+  // (Whether a Creator account is enough is settled by plan step 2; until then this is the safe direction.)
+  const warn = p.platform === "tiktok" && !live
+    ? `<p class="ins-warn">TikTok only shares watch time with a business account. Switching is free in TikTok's settings, but it takes away the trending sounds library.</p>` : "";
+  return `<div class="ins-row" data-plat="${escapeHtml(p.platform)}" data-handle="${escapeHtml(p.handle)}">`
+    + `<span class="prof-name">@${escapeHtml(p.handle)}</span> <span class="prof-plat">${escapeHtml(name)}</span>`
+    + `<p class="ins-status">${escapeHtml(line)}</p>${warn}`
+    + `<div class="ins-actions">${live ? `<button type="button" class="ghost ins-disconnect">Disconnect</button>` : `<button type="button" class="btn ins-connect">Connect</button>`}</div></div>`;
+}
+
+/** The Settings "Connected accounts" card. Hidden unless the SQL is applied AND at least one platform is switched on. */
+function paintInsightsCard() {
+  const card = document.getElementById("insights-card");
+  if (!card) return;
+  const me = INSIGHTS_ME && !INSIGHTS_ME.missing ? INSIGHTS_ME : null;
+  const offered = me ? me.platforms : {};
+  const ok = INSIGHTS_APP_LIVE && !!me && (offered.instagram || offered.tiktok);
+  card.hidden = !ok;
+  if (!ok) { card.innerHTML = ""; return; }
+  if (card.querySelector(".armed")) return;          // an armed Disconnect is waiting for its second click: do not repaint it away
+  const rows = (PROFILES || []).filter((p) => p.verified_at && offered[p.platform]);
+  const names = ["instagram", "tiktok"].filter((k) => offered[k]).map((k) => PLAT_NAME[k]).join(" or ");
+  let h = `<h2 class="me-card-h">Connected accounts</h2>`;
+  if (rows.length) {
+    for (const p of rows) h += insightsRowHtml(p, me.connected.find((c) => c.platform === p.platform && c.handle === p.handle));
+  } else {
+    h += `<p class="ins-status">Add and verify your ${escapeHtml(names)} account above, then connect it here.</p>`;
+  }
+  const note = INSIGHTS_NOTE;
+  h += `<p class="bp-msg ins-note${note ? ` show ${note.tone || ""}` : ""}" id="ins-msg" role="status" aria-live="polite">${note ? escapeHtml(note.text) : ""}</p>`;
+  // The privacy policy's own sentences, deliberately. Only a verified account is offered, and the hint says why.
+  h += `<p class="ce-hint">Only accounts you have verified above can be connected. lynxr never asks for your platform password — the platform asks, and hands lynxr a token. Disconnecting deletes the token and the figures read with it.</p>`;
+  card.innerHTML = h;
+  card.querySelectorAll(".ins-row").forEach((row) => {
+    const plat = row.dataset.plat, handle = row.dataset.handle;
+    row.querySelector(".ins-connect")?.addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      INSIGHTS_NOTE = null;
+      const r = await connectInsights(plat, handle);
+      if (r.ok) return;                                // the browser is on its way to the platform
+      btn.disabled = false;
+      INSIGHTS_NOTE = { text: INSIGHTS_WHY[r.why] || INSIGHTS_WHY.network, tone: "bad" };
+      paintInsightsCard();
+    });
+    const dis = row.querySelector(".ins-disconnect");
+    // Two-click armed, never confirm() (browsers suppress a repeated dialog and it returns false instantly).
+    if (dis) armDelete(dis, "Disconnect", async () => {
+      dis.disabled = true;
+      dis.classList.remove("armed");                   // confirmed: the repaint guard above must not hold this card back any more
+      const r = await profileRpc("disconnect_my_insights", { p_platform: plat, p_handle: handle });
+      INSIGHTS_NOTE = r && r.ok ? { text: "Disconnected. lynxr deleted the token and the figures it read.", tone: "good" }
+        : { text: "Couldn't disconnect. Try again.", tone: "bad" };
+      await refreshInsights();                         // repaints; and a failed disconnect shows the account still connected
+    });
+  });
 }
 
 /** Mark a tracked video as made with one of the creator's lynxr scripts, or (adaptationId null) unmark it. The database
@@ -12117,6 +12265,7 @@ function unlock() {
   // The plan first (it says whether this account is tracked, which decides the Posts link), then the tracked videos.
   refreshPlan().then(() => { renderSide(); paintHome(); refreshPosts(); maybeStartTour(); });
   takeBillingReturn();
+  takeInsightsReturn();
 }
 
 /* BACK FROM STRIPE. billing-checkout sets success_url to /?billing=done,
@@ -12138,6 +12287,31 @@ function takeBillingReturn() {
   u.searchParams.delete("billing");
   history.replaceState(null, "", u.pathname + u.search + u.hash);
   go({ kind: "plan" });
+}
+
+/* BACK FROM INSTAGRAM OR TIKTOK. insights-connect sends the browser to /?insights=connected&platform=instagram, or
+   cancelled, failed or no_scope, the creator app's own URL, because that is where the answer belongs. Read once and wiped off the
+   address bar (the same device as the billing return above: a reload or a pasted link must never replay "connected"); only the two
+   parameters this uses are dropped and the #fragment is kept. Then Settings opens on the card, which says what happened. */
+const INSIGHTS_RETURN_TEXT = {
+  cancelled: ["Nothing was connected.", ""],
+  failed: ["That didn't connect. Try again.", "bad"],
+  no_scope: ["lynxr needs the insights permission to read watch time. Connect again and leave it ticked.", "bad"],
+};
+function takeInsightsReturn() {
+  const q = new URLSearchParams(location.search);
+  const v = q.get("insights");
+  if (!INSIGHTS_APP_LIVE || !["connected", "cancelled", "failed", "no_scope"].includes(v)) return;
+  const plat = PLAT_NAME[q.get("platform")] || "Your account";
+  INSIGHTS_NOTE = v === "connected"
+    ? { text: `${plat} connected. lynxr will start reading how long people watch your videos.`, tone: "good" }
+    : { text: INSIGHTS_RETURN_TEXT[v][0], tone: INSIGHTS_RETURN_TEXT[v][1] };
+  const u = new URL(location.href);
+  u.searchParams.delete("insights");
+  u.searchParams.delete("platform");
+  history.replaceState(null, "", u.pathname + u.search + u.hash);
+  go({ kind: "you" });
+  refreshInsights();
 }
 
 /* STAFF-ONLY LINK TO THE AGENCY APP (2026-09-14).

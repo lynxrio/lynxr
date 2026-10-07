@@ -76,7 +76,7 @@ left out). It is creator-side only: `process_campaigns.py` never reads it, and n
 sends captions to Anthropic, so it stays off until the privacy wording is settled. Checks that write nothing: `./venv/bin/python pipeline/brain.py --dry-run`
 and `./venv/bin/python pipeline/brain.py --print UUID --why`. Plan: `~/.claude/plans/lynxr-brain-doc.md`.
 
-**SEO ROUTINE (standing):** latest unit Q4 /blog/pov-video-script/ on 2026-10-07, uncommitted, with links from blog, what-is-a-video-format, blog/storytime-script and glossary. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
+**SEO ROUTINE:** retired 2026-10-07 by the owner ("the daily agent covers it"); its SessionStart hook is removed. Last unit was Q4 /blog/pov-video-script/ (2026-10-07, pushed in `ac59c81`). The daily UGC answer agent is the only SEO writer now.
 
 **SESSION SUMMARY 2026-10-06 (night) — READ THIS FIRST.** **Everything below is PUSHED and LIVE** (owner's push, head
 `aeaff83`; tree clean and in sync with `origin/main`): lynxr.io serves stamp **`20261006o`**, `assets/showcase/founder.json`

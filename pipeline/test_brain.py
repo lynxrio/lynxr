@@ -58,8 +58,8 @@ def corpus(n_tt=0, n_ig=0, start=1, views=1000):
     return posts, snaps
 
 
-def build(me=None, posts=(), snaps=None, profiles=(), followers=(), previous=None):
-    return B.build(me or {}, list(posts), snaps or {}, list(profiles), list(followers), NOW, previous)
+def build(me=None, posts=(), snaps=None, profiles=(), followers=(), previous=None, watch=None):
+    return B.build(me or {}, list(posts), snaps or {}, list(profiles), list(followers), NOW, previous, watch)
 
 
 def keys_of(o, out=None):
@@ -98,7 +98,7 @@ body, need = build()
 check("state: no posts and no onboarding -> empty", body["state"], "empty")
 check("state: empty has no about_you, voice, or where_you_post",
       [k for k in ("about_you", "how_you_sound", "where_you_post", "what_works_for_you") if k in body], [])
-check("state: empty still says what it does not know", len(body["not_known"]), 2)
+check("state: empty still says what it does not know (two sentences, plus how to get watch time)", len(body["not_known"]), 3)
 check("state: working_on is always empty in v1", body["working_on"], [])
 check("state: no voice call wanted for nobody", need, None)
 
@@ -110,11 +110,11 @@ posts, snaps = corpus(n_tt=4)
 body, _ = build(posts=posts, snaps=snaps)
 check("state: 4 comparable posts -> learning", body["state"], "learning")
 check("state: ... and what_works_for_you is ABSENT, not empty", "what_works_for_you" in body, False)
-check("state: ... and not_known carries both sentences", body["not_known"], [B.NOT_KNOWN_VIDEOS, B.NOT_KNOWN_WORKS])
+check("state: ... and not_known carries both sentences, then the connect line", body["not_known"], [B.NOT_KNOWN_VIDEOS, B.NOT_KNOWN_WORKS, B.NOT_KNOWN_WATCH])
 posts, snaps = corpus(n_tt=5)
 body, _ = build(posts=posts, snaps=snaps)
 check("state: 5 comparable posts -> ready", body["state"], "ready")
-check("state: ready drops the second not_known sentence", body["not_known"], [B.NOT_KNOWN_VIDEOS])
+check("state: ready drops the second not_known sentence", body["not_known"], [B.NOT_KNOWN_VIDEOS, B.NOT_KNOWN_WATCH])
 check("state: top-level key order", list(body), ["v", "state", "built_at", "how_you_sound", "where_you_post", "what_works_for_you",
                                                   "not_known", "working_on"])
 check("state: built_at is the clock it was handed", body["built_at"], "2026-10-07T12:00:00Z")
@@ -406,9 +406,11 @@ C1, C2 = "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000
 class FakeT:
     """Just enough of track_posts for brain_pass. Records every call so a test can say what was and was not written."""
 
-    def __init__(self, creators=(C1, C2), brains=(), brain_status=200, posts_status=200, queued=False):
+    def __init__(self, creators=(C1, C2), brains=(), brain_status=200, posts_status=200, queued=False, insights=(), insights_status=200,
+                 durations=()):
         self.calls, self.creators, self.brains = [], list(creators), list(brains)
         self.brain_status, self.posts_status = brain_status, posts_status
+        self.insights, self.insights_status, self.durations = list(insights), insights_status, list(durations)
         self.P = SimpleNamespace(queued_work=lambda key: queued)
         self.q = lambda v: urllib.parse.quote(str(v), safe="")
 
@@ -427,6 +429,10 @@ class FakeT:
             return 200, []
         if path.startswith("/rest/v1/lynxr_creators?id=eq."):
             return 200, [{"data": {"niches": ["demo"]}}]
+        if path.startswith("/rest/v1/lynxr_post_insights?"):
+            return self.insights_status, (self.insights if self.insights_status == 200 else None)
+        if path.startswith("/rest/v1/lynxr_posts?") and "duration_s=not.is.null" in path:
+            return 200, self.durations
         if path.startswith("/rest/v1/lynxr_posts?"):
             if self.posts_status != 200:
                 return self.posts_status, None
@@ -512,6 +518,109 @@ t = FakeT(brains=[{"creator_id": C1, "built_at": "2026-10-07T11:00:00Z"}, {"crea
 out, _, _ = lane(t)
 check("lane: a brain built an hour ago is not due; one built two days ago is", (out["brain_due"], out["built"]), (1, 1))
 check("lane: ... and only that creator was rebuilt", [b["creator_id"] for m, p, b in t.calls if m == "POST"], [C2])
+
+# ── 13. watch time (plan lynxr-social-insights.md) ───────────────────────────────────────────────
+def wsnap(i, ms, day=7, fin=None, skip=None):
+    return {"post_id": i, "day": day, "avg_watch_ms": ms, "finished_rate": fin, "skipped_3s_rate": skip}
+
+
+check("watch_at: the LARGEST day wins (a lifetime aggregate: the newest snapshot is the most complete)",
+      B.watch_at([wsnap(1, 3000, day=3), wsnap(1, 4200, day=30), wsnap(1, 3900, day=7)])["ms"], 4200)
+check("watch_at: a snapshot with no watch time is skipped for an older one that has it",
+      B.watch_at([wsnap(1, 3000, day=3), wsnap(1, None, day=30)])["day"], 3)
+check("watch_at: nothing usable -> None", (B.watch_at([]), B.watch_at([wsnap(1, None)]), B.watch_at(None)), (None, None, None))
+check("watch_at: a share outside 0..1 is dropped to None, not stored",
+      B.watch_at([wsnap(1, 1000, fin=31, skip=-1)]), {"ms": 1000, "finished_rate": None, "skipped_3s_rate": None, "day": 7})
+
+
+def wposts(n, platform="tiktok", dur=14, start=1, with_dur=True):
+    ps = [post(i, platform, days_ago=20 + i, caption=f"invented watch caption number {i}") for i in range(start, start + n)]
+    for p in ps:
+        if with_dur and dur:
+            p["duration_s"] = dur
+    return ps
+
+
+ps = wposts(4)
+ws = {1: [wsnap(1, 7000, fin=0.5)], 2: [wsnap(2, 4000, fin=0.3)], 3: [wsnap(3, 2000, fin=0.1)], 4: [wsnap(4, 9800, fin=0.7)]}
+h = B.how_people_watch(ps, ws, "tiktok", NOW)
+check("watch: median seconds is the median of the average watch times, one decimal", h["your_median_seconds"], 5.5)
+check("watch: median watched fraction (watch / the video's own length)", h["your_median_watched_fraction"], round((4000/14000 + 7000/14000) / 2, 2))
+check("watch: TikTok carries the finished rate and NOT the skip rate",
+      ("your_median_finished_rate" in h, "your_median_skipped_3s_rate" in h, h["your_median_finished_rate"]), (True, False, 0.4))
+check("watch: posts_counted and the platform", (h["posts_counted"], h["platform"]), (4, "tiktok"))
+check("watch: 'measured' names the platform's own numbers", h["measured"], "how long the average viewer watched, from tiktok's own numbers")
+check("watch: they stayed longest: up to 2, longest fraction first, with seconds of the video's length",
+      [(x["seconds"], x["of_seconds"]) for x in h["they_stayed_longest"]], [(9.8, 14), (7.0, 14)])
+check("watch: they left soonest: 1, the lowest fraction, and never one already listed as longest",
+      [(x["seconds"], x["of_seconds"]) for x in h["they_left_soonest"]], [(2.0, 14)])
+ipw = {1: [wsnap(1, 7000, skip=0.4)], 2: [wsnap(2, 4000, skip=0.6)], 3: [wsnap(3, 2000, skip=0.8)]}
+h = B.how_people_watch(wposts(3, "instagram"), ipw, "instagram", NOW)
+check("watch: Instagram carries the skip rate and NOT the finished rate",
+      ("your_median_skipped_3s_rate" in h, "your_median_finished_rate" in h, h["your_median_skipped_3s_rate"]), (True, False, 0.6))
+check("watch: fewer than BRAIN_WATCH_MIN posts -> None (no median worth the word)", B.how_people_watch(wposts(2), {1: ws[1], 2: ws[2]}, "tiktok", NOW), None)
+h = B.how_people_watch(wposts(4, with_dur=False), ws, "tiktok", NOW)
+check("watch: with no video lengths the fraction and both caption lists are OMITTED, not nulled; seconds survive",
+      ([k for k in ("your_median_watched_fraction", "they_stayed_longest", "they_left_soonest") if k in h], h["your_median_seconds"]), ([], 5.5))
+two_long = wposts(4, with_dur=False)
+for p in two_long[:2]:
+    p["duration_s"] = 14
+h = B.how_people_watch(two_long, ws, "tiktok", NOW)
+check("watch: only 2 posts with a length (under the minimum) -> no fraction, no caption lists", [k for k in h if k.startswith(("your_median_watched", "they_"))], [])
+check("watch: posts on the OTHER platform are not counted", B.how_people_watch(wposts(4, "instagram"), ws, "tiktok", NOW), None)
+check("watch: no lead platform -> None", B.how_people_watch(wposts(4), ws, None, NOW), None)
+old = wposts(4)
+for p in old:
+    p["posted_at"] = B.iso(NOW - timedelta(days=400))
+check("watch: a post older than BRAIN_WINDOW_DAYS is not counted", B.how_people_watch(old, ws, "tiktok", NOW), None)
+untracked = wposts(4)
+for p in untracked:
+    p["origin"] = "pasted"
+check("watch: only TRACKED posts count", B.how_people_watch(untracked, ws, "tiktok", NOW), None)
+h = B.how_people_watch(ps, {i: [wsnap(i, 5000)] for i in range(1, 5)}, "tiktok", NOW)
+check("watch: a share nobody reported is omitted entirely (no null)", [k for k, v in h.items() if v is None or k in ("your_median_finished_rate", "your_median_skipped_3s_rate")], [])
+check("watch: no value in the section is ever None", [k for k, v in B.how_people_watch(ps, ws, "tiktok", NOW).items() if v is None], [])
+
+posts, snaps = corpus(n_tt=6)
+for p in posts:
+    p["duration_s"] = 14
+wmap = {p["id"]: [wsnap(p["id"], 5000, fin=0.2)] for p in posts}
+body, _ = build(posts=posts, snaps=snaps, watch=wmap)
+check("build: how_people_watch sits right after what_works_for_you", [k for k in body if k in ("what_works_for_you", "how_people_watch", "not_known")],
+      ["what_works_for_you", "how_people_watch", "not_known"])
+check("build: with watch time, not_known no longer carries the connect line", body["not_known"], [B.NOT_KNOWN_VIDEOS])
+body2, _ = build(posts=posts, snaps=snaps)
+check("build: WITHOUT watch time there is no how_people_watch key and the connect line is present",
+      ("how_people_watch" in body2, body2["not_known"][-1]), (False, B.NOT_KNOWN_WATCH))
+check("build: the body is otherwise identical with and without watch time",
+      {k: v for k, v in body.items() if k not in ("how_people_watch", "not_known")}, {k: v for k, v in body2.items() if k != "not_known"})
+check("build: no 'curve', 'retention' or 'drop-off' key anywhere (two points, never the curve)",
+      sorted(k for k in keys_of(body) if any(w in k.lower() for w in ("curve", "retention", "dropoff", "drop_off"))), [])
+check("NOT_KNOWN_WATCH promises no curve", any(w in B.NOT_KNOWN_WATCH.lower() for w in ("curve", "retention", "drop")), False)
+
+ins_rows = [wsnap(i, 5000 + i * 100, fin=0.2) for i in range(1, 7)]
+t = FakeT(insights=ins_rows, durations=[{"id": i, "duration_s": 14} for i in range(1, 7)])
+out, _, _ = lane(t)
+written = [b for m, p, b in t.calls if m == "POST" and b]
+check("lane: a creator with watch rows gets how_people_watch in the stored body", ("how_people_watch" in written[0]["body"], out["built"]), (True, 2))
+check("lane: ... with the video lengths read separately", written[0]["body"]["how_people_watch"].get("your_median_watched_fraction") is not None, True)
+t = FakeT(insights_status=500)
+out, _, _ = lane(t)
+written = [b for m, p, b in t.calls if m == "POST" and b]
+check("lane: a failed insight read degrades only its own section: the brain is still built, without it",
+      (out["built"], out["brain_failed"], "how_people_watch" in written[0]["body"], written[0]["body"]["not_known"][-1]), (2, 0, False, B.NOT_KNOWN_WATCH))
+t = FakeT(insights_status=404)
+out, _, _ = lane(t)
+check("lane: the insights table missing (SQL not applied) leaves the brain exactly as before", (out["built"], out["brain_failed"]), (2, 0))
+t = FakeT()
+lane(t)
+check("lane: with no watch rows the duration read is never made",
+      [p for m, p, b in t.calls if "duration_s=not.is.null" in p], [])
+t = FakeT(insights=ins_rows)
+lane(t)
+check("lane: the main posts read still selects exactly the columns it did before",
+      sorted({p.split("&order")[0] for m, p, b in t.calls if p.startswith("/rest/v1/lynxr_posts?") and "duration_s" not in p}),
+      sorted({"/rest/v1/lynxr_posts?creator_id=eq.%s&origin=eq.tracked&select=id,origin,platform,caption,posted_at,views" % c for c in (C1, C2)}))
 
 if FAILS:
     print(f"\n{len(FAILS)} FAILED: " + ", ".join(FAILS))

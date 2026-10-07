@@ -229,6 +229,74 @@ down = FakeSb(boom=True)
 got = with_sb(down, "1", lambda: (P.brain_for("k", A), P.brain_for("k", A)))
 check("brain_for: an HTTP error never raises, returns None, and is not retried within the pass", (got, len(down.calls)), ((None, None), 1))
 
+# ── 14. watch time (plan lynxr-social-insights.md) ───────────────────────────────────────────────
+# IDENTITY: a body with no how_people_watch key renders EXACTLY what it rendered before watch time existed. The expected text is stored
+# here as a literal (everything after the preamble, which has its own guard text), not rebuilt by the same code or matched by a regex.
+STORED_AFTER_PREAMBLE = (
+    'Captions they wrote themselves — for TONE AND REGISTER ONLY. Never reuse a topic from\n'
+    '  them and never treat anything in them as true about the creator:\n'
+    '  - "i cannot believe this actually worked lmao"\n'
+    '  - "ok but why did nobody tell me this sooner"\n'
+    '  - "three weeks of this and i am never going back"\n'
+    '  - "bro the second one broke me"\n'
+    'How their videos actually do:\n'
+    '  - Their own median is 3,200 (views 7 days after posting, 34 videos on tiktok). The multiples below are against that.\n'
+    '  - BEATS their median: captions with a number in them — 2.4x over 9 videos.\n'
+    '  - FALLS SHORT: captions that ask a question — 0.4x over 6 videos.\n'
+    '  - Their best of those did 2.4x their median, captioned "three weeks of this and i am never going back".\n'
+    '  - Their quietest of those did 0.1x their median, captioned "has anyone else tried the new one yet".\n'
+    'Where they post: tiktok (34 videos, about 4.2 a week).\n'
+    'They are going for 10,000 views a video; they are at 3,200 now.')
+check("watch: a body with no how_people_watch renders exactly the stored block",
+      block(body()), BP.HEAD + "\n" + BP.PREAMBLE + "\n" + STORED_AFTER_PREAMBLE)
+check("watch: an EMPTY or junk how_people_watch changes nothing either",
+      [block(body(how_people_watch=v)) for v in ({}, None, "junk", [], {"platform": "tiktok"}, {"your_median_seconds": 0},
+                                                 {"your_median_seconds": True})], [block(body())] * 7)
+
+
+def hpw(platform="tiktok", **over):
+    w = {"platform": platform, "measured": f"how long the average viewer watched, from {platform}'s own numbers", "posts_counted": 6,
+         "your_median_seconds": 4.2, "your_median_watched_fraction": 0.31,
+         "they_stayed_longest": [{"caption": "three weeks of this and i am never going back", "seconds": 9.8, "of_seconds": 14}],
+         "they_left_soonest": [{"caption": "ok but why did nobody tell me this sooner", "seconds": 1.4, "of_seconds": 22}]}
+    if platform == "tiktok":
+        w["your_median_finished_rate"] = 0.12
+    else:
+        w["your_median_skipped_3s_rate"] = 0.44
+    w.update(over)
+    return w
+
+
+tt = block(body(how_people_watch=hpw("tiktok")))
+check("watch: a ready body with watch time gets its group, after the performance bullets",
+      ("How long people actually watch them:" in tt, tt.index("How their videos actually do:") < tt.index("How long people actually watch them:") <
+       tt.index("Where they post:")), (True, True))
+check("watch: the first bullet says how long the average viewer stays, with its qualifier and platform",
+      "  - The average viewer stays about 4.2s (how long the average viewer watched, from tiktok's own numbers, 6 videos on tiktok)." in tt, True)
+check("watch: the fraction is a whole percent", "  - That is about 31% of the way through their videos." in tt, True)
+check("watch: TikTok renders 'finish' and never the Instagram line",
+      ("About 12% of viewers finish." in tt, "skip inside the first three seconds" in tt), (True, False))
+ig = block(body(how_people_watch=hpw("instagram")))
+check("watch: Instagram renders 'skip inside the first three seconds' and never the TikTok line",
+      ("About 44% skip inside the first three seconds." in ig, "viewers finish" in ig), (True, False))
+cross = block(body(how_people_watch=hpw("instagram", your_median_finished_rate=0.5)))
+check("watch: an Instagram body carrying a stray finished rate does not render it", "viewers finish" in cross, False)
+check("watch: they stayed longest / left soonest, one line each, with the video's own length",
+      ('  - They stayed longest on one captioned "three weeks of this and i am never going back" — 9.8s of 14s.' in tt,
+       '  - They left soonest on one captioned "ok but why did nobody tell me this sooner" — 1.4s of 22s.' in tt), (True, True))
+tagged_w = block(body(how_people_watch=hpw(they_stayed_longest=[{"caption": "#fyp #viral", "seconds": 9.8, "of_seconds": 14}])))
+check("watch: a they_stayed_longest whose caption is only hashtags drops THAT line",
+      ("They stayed longest" in tagged_w, "They left soonest" in tagged_w), (False, True))
+check("watch: ... and the median line survives", "The average viewer stays about 4.2s" in tagged_w, True)
+check("watch: no fraction key -> no fraction line", "of the way through" in block(body(how_people_watch=hpw(your_median_watched_fraction=None))), False)
+check("watch: a share outside 0..1 renders nothing", "viewers finish" in block(body(how_people_watch=hpw(your_median_finished_rate=12))), False)
+learning = block(body(state="learning", how_people_watch=hpw()))
+check("watch: state 'learning' with a how_people_watch key renders NO watch bullets (a hand-edited row must not smuggle it in)",
+      ("How long people actually watch" in learning, "The average viewer stays" in learning, "Captions they wrote themselves" in learning),
+      (False, False, True))
+low = (tt + ig).lower()
+check("watch: no line implies a curve (retention, graph, drop-off, curve)", [w for w in ("retention", "graph", "drop-off", "curve", "second by second") if w in low], [])
+
 if FAILS:
     print(f"\n{len(FAILS)} FAILED: " + ", ".join(FAILS))
     sys.exit(1)

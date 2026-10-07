@@ -7,7 +7,7 @@ Plans: ~/.claude/plans/lynxr-onboarding-and-post-tracking.md and ~/.claude/plans
 Owner, 2026-10-03: tracking is for every tier; what the tiers sell is the coaching (not built yet), so this lane no longer
 asks whether an account holds post_tracking. The database function has_post_tracking() is left in place, unused.
 
-WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> showcase -> match -> brain -> health)
+WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> showcase -> match -> insights -> brain -> health)
     VERIFY (every tier). For each profile in lynxr_profiles that is not verified yet and is due a check, read the
         profile's public bio and look for its verify_code (set by supabase/profiles.sql's set_my_profile). Found ->
         verified, with the platform's own account number recorded so a username that later passes to someone else
@@ -32,7 +32,14 @@ WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> show
         lynxr_match_log (numbers and script ids, never a word of the transcript or caption). Precision over recall: a wrong
         link teaches the brain a lie nothing can detect. Needs supabase/post_match.sql; without it the lane logs one line and
         does nothing. TRACK_MATCH=0 stops it; TRACK_MATCH_WRITE=0 scores and logs but links nothing (shadow mode).
-    BRAIN (every tier, after MATCH so it sees the freshest links). Plan: ~/.claude/plans/lynxr-brain-doc.md. Each creator's own tracked
+    INSIGHTS (only creators who connected an account in Settings, after MATCH and before BRAIN so the brain sees the freshest watch
+        numbers in the same pass). Plan: ~/.claude/plans/lynxr-social-insights.md. For each video on a connected profile, the platform's
+        own API says how long the average viewer watched (Instagram: ig_reels_avg_watch_time and reels_skip_rate, reels only; TikTok's
+        endpoint is unverified), kept as a snapshot in lynxr_post_insights (pipeline/insights.py). It costs nothing: the platform's API is
+        free for the account holder, and the one yt-dlp metadata read per post is free. It asks the insights-connect Edge Function for a
+        usable token and never holds the encryption key. INSIGHTS=0 stops it; a watch time is stored only once its unit has been measured
+        (INSIGHTS_*_WATCH_UNIT). Needs supabase/platform_insights.sql; without it the lane logs one line and does nothing.
+    BRAIN (every tier, after MATCH and INSIGHTS so it sees the freshest links and watch numbers). Plan: ~/.claude/plans/lynxr-brain-doc.md. Each creator's own tracked
         posts and onboarding answers are folded into one derived document in lynxr_creator_brain (pipeline/brain.py): how they write
         (their own captions), where they post, and, once five posts on one platform have a day-7 count, how their videos do against their
         own median. DERIVED: safe to drop, rebuilt at most every BRAIN_EVERY_H hours, nothing here reads it yet. It costs nothing but one
@@ -1214,13 +1221,19 @@ def run(key, dry=False):
         mt = match_pass(key, datetime.now(timezone.utc), dry=dry, cache=cache)       # LAST: the slow lane never delays the rest
     except Exception as e:  # noqa: BLE001
         log.warning("match pass failed: %s", str(e)[:120])
+    ins = {}
+    try:
+        import insights as INSIGHTS_LANE             # local import: pass THIS module in, see insights.py's docstring
+        ins = INSIGHTS_LANE.insights_pass(key, datetime.now(timezone.utc), dry=dry, T=sys.modules[__name__])
+    except Exception as e:  # noqa: BLE001
+        log.warning("insights pass failed: %s", str(e)[:120])
     br = {}
     try:
         import brain as BRAIN_LANE                   # local import: pass THIS module in, see brain.py's docstring
         br = BRAIN_LANE.brain_pass(key, datetime.now(timezone.utc), dry=dry, T=sys.modules[__name__])
     except Exception as e:  # noqa: BLE001
         log.warning("brain pass failed: %s", str(e)[:120])
-    stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS), "showcase": shw, "match": mt, "brain": br}
+    stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS), "showcase": shw, "match": mt, "insights": ins, "brain": br}
     n = APIFY_RESULTS
     log.info("track_posts: verify %d (verified %d, budget-skipped %d) · scan tt %d ig %d (new %d, failed %d, changed %d) · "
              "measure %d (failed %d) · followers %d (failed %d) · budget skips max %d pro %d free %d · apify ~%d results (~$%.4f)",

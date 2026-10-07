@@ -11994,6 +11994,22 @@
     .pane-body .prof-add :is(select, input), .setup-in { font-size: 16px; }
     .pane-body .prof-add .btn { min-height: 40px; }
   }
+  /* CONNECTED ACCOUNTS (Settings; plan lynxr-social-insights.md): the profile card's sibling, so it reuses its row rhythm and tokens.
+     .ins-warn is the TikTok sound-library sentence: readable, not alarming (no red, no icon). No dynamic value is set here; anything
+     that has to be computed goes through CSSOM, because the CSP drops inline style attributes. */
+  .pane-body #insights-card[hidden] { display: none; }
+  .pane-body .ins-row { padding: 12px 0; border-top: 1px solid var(--line); }
+  .pane-body #insights-card .me-card-h + .ins-row { padding-top: 0; border-top: 0; }
+  .pane-body .ins-status { margin: 6px 0 10px; font-size: var(--fs-13); line-height: 1.6; color: var(--text-2); overflow-wrap: anywhere; }
+  .pane-body #insights-card > .ins-status { margin-top: 0; }
+  .pane-body .ins-warn { margin: 0 0 10px; padding-left: 10px; border-left: 2px solid var(--line); font-size: var(--fs-13); line-height: 1.6; color: var(--text-2); overflow-wrap: anywhere; }
+  .pane-body .ins-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pane-body #insights-card .ins-note { max-height: none; margin: 12px 0 0; }
+  .pane-body #insights-card .ins-note:not(.show) { margin: 0; }
+  .pane-body #insights-card .ce-hint { margin: 16px 0 0; }
+  @media (max-width: 820px) {
+    .pane-body .ins-actions .btn, .pane-body .ins-actions .ghost { min-height: 40px; }
+  }
 
   /* ── POSTS (2026-10, plan lynxr-onboarding-and-post-tracking.md, Phase B) ──
      creator.js renderPosts(): the goal card and the list of tracked videos. Widths and heights come from data-pct through

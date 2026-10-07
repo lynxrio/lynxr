@@ -26,6 +26,13 @@ FOUR DEVIATIONS FROM ~/.claude/plans/lynxr-brain-shape.md (the real schema could
     4. `what_works_for_you` carries the creator's best and quietest individual posts, not only grouped patterns. With no tags, no
        duration and no transcript, honest patterns are rare; honest facts about one video are always available.
 
+A FIFTH NOTE, added with plan ~/.claude/plans/lynxr-social-insights.md: WATCH TIME IS NOW READ WHERE A TOKEN EXISTS. A creator who connected an
+Instagram or TikTok account in Settings has per-video average watch time in `lynxr_post_insights` (pipeline/insights.py), and
+`how_people_watch` below folds it in: two points on the curve (how long the average viewer stayed, and one completion-ish share), never the
+curve, because neither platform exposes one. `what_you_post` is STILL not built (deviation 1: no format, no tag, unchanged), and a creator
+with no connected account gets no `how_people_watch` and a `not_known` line saying how to get one. Disconnecting deletes the figures AND
+removes this key the same second (supabase/platform_insights.sql revoke_insights()), so nothing here outlives a connection.
+
 THE VOICE LINE is the only thing here that costs money and the only thing that sends a creator's words anywhere: once a week, one
 Haiku call over up to 8 of their own captions describes how they write. It is OFF unless BRAIN_VOICE is set, and nothing calls the
 model while it is off: brain_pass() does not build a client, and voice_line() itself refuses. The privacy wording for it is still
@@ -72,6 +79,7 @@ BRAIN_GROUP_HIGH = float(envcfg.get("BRAIN_GROUP_HIGH", "1.5"))                 
 BRAIN_GROUP_LOW = float(envcfg.get("BRAIN_GROUP_LOW", "0.6"))                             # at or below it, "falls short"
 BRAIN_VOICE_DAYS = float(envcfg.get("BRAIN_VOICE_DAYS", "7"))                             # read_as is recomputed at most this often
 BRAIN_VOICE_MODEL = envcfg.get("BRAIN_VOICE_MODEL", "claude-haiku-4-5")
+BRAIN_WATCH_MIN = int(envcfg.get("BRAIN_WATCH_MIN", "3"))                                 # posts with a watch time (and, separately, with a length) before how_people_watch says anything
 
 VOICE_MIN_SAMPLES = 5            # fewer captions than this and there is no voice line (a style needs something to show it)
 STANDOUT_BEST = 1.3              # a post is one of "your best" at this many times the median or more ...
@@ -85,6 +93,7 @@ BRAINS = "/rest/v1/lynxr_creator_brain"
 NOT_KNOWN_VIDEOS = ("what is actually in your videos — lynxr keeps your captions and your public counts, "
                     "not what you said or showed")
 NOT_KNOWN_WORKS = "what works for you — lynxr needs five measured videos on one of your accounts"
+NOT_KNOWN_WATCH = "how long people actually watch — connect your tiktok or instagram account in settings and lynxr can read that"
 
 # The goal, in the words a creator would use (creator.js goalLabel says the same things). Keys are the stored priority codes.
 GOAL_WORDS = {"deals": "brand deals a month", "rate": "dollars a video", "perform": "views on each video",
@@ -191,6 +200,80 @@ def median_of(values):
     if n % 2:
         return v[n // 2]
     return (v[n // 2 - 1] + v[n // 2] + 1) // 2
+
+
+def _rate(v):
+    """A 0-1 share as a float, or None."""
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if 0 <= f <= 1 else None
+
+
+def watch_at(snaps):
+    """The newest snapshot of a post's watch figures: the one with the LARGEST `day` whose avg_watch_ms is not null, as
+    {"ms", "finished_rate", "skipped_3s_rate", "day"}, else None. `snaps` is that post's lynxr_post_insights rows.
+
+    LARGEST, NOT EARLIEST, the opposite of views_at(). Watch time is a LIFETIME aggregate (the platform reports the average over every
+    view so far), so the newest snapshot is the most complete one; a views baseline, by contrast, needs one fixed age to be comparable
+    between posts. And never subtract two of these: an average over a growing population is not differenceable."""
+    best = None
+    for s in snaps or []:
+        d, ms = _num((s or {}).get("day")), _num((s or {}).get("avg_watch_ms"))
+        if d is None or ms is None:
+            continue
+        if best is None or d > best["day"]:
+            best = {"ms": ms, "finished_rate": _rate(s.get("finished_rate")), "skipped_3s_rate": _rate(s.get("skipped_3s_rate")), "day": d}
+    return best
+
+
+def how_people_watch(posts, watch_by_post, lead, now):
+    """The `how_people_watch` section, or None. Only tracked posts on `lead` (the platform what_works_for_you uses), posted within
+    BRAIN_WINDOW_DAYS, with a watch_at(...). Fewer than BRAIN_WATCH_MIN of them and there is no median worth the word: None. A key whose
+    input is missing is OMITTED, never nulled (this file's standing rule). Captions are the creator's own, cut to 160, like your_best.
+
+    Seconds are to one decimal. The shares (watched fraction, finished, skipped) are 0-1 numbers and are kept to TWO decimals: one decimal
+    of a share is a 10-point step, which would turn "about 31%" into "about 30%" in the writer's prompt."""
+    if not lead:
+        return None
+    horizon = now - timedelta(days=BRAIN_WINDOW_DAYS)
+    rows = []
+    for p in _tracked(posts):
+        when = parse_ts(p.get("posted_at"))
+        if p.get("platform") != lead or when is None or when < horizon:
+            continue
+        w = watch_at((watch_by_post or {}).get(p.get("id")))
+        if w is None:
+            continue
+        dur = _num(p.get("duration_s"))
+        rows.append({**w, "caption": p.get("caption") or "", "posted_at": when, "duration_s": int(dur) if dur else None,
+                     "fraction": (w["ms"] / 1000.0) / dur if dur else None})
+    if len(rows) < BRAIN_WATCH_MIN:
+        return None
+    out = {"platform": lead, "measured": f"how long the average viewer watched, from {lead}'s own numbers", "posts_counted": len(rows),
+           "your_median_seconds": round(median_of([int(r["ms"]) for r in rows]) / 1000.0, 1)}
+    timed = [r for r in rows if r["fraction"] is not None]
+    if len(timed) >= BRAIN_WATCH_MIN:
+        out["your_median_watched_fraction"] = round(median_of([int(round(r["fraction"] * 1000)) for r in timed]) / 1000.0, 2)
+    for key, field in (("your_median_finished_rate", "finished_rate"), ("your_median_skipped_3s_rate", "skipped_3s_rate")):
+        have = [r[field] for r in rows if r[field] is not None]
+        if len(have) >= BRAIN_WATCH_MIN:
+            out[key] = round(median_of([int(round(x * 1000)) for x in have]) / 1000.0, 2)
+
+    def item(r):
+        return {"caption": (r["caption"] or "").strip()[:160], "seconds": round(r["ms"] / 1000.0, 1), "of_seconds": r["duration_s"]}
+
+    if len(timed) >= BRAIN_WATCH_MIN:
+        newest_first = sorted(timed, key=lambda r: r["posted_at"], reverse=True)         # ties go to the newer post
+        longest = sorted(newest_first, key=lambda r: -r["fraction"])[:2]
+        soonest = [r for r in sorted(newest_first, key=lambda r: r["fraction"]) if r not in longest][:1]
+        out["they_stayed_longest"] = [item(r) for r in longest]
+        if soonest:
+            out["they_left_soonest"] = [item(r) for r in soonest]
+    return out
 
 
 # Why this is only four groups: the posts table holds no tags, no duration and no transcript, so a caption attribute and a clock are
@@ -412,9 +495,10 @@ def _voice_plan(samples, previous, now):
     return carried, list(samples)
 
 
-def build(me, posts, snaps_by_post, profiles, followers, now, previous=None):
+def build(me, posts, snaps_by_post, profiles, followers, now, previous=None, watch_by_post=None):
     """(body, voice_need): the whole document, and the samples a voice call is wanted for (None = no call). No network. `previous` is the
-    last stored body, or None; the voice line is carried over from it unchanged, and the caller owns the model call."""
+    last stored body, or None; the voice line is carried over from it unchanged, and the caller owns the model call. `watch_by_post` is
+    {post_id: [lynxr_post_insights rows]} or None (a creator with no connected account, or a read that blipped: both mean no section)."""
     me = me if isinstance(me, dict) else {}
     tracked = _tracked(posts)
     rows = comparable(tracked, snaps_by_post, now)
@@ -451,7 +535,10 @@ def build(me, posts, snaps_by_post, profiles, followers, now, previous=None):
             "platform": lead, "measured": f"views {BRAIN_DAY} days after posting", "your_median_views": median,
             "posts_counted": len(lead_rows), "beats_your_median": beats, "falls_short": short,
             "your_best": best, "your_quietest": quiet}
-    body["not_known"] = [NOT_KNOWN_VIDEOS] + ([] if ready else [NOT_KNOWN_WORKS])
+    hpw = how_people_watch(tracked, watch_by_post, lead, now)
+    if hpw:
+        body["how_people_watch"] = hpw
+    body["not_known"] = [NOT_KNOWN_VIDEOS] + ([] if ready else [NOT_KNOWN_WORKS]) + ([] if hpw else [NOT_KNOWN_WATCH])
     body["working_on"] = []
     return body, need
 
@@ -579,7 +666,7 @@ def _client_getter():
 # ── reading a creator (I/O, none of it raises) ────────────────────────────────────────────────────
 
 def read_creator(T, key, cid):
-    """The five reads that make a body, plus the previous body. Returns a dict, or None when a read that must not be partial failed
+    """The reads that make a body (the watch-time ones optional), plus the previous body. Returns a dict, or None when a read that must not be partial failed
     (the creator's data, their posts, or their previous body): a half-read creator must not overwrite a good brain with a thinner one.
     The profile, follower and snapshot reads degrade only their own field."""
     c = T.q(cid)
@@ -597,6 +684,21 @@ def read_creator(T, key, cid):
     snaps = {}
     for s in views if st == 200 and isinstance(views, list) else []:
         snaps.setdefault(s.get("post_id"), []).append(s)
+    # Watch time (supabase/platform_insights.sql). Degrades only its own field: a creator whose insight read blipped, or a database where
+    # that file is not applied yet, still gets the rest of their brain, and `watch` stays empty.
+    st, ins = T.rest(key, f"/rest/v1/lynxr_post_insights?creator_id=eq.{c}&select=post_id,day,avg_watch_ms,finished_rate,skipped_3s_rate"
+                          "&order=post_id.desc,day.asc&limit=2000")
+    watch = {}
+    for s in ins if st == 200 and isinstance(ins, list) else []:
+        watch.setdefault(s.get("post_id"), []).append(s)
+    if watch:
+        # The video's length is a separate read, NOT another column on the posts read above: that read must never fail (a 400 for a
+        # column the SQL has not added yet would skip every creator), and this one is only worth making when there is a watch time.
+        st, durs = T.rest(key, f"/rest/v1/lynxr_posts?creator_id=eq.{c}&origin=eq.tracked&duration_s=not.is.null&select=id,duration_s&limit=300")
+        by_id = {d.get("id"): d.get("duration_s") for d in durs} if st == 200 and isinstance(durs, list) else {}
+        for p in posts:
+            if p.get("id") in by_id:
+                p["duration_s"] = by_id[p["id"]]
     st, profiles = T.rest(key, f"/rest/v1/lynxr_profiles?creator_id=eq.{c}&verified_at=not.is.null&select=platform,handle")
     profiles = profiles if st == 200 and isinstance(profiles, list) else []
     st, followers = T.rest(key, f"/rest/v1/lynxr_profile_followers?creator_id=eq.{c}&select=platform,handle,day,followers"
@@ -608,7 +710,7 @@ def read_creator(T, key, cid):
     elif st != 200 or not isinstance(prev, list):
         return None                  # an unreadable previous body would reset the voice cache and cost a call; skip the creator
     previous = prev[0].get("body") if prev and isinstance(prev[0], dict) else None
-    return {"me": me, "posts": posts, "snaps": snaps, "profiles": profiles, "followers": followers,
+    return {"me": me, "posts": posts, "snaps": snaps, "profiles": profiles, "followers": followers, "watch": watch,
             "previous": previous if isinstance(previous, dict) else None}
 
 
@@ -654,7 +756,7 @@ def brain_pass(key, now, dry=False, T=None):
             if got is None:
                 stats["brain_failed"] += 1
                 continue
-            body, need = build(got["me"], got["posts"], got["snaps"], got["profiles"], got["followers"], now, got["previous"])
+            body, need = build(got["me"], got["posts"], got["snaps"], got["profiles"], got["followers"], now, got["previous"], got["watch"])
             if need and BRAIN_VOICE:
                 if apply_voice(body, need, get_client, key=key, now=now):
                     stats["voiced"] += 1
@@ -730,7 +832,7 @@ def print_creator(T, key, cid, why=False, voice=False):
     if why:
         print("\n".join(why_table(got["posts"], got["snaps"], now)))
         print()
-    body, need = build(got["me"], got["posts"], got["snaps"], got["profiles"], got["followers"], now, got["previous"])
+    body, need = build(got["me"], got["posts"], got["snaps"], got["profiles"], got["followers"], now, got["previous"], got["watch"])
     if voice:
         if not BRAIN_VOICE:
             print("# --voice did nothing: BRAIN_VOICE is off. Set BRAIN_VOICE=1 in the environment to make the call "
