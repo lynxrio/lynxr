@@ -9,6 +9,7 @@ PRECISION OVER RECALL. A wrong link is uncorrectable and poisons the brain: it t
 did not produce, nothing downstream can detect that, and nobody will ever correct it. A missed link teaches nothing and costs
 nothing. So `decide()` links only when every guard agrees, and everything doubtful is `borderline` (logged for staff, never
 written). The target is fewer than 5 wrong links per 100 auto-links.
+
 NO TRANSCRIPT IS EVER STORED. This module takes the words of a post as an argument, scores them in memory and returns numbers.
 It has no network, no filesystem write and no logging. The caller (pipeline/track_posts.py) keeps the transcript in one local
 variable inside one TemporaryDirectory block and records only scores and script ids.
