@@ -11994,6 +11994,79 @@
     .pane-body .prof-add :is(select, input), .setup-in { font-size: 16px; }
     .pane-body .prof-add .btn { min-height: 40px; }
   }
+
+  /* THE LINK WALL (creator.js ensureLinkWall; plan lynxr-link-gate.md): an undismissable card in front of the creator app for a
+     roster creator with no username yet. Above .modal (100) and .sendmodal (110) so nothing paints over it. Over-specified
+     like .setup-card, because .modal-card is declared twice above and the agency app's declaration wins. No new tokens. */
+  #linkwall[hidden] { display: none; }
+  .linkwall { z-index: 120; }
+  .linkwall .modal-card.linkwall-card {
+    position: relative; width: min(440px, calc(100vw - 32px)); max-width: 440px; margin: 0 auto;
+    max-height: 92vh; overflow: auto; padding: 40px 24px 24px; text-align: center;
+    animation: none;        /* else rise-in would replay the moment .shake comes off */
+  }
+  @media (max-width: 560px) {
+    .linkwall .modal-card.linkwall-card {
+      width: 100%; max-width: none; height: 100%; max-height: 100%; margin: 0; border: 0; border-radius: 0;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+  }
+  .linkwall-x { position: absolute; top: 6px; right: 6px; min-width: 44px; min-height: 44px; }
+  .linkwall-av { display: flex; justify-content: center; margin: 0 0 12px; }
+  @media (max-width: 560px) { .linkwall-av { margin-bottom: 8px; } }
+  .linkwall-q { display: block; margin: 0 0 14px; font-size: var(--fs-21); font-weight: 700; letter-spacing: -.01em; line-height: 1.25; color: var(--text); text-align: center; }
+  .linkwall-q::before { display: none; }
+  .linkwall-rows:empty { display: none; }
+  .linkwall-row.linked { border: 1px solid var(--good); border-radius: var(--r-inner); padding: 10px 14px; margin: 0 0 10px; }
+  .linkwall-row.linked .prof-name { font-family: var(--mono); font-weight: 600; color: var(--good); overflow-wrap: anywhere; }
+  .linkwall-row .prof-plat { margin-left: 8px; font-size: var(--fs-12); color: var(--text-3); }
+  .linkwall-add { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0 0 4px; }
+  .linkwall-add[hidden] { display: none; }
+  .linkwall-add :is(select, input) {
+    min-height: 44px; box-sizing: border-box; padding: 9px 14px; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: var(--r-pill); color: var(--text); font: inherit; font-size: var(--fs-14); min-width: 0; max-width: none;
+  }
+  .linkwall-add .linkwall-in { flex: 1 1 180px; text-align: left; }
+  .linkwall-add :is(select, input):focus { outline: none; border-color: var(--line-2); }
+  .linkwall-add :is(select, input)[aria-invalid="true"] { border-color: var(--bad); }
+  .linkwall-add .btn { min-height: 44px; }
+  @media (max-width: 820px) { .linkwall-add :is(select, input) { font-size: 16px; } }
+  .linkwall-err { margin: 10px 0 0; font-size: var(--fs-13); line-height: 1.5; color: var(--bad); }
+  .linkwall-err[hidden] { display: none; }
+  .linkwall-note { margin: 14px 0 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-2); }
+  .linkwall-sub { margin: 6px 0 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-2); }
+  .linkwall-sub[hidden], .linkwall-go[hidden] { display: none; }
+  .linkwall-go { align-self: center; margin: 18px auto 0; min-height: 44px; }
+  .linkwall-help { margin: 18px 0 0; font-size: var(--fs-125); color: var(--text-3); }
+  .linkwall-help a { color: var(--text-3); text-decoration: underline; text-underline-offset: 2px; }
+  .linkwall-help a:hover { color: var(--text); }
+  /* A refusal has to register, so three oscillations like hint-shake rather than the tray's single 2px. With motion off the
+     shake is cancelled and a short red border says the press was heard instead. */
+  @keyframes linkwall-shake {
+    12% { transform: translateX(-5px); } 36% { transform: translateX(5px); }
+    60% { transform: translateX(-3px); } 84% { transform: translateX(2px); }
+  }
+  .linkwall .modal-card.linkwall-card.shake { animation: linkwall-shake .42s var(--ease); }
+  @media (prefers-reduced-motion: reduce) {
+    .linkwall .modal-card.linkwall-card.shake { animation: none; }
+    .linkwall .modal-card.linkwall-card.refused { border-color: var(--bad); }
+  }
+  /* The bio-code card on Home (creator.js paintHomeVerify): a roster creator with a username and nothing verified yet. It blocks
+     nothing; it sits above the greeting until a profile verifies. Same glass card as the other Home card. */
+  #home-verify:empty { display: none; }
+  .pane-body .home-verify { margin: 0; padding: 16px 20px; text-align: left; }
+  .pane-body .home-verify > .me-card-h { margin: 0 0 8px; font-size: var(--fs-15); }
+  .home-verify-line { margin: 0 0 10px; font-size: var(--fs-14); line-height: 1.7; color: var(--text); }
+  .home-verify-line .setup-code { font-size: var(--fs-15); padding: 3px 9px; }
+  .home-verify-said { margin: 0 0 10px; font-size: var(--fs-13); line-height: 1.5; color: var(--text-2); }
+  .home-verify-said[hidden] { display: none; }
+  .home-verify-act { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .home-verify-help { font-size: var(--fs-125); line-height: 1.5; color: var(--text-3); }
+  .home-verify-help a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+  .home-verify-help a:hover { color: var(--text); }
+  .setup-help { margin: 10px 0 0; font-size: var(--fs-125); color: var(--text-3); }
+  .setup-help a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+  .setup-help a:hover { color: var(--text); }
   /* CONNECTED ACCOUNTS (Settings; plan lynxr-social-insights.md): the profile card's sibling, so it reuses its row rhythm and tokens.
      .ins-warn is the TikTok sound-library sentence: readable, not alarming (no red, no icon). No dynamic value is set here; anything
      that has to be computed goes through CSSOM, because the CSP drops inline style attributes. */

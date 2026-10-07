@@ -1741,6 +1741,7 @@ function renderNewScript(head, body) {
   body.innerHTML = `
     <div class="newscript home">
       <div id="home-writing"></div>
+      <div id="home-verify"></div>
       <div class="newscript-greet home-greet">
         <div class="home-av">${mascot}</div>
         <h1 class="newscript-h" id="home-h"></h1>
@@ -3757,6 +3758,21 @@ async function refreshAgency() {
   }
 }
 const hasAgency = () => AGENCY?.state === "accepted" || AGENCY?.state === "invited";
+/* THE LINK WALL (plan ~/.claude/plans/lynxr-link-gate.md, 2026-10-07). ROSTER ONLY, and it FAILS OPEN: every path out of
+   linkWallDue() that is not a confident "accepted roster member with zero profiles" returns false, so a roster read that 404s,
+   errors, hangs or is still loading lets the creator straight through. A lookup failure must never lock a roster creator out.
+   WHO IT HITS (measured the day it was built, 2026-10-07): 11 accepted roster members, 9 with no profile at all, 1 with an
+   unverified profile, 1 verified. So the wall has a real audience. Of 6 profiles then on file, 2 were verified: verification
+   fails for real (Instagram caps at 10 checks, private and unavailable profiles never resolve), which is why a username ADDED
+   releases the wall and a username VERIFIED never does. */
+const LINKWALL_LIVE = true;        // kill switch for the whole wall, and for the "put the code in your bio" card on Home
+function linkWallDue() {
+  if (!LINKWALL_LIVE || !ONBOARD_LIVE) return false;
+  if (AGENCY_STATE !== "ready") return false;         // idle | loading | missing | error -> no wall
+  if (AGENCY?.state !== "accepted") return false;     // invited | left | none -> no wall
+  if (!Array.isArray(PROFILES)) return false;         // the profiles read failed -> no wall
+  return PROFILES.length === 0;                       // decision (a): ADDED releases it
+}
 
 async function agencyBriefDoc(id) {
   return sbFetch("/rest/v1/rpc/my_agency_brief", { method: "POST", body: JSON.stringify({ p_id: id }) });
@@ -4961,6 +4977,231 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && m && !m.hidden) closeAgencyInvite();
 });
 
+/* ---------- THE LINK WALL (plan ~/.claude/plans/lynxr-link-gate.md) ----------
+   Roster creators with no profile see this before anything else, until they add a TikTok or Instagram username. ADDED
+   releases it, not VERIFIED: a bio check can fail for good (Instagram stops at 10 tries, a private profile never resolves),
+   and a wall over a requirement that can fail for good is a lockout. What it hands on to is the bio code, and the code is the
+   step that makes lynxr able to see a post (the worker only reads a profile once verified_at is set), so closing the wall
+   opens the setup stepper ON the code screen, and Home keeps a "put the code in your bio" card up until it works. Neither of
+   those is a wall: the stepper closes, the card sits there, and hello@lynxr.io is a real link on all of it.
+   Built on first use, not written into index.html (the HTML isn't cache-stamped, so markup there could lag this file by a
+   load, and a creator who is not on the roster never has it in their page at all). Named linkwall, never "gate": #gate and
+   friends are the sign-in screen. No style="" anywhere, the CSP drops it. Copy is in sentence case: app.css lowercases it. */
+let LINKWALL_PRESSES = 0;      // close attempts since it opened, this page load; each one says a little more
+let LINKWALL_RELEASED = false; // a username was added; never goes back to false within a page load (a wall, not a tripwire)
+let LINKWALL_ADDED = [];       // what the form saved, in case the profiles re-read that follows it fails
+let LINKWALL_TIMER = null;
+const LINKWALL_NOTES = [
+  "Link the account you post on and lynxr starts following what your videos do.",
+  "You'll need to link at least one account to carry on.",
+  `This is how ${AGENCY_NAME} sees what your videos did, and how lynxr learns what works for you. Nothing else reads it.`,
+  "Still stuck? Email hello@lynxr.io and we'll sort it with you.",
+];
+const LINKWALL_FOCUSABLE = 'button:not([disabled]), select, input, a[href]';
+
+const linkWallEl = () => document.getElementById("linkwall");
+const linkWallIsOpen = () => { const m = linkWallEl(); return !!m && !m.hidden; };
+
+function ensureLinkWall() {
+  let modal = linkWallEl();
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.className = "modal linkwall";
+  modal.id = "linkwall";
+  modal.hidden = true;
+  modal.innerHTML = `
+    <div class="modal-card linkwall-card" role="dialog" aria-modal="true" aria-labelledby="linkwall-q" aria-describedby="linkwall-note">
+      <button type="button" class="ghost icon-only linkwall-x" id="linkwall-x" aria-label="Close">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="linkwall-av">${typeof lynxrAvatar === "function" ? lynxrAvatar("hmm", "setup-lx") : ""}</div>
+      <h2 class="linkwall-q" id="linkwall-q"></h2>
+      <div class="linkwall-rows" id="linkwall-rows"></div>
+      <form class="linkwall-add" id="linkwall-form" novalidate>
+        <select class="linkwall-plat" id="linkwall-plat" aria-label="Platform">
+          <option value="tiktok">TikTok</option><option value="instagram">Instagram</option>
+        </select>
+        <input type="text" class="linkwall-in" id="linkwall-in" placeholder="@name or profile link" autocomplete="off"
+          autocapitalize="off" spellcheck="false" aria-label="Username" aria-describedby="linkwall-note">
+        <button type="submit" class="btn" id="linkwall-add">Add</button>
+      </form>
+      <p class="linkwall-err" id="linkwall-err" role="alert" hidden></p>
+      <p class="linkwall-note" id="linkwall-note" role="status" aria-live="polite"></p>
+      <p class="linkwall-sub" id="linkwall-sub" hidden></p>
+      <button type="button" class="btn linkwall-go" id="linkwall-go" hidden>Put the code in my bio</button>
+      <p class="linkwall-help">Need a hand? <a href="mailto:hello@lynxr.io">hello@lynxr.io</a></p>
+    </div>`;
+  document.body.appendChild(modal);
+  const q = (id) => modal.querySelector(id);
+  // Every way of dismissing it is one close attempt: the x, the backdrop and Escape (below). Refused until released.
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target.closest?.("#linkwall-x")) linkWallAttemptClose();
+    else if (e.target.closest?.("#linkwall-go")) closeLinkWall();
+  });
+  const input = q("#linkwall-in");
+  input.addEventListener("input", () => { input.removeAttribute("aria-invalid"); q("#linkwall-err").hidden = true; });
+  q("#linkwall-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const sel = q("#linkwall-plat"), btn = q("#linkwall-add");
+    if (btn.disabled) return;
+    const p = parseHandle(input.value, sel.value);                                  // creator.js parseHandle()
+    if (!p.ok) return linkWallErr(HANDLE_WHY[p.why]);
+    if (p.platform && p.platform !== sel.value) return linkWallErr(HANDLE_WHY[`wrong_${sel.value}`]);
+    btn.disabled = true;
+    const r = await saveProfile(sel.value, p.handle);     // set_my_profile; on success it has already re-read PROFILES and repainted this
+    btn.disabled = false;
+    if (r && r.ok) {
+      // ok:true IS the release. If the re-read after it failed, PROFILES is stale, so what was just saved is kept here too.
+      LINKWALL_ADDED.push({ platform: sel.value, handle: p.handle });
+      LINKWALL_RELEASED = true;
+      input.value = "";
+      paintLinkWall(true);
+    } else linkWallErr(HANDLE_WHY[r?.why] || HANDLE_WHY.network);
+  });
+  return modal;
+}
+
+function linkWallErr(text) {
+  const el = document.getElementById("linkwall-err");
+  if (!el) return;
+  el.textContent = text || HANDLE_WHY.network;
+  el.hidden = false;
+  document.getElementById("linkwall-in")?.setAttribute("aria-invalid", "true");
+}
+
+/** Rebuilds the rows, the note and the face from PROFILES and the press count. `moveFocus`: the release has just happened. */
+function paintLinkWall(moveFocus = false) {
+  const modal = linkWallEl();
+  if (!modal) return;
+  const have = Array.isArray(PROFILES) && PROFILES.length ? PROFILES : LINKWALL_ADDED;
+  if (have.length) LINKWALL_RELEASED = true;
+  const rel = LINKWALL_RELEASED;
+  const q = (id) => modal.querySelector(id);
+  q("#linkwall-q").textContent = rel ? "Almost there" : "Where do you post your videos?";
+  const rows = q("#linkwall-rows");
+  rows.textContent = "";
+  for (const p of have) {
+    const row = document.createElement("div");
+    row.className = "linkwall-row linked";
+    const name = document.createElement("span");
+    name.className = "prof-name";
+    name.textContent = `@${p.handle}`;
+    const plat = document.createElement("span");
+    plat.className = "prof-plat";
+    plat.textContent = PLAT_NAME[p.platform] || p.platform;
+    row.append(name, plat);
+    rows.appendChild(row);
+  }
+  q("#linkwall-form").hidden = rel;
+  q("#linkwall-go").hidden = !rel;
+  const sub = q("#linkwall-sub");
+  if (rel) {
+    // Not "lynxr starts tracking tonight" on its own: tracking waits for the bio code to be found, so the promise is conditional.
+    q("#linkwall-note").textContent = "Linked — you can close this now.";
+    sub.textContent = "Put the code in your bio and lynxr starts tracking tonight.";
+    sub.hidden = false;
+    q("#linkwall-err").hidden = true;
+    LINKWALL_PRESSES = 0;
+  } else {
+    q("#linkwall-note").textContent = LINKWALL_NOTES[Math.min(LINKWALL_PRESSES, LINKWALL_NOTES.length - 1)];
+    sub.hidden = true;
+  }
+  if (typeof lynxrMood === "function") lynxrMood(q(".lx"), rel ? "hyped" : "hmm");
+  if (rel && moveFocus) q("#linkwall-go").focus();       // the form just left: focus must land on something real
+}
+
+/** A close attempt (x, backdrop or Escape) while nothing is linked: shake, say a little more, and keep the creator here. */
+function linkWallRefuse() {
+  LINKWALL_PRESSES += 1;
+  paintLinkWall();
+  const card = document.querySelector("#linkwall .linkwall-card");
+  if (!card) return;
+  clearTimeout(LINKWALL_TIMER);
+  card.classList.remove("shake", "refused");
+  void card.offsetWidth;                                // restart the animation if it already ran
+  card.classList.add("shake", "refused");               // .refused is what reduced motion shows instead of the shake
+  const clear = () => card.classList.remove("shake", "refused");
+  card.addEventListener("animationend", clear, { once: true });
+  LINKWALL_TIMER = setTimeout(clear, 450);              // no animationend when the animation is off
+  document.getElementById("linkwall-in")?.focus();      // never leave focus on a control that refuses
+}
+function linkWallAttemptClose() {
+  if (LINKWALL_RELEASED) closeLinkWall(); else linkWallRefuse();
+}
+
+function maybeOpenLinkWall() {
+  if (!linkWallDue()) return false;
+  if (writingQueue().length) return false;                           // never over a script being written
+  try { if (sessionStorage.getItem(PASTE_KEY)) return false; } catch {}  // a pasted link is about to be sent
+  if (BILLING_RETURN) return false;                                  // never over "payment went through"
+  if (document.body.classList.contains("modal-open")) return false;  // the roster invite popup goes first
+  openLinkWall();
+  return true;
+}
+
+/** Opens the wall. Deliberately NOT remembered in sessionStorage (the setup overlay is, a reload does not reopen it):
+    this is a gate, so every load asks again until a username exists. */
+function openLinkWall() {
+  const modal = ensureLinkWall();
+  markSetupSeen();                                      // the setup overlay must not stack behind it this tab
+  LINKWALL_PRESSES = 0;
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+  const app = document.getElementById("app");
+  if (app) app.inert = true;                            // nothing behind it takes focus or a click (the tour does the same)
+  paintLinkWall();
+  modal.querySelector(LINKWALL_RELEASED ? "#linkwall-go" : "#linkwall-in")?.focus();
+}
+
+/** Hides it without handing on to anything (the close below hands on; the dev preview's state switcher only hides). */
+function hideLinkWall() {
+  const modal = linkWallEl();
+  if (!modal || modal.hidden) return false;
+  modal.hidden = true;
+  document.body.classList.remove("modal-open");
+  const app = document.getElementById("app");
+  if (app) app.inert = false;
+  return true;
+}
+
+/** The only way out, and only once a username has been added. Hands straight to the bio-code screen: that is the step that lets
+    lynxr see a post. It is still a closable overlay, not a second wall. */
+function closeLinkWall() {
+  if (!LINKWALL_RELEASED || !hideLinkWall()) return;
+  paintSetupDue();
+  const code = ["tiktok_code", "instagram_code"].find((id) => setupApplies(id) && !setupStatus(id));
+  if (code) openSetupModal(false, code);
+  else if (setupUnfinished()) openSetupModal(false);
+  else { paintHome(); maybeStartTour(); }
+}
+
+// Escape does exactly what the x does. Capture phase and swallowed, so no other handler acts on it while the wall is up;
+// guarded on the wall being open, so it never touches Escape for any other modal.
+document.addEventListener("keydown", (e) => {
+  if (!linkWallIsOpen()) return;
+  if (e.key === "Escape") {
+    e.preventDefault(); e.stopPropagation();
+    linkWallAttemptClose();
+    return;
+  }
+  if (e.key !== "Tab") return;
+  // A focus trap, scoped to this one modal: Tab off the last control goes to the first, Shift+Tab off the first to the last.
+  const els = [...linkWallEl().querySelectorAll(LINKWALL_FOCUSABLE)].filter((x) => !x.hidden && x.getClientRects().length);
+  if (!els.length) { e.preventDefault(); return; }
+  const first = els[0], last = els[els.length - 1], at = document.activeElement;
+  if (e.shiftKey && (at === first || !els.includes(at))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (at === last || !els.includes(at))) { e.preventDefault(); first.focus(); }
+}, true);
+// Focus that escapes anyway (the browser's own address bar round trip) is pulled back in.
+document.addEventListener("focusin", (e) => {
+  const m = linkWallEl();
+  if (!m || m.hidden || m.contains(e.target)) return;
+  if (typeof OBTEST !== "undefined" && OBTEST && e.target.closest?.("#obtest-bar")) return;   // the dev preview's own switcher
+  const els = [...m.querySelectorAll(LINKWALL_FOCUSABLE)].filter((x) => !x.hidden && x.getClientRects().length);
+  (els[0] || m).focus();
+});
+
 function renderLynx(head, body) {
   head.innerHTML = `
     ${paneBarHtml(AGENCY_NAME)}
@@ -6062,6 +6303,7 @@ async function refreshProfiles() {
   if (typeof paintInsightsCard === "function") paintInsightsCard();
   if (typeof paintSetupDue === "function") paintSetupDue();
   if (typeof paintHome === "function") paintHome();
+  if (typeof paintLinkWall === "function") paintLinkWall();
 }
 
 /** A username out of what a person typed or pasted: "@Name", "name", a profile link. Pure.
@@ -6473,7 +6715,8 @@ function renderSetup() {
   } else if (id === "tiktok_code" || id === "instagram_code") {
     const p = setupCodeProfile(plat);
     if (p) {
-      control = `<p class="setup-code-row"><code class="setup-code" id="setup-code-post"></code> <button type="button" class="ghost" data-setup="copy">Copy</button></p>`;
+      control = `<p class="setup-code-row"><code class="setup-code" id="setup-code-post"></code> <button type="button" class="ghost" data-setup="copy">Copy</button></p>`
+        + `<p class="setup-help">Can't get it to verify? <a href="mailto:hello@lynxr.io">hello@lynxr.io</a></p>`;
       codeText = p.verify_code;
       nav = navRow(`<button type="button" class="btn" data-setup="checkbio">Check my bio</button>`);
     } else {
@@ -6709,10 +6952,10 @@ async function setupCheckBio(btn) {
 /* ---- opening and closing ---- */
 
 /** `full`: the first-run, full-screen version for a new account (its own page, the app hidden behind it). */
-function openSetupModal(full = false) {
+function openSetupModal(full = false, at = null) {
   if (!ONBOARD_LIVE) return;
   SETUP_FULL = !!full;
-  SETUP_AT = SETUP_FULL ? "welcome" : setupFirstPending();
+  SETUP_AT = SETUP_FULL ? "welcome" : (at || setupFirstPending());      // `at`: the link wall hands on to the bio-code screen, not to whatever question is first
   const m = document.getElementById("setup-modal");
   if (!m) return;
   m.classList.toggle("setup-full", SETUP_FULL);
@@ -6756,9 +6999,13 @@ async function setupAfterUnlock(agencyReady) {
   if (!ONBOARD_LIVE) { SETUP_DECIDED = true; maybeStartTour(); return; }
   await refreshProfiles();   // PROFILES known before deciding anything
   paintSetupDue();
-  try { await agencyReady; } catch {}
+  /* The roster answer, or 8 seconds, whichever comes first. A late answer must not drop the link wall over a creator who has
+     already started working; it will be there next load. */
+  try { await Promise.race([agencyReady, new Promise((r) => setTimeout(r, 8000))]); } catch {}
+  if (maybeOpenLinkWall()) { SETUP_DECIDED = true; return; }   // the wall goes first; closing it hands on to the bio code
   maybeOpenSetup();
   SETUP_DECIDED = true;      // opened or ruled out: from here the tour may start (it waits while the stepper is open)
+  paintHome();               // the roster answer may have just arrived: the "put the code in your bio" card keys on it
   maybeStartTour();
 }
 
@@ -6819,6 +7066,7 @@ const OBTEST = (location.hostname === "localhost" || location.hostname === "127.
 if (OBTEST) {
   const log = (...a) => console.log("[obtest]", ...a);
   const fakeProfiles = [];
+  const pstore = () => OBFAKE.profiles || fakeProfiles;     // the array the profile reads answer from: a state's own list, else the first-run one
   const presses = {};
   const OBFAKE = { insights: { platforms: { instagram: true, tiktok: new URLSearchParams(location.search).get("obins") === "both" }, connected: new URLSearchParams(location.search).get("obins") === "connected" ? [{ platform: "instagram", handle: "maya.makes", since: new Date(Date.now() - 864e5).toISOString(), status: "active" }] : [] }, posts: [], followers: [], profiles: null, showcase: { featured: false, changed_at: null, approved: [] }, plan: { status: "active", plan_code: "max", features: ["post_tracking", "advanced_coaching"], plans: { max: { label: "max" } }, has_customer: false } };
   sbFetch = async function (path, opts = {}) {      // eslint-disable-line no-func-assign -- preview only
@@ -6847,15 +7095,15 @@ if (OBTEST) {
     }
     if (path.includes("/rpc/set_my_profile")) {
       const h = String(body.p_handle || "").toLowerCase().replace(/^@/, "");
-      if (!fakeProfiles.some((p) => p.platform === body.p_platform && p.handle === h)) {
-        fakeProfiles.push({ platform: body.p_platform, handle: h, verify_code: "lynxr-test01", verified_at: null,
+      if (!pstore().some((p) => p.platform === body.p_platform && p.handle === h)) {
+        pstore().push({ platform: body.p_platform, handle: h, verify_code: "lynxr-test01", verified_at: null,
           status: "unverified", verify_tries: 0, last_checked_at: null, last_scan_ok_at: null });
       }
       return { ok: true, platform: body.p_platform, handle: h, verify_code: "lynxr-test01", status: "unverified" };
     }
     if (path.includes("/rpc/remove_my_profile")) {
-      const i = fakeProfiles.findIndex((p) => p.platform === body.p_platform && p.handle === body.p_handle);
-      if (i >= 0) fakeProfiles.splice(i, 1);
+      const i = pstore().findIndex((p) => p.platform === body.p_platform && p.handle === body.p_handle);
+      if (i >= 0) pstore().splice(i, 1);
       return i >= 0;
     }
     if (path.includes("/rpc/request_profile_check")) {
@@ -6864,7 +7112,7 @@ if (OBTEST) {
       presses[k] = (presses[k] || 0) + 1;
       const n = presses[k];
       setTimeout(() => {
-        const pr = fakeProfiles.find((p) => `${p.platform}|${p.handle}` === k);
+        const pr = pstore().find((p) => `${p.platform}|${p.handle}` === k);
         if (!pr) return;
         pr.last_checked_at = new Date().toISOString();
         pr.verify_tries += 1;
@@ -6872,7 +7120,12 @@ if (OBTEST) {
       }, 1500);
       return { ok: true };
     }
-    if (path.includes("/rest/v1/lynxr_profiles")) return OBFAKE.profiles ? OBFAKE.profiles.slice() : fakeProfiles.slice();
+    if (path.includes("/rest/v1/lynxr_profiles")) return pstore().slice();
+    if (path.includes("/rpc/my_agency")) {      // ?roster=accepted|invited|left|none; the link-wall state defaults to accepted, every other state to none
+      const rs = new URLSearchParams(location.search).get("roster") || OBFAKE.roster
+        || (new URLSearchParams(location.search).get("metric") === "rosterwall" ? "accepted" : "none");
+      return { state: ["accepted", "invited", "left"].includes(rs) ? rs : "none", briefs: [], campaign: "Cloey" };
+    }
     return null;
   };
   save = function () { log("save (no-op)", JSON.stringify({ priority: ME.priority, goal: ME.goal, setup: ME.setup })); };   // eslint-disable-line no-func-assign
@@ -6956,6 +7209,7 @@ if (OBTEST) {
       performnoprof:{ label: "perform, no profile", priority: "perform", goal: 10000, posts: [], followers: [], profiles: [] },
       performfree:  { label: "perform, free plan", priority: "perform", goal: 10000, plan: "free", profiles: [{ ...verified[0] }] },
       grow:         { label: "grow goal", priority: "grow", goal: 10000 },
+      rosterwall:   { label: "roster, no profile (link wall)", priority: "deals", goal: 5, deals: 2, posts: [], followers: [], profiles: [] },
       noprofile:    { label: "grow, no profile", priority: "grow", goal: 10000, posts: [], followers: [], profiles: [] },
       nogoal:       { label: "no goal", priority: "deals", goal: null },
       nobrands:     { label: "no brands", priority: "deals", goal: 5, deals: 2, nobrands: true },
@@ -7000,6 +7254,7 @@ if (OBTEST) {
       OBFAKE.plan = planFor(st);
       PLAN = OBFAKE.plan;
       PROFILES = st.profiles || verified;
+      if (key === "rosterwall") PROFILES.length = 0;      // a username added in an earlier visit to this state must not carry over
       OBFAKE.profiles = PROFILES;
       {
         const f = fakeLib();
@@ -7015,6 +7270,13 @@ if (OBTEST) {
       SYNC_OK = !st.syncfail; renderSyncBadge();
       renderSide();
       go(wantView === "home" ? { kind: "new" } : { kind: "posts" });
+      // The link wall goes through its real predicate: roster answer first, so ?roster=none|invited|left shows no wall at all.
+      hideLinkWall();
+      OBFAKE.roster = key === "rosterwall" ? "accepted" : "none";      // the state just chosen, not the URL (which is rewritten below)
+      if (key === "rosterwall") {
+        LINKWALL_RELEASED = false; LINKWALL_ADDED = [];
+        refreshAgency().then(() => { if (linkWallDue()) openLinkWall(); });
+      }
       bar.querySelectorAll("button[data-state]").forEach((b) => {
         if (b.dataset.state === "tour") return;
         const on = b.dataset.state === key;
@@ -7850,6 +8112,49 @@ function paintHomeWriting() {
 function paintHome() {
   if (VIEW.kind !== "new") return;
   paintHomeHeadline();
+  paintHomeVerify();
+}
+
+/** THE BIO-CODE CARD (owner, 2026-10-07: "make the creators do the steps necessary so that I can actually see their posts").
+    The link wall releases on a username ADDED, but the worker reads a profile only once its bio code is found, so a username
+    that never verifies shows nobody anything. This card sits at the top of Home, for a roster creator who has a username and
+    no verified profile, until one verifies. It is NOT a lock: it blocks nothing, the paste box is right under it, and what it
+    says after a failed check (private, not found, Instagram's 10 tries used up) always comes with hello@lynxr.io as a real link.
+    Roster only, like the wall; fails open (anything not known for sure paints nothing). Everything goes in as text. */
+function homeVerifyDue() {
+  if (!LINKWALL_LIVE || !ONBOARD_LIVE || AGENCY_STATE !== "ready" || AGENCY?.state !== "accepted") return null;
+  if (!Array.isArray(PROFILES) || !PROFILES.length || PROFILES.some((p) => p.verified_at)) return null;
+  return PROFILES[0];
+}
+function paintHomeVerify() {
+  const host = document.getElementById("home-verify");
+  if (!host) return;
+  const p = homeVerifyDue();
+  if (!p) { host.textContent = ""; host.dataset.k = ""; return; }
+  const spent = p.platform === "instagram" && Number(p.verify_tries) >= IG_VERIFY_TRIES;
+  // What the last check said, once there has been one; before that, nothing but the ask.
+  const said = spent ? HANDLE_WHY.too_many : p.last_checked_at ? setupBioMessage(p) : "";
+  const key = [p.platform, p.handle, p.verify_code, said].join("|");
+  if (host.dataset.k === key) return;                      // unchanged: keep the DOM (and the creator's focus) as it is
+  host.dataset.k = key;
+  host.innerHTML = `<div class="section me-card home-verify" role="region" aria-labelledby="home-verify-h">`
+    + `<h2 class="me-card-h" id="home-verify-h">One step left</h2>`
+    + `<p class="home-verify-line"></p>`
+    + `<p class="home-verify-said" hidden></p>`
+    + `<div class="home-verify-act"><button type="button" class="btn" id="home-verify-go">Verify my ${escapeHtml(PLAT_NAME[p.platform] || "account")}</button>`
+    + `<span class="home-verify-help">Can't get it to work? You can keep using lynxr. <a href="mailto:hello@lynxr.io">hello@lynxr.io</a></span></div></div>`;
+  const line = host.querySelector(".home-verify-line");
+  line.append("Put ");
+  const code = document.createElement("code");
+  code.className = "setup-code";
+  code.textContent = p.verify_code;
+  line.append(code, ` in your ${PLAT_NAME[p.platform] || "profile"} bio and lynxr can see your posts.`);
+  const sayEl = host.querySelector(".home-verify-said");
+  if (said) { sayEl.textContent = said; sayEl.hidden = false; }
+  host.querySelector("#home-verify-go").addEventListener("click", () => {
+    const id = `${p.platform}_code`;
+    openSetupModal(false, setupApplies(id) && !setupStatus(id) ? id : null);
+  });
 }
 
 /* ---------- THE TOUR: a skippable walk down the sidebar ----------
