@@ -566,11 +566,22 @@ function perform() {
   const homeTarget = () => { for (const t of card.querySelectorAll("[data-lx-spot]")) if (visible(t)) return t; return card; };
   /* HOME (owner, 2026-10-06: "have the lynxr x be on the left side of this"): floating just off the right card's LEFT
      edge, a third of the way down, facing the video — when there is a clear gap there (a desktop: the gutter between
-     the two cards). Without one (a phone: the card is the screen's width) it floats over the card's top-left corner. */
+     the two cards). Without one (a phone: the card is the screen's width) it floats over the card's top-left corner.
+     IT PEEKS (owner, 2026-10-07: "have the lynxr peek behind the right bubble"): it arrives at that clear spot, then tucks
+     `peek` px further right, BEHIND the card (app.css .hx-perf-peek), until its centre is a fifth of its size short of the
+     card's edge — both eyes still out, its right arms hidden. Only the spot outside is measured for text and controls:
+     the tucked part lies under the card, so it covers nothing. */
   const heroPlace = { el: card, hero: true, get target() { return homeTarget(); }, spot: () => {
     const c = card.getBoundingClientRect();
     const sx = c.left - SIZE / 2 - 14, sy = c.top + Math.min(c.height * 0.3, 220);   // centre of the x
-    if (c.left - SIZE - 14 > 8 && !blocked(sx - SIZE / 2, sy - SIZE / 2)) return { x: sx, dy: sy - c.top + SIZE / 2, side: "left" };
+    if (c.left - SIZE - 14 > 8 && !blocked(sx - SIZE / 2, sy - SIZE / 2)) return { x: sx, dy: sy - c.top + SIZE / 2, side: "left", peek: 14 + SIZE * 0.3 };
+    /* A PHONE, HOME IS THE SIGN-UP CARD (owner, 2026-10-07: "have him at the top of the continue with google"): floating
+       on the Google button's top edge near its right end, in the open space beside "create your account". */
+    const g = card.querySelector(HX_STORY.see[0][0]), b = g && g.getBoundingClientRect();
+    if (b && b.width) {
+      const gx = spotOn(g, b.right - SIZE * 0.9, b.left + b.width * 0.5, b.right - SIZE / 2, LIFT);
+      if (gx != null) return { x: gx, dy: b.top - c.top + FOOT - LIFT, side: "top" };
+    }
     const x = spotOn(card, c.left + SIZE / 2 + 8, c.left + SIZE / 2 + 2, c.left + c.width * 0.5, LIFT);
     return x == null ? null : { x, dy: FOOT - LIFT, side: "top" };
   } };
@@ -617,20 +628,30 @@ function perform() {
     el.animate([{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(1.05, 1.32)" }],
       { duration: 900, easing: "cubic-bezier(.2, .7, .3, 1)", fill: "forwards" }).finished.then(() => el.remove()).catch(() => el.remove());
   };
-  /* SIT: parented to the place's anchor at the measured spot, transform cleared — the page scrolls it. */
-  const sit = (pl = place, at = null) => {
+  /* SIT: parented to the place's anchor at the measured spot, transform cleared — the page scrolls it. A spot with a
+     `peek` sits that much further right, behind the card; `tuck` slides it there from the spot it arrived at (the
+     slide starts clear of the card, so going behind it shows nothing jump). */
+  let tuckAnim = null;
+  const sit = (pl = place, at = null, tuck = false) => {
     if (F.raf) { cancelAnimationFrame(F.raf); F.raf = 0; }
     place = pl;
     const sp = at || pl.spot() || { x: card.getBoundingClientRect().right - SIZE, dy: FOOT - LIFT };
+    const peek = sp.peek || 0;
     const a = anchorOf(pl.el);
     const ar = a.getBoundingClientRect(), c = pl.el.getBoundingClientRect();
+    if (tuckAnim) { tuckAnim.cancel(); tuckAnim = null; }
     wrap.style.transform = "";
     wrap.classList.add("hx-perf-sat");
     wrap.classList.remove("hx-perf-moving", "hx-perf-follow");
+    wrap.classList.toggle("hx-perf-peek", peek > 0);
     wrap.style.right = "auto";
-    wrap.style.left = (sp.x - SIZE / 2 - ar.left - a.clientLeft).toFixed(1) + "px";
+    wrap.style.left = (sp.x + peek - SIZE / 2 - ar.left - a.clientLeft).toFixed(1) + "px";
     wrap.style.top = (c.top + sp.dy - SIZE - ar.top - a.clientTop).toFixed(1) + "px";
     if (wrap.parentElement !== a) a.appendChild(wrap);
+    // one keyframe at offset 0: it eases from the arrival spot into whatever app.css draws it as when peeking (the lean)
+    if (peek && tuck && !reduce.matches) {
+      tuckAnim = wrap.animate([{ transform: `translateX(${-peek}px)`, offset: 0 }], { duration: 560, easing: "cubic-bezier(.3, .7, .3, 1)" });
+    }
   };
   // its face at rest: the target's data-lx-mood, else idle — nearly still, it blinks (Revision 11)
   const moodAt = () => (place && place.target && place.target.getAttribute("data-lx-mood")) || "idle";
@@ -851,7 +872,8 @@ function perform() {
   const put = (x, y, r = 0) => { wrap.style.transform = pose(x, y, SIZE, r); };
   const unsit = () => {   // from sitting (in the page) to fixed in the viewport, at the same spot
     const f = feetNow();
-    wrap.classList.remove("hx-perf-sat");
+    if (tuckAnim) { tuckAnim.cancel(); tuckAnim = null; }
+    wrap.classList.remove("hx-perf-sat", "hx-perf-peek");
     wrap.style.left = wrap.style.top = wrap.style.right = "";
     document.body.appendChild(wrap);
     C.p = f;
@@ -903,7 +925,7 @@ function perform() {
       return;
     }
     const pos = destPos(d);
-    sit(d.pl, { x: pos.x, dy: d.dy });
+    sit(d.pl, { x: pos.x, dy: d.dy, peek: d.peek }, true);
     C.mode = "sat";
     lynxrMood(svg, moodAt());
     look("");
@@ -960,7 +982,7 @@ function perform() {
   };
   const homeDest = () => {
     const sp = spotInView(heroPlace);
-    return sp ? { pl: heroPlace, dx: sp.x - card.getBoundingClientRect().left, dy: sp.dy, side: sp.side, t: null } : null;
+    return sp ? { pl: heroPlace, dx: sp.x - card.getBoundingClientRect().left, dy: sp.dy, side: sp.side, peek: sp.peek, t: null } : null;
   };
 
   // into the bar: the logo's spot opens again (still invisible under the x); out of it: home, and the spot closes behind it
@@ -1138,15 +1160,18 @@ function perform() {
        route was measured, and the x must land on the card that is actually there. */
     const fresh = heroPlace.spot();
     if (fresh) {
-      Rsp.x = R.x = fresh.x; Rsp.dy = fresh.dy; Rsp.side = fresh.side; R.y = card.getBoundingClientRect().top + fresh.dy;
+      Rsp.x = R.x = fresh.x; Rsp.dy = fresh.dy; Rsp.side = fresh.side; Rsp.peek = fresh.peek; R.y = card.getBoundingClientRect().top + fresh.dy;
       if (two && ARC.length === 3) ARC[1] = { x: N.x + (R.x - N.x) * 0.35, y: Math.max(top0, Math.min(N.y, R.y) - 36) };
     }
     drift(ARC, [1.6, 900, 1700], react);
   };
-  /* "mmm, interesting" — then "that's cool" — then it is home. */
+  /* "mmm, interesting" — then "that's cool" — then it is home. IT GOES STRAIGHT TO PEEKING (owner, 2026-10-07: "have the
+     lynxr x go straight peeking dont have him stall next to the right bubble"): it tucks behind the card the moment it
+     lands, and the two faces play while it peeks. */
   const react = () => {
     if (!PERF.end) return;
     wrap.classList.remove("hx-perf-moving");
+    sit(heroPlace, Rsp, true);
     pops.push(sq.animate([{ transform: "none" }, { transform: "translateY(3px) scale(1.04, .96)", offset: 0.4 }, { transform: "none" }],
       { duration: 380, easing: "ease-out" }));
     lynxrMood(svg, "hmm");
@@ -1158,7 +1183,6 @@ function perform() {
       later(1200, () => {
         if (!PERF.end) return;
         cleanup();
-        sit(heroPlace, Rsp);
         lynxrMood(svg, moodAt());
         rung.add(heroPlace.target);
         follow();
@@ -1180,7 +1204,7 @@ function perform() {
     later(420, barIntroEnd);                       // ...and the bar it left goes up, the name dissolving with it
     if (two) { drift(W, [2.4, 1500, 2400], notice, start.s); return; }
     const fresh = heroPlace.spot();                // the showcase may have changed the card since the route was measured
-    if (fresh) { Rsp.x = R.x = fresh.x; Rsp.dy = fresh.dy; Rsp.side = fresh.side; R.y = card.getBoundingClientRect().top + fresh.dy; }
+    if (fresh) { Rsp.x = R.x = fresh.x; Rsp.dy = fresh.dy; Rsp.side = fresh.side; Rsp.peek = fresh.peek; R.y = card.getBoundingClientRect().top + fresh.dy; }
     drift([start, R], [2.2, 900, 1600], react, start.s);
   });
 }

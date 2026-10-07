@@ -46,6 +46,7 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 - [How to turn a brand brief into a script](https://lynxr.io/blog/brief-to-script/): How to write a UGC script from a brief: mark what must and must not be said, pick the format before writing, and place brand lines so they do not sound recited.
 - [Hook and payoff: why a strong hook still loses the viewer](https://lynxr.io/blog/hook-payoff/): A hook and its payoff have to match in a UGC video: what a payoff is, the three promise types, where the payoff lands, and how to fix a hook that over-promises.
 - [How long should a UGC script be?](https://lynxr.io/blog/how-long-should-a-script-be/): How long should a UGC script be? Length follows the beat count, not a word count: a shape for short, medium and long scripts for brand videos.
+- [How to write a POV video script](https://lynxr.io/blog/pov-video-script/): How to write a POV video script for a brand: who the camera is, what the POV: label says, a beat map, and where the product goes.
 
 <!-- BEGIN UGC AGENT -->
 ## Questions UGC creators ask

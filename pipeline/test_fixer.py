@@ -368,6 +368,50 @@ big = "ERROR something failed in whisper " + "x" * 200
 huge = F.build_bundle("canary", "canary", "fix", "w", NOW, {"alarms": []}, {}, [], "\n".join([big] * 20000), "\n".join([big] * 20000), [], "")
 check("(v) a 2MB log comes out under 60,000 bytes", len(json.dumps(huge)) <= F.BUNDLE_MAX_BYTES, True)
 
+# ---- (w) cmd_report: a model that never finished is never "no code change" -----
+# Fire drill 2026-10-07: the CLI died at startup, gate.py wrote its placeholder out.json, the empty diff came through as
+# verdict "nothing", and the owner was paged "no code change" for a model that never ran.
+import os  # noqa: E402
+import tempfile  # noqa: E402
+
+RUN_URL = "https://github.com/lynxrio/lynxr/actions/runs/37571678214"
+PLACEHOLDER = {"summary": "", "diagnosis": "the model wrote no valid .fixer/out.json", "changed": False}
+OK_RESULT = {"type": "result", "subtype": "success", "is_error": False, "total_cost_usd": 0.42, "num_turns": 9}
+
+
+def report(mode, verdict, claude, out, pr_url=""):
+    """-> (audit outcome, page title) from one cmd_report call, with Supabase and ntfy stubbed out."""
+    pages, rows = [], []
+    saved = (F.secret_key, F._notify, F.audit, dict(os.environ))
+    with tempfile.TemporaryDirectory() as d:
+        Path(d, "out.json").write_text(json.dumps(out))
+        Path(d, "claude.json").write_text(claude if isinstance(claude, str) else json.dumps(claude))
+        os.environ.update({"INCIDENT": "drill:brain", "MODE": mode, "VERDICT": verdict, "PR_URL": pr_url,
+                           "BRAIN_RESULT": "success", "VERIFY_RESULT": "success", "PROPOSE_RESULT": "success",
+                           "RUN_URL": RUN_URL, "BRAIN_DIR": d, "GATE_JSON": str(Path(d, "none.json"))})
+        F.secret_key = lambda: "k"
+        F._notify = lambda title, body, prio, tags: pages.append(title)
+        F.audit = lambda key, rec, now: rows.append(rec["outcome"])
+        try:
+            F.cmd_report(None)
+        finally:
+            F.secret_key, F._notify, F.audit = saved[:3]
+            os.environ.clear()
+            os.environ.update(saved[3])
+    return rows[0] if rows else None, pages[0] if pages else None
+
+
+check("(w) the CLI crashed (empty claude.json, placeholder out.json): brain-failed, not no-change",
+      report("fix", "nothing", "", PLACEHOLDER), ("brain-failed", "fixer could not diagnose drill:brain"))
+check("(w) the model finished and changed nothing: no-change",
+      report("fix", "nothing", OK_RESULT, {"summary": "already fixed by the av<19 pin", "changed": False}),
+      ("no-change", "fixer: no code change for drill:brain"))
+check("(w) diagnose mode that ran out of turns: brain-failed, not an empty diagnosis",
+      report("diagnose", "diagnose", {"type": "result", "subtype": "error_max_turns", "is_error": True}, PLACEHOLDER),
+      ("brain-failed", "fixer could not diagnose drill:brain"))
+check("(w) the drill-pr lane runs no model and still reports its PR",
+      report("drill-pr", "pr", "", PLACEHOLDER, pr_url="https://github.com/lynxrio/lynxr/pull/2")[0], "pr")
+
 print()
 if FAILS:
     print(f"{len(FAILS)} FAILED: {', '.join(FAILS)}")

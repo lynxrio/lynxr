@@ -144,6 +144,22 @@ jobs:
         if: needs.act.outputs.brain_mode != 'drill-pr'
         timeout-minutes: 5
         run: npm install -g @anthropic-ai/claude-code@2.1.290
+      - name: Install bubblewrap (the CLI's credential scrub needs it on Linux)
+        if: needs.act.outputs.brain_mode != 'drill-pr'
+        timeout-minutes: 5
+        # MEASURED 2026-10-07 (fire drill 2): with CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 the CLI exits at startup on this
+        # runner, "bubblewrap is required for subprocess env scrubbing and isolation", so the model never ran. Setting
+        # the scrub to 0 instead would let a test the model writes read the OAuth token, so install the sandbox.
+        # Ubuntu 24.04 restricts unprivileged user namespaces through AppArmor and bwrap needs one: lift that on this
+        # throwaway runner only if the probe fails, then probe again so the job stops HERE, loudly, if it still can't.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap
+          probe() { bwrap --ro-bind / / --dev /dev true; }
+          if ! probe; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            probe
+          fi
       - name: Diagnose, and in fix mode change the code
         if: needs.act.outputs.brain_mode != 'drill-pr'
         timeout-minutes: 35

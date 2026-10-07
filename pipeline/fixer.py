@@ -704,7 +704,9 @@ def run_tier1(key, t1, now, release):
         if t1.get("verb") == "start":
             args, timeout = ["machine", "start", mid, "-a", APP], 180
         else:
-            args, timeout = ["machine", "restart", mid, "-a", APP, "--signal", "SIGTERM", "--time", "300"], 420
+            # Fly's restart API refuses a stop timeout over 1m (fire drill 2026-10-07: --time 300 failed before
+            # anything stopped). Nothing is in flight to drain here: wait_idle above already passed.
+            args, timeout = ["machine", "restart", mid, "-a", APP, "--signal", "SIGTERM", "--time", "60"], 180
     elif action == "rollback_image":
         target = str(t1.get("target") or "")
         if not IMAGE_RE.match(target):
@@ -1067,6 +1069,11 @@ def cmd_report(args):
     gate = _read_json_obj(env.get("GATE_JSON", ""))
     reasons = "; ".join(sanitize(r, 1, 120) for r in (gate.get("reasons") or [])[:5]) if isinstance(gate.get("reasons"), list) else ""
     claude = _read_json_obj(Path(env.get("BRAIN_DIR", "")) / "claude.json", limit=2_000_000)
+    # The model step swallows claude's exit code so the patch and out.json are still collected. A run with no clean
+    # result must not read as "no code change": fire drill 2026-10-07, the CLI died at startup (no bubblewrap), out.json
+    # was gate.py's placeholder, and the empty diff came through as verdict "nothing".
+    finished = claude.get("type") == "result" and claude.get("subtype") == "success" and claude.get("is_error") is False
+    why_not = sanitize(str(claude.get("subtype") or "no result written"), 1, 40)
     extra = ""
     if isinstance(claude.get("total_cost_usd"), (int, float)) and isinstance(claude.get("num_turns"), int):
         extra = f" (api-equivalent ${claude['total_cost_usd']:.2f}, {claude['num_turns']} turns)"
@@ -1080,6 +1087,10 @@ def cmd_report(args):
         _notify(f"fixer could not open the PR for {incident}",
                 f"branch {branch or '?'}: https://github.com/lynxrio/lynxr/compare/main...{branch or '?'} - enable "
                 "'Allow GitHub Actions to create and approve pull requests'. " + run_url, prio, "warning")
+    elif mode in ("fix", "diagnose") and not finished:
+        outcome, detail = "brain-failed", f"the model did not finish ({why_not})"
+        _notify(f"fixer could not diagnose {incident}", f"the model step did not finish ({why_not}). {run_url}".strip(),
+                prio, "warning")
     elif verdict == "diagnose" or mode == "diagnose":
         outcome, detail = "diagnosed", summary
         _notify(f"fixer diagnosis: {summary}", f"{diagnosis[:600]} {reasons} {run_url}".strip(), prio, "mag")

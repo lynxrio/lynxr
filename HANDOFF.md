@@ -27,6 +27,8 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**SEO ROUTINE (standing):** latest unit Q4 /blog/pov-video-script/ on 2026-10-07, uncommitted, with links from blog, what-is-a-video-format, blog/storytime-script and glossary. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
+
 **SESSION SUMMARY 2026-10-06 (night) — READ THIS FIRST.** **Everything below is PUSHED and LIVE** (owner's push, head
 `aeaff83`; tree clean and in sync with `origin/main`): lynxr.io serves stamp **`20261006o`**, `assets/showcase/founder.json`
 answers 200, and the Fly worker redeployed to **v54** (image `…01M4A4KC6QJGKCP5A4FFFBEQE2`) about 03:00Z on 2026-10-07.
@@ -39,10 +41,18 @@ hit: every Instagram script in the database with a transcript has `has_speech: t
 true, no_speech 0.004 / 0.038). **Pushed** (head `7e36a0b`, Fly **v55**, image `…01M4A72NC5GX03X5FV656CXEBR`); the canary's boot pass on v55 was
 all green at 03:42Z on 2026-10-07 (tiktok 25s, instagram 20s, script) and the watchdog's `canary` alarm closed. Worth knowing: faster-whisper's VAD drops
 singing and music-only audio on Fly — correct for scripts (no voiceover to keep), but it means "speech" in a fixture must be
-talking, not lyrics. **The fixer agent is set up and running in OBSERVE mode** — Step 19 done
-2026-10-06 (secrets, GitHub setting, `FIXER_ENABLED=1`, `FIXER_MODE=observe`; observe sweep run #6 succeeded). It sweeps at
-:11 and :41 and reports, but changes nothing. **To go live: delete the repo variable `FIXER_MODE`**, then run the fixer plan's
-Step 20 fire drills. `gh` is not installed on this Mac; the public API
+talking, not lyrics. **The fixer agent is LIVE** (`FIXER_MODE` deleted 2026-10-07). **Fire drills run 2026-10-07 04:00–04:45Z:**
+Drill 1 (Tier 1 rebuild) PASSED — injected download fault → page → `rebuild_image` → Fly v56 → canary green → `verified in
+240s` + quiet pages; Drill 3 (PR plumbing) PASSED — PR #2 opened from `fixer/drill-pr-*`, closed unmerged, branch deleted,
+main untouched; Drill 4b/c (kill switch) PASSED — `fixer.pause` → outcome `paused`, row deleted → active. **Three gaps found:**
+(1) the auto-dispatch never fired: the ~6h "creator scripts" job reads `vars.FIXER_ENABLED` once when it STARTS (that job
+began 03:02Z, before the variable existed), and the fixer's :11/:41 cron never fired at all (GitHub best-effort) — Drill 1
+was finished by dispatching `sweep` by hand; it self-heals when the next creator-scripts job starts (~08:50Z). (2) Drill 2
+was a FALSE PASS: Claude Code crashed at startup ("bubblewrap is required for subprocess env scrubbing") and the report
+called it "no code change". (3) Drill 4a: `restart_worker` failed — Fly caps `machine restart --time` at 60s, the fixer
+passed 300 (nothing was stopped). Fixes for (2) and (3) are in `fixer.yml` / `pipeline/fixer.py` / `pipeline/test_fixer.py`
+(uncommitted at writing); after they ship, re-run drills `drill:brain` and `drill:restart`. Agency Ops pill still not seen
+on painted pixels (needs a staff sign-in). `gh` is not installed on this Mac; the public API
 (`api.github.com/repos/lynxrio/lynxr/actions/...`) shows runs.
 **Still waiting on
 the owner:** (1) the agency "orig" backfill (`./venv/bin/python pipeline/backfill_beat_orig.py --apply

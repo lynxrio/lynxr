@@ -74,13 +74,13 @@
   </url>
   <url>
     <loc>https://lynxr.io/glossary/</loc>
-    <lastmod>2026-10-05</lastmod>
+    <lastmod>2026-10-07</lastmod>
     <priority>0.7</priority>
   </url>
   <!-- The blog hub and its posts, added in batches. -->
   <url>
     <loc>https://lynxr.io/blog/</loc>
-    <lastmod>2026-10-05</lastmod>
+    <lastmod>2026-10-07</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
@@ -116,6 +116,11 @@
   <url>
     <loc>https://lynxr.io/blog/how-long-should-a-script-be/</loc>
     <lastmod>2026-09-28</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/pov-video-script/</loc>
+    <lastmod>2026-10-07</lastmod>
     <priority>0.6</priority>
   </url>
   <url>

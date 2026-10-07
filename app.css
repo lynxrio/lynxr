@@ -10781,6 +10781,10 @@
   }
   body.home .hx-perf.hx-perf-moving { will-change: transform; }   /* only while it flies or glides */
   body.home .hx-perf.hx-perf-sat { position: absolute; left: auto; z-index: 1; }
+  /* PEEKING from behind the video card (home.js heroPlace, owner 2026-10-07): it sits in .hx-r (position: relative,
+     z-index: 1, so its own stacking context), and a negative z-index paints under everything else in it — the card —
+     while staying over the page behind. It leans its top out, away from the card. */
+  body.home .hx-perf.hx-perf-sat.hx-perf-peek { z-index: -1; transform: rotate(-8deg); }
   /* Perched and alive (home.js live): the mascot alone takes the pointer, for the tickle. Its box sits
      above the card's edge and clear of every line of text (measured), so it can take nothing from a
      control. The hearts it pops are pointer-events: none like everything else here. */
@@ -12402,17 +12406,14 @@
   }
   /* THE BADGE, one for the card (owner, 2026-10-06: "instead of this have it say top 5 videos this week with a gold background
      or something"): gold, with a star, when the card really is this week's top videos (showcase.js topOfWeek); otherwise
-     a plain "made with lynxr" pill. */
+     a plain "made with lynxr" pill. Flat gold (owner, 2026-10-07: "have it not shiny, have it just be gold"): one solid
+     colour, no gradient, no inset highlights, no glow. */
   body.home .sc-badge {
     position: absolute; top: 44px; left: 14px; z-index: 2; margin: 0; display: inline-flex; align-items: center; gap: 6px;
     padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1.35; color: #fff; pointer-events: none;
     background: rgba(var(--sc-ink), .5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   }
-  body.home .sc-badge-top {
-    color: #3a2600; text-shadow: 0 1px 0 rgba(255, 255, 255, .35);
-    background: linear-gradient(115deg, #fff1b0 0%, #f7cf55 28%, #e3a522 58%, #f9d976 82%, #c88a14 100%);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, .55) inset, 0 -1px 0 rgba(120, 70, 0, .25) inset, 0 2px 10px rgba(201, 138, 20, .35);
-  }
+  body.home .sc-badge-top { color: #3a2600; background: #ffc81f; }   /* brighter (owner, same day: "make the gold a brighter gold") */
   body.home .sc-star { flex: none; color: #8a5a00; }
   /* the proof, at the bottom of the card */
   body.home .sc-data {
