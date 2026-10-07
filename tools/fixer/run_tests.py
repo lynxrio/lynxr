@@ -16,6 +16,7 @@ TESTS = [
     "pipeline/test_ai_retry.py",
     "pipeline/test_allowance.py",
     "pipeline/test_backup.py",
+    "pipeline/test_brain_prompt.py",
     "pipeline/test_brief_clips.py",
     "pipeline/test_campaigns.py",
     "pipeline/test_canary.py",

@@ -160,6 +160,9 @@ jobs:
           FIXER_DISPATCH_TOKEN: ${{ github.token }}
           FIXER_ENABLED: ${{ vars.FIXER_ENABLED }}
           FIXER_SOURCE: fallback
+          # a secret, not a var: the value is a list of creator uuids and Actions masks secrets in public logs.
+          # Unset renders empty, which brain_prompt.enabled_for reads as off. Must match the Fly secret.
+          BRAIN_IN_PROMPT: ${{ secrets.BRAIN_IN_PROMPT }}
         # Poll for ~5h45m rather than draining the queue once and exiting.
         #
         # MEASURED 2026-08-12: the cron above says every 15 minutes, but real

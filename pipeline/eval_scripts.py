@@ -43,6 +43,7 @@ sys.path.insert(0, str(PIPELINE))
 import script_checks as SC  # noqa: E402
 import process_adaptations as P  # noqa: E402
 import envcfg  # noqa: E402
+import brain_prompt  # noqa: E402
 
 BACKUPS_DIR = Path(os.path.expanduser("~/Lynxr-backups"))
 EVALS_DIR = Path(os.path.expanduser("~/Lynxr-evals"))
@@ -590,6 +591,20 @@ def run_cmd(args):
     for name, value in set_values.items():
         setattr(P, name, value)
 
+    # --brain: a brain body JSON attached to every case, rendered into the adapt call's USER message by
+    # process_adaptations.adapt_prompt(). ADAPT_SYSTEM is never touched, so two arms differing only here share
+    # an adapt_system_sha256. Loaded before the client is built so a bad path costs nothing.
+    brain_body = brain_path = None
+    if args.brain:
+        brain_path = Path(args.brain).expanduser()
+        try:
+            brain_body = json.loads(brain_path.read_text())
+        except (OSError, ValueError) as e:
+            sys.exit(f"--brain {brain_path}: cannot read it as JSON ({type(e).__name__})")
+        if not isinstance(brain_body, dict):
+            sys.exit(f"--brain {brain_path}: expected a JSON object (the body pipeline/brain.py writes), "
+                     f"got {type(brain_body).__name__}")
+
     aclient = _build_client()
 
     # Wrap note_usage so every call also records which model actually served
@@ -637,6 +652,11 @@ def run_cmd(args):
         "format_system_sha256": hashlib.sha256(P.FORMAT_SYSTEM.encode()).hexdigest(),
         "adapt_schema_sha256": hashlib.sha256(json.dumps(P.ADAPT_SCHEMA, sort_keys=True).encode()).hexdigest(),
         "set": set_values,
+        "brain": str(brain_path) if brain_path else None,
+        "brain_sha256": hashlib.sha256(brain_path.read_bytes()).hexdigest() if brain_path else None,
+        "brain_state": brain_body.get("state") if brain_body else None,
+        "brain_block_sha256": (hashlib.sha256(brain_prompt.creator_block(brain_body).encode()).hexdigest()
+                               if brain_body else None),
         "refresh_format": args.refresh_format,
         "fresh_source": sorted(fresh_source_ids),
         "started_at": datetime.now(timezone.utc).isoformat(),
@@ -678,7 +698,7 @@ def run_cmd(args):
                     elif args.refresh_format:
                         a.pop("format", None)
                         P.extract_format(aclient, a, notes, a["timings"])
-                    P.fill_adaptation(a, brand_creator(brand, fx), aclient, notes, a["timings"])
+                    P.fill_adaptation(a, brand_creator(brand, fx), aclient, notes, a["timings"], brain=brain_body)
                     u = dict(P.usage())
                     usd = sum(v for v in (P.cost_of(m, d) for m, d in u.items()) if v is not None)
                     spent += usd
@@ -1319,6 +1339,10 @@ def build_parser():
     p_run.add_argument("--refresh-format", action="store_true")
     p_run.add_argument("--fresh-source", default=None, help="comma-separated case ids")
     p_run.add_argument("--set", action="append", default=None, help="NAME=VALUE, repeatable")
+    p_run.add_argument("--brain", default=None,
+                       help="path to a brain body JSON (the shape pipeline/brain.py writes). "
+                            "Attached to every case in this run, in the adapt call's USER "
+                            "message. ADAPT_SYSTEM is never touched.")
     p_run.set_defaults(func=run_cmd)
 
     p_judge = sub.add_parser("judge", help="grade a run's scripts (spends money)")

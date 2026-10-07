@@ -83,6 +83,7 @@ from retag_with_audio import user_content
 from taxonomy import TAG_SCHEMA, TAG_SCHEMA_VISION, length_bucket
 from video_limits import MAX_SOURCE_SECONDS, as_seconds, media_duration, too_long, whole_seconds
 import envcfg  # the one place a secret or config value is read; see its docstring.
+import brain_prompt  # pure stdlib, imports nothing from this repo: brain.py imports THIS module, so anything cyclic would break
 
 ROOT = Path(__file__).parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
@@ -433,6 +434,11 @@ ignore. Writing a `do` that fits this is rule 4's goal-led form, not choreograph
 # OFF by default; pipeline/ab_format_adapt.py is how the owner judges it
 # without spending anything for real. Do not flip FUSE_FORMAT_ADAPT's default.
 FUSE_FORMAT_ADAPT = envcfg.get("FUSE_FORMAT_ADAPT", "0") not in ("0", "", "false", "False")
+
+# OFF unless set. "1"/"all" = every creator; otherwise a comma list of creator uuids
+# (cofounders first, then widen). Read through the module global at call time so the eval
+# harness's --set and a test can both override it.
+BRAIN_IN_PROMPT = envcfg.get("BRAIN_IN_PROMPT", "0")
 
 FUSED_SCHEMA = {
     "type": "object",
@@ -1800,15 +1806,19 @@ def usage():
 #
 #                    system text   actual cached prefix
 #     TAG_SYSTEM        1848              2038
-#     ADAPT_SYSTEM      ~815             ~1005   <- rule 8, 2026-08-25; est.
+#     ADAPT_SYSTEM     4251                      <- v4, 2026-10-07; measured (count_tokens, claude-opus-5)
 #     FORMAT_SYSTEM      491               681   <- system alone is UNDER 512
 #
 # So FORMAT_SYSTEM caches even though its prompt is 21 tokens short of the
 # minimum on its own. Measured live, cold-then-warm, on 2026-08-16: all three
 # wrote on the first call and read back the identical token count on the second.
-# ADAPT_SYSTEM's row is an ESTIMATE since rule 8 grew it from 640 — it was well
-# clear of the threshold before and is further clear now, so the conclusion
-# holds without a re-measure, but do not quote that number as observed.
+# ADAPT_SYSTEM's row is MEASURED (it was an estimate of ~815 until v4 grew it 5x).
+# The only cache_control breakpoint is on the system block and the prefix is
+# tools -> system -> messages, so the adapt USER message is entirely uncached: the
+# creator block added there (brain_prompt.py, behind BRAIN_IN_PROMPT) cannot change
+# the hit rate and cannot invalidate the prefix. It buys uncached input at $5/MTok,
+# up to +597 tokens, +$0.0030 a script. Do not add a second breakpoint for it:
+# per-creator text would write one cache entry per creator at 1.25x and read it once.
 # Do not "optimise" by dropping the marker from the short one — check the whole
 # prefix, not the prompt.
 CACHE_MIN_TOKENS = 512
@@ -2183,6 +2193,34 @@ def brand_digest(brand, creator, code=""):
     # later cannot be matched to a video that already went out. Re-enabling is
     # one line here plus the two render sites in creator.js.
     return "\n".join(parts)
+
+
+def adapt_prompt(a, brand, creator, brain=None):
+    """The adapt call's USER message, the one place it is built. fill_adaptation, the --dry-prompt
+    side task and the eval harness all come through here, so what they show is what production sends.
+
+    `brain` is this creator's lynxr_creator_brain body, or None. The block it renders goes LAST,
+    after === BRAND ===: brand_digest() already ends on the creator's own facts, so the creator
+    material stays contiguous. It lives in the user message and never in ADAPT_SYSTEM (the cached
+    prefix, which must stay byte-identical across creators). With no brain, or a brain that
+    renders nothing, the result is byte-identical to the prompt before the brain existed."""
+    # If the format step stripped a wrapper, say so again here. The
+    # source digest below still contains the WHOLE original —
+    # including the portfolio intro — and left unsaid the model
+    # drifts back to it and writes the frame it was supposed to
+    # discard.
+    wrapper = (a.get("format") or {}).get("wrapper_removed") or ""
+    frame = (f"\n=== IGNORE THE FRAMING ===\nThe original is wrapped in: {wrapper}\n"
+             "That framing is NOT part of the format. It appears in the transcript and "
+             "shots below — skip past it and adapt only the piece inside. Never open with "
+             "the creator introducing themselves or their work.\n" if wrapper else "")
+    prompt = ("Adapt this format for the brand below.\n\n"
+              f"=== DELIVERY ===\n{delivery_mode_text(a)}\n{frame}\n"
+              f"=== FORMAT TO REUSE ===\n{json.dumps(a['format'], indent=1)}\n\n"
+              f"=== ORIGINAL VIDEO (for reference — do NOT reuse its topic) ===\n{source_digest(a)}\n\n"
+              f"=== BRAND ===\n{brand_digest(brand, creator)}")
+    block = brain_prompt.creator_block(brain) if brain else ""
+    return prompt + (("\n\n" + block) if block else "")
 
 
 def canon_url(u):
@@ -3079,7 +3117,7 @@ def thin_script(ad, fmt):
     return nf >= 3 and n * 2 < nf
 
 
-def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=None):
+def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=None, *, brain=None):
     """The per-brand rewrite (or the no-brand "here is your script" finish).
 
     Assumes fill_source() already ran (a["source"] is populated, possibly
@@ -3144,6 +3182,7 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=Non
 
     if publish and a.get("brandId"):
         publish("writing")
+    brain_chars = None      # set only on the path that put the brain block in a prompt (not the fused one)
     try:
         if fuse and not a.get("format"):
             # FUSE_FORMAT_ADAPT is untouched by Step 7's guard: this path has
@@ -3155,26 +3194,10 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=Non
                 fmt, ad = fused_format_and_adapt(aclient, a, brand, creator)
             a["format"] = fmt
         else:
-            # If the format step stripped a wrapper, say so again here. The
-            # source digest below still contains the WHOLE original —
-            # including the portfolio intro — and left unsaid the model
-            # drifts back to it and writes the frame it was supposed to
-            # discard.
-            wrapper = (a.get("format") or {}).get("wrapper_removed") or ""
-            frame = (f"\n=== IGNORE THE FRAMING ===\nThe original is wrapped in: {wrapper}\n"
-                     "That framing is NOT part of the format. It appears in the transcript and "
-                     "shots below — skip past it and adapt only the piece inside. Never open with "
-                     "the creator introducing themselves or their work.\n" if wrapper else "")
-            # WHERE THE CREATOR BRAIN WILL HOOK IN (plan ~/.claude/plans/lynxr-brain-doc.md, step 13; nothing reads it yet). The creator
-            # block from lynxr_creator_brain goes HERE, as a "=== WHAT LYNXR KNOWS ABOUT THIS CREATOR ===" section of this user message,
-            # behind BRAIN_IN_PROMPT; never in ADAPT_SYSTEM (the cached prefix must stay byte-identical across creators or every call pays
-            # full price) and never in process_campaigns.py's AGENCY_SCRIPT_SYSTEM. brand_digest() below already injects name, niches,
-            # about and never, so the brain section must NOT re-send about_you.your_own_words, never_say or niche.
-            prompt = ("Adapt this format for the brand below.\n\n"
-                      f"=== DELIVERY ===\n{delivery_mode_text(a)}\n{frame}\n"
-                      f"=== FORMAT TO REUSE ===\n{json.dumps(a['format'], indent=1)}\n\n"
-                      f"=== ORIGINAL VIDEO (for reference — do NOT reuse its topic) ===\n{source_digest(a)}\n\n"
-                      f"=== BRAND ===\n{brand_digest(brand, creator)}")
+            # The creator block from lynxr_creator_brain is appended inside adapt_prompt(), behind
+            # BRAIN_IN_PROMPT: see pipeline/brain_prompt.py and ~/.claude/plans/lynxr-writer-reads-brain.md.
+            prompt = adapt_prompt(a, brand, creator, brain)
+            brain_chars = len(brain_prompt.creator_block(brain)) if brain else None
             # A script with no beats is not a script, and the schema cannot
             # catch it: the model can return a perfectly valid SHELL — a real
             # fit, a real fit_reason, a hook — and then `beats: []`, `cta: ""`,
@@ -3204,6 +3227,11 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=Non
         if not (ad.get("beats") or []):
             raise RuntimeError("the model returned a script with no beats")
         a["adaptation"] = ad
+        # Traceability, numbers only, never a caption. Lands in the creator's own row.
+        if brain_chars is not None:
+            a["brainUsed"] = {"state": brain.get("state"), "builtAt": brain.get("built_at"), "chars": brain_chars}
+        else:
+            a.pop("brainUsed", None)        # a rerun without the brain must not keep a trace of one it did not use
         if thin_script(ad, a.get("format")):
             a["thin"] = {"beats": len(ad.get("beats") or []),
                          "formatBeats": len((a.get("format") or {}).get("beats") or []),
@@ -3292,7 +3320,8 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
     with claim_heartbeat(key, cid, a.get("id")):
         try:
             fill_adaptation(a, data, aclient, notes, timings, fuse=fuse,
-                             publish=lambda phase: publish_phase(key, [(cid, a)], phase))
+                             publish=lambda phase: publish_phase(key, [(cid, a)], phase),
+                             brain=brain_for(key, cid))
             # DID THIS PASS PRODUCE SOMETHING USABLE? — not "did anything
             # fail", which is what the old `attemptedAt` comparison answered
             # by accident (every source-phase marker carried a stale stamp,
@@ -3912,6 +3941,74 @@ def heartbeat(key, cid, aid, stop_event, interval=45):
 # run fully in parallel, since they touch different rows and different locks.
 _GRAFT_LOCKS = collections.defaultdict(threading.Lock)
 
+_BRAIN_CACHE = {}                                   # cid -> body or None, for this pass only
+_BRAIN_CACHE_LOCK = threading.Lock()
+
+
+def brain_for(key, cid):
+    """This creator's brain body, or None. Never raises; returns None for everything —
+    flag off, table missing, HTTP error, no row, a body that is not a dict.
+
+    ONE READ PER CREATOR PER PASS. process_adaptations.py runs as a one-shot subprocess
+    (worker.py:247 "Deliberately a subprocess rather than an import"), so this dict lives
+    exactly one pass and needs no TTL. run_entry() runs on process_group's pool threads,
+    hence the lock. A failed read is cached too, so the second brand of the same video does
+    not retry it.
+    """
+    if not brain_prompt.enabled_for(BRAIN_IN_PROMPT, cid):
+        return None                                 # flag off for this creator: no REST call, no behaviour change
+    with _BRAIN_CACHE_LOCK:
+        if cid in _BRAIN_CACHE:
+            return _BRAIN_CACHE[cid]
+    body = None
+    try:
+        rows = sb(key, f"/rest/v1/lynxr_creator_brain?creator_id=eq.{cid}&select=body")
+        if rows and isinstance(rows[0].get("body"), dict):
+            body = rows[0]["body"]
+    except Exception as e:  # noqa: BLE001
+        log.info("  brain not read (%s)", type(e).__name__)
+    with _BRAIN_CACHE_LOCK:
+        _BRAIN_CACHE[cid] = body
+    return body
+
+
+def dry_prompt(key, cid):
+    """--dry-prompt: print the brain block and, when this creator has a finished branded script to
+    assemble from, the whole adapt prompt with two sha256s (brain attached, brain=None) so the
+    flag-off identity can be compared by eye. Returns a process exit code."""
+    rows = sb(key, f"/rest/v1/lynxr_creators?id=eq.{cid}&select=data")
+    if not rows:
+        print(f"no creator row for {cid}")
+        return 1
+    data = rows[0]["data"] or {}
+    brows = sb(key, f"/rest/v1/lynxr_creator_brain?creator_id=eq.{cid}&select=body")
+    body = brows[0].get("body") if brows else None
+    body = body if isinstance(body, dict) else None
+    print(f"brain: state={(body or {}).get('state')} built_at={(body or {}).get('built_at')} "
+          f"BRAIN_IN_PROMPT covers this creator: {brain_prompt.enabled_for(BRAIN_IN_PROMPT, cid)}")
+    block = brain_prompt.creator_block(body) if body else ""
+    print("# warning: the output below holds the creator's own captions. Keep it off any public surface.")
+    print(block if block else "# brain block: none")
+    entries = [e for e in (data.get("adaptations") or [])
+               if e.get("brandId") and e.get("source") and e.get("format")]
+    if not entries:
+        print("no finished branded script to assemble a prompt from")
+        return 0
+    a = max(entries, key=lambda e: e.get("addedAt") or "")
+    brand = next((b for b in (data.get("brands") or []) if b.get("id") == a.get("brandId")), None)
+    if not brand:
+        print("brand not found on this creator profile")
+        return 0
+    with_brain = adapt_prompt(a, brand, data, body)
+    without = adapt_prompt(a, brand, data, None)
+    print("\n=== ADAPT PROMPT ===")
+    print(with_brain)
+    print("\n=== END ===")
+    print(f"sha256 with brain:    {hashlib.sha256(with_brain.encode()).hexdigest()}")
+    print(f"sha256 brain=None:    {hashlib.sha256(without.encode()).hexdigest()}")
+    print(f"identical: {with_brain == without}")
+    return 0
+
 
 def refund(key, a, why):
     """Give the allowance charge back for an entry that produced nothing.
@@ -4063,6 +4160,11 @@ def main():
     ap.add_argument("--refresh-views-now", action="store_true",
                     help="refresh now and exit, whatever is queued. For manual runs and "
                          "verification — bypasses the idle-only gate on --refresh-views.")
+    ap.add_argument("--dry-prompt", metavar="CREATOR_UUID", default=None,
+                    help="print the adapt prompt this creator's newest finished branded "
+                         "script would be written from, including the brain block. Makes NO "
+                         "API call and writes nothing. Prints their own captions — keep it "
+                         "off any public surface.")
     ap.add_argument("--views-per-pass", type=int, default=VIEWS_PER_PASS,
                     help="most lynxr_sources rows to refresh per pass (default VIEWS_PER_PASS "
                          "env, else 3)")
@@ -4110,6 +4212,12 @@ def main():
         # task, not a pass over queued work.
         refresh_views(key, args.views_per_pass)
         return
+
+    if args.dry_prompt:
+        # A side task, same pattern as above: returns before any pass over queued work.
+        # Reads the brain IGNORING the flag, so the owner can see what the block WOULD be.
+        # No model call, no write.
+        return dry_prompt(key, args.dry_prompt.strip().lower())
 
     # Shadows the module-level wants_work with one bound to this run's args, so
     # the four call sites below keep reading wants_work(a) unchanged. `_w=`
