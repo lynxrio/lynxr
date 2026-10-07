@@ -4991,13 +4991,24 @@ let LINKWALL_PRESSES = 0;      // close attempts since it opened, this page load
 let LINKWALL_RELEASED = false; // a username was added; never goes back to false within a page load (a wall, not a tripwire)
 let LINKWALL_ADDED = [];       // what the form saved, in case the profiles re-read that follows it fails
 let LINKWALL_TIMER = null;
+// ONE PLATFORM AT A TIME, Instagram then TikTok. There was a platform dropdown beside the field; the owner rejected it
+// 2026-10-07 ("dont do the dropdown on the left, i hate that"). A step knows its own platform, so the select is gone.
+// BOTH ARE MANDATORY (owner, 2026-10-07: "dont allow a i dont post on instagram, both are mandatory"). There is no
+// skip and no "I don't post here": the wall releases only when both are linked. The cost is deliberate and known — a
+// creator who genuinely posts on one platform has to reach hello@lynxr.io, which is why that link is always visible.
+const LINKWALL_STEPS = ["instagram", "tiktok"];
 const LINKWALL_NOTES = [
   "Link the account you post on and lynxr starts following what your videos do.",
   "You'll need to link at least one account to carry on.",
   `This is how ${AGENCY_NAME} sees what your videos did, and how lynxr learns what works for you. Nothing else reads it.`,
-  "Still stuck? Email hello@lynxr.io and we'll sort it with you.",
 ];
 const LINKWALL_FOCUSABLE = 'button:not([disabled]), select, input, a[href]';
+
+/** The platform this step is asking for, or null once both have been answered. */
+function linkWallStep() {
+  const have = new Set((Array.isArray(PROFILES) ? PROFILES : []).concat(LINKWALL_ADDED).map((p) => p.platform));
+  return LINKWALL_STEPS.find((pl) => !have.has(pl)) || null;
+}
 
 const linkWallEl = () => document.getElementById("linkwall");
 const linkWallIsOpen = () => { const m = linkWallEl(); return !!m && !m.hidden; };
@@ -5019,9 +5030,6 @@ function ensureLinkWall() {
       <h2 class="linkwall-q" id="linkwall-q"></h2>
       <div class="linkwall-rows" id="linkwall-rows"></div>
       <form class="linkwall-add" id="linkwall-form" novalidate>
-        <select class="linkwall-plat" id="linkwall-plat" aria-label="Platform">
-          <option value="tiktok">TikTok</option><option value="instagram">Instagram</option>
-        </select>
         <input type="text" class="linkwall-in" id="linkwall-in" placeholder="@name or profile link" autocomplete="off"
           autocapitalize="off" spellcheck="false" aria-label="Username" aria-describedby="linkwall-note">
         <button type="submit" class="btn" id="linkwall-add">Add</button>
@@ -5043,18 +5051,17 @@ function ensureLinkWall() {
   input.addEventListener("input", () => { input.removeAttribute("aria-invalid"); q("#linkwall-err").hidden = true; });
   q("#linkwall-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const sel = q("#linkwall-plat"), btn = q("#linkwall-add");
-    if (btn.disabled) return;
-    const p = parseHandle(input.value, sel.value);                                  // creator.js parseHandle()
+    const want = linkWallStep(), btn = q("#linkwall-add");
+    if (btn.disabled || !want) return;
+    const p = parseHandle(input.value, want);                                       // creator.js parseHandle()
     if (!p.ok) return linkWallErr(HANDLE_WHY[p.why]);
-    if (p.platform && p.platform !== sel.value) return linkWallErr(HANDLE_WHY[`wrong_${sel.value}`]);
+    if (p.platform && p.platform !== want) return linkWallErr(HANDLE_WHY[`wrong_${want}`]);
     btn.disabled = true;
-    const r = await saveProfile(sel.value, p.handle);     // set_my_profile; on success it has already re-read PROFILES and repainted this
+    const r = await saveProfile(want, p.handle);          // set_my_profile; on success it has already re-read PROFILES and repainted this
     btn.disabled = false;
     if (r && r.ok) {
-      // ok:true IS the release. If the re-read after it failed, PROFILES is stale, so what was just saved is kept here too.
-      LINKWALL_ADDED.push({ platform: sel.value, handle: p.handle });
-      LINKWALL_RELEASED = true;
+      // If the re-read after it failed, PROFILES is stale, so what was just saved is kept here too.
+      LINKWALL_ADDED.push({ platform: want, handle: p.handle });
       input.value = "";
       paintLinkWall(true);
     } else linkWallErr(HANDLE_WHY[r?.why] || HANDLE_WHY.network);
@@ -5075,10 +5082,14 @@ function paintLinkWall(moveFocus = false) {
   const modal = linkWallEl();
   if (!modal) return;
   const have = Array.isArray(PROFILES) && PROFILES.length ? PROFILES : LINKWALL_ADDED;
-  if (have.length) LINKWALL_RELEASED = true;
+  const at = linkWallStep();
+  // RELEASED only when BOTH platforms are linked: linkWallStep() returns null exactly then.
+  if (!at && have.length) LINKWALL_RELEASED = true;
   const rel = LINKWALL_RELEASED;
   const q = (id) => modal.querySelector(id);
-  q("#linkwall-q").textContent = rel ? "Almost there" : "Where do you post your videos?";
+  q("#linkwall-q").textContent = rel ? "Almost there"
+    : at ? `Link your ${PLAT_NAME[at] || at}`
+    : "Link the account you post on";
   const rows = q("#linkwall-rows");
   rows.textContent = "";
   for (const p of have) {
@@ -5095,6 +5106,8 @@ function paintLinkWall(moveFocus = false) {
   }
   q("#linkwall-form").hidden = rel;
   q("#linkwall-go").hidden = !rel;
+  const inp = q("#linkwall-in");
+  if (at) inp.setAttribute("aria-label", `Your ${PLAT_NAME[at] || at} username`);
   const sub = q("#linkwall-sub");
   if (rel) {
     // Not "lynxr starts tracking tonight" on its own: tracking waits for the bio code to be found, so the promise is conditional.
