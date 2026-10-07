@@ -326,6 +326,20 @@ T._ROOM["v"] = None
 check("apify_ok: ledger unknown -> closed", T.apify_ok(), False)
 T._ROOM["v"] = (0.0, 5.0)
 
+# tt_list: a profile with nothing posted is EMPTY, not unreadable.
+# yt-dlp exits non-zero and says so on stderr; before 2026-10-07 that was indistinguishable from a blocked read, and a
+# verified creator who simply had not posted yet was recorded as a scan failure.
+_REAL_RUN = T.ytdlp_run
+T.ytdlp_run = lambda args, timeout: (None, "ERROR: [tiktok:user] newbie: This account does not have any videos posted")
+check("tt_list: nothing posted -> [] not None", T.tt_list("newbie"), [])
+T.ytdlp_run = lambda args, timeout: (None, "ERROR: [tiktok:user] x: Unable to download webpage: HTTP Error 403")
+check("tt_list: a blocked read is still None", T.tt_list("blocked"), None)
+T.ytdlp_run = lambda args, timeout: (None, "")
+check("tt_list: no stderr at all is still None", T.tt_list("quiet"), None)
+T.ytdlp_run = lambda args, timeout: ({"entries": [{"id": "1"}]}, "")
+check("tt_list: entries pass through", T.tt_list("ok"), [{"id": "1"}])
+T.ytdlp_run = _REAL_RUN
+
 # the handle guard on the new fetchers: no subprocess, no request
 import subprocess as _sp
 _real_run = _sp.run
@@ -443,7 +457,12 @@ check("scan mismatch: changed, verified_at cleared, nothing inserted",
 r = setup_world([("lynxr_profiles", (200, [PROF_TT]))])
 T.tt_list = lambda h: None
 s1 = T.scan_pass("k", NOW)
-check("scan failure: unavailable + last_scan_at", (s1["scan_failed"], r.writes()[0][2]["status"], "last_scan_at" in r.writes()[0][2]), (1, "unavailable", True))
+# A failed scan moves last_scan_at and NOTHING ELSE. It must not write `status`: this lane only runs on profiles whose
+# verified_at is set, so a scan outcome there overwrites the verification state and the app tells a verified creator
+# their profile failed.
+check("scan failure: last_scan_at only, status untouched",
+      (s1["scan_failed"], "status" in r.writes()[0][2], "last_scan_at" in r.writes()[0][2], "verified_at" in r.writes()[0][2]),
+      (1, False, True, False))
 
 # scan: an insert that did not land must not move the watermark
 r = setup_world([("lynxr_profiles", (200, [PROF_TT])), ("on_conflict=creator_id,canonical_url", (500, None))])

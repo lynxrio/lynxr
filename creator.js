@@ -7348,6 +7348,14 @@ function profStatus(p) {
   const out = (line, check) => ({ line, check });
   const spent = p.platform === "instagram" && Number(p.verify_tries) >= IG_VERIFY_TRIES;
   let r;
+  // verified_at WINS over status. The scan lane used to write its own outcome into `status`, so a correctly verified
+  // creator whose profile simply could not be listed that hour was told "TikTok didn't answer" — or, for an account
+  // with nothing posted yet, was shown as broken when nothing was. The pipeline no longer does that, but rows written
+  // before 2026-10-07 still carry it, and only `changed`/`taken` legitimately revoke a verification (both clear
+  // verified_at in the same write).
+  if (p.verified_at && p.status !== "changed" && p.status !== "taken") {
+    return out("Verified. You can take the code out of your bio.", false);
+  }
   switch (p.status) {
     case "verified": return out("Verified. You can take the code out of your bio.", false);
     case "private": return out("This profile is private, so lynxr can't read it.", false);

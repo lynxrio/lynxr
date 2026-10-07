@@ -605,27 +605,42 @@ def ig_gate(tier):
     return ok
 
 
-def ytdlp_json(args, timeout):
-    """yt-dlp's --dump-single-json for `args`, or None. Quiet, no cache, no shell."""
+def ytdlp_run(args, timeout):
+    """(parsed json or None, stderr text). Quiet, no cache, no shell. The stderr is kept because yt-dlp says WHY it
+    failed there, and one of its failures — a profile with nothing posted — is not a failure at all."""
     try:
         r = subprocess.run([P.yt_dlp_bin(), "-q", "--no-warnings", "--no-cache-dir", "--socket-timeout", "20", *args],
                            capture_output=True, text=True, timeout=timeout)
+        err = (r.stderr or "")[:400]
         if r.returncode != 0 or not r.stdout.strip():
-            return None
+            return None, err
         d = json.loads(r.stdout)
-        return d if isinstance(d, dict) else None
+        return (d if isinstance(d, dict) else None), err
     except Exception:  # noqa: BLE001
-        return None
+        return None, ""
+
+
+def ytdlp_json(args, timeout):
+    """yt-dlp's --dump-single-json for `args`, or None. Quiet, no cache, no shell."""
+    return ytdlp_run(args, timeout)[0]
+
+
+# yt-dlp ERRORS on a profile that exists but has posted nothing, so a brand-new creator who has done everything right
+# looked exactly like an unreadable account. Measured 2026-10-07 on a real creator: verified on both platforms, code in
+# her bio, 0 followers and 0 videos — recorded as a scan failure for a day. The phrase is yt-dlp's own.
+TT_EMPTY_PROFILE = "does not have any videos posted"
 
 
 def tt_list(handle):
     """The newest TikTok entries of a profile (a list, possibly empty), or None when yt-dlp could not read it."""
     if not good_handle(handle):
         return None
-    d = ytdlp_json(["--flat-playlist", "--playlist-end", str(TRACK_TT_LIST_LIMIT), "--dump-single-json",
-                    f"https://www.tiktok.com/@{handle}"], 90)
+    d, err = ytdlp_run(["--flat-playlist", "--playlist-end", str(TRACK_TT_LIST_LIMIT), "--dump-single-json",
+                        f"https://www.tiktok.com/@{handle}"], 90)
     if d is None:
-        return None
+        # A readable profile with nothing on it is an EMPTY list, not a failure: there is nothing wrong with the
+        # creator or with us, and the next post will be picked up normally.
+        return [] if TT_EMPTY_PROFILE in (err or "") else None
     entries = d.get("entries")
     return entries if isinstance(entries, list) else []
 
@@ -765,7 +780,12 @@ def scan_profile(key, r, now, stats):
         raw = None if items is None else [ig_item_to_post(i) for i in items]
         stats["scanned_ig"] += 1
     if raw is None:
-        rest(key, where, method="PATCH", body={"last_scan_at": now_iso, "status": "unavailable"}, prefer="return=minimal")
+        # DO NOT TOUCH `status` HERE. This lane only ever runs on a profile whose verified_at is set (see due_scan and
+        # due_followers), so writing a scan outcome into `status` overwrites the VERIFICATION state with scan health —
+        # and the app then tells a correctly verified creator that the platform "didn't answer". Scan health already
+        # has its own columns: last_scan_at moves every attempt, last_scan_ok_at only on success, so a stale pair is
+        # the signal. (The owner-mismatch branch below is different: that genuinely un-verifies the profile.)
+        rest(key, where, method="PATCH", body={"last_scan_at": now_iso}, prefer="return=minimal")
         stats["scan_failed"] += 1
         return
     posts = [x for x in raw if x and x["video"]]
