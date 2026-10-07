@@ -3,7 +3,7 @@
  "as_of": "2026-10-06",
  "platform": "instagram",
  "handle": "collegewithgawin",
- "note": "lynxr's cofounder's own public reels, shown with his OK (owner, 2026-10-06). Numbers read once through pipeline/showcase.py's Apify reader on as_of; posted dates are UTC. Not made with lynxr: never label them so.",
+ "note": "lynxr's cofounder's own public videos, shown with his OK (owner, 2026-10-06). Numbers read once on as_of (an entry's own as_of overrides the file's): Instagram through pipeline/showcase.py's Apify reader, YouTube through yt-dlp; posted dates are UTC. The file's platform and handle are the default; an entry may name its own. 2026-10-07: the two repeats of the Duolingo reel (DVbnHPhju5V, DYnMsbcqzSs) replaced by his YouTube Short and his @gawstudyingtoday reel (owner). Same day: DW-VMnFDCai removed, it read as a repeat of the YouTube Short (owner). Not made with lynxr: never label them so.",
  "entries": [
   {
    "id": "DLloiBesrzN",
@@ -14,28 +14,25 @@
    "clip": "/assets/showcase/DLloiBesrzN.mp4"
   },
   {
-   "id": "DVbnHPhju5V",
-   "views": 1763996,
-   "posted": "2026-03-03",
-   "url": "https://www.instagram.com/reel/DVbnHPhju5V/",
-   "cover": "/assets/showcase/DVbnHPhju5V.jpg",
-   "clip": "/assets/showcase/DVbnHPhju5V.mp4"
+   "id": "oYroN6KecJo",
+   "platform": "youtube",
+   "handle": "gawintheory",
+   "views": 1819171,
+   "posted": "2026-04-04",
+   "as_of": "2026-10-07",
+   "url": "https://www.youtube.com/shorts/oYroN6KecJo",
+   "cover": "/assets/showcase/oYroN6KecJo.jpg",
+   "clip": "/assets/showcase/oYroN6KecJo.mp4"
   },
   {
-   "id": "DYnMsbcqzSs",
-   "views": 215545,
-   "posted": "2026-05-21",
-   "url": "https://www.instagram.com/reel/DYnMsbcqzSs/",
-   "cover": "/assets/showcase/DYnMsbcqzSs.jpg",
-   "clip": "/assets/showcase/DYnMsbcqzSs.mp4"
-  },
-  {
-   "id": "DW-VMnFDCai",
-   "views": 206890,
-   "posted": "2026-04-11",
-   "url": "https://www.instagram.com/reel/DW-VMnFDCai/",
-   "cover": "/assets/showcase/DW-VMnFDCai.jpg",
-   "clip": "/assets/showcase/DW-VMnFDCai.mp4"
+   "id": "DYps23PCZVG",
+   "handle": "gawstudyingtoday",
+   "views": 330682,
+   "posted": "2026-05-22",
+   "as_of": "2026-10-07",
+   "url": "https://www.instagram.com/reel/DYps23PCZVG/",
+   "cover": "/assets/showcase/DYps23PCZVG.jpg",
+   "clip": "/assets/showcase/DYps23PCZVG.mp4"
   },
   {
    "id": "DOPr-EnjPo-",

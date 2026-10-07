@@ -454,6 +454,15 @@ if (BAR_INTRO && scrollY <= 8) {
   BAR_INTRO.classList.add("hx-bar-intro");
   if (!PERF.on) addEventListener("DOMContentLoaded", () => setTimeout(barIntroEnd, 2200));
 }
+/* IT STAYS ONCE IT HAS COME DOWN (owner, 2026-10-07: "once i scroll back up to see the nav bar have it just stay there and
+   not disappear"). The first time the page scrolls past 8px (site.js's .is-scrolled, same threshold) the bar is marked
+   .hx-bar-stay for the rest of the page view, and app.css keeps it down from then on, at the top too. The x stays in it
+   with the bar (perform: docked). */
+if (BAR_INTRO) {
+  const stay = () => { if (scrollY > 8) { BAR_INTRO.classList.add("hx-bar-stay"); removeEventListener("scroll", stay); } };
+  addEventListener("scroll", stay, { passive: true });
+  stay();
+}
 
 addEventListener("DOMContentLoaded", () => {
   if (!PERF.on || HX.over) return;
@@ -900,8 +909,10 @@ function perform() {
      "lynxr" — the logo again, shrinking to the logo's size as it arrives, with a little wave — and rides there (both are
      fixed to the screen, so nothing lags). Back at the top the bar goes up and the x flies home to the video card. No pointer
      while it is in the bar: a tap there is a tap on the home link. This replaces the guide that hopped between stations
-     (earlier the same day); the plans have x's of their own now (planBuddies, below). */
-  const docked = () => scrollY > 8;
+     (earlier the same day); the plans have x's of their own now (planBuddies, below).
+     IT STAYS IN THE BAR TOO (owner, 2026-10-07: "have the x stay in the nav bar too"): once the bar stays down
+     (.hx-bar-stay, above) the x counts as docked even at the top, so it never flies home again this page view. */
+  const docked = () => scrollY > 8 || !!BAR_INTRO?.classList.contains("hx-bar-stay");
   const dockPos = () => { const r = logo.getBoundingClientRect(); return { x: r.left + r.height / 2, y: r.bottom, s: r.height }; };
   const destPos = (d) => {
     if (d === "dock") return dockPos();

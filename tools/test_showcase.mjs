@@ -115,6 +115,16 @@ check("founder: a bad clip is dropped, not the video", S.cleanFounder(fj([fe("AA
 check("founder: at most five", S.cleanFounder(fj([1, 2, 3, 4, 5, 6, 7].map((k) => fe(`VIDEO${k}`, k)))).entries.length, 5);
 check("founder: wrong platform -> nothing", S.cleanFounder(fj([fe("AAAAA1", 10)], { platform: "tiktok" })).entries.length, 0);
 check("founder: tag reads as the cofounder", S.tagText("founder"), ["", "lynxr cofounder"]);
+// an entry may carry its own platform, handle and as_of (owner, 2026-10-07: his YouTube Short and second Instagram)
+const yt = { id: "oYroN6KecJo", views: 50, posted: "2026-04-04", url: "https://www.youtube.com/shorts/oYroN6KecJo", platform: "youtube", handle: "gawintheory", as_of: "2026-10-07", cover: "/assets/showcase/oYroN6KecJo.jpg" };
+const F2 = S.cleanFounder(fj([fe("AAAAA1", 10), yt, fe("BBBBB2", 30, { handle: "gawstudyingtoday" })]));
+check("founder: per-entry platform/handle/as_of", F2.entries.map((e) => `${e.platform}:${e.handle}:${e.views_on}`).join(","),
+  "youtube:gawintheory:2026-10-07,instagram:gawstudyingtoday:2026-10-06,instagram:collegewithgawin:2026-10-06");
+check("founder: a youtube entry needs a shorts link", S.cleanFounder(fj([{ ...yt, url: "https://www.youtube.com/watch?v=oYroN6KecJo" }])).entries.length, 0);
+check("founder: an instagram link under youtube is dropped", S.cleanFounder(fj([{ ...yt, url: "https://www.instagram.com/reel/AAAAA1/" }])).entries.length, 0);
+check("founder: a bad per-entry handle is dropped", S.cleanFounder(fj([fe("AAAAA1", 10, { handle: "Not Valid" })])).entries.length, 0);
+check("founder: tiktok is not a founder platform", S.cleanFounder(fj([fe("AAAAA1", 10, { platform: "tiktok" })])).entries.length, 0);
+check("profile: youtube", S.profileUrl("youtube", "gawintheory"), "https://www.youtube.com/@gawintheory");
 
 console.log(failed ? `\n${failed} FAILED` : "\nALL OK");
 process.exit(failed ? 1 : 0);

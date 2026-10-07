@@ -42,8 +42,9 @@
   const URL_RE = {
     tiktok: /^https:\/\/www\.tiktok\.com\/@[a-z0-9._]{1,30}\/video\/\d{5,25}\/?$/,
     instagram: /^https:\/\/www\.instagram\.com\/(reel|reels|p)\/[A-Za-z0-9_-]{5,40}\/?$/,
+    youtube: /^https:\/\/www\.youtube\.com\/shorts\/[A-Za-z0-9_-]{11}\/?$/,   // the cofounder's file only (cleanEntry keeps to TikTok/Instagram)
   };
-  const PLAT_NAME = { tiktok: "TikTok", instagram: "Instagram" };
+  const PLAT_NAME = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube" };
   const DEV_MODES = ["sample", "few", "notypical", "error", "slow"];
 
   // ── pure (tested in node) ─────────────────────────────────────────────────────────────────────
@@ -113,18 +114,24 @@
   }
 
   /** founder.json -> { entries, typical: null, founder: true }: every entry checked as strictly as an RPC one, its media
-      only from /assets/showcase/. Anything that does not look exactly right is dropped. Most viewed first, at most 5. */
+      only from /assets/showcase/. Anything that does not look exactly right is dropped. Most viewed first, at most 5.
+      The file's platform and handle are the default; an entry may name its own (owner, 2026-10-07: his YouTube Short and
+      his second Instagram account), and its link must be that platform's. Its own as_of overrides the file's too. */
   function cleanFounder(json) {
     const out = { entries: [], typical: null, founder: true };
-    if (!json || typeof json !== "object" || json.platform !== "instagram") return out;
-    if (typeof json.handle !== "string" || !HANDLE_RE.test(json.handle) || !isYmd(json.as_of)) return out;
+    if (!json || typeof json !== "object" || !isYmd(json.as_of)) return out;
     for (const e of Array.isArray(json.entries) ? json.entries : []) {
       if (!e || typeof e !== "object" || typeof e.id !== "string" || !/^[A-Za-z0-9_-]{5,40}$/.test(e.id)) continue;
-      if (typeof e.url !== "string" || !URL_RE.instagram.test(e.url) || !isCount(e.views, 1) || !isYmd(e.posted)) continue;
+      const platform = e.platform === undefined ? json.platform : e.platform;
+      const handle = e.handle === undefined ? json.handle : e.handle;
+      const asOf = e.as_of === undefined ? json.as_of : e.as_of;
+      if (platform !== "instagram" && platform !== "youtube") continue;
+      if (typeof handle !== "string" || !HANDLE_RE.test(handle) || !isYmd(asOf)) continue;
+      if (typeof e.url !== "string" || !URL_RE[platform].test(e.url) || !isCount(e.views, 1) || !isYmd(e.posted)) continue;
       if (typeof e.cover !== "string" || !FOUNDER_MEDIA_RE.jpg.test(e.cover)) continue;
       const clip = typeof e.clip === "string" && FOUNDER_MEDIA_RE.mp4.test(e.clip) ? e.clip : null;
-      out.entries.push({ id: e.id, platform: "instagram", handle: json.handle, url: e.url, posted: e.posted, tag: "founder",
-        views: e.views, views_on: json.as_of, points: [], followers: null, kind: "founder", coverSrc: e.cover, ...(clip ? { clipSrc: clip } : {}) });
+      out.entries.push({ id: e.id, platform, handle, url: e.url, posted: e.posted, tag: "founder",
+        views: e.views, views_on: asOf, points: [], followers: null, kind: "founder", coverSrc: e.cover, ...(clip ? { clipSrc: clip } : {}) });
     }
     out.entries.sort((a, b) => b.views - a.views);
     out.entries = out.entries.slice(0, 5);
@@ -169,8 +176,8 @@
     return points.map((p) => `${r(((p[0] - d0) / (dN - d0)) * w)},${r(h - (p[1] / max) * (h - 4))}`).join(" ");
   }
 
-  const profileUrl = (platform, handle) => (platform === "instagram"
-    ? `https://www.instagram.com/${handle}/` : `https://www.tiktok.com/@${handle}`);
+  const profileUrl = (platform, handle) => (platform === "instagram" ? `https://www.instagram.com/${handle}/`
+    : platform === "youtube" ? `https://www.youtube.com/@${handle}` : `https://www.tiktok.com/@${handle}`);
 
   /** [boldPart, rest] of the connection label, or null. The company name keeps its own case (the caller wraps it in .entity). */
   function tagText(tag) {

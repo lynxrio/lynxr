@@ -7455,6 +7455,15 @@
      either, so nothing keeps room for one. */
   html body.home .lp-bar { position: fixed; top: 0; left: 0; right: 0; }
   html body.home .hx { --hx-bar-h: 0px; }
+  /* ROOM UNDER THE BAR (owner, 2026-10-07: "make the gap between the nav bar and the meat and potatoes of the landing page a
+     larger gap"). The bar stays down once it has come down (.hx-bar-stay), and the hero centred on the whole screen left
+     its content 30px under it at 1440x900 and 1px at 1280x800 (measured). So on the split layout the halves start below
+     the bar's 63px plus a 56px gap, and the showcase card gives up that height (it was the screen less 128px: 56 + 56 + 16).
+     A phone's hero already starts 84px down (below). */
+  @media (min-width: 641px) {
+    html body.home :is(.hx-l, .hx-r) { padding-top: calc(63px + 56px); }
+    html body.home .hx-panel.sc-on { --sc-h: clamp(440px, calc(100svh - 63px - 56px - 56px - 16px), 800px); }
+  }
   html:has(> body.home) { scroll-padding-top: 76px; }
   html body.home .lp-bar::before {
     content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
@@ -7462,7 +7471,8 @@
     border-bottom: 1px solid var(--line); box-shadow: 0 8px 28px rgba(60, 30, 110, .07);
     transform: translateY(-101%); transition: transform .3s var(--ease-bar);
   }
-  html body.home .lp-bar:is(.is-scrolled, .hx-bar-intro, :has(:focus-visible), .lp-menu-live)::before { transform: none; }
+  /* .hx-bar-stay (home.js, owner 2026-10-07: "have it just stay there and not disappear"): once it has come down it stays down */
+  html body.home .lp-bar:is(.is-scrolled, .hx-bar-intro, .hx-bar-stay, :has(:focus-visible), .lp-menu-live)::before { transform: none; }
   html body.home .lp-bar-in {
     max-width: 1200px; min-height: 63px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 32px);
     border: 0; border-radius: 0; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
@@ -7482,7 +7492,7 @@
     transition: opacity .18s ease, transform .3s var(--ease-bar), visibility 0s linear .3s;
   }
   /* .lp-menu-live too: an open menu locks the page at scrollY 0 (site.js), which drops .is-scrolled — the × must stay */
-  html body.home .lp-bar:is(.is-scrolled, .hx-bar-intro, :has(:focus-visible), .lp-menu-live) :is(.lp-nav, .lp-actions) {
+  html body.home .lp-bar:is(.is-scrolled, .hx-bar-intro, .hx-bar-stay, :has(:focus-visible), .lp-menu-live) :is(.lp-nav, .lp-actions) {
     opacity: 1; visibility: visible; transform: none;
     transition: opacity .24s ease .05s, transform .3s var(--ease-bar), visibility 0s;
   }
@@ -7517,10 +7527,10 @@
   html body.home .lp-bar .wordmark .hx-wl:nth-child(3) { transition-delay: .1s; }
   html body.home .lp-bar .wordmark .hx-wl:nth-child(4) { transition-delay: .15s; }
   html body.home .lp-bar .wordmark .hx-wl:nth-child(5) { transition-delay: .2s; }
-  html body.home .lp-bar:not(.is-scrolled):not(.hx-bar-intro):not(:has(:focus-visible)):not(.lp-menu-live) .wordmark.hx-word-out .hx-wl {
+  html body.home .lp-bar:not(.is-scrolled):not(.hx-bar-intro):not(.hx-bar-stay):not(:has(:focus-visible)):not(.lp-menu-live) .wordmark.hx-word-out .hx-wl {
     opacity: 0; transform: translate(7px, 3px); filter: blur(3px);
   }
-  html body.home .lp-bar:not(.is-scrolled):not(.hx-bar-intro):not(:has(:focus-visible)):not(.lp-menu-live) .wordmark.hx-word-out { pointer-events: none; }
+  html body.home .lp-bar:not(.is-scrolled):not(.hx-bar-intro):not(.hx-bar-stay):not(:has(:focus-visible)):not(.lp-menu-live) .wordmark.hx-word-out { pointer-events: none; }
   /* the mark's spot closes while the letters are invisible, so instantly: nothing seen slides */
   html body.home .lp-bar a.wordmark.hx-word-out.hx-perf-gone, html body.home .lp-bar a.wordmark.hx-word-out.hx-perf-gone .mark { transition: none; }
   @media (prefers-reduced-motion: reduce) { html body.home .lp-bar .wordmark .hx-wl { transition: none; } }
