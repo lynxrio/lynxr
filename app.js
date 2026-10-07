@@ -10534,7 +10534,7 @@ function renderOps() {
     alarmsHost.innerHTML = opsErrorHtml(OPS_ERR);
     // A stale render must never sit above an error — clear every other
     // section rather than leaving whatever the last good fetch painted.
-    for (const id of ["ops-late", "ops-running", "ops-stats", "ops-spend", "ops-spend-note", "ops-fixed"]) {
+    for (const id of ["ops-late", "ops-running", "ops-stats", "ops-spend", "ops-spend-note", "ops-fixed", "ops-fixer"]) {
       const el = document.getElementById(id);
       if (el) el.innerHTML = "";
     }
@@ -10543,6 +10543,7 @@ function renderOps() {
   }
 
   renderOpsAlarms();
+  renderOpsFixer();
   renderOpsLate();
   renderOpsRunning();
   renderOpsStats();
@@ -10589,7 +10590,8 @@ function renderOpsAlarms() {
 
   if (!alarms.length) {
     host.innerHTML = freshness + `<p class="bp-hint">Nothing is broken. Last full check
-      ${escapeHtml(agoLabel(snapshot.at))} by the ${escapeHtml(snapshot.role || "")} checker.</p>`;
+      ${escapeHtml(agoLabel(snapshot.at))} by the ${escapeHtml(snapshot.role || "")} checker.</p>`
+      + `<p class="bp-hint">${escapeHtml(opsCanaryText())}</p>`;
     return;
   }
 
@@ -10611,6 +10613,40 @@ function renderOpsAlarms() {
   host.innerHTML = freshness + `<div class="table-wrap"><table>
     <thead><tr><th>alarm</th><th>state</th><th>open for</th><th>detail</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
+}
+
+/** "What the fixer did": the lynxr_ops `fixer.act.*` rows pipeline/fixer.py writes
+    (one per action it took or declined to take) and the `fixer.pause` state.
+    Reads the same OPS object as every other Ops section and fetches nothing.
+    A pull-request link renders only when it is exactly a lynxr pull-request URL,
+    so a row can never put another destination on the page. */
+function renderOpsFixer() {
+  const host = document.getElementById("ops-fixer");
+  const pill = document.getElementById("ops-fixer-state");
+  if (!host) return;
+  const pause = OPS.ops["fixer.pause"]?.value || {};
+  const until = pause.until ? new Date(pause.until) : null;
+  const paused = !!pause.off || (until && until.getTime() > Date.now());
+  if (pill) pill.textContent = paused ? (pause.off ? "paused" : `paused until ${until.toLocaleString()}`) : "on";
+  const rows = Object.entries(OPS.ops)
+    .filter(([k]) => k.startsWith("fixer.act."))
+    .map(([, e]) => e.value || {})
+    .sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")))
+    .slice(0, 30);
+  if (!rows.length) { host.innerHTML = `<p class="bp-hint">The fixer has not acted yet.</p>`; return; }
+  const PR = /^https:\/\/github\.com\/lynxrio\/lynxr\/pull\/\d+$/;
+  const tone = (o) => (["verified", "done", "pr", "no-change"].includes(o) ? " good"
+    : ["unverified", "failed", "brain-failed", "pr-failed"].includes(o) ? " bad" : "");
+  host.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>when</th><th>incident</th><th>what it did</th><th>result</th><th>detail</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr>
+      <td>${escapeHtml(agoLabel(r.at))}</td>
+      <td>${escapeHtml(String(r.incident || ""))}<br><span class="chip">tier ${escapeHtml(String(r.tier ?? "?"))}</span></td>
+      <td>${escapeHtml(String(r.action || ""))}</td>
+      <td><span class="chip${tone(r.outcome)}">${escapeHtml(String(r.outcome || ""))}</span></td>
+      <td class="dim">${escapeHtml(String(r.detail || ""))}${PR.test(String(r.pr || ""))
+        ? ` <a href="${escapeHtml(r.pr)}" target="_blank" rel="noopener noreferrer">pull request</a>` : ""}</td>
+    </tr>`).join("")}</tbody></table></div>`;
 }
 
 function renderOpsLate() {
@@ -10928,6 +10964,19 @@ function opsFreshness() {
   };
 }
 
+/** One sentence on when the script pipeline was last PROVEN to work. Reads
+    lynxr_ops `canary.health` (written by pipeline/canary.py, which runs known-good
+    public videos through the real script path while the Fly worker is idle).
+    An all-clear should say that as well as "nothing alarmed": no alarm can also
+    mean nothing has looked. Plain text; callers escape it. */
+function opsCanaryText() {
+  const v = OPS?.ops?.["canary.health"]?.value;
+  if (!v || !v.at) return "The pipeline canary has not reported yet.";
+  if (v.paused) return "The pipeline canary is paused.";
+  const full = v.last_full_at ? ` Last run with the model ${agoLabel(v.last_full_at)}.` : " No run with the model yet.";
+  return `Pipeline canary ${v.ok ? "passed" : "failed"} ${agoLabel(v.at)}.` + full;
+}
+
 /** The Issues tile's verdict, as data rather than markup. Four levels, and only
     one of them is reassuring:
 
@@ -10983,7 +11032,7 @@ function opsIssuesState() {
     return fresh.stale ? unknown(fresh.text) : {
       level: "clear", head: "Nothing is broken",
       chips: [{ text: "all clear", tone: "good" }],
-      why: `Last full check ${agoLabel(snapshot.at)} by the ${snapshot.role || "unnamed"} checker.`,
+      why: `Last full check ${agoLabel(snapshot.at)} by the ${snapshot.role || "unnamed"} checker. ` + opsCanaryText(),
       caveat: "", rows: [],
       // What "nothing is broken" does and does not cover, said on the first
       // screen rather than left for the lede of a section below the fold.

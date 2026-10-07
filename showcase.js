@@ -31,6 +31,13 @@
   const ROTATE_MS = 6000;
   const PASTE_KEY = "lynxr_pending_paste";
   const COVER_RE = /^showcase\/[a-f0-9]{12}-[a-f0-9]{16}\.jpg$/;
+  const CLIP_RE = /^showcase\/[a-f0-9]{12}-[a-f0-9]{16}\.mp4$/;   // a short muted loop beside the cover (optional)
+  /* UNTIL REAL LYNXR VIDEOS QUALIFY, OUR COFOUNDER'S OWN (owner, 2026-10-06: "make them all gawins"): a static file in this
+     repo — assets/showcase/founder.json, its covers and clips beside it — shown when showcase_public() has too few. Labelled
+     for what they are: his handle, "lynxr cofounder", when posted and the date the numbers were read. Never "made with
+     lynxr" and never "this week": they are neither. */
+  const FOUNDER_URL = "/assets/showcase/founder.json";
+  const FOUNDER_MEDIA_RE = { jpg: /^\/assets\/showcase\/[A-Za-z0-9_-]{5,40}\.jpg$/, mp4: /^\/assets\/showcase\/[A-Za-z0-9_-]{5,40}\.mp4$/ };
   const HANDLE_RE = /^[a-z0-9._]{1,30}$/;
   const URL_RE = {
     tiktok: /^https:\/\/www\.tiktok\.com\/@[a-z0-9._]{1,30}\/video\/\d{5,25}\/?$/,
@@ -72,7 +79,56 @@
       .sort((a, b) => a[0] - b[0]);
     return { id: e.id, platform: e.platform, handle: e.handle, url: e.url, cover: e.cover,
       posted: isYmd(e.posted) ? e.posted : null, tag: e.tag, views: e.views, views_on: e.views_on, points,
-      followers: cleanFollowers(e.followers) };
+      followers: cleanFollowers(e.followers), ...(typeof e.clip === "string" && CLIP_RE.test(e.clip) ? { clip: e.clip } : {}) };
+  }
+
+  /** Views a video gained in the 7 days up to its latest measurement, from the MEASURED points only, or null when that cannot
+      be known: the measurement is older than a week (not "this week"), or no point reaches back to the start of the week of
+      a video older than that. A video posted within the week gained everything it has. Never estimated past the points. */
+  function weekGain(e, today = new Date().toISOString().slice(0, 10)) {
+    const pts = Array.isArray(e && e.points) ? e.points : [];
+    if (!pts.length || !isYmd(e.views_on) || !isYmd(today)) return null;
+    const age = (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${e.views_on}T00:00:00Z`)) / 864e5;
+    if (!(age >= 0 && age <= 7)) return null;
+    const last = pts[pts.length - 1], from = last[0] - 7;
+    if (from <= 0) return last[1];
+    let prev = null;
+    for (const p of pts) {
+      if (p[0] <= from) { prev = p; continue; }
+      if (!prev) return null;
+      const t = (from - prev[0]) / (p[0] - prev[0]);
+      return Math.max(0, Math.round(last[1] - (prev[1] + t * (p[1] - prev[1]))));
+    }
+    return Math.max(0, last[1] - prev[1]);
+  }
+
+  /** THE TOP OF THE WEEK (owner, 2026-10-06: "have it say top 5 videos this week with a gold background"): the approved
+      videos with a known gain this week, most views gained first, at most `k`. The label claims "top N this week", so
+      only videos whose this-week gain was measured can be in it. */
+  function topOfWeek(entries, k = 5, today) {
+    return (entries || []).map((e, i) => ({ e, i, g: weekGain(e, today) }))
+      .filter((x) => x.g !== null && x.g > 0)
+      .sort((a, b) => b.g - a.g || a.i - b.i)
+      .slice(0, k).map((x) => x.e);
+  }
+
+  /** founder.json -> { entries, typical: null, founder: true }: every entry checked as strictly as an RPC one, its media
+      only from /assets/showcase/. Anything that does not look exactly right is dropped. Most viewed first, at most 5. */
+  function cleanFounder(json) {
+    const out = { entries: [], typical: null, founder: true };
+    if (!json || typeof json !== "object" || json.platform !== "instagram") return out;
+    if (typeof json.handle !== "string" || !HANDLE_RE.test(json.handle) || !isYmd(json.as_of)) return out;
+    for (const e of Array.isArray(json.entries) ? json.entries : []) {
+      if (!e || typeof e !== "object" || typeof e.id !== "string" || !/^[A-Za-z0-9_-]{5,40}$/.test(e.id)) continue;
+      if (typeof e.url !== "string" || !URL_RE.instagram.test(e.url) || !isCount(e.views, 1) || !isYmd(e.posted)) continue;
+      if (typeof e.cover !== "string" || !FOUNDER_MEDIA_RE.jpg.test(e.cover)) continue;
+      const clip = typeof e.clip === "string" && FOUNDER_MEDIA_RE.mp4.test(e.clip) ? e.clip : null;
+      out.entries.push({ id: e.id, platform: "instagram", handle: json.handle, url: e.url, posted: e.posted, tag: "founder",
+        views: e.views, views_on: json.as_of, points: [], followers: null, kind: "founder", coverSrc: e.cover, ...(clip ? { clipSrc: clip } : {}) });
+    }
+    out.entries.sort((a, b) => b.views - a.views);
+    out.entries = out.entries.slice(0, 5);
+    return out;
   }
 
   /** The RPC answer -> { entries, typical }. Anything that does not look exactly right is dropped, silently; nothing is ever
@@ -120,6 +176,7 @@
   function tagText(tag) {
     if (tag === "agency") return ["Lynx Media Group", " creator"];
     if (tag === "comp") return ["", "free lynxr plan"];
+    if (tag === "founder") return ["", "lynxr cofounder"];
     return null;
   }
 
@@ -150,6 +207,11 @@
 
   // ── the dev sample: reachable only through devMode(), never fetched, never in a database ──────
 
+  /* The dev sample's local covers, by entry id — looked up only when rendering the dev preview, so parsePayload's checks
+     stay exactly as strict for it as for the live answer. */
+  const DEV_COVERS = { e1: "/output/showcase-sample/DLloiBesrzN.jpg" };
+  const DEV_CLIPS = { e1: "/output/showcase-sample/DLloiBesrzN.mp4" };   // made with ffmpeg: 540x960, muted, 11s
+
   function devSample(mode) {
     const mk = (id, platform, handle, views, points, extra = {}) => ({
       id, platform, handle,
@@ -157,6 +219,14 @@
       cover: `showcase/${id.padEnd(12, "0")}-0000000000000000.jpg`, posted: "2026-09-20", tag: null,
       views, views_on: "2026-10-04", points, followers: null, ...extra });
     const day = new Date().toISOString().slice(0, 10);
+    /* ONE REAL VIDEO, for the look only (owner, 2026-10-06: "use this as a sample"): @collegewithgawin's reel, read once on
+       2026-10-06 through pipeline/showcase.py --cover-dry (Apify: 2,178,334 views, posted 2025-07-02). It is a staff
+       account and predates lynxr, so it can NEVER be a real entry; it lives in this localhost-only sample. Its cover is
+       NOT in the repo: output/showcase-sample/ is gitignored, and when the file is missing the slide falls back to the
+       gradient. One measured point, so no growth line is drawn (the card never invents one). */
+    const posted = Date.UTC(2025, 6, 2), dayN = Math.floor((Date.UTC(2026, 9, 6) - posted) / 864e5);
+    const real = { ...mk("e1", "instagram", "collegewithgawin", 2178334, [[dayN, 2178334]], { views_on: "2026-10-06", posted: "2025-07-02" }),
+      url: "https://www.instagram.com/reel/DLloiBesrzN/" };
     const four = [
       mk("a1", "tiktok", "sample.one", 120000, [[0, 1000], [1, 30000], [3, 80000], [7, 100000], [14, 120000]],
         { followers: { from: 10000, from_on: "2026-09-10", to: 12500, to_on: "2026-10-03" } }),
@@ -166,7 +236,7 @@
     ];
     if (mode === "few") return { v: 1, typical: { views: 1234, n: 40, day: 7 }, entries: four.slice(0, 2) };
     if (mode === "notypical") return { v: 1, typical: null, entries: four };
-    return { v: 1, typical: { views: 1234, n: 40, day: 7 }, entries: four };
+    return { v: 1, typical: { views: 1234, n: 40, day: 7 }, entries: [real, ...four] };
   }
 
   // ── DOM (browser only) ────────────────────────────────────────────────────────────────────────
@@ -188,6 +258,17 @@
     return a;
   }
 
+  /** "in 14 days · ", "on its first day · " or "": how fast the number came, from the last measured day after posting. */
+  function speedText(last) {
+    if (last === null || last === undefined) return "";
+    return last > 0 ? `in ${last} day${last === 1 ? "" : "s"} · ` : "on its first day · ";
+  }
+
+  /* ONE SLIDE, FULL-BLEED (owner, 2026-10-06: "have the entire box be filled with the video so the edge of the box is
+     the edge of the video and then important things people would need to see in order to be convinced this works").
+     The cover IS the slide — and the link to the post — and over it: "made with lynxr" and the platform at the top;
+     at the bottom, on a dark fade, who made it (their handle, linked, and any connection to us), the number, how fast
+     it came and that lynxr measured it, the growth line, and followers gained. */
   function buildSlide(e, i, n, dev) {
     const plat = PLAT_NAME[e.platform];
     const slide = el("article", "sc-slide");
@@ -196,25 +277,61 @@
 
     const tile = openLink(el("a", "sc-tile"), e.url);
     tile.setAttribute("aria-label", `watch @${e.handle}'s video on ${plat} (opens in a new tab)`);
-    if (dev) {
-      tile.appendChild(el("span", "sc-cover sc-cover-fake", "SAMPLE"));
+    const fake = () => el("span", "sc-cover sc-cover-fake", "SAMPLE");
+    if (e.coverSrc) {                              // the cofounder's: from this site's own /assets/showcase/
+      const img = el("img", "sc-cover");
+      img.alt = ""; img.src = e.coverSrc; img.width = 540; img.height = 960; img.decoding = "async";
+      tile.appendChild(img);
+    } else if (dev && DEV_COVERS[e.id]) {                 // the dev sample's one real video: a local, gitignored cover
+      const img = el("img", "sc-cover");
+      img.alt = ""; img.src = DEV_COVERS[e.id]; img.width = 360; img.height = 640;
+      img.addEventListener("error", () => img.replaceWith(fake()), { once: true });
+      tile.appendChild(img);
+    } else if (dev) {
+      tile.appendChild(fake());
     } else {
       const img = el("img", "sc-cover");
       img.alt = ""; img.src = `${SB_URL}/storage/v1/object/public/lynxr-covers/${e.cover}`;
       img.width = 360; img.height = 640; img.decoding = "async";
       tile.appendChild(img);
     }
-    tile.appendChild(el("span", "sc-plat", plat));
+    /* IT PLAYS (owner, 2026-10-06: "while its showing the videos on the side have it actually play the video"): a short
+       muted loop from our own storage, laid over the cover (which stays as the fallback and the first frame). Only the
+       slide on show plays (render). Not under reduced motion or Save-Data: there the cover stands alone. */
+    const clip = e.clipSrc || (dev ? DEV_CLIPS[e.id] : (e.clip ? `${SB_URL}/storage/v1/object/public/lynxr-covers/${e.clip}` : null));
+    const calm = (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+      || !!(navigator.connection && navigator.connection.saveData);
+    if (clip && !calm) {
+      const v = el("video", "sc-video");
+      v.muted = true; v.defaultMuted = true; v.loop = true; v.playsInline = true; v.preload = "none";
+      v.setAttribute("muted", ""); v.setAttribute("playsinline", ""); v.setAttribute("aria-hidden", "true");
+      v.disablePictureInPicture = true;
+      v.addEventListener("error", () => v.remove(), { once: true });
+      v.src = clip;
+      tile.appendChild(v);
+    }
     slide.appendChild(tile);
 
+
     const data = el("div", "sc-data");
-    data.appendChild(openLink(el("a", "sc-handle", `@${e.handle}`), profileUrl(e.platform, e.handle)));
+    const who = el("p", "sc-who");
+    who.appendChild(openLink(el("a", "sc-handle", `@${e.handle}`), profileUrl(e.platform, e.handle)));
+    const tag = tagText(e.tag);
+    if (tag) {
+      const t = el("span", "sc-tag");
+      if (tag[0]) t.appendChild(el("span", "entity", tag[0]));
+      t.appendChild(document.createTextNode(tag[1]));
+      who.appendChild(t);
+    }
+    data.appendChild(who);
     const big = el("p", "sc-big");
     big.appendChild(el("b", null, viewsShort(e.views)));
     big.appendChild(document.createTextNode(" views"));
     data.appendChild(big);
     const last = e.points.length ? e.points[e.points.length - 1][0] : null;
-    data.appendChild(el("p", "sc-when", `${last !== null ? `day ${last} · ` : ""}as of ${dateShort(e.views_on)}`));
+    data.appendChild(el("p", "sc-when", e.kind === "founder"
+      ? `posted ${dateShort(e.posted)} · views as of ${dateShort(e.views_on)}`
+      : `${speedText(last)}tracked by lynxr, as of ${dateShort(e.views_on)}`));
 
     const sp = sparkPoints(e.points);
     if (sp) {
@@ -231,15 +348,21 @@
     }
     const fol = followersLine(e.followers, viewsShort, dateShort);
     if (fol) data.appendChild(el("p", "sc-fol", fol));
-    const tag = tagText(e.tag);
-    if (tag) {
-      const p = el("p", "sc-tag");
-      if (tag[0]) p.appendChild(el("span", "entity", tag[0]));
-      p.appendChild(document.createTextNode(tag[1]));
-      data.appendChild(p);
-    }
     slide.appendChild(data);
     return slide;
+  }
+
+  function starIcon() {
+    const svg = svgEl("svg", { viewBox: "0 0 12 12", width: "12", height: "12", "aria-hidden": "true", focusable: "false", class: "sc-star" });
+    svg.appendChild(svgEl("path", { d: "M6 .8l1.6 3.3 3.6.5-2.6 2.5.6 3.6L6 9l-3.2 1.7.6-3.6L.8 4.6l3.6-.5z", fill: "currentColor" }));
+    return svg;
+  }
+
+  function chevron(dir) {
+    const svg = svgEl("svg", { viewBox: "0 0 12 12", width: "14", height: "14", "aria-hidden": "true", focusable: "false" });
+    svg.appendChild(svgEl("path", { d: dir < 0 ? "M7.5 2.5 4 6l3.5 3.5" : "M4.5 2.5 8 6 4.5 9.5", fill: "none", stroke: "currentColor",
+      "stroke-width": "1.8", "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    return svg;
   }
 
   function pauseIcon(paused) {
@@ -262,62 +385,165 @@
     try { if (sessionStorage.getItem(PASTE_KEY)) return keep("a link is waiting to be written"); } catch { /* ignore */ }
     if (document.hidden) return keep("tab hidden");
 
-    const entries = parsed.entries;
+    /* "top N videos this week" only when it is true: at least SHOWCASE_MIN approved videos with a measured gain this week,
+       the five biggest first. Otherwise the approved videos as ranked, under "made with lynxr". The dev sample keeps its
+       own order (placeholders, plus one real video with a single measurement) so the preview opens on the real one. */
+    const founder = !!parsed.founder;
+    const week = founder ? [] : dev === "sample" ? parsed.entries.slice(0, 5) : topOfWeek(parsed.entries);
+    const isTop = week.length >= SHOWCASE_MIN;
+    const entries = founder ? parsed.entries : isTop ? week : parsed.entries;
     const n = entries.length;
     const root = el("div", "sc");
     root.setAttribute("role", "region");
     root.setAttribute("aria-label", "made with lynxr: real videos and their measured numbers");
-    if (dev) root.appendChild(el("p", "sc-dev", "dev preview: fake sample data"));
-    root.appendChild(el("p", "sc-k", "made with lynxr"));
 
+    // the videos, full-bleed, one at a time (buildSlide)
     const stage = el("div", "sc-stage");
     stage.setAttribute("aria-live", "off");
     const slides = entries.map((e, i) => buildSlide(e, i, n, dev));
     slides.forEach((s) => stage.appendChild(s));
     root.appendChild(stage);
 
-    const nav = el("div", "sc-nav");
-    const dots = entries.map((e, i) => {
-      const b = el("button", "sc-dot-btn");
+    /* THE TOP: story bars — one per video, the current one filling over ROTATE_MS, each a button to jump there —
+       and pause. MANUAL NAVIGATION (owner, 2026-10-06: "it cycles automatically and allows the user to scroll
+       through them manually too"): the bars, ‹ › on the card's edges, a sideways swipe or drag on the video, a
+       sideways trackpad scroll, and ← → while focus is in the card. Any manual move starts the new video's bar
+       from empty, so the next automatic step is a full ROTATE_MS away. */
+    const top = el("div", "sc-top");
+    const bars = el("div", "sc-bars");
+    const segs = entries.map((e, i) => {
+      const b = el("button", "sc-seg");
       b.type = "button";
       b.setAttribute("aria-label", `video ${i + 1} of ${n}`);
-      nav.appendChild(b);
+      b.appendChild(el("i", "sc-fill"));
+      bars.appendChild(b);
       return b;
     });
+    const fills = segs.map((b) => b.firstChild);
+    top.appendChild(bars);
     const pause = el("button", "sc-pause");
     pause.type = "button";
-    nav.appendChild(pause);
-    root.appendChild(nav);
-
-    const foot = el("div", "sc-foot");
-    const typ = el("p", "sc-typ");
-    if (parsed.typical) {
-      typ.appendChild(document.createTextNode("typical lynxr creator video: "));
-      typ.appendChild(el("b", null, viewsShort(parsed.typical.views) || "0"));
-      typ.appendChild(document.createTextNode(" views after a week"));
-    } else typ.textContent = "standout results. most videos get fewer views.";
-    foot.appendChild(typ);
-    const go = el("a", "btn sc-go", "your turn →");
-    go.href = "/?signup=1";
-    go.setAttribute("data-gate", "up");
-    go.setAttribute("data-lx-spot", "");
-    foot.appendChild(go);
-    root.appendChild(foot);
-
-    // rotation: crossfade (CSS) every ROTATE_MS, except when anything below says to hold still
-    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
-    let idx = 0, paused = false, hover = false, inside = false, seen = true;
-    const show = (i) => {
-      idx = i;
-      slides.forEach((s, k) => { s.hidden = k !== i; });
-      dots.forEach((b, k) => { if (k === i) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current"); });
+    top.appendChild(pause);
+    root.appendChild(top);
+    const arrow = (dir) => {
+      const b = el("button", `sc-arrow ${dir < 0 ? "sc-prev" : "sc-next"}`);
+      b.type = "button";
+      b.setAttribute("aria-label", dir < 0 ? "previous video" : "next video");
+      b.appendChild(chevron(dir));
+      return b;
     };
+    const prev = arrow(-1), next = arrow(1);
+    if (n > 1) { root.appendChild(prev); root.appendChild(next); }
+    // the cofounder's: "top N videos" (his most viewed of the posts read), gold, never "this week" (owner kept the gold badge)
+    const gold = isTop || founder;
+    const badge = el("p", gold ? "sc-badge sc-badge-top" : "sc-badge");
+    if (gold) badge.appendChild(starIcon());
+    badge.appendChild(document.createTextNode(founder ? `top ${n} videos` : isTop ? `top ${n} videos this week` : "made with lynxr"));
+    root.appendChild(badge);
+
+    /* NO TYPICAL-RESULT LINE ON THE CARD (owner, 2026-10-06, asked twice: "get rid of this"). It was the FTC disclosure for
+       standout results (16 CFR 255.2(b)); the lawyer read must settle where that disclosure lives BEFORE this card goes
+       live (plan lynxr-showcase.md). The gate (SHOWCASE_NEED_TYPICAL) still requires the typical figure to exist. */
+
+    /* rotation: the current bar fills while nothing says to hold still (paused, hovered, focus inside, under half on
+       screen, a hidden tab, reduced motion); full, the next video comes in from the side it is coming from (CSS keys
+       on the stage's data-dir). Reduced motion: no automatic steps, no slide, no fade. */
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
+    let idx = 0, paused = false, hover = false, inside = false, seen = true, elapsed = 0, lastTick = 0;
+    const still = () => !!(reduce && reduce.matches);
+    const held = () => still() || paused || hover || inside || !seen || document.hidden;
+    const videos = slides.map((s) => s.querySelector("video"));
+    // a playing video's slide lasts its clip (4-15s); a still one ROTATE_MS
+    const slideMs = () => {
+      const v = videos[idx];
+      return v && isFinite(v.duration) && v.duration > 0 ? Math.min(15000, Math.max(4000, v.duration * 1000)) : ROTATE_MS;
+    };
+    // only the slide on show plays, and only while the card is on screen, the tab visible and nobody pressed pause
+    const syncVideo = () => {
+      videos.forEach((v, k) => {
+        if (!v) return;
+        const want = k === idx && !paused && seen && !document.hidden;
+        if (want && v.paused) v.play().catch(() => {});
+        else if (!want && !v.paused) v.pause();
+      });
+    };
+    const paintBars = () => {
+      const p = still() ? 1 : Math.min(1, elapsed / slideMs());
+      fills.forEach((f, k) => { f.style.transform = `scaleX(${k < idx ? 1 : k > idx ? 0 : p.toFixed(3)})`; });
+    };
+    const show = (i, dir = "next") => {
+      idx = ((i % n) + n) % n;
+      elapsed = 0;
+      stage.setAttribute("data-dir", dir);
+      slides.forEach((s, k) => { s.hidden = k !== idx; });
+      videos.forEach((v, k) => { if (v && k !== idx) { v.pause(); try { v.currentTime = 0; } catch { /* not loaded */ } } });
+      syncVideo();
+      segs.forEach((b, k) => { if (k === idx) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current"); });
+      root.classList.add("sc-jump");                       // the bars snap to their new state, then fill smoothly again
+      paintBars();
+      requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("sc-jump")));
+    };
+    const goTo = (i, dir) => { if (n > 1) show(i, dir); };
     const paintPause = () => {
       pause.setAttribute("aria-label", paused ? "play" : "pause");
       pause.replaceChildren(pauseIcon(paused));
     };
-    dots.forEach((b, k) => b.addEventListener("click", () => show(k)));
-    pause.addEventListener("click", () => { paused = !paused; paintPause(); });
+    segs.forEach((b, k) => b.addEventListener("click", () => goTo(k, k < idx ? "prev" : "next")));
+    prev.addEventListener("click", () => goTo(idx - 1, "prev"));
+    next.addEventListener("click", () => goTo(idx + 1, "next"));
+    root.addEventListener("keydown", (e) => {
+      if (n < 2 || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === "ArrowRight") { e.preventDefault(); goTo(idx + 1, "next"); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); goTo(idx - 1, "prev"); }
+    });
+    /* SWIPE / DRAG: a mostly-sideways move on the video (finger, pen or mouse) of 40px or more goes one video
+       that way; the slide follows the finger a little while it moves. Vertical moves stay the page's scroll
+       (app.css: touch-action: pan-y). A drag that ends on the cover is not a click on it. */
+    let drag = null, swipedAt = 0;
+    stage.addEventListener("dragstart", (e) => e.preventDefault());   // no ghost image of the cover
+    stage.addEventListener("pointerdown", (e) => {
+      if (n < 2 || (e.pointerType === "mouse" && e.button !== 0)) return;
+      drag = { x: e.clientX, y: e.clientY, id: e.pointerId, dx: 0, side: false };
+    });
+    stage.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag.dx = e.clientX - drag.x;
+      if (!drag.side && Math.abs(drag.dx) > 8 && Math.abs(drag.dx) > Math.abs(e.clientY - drag.y) * 1.2) {
+        drag.side = true;
+        stage.classList.add("sc-dragging");
+        try { stage.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      }
+      if (drag.side && !still()) slides[idx].style.transform = `translateX(${(drag.dx * 0.35).toFixed(1)}px)`;
+    });
+    const endDrag = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const d = drag;
+      drag = null;
+      stage.classList.remove("sc-dragging");
+      slides[idx].style.transform = "";
+      if (d.side && Math.abs(d.dx) >= 40) { swipedAt = performance.now(); goTo(idx + (d.dx < 0 ? 1 : -1), d.dx < 0 ? "next" : "prev"); }
+      else if (d.side) swipedAt = performance.now();
+    };
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", endDrag);
+    stage.addEventListener("click", (e) => { if (performance.now() - swipedAt < 400) { e.preventDefault(); e.stopPropagation(); } }, true);
+    // A SIDEWAYS TRACKPAD SCROLL (or shift-wheel) on the card: one video per gesture. Vertical scrolling is untouched.
+    let wheelSum = 0, wheelAt = 0, wheelLock = 0;
+    root.addEventListener("wheel", (e) => {
+      if (n < 2 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();                                   // and no browser back/forward swipe
+      const now = performance.now();
+      if (now < wheelLock) return;
+      if (now - wheelAt > 250) wheelSum = 0;
+      wheelAt = now;
+      wheelSum += e.deltaX;
+      if (Math.abs(wheelSum) > 60) {
+        goTo(idx + (wheelSum > 0 ? 1 : -1), wheelSum > 0 ? "next" : "prev");
+        wheelSum = 0;
+        wheelLock = now + 650;                              // one move per flick, however long the momentum runs
+      }
+    }, { passive: false });
+    pause.addEventListener("click", () => { paused = !paused; paintPause(); syncVideo(); });
     root.addEventListener("mouseenter", () => { hover = true; });
     root.addEventListener("mouseleave", () => { hover = false; });
     root.addEventListener("focusin", () => { inside = true; });
@@ -327,13 +553,24 @@
 
     panel.appendChild(root);
     panel.classList.add("sc-on");
+    root.style.setProperty("--sc-foot-h", "8px");   // nothing under the numbers now but the card's own edge
+    syncVideo();
+    document.addEventListener("visibilitychange", syncVideo);
     if (n > 1) {
       if ("IntersectionObserver" in window) {
         new IntersectionObserver((list) => { seen = list[list.length - 1].intersectionRatio >= 0.5; }, { threshold: [0, 0.5, 1] }).observe(panel);
       }
+      lastTick = performance.now();
       setInterval(() => {
-        if (!(reduce && reduce.matches) && !paused && !hover && !inside && seen && !document.hidden) show((idx + 1) % n);
-      }, ROTATE_MS);
+        const now = performance.now(), dt = now - lastTick;
+        lastTick = now;
+        if (!held()) {
+          elapsed += dt;
+          if (elapsed >= slideMs()) { show(idx + 1, "next"); return; }
+        }
+        syncVideo();
+        paintBars();
+      }, 100);
     }
     document.dispatchEvent(new CustomEvent("lx:spots"));    // home.js re-picks the x's target now the card has changed
     return true;
@@ -358,6 +595,14 @@
     }).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }).finally(() => clearTimeout(timer));
   }
 
+  function fetchFounder() {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), SWAP_DEADLINE_MS);
+    return fetch(FOUNDER_URL, { signal: ctl.signal, cache: "no-cache" })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(cleanFounder, () => ({ entries: [] })).finally(() => clearTimeout(timer));
+  }
+
   async function boot() {
     const keep = (why) => console.info("[showcase] kept the card:", why);
     if (!SHOWCASE_LIVE) return;
@@ -366,18 +611,24 @@
     if (!panel) return;
     try { if (localStorage.getItem("lynxr_creator_session")) return; } catch { /* ignore */ }   // signed in: straight to the app
     const dev = devMode(location.hostname, location.search);
+    const founder = dev ? null : fetchFounder();                          // in parallel: the fallback is ready when needed
+    const tryFounder = async (why) => {
+      const f = founder && await founder;
+      if (f && f.entries.length >= 2) return render(panel, f, null);
+      return keep(why);
+    };
     try {
       let parsed = parsePayload(await fetchPublic(dev));
-      if (!decide(parsed).show) return keep(decide(parsed).why);
+      if (!decide(parsed).show) return tryFounder(decide(parsed).why);
       if (!dev) {
         parsed = { ...parsed, entries: await preload(parsed.entries) };      // drop what cannot be drawn, then decide again
-        if (!decide(parsed).show) return keep(decide(parsed).why);
+        if (!decide(parsed).show) return tryFounder(decide(parsed).why);
       }
-      render(panel, parsed, !!dev);
+      render(panel, parsed, dev);
     } catch (err) {
-      keep(err && err.name === "AbortError" ? "timeout" : "no answer");
+      tryFounder(err && err.name === "AbortError" ? "timeout" : "no answer");
     }
   }
 
-  return { parsePayload, decide, devMode, sparkPoints, profileUrl, tagText, followersLine, viewsShort, dateShort, boot };
+  return { parsePayload, cleanFounder, decide, devMode, sparkPoints, profileUrl, tagText, followersLine, viewsShort, dateShort, weekGain, topOfWeek, boot };
 });

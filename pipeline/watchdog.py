@@ -47,6 +47,11 @@ PAGES THE PHONE (page: True):
                       lynxr_ops itself was not readable, so this module
                       cannot tell whether Fly is covering either (see
                       ci_failure_verdict())
+    canary            pipeline/canary.py (Fly, idle only) ran a known-good public
+                      video through the real script path and the same check failed
+                      2 passes in a row ('canary.health' in lynxr_ops). The title
+                      names the failing stage; the body carries the rollback or
+                      refresh hint. Soft stages never page.
 
 DIGEST ONLY (page: False) — still reported, once a day, in digest()'s
 "quiet:" line, never on the phone:
@@ -75,6 +80,14 @@ DIGEST ONLY (page: False) — still reported, once a day, in digest()'s
     tracking-budget   the Apify spend guard (80% of the cap) has been closed for
                       over 3 hours: Instagram checks, view counts and follower
                       counts are paused. TikTok is unaffected.
+    canary-paused     lynxr_ops 'canary.pause' is set: nothing checks the script
+                      path between real pastes.
+    canary-stale      the canary has not reported for 6 hours although the worker
+                      is up.
+    canary-soft       a soft canary stage (cover, clip, metadata, shot list, tags,
+                      thin script, the Apify fallback) failed in the last 24h.
+    canary-video      a test video in pipeline/canary.json no longer downloads
+                      (its backup does): replace it.
 
 p95 latency is DELIBERATELY not here — it lives in the daily digest instead.
 The watchdog's first-ever run failed on `p95 1548s > 60s`, and at n=7 samples
@@ -91,6 +104,8 @@ latency-watch.yml` is a SECOND external caller (plain `--once`, no
 `--as-fallback` — an observer, not a worker, so it never claims to cover
 anything). The Fly-side caller (`role="fly"`, from worker.py) can never raise
 worker-down at all, by construction — see check_all()'s comment on that.
+Those two GitHub callers also hand every newly opened paging alarm to the fixer
+agent (workflow_dispatch of fixer.yml); see _fixer_hook.
 
 NOTHING HERE MAY RAISE INTO A SCRIPT'S CRITICAL PATH. `notify()`, `ops_get`/
 `ops_put`/`ops_del`, and `run_once()` all catch Exception and keep going. A
@@ -174,6 +189,8 @@ RERUN_WINDOW_S = 48 * 3600     # widened from 24h — this is now a DIGEST line
                                # the digest go unreported by anything at all.
 FETCH_WALL_MIN = 3            # this many DISTINCT source videos refusing...
 FETCH_WALL_WINDOW_H = 6       # ...inside this window = a systemic fetch break
+CANARY_PAGE_AFTER = int(envcfg.get("CANARY_PAGE_AFTER", "2"))     # the same canary check failing this many passes in a row pages
+CANARY_STALE_H = float(envcfg.get("CANARY_STALE_H", "6"))
 SOURCES_STALL_MIN = 3         # this many finished-with-source in the window...
 SOURCES_STALL_WINDOW_H = 6    # ...and zero new lynxr_sources rows = stalled
 SOFTFAIL_LAST_N = 5
@@ -417,7 +434,7 @@ def _parse_iso(v):
 
 
 def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
-              role="external", fallback_alive=None, thumb_ceiling=None, track_health=None):
+              role="external", fallback_alive=None, thumb_ceiling=None, track_health=None, canary=None):
     """The list of currently-breached invariants, each a dict with keys
     "key", "title", "body", "priority", "tags", "page". A pure function of
     its arguments — same reason LR.build_report is pure: it has to be
@@ -438,7 +455,10 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
 
     `track_health` is lynxr_ops 'track.health''s value (or None), written by
     pipeline/track_posts.py at the end of every pass; it only ever adds the
-    digest-only tracking-stale and tracking-budget lines."""
+    digest-only tracking-stale and tracking-budget lines.
+
+    `canary` is lynxr_ops 'canary.health''s value (or None), written by
+    pipeline/canary.py."""
     now = now or datetime.now(timezone.utc)
     alarms = []
 
@@ -682,6 +702,92 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
             "priority": 2, "tags": "warning", "page": False,
         })
 
+    # ---- canary / canary-paused / canary-stale / canary-soft / canary-video ----
+    # pipeline/canary.py (Fly, idle only) writes lynxr_ops 'canary.health' after every pass; this turns it into alarms
+    # the same way track.health is read above. The canary never raises an alarm itself: run_once() clears every latch
+    # that is not in a tick's paging list, so it would read "resolved" within two minutes.
+    #   canary          PAGES when the same check has failed CANARY_PAGE_AFTER passes in a row (a first failure
+    #                   re-runs 3 minutes later, so a real break pages in about 6-10 minutes). Soft stages never page.
+    #   canary-paused   digest only: lynxr_ops 'canary.pause' is set.
+    #   canary-stale    digest only: no report for CANARY_STALE_H hours although the worker is up (so it is not just
+    #                   "Fly is down", which worker-down already covers).
+    #   canary-soft     digest only: a soft stage failed in the last 24h; scripts still deliver.
+    #   canary-video    digest only: a test video no longer downloads (its backup does).
+    # No body here carries an http URL, an email or an id over 8 characters; an image ref is a registry reference with
+    # no scheme, which is allowed.
+    cv = canary if isinstance(canary, dict) else {}
+    if cv.get("paused"):
+        alarms.append({
+            "key": "canary-paused",
+            "title": "pipeline canary paused",
+            "body": ("the pipeline canary is paused (lynxr_ops canary.pause). "
+                     "nothing checks the script path between real pastes."),
+            "priority": 2, "tags": "warning", "page": False,
+        })
+    else:
+        streaks = cv.get("streak") if isinstance(cv.get("streak"), dict) else {}
+        worst, worst_n = None, 0
+        for name, n in streaks.items():
+            if isinstance(n, int) and not isinstance(n, bool) and n > worst_n:
+                worst, worst_n = name, n
+        if worst is not None and worst_n >= CANARY_PAGE_AFTER:
+            f = (cv.get("fails") or {}).get(worst) if isinstance(cv.get("fails"), dict) else None
+            f = f if isinstance(f, dict) else {}
+            stage = f.get("stage") or "?"
+            what = {"tiktok": "tiktok video", "instagram": "instagram video", "ping": "model ping",
+                    "script": "model script run", "pipeline": "pipeline import"}.get(worst, worst)
+            f_at = _parse_iso(f.get("at"))
+            ago_txt = f"{max(0, (now - f_at).total_seconds()) // 60:.0f}m ago" if f_at else "?"
+            good = str(cv.get("last_good_image") or "")
+            img = str(f.get("image") or "")
+            if good and img and img != good:
+                hint = f"it last passed on an older image. to roll back: fly deploy --image {good} -a lynxr-worker. "
+            elif worst in ("tiktok", "instagram") and stage == "download":
+                hint = ("nothing was deployed since it last passed, so this is likely a platform change: "
+                        "run actions > refresh worker image to pull the newest yt-dlp. ")
+            else:
+                hint = ""
+            alarms.append({
+                "key": "canary",
+                "title": f"script pipeline broken at {stage} ({f.get('platform') or worst})",
+                "body": (f"the canary's known-good {what} failed at {stage} {worst_n} times in a row, last {ago_txt}: "
+                         f"{f.get('reason') or '?'}. {hint}no creator data was touched; the next real paste will "
+                         "likely fail the same way. fly logs | grep canary"),
+                "priority": 4, "tags": "rotating_light", "page": True,
+            })
+    cv_at = _parse_iso(cv.get("at"))
+    if (cv_at is not None and worker_seen_at is not None
+            and (now - worker_seen_at).total_seconds() <= 10 * 60
+            and (now - cv_at).total_seconds() > CANARY_STALE_H * 3600):
+        alarms.append({
+            "key": "canary-stale",
+            "title": f"pipeline canary silent for {CANARY_STALE_H:g}h",
+            "body": (f"the pipeline canary has not reported for {(now - cv_at).total_seconds() / 3600:.0f}h "
+                     "although the worker is up. fly logs | grep canary"),
+            "priority": 2, "tags": "warning", "page": False,
+        })
+    soft_seen = cv.get("soft_seen") if isinstance(cv.get("soft_seen"), dict) else {}
+    soft_names = sorted(k for k, v in soft_seen.items()
+                        if (_parse_iso(v) is not None and (now - _parse_iso(v)).total_seconds() < 24 * 3600))
+    if soft_names:
+        alarms.append({
+            "key": "canary-soft",
+            "title": "soft canary checks failing",
+            "body": (f"soft canary checks failed in the last 24h: {', '.join(soft_names)}. "
+                     "scripts still deliver; worth a look. fly logs | grep canary"),
+            "priority": 2, "tags": "warning", "page": False,
+        })
+    gone = cv.get("video_gone") if isinstance(cv.get("video_gone"), dict) else {}
+    gone_platforms = sorted(k for k, v in gone.items() if v)
+    if gone_platforms:
+        alarms.append({
+            "key": "canary-video",
+            "title": "a canary test video is gone",
+            "body": ("a test video in pipeline/canary.json no longer downloads (its backup does): "
+                     f"{', '.join(gone_platforms)}. replace it."),
+            "priority": 2, "tags": "warning", "page": False,
+        })
+
     # ---- worker-down --------------------------------------------------------
     # Evaluated only when role != "fly". The Fly-side caller writes
     # worker.heartbeat immediately before checking (run_once(beat=True)), so
@@ -746,7 +852,7 @@ def _fmt_s(val):
     return f"{val:.0f}s" if val is not None else "—"
 
 
-def digest(rows, sources_total, worker_seen_at, now, open_alarms=None, fallback_seen_at=None):
+def digest(rows, sources_total, worker_seen_at, now, open_alarms=None, fallback_seen_at=None, canary=None):
     """One daily message, priority 2 (arrives without a sound). THE DIGEST IS
     WHAT MAKES SILENCE MEAN SOMETHING — without a daily "all good" the owner
     cannot tell a healthy system from a dead alarm.
@@ -759,6 +865,10 @@ def digest(rows, sources_total, worker_seen_at, now, open_alarms=None, fallback_
 
     `fallback_seen_at`, when given, extends the sources line with the
     GitHub-fallback heartbeat alongside the Fly one.
+
+    `canary` is lynxr_ops 'canary.health''s value. None (the default) adds no
+    line at all, so every existing digest expectation is unchanged; {} reads
+    "canary: no report yet".
     """
     report = LR.build_report(rows, "24h", 60, now=now)
     if report["n"]:
@@ -818,7 +928,25 @@ def digest(rows, sources_total, worker_seen_at, now, open_alarms=None, fallback_
     else:
         line4 = "open alarms: none"
         line5 = ""
-    return "\n".join(x for x in (line1, line2, line3, line_quality, line3_notes, line4, line5) if x)
+    line_canary = ""
+    if canary is not None:
+        cdict = canary if isinstance(canary, dict) else {}
+        if not cdict:
+            line_canary = "canary: no report yet"
+        else:
+            hist = [h for h in (cdict.get("history") if isinstance(cdict.get("history"), list) else [])
+                    if isinstance(h, dict)]
+            # Same rule as given_up_hits above: a missing stamp counts as inside the window.
+            inside = [h for h in hist
+                      if (now - (LR.parse_iso(h.get("at")) or now)).total_seconds() <= 24 * 3600]
+            n_ok = sum(1 for h in inside if h.get("ok"))
+            last_full = _parse_iso(cdict.get("last_full_at"))
+            full_ago = "never" if last_full is None else f"{(now - last_full).total_seconds() / 3600:.0f}h ago"
+            script_streak = cdict.get("streak", {}).get("script", 0) if isinstance(cdict.get("streak"), dict) else 0
+            ver = (cdict.get("versions") or {}).get("yt_dlp") if isinstance(cdict.get("versions"), dict) else None
+            line_canary = (f"canary: {n_ok}/{len(inside)} passes ok (24h) · model run {full_ago} "
+                           f"{'ok' if not script_streak else 'FAILING'} · yt-dlp {ver or '?'}")
+    return "\n".join(x for x in (line1, line2, line3, line_quality, line3_notes, line4, line5, line_canary) if x)
 
 
 # =============================================================================
@@ -1003,10 +1131,28 @@ def _maybe_digest(key, rows, now, open_alarms=None, force=False):
     fallback_seen_at = _fallback_seen_at(key)
     sources_total = _sources_count(key)
     body = digest(rows, sources_total, worker_seen_at, now, open_alarms=open_alarms,
-                  fallback_seen_at=fallback_seen_at)
+                  fallback_seen_at=fallback_seen_at,
+                  canary=(ops_get(key, "canary.health") or {}).get("value") or {})
     notify("daily digest", body, priority=2, tags="chart_with_upwards_trend")
     ops_put(key, "digest.last", {"date": now.date().isoformat()})
     return True
+
+
+def _fixer_hook(key, alarm_keys, now):
+    """Hand every newly opened PAGING alarm to the fixer agent (pipeline/fixer_dispatch.py ->
+    .github/workflows/fixer.yml). Inert unless FIXER_DISPATCH_TOKEN and FIXER_ENABLED=1 are in the
+    environment, which only the GitHub callers set (adaptations.yml's fallback loop, latency-watch.yml);
+    on Fly it returns "disabled" without a network call. Imported lazily, so this module stays
+    side-effect-free at import. May never raise into a tick."""
+    try:
+        import fixer_dispatch
+        r = fixer_dispatch.maybe_dispatch(key, sorted(alarm_keys), ops_get, ops_put, now, ssl_ctx=SSL_CTX)
+        if r.startswith(("sent", "error")):
+            log.info("fixer dispatch: %s", r)
+        return r
+    except Exception as e:  # noqa: BLE001
+        log.warning("fixer dispatch failed: %s", str(e)[:120])
+        return "error"
 
 
 def run_once(key, dry_run=False, beat=False, force_digest=False, role="external"):
@@ -1037,9 +1183,10 @@ def run_once(key, dry_run=False, beat=False, force_digest=False, role="external"
         fallback_alive = _fallback_alive(fallback_seen_at, now, role)
         thumb_ceiling = (ops_get(key, "thumb.ceiling") or {}).get("value")
         track_health = (ops_get(key, "track.health") or {}).get("value")
+        canary_health = (ops_get(key, "canary.health") or {}).get("value")
         alarms = check_all(rows, sources_recent, worker_seen_at, now, charges_24h=charges_24h,
                             role=role, fallback_alive=fallback_alive, thumb_ceiling=thumb_ceiling,
-                            track_health=track_health)
+                            track_health=track_health, canary=canary_health)
 
         if dry_run:
             return alarms
@@ -1062,6 +1209,9 @@ def run_once(key, dry_run=False, beat=False, force_digest=False, role="external"
         for ak in _list_open_alarms(key):
             if ak != "selftest" and ak not in alarm_keys:
                 clear_alarm(key, ak, f"{ak} resolved")
+
+        # After the latches are written above, so every newly opened alarm already has its `opened_at`.
+        _fixer_hook(key, alarm_keys, now)
 
         # The Ops tab's whole feed, written once per completed check. AFTER the
         # dry-run return on purpose. It carries no new decision — it is this

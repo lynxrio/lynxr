@@ -53,6 +53,49 @@ list and 10–20 example breakdowns; (5) hello@lynxr.io must receive mail and a 
 disclosure before any entry goes live; (6) Apify is still on the free $5 plan. **Not verified anywhere:** Safari,
 Firefox and a real phone for the mascot and the agency phone player; the iOS keyboard behaviour of the pinned player.
 
+**THE FIXER AGENT AND THE CANARY (2026-10-06, UNCOMMITTED, stamp `20261005m`; plan `~/.claude/plans/lynxr-fixer-agent.md`; NOT verified live until Steps 19-20 of that plan).**
+Built and tested offline; nothing acts until the owner pushes and does the setup below. **The canary** (`pipeline/canary.py`,
+`pipeline/canary.json`) runs known-good PUBLIC videos (lynxr's own TikToks, two Instagram reels from yt-dlp's test suite) through
+the real `fill_source()` on the idle Fly worker (Fly only, last in the idle chain, killed within ~5s when a creator queues): a
+free media pass every 60 min alternating TikTok/Instagram (download, ffprobe, Whisper, frames, cover, clip) plus a 16-token
+model ping, and a `--boot` pass on both platforms after every machine start with a full model pass (format + branded script)
+when the image is new. There is NO scheduled daily model pass (fixer plan Q6: `CANARY_FULL_EVERY_H=0`). It writes only lynxr_ops
+`canary.health` and `lynxr_costs` rows with `lane='canary'`. Cost: a measured full pass is $0.1236, a ping $0.0002, so about
+$3/month at the current ~22 deploys a month. `watchdog.py` pages `canary` when the same check fails 2 passes in a row (the
+body carries the rollback line `fly deploy --image <last good> -a lynxr-worker`, or "refresh worker image" for a download
+break on an unchanged image); soft stages go to the digest (`canary-soft`, `canary-video`, `canary-stale`, `canary-paused`).
+Fault injection: the lynxr_ops row `canary.fault` (`stage` download/transcribe/format/ping, `until`, optional `only_image` so a
+fixer drill can simulate a bug a new image cures). **The fixer** (`pipeline/fixer.py`, `pipeline/fixer_dispatch.py`,
+`.github/workflows/fixer.yml`, `tools/fixer/`) has three tiers and THE MODEL NEVER CHOOSES AN ACTION: Tier 1 is deterministic
+runbook actions, each only when idle, rate-limited and verified (restart a dead or stuck worker, roll the image back when the
+canary began failing on a new image, rebuild to pull the newest yt-dlp, re-queue a script given up on for OUR failure once the
+canary proves the cause gone: once per script, 3 per pass, 10 per day, allowance room required); Tier 2 turns a code-caused
+incident into a pull request on a `fixer/*` branch (Claude Code in a job with no git credential, a clean job re-runs the tests,
+`tools/fixer/gate.py` refuses anything outside `pipeline/*.py`, requirements-ci.txt and the Dockerfile, anything touching
+billing/auth/secrets/deletes or the fixer's own files, any removed test line, and anything big); Tier 3 (billing, auth,
+SQL/RLS, secrets, deletes) is a diagnosis and a page. **A fixer PR is never merged by the bot; merging one redeploys the worker,
+so check the queue is idle first.** Where it runs: the Fly re-queue lane (`worker.py` runs `fixer.py requeue` while idle;
+`FIXER=0` turns it off) and `fixer.yml` with five jobs (act, brain, verify, propose, report). Who holds what: act = Supabase
+key + Fly deploy token + ntfy; brain = the model's own token only; verify = nothing; propose = contents and pull-requests
+write, running only a base copy of gate.py; report = Supabase + ntfy. Dispatch: `watchdog.run_once()` hands every newly opened
+paging alarm to `fixer.yml` from the two GitHub callers with their own GITHUB_TOKEN (`FIXER_DISPATCH_TOKEN`, inert on Fly), plus
+`workflow_run` on a failed deploy and a :11/:41 backstop cron. Caps: 2 runbook attempts and 2 model runs per incident, 6 model
+runs a day, 30 a month, $4 and 40 turns a run; it pauses itself for 24h after 3 unverified fixes. Owner setup: secrets
+`FIXER_CLAUDE_OAUTH_TOKEN` (`claude setup-token`) and `FIXER_FLY_TOKEN` (`fly tokens create deploy -a lynxr-worker -x 8760h -n
+fixer-agent`), tick "Allow GitHub Actions to create and approve pull requests", set variables `FIXER_ENABLED=1` and
+`FIXER_MODE=observe`, push (idle check first), run `fixer agent` with incident `sweep`, then delete `FIXER_MODE` to go live.
+Kill switches, fastest first (SQL, no restart): `insert into public.lynxr_ops (key, value, updated_at) values ('fixer.pause',
+'{"off": true}', now()) on conflict (key) do update set value = excluded.value, updated_at = now();` and to resume
+`delete from public.lynxr_ops where key = 'fixer.pause';` then the repo variable `FIXER_ENABLED` (anything but 1 = off),
+`FIXER_MODE=observe`, `FIXER_BRAIN=0`, the Fly secret `FIXER=0`. The canary's own: `canary.pause` (same shape), `CANARY_FULL=0`,
+`CANARY_APIFY=0`, `CANARY=0`. Drills (plan Step 20, owner-run): 1 an image-bound download fault cured by the rebuild, 2 the
+model step against a replayed incident with a planted instruction (`drill:brain`), 3 PR plumbing (`drill:pr`, close the PR
+without merging), 4 restart and the kill switch. The agency Ops tab has a new "What the fixer did" section (`fixer.act.*`
+rows) and one canary sentence under an all-clear. Tests: `pipeline/test_canary.py`, `pipeline/test_fixer.py`,
+`tools/fixer/test_gate.py`, the new `test_watchdog.py` cases; `python tools/fixer/run_tests.py` is the exact list CI runs.
+Not covered: the agency lane's errors, and the creator app never sees any of this. Pre-existing and left alone: a video with no
+audio track made `transcribe.transcribe` raise on the Mac's mlx path (a yt-dlp test reel); Fly's faster-whisper path was not checked.
+
 **KEEP IT EXACTLY: SILENT STRETCHES GET A BEAT (2026-10-05, PUSHED by 2026-10-05: `pipeline/process_campaigns.py`,
 `pipeline/test_campaigns.py`; no css/js, no stamp).** `verbatim_beats` built spoken videos from speech segments
 alone, so anything before the first word was dropped (format 64d8e3d0 started at 4.7s and lost its shocked-face

@@ -75,13 +75,13 @@
 <meta name="twitter:description" content="Paste a link. Get a script for your next UGC video, written for the brand you make it for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261005k">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261005k">
-<link rel="shortcut icon" href="/favicon.ico?v=20261005k">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261005k">
-<link rel="stylesheet" href="/app.css?v=20261005k">
-<script src="/theme.js?v=20261005k"></script>
-<script src="/backdrop.js?v=20261005k" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261006n">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261006n">
+<link rel="shortcut icon" href="/favicon.ico?v=20261006n">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261006n">
+<link rel="stylesheet" href="/app.css?v=20261006n">
+<script src="/theme.js?v=20261006n"></script>
+<script src="/backdrop.js?v=20261006n" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -348,31 +348,22 @@
         <span class="tt-knob"></span>
       </button>
     </div>
-    <a class="btn" href="/" data-gate="up">get started</a>
+    <!-- THE FOOT OF THE FULL-SCREEN PHONE MENU (owner, 2026-10-06: "lets do what claude does"): the two ways in, side by
+         side. [data-gate] controls like every other sign-in/up on the page; site.js closes the menu on either. -->
+    <div class="lp-menu-foot">
+      <a class="lp-menu-in" href="/" data-gate="in">sign in</a>
+      <a class="btn" href="/" data-gate="up">get started</a>
+    </div>
   </nav>
 </header>
 
 <main id="lp-main">
 
-  <!-- WHERE THE X POINTS (owner, 2026-10-05: "i essentially want this main x to direct the users
-       attention to what i want"). The nav logo's x flies down on load and then goes down the page with
-       the reader (home.js, "THE COMPANION"). Whichever section of this <main> fills most of the screen
-       decides where it goes: to that section's first VISIBLE element marked
-           data-lx-spot
-       It hops there, stands beside it, points at it, and the element gets one soft ring (once per page
-       view). A section with no data-lx-spot: the x rides the bottom-right corner instead.
-       Optional, on the same element:
-           data-lx-side="top|right|left"   where it stands (default: the first side that covers no text
-                                            or control, tried top, right, left)
-           data-lx-mood="done|idle|hyped|reading|writing|coaching|confused|giggle"
-                                            its face there (default "done", happy)
-       A TOUR: data-lx-tour="name" + data-lx-order="1|2|3..." on several targets makes the x visit them
-       in order the first time their section is in view (swirl over, point, ring, ~1.2s each), then go
-       to the section's FIRST target. Once per page view; scrolling away cancels it. Default tour
-       "pricing": free's "try for free", pro's button, max's price line (max has no button).
-       To move its attention, move the attribute. Defaults: hero = "continue with Google" (on a phone,
-       where that card is hidden, the hero paste box); pricing = the free card's "try for free";
-       closing = its paste box. -->
+  <!-- WHERE THE X GOES (home.js). On load the nav logo's x floats down (a phone: straight down), gasps at the sign-up
+       buttons (desktop) and settles beside the video card — home. From 2026-10-06, on every device: when the bar comes
+       down on scroll, the x flies up into it and is the logo beside the word again; back at the top, it flies home. Each
+       plan has its own x beside its price (.lp-plan-x). The data-lx-spot / data-lx-tour attributes below are no longer
+       read (they drove a guide that was retired the same day); the hero's still marks the card the x looks at. -->
 
   <!-- THE BUDDY HERO (owner, 2026-09-23, in three passes: "new design for the landing
        page, put this lynxr on the bottom right and then have the info above be a speech
@@ -416,7 +407,9 @@
              would be an outline entry with nothing under it. The id stays on the h1 — the
              section's aria-labelledby points at it. Source case is left alone; the house
              rule draws both lowercase. -->
-        <h1 class="hx-h" id="hx-buddy-h">land your next brand deal.</h1>
+        <!-- THE NAME, HUGE (owner, 2026-10-06: "have this text say [lynxr]", "huge text"); it was "land your next brand deal."
+             The subline under it still says what lynxr is. -->
+        <h1 class="hx-h hx-name" id="hx-buddy-h">lynxr</h1>
         <p class="hx-sub">your <span class="acr">UGC</span> buddy</p>
         <!-- THE SIGN-UP BOX. Not animated: it is the thing that converts, so it is on
              screen at frame 0 and never moves. -->
@@ -531,7 +524,7 @@
            tab"). The creator app's Plan view cards (creator.js renderPlan) are the reference: ONE head
            row (.lp-plan-head, the Plan view's own class) holding the name, with the
            tagline tucked under it (the per-card x marks went 2026-10-05, owner: "remove the other x
-           marks" — the one x on the page is the companion that points at "try for free") -> price with the period inline -> note -> the action -> the
+           marks", and came BACK 2026-10-06 in the empty space beside each price: .lp-plan-x, home.js planBuddies) -> price with the period inline -> note -> the action -> the
            commitment line -> a rule -> "everything in X, plus:" -> the Plan view's dot list. Same
            facts as before; every number still mirrors lynxr_billing_plans. -->
       <ul class="lp-plans">
@@ -542,7 +535,7 @@
               <p class="lp-plan-tag">try lynxr</p>
             </div>
           </div>
-          <p class="lp-plan-price"><strong>$0</strong></p>
+          <p class="lp-plan-price"><strong>$0</strong><span class="lp-plan-x" data-lx-mood="idle" aria-hidden="true"></span></p>
           <p class="lp-plan-tax">no card needed</p>
           <a class="btn lp-plan-cta" href="/" data-gate="up" data-lx-spot data-lx-tour="pricing" data-lx-order="1">try for free</a>
           <p class="lp-plan-note">no commitment</p>
@@ -562,7 +555,7 @@
               <p class="lp-plan-tag">for everyday creating</p>
             </div>
           </div>
-          <p class="lp-plan-price"><strong>$24.99</strong> <span class="lp-plan-per">a month</span></p>
+          <p class="lp-plan-price"><strong>$24.99</strong> <span class="lp-plan-per">a month</span><span class="lp-plan-x" data-lx-mood="done" aria-hidden="true"></span></p>
           <p class="lp-plan-tax">plus tax where applicable</p>
           <a class="btn lp-plan-cta" href="/" data-gate="up" data-lx-spot data-lx-tour="pricing" data-lx-order="2">start free, upgrade in the app</a>
           <p class="lp-plan-note">no commitment &middot; cancel any time</p>
@@ -583,7 +576,7 @@
               <p class="lp-plan-tag">for creators who want a coach</p>
             </div>
           </div>
-          <p class="lp-plan-price" data-lx-spot data-lx-tour="pricing" data-lx-order="3"><strong>$74.99</strong> <span class="lp-plan-per">a month</span></p>
+          <p class="lp-plan-price" data-lx-spot data-lx-tour="pricing" data-lx-order="3"><strong>$74.99</strong> <span class="lp-plan-per">a month</span><span class="lp-plan-x" data-lx-mood="hyped" aria-hidden="true"></span></p>
           <p class="lp-plan-tax">plus tax where applicable</p>
           <p class="lp-plan-off">not on sale yet</p>
           <hr class="lp-plan-hr">
@@ -1137,11 +1130,11 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20261005k" defer></script>
-<script src="/footer.js?v=20261005k" defer></script>
-<script src="/home.js?v=20261005k" defer></script>
-<script src="/showcase.js?v=20261005k" defer></script>
-<script src="/avatar.js?v=20261005k" defer></script>
-<script src="/creator.js?v=20261005k" defer></script>
+<script src="/site.js?v=20261006n" defer></script>
+<script src="/footer.js?v=20261006n" defer></script>
+<script src="/home.js?v=20261006n" defer></script>
+<script src="/showcase.js?v=20261006n" defer></script>
+<script src="/avatar.js?v=20261006n" defer></script>
+<script src="/creator.js?v=20261006n" defer></script>
 </body>
 </html>

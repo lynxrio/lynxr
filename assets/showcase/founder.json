@@ -1,0 +1,49 @@
+{
+ "v": 1,
+ "as_of": "2026-10-06",
+ "platform": "instagram",
+ "handle": "collegewithgawin",
+ "note": "lynxr's cofounder's own public reels, shown with his OK (owner, 2026-10-06). Numbers read once through pipeline/showcase.py's Apify reader on as_of; posted dates are UTC. Not made with lynxr: never label them so.",
+ "entries": [
+  {
+   "id": "DLloiBesrzN",
+   "views": 2178334,
+   "posted": "2025-07-02",
+   "url": "https://www.instagram.com/reel/DLloiBesrzN/",
+   "cover": "/assets/showcase/DLloiBesrzN.jpg",
+   "clip": "/assets/showcase/DLloiBesrzN.mp4"
+  },
+  {
+   "id": "DVbnHPhju5V",
+   "views": 1763996,
+   "posted": "2026-03-03",
+   "url": "https://www.instagram.com/reel/DVbnHPhju5V/",
+   "cover": "/assets/showcase/DVbnHPhju5V.jpg",
+   "clip": "/assets/showcase/DVbnHPhju5V.mp4"
+  },
+  {
+   "id": "DYnMsbcqzSs",
+   "views": 215545,
+   "posted": "2026-05-21",
+   "url": "https://www.instagram.com/reel/DYnMsbcqzSs/",
+   "cover": "/assets/showcase/DYnMsbcqzSs.jpg",
+   "clip": "/assets/showcase/DYnMsbcqzSs.mp4"
+  },
+  {
+   "id": "DW-VMnFDCai",
+   "views": 206890,
+   "posted": "2026-04-11",
+   "url": "https://www.instagram.com/reel/DW-VMnFDCai/",
+   "cover": "/assets/showcase/DW-VMnFDCai.jpg",
+   "clip": "/assets/showcase/DW-VMnFDCai.mp4"
+  },
+  {
+   "id": "DOPr-EnjPo-",
+   "views": 101791,
+   "posted": "2025-09-06",
+   "url": "https://www.instagram.com/reel/DOPr-EnjPo-/",
+   "cover": "/assets/showcase/DOPr-EnjPo-.jpg",
+   "clip": "/assets/showcase/DOPr-EnjPo-.mp4"
+  }
+ ]
+}

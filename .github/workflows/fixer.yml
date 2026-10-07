@@ -1,0 +1,352 @@
+# The fixer agent: acts on lynxr's paging alarms within minutes. See pipeline/fixer.py and tools/fixer/README.txt.
+#   Tier 1 (runbook, no model): restart / roll back / rebuild the Fly worker - only when idle, rate-limited, verified.
+#   Tier 2 (model): Claude Code diagnoses a sanitized incident bundle; a clean job re-runs the tests; the gate opens
+#   a PR on a fixer/* branch. It never pushes to main and never merges. Tier 3 (billing/auth/SQL/secrets/deletes):
+#   a diagnosis and a page, no change.
+# WHO HOLDS WHAT: act = Supabase service key + Fly token + ntfy (no model, no patched code). brain = the model's own
+#   token only (no git credential). verify = nothing. propose = contents + pull-requests write (runs only a base copy
+#   of gate.py taken before the patch is applied). report = Supabase + ntfy (base checkout, never applies the patch).
+# SWITCHES: repo variable FIXER_ENABLED=1 (anything else = off), FIXER_MODE=observe, FIXER_BRAIN=0; lynxr_ops row
+#   fixer.pause. SECRETS: SUPABASE_SERVICE_ROLE_KEY, NTFY_TOPIC (existing); FIXER_FLY_TOKEN, FIXER_CLAUDE_OAUTH_TOKEN.
+# PUBLIC REPO: run logs and artifacts are readable by anyone. Everything printed or uploaded here is sanitized
+#   (pipeline/fixer.py sanitize(): no URLs, emails, names or long ids).
+# NEVER put ${{ }} inside a run: block. Pass values through env:.
+name: fixer agent
+
+permissions: {}
+
+on:
+  workflow_dispatch:
+    inputs:
+      incident:
+        description: "alarm key, sweep, or drill:restart / drill:brain / drill:pr"
+        type: string
+        required: true
+        default: sweep
+      source:
+        description: "who dispatched (the watchdog sets this)"
+        type: string
+        required: false
+        default: manual
+  workflow_run:
+    workflows: ["deploy worker", "refresh worker image", "creator scripts"]
+    types: [completed]
+  schedule:
+    - cron: "11,41 * * * *"      # backstop sweep; best-effort like every cron here
+
+concurrency:
+  group: fixer
+  cancel-in-progress: false
+
+jobs:
+  act:
+    if: >-
+      vars.FIXER_ENABLED == '1' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    permissions:
+      contents: read
+      actions: read          # gh run view --log-failed for a failed deploy's log
+    # Same group as fly-deploy.yml and fly-refresh.yml: a fixer rollback/rebuild never overlaps a CI deploy. A new
+    # CI deploy cancels this job (its cancel-in-progress is true); the next dispatch or sweep re-evaluates.
+    concurrency:
+      group: fly-deploy
+      cancel-in-progress: false
+    outputs:
+      brain_needed: ${{ steps.act.outputs.brain_needed }}
+      brain_mode: ${{ steps.act.outputs.brain_mode }}
+      incident: ${{ steps.act.outputs.incident }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 5
+        with:
+          persist-credentials: false
+          fetch-depth: 20
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        timeout-minutes: 5
+        with:
+          python-version: "3.12"
+      - name: Install certifi
+        timeout-minutes: 5
+        run: python -m pip install certifi
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1
+        timeout-minutes: 5
+      - id: act
+        name: Decide, act on the runbook, build the incident bundle
+        timeout-minutes: 45
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FLY_API_TOKEN: ${{ secrets.FIXER_FLY_TOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          GH_TOKEN: ${{ github.token }}
+          FIXER_EVENT: ${{ github.event_name }}
+          FIXER_INCIDENT: ${{ inputs.incident }}
+          FIXER_SOURCE: ${{ inputs.source }}
+          FIXER_RUN_ID: ${{ github.event.workflow_run.id }}
+          FIXER_RUN_NAME: ${{ github.event.workflow_run.name }}
+          FIXER_MODE: ${{ vars.FIXER_MODE }}
+          FIXER_BRAIN: ${{ vars.FIXER_BRAIN }}
+        run: python pipeline/fixer.py act
+      - name: Keep the incident bundle for the model step
+        if: steps.act.outputs.brain_needed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: incident
+          path: ${{ runner.temp }}/fixer/incident.json
+          retention-days: 14
+      - name: Say so on the owner's phone
+        if: failure()
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -s -m 10 -H "Title: lynxr: fixer agent FAILED" -H "Priority: 4" -H "Tags: rotating_light" \
+            -d "the fixer's act job failed: $RUN_URL" "https://ntfy.sh/$NTFY_TOPIC" > /dev/null
+
+  brain:
+    needs: act
+    if: needs.act.outputs.brain_needed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 5
+        with:
+          persist-credentials: false
+          fetch-depth: 20
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        timeout-minutes: 5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+      - name: Install ffmpeg
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Install Python deps
+        timeout-minutes: 10
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-ci.txt
+      - name: Fetch the incident bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: incident
+          path: .fixer
+      - name: Keep a base copy of the gate before the model runs
+        run: cp tools/fixer/gate.py "$RUNNER_TEMP/gate_base.py"
+      - name: Install Claude Code (pinned)
+        if: needs.act.outputs.brain_mode != 'drill-pr'
+        timeout-minutes: 5
+        run: npm install -g @anthropic-ai/claude-code@2.1.290
+      - name: Diagnose, and in fix mode change the code
+        if: needs.act.outputs.brain_mode != 'drill-pr'
+        timeout-minutes: 35
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.FIXER_CLAUDE_OAUTH_TOKEN }}
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+          MODE: ${{ needs.act.outputs.brain_mode }}
+          INCIDENT: ${{ needs.act.outputs.incident }}
+        # WHY EACH FLAG. @2.1.290 was npm latest on 2026-10-05, and --max-budget-usd enforcement needs v2.1.217+: bump
+        # it deliberately, never to latest. CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 strips credentials from Bash, so the
+        # model's tests cannot read the token (the CLI keeps it for its own calls). dontAsk with an explicit allow
+        # list denies everything else: git commit, git push, curl, pip, any other shell. The job never sets
+        # GITHUB_TOKEN, so there is none to leak. --output-format json writes the cost estimate and turn count that
+        # `fixer.py report` reads from claude.json. With a valid FIXER_CLAUDE_OAUTH_TOKEN this runs on the owner's
+        # subscription.
+        run: |
+          mkdir -p "$RUNNER_TEMP/brain"
+          prompt=$(python pipeline/fixer.py brain-prompt --mode "$MODE" --incident "$INCIDENT")
+          if [ "$MODE" = "fix" ]; then
+            tools=(Read Glob Grep Edit Write "Bash(python3 pipeline/test_*.py)" "Bash(python3 tools/fixer/run_tests.py)" "Bash(git diff *)" "Bash(git status *)" "Bash(git log *)")
+          else
+            tools=(Read Glob Grep Write "Bash(git log *)")
+          fi
+          claude -p "$prompt" \
+            --model claude-opus-5-5 --effort high \
+            --append-system-prompt-file tools/fixer/brain_system.md \
+            --permission-mode dontAsk \
+            --allowedTools "${tools[@]}" \
+            --disallowedTools WebFetch WebSearch "mcp__*" \
+            --max-turns 40 --max-budget-usd 4 \
+            --no-session-persistence --output-format json \
+            > "$RUNNER_TEMP/brain/claude.json" || echo "claude exited non-zero; collecting whatever it left"
+      - name: Drill patch (no model)
+        if: needs.act.outputs.brain_mode == 'drill-pr'
+        run: python "$RUNNER_TEMP/gate_base.py" drill-patch
+      - name: Collect the patch and out.json (base copy of the gate)
+        if: always()
+        env:
+          MODE: ${{ needs.act.outputs.brain_mode }}
+        run: python "$RUNNER_TEMP/gate_base.py" collect --mode "$MODE" --outdir "$RUNNER_TEMP/brain"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: brain
+          path: ${{ runner.temp }}/brain
+          retention-days: 14
+
+  verify:
+    needs: [act, brain]
+    if: always() && needs.brain.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        timeout-minutes: 5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+      - name: Install ffmpeg
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Install Python deps
+        timeout-minutes: 10
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-ci.txt
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: brain
+          path: ${{ runner.temp }}/brain
+      - name: Apply the change on a clean runner and run the offline tests (no secrets in this job)
+        run: |
+          mkdir -p "$RUNNER_TEMP/verify"
+          cp tools/fixer/run_tests.py "$RUNNER_TEMP/run_tests_base.py"
+          rc=0
+          if [ -s "$RUNNER_TEMP/brain/patch.diff" ]; then
+            git apply --index "$RUNNER_TEMP/brain/patch.diff" || rc=97
+            if [ "$rc" = 0 ]; then python "$RUNNER_TEMP/run_tests_base.py" > "$RUNNER_TEMP/verify/tests.log" 2>&1 || rc=$?; fi
+          else
+            echo "no change to test" > "$RUNNER_TEMP/verify/tests.log"
+          fi
+          echo "$rc" > "$RUNNER_TEMP/verify/tests.rc"
+          tail -n 40 "$RUNNER_TEMP/verify/tests.log" || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verify
+          path: ${{ runner.temp }}/verify
+          retention-days: 14
+
+  propose:
+    needs: [act, brain, verify]
+    if: always() && needs.verify.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write          # push refs/heads/fixer/* only (enforced below and by gate.py BRANCH_RE)
+      pull-requests: write
+    outputs:
+      verdict: ${{ steps.gate.outputs.verdict }}
+      branch: ${{ steps.gate.outputs.branch }}
+      pr_url: ${{ steps.pr.outputs.pr_url }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        timeout-minutes: 5
+        with:
+          python-version: "3.12"
+      - name: Copy the base gate before anything touches the tree
+        run: cp tools/fixer/gate.py "$RUNNER_TEMP/gate.py"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: brain
+          path: ${{ runner.temp }}/brain
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: verify
+          path: ${{ runner.temp }}/verify
+      - id: gate
+        name: Gate the change (base code; the patch is not applied yet)
+        env:
+          MODE: ${{ needs.act.outputs.brain_mode }}
+          INCIDENT: ${{ needs.act.outputs.incident }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python "$RUNNER_TEMP/gate.py" check --patch "$RUNNER_TEMP/brain/patch.diff" \
+            --out-json "$RUNNER_TEMP/brain/out.json" --tests-log "$RUNNER_TEMP/verify/tests.log" \
+            --tests-rc "$(cat "$RUNNER_TEMP/verify/tests.rc")" --mode "$MODE" --incident "$INCIDENT" \
+            --run-id "$GITHUB_RUN_ID" --run-url "$RUN_URL" --outdir "$RUNNER_TEMP/gate" --github-output "$GITHUB_OUTPUT"
+      - id: pr
+        name: Push a fixer/* branch and open the pull request (never main, never merge)
+        if: steps.gate.outputs.verdict == 'pr'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.gate.outputs.branch }}
+        run: |
+          case "$BRANCH" in fixer/*) ;; *) echo "::error::refusing to push $BRANCH"; exit 1;; esac
+          git config user.name "lynxr fixer agent"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git apply --index "$RUNNER_TEMP/brain/patch.diff"
+          git commit -q -F "$RUNNER_TEMP/gate/commit.txt"
+          git push origin "HEAD:refs/heads/$BRANCH"
+          gh label create fixer --color B60205 --description "fixer agent" --force
+          url=$(gh pr create --base main --head "$BRANCH" --title "$(cat "$RUNNER_TEMP/gate/title.txt")" --body-file "$RUNNER_TEMP/gate/body.md" --label fixer)
+          echo "pr_url=$url" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: gate
+          path: ${{ runner.temp }}/gate
+          retention-days: 14
+
+  report:
+    needs: [act, brain, verify, propose]
+    if: always() && needs.act.outputs.brain_needed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        timeout-minutes: 5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        timeout-minutes: 5
+        with:
+          python-version: "3.12"
+      - name: Install certifi
+        run: python -m pip install certifi
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: brain
+          path: ${{ runner.temp }}/brain
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: gate
+          path: ${{ runner.temp }}/gate
+      - name: Audit and page (base code; this job never applies the patch)
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          INCIDENT: ${{ needs.act.outputs.incident }}
+          MODE: ${{ needs.act.outputs.brain_mode }}
+          BRAIN_RESULT: ${{ needs.brain.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          PROPOSE_RESULT: ${{ needs.propose.result }}
+          VERDICT: ${{ needs.propose.outputs.verdict }}
+          BRANCH: ${{ needs.propose.outputs.branch }}
+          PR_URL: ${{ needs.propose.outputs.pr_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BRAIN_DIR: ${{ runner.temp }}/brain
+          GATE_JSON: ${{ runner.temp }}/gate/gate.json
+        run: python pipeline/fixer.py report

@@ -83,5 +83,38 @@ check("date: today", S.dateShort("2026-10-05", new Date("2026-10-05T23:30:00Z"))
 check("date: other year carries the year", S.dateShort("2025-10-05", new Date("2026-12-01T12:00:00Z")), "Oct 5, 2025");
 check("date: junk is empty", S.dateShort("nope"), "");
 
+// weekGain / topOfWeek: "top N videos this week" must be true (owner, 2026-10-06)
+const T0 = "2026-10-06";
+const ent = (id, views_on, points) => ({ id, views_on, points, views: points.length ? points[points.length - 1][1] : 0 });
+check("week: posted within the week gained it all", S.weekGain(ent("a", T0, [[0, 0], [3, 900]]), T0), 900);
+check("week: interpolated from the measured points", S.weekGain(ent("b", T0, [[0, 0], [10, 1000], [20, 3000]]), T0), 1400);
+check("week: no point reaches back a week -> unknown", S.weekGain(ent("c", T0, [[461, 2178334]]), T0), null);
+check("week: a measurement older than a week is not this week", S.weekGain(ent("d", "2026-09-20", [[0, 0], [3, 500]]), T0), null);
+check("week: a later measurement date is not trusted", S.weekGain(ent("e", "2026-10-09", [[0, 0], [3, 500]]), T0), null);
+check("week: never negative", S.weekGain(ent("f", T0, [[0, 0], [5, 900], [12, 800]]), T0), 0);
+const pool = [ent("x1", T0, [[0, 0], [3, 100]]), ent("x2", T0, [[0, 0], [2, 5000]]), ent("x3", T0, [[461, 9e6]]),
+  ent("x4", T0, [[0, 0], [4, 700]]), ent("x5", T0, [[0, 0], [1, 300]]), ent("x6", T0, [[0, 0], [6, 2000]]), ent("x7", T0, [[0, 0], [1, 0]])];
+check("top: biggest weekly gain first, unknown and zero left out, at most 5",
+  S.topOfWeek(pool, 5, T0).map((e) => e.id).join(","), "x2,x6,x4,x5,x1");
+check("top: fewer than k is fine", S.topOfWeek(pool.slice(0, 2), 5, T0).map((e) => e.id).join(","), "x2,x1");
+
+// a clip is accepted only in the cover's own form
+const clipBase = { id: "a1", platform: "tiktok", handle: "sam", url: "https://www.tiktok.com/@sam/video/1234567890",
+  cover: "showcase/0123456789ab-0123456789abcdef.jpg", views: 10, views_on: "2026-10-05", points: [], tag: null };
+check("clip: a stored mp4 passes", S.parsePayload({ entries: [{ ...clipBase, clip: "showcase/0123456789ab-0123456789abcdef.mp4" }] }).entries[0].clip,
+  "showcase/0123456789ab-0123456789abcdef.mp4");
+check("clip: anything else is dropped (not the entry)", S.parsePayload({ entries: [{ ...clipBase, clip: "https://evil.example/x.mp4" }] }).entries[0].clip, undefined);
+
+// cleanFounder: the cofounder's own videos, from this repo only (owner, 2026-10-06)
+const fj = (entries, extra = {}) => ({ v: 1, as_of: "2026-10-06", platform: "instagram", handle: "collegewithgawin", entries, ...extra });
+const fe = (id, views, x = {}) => ({ id, views, posted: "2026-03-03", url: `https://www.instagram.com/reel/${id}/`, cover: `/assets/showcase/${id}.jpg`, clip: `/assets/showcase/${id}.mp4`, ...x });
+const F1 = S.cleanFounder(fj([fe("AAAAA1", 10), fe("BBBBB2", 30), fe("CCCCC3", 20)]));
+check("founder: most viewed first, labelled as the cofounder's", F1.entries.map((e) => `${e.id}:${e.tag}:${e.kind}`).join(","), "BBBBB2:founder:founder,CCCCC3:founder:founder,AAAAA1:founder:founder");
+check("founder: media only from /assets/showcase/", S.cleanFounder(fj([fe("AAAAA1", 10, { cover: "https://evil.example/a.jpg" })])).entries.length, 0);
+check("founder: a bad clip is dropped, not the video", S.cleanFounder(fj([fe("AAAAA1", 10, { clip: "/elsewhere/a.mp4" })])).entries[0].clipSrc, undefined);
+check("founder: at most five", S.cleanFounder(fj([1, 2, 3, 4, 5, 6, 7].map((k) => fe(`VIDEO${k}`, k)))).entries.length, 5);
+check("founder: wrong platform -> nothing", S.cleanFounder(fj([fe("AAAAA1", 10)], { platform: "tiktok" })).entries.length, 0);
+check("founder: tag reads as the cofounder", S.tagText("founder"), ["", "lynxr cofounder"]);
+
 console.log(failed ? `\n${failed} FAILED` : "\nALL OK");
 process.exit(failed ? 1 : 0);

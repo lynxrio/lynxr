@@ -17,6 +17,7 @@ name: creator scripts
 # public repo can be broader than this job ever needs.
 permissions:
   contents: read
+  actions: write      # only so pipeline/watchdog.py can hand a newly opened alarm to the fixer agent (workflow_dispatch of fixer.yml; see pipeline/fixer_dispatch.py)
 
 on:
   schedule:
@@ -156,6 +157,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           WHISPER_MODEL: small
+          FIXER_DISPATCH_TOKEN: ${{ github.token }}
+          FIXER_ENABLED: ${{ vars.FIXER_ENABLED }}
+          FIXER_SOURCE: fallback
         # Poll for ~5h45m rather than draining the queue once and exiting.
         #
         # MEASURED 2026-08-12: the cron above says every 15 minutes, but real

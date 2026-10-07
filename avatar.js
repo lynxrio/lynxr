@@ -30,7 +30,11 @@
   var W = "#fff", VIO = "#7b61ff", SWEAT = "#6fb5ff";
   /* "giggle" (2026-10-05, the landing's perched x: "have it be like im tickling it and he laughs"):
      eyes squeezed into tight happy arcs, an open smile. Only the landing sets it. */
-  var MOODS = ["idle", "reading", "writing", "done", "hyped", "confused", "sorry", "coaching", "giggle"];
+  /* "shock", "hmm", "cool" (2026-10-06, the landing's intro: "be in shock when it sees the continue with
+     google or email and then go to the right side and be like mmm interesting thats cool"): a gasp with
+     big eyes and a "!", an intrigued squint with thinking dots, and an impressed grin with two sparkles.
+     Only the landing sets them. */
+  var MOODS = ["idle", "reading", "writing", "done", "hyped", "confused", "sorry", "coaching", "giggle", "shock", "hmm", "cool"];
   var L = [51, 55], R = [69, 55], EW = 8, EH = 13;
   var uid = 0;
   function n(v) { return Math.round(v * 100) / 100; }
@@ -66,6 +70,11 @@
       // sheepish: droopy eyes glancing aside (no brows: owner, 2026-09-15)
       case "sorry":    return sad(L[0] + 1.5, L[1] + 2, w, h * 0.78, "l") + sad(R[0] + 1.5, R[1] + 2, w, h * 0.78, "r");
       case "coaching": return pill(L[0], L[1], w, h) + pill(R[0], R[1] - h * 0.1, w, h * 1.15);
+      case "shock":    return '<g class="lx-pop">' + pill(L[0] - 1, L[1] - 1.5, w * 1.3, h * 1.18) + pill(R[0] + 1, R[1] - 1.5, w * 1.3, h * 1.18) + "</g>";
+      // intrigued: one eye narrowed more than the other (no brows: owner, 2026-09-15)
+      case "hmm":      return pill(L[0], L[1] + h * 0.22, w, h * 0.46) + pill(R[0], R[1] + h * 0.1, w, h * 0.7);
+      case "cool":     return line("M" + n(L[0] - w * 0.7) + " " + n(L[1] + h * 0.12) + "q" + n(w * 0.7) + " " + n(-h * 0.55) + " " + n(w * 1.4) + " 0" +
+                                   "M" + n(R[0] - w * 0.7) + " " + n(R[1] + h * 0.12) + "q" + n(w * 0.7) + " " + n(-h * 0.55) + " " + n(w * 1.4) + " 0", n(w * 0.45));
     }
     return "";
   }
@@ -81,6 +90,9 @@
       case "confused": inner = line("M-8 0q2-3 4 0t4 0t4 0t4 0", 2.8); break;
       case "sorry":    inner = line("M-4.5 3q4.5-4.2 9 0", 2.8); break;
       case "coaching": inner = '<ellipse class="lx-talk" cx="0" cy="1" rx="4.2" ry="3.6" fill="' + W + '"/>'; break;
+      case "shock":    inner = '<ellipse cx="0" cy="2" rx="3.4" ry="4.4" fill="none" stroke="' + W + '" stroke-width="2.8"/>'; break;
+      case "hmm":      inner = line("M-1 1.5q3.5-1.6 7 0", 3); break;          // pursed, pushed to one side
+      case "cool":     inner = line("M-7.5-1q7.5 7.5 15 0", 3.4); break;
     }
     return '<g transform="translate(60 70)">' + inner + "</g>";
   }
@@ -89,6 +101,11 @@
     if (s === "confused") return '<g class="lx-bob"><g transform="translate(24 14) rotate(14)">' +
       line("M-4.5-5.5q0-5.5 4.8-5.5q4.7 0 4.7 4.6q0 3.6-4.7 5.4v3", 3.4, VIO) + '<circle cy="8.4" r="2.1" fill="' + VIO + '"/></g></g>';
     if (s === "sorry") return '<g class="lx-drip"><path transform="translate(70 22) scale(.85)" d="M0-7.5c3.2 4.6 4.8 7.3 4.8 9.6a4.8 4.8 0 0 1-9.6 0c0-2.3 1.6-5 4.8-9.6z" fill="' + SWEAT + '"/></g>';
+    if (s === "shock") return '<g class="lx-bang"><g transform="translate(99 15) rotate(12)">' +
+      line("M0-9v9", 3.6, VIO) + '<circle cy="6.6" r="2.2" fill="' + VIO + '"/></g></g>';
+    if (s === "hmm") return '<circle class="lx-dot" cx="88" cy="24" r="2" fill="' + VIO + '"/>' +
+      '<circle class="lx-dot lx-dl2" cx="96" cy="15" r="2.8" fill="' + VIO + '"/>' + '<circle class="lx-dot lx-dl4" cx="105" cy="5" r="3.6" fill="' + VIO + '"/>';
+    if (s === "cool") return star(17, 30, 6, VIO, "lx-tw") + star(104, 26, 4.5, VIO, "lx-tw lx-dl3");
     if (s === "writing") return '<circle class="lx-dot" cx="52" cy="8" r="2.6" fill="' + VIO + '"/>' +
       '<circle class="lx-dot lx-dl2" cx="60" cy="8" r="2.6" fill="' + VIO + '"/>' + '<circle class="lx-dot lx-dl4" cx="68" cy="8" r="2.6" fill="' + VIO + '"/>';
     return "";

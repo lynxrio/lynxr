@@ -71,6 +71,24 @@ TRACK LANE
     every TRACK_POLL_S, or within ~TRACK_FAST_S of a creator pressing "check my bio" (setup waits on it); TRACK_POSTS=0
     turns it off. Fly-only like the others.
     Plan: ~/.claude/plans/lynxr-onboarding-and-post-tracking.md.
+
+CANARY LANE
+    Runs pipeline/canary.py only when nothing else is due, LAST in the idle chain
+    (creators, the sweep, the agency lane, brief clips and tracking all go first).
+    Fly only: canary.py gates itself on FLY_APP_NAME, and the GitHub fallback never
+    runs worker.py. It is killed within about 5s when a creator queues, a "check my
+    bio" press is waiting, or the worker is stopping. The first run after every
+    start carries --boot (the deploy guard: both platforms, plus a model pass when
+    the image changed). CANARY=0 turns it off.
+    Plan: ~/.claude/plans/lynxr-script-canary.md (built under lynxr-fixer-agent.md).
+
+FIXER LANE
+    Every FIXER_POLL_S while idle, runs `pipeline/fixer.py requeue` as a subprocess:
+    scripts the pipeline gave up on for OUR failure (never the creator's link) are
+    queued again once the canary proves the cause is gone. It is serial with creator
+    passes, so a re-queue graft never races the worker's own write of that row.
+    Fly only in practice: the GitHub fallback never runs worker.py. FIXER=0 turns it
+    off. Plan: ~/.claude/plans/lynxr-fixer-agent.md.
 """
 
 import argparse
@@ -124,6 +142,18 @@ TRACK_POLL_S = float(envcfg.get("TRACK_POLL_S", "300"))
 # "check my bio" must not wait for the next 5-minute pass. Every TRACK_FAST_S an idle worker asks one cheap question
 # (is there a check requested in the last 3 minutes?) and runs the pass at once if so.
 TRACK_FAST_S = float(envcfg.get("TRACK_FAST_S", "8"))
+
+# The pipeline canary (pipeline/canary.py): known-good public videos through the real script path. Idle-only,
+# Fly-only and LAST in the chain. CANARY=0 turns it off.
+CANARY = envcfg.get("CANARY", "1") not in ("0", "", "false", "False")
+CANARY_EVERY_MIN = float(envcfg.get("CANARY_EVERY_MIN", "60"))
+CANARY_RETRY_MIN = float(envcfg.get("CANARY_RETRY_MIN", "3"))
+# Lets warm_whisper page the 464MB weights in first, so the boot pass is not the one paying the ~60s cold read.
+CANARY_BOOT_DELAY_S = float(envcfg.get("CANARY_BOOT_DELAY_S", "90"))
+
+# The fixer's re-queue lane (pipeline/fixer.py requeue). Idle-only, Fly-only. FIXER=0 turns it off.
+FIXER = envcfg.get("FIXER", "1") not in ("0", "", "false", "False")
+FIXER_POLL_S = float(envcfg.get("FIXER_POLL_S", "300"))
 
 # This venv's Python has no system CA bundle — a bare default context fails
 # every request with CERTIFICATE_VERIFY_FAILED. Same guard the rest of the
@@ -310,6 +340,71 @@ def run_track_pass():
     return None
 
 
+def run_fixer_pass():
+    """One pass of `pipeline/fixer.py requeue`, as its own process for run_pass()'s reason. Never raises."""
+    cmd = [sys.executable, str(ROOT / "pipeline" / "fixer.py"), "requeue"]
+    try:
+        return subprocess.run(cmd, cwd=str(ROOT / "pipeline"), timeout=180).returncode
+    except subprocess.TimeoutExpired:
+        log.error("fixer pass exceeded 3 minutes — killed")
+    except Exception as e:  # noqa: BLE001
+        log.error("fixer pass failed to start: %s", str(e)[:120])
+    return None
+
+
+def run_preemptible(cmd, should_stop, poll_s=2.0, grace_s=5.0, timeout_s=900, cwd=None):
+    """Run `cmd`, but stop it within about poll_s + grace_s when should_stop() turns True or timeout_s passes.
+    Returns (outcome, rc): ("ok", 0), ("failed", rc), ("preempted", None), ("timeout", None) or ("error", None).
+    Never raises. should_stop() raising counts as False."""
+    try:
+        proc = subprocess.Popen(cmd, cwd=cwd)
+    except Exception as e:  # noqa: BLE001
+        log.error("could not start %s: %s", Path(str(cmd[1])).name if len(cmd) > 1 else cmd, str(e)[:120])
+        return "error", None
+    t0 = time.time()
+    while True:
+        try:
+            rc = proc.wait(timeout=poll_s)
+            return ("ok" if rc == 0 else "failed"), rc
+        except subprocess.TimeoutExpired:
+            pass
+        try:
+            stop = bool(should_stop())
+        except Exception:  # noqa: BLE001
+            stop = False
+        timed_out = (time.time() - t0) >= timeout_s
+        if stop or timed_out:
+            proc.terminate()
+            try:
+                proc.wait(timeout=grace_s)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            return ("preempted" if stop else "timeout"), None
+
+
+def run_canary_pass(key, boot):
+    """One pipeline/canary.py pass, killed within ~5s when a creator queues, a "check my bio" press is waiting, or the
+    worker is stopping. Returns (outcome, rc). canary.py exits 3 for "a check failed once: re-run soon"."""
+    cmd = [sys.executable, str(ROOT / "pipeline" / "canary.py")] + (["--boot"] if boot else [])
+    bio_next = [0.0]
+
+    def should_stop():
+        if STOPPING:
+            return True
+        if queued_creators(key):             # None (a failed probe) counts as no
+            return True
+        if time.time() >= bio_next[0]:
+            bio_next[0] = time.time() + TRACK_FAST_S
+            return track_check_waiting(key)
+        return False
+
+    t0 = time.time()
+    outcome, rc = run_preemptible(cmd, should_stop, cwd=str(ROOT / "pipeline"))
+    log.info("canary pass %s (rc %s) in %.0fs", outcome, rc, time.time() - t0)
+    return outcome, rc
+
+
 def warm_whisper():
     """Page the model weights in before anyone is waiting on them.
 
@@ -433,6 +528,9 @@ def main():
     clips_next = 0.0
     track_next = 0.0
     track_probe_next = 0.0
+    fixer_next = time.time() + 60
+    canary_next = time.time() + CANARY_BOOT_DELAY_S
+    canary_boot = True
 
     def track_fast_due():
         """The fast path's throttle: ask the one cheap question at most every TRACK_FAST_S."""
@@ -537,6 +635,19 @@ def main():
             # scans and measurements (every tier). pipeline/track_posts.py logs one line per pass.
             run_track_pass()
             track_next = time.time() + TRACK_POLL_S
+        elif FIXER and time.time() >= fixer_next:
+            # Idle only, after tracking and before the canary: re-queue scripts given up on for OUR failure once the
+            # canary proves the cause is gone (pipeline/fixer.py requeue). A few HTTP calls; returns in seconds.
+            run_fixer_pass()
+            fixer_next = time.time() + FIXER_POLL_S
+        elif CANARY and time.time() >= canary_next:
+            # LAST in the chain: creators, the sweep, the agency lane, brief clips and tracking all go first.
+            # Preempted the moment a creator queues; a preempted run is due again at the next idle moment.
+            outcome, rc = run_canary_pass(key, canary_boot)
+            if outcome != "preempted":
+                canary_boot = False
+                canary_next = time.time() + 60 * (CANARY_RETRY_MIN if rc == 3 else CANARY_EVERY_MIN)
+            idle_logged = False
         elif not idle_logged:
             log.info("idle — nothing queued")
             idle_logged = True          # say it once, not every two seconds

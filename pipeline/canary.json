@@ -1,0 +1,11 @@
+{
+  "_doc": "Known-good PUBLIC videos for pipeline/canary.py. Config, not secrets. lynxr's own posts first; never a creator-pasted URL (public repo). Replace one when the canary-video alarm says it is gone.",
+  "videos": {
+    "tiktok":    [{"url": "https://www.tiktok.com/@lynxr.io/video/7678789322375548191", "speech": true, "seconds": 32}, {"url": "https://www.tiktok.com/@lynxr.io/video/7678415930132614431", "speech": true, "seconds": 40}],
+    "instagram": [{"url": "https://www.instagram.com/reel/CDUMkliABpa/", "speech": true, "seconds": 13}, {"url": "https://www.instagram.com/reel/Cop84x6u7CP/", "speech": false, "seconds": 19}]
+  },
+  "creator": {"name": "lynxr canary"},
+  "brand": {"id": "canary-brand", "name": "lynxr",
+            "description": "An app that turns a short-form video a creator likes into a script they can film themselves.",
+            "objective": "App sign-ups", "niche": "creator tools", "tried": "yes"}
+}

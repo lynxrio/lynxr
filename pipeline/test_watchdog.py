@@ -20,6 +20,7 @@ beats, recovered fine — which paged for real under the old rule). The alarm
 now keys on the explicit `rerun` marker only.
 """
 
+import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
@@ -695,6 +696,87 @@ try:
     check("prune swallows a failure", True, True)
 finally:
     W.urllib.request.urlopen = _orig_urlopen
+
+# ---- canary (pipeline/canary.py -> lynxr_ops 'canary.health') ---------------
+def canary_alarms(c, worker_seen_at=None):
+    return W.check_all(healthy_rows, sources_recent=1,
+                       worker_seen_at=worker_seen_at or NOW - timedelta(minutes=1), now=NOW, canary=c)
+
+
+def canary_keys(c, worker_seen_at=None):
+    return {k for k in keys_of(canary_alarms(c, worker_seen_at)) if k.startswith("canary")}
+
+
+check("canary=None adds no canary key", canary_keys(None), set())
+check("canary={} adds no canary key", canary_keys({}), set())
+check("a streak of 1 does not page", canary_keys({"streak": {"tiktok": 1}}), set())
+c2 = {"streak": {"tiktok": 2},
+      "fails": {"tiktok": {"stage": "transcribe", "platform": "tiktok", "reason": "TypeError: x", "at": ago(NOW, 120)}}}
+al = [a for a in canary_alarms(c2) if a["key"] == "canary"]
+check("a streak of 2 pages exactly one canary alarm", len(al), 1)
+check("... at priority 4, page True", (al[0]["page"], al[0]["priority"]), (True, 4))
+check("... the title names the stage and the platform", ("transcribe" in al[0]["title"], "tiktok" in al[0]["title"]), (True, True))
+check("... the body carries no http", "http" in al[0]["body"], False)
+c_rb = dict(c2, last_good_image="registry.fly.io/lynxr-worker:deployment-A")
+c_rb["fails"] = {"tiktok": dict(c2["fails"]["tiktok"], image="registry.fly.io/lynxr-worker:deployment-B")}
+al = [a for a in canary_alarms(c_rb) if a["key"] == "canary"]
+check("a failure that began on a new image carries the rollback line",
+      "fly deploy --image registry.fly.io/lynxr-worker:deployment-A" in al[0]["body"], True)
+c_dl = {"streak": {"instagram": 2},
+        "fails": {"instagram": {"stage": "download", "platform": "instagram", "reason": "x", "at": ago(NOW, 60),
+                                "image": "registry.fly.io/lynxr-worker:deployment-A"}},
+        "last_good_image": "registry.fly.io/lynxr-worker:deployment-A"}
+al = [a for a in canary_alarms(c_dl) if a["key"] == "canary"]
+check("a download failure on an unchanged image points at refresh worker image", "refresh worker image" in al[0]["body"], True)
+c_p = dict(c2, paused=True)
+al = canary_alarms(c_p)
+check("paused: no canary page, but a quiet canary-paused",
+      (keys_of(al) & {"canary", "canary-paused"}, [a["page"] for a in al if a["key"] == "canary-paused"]),
+      ({"canary-paused"}, [False]))
+check("at 7h old with the worker up: canary-stale, quiet",
+      [(a["key"], a["page"]) for a in canary_alarms({"at": ago(NOW, 7 * 3600)}) if a["key"] == "canary-stale"],
+      [("canary-stale", False)])
+check("... but not when the worker was last seen 2h ago",
+      canary_keys({"at": ago(NOW, 7 * 3600)}, worker_seen_at=NOW - timedelta(hours=2)), set())
+check("a soft stage seen an hour ago: canary-soft, quiet", canary_keys({"soft_seen": {"clip": ago(NOW, 3600)}}), {"canary-soft"})
+check("... at 30h old: nothing", canary_keys({"soft_seen": {"clip": ago(NOW, 30 * 3600)}}), set())
+check("a gone test video: canary-video, quiet", canary_keys({"video_gone": {"instagram": [0]}}), {"canary-video"})
+for bad in ("x", [], {"streak": "bad"}):
+    try:
+        got = canary_keys(bad)
+    except Exception as e:  # noqa: BLE001
+        got = f"raised {type(e).__name__}"
+    check(f"a malformed canary {bad!r} makes no canary key and no exception", got, set())
+check("digest with canary={} says no report yet",
+      "canary: no report yet" in W.digest([], 0, NOW, NOW, canary={}), True)
+two = {"history": [{"at": ago(NOW, 3600), "ok": True}, {"at": ago(NOW, 1800), "ok": False}], "versions": {"yt_dlp": "2026.7.4"}}
+check("a two-entry history reads 1/2", "canary: 1/2 passes ok (24h)" in W.digest([], 0, NOW, NOW, canary=two), True)
+check("digest with canary=None has no canary line", "canary:" in W.digest([], 0, NOW, NOW), False)
+
+# ---- the fixer hook never raises into a tick ---------------------------------
+import fixer_dispatch as _FD  # noqa: E402
+_orig_maybe = _FD.maybe_dispatch
+_orig_token = {k: os.environ.get(k) for k in ("FIXER_DISPATCH_TOKEN", "FIXER_ENABLED")}
+
+
+def _raises(*a, **k):
+    raise RuntimeError("boom")
+
+
+try:
+    _FD.maybe_dispatch = _raises
+    check("_fixer_hook swallows a raising dispatcher", W._fixer_hook("k", {"canary"}, NOW), "error")
+    _FD.maybe_dispatch = _orig_maybe
+    os.environ.pop("FIXER_DISPATCH_TOKEN", None)
+    os.environ.pop("FIXER_ENABLED", None)
+    check("_fixer_hook is disabled with no token in the environment", W._fixer_hook("k", {"canary"}, NOW), "disabled")
+finally:
+    _FD.maybe_dispatch = _orig_maybe
+    for k, v in _orig_token.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
 
 print()
 if FAILS:

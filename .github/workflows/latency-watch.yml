@@ -42,6 +42,7 @@ name: latency watch
 # org/repo default happens to be.
 permissions:
   contents: read
+  actions: write      # only so pipeline/watchdog.py can hand a newly opened alarm to the fixer agent (workflow_dispatch of fixer.yml; see pipeline/fixer_dispatch.py)
 
 on:
   schedule:
@@ -79,6 +80,9 @@ jobs:
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          FIXER_DISPATCH_TOKEN: ${{ github.token }}
+          FIXER_ENABLED: ${{ vars.FIXER_ENABLED }}
+          FIXER_SOURCE: latency-watch
         # Never exits non-zero on a breach — see watchdog.py's own comment on
         # why (the p95 lesson, above). This step existing and succeeding is
         # the "the watchdog itself is alive" signal now; the alarm is the

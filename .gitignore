@@ -17,3 +17,6 @@ data/covers/
 # macOS noise
 .DS_Store
 
+# Fixer agent scratch (CI only; never committed)
+.fixer/
+
