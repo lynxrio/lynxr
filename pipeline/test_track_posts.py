@@ -749,6 +749,235 @@ T.measure = REAL["measure"]
 check("measure: a foreign host is never fetched", T.measure({"platform": "tiktok", "url": "https://evil.example/@a/video/1"}), None)
 check("measure: a look-alike host is never fetched", T.measure({"platform": "instagram", "url": "https://www.instagram.com.evil.example/reel/x/"}), None)
 
+# ── MATCH: the script-attribution lane. No network, no Supabase, no ffmpeg: fetch_audio / transcribe / media_duration are stubs ──
+import contextlib
+import io
+import logging
+
+REAL_P = {n: getattr(T.P, n) for n in ("fetch_audio", "transcribe", "media_duration", "queued_work")}
+HOOK_M = "your water bottle is lying about how cold it stays"
+BEATS_M = ["i filled the quenchwell bottle with ice and left it in my hot car all afternoon",
+           "six hours later the ice was still there and the water was freezing cold",
+           "the lid seals tight so nothing leaks inside my gym bag either",
+           "it fits my cup holder and it cleans in the dishwasher with no effort"]
+CTA_M = "grab a quenchwell bottle before summer ends"
+SAID_M = " ".join([HOOK_M] + BEATS_M + [CTA_M])
+CAPTION_M = "a private caption nobody should ever store"
+
+
+def m_script(aid="s-1", brand="b1", **kw):
+    return {"id": aid, "status": "done", "brandId": brand, "addedAt": ago(days=2),
+            "adaptation": {"delivery": "spoken", "hook": HOOK_M, "cta": CTA_M, "caption": "",
+                           "beats": [{"t": "0-3s", "say": s, "do": "", "show": ""} for s in BEATS_M]}, **kw}
+
+
+M_DATA = {"brands": [{"id": "b1", "name": "Quenchwell"}], "adaptations": [m_script()]}
+M_POST = {"id": 7, "creator_id": "c1", "platform": "tiktok", "handle": "a.b", "url": "https://www.tiktok.com/@a.b/video/7",
+          "caption": CAPTION_M, "posted_at": ago(hours=5), "match_tries": 1}
+M_CALLS = {"fetch": 0, "transcribe": 0}
+
+
+def match_stubs(said=SAID_M, speech=True, dur=30, fetch_ok=True, boom=False):
+    M_CALLS.update(fetch=0, transcribe=0)
+
+    def fetch(url, dest):
+        M_CALLS["fetch"] += 1
+        if not fetch_ok:
+            return None, "download failed"
+        f = dest / "a.mp3"
+        f.write_bytes(b"x")
+        return f, None
+
+    def transcribe(path, model):
+        M_CALLS["transcribe"] += 1
+        if boom:
+            raise RuntimeError("whisper fell over")
+        return {"text": said if speech else "", "has_speech": speech}
+
+    T.P.fetch_audio, T.P.transcribe, T.P.media_duration = fetch, transcribe, lambda p: dur
+
+
+def match_world(post=M_POST, data=M_DATA, linked=(), **kw):
+    return setup_world([("match_state=eq.pending", (200, [post] if post else [])), ("match_state=eq.failed", (200, [])),
+                        ("lynxr_creators", (200, [{"data": data}])),
+                        ("adaptation_id=not.is.null", (200, [{"adaptation_id": a} for a in linked]))], **kw)
+
+
+def patches(r):
+    return r.to("lynxr_posts?id=eq.", "PATCH")
+
+
+class Grab(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.lines = []
+
+    def emit(self, rec):
+        self.lines.append(rec.getMessage())
+
+
+GRAB = Grab()
+logging.getLogger("track_posts").addHandler(GRAB)
+
+# match_due: an unapplied post_match.sql (404, then 400) is one INFO line, [] and nothing further asked
+for code in (404, 400):
+    GRAB.lines.clear()
+    r = setup_world([("lynxr_posts", (code, None))])
+    check(f"match_due {code}: [] and exactly one read", (T.match_due("k", NOW), len(r.calls)), ([], 1))
+    check(f"match_due {code}: one INFO line naming the SQL file", len([l for l in GRAB.lines if "post_match.sql" in l]), 1)
+    check(f"match_pass {code}: harmless, counts zero", T.match_pass("k", NOW)["match_due"], 0)
+
+# match_due: the two reads, pending then failed (try cap and retry wait), merged without duplicates
+r = match_world()
+due = T.match_due("k", NOW)
+fr = r.to("match_state=eq.failed")[0][1]
+check("match_due: pending read asks adaptation_id is null, tracked, inside the window",
+      all(x in r.to("match_state=eq.pending")[0][1] for x in ("adaptation_id=is.null", "origin=eq.tracked", "posted_at=gt.")), True)
+check("match_due: failed read has the try cap and the retry wait", ("match_tries=lt.3" in fr, "match_at=lt." in fr), (True, True))
+check("match_due: returns the post", [p["id"] for p in due], [7])
+
+# the lane off: no REST call at all
+T.TRACK_MATCH = False
+r = match_world()
+check("match off: {} and no call", (T.match_pass("k", NOW), len(r.calls)), ({}, 0))
+T.TRACK_MATCH = True
+
+# dry: counts what is due, fetches and writes nothing
+match_stubs()
+r = match_world()
+sm = T.match_pass("k", NOW, dry=True)
+check("match dry: counts, no download, no write", (sm["match_due"], M_CALLS["fetch"], len(r.writes())), (1, 0, 0))
+
+# no candidate script: nothing is downloaded; state none; one log row with no candidates
+match_stubs()
+r = match_world(data={"brands": M_DATA["brands"], "adaptations": [{**m_script(), "brandId": None}]})   # a no-brand entry is not a candidate
+sm = T.match_pass("k", NOW)
+check("match none: no download at all", M_CALLS["fetch"], 0)
+check("match none: state none, tries + 1", (patches(r)[0][2]["match_state"], patches(r)[0][2]["match_tries"]), ("none", 2))
+lg = r.to("lynxr_match_log", "POST")
+check("match none: one log row, decision none, no candidates", (len(lg), lg[0][2]["decision"], lg[0][2]["candidates"]), (1, "none", []))
+check("match none: counted", sm["match_none"], 1)
+
+# a script already linked to 4 posts is not a candidate either
+match_stubs()
+r = match_world(linked=["s-1"] * 4)
+T.match_pass("k", NOW)
+check("match: a script at its link cap is out, so no download", (M_CALLS["fetch"], patches(r)[0][2]["match_state"]), (0, "none"))
+
+# auto: exactly one PATCH on the post, guarded by adaptation_id=is.null
+match_stubs()
+r = match_world()
+sm = T.match_pass("k", NOW)
+pp = patches(r)
+check("match auto: exactly one PATCH", len(pp), 1)
+check("match auto: its path carries adaptation_id=is.null (the creator wins a race)", "adaptation_id=is.null" in pp[0][1], True)
+check("match auto: it writes the script id and state auto", (pp[0][2]["adaptation_id"], pp[0][2]["match_state"], pp[0][2]["match_tries"]), ("s-1", "auto", 2))
+check("match auto: it stamps script_linked_at and match_at", (pp[0][2]["script_linked_at"], pp[0][2]["match_at"]), (T.iso(NOW), T.iso(NOW)))
+lg = r.to("lynxr_match_log", "POST")
+check("match auto: one log row, decision auto, the script id and a score", (len(lg), lg[0][2]["decision"], lg[0][2]["best_adaptation_id"], lg[0][2]["best_score"] >= 0.7),
+      (1, "auto", "s-1", True))
+blob = json.dumps([c[2] for c in r.writes()])
+check("match auto: no transcript word and no caption anywhere in what was written",
+      any(x in blob for x in ("dishwasher", "freezing", "private caption", "gym bag")), False)
+check("match auto: counted as matched; one download and one transcription", (sm["matched"], M_CALLS["fetch"], M_CALLS["transcribe"]), (1, 1, 1))
+
+# shadow mode: scored and logged, no adaptation_id written
+T.TRACK_MATCH_WRITE = False
+match_stubs()
+r = match_world()
+sm = T.match_pass("k", NOW)
+check("match shadow: the PATCH carries no adaptation_id and never says auto", ("adaptation_id" in patches(r)[0][2], patches(r)[0][2]["match_state"]), (False, "borderline"))
+check("match shadow: the log still records the real decision", r.to("lynxr_match_log", "POST")[0][2]["decision"], "auto")
+check("match shadow: nothing counted as matched", sm["matched"], 0)
+T.TRACK_MATCH_WRITE = True
+
+# the creator linked the post by hand while the audio downloaded: the guarded PATCH matches no row, so nothing of ours is recorded
+match_stubs()
+r = match_world()
+r.routes.insert(0, ("lynxr_posts?id=eq.", (200, [])))
+sm = T.match_pass("k", NOW)
+check("match race: no log row and not counted when the creator got there first", (len(r.to("lynxr_match_log", "POST")), sm["matched"]), (0, 0))
+
+# fetch failure: failed, tries + 1, NO log row
+match_stubs(fetch_ok=False)
+r = match_world()
+sm = T.match_pass("k", NOW)
+check("match fetch failed: state failed, tries incremented", (patches(r)[0][2]["match_state"], patches(r)[0][2]["match_tries"]), ("failed", 2))
+check("match fetch failed: no log row, counted", (len(r.to("lynxr_match_log", "POST")), sm["match_failed"]), (0, 1))
+
+# a transcribe crash is contained: failed, and the pass goes on
+match_stubs(boom=True)
+r = match_world()
+sm = T.match_pass("k", NOW)
+check("match transcribe crash: contained, state failed", (patches(r)[0][2]["match_state"], sm["match_failed"]), ("failed", 1))
+
+# too long: skipped, and Whisper never runs
+match_stubs(dur=T.TRACK_MATCH_MAX_SEC + 1)
+r = match_world()
+sm = T.match_pass("k", NOW)
+check("match too long: skipped, transcribe never called", (patches(r)[0][2]["match_state"], M_CALLS["transcribe"], sm["match_skipped"]), ("skipped", 0, 1))
+
+# a link that is not on the post's own platform host is never fetched
+match_stubs()
+r = match_world(post={**M_POST, "url": "https://evil.example/v/7"})
+T.match_pass("k", NOW)
+check("match: a foreign host is never downloaded", (M_CALLS["fetch"], patches(r)[0][2]["match_state"]), (0, "skipped"))
+
+# creators first: a queued script stops the loop before the first item
+match_stubs()
+r = match_world(queued=True)
+sm = T.match_pass("k", NOW)
+check("match yield: queued_work -> due counted, nothing attempted", (sm["match_due"], M_CALLS["fetch"], len(r.writes())), (1, 0, 0))
+
+# the wall clock: no new attempt starts past the budget
+match_stubs()
+r = match_world()
+T.TRACK_MATCH_BUDGET_S = -1
+sm = T.match_pass("k", NOW)
+T.TRACK_MATCH_BUDGET_S = 240
+check("match budget: nothing starts past the budget", (M_CALLS["fetch"], len(r.writes())), (0, 0))
+
+# at most TRACK_MATCH_PER_PASS posts per pass, max accounts first
+match_stubs()
+posts3 = [{**M_POST, "id": 10 + i, "creator_id": c} for i, c in enumerate(("cf", "cp", "cm"))]
+r = setup_world([("match_state=eq.pending", (200, posts3)), ("match_state=eq.failed", (200, [])), ("lynxr_creators", (200, [{"data": M_DATA}])),
+                 ("adaptation_id=not.is.null", (200, []))], tiers=TIERS)
+T.match_pass("k", NOW)
+check("match per pass: two attempts, max then pro (the free one waits)", [p[1].split("id=eq.")[1].split("&")[0] for p in patches(r)], ["12", "11"])
+
+# an unreadable creator row records nothing (a transient error is not a verdict)
+match_stubs()
+r = setup_world([("match_state=eq.pending", (200, [M_POST])), ("match_state=eq.failed", (200, [])), ("lynxr_creators", (500, None))])
+T.match_pass("k", NOW)
+check("match: an unreadable creator row writes nothing and downloads nothing", (len(r.writes()), M_CALLS["fetch"]), (0, 0))
+
+# run(): the lane is wired in last and its counts reach the health row
+match_stubs()
+r = match_world()
+T.apify_ok = lambda: True
+out = T.run("k", dry=True)
+check("run dry: the match lane reports what is due", out["match"]["match_due"], 1)
+check("run: the match key is present in the stats", "match" in out, True)
+
+# --match-dry: the whole path, printed, and nothing written
+match_stubs()
+r = setup_world([("lynxr_posts?id=eq.7&select", (200, [M_POST])), ("lynxr_creators", (200, [{"data": M_DATA}])),
+                 ("adaptation_id=not.is.null", (200, []))])
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    rc = T.match_dry("k", 7)
+check("match-dry: writes nothing at all (no PATCH, no log row)", (rc, len(r.writes())), (0, 0))
+check("match-dry: prints the decision and the candidate id, not a transcript word",
+      ("decision: auto" in buf.getvalue(), "s-1" in buf.getvalue(), "dishwasher" in buf.getvalue(), "private caption" in buf.getvalue()),
+      (True, True, False, False))
+r = setup_world([("lynxr_posts?id=eq.7&select", (200, []))])
+with contextlib.redirect_stdout(io.StringIO()):
+    check("match-dry: an unknown post is exit 2", T.match_dry("k", 7), 2)
+
+for n, f in REAL_P.items():
+    setattr(T.P, n, f)
+logging.getLogger("track_posts").removeHandler(GRAB)
+
 print()
 print("ALL OK" if not FAILS else f"{len(FAILS)} FAILED")
 sys.exit(1 if FAILS else 0)

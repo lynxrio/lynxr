@@ -48,6 +48,9 @@ Showcase (supabase/showcase.sql, 2026-10): `lynxr_showcase_consent`, `lynxr_show
 Tier 2 (consent and the staff's decisions are slow to redo, but a missing table before the SQL is applied must only
 warn, and tier 1 would abort the whole backup); `lynxr_showcase_points` is Tier 3 (re-measurable public counts).
 
+Script attribution (supabase/post_match.sql, 2026-10): `lynxr_match_log` is Tier 3 because it is re-derivable by re-scoring
+the posts, and a missing table (before the SQL is applied) must only warn.
+
 The auth roster is captured separately through the admin API. IT CANNOT
 INCLUDE PASSWORD HASHES — the admin endpoint does not return them, so this is
 a roster of who exists, not a set of credentials you could restore people
@@ -123,6 +126,7 @@ TABLES = (
     ("lynxr_post_views", 3),
     ("lynxr_profile_followers", 3),
     ("lynxr_showcase_points", 3),
+    ("lynxr_match_log", 3),            # script-attribution log (supabase/post_match.sql): re-derivable by re-scoring
     ("lynxr_costs", 3),
 )
 

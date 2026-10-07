@@ -7,7 +7,7 @@ Plans: ~/.claude/plans/lynxr-onboarding-and-post-tracking.md and ~/.claude/plans
 Owner, 2026-10-03: tracking is for every tier; what the tiers sell is the coaching (not built yet), so this lane no longer
 asks whether an account holds post_tracking. The database function has_post_tracking() is left in place, unused.
 
-WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> health)
+WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> showcase -> match -> health)
     VERIFY (every tier). For each profile in lynxr_profiles that is not verified yet and is due a check, read the
         profile's public bio and look for its verify_code (set by supabase/profiles.sql's set_my_profile). Found ->
         verified, with the platform's own account number recorded so a username that later passes to someone else
@@ -24,6 +24,14 @@ WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> heal
         already able to fetch (free); Instagram is one Apify `details` result per profile per day.
     The three goals read these: views per video and likes per video from the day-7 snapshots of the latest 5 videos,
     followers from the daily snapshots.
+    MATCH (every tier, LAST in the pass so it can never delay the rest). Plan: ~/.claude/plans/lynxr-adaptation-id.md. A stored
+        post that has no script link yet is matched to the lynxr script that produced it: the creator's recent finished,
+        branded scripts are the candidates (none -> nothing is downloaded), the post's audio is fetched with yt-dlp and
+        transcribed by the worker's own Whisper, and pipeline/post_match.py scores the words against each candidate. Only a
+        sure match writes lynxr_posts.adaptation_id (match_state 'auto'); everything else is logged for staff in
+        lynxr_match_log (numbers and script ids, never a word of the transcript or caption). Precision over recall: a wrong
+        link teaches the brain a lie nothing can detect. Needs supabase/post_match.sql; without it the lane logs one line and
+        does nothing. TRACK_MATCH=0 stops it; TRACK_MATCH_WRITE=0 scores and logs but links nothing (shadow mode).
 
 FLY ONLY
     Runs as worker.py's idle lane (TRACK_POSTS). NEVER add it to .github/workflows/adaptations.yml: the
@@ -39,6 +47,7 @@ COST (Apify, measured 2026-10-01; the full table is in the plan). Result price $
     Instagram tracking, per post: 1 discovery + 4 checkpoint lookups = 5 results = about $0.0135, so about $0.18 a month
     for a profile posting 3 a week, $0.41 daily. Likes and comments come back in the same result as views: no extra cost.
     Instagram followers: one `details` result per profile per day = about $0.081 a month per profile (30 results).
+    MATCH: $0 — one yt-dlp audio download and one local Whisper pass per attempted post; no Apify, ever.
     All Apify calls stop while the account's spend (plus this process's own results) is at or over
     (1 - TRACK_APIFY_RESERVE) x the cap, so a creator's paid view lookups keep headroom.
 
@@ -62,6 +71,9 @@ RUN
         ./venv/bin/python pipeline/track_posts.py --verify-dry tiktok <handle> <code>
             # the REAL check for one profile from this Mac: reads the bio, prints it, says whether <code> is in it.
             # No database access, nothing written. Free. Instagram needs --spend (one Apify result, about $0.0027).
+        ./venv/bin/python pipeline/track_posts.py --match-dry POST_ID
+            # the whole match path for one stored post: prints the candidate table and the decision. Reads the database,
+            # never writes it. Costs one free audio download and one local Whisper pass.
 """
 import argparse
 import json
@@ -70,14 +82,18 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import process_adaptations as P  # noqa: E402
+import post_match as M  # noqa: E402
 import envcfg  # noqa: E402
 
 log = logging.getLogger("track_posts")
@@ -111,6 +127,22 @@ TRACK_MEASURE_MAX_FAILS = int(envcfg.get("TRACK_MEASURE_MAX_FAILS", "3"))      #
 TRACK_FOLLOWERS = envcfg.get("TRACK_FOLLOWERS", "1") not in ("0", "", "false", "False")
 TRACK_IG_FOLLOWERS = envcfg.get("TRACK_IG_FOLLOWERS", "1") not in ("0", "", "false", "False")
 TRACK_FOLLOW_RETRY_H = float(envcfg.get("TRACK_FOLLOW_RETRY_H", "6"))
+# MATCH (the script-attribution lane, pipeline/post_match.py). TRACK_MATCH=0 stops it; TRACK_MATCH_WRITE=0 is shadow mode (score and
+# log, link nothing). The thresholds are the ones reviewed on 2026-09-21 and move only on reviewed data from lynxr_match_log.
+TRACK_MATCH = envcfg.get("TRACK_MATCH", "1") not in ("0", "", "false", "False")
+TRACK_MATCH_WRITE = envcfg.get("TRACK_MATCH_WRITE", "1") not in ("0", "", "false", "False")
+TRACK_MATCH_PER_PASS = int(envcfg.get("TRACK_MATCH_PER_PASS", "2"))            # posts attempted per pass
+TRACK_MATCH_BUDGET_S = float(envcfg.get("TRACK_MATCH_BUDGET_S", "240"))        # no new attempt starts past this many seconds in the lane
+TRACK_MATCH_MAX_SEC = float(envcfg.get("TRACK_MATCH_MAX_SEC", "300"))          # a downloaded file longer than this is skipped, not transcribed
+TRACK_MATCH_RETRY_H = float(envcfg.get("TRACK_MATCH_RETRY_H", "12"))           # a failed post waits this long before another try
+TRACK_MATCH_MAX_FAILS = int(envcfg.get("TRACK_MATCH_MAX_FAILS", "3"))          # then it stays failed for good
+MATCH_WINDOW_DAYS = float(envcfg.get("MATCH_WINDOW_DAYS", "45"))               # a script is a candidate if added this long before the post
+MATCH_PER_SCRIPT = int(envcfg.get("MATCH_PER_SCRIPT", "4"))                    # most posts one script may ever be linked to
+MATCH_CFG = M.Cfg(auto_min=float(envcfg.get("MATCH_AUTO_MIN", "0.70")), margin=float(envcfg.get("MATCH_MARGIN", "0.25")),
+                  contain_min=float(envcfg.get("MATCH_CONTAIN_MIN", "0.45")),
+                  contain_strong=float(envcfg.get("MATCH_CONTAIN_STRONG", "0.60")),
+                  auto_days=float(envcfg.get("MATCH_AUTO_DAYS", "30")), log_min=float(envcfg.get("MATCH_LOG_MIN", "0.25")),
+                  per_script=MATCH_PER_SCRIPT, window_days=MATCH_WINDOW_DAYS)
 
 HANDLE_RE = re.compile(r"[a-z0-9._]{1,30}")
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -911,6 +943,191 @@ def followers_pass(key, now, dry=False, cache=None):
     return stats
 
 
+# ── MATCH: which lynxr script did this post come from ────────────────────────────────────────────────
+
+POSTS = "/rest/v1/lynxr_posts"
+MATCH_FIELDS = "id,creator_id,platform,handle,url,caption,posted_at,match_tries"
+
+
+def match_due(key, now):
+    """The tracked posts still to be matched, newest first: `pending` ones, then `failed` ones that are past their retry wait and
+    under the try cap. Two separate reads, merged here (one PostgREST or= clause is easy to get wrong on the hot path). A 404 or a
+    400 (PostgREST answers 400 for an unknown column) means supabase/post_match.sql is not applied: one INFO line and []."""
+    horizon = q(iso(now - timedelta(days=MATCH_WINDOW_DAYS)))
+    tail = (f"&adaptation_id=is.null&origin=eq.tracked&posted_at=gt.{horizon}&select={MATCH_FIELDS}"
+            f"&order=posted_at.desc.nullslast&limit={TRACK_MATCH_PER_PASS * 4}")
+    reads = (f"{POSTS}?match_state=eq.pending{tail}",
+             f"{POSTS}?match_state=eq.failed&match_tries=lt.{TRACK_MATCH_MAX_FAILS}"
+             f"&match_at=lt.{q(iso(now - timedelta(hours=TRACK_MATCH_RETRY_H)))}{tail}")
+    out, seen = [], set()
+    for path in reads:
+        status, rows = rest(key, path)
+        if status in (400, 404):
+            log.info("match: lynxr_posts.match_state missing — is supabase/post_match.sql applied?")
+            return []
+        if status != 200 or not isinstance(rows, list):
+            return out
+        for r in rows:
+            if isinstance(r, dict) and r.get("id") is not None and r["id"] not in seen:
+                seen.add(r["id"])
+                out.append(r)
+    return out
+
+
+def match_creator(key, cid, blobs):
+    """What a creator's scripts look like to the matcher, cached for the pass: {"ads", "brands", "counts"}, or None when the
+    database could not be read (a transient error: nothing is concluded from it)."""
+    if cid in blobs:
+        return blobs[cid]
+    st, rows = rest(key, f"/rest/v1/lynxr_creators?id=eq.{q(cid)}&select=data")
+    st2, linked = rest(key, f"{POSTS}?creator_id=eq.{q(cid)}&adaptation_id=not.is.null&select=adaptation_id&limit=1000")
+    if st != 200 or not isinstance(rows, list) or st2 != 200 or not isinstance(linked, list):
+        return None
+    data = (rows[0].get("data") if rows and isinstance(rows[0], dict) else None) or {}
+    blobs[cid] = {"ads": [a for a in (data.get("adaptations") or []) if isinstance(a, dict)],
+                  "brands": [b for b in (data.get("brands") or []) if isinstance(b, dict)],
+                  "counts": Counter(r.get("adaptation_id") for r in linked if isinstance(r, dict) and r.get("adaptation_id"))}
+    return blobs[cid]
+
+
+def match_evaluate(key, post, blobs):
+    """The read / download / transcribe / score path for one post. Writes nothing. Returns a dict whose `kind` is one of
+    unreadable (the database failed: record nothing), no_candidates, skipped, fetch_failed, too_long or scored; `scored` kind
+    also carries `scored` ([(id, score, features)] best first), `decision` and `best`. The transcript lives in this function's
+    locals and is gone when it returns."""
+    cid = post.get("creator_id")
+    blob = match_creator(key, cid, blobs)
+    if blob is None:
+        return {"kind": "unreadable"}
+    posted = parse_ts(post.get("posted_at"))
+    if posted is None or not M.candidates(blob["ads"], blob["counts"], posted, MATCH_WINDOW_DAYS, MATCH_PER_SCRIPT):
+        # Candidates come first because they are free: no script in the window means nothing is downloaded.
+        return {"kind": "no_candidates"}
+    if not post_url_ok(post.get("url"), post.get("platform")):
+        return {"kind": "skipped"}
+    with tempfile.TemporaryDirectory() as td:
+        media, _err = P.fetch_audio(post["url"], Path(td))      # no Apify fallback, by rule: a post yt-dlp cannot get is failed
+        if not media:
+            return {"kind": "fetch_failed"}
+        dur = P.media_duration(media)
+        if dur and dur > TRACK_MATCH_MAX_SEC:
+            return {"kind": "too_long"}
+        t = P.transcribe(str(media), P.WHISPER_MODEL)
+        words, speech = (t.get("text") or ""), bool(t.get("has_speech"))
+        scored, decision, best = M.rank(blob["ads"], blob["brands"], words, post.get("caption"), speech, posted, MATCH_CFG,
+                                        blob["counts"])
+        del t, words
+    return {"kind": "scored", "scored": scored, "decision": decision, "best": best}
+
+
+def match_log_row(post, decision, scored):
+    """The lynxr_match_log row: numbers and script ids only. No transcript, no caption, not one word of either."""
+    best = scored[0] if scored else None
+    return {"post_id": post["id"], "creator_id": post["creator_id"], "decision": decision,
+            "best_adaptation_id": best[0] if best else None, "best_score": best[1] if best else None,
+            "second_score": scored[1][1] if len(scored) > 1 else (0.0 if best else None),
+            "features": best[2] if best else {}, "candidates": [{"id": s[0], "score": s[1]} for s in scored[:5]]}
+
+
+def match_one(key, post, now, stats, blobs):
+    """Match one stored post and record the outcome. Never raises."""
+    where = f"{POSTS}?id=eq.{q(post.get('id'))}"
+    now_iso = iso(now)
+
+    def state(s):
+        return {"match_state": s, "match_at": now_iso, "match_tries": int(post.get("match_tries") or 0) + 1}
+
+    try:
+        r = match_evaluate(key, post, blobs)
+        kind = r["kind"]
+        if kind == "unreadable":
+            return
+        if kind == "fetch_failed":
+            rest(key, where, method="PATCH", body=state("failed"), prefer="return=minimal")
+            stats["match_failed"] += 1
+            return
+        if kind in ("skipped", "too_long"):
+            rest(key, where, method="PATCH", body=state("skipped"), prefer="return=minimal")
+            stats["match_skipped"] += 1
+            return
+        scored = r.get("scored") or []
+        decision = r["decision"] if kind == "scored" else "none"
+        if decision == "auto" and TRACK_MATCH_WRITE:
+            # adaptation_id=is.null is load-bearing: a creator who linked this post by hand while the audio downloaded wins.
+            st, got = rest(key, f"{where}&adaptation_id=is.null", method="PATCH",
+                           body={"adaptation_id": r["best"], "script_linked_at": now_iso, **state("auto")},
+                           prefer="return=representation")
+            if st not in (200, 201, 204):
+                stats["match_failed"] += 1
+                return
+            if isinstance(got, list) and not got:
+                return                                  # the creator linked it first: nothing of ours to record
+            blobs[post["creator_id"]]["counts"][r["best"]] += 1
+            stats["matched"] += 1
+        else:
+            # Shadow mode scores and logs a would-be link but writes none: the post is parked as borderline, never as `auto`
+            # without an adaptation_id (the log row keeps the real decision).
+            st, _ = rest(key, where, method="PATCH", body=state("borderline" if decision == "auto" else decision),
+                         prefer="return=minimal")
+            if st not in (200, 201, 204):
+                stats["match_failed"] += 1
+                return
+            stats["borderline" if decision in ("auto", "borderline") else "match_none"] += 1
+        rest(key, "/rest/v1/lynxr_match_log", method="POST", body=match_log_row(post, decision, scored), prefer="return=minimal")
+    except Exception as e:  # noqa: BLE001 -- a broken matcher must never stop the rest of the pass
+        log.warning("match: one post failed (%s)", type(e).__name__)
+        stats["match_failed"] += 1
+        try:
+            rest(key, where, method="PATCH", body=state("failed"), prefer="return=minimal")
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def match_pass(key, now, dry=False, cache=None):
+    """Match the stored posts that are due, max accounts first. Returns the counts, or {} when the lane is off."""
+    if not TRACK_MATCH:
+        return {}
+    stats = {"match_due": 0, "matched": 0, "borderline": 0, "match_none": 0, "match_failed": 0, "match_skipped": 0}
+    cache = {} if cache is None else cache
+    due = match_due(key, now)
+    stats["match_due"] = len(due)
+    if dry:
+        return stats
+    blobs, started = {}, time.monotonic()
+    for post in by_tier(due, key, cache)[:TRACK_MATCH_PER_PASS]:
+        if P.queued_work(key) or time.monotonic() - started >= TRACK_MATCH_BUDGET_S:
+            break
+        match_one(key, post, now, stats, blobs)
+    log.info("match: due %d · auto %d · borderline %d · none %d · failed %d · skipped %d", stats["match_due"], stats["matched"],
+             stats["borderline"], stats["match_none"], stats["match_failed"], stats["match_skipped"])
+    return stats
+
+
+def match_dry(key, post_id):
+    """The whole match path for ONE stored post, printed. Reads the database, never writes it: no PATCH, no log row. Costs one
+    free audio download and one local Whisper pass. Returns the exit code."""
+    st, rows = rest(key, f"{POSTS}?id=eq.{q(post_id)}&select={MATCH_FIELDS}")
+    if st != 200 or not isinstance(rows, list) or not rows:
+        print(f"no such post (HTTP {st}), or lynxr_posts is not readable")
+        return 2
+    post = rows[0]
+    r = match_evaluate(key, post, {})
+    kind = r["kind"]
+    if kind != "scored":
+        print({"unreadable": "the creator's scripts could not be read",
+               "no_candidates": "no candidate script: none is finished, branded, in the window and under its link cap (nothing would be downloaded)",
+               "skipped": "the post link is not a plain https link on its own platform",
+               "fetch_failed": "the audio could not be fetched",
+               "too_long": f"longer than {TRACK_MATCH_MAX_SEC:.0f}s: skipped, not transcribed"}[kind])
+        return 0 if kind in ("no_candidates", "too_long") else 1
+    print("rank  id8       score  contain  recall  hook  brand  caption  days")
+    for i, (aid, s, f) in enumerate(r["scored"], 1):
+        print(f"{i:<5} {str(aid)[:8]:<9} {s:<6.3f} {f['containment']:<8.3f} {f['recall']:<7.3f} {f['hook']:<5} {f['brand']:<6} "
+              f"{f['caption']:<8.3f} {f['days']:.0f}")
+    print(f"decision: {r['decision']}" + (f"  {str(r['best'])[:8]}" if r["best"] else "") + "   (nothing was written)")
+    return 0
+
+
 def write_health(key, stats):
     """Best-effort: lynxr_ops 'track.health' = this pass's counts plus `at`, and `apify_closed_since` (the first pass that
     found the Apify spend guard closed, kept while it stays closed, cleared once it is open: the watchdog's
@@ -981,7 +1198,12 @@ def run(key, dry=False):
         shw = SHOWCASE_LANE.showcase_pass(key, datetime.now(timezone.utc), dry=dry, T=sys.modules[__name__])
     except Exception as e:  # noqa: BLE001
         log.warning("showcase pass failed: %s", str(e)[:120])
-    stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS), "showcase": shw}
+    mt = {}
+    try:
+        mt = match_pass(key, datetime.now(timezone.utc), dry=dry, cache=cache)       # LAST: the slow lane never delays the rest
+    except Exception as e:  # noqa: BLE001
+        log.warning("match pass failed: %s", str(e)[:120])
+    stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS), "showcase": shw, "match": mt}
     n = APIFY_RESULTS
     log.info("track_posts: verify %d (verified %d, budget-skipped %d) · scan tt %d ig %d (new %d, failed %d, changed %d) · "
              "measure %d (failed %d) · followers %d (failed %d) · budget skips max %d pro %d free %d · apify ~%d results (~$%.4f)",
@@ -1005,6 +1227,10 @@ def main():
                          "prints what was read and whether CODE is in the bio")
     ap.add_argument("--spend", action="store_true",
                     help="with --verify-dry instagram: allow the one Apify result it costs (about $0.0027)")
+    ap.add_argument("--match-dry", type=int, metavar="POST_ID",
+                    help="the whole script-match path for one stored post (lynxr_posts.id): prints the candidate table and the "
+                         "decision. Reads the database but NEVER writes it (no link, no log row). Costs one free audio "
+                         "download and one local Whisper pass")
     args = ap.parse_args()
     if args.verify_dry:
         sys.exit(print_verify_dry(*args.verify_dry, spend=args.spend))
@@ -1016,6 +1242,8 @@ def main():
         sys.exit(str(e))
     if not key:
         sys.exit("SUPABASE_SERVICE_ROLE_KEY not set in .env")
+    if args.match_dry is not None:
+        sys.exit(match_dry(key, args.match_dry))
     stats = run(key, dry=args.dry_run)
     if args.dry_run:
         print(f"verify {stats['checked']} · scan tt {stats['scanned_tt']} ig {stats['scanned_ig']} · "

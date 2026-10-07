@@ -51,6 +51,21 @@ every script scores 1, so it cannot resolve the difference, and it is blind to a
 `pipeline/test_campaigns.py` passes. Note `process_campaigns.py` builds `AGENCY_SCRIPT_SYSTEM` on top of
 `ADAPT_SYSTEM`, so the AGENCY's campaign scripts inherit these rules too. Spend ≈ $10.
 
+**AUTOMATIC SCRIPT LINK — BUILT 2026-10-07, NOT LIVE (owner SQL not run, nothing pushed).** `lynxr_posts.adaptation_id` now has a second writer:
+a new lane at the end of `pipeline/track_posts.py`'s pass (`match_pass`, Fly only) downloads a new post's audio with yt-dlp, transcribes it with the
+worker's own Whisper, and `pipeline/post_match.py` (pure, stdlib; tests in `pipeline/test_post_match.py`) scores the words against that creator's recent
+finished, BRANDED scripts (no-brand entries are not candidates in v1). It writes `adaptation_id` only when every guard agrees (score 0.70, a 0.25 lead,
+containment 0.45, script no older than 30 days) and sets `match_state = 'auto'`; everything doubtful is logged in `lynxr_match_log` (staff only; numbers and
+script ids, never a transcript or caption) and links nothing. A creator with no candidate script is never downloaded. A creator's own link never sets
+`match_state`, so `auto` means machine-made. Auto-links show to the creator as "Made with" with Unmark, and they DO reach the staff showcase queue:
+`staff_showcase_candidates()` (redefined at the foot of `supabase/post_match.sql`) now returns `match_state`, `link_by` and `match_score` so the approver can
+see the link was machine-made and check the link as well as the video. **`supabase/post_match.sql` is OWNER SQL, not yet run**; run it BEFORE the push (a
+worker that meets the missing column logs one line and does nothing), and run it again after any re-run of `showcase.sql`, which holds the older version of
+that function. Switches (Fly secrets): `TRACK_MATCH=0` stops the lane, `TRACK_MATCH_WRITE=0` scores and logs but links nothing; thresholds are the
+`MATCH_*` names in `track_posts.py`. Offline check: `./venv/bin/python pipeline/post_match.py --score-file FILE.json`, and
+`./venv/bin/python pipeline/track_posts.py --match-dry POST_ID` (reads the database, writes nothing). Nothing links until the SQL is applied and the push
+deploys the worker. Plan and the rest: `~/.claude/plans/lynxr-adaptation-id.md`.
+
 **SEO ROUTINE (standing):** latest unit Q4 /blog/pov-video-script/ on 2026-10-07, uncommitted, with links from blog, what-is-a-video-format, blog/storytime-script and glossary. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
 
 **SESSION SUMMARY 2026-10-06 (night) — READ THIS FIRST.** **Everything below is PUSHED and LIVE** (owner's push, head

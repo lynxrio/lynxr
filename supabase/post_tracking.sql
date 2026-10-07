@@ -67,7 +67,7 @@ create table if not exists public.lynxr_posts (
   caption         text check (caption is null or length(caption) <= 1000),
   posted_at       timestamptz,
   added_at        timestamptz not null default now(),
-  adaptation_id   text check (adaptation_id is null or length(adaptation_id) between 1 and 100),  -- reserved: which lynxr script it came from (nothing writes it yet)
+  adaptation_id   text check (adaptation_id is null or length(adaptation_id) between 1 and 100),  -- which lynxr script it came from: set by the creator through link_my_post_script() (supabase/showcase.sql) or automatically by the matcher (supabase/post_match.sql, pipeline/post_match.py); match_state = 'auto' tells the second from the first
   views           bigint check (views is null or views >= 0),      -- null = unknown, never zero-by-default
   likes           bigint check (likes is null or likes >= 0),
   comments        bigint check (comments is null or comments >= 0),
