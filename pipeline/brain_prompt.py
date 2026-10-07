@@ -26,8 +26,10 @@ PREAMBLE = (
     "of their posting history. It changes what you write, never what they say.\n"
     "A PATTERN IS NOT A LICENCE TO INVENT. Where a pattern below needs material the script does not\n"
     "already have — a number, a quantity, a date, something they own — take it from the source video\n"
-    "or the brand facts. If it is not there, DROP THE PATTERN. A detail made up to fit a pattern is\n"
-    "worse than not matching the pattern at all.")
+    "or the brand facts AS THEY ARE WRITTEN. Never stretch a brand fact into a larger claim, and never\n"
+    "satisfy a pattern with a new claim about what the product does, has, costs or replaces. If the\n"
+    "material is not there, DROP THE PATTERN. A detail made up to fit a pattern is worse than not\n"
+    "matching the pattern at all.")
 
 GOAL_USED = "views on each video"   # the only goal metric a single script can move
 MAX_SAMPLES = 4                     # captions quoted, newest first
