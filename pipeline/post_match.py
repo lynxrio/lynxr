@@ -53,7 +53,11 @@ Cfg = namedtuple(
      # and a tight recency bound. Every one of those must hold — this path never fires with a second candidate
      # in play, which is what keeps a loose signal from becoming a wrong link.
      "sparse_script_words", "sparse_post_words", "sparse_days"],
-    defaults=[0.70, 0.25, 0.45, 0.60, 30, 0.25, 4, 45, 12, 10, 14])
+    # sparse_script_words = 20 is measured, not guessed: the real withheld-punchline script that proved this
+    # (post 20, "Hm? / I mean... I don't... hm. / cloey.") carries 16 content words once fillers are stripped,
+    # and an ordinary wordy script of the same length in beats carries 26. 20 sits between them. Raise it and
+    # ordinary scripts start being decided by their caption instead of their words.
+    defaults=[0.70, 0.25, 0.45, 0.60, 30, 0.25, 4, 45, 20, 10, 14])
 
 
 # ── text ──────────────────────────────────────────────────────────────────────────────────────────

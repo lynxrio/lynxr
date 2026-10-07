@@ -142,7 +142,12 @@ MATCH_CFG = M.Cfg(auto_min=float(envcfg.get("MATCH_AUTO_MIN", "0.70")), margin=f
                   contain_min=float(envcfg.get("MATCH_CONTAIN_MIN", "0.45")),
                   contain_strong=float(envcfg.get("MATCH_CONTAIN_STRONG", "0.60")),
                   auto_days=float(envcfg.get("MATCH_AUTO_DAYS", "30")), log_min=float(envcfg.get("MATCH_LOG_MIN", "0.25")),
-                  per_script=MATCH_PER_SCRIPT, window_days=MATCH_WINDOW_DAYS)
+                  per_script=MATCH_PER_SCRIPT, window_days=MATCH_WINDOW_DAYS,
+                  # The sparse path (see post_match.decide). Tunable by env so the cutoff can be moved on the
+                  # worker without a deploy while it is still being calibrated against real posts.
+                  sparse_script_words=int(envcfg.get("MATCH_SPARSE_SCRIPT_WORDS", "20")),
+                  sparse_post_words=int(envcfg.get("MATCH_SPARSE_POST_WORDS", "10")),
+                  sparse_days=float(envcfg.get("MATCH_SPARSE_DAYS", "14")))
 
 HANDLE_RE = re.compile(r"[a-z0-9._]{1,30}")
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
