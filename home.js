@@ -412,7 +412,7 @@ const HX_STORY = {
   notice: [".hxs", ".hx-panel"],
   // ...and those buttons, per card, in the order its eyes find them
   see: [["#hxs-google", "#hxs-go"], [".hx-new-link", "#lp-composer-form"]],
-  rest: ".hx-panel",         // "the right side": it ends floating over this card's top-LEFT corner (home)
+  rest: [".hx-panel", ".hxs"], // home: beside the video card; a phone (no video card since 2026-10-06): the sign-up card
   clear: "#hx-buddy-h",      // the headline: the wander keeps to the open band above it
 };
 /* A list of selectors means "the first one that is on screen". */

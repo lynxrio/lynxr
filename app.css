@@ -7488,6 +7488,14 @@
   }
   /* the page opens with the bar down (.hx-bar-intro), so the phone's hero starts below its 67px (it was 52px from the top) */
   @media (max-width: 640px) { html body.home .hx-l { padding-top: 84px; } }
+  /* ON A PHONE THE SIGN-UP CARD TAKES THE VIDEO CARD'S PLACE (owner, 2026-10-06: "also on mobile, replace this bubble with the
+     google sign in bubble"; it was hidden on phones since 2026-09-23). The right half (the video showcase) is not drawn on
+     a phone at all — showcase.js does not even load it there — and the x's home is the sign-up card's top-left corner. */
+  @media (max-width: 640px) {
+    html body.home .hxs { display: flex; }
+    html body.home .hx-r { display: none; }
+    html body.home .hx-l { padding-bottom: 40px; }
+  }
   @media (prefers-reduced-motion: reduce) {
     html body.home .lp-bar::before, html body.home .lp-bar :is(.lp-nav, .lp-actions) { transition: none; }
   }

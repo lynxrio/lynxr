@@ -609,6 +609,7 @@
     if (!document.body || !document.body.classList.contains("home")) return;
     const panel = document.querySelector("body.home .hx-half.hx-r > .hx-panel");
     if (!panel) return;
+    if (!panel.getClientRects().length) return keep("the card is not shown here (a phone)");   // nothing fetched, no video loaded
     try { if (localStorage.getItem("lynxr_creator_session")) return; } catch { /* ignore */ }   // signed in: straight to the app
     const dev = devMode(location.hostname, location.search);
     const founder = dev ? null : fetchFounder();                          // in parallel: the fallback is ready when needed
