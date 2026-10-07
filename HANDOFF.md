@@ -30,13 +30,16 @@ naming a path there publishes it.
 **SESSION SUMMARY 2026-10-06 (night) — READ THIS FIRST.** **Everything below is PUSHED and LIVE** (owner's push, head
 `aeaff83`; tree clean and in sync with `origin/main`): lynxr.io serves stamp **`20261006o`**, `assets/showcase/founder.json`
 answers 200, and the Fly worker redeployed to **v54** (image `…01M4A4KC6QJGKCP5A4FFFBEQE2`) about 03:00Z on 2026-10-07.
-**FIRST THING NEXT SESSION — the canary found a real problem on Fly:** the TikTok full pass PASSES, but the Instagram one
-fails at `transcribe` with "no speech from a video that has speech" (test reel `instagram.com/reel/CDUMkliABpa`, which has
-speech; it passed on the Mac before the push). `canary.health`: `ok false`, `boot false`, `last_good_image` none,
-`versions.av` 18.1.0. It has failed 2 passes in a row, so the watchdog PAGES once for it. Find out whether real creators'
-Instagram scripts on Fly are being transcribed (if the Fly download path yields a video-only stream or silent audio for
-Instagram, real pastes are hit too) before treating it as a fixture problem. To silence it while investigating, the digest-only
-switch is the SQL row `canary.pause` (fixer plan, Step 19g). **The fixer agent is installed but OFF** — its workflow fires but
+**The canary's first Instagram failure was a BAD TEST VIDEO, not a pipeline bug (diagnosed 2026-10-07 on Fly v54 over
+`fly ssh`, read-only).** The download was fine (h264 + stereo AAC, loud); faster-whisper's VAD removed all 13.5s because the
+reel (`instagram.com/reel/CDUMkliABpa`, from yt-dlp's test suite) is SINGING, not talking — with VAD off it transcribes
+lyrics ("like a woman, ooh… baby"). The Mac's mlx-whisper has no VAD, which is why it passed there. Real creators were not
+hit: every Instagram script in the database with a transcript has `has_speech: true` (10/10), none false. **Fix:**
+`pipeline/canary.json` now uses two of the cofounder's own talking reels (`DW-VMnFDCai`, `DOPr-EnjPo-`; checked on Fly: speech
+true, no_speech 0.004 / 0.038). It goes live with the next push (a `pipeline/**` push: idle check first); the canary's boot
+pass then closes the "script pipeline broken at transcribe (instagram)" alarm. Worth knowing: faster-whisper's VAD drops
+singing and music-only audio on Fly — correct for scripts (no voiceover to keep), but it means "speech" in a fixture must be
+talking, not lyrics. **The fixer agent is installed but OFF** — its workflow fires but
 every job is skipped (no `FIXER_ENABLED`); nothing acts until the owner does its setup (fixer plan Step 19: two secrets, one
 GitHub setting, `FIXER_ENABLED=1`, `FIXER_MODE=observe` for one sweep). `gh` is not installed on this Mac; the public API
 (`api.github.com/repos/lynxrio/lynxr/actions/...`) shows runs.

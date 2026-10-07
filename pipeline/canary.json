@@ -1,11 +1,41 @@
 {
-  "_doc": "Known-good PUBLIC videos for pipeline/canary.py. Config, not secrets. lynxr's own posts first; never a creator-pasted URL (public repo). Replace one when the canary-video alarm says it is gone.",
-  "videos": {
-    "tiktok":    [{"url": "https://www.tiktok.com/@lynxr.io/video/7678789322375548191", "speech": true, "seconds": 32}, {"url": "https://www.tiktok.com/@lynxr.io/video/7678415930132614431", "speech": true, "seconds": 40}],
-    "instagram": [{"url": "https://www.instagram.com/reel/CDUMkliABpa/", "speech": true, "seconds": 13}, {"url": "https://www.instagram.com/reel/Cop84x6u7CP/", "speech": false, "seconds": 19}]
-  },
-  "creator": {"name": "lynxr canary"},
-  "brand": {"id": "canary-brand", "name": "lynxr",
-            "description": "An app that turns a short-form video a creator likes into a script they can film themselves.",
-            "objective": "App sign-ups", "niche": "creator tools", "tried": "yes"}
+ "_doc": "Known-good PUBLIC videos for pipeline/canary.py. Config, not secrets. lynxr's own posts first; never a creator-pasted URL (public repo). Replace one when the canary-video alarm says it is gone.",
+ "videos": {
+  "tiktok": [
+   {
+    "url": "https://www.tiktok.com/@lynxr.io/video/7678789322375548191",
+    "speech": true,
+    "seconds": 32
+   },
+   {
+    "url": "https://www.tiktok.com/@lynxr.io/video/7678415930132614431",
+    "speech": true,
+    "seconds": 40
+   }
+  ],
+  "instagram": [
+   {
+    "url": "https://www.instagram.com/reel/DW-VMnFDCai/",
+    "speech": true,
+    "seconds": 26
+   },
+   {
+    "url": "https://www.instagram.com/reel/DOPr-EnjPo-/",
+    "speech": true,
+    "seconds": 32
+   }
+  ]
+ },
+ "creator": {
+  "name": "lynxr canary"
+ },
+ "brand": {
+  "id": "canary-brand",
+  "name": "lynxr",
+  "description": "An app that turns a short-form video a creator likes into a script they can film themselves.",
+  "objective": "App sign-ups",
+  "niche": "creator tools",
+  "tried": "yes"
+ },
+ "_instagram_note": "2026-10-07: the cofounder's own talking reels (@collegewithgawin, public, already on the landing with his OK). They replace reel/CDUMkliABpa, which is SINGING: Fly's faster-whisper VAD rightly drops it as non-speech, so a speech:true check on it failed every pass (the Mac's mlx has no VAD and transcribed the lyrics). Both were checked on Fly v54 the same day: speech true, no_speech 0.004 and 0.038."
 }
