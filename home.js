@@ -820,23 +820,24 @@ function perform() {
       giggle(true);
     });
 
-    // THE WAVE, RARELY (Revision 11): every 30-45s, at most 3 a page view; only settled, on screen, not
-    // hovered, and nobody typing anywhere on the page.
-    let waves = 0;
-    const settled = () => C.still && C.mode !== "fly" && !wrap.classList.contains("hx-perf-duck") && sitOrCornerVisible();
+    // IT WAVES WHILE IT IDLES (owner, 2026-10-07: "have the lynxr wave while it idles"; it was every 30-45s, at most 3
+    // a page view; then "have it wave more frequently"): resting at home, a wave ~1s after it settles and then every
+    // 2-3.5s, for as long as it rests there —
+    // not in the bar (there it is the logo), and only on screen, not hovered, and nobody typing anywhere on the page.
+    // Peeking from behind the video card its right arms are hidden, so it waves with the up-left one.
+    const settled = () => C.still && C.mode === "sat" && !wrap.classList.contains("hx-perf-duck") && sitOrCornerVisible();
     const sitOrCornerVisible = () => { const r = wrap.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; };
     const typing = () => { const a = document.activeElement; return !!(a && a.matches("input, textarea, [contenteditable]")); };
-    const next = () => setTimeout(tryWave, 30000 + Math.random() * 15000);
+    const next = (ms = 2000 + Math.random() * 1500) => setTimeout(tryWave, ms);
     const tryWave = () => {
-      if (waves >= 3 || gone()) return;
+      if (gone()) return;
       if (!still() && !document.hidden && settled() && !hovered && !burst.length && !typing()) {
-        waves++;
-        lynxrGesture(svg, "hello");
-        setTimeout(() => lynxrGesture(svg, null), 750);
+        lynxrGesture(svg, "hello", wrap.classList.contains("hx-perf-peek") ? "l" : "r");
+        setTimeout(() => { if (svg.classList.contains("lx-g-hello")) lynxrGesture(svg, null); }, 750);
       }
       next();
     };
-    next();
+    next(1000);
     /* EYES ON THE POINTER while it rests at home (desktop, Revision 11): within ~300px the eyes lean
        toward it, at most 3 units of the 120 box; further away they go back to wherever they were
        looking. No body movement. Only while it is home. */

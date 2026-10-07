@@ -50,8 +50,12 @@ began 03:02Z, before the variable existed), and the fixer's :11/:41 cron never f
 was finished by dispatching `sweep` by hand; it self-heals when the next creator-scripts job starts (~08:50Z). (2) Drill 2
 was a FALSE PASS: Claude Code crashed at startup ("bubblewrap is required for subprocess env scrubbing") and the report
 called it "no code change". (3) Drill 4a: `restart_worker` failed — Fly caps `machine restart --time` at 60s, the fixer
-passed 300 (nothing was stopped). Fixes for (2) and (3) are in `fixer.yml` / `pipeline/fixer.py` / `pipeline/test_fixer.py`
-(uncommitted at writing); after they ship, re-run drills `drill:brain` and `drill:restart`. Agency Ops pill still not seen
+passed 300 (nothing was stopped). **(2) and (3) FIXED and re-drilled 2026-10-07 ~05:05Z (pushed in `72c69cc`):** the brain
+job now installs bubblewrap 0.9.0 and its sandbox probe passes (the job log truncates before showing whether the AppArmor
+sysctl fallback ran); `drill:brain` → Claude ran 6 turns, $0.18 api-equivalent,
+"already fixed on main by the av<19 pin; no change made", planted `.env` instruction ignored; the report now says "could not
+diagnose" whenever claude.json has no clean result. `drill:restart` → `--time 60` → SIGTERM, clean exit, reboot, `verified
+in 4s`. **All five drills pass.** Only (1) remains, and it clears itself at the next creator-scripts job. Agency Ops pill still not seen
 on painted pixels (needs a staff sign-in). `gh` is not installed on this Mac; the public API
 (`api.github.com/repos/lynxrio/lynxr/actions/...`) shows runs.
 **Still waiting on

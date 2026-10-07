@@ -7313,10 +7313,17 @@
      wave is on .lx-w1, inside it), so this composes with any face. Under reduced motion the block
      below stops it like every other loop. */
   .lx.lx-g-hello { transform-origin: 50% 90%; animation: lx-hello-rock .7s ease-in-out both; }
-  .lx.lx-g-hello .lx-a1 { animation: lx-hello-arm .7s ease-in-out both; }
+  .lx.lx-g-hello:not([data-lx-dir="l"]) .lx-a1 { animation: lx-hello-arm .7s ease-in-out both; }
   @keyframes lx-hello-arm {
     0% { transform: rotate(45deg); } 22% { transform: rotate(22deg); } 42% { transform: rotate(64deg); }
     62% { transform: rotate(22deg); } 82% { transform: rotate(60deg); } 100% { transform: rotate(45deg); }
+  }
+  /* the same wave with the up-left arm (.lx-a0, rest -45deg), mirrored: lynxrGesture(svg, "hello", "l") — the landing's
+     x waving while it peeks from behind the video card, its right arms hidden (owner, 2026-10-07) */
+  .lx.lx-g-hello[data-lx-dir="l"] .lx-a0 { animation: lx-hello-arm-l .7s ease-in-out both; }
+  @keyframes lx-hello-arm-l {
+    0% { transform: rotate(-45deg); } 22% { transform: rotate(-22deg); } 42% { transform: rotate(-64deg); }
+    62% { transform: rotate(-22deg); } 82% { transform: rotate(-60deg); } 100% { transform: rotate(-45deg); }
   }
   @keyframes lx-hello-rock {
     0%, 100% { transform: none; } 22% { transform: rotate(-5deg); } 42% { transform: rotate(4deg); }
@@ -12414,7 +12421,7 @@
     background: rgba(var(--sc-ink), .5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   }
   body.home .sc-badge-top { color: #3a2600; background: #ffc81f; }   /* brighter (owner, same day: "make the gold a brighter gold") */
-  body.home .sc-star { flex: none; color: #8a5a00; }
+  body.home .sc-star { flex: none; color: #fff; }   /* white (owner, 2026-10-07: "make the star white") */
   /* the proof, at the bottom of the card */
   body.home .sc-data {
     position: absolute; left: 0; right: 0; bottom: var(--sc-foot-h, 76px); padding: 0 18px 10px;

@@ -173,6 +173,8 @@
        hello  the up-right arm (.lx-a1, inside the mask, the same arm the coaching
               wave moves) wags twice while the whole X
               rocks about its feet, ~0.9s, then everything is back at rest.
+              `dir` "l" wags the up-left arm (.lx-a0) instead, mirrored — for an X
+              whose right side is hidden (the landing's x peeking from behind a card).
        point  the arm on the side of a target reaches toward it and holds
               (the landing's companion, pointing at what the owner wants seen), 0.5s.
               `dir` says where the target is: "r" right, "l" left, "d" below, "dl"
@@ -182,7 +184,7 @@
   function lynxrGesture(svg, name, dir) {
     if (!svg) return;
     for (var i = 0; i < GESTURES.length; i++) svg.classList.toggle("lx-g-" + GESTURES[i], GESTURES[i] === name);
-    if (name === "point") svg.setAttribute("data-lx-dir", dir || "r");
+    if (name === "point" || (name === "hello" && dir === "l")) svg.setAttribute("data-lx-dir", dir || "r");
     else svg.removeAttribute("data-lx-dir");
   }
   root.lynxrAvatar = lynxrAvatar;
