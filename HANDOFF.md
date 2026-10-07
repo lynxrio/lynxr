@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-10-06 (evening).** Start with the section right below the table.
+Read this, then `README.md` for architecture. **Last updated 2026-10-06 (night, after the push).** Start with the section right below the table.
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -27,13 +27,20 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
-**SESSION SUMMARY 2026-10-06 (evening) — READ THIS FIRST.** The tree has a LARGE UNCOMMITTED batch (everything `git
-status` shows is from this one session; nothing stray): the landing redesign below, the fixer agent and canary (next
-paragraph), and the stamp moved to **`20261006o`** on all 34 stamped pages plus `404.html` (`tools/check_stamp.py` says ok).
-**Before pushing:** run the read-only idle check (canary plan `~/.claude/plans/lynxr-script-canary.md`, Step 11b) and push
-only when creator queued / running and agency busy are all 0 — `pipeline/**` changed, so the push redeploys Fly. **After
-pushing:** wait until lynxr.io's HTML shows `20261006o` before requesting any `?v=` asset (Cloudflare caches a premature
-fetch of the old file under the new stamp for 4h), then do the fixer's owner setup (its plan, Step 19). **Still waiting on
+**SESSION SUMMARY 2026-10-06 (night) — READ THIS FIRST.** **Everything below is PUSHED and LIVE** (owner's push, head
+`aeaff83`; tree clean and in sync with `origin/main`): lynxr.io serves stamp **`20261006o`**, `assets/showcase/founder.json`
+answers 200, and the Fly worker redeployed to **v54** (image `…01M4A4KC6QJGKCP5A4FFFBEQE2`) about 03:00Z on 2026-10-07.
+**FIRST THING NEXT SESSION — the canary found a real problem on Fly:** the TikTok full pass PASSES, but the Instagram one
+fails at `transcribe` with "no speech from a video that has speech" (test reel `instagram.com/reel/CDUMkliABpa`, which has
+speech; it passed on the Mac before the push). `canary.health`: `ok false`, `boot false`, `last_good_image` none,
+`versions.av` 18.1.0. It has failed 2 passes in a row, so the watchdog PAGES once for it. Find out whether real creators'
+Instagram scripts on Fly are being transcribed (if the Fly download path yields a video-only stream or silent audio for
+Instagram, real pastes are hit too) before treating it as a fixture problem. To silence it while investigating, the digest-only
+switch is the SQL row `canary.pause` (fixer plan, Step 19g). **The fixer agent is installed but OFF** — its workflow fires but
+every job is skipped (no `FIXER_ENABLED`); nothing acts until the owner does its setup (fixer plan Step 19: two secrets, one
+GitHub setting, `FIXER_ENABLED=1`, `FIXER_MODE=observe` for one sweep). `gh` is not installed on this Mac; the public API
+(`api.github.com/repos/lynxrio/lynxr/actions/...`) shows runs.
+**Still waiting on
 the owner:** (1) the agency "orig" backfill (`./venv/bin/python pipeline/backfill_beat_orig.py --apply
 ~/Lynxr-evals/beat-sync/orig-plan-20261005.json`, 21 formats, needs an OK); (2) the coach v1 plan
 (`~/.claude/plans/lynxr-coach-v1.md`, needs "go" + the owner's principles and 10–20 example breakdowns); (3) hello@lynxr.io
@@ -41,7 +48,7 @@ must receive mail, and the showcase's disclosure wording is an open item for the
 `~/.claude/plans/lynxr-showcase.md`) before any real creator entry goes live; (4) Apify is still on the free $5 plan.
 **Not verified anywhere:** Safari / Firefox / a real iPhone for anything below — every check was headless Brave over CDP.
 
-**THE LANDING, REDESIGNED (2026-10-06, UNCOMMITTED, stamp `20261006o`; `index.html`, `home.js`, `avatar.js`, `showcase.js`,
+**THE LANDING, REDESIGNED (2026-10-06, PUSHED and live, stamp `20261006o`; `index.html`, `home.js`, `avatar.js`, `showcase.js`,
 `app.css`, `assets/showcase/`, `tools/test_showcase.mjs`).** All home-only (`body.home`); every other page keeps its capsule
 bar, its slide-away and its old dropdown. Verified at 1440×900, 1000×576 and 393×852 (headless Brave, CDP), CSP clean, no
 errors; `node tools/test_showcase.mjs` ALL OK.
@@ -72,7 +79,7 @@ errors; `node tools/test_showcase.mjs` ALL OK.
   Localhost preview: `?obtest=1&showcase=sample` (its one real-looking entry reads media from the gitignored
   `output/showcase-sample/`).
 
-**THE FIXER AGENT AND THE CANARY (2026-10-06, UNCOMMITTED, stamp since moved on to `20261006o` with the landing batch; plan `~/.claude/plans/lynxr-fixer-agent.md`; NOT verified live until Steps 19-20 of that plan).**
+**THE FIXER AGENT AND THE CANARY (2026-10-06, PUSHED 2026-10-07 ~03:00Z — the canary runs on Fly v54 (see the summary above for its first result); the fixer is OFF until Step 19; plan `~/.claude/plans/lynxr-fixer-agent.md`; NOT verified live until Steps 19-20 of that plan).**
 Built and tested offline; nothing acts until the owner pushes and does the setup below. **The canary** (`pipeline/canary.py`,
 `pipeline/canary.json`) runs known-good PUBLIC videos (lynxr's own TikToks, two Instagram reels from yt-dlp's test suite) through
 the real `fill_source()` on the idle Fly worker (Fly only, last in the idle chain, killed within ~5s when a creator queues): a
