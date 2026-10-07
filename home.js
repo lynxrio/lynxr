@@ -1116,11 +1116,16 @@ function perform() {
       top: Math.min(...rs.map((r) => r.top)), bottom: Math.max(...rs.map((r) => r.bottom)) };
   })();
   const two = noticeCard !== card && !!ink;    // both cards on screen (not a phone)
-  /* WHERE IT GASPS: floating over the sign-up card's top edge near its RIGHT end, just clear of the headline's ink (the
-     owner's redrawn route, 2026-10-06: "this is the new path"); a phone: the right card, near its right end. */
-  const nPrefer = two ? Math.min(nc.right - SIZE / 2 - 10, Math.max(nc.left + nc.width * 0.85, ink.right + SIZE / 2 + 12)) : nc.left + nc.width * 0.75;
-  const nx = spotOn(noticeCard, nPrefer, nc.left + SIZE / 2, nc.right - SIZE / 2, LIFT);
-  const N = { x: nx ?? nPrefer, y: nc.top + FOOT - LIFT };
+  /* WHERE IT GASPS: floating on the "continue with Google" button's top edge near its RIGHT end, beside "create your
+     account" (owner, 2026-10-07: "the x is stopping at the top of the left bubble, i want it on the top of the continue
+     with google button"; it was the card's own top edge), just clear of the headline's ink so the drop onto it misses
+     the headline (the owner's redrawn route, 2026-10-06). Without that button on screen: the card's top edge, as before.
+     A phone: the right card, near its right end. */
+  const gBtn = two ? noticeCard.querySelector(HX_STORY.see[0][0]) : null;
+  const nb = gBtn && visible(gBtn) ? gBtn.getBoundingClientRect() : nc;
+  const nPrefer = two ? Math.min(nb.right - SIZE / 2 - 10, Math.max(nb.left + nb.width * 0.85, ink.right + SIZE / 2 + 12)) : nc.left + nc.width * 0.75;
+  const nx = spotOn(nb === nc ? noticeCard : gBtn, nPrefer, nb.left + SIZE / 2, nb.right - SIZE / 2, LIFT);
+  const N = { x: nx ?? nPrefer, y: nb.top + FOOT - LIFT };
   const Rsp = heroPlace.spot() || { x: cc.left + SIZE / 2 + 8, dy: FOOT - LIFT };
   const R = { x: Rsp.x, y: cc.top + Rsp.dy };
   /* THE ROUTE, as the owner drew it (2026-10-06, second drawing): out of the logo with a curve, a long sweep right across
