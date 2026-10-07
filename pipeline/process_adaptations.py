@@ -3165,6 +3165,11 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=Non
                      "That framing is NOT part of the format. It appears in the transcript and "
                      "shots below — skip past it and adapt only the piece inside. Never open with "
                      "the creator introducing themselves or their work.\n" if wrapper else "")
+            # WHERE THE CREATOR BRAIN WILL HOOK IN (plan ~/.claude/plans/lynxr-brain-doc.md, step 13; nothing reads it yet). The creator
+            # block from lynxr_creator_brain goes HERE, as a "=== WHAT LYNXR KNOWS ABOUT THIS CREATOR ===" section of this user message,
+            # behind BRAIN_IN_PROMPT; never in ADAPT_SYSTEM (the cached prefix must stay byte-identical across creators or every call pays
+            # full price) and never in process_campaigns.py's AGENCY_SCRIPT_SYSTEM. brand_digest() below already injects name, niches,
+            # about and never, so the brain section must NOT re-send about_you.your_own_words, never_say or niche.
             prompt = ("Adapt this format for the brand below.\n\n"
                       f"=== DELIVERY ===\n{delivery_mode_text(a)}\n{frame}\n"
                       f"=== FORMAT TO REUSE ===\n{json.dumps(a['format'], indent=1)}\n\n"

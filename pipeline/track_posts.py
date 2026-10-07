@@ -7,7 +7,7 @@ Plans: ~/.claude/plans/lynxr-onboarding-and-post-tracking.md and ~/.claude/plans
 Owner, 2026-10-03: tracking is for every tier; what the tiers sell is the coaching (not built yet), so this lane no longer
 asks whether an account holds post_tracking. The database function has_post_tracking() is left in place, unused.
 
-WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> showcase -> match -> health)
+WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> showcase -> match -> brain -> health)
     VERIFY (every tier). For each profile in lynxr_profiles that is not verified yet and is due a check, read the
         profile's public bio and look for its verify_code (set by supabase/profiles.sql's set_my_profile). Found ->
         verified, with the platform's own account number recorded so a username that later passes to someone else
@@ -24,7 +24,7 @@ WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> show
         already able to fetch (free); Instagram is one Apify `details` result per profile per day.
     The three goals read these: views per video and likes per video from the day-7 snapshots of the latest 5 videos,
     followers from the daily snapshots.
-    MATCH (every tier, LAST in the pass so it can never delay the rest). Plan: ~/.claude/plans/lynxr-adaptation-id.md. A stored
+    MATCH (every tier, after the other lanes so it can never delay them; BRAIN runs after it). Plan: ~/.claude/plans/lynxr-adaptation-id.md. A stored
         post that has no script link yet is matched to the lynxr script that produced it: the creator's recent finished,
         branded scripts are the candidates (none -> nothing is downloaded), the post's audio is fetched with yt-dlp and
         transcribed by the worker's own Whisper, and pipeline/post_match.py scores the words against each candidate. Only a
@@ -32,6 +32,12 @@ WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> show
         lynxr_match_log (numbers and script ids, never a word of the transcript or caption). Precision over recall: a wrong
         link teaches the brain a lie nothing can detect. Needs supabase/post_match.sql; without it the lane logs one line and
         does nothing. TRACK_MATCH=0 stops it; TRACK_MATCH_WRITE=0 scores and logs but links nothing (shadow mode).
+    BRAIN (every tier, after MATCH so it sees the freshest links). Plan: ~/.claude/plans/lynxr-brain-doc.md. Each creator's own tracked
+        posts and onboarding answers are folded into one derived document in lynxr_creator_brain (pipeline/brain.py): how they write
+        (their own captions), where they post, and, once five posts on one platform have a day-7 count, how their videos do against their
+        own median. DERIVED: safe to drop, rebuilt at most every BRAIN_EVERY_H hours, nothing here reads it yet. It costs nothing but one
+        weekly Haiku call per creator for the voice line. BRAIN=0 stops the lane; BRAIN_VOICE=0 (the default) drops only that call, and
+        nothing is sent to Anthropic while it is off. Needs supabase/creator_brain.sql; without it the lane logs one line and does nothing.
 
 FLY ONLY
     Runs as worker.py's idle lane (TRACK_POSTS). NEVER add it to .github/workflows/adaptations.yml: the
@@ -1208,7 +1214,13 @@ def run(key, dry=False):
         mt = match_pass(key, datetime.now(timezone.utc), dry=dry, cache=cache)       # LAST: the slow lane never delays the rest
     except Exception as e:  # noqa: BLE001
         log.warning("match pass failed: %s", str(e)[:120])
-    stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS), "showcase": shw, "match": mt}
+    br = {}
+    try:
+        import brain as BRAIN_LANE                   # local import: pass THIS module in, see brain.py's docstring
+        br = BRAIN_LANE.brain_pass(key, datetime.now(timezone.utc), dry=dry, T=sys.modules[__name__])
+    except Exception as e:  # noqa: BLE001
+        log.warning("brain pass failed: %s", str(e)[:120])
+    stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS), "showcase": shw, "match": mt, "brain": br}
     n = APIFY_RESULTS
     log.info("track_posts: verify %d (verified %d, budget-skipped %d) · scan tt %d ig %d (new %d, failed %d, changed %d) · "
              "measure %d (failed %d) · followers %d (failed %d) · budget skips max %d pro %d free %d · apify ~%d results (~$%.4f)",

@@ -415,6 +415,20 @@
     <strong>what our staff can see:</strong> your usernames, the videos stored
     here and their numbers, which script you marked a video as made with, and
     whether you turned on feature my videos.</p>
+  <!-- DRAFT, NOT APPROVED. The owner must approve or rewrite this before it is shown; do NOT un-comment it as written.
+       Why it is not live: the wording for the weekly model call is still undecided (extend the Anthropic line in the
+       processors list below, drop the call, or make it opt-in). The second sentence below is only true while that call is on,
+       and the first is true as soon as the brain lane (supabase/creator_brain.sql, pipeline/brain.py) is running.
+       Also check before publishing: the claim that Anthropic does not train on these captions, and the processors list
+       further down (it describes Anthropic as reading a video and writing a script, not reading captions).
+       It must be live BEFORE BRAIN_VOICE is turned on in production. To approve: replace this comment with the paragraph.
+  <p>we also keep a short summary of what we have learned from your own videos &mdash; how your captions
+    read, which of your accounts you post on, and how your videos do against your own usual numbers &mdash; so
+    the scripts we write sound like you. it is worked out from the captions and counts described above and
+    nothing else, it is shown only to you and our staff, and deleting your account deletes it. once a week we
+    send up to eight of your own captions to Anthropic to describe how you write; they are not used to train
+    any model.</p>
+  -->
   <p>removing a profile deletes it and everything found on it, and deleting
     your account deletes all of it.</p>
   <p><strong>lawful basis:</strong> your consent, which you give by answering

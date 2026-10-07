@@ -51,7 +51,7 @@ every script scores 1, so it cannot resolve the difference, and it is blind to a
 `pipeline/test_campaigns.py` passes. Note `process_campaigns.py` builds `AGENCY_SCRIPT_SYSTEM` on top of
 `ADAPT_SYSTEM`, so the AGENCY's campaign scripts inherit these rules too. Spend ≈ $10.
 
-**AUTOMATIC SCRIPT LINK — BUILT 2026-10-07, NOT LIVE (owner SQL not run, nothing pushed).** `lynxr_posts.adaptation_id` now has a second writer:
+**AUTOMATIC SCRIPT LINK — LIVE 2026-10-07 and writing real links** (SQL applied, pushed, `TRACK_MATCH_WRITE=1` on Fly). First true positive: a TikTok post by @lynxr.io was linked to the script it was filmed from, with no human involved, through the SPARSE path (the script had 16 content words, so word overlap scored 0.15 and could never have decided it; the link came from one candidate + the brand named in the caption + same-day). Thresholds are tunable on the worker without a deploy: `MATCH_SPARSE_SCRIPT_WORDS` (20), `MATCH_SPARSE_POST_WORDS`, `MATCH_SPARSE_DAYS`.** `lynxr_posts.adaptation_id` now has a second writer:
 a new lane at the end of `pipeline/track_posts.py`'s pass (`match_pass`, Fly only) downloads a new post's audio with yt-dlp, transcribes it with the
 worker's own Whisper, and `pipeline/post_match.py` (pure, stdlib; tests in `pipeline/test_post_match.py`) scores the words against that creator's recent
 finished, BRANDED scripts (no-brand entries are not candidates in v1). It writes `adaptation_id` only when every guard agrees (score 0.70, a 0.25 lead,
@@ -65,6 +65,16 @@ that function. Switches (Fly secrets): `TRACK_MATCH=0` stops the lane, `TRACK_MA
 `MATCH_*` names in `track_posts.py`. Offline check: `./venv/bin/python pipeline/post_match.py --score-file FILE.json`, and
 `./venv/bin/python pipeline/track_posts.py --match-dry POST_ID` (reads the database, writes nothing). Nothing links until the SQL is applied and the push
 deploys the worker. Plan and the rest: `~/.claude/plans/lynxr-adaptation-id.md`.
+
+**CREATOR BRAIN — BUILT 2026-10-07, NOT LIVE (owner SQL not run, nothing pushed).** `lynxr_creator_brain` (one derived JSONB row per creator: how they write from
+their own captions, where they post, and, once 5 posts on one platform have a day-7 count, how their videos do against their own median) is DERIVED and SAFE TO
+DROP: a new `brain_pass` lane at the end of `pipeline/track_posts.py`'s pass (Fly only; `pipeline/brain.py`, pure derivation, tests in `pipeline/test_brain.py`)
+rebuilds it at most every 20h, writes that one table and nothing else, and below 5 comparable posts says less rather than guessing (`not_known` records what was
+left out). It is creator-side only: `process_campaigns.py` never reads it, and nothing reads it yet. **`supabase/creator_brain.sql` is OWNER SQL, not yet run**
+(run it BEFORE the push; a worker that meets the missing table logs one line and does nothing). Switches (Fly secrets): `BRAIN=0` stops the lane, and
+`BRAIN_VOICE=0` (the default) drops the one weekly Haiku call over a creator's own captions, which is the only thing that costs money and the only thing that
+sends captions to Anthropic, so it stays off until the privacy wording is settled. Checks that write nothing: `./venv/bin/python pipeline/brain.py --dry-run`
+and `./venv/bin/python pipeline/brain.py --print UUID --why`. Plan: `~/.claude/plans/lynxr-brain-doc.md`.
 
 **SEO ROUTINE (standing):** latest unit Q4 /blog/pov-video-script/ on 2026-10-07, uncommitted, with links from blog, what-is-a-video-format, blog/storytime-script and glossary. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
 
