@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-10-06 (night, after the push).** Start with the section right below the table.
+Read this, then `README.md` for architecture. **Last updated 2026-10-07 (canary green on Fly v55).** Start with the section right below the table.
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -36,12 +36,13 @@ reel (`instagram.com/reel/CDUMkliABpa`, from yt-dlp's test suite) is SINGING, no
 lyrics ("like a woman, ooh… baby"). The Mac's mlx-whisper has no VAD, which is why it passed there. Real creators were not
 hit: every Instagram script in the database with a transcript has `has_speech: true` (10/10), none false. **Fix:**
 `pipeline/canary.json` now uses two of the cofounder's own talking reels (`DW-VMnFDCai`, `DOPr-EnjPo-`; checked on Fly: speech
-true, no_speech 0.004 / 0.038). It goes live with the next push (a `pipeline/**` push: idle check first); the canary's boot
-pass then closes the "script pipeline broken at transcribe (instagram)" alarm. Worth knowing: faster-whisper's VAD drops
+true, no_speech 0.004 / 0.038). **Pushed** (head `7e36a0b`, Fly **v55**, image `…01M4A72NC5GX03X5FV656CXEBR`); the canary's boot pass on v55 was
+all green at 03:42Z on 2026-10-07 (tiktok 25s, instagram 20s, script) and the watchdog's `canary` alarm closed. Worth knowing: faster-whisper's VAD drops
 singing and music-only audio on Fly — correct for scripts (no voiceover to keep), but it means "speech" in a fixture must be
-talking, not lyrics. **The fixer agent is installed but OFF** — its workflow fires but
-every job is skipped (no `FIXER_ENABLED`); nothing acts until the owner does its setup (fixer plan Step 19: two secrets, one
-GitHub setting, `FIXER_ENABLED=1`, `FIXER_MODE=observe` for one sweep). `gh` is not installed on this Mac; the public API
+talking, not lyrics. **The fixer agent is set up and running in OBSERVE mode** — Step 19 done
+2026-10-06 (secrets, GitHub setting, `FIXER_ENABLED=1`, `FIXER_MODE=observe`; observe sweep run #6 succeeded). It sweeps at
+:11 and :41 and reports, but changes nothing. **To go live: delete the repo variable `FIXER_MODE`**, then run the fixer plan's
+Step 20 fire drills. `gh` is not installed on this Mac; the public API
 (`api.github.com/repos/lynxrio/lynxr/actions/...`) shows runs.
 **Still waiting on
 the owner:** (1) the agency "orig" backfill (`./venv/bin/python pipeline/backfill_beat_orig.py --apply
