@@ -27,6 +27,30 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**ONE BRAIN (architecture decision, 2026-10-07).** The script writer and the coach are ONE system, not two
+features. The thing in the middle is a per-creator **brain**: voice drawn from their own posts, which formats they
+have posted, how each did against THEIR OWN median, their goal. The writer READS it; tracking and (later) the coach
+WRITE it. Tiers are depth of access, not separate products. The owner's test: **two creators who paste the same
+video should get different scripts.** The hinge is already in the schema — `lynxr_posts.adaptation_id` exists in
+`supabase/post_tracking.sql` and NOTHING WRITES IT; until a tracked post is linked to the script that produced it
+there is no evidence and no brain. Also settled: viewer drop-off/retention is NOT in public data (Apify and yt-dlp
+give views/likes/comments; neither platform's API exposes the curve), so the realistic route for max is the creator
+uploading an analytics screenshot for the pipeline to read — decide that before any copy promises retention
+analysis. Design note `~/.claude/plans/lynxr-one-brain.md`, rough v1 step list
+`~/.claude/plans/lynxr-one-brain-v1.md` (1 write adaptation_id → 2 nightly brain doc → 3 writer reads it behind a
+`BRAIN_IN_PROMPT` flag → 4 prove it in the eval). Both live outside the repo; this file is public.
+
+**SCRIPT QUALITY (2026-10-05→07).** Four prompt arms measured in `~/Lynxr-evals/` against the 20-case baseline.
+`rules/owner-rules.md` holds eight rules learned by grading with the owner (mechanism must transfer, goal-led
+direction, attribute every voice, hook need not name the product, stakes must be legible, real shared references
+not invented ones, truth outranks production, third-grade words). Best arm is **v4**
+(`rules/adapt_system_rules-v4.txt`): equal to baseline on truth and beats, better on voice, sayability and CTA, and
+reading grade **5.5 → 2.8**. The judge's "would post" did not move (1.17 → 1.13) — that scale is 0/1/2 and almost
+every script scores 1, so it cannot resolve the difference, and it is blind to all eight rules. **v4 is now IN THE TREE** —
+`pipeline/process_adaptations.py`'s `ADAPT_SYSTEM` was replaced on 2026-10-07 (uncommitted, owner pushes).
+`pipeline/test_campaigns.py` passes. Note `process_campaigns.py` builds `AGENCY_SCRIPT_SYSTEM` on top of
+`ADAPT_SYSTEM`, so the AGENCY's campaign scripts inherit these rules too. Spend ≈ $10.
+
 **SEO ROUTINE (standing):** latest unit Q4 /blog/pov-video-script/ on 2026-10-07, uncommitted, with links from blog, what-is-a-video-format, blog/storytime-script and glossary. Queue and rules: ~/.claude/plans/lynxr-seo-session-routine.md.
 
 **SESSION SUMMARY 2026-10-06 (night) — READ THIS FIRST.** **Everything below is PUSHED and LIVE** (owner's push, head
