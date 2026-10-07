@@ -43,8 +43,17 @@ to too up us very was way we well were what when where which while who why will 
 yeah yes you your youre""".split())
 
 Cfg = namedtuple(
-    "Cfg", ["auto_min", "margin", "contain_min", "contain_strong", "auto_days", "log_min", "per_script", "window_days"],
-    defaults=[0.70, 0.25, 0.45, 0.60, 30, 0.25, 4, 45])
+    "Cfg",
+    ["auto_min", "margin", "contain_min", "contain_strong", "auto_days", "log_min", "per_script", "window_days",
+     # ── the sparse path (owner approved 2026-10-07) ──────────────────────────────────────────────────────
+     # Words are not always the content. A withheld-punchline or visual-led script carries its meaning in the
+     # picture, so the transcript cannot decide and the normal guards can only ever say "none". Below
+     # sparse_script_words content words in the script (or sparse_post_words heard in the post), the decision
+     # moves to evidence that still means something: the caption naming the brand, ONE candidate in the window,
+     # and a tight recency bound. Every one of those must hold — this path never fires with a second candidate
+     # in play, which is what keeps a loose signal from becoming a wrong link.
+     "sparse_script_words", "sparse_post_words", "sparse_days"],
+    defaults=[0.70, 0.25, 0.45, 0.60, 30, 0.25, 4, 45, 12, 10, 14])
 
 
 # ── text ──────────────────────────────────────────────────────────────────────────────────────────
@@ -139,13 +148,23 @@ def features(post_words, has_speech, caption_words, cand, brand_name, posted_at)
     hook = 1 if hs and len(hs & head) >= 0.5 * len(hs) else 0
     bw = norm_words(brand_name)
     brand = 1 if len(" ".join(bw)) >= 3 and (_run_in(post_words, bw) or _run_in(caption_words, bw)) else 0
+    # The brand named IN THE CAPTION specifically. `brand` above is satisfied by the transcript too, and a
+    # transcript is exactly what the sparse path cannot trust — so that path keys on this narrower signal.
+    brand_in_caption = 1 if len(" ".join(bw)) >= 3 and _run_in(caption_words, bw) else 0
     cap_set = set(norm_words((cand.get("adaptation") or {}).get("caption")))
     cw = set(caption_words)
     caption = len(cap_set & cw) / len(cap_set | cw) if (cap_set | cw) else 0.0
     added = parse_ts(cand.get("addedAt"))
     days = float((posted_at - added).days) if added is not None and posted_at is not None else 9999.0
     return {"containment": round(containment, 3), "recall": round(recall, 3), "hook": hook, "brand": brand,
-            "caption": round(caption, 3), "days": days, "silent": bool(silent), "speech": bool(has_speech)}
+            "caption": round(caption, 3), "days": days, "silent": bool(silent), "speech": bool(has_speech),
+            # How much there was to match ON. A one-word-punchline script ("Hm?" / "I mean... I don't... hm." /
+            # "cloey.") has almost no content words once fillers are stripped, so containment and recall are
+            # structurally near zero however well the creator filmed it. Proven live 2026-10-07: post 20 scored
+            # 0.00/0.00 against the script it was genuinely made from. These two counts are what the sparse path
+            # below keys on; they are NOT used in score().
+            "script_words": len(uniq), "post_content_words": len(set(post_words)),
+            "brand_in_caption": brand_in_caption}
 
 
 def score(f):
@@ -172,6 +191,21 @@ def decide(scored, cfg):
             and best >= cfg.auto_min
             and best - second >= cfg.margin
             and (f["brand"] or f["hook"] or f["containment"] >= cfg.contain_strong)):
+        return "auto", best_id
+    # THE SPARSE PATH. Only when the words could never have decided it, and only on evidence that is not words:
+    # exactly one candidate, the caption naming the brand, and the post made within days of the script. It is
+    # deliberately unreachable whenever a second candidate exists, however weak that candidate is.
+    # Sparseness of the SCRIPT only. A short transcript against a WORDY script is the opposite situation — it
+    # means the creator did not say the script (or the audio failed), and linking that on a caption alone is how
+    # a wrong link gets made. `post_content_words` stays in the log for tuning, but it does not open this door.
+    sparse = f.get("script_words", 99) < cfg.sparse_script_words
+    # Speech is still required. A post with NO speech at all, or a script marked silent, carries no spoken
+    # evidence whatsoever, and a brand name in a caption is a thing creators write all the time — that
+    # combination is how a wrong link gets made. Silent formats therefore stay unmatchable in v1, on purpose.
+    if (sparse and len(scored) == 1
+            and f["speech"] and not f["silent"]
+            and (f.get("brand_in_caption") or f["caption"] >= 0.6)
+            and 0 <= f["days"] <= cfg.sparse_days):
         return "auto", best_id
     if best >= cfg.log_min:
         return "borderline", best_id

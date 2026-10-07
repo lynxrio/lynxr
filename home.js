@@ -1153,6 +1153,101 @@ function perform() {
     ? [N, { x: N.x + (R.x - N.x) * 0.35, y: Math.max(top0, Math.min(N.y, R.y) - 36) }, R]
     : [N, { x: (N.x + R.x) / 2, y: Math.max(top0, Math.min(N.y, R.y) - 24) }, R];
 
+  /* BOUNCING ON THE NAME (owner, 2026-10-07: "on the lynxr x's way down, have it bounce on the l y n x and swoop of the r
+     and end up where it goes right now at the continue with google and do the same route from there"; then "make it more
+     fluid and where is the swoop off the r to get to the google button", then "have it just go from the L to the R"). ONE
+     CONTINUOUS MOTION, never a stop: out of the logo it drops onto the big "lynxr"'s l and bounces from there in one long
+     hop over the y, n and x straight onto the r — real hops under one gravity, so each touch is a bounce, not a landing
+     (the squash plays as it pushes off) — bounces off the r's shoulder, and that bounce launches THE SWOOP: up and out past the end of the name, then a hook back down onto N (the Google button), braking into
+     a soft landing. The story goes on from there. Desktop only (a phone still drops straight down).
+     A letter's top is its INK, not its box: the baseline from a zero-size inline-block put into the headline for one
+     measurement, each letter's ascent and ink width from the canvas (measureText, the headline's computed font). null
+     (unmeasurable): the sweep W instead. */
+  const letters = () => {
+    const h = two && hxPick(HX_STORY.clear), tn = h && h.firstChild;
+    if (!tn || tn.nodeType !== 3) return null;
+    const text = tn.nodeValue, i0 = text.length - text.trimStart().length;
+    if (text.trim().length < 5) return null;
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return null;
+    const cs = getComputedStyle(h);
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const mk = document.createElement("span");
+    mk.style.display = "inline-block"; mk.style.width = mk.style.height = "0";
+    h.appendChild(mk);
+    const baseline = mk.getBoundingClientRect().bottom;
+    mk.remove();
+    const rg = document.createRange(), out = [];
+    for (let i = i0; i < i0 + 5; i++) {
+      rg.setStart(tn, i); rg.setEnd(tn, i + 1);
+      const r = rg.getBoundingClientRect(), m = ctx.measureText(text[i]);
+      if (!r.width) return null;
+      out.push({ x: r.left + (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2, y: baseline - m.actualBoundingBoxAscent + FOOT,
+        right: r.left + m.actualBoundingBoxRight });
+    }
+    return out;
+  };
+  const G = 2600;   // px/s²: one gravity for every hop, so the five read as one motion
+  // A HOP from a to b, its apex `lift` px over the higher end: feet at(t), and the velocity it arrives with (vEnd)
+  const hopSeg = (a, b, lift) => {
+    const dy = b.y - a.y, hA = Math.max(0, -dy) + lift;
+    const up = Math.sqrt(2 * hA / G), T = up + Math.sqrt(2 * (hA + dy) / G), vx = (b.x - a.x) / T, vy0 = -G * up;
+    return { T, at: (t) => ({ x: a.x + vx * t, y: a.y + vy0 * t + G * t * t / 2 }), vEnd: { x: vx, y: vy0 + G * T } };
+  };
+  /* THE SWOOP: a cubic Bezier through P[0..3], timed by a Hermite curve that leaves at `a` (the launch speed, matched to the
+     bounce off the r) and arrives at 0, so it brakes into the landing. */
+  const swoopSeg = (P, T, a) => {
+    const B = (u) => {
+      const m = 1 - u, k0 = m * m * m, k1 = 3 * m * m * u, k2 = 3 * m * u * u, k3 = u * u * u;
+      return { x: k0 * P[0].x + k1 * P[1].x + k2 * P[2].x + k3 * P[3].x, y: k0 * P[0].y + k1 * P[1].y + k2 * P[2].y + k3 * P[3].y };
+    };
+    const U = (s) => -2 * s * s * s + 3 * s * s + a * (s * s * s - 2 * s * s + s);
+    return { T, at: (t) => B(U(Math.min(1, t / T))) };
+  };
+  // the push-off: a squash about the feet
+  const squash = (k) => pops.push(sq.animate([{ transform: "none" }, { transform: `scale(${1 + 0.18 * k}, ${1 - 0.18 * k})`, offset: 0.3 }, { transform: "none" }],
+    { duration: 220, easing: "ease-out" }));
+  /* RIDE segments end to end on ONE clock (no frame lost at a join); a segment's `end` fires as the next begins. It grows
+     from the logo's size to SIZE over the first segment, leans into its horizontal speed and looks where it goes. */
+  const ride = (segs, s0, done) => {
+    const T0 = performance.now();
+    let i = 0, base = 0, last = null, lean = 0;
+    wrap.classList.add("hx-perf-moving");
+    const frame = (now) => {
+      driftRaf = 0;
+      if (!PERF.end) return;
+      const t = (now - T0) / 1000;
+      while (i < segs.length && t - base >= segs[i].T) { base += segs[i].T; if (segs[i].end) segs[i].end(); i++; }
+      const fin = i >= segs.length, seg = segs[fin ? segs.length - 1 : i], p = seg.at(fin ? seg.T : t - base);
+      if (last) {
+        const dt = Math.max(1, now - last.t) / 1000, vx = (p.x - last.x) / dt, vy = (p.y - last.y) / dt, v = Math.hypot(vx, vy);
+        lean += (Math.max(-12, Math.min(12, vx * 0.025)) - lean) * 0.3;
+        if (v > 40) look(`translate(${(vx / v * 3).toFixed(2)}px, ${(vy / v * 2.5).toFixed(2)}px)`);
+      }
+      last = { x: p.x, y: p.y, t: now };
+      wrap.style.transform = pose(p.x, p.y, s0 + (SIZE - s0) * Math.min(1, t / segs[0].T), fin ? 0 : lean);
+      if (fin) { done(); return; }
+      driftRaf = requestAnimationFrame(frame);
+    };
+    driftRaf = requestAnimationFrame(frame);
+  };
+  const bounce = () => {
+    const Ls = letters();
+    if (!Ls) { drift(W, [2.4, 1500, 2400], notice, start.s); return; }
+    // logo → l (it drops off the bar), then l → r in one long hop over the y, n and x
+    const segs = [hopSeg(start, Ls[0], 10), hopSeg(Ls[0], Ls[4], 55)];
+    segs[0].end = () => { squash(1); lynxrMood(svg, "done"); };
+    segs[1].end = () => squash(0.8);
+    // the swoop leaves the r up and to the right as fast as it came down onto it, swings out past the name (short of the
+    // video card), and hooks back down and in onto N
+    const r = Ls[4], out = Math.min(Math.max(N.x, r.right) + 150, cc.left - 16);
+    const P = [r, { x: r.x + 80, y: r.y - 130 }, { x: out, y: Math.max(r.y, N.y - 150) }, N];
+    const hit = segs[1].vEnd, T = 1.15;
+    const a = Math.max(0.6, Math.min(2.4, 0.9 * Math.hypot(hit.x, hit.y) * T / (3 * Math.hypot(P[1].x - P[0].x, P[1].y - P[0].y))));
+    segs.push(swoopSeg(P, T, a));
+    ride(segs, start.s, notice);
+  };
+
   /* THE DOUBLE-TAKE: a gasp and a little startle jump; the first button rings, then its eyes drop to the second. */
   const notice = () => {
     if (!PERF.end) return;
@@ -1219,7 +1314,7 @@ function perform() {
     hxStart();                                     // the right card writes itself while the x wanders
     later(60, closeSpot);                          // it has left the logo's box by now
     later(420, barIntroEnd);                       // ...and the bar it left goes up, the name dissolving with it
-    if (two) { drift(W, [2.4, 1500, 2400], notice, start.s); return; }
+    if (two) { bounce(); return; }
     const fresh = heroPlace.spot();                // the showcase may have changed the card since the route was measured
     if (fresh) { Rsp.x = R.x = fresh.x; Rsp.dy = fresh.dy; Rsp.side = fresh.side; Rsp.peek = fresh.peek; R.y = card.getBoundingClientRect().top + fresh.dy; }
     drift([start, R], [2.2, 900, 1600], react, start.s);

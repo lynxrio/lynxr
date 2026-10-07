@@ -228,4 +228,40 @@ print()
 if FAILS:
     print(f"{len(FAILS)} FAILED: {', '.join(FAILS)}")
     sys.exit(1)
+
+# ── the sparse path (owner approved 2026-10-07, after post 20 scored 0.00/0.00 live) ─────────────────────
+# A withheld-punchline script has almost no content words, so the transcript can never decide it. These cases
+# pin what the fallback will and will NOT do: one candidate, the brand named in the CAPTION, recent, with speech.
+SPARSE_SCRIPT = {"id": "sparse1", "status": "done", "brandId": "b1", "addedAt": "2026-10-07T08:00:00Z",
+                 "adaptation": {"hook": "on-screen: how do you always know what to wear??",
+                                "beats": [{"say": "Hm?"}, {"say": "I mean... I don't... hm."}, {"say": "cloey."}],
+                                "cta": "It's called cloey."}}
+SPARSE_BRANDS = [{"id": "b1", "name": "cloey"}]
+SPARSE_POSTED = "2026-10-07T09:06:00Z"
+GARBAGE = "that's not what you're performing. It's incredible."   # what Whisper really returned for post 20
+
+
+def sparse_decision(transcript=GARBAGE, caption="the real answer is cloey", speech=True, ads=None, posted=SPARSE_POSTED):
+    _, decision, _ = M.rank(ads if ads is not None else [SPARSE_SCRIPT], SPARSE_BRANDS, transcript, caption, speech,
+                            M.parse_ts(posted))
+    return decision
+
+
+check("sparse: the real post 20 case now links", sparse_decision(), "auto")
+check("sparse: brand NOT in the caption -> no link", sparse_decision(caption="new fit of the day"), "none")
+check("sparse: post with no speech -> never auto (borderline is fine, a link is not)",
+      sparse_decision(speech=False) == "auto", False)
+check("sparse: a second candidate in the window -> no link (ambiguity is fatal)",
+      sparse_decision(ads=[SPARSE_SCRIPT, dict(SPARSE_SCRIPT, id="sparse2")]), "none")
+check("sparse: posted 3 weeks after the script -> no link", sparse_decision(posted="2026-10-28T09:00:00Z"), "none")
+
+WORDY = {"id": "wordy1", "status": "done", "brandId": "b1", "addedAt": "2026-10-07T08:00:00Z",
+         "adaptation": {"hook": "here is how i keep my closet organised without buying anything new",
+                        "beats": [{"say": "every sunday i photograph the clothes i actually wore that week"},
+                                  {"say": "then i tag them by colour and season so i can find them later"},
+                                  {"say": "and the app builds outfits from what is already hanging there"}],
+                        "cta": "it is called cloey"}}
+check("sparse: a WORDY script with an unrelated transcript stays unlinked (the path is for sparse scripts only)",
+      sparse_decision(ads=[WORDY]), "none")
+
 print("all checks passed")
