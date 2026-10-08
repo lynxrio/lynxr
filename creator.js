@@ -6386,7 +6386,7 @@ const PLAT_NAME = { tiktok: "TikTok", instagram: "Instagram" };
 async function refreshProfiles() {
   if (!ONBOARD_LIVE) return;
   try {
-    const rows = await sbFetch("/rest/v1/lynxr_profiles?select=platform,handle,verify_code,verified_at,status,verify_tries,last_checked_at,last_scan_ok_at&order=added_at.asc");
+    const rows = await sbFetch("/rest/v1/lynxr_profiles?select=platform,handle,verify_code,verified_at,status,verify_tries,last_checked_at,check_requested_at,last_scan_ok_at&order=added_at.asc");
     if (Array.isArray(rows)) PROFILES = rows;
   } catch { /* keep the old value */ }
   if (typeof paintProfiles === "function") paintProfiles();
@@ -6573,7 +6573,7 @@ async function removeProfile(platform, handle) {
     pick the verdict up without the creator reloading. */
 async function checkProfile(platform, handle) {
   const r = await profileRpc("request_profile_check", { p_platform: platform, p_handle: handle });
-  if (r && r.ok) { setTimeout(refreshProfiles, 90e3); setTimeout(refreshProfiles, 360e3); }
+  if (r && r.ok) { refreshProfiles(); setTimeout(refreshProfiles, 90e3); setTimeout(refreshProfiles, 360e3); }
   return r || { ok: false, why: "network" };
 }
 
@@ -7188,7 +7188,7 @@ if (OBTEST) {
       const h = String(body.p_handle || "").toLowerCase().replace(/^@/, "");
       if (!pstore().some((p) => p.platform === body.p_platform && p.handle === h)) {
         pstore().push({ platform: body.p_platform, handle: h, verify_code: "lynxr-test01", verified_at: null,
-          status: "unverified", verify_tries: 0, last_checked_at: null, last_scan_ok_at: null });
+          status: "unverified", verify_tries: 0, last_checked_at: null, check_requested_at: null, last_scan_ok_at: null });
       }
       return { ok: true, platform: body.p_platform, handle: h, verify_code: "lynxr-test01", status: "unverified" };
     }
@@ -7202,10 +7202,13 @@ if (OBTEST) {
       const k = `${body.p_platform}|${body.p_handle}`;
       presses[k] = (presses[k] || 0) + 1;
       const n = presses[k];
+      const req = pstore().find((p) => `${p.platform}|${p.handle}` === k);
+      if (req) req.check_requested_at = new Date().toISOString();   // so the preview can show "Checking now"
       setTimeout(() => {
         const pr = pstore().find((p) => `${p.platform}|${p.handle}` === k);
         if (!pr) return;
         pr.last_checked_at = new Date().toISOString();
+        pr.check_requested_at = null;
         pr.verify_tries += 1;
         if (n >= 2) { pr.status = "verified"; pr.verified_at = pr.last_checked_at; } else pr.status = "code_not_found";
       }, 1500);
@@ -7504,16 +7507,32 @@ function profStatus(p) {
   if (p.verified_at && p.status !== "changed" && p.status !== "taken") {
     return out("Verified. You can take the code out of your bio.", false);
   }
+  // SAY WHEN WE LAST LOOKED. Verification runs on a background lane, so a creator pastes the code, the line says
+  // exactly what it said before, and nothing visibly happens for minutes. One emailed on 2026-10-08 — "I put the
+  // lynxr-605438 on my bio but it just wont verify it" — while that very profile verified seven minutes later.
+  // Silence read as breakage. These two clauses are the whole fix: when we last looked, and that we are still trying.
+  const looked = agoLabel(p.last_checked_at);
+  const queued = !!p.check_requested_at
+    && (!p.last_checked_at || new Date(p.check_requested_at) > new Date(p.last_checked_at));
+  // agoLabel falls back to a bare date past 24h, and "last looked 2026-09-18" reads wrong without the preposition.
+  const lastLook = looked ? ` lynxr last looked ${/^\d{4}-/.test(looked) ? "on " : ""}${looked}` : "";
+
   switch (p.status) {
     case "verified": return out("Verified. You can take the code out of your bio.", false);
     case "private": return out("This profile is private, so lynxr can't read it.", false);
     case "taken": return out(HANDLE_WHY.taken, false);
     case "not_found": return out("lynxr couldn't find this username. Check the spelling.", false);
-    case "code_not_found": r = out(`lynxr couldn't see ${code} in your bio yet.`, true); break;
+    case "code_not_found": r = out(`lynxr couldn't see ${code} in your bio yet.${lastLook}, and it keeps trying.`, true); break;
     case "changed": r = out(`This username now belongs to a different account. Put ${code} in the bio again.`, true); break;
-    case "unavailable": r = out(`${name} didn't answer. lynxr will try again.`, p.platform === "instagram"); break;
-    default: r = out(`Put ${code} in your ${name} bio.${p.platform === "tiktok" ? " lynxr checks by itself." : " Then press Check."}`, true);
+    case "unavailable": r = out(`${name} didn't answer.${lastLook || " lynxr"} will try again.`, p.platform === "instagram"); break;
+    default: r = out(`Put ${code} in your ${name} bio.`
+      + (looked ? `${lastLook}, and it keeps trying.`
+                : p.platform === "tiktok" ? " lynxr checks on its own every few minutes."
+                                          : " Then press Check."), true);
   }
+  // A requested check that has not run yet outranks everything above: the creator pressed the button and deserves
+  // to see that it landed, not the same sentence they pressed it from.
+  if (queued && !p.verified_at) return out("Checking now — this takes a few minutes.", false);
   if (spent && r.check) return out(escapeHtml(HANDLE_WHY.too_many), false);
   return r;
 }
