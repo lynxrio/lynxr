@@ -342,4 +342,41 @@ check("agency isolation: process_campaigns.py neither imports the shape lane nor
 if FAILS:
     print(f"\n{len(FAILS)} FAILED: " + ", ".join(FAILS))
     sys.exit(1)
+# ── duration comes from the PLATFORM, not the downloaded audio ────────────────────────────────────
+# Measured 2026-10-08: TikTok reported 26s and 24s for two posts whose downloaded audio ran 176.4s and 100.8s,
+# because `-f bestaudio` returned the full original sound. The same videos on Instagram measured 26.5s and 24.6s.
+# duration_s feeds the coach's only working advice, so it must be the video's length, not the song's.
+class _FakeRun:
+    def __init__(self, out): self.stdout, self.stderr = out, ""
+
+
+def _T(out):
+    class _P:
+        subprocess = type("s", (), {"run": staticmethod(lambda *a, **k: _FakeRun(out))})
+        yt_dlp_bin = staticmethod(lambda: "yt-dlp")
+    return type("T", (), {"P": _P})
+
+
+check("reported_duration: parses seconds", S.reported_duration(_T("26.0\n"), "https://x/1"), 26.0)
+check("reported_duration: integer seconds", S.reported_duration(_T("24\n"), "https://x/1"), 24.0)
+check("reported_duration: NA is None", S.reported_duration(_T("NA\n"), "https://x/1"), None)
+check("reported_duration: empty is None", S.reported_duration(_T(""), "https://x/1"), None)
+check("reported_duration: zero is None", S.reported_duration(_T("0\n"), "https://x/1"), None)
+
+# The overrun rule itself, as _measure applies it.
+def _overran(said, file_dur):
+    return bool(said and file_dur and file_dur > max(said * 1.5, said + 5))
+
+
+check("overrun: 26s video, 176s audio", _overran(26, 176.4), True)
+check("overrun: 24s video, 100.8s audio", _overran(24, 100.8), True)
+check("overrun: 26s video, 26.5s audio", _overran(26, 26.5), False)
+check("overrun: 10s video, 14s audio is within the +5s floor", _overran(10, 14), False)
+check("overrun: 10s video, 16s audio", _overran(10, 16), True)
+check("overrun: no reported duration, no judgement", _overran(None, 176.4), False)
+
+check("TIMELINE_SIGNALS are the ones whose seconds would lie",
+      sorted(S.TIMELINE_SIGNALS),
+      ["best_line_at_s", "longest_silence_at_s", "longest_silence_s", "speech_start_s"])
+
 print("all checks passed")

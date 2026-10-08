@@ -333,6 +333,30 @@ def measure(T, key, post, blobs):
     return _measure(T, key, post, blobs, keep_words=False)
 
 
+# Signals whose meaning depends on the WHOLE timeline. Dropped when the downloaded audio is longer than the video,
+# because then they describe the sound, not the post.
+TIMELINE_SIGNALS = ("speech_start_s", "longest_silence_s", "longest_silence_at_s", "best_line_at_s")
+
+
+def reported_duration(T, url):
+    """How long the PLATFORM says the video is, or None. yt-dlp knows this from the metadata and does not need the file.
+
+    WHY NOT JUST MEASURE THE FILE. On TikTok `-f bestaudio` frequently returns the full original SOUND rather than the
+    post's own audio, so the file is the length of the song. Measured 2026-10-08 on two real posts: TikTok reported
+    26s and 24s, the downloaded audio ran 176.4s and 100.8s, and the same videos cross-posted to Instagram measured
+    26.5s and 24.6s. Duration feeds the coach's only working advice ("keep it to about 14 seconds"), so taking it from
+    the file meant comparing a creator's videos against the length of whatever music they used."""
+    try:
+        r = T.P.subprocess.run(
+            [T.P.yt_dlp_bin(), "-q", "--no-warnings", "--no-cache-dir", "--skip-download",
+             "--socket-timeout", "20", "--print", "%(duration)s", url],
+            capture_output=True, text=True, timeout=60)
+        v = float((r.stdout or "").strip().splitlines()[0])
+        return v if v > 0 else None
+    except Exception:  # noqa: BLE001 — metadata is a nicety; the file length is the fallback
+        return None
+
+
 def _measure(T, key, post, blobs, keep_words):
     script, readable = script_of(T, key, post, blobs)
     if not readable:
@@ -343,11 +367,23 @@ def _measure(T, key, post, blobs, keep_words):
         media, _err = T.P.fetch_audio(post["url"], Path(td))     # no Apify fallback, by rule: a post yt-dlp cannot get is failed
         if not media:
             return {"kind": "fetch_failed"}
-        dur = T.P.media_duration(media)
+        file_dur = T.P.media_duration(media)
+        said = reported_duration(T, post["url"])
+        dur = said or file_dur
         if dur and dur > COACH_SHAPE_MAX_SEC:
             return {"kind": "too_long"}
+        # The audio is longer than the video: it is the sound, not the post. Keep the honest duration, drop every
+        # reading whose seconds would refer to a timeline the viewer never saw.
+        overran = bool(said and file_dur and file_dur > max(said * 1.5, said + 5))
         t = T.P.transcribe(str(media), T.P.WHISPER_MODEL)
         row = features(t, dur, script)
+        if overran:
+            for k in TIMELINE_SIGNALS:
+                row.pop(k, None)
+            # No flag column for this, and inventing one would 400 the write. The ABSENCE of the timeline readings
+            # is the record: the coach only ever speaks from readings that are present.
+            log.info("shape: post %s audio ran %.0fs for a %.0fs video — timeline signals dropped",
+                     post.get("id"), file_dur, said)
         if post.get("adaptation_id") and "aligned_to" not in row:
             row["aligned_to"] = str(post["adaptation_id"])[:100]   # looked up and measured against: do not shape it again for the same link
         out = {"kind": "measured", "row": row, "script": script is not None}
