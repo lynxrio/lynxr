@@ -33,6 +33,12 @@ curve, because neither platform exposes one. `what_you_post` is STILL not built 
 with no connected account gets no `how_people_watch` and a `not_known` line saying how to get one. Disconnecting deletes the figures AND
 removes this key the same second (supabase/platform_insights.sql revoke_insights()), so nothing here outlives a connection.
 
+A SIXTH NOTE, added with plan ~/.claude/plans/lynxr-coach-v1.md: `working_on` IS NOW WRITTEN BY THE COACH (pipeline/coach.py) when COACH is on, and is
+[] exactly as before when it is off (the default). Only the one-line `said` is mirrored here, because this document is readable by its owner and
+the coach's evidence is paid depth: the full note (the tip's evidence, every video's read, the moments in its audio) goes to
+lynxr_coach_notes, which only my_coach() reads, trimmed by tier (supabase/coach.sql). The coach adds one read of lynxr_post_shape and one of
+the previous note, and only when COACH is on; with it off this lane reads and writes exactly what it did before.
+
 THE VOICE LINE is the only thing here that costs money and the only thing that sends a creator's words anywhere: once a week, one
 Haiku call over up to 8 of their own captions describes how they write. It is OFF unless BRAIN_VOICE is set, and nothing calls the
 model while it is off: brain_pass() does not build a client, and voice_line() itself refuses. The privacy wording for it is still
@@ -60,6 +66,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import process_adaptations as P  # noqa: E402
 import envcfg  # noqa: E402
+import coach as C  # noqa: E402 -- pure; the one writer of body["working_on"] (plan lynxr-coach-v1.md)
+import coach_prose as CP  # noqa: E402 -- the Haiku rewrite of the coach's measured facts; checked in code before anything is kept
 
 log = logging.getLogger("brain")
 
@@ -89,6 +97,9 @@ VOICE_MAX_RAW = 200              # an answer longer than this is not a one-line 
 VOICE_MAX_CHARS = 90             # ... and a kept one is cut to this
 
 BRAINS = "/rest/v1/lynxr_creator_brain"
+COACH_NOTES = "/rest/v1/lynxr_coach_notes"
+SHAPES = "/rest/v1/lynxr_post_shape"
+SHAPE_FIELDS = "post_id,duration_s,speech_start_s,words_first_3s,longest_silence_s,longest_silence_at_s,has_speech,beats,repeats"
 
 NOT_KNOWN_VIDEOS = ("what is actually in your videos — lynxr keeps your captions and your public counts, "
                     "not what you said or showed")
@@ -495,10 +506,24 @@ def _voice_plan(samples, previous, now):
     return carried, list(samples)
 
 
-def build(me, posts, snaps_by_post, profiles, followers, now, previous=None, watch_by_post=None):
-    """(body, voice_need): the whole document, and the samples a voice call is wanted for (None = no call). No network. `previous` is the
-    last stored body, or None; the voice line is carried over from it unchanged, and the caller owns the model call. `watch_by_post` is
-    {post_id: [lynxr_post_insights rows]} or None (a creator with no connected account, or a read that blipped: both mean no section)."""
+def coach_inputs(posts, snaps_by_post, now):
+    """(rows, lead, median) as the coach needs them: the comparable posts, the lead platform, and the creator's own median views a week in
+    (None unless there are BRAIN_MIN_POSTS comparable posts on the lead platform, the same gate what_works_for_you uses, so the Posts page and
+    the coach can never disagree about the creator's median)."""
+    rows = comparable(_tracked(posts), snaps_by_post, now)
+    lead = lead_platform(rows)
+    lead_rows = [r for r in rows if r["platform"] == lead]
+    ready = lead is not None and len(lead_rows) >= BRAIN_MIN_POSTS
+    return rows, lead, (median_of([r["views"] for r in lead_rows]) if ready else None)
+
+
+def build(me, posts, snaps_by_post, profiles, followers, now, previous=None, watch_by_post=None, shape_by_post=None, prev_note=None,
+          coach_on=None):
+    """(body, voice_need, note): the whole document, the samples a voice call is wanted for (None = no call), and the coach's note (None when
+    the coach is off). No network. `previous` is the last stored body, or None; the voice line is carried over from it unchanged, and the caller
+    owns the model call. `watch_by_post` is {post_id: [lynxr_post_insights rows]} or None (a creator with no connected account, or a read that
+    blipped: both mean no section). `shape_by_post` is {post_id: lynxr_post_shape row} and `prev_note` the last stored coach note; both are
+    read only when the coach is on. `coach_on` overrides the COACH flag (--print shows what the coach would say without turning it on)."""
     me = me if isinstance(me, dict) else {}
     tracked = _tracked(posts)
     rows = comparable(tracked, snaps_by_post, now)
@@ -539,8 +564,12 @@ def build(me, posts, snaps_by_post, profiles, followers, now, previous=None, wat
     if hpw:
         body["how_people_watch"] = hpw
     body["not_known"] = [NOT_KNOWN_VIDEOS] + ([] if ready else [NOT_KNOWN_WORKS]) + ([] if hpw else [NOT_KNOWN_WATCH])
-    body["working_on"] = []
-    return body, need
+    # The coach, when it is on, writes the one thing to work on; off (the default), this is [] exactly as it was before the coach existed.
+    note, mirror = None, []
+    if C.COACH if coach_on is None else coach_on:
+        note, mirror = C.coach(tracked, snaps_by_post, shape_by_post, rows, lead, median if ready else None, prev_note, now)
+    body["working_on"] = mirror
+    return body, need, note
 
 
 # ── the voice line ────────────────────────────────────────────────────────────────────────────────

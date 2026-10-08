@@ -309,6 +309,17 @@ const hxStop = () => {
   hxEnd();
   barIntroEnd();
 };
+/* A REFRESH OPENS LIKE A VISIT (owner, 2026-10-07: "when i refresh it doesnt do the full animation ... like the
+   opening load"). A browser puts a reloaded page back where it was scrolled, and a phone does it even from a few
+   pixels down — and the x does not perform on a page that is not at the top (armPerformer), so a refresh got the
+   card alone. Signed out, the landing tells the browser not to restore: every refresh starts at the top, like a
+   fresh open. The setting lives on the history entry, so it is in force for the NEXT reload; a link to a #section
+   still scrolls there. Signed in (the app on this same URL), restoring is left on. */
+if (document.body.classList.contains("home") && "scrollRestoration" in history) {
+  let signedIn = false;
+  try { signedIn = !!localStorage.getItem("lynxr_creator_session"); } catch { /* storage blocked: treat as signed out */ }
+  history.scrollRestoration = signedIn ? "auto" : "manual";
+}
 (function armHeroIntro() {
   const sec = document.querySelector("body.home .hx");
   if (!sec || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -446,8 +457,8 @@ if (HX.on && !PERF.on) hxStart();
 /* THE BAR IS THERE AT FIRST (owner, 2026-10-06: "for both desktop and mobile, have it first start with the entire nav bar so
    users know that when they scroll the other options are there"). Set here, at the top level, before the first paint: the
    page opens with the whole bar down (app.css .hx-bar-intro). It goes up as the x lifts away from the logo (perform), or on
-   any interrupt (the snap), or 2.2s after load where the x does not perform at all. Scrolled already (a reload halfway
-   down): nothing to do, the bar is down anyway. */
+   any interrupt (the snap), or 2.2s after load where the x does not perform at all. Scrolled already (a link to a #section,
+   or a reload while signed in): nothing to do, the bar is down anyway. */
 const BAR_INTRO = document.querySelector("body.home .lp-bar");
 const barIntroEnd = () => { if (BAR_INTRO) BAR_INTRO.classList.remove("hx-bar-intro"); };
 if (BAR_INTRO && scrollY <= 8) {
@@ -1054,8 +1065,14 @@ function perform() {
   for (const ev of ["pointerdown", "focusin", "keydown", "paste", "wheel", "touchstart"]) {
     document.addEventListener(ev, stop, { capture: true, passive: true, signal: off.signal });
   }
-  addEventListener("scroll", stop, { passive: true, signal: off.signal });
-  addEventListener("resize", stop, { signal: off.signal });
+  /* ONLY A SCROLL OR RESIZE THE VISITOR MADE (owner, 2026-10-07, Brave on a phone: "when i refresh it doesnt
+     do the full animation"). A phone fires both on its own around a refresh: the pull-to-refresh spinner
+     easing the page back to 0, the toolbar sliding in or out (height only — the hero is sized in svh, so
+     nothing moves). So a scroll counts once the page has really left the top (8px, site.js's .is-scrolled),
+     and a resize only when the width changed. */
+  const W0 = innerWidth;
+  addEventListener("scroll", () => { if (scrollY > 8) stop(); }, { passive: true, signal: off.signal });
+  addEventListener("resize", () => { if (innerWidth !== W0) stop(); }, { signal: off.signal });
   document.addEventListener("visibilitychange", stop, { signal: off.signal });
   reduce.addEventListener?.("change", stop, { signal: off.signal });
   // The gate opening, or the app replacing the page, mid-flight.

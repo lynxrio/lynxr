@@ -1247,13 +1247,19 @@ def run(key, dry=False):
         ins = INSIGHTS_LANE.insights_pass(key, datetime.now(timezone.utc), dry=dry, T=sys.modules[__name__])
     except Exception as e:  # noqa: BLE001
         log.warning("insights pass failed: %s", str(e)[:120])
+    shp = {}
+    try:
+        import post_shape as SHAPE_LANE              # local import: pass THIS module in, see post_shape.py's docstring
+        shp = SHAPE_LANE.shape_pass(key, datetime.now(timezone.utc), dry=dry, T=sys.modules[__name__])      # BEFORE the brain: the numbers must exist when it reads
+    except Exception as e:  # noqa: BLE001
+        log.warning("shape pass failed: %s", str(e)[:120])
     br = {}
     try:
         import brain as BRAIN_LANE                   # local import: pass THIS module in, see brain.py's docstring
         br = BRAIN_LANE.brain_pass(key, datetime.now(timezone.utc), dry=dry, T=sys.modules[__name__])
     except Exception as e:  # noqa: BLE001
         log.warning("brain pass failed: %s", str(e)[:120])
-    stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS), "showcase": shw, "match": mt, "insights": ins, "brain": br}
+    stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS), "showcase": shw, "match": mt, "insights": ins, "shape": shp, "brain": br}
     n = APIFY_RESULTS
     log.info("track_posts: verify %d (verified %d, budget-skipped %d) · scan tt %d ig %d (new %d, failed %d, changed %d) · "
              "measure %d (failed %d) · followers %d (failed %d) · budget skips max %d pro %d free %d · apify ~%d results (~$%.4f)",
