@@ -101,6 +101,25 @@ T.TRACK_TT = False
 check("due: TRACK_TT off", T.verify_due({**tt, "added_at": ago(minutes=10)}, NOW), False)
 T.TRACK_TT = True
 
+# bio_has_code accepts ANY of the creator's own codes — they get one per profile and paste whichever they have.
+# Real failures this fixes: Jiselle's TikTok checked 33 times, Lia's 48, and a creator emailing that the code in
+# their bio "just wont verify".
+check("bio: one code, present", T.bio_has_code("hi lynxr-ab12cd there", "lynxr-ab12cd"), True)
+check("bio: one code, absent", T.bio_has_code("nothing here", "lynxr-ab12cd"), False)
+check("bio: case-insensitive", T.bio_has_code("LYNXR-AB12CD", "lynxr-ab12cd"), True)
+check("bio: the sibling code counts", T.bio_has_code("bio lynxr-999999", ["lynxr-ab12cd", "lynxr-999999"]), True)
+check("bio: neither code present", T.bio_has_code("bio", ["lynxr-ab12cd", "lynxr-999999"]), False)
+check("bio: empty bio is False", T.bio_has_code("", ["lynxr-ab12cd"]), False)
+check("bio: empty code list is False", T.bio_has_code("lynxr-ab12cd", []), False)
+check("bio: None code is False", T.bio_has_code("lynxr-ab12cd", None), False)
+rd_sib = {"found": True, "private": False, "bio": "my bio lynxr-999999", "uid": "7"}
+_ISO = "2026-10-08T00:00:00Z"
+check("classify: verifies on a sibling code",
+      T.classify_verify(rd_sib, ["lynxr-ab12cd", "lynxr-999999"], _ISO)["status"], "verified")
+check("classify: still code_not_found when no code of theirs is there",
+      T.classify_verify({**rd_sib, "bio": "none of them"}, ["lynxr-ab12cd", "lynxr-999999"], _ISO),
+      {"status": "code_not_found"})
+
 # classify_verify
 iso = "2026-10-01T12:00:00Z"
 rd = {"found": True, "private": False, "bio": "x lynxr-ab12cd", "uid": "42"}

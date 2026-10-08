@@ -137,3 +137,48 @@ here looked correct in code and only surfaced when measured. Say plainly when
 something is broken, blocked, or worse than hoped. Keep the UI professional and
 information-dense; motion stays minimal and functional.
 
+## Interface principles (owner, 2026-10-07)
+
+These apply to every screen of the creator app, the agency app and the public
+pages, not only onboarding. Check new UI against them before calling it done.
+They come from three reference posts the owner sent: the laws of UX,
+onboarding rules 6–15, and "never a static grey CTA".
+
+**Laws of UX**
+- **Hick's law:** one decision per screen, about four visible choices at most.
+  Cut options instead of adding a menu.
+- **Fitts's law:** the main action is the biggest, closest target. On a phone
+  it is full-width in the bottom thumb zone. On desktop it sits right under the
+  thing just chosen. Touch targets are at least 44px.
+- **Jakob's law:** work like the apps people already use. Paste goes in a
+  chat-style composer, sign in goes top right, and the account sits at the
+  foot of the rail. Be novel in content, never in controls.
+
+**Onboarding and first use**
+- Returning users never repeat onboarding.
+- Show how many steps remain, and never let the count grow partway through.
+  The stepper once went from 3 dots to 4.
+- Save each answer as it's given, so closing the tab loses nothing. Going back
+  to change an answer keeps the answers after it.
+- Say why before asking for anything personal or odd-looking: handles, rates,
+  goals.
+- Ask for permissions and account links when the feature needs them, not up
+  front. Linking TikTok comes after the first script, not at sign-up.
+- Everything chosen in onboarding stays editable in settings.
+- Show input rules before submit ("works with tiktok videos and instagram
+  reels"), not as errors after.
+- Teach a feature the first time it's used, with an inline tip. No
+  front-loaded tours.
+- Success is the first meaningful action (the first script), not finishing
+  onboarding. Measure that.
+
+**Motion with a job**
+- The main action is never a static grey button. Disabled must look disabled.
+  Once it can be pressed, the ONE primary button gets a subtle shimmer or
+  pulse, and nothing else on the screen moves.
+- Celebrate real wins (the first script, an upgrade) with a short confetti
+  burst. Add a haptic tap only where `navigator.vibrate` exists; iOS Safari has
+  no vibration API.
+- All of it switches off under `prefers-reduced-motion`. This is the bounded
+  exception to "motion stays minimal and functional" above.
+

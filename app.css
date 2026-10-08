@@ -12051,6 +12051,116 @@
     .linkwall .modal-card.linkwall-card.shake { animation: none; }
     .linkwall .modal-card.linkwall-card.refused { border-color: var(--bad); }
   }
+
+  /* ---------- THE RELEASE (creator.js linkWallCheer) ----------
+     Both platforms are linked, which is the one thing this wall is for, so it is the one moment that gets motion
+     (owner, 2026-10-08: "once tt and ig are linked do some cute animation to show that and spike sm dopamine").
+     ~1s, then everything is back to the settled card: a reward, not a state. It runs ONCE per page load, only on the
+     add that released the wall.
+       the x        springs up behind a burst of its own colours and switches to "hyped" (creator.js already does the mood)
+       the burst    12 shards on the logo's three stops (#ffb38a peach, #ff7eb8 pink, #7b61ff violet) thrown out from
+                    behind it, plus two rings stroked with the shared #lx-glass gradient. Hand-rolled SVG, no library.
+       the rows     land one after the other, their border flashing brand pink before it settles on --good, a tick
+                    drawing in beside each handle
+       the card     its hairline flashes pink with a violet bloom behind it, then back to --line-2
+     NOTHING HERE MOVES THE GO BUTTON OR THE X. The burst is pointer-events:none and absolutely positioned inside the
+     avatar's own row, "put the code in my bio" is deliberately left out of the choreography (it appears instantly, at
+     full opacity, already focused), and every animated property is transform/opacity/colour, so no hit area shifts.
+     REDUCED MOTION: no motion at all. The burst's RESTING state — shards held out at mid-flight, rings held wide and
+     faint — is a static sunburst around the x, and that is what is shown instead (the block at the end). The ticks are
+     drawn (stroke-dashoffset: 0) in the base rule, so they are there either way. Same precedent as .refused above. */
+  .linkwall-av { position: relative; }
+  /* The wrapper exists so the pop and the wave can run at once: the pop scales this, lynxrGesture's "hello" rocks the
+     svg inside it. Scaling .linkwall-av itself instead would be wrong — it is a full-width flex row, and 1.16 of 390px
+     overflows the card's 24px of padding and raises a horizontal scrollbar. */
+  .lw-av-in { display: inline-flex; position: relative; z-index: 1; }   /* the x paints over its own burst */
+  .lw-burst {
+    display: none;         /* .go is the switch: it is built with the card and paints only from the release on */
+    position: absolute; left: 50%; top: 50%; width: 176px; height: 176px; margin: -88px 0 0 -88px;
+    pointer-events: none; overflow: visible; z-index: 0;
+  }
+  .lw-burst.go { display: block; }
+  @media (max-width: 560px) { .lw-burst { width: 148px; height: 148px; margin: -74px 0 0 -74px; } }
+  /* A shard flies RADIALLY: the ray group holds the angle, the shard inside it only ever travels up its own y axis.
+     One keyframe does all twelve directions. Lengths on an SVG element are user units, so -26 in a 120 viewBox is
+     ~38px at the rendered 176px. */
+  .lw-ray { transform-box: view-box; transform-origin: 60px 60px; }
+  .lw-r1 { transform: rotate(30deg); }   .lw-r2 { transform: rotate(60deg); }
+  .lw-r3 { transform: rotate(90deg); }   .lw-r4 { transform: rotate(120deg); }
+  .lw-r5 { transform: rotate(150deg); }  .lw-r6 { transform: rotate(180deg); }
+  .lw-r7 { transform: rotate(210deg); }  .lw-r8 { transform: rotate(240deg); }
+  .lw-r9 { transform: rotate(270deg); }  .lw-r10 { transform: rotate(300deg); }
+  .lw-r11 { transform: rotate(330deg); }
+  .lw-sh { transform-box: fill-box; transform-origin: center; opacity: 0; }
+  .lw-ring { transform-box: view-box; transform-origin: 60px 60px; opacity: 0; }
+  .lw-burst.go .lw-sh { animation: lw-fly .78s cubic-bezier(.16, .72, .3, 1) both; }
+  .lw-burst.go .lw-sh.lw-far { animation-name: lw-fly-far; animation-duration: .86s; }
+  .lw-burst.go .lw-sh.lw-d1 { animation-delay: .06s; }
+  .lw-burst.go .lw-sh.lw-d2 { animation-delay: .12s; }
+  .lw-burst.go .lw-sh.lw-d3 { animation-delay: .18s; }
+  .lw-burst.go .lw-ring { animation: lw-ring .62s cubic-bezier(.14, .76, .3, 1) both; }
+  .lw-burst.go .lw-ring2 { animation-duration: .84s; animation-delay: .14s; }
+  /* opacity holds to 62% and only then falls away, so the shards READ as objects thrown out rather than as a smudge
+     that dims from the first frame */
+  @keyframes lw-fly {
+    0% { opacity: 0; transform: translateY(5px) scale(.3); }
+    14% { opacity: 1; } 62% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-30px) scale(.95); }
+  }
+  @keyframes lw-fly-far {
+    0% { opacity: 0; transform: translateY(5px) scale(.3); }
+    14% { opacity: 1; } 62% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-39px) scale(.72) rotate(28deg); }
+  }
+  @keyframes lw-ring {
+    0% { opacity: .9; transform: scale(.4); }
+    100% { opacity: 0; transform: scale(1.85); }
+  }
+  /* the x itself: a squash-and-pop as the face changes to hyped, with lynxrGesture's "hello" wave over the top. The
+     hyped hop loop lives on .lx-loop and the wave's rock on the svg, so all three compose instead of fighting. */
+  .linkwall-av.lw-pop .lw-av-in { animation: lw-av-pop .58s cubic-bezier(.26, 1.62, .42, 1) both; }
+  @keyframes lw-av-pop {
+    0% { transform: scale(.68); } 52% { transform: scale(1.17); } 100% { transform: scale(1); }
+  }
+  /* the rows land in sequence, pink -> --good */
+  .linkwall-card.lw-cheer .linkwall-row.linked { animation: lw-row-land .52s var(--ease) both; }
+  .linkwall-card.lw-cheer .linkwall-row.linked:nth-child(2) { animation-delay: .12s; }
+  @keyframes lw-row-land {
+    0% { opacity: 0; transform: translateY(8px) scale(.985); border-color: #ff7eb8; box-shadow: 0 0 0 0 rgba(255, 126, 184, .5); }
+    55% { opacity: 1; transform: translateY(-2px) scale(1); border-color: #ff7eb8; box-shadow: 0 0 0 8px rgba(255, 126, 184, 0); }
+    100% { opacity: 1; transform: none; border-color: var(--good); box-shadow: 0 0 0 8px rgba(255, 126, 184, 0); }
+  }
+  .lw-tick { width: 13px; height: 13px; margin-right: 7px; vertical-align: -1px; color: var(--good); }
+  .lw-tick path { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 14; stroke-dashoffset: 0; }
+  .linkwall-card.lw-cheer .lw-tick path { animation: lw-tick .38s var(--ease) .2s both; }
+  .linkwall-card.lw-cheer .linkwall-row:nth-child(2) .lw-tick path { animation-delay: .32s; }
+  @keyframes lw-tick { from { stroke-dashoffset: 14; } to { stroke-dashoffset: 0; } }
+  /* the heading and the two lines under the rows rise in; the go button is not in this list on purpose */
+  .linkwall-card.lw-cheer :is(.linkwall-q, .linkwall-note, .linkwall-sub) { animation: lw-rise .42s var(--ease) both; }
+  .linkwall-card.lw-cheer :is(.linkwall-note, .linkwall-sub) { animation-delay: .2s; }
+  @keyframes lw-rise { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: none; } }
+  /* the card's own hairline. .modal-card carries no box-shadow, so this one is free to borrow the slot and hand it back.
+     On a phone the card is full-bleed with border:0, so this reads as nothing there and the burst carries the moment. */
+  .linkwall .modal-card.linkwall-card.lw-cheer { animation: lw-card .9s var(--ease) both; }
+  @keyframes lw-card {
+    0% { border-color: #ff7eb8; box-shadow: 0 0 0 0 rgba(255, 126, 184, .5), 0 0 0 0 rgba(123, 97, 255, 0); }
+    34% { border-color: #ff7eb8; box-shadow: 0 0 0 7px rgba(255, 126, 184, 0), 0 0 46px 8px rgba(123, 97, 255, .32); }
+    100% { border-color: var(--line-2); box-shadow: 0 0 0 7px rgba(255, 126, 184, 0), 0 0 46px 8px rgba(123, 97, 255, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .linkwall .modal-card.linkwall-card.lw-cheer,
+    .linkwall-card.lw-cheer :is(.linkwall-row.linked, .linkwall-q, .linkwall-note, .linkwall-sub),
+    .linkwall-av.lw-pop .lw-av-in,
+    .linkwall-card.lw-cheer .lw-tick path { animation: none; }
+    /* The settled celebration: the burst HELD rather than played — a crown of the brand's colours over the x, which is
+       a sticker, not a motion. Only the upper arc of it: a shard sits 25 units out before it is translated, so the
+       lower rays and both rings land on the heading below (measured: the ring's bottom at y 351.7 against a heading
+       box of 340-366.2), and a permanent mark over "almost there" is clutter, not a reward. Hidden here, they cost
+       nothing — the played version above still throws all twelve and both rings. */
+    .lw-burst.go .lw-ring, .lw-burst.go :is(.lw-r4, .lw-r5, .lw-r6, .lw-r7, .lw-r8) { display: none; }
+    .lw-burst.go .lw-sh { animation: none; opacity: .55; transform: translateY(-14px); }
+    .lw-burst.go .lw-sh.lw-far { opacity: .42; transform: translateY(-20px) scale(.8); }
+  }
   /* The bio-code card on Home (creator.js paintHomeVerify): a roster creator with a username and nothing verified yet. It blocks
      nothing; it sits above the greeting until a profile verifies. Same glass card as the other Home card. */
   #home-verify:empty { display: none; }

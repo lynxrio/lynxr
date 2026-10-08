@@ -4992,6 +4992,8 @@ let LINKWALL_PRESSES = 0;      // close attempts since it opened, this page load
 let LINKWALL_RELEASED = false; // a username was added; never goes back to false within a page load (a wall, not a tripwire)
 let LINKWALL_ADDED = [];       // what the form saved, in case the profiles re-read that follows it fails
 let LINKWALL_TIMER = null;
+let LINKWALL_CHEERED = false;  // the release celebration has played; once a page load, never on a repaint
+let LINKWALL_CHEER_TIMER = null;
 // ONE PLATFORM AT A TIME, Instagram then TikTok. There was a platform dropdown beside the field; the owner rejected it
 // 2026-10-07 ("dont do the dropdown on the left, i hate that"). A step knows its own platform, so the select is gone.
 // BOTH ARE MANDATORY (owner, 2026-10-07: "dont allow a i dont post on instagram, both are mandatory"). There is no
@@ -5014,6 +5016,45 @@ function linkWallStep() {
 const linkWallEl = () => document.getElementById("linkwall");
 const linkWallIsOpen = () => { const m = linkWallEl(); return !!m && !m.hidden; };
 
+/* THE RELEASE BURST (app.css ".lw-burst", keyframes lw-fly / lw-ring). Built once with the card and left hidden until
+   both platforms are linked. Hand-rolled: no canvas, no confetti library, and the colours are the logo's own three
+   stops rather than a rainbow, so it reads as lynxr and not as a plugin. Twelve shards alternating capsule (the X's
+   arm, in miniature) and the four-point star the "hyped" face already wears, one per 30deg, each in its own ray group
+   so CSS can hold the angle on the parent and animate a plain translateY on the child. The two rings borrow #lx-glass,
+   the gradient avatar.js puts in the page, so the full peach->pink->violet sweep is in the moment somewhere.
+   NO style="" anywhere: every angle, delay and distance is a class. */
+const LINKWALL_BURST_COLORS = ["#ffb38a", "#ff7eb8", "#7b61ff"];
+function linkWallBurstHtml() {
+  // Both shapes are centred on (60,35) — 25 units above the burst's middle, i.e. just clear of the x's arms.
+  const capsule = (c) => `<rect x="58" y="29" width="4" height="12" rx="2" fill="${c}"/>`;
+  const star = (c) => `<path d="M60 30Q61 34 65 35Q61 36 60 40Q59 36 55 35Q59 34 60 30Z" fill="${c}"/>`;
+  let rays = "";
+  for (let i = 0; i < 12; i++) {
+    const cls = ["lw-sh", `lw-d${i % 4}`].concat(i % 3 === 0 ? ["lw-far"] : []).join(" ");
+    const shape = (i % 2 ? star : capsule)(LINKWALL_BURST_COLORS[i % 3]);
+    rays += `<g class="lw-ray lw-r${i}"><g class="${cls}">${shape}</g></g>`;
+  }
+  // NOT the hidden attribute: `hidden` is not an IDL property of SVGElement, so `el.hidden = false` sets an expando
+  // and leaves the attribute (and display:none) in place. Measured 0x0. The .go class is both the switch and the cue.
+  return `<svg class="lw-burst" id="linkwall-burst" viewBox="0 0 120 120" aria-hidden="true" focusable="false">` +
+    `<circle class="lw-ring" cx="60" cy="60" r="26" fill="none" stroke="url(#lx-glass)" stroke-width="3"/>` +
+    `<circle class="lw-ring lw-ring2" cx="60" cy="60" r="26" fill="none" stroke="url(#lx-glass)" stroke-width="1.6"/>` +
+    rays + `</svg>`;
+}
+
+/** The tick beside a linked handle. Decorative: the row already says the handle and the platform in words. */
+function linkWallTick() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "lw-tick");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M3.5 8.4l3 3 6-6.8");
+  svg.appendChild(path);
+  return svg;
+}
+
 function ensureLinkWall() {
   let modal = linkWallEl();
   if (modal) return modal;
@@ -5027,7 +5068,7 @@ function ensureLinkWall() {
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
-      <div class="linkwall-av">${typeof lynxrAvatar === "function" ? lynxrAvatar("hmm", "setup-lx") : ""}</div>
+      <div class="linkwall-av">${linkWallBurstHtml()}<span class="lw-av-in">${typeof lynxrAvatar === "function" ? lynxrAvatar("hmm", "setup-lx") : ""}</span></div>
       <h2 class="linkwall-q" id="linkwall-q"></h2>
       <div class="linkwall-rows" id="linkwall-rows"></div>
       <form class="linkwall-add" id="linkwall-form" novalidate>
@@ -5102,7 +5143,7 @@ function paintLinkWall(moveFocus = false) {
     const plat = document.createElement("span");
     plat.className = "prof-plat";
     plat.textContent = PLAT_NAME[p.platform] || p.platform;
-    row.append(name, plat);
+    row.append(linkWallTick(), name, plat);
     rows.appendChild(row);
   }
   q("#linkwall-form").hidden = rel;
@@ -5123,6 +5164,39 @@ function paintLinkWall(moveFocus = false) {
   }
   if (typeof lynxrMood === "function") lynxrMood(q(".lx"), rel ? "hyped" : "hmm");
   if (rel && moveFocus) q("#linkwall-go").focus();       // the form just left: focus must land on something real
+  // `moveFocus` is the add that just happened, so this fires on the one that linked the SECOND platform and never on a
+  // repaint, a reopen or the dev preview's state switcher. Last, so the rows and the button it decorates already exist.
+  if (rel && moveFocus && !LINKWALL_CHEERED) linkWallCheer();
+}
+
+/** THE RELEASE: both platforms are linked. One ~1s pass of the brand's own motion, then the card is back to normal
+    (app.css, the block after linkwall-shake, which also owns the reduced-motion version: a held sunburst, no motion).
+    Decoration only — it moves nothing, covers nothing and takes no focus, so a creator who presses "put the code in my
+    bio" on the first frame gets exactly what they would have got without it. */
+function linkWallCheer() {
+  const modal = linkWallEl();
+  if (!modal) return;
+  LINKWALL_CHEERED = true;
+  const card = modal.querySelector(".linkwall-card");
+  const av = modal.querySelector(".linkwall-av");
+  const burst = modal.querySelector("#linkwall-burst");
+  if (burst) burst.classList.add("go");   // .go stays on: its animations end invisible, and under reduced motion the
+  if (!card || !av) return;               // burst's resting state IS the settled celebration, so it must keep painting
+  clearTimeout(LINKWALL_CHEER_TIMER);
+  card.classList.add("lw-cheer");
+  av.classList.add("lw-pop");
+  // ...and the x waves, with the gesture avatar.js already has. The pop is on the .lw-av-in wrapper and the wave's rock
+  // is on the svg itself, so the two compose instead of overwriting each other's transform.
+  const lx = modal.querySelector(".lx");
+  if (typeof lynxrGesture === "function") lynxrGesture(lx, "hello");
+  // Off again once it has played, exactly like .shake: nothing is left holding a final keyframe, and .linkwall-card's
+  // `animation: none` comes back so a later repaint cannot replay rise-in.
+  // A timer, not animationend: animationend BUBBLES, so the rows and the tick (which finish first) would end it early.
+  LINKWALL_CHEER_TIMER = setTimeout(() => {
+    card.classList.remove("lw-cheer");
+    av.classList.remove("lw-pop");
+    if (typeof lynxrGesture === "function") lynxrGesture(lx, null);
+  }, 1150);                                             // past the longest of them (the shards', .86s + .18s of delay)
 }
 
 /** A close attempt (x, backdrop or Escape) while nothing is linked: shake, say a little more, and keep the creator here. */

@@ -193,10 +193,22 @@ def good_handle(h):
 
 
 def bio_has_code(bio, code):
-    """Case-insensitive. False on empty input."""
-    if not bio or not code:
+    """Is any of `code` in `bio`? Case-insensitive, False on empty input. `code` is one code or several.
+
+    SEVERAL, because a creator gets a DIFFERENT code per profile and pastes whichever one they have to hand. The
+    link wall (2026-10-07) made that worse by design: it asks for Instagram and TikTok back to back, so a creator
+    now receives two codes minutes apart and copies one of them into both bios. Measured the next morning —
+    Jiselle's TikTok had been checked 33 times, Lia's 48, and a creator emailed "I put the lynxr-605438 on my bio
+    but it just wont verify it".
+
+    Accepting a sibling code costs nothing in security: every code here belongs to the SAME creator_id, and the
+    check only has to prove that whoever controls the account also controls the lynxr account. Which of their own
+    codes they used proves that equally well."""
+    if not bio:
         return False
-    return str(code).lower() in str(bio).lower()
+    codes = [code] if isinstance(code, str) else list(code or [])
+    low = str(bio).lower()
+    return any(c and str(c).lower() in low for c in codes)
 
 
 TT_PRIVATE_STATUS = 10222   # "ErrBizUserSecret": the account exists and is private
@@ -279,7 +291,9 @@ def verify_due(p, now):
 
 
 def classify_verify(read, code, now_iso):
-    """The PATCH fields for one profile read ({found, private, bio, uid, error} or None). Pure."""
+    """The PATCH fields for one profile read ({found, private, bio, uid, error} or None). Pure.
+
+    `code` is this profile's code, or every code the same creator holds — see bio_has_code()."""
     if not read or read.get("error"):
         return {"status": "unavailable"}
     if not read.get("found"):
@@ -713,6 +727,17 @@ def verify_pass(key, now, dry=False, cache=None):
             log.info("track_posts: lynxr_profiles not readable (HTTP %s) — is supabase/profiles.sql applied?", status)
         return stats
     due = by_tier([r for r in rows if verify_due(r, now)], key, cache)[:TRACK_VERIFY_PER_PASS]
+    # Every code each due creator holds, including the ones on profiles that have already verified: one request
+    # for the whole pass. A creator who pasted their TikTok code into their Instagram bio now verifies instead of
+    # sitting at code_not_found until someone notices.
+    codes = {}
+    ids = sorted({str(r.get("creator_id")) for r in due if r.get("creator_id")})
+    if ids:
+        st, all_rows = rest(key, "/rest/v1/lynxr_profiles?creator_id=in.("
+                                 + ",".join(urllib.parse.quote(i, safe="") for i in ids)
+                                 + ")&select=creator_id,verify_code")
+        for row in (all_rows if st == 200 and isinstance(all_rows, list) else []):
+            codes.setdefault(str(row.get("creator_id")), []).append(row.get("verify_code"))
     for r in due:
         plat = r.get("platform")
         if dry:
@@ -734,7 +759,8 @@ def verify_pass(key, now, dry=False, cache=None):
             continue
         now_iso = now.isoformat().replace("+00:00", "Z")
         patch = {"verify_tries": int(r.get("verify_tries") or 0) + 1, "last_checked_at": now_iso,
-                 "check_requested_at": None, **classify_verify(read, r.get("verify_code"), now_iso)}
+                 "check_requested_at": None,
+                 **classify_verify(read, codes.get(str(r.get("creator_id"))) or r.get("verify_code"), now_iso)}
         where = (f"/rest/v1/lynxr_profiles?creator_id=eq.{urllib.parse.quote(str(r.get('creator_id')), safe='')}"
                  f"&platform=eq.{urllib.parse.quote(str(plat), safe='')}"
                  f"&handle=eq.{urllib.parse.quote(str(r.get('handle')), safe='')}")
