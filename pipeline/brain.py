@@ -99,7 +99,7 @@ VOICE_MAX_CHARS = 90             # ... and a kept one is cut to this
 BRAINS = "/rest/v1/lynxr_creator_brain"
 COACH_NOTES = "/rest/v1/lynxr_coach_notes"
 SHAPES = "/rest/v1/lynxr_post_shape"
-SHAPE_FIELDS = "post_id,duration_s,speech_start_s,words_first_3s,longest_silence_s,longest_silence_at_s,has_speech,beats,repeats"
+SHAPE_FIELDS = "post_id,duration_s,speech_start_s,words_first_3s,longest_silence_s,longest_silence_at_s,best_line_at_s,has_speech,beats,repeats"
 
 NOT_KNOWN_VIDEOS = ("what is actually in your videos — lynxr keeps your captions and your public counts, "
                     "not what you said or showed")
@@ -694,10 +694,12 @@ def _client_getter():
 
 # ── reading a creator (I/O, none of it raises) ────────────────────────────────────────────────────
 
-def read_creator(T, key, cid):
+def read_creator(T, key, cid, coach=None):
     """The reads that make a body (the watch-time ones optional), plus the previous body. Returns a dict, or None when a read that must not be partial failed
     (the creator's data, their posts, or their previous body): a half-read creator must not overwrite a good brain with a thinner one.
-    The profile, follower and snapshot reads degrade only their own field."""
+    The profile, follower and snapshot reads degrade only their own field. With the coach on (`coach`, default the COACH flag) two more reads are
+    made, the creator's measured video shapes and the last coach note; the SQL not applied (400/404) leaves each empty, and any other failure
+    skips the creator, because a thinner read would reset the one thing the coach is holding and the prose cache."""
     c = T.q(cid)
     st, rows = T.rest(key, f"/rest/v1/lynxr_creators?id=eq.{c}&select=data")
     if st != 200 or not isinstance(rows, list):
@@ -709,7 +711,7 @@ def read_creator(T, key, cid):
         return None
     # PostgREST caps a response at the project's max-rows (1000 by default) whatever limit is asked for; ordering newest post first means
     # a cap would drop the oldest posts' snapshots, which only lowers how many posts are comparable.
-    st, views = T.rest(key, f"/rest/v1/lynxr_post_views?creator_id=eq.{c}&select=post_id,day,views&order=post_id.desc,day.asc&limit=2000")
+    st, views = T.rest(key, f"/rest/v1/lynxr_post_views?creator_id=eq.{c}&select=post_id,day,views,at&order=post_id.desc,day.asc&limit=2000")
     snaps = {}
     for s in views if st == 200 and isinstance(views, list) else []:
         snaps.setdefault(s.get("post_id"), []).append(s)
@@ -739,14 +741,53 @@ def read_creator(T, key, cid):
     elif st != 200 or not isinstance(prev, list):
         return None                  # an unreadable previous body would reset the voice cache and cost a call; skip the creator
     previous = prev[0].get("body") if prev and isinstance(prev[0], dict) else None
+    shapes, prev_note = {}, None
+    if C.COACH if coach is None else coach:
+        st, rows = T.rest(key, f"{SHAPES}?creator_id=eq.{c}&select={SHAPE_FIELDS}&limit=300")
+        if st == 200 and isinstance(rows, list):
+            shapes = {r["post_id"]: r for r in rows if isinstance(r, dict) and r.get("post_id") is not None}
+        elif st not in (400, 404):
+            return None
+        st, rows = T.rest(key, f"{COACH_NOTES}?creator_id=eq.{c}&select=body")
+        if st == 200 and isinstance(rows, list):
+            body = rows[0].get("body") if rows and isinstance(rows[0], dict) else None
+            prev_note = body if isinstance(body, dict) else None
+        elif st not in (400, 404):
+            return None
     return {"me": me, "posts": posts, "snaps": snaps, "profiles": profiles, "followers": followers, "watch": watch,
-            "previous": previous if isinstance(previous, dict) else None}
+            "previous": previous if isinstance(previous, dict) else None, "shapes": shapes, "prev_note": prev_note}
 
 
 def _done(stats):
     log.info("brain: due %d · built %d · voiced %d · voice failed %d · failed %d",
              stats["brain_due"], stats["built"], stats["voiced"], stats["voice_failed"], stats["brain_failed"])
+    if "coached" in stats:                           # only when the coach is on: the line above is unchanged with it off
+        log.info("coach: coached %d · failed %d · prose %d · dropped %d · prose failed %d", stats["coached"], stats["coach_failed"],
+                 stats["prose"], stats["prose_dropped"], stats["prose_failed"])
     return stats
+
+
+def write_note(T, key, cid, note, prev_note, now, get_client, stats):
+    """The coach's note for one creator: the prose pass over the videos whose facts changed, then one upsert into lynxr_coach_notes. It must
+    NEVER fail the brain build, so nothing here raises and every failure is a count. A creator with nothing measured and no earlier note gets
+    no row at all (my_coach() answers 'none' for no row, and the app paints nothing for either)."""
+    try:
+        if note.get("state") == "nothing" and prev_note is None:
+            return
+        for k, v in CP.apply(note, get_client, key=key).items():
+            stats[k] += v
+        status, _ = T.rest(key, f"{COACH_NOTES}?on_conflict=creator_id", method="POST",
+                           body={"creator_id": cid, "body": C.strip_private(note), "built_at": iso(now)},
+                           prefer="resolution=merge-duplicates,return=minimal")
+        if 200 <= status < 300:
+            stats["coached"] += 1
+        elif status in (400, 404):
+            log.info("coach: lynxr_coach_notes not readable — is supabase/coach.sql applied?")
+        else:
+            stats["coach_failed"] += 1
+    except Exception as e:  # noqa: BLE001
+        log.info("coach: note failed (%s)", type(e).__name__)
+        stats["coach_failed"] += 1
 
 
 def brain_pass(key, now, dry=False, T=None):
@@ -755,6 +796,8 @@ def brain_pass(key, now, dry=False, T=None):
     if not BRAIN or T is None:
         return {}
     stats = {"brain_due": 0, "built": 0, "voiced": 0, "voice_failed": 0, "brain_failed": 0}
+    if C.COACH:
+        stats.update({"coached": 0, "coach_failed": 0, "prose": 0, "prose_dropped": 0, "prose_failed": 0})
     status, creators = T.rest(key, f"/rest/v1/lynxr_creators?select=id&limit={BRAIN_SCAN_LIMIT}")     # past BRAIN_SCAN_LIMIT accounts this needs paging
     if status != 200 or not isinstance(creators, list):
         if status:
@@ -785,7 +828,8 @@ def brain_pass(key, now, dry=False, T=None):
             if got is None:
                 stats["brain_failed"] += 1
                 continue
-            body, need = build(got["me"], got["posts"], got["snaps"], got["profiles"], got["followers"], now, got["previous"], got["watch"])
+            body, need, note = build(got["me"], got["posts"], got["snaps"], got["profiles"], got["followers"], now, got["previous"], got["watch"],
+                                     got["shapes"], got["prev_note"])
             if need and BRAIN_VOICE:
                 if apply_voice(body, need, get_client, key=key, now=now):
                     stats["voiced"] += 1
@@ -796,6 +840,8 @@ def brain_pass(key, now, dry=False, T=None):
                                prefer="resolution=merge-duplicates,return=minimal")
             if 200 <= status < 300:
                 stats["built"] += 1
+                if note is not None:
+                    write_note(T, key, r["creator_id"], note, got["prev_note"], now, get_client, stats)
             else:
                 stats["brain_failed"] += 1
         except Exception as e:  # noqa: BLE001 — a broken brain must never stop the pass
@@ -861,7 +907,7 @@ def print_creator(T, key, cid, why=False, voice=False):
     if why:
         print("\n".join(why_table(got["posts"], got["snaps"], now)))
         print()
-    body, need = build(got["me"], got["posts"], got["snaps"], got["profiles"], got["followers"], now, got["previous"], got["watch"])
+    body, need, _ = build(got["me"], got["posts"], got["snaps"], got["profiles"], got["followers"], now, got["previous"], got["watch"])
     if voice:
         if not BRAIN_VOICE:
             print("# --voice did nothing: BRAIN_VOICE is off. Set BRAIN_VOICE=1 in the environment to make the call "

@@ -99,7 +99,7 @@ begin
     select coalesce(jsonb_agg(public.coach_pick(p.value, array['post_id','curve','days','views','from_h','by_h','views7','times_median','verdict','line','prose','moments'])
                               order by p.ord), '[]'::jsonb)
       into ps from jsonb_array_elements(coalesce(b -> 'posts', '[]'::jsonb)) with ordinality p(value, ord);
-    select coalesce(jsonb_agg(public.coach_pick(w.value, array['said','because','since']) order by w.ord), '[]'::jsonb)
+    select coalesce(jsonb_agg(public.coach_pick(w.value, array['said','because','since','signal','was','target']) order by w.ord), '[]'::jsonb)
       into wo from jsonb_array_elements(coalesce(b -> 'working_on', '[]'::jsonb)) with ordinality w(value, ord) where w.ord <= 1;
   else
     top := public.coach_pick(b, array['state', 'not_yet', 'platform']);

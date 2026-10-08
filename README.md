@@ -32,6 +32,8 @@ a change to `app.css` lands on all of them.
 | `.github/workflows/adaptations.yml` | Writes creator scripts on GitHub's runners, so no local machine has to be awake |
 | `supabase/schema.sql` | Tables + RLS policies, including `lynxr_videos` (the database). Other `supabase/*.sql` files are standalone migrations |
 | `pipeline/` | All the Python that produces the data |
+| `supabase/post_shape.sql` → `lynxr_post_shape` | Numbers measured from a creator's own posted video (seconds before anyone speaks, words in the first 3 s, the longest gap with no speech, the length, when each beat of the linked script was said). **Numbers only, never a word of a transcript.** Written by `pipeline/post_shape.py` on the Fly worker; a creator reads their own |
+| `supabase/coach.sql` → `lynxr_coach_notes`, `my_coach()` | The coach's note per creator (`pipeline/coach.py` pure, `pipeline/coach_prose.py` the checked Haiku rewrite). Service-role only, no policy: the only way in is `my_coach()`, which trims the note to the caller's tier in the database. The coach is the one writer of `lynxr_creator_brain.body.working_on` (only its one-line `said`) |
 | `data/` | Raw scrapes and normalized CSVs *(gitignored)* |
 | `output/` | **The database, summary, and logs** *(gitignored)* |
 | `.env` | API keys *(gitignored — never commit)* |
@@ -161,6 +163,9 @@ Access is therefore split three ways:
   can only be granted from the dashboard, so nobody can promote themselves.
 - **Creator data** (`lynxr_creators`) is owner-only on `auth.uid() = id`. One
   creator cannot read, update or delete another's row.
+- **`lynxr_coach_notes`** has no grant and no policy for any browser role; `my_coach()` (security definer) returns less to free than
+  to pro than to max, so a free account calling it directly never receives the paid text. The note and `lynxr_post_shape` are deleted
+  the moment any of the creator's posts goes (trigger in `coach.sql`).
 - **`lynxr_sources`** has no `authenticated` policies at all — service-role
   only. Do not loosen it; it is shared across every creator.
 - **`lynxr_waitlist`** is the one table `anon` may write, insert-only, so a

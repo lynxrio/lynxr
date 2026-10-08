@@ -133,6 +133,40 @@ check("features: repeats appear when there are some, and are absent when there a
       ("repeats" in S.features({"has_speech": True, "hook_spoken": "a b", "segments": rs}, 12.0), "repeats" in S.features(T_OK, 14.0)), (True, False))
 
 
+# ── 3b. the line with the most specifics, and the payoff beat ────────────────────────────────────
+check("specifics: numbers (digits and number words) and mid-sentence names count; a sentence's first word and 'I' do not",
+      (S.specifics("Okay so I tried Zorblax for 3 weeks"), S.specifics("Zorblax is great."), S.specifics("then Quimby paid forty dollars"),
+       S.specifics("I think I said it. Maybe later"), S.specifics("")), (2, 0, 2, 0, 0))
+named = [[0.5, 3.0, "okay so this is a thing"], [4.0, 8.0, "it cost 12 dollars at Plorpmart"], [20.4, 24.0, "then 3 people at Quimbyland paid 40"]]
+check("best_line: the line with the most specifics, as the second it STARTS (never a word)", S.best_line(named), 20.4)
+check("best_line: a line needs at least two specifics, or there is no claim", S.best_line([[0.5, 3.0, "it cost 12 dollars"], [4.0, 6.0, "fine"]]), None)
+check("best_line: a tie goes to the EARLIEST line", S.best_line([[1.0, 3.0, "12 dollars at Plorpmart"], [9.0, 12.0, "13 dollars at Quimbyland"]]), 1.0)
+f = S.features({"has_speech": True, "hook_spoken": "a b", "segments": named}, 30.0)
+check("features: best_line_at_s is a number and the serialised row holds none of the line's words",
+      (f["best_line_at_s"], [w for w in ("plorpmart", "quimbyland", "dollars") if w in json.dumps(f).lower()]), (20.4, []))
+check("features: absent when no line qualifies", "best_line_at_s" in S.features(T_OK, 14.0), False)
+
+FMT = {"beats": [{"role": "contrarian hook", "seconds": 3}, {"role": "item 1 of 3", "seconds": 5}, {"role": "surprise payoff", "seconds": 4}, {"role": "soft CTA", "seconds": 3}]}
+PAY = {**SCRIPT, "format": FMT}
+check("payoff_index: the one format beat whose role names a payoff, when the lists line up", S.payoff_index(PAY, 4), 3)
+check("payoff_index: lists of different length -> None (no beat can honestly be called the payoff)", S.payoff_index(PAY, 5), None)
+check("payoff_index: two payoff roles is ambiguous -> None", S.payoff_index({"format": {"beats": [{"role": "reveal"}, {"role": "the payoff"}]}}, 2), None)
+check("payoff_index: no payoff role, no format, junk -> None", (S.payoff_index({"format": {"beats": [{"role": "hook"}, {"role": "cta"}]}}, 2), S.payoff_index(SCRIPT, 4),
+                                                              S.payoff_index(None, 0), S.payoff_index({"format": "x"}, 1)), (None, None, None, None))
+PSEGS = [[0.4, 2.0, "okay so zorblax finally arrived and quimby loved it"], [2.4, 5.0, "the frumble tastes like a wobbly sunrise honestly"],
+         [6.0, 9.0, "a whole paragraph about snazzleberry jam nobody ever says"]]
+pay_script = {"id": "ad-3", "adaptation": {"delivery": "spoken", "cta": "", "beats": [
+    {"t": "0-3s", "say": "okay so zorblax finally arrived and quimby loved it"}, {"t": "3-8s", "say": "the frumble tastes like a wobbly sunrise honestly"},
+    {"t": "12-16s", "say": "a whole paragraph about snazzleberry jam nobody ever says"}]},
+    "format": {"beats": [{"role": "hook"}, {"role": "item"}, {"role": "payoff"}]}}
+b = S.align(PSEGS, S.script_units(pay_script))
+check("align: the payoff beat is flagged, with when it was said and when the script put it", [(r["i"], r.get("payoff"), r["start_s"], r["planned_s"]) for r in b],
+      [(1, None, 0.4, 0.0), (2, None, 2.4, 3.0), (3, True, 6.0, 12.0)])
+gone = S.align(PSEGS[:2], S.script_units(pay_script))
+check("align: a payoff the audio does not contain is flagged and not found", gone[2], {"i": 3, "of": 3, "kind": "beat", "payoff": True, "found": False})
+check("the role's words are never stored: the aligned rows name no role", [w for w in ("payoff", "hook", "item") if w in json.dumps(b).lower().replace('"payoff": true', "")], [])
+
+
 # ── 4. the lane, through a fake track_posts ──────────────────────────────────────────────────────
 class FakeT:
     """Just enough of track_posts for shape_pass. Records every call so a test can say what was and was not written."""

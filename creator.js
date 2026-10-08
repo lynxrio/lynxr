@@ -3681,6 +3681,7 @@ const PROFILES_MAX = 4;                       // mirrors supabase/profiles.sql
 const TRACKING_LIVE = true;                   // kill switch: the Posts view and its link in the rail (the data comes from the pipeline)
 const SHOWCASE_APP_LIVE = true;               // kill switch: the Settings "Showcase" card and the "made with" control on Posts (plan lynxr-showcase.md)
 const INSIGHTS_APP_LIVE = true;               // kill switch: the Settings "Connected accounts" card (plan lynxr-social-insights.md). Which platforms are OFFERED comes from my_insights(), never from here.
+const COACH_APP_LIVE = false;                 // kill switch: the coach card and each video's read, its numbers and its moments on Posts (plan lynxr-coach-v1.md). OFF until the owner has read real notes; the dev preview (?obtest=1&metric=coachready) paints it regardless.
 const GOAL_WEEK_DAY = 7, GOAL_LAST_N = 5;     // perform goal: the average views at day 7 over the latest 5 tracked videos
 /* What a creator can name as their main priority, and the goal chips that go with it. The stored target is the number:
    "10+" brand deals stores 10 and "$1k+" stores 1000 (goalChipLabel / goalLabel say it back). Progress per priority:
@@ -6213,6 +6214,8 @@ let PROFILES = null; let SETUP_SEEN_MEM = false;
 // The tracked videos (each with its lynxr_post_views snapshots) and the daily follower counts: null until first read.
 // POSTS_STATE: idle | loading | ok | error. Both tables are written by the pipeline only; a creator can only read them.
 let POSTS = null; let FOLLOWERS = null; let POSTS_STATE = "idle";
+let COACH = null;           // my_coach(): { tier, state, not_yet, median_views, working_on, posts } trimmed to this creator's depth by the database, or { missing: true } when the SQL is not applied
+let COACH_PREVIEW = false;  // set only inside the localhost ?obtest=1 block, so the dev preview can paint the coach while COACH_APP_LIVE is off
 let SHOWCASE_ME = null;     // { featured, changed_at, approved: [post ids] } from my_showcase(), or { missing: true } when the SQL is not applied
 let INSIGHTS_ME = null;     // { platforms: {instagram, tiktok}, connected: [{platform, handle, since, status}] } from my_insights(), or { missing: true } when the SQL is not applied
 let INSIGHTS_NOTE = null;   // { text, tone } shown inside the Connected accounts card until the creator acts: where they landed, and what happened
@@ -7089,6 +7092,7 @@ if (OBTEST) {
     if (path.includes("/rest/v1/lynxr_profile_followers")) return OBFAKE.followers;
     if (path.includes("/rpc/my_plan")) return OBFAKE.plan;
     if (path.includes("/rpc/my_showcase")) return { ...OBFAKE.showcase };
+    if (path.includes("/rpc/my_coach")) return OBFAKE.coach ? JSON.parse(JSON.stringify(OBFAKE.coach)) : { tier: "free", state: "none" };     // &metric=coachready|coachpro|performfree|coachlearning|coachnone
     if (path.includes("/rpc/my_insights")) return JSON.parse(JSON.stringify(OBFAKE.insights));     // ?obins=both also offers TikTok; ?obins=connected starts with Instagram connected
     if (path.includes("/rpc/disconnect_my_insights")) {
       OBFAKE.insights.connected = OBFAKE.insights.connected.filter((c) => !(c.platform === body.p_platform && c.handle === body.p_handle));
@@ -7212,7 +7216,60 @@ if (OBTEST) {
     const planFor = (st) => (st.plan === "free" || st.plan === "pro")
       ? { ...OBFAKE.plan, plan_code: st.plan, features: [], plans: { pro: { label: "lynxr pro", for_sale: true }, max: { label: "max" } } }
       : { ...OBFAKE.plan, plan_code: "max", features: st.features || ["post_tracking", "advanced_coaching"] };
+    /* The coach preview: a made-up note for the fake videos above, trimmed to the depth the state's plan buys exactly as supabase/coach.sql's
+       my_coach() trims it (same key lists), so what paints here is what each tier would be sent. */
+    const coachFor = (st) => {
+      const tier = st.plan === "free" ? "free" : st.plan === "pro" ? "pro" : "max";
+      const p = (post_id, over) => ({ post_id, ...over });
+      const note = st.coach === "learning"
+        ? { v: 1, state: "learning", platform: "tiktok", not_yet: "lynxr needs 4 of your videos that have been up a week and that it has listened to, before it can tell you what is different about one of them. it has 2.",
+            posts: [p(4, { curve: "climbing", days: 7, views: 11200, line: "it was still climbing at its last reading, on day 7" }),
+                    p(5, { curve: "climbing", days: 7, views: 6100, line: "it was still climbing at its last reading, on day 7" })], working_on: [] }
+        : st.coach === "nothing"
+          ? { v: 1, state: "nothing", not_yet: "lynxr has not measured one of your videos yet. it checks your linked accounts once a day.", posts: [], working_on: [] }
+          : { v: 1, state: "ready", platform: "tiktok", median_views: 8950,
+              posts: [
+                p(2, { curve: "climbing", days: 1, views: 1200, line: "it was still climbing at its last reading, on day 1" }),
+                p(3, { curve: "no_views", days: 3, views: 0, line: "it has no views in the readings lynxr took" }),
+                p(4, { curve: "climbing", days: 7, views: 11200, views7: 11200, times_median: 1.3, verdict: "stronger",
+                       line: "it was still climbing at its last reading, on day 7; 11,200 views a week in, 1.3× your own usual",
+                       prose: "Your views kept climbing through day 7 and reached 11,200, which is 1.3× your own usual. Someone was talking from the first second.",
+                       moments: [], shape: { speech_start_s: 0.2, words_first_3s: 13, longest_silence_s: 0.4, longest_silence_at_s: 9.1, duration_s: 14.2 } }),
+                p(5, { curve: "climbing", days: 7, views: 6100, views7: 6100, times_median: 0.7, verdict: "weaker",
+                       line: "it was still climbing at its last reading, on day 7; 6,100 views a week in, 0.7× your own usual",
+                       moments: [{ kind: "quiet_start", at_s: 0, text: "nobody spoke until second 2.9" }, { kind: "repeat", at_s: 6.1, text: "at second 6.1 you say again what you said at second 2.9" }],
+                       shape: { speech_start_s: 2.9, words_first_3s: 4, longest_silence_s: 1.2, longest_silence_at_s: 7.4, duration_s: 21 } }),
+                p(6, { curve: "climbing", days: 7, views: 8800, views7: 8800, times_median: 1, verdict: "usual",
+                       line: "it was still climbing at its last reading, on day 7; 8,800 views a week in, 1× your own usual", moments: [],
+                       shape: { speech_start_s: 0.6, words_first_3s: 11, duration_s: 17 } }),
+                p(7, { curve: "climbing", days: 7, views: 3900, views7: 3900, times_median: 0.4, verdict: "weaker",
+                       line: "it was still climbing at its last reading, on day 7; 3,900 views a week in, 0.4× your own usual",
+                       prose: "Your views kept climbing through day 7 but reached only 3,900, which is 0.4× your own usual. Nobody spoke until second 3.1.",
+                       moments: [{ kind: "quiet_start", at_s: 0, text: "nobody spoke until second 3.1" }, { kind: "late_line", at_s: 22, text: "the line with the most numbers and names in it starts at second 22" }],
+                       shape: { speech_start_s: 3.1, words_first_3s: 3, longest_silence_s: 0.8, longest_silence_at_s: 12, best_line_at_s: 22, duration_s: 26 } }),
+                p(9, { curve: "grew", days: 30, views: 15200, views7: 13100, times_median: 1.5, verdict: "stronger",
+                       line: "it kept growing through day 30; 13,100 views a week in, 1.5× your own usual",
+                       moments: [{ kind: "payoff_late", at_s: 18, text: "the payoff beat of your script (beat 3) starts at second 18, 6 seconds after the script puts it" }],
+                       shape: { speech_start_s: 0.3, words_first_3s: 12, longest_silence_s: 0.5, longest_silence_at_s: 4, duration_s: 28,
+                                beats: [{ i: 1, of: 3, kind: "beat", start_s: 0.3, end_s: 3.2, planned_s: 0 }, { i: 2, of: 3, kind: "beat", start_s: 4.1, end_s: 9, planned_s: 4 },
+                                        { i: 3, of: 3, kind: "beat", payoff: true, start_s: 18, end_s: 24, planned_s: 12 }] } })],
+              working_on: [{ said: "start talking inside the first second", because: "your 3 stronger videos typically had someone talking by 0.6s; your 3 quieter ones typically waited 2.9s before anyone spoke",
+                             signal: "speech_start_s", direction: "below", was: 2.9, target: 0.6, set_at: at(NOW0 - 12 * DAY),
+                             since: { posts: 2, median: 0.8, moved: true, curve_better: true } }] };
+      // The depth rule, copied from supabase/coach.sql: free = the tip and the newest video's read; pro = the evidence and every read and its moments; max = all of it.
+      const pick = (o, keys) => Object.fromEntries(Object.entries(o || {}).filter(([k]) => keys.includes(k)));
+      if (tier === "max") return { ...note, tier, built_at: at(NOW0) };
+      const pro = tier === "pro";
+      return { ...pick(note, pro ? ["state", "not_yet", "platform", "median_views"] : ["state", "not_yet", "platform"]), tier, built_at: at(NOW0),
+        working_on: (note.working_on || []).slice(0, 1).map((w) => pick(w, pro ? ["said", "because", "since", "signal", "was", "target"] : ["said"])),
+        posts: (note.posts || []).slice(0, pro ? 99 : 1).map((e) => pick(e, pro ? ["post_id", "curve", "days", "views", "from_h", "by_h", "views7", "times_median", "verdict", "line", "prose", "moments"]
+          : ["post_id", "curve", "days", "from_h", "by_h", "times_median", "verdict", "line"])) };
+    };
     const STATES = {
+      coachready:   { label: "coach: ready (max)", priority: "perform", goal: 10000, coach: "ready" },
+      coachpro:     { label: "coach: ready (pro)", priority: "perform", goal: 10000, plan: "pro", coach: "ready" },
+      coachlearning:{ label: "coach: learning", priority: "perform", goal: 10000, coach: "learning" },
+      coachnone:    { label: "coach: nothing measured", priority: "perform", goal: 10000, coach: "nothing" },
       deals:        { label: "deals goal", priority: "deals", goal: 5, deals: 2 },
       dealsnone:    { label: "deals, none logged", priority: "deals", goal: 5, deals: 0 },
       rate:         { label: "rate goal", priority: "rate", goal: 500, rate: 250 },
@@ -7220,7 +7277,7 @@ if (OBTEST) {
       perform:      { label: "perform goal", priority: "perform", goal: 10000 },
       performempty: { label: "perform, nothing measured", priority: "perform", goal: 10000, posts: [] },
       performnoprof:{ label: "perform, no profile", priority: "perform", goal: 10000, posts: [], followers: [], profiles: [] },
-      performfree:  { label: "perform, free plan", priority: "perform", goal: 10000, plan: "free", profiles: [{ ...verified[0] }] },
+      performfree:  { label: "perform, free plan (+ coach, free depth)", priority: "perform", goal: 10000, plan: "free", coach: "ready", profiles: [{ ...verified[0] }] },
       grow:         { label: "grow goal", priority: "grow", goal: 10000 },
       rosterwall:   { label: "roster, no profile (link wall)", priority: "deals", goal: 5, deals: 2, posts: [], followers: [], profiles: [] },
       noprofile:    { label: "grow, no profile", priority: "grow", goal: 10000, posts: [], followers: [], profiles: [] },
@@ -7279,6 +7336,10 @@ if (OBTEST) {
         ME.library = f.lib; ME.adaptations = f.ads;
       }
       POSTS = OBFAKE.posts; FOLLOWERS = OBFAKE.followers; POSTS_STATE = "ok";
+      COACH_PREVIEW = !!st.coach;             // the preview paints the coach even while COACH_APP_LIVE is off; this flag exists only inside this localhost-only block
+      OBFAKE.coach = st.coach ? coachFor(st) : null;
+      COACH = null;
+      if (st.coach) setCoach(OBFAKE.coach);
       SHOWCASE_ME = { ...OBFAKE.showcase };
       SYNC_OK = !st.syncfail; renderSyncBadge();
       renderSide();
@@ -7490,11 +7551,12 @@ const hasVerifiedProfile = () => (PROFILES || []).some((x) => x.verified_at);
 async function refreshPosts() {
   if (!TRACKING_LIVE) return;
   if (POSTS_STATE !== "ok") POSTS_STATE = "loading";
-  const [p, f, sh, ins] = await Promise.allSettled([
+  const [p, f, sh, ins, coach] = await Promise.allSettled([
     sbFetch("/rest/v1/lynxr_posts?select=id,platform,handle,url,caption,posted_at,views,likes,comments,metrics_at,adaptation_id,lynxr_post_views(day,views,likes,comments,at)&order=posted_at.desc.nullslast&limit=200"),
     sbFetch("/rest/v1/lynxr_profile_followers?select=platform,handle,day,followers&order=day.desc&limit=1000"),
     SHOWCASE_APP_LIVE ? profileRpc("my_showcase", {}) : Promise.resolve(null),
     INSIGHTS_APP_LIVE ? profileRpc("my_insights", {}) : Promise.resolve(null),
+    coachLive() ? profileRpc("my_coach", {}) : Promise.resolve(null),
   ]);
   if (p.status === "fulfilled" && Array.isArray(p.value)) { POSTS = p.value; POSTS_STATE = "ok"; }
   else POSTS_STATE = POSTS ? "ok" : "error";
@@ -7504,6 +7566,7 @@ async function refreshPosts() {
       approved: Array.isArray(sh.value.approved) ? sh.value.approved : [] } : { missing: true };
   }
   if (INSIGHTS_APP_LIVE && ins.status === "fulfilled" && ins.value) setInsightsMe(ins.value);
+  if (coachLive() && coach.status === "fulfilled" && coach.value) setCoach(coach.value);
   renderSide();
   if (VIEW.kind === "posts") paintPosts(); else paintHome();
   paintShowcaseCard();
@@ -7908,6 +7971,128 @@ function wirePostMade(root) {
   });
 }
 
+/* ---- the coach on Posts (plan lynxr-coach-v1.md) ----
+   my_coach() hands back only what this creator's depth allows (free: one tip and the newest video's read; pro: the evidence and every
+   video's read and moments; max: the measured numbers too), so nothing here decides what a tier may see: a key that is absent is simply not
+   drawn. Every sentence comes from the database already worded, and goes through escapeHtml. No viewer, audience or drop-off language is
+   written here: the numbers are view counts at the readings lynxr took (about days 0, 1, 3, 7, 30: a few points, never a daily curve) and
+   seconds measured from the creator's own audio. */
+const COACH_VERDICT = { stronger: "Stronger than your usual", weaker: "Weaker than your usual", usual: "About your usual" };
+const COACH_UNIT = { speech_start_s: "s", hook_end_s: "s", payoff_off_s: "s", longest_silence_s: "s", best_line_s: "s", duration_s: "s", words_first_3s: " words", repeat_count: " times" };
+const coachLive = () => COACH_APP_LIVE || COACH_PREVIEW;
+const coachShown = () => coachLive() && !!COACH && !COACH.missing && ["ready", "learning"].includes(COACH.state);
+
+/** my_coach() answer -> COACH. A failed read keeps what was there; no usable answer at all (the SQL not applied) is "missing". */
+function setCoach(r) {
+  if (r && typeof r === "object" && typeof r.state === "string") {
+    COACH = { tier: r.tier || "free", state: r.state, not_yet: String(r.not_yet || ""), median_views: Number(r.median_views) || null,
+      working_on: Array.isArray(r.working_on) ? r.working_on : [], posts: Array.isArray(r.posts) ? r.posts : [] };
+  } else if (!COACH) COACH = { missing: true };
+}
+
+const coachNum = (n) => String(Math.round(Number(n) * 10) / 10);
+const coachEntry = (p) => (COACH && Array.isArray(COACH.posts) ? COACH.posts.find((e) => e && e.post_id === p.id) : null) || null;
+
+/** The score line under the one thing: where the measured number stood when it was set, where the videos since are, and what it aims at. */
+function coachScoreHtml(w) {
+  const s = w.since;
+  if (!s || !(Number(s.posts) >= 2) || s.median == null) return "";
+  const u = COACH_UNIT[w.signal] || "";
+  const bits = [`Your last ${Number(s.posts)} videos: ${coachNum(s.median)}${u}`];
+  if (w.was != null) bits.push(`from ${coachNum(w.was)}${u} when this was set`);
+  if (w.target != null) bits.push(`aiming for ${coachNum(w.target)}${u}`);
+  return `<p class="coach-score">${escapeHtml(bits.join(", "))}. ${s.moved ? "That is moving the right way." : "It has not moved yet."}`
+    + `${s.moved && s.curve_better ? " Their views also kept growing longer." : ""}</p>`;
+}
+
+function coachCardHtml() {
+  const c = COACH;
+  const w = c.state === "ready" ? (c.working_on || [])[0] : null;
+  if (!w || !w.said) return `<h2 class="me-card-h">What lynxr is learning</h2><p class="coach-learning">${escapeHtml(c.not_yet)}</p>`;
+  return `<h2 class="me-card-h">One thing to work on</h2>`
+    + `<p class="coach-said">${escapeHtml(w.said)}</p>`
+    + (w.because ? `<p class="coach-because">${escapeHtml(w.because)}</p>` : "")
+    + coachScoreHtml(w)
+    + (w.because ? "" : `<p class="coach-upsell">Pro shows you which of your videos this came from, and the numbers behind it. <button type="button" class="linkish" data-home="plan">See pro</button></p>`);
+}
+
+function paintCoachCard() {
+  const card = document.getElementById("posts-coach");
+  if (!card) return;
+  const show = coachShown();
+  card.hidden = !show;
+  if (!show) { card.innerHTML = ""; return; }
+  card.innerHTML = coachCardHtml();
+  card.querySelectorAll("[data-home]").forEach((b) => b.addEventListener("click", () => go({ kind: "plan" })));
+}
+
+/** One video's measured readings as bars (views at each reading, labelled by day) with the creator's own usual a week in drawn as a line across
+    them when the database gave it. Heights come from data-pct and data-bottom through CSSOM (paintPostsBars): the CSP drops inline styles. */
+function postCurveHtml(p, e) {
+  const pts = [...(p.lynxr_post_views || [])].filter((s) => s.views != null).sort((a, b) => a.day - b.day);
+  if (pts.length < 2) return "";
+  const usual = e.times_median != null && COACH.median_views ? Number(COACH.median_views) : null;
+  const top = Math.max(1, ...pts.map((s) => Number(s.views)), usual || 0);
+  const h = (v) => Math.max(3, Math.round((Number(v) / top) * 100));
+  const label = `Views at each reading: ${pts.map((s) => `day ${Number(s.day)}, ${Number(s.views).toLocaleString("en-US")}`).join("; ")}.`
+    + (usual ? ` Your own usual a week in: ${usual.toLocaleString("en-US")}.` : "");
+  return `<div class="post-curve" role="img" aria-label="${escapeHtml(label)}"><div class="post-curve-plot">`
+    + pts.map((s) => `<span class="post-curve-col"><i data-pct="${h(s.views)}"><b>${escapeHtml(viewsLabel(s.views) || "0")}</b></i><em>day ${Number(s.day)}</em></span>`).join("")
+    + (usual ? `<u class="post-curve-usual" data-bottom="${h(usual)}"></u>` : "") + `</div>`
+    + (usual ? `<p class="post-curve-key"><u></u>your own usual a week in: ${escapeHtml(viewsLabel(usual) || "0")}</p>` : "") + `</div>`;
+}
+
+/** The moments in the audio, as a list, and (max only, when the length is known) a ruler with a tick where each one happens. */
+function postMomentsHtml(e) {
+  const ms = Array.isArray(e.moments) ? e.moments.filter((m) => m && m.text) : [];
+  if (!ms.length) return "";
+  const len = Number(e.shape && e.shape.duration_s) || 0;
+  const ruler = len > 0 ? `<div class="post-ruler" role="img" aria-label="${escapeHtml(`A ${coachNum(len)} second video with ${ms.length} marked moment${ms.length === 1 ? "" : "s"}.`)}">`
+    + ms.filter((m) => m.at_s != null).map((m) => `<i data-left="${Math.min(100, Math.max(0, Math.round((Number(m.at_s) / len) * 100)))}"></i>`).join("")
+    + `<span>0s</span><span>${escapeHtml(coachNum(len))}s</span></div>` : "";
+  return ruler + `<ul class="post-moments">${ms.map((m) => `<li>${escapeHtml(m.text)}</li>`).join("")}</ul>`;
+}
+
+/** Where each beat of the script this video came from was said, against where the script put it (max only: the numbers arrive only then).
+    The beat's own words come from the creator's own script in this browser, never from the database. */
+function postBeatsHtml(p, e) {
+  const bs = (e.shape && Array.isArray(e.shape.beats) ? e.shape.beats : []).filter((b) => b && b.kind === "beat" && Number.isInteger(b.i));
+  if (!bs.length) return "";
+  const a = [...(ME.adaptations || [])].find((x) => x.id === p.adaptation_id);
+  const script = (a && a.adaptation && Array.isArray(a.adaptation.beats)) ? a.adaptation.beats : [];
+  return `<ul class="post-beats">` + bs.map((b) => {
+    const beat = script[b.i - 1] || {};
+    const words = String(beat.say || beat.do || "").trim();
+    const what = words ? `“${words.length > 56 ? `${words.slice(0, 55).trimEnd()}…` : words}”` : "";
+    const said = b.found === false ? "not heard" : `said at ${coachNum(b.start_s)}s`;
+    const plan = b.found === false || b.planned_s == null ? "" : `, script has ${coachNum(b.planned_s)}s`;
+    return `<li><b>Beat ${b.i}${b.payoff ? " (payoff)" : ""}</b> ${what ? `<span class="post-beat-words">${escapeHtml(what)}</span> ` : ""}<span>${escapeHtml(said + plan)}</span></li>`;
+  }).join("") + `</ul>`;
+}
+
+const SHAPE_CHIPS = [["speech_start_s", "first word", "s"], ["words_first_3s", "words in 3s", ""], ["longest_silence_s", "longest gap with no speech", "s"],
+  ["best_line_at_s", "most specific line at", "s"], ["duration_s", "length", "s"]];
+
+/** The measured numbers of one video (max only). A chip is left out when its number is absent: a missing number is never drawn as 0. */
+function postShapeHtml(e) {
+  const sh = e.shape || {};
+  const chips = SHAPE_CHIPS.filter(([k]) => sh[k] != null).map(([k, label, u]) => `<span class="post-shape-bit"><b>${escapeHtml(label)}</b> ${escapeHtml(coachNum(sh[k]) + u)}</span>`);
+  return chips.length ? `<p class="post-shape">${chips.join("")}</p>` : "";
+}
+
+/** One video's coach block: the verdict against the creator's own usual, the sentence, the readings with the usual drawn over them, the moments
+    in its audio, and (max) the beats and the numbers. Empty when the coach is off or has said nothing about this video. */
+function postCoachHtml(p) {
+  if (!coachShown()) return "";
+  const e = coachEntry(p);
+  if (!e) return "";
+  const read = String(e.prose || e.line || "").trim();
+  const verdict = COACH_VERDICT[e.verdict] ? `<span class="coach-verdict is-${e.verdict}">${COACH_VERDICT[e.verdict]}</span>` : "";
+  const body = (verdict || read ? `<p class="post-coach-read">${verdict}${read ? escapeHtml(read) : ""}</p>` : "")
+    + postCurveHtml(p, e) + postMomentsHtml(e) + postBeatsHtml(p, e) + postShapeHtml(e);
+  return body ? `<div class="post-coach">${body}</div>` : "";
+}
+
 function postRowHtml(p) {
   const plat = PLAT_NAME[p.platform] || p.platform;
   const when = asOfLabel(p.posted_at);
@@ -7922,6 +8107,7 @@ function postRowHtml(p) {
     + `</div>`
     + (capShort ? `<p class="post-cap">${escapeHtml(capShort)}</p>` : "")
     + postDaysHtml(p)
+    + postCoachHtml(p)
     + postMadeHtml(p)
     + `</li>`;
 }
@@ -7930,6 +8116,9 @@ function postRowHtml(p) {
 function paintPostsBars(root) {
   root.querySelectorAll(".goal-bar > i").forEach((el) => { el.style.width = `${Number(el.dataset.pct) || 0}%`; });
   root.querySelectorAll(".spark > i").forEach((el) => { el.style.height = `${Number(el.dataset.pct) || 0}%`; });
+  root.querySelectorAll(".post-curve-col > i").forEach((el) => { el.style.height = `${Number(el.dataset.pct) || 0}%`; });
+  root.querySelectorAll(".post-curve-usual").forEach((el) => { el.style.bottom = `${Number(el.dataset.bottom) || 0}%`; });
+  root.querySelectorAll(".post-ruler > i").forEach((el) => { el.style.left = `${Number(el.dataset.left) || 0}%`; });
 }
 
 /* ---- the goal card, shared by Home and Posts ---- */
@@ -8055,6 +8244,7 @@ function paintPosts() {
     }));
   }
 
+  paintCoachCard();
   const own = document.getElementById("posts-list");
   if (own.querySelector(".post-made:not(.pm-closing) select")) return;     // a script picker is open: do not rebuild it under the creator
   const mine = Array.isArray(POSTS) ? POSTS : [];
@@ -8065,6 +8255,7 @@ function paintPosts() {
       : !verified ? `<p class="posts-note">Link your TikTok or Instagram in Settings and lynxr tracks every video on it automatically.</p><button type="button" class="ghost" id="posts-settings">Open Settings</button>`
       : `<p class="posts-note">lynxr checks your accounts once a day. New videos show up here.</p>`);
   document.getElementById("posts-settings")?.addEventListener("click", () => go({ kind: "you" }));
+  paintPostsBars(own);
   wirePostMade(own);
 }
 
@@ -8079,6 +8270,7 @@ function renderPosts(head, body) {
 
   body.innerHTML = `
     <div class="section me-card" id="posts-goal"></div>
+    <div class="section me-card" id="posts-coach" hidden></div>
     <div class="section me-card" id="posts-list"></div>`;
   paintPosts();
 }

@@ -12128,6 +12128,49 @@
   .pane-body .post-days { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 6px 0 0; font-size: var(--fs-13); color: var(--text-2); }
   .pane-body .post-day b { margin-right: 4px; font-weight: 600; color: var(--text-3); }
 
+  /* THE COACH ON POSTS (2026-10-07, plan lynxr-coach-v1.md). creator.js coachCardHtml() / postCoachHtml(). The card above the list says the ONE
+     thing to work on; under each video sits its read, its readings drawn as bars with the creator's own usual a week in drawn across them, the
+     moments in its audio, and (max) the measured numbers. Heights and positions come from data-pct / data-bottom / data-left through CSSOM
+     (paintPostsBars): the CSP drops inline styles. No new colour tokens. */
+  .pane-body #posts-coach .me-card-h { margin-bottom: 8px; }
+  .pane-body .coach-said { margin: 0 0 6px; font-size: var(--fs-19); font-weight: 700; line-height: 1.35; color: var(--text); }
+  .pane-body .coach-because { margin: 0 0 8px; font-size: var(--fs-14); line-height: 1.5; color: var(--text-2); }
+  .pane-body .coach-score { margin: 0 0 8px; font-size: var(--fs-14); line-height: 1.5; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .pane-body .coach-learning { margin: 0; font-size: var(--fs-15); line-height: 1.55; color: var(--text-2); }
+  .pane-body .coach-upsell { margin: 10px 0 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-3); }
+  .pane-body .coach-upsell .linkish { color: var(--text-2); }
+  .pane-body .post-coach { margin: 10px 0 0; padding: 10px 0 0 12px; border-left: 2px solid var(--line-2); }
+  .pane-body .post-coach-read { margin: 0 0 8px; font-size: var(--fs-14); line-height: 1.5; color: var(--text); }
+  .pane-body .coach-verdict {
+    display: inline-block; margin: 0 8px 4px 0; padding: 2px 10px; border: 1px solid var(--line-2); border-radius: var(--r-pill);
+    font-size: var(--fs-12); font-weight: 600; color: var(--text-2); white-space: nowrap;
+  }
+  .pane-body .coach-verdict.is-stronger { color: var(--good); border-color: var(--good); }
+  .pane-body .coach-verdict.is-weaker { color: var(--bad); border-color: var(--bad); }
+  .pane-body .post-curve { margin: 0 0 10px; max-width: 420px; }
+  .pane-body .post-curve-plot { position: relative; display: flex; align-items: flex-end; gap: 8px; height: 84px; margin: 22px 0 22px; }
+  .pane-body .post-curve-col { position: relative; flex: 1 1 0; display: flex; align-items: flex-end; justify-content: center; height: 100%; min-width: 0; }
+  .pane-body .post-curve-col > i { position: relative; display: block; width: 100%; max-width: 44px; height: 0; border-radius: 3px 3px 0 0; background: var(--text-3); }
+  .pane-body .post-curve-col:last-of-type > i { background: var(--text); }
+  .pane-body .post-curve-col > i > b { position: absolute; left: 50%; bottom: 100%; margin-bottom: 2px; transform: translateX(-50%); font-family: var(--mono); font-size: var(--fs-11); font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pane-body .post-curve-col > em { position: absolute; left: 0; right: 0; top: 100%; margin-top: 3px; text-align: center; font-style: normal; font-size: var(--fs-11); color: var(--text-3); white-space: nowrap; }
+  .pane-body .post-curve-usual { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed var(--text-2); pointer-events: none; text-decoration: none; }
+  .pane-body .post-curve-key { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; font-size: var(--fs-12); color: var(--text-3); }
+  .pane-body .post-curve-key > u { display: inline-block; width: 18px; border-top: 1px dashed var(--text-2); text-decoration: none; }
+  .pane-body .post-moments, .pane-body .post-beats { list-style: none; margin: 0 0 8px; padding: 0; }
+  .pane-body .post-moments > li { position: relative; margin: 0 0 4px; padding-left: 14px; font-size: var(--fs-13); line-height: 1.45; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .pane-body .post-moments > li::before { content: ""; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; border-radius: var(--r-round); background: var(--text-3); }
+  .pane-body .post-ruler { position: relative; height: 22px; margin: 0 0 6px; max-width: 420px; border-top: 2px solid var(--line-2); font-size: var(--fs-11); color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .pane-body .post-ruler > i { position: absolute; top: -7px; width: 2px; height: 12px; margin-left: -1px; background: var(--text); }
+  .pane-body .post-ruler > span { position: absolute; top: 6px; left: 0; }
+  .pane-body .post-ruler > span + span { left: auto; right: 0; }
+  .pane-body .post-beats > li { margin: 0 0 4px; font-size: var(--fs-13); line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+  .pane-body .post-beats > li b { margin-right: 4px; font-weight: 600; color: var(--text-3); }
+  .pane-body .post-beats > li span { color: var(--text); font-variant-numeric: tabular-nums; }
+  .pane-body .post-beats > li .post-beat-words { color: var(--text-2); text-transform: none; }     /* the creator's own script words: never lowercased */
+  .pane-body .post-shape { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; font-size: var(--fs-13); color: var(--text); font-variant-numeric: tabular-nums; }
+  .pane-body .post-shape-bit b { margin-right: 4px; font-weight: 600; color: var(--text-3); }
+
   /* ── UGC REPOSITIONING (2026-10-03, plan lynxr-ugc-pivot.md) ──
      The four priorities' goal cards (log a deal, your current rate) and the optional username label in the setup stepper.
      Inputs match the profile field above; no new tokens. */

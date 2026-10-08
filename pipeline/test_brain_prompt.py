@@ -297,6 +297,19 @@ check("watch: state 'learning' with a how_people_watch key renders NO watch bull
 low = (tt + ig).lower()
 check("watch: no line implies a curve (retention, graph, drop-off, curve)", [w for w in ("retention", "graph", "drop-off", "curve", "second by second") if w in low], [])
 
+# ── the coach's hinge (plan lynxr-coach-v1.md): the writer sees the one line, and nothing else moved ──────────────────────────
+mirror = [{"said": "start talking inside the first second"}]
+check("coach: a body with no other signal renders byte-identically with and without the coach's line",
+      (block({**goal_only, "working_on": []}), block({**goal_only, "working_on": mirror})), ("", ""))
+plain, with_line = block(body(working_on=[])), block(body(working_on=mirror))
+check("coach: with a real signal the ONLY difference is one extra trailing line, and everything above it is byte-identical",
+      (with_line.startswith(plain + "\n"), with_line[len(plain) + 1:].count("\n"), with_line[len(plain) + 1:]),
+      (True, 0, "The one thing they are working on, and it wins over everything above: start talking inside the first second."))
+check("coach: the line carries the tip only, never its evidence (a full coach entry in the body would still render only `said`)",
+      block(body(working_on=[{**mirror[0], "because": "your 4 stronger videos had a median of 9 words", "signal": "words_first_3s"}])), with_line)
+check("coach: the ADAPT_SYSTEM prefix is untouched (the block rides in the user message, so the cached prefix cannot move)",
+      "working_on" in __import__("process_adaptations").ADAPT_SYSTEM, False)
+
 if FAILS:
     print(f"\n{len(FAILS)} FAILED: " + ", ".join(FAILS))
     sys.exit(1)

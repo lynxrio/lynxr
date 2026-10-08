@@ -59,7 +59,7 @@ def corpus(n_tt=0, n_ig=0, start=1, views=1000):
 
 
 def build(me=None, posts=(), snaps=None, profiles=(), followers=(), previous=None, watch=None):
-    return B.build(me or {}, list(posts), snaps or {}, list(profiles), list(followers), NOW, previous, watch)
+    return B.build(me or {}, list(posts), snaps or {}, list(profiles), list(followers), NOW, previous, watch)[:2]      # (body, need); the coach's note is tested below
 
 
 def keys_of(o, out=None):
@@ -99,7 +99,7 @@ check("state: no posts and no onboarding -> empty", body["state"], "empty")
 check("state: empty has no about_you, voice, or where_you_post",
       [k for k in ("about_you", "how_you_sound", "where_you_post", "what_works_for_you") if k in body], [])
 check("state: empty still says what it does not know (two sentences, plus how to get watch time)", len(body["not_known"]), 3)
-check("state: working_on is always empty in v1", body["working_on"], [])
+check("state: with the coach off (the default) working_on is [] exactly as before the coach existed", (B.C.COACH, body["working_on"]), (False, []))
 check("state: no voice call wanted for nobody", need, None)
 
 body, _ = build(me={"priority": "perform", "goal": {"metric": "perform", "target": 10000}})
@@ -407,7 +407,8 @@ class FakeT:
     """Just enough of track_posts for brain_pass. Records every call so a test can say what was and was not written."""
 
     def __init__(self, creators=(C1, C2), brains=(), brain_status=200, posts_status=200, queued=False, insights=(), insights_status=200,
-                 durations=()):
+                 durations=(), shapes=(), shape_status=200, notes=(), notes_status=200, note_post_status=201):
+        self.shapes, self.shape_status, self.notes, self.notes_status, self.note_post_status = list(shapes), shape_status, list(notes), notes_status, note_post_status
         self.calls, self.creators, self.brains = [], list(creators), list(brains)
         self.brain_status, self.posts_status = brain_status, posts_status
         self.insights, self.insights_status, self.durations = list(insights), insights_status, list(durations)
@@ -420,7 +421,11 @@ class FakeT:
     def rest(self, key, path, method="GET", body=None, prefer=None):
         self.calls.append((method, path, body))
         if method == "POST":
-            return 201, None
+            return (self.note_post_status if "lynxr_coach_notes" in path else 201), None
+        if path.startswith("/rest/v1/lynxr_post_shape?"):
+            return self.shape_status, (self.shapes if self.shape_status == 200 else None)
+        if path.startswith("/rest/v1/lynxr_coach_notes?creator_id"):
+            return self.notes_status, ([{"body": n} for n in self.notes] if self.notes_status == 200 else None)
         if path.startswith("/rest/v1/lynxr_creators?select=id"):
             return 200, [{"id": c} for c in self.creators]
         if path.startswith("/rest/v1/lynxr_creator_brain?select=creator_id"):
@@ -621,6 +626,116 @@ lane(t)
 check("lane: the main posts read still selects exactly the columns it did before",
       sorted({p.split("&order")[0] for m, p, b in t.calls if p.startswith("/rest/v1/lynxr_posts?") and "duration_s" not in p}),
       sorted({"/rest/v1/lynxr_posts?creator_id=eq.%s&origin=eq.tracked&select=id,origin,platform,caption,posted_at,views" % c for c in (C1, C2)}))
+
+# ── 14. the coach (plan lynxr-coach-v1.md), through the brain ────────────────────────────────────
+check("coach: the brain's window and thresholds are the coach's", (B.BRAIN_WINDOW_DAYS, B.STANDOUT_BEST, B.STANDOUT_QUIET),
+      (B.C.COACH_WINDOW_DAYS, B.C.STRONG, B.C.WEAK))
+check("coach: it is OFF by default", B.C.COACH, False)
+
+
+def four_shaped():
+    posts = [post(i, days_ago=20 + 2 * i, caption=f"invented {i}") for i in range(1, 5)]
+    snaps = {i: [day7(i, v)] for i, v in zip(range(1, 5), (4000, 3800, 500, 400))}
+    shapes = {i: {"post_id": i, "has_speech": True, "segments": 3, "duration_s": 20.0, "speech_start_s": s, "words_first_3s": 8,
+                  "longest_silence_s": 0.4, "longest_silence_at_s": 6.0} for i, s in zip(range(1, 5), (0.5, 0.6, 2.5, 2.7))}
+    return posts, snaps, shapes
+
+
+posts4, snaps4, shapes4 = four_shaped()
+body_off, need_off, note_off = B.build({}, posts4, snaps4, [], [], NOW, None, None, shapes4, None)
+check("coach off: build returns no note and working_on [] with shapes available (the default is byte-identical to before)", (note_off, body_off["working_on"]), (None, []))
+body_default = B.build({}, posts4, snaps4, [], [], NOW)[0]
+check("coach off: the whole body is identical whether or not shapes are passed", json.dumps(body_off), json.dumps(body_default))
+body_on, _, note_on = B.build({}, posts4, snaps4, [], [], NOW, None, None, shapes4, None, coach_on=True)
+check("coach on, 4 shaped videos: working_on carries ONE line, only the `said` (the brain is readable by its owner; the evidence is paid depth)",
+      body_on["working_on"], [{"said": "start talking inside the first second"}])
+check("coach on: the full entry, with its evidence, is in the note and not in the body", ("because" in note_on["working_on"][0], "because" in json.dumps(body_on)), (True, False))
+check("coach on: everything else in the body is unchanged by the coach", {k: v for k, v in body_on.items() if k != "working_on"}, {k: v for k, v in body_off.items() if k != "working_on"})
+b_none, _, n_none = B.build({}, posts4, snaps4, [], [], NOW, None, None, None, None, coach_on=True)
+check("coach on, shape_by_post=None (the SQL not applied): working_on is [] and (one reading each, no shape) there is nothing to say yet", (b_none["working_on"], n_none["state"]), ([], "nothing"))
+check("coach: its median is the brain's own (the Posts page and the coach cannot disagree)",
+      B.coach_inputs(posts4, snaps4, NOW)[2], None)
+p5, s5 = corpus(n_tt=5, views=1000)
+check("coach_inputs: the median is present at five comparable posts and equals what_works_for_you's", (B.coach_inputs(p5, s5, NOW)[2], build(posts=p5, snaps=s5)[0]["what_works_for_you"]["your_median_views"]), (1000, 1000))
+
+SHAPE_ROWS = [{"post_id": i, "has_speech": True, "segments": 3, "duration_s": 20.0, "speech_start_s": 0.5 if i >= 4 else 2.5, "words_first_3s": 8,
+               "longest_silence_s": 0.4, "longest_silence_at_s": 6.0} for i in range(1, 7)]
+GOOD_PROSE = "Nobody spoke until second 2.5."
+
+
+def with_coach(fn):
+    saved = B.C.COACH
+    B.C.COACH = True
+    try:
+        return fn()
+    finally:
+        B.C.COACH = saved
+
+
+t = FakeT()
+lane(t)
+check("coach off: the lane reads neither lynxr_post_shape nor lynxr_coach_notes, and its writes are exactly the brain's",
+      ([p for m, p, b in t.calls if "lynxr_post_shape" in p or "lynxr_coach_notes" in p], sorted(set(p.split("?")[0] for m, p in t.writes()))),
+      ([], ["/rest/v1/lynxr_creator_brain"]))
+
+t = FakeT(shapes=SHAPE_ROWS)
+out, costs, made = with_coach(lambda: lane(t))
+notes = [b for m, p, b in t.calls if m == "POST" and "lynxr_coach_notes" in p]
+brains = [b for m, p, b in t.calls if m == "POST" and "lynxr_creator_brain" in p]
+check("coach on: both creators get a brain AND a note", (out["built"], out["coached"], out["coach_failed"], len(notes)), (2, 2, 0, 2))
+check("coach on: the brain row carries the one line, the note row carries the evidence", (brains[0]["body"]["working_on"], "because" in json.dumps(notes[0]["body"])),
+      ([{"said": "start talking inside the first second"}], True))
+check("coach on: nothing private is stored (no _facts key anywhere in the note)", "_facts" in json.dumps(notes[0]), False)
+check("coach on: the note upsert is keyed on creator_id", [p for m, p in t.writes() if "lynxr_coach_notes" in p][0], "/rest/v1/lynxr_coach_notes?on_conflict=creator_id")
+check("coach on: with no Anthropic client the prose pass fails quietly and the note is still written", (out["prose"], out["prose_failed"] > 0, len(notes)), (0, True, 2))
+
+t = FakeT(shapes=SHAPE_ROWS)
+fc = FakeClient(answer=GOOD_PROSE)
+out, costs, made = with_coach(lambda: lane(t, client=fc))
+notes = [b for m, p, b in t.calls if m == "POST" and "lynxr_coach_notes" in p]
+check("coach on + a client: the prose is stored per video where the rewrite only used the facts' numbers", (out["prose"] > 0, any("prose" in e for e in notes[0]["body"]["posts"])), (True, True))
+check("coach on + a client: the spend is recorded as 'coach'", set(c[0] for c in costs), {"coach"})
+check("coach on + a client: at most COACH_PROSE_PER_BUILD calls per creator", len(fc.calls) <= 2 * B.CP.COACH_PROSE_PER_BUILD, True)
+
+t = FakeT(shapes=SHAPE_ROWS, notes=[notes[0]["body"]])
+fc = FakeClient(answer=GOOD_PROSE)
+out, costs, made = with_coach(lambda: lane(t, client=fc))
+stored = [b for m, p, b in t.calls if m == "POST" and "lynxr_coach_notes" in p][0]["body"]
+check("coach on, rebuilt from a note: the three videos already written keep their prose and are NOT asked again; only the three not yet done are",
+      ([e.get("prose") for e in stored["posts"]][:3] == [e.get("prose") for e in notes[0]["body"]["posts"]][:3],
+       [c for c in fc.calls if "nobody spoke" in c["messages"][0]["content"]], len(fc.calls)), (True, [], 2 * B.CP.COACH_PROSE_PER_BUILD))
+
+t = FakeT(shape_status=404)
+out, _, _ = with_coach(lambda: lane(t))
+written = [b for m, p, b in t.calls if m == "POST" and "lynxr_creator_brain" in p]
+check("coach on, lynxr_post_shape missing (404): the brain is built exactly as before, working_on []", (out["built"], out["brain_failed"], written[0]["body"]["working_on"]), (2, 0, []))
+t = FakeT(shapes=SHAPE_ROWS, shape_status=500)
+out, _, _ = with_coach(lambda: lane(t))
+check("coach on, the shape read FAILS (500): the creator is skipped, never overwritten with a thinner brain", (out["built"], out["brain_failed"], t.writes()), (0, 2, []))
+t = FakeT(shapes=SHAPE_ROWS, notes_status=500)
+out, _, _ = with_coach(lambda: lane(t))
+check("coach on, the previous note cannot be read (500): the creator is skipped (it would reset the held advice and the prose cache)", (out["built"], t.writes()), (0, []))
+t = FakeT(shapes=SHAPE_ROWS, notes_status=404, note_post_status=404)
+out, _, _ = with_coach(lambda: lane(t))
+check("coach on, lynxr_coach_notes missing (404): the brain build still succeeds and the coach never fails it", (out["built"], out["brain_failed"], out["coach_failed"], out["coached"]), (2, 0, 0, 0))
+t = FakeT(shapes=SHAPE_ROWS, note_post_status=500)
+out, _, _ = with_coach(lambda: lane(t))
+check("coach on, the note write fails (500): counted as a coach failure, the brain is unaffected", (out["built"], out["brain_failed"], out["coach_failed"]), (2, 0, 2))
+t = FakeT(posts_status=200, shapes=[])
+saved_posts = FakeT.rest
+
+
+class NoPosts(FakeT):
+    def rest(self, key, path, method="GET", body=None, prefer=None):
+        if path.startswith("/rest/v1/lynxr_posts?") and "duration_s" not in path:
+            return 200, []
+        return super().rest(key, path, method, body, prefer)
+
+
+t = NoPosts()
+out, _, _ = with_coach(lambda: lane(t))
+check("coach on, a creator with nothing measured and no earlier note gets NO note row (my_coach answers 'none' for no row)",
+      (out["built"], out["coached"], [p for m, p in t.writes() if "lynxr_coach_notes" in p]), (2, 0, []))
 
 if FAILS:
     print(f"\n{len(FAILS)} FAILED: " + ", ".join(FAILS))

@@ -66,6 +66,24 @@ that function. Switches (Fly secrets): `TRACK_MATCH=0` stops the lane, `TRACK_MA
 `./venv/bin/python pipeline/track_posts.py --match-dry POST_ID` (reads the database, writes nothing). Nothing links until the SQL is applied and the push
 deploys the worker. Plan and the rest: `~/.claude/plans/lynxr-adaptation-id.md`.
 
+**COACH v1 — BUILT 2026-10-07, DARK (owner SQL not run, nothing pushed; plan `~/.claude/plans/lynxr-coach-v1.md`, which lives outside this repo).** The coach says,
+per tracked video, how it did against THAT creator's own median, shows the numbers it rests on (the readings as bars with the creator's own usual drawn over them),
+names moments it can point at in the creator's own audio ("nobody spoke until second 2.9", "at second 6.1 you say again what you said at second 2.9", "the payoff
+beat of your script starts at second 18, 6 seconds after the script puts it"), and picks ONE thing that differs between their stronger and quieter videos, then keeps score
+on it. Pieces: `pipeline/post_shape.py` (Fly lane, audio only, numbers only) → `lynxr_post_shape`; `pipeline/coach.py` (pure; tests `test_coach.py`); `pipeline/coach_prose.py`
+(Haiku rewrite of the MEASURED facts, every number in the output checked against the input in code, refused → the templated sentence stands, cached per video; tests
+`test_coach_prose.py`); `pipeline/brain.py` writes the note and mirrors only the one-line `said` into `body.working_on`; `creator.js`/`app.css` paint it on Posts.
+**Switches, all OFF or harmless:** `COACH_SHAPE` (the lane, default ON: numbers only, $0), `COACH` (default **0**: no note, `working_on` stays `[]` exactly as before),
+`COACH_PROSE` (default 1, but only runs inside a coach build), `COACH_APP_LIVE = false` in `creator.js` (the card and per-video evidence; `?obtest=1&view=posts&metric=coachready|
+coachpro|performfree|coachlearning|coachnone` paints each depth without it). **Owner SQL, in this order:** `supabase/post_shape.sql` then `supabase/coach.sql` (run both BEFORE the push;
+a worker that meets a missing table logs one line and does nothing). **Commands that print real output and write nothing:** `./venv/bin/python pipeline/post_shape.py --dry-run`,
+`post_shape.py --print POST_ID [--words]`, `./venv/bin/python pipeline/coach.py --print CREATOR_UUID [--prose]` (`--prose` makes the real Haiku calls and prints the measured spend).
+`BRAIN_IN_PROMPT` stays off and nothing here depends on it; the agency side (`process_campaigns.py`) does not touch any of it. Not measured on purpose: whether a sentence "serves"
+the hook's promise (needs a model call; an approximation would be an invented finding). **Real coverage, measured 2026-10-07 on 20 of the 96 tracked posts (read-only, nothing stored):
+13 had speech, 7 had none (music or text on screen), 0 failed to download (Instagram included).** Caveat the owner must close before trusting two of the signals: on the Mac's
+mlx Whisper the segments tile from second 0, so `speech_start_s` and the gap read ~0 for every post; the Fly worker uses faster-whisper with a voice filter, which should differ but
+has NOT been checked: run `post_shape.py --print` on Fly once the SQL is applied. Keep the tier/price map out of this file (public repo).
+
 **CREATOR BRAIN — BUILT 2026-10-07, NOT LIVE (owner SQL not run, nothing pushed).** `lynxr_creator_brain` (one derived JSONB row per creator: how they write from
 their own captions, where they post, and, once 5 posts on one platform have a day-7 count, how their videos do against their own median) is DERIVED and SAFE TO
 DROP: a new `brain_pass` lane at the end of `pipeline/track_posts.py`'s pass (Fly only; `pipeline/brain.py`, pure derivation, tests in `pipeline/test_brain.py`)

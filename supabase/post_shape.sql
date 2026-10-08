@@ -59,10 +59,12 @@ create table if not exists public.lynxr_post_shape (
   words_first_3s       int check (words_first_3s is null or words_first_3s >= 0),
   longest_silence_s    numeric(5,1) check (longest_silence_s is null or longest_silence_s >= 0),
   longest_silence_at_s numeric(6,1) check (longest_silence_at_s is null or longest_silence_at_s >= 0),
+  best_line_at_s       numeric(6,1) check (best_line_at_s is null or best_line_at_s >= 0),   -- the second the line with the most numbers and names starts
   -- Which of the creator's own scripts the beat times below were measured against (lynxr_posts.adaptation_id at the time). A post
   -- linked to a script AFTER it was shaped is shaped again, because this no longer matches. An id, never script text.
   aligned_to           text check (aligned_to is null or length(aligned_to) between 1 and 100),
-  -- [{"i":1,"of":5,"kind":"beat","start_s":0.4,"end_s":3.1,"planned_s":0}, {"i":3,"of":5,"kind":"beat","found":false}, ...]
+  -- [{"i":1,"of":5,"kind":"beat","start_s":0.4,"end_s":3.1,"planned_s":0}, {"i":3,"of":5,"kind":"beat","found":false}, ...]; a beat the script's
+  -- format names as its payoff also carries "payoff": true (the flag only: the role's words are never stored)
   beats                jsonb check (beats is null or (jsonb_typeof(beats) = 'array' and jsonb_array_length(beats) <= 24)),
   -- [{"at_s":6.1,"of_s":1.4}, ...]: a stretch of speech that says again what an earlier stretch said. Two second marks, no words.
   repeats              jsonb check (repeats is null or (jsonb_typeof(repeats) = 'array' and jsonb_array_length(repeats) <= 12))

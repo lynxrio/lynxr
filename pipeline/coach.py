@@ -12,7 +12,10 @@ beside this file and may only REWRITE what this file measured (its output is che
 WHAT IT KNOWS, AND WHAT IT DOES NOT. It knows how a video's VIEW COUNT moved between the readings lynxr took (day 0 when found, then about
 days 1, 3, 7 and 30: three to five points, never a daily curve), how that compares with this creator's own median, and the numbers
 pipeline/post_shape.py measured from the creator's own audio: when anyone started speaking, how many words came in the first three seconds,
-the longest stretch with nobody speaking, the length, the second each beat of the linked script was said, and where a line was said again.
+the longest stretch with nobody speaking, the length, the second the line with the most numbers and names in it starts, the second each beat
+of the linked script was said (with the payoff beat flagged when the script's format names one), and where a line was said again. It does NOT
+judge whether a sentence "serves" the hook's promise: that is meaning, it cannot be measured without a model call, and an approximation would be
+an invented finding.
 It does NOT know where any viewer stopped watching, who watched, why, or what a platform did: no platform gives lynxr that. So no string in
 this file says retention, drop-off, watch time, swipe, an audience, an algorithm, or a percentage. test_coach.py scans every string literal
 here for those words and fails loudly if someone writes friendlier copy.
@@ -32,6 +35,7 @@ RUN
     ./venv/bin/python pipeline/coach.py --print UUID           # reads that creator from the live database (through brain.py) and prints
         # the per-video table, the stronger/quieter split with both medians per signal, the chosen thing, and the rendered note. Writes NOTHING,
         # makes no model call. This is what the owner reads before COACH=1 is ever set.
+    ./venv/bin/python pipeline/coach.py --print UUID --prose   # ... and the REAL Haiku calls for the videos that need a rewrite, with the measured spend
     ./venv/bin/python pipeline/coach.py --file FILE.json       # the same, offline, from {"posts", "snaps", "shapes", "now", "prev_note"}
         # FILE.json = what brain.read_creator returns, as JSON (keep it outside the repo: it holds a creator's own numbers).
 """
@@ -61,6 +65,8 @@ WEAK = 0.7                                                                 # ...
 MOMENT_QUIET_START_S = 1.5                                                 # nobody spoke for at least this long at the start: a moment worth naming
 MOMENT_GAP_S = 1.0                                                         # a stretch with nobody speaking at least this long: a moment worth naming
 MOMENT_LATE_BEAT_S = 2.0                                                   # a script beat said at least this many seconds later than the script has it
+MOMENT_LATE_LINE_S = 10.0                                                  # the line with the most numbers and names starts at or after this second: worth naming
+MOMENT_PAYOFF_S = 2.0                                                      # the payoff beat is said this many seconds before or after the script puts it
 MOMENTS_MAX = 3
 HISTORY_MAX = 3                                                            # entries of working_on kept, newest first (the writer reads the first only)
 
@@ -76,12 +82,12 @@ NOT_YET_NODIFF = ("lynxr has not found a difference it can stand behind between 
 
 LINES = {      # how a video's views moved between the readings lynxr took. `from_h` and `by_h` are hours after posting.
     "no_views": "it has no views in the readings lynxr took",
-    "climbing": "it was still climbing at its last reading, {days} days in",
+    "climbing": "it was still climbing at its last reading, on day {days}",
     "grew": "it kept growing through day {days}",
     "stopped_early": "it had almost stopped growing between hour {from_h} and hour {by_h}",
     "levelled_off": "it had almost stopped growing between hour {from_h} and hour {by_h}",
 }
-LINE_VS_USUAL = "{views} views a week in, {times} times your own usual"
+LINE_VS_USUAL = "{views} views a week in, {times}× your own usual"
 
 MOMENT_TEXT = {      # moments in the audio, each with the second it happened
     "quiet_start": "nobody spoke until second {x}",
@@ -89,8 +95,12 @@ MOMENT_TEXT = {      # moments in the audio, each with the second it happened
     "repeat": "at second {at} you say again what you said at second {of}",
     "late_beat": "beat {i} of your script starts at second {s}; the script has it at second {p}",
     "missed_beat": "lynxr did not hear beat {i} of your script",
+    "late_line": "the line with the most numbers and names in it starts at second {x}",
+    "payoff_early": "the payoff beat of your script (beat {i}) starts at second {s}, {d} seconds before the script puts it",
+    "payoff_late": "the payoff beat of your script (beat {i}) starts at second {s}, {d} seconds after the script puts it",
+    "payoff_missing": "lynxr did not hear the payoff beat of your script (beat {i})",
 }
-MOMENT_ORDER = ("repeat", "late_beat", "gap", "quiet_start", "missed_beat")      # which moments are named first when there are more than MOMENTS_MAX
+MOMENT_ORDER = ("payoff_early", "payoff_late", "payoff_missing", "late_line", "repeat", "late_beat", "gap", "quiet_start", "missed_beat")      # which moments are named first when there are more than MOMENTS_MAX
 
 VERDICTS = {"stronger": "stronger than your usual", "weaker": "weaker than your usual", "usual": "about your usual"}
 
@@ -106,6 +116,9 @@ COACH_SIGNALS = (
     {"key": "hook_end_s", "direction": "below", "spread": 1.0,
      "good": "got through the opening line by second {x}", "poor": "took until second {x} to get through the opening line",
      "said": "get through your opening line by second {n}", "said_n": "get through your opening line by second {n}", "n_min": 1},
+    {"key": "payoff_off_s", "direction": "below", "spread": 2.0,
+     "good": "said the payoff within {x}s of where the script puts it", "poor": "said the payoff {x}s away from where the script puts it",
+     "said": "land the payoff within {n}s of where your script puts it", "said_n": "land the payoff within {n}s of where your script puts it", "n_min": 1},
     {"key": "longest_silence_s", "direction": "below", "spread": 0.6,
      "good": "went no longer than {x}s without anyone speaking", "poor": "went {x}s without anyone speaking",
      "said": "keep every gap between lines to about {x} seconds or less", "said_n": "keep every gap between lines to about {x} seconds or less",
@@ -113,6 +126,9 @@ COACH_SIGNALS = (
     {"key": "repeat_count", "direction": "below", "spread": 1.0,
      "good": "said a line again {x} times", "poor": "said a line again {x} times",
      "said": "say each line once", "said_n": "say each line once", "n_min": 0},
+    {"key": "best_line_s", "direction": "below", "spread": 3.0,
+     "good": "reached their line with the most numbers and names by second {x}", "poor": "did not reach their line with the most numbers and names until second {x}",
+     "said": "get to your line with the most numbers and names by second {n}", "said_n": "get to your line with the most numbers and names by second {n}", "n_min": 1},
     {"key": "words_first_3s", "direction": "above", "spread": 3.0,
      "good": "got {x} words out in the first three seconds", "poor": "got only {x} words out in the first three seconds",
      "said": "get {n} words out before second three", "said_n": "get {n} words out before second three", "n_min": 1},
@@ -240,11 +256,15 @@ def signal_values(shape):
         x = _f(shape.get(k))
         if x is not None:
             v[k] = x
+    if _f(shape.get("best_line_at_s")) is not None:
+        v["best_line_s"] = _f(shape["best_line_at_s"])
     for b in shape.get("beats") or []:
-        if isinstance(b, dict) and b.get("kind") == "beat" and b.get("i") == 1 and b.get("found") is not False:
-            e = _f(b.get("end_s"))
-            if e is not None:
-                v["hook_end_s"] = e
+        if not (isinstance(b, dict) and b.get("kind") == "beat" and b.get("found") is not False):
+            continue
+        if b.get("i") == 1 and _f(b.get("end_s")) is not None:
+            v["hook_end_s"] = _f(b["end_s"])
+        if b.get("payoff") and _f(b.get("start_s")) is not None and _f(b.get("planned_s")) is not None:
+            v["payoff_off_s"] = abs(_f(b["start_s"]) - _f(b["planned_s"]))
     if shape.get("has_speech") and "speech_start_s" in v:
         v["repeat_count"] = float(len(shape.get("repeats") or []))
     return v
@@ -263,15 +283,27 @@ def moments(shape):
         if not isinstance(b, dict) or b.get("kind") != "beat" or not isinstance(b.get("i"), int):
             continue
         if b.get("found") is False:
-            found.append({"kind": "missed_beat", "at_s": None, "beat": b["i"], "text": MOMENT_TEXT["missed_beat"].format(i=b["i"])})
+            kind = "payoff_missing" if b.get("payoff") else "missed_beat"
+            found.append({"kind": kind, "at_s": None, "beat": b["i"], "text": MOMENT_TEXT[kind].format(i=b["i"])})
             continue
         s, p = _f(b.get("start_s")), _f(b.get("planned_s"))
-        if s is not None and p is not None and s - p >= MOMENT_LATE_BEAT_S:
+        if b.get("payoff"):
+            # The payoff beat is judged on its own: said well before the script puts it is as much a finding as said well after, or not at all.
+            if s is not None and p is not None and abs(s - p) >= MOMENT_PAYOFF_S:
+                kind = "payoff_early" if s < p else "payoff_late"
+                found.append({"kind": kind, "at_s": s, "beat": b["i"], "planned_s": p,
+                              "text": MOMENT_TEXT[kind].format(i=b["i"], s=_n(s), d=_n(abs(s - p)))})
+            continue
+        # Beat 1 is not named here: how late the opening beat starts IS the second anyone first spoke, which `quiet_start` already says.
+        if b["i"] >= 2 and s is not None and p is not None and s - p >= MOMENT_LATE_BEAT_S:
             found.append({"kind": "late_beat", "at_s": s, "beat": b["i"], "planned_s": p,
                           "text": MOMENT_TEXT["late_beat"].format(i=b["i"], s=_n(s), p=_n(p))})
     gap, at = _f(shape.get("longest_silence_s")), _f(shape.get("longest_silence_at_s"))
     if gap is not None and at is not None and gap >= MOMENT_GAP_S:
         found.append({"kind": "gap", "at_s": at, "value": gap, "text": MOMENT_TEXT["gap"].format(x=_n(gap), at=_n(at))})
+    line = _f(shape.get("best_line_at_s"))
+    if line is not None and line >= MOMENT_LATE_LINE_S:
+        found.append({"kind": "late_line", "at_s": line, "text": MOMENT_TEXT["late_line"].format(x=_n(line))})
     start = _f(shape.get("speech_start_s"))
     if start is not None and start >= MOMENT_QUIET_START_S:
         found.append({"kind": "quiet_start", "at_s": 0.0, "value": start, "text": MOMENT_TEXT["quiet_start"].format(x=_n(start))})
@@ -300,7 +332,7 @@ def shape_numbers(shape):
     """The measured numbers of one video, for the note's max depth: what post_shape.py wrote, minus the ids. Keys with no value are absent."""
     shape = shape if isinstance(shape, dict) else {}
     out = {}
-    for k in ("speech_start_s", "words_first_3s", "longest_silence_s", "longest_silence_at_s", "duration_s"):
+    for k in ("speech_start_s", "words_first_3s", "longest_silence_s", "longest_silence_at_s", "best_line_at_s", "duration_s"):
         x = _f(shape.get(k))
         if x is not None:
             out[k] = x
@@ -349,8 +381,11 @@ def facts_for(e, snaps):
         out.append("views at each reading: " + ", ".join(f"day {d}: {_int(v)}" for d, v in pts[:6]))
     if e.get("line"):
         out.append(e["line"])
+    if e.get("views7") is not None and not e.get("line"):
+        out.append(f"views a week in: {_int(e['views7'])}")             # a video with no early readings has no sentence above to carry this
     if e.get("verdict"):
-        out.append(f"against this creator's own usual a week in: {VERDICTS[e['verdict']]}")
+        out.append(f"against this creator's own usual a week in: {VERDICTS[e['verdict']]}"
+                   + (f" ({_n(e['times_median'])}× it)" if e.get("times_median") is not None else ""))
     for m in e.get("moments") or []:
         out.append("in the audio: " + m["text"])
     return "\n".join(out)
@@ -383,6 +418,8 @@ def prose_ok(text, facts):
     low, base = s.lower(), str(facts or "").lower()
     if any(ch in s for ch in "*#`|") or re.search(r"(^|\s)[-•]\s", s):
         return False, "markup"
+    if re.search(r"\d\s?[kKmM]\b", s):
+        return False, "an abbreviated number"
     extra = sorted(numbers_in(s) - numbers_in(facts))
     if extra:
         return False, f"a number that is not in the facts: {extra[0]:g}"
@@ -447,7 +484,7 @@ def advise(sep, now):
     sig = next(s for s in COACH_SIGNALS if s["key"] == sep["signal"])
     mg, mp = sep["m_good"], sep["m_poor"]
     # A time is rounded UP (a target must be reachable by the videos that already did it); a count or a length is rounded to nearest.
-    n = max(sig["n_min"], int(math.ceil(mg)) if sig["key"] in ("speech_start_s", "hook_end_s") else int(round(mg)))
+    n = max(sig["n_min"], int(math.ceil(mg)) if sig["key"] in ("speech_start_s", "hook_end_s", "best_line_s", "payoff_off_s") else int(round(mg)))
     said = (sig["said_n"] if sig["key"] == "speech_start_s" and n > 1 else sig["said"]).format(n=n, x=_n(max(mg, 0.5)))
     because = BECAUSE.format(n_good=sep["n_good"], n_poor=sep["n_poor"], good=sig["good"].format(x=_n(mg)), poor=sig["poor"].format(x=_n(mp)))
     return {"said": said, "because": because, "signal": sig["key"], "direction": sig["direction"], "was": round(mp, 1), "target": round(mg, 1),
@@ -616,6 +653,10 @@ def main():
     ap.add_argument("--print", dest="print_uuid", metavar="CREATOR_UUID",
                     help="read that creator from the live database (through brain.py) and print the table, the split and the note; writes nothing")
     ap.add_argument("--file", metavar="FILE.json", help="the same, offline, from a JSON file (see the docstring)")
+    ap.add_argument("--prose", action="store_true",
+                    help="also make the REAL Haiku prose calls for the videos that need one (at most COACH_PROSE_PER_BUILD), print each answer or why it was "
+                         "refused, and print the measured tokens and spend. Sends only measured numbers and the sentences made from them, never a word of "
+                         "any transcript, caption or script. Writes nothing (no note, no cost row). Needs ANTHROPIC_API_KEY in .env")
     args = ap.parse_args()
     if not (args.print_uuid or args.file):
         ap.error("give --print CREATOR_UUID or --file FILE.json")
@@ -633,13 +674,34 @@ def main():
         key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY", env.get("SUPABASE_SERVICE_ROLE_KEY"), os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
         if not key:
             sys.exit("SUPABASE_SERVICE_ROLE_KEY not set in .env")
-        got = B.read_creator(T, key, args.print_uuid)
+        got = B.read_creator(T, key, args.print_uuid, coach=True)       # shapes and the last note are read even while COACH is off
         if got is None:
             sys.exit("could not read that creator")
         now = datetime.now(timezone.utc)
         print("# warning: this holds the creator's own numbers. Keep it off any public surface.")
     rows, lead, median = B.coach_inputs(got["posts"], got["snaps"], now)
     print(report(got, now, rows, lead, median))
+    if args.prose:
+        import coach_prose as CP
+        note, _ = coach(got["posts"], got["snaps"], got.get("shapes") or {}, rows, lead, median, got.get("prev_note"), now)
+        todo = CP.wanted(note)
+        print(f"\nprose: {len(todo)} video(s) need a rewrite (cap {CP.COACH_PROSE_PER_BUILD} per build)")
+        client = B._client_getter()()
+        if client is None:
+            sys.exit("no Anthropic client: ANTHROPIC_API_KEY is not set in .env")
+        spent = {}
+        for e in todo:
+            print("\n--- facts given to the model (all it receives):\n" + e["_facts"])
+            text, _ = CP.prose_line(client, e["_facts"], key=None, usage_out=spent)
+            if text is None:
+                print("--- the call failed")
+                continue
+            ok, out = prose_ok(text, e["_facts"])
+            print(("--- KEPT: " if ok else f"--- DROPPED ({out}); the templated sentence would show. Raw answer: ") + (out if ok else text))
+        for model, d in spent.items():
+            cost = B.P.cost_of(model, d)
+            print(f"\nMEASURED: {model}, {d['calls']} calls, {d['in']} tokens in / {d['out']} out, "
+                  + (f"${cost:.5f} total, ${cost / d['calls']:.5f} a call" if cost is not None else "no price on file"))
 
 
 if __name__ == "__main__":

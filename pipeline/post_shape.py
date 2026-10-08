@@ -11,8 +11,11 @@ WHAT IT DOES, IN ORDER (one pass: due -> download -> transcribe -> measure -> wr
         linked to a script AFTER they were shaped (the beat times were measured against nothing, or a different script). Merged in
         Python from separate reads, never one or= clause (track_posts.match_due's docstring says why).
     MEASURE. features() below, pure. Seconds before anyone speaks, words in the first three seconds, the longest stretch with nobody
-        speaking, the length; and when the post is linked to one of the creator's own scripts, the second at which each beat of THAT
-        script was said, and the stretches where the creator says again what they already said.
+        speaking, the length, the second the line with the most numbers and names in it starts (`best_line_at_s`); and when the post is
+        linked to one of the creator's own scripts, the second at which each beat of THAT script was said (the payoff beat flagged, when
+        the script's format names exactly one), and the stretches where the creator says again what they already said.
+    NOT MEASURED, ON PURPOSE: "sentences that serve nothing" (a beat that pays off none of the hook's promise). That is a judgement about
+        meaning; a word-overlap stand-in would be an approximation presented as a measurement, and it needs a model call to do honestly.
     WRITE. One lynxr_post_shape row, then the post's state.
 
 NUMBERS ONLY. THE TRANSCRIPT LIVES IN ONE LOCAL AND IS DELETED BEFORE THE FUNCTION RETURNS. features() takes the words as an argument,
@@ -81,6 +84,10 @@ MAX_SPAN = 3              # a beat is looked for in a run of at most this many c
 REPEAT_MIN_WORDS = 4      # a segment needs this many content words before it can be "said again"
 REPEAT_SHARED = 3         # ... and the two stretches must share at least this many
 REPEAT_JACCARD = 0.6      # ... and at least this share of the words in their union
+BEST_LINE_MIN = 2         # a line needs at least this many specifics (numbers, names) before it is called the most specific one
+PAYOFF_ROLE = re.compile(r"payoff|pay-off|reveal|punchline|punch line|twist|climax", re.I)    # the words a FORMAT beat's role uses for "where it pays off"
+NUMBER_WORDS = frozenset("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen "
+                         "nineteen twenty thirty forty fifty sixty seventy eighty ninety hundred thousand million billion first second third".split())
 
 
 # ── pure ──────────────────────────────────────────────────────────────────────────────────────────
@@ -102,6 +109,20 @@ def planned_start(t):
     return float(m.group(1)) if m else None
 
 
+def payoff_index(script, n_beats):
+    """The 1-based number of the script beat that is the PAYOFF, or None. The role of a beat lives on the FORMAT the script was adapted from
+    (entry["format"]["beats"][k]["role"]), not on the script's own beats, so the two lists must line up one for one: when they have different
+    lengths no beat can honestly be called the payoff and None is returned. Exactly one format beat must name a payoff in its role
+    (PAYOFF_ROLE); none or several is ambiguous, and an ambiguous payoff is not measured. Only the NUMBER of the beat is used: the role's
+    words are never stored."""
+    fmt = (script or {}).get("format") if isinstance(script, dict) else None
+    roles = [str((b or {}).get("role") or "") for b in ((fmt or {}).get("beats") or []) if isinstance(b, dict)] if isinstance(fmt, dict) else []
+    if not roles or len(roles) != n_beats:
+        return None
+    hit = [k for k, r in enumerate(roles, 1) if PAYOFF_ROLE.search(r)]
+    return hit[0] if len(hit) == 1 else None
+
+
 def script_units(script):
     """The parts of a script a transcript can be lined up against, in order: [{"i", "of", "kind", "words", "planned_s"}]. `script` is one
     adaptation ENTRY (the thing with an `id` and an `adaptation`), as lynxr_creators.data stores it. A silent script has nothing spoken, so
@@ -110,8 +131,9 @@ def script_units(script):
     if not isinstance(ad, dict) or ad.get("delivery") == "silent":
         return []
     beats = [b for b in (ad.get("beats") or []) if isinstance(b, dict)][:MAX_BEATS]
-    units = [{"i": n, "of": len(beats), "kind": "beat", "words": M.norm_words(b.get("say")), "planned_s": planned_start(b.get("t"))}
-             for n, b in enumerate(beats, 1)]
+    pay = payoff_index(script, len(beats))
+    units = [{"i": n, "of": len(beats), "kind": "beat", "words": M.norm_words(b.get("say")), "planned_s": planned_start(b.get("t")),
+              "payoff": n == pay} for n, b in enumerate(beats, 1)]
     cta = M.norm_words(ad.get("cta"))
     if cta:
         units.append({"i": None, "of": len(beats), "kind": "cta", "words": cta, "planned_s": None})
@@ -147,6 +169,8 @@ def align(segs, units):
                 if got >= 2 and got / len(uw) >= MIN_COVER:
                     cands.append((got / len(uw), a, b))
         row = {"i": u["i"], "of": u["of"], "kind": u["kind"]} if u["kind"] == "beat" else {"of": u["of"], "kind": u["kind"]}
+        if u.get("payoff"):
+            row["payoff"] = True
         if cands:
             top = max(c[0] for c in cands)
             _, a, b = min((c for c in cands if c[0] >= top - COVER_SLACK), key=lambda c: (c[1], c[2] - c[1]))
@@ -182,9 +206,37 @@ def repeats(segs):
     return out
 
 
+def specifics(text):
+    """How many specifics a line carries: each number (a digit, or a number word) and each name (a capitalised word that is not the first of its
+    sentence and is not "I"). A count, nothing else: the line itself is never kept. It is the plan's "line carrying the numbers and names" measure,
+    chosen because it needs no other video and no model: rarity against the creator's OTHER posts would need their words kept, which this
+    pipeline does not do."""
+    n, start = 0, True
+    for tok in str(text or "").split():
+        word = re.sub(r"^[^\w]+|[^\w']+$", "", tok)
+        if word:
+            if re.search(r"\d", word) or word.lower() in NUMBER_WORDS:
+                n += 1
+            elif not start and word[0].isupper() and word != "I" and not word.startswith("I'") and len(word) > 1:
+                n += 1
+        start = tok[-1:] in ".!?"
+    return n
+
+
+def best_line(segs):
+    """The second the line with the most specifics STARTS (rounded to 0.1), or None when no line has BEST_LINE_MIN of them. Ties go to the
+    earliest line, so a creator is never marked later than they were. Never a word of the line."""
+    best = None
+    for s in segs:
+        n = specifics(s[2])
+        if n >= BEST_LINE_MIN and (best is None or n > best[0]):
+            best = (n, float(s[0]))
+    return round(best[1], 1) if best else None
+
+
 def features(t, duration_s, script=None):
     """The numbers measured from one transcribed video: {has_speech, segments, [duration_s], [speech_start_s], [words_first_3s],
-    [longest_silence_s, longest_silence_at_s], [aligned_to, beats], [repeats]}. PURE: no network, no clock.
+    [longest_silence_s, longest_silence_at_s], [best_line_at_s], [aligned_to, beats], [repeats]}. PURE: no network, no clock.
 
     A key whose input is missing is OMITTED, never nulled (brain.py's standing rule): a music-only video has no speech shape, and a
     `speech_start_s: 0` there would be a lie the whole separation maths would believe.
@@ -201,6 +253,9 @@ def features(t, duration_s, script=None):
     # `hook_spoken` is exactly the segments that START under transcribe.HOOK_SECONDS, so there is nothing to re-derive: count its words and
     # let the string go in the same expression.
     row["words_first_3s"] = len(str(t.get("hook_spoken") or "").split())
+    line_at = best_line(segs)
+    if line_at is not None:
+        row["best_line_at_s"] = line_at
     if len(segs) > 1:
         gap, at = max(((float(segs[i + 1][0]) - float(segs[i][1]), float(segs[i][1])) for i in range(len(segs) - 1)), key=lambda g: g[0])
         row["longest_silence_s"], row["longest_silence_at_s"] = round(max(gap, 0.0), 1), round(at, 1)
@@ -371,9 +426,10 @@ def shape_pass(key, now, dry=False, T=None):
 
 def print_post(T, key, post_id, words=False):
     """The whole path for ONE stored post, printed. Reads the database, never writes it. Returns the exit code."""
-    st, rows = T.rest(key, f"{POSTS}?id=eq.{T.q(post_id)}&select={POST_FIELDS}")
+    # Not POST_FIELDS: shape_fails only exists once supabase/post_shape.sql is applied, and this read-only path must work before that.
+    st, rows = T.rest(key, f"{POSTS}?id=eq.{T.q(post_id)}&select=id,creator_id,platform,url,posted_at,adaptation_id")
     if st != 200 or not isinstance(rows, list) or not rows:
-        print(f"no such post (HTTP {st}), or lynxr_posts is not readable (is supabase/post_shape.sql applied?)")
+        print(f"no such post (HTTP {st}), or lynxr_posts is not readable")
         return 2
     post = rows[0]
     r = _measure(T, key, post, {}, keep_words=words)
