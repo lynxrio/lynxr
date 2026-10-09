@@ -7318,8 +7318,9 @@
     0% { transform: rotate(45deg); } 22% { transform: rotate(22deg); } 42% { transform: rotate(64deg); }
     62% { transform: rotate(22deg); } 82% { transform: rotate(60deg); } 100% { transform: rotate(45deg); }
   }
-  /* the same wave with the up-left arm (.lx-a0, rest -45deg), mirrored: lynxrGesture(svg, "hello", "l") — the landing's
-     x waving while it peeks from behind the video card, its right arms hidden (owner, 2026-10-07) */
+  /* the same wave with the up-left arm (.lx-a0, rest -45deg), mirrored: lynxrGesture(svg, "hello", "l") — for an x whose
+     right arms are hidden (the landing's x used it while it peeked from the video card's left edge, 2026-10-07; from the
+     sign-up card's top-right corner it waves the up-right arm again) */
   .lx.lx-g-hello[data-lx-dir="l"] .lx-a0 { animation: lx-hello-arm-l .7s ease-in-out both; }
   @keyframes lx-hello-arm-l {
     0% { transform: rotate(-45deg); } 22% { transform: rotate(-22deg); } 42% { transform: rotate(-64deg); }
@@ -7441,7 +7442,7 @@
      - The bar's height is unchanged (63px; 67px under 760px), so the hero's --hx-bar-h math holds and nothing shifts.
      - A phone now shows the word "lynxr" (it showed no brand at all once the x flew off the mark); with the theme
        toggle in the menu, word + "get started" + menu fit a 360px bar.
-     Home only: every other page keeps the capsule. */
+     Home only. (Since 2026-10-08 every other page draws this bar in its down state: see "EVERY OTHER PUBLIC PAGE GETS THE LANDING'S BAR" below.) */
   html body.home .lp-bar { padding: 0; isolation: isolate; }
   /* IT STAYS DOWN WHILE YOU SCROLL (owner, 2026-10-06: "for the desktop the bar doesnt stay down as i scroll down"). The
      site-wide slide-away (THE BAR SLIDES AWAY AND BACK, 2026-09-15) still toggles .lp-bar-away here; on home it is pinned.
@@ -7572,6 +7573,74 @@
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     html body.home .lp-bar::before { background: var(--surface-flat); }
+  }
+
+  /* ================= EVERY OTHER PUBLIC PAGE GETS THE LANDING'S BAR (owner, 2026-10-08: "for all pages make the nav
+     bar like the main landing nav bar") =================
+     The landing's bar above, in its DOWN state, always: the full-width frosted band with the hairline and soft shadow (the
+     same ::before, the same tokens), the wordmark left, the links grouped right beside "get started", 63px (67px under
+     760px), and the full-screen phone menu. Only the look and layout come over — not the landing's hero choreography: no
+     wordmark-only state at the top, no letter fade, no intro/stay classes. So the band is never translated away here.
+     - STICKY, NOT FIXED. The landing's bar is fixed because its hero is centred on the whole screen; a content page has
+       no such hero, and fixed would slide the first heading under the bar. Sticky at top 0 paints the same and keeps its
+       height in the flow.
+     - PINNED, like the landing's: site.js still toggles .lp-bar-away on every page, and this ignores it (the capsule
+       pages used to lift away on scroll-down; the landing's bar does not, so neither does this).
+     - THE PHONE MENU: these pages' markup has no .lp-menu-foot and no "sign in" (they never had one), so the panel's own
+       "get started" is styled as the foot button on its own, full width, at the bottom.
+     `html body:not(.home)`: (0,2,2), the same weight as the landing's `html body.home` selectors and above every bare
+     .lp-bar rule later in this file. The signed-in creator app on / removes the bar from the DOM (creator.js enterApp),
+     and the agency header is #app > header, not .lp-bar, so neither can match. */
+  html body:not(.home) .lp-bar {
+    position: sticky; top: 0; z-index: 30; padding: 0; isolation: isolate;
+    background: transparent; border-bottom: 1px solid transparent;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  html body:not(.home) .lp-bar, html body:not(.home) .lp-bar.lp-bar-away { transform: none; opacity: 1; pointer-events: auto; }
+  html body:not(.home) .lp-bar::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: var(--glass-solid); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--line); box-shadow: 0 8px 28px rgba(60, 30, 110, .07);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    html body:not(.home) .lp-bar::before { background: var(--surface-flat); }
+  }
+  html body:not(.home) .lp-bar-in {
+    position: relative; z-index: 31;
+    display: flex; align-items: center; gap: 0;
+    max-width: 1200px; min-height: 63px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 32px);
+    border: 0; border-radius: 0; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+  }
+  html body:not(.home) .lp-bar .wordmark { margin-left: 0; margin-right: auto; }
+  html body:not(.home) .lp-bar .lp-nav { margin-right: clamp(20px, 2.4vw, 30px); }
+  @media (max-width: 760px) {
+    html body:not(.home) .lp-bar-in { min-height: 67px; }
+    html body:not(.home) .lp-bar .wordmark span { display: inline; }
+    html body:not(.home) .lp-menu {
+      position: fixed; inset: 0; z-index: 29; margin: 0; border: 0; border-radius: 0; box-shadow: none;
+      display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain;
+      padding: calc(67px + 24px) 24px calc(24px + env(safe-area-inset-bottom, 0px));
+      background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none;
+      transform: translateY(-100%); opacity: 1; transition: transform .18s cubic-bezier(.4, 0, 1, 1);
+    }
+    html body:not(.home) .lp-menu[hidden] { display: none; }
+    html body:not(.home) .lp-menu.is-open { transform: none; transition: transform .36s cubic-bezier(.2, .8, .2, 1); }
+    html body:not(.home) .lp-menu > a:not(.btn) {
+      display: flex; align-items: center; justify-content: space-between; width: 100%;
+      padding: 22px 2px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
+      font-size: 24px; font-weight: 500; letter-spacing: -.01em; color: var(--text); background: none;
+    }
+    html body:not(.home) .lp-menu > a:not(.btn)::after { content: "\2192"; font-size: 20px; font-weight: 400; color: var(--text-3); }
+    html body:not(.home) .lp-menu > a:not(.btn):is(:hover, :focus-visible) { color: var(--text); background: none; }
+    html body:not(.home) .lp-menu > a:not(.btn):is(:hover, :focus-visible)::after { color: var(--text); }
+    html body:not(.home) .lp-menu > a.btn {
+      display: flex; align-items: center; justify-content: center; width: 100%; margin: auto 0 0; padding: 15px 12px;
+      border: 1px solid transparent; border-radius: var(--r-pill); font-size: 16px; font-weight: 600; background: var(--fill); color: var(--on-fill);
+      /* the transparent 1px matches the landing's pair, where "sign in"'s 1px edge sets the row height (57.6, not 55.6) */
+    }
+  }
+  @media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+    html body:not(.home) .lp-menu, html body:not(.home) .lp-menu.is-open { transition: none; }
   }
 
   /* ================= THE GLASS HERO (landing only) =================
@@ -10789,19 +10858,20 @@
   body.home .hx.hx-hold :is(.hx-row > *, .hx-rule, .hx-rule i, .hx-ch, .hx-new),
   body.home .hx.hx-hold :is(.hx-rule i, .hx-ch)::after { animation-play-state: paused !important; }
   /* THE PERFORMER. Fixed and at the origin while it bounces — home.js moves it with transform only,
-     turning and growing about its centre — then .hx-perf-sat parks it INSIDE .hxs, perched on the card's top edge, so it
-     scrolls and resizes with the card (the card is display:none at 640px and under, and the x goes with
-     it). It never takes a click and never takes layout. Above the sticky bar (30), below every modal. */
+     turning and growing about its centre — then .hx-perf-sat parks it in the page beside the card it rests on (home:
+     in .hx-col just before .hxs, peeking from its top-right corner), so it scrolls and resizes with the card. It never takes a click and never takes layout. Above the sticky bar (30), below every modal. */
   body.home .hx-perf {
     position: fixed; left: 0; top: 0; z-index: 40; pointer-events: none;
     transform-origin: 50% 50%;
   }
   body.home .hx-perf.hx-perf-moving { will-change: transform; }   /* only while it flies or glides */
   body.home .hx-perf.hx-perf-sat { position: absolute; left: auto; z-index: 1; }
-  /* PEEKING from behind the video card (home.js heroPlace, owner 2026-10-07): it sits in .hx-r (position: relative,
-     z-index: 1, so its own stacking context), and a negative z-index paints under everything else in it — the card —
-     while staying over the page behind. It leans its top out, away from the card. */
-  body.home .hx-perf.hx-perf-sat.hx-perf-peek { z-index: -1; transform: rotate(-8deg); }
+  /* PEEKING from behind the SIGN-UP card's top-right corner (home.js heroPlace, owner 2026-10-08; it peeked from the
+     video card's left edge until then). home.js puts it in .hx-col immediately BEFORE .hxs. z-index 0, not -1: in
+     .hx-l's stacking context (position: relative, z-index: 1) it then paints after the column's own box — so its
+     visible half still takes the pointer — and before .hxs, which is a stacking context of its own (backdrop-filter)
+     later in tree order, so the card paints over its tucked half. It leans its top in, over the card. */
+  body.home .hx-perf.hx-perf-sat.hx-perf-peek { z-index: 0; transform: rotate(-10deg); }
   /* Perched and alive (home.js live): the mascot alone takes the pointer, for the tickle. Its box sits
      above the card's edge and clear of every line of text (measured), so it can take nothing from a
      control. The hearts it pops are pointer-events: none like everything else here. */

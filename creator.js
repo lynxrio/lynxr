@@ -3836,7 +3836,7 @@ function planDate(iso) {
 function planFairUse(p) {
   if (!p || !p.granted) return "";
   const per = p.period_days > 0 ? ` in any rolling ${p.period_days} days` : " for the life of the account";
-  return `${p.granted}${per}${p.daily_max ? `, ${p.daily_max} in any 24 hours` : ""}`;
+  return `${p.granted} scripts${per}${p.daily_max ? `, ${p.daily_max} in any 24 hours` : ""}`;
 }
 
 /** POST to the checkout function and follow the URL it returns. Deliberately
@@ -4173,12 +4173,10 @@ function renderPlan(head, body) {
         <p class="lp-plan-tax">No card needed</p>
         <ul class="lp-plan-list">
           ${freePeriod > 0
-            ? `<li>${freeGrant} scripts in any ${freePeriod} days</li>
-               <li>Each one frees up ${freePeriod} days after you write it</li>`
+            ? `<li>${freeGrant} scripts in any ${freePeriod} days</li>`
             : `<li>${freeGrant} scripts for the life of the account</li>`}
           <li>Post tracking &mdash; lynxr follows every video on the TikTok and Instagram accounts you link</li>
           <li>Basic coaching tips <span class="plan-dim">Coming soon</span></li>
-          <li>Everything you write stays yours, on any plan</li>
         </ul>
         ${cardCta("free", "", "")}
       </li>
@@ -4190,16 +4188,14 @@ function renderPlan(head, body) {
         <p class="lp-plan-price"><strong>$24.99</strong> <span class="lp-plan-per">a month</span></p>
         <p class="lp-plan-tax">Plus tax where applicable</p>
         <ul class="lp-plan-list">
-          <li>Unlimited scripts &mdash; you never buy them one at a time</li>
           ${pro && pro.granted
-            ? `<li>Fair use: ${planFairUse(pro)}
+            ? `<li>${planFairUse(pro)}
                  <span class="plan-dim">The ${pro.period_days} days roll continuously; they don't reset on your billing date</span></li>`
-            : `<li>Fair use applies, so one account can't run up an unlimited bill
-                 <span class="plan-dim">The limit shows here once your plan loads</span></li>`}
+            : `<li>A set number of scripts in any rolling 30 days
+                 <span class="plan-dim">The number shows here once your plan loads</span></li>`}
           <li>Cancel any time; access runs to the end of the period you've paid for</li>
           <li>Post tracking of the TikTok and Instagram accounts you link</li>
-          <li>More coaching tips <span class="plan-dim">Coming soon</span></li>
-          <li>14-day money-back on your first payment</li>
+          <li>Advanced coaching tips <span class="plan-dim">Coming soon</span></li>
         </ul>
         ${gain}
         ${cardCta("pro", "Upgrade to pro", "Not open for checkout right now")}

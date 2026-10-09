@@ -394,7 +394,8 @@ if (document.body.classList.contains("home") && "scrollRestoration" in history) 
      ~2.6s  THE DOUBLE-TAKE, floating over that corner: it looks down at the buttons and gasps — the
             "shock" face (eyes pop, a "!", arms up) and a little startle jump. "continue with Google"
             rings, then its eyes drop to "continue with email", which rings too (once per page view).
-     HOP    ~3.8s, a short curve up and to the right, to its home just off the video card's left edge.
+     HOP    ~3.8s, a short curve up and to the right, to its home: it tucks in behind the sign-up card's
+            top-right corner and peeks out from there (owner, 2026-10-08; it was the video card's left edge).
      ~4.7s  "hmm": a squint down at the card, thinking dots, a slow nod — mmm, interesting
      ~6.0s  "cool": happy eyes, sparkles, approving nods — that's cool. Then idle, floating there:
             that corner is its HOME.
@@ -423,7 +424,9 @@ const HX_STORY = {
   notice: [".hxs", ".hx-panel"],
   // ...and those buttons, per card, in the order its eyes find them
   see: [["#hxs-google", "#hxs-go"], [".hx-new-link", "#lp-composer-form"]],
-  rest: [".hx-panel", ".hxs"], // home: beside the video card; a phone (no video card since 2026-10-06): the sign-up card
+  rest: [".hx-panel", ".hxs"], // where the story ends: beside the video card; a phone (no video card since 2026-10-06): the sign-up card
+  // home, where it rests and peeks (owner, 2026-10-08): the sign-up card's top-right corner, at every width
+  home: ".hxs",
   clear: "#hx-buddy-h",      // the headline: the wander keeps to the open band above it
 };
 /* A list of selectors means "the first one that is on screen". */
@@ -491,7 +494,7 @@ function perform() {
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
   const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const logo = document.querySelector(HX_STORY.from);
-  const card = hxPick(HX_STORY.rest);                       // the right card: where the story ends, the x's home
+  const card = hxPick(HX_STORY.rest);                       // the right card: where the story ends (home is homeCard, below)
   const noticeSels = [].concat(HX_STORY.notice);
   const ni = noticeSels.findIndex((s) => hxPick(s));
   const noticeCard = hxPick(noticeSels[ni]);
@@ -570,8 +573,8 @@ function perform() {
      first clear side, measured) and data-lx-mood (its face there; default idle). See the comment at the
      top of <main> in index.html. (With a mouse it follows the cursor instead.)
      A PLACE is { el, target, spot() -> { x, dy } | null }: feet at viewport x, and dy below el's top edge.
-       the HERO's place, for every hero target, is HOME: floating over the right card's top-left corner,
-         where the story ends, looking at that card's first target (the paste box);
+       the HERO's place, for every hero target, is HOME: peeking from behind the sign-up card's top-right
+         corner, looking at that card's first target (the Google button);
        any other target: BESIDE it — on its top edge near its right end, or standing on its baseline
          to its right or left — the first side that covers nothing (blocked). */
   const anchorOf = (el) => {
@@ -583,26 +586,31 @@ function perform() {
     return a;
   };
   const heroSec = document.querySelector("#lp-main > .hx");
-  const homeTarget = () => { for (const t of card.querySelectorAll("[data-lx-spot]")) if (visible(t)) return t; return card; };
-  /* HOME (owner, 2026-10-06: "have the lynxr x be on the left side of this"): floating just off the right card's LEFT
-     edge, a third of the way down, facing the video — when there is a clear gap there (a desktop: the gutter between
-     the two cards). Without one (a phone: the card is the screen's width) it floats over the card's top-left corner.
-     IT PEEKS (owner, 2026-10-07: "have the lynxr peek behind the right bubble"): it arrives at that clear spot, then tucks
-     `peek` px further right, BEHIND the card (app.css .hx-perf-peek), until its centre is a fifth of its size short of the
-     card's edge — both eyes still out, its right arms hidden. Only the spot outside is measured for text and controls:
-     the tucked part lies under the card, so it covers nothing. */
-  const heroPlace = { el: card, hero: true, get target() { return homeTarget(); }, spot: () => {
-    const c = card.getBoundingClientRect();
-    const sx = c.left - SIZE / 2 - 14, sy = c.top + Math.min(c.height * 0.3, 220);   // centre of the x
-    if (c.left - SIZE - 14 > 8 && !blocked(sx - SIZE / 2, sy - SIZE / 2)) return { x: sx, dy: sy - c.top + SIZE / 2, side: "left", peek: 14 + SIZE * 0.3 };
-    /* A PHONE, HOME IS THE SIGN-UP CARD (owner, 2026-10-07: "have him at the top of the continue with google"): floating
-       on the Google button's top edge near its right end, in the open space beside "create your account". */
-    const g = card.querySelector(HX_STORY.see[0][0]), b = g && g.getBoundingClientRect();
+  const homeCard = hxPick([].concat(HX_STORY.home, HX_STORY.rest));   // the sign-up card (the story's end card if it is not drawn)
+  const homeTarget = () => { for (const t of homeCard.querySelectorAll("[data-lx-spot]")) if (visible(t)) return t; return homeCard; };
+  /* HOME (owner, 2026-10-08: "have the lynxr be peeking at the top right corner of the left bubble"): it PEEKS from behind
+     the sign-up card's TOP-RIGHT CORNER — at every width, the phone included. Its centre rests a little above the card's
+     top edge and a little in from the right end, so its face, both upper arms and the tip of its down-right arm (round
+     the corner's curve) show, and its lower half is behind the card, leaning in over it (app.css .hx-perf-peek).
+     IT TUCKS: it arrives at a clear spot up and to the right of that, then sinks `peek` ({ x, y } px) down and in, behind
+     the card — sit() parents it to the card's PARENT just before the card, so the card paints over it. Only the arrival
+     spot is measured for text and controls: the tucked part lies under the card, so it covers nothing.
+     Superseded: tucked behind the VIDEO card's left edge (owner, 2026-10-06/07: "have the lynxr peek behind the right
+     bubble"), and on a phone floating on the Google button's top edge (2026-10-07: "have him at the top of the continue
+     with google") — that perch is now only the fallback when the corner is not clear. */
+  const heroPlace = { el: homeCard, hero: true, host: true, get target() { return homeTarget(); }, spot: () => {
+    const c = homeCard.getBoundingClientRect();
+    const peek = { x: -SIZE * 0.12, y: SIZE * 0.32 };
+    const tx = c.right - SIZE * 0.22, ty = c.top - SIZE * 0.06;          // its centre, tucked
+    const ax = tx - peek.x, ay = ty - peek.y;                             // its centre, arriving (clear of the card)
+    if (!blocked(ax - SIZE / 2, ay - SIZE / 2)) return { x: ax, dy: ay + SIZE / 2 - c.top, side: "corner", peek, arm: "r" };
+    // The corner is not clear (off screen, or something on it): perched on the Google button's top edge near its right end.
+    const g = homeCard.querySelector(HX_STORY.see[0][0]), b = g && g.getBoundingClientRect();
     if (b && b.width) {
       const gx = spotOn(g, b.right - SIZE * 0.9, b.left + b.width * 0.5, b.right - SIZE / 2, LIFT);
       if (gx != null) return { x: gx, dy: b.top - c.top + FOOT - LIFT, side: "top" };
     }
-    const x = spotOn(card, c.left + SIZE / 2 + 8, c.left + SIZE / 2 + 2, c.left + c.width * 0.5, LIFT);
+    const x = spotOn(homeCard, c.left + SIZE / 2 + 8, c.left + SIZE / 2 + 2, c.left + c.width * 0.5, LIFT);
     return x == null ? null : { x, dy: FOOT - LIFT, side: "top" };
   } };
   const besideSpot = (t) => {
@@ -649,28 +657,41 @@ function perform() {
       { duration: 900, easing: "cubic-bezier(.2, .7, .3, 1)", fill: "forwards" }).finished.then(() => el.remove()).catch(() => el.remove());
   };
   /* SIT: parented to the place's anchor at the measured spot, transform cleared — the page scrolls it. A spot with a
-     `peek` sits that much further right, behind the card; `tuck` slides it there from the spot it arrived at (the
-     slide starts clear of the card, so going behind it shows nothing jump). */
+     `peek` ({ x, y }) sits that much further on, behind the card; `tuck` slides it there from the spot it arrived at (the
+     slide starts clear of the card, so going behind it shows nothing jump).
+     HOME (pl.host) is parented to the card's PARENT, immediately BEFORE the card, never inside it: the sign-up card's
+     backdrop-filter makes it a stacking context, so a child of it paints over the card's own glass whatever its z-index.
+     As the card's previous sibling at z-index 0 (app.css .hx-perf-peek) it paints after the column's box (so it still
+     takes the pointer for the tickle) and before the card (so the card covers its tucked half). */
   let tuckAnim = null;
+  let waveArm = "r";   // the arm it waves with at rest: the one in the open (home says which)
+  const hostOf = (el) => {
+    const a = el.parentElement;
+    if (getComputedStyle(a).position === "static") a.classList.add("hx-perf-host");
+    return a;
+  };
   const sit = (pl = place, at = null, tuck = false) => {
     if (F.raf) { cancelAnimationFrame(F.raf); F.raf = 0; }
     place = pl;
-    const sp = at || pl.spot() || { x: card.getBoundingClientRect().right - SIZE, dy: FOOT - LIFT };
-    const peek = sp.peek || 0;
-    const a = anchorOf(pl.el);
+    const sp = at || pl.spot() || { x: pl.el.getBoundingClientRect().right - SIZE, dy: FOOT - LIFT };
+    const pk = sp.peek || { x: 0, y: 0 };
+    waveArm = sp.arm || "r";
+    const a = pl.host ? hostOf(pl.el) : anchorOf(pl.el);
     const ar = a.getBoundingClientRect(), c = pl.el.getBoundingClientRect();
     if (tuckAnim) { tuckAnim.cancel(); tuckAnim = null; }
     wrap.style.transform = "";
     wrap.classList.add("hx-perf-sat");
     wrap.classList.remove("hx-perf-moving", "hx-perf-follow");
-    wrap.classList.toggle("hx-perf-peek", peek > 0);
+    wrap.classList.toggle("hx-perf-peek", !!sp.peek);
     wrap.style.right = "auto";
-    wrap.style.left = (sp.x + peek - SIZE / 2 - ar.left - a.clientLeft).toFixed(1) + "px";
-    wrap.style.top = (c.top + sp.dy - SIZE - ar.top - a.clientTop).toFixed(1) + "px";
-    if (wrap.parentElement !== a) a.appendChild(wrap);
+    wrap.style.left = (sp.x + pk.x - SIZE / 2 - ar.left - a.clientLeft).toFixed(1) + "px";
+    wrap.style.top = (c.top + sp.dy + pk.y - SIZE - ar.top - a.clientTop).toFixed(1) + "px";
+    // moved only when it is not already there: re-inserting would restart its float
+    if (pl.host) { if (wrap.parentElement !== a || wrap.nextElementSibling !== pl.el) a.insertBefore(wrap, pl.el); }
+    else if (wrap.parentElement !== a) a.appendChild(wrap);
     // one keyframe at offset 0: it eases from the arrival spot into whatever app.css draws it as when peeking (the lean)
-    if (peek && tuck && !reduce.matches) {
-      tuckAnim = wrap.animate([{ transform: `translateX(${-peek}px)`, offset: 0 }], { duration: 560, easing: "cubic-bezier(.3, .7, .3, 1)" });
+    if (sp.peek && tuck && !reduce.matches) {
+      tuckAnim = wrap.animate([{ transform: `translate(${(-pk.x).toFixed(1)}px, ${(-pk.y).toFixed(1)}px)`, offset: 0 }], { duration: 560, easing: "cubic-bezier(.3, .7, .3, 1)" });
     }
   };
   // its face at rest: the target's data-lx-mood, else idle — nearly still, it blinks (Revision 11)
@@ -844,7 +865,8 @@ function perform() {
     // a page view; then "have it wave more frequently"): resting at home, a wave ~1s after it settles and then every
     // 2-3.5s, for as long as it rests there —
     // not in the bar (there it is the logo), and only on screen, not hovered, and nobody typing anywhere on the page.
-    // Peeking from behind the video card its right arms are hidden, so it waves with the up-left one.
+    // It waves with the arm home says is in the open (sit: waveArm) — peeking from the sign-up card's top-right corner
+    // that is the up-right one, pointing away from the card (it was the up-left one while it peeked from the video card).
     const settled = () => C.still && C.mode === "sat" && !wrap.classList.contains("hx-perf-duck") && sitOrCornerVisible();
     const sitOrCornerVisible = () => { const r = wrap.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; };
     const typing = () => { const a = document.activeElement; return !!(a && a.matches("input, textarea, [contenteditable]")); };
@@ -852,7 +874,7 @@ function perform() {
     const tryWave = () => {
       if (gone()) return;
       if (!still() && !document.hidden && settled() && !hovered && !burst.length && !typing()) {
-        lynxrGesture(svg, "hello", wrap.classList.contains("hx-perf-peek") ? "l" : "r");
+        lynxrGesture(svg, "hello", waveArm);
         setTimeout(() => { if (svg.classList.contains("lx-g-hello")) lynxrGesture(svg, null); }, 750);
       }
       next();
@@ -873,7 +895,7 @@ function perform() {
   };
 
   /* THE COMPANION, AFTER THE STORY (or the snap). It is the page's one moving x. When the bar comes down it flies up into
-     it and is the logo again; when the bar goes up it flies home to the video card (see dock, below). The same on every
+     it and is the logo again; when the bar goes up it flies home to the sign-up card's corner (see dock, below). The same on every
      device (owner, 2026-10-06: first for phones, then "the lynxr x going back to the top for mobile, do the same for
      desktop" — it replaced a cursor-follow on desktop and a station-hopping guide on phones, both from earlier that day).
      One spring motor moves it (step); a rAF loop runs only while it moves. Not armed under reduced motion (HX.on false). */
@@ -918,7 +940,7 @@ function perform() {
      for desktop).
      Past 8px the bar comes down (site.js, same threshold); the x flies up into it and takes its old place beside the word
      "lynxr" — the logo again, shrinking to the logo's size as it arrives, with a little wave — and rides there (both are
-     fixed to the screen, so nothing lags). Back at the top the bar goes up and the x flies home to the video card. No pointer
+     fixed to the screen, so nothing lags). Back at the top the bar goes up and the x flies home to its corner. No pointer
      while it is in the bar: a tap there is a tap on the home link. This replaces the guide that hopped between stations
      (earlier the same day); the plans have x's of their own now (planBuddies, below).
      IT STAYS IN THE BAR TOO (owner, 2026-10-07: "have the x stay in the nav bar too"): once the bar stays down
@@ -948,7 +970,7 @@ function perform() {
       return;
     }
     const pos = destPos(d);
-    sit(d.pl, { x: pos.x, dy: d.dy, peek: d.peek }, true);
+    sit(d.pl, { x: pos.x, dy: d.dy, peek: d.peek, arm: d.arm }, true);
     C.mode = "sat";
     lynxrMood(svg, moodAt());
     look("");
@@ -1005,7 +1027,7 @@ function perform() {
   };
   const homeDest = () => {
     const sp = spotInView(heroPlace);
-    return sp ? { pl: heroPlace, dx: sp.x - card.getBoundingClientRect().left, dy: sp.dy, side: sp.side, peek: sp.peek, t: null } : null;
+    return sp ? { pl: heroPlace, dx: sp.x - heroPlace.el.getBoundingClientRect().left, dy: sp.dy, side: sp.side, peek: sp.peek, arm: sp.arm, t: null } : null;
   };
 
   // into the bar: the logo's spot opens again (still invisible under the x); out of it: home, and the spot closes behind it
@@ -1034,8 +1056,8 @@ function perform() {
   };
 
   /* THE SNAP — any input, the watchdog, or a thrown error. If the hero has gone (signed in: enterApp
-     removed #lp-main) the performer goes with it and the nav keeps its x; otherwise it is home on the
-     right card and the nav's spot is closed. */
+     removed #lp-main) the performer goes with it and the nav keeps its x; otherwise it is home, peeking
+     from the sign-up card's corner, and the nav's spot is closed. */
   PERF.end = () => {
     cleanup();
     barIntroEnd();
@@ -1132,7 +1154,7 @@ function perform() {
 
   /* THE STORY, measured once, now. Feet positions in viewport coordinates. */
   const vw = innerWidth;
-  const nc = noticeCard.getBoundingClientRect(), cc = card.getBoundingClientRect();
+  const nc = noticeCard.getBoundingClientRect(), cc = card.getBoundingClientRect(), hc = homeCard.getBoundingClientRect();
   const top0 = barBottom() + SIZE + 14;                                   // its box stays clear of the bar
   // the headline's INK — its text lines, not its box: the box is as wide as the column and the text is centred in it
   const ink = (() => {
@@ -1155,8 +1177,8 @@ function perform() {
   const nPrefer = two ? Math.min(nb.right - SIZE / 2 - 10, Math.max(nb.left + nb.width * 0.85, ink.right + SIZE / 2 + 12)) : nc.left + nc.width * 0.75;
   const nx = spotOn(nb === nc ? noticeCard : gBtn, nPrefer, nb.left + SIZE / 2, nb.right - SIZE / 2, LIFT);
   const N = { x: nx ?? nPrefer, y: nb.top + FOOT - LIFT };
-  const Rsp = heroPlace.spot() || { x: cc.left + SIZE / 2 + 8, dy: FOOT - LIFT };
-  const R = { x: Rsp.x, y: cc.top + Rsp.dy };
+  const Rsp = heroPlace.spot() || { x: hc.left + SIZE / 2 + 8, dy: FOOT - LIFT };
+  const R = { x: Rsp.x, y: hc.top + Rsp.dy };
   /* THE ROUTE, as the owner drew it (2026-10-06, second drawing): out of the logo with a curve, a long sweep right across
      the open band between the bar and the headline, a turn, then straight DOWN just right of the headline's ink onto N.
      `band` is that sweep's height: halfway between the bar and the ink's top (feet, so the box sits inside the gap). */
@@ -1165,7 +1187,7 @@ function perform() {
     ? [start, { x: start.x + 26, y: start.y + (sweep - start.y) * 0.6 }, { x: start.x + (N.x - start.x) * 0.3, y: sweep },
        { x: N.x - 70, y: sweep + 2 }, { x: N.x, y: sweep + 64 }, { x: N.x, y: Math.max(sweep + 90, ink.bottom) }, N]
     : [start, { x: vw * 0.55, y: (start.y + N.y) / 2 }, N];
-  // THEN A SHORT HOP up and to the right, to home beside the video card
+  // THEN A SHORT HOP up and to the right, to home: the sign-up card's top-right corner, where it tucks in and peeks
   const ARC = two
     ? [N, { x: N.x + (R.x - N.x) * 0.35, y: Math.max(top0, Math.min(N.y, R.y) - 36) }, R]
     : [N, { x: (N.x + R.x) / 2, y: Math.max(top0, Math.min(N.y, R.y) - 24) }, R];
@@ -1281,22 +1303,23 @@ function perform() {
     if (seen[1]) later(560, () => { if (PERF.end) { look("translate(1px, 6px)"); ring(seen[1]); } });
     later(1200, toRight);
   };
-  /* TO THE RIGHT SIDE: the big arc over the headline onto the right card's top-left corner, arriving with a soft dip. */
+  /* HOME: the short hop up from the Google button to the clear spot over the sign-up card's top-right corner, arriving
+     with a soft dip; react() tucks it in behind the corner. (It was the big arc over to the video card until 2026-10-08.) */
   const toRight = () => {
     if (!PERF.end) return;
     lynxrMood(svg, "idle");
-    /* Measure home again now: the showcase (showcase.js) may have swapped the card for its own shape since the
-       route was measured, and the x must land on the card that is actually there. */
+    /* Measure home again now: the layout may have moved since the route was measured (the showcase, showcase.js,
+       swaps the video card's shape beside it), and the x must land on the corner that is actually there. */
     const fresh = heroPlace.spot();
     if (fresh) {
-      Rsp.x = R.x = fresh.x; Rsp.dy = fresh.dy; Rsp.side = fresh.side; Rsp.peek = fresh.peek; R.y = card.getBoundingClientRect().top + fresh.dy;
+      Object.assign(Rsp, { side: undefined, peek: undefined, arm: undefined }, fresh); R.x = fresh.x; R.y = homeCard.getBoundingClientRect().top + fresh.dy;
       if (two && ARC.length === 3) ARC[1] = { x: N.x + (R.x - N.x) * 0.35, y: Math.max(top0, Math.min(N.y, R.y) - 36) };
     }
     drift(ARC, [1.6, 900, 1700], react);
   };
   /* "mmm, interesting" — then "that's cool" — then it is home. IT GOES STRAIGHT TO PEEKING (owner, 2026-10-07: "have the
      lynxr x go straight peeking dont have him stall next to the right bubble"): it tucks behind the card the moment it
-     lands, and the two faces play while it peeks. */
+     lands, and the two faces play while it peeks — since 2026-10-08 behind the sign-up card's top-right corner. */
   const react = () => {
     if (!PERF.end) return;
     wrap.classList.remove("hx-perf-moving");
@@ -1304,7 +1327,7 @@ function perform() {
     pops.push(sq.animate([{ transform: "none" }, { transform: "translateY(3px) scale(1.04, .96)", offset: 0.4 }, { transform: "none" }],
       { duration: 380, easing: "ease-out" }));
     lynxrMood(svg, "hmm");
-    look(Rsp.side === "left" ? "translate(4px, 1px)" : "translate(3px, 4px)");   // at the video beside it / below it
+    look(Rsp.side === "corner" ? "translate(-3px, 4px)" : "translate(3px, 4px)");   // down and in at the card it peeks over / below it
     later(1300, () => {
       if (!PERF.end) return;
       lynxrMood(svg, "cool");
@@ -1321,8 +1344,8 @@ function perform() {
   };
 
   /* HELLO at the nav (0.6s), then it simply lifts off and wanders — or, on a phone (no sign-up card beside it), JUST DROPS
-     STRAIGHT DOWN from the logo to its spot on the video card (owner, 2026-10-06: "for mobile lynxr x have it just go
-     straight down") and does its "hmm… cool" there. */
+     STRAIGHT DOWN from the logo to its spot (owner, 2026-10-06: "for mobile lynxr x have it just go straight down") — now
+     over the sign-up card's top-right corner, where it tucks in — and does its "hmm… cool" there. */
   lynxrGesture(svg, "hello");
   later(600, () => {
     if (!PERF.end) return;
@@ -1333,7 +1356,7 @@ function perform() {
     later(420, barIntroEnd);                       // ...and the bar it left goes up, the name dissolving with it
     if (two) { bounce(); return; }
     const fresh = heroPlace.spot();                // the showcase may have changed the card since the route was measured
-    if (fresh) { Rsp.x = R.x = fresh.x; Rsp.dy = fresh.dy; Rsp.side = fresh.side; Rsp.peek = fresh.peek; R.y = card.getBoundingClientRect().top + fresh.dy; }
+    if (fresh) { Object.assign(Rsp, { side: undefined, peek: undefined, arm: undefined }, fresh); R.x = fresh.x; R.y = homeCard.getBoundingClientRect().top + fresh.dy; }
     drift([start, R], [2.2, 900, 1600], react, start.s);
   });
 }
