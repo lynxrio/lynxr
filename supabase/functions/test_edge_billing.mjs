@@ -28,10 +28,14 @@ const calls = [];
 let plans = [{ code: "pro", provider_price_id: "price_123", label: "lynxr pro" }];
 let billingRows = [];
 let stripeOk = true;
+let stripeInvoice = null;
+let scriptRows = [];
+const refundOk = () => new Response(JSON.stringify({ id: "re_1", status: "succeeded" }), { status: 200 });
+let refundReply = refundOk;
 
 globalThis.fetch = async (url, init = {}) => {
   const u = String(url);
-  calls.push({ u, body: init.body ? String(init.body) : null });
+  calls.push({ u, method: init.method ?? "GET", headers: init.headers ?? {}, body: init.body ? String(init.body) : null });
   if (u.includes("/auth/v1/user")) {
     const tok = (init.headers?.Authorization || "").replace("Bearer ", "");
     return tok === "good-token"
@@ -42,7 +46,11 @@ globalThis.fetch = async (url, init = {}) => {
     const code = u.match(/code=eq\.([a-z]+)/)?.[1];
     return new Response(JSON.stringify(plans.filter((p) => p.code === code)), { status: 200 });
   }
+  if (u.includes("lynxr_script_charges?")) return new Response(JSON.stringify(scriptRows), { status: 200 });
   if (u.includes("lynxr_billing?")) return new Response(JSON.stringify(billingRows), { status: 200 });
+  if (u.includes("api.stripe.com/v1/invoices/")) return new Response(JSON.stringify(stripeInvoice), { status: 200 });
+  if (u.includes("api.stripe.com/v1/refunds")) return refundReply();
+  if (u.includes("api.stripe.com/v1/subscriptions/")) return new Response(JSON.stringify({ id: "sub_1", status: "canceled" }), { status: 200 });
   if (u.includes("api.stripe.com")) {
     const url = u.includes("/billing_portal/sessions")
       ? "https://billing.stripe.com/p/session/test_1"
@@ -317,6 +325,65 @@ r = await send({
   data: { object: { customer: "cus_1", metadata: {} } },
 });
 check("refund recorded, entitlement untouched", (await r.json()).echo.p_status === null);
+
+// ---------------------------------------------------------------- 48-hour refund
+{
+  const now = Math.floor(Date.now() / 1000);
+  ENV.REFUND48_ENABLED = "true";
+  ENV.REFUND48_FROM = "2020-01-01T00:00:00Z";
+  const paidInvoice = (paidAt) => ({ id: "in_1", status: "paid", amount_paid: 2499, billing_reason: "subscription_cycle",
+    status_transitions: { paid_at: paidAt },
+    payments: { data: [{ status: "paid", payment: { type: "payment_intent", payment_intent: "pi_1" } }] } });
+  const cancelEvt = (over = {}) => subEvent({ cancel_at_period_end: true, canceled_at: now, latest_invoice: "in_1", ...over });
+  const hits = () => calls.filter((c) => c.u.includes("api.stripe.com"));
+  const refunded = () => hits().some((c) => c.u.endsWith("/v1/refunds"));
+  const ingested = (k, v) => calls.some((c) => c.u.includes("ingest_billing_event") && JSON.parse(c.body)[k] === v);
+
+  stripeInvoice = paidInvoice(now - 3600); scriptRows = [{}, {}, {}]; calls.length = 0;
+  r = await send(cancelEvt());
+  const ref = hits().find((c) => c.u.endsWith("/v1/refunds"));
+  check("48h: cancel 1h after a paid invoice refunds that payment",
+    r.status === 200 && new URLSearchParams(ref?.body ?? "").get("payment_intent") === "pi_1");
+  check("48h: the refund is idempotent per invoice", ref?.headers?.["Idempotency-Key"] === "refund48-in_1");
+  check("48h: the refund ends the subscription at once",
+    hits().some((c) => c.method === "DELETE" && c.u.endsWith("/v1/subscriptions/sub_1")));
+  check("48h: the refund is recorded in the ledger", ingested("p_event_id", "refund48:in_1"));
+
+  stripeInvoice = paidInvoice(now - 49 * 3600); calls.length = 0;
+  r = await send(cancelEvt());
+  check("48h: cancel 49h after the payment refunds nothing", r.status === 200 && !refunded());
+
+  stripeInvoice = paidInvoice(now - 3600); scriptRows = Array.from({ length: 10 }, () => ({})); calls.length = 0;
+  r = await send(cancelEvt());
+  check("48h: 10 scripts since the payment -> no refund", r.status === 200 && !refunded());
+
+  scriptRows = []; ENV.REFUND48_FROM = new Date((now + 3600) * 1000).toISOString(); calls.length = 0;
+  r = await send(cancelEvt());
+  check("48h: a payment before the policy date -> no refund", r.status === 200 && !refunded());
+  ENV.REFUND48_FROM = "2020-01-01T00:00:00Z";
+
+  ENV.REFUND48_ENABLED = "false"; calls.length = 0;
+  r = await send(cancelEvt());
+  check("48h: switched off -> Stripe never called", r.status === 200 && hits().length === 0);
+  ENV.REFUND48_ENABLED = "true";
+
+  calls.length = 0;
+  r = await send(subEvent({ latest_invoice: "in_1" }));
+  check("48h: a subscription that is not cancelled refunds nothing", r.status === 200 && hits().length === 0);
+
+  refundReply = () => new Response(JSON.stringify({ error: { code: "charge_already_refunded" } }), { status: 400 }); calls.length = 0;
+  r = await send({ ...cancelEvt(), type: "customer.subscription.deleted" });
+  check("48h: already refunded counts as done, and a deleted subscription is not deleted again",
+    r.status === 200 && !hits().some((c) => c.method === "DELETE"));
+
+  refundReply = () => new Response(JSON.stringify({ error: { code: "api_error" } }), { status: 500 }); calls.length = 0;
+  r = await send(cancelEvt());
+  check("48h: a failed refund is recorded for a person and the event still succeeds",
+    r.status === 200 && ingested("p_event_type", "refund48.failed"));
+
+  refundReply = refundOk;
+  delete ENV.REFUND48_ENABLED; delete ENV.REFUND48_FROM;
+}
 
 const all = JSON.stringify(calls.filter((c) => c.u.includes("ingest_billing_event")).map((c) => c.body));
 check("no customer email/name/address forwarded to the database", !/email|@example|address|name/i.test(all));

@@ -15,9 +15,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lynxr — terms of service</title>
-<meta name="description" content="The terms you agree to when you use lynxr: what the app does, what you are responsible for, and what we do and do not promise.">
+<meta name="description" content="The terms you agree to when you use lynxr: what the app does, what you are responsible for, what we do and do not promise, and when a payment is refunded.">
 <meta property="og:title" content="lynxr — terms of service">
-<meta property="og:description" content="The terms you agree to when you use lynxr: what the app does, what you are responsible for, and what we do and do not promise.">
+<meta property="og:description" content="The terms you agree to when you use lynxr: what the app does, what you are responsible for, what we do and do not promise, and when a payment is refunded.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="lynxr">
 <meta property="og:url" content="https://lynxr.io/terms/">
@@ -26,7 +26,7 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="lynxr — terms of service">
-<meta name="twitter:description" content="The terms you agree to when you use lynxr: what the app does, what you are responsible for, and what we do and do not promise.">
+<meta name="twitter:description" content="The terms you agree to when you use lynxr: what the app does, what you are responsible for, what we do and do not promise, and when a payment is refunded.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/terms/">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261008d">
@@ -205,7 +205,7 @@
           },
           "availability": "https://schema.org/InStock",
           "url": "https://lynxr.io/pricing/",
-          "description": "Unlimited scripts within fair use (150 in any rolling 30 days, 30 in any 24 hours), billed monthly. Tax is added at checkout where it applies."
+          "description": "Up to 150 scripts in any rolling 30 days and up to 30 in any 24 hours, billed monthly. Tax is added at checkout where it applies."
         }
       ],
       "author": {
@@ -231,7 +231,7 @@
   "@id": "https://lynxr.io/terms/#webpage",
   "url": "https://lynxr.io/terms/",
   "name": "lynxr — terms of service",
-  "description": "The terms you agree to when you use lynxr: what the app does, what you are responsible for, and what we do and do not promise.",
+  "description": "The terms you agree to when you use lynxr: what the app does, what you are responsible for, what we do and do not promise, and when a payment is refunded.",
   "inLanguage": "en",
   "dateModified": "2026-10-08",
   "isPartOf": { "@id": "https://lynxr.io/#website" },
@@ -330,6 +330,10 @@
     <li>there is a <strong>free tier</strong> &mdash; 3 scripts a week &mdash; and
       paid plans you only pay
       for if you choose one.</li>
+    <li>you can <strong>cancel pro at any time</strong>; cancelling stops the
+      next renewal. from 22 october 2026, if you cancel within 48 hours of a
+      payment, and you have written fewer than 10 scripts since that payment,
+      that payment is refunded in full &mdash; see <a href="#refunds">refunds</a>.</li>
   </ul>
   </section>
 
@@ -533,9 +537,9 @@
     because you left an account open: you pay only for a plan you choose.</p>
   <p>prices are in <strong>USD</strong>. <span class="entity">Stripe</span> is
     the merchant of record: it takes the payment and adds any tax at checkout.
-    full pricing, fair use and refunds are on the
-    <a href="/pricing/">pricing page</a> and in the
-    <a href="/refunds/">refund policy</a>.</p>
+    full pricing and fair use are on the
+    <a href="/pricing/">pricing page</a>; refunds are under
+    <a href="#refunds">refunds</a> below.</p>
   <p><strong>the free tier is 3 scripts in any rolling 7-day period</strong>,
     for every free account &mdash; each script counts against the 7 days from
     the moment it is written, and room comes back as older ones age out.
@@ -553,7 +557,7 @@
   <p><span class="entity">Stripe</span> is the <strong>merchant of
     record</strong> &mdash; the party you contract with for the payment itself.
     <span class="entity">Stripe</span> issues the invoice, collects any tax that
-    is due where you are, and issues refunds.</p>
+    is due where you are, and processes any refund.</p>
   <p>pro includes <strong>up to 150 scripts in any rolling 30-day period, and
     up to 30 in any 24 hours</strong>. <strong>the 30-day window rolls
     continuously and does not reset on your billing date</strong> &mdash; each
@@ -561,16 +565,48 @@
     room comes back as older ones age out. we may raise a limit on request, and
     we will contact an account that persistently exceeds fair use before we
     take any action on it.</p>
-  <p>you can cancel at any time. <strong>cancellation takes effect at the end of
-    the period you have already paid for</strong>, and there is no pro-rata
-    refund for the unused part of it.</p>
-  <p><strong>there is a 14-day money-back guarantee on your first payment</strong>,
-    and a refund ends access immediately &mdash; a refunded month is not a month
-    you keep. the <a href="/refunds/">refund policy</a> sets out how this works
-    and <strong>forms part of these terms</strong>.</p>
+  <p><strong>you can cancel at any time</strong>, from the plan page in the app
+    or by emailing <a href="mailto:hello@lynxr.io">hello@lynxr.io</a>.
+    cancelling stops the next renewal: <strong>you keep pro to the end of the
+    period you have already paid for</strong>, unless the cancellation earns a
+    refund under <a href="#refunds">refunds</a> below.</p>
   <p>if a payment fails, <span class="entity">Stripe</span> retries it for a few
     days before the account drops to the free tier. nothing you have already
     written is deleted.</p>
+  </section>
+
+  <section id="refunds">
+  <h2>refunds</h2>
+  <p>this is lynxr&rsquo;s refund policy. <strong>cancelling and a refund are
+    two different things</strong>: cancelling stops pro renewing, and you can do
+    it at any time. a refund gives a payment back, and happens only in the cases
+    below.</p>
+  <p><strong>the 48-hour window.</strong> from 22 october 2026, if you cancel
+    lynxr pro within 48 hours of a payment, and you have written fewer than 10 scripts since that payment, that payment is
+    refunded in full. this applies to your first payment and to every renewal.
+    you do not need to ask or give a reason: cancelling inside the window is
+    enough, and the refund is issued automatically. if you cancel by email
+    instead, the time of your email is what counts.</p>
+  <p><strong>a refund ends pro straight away.</strong> a refunded period is not one you keep: the account returns to the free tier when the refund is issued, and nothing you have written is deleted.</p>
+  <p><strong>outside the window</strong> &mdash; more than 48 hours after the
+    payment, or once you have written 10 or more scripts since it &mdash;
+    cancelling still stops the next renewal, but that payment is not refunded,
+    and there is no pro-rata refund for the unused part of the period.</p>
+  <p><strong>first payments made before 22 october 2026</strong> keep the
+    14-day money-back guarantee they were made under: ask within 14 days of
+    that payment and it is refunded in full, and the refund ends access
+    straight away.</p>
+  <p><strong>refunds the law requires.</strong> nothing here takes away a right
+    to cancel, or to a refund, that the law where you live gives you.</p>
+  <p><strong>who pays it back, and how to ask.</strong>
+    <span class="entity">Stripe</span>, the merchant of record, returns every
+    refund to the card or account you paid with; how soon it shows depends on
+    your bank. if you think you are owed a refund that has not arrived, reply to
+    the receipt you were emailed or email
+    <a href="mailto:hello@lynxr.io">hello@lynxr.io</a>.</p>
+  <p><span class="legal-todo">drafted, not reviewed &mdash; the 48-hour window and the 10-script condition, and how they sit with consumer cancellation
+    rights outside the United States and with <span class="entity">Stripe</span>&rsquo;s
+    own refund process as merchant of record, need a lawyer&rsquo;s sign-off.</span></p>
   </section>
 
   <section>
@@ -706,7 +742,6 @@
       <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
       <a class="foot-link" href="/privacy/">privacy policy</a>
       <a class="foot-link" href="/terms/" aria-current="page">terms of service</a>
-      <a class="foot-link" href="/refunds/">refund policy</a>
       <a class="foot-link" href="/accessibility/">accessibility</a>
     </div>
     <div class="foot-col">
