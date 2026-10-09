@@ -3961,6 +3961,9 @@ function billingReturnText() {
       const lbl = PLAN.plans?.[PLAN.plan_code]?.label || PLAN.plan_code;
       return `Back from billing. ${lbl} is set to end on ${planDate(PLAN.cancel_at)} — you keep it until then.`;
     }
+    if (PLAN_STATE === "ok" && !planIsPaid()) {
+      return "Back from billing. Your plan has ended. If you cancelled within 48 hours of a payment, that payment is being refunded to the card you paid with — Stripe's email confirms it.";
+    }
     if (PORTAL_POLLS >= PORTAL_POLL_MAX) {
       return "Back from billing. This is your plan as Stripe last reported it — if a cancellation you just made isn't showing, reload in a minute.";
     }
@@ -4072,11 +4075,11 @@ function renderPlan(head, body) {
      id, which only a hand-edited row can produce — it stays a sentence pointing
      at hello@lynxr.io. Flipping PORTAL_LIVE back to false restores that
      sentence with no other edit. */
-  const manageLine = `To change your card or cancel, email <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> — there's no self-serve billing page yet, so we make the change for you. Cancelling takes effect at the end of the period you've already paid for.`;
+  const manageLine = `To change your card or cancel, email <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> — there's no self-serve billing page yet, so we make the change for you. Cancelling stops the next renewal and you keep your plan to the end of the period you've already paid for. From 22 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away.`;
   const portalLine = PLAN?.cancel_at
     ? `Changed your mind? Renew from Manage billing any time before <strong>${planDate(PLAN.cancel_at)}</strong>. Your receipts and card are there too.`
-    : `Cancelling takes effect at the end of the period you've already paid for &mdash; you keep ${escapeHtml(label)} until then, and nothing you've written is deleted. Your card and receipts are under Manage billing.`;
-  const mocLine = `Stripe is the merchant of record: it takes the payment, adds any tax at checkout, and handles refunds.`;
+    : `Cancelling stops the next renewal &mdash; you keep ${escapeHtml(label)} to the end of the period you've already paid for, and nothing you've written is deleted. From 22 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away. Your card and receipts are under Manage billing.`;
+  const mocLine = `Stripe is the merchant of record: it takes the payment, adds any tax at checkout, and processes any refund.`;
 
   /* THE THREE OPTIONS ARE THE LANDING'S #pricing CARDS (owner, 2026-09-21:
      "make the options way better" — pointing at those). Same markup shape and
@@ -4193,7 +4196,7 @@ function renderPlan(head, body) {
                  <span class="plan-dim">The ${pro.period_days} days roll continuously; they don't reset on your billing date</span></li>`
             : `<li>A set number of scripts in any rolling 30 days
                  <span class="plan-dim">The number shows here once your plan loads</span></li>`}
-          <li>Cancel any time; access runs to the end of the period you've paid for</li>
+          <li>Stop renewing any time; you keep pro to the end of the period you've paid for</li>
           <li>Post tracking of the TikTok and Instagram accounts you link</li>
           <li>Advanced coaching tips <span class="plan-dim">Coming soon</span></li>
         </ul>
@@ -4231,7 +4234,7 @@ function renderPlan(head, body) {
       <span class="me-links">
         <a href="/pricing/" target="_blank" rel="noopener">pricing</a>
         <span class="x-sep">&middot;</span>
-        <a href="/refunds/" target="_blank" rel="noopener">refund policy</a>
+        <a href="/terms/#refunds" target="_blank" rel="noopener">refunds</a>
         <span class="x-sep">&middot;</span>
         <a href="/terms/" target="_blank" rel="noopener">terms</a>
       </span>

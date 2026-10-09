@@ -2429,7 +2429,9 @@
     grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
     gap: 32px;
   }
-  .foot-brand .mark { width: 40px; height: 40px; margin-bottom: 14px; }
+  /* .home .foot-brand: the landing's own `.home .mark { 32px }` (further down) would otherwise shrink this one
+     (owner, 2026-10-09: "make it slightly bigger x on the bottom") */
+  .foot-brand .mark, .home .foot-brand .mark { width: 44px; height: 44px; margin-bottom: 14px; }
   .foot-brand p { margin: 0; color: var(--text-2); font-size: var(--fs-14); max-width: 44ch; }
   .foot-label {
     color: var(--text-3); font-size: var(--fs-11); font-weight: 600;
