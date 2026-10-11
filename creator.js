@@ -4052,6 +4052,19 @@ function paintBillingReturn() {
   if (el) el.textContent = billingReturnText();
 }
 
+/* THE BILLING SENTENCES, shared by the Plan view and the Subscription card in
+   Settings so the refund wording exists once. It restates the terms' #refunds
+   section: change both together. */
+function billingLines(label) {
+  return {
+    manageLine: `To change your card or cancel, email <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> — there's no self-serve billing page yet, so we make the change for you. Cancelling stops the next renewal and you keep your plan to the end of the period you've already paid for. From 23 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away. That refund is once per account.`,
+    portalLine: PLAN?.cancel_at
+      ? `Changed your mind? Renew from Manage billing any time before <strong>${planDate(PLAN.cancel_at)}</strong>. Your receipts and card are there too.`
+      : `Cancelling stops the next renewal &mdash; you keep ${escapeHtml(label)} to the end of the period you've already paid for, and nothing you've written is deleted. From 23 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away. That refund is once per account. Your card and receipts are under Manage billing.`,
+    mocLine: `Stripe is the merchant of record: it takes the payment, adds any tax at checkout, and processes any refund.`,
+  };
+}
+
 /* WHAT A CREATOR SEES ABOUT THEIR PLAN — a three-option picker, not a wall.
    Follows renderYou's shape (burger + .pane-title + .pane-sub in the head,
    islands in the body) and reuses .quota-bar from the rail so the meter here
@@ -4144,11 +4157,7 @@ function renderPlan(head, body) {
      id, which only a hand-edited row can produce — it stays a sentence pointing
      at hello@lynxr.io. Flipping PORTAL_LIVE back to false restores that
      sentence with no other edit. */
-  const manageLine = `To change your card or cancel, email <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> — there's no self-serve billing page yet, so we make the change for you. Cancelling stops the next renewal and you keep your plan to the end of the period you've already paid for. From 23 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away. That refund is once per account.`;
-  const portalLine = PLAN?.cancel_at
-    ? `Changed your mind? Renew from Manage billing any time before <strong>${planDate(PLAN.cancel_at)}</strong>. Your receipts and card are there too.`
-    : `Cancelling stops the next renewal &mdash; you keep ${escapeHtml(label)} to the end of the period you've already paid for, and nothing you've written is deleted. From 23 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away. That refund is once per account. Your card and receipts are under Manage billing.`;
-  const mocLine = `Stripe is the merchant of record: it takes the payment, adds any tax at checkout, and processes any refund.`;
+  const { manageLine, portalLine, mocLine } = billingLines(label);
 
   /* THE THREE OPTIONS ARE THE LANDING'S #pricing CARDS (owner, 2026-09-21:
      "make the options way better" — pointing at those). Same markup shape and
@@ -4331,7 +4340,13 @@ function renderPlan(head, body) {
     });
   });
 
-  const portalBtn = document.getElementById("plan-portal");
+  wireBillingButtons("plan-portal", "plan-cancel", "plan-portal-msg");
+}
+
+/* Manage billing and Cancel subscription, wired the same way wherever they
+   appear: the Plan view and the Subscription card in Settings. */
+function wireBillingButtons(portalId, cancelId, msgId) {
+  const portalBtn = document.getElementById(portalId);
   if (portalBtn) portalBtn.addEventListener("click", async () => {
     // Disabled for the round trip, like the buy buttons: a double-click must
     // never mint two portal sessions.
@@ -4341,7 +4356,7 @@ function renderPlan(head, body) {
     try {
       await billingAction("portal");
     } catch {
-      flashMsg("plan-portal-msg", "Couldn't open billing. Try again, or email hello@lynxr.io and we'll make the change for you.", "bad");
+      flashMsg(msgId, "Couldn't open billing. Try again, or email hello@lynxr.io and we'll make the change for you.", "bad");
       portalBtn.disabled = false;
       portalBtn.textContent = was;
     }
@@ -4352,7 +4367,7 @@ function renderPlan(head, body) {
      sends the browser back to /?billing=portal when it's done — where the
      portal return banner and ledger re-poll already take over. No armed second
      click here: nothing is cancelled until the creator confirms on Stripe. */
-  const cancelBtn = document.getElementById("plan-cancel");
+  const cancelBtn = document.getElementById(cancelId);
   if (cancelBtn) cancelBtn.addEventListener("click", async () => {
     cancelBtn.disabled = true;
     const was = cancelBtn.textContent;
@@ -4362,13 +4377,55 @@ function renderPlan(head, body) {
     } catch (ex) {
       // 409 nothing_to_cancel: the ledger already says it's ending (a cancel
       // made elsewhere that this page hasn't re-read yet).
-      flashMsg("plan-portal-msg", String(ex?.message) === "409"
+      flashMsg(msgId, String(ex?.message) === "409"
         ? "Your plan is already set to end. Reload to see the date."
         : "Couldn't open the cancel page. Try again, or email hello@lynxr.io and we'll cancel it for you.", "bad");
       cancelBtn.disabled = false;
       cancelBtn.textContent = was;
     }
   });
+}
+
+/* SUBSCRIPTION IN SETTINGS (owner, 2026-10-11: "allow people to go in the
+   settings and then cancel the subscription"). The Plan view's billing band cut
+   down to what someone opens Settings for: what they're on, when it renews or
+   ends, and the same Manage billing / Cancel subscription buttons, which open
+   Stripe's own pages. Hidden on free: there is nothing to cancel. Painted
+   rather than rendered with the form, because my_plan() can answer after
+   Settings is up, and re-rendering the pane then would wipe what's been typed. */
+function paintSubCard() {
+  const card = document.getElementById("sub-card");
+  if (!card) return;
+  if (PLAN_STATE === "idle" || PLAN_STATE === "loading") { refreshPlan().then(paintSubCard); return; }
+  if (!planIsPaid()) { card.hidden = true; card.innerHTML = ""; return; }
+  const label = planMine()?.label || PLAN.plan_code;
+  const canManage = portalOn() && !!PLAN.has_customer;
+  const canCancel = canManage && !PLAN.cancel_at;
+  const { manageLine, portalLine } = billingLines(label);
+  const status = PLAN.cancel_at
+    ? `Cancelled. ${escapeHtml(label)} runs to <strong>${planDate(PLAN.cancel_at)}</strong>, then this account goes back to free. Nothing you've written is deleted.`
+    : PLAN.status === "past_due"
+      ? `Your last payment didn't go through. Stripe is retrying it.${canManage ? " To use a different card, open Manage billing." : ""}`
+      : PLAN.status === "trialing" && PLAN.current_period_end
+        ? `Your ${escapeHtml(label)} trial runs to <strong>${planDate(PLAN.current_period_end)}</strong>. The first payment is taken then.`
+        : PLAN.current_period_end
+          ? `You're on ${escapeHtml(label)}. It renews <strong>${planDate(PLAN.current_period_end)}</strong>.`
+          : `You're on ${escapeHtml(label)}.`;
+  card.innerHTML = `
+    <h2 class="me-card-h">Subscription</h2>
+    <p class="note">${status}</p>
+    ${canManage
+      ? `<div class="plan-manage">
+           <div class="plan-manage-btns">
+             <button type="button" class="ghost plan-portal" id="me-portal">Manage billing</button>
+             ${canCancel ? `<button type="button" class="ghost plan-cancel" id="me-cancel">Cancel subscription</button>` : ""}
+           </div>
+           <p class="bp-msg" id="me-portal-msg" role="status" aria-live="polite"></p>
+           <p class="plan-manage-line">${portalLine}</p>
+         </div>`
+      : `<p class="plan-manage">${manageLine}</p>`}`;
+  card.hidden = false;
+  wireBillingButtons("me-portal", "me-cancel", "me-portal-msg");
 }
 
 function renderYou(head, body) {
@@ -4457,6 +4514,9 @@ function renderYou(head, body) {
       <h2 class="me-card-h">Deleted scripts <span class="pill">${(ME.trash || []).length}</span></h2>
       <div id="trash-list"></div>
     </div>
+
+    ${/* Subscription: what the paid plan is, and Manage billing / Cancel subscription. Hidden on free. Filled by paintSubCard(). */""}
+    <div class="section me-card" id="sub-card" hidden></div>
 
     <div class="section me-card">
       <h2 class="me-card-h">Account</h2>
@@ -4618,6 +4678,7 @@ function renderYou(head, body) {
   paintProfiles();
   paintShowcaseCard();
   paintInsightsCard();
+  paintSubCard();
 }
 
 /** The trash list inside Settings. Restore puts a script back on its company;

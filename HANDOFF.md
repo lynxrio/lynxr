@@ -81,7 +81,7 @@ tip} (the screen was shown, once per account) and `postsSeenAt` (clears the call
 script), `navigator.vibrate` on a real phone, iOS Safari's keyboard over step 3. Plan `~/.claude/plans/lynxr-onboarding-v2.md`
 (outside this repo). Keep the tier/price map out of this file (public repo).
 
-**HOOK SCORER (built 2026-10-09; PUSHED 2026-10-11 in `85a7d50`, `supabase/hook_scores.sql` RUN; still DARK: `HOOK_SCORE` is unset on Fly and in the repo variables, so production is unchanged).** Scores the OPENING of every finished creator script (the
+**HOOK SCORER (built 2026-10-09; PUSHED 2026-10-11 in `85a7d50`, `supabase/hook_scores.sql` RUN; SCORE MODE LIVE on Fly since 2026-10-11 ~06:00 UTC via `fly secrets set HOOK_SCORE=score`: every finished branded script gets a row in `lynxr_hook_scores`, creators see nothing; the repo variable for the GitHub fallback is NOT confirmed set; REWORK IS OFF, see test B).** Scores the OPENING of every finished creator script (the
 hook plus the beats starting in the first ~10 seconds) against lynxr's own written hook rules, 0-100, and in rework mode rewrites
 an opening that scores under the bar. **It is a craft score, not a view prediction, and it is not validated against performance**
 (only a handful of tracked posts are linked to a script so far). The model returns pass/partial/fail per rule and CODE turns that
@@ -117,6 +117,33 @@ ZERO profiles while the wall released only when BOTH Instagram and TikTok were a
 username and reloaded never saw the wall again. It is now due until both are added (`linkWallStep() !== null`, the same test
 the release uses). The second refusal note now says "link both accounts" (was "at least one"). Preview-verified with
 `?obtest=1&view=home&metric=rosterwall`: due at zero and Instagram-only, not due with both.
+
+**HOOK SCORER: TEST B RESULTS (rework vs production, 2026-10-11, $1.21).** Run
+`~/Lynxr-evals/runs/hookrework-v4-20261011-020012` (bar 90, min gain 10, the 20 v4 eval scripts): 8 reworked, 5 kept (the
+rework did not gain 10), 2 already above the bar, 5 skipped for low fit. **G2 preference: PASS so far**: an independent
+Opus 5.5 judge with no rubric picked the reworked opening on 8 of 8 changed rows, in both orders, for both "keep watching"
+and "would post"; the owner's blind sheet (`~/Lynxr-evals/sheets/hook-20261011-021107`, 8 cards) is not filled yet.
+G3 no craft regression: PASS (beat roles 17->16, hook mechanism 18->18, sayable 14->15, hook repeated in beat 1 40%->25%).
+G4 operable: PASS (0 errors, hook step p90 22s). **G1 truth: FAIL, so rework stays off.** J1 found 7 new unbacked claims
+in reworked openings, mostly invented first-person confessions ("I wear the same three things", "I own enough clothes for
+a month", "I lie when I say I have nothing to wear") plus efficacy claims ("rereading First Aid won't raise your Step 2
+score", "most med students study for Step 1 backwards"); the scorer's own truth check and the pairwise judge both let them
+through. NEXT (not started): tighten `HOOK_REWORK_SYSTEM` and the rubric's truth check so any first-person fact about the
+creator's life must come from the creator's own facts ("true about you") and claims about what works or doesn't count as
+product claims; bump `RUBRIC_VERSION`; re-run the rework arm, judge and hookpair (~$1.25, owner approval first).
+
+**HOOK SCORER ADDITIONS: PLANNED, NOT APPROVED TO BUILD.** `~/.claude/plans/lynxr-hook-scorer-2.md` (33 steps): re-score on
+edit, three scored hooks to pick from, a public `/hook-checker/` page, hook rules on the posted video in the coach lane,
+per-creator learning. Owner decisions outstanding: (1) the posted-video step sends a video's opening words to Anthropic,
+which `/privacy/` currently says the coach never does, so it needs new wording and a creator email before it is switched
+on; (2) score only script-linked posts or every tracked post with speech (~$1.60 once); (3) the public checker's limits.
+The addendum also drops the base SQL's staff-read policy on `lynxr_hook_scores` (the table holds hook text; staff cannot
+read scripts anywhere else); that amendment is not applied.
+
+**MOCKUPS: OWNED BY ANOTHER SESSION.** The owner paused mockup work in the hook-scorer session on 2026-10-11 ("i have another
+session for it"). A Design canvas "lynxr landing + signed-in mockups" was started here with only the landing artboard
+published; the other session owns the mockups from now on. **The hook-scorer session is now on improving the loop itself**
+(paste -> script -> post -> tracked -> linked to its script -> coach -> a better next script).
 
 **IN FLIGHT FROM THE HOOK-SCORER SESSION (2026-10-11), not built:** (1) an addendum plan,
 `~/.claude/plans/lynxr-hook-scorer-2.md`, for five approved additions: a public "check your hook" box, re-scoring when a
