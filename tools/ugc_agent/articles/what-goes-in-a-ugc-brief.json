@@ -1,0 +1,255 @@
+{
+  "question_id": "q024",
+  "slug": "what-goes-in-a-ugc-brief",
+  "theme": "ugc-briefs",
+  "title": "What goes in a UGC brief?",
+  "description": "What goes in a UGC brief: the parts to look for, how to read a brief before you script, and the questions to send a brand when something is unclear.",
+  "short_answer": "A UGC brief is the brand's instructions for a video; check it for six things: product and audience, key message, words to use or avoid, format, deliverables and deadline. Read it for those parts before you script, and ask the brand about any that are missing, because each one changes what you film.",
+  "sections": [
+    {
+      "heading": "Which parts should you look for in a UGC brief?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Look for six parts, and treat any that is missing as a question to send the brand before you write a word.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [brief](/glossary/#brief) might arrive as a short message or a long document. Whatever its length, check it against this table and note every row you cannot fill in from what the [brand](/glossary/#brand) sent.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Part",
+            "What it tells you",
+            "What to ask if it is missing"
+          ],
+          "table_rows": [
+            [
+              "Product and audience",
+              "What you are showing and who the video is for",
+              "Who is the main viewer, and what problem do they have?"
+            ],
+            [
+              "Key message",
+              "The one idea the viewer should leave with",
+              "If the viewer remembers one thing, what should it be?"
+            ],
+            [
+              "Must say and never say",
+              "Exact lines to include and words to avoid",
+              "Is there any wording you need word for word, or any you want left out?"
+            ],
+            [
+              "Format",
+              "The shape of the video, such as a routine or a talking review",
+              "Is there a video you like that shows the style you want?"
+            ],
+            [
+              "Deliverables",
+              "How many videos, what length, edited or raw",
+              "Do you want raw clips, captions or extra hooks as well?"
+            ],
+            [
+              "Deadline",
+              "When drafts and finals are due",
+              "When do you need the first cut, and when the final?"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brief names a [format](/glossary/#format) you have not filmed before, watch an example first. [What a UGC video format is](/what-is-a-video-format/) shows how to pull the shape out of a video so you can film your own version.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you read a brief before you start scripting?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Read it twice: once for the whole picture, then again slowly, marking what is fixed and what is left to you.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Use the second read to catch the details that change your plan. [How to turn a brand brief into a script](/blog/brief-to-script/) covers the marking step in full, so here is the short version to run before you open that guide.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Highlight every must-say line, so you can check later that each one made it into the video.",
+            "Read the never-say list against your first hook ideas and drop any idea that leans on a banned word.",
+            "Write the key message in one sentence in your own words. If you cannot, that is your first question for the brand.",
+            "Count the deliverables and write them as a checklist: number of videos, length, edited or raw, extra hooks.",
+            "Put the deadline in your calendar two days early, so a reshoot does not make you late."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the brief open while you write and film, and check it again at each step, so you do not deliver a polished video that misses a required line.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What questions should you ask when a brief is unclear?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask short, specific questions in one message, so the brand can answer them together and you avoid a round of changes later.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Group every gap you found into a single reply rather than sending them one by one.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Hi [NAME], thanks for the brief for [PRODUCT]. A few quick questions before I start. Who is the main viewer you have in mind, and what is their biggest frustration right now? Is there a line you need me to say word for word, or is the wording up to me? Would you like raw clips and extra hooks as well as the edited video? Where will the video appear, and for how long? I want to quote the [usage rights](/blog/what-are-ugc-usage-rights/) correctly. Is [DATE] for the first cut still right on your side? Thanks, [NAME]",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Put any questions about where and how long the video will run in the same message, so you have the answers before you agree a fee. The [rates, pay and usage rights questions](/faq/ugc-rates-and-pay/) cover what else to ask on that side.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you do when a brief asks for something you cannot film honestly?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Say so early and offer a version you can film truthfully, because your face and voice are on whatever you say.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A brief might ask you to describe a result you have not seen, or to talk as if you have used a product for longer than you have. Reply before you film, name the line, and suggest wording based on what you actually noticed. For example, swap a line about a change after weeks of use for a line about how the product felt and fitted into your routine today.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the tone helpful rather than refusing. You are offering the brand a line it can use, and you are keeping your samples and your name tied to things you can stand behind. Never hide that the video is paid, and never claim to have used something you have not.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you check your draft against the brief?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Hold your draft next to the brief and tick off every row of the table above before you send anything to the brand.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Go row by row. Check that the product is shown the way the brief describes, that the key message comes through in your own words, that every must-say line is there and no never-say word slipped in, that the format matches, and that you have every deliverable ready by the date.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Anything you cannot tick is either a fix to make or a question to ask. Fix it before you send the draft, or send the question with the draft so the brand can answer both at once. For shaping the script itself, [the parts of a UGC video script](/short-form-script-structure/) shows where each piece sits.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-11",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

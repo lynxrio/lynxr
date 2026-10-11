@@ -13,5 +13,18 @@
     "fails": 1,
     "last_fail": "2026-10-11",
     "last_error": "Second review scored originality and voice 3: signs section promises three signs but the table lists four"
+  },
+  "q003": {
+    "fails": 0,
+    "published": "2026-10-11"
+  },
+  "q010": {
+    "fails": 1,
+    "last_fail": "2026-10-11",
+    "last_error": "Second review: generalisation stated as fact about all UGC deals ('the deliverable in a UGC deal is the video file, for the brand to use where it chooses')"
+  },
+  "q024": {
+    "fails": 0,
+    "published": "2026-10-11"
   }
 }
