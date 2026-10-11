@@ -4031,7 +4031,7 @@ function billingReturnText() {
       return `Back from billing. ${lbl} is set to end on ${planDate(PLAN.cancel_at)} — you keep it until then.`;
     }
     if (PLAN_STATE === "ok" && !planIsPaid()) {
-      return "Back from billing. Your plan has ended. If you cancelled within 48 hours of a payment, that payment is being refunded to the card you paid with — Stripe's email confirms it.";
+      return "Back from billing. Your plan has ended. If your cancel qualified for the 48-hour refund, that payment is being refunded to the card you paid with — Stripe's email confirms it.";
     }
     if (PORTAL_POLLS >= PORTAL_POLL_MAX) {
       return "Back from billing. This is your plan as Stripe last reported it — if a cancellation you just made isn't showing, reload in a minute.";
@@ -4144,10 +4144,10 @@ function renderPlan(head, body) {
      id, which only a hand-edited row can produce — it stays a sentence pointing
      at hello@lynxr.io. Flipping PORTAL_LIVE back to false restores that
      sentence with no other edit. */
-  const manageLine = `To change your card or cancel, email <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> — there's no self-serve billing page yet, so we make the change for you. Cancelling stops the next renewal and you keep your plan to the end of the period you've already paid for. From 23 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away.`;
+  const manageLine = `To change your card or cancel, email <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> — there's no self-serve billing page yet, so we make the change for you. Cancelling stops the next renewal and you keep your plan to the end of the period you've already paid for. From 23 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away. That refund is once per account.`;
   const portalLine = PLAN?.cancel_at
     ? `Changed your mind? Renew from Manage billing any time before <strong>${planDate(PLAN.cancel_at)}</strong>. Your receipts and card are there too.`
-    : `Cancelling stops the next renewal &mdash; you keep ${escapeHtml(label)} to the end of the period you've already paid for, and nothing you've written is deleted. From 23 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away. Your card and receipts are under Manage billing.`;
+    : `Cancelling stops the next renewal &mdash; you keep ${escapeHtml(label)} to the end of the period you've already paid for, and nothing you've written is deleted. From 23 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away. That refund is once per account. Your card and receipts are under Manage billing.`;
   const mocLine = `Stripe is the merchant of record: it takes the payment, adds any tax at checkout, and processes any refund.`;
 
   /* THE THREE OPTIONS ARE THE LANDING'S #pricing CARDS (owner, 2026-09-21:
@@ -5602,6 +5602,61 @@ function lynxBeatFiles(f, files, places) {
   }
   return out;
 }
+
+/* NOTES ON BEATS (owner, 2026-10-11; plan ~/.claude/plans/agency-beat-notes.md). A sent beat can carry `note`: text
+   Lynx wrote for that moment of the video, like a prompt to paste or a caption (app.js agencySendDoc adds the key only
+   when there is a note). It shows under the beat's lines with a Copy that hands over the note exactly as written:
+   lowercase is CSS only, and textContent is the source text. Read-only everywhere. "Add to my library" copies beats
+   whole, so a library copy keeps its notes and beatRow draws them there too. The box, classes and words match the
+   agency card (app.js cbBeatNoteHtml / cbNoteCopy); app.css styles both. */
+const LYNX_NOTE_FOLD = 280;   // = CB_NOTE_FOLD in app.js: a longer note, or one over 5 lines, shows its first lines and Show all
+function lynxBeatNoteHtml(note, idx) {
+  const text = typeof note === "string" ? note.trim() : "";
+  if (!text) return "";
+  const long = text.length > LYNX_NOTE_FOLD || text.split("\n").length > 5;
+  const where = Number.isInteger(idx) ? ` on beat ${idx + 1}` : "";
+  return `<div class="bnote">
+      <div class="bnote-head"><span class="bnote-lbl">Note</span>
+        <button type="button" class="bnote-copy" aria-label="Copy the note${where}">Copy</button></div>
+      <p class="bnote-text${long ? " is-long" : ""}">${escapeHtml(text)}</p>
+      ${long ? `<button type="button" class="bnote-more" aria-expanded="false">Show all</button>` : ""}
+      <span class="sr-only bnote-said" role="status" aria-live="polite"></span>
+    </div>`;
+}
+async function lynxNoteCopy(btn) {
+  const box = btn.closest(".bnote");
+  const text = box?.querySelector(".bnote-text");
+  const said = box?.querySelector(".bnote-said");
+  if (!text || !text.textContent) return;
+  let ok = false;
+  try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text.textContent); ok = true; } } catch { /* refused */ }
+  clearTimeout(btn._noteT);
+  if (ok) {
+    btn.textContent = "Copied ✓";
+    btn.classList.add("ok");
+    if (said) said.textContent = "Copied.";
+  } else {
+    try { getSelection().selectAllChildren(text); } catch { /* nothing to select with */ }
+    btn.textContent = "Selected";
+    if (said) said.textContent = "Couldn't copy here. The note is selected, so copy it from your keyboard or menu.";
+  }
+  btn._noteT = setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("ok"); if (said) said.textContent = ""; }, ok ? 1600 : 4000);
+}
+/* Copy and Show all for every note box on the page: one listener, so a repainted pane needs no wiring. */
+document.addEventListener("click", (e) => {
+  const t = e.target instanceof Element ? e.target : null;
+  const more = t?.closest(".bnote-more");
+  if (more) {
+    const text = more.closest(".bnote")?.querySelector(".bnote-text");
+    if (!text) return;
+    const open = text.classList.toggle("open");
+    more.setAttribute("aria-expanded", String(open));
+    more.textContent = open ? "Show less" : "Show all";
+    return;
+  }
+  const copy = t?.closest(".bnote-copy");
+  if (copy) lynxNoteCopy(copy);
+});
 
 /* Files on beats, what the creator sees: the "add" line inside a beat. */
 const LYNX_DL_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -11013,7 +11068,7 @@ function beatRow(bt, carry, silent, adid, idx, tail = "") {
      cannot slide the whole list out of step with the playhead. Absent when
      beatStart() could not parse `t`; see beatStart. */
   const st = beatStart(bt.t);
-  return `<li class="bp-beat"${st === null ? "" : ` data-t="${st}"`}>${rows.join("")}${tail}</li>`;
+  return `<li class="bp-beat"${st === null ? "" : ` data-t="${st}"`}>${rows.join("")}${lynxBeatNoteHtml(bt.note, idx)}${tail}</li>`;
 }
 
 function scriptText(a) {
@@ -13392,7 +13447,7 @@ function wireAdaptationCards(host) {
         li.title = `Move the video to ${lengthLabel(Number(li.dataset.t) || 0) || "0:00"}`;
       });
     split.addEventListener("click", (e) => {
-      if (e.target.closest("button, a, textarea, input, .ref-play")) return;
+      if (e.target.closest("button, a, textarea, input, .ref-play, .bnote")) return;
       /* An editable value still seeks — the caret and the playhead landing on
          the same beat is the point — but a click that is REFINING a selection
          inside one must not yank the video. The collapsed-selection test below
@@ -13968,7 +14023,7 @@ function startLiveSync() {
 const PRIVACY_VERSION = "2026-10-05";
 /* The terms' version, from terms/index.html's "last updated" line. The sign-in card's agreement line
    names the terms too since 2026-09-25, so the record says which terms. Bump with that page's date. */
-const TERMS_VERSION = "2026-10-05";
+const TERMS_VERSION = "2026-10-11";
 
 /* THE MERGED HOME. `/` hosts three layers in one document — #lp-main
    (marketing), #gate (auth) and #app (the app). HOME is false on any other

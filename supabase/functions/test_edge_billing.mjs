@@ -30,6 +30,7 @@ let billingRows = [];
 let stripeOk = true;
 let stripeInvoice = null;
 let scriptRows = [];
+let priorRefunds = [];
 const refundOk = () => new Response(JSON.stringify({ id: "re_1", status: "succeeded" }), { status: 200 });
 let refundReply = refundOk;
 
@@ -47,6 +48,7 @@ globalThis.fetch = async (url, init = {}) => {
     return new Response(JSON.stringify(plans.filter((p) => p.code === code)), { status: 200 });
   }
   if (u.includes("lynxr_script_charges?")) return new Response(JSON.stringify(scriptRows), { status: 200 });
+  if (u.includes("lynxr_billing_events?")) return new Response(JSON.stringify(priorRefunds), { status: 200 });
   if (u.includes("lynxr_billing?")) return new Response(JSON.stringify(billingRows), { status: 200 });
   if (u.includes("api.stripe.com/v1/invoices/")) return new Response(JSON.stringify(stripeInvoice), { status: 200 });
   if (u.includes("api.stripe.com/v1/refunds")) return refundReply();
@@ -356,6 +358,14 @@ check("refund recorded, entitlement untouched", (await r.json()).echo.p_status =
   stripeInvoice = paidInvoice(now - 3600); scriptRows = Array.from({ length: 10 }, () => ({})); calls.length = 0;
   r = await send(cancelEvt());
   check("48h: 10 scripts since the payment -> no refund", r.status === 200 && !refunded());
+
+  scriptRows = []; priorRefunds = [{ event_id: "refund48:in_0" }]; calls.length = 0;
+  r = await send(cancelEvt());
+  check("48h: an account that already had a refund gets no second one", r.status === 200 && !refunded());
+  const q = calls.find((c) => c.u.includes("lynxr_billing_events?"))?.u ?? "";
+  check("48h: the once-per-account check skips this invoice's own record, so a retry still completes",
+    q.includes(`creator_id=eq.${UID}`) && q.includes("event_type=eq.refund48.issued") && q.includes(`event_id=neq.${encodeURIComponent("refund48:in_1")}`));
+  priorRefunds = [];
 
   scriptRows = []; ENV.REFUND48_FROM = new Date((now + 3600) * 1000).toISOString(); calls.length = 0;
   r = await send(cancelEvt());

@@ -14,7 +14,7 @@
        rather than with the legal pages. -->
   <url>
     <loc>https://lynxr.io/faq/</loc>
-    <lastmod>2026-10-08</lastmod>
+    <lastmod>2026-10-11</lastmod>
     <priority>0.8</priority>
   </url>
   <!-- Pricing sits with /faq/, not with the legal set: it is written for a
@@ -22,7 +22,7 @@
        review looks for. -->
   <url>
     <loc>https://lynxr.io/pricing/</loc>
-    <lastmod>2026-10-08</lastmod>
+    <lastmod>2026-10-11</lastmod>
     <priority>0.8</priority>
   </url>
   <!-- How it works: how scripts are made, and the coach (not built yet). -->
@@ -130,7 +130,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/terms/</loc>
-    <lastmod>2026-10-08</lastmod>
+    <lastmod>2026-10-11</lastmod>
     <priority>0.3</priority>
   </url>
   <url>

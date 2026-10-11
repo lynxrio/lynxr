@@ -1417,11 +1417,13 @@ def hookarm_cmd(args):
             a0 = rec["a"]
             brand = _resolve_brand(rec["brands"], a0.get("brandId")) if a0.get("brandId") else None
             ad = a0.get("adaptation") or {}
-            if not brand or not (ad.get("beats") or []) or not a0.get("format"):
+            # format is optional: 44 of 55 stored scripts predate the entry carrying it, and production scores those
+            # with `a.get("format") or {}` too (hook_step). Requiring it scored 11 of 55 on 2026-10-11.
+            if not brand or not (ad.get("beats") or []):
                 continue
             creator = dict(rec["creator"], brands=rec["brands"])
             a = {"id": eid, "brandId": a0["brandId"], "status": "done", "adaptation": copy.deepcopy(ad),
-                 "format": copy.deepcopy(a0["format"]), "source": copy.deepcopy(a0.get("source") or {})}
+                 "format": copy.deepcopy(a0.get("format") or {}), "source": copy.deepcopy(a0.get("source") or {})}
             items.append((f"bk-{id8(eid)}", 1, eid, a, creator, brand, a["source"]))
         base = None
     else:

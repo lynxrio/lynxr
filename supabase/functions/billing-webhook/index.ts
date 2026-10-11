@@ -20,6 +20,7 @@
 //   charge.refunded
 // 48-HOUR REFUND (owner, 2026-10-08): a cancel within 48 hours of a paid
 // invoice refunds it and ends the subscription — see refund48() below.
+// Once per account (owner, 2026-10-11): a second one is left for a person.
 // Needs STRIPE_SECRET_KEY (shared with billing-checkout) with Invoices read,
 // Refunds write, Subscriptions write, and REFUND48_ENABLED=true. Off by default.
 //
@@ -59,6 +60,7 @@ const TOLERANCE_S = 300;
 const FIRST_PAYMENT_ONLY = false;   // D1: true = only an invoice that started a subscription
 const MAX_SCRIPTS_SINCE = 10;       // D2: refund only if FEWER than this many scripts since the payment; 0 = no condition
 const END_ACCESS = true;            // D3: a refund ends the subscription at once
+const ONCE_PER_ACCOUNT = true;      // owner, 2026-10-11: no automatic refund if this account already had one
 const REFUND_WINDOW_S = 48 * 3600;
 const STRIPE = "https://api.stripe.com/v1";
 // Read at call time, so the owner can switch it without a redeploy (and the
@@ -200,6 +202,14 @@ async function refund48(type: string, o: any, creator: string | null, customer: 
       const since = encodeURIComponent(new Date(paidAt * 1000).toISOString());
       const rows = await sbGet(`lynxr_script_charges?creator_id=eq.${who}&charged_at=gte.${since}&select=adaptation_id&limit=${MAX_SCRIPTS_SINCE}`);
       if ((rows?.length ?? 0) >= MAX_SCRIPTS_SINCE) return "over_cap";
+    }
+    if (ONCE_PER_ACCOUNT) {
+      // Stops subscribe -> refund -> resubscribe on a loop. This invoice's own
+      // record is excluded, so a re-delivered event still counts as done below.
+      if (!who) return "no_creator";
+      const mine = encodeURIComponent(`refund48:${invoiceId}`);
+      const rows = await sbGet(`lynxr_billing_events?event_type=eq.refund48.issued&creator_id=eq.${who}&event_id=neq.${mine}&select=event_id&limit=1`);
+      if ((rows?.length ?? 0) > 0) return "already_used";
     }
     const form = new URLSearchParams({
       payment_intent: pi,

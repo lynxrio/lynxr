@@ -1,6 +1,6 @@
 # Lynxr — session handoff
 
-Read this, then `README.md` for architecture. **Last updated 2026-10-07 (canary green on Fly v55).** Start with the section right below the table.
+Read this, then `README.md` for architecture. **Last updated 2026-10-11 (hook scorer pushed dark; test A read; link wall fixed).** Start with the section right below the table.
 
 Lynxr (lynxr.io) is a format-intelligence platform for Lynx Media Group, a
 short-form video agency. Static site on GitHub Pages + Supabase + a Python
@@ -26,6 +26,25 @@ naming a path there publishes it.
 ## START HERE — state as of 2026-10-06
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
+
+**NOTES ON BEATS + UPLOAD STRAIGHT ONTO A BEAT (2026-10-11, UNCOMMITTED, stamp `20261011c`; plan
+`~/.claude/plans/agency-beat-notes.md`). NOT LIVE until the owner runs `supabase/beat_notes.sql` (either order: without
+it the editor says to run it and nothing else changes).** Owner: "Whenever I edit the briefs can you make notes for each
+of the beats so that I could copy, or I could upload files or write down something that is specific to that section of
+the script?" Agency format editor: every beat has a "Note for creators" box (4,000 characters at most; a note on a beat
+with nothing to say, do or show is refused at Save). The finished card shows it under the beat's lines with Copy.
+Creators get it under that beat after Send or Update, with a Copy that keeps the real casing and line breaks; long notes
+show 5 lines and Show all; Add to my library keeps them; the PDF prints "Note:" under the beat. STORED in
+`lynxr_campaign_formats.beat_notes` [{beat, orig, sigs, text}], NOT in `edited`, which every regenerate moves into
+script_prev. A note follows its beat's words (the files-on-beats fingerprint); after a regenerate, revert or restore it
+re-attaches by words, else by the same moment of the original (`orig` overlap), else by position, and anything not
+matched by words is flagged "beat changed" with Keep here, and is still sent where it is drawn. Files on beats: "+ add
+file" now shows on every beat (even before the brief has files) and uploads straight onto that beat (into the brief's
+files too); with files to pick it opens the old menu plus "upload a new file". Note: on SPOKEN scripts creators never see
+On screen lines, so text staff put there for creators should move into the note. Files: `supabase/beat_notes.sql` (NEW,
+untracked: include it in the commit), `app.js`, `creator.js`, `app.css` (one block at the end), the stamp on every stamped
+page + `404.html`. Executor-verified (stubbed harnesses, real clicks and keys, real CSP, clipboard read back, 1440 + 393):
+all four runs (agency + creator, 1440 and 393) ALL OK, exceptions [], csp violations [], clipboard read-back byte-for-byte, screenshots checked. NOT verified: the SQL on the live database, a real upload to the bucket, a real creator account.
 
 **AGENCY SEND PANEL: PICK CREATORS BY BRAND (2026-10-11, UNCOMMITTED, stamp `20261011a`; plan
 `~/.claude/plans/agency-send-by-brand.md`).** Owner: "have a button that allows you to click on OncourseAI creators …
@@ -62,7 +81,7 @@ tip} (the screen was shown, once per account) and `postsSeenAt` (clears the call
 script), `navigator.vibrate` on a real phone, iOS Safari's keyboard over step 3. Plan `~/.claude/plans/lynxr-onboarding-v2.md`
 (outside this repo). Keep the tier/price map out of this file (public repo).
 
-**HOOK SCORER (2026-10-09, built, DARK; uncommitted, owner pushes).** Scores the OPENING of every finished creator script (the
+**HOOK SCORER (built 2026-10-09; PUSHED 2026-10-11 in `85a7d50`, `supabase/hook_scores.sql` RUN; still DARK: `HOOK_SCORE` is unset on Fly and in the repo variables, so production is unchanged).** Scores the OPENING of every finished creator script (the
 hook plus the beats starting in the first ~10 seconds) against lynxr's own written hook rules, 0-100, and in rework mode rewrites
 an opening that scores under the bar. **It is a craft score, not a view prediction, and it is not validated against performance**
 (only a handful of tracked posts are linked to a script so far). The model returns pass/partial/fail per rule and CODE turns that
@@ -77,6 +96,39 @@ localhost). **Owner SQL: `supabase/hook_scores.sql`** (run it once; until then t
 Free commands: `./venv/bin/python pipeline/hook_score.py --print-prompts` (exactly what the models are sent),
 `./venv/bin/python pipeline/eval_scripts.py hookarm --help`, `... hookpair --help`, `... hooksheet --help`. The paid evals and the
 staged switch-on are an owner runbook in the plan, `~/.claude/plans/lynxr-hook-scorer.md` (outside this repo; this file is public).
+
+**HOOK SCORER: TEST A RESULTS (score distribution, 2026-10-11, $0.96 spent of a $1.40 quote).** Runs:
+`~/Lynxr-evals/runs/hookscore-v4-20261011-014723` (the v4 production prompt's 20 eval scripts, scored twice) and
+`~/Lynxr-evals/runs/hookscore-real-20261011-015158` (all 55 real branded scripts in the 2026-10-10 backup, mostly written by
+pre-v4 prompts). **v4: 12% of hooks score 90+, most sit at 70-89. Real stored scripts: 4% at 90+, most at 50-79.** Noise:
+re-scoring the same script moves it by a median 4.5 points, and 15% of scripts land on the other side of 90 the second time,
+so `HOOK_MIN_GAIN=10` (about 2x the noise) holds. What drags the scores: **H2 "costs something to post" almost never passes**
+(v4 1 of 40, real 0 of 55: the writer plays it safe, and R-K was recorded without touching the prompt) and **H1 is mostly
+"partial"** (a setup line before the reason to stay). H8 fails on 25 of 55 real scripts (a persona or backstory lynxr was
+never given) but 0 of 40 on v4, which is the v4 truth work showing up. **Consequence: at a bar of 90, rework would fire on
+about 88% of scripts** (+20-40s and about +$0.075 each). The bar is NOT decided; the next step is test B (rework against
+production on the same bodies, about $2.30, owner approval pending), then the go/no-go gates in the plan. If rework wins
+on nearly every script, the cheaper alternative to test is teaching the writer H1/H2 directly (an eval arm, no prompt change
+shipped without it). UNCOMMITTED: `pipeline/eval_scripts.py` `hookarm --from-backup` no longer requires a stored `format`
+(44 of 55 entries predate it; production already scores those with `format or {}`); it scored 11 of 55 before the fix.
+
+**LINK WALL: BOTH PLATFORMS ENFORCED ON RELOAD (2026-10-11, pushed in `85a7d50`).** `linkWallDue()` used to fire only at
+ZERO profiles while the wall released only when BOTH Instagram and TikTok were added, so a roster creator who added one
+username and reloaded never saw the wall again. It is now due until both are added (`linkWallStep() !== null`, the same test
+the release uses). The second refusal note now says "link both accounts" (was "at least one"). Preview-verified with
+`?obtest=1&view=home&metric=rosterwall`: due at zero and Instagram-only, not due with both.
+
+**IN FLIGHT FROM THE HOOK-SCORER SESSION (2026-10-11), not built:** (1) an addendum plan,
+`~/.claude/plans/lynxr-hook-scorer-2.md`, for five approved additions: a public "check your hook" box, re-scoring when a
+creator edits a hook (edits become training rows), three scored hooks to pick from, the same rules on the posted video in
+the coach lane, and per-creator weights learned from their own posts (data-blocked: 1 script-linked post). (2) A
+gamification proposal awaiting the owner's pick: a posting streak read from linked accounts, personal bests, a goal-hit
+moment (today hitting the goal does nothing), levels from the how-it-works ladder, a hook skill tree; no points for opening
+the app, no leaderboards between creators. (3) **Meta business verification was rejected twice**: the EIN letter (CP-575) is
+NOT an accepted document. Resubmit with the LLC's formation certificate (legal name), a recent Lynxr LLC business bank
+statement (address), and a document that shows the business phone (a bank letter or a phone bill in the LLC's name), every
+field typed exactly as on the documents. Until it passes, Instagram insights work only for app testers. TikTok Business
+API app: still Pending.
 
 **ONE BRAIN (architecture decision, 2026-10-07).** The script writer and the coach are ONE system, not two
 features. The thing in the middle is a per-creator **brain**: voice drawn from their own posts, which formats they

@@ -3753,7 +3753,7 @@ const AG_TIMED = { ol: "bp-beats bp-orig", li: "bp-beat", time: "bp-time", trail
  *  dim in a spoken script, the way creator.js dims them; a silent script dims nothing, because
  *  there the direction IS the script. The time goes last in the first row (or first, if the
  *  creator's landed grid leads with it), so a second row leaves that grid cell empty. */
-function agBeatHtml(t, rows, spoken, timed, edit, orig = null) {
+function agBeatHtml(t, rows, spoken, timed, edit, orig = null, tail = "") {
   /* EDITABLE IN PLACE (owner, 2026-09-16), creator.js beatRow's model: with `edit` ({ ag, id, mode,
      i }) the value span IS the input. data-ag / data-agid say which script it belongs to, data-agmode
      how its stored beat is parsed, data-beat and data-field which part of which beat; agWireInlineEdit
@@ -3773,10 +3773,10 @@ function agBeatHtml(t, rows, spoken, timed, edit, orig = null) {
     + ` aria-label="Play the original from ${cbClock(orig.s)} to ${cbClock(orig.e)}"`
     + ` title="Play this moment of the original (${cbClock(orig.s)}–${cbClock(orig.e)})">`
     + `${CB_PLAY_SVG}<span>orig ${cbClock(orig.s)}</span></button>` : "";
-  if (!timed) return `<li class="bp-beat"${os}>${pairs.join("")}${chip}</li>`;
+  if (!timed) return `<li class="bp-beat"${os}>${pairs.join("")}${chip}${tail}</li>`;
   const time = t ? `<span class="${AG_TIMED.time}">${escapeHtml(t)}</span>` : "";
   const first = AG_TIMED.trailing ? pairs[0] + time : time + pairs[0];
-  return `<li class="${AG_TIMED.li}"${os}>${first}${chip}${pairs.slice(1).join("")}</li>`;
+  return `<li class="${AG_TIMED.li}"${os}>${first}${chip}${pairs.slice(1).join("")}${tail}</li>`;
 }
 /** The list: the creator's timed list when the beats carry times, its brand-script list when not. */
 function agBeatsHtml(items, timed) {
@@ -5822,20 +5822,33 @@ const CB_FULL = CB_LIGHT + ",campaign_id,position,source_url,error_detail,regen_
    never blank a campaign brief. NOT called `mode` — select=mode resolves to Postgres's mode(). */
 let CB_COLS = null;
 const CB_NEW_COLS = ",script_mode,staff_needs";
-const cbFullSel = () => CB_FULL + (CB_COLS === false ? "" : CB_NEW_COLS);
+/* NOTES ON BEATS (supabase/beat_notes.sql; plan ~/.claude/plans/agency-beat-notes.md) are their own column with their
+   own flag, probed beside CB_COLS and never instead of it: a database with one migration and not the other keeps
+   whichever it has. null = not known yet, true = installed, false = not installed. */
+let CB_NOTES = null;
+const cbFullSel = () => CB_FULL + (CB_COLS === false ? "" : CB_NEW_COLS) + (CB_NOTES === false ? "" : ",beat_notes");
 function cbColsMissing(ex) {
   const m = String(ex?.message || ex || "");
   return /\b(42703|PGRST204)\b/.test(m) && /script_mode|staff_needs/.test(m);
 }
+function cbNotesMissing(ex) {
+  const m = String(ex?.message || ex || "");
+  return /\b(42703|PGRST204)\b/.test(m) && /beat_notes/.test(m);
+}
 /** sbFetch a formats read with CB_FULL (+ the new columns while they may exist). pathFor(sel) -> path. */
 async function cbSelFull(pathFor) {
-  try {
-    const rows = await sbFetch(pathFor(cbFullSel()));
-    if (CB_COLS === null) CB_COLS = true;
-    return rows;
-  } catch (ex) {
-    if (CB_COLS !== false && cbColsMissing(ex)) { CB_COLS = false; return sbFetch(pathFor(cbFullSel())); }
-    throw ex;
+  for (let tries = 0; ; tries++) {
+    try {
+      const rows = await sbFetch(pathFor(cbFullSel()));
+      if (CB_COLS === null) CB_COLS = true;
+      if (CB_NOTES === null) CB_NOTES = true;
+      return rows;
+    } catch (ex) {
+      // Each missing migration drops its own columns once; a database missing both answers twice.
+      if (tries < 2 && CB_COLS !== false && cbColsMissing(ex)) { CB_COLS = false; continue; }
+      if (tries < 2 && CB_NOTES !== false && cbNotesMissing(ex)) { CB_NOTES = false; continue; }
+      throw ex;
+    }
   }
 }
 /** "yes" | "missing" | "error" — asked only before a write that needs the new columns. */
@@ -6744,7 +6757,8 @@ function agencySendDoc(campaign, formats, client, prev) {
         audio: v.audio || "",
         hook: v.hook || "",
         delivery: v.delivery || "",
-        beats: (v.beats || []).map((b) => ({ t: b.t || "", say: b.say || "", do: b.do || "", show: b.show || "" })),
+        // + `note` on a beat that has one (cbBeatsWithNotes): the note staff wrote for creators there.
+        beats: cbBeatsWithNotes(f, (b) => ({ t: b.t || "", say: b.say || "", do: b.do || "", show: b.show || "" })),
         cta: v.cta || "",
         caption: v.caption || "",
         note: v.creator_note || "",
@@ -7402,9 +7416,12 @@ function bfPutObject(path, file, mime, onPct) {
     creator never sees a row whose bytes are missing; a failed row insert
     deletes the bytes it would have pointed at. Every repaint rebuilds #bf-msg,
     so refusals and failures are gathered into one sticky message at the end. */
-async function bfUpload(kind, sourceId, files, repaint) {
+async function bfUpload(kind, sourceId, files, repaint, { at = null, say: sayHere = null } = {}) {
+  /* `at` ({ formatId, beat, sig }): the files were chosen on a beat (bfbWire), so each one is also put on that
+     beat (bfPlace) the moment its row exists, and `sayHere` says trouble under that script instead of in the
+     files block. Without them, unchanged. */
   const key = agSentKey(kind, sourceId);
-  const say = (text, tone, sticky) => cbMsg(document.getElementById("bf-msg"), text, tone, sticky);
+  const say = sayHere || ((text, tone, sticky) => cbMsg(document.getElementById("bf-msg"), text, tone, sticky));
   if (!files.length) return;
   const entry = BF_FILES.get(key);
   if (!entry || entry.error) { say("Wait for the file list to load, then try again.", "bad", true); return; }
@@ -7423,25 +7440,29 @@ async function bfUpload(kind, sourceId, files, repaint) {
     if (total + file.size > BF_MAX_TOTAL) { problems.push(`${file.name}: this brief's files would pass ${bfSize(BF_MAX_TOTAL)}`); continue; }
     count += 1;
     total += file.size;
-    queue.push({ tmp: newId(), name: file.name, size: file.size, pct: 0, file, mime });
+    queue.push({ tmp: newId(), name: file.name, size: file.size, pct: 0, file, mime, at });
   }
   if (!queue.length) { say(`Not added — ${problems.join("; ")}.`, "bad", true); return; }
   BF_UP.set(key, [...inflight, ...queue]);
   repaint();
   if (problems.length) say(`Not added — ${problems.join("; ")}.`, "bad", true);
   let added = 0;
+  const unplaced = [];                             // names that reached the files but not their beat
+  let placeErr = null;
   for (const u of queue) {
     const path = `${kind}/${bfSafe(String(sourceId))}/${bfSafe(newId())}/${bfSafe(u.name)}`;
     try {
       await sbFreshToken();
       await bfPutObject(path, u.file, u.mime, (pct) => {
         u.pct = pct;
-        const el = document.querySelector(`[data-bf-up="${u.tmp}"] .bf-pct`);
-        if (el) el.textContent = `uploading · ${pct}%`;
+        // the files block's row, and the beat's own chip when it was chosen on a beat (bfbRowHtml)
+        document.querySelectorAll(`[data-bf-up="${u.tmp}"] .bf-pct`).forEach((el) => { el.textContent = `uploading · ${pct}%`; });
       });
+      let made = null;
       try {
-        await sbFetch("/rest/v1/lynxr_brief_files", {
+        made = await sbFetch("/rest/v1/lynxr_brief_files?select=id", {
           method: "POST",
+          headers: { Prefer: "return=representation" },
           body: JSON.stringify({ source_kind: kind, source_id: String(sourceId), path,
             name: u.name.slice(0, 200), size: u.size, mime: u.mime }),
         });
@@ -7450,6 +7471,17 @@ async function bfUpload(kind, sourceId, files, repaint) {
         throw ex;
       }
       added += 1;
+      if (u.at) {                                      // chosen on a beat: onto that beat, same step
+        const fileId = Array.isArray(made) ? made[0]?.id : null;
+        try {
+          if (!fileId) throw new Error("0 the new file's id did not come back");
+          await bfPlace(kind, sourceId, fileId, u.at.formatId, u.at.beat, u.at.sig);
+        } catch (ex) {
+          if (cbError(ex) === "missing") { const pl = BF_PLACES.get(key); if (pl) pl.error = "missing"; }
+          unplaced.push(u.name);
+          placeErr = ex;
+        }
+      }
     } catch (ex) {
       problems.push(`${u.name}: ${bfErrorSentence(ex, "upload")}`);
     }
@@ -7457,6 +7489,13 @@ async function bfUpload(kind, sourceId, files, repaint) {
   }
   await bfEnsure(kind, sourceId, null, true);
   repaint();
+  if (at) {          // chosen on a beat: its chip on the beat is the "done", so only trouble is said
+    const why = [problems.length ? `Not added — ${problems.join("; ")}.` : "",
+      unplaced.length ? `${unplaced.join(", ")} went into the brief's files but not onto this beat. ${bfbErrorSentence(placeErr)}` : ""]
+      .filter(Boolean).join(" ");
+    if (why) say(why, "bad", true);
+    return;
+  }
   if (problems.length) {
     say(`${added ? `Added ${cbPlural(added, "file", "files")}. ` : ""}Not added — ${problems.join("; ")}.`, "bad", true);
   } else {
@@ -7849,9 +7888,12 @@ function bfbNoteHtml(kind, sourceId) {
 }
 
 /** The row under one beat: a chip per file on it (a flagged one says "beat changed" and offers Keep
-    here), then "+ Add file", which opens IN PLACE — no popover to position — into a button per file
-    of the brief that is not on this beat yet. */
-function bfbRowHtml(i, entries, files) {
+    here), a chip per file still uploading onto this beat (`ups`, from BF_UP), then "+ Add file". With
+    files of the brief that are not on this beat yet it opens IN PLACE — no popover to position — into a
+    button per file and, last, "Upload a new file"; with none it is itself the upload (a label round a
+    hidden file input, so one press opens the picker). Either upload lands in the brief's files AND on
+    this beat (bfbWire → bfUpload with `at`). */
+function bfbRowHtml(i, entries, files, ups = []) {
   const on = new Set(entries.map((e) => e.file.id));
   const chips = entries.map(({ p, file, stale }) => `<span class="bfb-chip${stale ? " bfb-stale" : ""}">
       <span class="bfb-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
@@ -7861,33 +7903,40 @@ function bfbRowHtml(i, entries, files) {
       <button type="button" class="bfb-x" data-pid="${escapeHtml(p.id)}"
         aria-label="Take ${escapeHtml(file.name)} off beat ${i + 1}" title="Take off this beat">${CB_X_SVG}</button>
     </span>`).join("");
+  const busy = ups.map((u) => `<span class="bfb-chip bfb-busy" data-bf-up="${escapeHtml(u.tmp)}">
+      <span class="bfb-name" title="${escapeHtml(u.name)}">${escapeHtml(u.name)}</span>
+      <span class="bf-pct">uploading · ${u.pct}%</span>
+    </span>`).join("");
+  const input = `<input type="file" class="sr-only" multiple accept="${BF_ACCEPT}">`;
   const left = files.filter((f) => !on.has(f.id));
   const add = left.length ? `<details class="bfb-add">
       <summary class="bfb-sum"><span aria-hidden="true">+</span> Add file<span class="sr-only"> to beat ${i + 1}</span></summary>
       <div class="bfb-menu" role="group" aria-label="Files you can put on beat ${i + 1}">${left.map((f) =>
-        `<button type="button" class="bfb-pick" data-file="${escapeHtml(f.id)}" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</button>`).join("")}</div>
-    </details>` : "";
-  return `<div class="bfb" data-bfb-beat="${i}">${chips}${add}</div>`;
+        `<button type="button" class="bfb-pick" data-file="${escapeHtml(f.id)}" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</button>`).join("")}
+        <label class="bfb-pick bfb-up">Upload a new file<span class="sr-only"> to beat ${i + 1}</span>${input}</label></div>
+    </details>`
+    : `<label class="bfb-up bfb-up-solo"><span aria-hidden="true">+</span> Add file<span class="sr-only"> to beat ${i + 1} (upload)</span>${input}</label>`;
+  return `<div class="bfb" data-bfb-beat="${i}">${chips}${busy}${add}</div>`;
 }
 
 /** Puts focus back into a beat's rebuilt row: its + Add file, else its last button. */
 function bfbFocus(scope, beat) {
   const row = [...scope.querySelectorAll("li.bp-beat > .bfb")].find((r) => Number(r.dataset.bfbBeat) === beat);
-  const el = row?.querySelector(".bfb-sum") || [...(row?.querySelectorAll("button") || [])].pop();
+  const el = row?.querySelector(".bfb-sum, .bfb-up-solo > input") || [...(row?.querySelectorAll("button") || [])].pop();
   el?.focus({ preventScroll: true });
 }
 
 /** Draws the file row under every beat of this brief that is on screen (only those under `root` when
     given), replacing the rows drawn before. Nothing else in a card is touched: a line being typed,
     the pencil form, a playing clip. Draws nothing until the file list and the placements have both
-    loaded, when the brief has no files, or while placements are not installed (the files block says
+    loaded, or while placements are not installed (the files block says
     so). Beats are found by their editable lines' data-beat, which is the index into the beats. */
 function bfbPaint(kind, sourceId, root = document) {
   if ((kind === "campaign" ? CAMPAIGN_VIEW : BRIEF_VIEW)?.id !== sourceId) return;
   const key = agSentKey(kind, sourceId);
   const files = BF_FILES.get(key);
   const pl = BF_PLACES.get(key);
-  const ready = !!files && !files.error && files.rows.length > 0 && !!pl && !pl.error;
+  const ready = !!files && !files.error && !!pl && !pl.error;   // no files yet: + Add file still uploads
   const formats = bfbFormats(kind, sourceId);
   const scopes = [];
   if (kind === "campaign") {
@@ -7910,6 +7959,7 @@ function bfbPaint(kind, sourceId, root = document) {
     if (!ready || !fmt || !fmt.beats || !fmt.beats.length) continue;
     const sigs = fmt.beats.map(bfBeatSig);
     const fileById = new Map(files.rows.map((r) => [r.id, r]));
+    const ups = (BF_UP.get(key) || []).filter((u) => u.at && String(u.at.formatId) === String(fmt.id));   // chosen on one of its beats
     const at = new Map();                         // beat index -> [{ p, file, stale }]
     for (const p of pl.rows) {
       if (p.format_id !== fmt.id || !fileById.has(p.file_id)) continue;
@@ -7925,7 +7975,7 @@ function bfbPaint(kind, sourceId, root = document) {
     scope.querySelectorAll("li.bp-beat").forEach((li) => {
       const i = Number(li.querySelector('[data-edit="beat"][data-beat]')?.dataset.beat);
       if (!Number.isInteger(i) || i < 0 || i >= sigs.length) return;
-      li.insertAdjacentHTML("beforeend", bfbRowHtml(i, at.get(i) || [], files.rows));
+      li.insertAdjacentHTML("beforeend", bfbRowHtml(i, at.get(i) || [], files.rows, ups.filter((u) => u.at.beat === i)));
       bfbWire(li.lastElementChild, kind, sourceId, fmt.id, i, sigs[i]);
     });
     if (back != null) bfbFocus(scope, back);
@@ -7970,7 +8020,249 @@ function bfbWire(row, kind, sourceId, formatId, i, sig) {
     const p = BF_PLACES.get(key)?.rows.find((r) => r.id === btn.dataset.pid);
     if (p) await bfKeep(p, i, sig);
   })));
+  /* UPLOAD FROM THE BEAT (owner, 2026-10-11: "I could upload files ... specific to that section of the script"):
+     into the brief's files AND onto this beat in one step (bfUpload with `at`). It shows as a chip with its
+     percentage on this beat while it goes; only trouble is said, under the script. */
+  row.querySelectorAll(".bfb-up input[type=file]").forEach((inp) => inp.addEventListener("change", () => {
+    const picked = [...inp.files];
+    inp.value = "";
+    if (!picked.length) return;
+    bfbMsg(li, "");
+    bfUpload(kind, sourceId, picked, () => bfRepaint(kind, sourceId),
+      { at: { formatId, beat: i, sig }, say: (text) => bfbMsg(li, text) });
+  }));
 }
+
+// ---------- Notes on beats (owner, 2026-10-11; plan ~/.claude/plans/agency-beat-notes.md) ----------
+// "Whenever I edit the briefs can you make notes for each of the beats so that I could copy, or I could upload
+// files or write down something that is specific to that section of the script?" A note is free text staff write
+// on one beat in the format editor: a prompt to paste, a caption, a link. Creators get it under that beat with a
+// Copy button (creator.js lynxBeatNoteHtml), and the PDF prints it under the beat.
+// STORED IN lynxr_campaign_formats.beat_notes (supabase/beat_notes.sql), NOT inside `edited`: every regenerate moves
+// `edited` into script_prev (pipeline/process_campaigns.py, finalize "done"), which is how the agency's own needs
+// used to vanish (supabase/campaign_mode_needs.sql). Nothing but this page writes the column. One entry per note,
+// keys in jsonb's own order so a round trip compares equal:
+//   { beat: 0-based index when written, orig: that beat's "8-12s" or "", sigs: up to BF_MAX_SIGS bfBeatSig
+//     fingerprints of its words (newest last), text }
+// WHERE A NOTE IS DRAWN (cbNotesView): the beat whose words it was written on (bfResolve: its own index, else the
+// nearest beat that reads the same); else, FLAGGED, the beat that recreates the same moment of the original (most
+// overlap of `orig`); else, flagged, the beat at its old index (the last beat when there are fewer). A regenerate,
+// a revert or a restore never drops a note: at worst it is flagged "beat changed" on its best guess, and Keep here
+// (or saving the editor) settles it. Creators and the PDF get each note on the beat it is drawn on, flagged or not:
+// what staff see is what goes out. A note goes with its beat when that beat is removed.
+const CB_NOTE_MAX = 4000;   // characters in one note; Save refuses more (no maxlength, so a paste is never cut short)
+const CB_NOTE_FOLD = 280;   // a longer note, or one over 5 lines, shows its first lines and Show all (= LYNX_NOTE_FOLD)
+
+/** Where each stored note is drawn now: an array as long as the format's beats, each entry null or
+    { text, sigs, flagged, ks }. ks are the indices into f.beat_notes drawn there; two notes that land on one beat
+    show as one, a blank line between. */
+function cbNotesView(f) {
+  const beats = cbView(f).beats || [];
+  const out = beats.map(() => null);
+  const notes = Array.isArray(f?.beat_notes) ? f.beat_notes : [];
+  if (!beats.length || !notes.length) return out;
+  const sigs = beats.map(bfBeatSig);
+  notes.forEach((n, k) => {
+    const text = typeof n?.text === "string" ? n.text.trim() : "";
+    if (!text) return;
+    let at = bfResolve(n, sigs);
+    const flagged = at < 0;
+    if (flagged) at = cbNoteByOrig(n, beats);
+    if (at < 0) at = Math.min(Math.max(0, Number(n.beat) || 0), beats.length - 1);
+    const had = Array.isArray(n.sigs) ? n.sigs : [];
+    const cur = out[at];
+    if (!cur) { out[at] = { text, sigs: [...had], flagged, ks: [k] }; return; }
+    cur.text += "\n\n" + text;
+    cur.flagged = cur.flagged || flagged;
+    cur.ks.push(k);
+    cur.sigs = [...new Set([...cur.sigs, ...had])].slice(-BF_MAX_SIGS);
+  });
+  return out;
+}
+
+/** The beat that recreates the same moment of the original as note n's beat did: the most overlap between the
+    note's `orig` and a beat's, nearest its old index on a tie. -1 when either side has no readable `orig`. */
+function cbNoteByOrig(n, beats) {
+  const o = cbOrigParse(n?.orig);
+  if (!o) return -1;
+  const at = Math.max(0, Number(n?.beat) || 0);
+  let best = -1, most = 0;
+  beats.forEach((b, j) => {
+    const p = cbOrigParse(b?.orig);
+    if (!p) return;
+    const ov = Math.min(o.e, p.e) - Math.max(o.s, p.s);
+    if (ov <= 0) return;
+    if (ov > most + 1e-6 || (Math.abs(ov - most) <= 1e-6 && Math.abs(j - at) < Math.abs(best - at))) { best = j; most = ov; }
+  });
+  return best;
+}
+
+/** A sent format's beats, shaped by `shape`, with each drawn note on its beat as `note`. Only a beat that has a note
+    gains the key, so a doc with no notes is exactly what it was and agDocSig never calls an old snapshot edited. */
+function cbBeatsWithNotes(f, shape) {
+  const notes = cbNotesView(f);
+  return (cbView(f).beats || []).map((b, i) => (notes[i] ? { ...shape(b), note: notes[i].text } : shape(b)));
+}
+
+/** Save refuses a note it cannot keep: one on a beat with nothing to say, do or show (cbReadEditor drops that beat,
+    and the note would go with it), or one over CB_NOTE_MAX. { el, text } or null. */
+function cbEditorNoteProblem(form) {
+  const fields = [...form.querySelectorAll(".cb-beat-field")];
+  for (let k = 0; k < fields.length; k++) {
+    const fs = fields[k];
+    const el = fs.querySelector('[data-bt="note"]');
+    const note = (el?.value || "").trim();
+    if (!note) continue;
+    const g = (x) => (fs.querySelector(`[data-bt="${x}"]`)?.value || "").trim();
+    if (!g("say") && !g("do") && !g("show")) {
+      return { el, text: `Beat ${k + 1}: a note needs something to say, do or show on the same beat. Add a line there, or move the note to another beat.` };
+    }
+    if (note.length > CB_NOTE_MAX) {
+      return { el, text: `Beat ${k + 1}: the note is ${note.length.toLocaleString("en-US")} characters. A note holds ${CB_NOTE_MAX.toLocaleString("en-US")} at most.` };
+    }
+  }
+  return null;
+}
+
+/** The open editor's notes, as beat_notes. Beats are counted exactly as cbReadEditor keeps them (one with no say, do
+    or show is dropped and not counted), so `beat` is the index being saved. A note keeps the fingerprints it had (its
+    fieldset's data-sigs) and gains its beat's words as they are saved now. */
+function cbNotesFromEditor(form) {
+  const out = [];
+  let k = 0;
+  for (const fs of form.querySelectorAll(".cb-beat-field")) {
+    const g = (x) => (fs.querySelector(`[data-bt="${x}"]`)?.value || "").trim();
+    const words = { say: g("say"), do: g("do"), show: g("show") };
+    if (!words.say && !words.do && !words.show) continue;
+    const text = g("note");
+    if (text) {
+      let had = [];
+      try { had = JSON.parse(fs.dataset.sigs || "[]"); } catch { had = []; }
+      const sig = bfBeatSig(words);
+      out.push({ beat: k, orig: cbOrigCanon(g("orig")),
+        sigs: [...(Array.isArray(had) ? had : []).filter((s) => s !== sig), sig].slice(-BF_MAX_SIGS), text });
+    }
+    k += 1;
+  }
+  return out;
+}
+
+/** An in-place line edit on a finished card (agWireInlineEdit) rewrites one beat's words, or removes the beat when
+    every line of it is cleared. The notes follow, so a reworded beat's note is not flagged "beat changed": a note
+    drawn unflagged on a beat whose words changed gains the new fingerprint, and a note drawn on a removed beat goes
+    with it. Flagged notes are left as they are. null = nothing to write. */
+function cbNotesAfterLineEdit(f, next) {
+  const notes = Array.isArray(f?.beat_notes) ? f.beat_notes : [];
+  if (!notes.length) return null;
+  const prev = cbView(f).beats || [];
+  const view = cbNotesView(f);
+  const ps = prev.map(bfBeatSig), ns = next.map(bfBeatSig);
+  const out = notes.map((n) => ({ ...n }));
+  const drop = new Set();
+  if (ns.length === ps.length) {
+    for (let j = 0; j < ps.length; j++) {
+      if (ps[j] === ns[j] || !view[j] || view[j].flagged) continue;
+      for (const k of view[j].ks) {
+        const had = Array.isArray(out[k].sigs) ? out[k].sigs : [];
+        out[k] = { ...out[k], beat: j, sigs: [...had.filter((s) => s !== ns[j]), ns[j]].slice(-BF_MAX_SIGS) };
+      }
+    }
+  } else if (ns.length === ps.length - 1) {
+    let r = ns.findIndex((s, j) => s !== ps[j]);
+    if (r < 0) r = ns.length;
+    (view[r]?.ks || []).forEach((k) => drop.add(k));
+  } else {
+    return null;
+  }
+  return out.filter((_, k) => !drop.has(k));
+}
+
+/** A drawn note on a finished card: the same box creators get (app.css .bnote), labelled for staff, and when flagged
+    "beat changed" with Keep here. The text keeps its casing and line breaks. */
+function cbBeatNoteHtml(n, i) {
+  if (!n) return "";
+  const long = n.text.length > CB_NOTE_FOLD || n.text.split("\n").length > 5;
+  return `<div class="bnote${n.flagged ? " bnote-flagged" : ""}" data-bnote-beat="${i}">
+      <div class="bnote-head"><span class="bnote-lbl">Note for creators</span>${n.flagged
+        ? `<span class="bnote-why">beat changed</span><button type="button" class="bnote-keep"
+            aria-label="Keep this note on beat ${i + 1}" title="It was written on another version of this beat">Keep here</button>` : ""}
+        <button type="button" class="bnote-copy" aria-label="Copy the note on beat ${i + 1}">Copy</button></div>
+      <p class="bnote-text${long ? " is-long" : ""}">${escapeHtml(n.text)}</p>
+      ${long ? `<button type="button" class="bnote-more" aria-expanded="false">Show all</button>` : ""}
+      <span class="sr-only bnote-said" role="status" aria-live="polite"></span>
+    </div>`;
+}
+
+/** Keep here: a flagged note now means this beat as it reads today (older fingerprints kept, newest last). Only this
+    note's box changes on screen, nothing repaints, so a line being edited elsewhere on the card stays as typed. */
+async function cbNoteKeep(btn) {
+  const box = btn.closest(".bnote");
+  const card = btn.closest(".cb-format[data-fid]");
+  const campaignId = CAMPAIGN_VIEW?.id;
+  const f = card && CB_CACHE.get(campaignId)?.formats.find((x) => x.id === card.dataset.fid);
+  const i = Number(box?.dataset.bnoteBeat);
+  if (!f || !Number.isInteger(i)) return;
+  const beats = cbView(f).beats || [];
+  const n = cbNotesView(f)[i];
+  if (!n || !beats[i]) return;
+  const sig = bfBeatSig(beats[i]);
+  const next = (Array.isArray(f.beat_notes) ? f.beat_notes : []).filter((_, k) => !n.ks.includes(k));
+  next.push({ beat: i, orig: cbOrigCanon(beats[i].orig || ""),
+    sigs: [...n.sigs.filter((s) => s !== sig), sig].slice(-BF_MAX_SIGS), text: n.text });
+  next.sort((a, b) => a.beat - b.beat);
+  btn.disabled = true;
+  try {
+    await cbPatchFormat(f.id, { beat_notes: next });
+    f.beat_notes = next;
+    box.classList.remove("bnote-flagged");
+    box.querySelector(".bnote-why")?.remove();
+    box.querySelector(".bnote-copy")?.focus({ preventScroll: true });
+    btn.remove();
+  } catch (ex) {
+    btn.disabled = false;
+    cbMsg(document.getElementById(`cb-fmsg-${f.id}`), cbErrorSentence(ex, "save"), "bad", true);
+  }
+}
+
+/** Copy hands over the note exactly as stored: textContent is the source text (lowercase is CSS only). On a
+    refusal the note is selected instead, so it can still be copied by hand. creator.js lynxNoteCopy is the same. */
+async function cbNoteCopy(btn) {
+  const box = btn.closest(".bnote");
+  const text = box?.querySelector(".bnote-text");
+  const said = box?.querySelector(".bnote-said");
+  if (!text || !text.textContent) return;
+  let ok = false;
+  try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text.textContent); ok = true; } } catch { /* refused */ }
+  clearTimeout(btn._noteT);
+  if (ok) {
+    btn.textContent = "Copied ✓";
+    btn.classList.add("ok");
+    if (said) said.textContent = "Copied.";
+  } else {
+    try { getSelection().selectAllChildren(text); } catch { /* nothing to select with */ }
+    btn.textContent = "Selected";
+    if (said) said.textContent = "Couldn't copy here. The note is selected, so copy it from your keyboard or menu.";
+  }
+  btn._noteT = setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("ok"); if (said) said.textContent = ""; }, ok ? 1600 : 4000);
+}
+
+/* Copy, Show all and Keep here, for every note box on the page: one listener, so a repainted card needs no wiring. */
+document.addEventListener("click", (e) => {
+  const t = e.target instanceof Element ? e.target : null;
+  const more = t?.closest(".bnote-more");
+  if (more) {
+    const text = more.closest(".bnote")?.querySelector(".bnote-text");
+    if (!text) return;
+    const open = text.classList.toggle("open");
+    more.setAttribute("aria-expanded", String(open));
+    more.textContent = open ? "Show less" : "Show all";
+    return;
+  }
+  const copy = t?.closest(".bnote-copy");
+  if (copy) { cbNoteCopy(copy); return; }
+  const keep = t?.closest(".bnote-keep");
+  if (keep && !keep.disabled) cbNoteKeep(keep);
+});
 
 // ---- Staff-action request bodies (Step 13's buttons send these verbatim) ----
 const cbRetryBody = () => ({
@@ -8006,12 +8298,14 @@ function campaignDocHtml(campaign, formats, client) {
     const setup = [["Setting", v.setting], ["Lighting", v.lighting], ["Framing", v.framing], ["Audio", v.audio]]
       .filter(([, val]) => val)
       .map(([lbl, val]) => `<p><strong>${lbl}:</strong> ${escapeHtml(val)}</p>`).join("");
-    const beats = (v.beats || []).map((b) => {
+    const notes = cbNotesView(f);                // a beat's note prints under its lines (plan agency-beat-notes)
+    const beats = (v.beats || []).map((b, bi) => {
       const parts = [];
       if (b.say) parts.push(`<strong>Say:</strong> “${escapeHtml(b.say)}”`);
       if (b.do) parts.push(`<strong>Do:</strong> ${escapeHtml(b.do)}`);
       if (b.show) parts.push(`<strong>On screen:</strong> “${escapeHtml(b.show)}”`);
-      return `<li>[${escapeHtml(b.t || "")}] ${parts.join("<br>")}</li>`;
+      const note = notes[bi] ? `<p class="cb-doc-bnote"><strong>Note:</strong> ${escapeHtml(notes[bi].text)}</p>` : "";
+      return `<li>[${escapeHtml(b.t || "")}] ${parts.join("<br>")}${note}</li>`;
     }).join("");
     const href = safeUrl(f.source_url);
     // The original video sits directly under the title, kept on the same page
@@ -8891,9 +9185,10 @@ function cbDetailHtml(f) {
   const timed = (v.beats || []).some((b) => b.t);
   const spoken = (v.beats || []).some((b) => b.say);
   // Each line edits in place (cbBindCard); the beats are fields already, so nothing is parsed.
+  const notes = cbNotesView(f);                  // a note on a beat draws under its lines (plan agency-beat-notes)
   const beats = (v.beats || []).map((b, i) => agBeatHtml(b.t || "",
     [["SAY", "say", b.say], ["DO", "do", b.do], ["ON SCREEN", "onscreen", b.show]], spoken, timed,
-    { ag: "cb", id: f.id, mode: "fields", i }, cbOrigOf(b, f))).join("");
+    { ag: "cb", id: f.id, mode: "fields", i }, cbOrigOf(b, f), cbBeatNoteHtml(notes[i], i))).join("");
   const why = [f.analysis?.format?.why_it_works, f.analysis?.production?.hook_mechanism,
     f.analysis?.production?.repeatable_because].filter(Boolean);
   const internal = (v.strategy_note || f.internal_note || why.length) ? `
@@ -8922,12 +9217,12 @@ function cbDetailHtml(f) {
   </div>`;
 }
 
-function cbBeatFieldHtml(b, i) {
+function cbBeatFieldHtml(b, i, note = null) {
   const area = (k, label) => `<label class="ce-field"><span class="lbl">${label}</span>
     <textarea class="grow" rows="1" data-bt="${k}">${escapeHtml(b[k] || "")}</textarea></label>`;
   /* "+ add beat here" sits on this beat's top edge and inserts a new beat ABOVE it (owner, 2026-10-04:
      "allow me to add a beat in-between two beats"). With "Add beat" at the end, that covers every gap. */
-  return `<fieldset class="cb-beat-field">
+  return `<fieldset class="cb-beat-field"${note && note.sigs.length ? ` data-sigs="${escapeHtml(JSON.stringify(note.sigs))}"` : ""}>
     <legend class="cb-lbl">Beat <span class="cb-beat-n">${i + 1}</span></legend>
     <button type="button" class="ghost cb-small cb-beat-insert" title="Add a beat here"
       aria-label="Add a beat above beat ${i + 1}">+ add beat here</button>
@@ -8943,12 +9238,15 @@ function cbBeatFieldHtml(b, i) {
       </div>
       ${area("say", "Say")}${area("do", "Do")}${area("show", "On screen")}
     </div>
+    ${CB_NOTES === true ? `<label class="ce-field cb-bnote-field"><span class="lbl">Note for creators <span class="cb-aud">(they can copy it · up to ${CB_NOTE_MAX.toLocaleString("en-US")} characters)</span></span>
+      <textarea class="grow" rows="1" data-bt="note" placeholder="A prompt, caption or link for this beat">${escapeHtml(note?.text || "")}</textarea></label>` : ""}
     <button type="button" class="ghost cb-small cb-beat-remove">Remove beat</button>
   </fieldset>`;
 }
 
 function cbEditorHtml(f) {
   const v = cbView(f);
+  const notes = cbNotesView(f);
   const area = (k, label, val, rows = 2, wide = true, aud = "") => `
     <label class="ce-field${wide ? " ce-wide" : ""}"><span class="lbl">${label}${aud ? ` <span class="cb-aud">(${aud})</span>` : ""}</span>
       <textarea class="grow" rows="${rows}" data-ed="${k}">${escapeHtml(val || "")}</textarea></label>`;
@@ -8966,7 +9264,10 @@ function cbEditorHtml(f) {
       ${area("audio", "Audio", v.audio, 2, false)}
     </div>
     <div class="cb-lbl">Script beats</div>
-    <div class="cb-beat-list">${(v.beats || []).map(cbBeatFieldHtml).join("")}</div>
+    <p class="note cb-beats-hint">${CB_NOTES === true
+      ? "Each beat can carry a note for creators: a prompt, caption or link they copy from that beat. To put a file on a beat, save, then press + add file under it."
+      : "Notes on beats need one more update: run <code>supabase/beat_notes.sql</code> in the Supabase SQL editor, then reload."}</p>
+    <div class="cb-beat-list">${(v.beats || []).map((b, i) => cbBeatFieldHtml(b, i, notes[i])).join("")}</div>
     <button type="button" class="ghost cb-small cb-beat-add">Add beat</button>
     <div class="ce-grid cb-ed-tail">
       ${area("cta", "CTA", v.cta)}
@@ -9455,8 +9756,10 @@ function cbBindCard(card, campaignId) {
       const f = get();
       if (!f) throw new Error("gone");
       const edited = { ...(f.edited || {}), beats };
-      await cbPatchFormat(fid, { edited });
+      const notes = CB_NOTES === true ? cbNotesAfterLineEdit(f, beats) : null;   // notes follow their beat
+      await cbPatchFormat(fid, notes ? { edited, beat_notes: notes } : { edited });
       f.edited = edited;
+      if (notes) f.beat_notes = notes;
     },
     readTop: (field) => { const f = get(); return f ? String(cbView(f)[field] ?? "") : null; },
     writeTop: async (field, val) => {
@@ -9649,7 +9952,16 @@ function cbBindCard(card, campaignId) {
         badOrig.focus();
         return;
       }
+      const noteBad = CB_NOTES === true ? cbEditorNoteProblem(form) : null;
+      if (noteBad) {
+        markInvalid(noteBad.el, `cb-fmsg-${fid}`);
+        cbMsg(fmsg(), noteBad.text, "bad", true);
+        noteBad.el.focus();
+        return;
+      }
       const body = cbReadEditor(form);
+      const notesNow = CB_NOTES === true ? cbNotesFromEditor(form) : null;
+      const notesChanged = !!notesNow && agDocCanon(notesNow) !== agDocCanon(Array.isArray(f.beat_notes) ? f.beat_notes : []);
       // Nothing changed: close without writing, so an unchanged Save does not
       // mark the format "edited".
       const v = cbView(f);
@@ -9661,14 +9973,16 @@ function cbBindCard(card, campaignId) {
           : String(v[k] || "").trim()));
       const ownNow = (Array.isArray(f.staff_needs) ? f.staff_needs : []).map((s) => String(s).trim()).filter(Boolean);
       const sameOwn = !("staff_needs" in body) || JSON.stringify(body.staff_needs) === JSON.stringify(ownNow);
-      if (same && sameOwn && body.internal_note === (f.internal_note || "").trim()) { close(".cb-edit"); return; }
+      if (same && sameOwn && body.internal_note === (f.internal_note || "").trim() && !notesChanged) { close(".cb-edit"); return; }
       if (same) delete body.edited;   // only the agency's own needs or the internal note changed: not "edited"
+      if (notesChanged) body.beat_notes = notesNow;   // notes alone never mark the format "edited"
       const save = form.querySelector(".cb-ed-save");
       save.disabled = true;
       try {
         await cbPatchFormat(fid, body);
         if ("edited" in body) f.edited = body.edited;
         if ("staff_needs" in body) f.staff_needs = body.staff_needs;
+        if ("beat_notes" in body) f.beat_notes = body.beat_notes;
         f.internal_note = body.internal_note;
         close(".cb-edit");
         cbMsg(fmsg(), "Saved.", "good");
@@ -9841,7 +10155,7 @@ function cbWireOriginal(card) {
       if (o) playRange(o);
       return;
     }
-    if (ed || e.target.closest("button, a, input, textarea, .ag-original, .bfb")) return;
+    if (ed || e.target.closest("button, a, input, textarea, .ag-original, .bfb, .bnote")) return;
     if (wasFocused) return;                                   // refining a selection must not yank the video
     const li = e.target.closest("li.bp-beat[data-os]");
     const sel = window.getSelection();
@@ -10089,7 +10403,7 @@ async function cbCopyFormats(targetId, ids, { startPos = 0, room = CB_MAX_FORMAT
   const skipped = { here: 0, full: 0, notReady: 0 };
   if (!ids.length) return { added: [], pairs: [], skipped };
   const src = await sbFetch(`/rest/v1/lynxr_campaign_formats?id=in.(${ids.join(",")})&status=eq.done`
-    + `&select=${CB_COPY_COLS + (CB_COLS === true ? CB_NEW_COLS : "")}&order=position.asc`);
+    + `&select=${CB_COPY_COLS + (CB_COLS === true ? CB_NEW_COLS : "") + (CB_NOTES === true ? ",beat_notes" : "")}&order=position.asc`);
   skipped.notReady = ids.length - src.length;
   const seen = new Set(here);
   const take = [];
@@ -10109,6 +10423,7 @@ async function cbCopyFormats(targetId, ids, { startPos = 0, room = CB_MAX_FORMAT
     edited: f.edited ?? null, internal_note: f.internal_note || "",
     script_prev: null, regen_note: "", finished_at: now,
     ...(CB_COLS === true ? { script_mode: f.script_mode || "adapt", staff_needs: Array.isArray(f.staff_needs) ? f.staff_needs : [] } : {}),
+    ...(CB_NOTES === true ? { beat_notes: Array.isArray(f.beat_notes) ? f.beat_notes : [] } : {}),
   }));
   const made = await sbFetch("/rest/v1/lynxr_campaign_formats?select=id,position,created_at,updated_at", {
     method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(rows),

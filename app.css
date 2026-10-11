@@ -13309,3 +13309,75 @@
     body.agency #app main .cb-send-groups .ghost.cb-send-group:not(.danger) { min-height: 44px; }
     body.agency #app main .rost-brands .ghost.rost-brand-edit:not(.danger) { min-height: 44px; padding: 2px 18px; }
   }
+
+  /* ---------- NOTES ON BEATS + UPLOAD FROM A BEAT (2026-10-11) ----------
+     Plan: ~/.claude/plans/agency-beat-notes.md. .bnote is the box under a beat's lines: on the agency's finished card
+     (app.js cbBeatNoteHtml: "note for creators", and when the beat changed, a dashed edge, "beat changed" and Keep here)
+     and in the creator's brief and library copy (creator.js lynxBeatNoteHtml: "note"). A full-width row at the end of
+     the beat card on a tinted ground with its own hairline, so it never reads as one more SAY / DO line. The text is
+     content: it keeps its casing and its line breaks. A long note shows 5 lines until Show all. Copy is a quiet
+     outlined pill, never the page's primary. 44px targets on phones. No inline style anywhere (the CSP drops it). */
+  :is(.pane-body, body.agency #app main) li.bp-beat > .bnote {
+    grid-column: 1 / -1; order: 1; min-width: 0;
+    display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+    margin-top: 2px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: var(--r-inner); background: var(--surface-2);
+  }
+  body.agency #app main li.bp-beat > .bnote.bnote-flagged { border-style: dashed; border-color: var(--even-line); }
+  /* creator: a beat's file line (lynxBeatFilesHtml) comes after its note, as the agency's .bfb row does */
+  .pane-body li.bp-beat > :is(.bp-lbl-add, .lynx-bfb) { order: 2; }
+  :is(.pane-body, body.agency #app main) .bnote-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
+  :is(.pane-body, body.agency #app main) .bnote-lbl { flex: none; font-size: var(--fs-105); font-weight: 700; letter-spacing: .02em; color: var(--text-2); }
+  :is(.pane-body, body.agency #app main) .bnote-why { flex: none; font-size: var(--fs-115); color: var(--even); }
+  :is(.pane-body, body.agency #app main) .bnote-text {
+    margin: 0; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; text-transform: none;
+    font-size: var(--fs-135); line-height: 1.5; color: var(--text);
+  }
+  :is(.pane-body, body.agency #app main) .bnote-text.is-long:not(.open) {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; line-clamp: 5; overflow: hidden;
+  }
+  :is(.pane-body, body.agency #app main) .bnote :is(.bnote-copy, .bnote-keep, .bnote-more) {
+    font: inherit; font-size: var(--fs-125); font-weight: 600; color: var(--text); background: none; cursor: pointer;
+  }
+  :is(.pane-body, body.agency #app main) .bnote .bnote-copy {
+    margin-left: auto; min-height: 32px; padding: 4px 14px;
+    border: 1px solid var(--line-2); border-radius: var(--r-pill);
+  }
+  :is(.pane-body, body.agency #app main) .bnote .bnote-copy:hover { background: var(--surface); }
+  :is(.pane-body, body.agency #app main) .bnote .bnote-copy.ok { border-color: var(--text-3); }
+  /* text buttons: an underline, not a border, so a 44px phone target keeps the line under the words */
+  :is(.pane-body, body.agency #app main) .bnote :is(.bnote-keep, .bnote-more) {
+    align-self: flex-start; min-height: 28px; padding: 0 2px; border: 0; border-radius: 0;
+    text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px;
+  }
+  :is(.pane-body, body.agency #app main) .bnote :is(.bnote-keep, .bnote-more):hover { text-decoration-color: var(--text-2); }
+  :is(.pane-body, body.agency #app main) .bnote button:disabled { opacity: .45; cursor: default; }
+  @media (max-width: 560px) {
+    :is(.pane-body, body.agency #app main) .bnote :is(.bnote-copy, .bnote-keep, .bnote-more) { min-height: 44px; }
+    :is(.pane-body, body.agency #app main) .bnote .bnote-copy { padding: 4px 18px; }
+  }
+  /* the editor's field under each beat, and the one-line hint under "Script beats" */
+  .cb-bnote-field { margin: 0 0 8px; }
+  .cb-beats-hint { margin: 2px 0 10px; }
+  /* the PDF: a beat's note under its lines (.cb-doc p already keeps line breaks: pre-line) */
+  .cb-doc .cb-doc-bnote { margin: 3pt 0 0; }
+
+  /* ---- upload from a beat (app.js bfbRowHtml): "+ add file" when there is no file to pick, and "upload a new file" at
+     the end of its menu. A label round a visually hidden file input, so it is a real focus stop; the ring is drawn
+     on the label. A file still uploading shows as a chip with its percentage. ---- */
+  body.agency #app main .bfb-up { cursor: pointer; }
+  body.agency #app main .bfb-up:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  body.agency #app main .bfb-up-solo {
+    display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 0 10px;
+    border-radius: var(--r-pill); font-size: var(--fs-125); color: var(--text-3); user-select: none;
+  }
+  body.agency #app main .bfb > .bfb-up-solo:first-child { margin-left: -10px; }
+  body.agency #app main .bfb-up-solo:hover { color: var(--text); background: var(--surface-2); }
+  body.agency #app main .bfb-pick.bfb-up {
+    display: inline-flex; align-items: center; background: none; border: 1px dashed var(--line-2); text-transform: lowercase;   /* our words, not a file name */
+  }
+  body.agency #app main .bfb-chip.bfb-busy { color: var(--text-2); padding-right: 11px; }
+  body.agency #app main .bfb-busy .bf-pct { flex: none; font-size: var(--fs-115); color: var(--text-3); white-space: nowrap; }
+  @media (max-width: 560px) {
+    body.agency #app main :is(.bfb-up-solo, .bfb-pick.bfb-up, .bfb-sum) { min-height: 44px; }
+  }
