@@ -187,6 +187,8 @@ check("advise: the evidence names both medians and both group sizes",
       a["because"], "your 2 stronger videos typically had someone talking by 0.6s; your 2 quieter ones typically waited 2.5s before anyone spoke")
 check("advise: it records what it is measured against", (a["signal"], a["direction"], a["was"], a["target"], a["set_at"]),
       ("speech_start_s", "below", 2.5, 0.6, "2026-10-07T12:00:00Z"))
+s4 = C.separation(FOUR)
+check("advise: it records both group sizes (the free card states its sample from them)", (a["n_good"], a["n_poor"]), (s4["n_good"], s4["n_poor"]))
 a2 = C.advise({"signal": "speech_start_s", "direction": "below", "m_good": 1.2, "m_poor": 3.0, "n_good": 3, "n_poor": 3}, NOW)
 check("advise: a target above one second is rounded UP and says so", a2["said"], "start talking inside the first 2 seconds")
 check("advise: words in the first three seconds", C.advise({"signal": "words_first_3s", "direction": "above", "m_good": 11.0, "m_poor": 4.0, "n_good": 2, "n_poor": 2}, NOW)["said"],
@@ -242,7 +244,7 @@ check("note, 4 videos with a real gap: ready, one working_on entry, mirrored as 
                                                                                        [{"said": "start talking inside the first second"}]))
 check("note, ready: no not_yet key", "not_yet" in note, False)
 check("note, ready: the one entry has its evidence and its yardstick (no score yet: nothing has been posted since)", sorted(note["working_on"][0]),
-      ["because", "direction", "said", "set_at", "signal", "target", "was"])
+      ["because", "direction", "n_good", "n_poor", "said", "set_at", "signal", "target", "was"])
 note, mirror = run(4, gap=False)
 check("note, 4+ videos but no signal clears: learning, the exact 'no difference' sentence, working_on []",
       (note["state"], note["not_yet"], note["working_on"], mirror),

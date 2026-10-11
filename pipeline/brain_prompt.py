@@ -9,9 +9,16 @@ CONSERVATIVE BY DESIGN. There is no correction UI for the brain and there will n
 left out rather than guessed. A block with no real signal in it (no voice read, fewer than MIN_SAMPLES usable captions, no measured
 performance) is not emitted at all: the preamble alone costs ~219 tokens and would deliver nothing.
 
+WHAT THE BLOCK CARRIES is chosen by BRAIN_PROMPT_PARTS (plan ~/.claude/plans/lynxr-loop-v2.md, Part 4): a comma list of voice, performance,
+watch and coach, parsed by parse_parts(). Empty means voice, performance and watch, which is the block as it was before the coach's line
+existed. "coach" adds ONE writer instruction worked out from the creator's own coach note, and only when that note is ready, rests on at
+least COACH_WRITER_MIN_SIDE videos on each side and has been held COACH_WRITER_HOLD_DAYS days (coach_hint). The coach's tip no longer rides
+into the prompt just because the brain is on.
+
 Pure stdlib and imports nothing from this repo, on purpose. process_adaptations.py imports this module, and brain.py imports
 process_adaptations, so anything here that imported brain would be a cycle.
 """
+import math
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -36,6 +43,27 @@ MAX_SAMPLES = 4                     # captions quoted, newest first
 MIN_SAMPLES = 2                     # fewer usable than this and the voice lines are dropped
 MAX_AGE_DAYS = 30                   # a body older than this is ignored entirely
 
+PARTS = ("voice", "performance", "watch", "coach")
+DEFAULT_PARTS = ("voice", "performance", "watch")      # today's block, minus the coach's line
+COACH_WRITER_MIN_SIDE = 3           # the coach note must rest on this many videos on EACH side (the stronger and the quieter) ...
+COACH_WRITER_HOLD_DAYS = 7          # ... and the thing must have been held this long before the writer is told
+
+# What the writer is told for each thing the coach can find, keyed by the coach's signal names (coach.SIGNAL_KEYS; a test pins the two sets
+# together). {target} and {was} are one-decimal numbers, {t} is ceil(target), {n} is round(target). Every line obeys PREAMBLE's "a pattern is
+# not a licence to invent": none asks for a number, a name or a claim the script does not already have.
+WRITER_HINTS = {
+    "speech_start_s": "Make the first moment spoken: the hook is said from the very start, with no silent or picture-only opening before it. Their stronger videos had someone talking by {target}s; their quieter ones waited {was}s.",
+    "hook_end_s": "Keep the hook short enough to be said in full by about second {t}. Their stronger videos got through the opening line by {target}s; their quieter ones took until {was}s.",
+    "payoff_off_s": "Put the payoff where the format puts it, not earlier and not later.",
+    "longest_silence_s": "Give every beat something said: no stretch longer than about {target}s with nobody speaking.",
+    "repeat_count": "Say each line once: no beat says again what an earlier line said, and beat 1 does not repeat the hook.",
+    "best_line_s": "Bring the most specific line (a number or a name ALREADY in the source video or the brand facts) into the first {t} seconds. Never add a number or a name to do this.",
+    "words_first_3s": "Make the first three seconds full: about {n} words said before second three, no slow build.",
+    "duration_s": "Write it to run about {n} seconds when said at a natural pace, and size the beats to fit; never cut the format's payoff to get there. Their stronger videos ran about {target}s; their quieter ones about {was}s.",
+}
+SPOKEN_ONLY = ("speech_start_s", "hook_end_s", "longest_silence_s", "repeat_count", "best_line_s", "words_first_3s")   # a silent script has nothing to say aloud
+SILENT_NOTE = " If the delivery is silent, ignore this line."
+
 _TAGS = re.compile(r"[#@][^\s#@]+")
 _EDGE = " -–—·|,."
 _INVISIBLE = re.compile("[\u200b-\u200d\u2060\ufeff]")      # zero-width characters ride along in pasted captions and mean nothing
@@ -55,6 +83,70 @@ def enabled_for(flag_value, creator_id):
         return bool(cid) and cid in {p.strip().lower() for p in v.split(",") if p.strip()}
     except Exception:  # noqa: BLE001
         return False
+
+
+def parse_parts(v):
+    """The BRAIN_PROMPT_PARTS value as a tuple of known part names in PARTS order. Empty, None, or nothing known gives DEFAULT_PARTS.
+    Names are split on commas, stripped and lowercased; an unknown name is ignored. Never raises."""
+    try:
+        want = {x.strip().lower() for x in str(v if v is not None else "").split(",") if x.strip()}
+        got = tuple(p for p in PARTS if p in want)
+        return got or DEFAULT_PARTS
+    except Exception:  # noqa: BLE001
+        return DEFAULT_PARTS
+
+
+def _int(x):
+    return x if isinstance(x, int) and not isinstance(x, bool) else None
+
+
+def _plain(x):
+    """A finite, non-negative number (never a bool or a string), else None."""
+    if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x) or x < 0:
+        return None
+    return float(x)
+
+
+def coach_hint(c, now):
+    """(text, n) for the one writer instruction the coach's note supports, or ("", 0). `c` is {"state", "entry"}: the note's state and its
+    working_on[0], read by process_adaptations.coach_for_writer. ELIGIBLE only when the note is `ready`, the thing is one the writer has a
+    line for, it rests on COACH_WRITER_MIN_SIDE or more videos on each side, it has been held COACH_WRITER_HOLD_DAYS or more days, and every
+    number the line uses is a real, non-negative number. `n` is how many of the creator's own videos it was measured from. Never raises."""
+    try:
+        if not isinstance(c, dict) or c.get("state") != "ready" or not isinstance(c.get("entry"), dict):
+            return "", 0
+        e = c["entry"]
+        tpl = WRITER_HINTS.get(e.get("signal"))
+        if tpl is None:
+            return "", 0
+        ng, npr = _int(e.get("n_good")), _int(e.get("n_poor"))
+        if ng is None or npr is None or ng < COACH_WRITER_MIN_SIDE or npr < COACH_WRITER_MIN_SIDE:
+            return "", 0
+        try:
+            set_at = datetime.fromisoformat(str(e.get("set_at")).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return "", 0
+        if set_at.tzinfo is None:
+            set_at = set_at.replace(tzinfo=timezone.utc)
+        if now - set_at < timedelta(days=COACH_WRITER_HOLD_DAYS):
+            return "", 0
+        fill = {}
+        if "{target}" in tpl or "{t}" in tpl or "{n}" in tpl:
+            target = _plain(e.get("target"))
+            if target is None:
+                return "", 0
+            fill.update(target=f"{target:.1f}", t=math.ceil(target), n=round(target))
+        if "{was}" in tpl:
+            was = _plain(e.get("was"))
+            if was is None:
+                return "", 0
+            fill["was"] = f"{was:.1f}"
+        text = tpl.format(**fill)
+        if e.get("signal") in SPOKEN_ONLY:
+            text += SILENT_NOTE
+        return text, ng + npr
+    except Exception:  # noqa: BLE001
+        return "", 0
 
 
 def usable_samples(samples, limit=MAX_SAMPLES):
@@ -157,8 +249,9 @@ def _watch(w):
     return out
 
 
-def creator_block(body, now=None):
-    """The block for this brain body, or "" meaning emit nothing. Pure: no network, no clock but `now`."""
+def creator_block(body, now=None, parts=None):
+    """The block for this brain body, or "" meaning emit nothing. Pure: no network, no clock but `now`. `parts` is a tuple of the PARTS to
+    render (parse_parts()'s answer); None is DEFAULT_PARTS, which is the block exactly as it was before parts existed."""
     if not isinstance(body, dict) or body.get("v") != 1:
         return ""                                   # a future brain version must never half-leak into a prompt
     state = body.get("state")
@@ -167,29 +260,38 @@ def creator_block(body, now=None):
     now = now or datetime.now(timezone.utc)
     if not _fresh(body.get("built_at"), now):
         return ""
+    parts = DEFAULT_PARTS if parts is None else tuple(parts)
 
     substantive = []
-    hs = _dict(body.get("how_you_sound"))
-    read_as = hs.get("read_as")
-    if isinstance(read_as, str) and read_as.strip():
-        substantive.append(f"How they write: {read_as.strip()}.")
-    samples = usable_samples(hs.get("samples"))
-    if len(samples) >= MIN_SAMPLES:
-        substantive.append("Captions they wrote themselves — for TONE AND REGISTER ONLY. Never reuse a topic from\n"
-                           "  them and never treat anything in them as true about the creator:")
-        substantive += [f'  - "{s}"' for s in samples]
+    if "voice" in parts:
+        hs = _dict(body.get("how_you_sound"))
+        read_as = hs.get("read_as")
+        if isinstance(read_as, str) and read_as.strip():
+            substantive.append(f"How they write: {read_as.strip()}.")
+        samples = usable_samples(hs.get("samples"))
+        if len(samples) >= MIN_SAMPLES:
+            substantive.append("Captions they wrote themselves — for TONE AND REGISTER ONLY. Never reuse a topic from\n"
+                               "  them and never treat anything in them as true about the creator:")
+            substantive += [f'  - "{s}"' for s in samples]
     if state == "ready":                            # belt and braces: a stale or hand-edited learning row must not smuggle performance in
-        perf = _performance(_dict(body.get("what_works_for_you")))
+        perf = _performance(_dict(body.get("what_works_for_you"))) if "performance" in parts else []
         if perf:
             substantive.append("How their videos actually do:")
             substantive += [f"  - {p}" for p in perf]
         # IDENTITY IS LOAD-BEARING. A body with no `how_people_watch` key makes _watch() return [] and this branch add nothing, so the block is
         # byte-identical to what it was before watch time existed. That is what keeps the --dry-prompt hash test (flag on and off) passing for
         # every creator who has not connected an account. Inside the `ready` branch for the same reason as the performance bullets above.
-        watch = _watch(_dict(body.get("how_people_watch")))
+        watch = _watch(_dict(body.get("how_people_watch"))) if "watch" in parts else []
         if watch:
             substantive.append("How long people actually watch them:")
             substantive += [f"  - {x}" for x in watch]
+    # The coach's one thing, as a writer instruction. NOT the creator-readable brain mirror (that holds `said` only): the writer reads the coach
+    # note itself (process_adaptations.coach_for_writer), which arrives here as `_coach`, in memory only.
+    if "coach" in parts:
+        hint, n = coach_hint(body.get("_coach"), now)
+        if hint:
+            substantive.append(f"What their own videos show (the one thing lynxr's coach found, measured from the audio of {n} of their own posted videos and compared only with each other):")
+            substantive.append(f"  - {hint}")
     if not substantive:
         return ""
 
@@ -210,9 +312,5 @@ def creator_block(body, now=None):
         at_now = f"at {_n(goal['now'])} now" if goal.get("now") is not None else ""
         if target or at_now:
             rides.append("They are " + ("; they are ".join(x for x in (target, at_now) if x)) + ".")
-    for item in (body.get("working_on") if isinstance(body.get("working_on"), list) else [])[:1]:
-        said = str(_dict(item).get("said") or "").strip()
-        if said:
-            rides.append(f"The one thing they are working on, and it wins over everything above: {said}.")
 
     return HEAD + "\n" + PREAMBLE + "\n" + "\n".join(substantive + rides)

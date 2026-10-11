@@ -441,6 +441,10 @@ FUSE_FORMAT_ADAPT = envcfg.get("FUSE_FORMAT_ADAPT", "0") not in ("0", "", "false
 # (cofounders first, then widen). Read through the module global at call time so the eval
 # harness's --set and a test can both override it.
 BRAIN_IN_PROMPT = envcfg.get("BRAIN_IN_PROMPT", "0")
+# WHAT the brain block carries (plan ~/.claude/plans/lynxr-loop-v2.md, Part 4): a comma list of voice, performance, watch, coach. Empty =
+# voice,performance,watch (today's block). "coach" adds the coach's one thing as a writer instruction, only for a creator whose coach note is
+# ready, rests on 3+ videos on each side and has been held 7+ days. Read at call time through the module global so eval --set works.
+BRAIN_PROMPT_PARTS = envcfg.get("BRAIN_PROMPT_PARTS", "")
 
 # THE HOOK SCORER (pipeline/hook_score.py; plan ~/.claude/plans/lynxr-hook-scorer.md). It scores the OPENING of a
 # finished creator script against lynxr's own hook rules and, in rework mode, rewrites a weak opening. IT IS A CRAFT
@@ -2256,7 +2260,7 @@ def adapt_prompt(a, brand, creator, brain=None):
               f"=== FORMAT TO REUSE ===\n{json.dumps(a['format'], indent=1)}\n\n"
               f"=== ORIGINAL VIDEO (for reference — do NOT reuse its topic) ===\n{source_digest(a)}\n\n"
               f"=== BRAND ===\n{brand_digest(brand, creator)}")
-    block = brain_prompt.creator_block(brain) if brain else ""
+    block = brain_block(brain)
     return prompt + (("\n\n" + block) if block else "")
 
 
@@ -3380,7 +3384,7 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=Non
             # The creator block from lynxr_creator_brain is appended inside adapt_prompt(), behind
             # BRAIN_IN_PROMPT: see pipeline/brain_prompt.py and ~/.claude/plans/lynxr-writer-reads-brain.md.
             prompt = adapt_prompt(a, brand, creator, brain)
-            brain_chars = len(brain_prompt.creator_block(brain)) if brain else None
+            brain_chars = len(brain_block(brain)) if brain else None
             # A script with no beats is not a script, and the schema cannot
             # catch it: the model can return a perfectly valid SHELL — a real
             # fit, a real fit_reason, a hook — and then `beats: []`, `cta: ""`,
@@ -3412,7 +3416,8 @@ def fill_adaptation(a, creator, aclient, notes, timings, fuse=False, publish=Non
         a["adaptation"] = ad
         # Traceability, numbers only, never a caption. Lands in the creator's own row.
         if brain_chars is not None:
-            a["brainUsed"] = {"state": brain.get("state"), "builtAt": brain.get("built_at"), "chars": brain_chars}
+            a["brainUsed"] = {"state": brain.get("state"), "builtAt": brain.get("built_at"), "chars": brain_chars,
+                              "parts": list(brain_prompt.parse_parts(BRAIN_PROMPT_PARTS))}
         else:
             a.pop("brainUsed", None)        # a rerun without the brain must not keep a trace of one it did not use
         if thin_script(ad, a.get("format")):
@@ -4160,9 +4165,33 @@ def brain_for(key, cid):
             body = rows[0]["body"]
     except Exception as e:  # noqa: BLE001
         log.info("  brain not read (%s)", type(e).__name__)
+    if isinstance(body, dict) and "coach" in brain_prompt.parse_parts(BRAIN_PROMPT_PARTS):
+        c = coach_for_writer(key, cid)
+        if c:
+            body = {**body, "_coach": c}            # in memory only: never written back, never logged
     with _BRAIN_CACHE_LOCK:
         _BRAIN_CACHE[cid] = body
     return body
+
+
+def brain_block(brain):
+    """The creator block for this brain body under BRAIN_PROMPT_PARTS, or "". The one place the parts are applied."""
+    return brain_prompt.creator_block(brain, parts=brain_prompt.parse_parts(BRAIN_PROMPT_PARTS)) if brain else ""
+
+
+def coach_for_writer(key, cid):
+    """The creator's coach note as the writer reads it: {"state", "entry"} (the note's state and its working_on[0]), or None. Read from
+    lynxr_coach_notes with the service key, never from the creator-readable brain mirror (that holds `said` only, by design). Never raises."""
+    try:
+        rows = sb(key, f"/rest/v1/lynxr_coach_notes?creator_id=eq.{cid}&select=body")
+        body = rows[0].get("body") if rows and isinstance(rows[0], dict) else None
+        if not isinstance(body, dict):
+            return None
+        entry = (body.get("working_on") or [None])[0]
+        return {"state": body.get("state"), "entry": entry} if isinstance(entry, dict) else None
+    except Exception as e:  # noqa: BLE001
+        log.info("  coach note not read (%s)", type(e).__name__)
+        return None
 
 
 def dry_prompt(key, cid):
@@ -4177,9 +4206,14 @@ def dry_prompt(key, cid):
     brows = sb(key, f"/rest/v1/lynxr_creator_brain?creator_id=eq.{cid}&select=body")
     body = brows[0].get("body") if brows else None
     body = body if isinstance(body, dict) else None
+    if body is not None and "coach" in brain_prompt.parse_parts(BRAIN_PROMPT_PARTS):
+        c = coach_for_writer(key, cid)
+        if c:
+            body = {**body, "_coach": c}
     print(f"brain: state={(body or {}).get('state')} built_at={(body or {}).get('built_at')} "
           f"BRAIN_IN_PROMPT covers this creator: {brain_prompt.enabled_for(BRAIN_IN_PROMPT, cid)}")
-    block = brain_prompt.creator_block(body) if body else ""
+    print(f"BRAIN_PROMPT_PARTS: {brain_prompt.parse_parts(BRAIN_PROMPT_PARTS)}")
+    block = brain_block(body)
     print("# warning: the output below holds the creator's own captions. Keep it off any public surface.")
     print(block if block else "# brain block: none")
     entries = [e for e in (data.get("adaptations") or [])

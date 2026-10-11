@@ -32,6 +32,13 @@ WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> show
         lynxr_match_log (numbers and script ids, never a word of the transcript or caption). Precision over recall: a wrong
         link teaches the brain a lie nothing can detect. Needs supabase/post_match.sql; without it the lane logs one line and
         does nothing. TRACK_MATCH=0 stops it; TRACK_MATCH_WRITE=0 scores and logs but links nothing (shadow mode).
+    BRIEF MATCH (inside the MATCH lane, off by default). Plan: ~/.claude/plans/lynxr-loop-v2.md, Part 2. With TRACK_BRIEF=1 the same in-memory
+        words are scored a second time (pipeline/brief_match.py over the unchanged post_match scorer) against every format of every
+        agency brief DELIVERED to the creator, whether or not they pressed "Add to my library". Three paths: `script` (the script lane
+        auto-linked a library copy that carries its brief), `format` (a delivered format won outright), `brief` (formats tied, but exactly
+        one campaign has evidence: the client named in the caption, its suggested caption reused, or spoken words). The script half is
+        untouched. TRACK_BRIEF_WRITE=0 (the default) decides and logs but writes no lynxr_post_briefs row. Staff-only storage; never read by
+        the brain, the coach or the writer. Needs supabase/brief_match.sql; without it the brief half is off and the lane logs one line.
     INSIGHTS (only creators who connected an account in Settings, after MATCH and before BRAIN so the brain sees the freshest watch
         numbers in the same pass). Plan: ~/.claude/plans/lynxr-social-insights.md. For each video on a connected profile, the platform's
         own API says how long the average viewer watched (Instagram: ig_reels_avg_watch_time and reels_skip_rate, reels only; TikTok's
@@ -107,6 +114,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import process_adaptations as P  # noqa: E402
 import post_match as M  # noqa: E402
+import brief_match as BM  # noqa: E402
 import envcfg  # noqa: E402
 
 log = logging.getLogger("track_posts")
@@ -161,6 +169,16 @@ MATCH_CFG = M.Cfg(auto_min=float(envcfg.get("MATCH_AUTO_MIN", "0.70")), margin=f
                   sparse_script_words=int(envcfg.get("MATCH_SPARSE_SCRIPT_WORDS", "20")),
                   sparse_post_words=int(envcfg.get("MATCH_SPARSE_POST_WORDS", "10")),
                   sparse_days=float(envcfg.get("MATCH_SPARSE_DAYS", "14")))
+# BRIEF MATCH (plan ~/.claude/plans/lynxr-loop-v2.md, Part 2; pipeline/brief_match.py): the same in-memory words scored a second time
+# against every format of every brief DELIVERED to the creator. TRACK_BRIEF=0 (the default) skips it entirely: no corpus read, no extra
+# download. TRACK_BRIEF_WRITE=0 (the default) decides and logs but writes no lynxr_post_briefs row.
+TRACK_BRIEF = envcfg.get("TRACK_BRIEF", "0") not in ("0", "", "false", "False")
+TRACK_BRIEF_WRITE = envcfg.get("TRACK_BRIEF_WRITE", "0") not in ("0", "", "false", "False")
+BRIEF_CFG = BM.Cfg(days=float(envcfg.get("BRIEF_DAYS", "21")), caption_min=float(envcfg.get("BRIEF_CAPTION_MIN", "0.25")),
+                   contain_min=float(envcfg.get("BRIEF_CONTAIN_MIN", "0.45")), fmt_margin=float(envcfg.get("BRIEF_FMT_MARGIN", "0.20")),
+                   fmt_contain=float(envcfg.get("BRIEF_FMT_CONTAIN", "0.65")), own_block=float(envcfg.get("BRIEF_OWN_BLOCK", "0.25")))
+BRIEF_RANK_CFG = MATCH_CFG._replace(per_script=10 ** 6)     # a brief format may produce many posts: no link cap
+_BRIEF_MISSING = {"logged": False}
 
 HANDLE_RE = re.compile(r"[a-z0-9._]{1,30}")
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -1038,34 +1056,53 @@ def match_due(key, now):
     return out
 
 
-def match_creator(key, cid, blobs):
-    """What a creator's scripts look like to the matcher, cached for the pass: {"ads", "brands", "counts"}, or None when the
-    database could not be read (a transient error: nothing is concluded from it)."""
+def match_creator(key, cid, blobs, brief=None):
+    """What a creator's scripts look like to the matcher, cached for the pass: {"ads", "brands", "counts", "by_id", "corpus_ok",
+    "bads", "bbrands", "meta"}, or None when the database could not be read (a transient error: nothing is concluded from it).
+    With `brief` (default: TRACK_BRIEF) it also reads the creator's delivered briefs; `corpus_ok` is False when that function is
+    missing (supabase/brief_match.sql not applied) or the brief half is off. A blob read with brief serves callers without it too."""
+    brief = TRACK_BRIEF if brief is None else brief
     if cid in blobs:
         return blobs[cid]
     st, rows = rest(key, f"/rest/v1/lynxr_creators?id=eq.{q(cid)}&select=data")
     st2, linked = rest(key, f"{POSTS}?creator_id=eq.{q(cid)}&adaptation_id=not.is.null&select=adaptation_id&limit=1000")
     if st != 200 or not isinstance(rows, list) or st2 != 200 or not isinstance(linked, list):
         return None
+    corpus = None
+    if brief:
+        st3, corpus = rest(key, "/rest/v1/rpc/brief_corpus_for", method="POST", body={"p_creator": cid})
+        if st3 == 404:
+            if not _BRIEF_MISSING["logged"]:
+                _BRIEF_MISSING["logged"] = True
+                log.info("brief match: brief_corpus_for missing — is supabase/brief_match.sql applied?")
+            corpus = None
+        elif st3 != 200 or not isinstance(corpus, list):
+            return None                                 # unreadable: conclude nothing; the post retries next pass
     data = (rows[0].get("data") if rows and isinstance(rows[0], dict) else None) or {}
-    blobs[cid] = {"ads": [a for a in (data.get("adaptations") or []) if isinstance(a, dict)],
+    ads = [a for a in (data.get("adaptations") or []) if isinstance(a, dict)]
+    bads, bbrands, meta = BM.corpus_entries(corpus) if corpus is not None else ([], [], {})
+    blobs[cid] = {"ads": ads, "by_id": {a["id"]: a for a in ads if a.get("id")},
                   "brands": [b for b in (data.get("brands") or []) if isinstance(b, dict)],
-                  "counts": Counter(r.get("adaptation_id") for r in linked if isinstance(r, dict) and r.get("adaptation_id"))}
+                  "counts": Counter(r.get("adaptation_id") for r in linked if isinstance(r, dict) and r.get("adaptation_id")),
+                  "corpus_ok": corpus is not None, "bads": bads, "bbrands": bbrands, "meta": meta}
     return blobs[cid]
 
 
-def match_evaluate(key, post, blobs):
+def match_evaluate(key, post, blobs, brief=None):
     """The read / download / transcribe / score path for one post. Writes nothing. Returns a dict whose `kind` is one of
     unreadable (the database failed: record nothing), no_candidates, skipped, fetch_failed, too_long or scored; `scored` kind
-    also carries `scored` ([(id, score, features)] best first), `decision` and `best`. The transcript lives in this function's
-    locals and is gone when it returns."""
+    also carries `scored` ([(id, score, features)] best first), `decision` and `best`, and `brief` (the brief_match.decide result
+    plus its top rows, or None when the brief half did not run). The transcript lives in this function's locals and is gone when
+    it returns."""
     cid = post.get("creator_id")
-    blob = match_creator(key, cid, blobs)
+    blob = match_creator(key, cid, blobs, brief)
     if blob is None:
         return {"kind": "unreadable"}
     posted = parse_ts(post.get("posted_at"))
-    if posted is None or not M.candidates(blob["ads"], blob["counts"], posted, MATCH_WINDOW_DAYS, MATCH_PER_SCRIPT):
-        # Candidates come first because they are free: no script in the window means nothing is downloaded.
+    # Candidates come first because they are free: no script and no delivered brief format in the window means nothing is downloaded.
+    script_c = M.candidates(blob["ads"], blob["counts"], posted, MATCH_WINDOW_DAYS, MATCH_PER_SCRIPT) if posted else []
+    brief_c = M.candidates(blob["bads"], {}, posted, MATCH_WINDOW_DAYS, BRIEF_RANK_CFG.per_script) if posted and blob["corpus_ok"] else []
+    if posted is None or not (script_c or brief_c):
         return {"kind": "no_candidates"}
     if not post_url_ok(post.get("url"), post.get("platform")):
         return {"kind": "skipped"}
@@ -1080,17 +1117,27 @@ def match_evaluate(key, post, blobs):
         words, speech = (t.get("text") or ""), bool(t.get("has_speech"))
         scored, decision, best = M.rank(blob["ads"], blob["brands"], words, post.get("caption"), speech, posted, MATCH_CFG,
                                         blob["counts"])
+        bres = None
+        if blob["corpus_ok"]:
+            bscored, bdecision, bbest = M.rank(blob["bads"], blob["bbrands"], words, post.get("caption"), speech, posted, BRIEF_RANK_CFG, {})
+            bres = BM.decide(scored, decision, best, blob["by_id"], bscored, bdecision, bbest, blob["meta"], BRIEF_CFG)
+            bres["rows"] = [(blob["meta"][c]["brief_id"][:8], blob["meta"][c]["fkey"], s, f) for c, s, f in bscored[:10]]
         del t, words
-    return {"kind": "scored", "scored": scored, "decision": decision, "best": best}
+    return {"kind": "scored", "scored": scored, "decision": decision, "best": best, "brief": bres}
 
 
-def match_log_row(post, decision, scored):
-    """The lynxr_match_log row: numbers and script ids only. No transcript, no caption, not one word of either."""
+def match_log_row(post, decision, scored, brief=None):
+    """The lynxr_match_log row: numbers and script ids only. No transcript, no caption, not one word of either. `brief` (the
+    brief_match.decide result) adds the brief half; it is not None only when the corpus function answered, which proves
+    supabase/brief_match.sql (and so these columns) exists."""
     best = scored[0] if scored else None
-    return {"post_id": post["id"], "creator_id": post["creator_id"], "decision": decision,
-            "best_adaptation_id": best[0] if best else None, "best_score": best[1] if best else None,
-            "second_score": scored[1][1] if len(scored) > 1 else (0.0 if best else None),
-            "features": best[2] if best else {}, "candidates": [{"id": s[0], "score": s[1]} for s in scored[:5]]}
+    row = {"post_id": post["id"], "creator_id": post["creator_id"], "decision": decision,
+           "best_adaptation_id": best[0] if best else None, "best_score": best[1] if best else None,
+           "second_score": scored[1][1] if len(scored) > 1 else (0.0 if best else None),
+           "features": best[2] if best else {}, "candidates": [{"id": s[0], "score": s[1]} for s in scored[:5]]}
+    if brief is not None:
+        row.update({"brief_id": brief["brief_id"], "brief_path": brief["path"], "brief": brief["info"]})
+    return row
 
 
 def match_one(key, post, now, stats, blobs):
@@ -1137,7 +1184,19 @@ def match_one(key, post, now, stats, blobs):
                 stats["match_failed"] += 1
                 return
             stats["borderline" if decision in ("auto", "borderline") else "match_none"] += 1
-        rest(key, "/rest/v1/lynxr_match_log", method="POST", body=match_log_row(post, decision, scored), prefer="return=minimal")
+        bres = r.get("brief") if kind == "scored" else None
+        if bres and bres.get("path"):
+            writable = TRACK_BRIEF_WRITE and (bres["path"] != "script" or (decision == "auto" and TRACK_MATCH_WRITE))
+            if writable:
+                st_b, _ = rest(key, "/rest/v1/lynxr_post_briefs?on_conflict=post_id", method="POST",
+                               body={"post_id": post["id"], "creator_id": post["creator_id"], "brief_id": bres["brief_id"],
+                                     "format_id": bres["format_id"], "adaptation_id": bres["adaptation_id"], "path": bres["path"],
+                                     "score": bres["score"], "linked_at": now_iso},
+                               prefer="resolution=merge-duplicates,return=minimal")
+                stats["brief_linked" if st_b in (200, 201, 204) else "brief_failed"] += 1
+            else:
+                stats["brief_shadow"] += 1
+        rest(key, "/rest/v1/lynxr_match_log", method="POST", body=match_log_row(post, decision, scored, bres), prefer="return=minimal")
     except Exception as e:  # noqa: BLE001 -- a broken matcher must never stop the rest of the pass
         log.warning("match: one post failed (%s)", type(e).__name__)
         stats["match_failed"] += 1
@@ -1151,7 +1210,8 @@ def match_pass(key, now, dry=False, cache=None):
     """Match the stored posts that are due, max accounts first. Returns the counts, or {} when the lane is off."""
     if not TRACK_MATCH:
         return {}
-    stats = {"match_due": 0, "matched": 0, "borderline": 0, "match_none": 0, "match_failed": 0, "match_skipped": 0}
+    stats = {"match_due": 0, "matched": 0, "borderline": 0, "match_none": 0, "match_failed": 0, "match_skipped": 0,
+             "brief_linked": 0, "brief_shadow": 0, "brief_failed": 0}
     cache = {} if cache is None else cache
     due = match_due(key, now)
     stats["match_due"] = len(due)
@@ -1162,8 +1222,9 @@ def match_pass(key, now, dry=False, cache=None):
         if P.queued_work(key) or time.monotonic() - started >= TRACK_MATCH_BUDGET_S:
             break
         match_one(key, post, now, stats, blobs)
-    log.info("match: due %d · auto %d · borderline %d · none %d · failed %d · skipped %d", stats["match_due"], stats["matched"],
-             stats["borderline"], stats["match_none"], stats["match_failed"], stats["match_skipped"])
+    log.info("match: due %d · auto %d · borderline %d · none %d · failed %d · skipped %d · brief linked %d · shadow %d · failed %d",
+             stats["match_due"], stats["matched"], stats["borderline"], stats["match_none"], stats["match_failed"], stats["match_skipped"],
+             stats["brief_linked"], stats["brief_shadow"], stats["brief_failed"])
     return stats
 
 
@@ -1175,11 +1236,11 @@ def match_dry(key, post_id):
         print(f"no such post (HTTP {st}), or lynxr_posts is not readable")
         return 2
     post = rows[0]
-    r = match_evaluate(key, post, {})
+    r = match_evaluate(key, post, {}, brief=True)       # read-only, so the brief half runs even while TRACK_BRIEF is off
     kind = r["kind"]
     if kind != "scored":
         print({"unreadable": "the creator's scripts could not be read",
-               "no_candidates": "no candidate script: none is finished, branded, in the window and under its link cap (nothing would be downloaded)",
+               "no_candidates": "no candidate script or delivered brief format: none is finished, branded, in the window and under its link cap (nothing would be downloaded)",
                "skipped": "the post link is not a plain https link on its own platform",
                "fetch_failed": "the audio could not be fetched",
                "too_long": f"longer than {TRACK_MATCH_MAX_SEC:.0f}s: skipped, not transcribed"}[kind])
@@ -1189,6 +1250,15 @@ def match_dry(key, post_id):
         print(f"{i:<5} {str(aid)[:8]:<9} {s:<6.3f} {f['containment']:<8.3f} {f['recall']:<7.3f} {f['hook']:<5} {f['brand']:<6} "
               f"{f['caption']:<8.3f} {f['days']:.0f}")
     print(f"decision: {r['decision']}" + (f"  {str(r['best'])[:8]}" if r["best"] else "") + "   (nothing was written)")
+    b = r.get("brief")
+    if b is None:
+        print("brief half: off (brief_corpus_for not readable — is supabase/brief_match.sql applied?)")
+        return 0
+    print("rank  brief8    fmt          score  contain  caption  brand_cap  days")
+    for i, (b8, fk, s, f) in enumerate(b.get("rows") or [], 1):
+        print(f"{i:<5} {b8:<9} {fk:<12} {s:<6.3f} {f['containment']:<8.3f} {f['caption']:<8.3f} {f['brand_in_caption']:<10} {f['days']:.0f}")
+    fk = BM.fkey(b["format_id"]) if b.get("format_id") else "not known"
+    print(f"brief decision: {b['path'] or 'none'}  {str(b['brief_id'] or '')[:8]}  format {fk}  info {json.dumps(b['info'])}   (nothing was written)")
     return 0
 
 

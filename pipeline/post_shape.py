@@ -28,6 +28,9 @@ gap between two segments means no SPEECH, not no sound. The column keeps the nam
 the coach writes about it says "without anyone speaking".
 
 COST $0. yt-dlp audio is free, Whisper runs on the worker, no Apify, no model call. Audio only: no shot or cut detection.
+    The ONE exception is the posted-opening step (pipeline/post_hook.py, plan ~/.claude/plans/lynxr-loop-v2.md Part 3): with HOOK_POST=1 it
+    makes one model call per post while the transcript still exists, and stores a score and verdict words, never a word. It is off by default,
+    it never runs from --print, and the privacy page must describe it first.
 
 CREATOR-SIDE ONLY. Nothing in this file may be imported by pipeline/process_campaigns.py or reach AGENCY_SCRIPT_SYSTEM.
 
@@ -60,6 +63,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import envcfg  # noqa: E402
 import post_match as M  # noqa: E402 -- norm_words only; stdlib plus script_checks, no network
+import post_hook as PH  # noqa: E402 -- the posted opening against lynxr's hook rules, scored while the transcript exists; stores numbers and verdict words only
 
 log = logging.getLogger("post_shape")
 
@@ -278,7 +282,10 @@ def shape_due(T, key, now):
     whose script link is newer than their numbers. Separate reads merged here. A 400 or a 404 means supabase/post_shape.sql is not
     applied: one INFO line and []."""
     horizon = T.q(T.iso(now - timedelta(days=COACH_SHAPE_DAYS)))
-    tail = (f"&origin=eq.tracked&posted_at=gt.{horizon}&select={POST_FIELDS}&order=posted_at.desc.nullslast"
+    # hook_state is read only while HOOK_POST is on (supabase/post_hook.sql must be applied first, as the runbook orders): it lets a
+    # re-measure skip an opening that was already scored, instead of paying for it again when the post gets linked to a script.
+    fields = POST_FIELDS + (",hook_state" if PH.HOOK_POST else "")
+    tail = (f"&origin=eq.tracked&posted_at=gt.{horizon}&select={fields}&order=posted_at.desc.nullslast"
             f"&limit={COACH_SHAPE_PER_PASS * 4}")
     reads = (f"{POSTS}?shape_state=eq.pending{tail}",
              f"{POSTS}?shape_state=eq.failed&shape_fails=lt.{COACH_SHAPE_MAX_FAILS}"
@@ -307,6 +314,16 @@ def shape_due(T, key, now):
                 if (isinstance(r, dict) and r.get("id") not in seen and aligned.get(r["id"]) != r.get("adaptation_id")):
                     seen.add(r["id"])
                     out.append({**r, "_realign": True})
+    # The posted-opening backfill: shaped posts not yet looked at by the hook step. A post that never had a download for it (shaped before HOOK_POST
+    # was on) is taken again as a realign, so a failed second look never demotes it. A 400 or a 404 (supabase/post_hook.sql not applied) skips it.
+    if PH.HOOK_POST:
+        scope = "" if PH.HOOK_POST_SCOPE.strip().lower() == "all" else "&adaptation_id=not.is.null"
+        st, rows = T.rest(key, f"{POSTS}?shape_state=eq.ok&hook_state=eq.pending{scope}{tail}")
+        if st == 200 and isinstance(rows, list):
+            for r in rows:
+                if isinstance(r, dict) and r.get("id") is not None and r["id"] not in seen:
+                    seen.add(r["id"])
+                    out.append({**r, "_realign": True, "_hook_only": True})
     return out
 
 
@@ -330,7 +347,7 @@ def measure(T, key, post, blobs):
     """The read / download / transcribe / measure path for one post. Writes nothing. Returns {"kind": ...} where kind is one of unreadable
     (the database failed: record nothing), skipped, fetch_failed, too_long, or measured (with `row` and, for --print, `segments`). The
     transcript lives in this function's locals and is gone when it returns, unless keep_words is asked for by --print."""
-    return _measure(T, key, post, blobs, keep_words=False)
+    return _measure(T, key, post, blobs, keep_words=False, hook_ok=True)
 
 
 # Signals whose meaning depends on the WHOLE timeline. Dropped when the downloaded audio is longer than the video,
@@ -357,7 +374,7 @@ def reported_duration(T, url):
         return None
 
 
-def _measure(T, key, post, blobs, keep_words):
+def _measure(T, key, post, blobs, keep_words, hook_ok=False):
     script, readable = script_of(T, key, post, blobs)
     if not readable:
         return {"kind": "unreadable"}
@@ -384,9 +401,18 @@ def _measure(T, key, post, blobs, keep_words):
             # is the record: the coach only ever speaks from readings that are present.
             log.info("shape: post %s audio ran %.0fs for a %.0fs video — timeline signals dropped",
                      post.get("id"), file_dur, said)
+        hook = hook_state = None
+        if hook_ok and PH.in_scope(post) and post.get("hook_state") in (None, "pending"):
+            if not row.get("has_speech") or not row.get("segments"):
+                hook_state = "nospeech"
+            elif overran:
+                hook_state = "skipped"                      # the audio is the song, not the post: the opening's seconds are not the video's
+            else:
+                hook = PH.score(T, key, post, [s for s in (t.get("segments") or []) if _seg_ok(s)])
+                hook_state = None if hook is None else ("ok" if not hook.get("error") else "failed")
         if post.get("adaptation_id") and "aligned_to" not in row:
             row["aligned_to"] = str(post["adaptation_id"])[:100]   # looked up and measured against: do not shape it again for the same link
-        out = {"kind": "measured", "row": row, "script": script is not None}
+        out = {"kind": "measured", "row": row, "script": script is not None, "hook": hook, "hook_state": hook_state}
         if keep_words:
             out["segments"] = t.get("segments") or []
         del t
@@ -406,6 +432,11 @@ def shape_one(T, key, post, now, stats, blobs):
         # A post that is already shaped is never demoted by a failed second look: only the wait is stamped.
         T.rest(key, where, method="PATCH", body={"shape_at": now_iso} if realign else state(s), prefer="return=minimal")
 
+    def hook_fail():
+        # A hook-only post whose shape write is rejected or whose measure raises is settled as failed: otherwise it is picked every pass.
+        if post.get("_hook_only") and PH.HOOK_POST:
+            T.rest(key, where, method="PATCH", body={"hook_state": "failed", "hook_at": now_iso}, prefer="return=minimal")
+
     try:
         r = measure(T, key, post, blobs)
         kind = r["kind"]
@@ -413,10 +444,14 @@ def shape_one(T, key, post, now, stats, blobs):
             return
         if kind == "fetch_failed":
             fail()
+            if post.get("_hook_only") and PH.HOOK_POST:
+                T.rest(key, where, method="PATCH", body={"hook_state": "failed", "hook_at": now_iso}, prefer="return=minimal")   # else it is picked again every pass
             stats["shape_failed"] += 1
             return
         if kind in ("skipped", "too_long"):
             fail("skipped" if kind == "skipped" else "too_long")
+            if post.get("_hook_only") and PH.HOOK_POST:
+                T.rest(key, where, method="PATCH", body={"hook_state": "skipped", "hook_at": now_iso}, prefer="return=minimal")
             stats["shape_skipped"] += 1
             return
         row = {**r["row"], "post_id": post["id"], "creator_id": post["creator_id"], "whisper": str(T.P.WHISPER_MODEL)[:80],
@@ -425,17 +460,57 @@ def shape_one(T, key, post, now, stats, blobs):
                        prefer="resolution=merge-duplicates,return=minimal")
         if st not in (200, 201, 204):
             fail()
+            hook_fail()
             stats["shape_failed"] += 1
             return
         T.rest(key, where, method="PATCH", body={"shape_state": "ok", "shape_at": now_iso, "shape_fails": 0}, prefer="return=minimal")
+        hs = r.get("hook_state")
+        if r.get("hook"):
+            if PH.write(T, key, r["hook"]):
+                stats["hook_scored"] = stats.get("hook_scored", 0) + 1
+            else:
+                hs = "failed"
+        if hs:
+            T.rest(key, where, method="PATCH", body={"hook_state": hs, "hook_at": now_iso}, prefer="return=minimal")
         stats["shaped"] += 1
     except Exception as e:  # noqa: BLE001 -- a broken lane must never stop the rest of the pass
         log.warning("shape: one post failed (%s)", type(e).__name__)
         stats["shape_failed"] += 1
         try:
             fail()
+            hook_fail()
         except Exception:  # noqa: BLE001
             pass
+
+
+def _hook_resolve(T, key, now, due, stats):
+    """Settle the hook-only posts that need no download, and return `due` without them: an opted-out creator's post is `skipped`, and a post
+    whose stored shape says nobody spoke is `nospeech`. A failed or non-200 read leaves the post in `due` (conclude nothing)."""
+    only = [p for p in due if p.get("_hook_only")]
+    if not only:
+        return due
+    done = set()
+
+    def settle(post, state):
+        T.rest(key, f"{POSTS}?id=eq.{T.q(post['id'])}", method="PATCH", body={"hook_state": state, "hook_at": T.iso(now)}, prefer="return=minimal")
+        done.add(post["id"])
+        stats["hook_skipped" if state == "skipped" else "hook_nospeech"] += 1
+
+    rest = []
+    for p in only:
+        if PH.excluded(p):
+            settle(p, "skipped")
+        else:
+            rest.append(p)
+    ids = ",".join(str(p["id"]) for p in rest if isinstance(p.get("id"), int))
+    if ids:
+        st, rows = T.rest(key, f"{SHAPES}?post_id=in.({ids})&select=post_id,has_speech,segments")
+        if st == 200 and isinstance(rows, list):
+            quiet = {r.get("post_id") for r in rows if isinstance(r, dict) and (not r.get("has_speech") or not r.get("segments"))}
+            for p in rest:
+                if p["id"] in quiet:
+                    settle(p, "nospeech")
+    return [p for p in due if p.get("id") not in done]
 
 
 def shape_pass(key, now, dry=False, T=None):
@@ -446,6 +521,9 @@ def shape_pass(key, now, dry=False, T=None):
     stats = {"shape_due": 0, "shaped": 0, "shape_failed": 0, "shape_skipped": 0}
     due = shape_due(T, key, now)
     stats["shape_due"] = len(due)
+    if PH.HOOK_POST and not dry:
+        stats.update({"hook_scored": 0, "hook_nospeech": 0, "hook_skipped": 0})
+        due = _hook_resolve(T, key, now, due, stats)
     if dry:
         return stats                                           # before any download
     blobs, started, cache = {}, time.monotonic(), {}
@@ -455,6 +533,8 @@ def shape_pass(key, now, dry=False, T=None):
         shape_one(T, key, post, now, stats, blobs)
     log.info("shape: due %d · shaped %d · failed %d · skipped %d", stats["shape_due"], stats["shaped"], stats["shape_failed"],
              stats["shape_skipped"])
+    if PH.HOOK_POST:
+        log.info("hook-post: scored %d · no speech %d · skipped %d", stats["hook_scored"], stats["hook_nospeech"], stats["hook_skipped"])
     return stats
 
 

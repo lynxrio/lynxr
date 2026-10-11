@@ -50,6 +50,8 @@ warn, and tier 1 would abort the whole backup); `lynxr_showcase_points` is Tier 
 
 Hook scorer (supabase/hook_scores.sql, 2026-10): `lynxr_hook_scores` is Tier 2. It cannot be re-derived (the models and the rework's
 randomness change between runs), and a missing table before the SQL is applied must only warn.
+`lynxr_post_hook` (supabase/post_hook.sql, 2026-10) is Tier 2 for the same reason: re-deriving it means downloading and paying for
+every post again.
 
 Script attribution (supabase/post_match.sql, 2026-10): `lynxr_match_log` is Tier 3 because it is re-derivable by re-scoring
 the posts, and a missing table (before the SQL is applied) must only warn.
@@ -127,10 +129,12 @@ TABLES = (
     ("lynxr_showcase_entries", 2),
     ("lynxr_showcase_log", 2),
     ("lynxr_hook_scores", 2),       # hook scorer (supabase/hook_scores.sql): tier 2 — a missing table only warns; not re-derivable (models and rework randomness change)
+    ("lynxr_post_hook", 2),         # posted openings (supabase/post_hook.sql): tier 2 — re-deriving costs a model call per post
     ("lynxr_post_views", 3),
     ("lynxr_profile_followers", 3),
     ("lynxr_showcase_points", 3),
     ("lynxr_match_log", 3),            # script-attribution log (supabase/post_match.sql): re-derivable by re-scoring
+    ("lynxr_post_briefs", 3),            # brief links (supabase/brief_match.sql): re-derivable by re-scoring
     ("lynxr_costs", 3),
 )
 

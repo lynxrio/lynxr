@@ -59,7 +59,7 @@ $$;
 revoke all on function public.coach_pick(jsonb, text[]) from public, anon, authenticated;
 
 -- my_coach(): copy of my_insights()'s shape (stable, security definer, empty search_path, signed-in only).
---   free  the one tip, and the newest video's one-line read of itself. Nothing else.
+--   free  the one tip, how many of the creator's own videos it was worked out from, and the newest video's one-line read of itself. Nothing else.
 --   pro   the tip with its evidence, and every video's read, its numbers against the creator's own median, and the moments in it.
 --   max   the whole note, including the raw measurements per video and the tip's history.
 -- The depth is the CALLER's, resolved here with the same two functions the rest of billing uses (max = the advanced_coaching feature,
@@ -99,14 +99,14 @@ begin
     select coalesce(jsonb_agg(public.coach_pick(p.value, array['post_id','curve','days','views','from_h','by_h','views7','times_median','verdict','line','prose','moments'])
                               order by p.ord), '[]'::jsonb)
       into ps from jsonb_array_elements(coalesce(b -> 'posts', '[]'::jsonb)) with ordinality p(value, ord);
-    select coalesce(jsonb_agg(public.coach_pick(w.value, array['said','because','since','signal','was','target']) order by w.ord), '[]'::jsonb)
+    select coalesce(jsonb_agg(public.coach_pick(w.value, array['said','because','since','signal','was','target','n_good','n_poor']) order by w.ord), '[]'::jsonb)
       into wo from jsonb_array_elements(coalesce(b -> 'working_on', '[]'::jsonb)) with ordinality w(value, ord) where w.ord <= 1;
   else
     top := public.coach_pick(b, array['state', 'not_yet', 'platform']);
     select coalesce(jsonb_agg(public.coach_pick(p.value, array['post_id','curve','days','from_h','by_h','times_median','verdict','line'])
                               order by p.ord), '[]'::jsonb)
       into ps from jsonb_array_elements(coalesce(b -> 'posts', '[]'::jsonb)) with ordinality p(value, ord) where p.ord <= 1;
-    select coalesce(jsonb_agg(public.coach_pick(w.value, array['said']) order by w.ord), '[]'::jsonb)
+    select coalesce(jsonb_agg(public.coach_pick(w.value, array['said','n_good','n_poor']) order by w.ord), '[]'::jsonb)
       into wo from jsonb_array_elements(coalesce(b -> 'working_on', '[]'::jsonb)) with ordinality w(value, ord) where w.ord <= 1;
   end if;
   return top || jsonb_build_object('tier', depth, 'built_at', ts, 'working_on', wo, 'posts', ps);
@@ -154,6 +154,8 @@ notify pgrst, 'reload schema';
 --            not (public.coach_pick((v -> 'posts') -> 0, array['post_id','line']) ? 'prose'),
 --            not (public.coach_pick((v -> 'posts') -> 0, array['post_id','line']) ? 'moments'),
 --            not (public.coach_pick((v -> 'posts') -> 0, array['post_id','line']) ? 'shape') from b;
+--   the counts reach free and pro (expect: t):
+--     select pg_get_functiondef('public.my_coach()'::regprocedure) like '%n_good%';
 --
 -- ROLLBACK:
 --   drop trigger if exists lynxr_posts_coach_deleted on public.lynxr_posts;

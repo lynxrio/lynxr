@@ -1000,7 +1000,7 @@ check("run: the match key is present in the stats", "match" in out, True)
 # --match-dry: the whole path, printed, and nothing written
 match_stubs()
 r = setup_world([("lynxr_posts?id=eq.7&select", (200, [M_POST])), ("lynxr_creators", (200, [{"data": M_DATA}])),
-                 ("adaptation_id=not.is.null", (200, []))])
+                 ("adaptation_id=not.is.null", (200, [])), ("rpc/brief_corpus_for", (404, None))])   # match_dry reads the brief half too (supabase/brief_match.sql not applied here)
 buf = io.StringIO()
 with contextlib.redirect_stdout(buf):
     rc = T.match_dry("k", 7)
@@ -1011,6 +1011,154 @@ check("match-dry: prints the decision and the candidate id, not a transcript wor
 r = setup_world([("lynxr_posts?id=eq.7&select", (200, []))])
 with contextlib.redirect_stdout(io.StringIO()):
     check("match-dry: an unknown post is exit 2", T.match_dry("k", 7), 2)
+
+# ── brief match (plan lynxr-loop-v2.md, Part 2): the same words scored a second time against delivered brief formats ──
+BRIEF_ID = "00000000-0000-4000-8000-0000000000b1"
+BRIEF_ID2 = "00000000-0000-4000-8000-0000000000b2"
+
+
+def m_brief(bid=BRIEF_ID, client="Quenchwell", group="campaign:c-1", formats=None):
+    return {"brief_id": bid, "client_name": client, "group": group, "sent_at": ago(days=3),
+            "formats": formats if formats is not None else [
+                {"id": "f-1", "delivery": "spoken", "hook": HOOK_M, "cta": CTA_M, "caption": "", "beats": [{"say": s} for s in BEATS_M]},
+                {"id": "f-2", "delivery": "silent", "hook": "", "cta": "", "caption": "quenchwell cold all day", "beats": [{"say": ""}, {"say": ""}]}]}
+
+
+CORPUS = [m_brief()]
+NO_SCRIPTS = {"brands": M_DATA["brands"], "adaptations": []}
+SILENT_ONLY = [{"id": "f-1", "delivery": "silent", "hook": "", "cta": "", "caption": "", "beats": [{"say": ""}, {"say": ""}]},
+               {"id": "f-2", "delivery": "silent", "hook": "", "cta": "", "caption": "", "beats": [{"say": ""}, {"say": ""}]}]
+UNRELATED_M = "we ate far too much ice cream at the beach and then everyone fell asleep in the sun"
+
+
+def brief_world(post=M_POST, data=M_DATA, corpus=CORPUS, linked=(), rpc=None, **kw):
+    """match_world with the corpus function answering (200 with `corpus`, or `rpc` when given)."""
+    return setup_world([("rpc/brief_corpus_for", rpc if rpc is not None else (200, list(corpus))),
+                        ("match_state=eq.pending", (200, [post] if post else [])), ("match_state=eq.failed", (200, [])),
+                        ("lynxr_creators", (200, [{"data": data}])),
+                        ("adaptation_id=not.is.null", (200, [{"adaptation_id": a} for a in linked]))], **kw)
+
+
+def briefs_posted(r):
+    return r.to("lynxr_post_briefs", "POST")
+
+
+# 1. flag off: the corpus is never read and the log row has no brief key
+T.TRACK_BRIEF = T.TRACK_BRIEF_WRITE = False
+match_stubs()
+r = brief_world()
+T.match_pass("k", NOW)
+check("brief off: no call to the corpus function", len(r.to("rpc/brief_corpus_for")), 0)
+check("brief off: the log row has no brief_path key", "brief_path" in r.to("lynxr_match_log", "POST")[0][2], False)
+
+# 2. the function missing (404): one INFO line, the script half behaves as ever
+T.TRACK_BRIEF = True
+T._BRIEF_MISSING["logged"] = False
+GRAB.lines.clear()
+match_stubs()
+r = brief_world(rpc=(404, None))
+T.match_pass("k", NOW)
+match_stubs()
+r2 = brief_world(rpc=(404, None))
+T.match_pass("k", NOW)
+check("brief 404: one INFO line (once per process) naming brief_match.sql", sum("brief_match.sql" in l for l in GRAB.lines), 1)
+check("brief 404: the script link is unchanged", (patches(r)[0][2]["adaptation_id"], patches(r)[0][2]["match_state"]), ("s-1", "auto"))
+check("brief 404: the log row has no brief_path key (the columns may not exist)", "brief_path" in r.to("lynxr_match_log", "POST")[0][2], False)
+r = brief_world(rpc=(500, None))
+match_stubs()
+sm = T.match_pass("k", NOW)
+check("brief unreadable: a 500 concludes nothing and writes nothing", len(r.writes()), 0)
+
+# 3. path format: no scripts at all, a delivered format read verbatim
+for write in (False, True):
+    T.TRACK_BRIEF_WRITE = write
+    match_stubs(said=SAID_M)
+    r = brief_world(data=NO_SCRIPTS)
+    sm = T.match_pass("k", NOW)
+    lg = r.to("lynxr_match_log", "POST")[0][2]
+    if not write:
+        check("brief format, write off: no lynxr_post_briefs POST", len(briefs_posted(r)), 0)
+        check("brief format, write off: the post is parked none and no PATCH carries adaptation_id",
+              (patches(r)[0][2]["match_state"], any("adaptation_id" in p[2] for p in patches(r))), ("none", False))
+        check("brief format, write off: the log row has brief_path format; counted as shadow", (lg["brief_path"], sm["brief_shadow"], sm["brief_linked"]), ("format", 1, 0))
+    else:
+        bp = briefs_posted(r)
+        check("brief format, write on: one POST, merge-duplicates, path format, no script id",
+              (len(bp), "resolution=merge-duplicates" in (bp[0][3] or ""), bp[0][2]["path"], bp[0][2]["adaptation_id"], bp[0][2]["brief_id"], bp[0][2]["format_id"]),
+              (1, True, "format", None, BRIEF_ID, "f-1"))
+        check("brief format, write on: counted as linked; the script half still writes no adaptation_id", (sm["brief_linked"], any("adaptation_id" in p[2] for p in patches(r))), (1, False))
+        check("brief format: the post key and creator travel with it", (bp[0][2]["post_id"], bp[0][2]["creator_id"]), (7, "c1"))
+        check("brief format: the log body carries no transcript or caption key", [k for k in ("transcript", "caption") if k in lg], [])
+        check("brief format: no caption word reaches the log's brief info (its key `caption` is a boolean)", [w for w in ("private", "nobody", "should", "ever", "store") if w in json.dumps(lg["brief"])], [])
+        check("brief format: nothing of the transcript or caption was written anywhere",
+              any(x in json.dumps([c[2] for c in r.writes()]) for x in ("dishwasher", "freezing", "private caption", "gym bag")), False)
+
+# 4. path script: a library copy that carries fromAgency
+T.TRACK_BRIEF_WRITE = True
+match_stubs()
+copy_data = {"brands": M_DATA["brands"], "adaptations": [m_script(fromAgency={"briefId": BRIEF_ID, "formatId": "f-1"})]}
+r = brief_world(data=copy_data)
+T.match_pass("k", NOW)
+pp, bp = patches(r), briefs_posted(r)
+check("brief script: the adaptation_id PATCH is unchanged", (len(pp), pp[0][2]["adaptation_id"], pp[0][2]["match_state"]), (1, "s-1", "auto"))
+check("brief script: the brief POST has path script and the script id", (len(bp), bp[0][2]["path"], bp[0][2]["adaptation_id"], bp[0][2]["format_id"]), (1, "script", "s-1", "f-1"))
+
+# 5. path brief: the real case's shape. Two silent formats tie, the caption names the client, the speech is unrelated
+match_stubs(said=UNRELATED_M)
+r = brief_world(post={**M_POST, "caption": "new quenchwell bottle today"}, data=NO_SCRIPTS, corpus=[m_brief(formats=SILENT_ONLY)])
+T.match_pass("k", NOW)
+bp = briefs_posted(r)
+check("brief brief: one POST, path brief, format not known", (len(bp), bp[0][2]["path"], bp[0][2]["format_id"], bp[0][2]["brief_id"]), (1, "brief", None, BRIEF_ID))
+lg = r.to("lynxr_match_log", "POST")[0][2]
+check("brief brief: the log says one group qualified on the caption", (lg["brief_path"], lg["brief"]["qualifying"], lg["brief"]["caption"]), ("brief", 1, True))
+
+# 6. two groups both named: nothing is linked
+match_stubs(said=UNRELATED_M)
+two = [m_brief(formats=SILENT_ONLY), m_brief(BRIEF_ID2, "Zorbly", "campaign:c-2", SILENT_ONLY)]
+r = brief_world(post={**M_POST, "caption": "quenchwell and zorbly together"}, data=NO_SCRIPTS, corpus=two)
+T.match_pass("k", NOW)
+lg = r.to("lynxr_match_log", "POST")[0][2]
+check("brief two groups: no POST", len(briefs_posted(r)), 0)
+check("brief two groups: the log says two qualified", (lg["brief"]["qualifying"], lg["brief_path"]), (2, None))
+
+# 7. one download for a post with both script and brief candidates
+match_stubs()
+r = brief_world()
+T.match_pass("k", NOW)
+check("brief one download: a post with both kinds of candidate is fetched and transcribed once", M_CALLS, {"fetch": 1, "transcribe": 1})
+
+# 8. the script lane's decisions are byte-identical whether the brief lane is off or on (with an unrelated corpus)
+T.TRACK_BRIEF = False
+match_stubs()
+r_off = match_world()
+T.match_pass("k", NOW)
+T.TRACK_BRIEF = True
+match_stubs()
+r_on = brief_world(corpus=[m_brief(BRIEF_ID2, "Zorbly", "campaign:c-2", SILENT_ONLY)])
+T.match_pass("k", NOW)
+check("brief identity: the lynxr_posts PATCH bodies are equal with the brief lane off and on",
+      [p[2] for p in patches(r_off)], [p[2] for p in patches(r_on)])
+
+# 9. match_dry prints the brief half and writes nothing
+match_stubs(said=SAID_M)
+r = setup_world([("lynxr_posts?id=eq.7&select", (200, [M_POST])), ("lynxr_creators", (200, [{"data": NO_SCRIPTS}])),
+                 ("adaptation_id=not.is.null", (200, [])), ("rpc/brief_corpus_for", (200, CORPUS))])
+T.TRACK_BRIEF = T.TRACK_BRIEF_WRITE = False                      # the dry run reads the brief half even while the lane is off
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    rc = T.match_dry("k", 7)
+out = buf.getvalue()
+check("brief dry: it prints the brief decision and writes nothing", (rc, "brief decision: format" in out, "f-1" in out, len(r.writes())), (0, True, False, 0))
+check("brief dry: no transcript or caption word is printed", [w for w in ("dishwasher", "freezing", "private caption") if w in out], [])
+match_stubs(said=SAID_M)
+r = setup_world([("lynxr_posts?id=eq.7&select", (200, [M_POST])), ("lynxr_creators", (200, [{"data": M_DATA}])),
+                 ("adaptation_id=not.is.null", (200, [])), ("rpc/brief_corpus_for", (404, None))])
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    T.match_dry("k", 7)
+check("brief dry: the function missing says the brief half is off", "brief half: off" in buf.getvalue(), True)
+
+T.TRACK_BRIEF = T.TRACK_BRIEF_WRITE = False
 
 for n, f in REAL_P.items():
     setattr(T.P, n, f)

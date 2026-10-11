@@ -27,6 +27,63 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**LOOP V2 PART 4: COACH LEARNINGS INTO THE WRITER (2026-10-11, BUILT, DARK, UNCOMMITTED; plan `~/.claude/plans/lynxr-loop-v2.md`, which lives
+outside this repo and holds the eval stages and their pass/fail gates).** `BRAIN_IN_PROMPT` stays WHO (the creator allowlist, a Fly
+secret, and it STAYS OFF). The new `BRAIN_PROMPT_PARTS` is WHAT: a comma list of `voice`, `performance`, `watch`, `coach`; empty means
+`voice,performance,watch`, today's block. It is a Fly secret AND a repo variable (the GitHub fallback reads it at its next ~6h job
+start; the two must match), read at call time through `process_adaptations.BRAIN_PROMPT_PARTS`, applied in one place
+(`brain_block`). The coach's tip used to ride into the prompt the moment the brain was on; it now rides only under `coach`, as a
+writer instruction worked out from the creator's coach note itself (`coach_for_writer` reads `lynxr_coach_notes` with the service
+key, never the creator-readable mirror) and never from `said`. Per-creator gate, in code (`brain_prompt.coach_hint`): the note is
+`ready`, rests on 3 or more videos on each side, has been held 7 or more days, and every number the line uses is real; each line
+tells the writer never to add a number or a name, and the speech-only ones say to ignore them for a silent script. The block stays in
+the USER message (`ADAPT_SYSTEM` is untouched) and `process_campaigns.py` never sees any of it (tests assert both). Eval tooling:
+`eval_scripts.py run` now exits BEFORE spending when `--brain` renders no block under the chosen parts (that arm would silently be
+production), records `brain_parts`, and a free `coachfit RUN [--vs RUN] --target SECONDS` reports whether a length hint lands. The two
+coach fixtures live outside the repo. Nothing is enabled for anyone: the paid runs, the gate and the data gate are owner steps in the
+plan.
+
+**LOOP V2 PART 3: POSTED OPENINGS (2026-10-11, BUILT, DARK, UNCOMMITTED; plan `~/.claude/plans/lynxr-loop-v2.md`, which lives outside
+this repo).** Does the hook score of a video a creator POSTED go with its views? A step of the shape lane (`pipeline/post_hook.py`,
+Fly only, scored while the transcript still exists, so the words are never stored) grades the opening against the hook rules with one
+model call per post (`hook_score.run_post`) and keeps only a score, verdict words, and a few second marks in `lynxr_post_hook`
+(service role only: no staff or creator policy, nothing in the app reads it). Progress is `lynxr_posts.hook_state`. Flags (Fly
+secrets): `HOOK_POST` (default 0), `HOOK_POST_SCOPE` (`linked` default, or `all`), `HOOK_POST_EXCLUDE` (creator uuids who opted out).
+**Owner SQL: `supabase/post_hook.sql`, BEFORE the push.** **Privacy gate, in this order: the privacy wording approved and live,
+creators told, a wait, then `HOOK_POST=1`. The privacy page does NOT yet describe this: that edit (step 23 of the plan) waits on the
+owner's approval of its copy, so `HOOK_POST` stays 0 until then.** Free analysis for the owner: `hook_views.py --report` (or
+`--backup DIR`), which prints counts and a rank correlation with a creator-bootstrap interval, or "not enough to say yet". The only
+paid command is `post_hook.py --print POST_ID` (one model call, writes nothing). Results live in the private plan, never in this file.
+
+**LOOP V2 PART 2: BRIEF-LEVEL MATCHING (2026-10-11, BUILT, DARK, UNCOMMITTED; plan `~/.claude/plans/lynxr-loop-v2.md`, which lives
+outside this repo).** Which agency brief did a tracked post come from? The match lane keeps ONE download and ONE Whisper pass
+per post and scores the same words twice. The script lane (the creator's own scripts, library copies included) is unchanged and
+alone writes `adaptation_id` and `match_state`. The new brief lane (`pipeline/brief_match.py`, reusing `post_match.py` unmodified)
+scores every format of every brief DELIVERED to the creator, added to the library or not, anchored at the delivery's `sent_at`.
+Three paths, first match wins: `script` (the script lane auto-linked a library copy that carries its brief), `format` (a delivered
+format won outright on the unchanged guards), `brief` (formats tie, but exactly one campaign has evidence within 21 days of delivery:
+the client named in the caption, the brief's own suggested caption reused, or spoken-word containment; the creator's own script
+must not match as well; `format_id` is set only on a clear lead). Flags (Fly secrets): `TRACK_BRIEF` and `TRACK_BRIEF_WRITE`,
+BOTH DEFAULT 0, so nothing changes until the owner sets them (the first decides and logs, the second also writes). **Owner SQL:
+`supabase/brief_match.sql`, BEFORE the push** (`lynxr_post_briefs`, staff-read only; `brief_corpus_for` for the worker only;
+`staff_brief_posts` for the agency app; three log columns), plus its one-off reset statement at the foot, to run only after the
+worker is deployed and `TRACK_BRIEF=1`. The agency app shows "Posts made for this brief" under each brief's Sent to list (campaign
+view and legacy brief viewer), drawn only once the RPC answers. The links are staff-only: the brain, the coach and the writer never
+read them, and `process_campaigns.py` never imports the module (a test asserts both). Free check on Fly, writes nothing:
+`track_posts.py --match-dry POST_ID` (now also prints the brief half). Not done here: the privacy wording for brief links (step 15 of
+the plan) waits on the owner's approval of its copy.
+
+**LOOP V2 PART 1: COACH READY TO SWITCH ON (2026-10-11, UNCOMMITTED; plan `~/.claude/plans/lynxr-loop-v2.md`, which lives
+outside this repo and holds the switch-on checklist).** The coach is built and dark, and these were the gaps. A free creator's
+tip now says how many of their own videos it was worked out from ("Worked out from N of your own videos."), because
+`coach.py` records `n_good` and `n_poor` on the one `working_on` entry and `my_coach()` hands them to free and pro (the brain's
+mirror line stays `{said}` only). **`supabase/coach.sql` must be re-run** for the counts to reach the app (it is safe to re-run);
+until then the free card simply omits the line. The five coach and matcher tests (`test_brain`, `test_coach`,
+`test_coach_prose`, `test_post_match`, `test_post_shape`) are now registered in `tools/fixer/run_tests.py`, so a fixer pull
+request cannot break them unseen. Flags: `COACH` (Fly secret, 0 = no new notes), `COACH_PROSE` (Haiku rewording, default on),
+`COACH_APP_LIVE` in `creator.js` (the card and each video's read; false). Fastest kill switch, instant from the next page
+load: `revoke execute on function public.my_coach() from authenticated;` (undo with `grant execute ... to authenticated`).
+
 **NOTES ON BEATS + UPLOAD STRAIGHT ONTO A BEAT (2026-10-11, UNCOMMITTED, stamp `20261011c`; plan
 `~/.claude/plans/agency-beat-notes.md`). NOT LIVE until the owner runs `supabase/beat_notes.sql` (either order: without
 it the editor says to run it and nothing else changes).** Owner: "Whenever I edit the briefs can you make notes for each
@@ -196,7 +253,7 @@ that function. Switches (Fly secrets): `TRACK_MATCH=0` stops the lane, `TRACK_MA
 `./venv/bin/python pipeline/track_posts.py --match-dry POST_ID` (reads the database, writes nothing). Nothing links until the SQL is applied and the push
 deploys the worker. Plan and the rest: `~/.claude/plans/lynxr-adaptation-id.md`.
 
-**COACH v1 — BUILT 2026-10-07, DARK (owner SQL not run, nothing pushed; plan `~/.claude/plans/lynxr-coach-v1.md`, which lives outside this repo).** The coach says,
+**COACH v1 — BUILT 2026-10-07, DARK (code PUSHED 2026-10-07/08; supabase/post_shape.sql APPLIED, all tracked posts shaped by 2026-10-10; supabase/coach.sql: owner confirms with the check in the private plan; COACH=0 on Fly; COACH_APP_LIVE=false; plan `~/.claude/plans/lynxr-coach-v1.md`, which lives outside this repo).** The coach says,
 per tracked video, how it did against THAT creator's own median, shows the numbers it rests on (the readings as bars with the creator's own usual drawn over them),
 names moments it can point at in the creator's own audio ("nobody spoke until second 2.9", "at second 6.1 you say again what you said at second 2.9", "the payoff
 beat of your script starts at second 18, 6 seconds after the script puts it"), and picks ONE thing that differs between their stronger and quieter videos, then keeps score
@@ -214,7 +271,7 @@ the hook's promise (needs a model call; an approximation would be an invented fi
 mlx Whisper the segments tile from second 0, so `speech_start_s` and the gap read ~0 for every post; the Fly worker uses faster-whisper with a voice filter, which should differ but
 has NOT been checked: run `post_shape.py --print` on Fly once the SQL is applied. Keep the tier/price map out of this file (public repo).
 
-**CREATOR BRAIN — BUILT 2026-10-07, NOT LIVE (owner SQL not run, nothing pushed).** `lynxr_creator_brain` (one derived JSONB row per creator: how they write from
+**CREATOR BRAIN — BUILT 2026-10-07, LIVE (SQL applied, the lane writes rows; BRAIN_VOICE=1 on Fly per the owner, 2026-10-11).** `lynxr_creator_brain` (one derived JSONB row per creator: how they write from
 their own captions, where they post, and, once 5 posts on one platform have a day-7 count, how their videos do against their own median) is DERIVED and SAFE TO
 DROP: a new `brain_pass` lane at the end of `pipeline/track_posts.py`'s pass (Fly only; `pipeline/brain.py`, pure derivation, tests in `pipeline/test_brain.py`)
 rebuilds it at most every 20h, writes that one table and nothing else, and below 5 comparable posts says less rather than guessing (`not_known` records what was

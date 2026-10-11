@@ -488,7 +488,7 @@ def advise(sep, now):
     said = (sig["said_n"] if sig["key"] == "speech_start_s" and n > 1 else sig["said"]).format(n=n, x=_n(max(mg, 0.5)))
     because = BECAUSE.format(n_good=sep["n_good"], n_poor=sep["n_poor"], good=sig["good"].format(x=_n(mg)), poor=sig["poor"].format(x=_n(mp)))
     return {"said": said, "because": because, "signal": sig["key"], "direction": sig["direction"], "was": round(mp, 1), "target": round(mg, 1),
-            "set_at": iso(now)}
+            "n_good": int(sep["n_good"]), "n_poor": int(sep["n_poor"]), "set_at": iso(now)}
 
 
 # ── 7e. the coach keeps score ─────────────────────────────────────────────────────────────────────

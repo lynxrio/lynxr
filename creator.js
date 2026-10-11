@@ -8218,14 +8218,14 @@ if (OBTEST) {
                                 beats: [{ i: 1, of: 3, kind: "beat", start_s: 0.3, end_s: 3.2, planned_s: 0 }, { i: 2, of: 3, kind: "beat", start_s: 4.1, end_s: 9, planned_s: 4 },
                                         { i: 3, of: 3, kind: "beat", payoff: true, start_s: 18, end_s: 24, planned_s: 12 }] } })],
               working_on: [{ said: "start talking inside the first second", because: "your 3 stronger videos typically had someone talking by 0.6s; your 3 quieter ones typically waited 2.9s before anyone spoke",
-                             signal: "speech_start_s", direction: "below", was: 2.9, target: 0.6, set_at: at(NOW0 - 12 * DAY),
+                             signal: "speech_start_s", direction: "below", was: 2.9, target: 0.6, n_good: 3, n_poor: 3, set_at: at(NOW0 - 12 * DAY),
                              since: { posts: 2, median: 0.8, moved: true, curve_better: true } }] };
       // The depth rule, copied from supabase/coach.sql: free = the tip and the newest video's read; pro = the evidence and every read and its moments; max = all of it.
       const pick = (o, keys) => Object.fromEntries(Object.entries(o || {}).filter(([k]) => keys.includes(k)));
       if (tier === "max") return { ...note, tier, built_at: at(NOW0) };
       const pro = tier === "pro";
       return { ...pick(note, pro ? ["state", "not_yet", "platform", "median_views"] : ["state", "not_yet", "platform"]), tier, built_at: at(NOW0),
-        working_on: (note.working_on || []).slice(0, 1).map((w) => pick(w, pro ? ["said", "because", "since", "signal", "was", "target"] : ["said"])),
+        working_on: (note.working_on || []).slice(0, 1).map((w) => pick(w, pro ? ["said", "because", "since", "signal", "was", "target", "n_good", "n_poor"] : ["said", "n_good", "n_poor"])),
         posts: (note.posts || []).slice(0, pro ? 99 : 1).map((e) => pick(e, pro ? ["post_id", "curve", "days", "views", "from_h", "by_h", "views7", "times_median", "verdict", "line", "prose", "moments"]
           : ["post_id", "curve", "days", "from_h", "by_h", "times_median", "verdict", "line"])) };
     };
@@ -9016,7 +9016,9 @@ function coachCardHtml() {
   if (!w || !w.said) return `<h2 class="me-card-h">What lynxr is learning</h2><p class="coach-learning">${escapeHtml(c.not_yet)}</p>`;
   return `<h2 class="me-card-h">One thing to work on</h2>`
     + `<p class="coach-said">${escapeHtml(w.said)}</p>`
-    + (w.because ? `<p class="coach-because">${escapeHtml(w.because)}</p>` : "")
+    + (w.because ? `<p class="coach-because">${escapeHtml(w.because)}</p>`
+      : (Number.isInteger(w.n_good) && Number.isInteger(w.n_poor) && w.n_good + w.n_poor > 0
+        ? `<p class="coach-because">${escapeHtml(`Worked out from ${w.n_good + w.n_poor} of your own videos.`)}</p>` : ""))
     + coachScoreHtml(w)
     + (w.because ? "" : `<p class="coach-upsell">Pro shows you which of your videos this came from, and the numbers behind it. <button type="button" class="linkish" data-home="plan">See pro</button></p>`);
 }

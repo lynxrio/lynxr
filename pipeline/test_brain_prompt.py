@@ -15,6 +15,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import brain_prompt as BP  # noqa: E402
+import coach  # noqa: E402  (only for the names the writer's hints must match: the signal keys and the words a coach line may never use)
 import process_adaptations as P  # noqa: E402
 
 FAILS = []
@@ -48,6 +49,9 @@ def works(**over):
     return w
 
 
+BUILT = []          # every body this file builds, so the default-parts identity can be checked against all of them
+
+
 def body(state="ready", age=3, **over):
     b = {"v": 1, "state": state, "built_at": iso(age),
          "about_you": {"goal": {"metric": "views on each video", "target": 10000, "now": 3200}},
@@ -55,6 +59,7 @@ def body(state="ready", age=3, **over):
          "where_you_post": [{"platform": "tiktok", "posts": 34, "per_week": 4.2}],
          "what_works_for_you": works(), "working_on": []}
     b.update(over)
+    BUILT.append(b)
     return b
 
 
@@ -145,8 +150,9 @@ check("at most two platforms", "Where they post: tiktok (3 videos), instagram (2
     {"platform": "tiktok", "posts": 3}, {"platform": "instagram", "posts": 2}, {"platform": "youtube", "posts": 9}])), True)
 check("no target -> only the now clause", "They are at 77 now." in block(body(about_you={"goal": {"metric": "views on each video", "now": 77}})), True)
 check("target only -> no now clause", "They are going for 500 views a video." in block(body(about_you={"goal": {"metric": "views on each video", "target": 500}})), True)
-check("working_on 'said' rides along when there is a real signal",
-      "The one thing they are working on, and it wins over everything above: shorter hooks." in block(body(working_on=[{"said": "shorter hooks"}])), True)
+check("working_on 'said' never reaches the prompt under the default parts, even with a real signal",
+      (block(body(working_on=[{"said": "shorter hooks"}])) == block(body(working_on=[])), "shorter hooks" in block(body(working_on=[{"said": "shorter hooks"}])),
+       "The one thing they are working on" in block(body(working_on=[{"said": "shorter hooks"}]))), (True, False, False))
 check("no median -> no performance section at all", "How their videos actually do" in block(body(what_works_for_you=works(your_median_views=None))), False)
 
 # ── 10. enabled_for ──────────────────────────────────────────────────────────────────────────────
@@ -297,18 +303,150 @@ check("watch: state 'learning' with a how_people_watch key renders NO watch bull
 low = (tt + ig).lower()
 check("watch: no line implies a curve (retention, graph, drop-off, curve)", [w for w in ("retention", "graph", "drop-off", "curve", "second by second") if w in low], [])
 
-# ── the coach's hinge (plan lynxr-coach-v1.md): the writer sees the one line, and nothing else moved ──────────────────────────
+# ── the coach's hinge (plans lynxr-coach-v1.md and lynxr-loop-v2.md Part 4): the writer sees a coach line only under the `coach` part ───────────
 mirror = [{"said": "start talking inside the first second"}]
-check("coach: a body with no other signal renders byte-identically with and without the coach's line",
-      (block({**goal_only, "working_on": []}), block({**goal_only, "working_on": mirror})), ("", ""))
-plain, with_line = block(body(working_on=[])), block(body(working_on=mirror))
-check("coach: with a real signal the ONLY difference is one extra trailing line, and everything above it is byte-identical",
-      (with_line.startswith(plain + "\n"), with_line[len(plain) + 1:].count("\n"), with_line[len(plain) + 1:]),
-      (True, 0, "The one thing they are working on, and it wins over everything above: start talking inside the first second."))
-check("coach: the line carries the tip only, never its evidence (a full coach entry in the body would still render only `said`)",
-      block(body(working_on=[{**mirror[0], "because": "your 4 stronger videos had a median of 9 words", "signal": "words_first_3s"}])), with_line)
+check("coach: the brain mirror's `said` never reaches the prompt under the default parts (a body with and without it render the same)",
+      (block(body(working_on=mirror)) == block(body(working_on=[])), "start talking inside the first second" in block(body(working_on=mirror))), (True, False))
+check("coach: a body with no other signal and a coach tip still renders nothing", block({**goal_only, "working_on": mirror}), "")
+
+
+def coach_note(signal="duration_s", n_good=4, n_poor=4, held=14, state="ready", **over):
+    e = {"said": "keep it to about 20 seconds", "because": "your 4 stronger videos typically ran 20s; your 4 quieter ones typically ran 34s",
+         "signal": signal, "direction": "below", "was": 34.0, "target": 20.0, "n_good": n_good, "n_poor": n_poor, "set_at": iso(held)}
+    e.update(over)
+    return {"state": state, "entry": e}
+
+
+ELIGIBLE = body(working_on=mirror, _coach=coach_note())
+check("coach: under the default parts an eligible _coach renders byte-identically to a body without it",
+      block(ELIGIBLE), block(body(working_on=mirror)))
+check("coach: ... and none of its words are in the block", [w for w in ("What their own videos show", "about 20 seconds", "34.0s") if w in block(ELIGIBLE)], [])
+check("coach: creator_block(b, parts=DEFAULT_PARTS) equals creator_block(b) for every body built in this file (and the empty cases)",
+      [i for i, b in enumerate(BUILT + [goal_only, {}, None]) if BP.creator_block(b, now=NOW, parts=BP.DEFAULT_PARTS) != BP.creator_block(b, now=NOW)], [])
+check("coach: the file built a real spread of bodies for that check", len(BUILT) > 30, True)
+
+only = BP.creator_block(ELIGIBLE, now=NOW, parts=("coach",))
+HEADER = "What their own videos show (the one thing lynxr's coach found, measured from the audio of 8 of their own posted videos and compared only with each other):"
+check("coach: parts ('coach',) with an eligible note carries the header and the duration hint with its numbers",
+      (HEADER in only, "  - Write it to run about 20 seconds when said at a natural pace, and size the beats to fit; never cut the format's payoff to get there. "
+                       "Their stronger videos ran about 20.0s; their quieter ones about 34.0s." in only), (True, True))
+check("coach: ... and NO voice line, no caption sample, no performance and no watch lines",
+      [w for w in ("How they write", "Captions they wrote themselves", "How their videos actually do", "How long people actually watch") if w in only], [])
+check("coach: ... but the rides (where they post, the goal) still render", ("Where they post: tiktok" in only, "They are going for 10,000 views a video" in only), (True, True))
+check("coach: ... and the coach line sits after the substance and before the rides", only.index(HEADER) < only.index("Where they post:"), True)
+check("coach: the preamble guard is still in front of it", only.startswith(BP.HEAD + "\n" + BP.PREAMBLE + "\n"), True)
+both = BP.creator_block(ELIGIBLE, now=NOW, parts=("voice", "coach"))
+check("coach: parts voice+coach has the captions and the coach line but no performance",
+      ("Captions they wrote themselves" in both, HEADER in both, "How their videos actually do" in both), (True, True, False))
+check("coach: the tip's own sentence and its evidence text are never in the block", [w for w in ("keep it to about 20 seconds", "typically ran") if w in only + both], [])
+
+for name, note in (("n_good 2", coach_note(n_good=2)), ("n_poor 2", coach_note(n_poor=2)), ("held 3 days", coach_note(held=3)),
+                   ("held exactly 7 days is allowed, 6 is not", coach_note(held=6)), ("state learning", coach_note(state="learning")),
+                   ("an unknown signal", coach_note(signal="vibes_s")), ("a target of 'x'", coach_note(target="x")),
+                   ("a negative target", coach_note(target=-1.0)), ("n_good a bool", coach_note(n_good=True)),
+                   ("n_good a string", coach_note(n_good="4")), ("set_at unparseable", coach_note(set_at="soon")),
+                   ("no set_at", coach_note(set_at=None)), ("was missing for a hint that quotes it", coach_note(was=None)),
+                   ("a nan target", coach_note(target=float("nan")))):
+    check(f"coach: ineligible, no coach line: {name}", ("What their own videos show" in BP.creator_block(body(_coach=note), now=NOW, parts=("voice", "coach")),
+                                                          BP.coach_hint(note, NOW)), (False, ("", 0)))
+check("coach: held exactly 7 days IS eligible", BP.coach_hint(coach_note(held=7), NOW)[1], 8)
+check("coach: no _coach, a non-dict _coach and a note with no entry render no coach line",
+      [BP.coach_hint(c, NOW) for c in (None, "x", {"state": "ready"}, {"state": "ready", "entry": None}, {"entry": coach_note()["entry"]})], [("", 0)] * 5)
+check("coach: ('coach',) with nothing eligible renders no block at all (the eval guard's case)", BP.creator_block(body(_coach=coach_note(n_good=1)), now=NOW, parts=("coach",)), "")
+check("coach: a hint that needs no number is eligible without one (payoff_off_s)",
+      BP.coach_hint(coach_note(signal="payoff_off_s", target=None, was=None), NOW)[0], BP.WRITER_HINTS["payoff_off_s"])
+
+# every spoken-only hint ends with the silent sentence; the others do not
+spoken = {k: BP.coach_hint(coach_note(signal=k), NOW)[0] for k in BP.WRITER_HINTS}
+check("coach: every signal has a rendered hint, with no unfilled placeholder", [k for k, v in spoken.items() if not v or "{" in v or "}" in v], [])
+check("coach: a SPOKEN_ONLY hint ends with the silent sentence, the others do not",
+      sorted(k for k, v in spoken.items() if v.endswith(" If the delivery is silent, ignore this line.")), sorted(BP.SPOKEN_ONLY))
+check("coach: SPOKEN_ONLY is a subset of the hints", set(BP.SPOKEN_ONLY) <= set(BP.WRITER_HINTS), True)
+check("coach: placeholders are filled in the way the plan says ({t} is ceil, {n} is round, one decimal elsewhere)",
+      (BP.coach_hint(coach_note(signal="hook_end_s", target=2.1, was=3.4), NOW)[0].startswith(
+          "Keep the hook short enough to be said in full by about second 3. Their stronger videos got through the opening line by 2.1s; their quieter ones took until 3.4s."),
+       "about 3 words" in BP.coach_hint(coach_note(signal="words_first_3s", target=2.6), NOW)[0]), (True, True))
+
+check("coach: WRITER_HINTS covers exactly the coach's signal keys", (set(BP.WRITER_HINTS) == set(coach.SIGNAL_KEYS), sorted(set(BP.WRITER_HINTS) ^ set(coach.SIGNAL_KEYS))), (True, []))
+check("coach: no hint (lowercased) holds a word a coach line may never use",
+      [(k, w) for k, v in BP.WRITER_HINTS.items() for w in coach.PROSE_BANNED if w in v.lower()], [])
+check("coach: best_line_s says outright that it never adds a number or a name", "Never add a number or a name" in BP.WRITER_HINTS["best_line_s"], True)
+
+check("parse_parts: empty and None are today's block, and so is nothing known",
+      (BP.parse_parts(""), BP.parse_parts(None), BP.parse_parts("bogus"), BP.parse_parts(" , ")), (BP.DEFAULT_PARTS,) * 4)
+check("parse_parts: 'coach, VOICE' is voice then coach (PARTS order, any case)", BP.parse_parts("coach, VOICE"), ("voice", "coach"))
+check("parse_parts: an unknown name is ignored beside a known one", BP.parse_parts("bogus,watch"), ("watch",))
+check("parse_parts: the default is today's block without the coach", (BP.DEFAULT_PARTS, "coach" in BP.DEFAULT_PARTS), (("voice", "performance", "watch"), False))
+check("parse_parts: never raises on junk", BP.parse_parts(object()) in (BP.DEFAULT_PARTS,), True)
+
 check("coach: the ADAPT_SYSTEM prefix is untouched (the block rides in the user message, so the cached prefix cannot move)",
       "working_on" in __import__("process_adaptations").ADAPT_SYSTEM, False)
+check("coach: brain_prompt.py imports nothing from this repo (it stays a leaf: no import of coach, brain or process_adaptations)",
+      [l for l in (HERE / "brain_prompt.py").read_text().splitlines() if l.startswith(("import ", "from ")) and l.split()[1] in ("coach", "brain", "process_adaptations", "brain_prompt")], [])
+
+# ── 13b. the writer reads the coach note itself (plan lynxr-loop-v2.md, Part 4) ────────────────────────────────────────────────────
+class RouteSb:
+    """A fake P.sb that answers by table, and records every path."""
+
+    def __init__(self, brain=None, note=None, boom_on_note=False):
+        self.calls, self.brain, self.note, self.boom_on_note = [], brain, note, boom_on_note
+
+    def __call__(self, key, path, *a, **k):
+        self.calls.append(path)
+        if path.startswith("/rest/v1/lynxr_coach_notes"):
+            if self.boom_on_note:
+                raise OSError("down")
+            return self.note
+        return self.brain
+
+
+def with_parts(parts, fake, flag, fn):
+    saved = P.BRAIN_PROMPT_PARTS
+    P.BRAIN_PROMPT_PARTS = parts
+    try:
+        return with_sb(fake, flag, fn)
+    finally:
+        P.BRAIN_PROMPT_PARTS = saved
+
+
+NOTE = [{"body": {"state": "ready", "working_on": [coach_note(signal="speech_start_s")["entry"]]}}]
+BRAIN_ROW = [{"body": {"v": 1, "state": "ready"}}]
+rt = RouteSb(brain=BRAIN_ROW, note=NOTE)
+got = with_parts("", rt, A, lambda: P.brain_for("k", A))
+check("brain_for: default parts make NO read of lynxr_coach_notes and attach no _coach",
+      ([p for p in rt.calls if "lynxr_coach_notes" in p], "_coach" in (got or {})), ([], False))
+rt = RouteSb(brain=BRAIN_ROW, note=NOTE)
+got = with_parts("voice,coach", rt, A, lambda: (P.brain_for("k", A), P.brain_for("k", A)))
+check("brain_for: with coach in the parts, one read of the note for two asks, filtered to this creator",
+      ([p for p in rt.calls if "lynxr_coach_notes" in p], len(rt.calls)), ([f"/rest/v1/lynxr_coach_notes?creator_id=eq.{A}&select=body"], 2))
+check("brain_for: the body carries _coach as {state, entry} and keeps its own keys", (got[0]["_coach"]["state"], got[0]["_coach"]["entry"]["signal"], got[0]["state"]), ("ready", "speech_start_s", "ready"))
+check("brain_for: the stored brain row itself was not mutated (the coach rides in a copy)", "_coach" in BRAIN_ROW[0]["body"], False)
+rt = RouteSb(brain=BRAIN_ROW, note=[])
+check("brain_for: no coach note -> the brain without _coach", "_coach" in (with_parts("coach", rt, A, lambda: P.brain_for("k", A)) or {}), False)
+rt = RouteSb(brain=BRAIN_ROW, note=[{"body": {"state": "ready", "working_on": []}}])
+check("brain_for: a note with an empty working_on -> no _coach", "_coach" in (with_parts("coach", rt, A, lambda: P.brain_for("k", A)) or {}), False)
+rt = RouteSb(brain=BRAIN_ROW, boom_on_note=True)
+got = with_parts("coach", rt, A, lambda: P.brain_for("k", A))
+check("brain_for: a failed note read never raises and never costs the brain", (got, ), ({"v": 1, "state": "ready"}, ))
+rt = RouteSb(brain=[], note=NOTE)
+check("brain_for: no brain, no coach read (the coach has nothing to ride on)",
+      (with_parts("coach", rt, A, lambda: P.brain_for("k", A)), [p for p in rt.calls if "lynxr_coach_notes" in p]), (None, []))
+check("coach_for_writer: a note body that is not a dict is None", with_sb(RouteSb(note=[{"body": "x"}]), "1", lambda: P.coach_for_writer("k", A)), None)
+check("coach_for_writer: an entry that is not a dict is None", with_sb(RouteSb(note=[{"body": {"state": "ready", "working_on": ["x"]}}]), "1", lambda: P.coach_for_writer("k", A)), None)
+saved_parts = P.BRAIN_PROMPT_PARTS
+P.BRAIN_PROMPT_PARTS = "coach"
+blk = P.brain_block({**BRAIN_ROW[0]["body"], "built_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                     "_coach": coach_note(signal="duration_s")})
+P.BRAIN_PROMPT_PARTS = ""
+blk_default = P.brain_block({**BRAIN_ROW[0]["body"], "built_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                             "_coach": coach_note(signal="duration_s")})
+P.BRAIN_PROMPT_PARTS = saved_parts
+check("brain_block: applies BRAIN_PROMPT_PARTS at call time (coach-only renders the line; the default renders nothing here)",
+      ("What their own videos show" in blk, blk_default), (True, ""))
+check("brain_block: no brain is an empty block", (P.brain_block(None), P.brain_block({})), ("", ""))
+check("process_adaptations.py builds the creator block in exactly one place (brain_block)", pa.count("brain_prompt.creator_block("), 1)
+check("agency isolation: process_campaigns.py names neither brain nor coach nor the parts flag",
+      [w for w in ("brain", "coach", "BRAIN_PROMPT_PARTS", "_coach") if w in (HERE / "process_campaigns.py").read_text()], [])
 
 if FAILS:
     print(f"\n{len(FAILS)} FAILED: " + ", ".join(FAILS))

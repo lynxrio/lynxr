@@ -16,6 +16,7 @@ Subcommands (see script-quality.md steps 3-7 for the full spec of each):
     report    RUN_DIR [--vs DIR ...]           free — reads what `run`/`judge` wrote
     sheet     RUN_DIR [RUN_DIR2]              free — blind human grading sheet
     agree     SHEET_DIR                        free — judge-vs-human agreement
+    coachfit  RUN_DIR [--vs RUN_DIR] --target S free — do the scripts end nearer a target length than the control's
     hookarm   --from RUN_DIR|--from-backup ... spends money: hook scorer (and rework) over an existing run or backup
     hookpair  RUN_DIR [--budget-usd N]         spends money: independent pairwise judge, original vs rework
     hooksheet RUN_DIR | --tally SHEET_DIR      free — owner's blind A/B sheet for the openings, and its tally
@@ -613,6 +614,9 @@ def run_cmd(args):
         if not isinstance(brain_body, dict):
             sys.exit(f"--brain {brain_path}: expected a JSON object (the body pipeline/brain.py writes), "
                      f"got {type(brain_body).__name__}")
+    if brain_body is not None and not P.brain_block(brain_body):
+        sys.exit(f"--brain {brain_path}: renders NO block with BRAIN_PROMPT_PARTS={P.BRAIN_PROMPT_PARTS!r}: this arm would be production. "
+                 "Check built_at (within 30 days), the parts, and (for coach) _coach's state, n_good/n_poor and set_at.")
 
     aclient = _build_client()
 
@@ -664,8 +668,9 @@ def run_cmd(args):
         "brain": str(brain_path) if brain_path else None,
         "brain_sha256": hashlib.sha256(brain_path.read_bytes()).hexdigest() if brain_path else None,
         "brain_state": brain_body.get("state") if brain_body else None,
-        "brain_block_sha256": (hashlib.sha256(brain_prompt.creator_block(brain_body).encode()).hexdigest()
+        "brain_block_sha256": (hashlib.sha256(P.brain_block(brain_body).encode()).hexdigest()
                                if brain_body else None),
+        "brain_parts": list(brain_prompt.parse_parts(P.BRAIN_PROMPT_PARTS)),
         "refresh_format": args.refresh_format,
         "fresh_source": sorted(fresh_source_ids),
         "started_at": datetime.now(timezone.utc).isoformat(),
@@ -1194,6 +1199,66 @@ def report(args):
     out_path.write_text(text)
     print(text)
     print(f"\nwrote {out_path}")
+
+
+# ---------------------------------------------------------------- coachfit
+def _planned_end_s(ad):
+    """The last number in the last beat's `t` ("15-20s" -> 20.0), where the script PLANS to end. None when there is none."""
+    beats = [b for b in ((ad or {}).get("beats") or []) if isinstance(b, dict)]
+    nums = re.findall(r"\d+(?:\.\d+)?", str(beats[-1].get("t") or "")) if beats else []
+    return float(nums[-1]) if nums else None
+
+
+def _fit_rows(run, target):
+    """{(case, rep): {"end", "d", "spoken"}} for the results of a run that have a planned end."""
+    out = {}
+    for r in run["results"]:
+        ad = r.get("adaptation") or {}
+        end = _planned_end_s(ad)
+        if end is not None:
+            out[(r["case"], r["rep"])] = {"end": end, "d": abs(end - target), "spoken": SC.shown_words(ad)}
+    return out
+
+
+def _fit_line(label, rows):
+    vals = list(rows.values())
+    if not vals:
+        return f"{label}: no results with a planned end"
+    return (f"{label}: n {len(vals)} · median planned end {statistics.median(v['end'] for v in vals):.1f}s · "
+            f"median |end - target| {statistics.median(v['d'] for v in vals):.1f}s · median spoken words "
+            f"{statistics.median(v['spoken'] for v in vals):.0f}")
+
+
+def coachfit_cmd(args):
+    """FREE. Does a coach hint about length LAND: do the scripts end nearer the target than the control's? Reads results.jsonl only."""
+    arm = _load_run(args.run_dir)
+    rows = _fit_rows(arm, args.target)
+    print(f"coachfit, target {args.target:g}s (planned end = the last number in the last beat's timing)")
+    print(_fit_line(f"arm `{arm['meta']['arm']}`", rows))
+    if not args.vs:
+        print("no --vs run: no verdict")
+        return
+    base = _load_run(args.vs)
+    brows = _fit_rows(base, args.target)
+    print(_fit_line(f"vs  `{base['meta']['arm']}`", brows))
+    if arm["meta"].get("fixtures_sha256") != base["meta"].get("fixtures_sha256"):
+        print("REFUSED: different fixtures.json (sha256 mismatch) — not comparable.")
+        return
+    cases = sorted({c for c, _ in rows} & {c for c, _ in brows}, key=_case_sort_key)
+    flip = {}                                   # (case, rep) -> +1 closer, -1 farther, 0 same
+    for case in cases:
+        for rep in (1, 2):
+            a, b = rows.get((case, rep)), brows.get((case, rep))
+            if a and b:
+                flip[(case, rep)] = 1 if a["d"] < b["d"] else -1 if a["d"] > b["d"] else 0
+    both = [c for c in cases if flip.get((c, 1)) is not None and flip.get((c, 2)) is not None]
+    closer = sum(1 for c in both if flip[(c, 1)] == 1 and flip[(c, 2)] == 1)
+    farther = sum(1 for c in both if flip[(c, 1)] == -1 and flip[(c, 2)] == -1)
+    print(f"cases with both reps in both runs: {len(both)} · closer to the target in BOTH reps: {closer} · farther in BOTH reps: {farther}")
+    gain = (statistics.median(v["d"] for v in brows.values()) - statistics.median(v["d"] for v in rows.values())) if rows and brows else None
+    lands = gain is not None and gain >= 3.0 and closer >= 3
+    print(f"median |end - target| is {'n/a' if gain is None else f'{gain:.1f}s lower'} than the control's (needs 3.0s) and {closer} cases are closer in both reps (needs 3)")
+    print("lands" if lands else "does not land")
 
 
 # ---------------------------------------------------------------- sheet / agree
@@ -1805,6 +1870,12 @@ def build_parser():
     p_sheet.add_argument("--all-reps", action="store_true",
                          help="grade every rep, not just rep 1 (the plan's default is rep 1 only)")
     p_sheet.set_defaults(func=sheet_cmd)
+
+    p_cf = sub.add_parser("coachfit", help="free — does a coach length hint land: scripts' planned end vs a target, against a control run")
+    p_cf.add_argument("run_dir")
+    p_cf.add_argument("--vs", default=None, help="the control run dir to compare against")
+    p_cf.add_argument("--target", type=float, required=True, help="the length in seconds the hint asks for")
+    p_cf.set_defaults(func=coachfit_cmd)
 
     p_agree = sub.add_parser("agree", help="free — judge-vs-owner agreement on a graded sheet")
     p_agree.add_argument("sheet_dir")

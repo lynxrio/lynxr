@@ -81,13 +81,14 @@ valid JSON, ask a NEW subagent once; if that fails too, record `fail` for the sl
 
 **d. Publish, revise, or fail.**
 - Verdict `pass`: `python3 tools/ugc_agent/agent.py publish "<candidate_path>" --verdict "<verdict_path>"`.
-  `publish` re-runs the gate and checks the scores (all >= 4, no blocking issues). If it refuses, record `fail` with
+  `publish` re-runs the gate and checks the verdict (no blocking issues, no score below 3, average 4 or more). If it refuses, record `fail` with
   its message as the reason.
-- Verdict `revise`: one revision only. Edit the candidate to fix every `blocking_issues` and `revision_notes` entry
-  (state advice with its reason instead of asserting what brands or creators "do"; never add a figure or a name) and
-  change nothing else. Run `check` again (one fix attempt allowed, as in b), then `judge-context` again and a NEW
-  reviewer subagent (fresh, same rules as c). If it passes, `publish`. If it does not, record `fail` with the first
-  blocking issue as the reason.
+- Verdict `revise`: up to TWO revisions. Each time, edit the candidate to fix every `blocking_issues` and
+  `revision_notes` entry (state advice with its reason instead of asserting what brands or creators "do"; never add a
+  figure or a name) and change nothing else. Run `check` again (one fix attempt allowed, as in b), then
+  `judge-context` again and a NEW reviewer subagent (fresh, same rules as c). If it passes, `publish`. If the first
+  revision comes back `revise`, do the second revision the same way. If the second revision does not pass, record
+  `fail` with the first blocking issue (or, if there is none, the first revision note) as the reason.
 - Never publish without a passing verdict file. Never write the verdict yourself.
 
 ## 4. Order of work
@@ -129,17 +130,19 @@ UGC_FALLBACK_BRANCH="claude/ugc-$(date -u +%F)" bash tools/ugc_agent/commit.sh "
 protected, so the push may be refused; then `commit.sh` pushes the SAME commit to `UGC_FALLBACK_BRANCH` and writes
 `$OUT/pushed-branch.txt`. If that file exists, open a pull request:
 ```
-gh pr create --base main --head "$(cat "$OUT/pushed-branch.txt")" --title "$(head -n1 "$OUT/commit-subject.txt")" --body "Written and reviewed by the UGC answer routine. Merging this publishes the articles; the ugc articles workflow then waits for the deploy and pings IndexNow."
+gh api repos/lynxrio/lynxr/pulls -f base=main -f head="$(cat "$OUT/pushed-branch.txt")" -f title="$(head -n1 "$OUT/commit-subject.txt")" -f body="Written and reviewed by the UGC answer routine. Merging this publishes the articles; the ugc articles workflow then waits for the deploy and pings IndexNow."
 ```
 If `gh` is missing or fails, just report the branch name. If `commit.sh` exits 1, go to Failure handling (nothing
 was pushed).
 
 ## Failure handling
 
-Commit nothing beyond the attempts-only commit described in step 6. Then try, ignoring any error from `gh` (it may be unavailable in this sandbox):
+Commit nothing beyond the attempts-only commit described in step 6. Then file an issue, ignoring any error from `gh`.
+Use these REST calls exactly: `gh issue create`, `gh label create` and `gh pr create` go through GitHub's GraphQL API,
+which this sandbox refuses ("GitHub GraphQL is not available from Claude Code sessions").
 ```
-gh label create ugc-agent --color B60205 --description "UGC answer agent" --force
-gh issue create --label ugc-agent --title "ugc routine: <one line reason>" --body "<what failed, the problems printed, the slugs tried>"
+gh api repos/lynxrio/lynxr/labels -f name=ugc-agent -f color=B60205 -f description="UGC answer agent" || true
+gh api repos/lynxrio/lynxr/issues -f title="ugc routine: <one line reason>" -f body="<what failed, the problems printed, the slugs tried>" -f "labels[]=ugc-agent"
 ```
 
 ## Finish with a short report

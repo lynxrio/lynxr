@@ -380,7 +380,10 @@ def other_titles(arts, slug):
 
 
 def judge_passes(j):
-    return j["verdict"] == "pass" and all(v >= 4 for v in j["scores"].values()) and not j["blocking_issues"]
+    s = list(j["scores"].values())
+    # Pass bar (owner, 2026-10-11): no blocking issue, no score below 3, average 4 or more. The old "every score 4+"
+    # bar failed articles that had zero blocking issues.
+    return j["verdict"] == "pass" and not j["blocking_issues"] and min(s) >= 3 and sum(s) / len(s) >= 4
 
 
 def snapshot(root):

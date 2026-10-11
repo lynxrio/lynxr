@@ -163,6 +163,9 @@ jobs:
           # a secret, not a var: the value is a list of creator uuids and Actions masks secrets in public logs.
           # Unset renders empty, which brain_prompt.enabled_for reads as off. Must match the Fly secret.
           BRAIN_IN_PROMPT: ${{ secrets.BRAIN_IN_PROMPT }}
+          # What the brain block carries (plan lynxr-loop-v2.md, Part 4). A repo VARIABLE (no uuids), read once when this ~6h job starts.
+          # Unset renders empty = voice,performance,watch. Must match the Fly secret.
+          BRAIN_PROMPT_PARTS: ${{ vars.BRAIN_PROMPT_PARTS }}
           # Hook scorer (pipeline/hook_score.py, plan ~/.claude/plans/lynxr-hook-scorer.md). Unset renders empty = off.
           # Repo VARIABLES, read once when this ~6h job starts: a change reaches this fallback only at the next job.
           HOOK_SCORE: ${{ vars.HOOK_SCORE }}

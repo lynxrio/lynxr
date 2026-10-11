@@ -5608,7 +5608,15 @@ async function agEnsureSent(sourceKind, sourceId, onDone, force) {
   AG_LOADING.add(key);
   try {
     const rows = await agSentFor(sourceKind, sourceId);
-    AG_SENT.set(key, { rows, error: null });
+    let posts = null;
+    const ids = (rows || []).map((b) => b && b.id).filter(Boolean);
+    if (ids.length) {
+      try {
+        const got = await sbFetch("/rest/v1/rpc/staff_brief_posts", { method: "POST", body: JSON.stringify({ p_briefs: ids }) });
+        posts = Array.isArray(got) ? got : null;
+      } catch { posts = null; }                   // the SQL not applied, or not staff: the section is simply not drawn
+    }
+    AG_SENT.set(key, { rows, error: null, posts });
   } catch (ex) {
     AG_SENT.set(key, { rows: [], error: cbError(ex) });
   } finally {
@@ -7111,6 +7119,39 @@ function cbSendPaintGroups(root) {
   });
 }
 
+/** "Posts made for this brief" (supabase/brief_match.sql, plan lynxr-loop-v2.md Part 2): the tracked posts the match lane linked to
+    this brief, under its Sent to list. Staff only (the RPC refuses anyone else), and drawn only once the RPC answered with an
+    array: before the SQL is applied the section is absent, never an error. Views are the day-7 reading when there is one. */
+function cbBriefPostsHtml(entry) {
+  if (!entry || !Array.isArray(entry.posts)) return "";
+  const byId = new Map((ROSTER || []).map((r) => [r.creator_id, r.email]));
+  const how = (p) => {
+    const title = p.format_title ? `“${p.format_title}”` : "";
+    if (p.path === "script") return "From their script";
+    if (p.path === "format") return title ? `Matched ${title}` : "Matched a format no longer in this brief";
+    if (p.path === "brief") return p.format_id && title ? `Made for this brief · ${title}` : "Made for this brief · format not known";
+    if (p.path === "staff") return "Linked by staff";
+    return "";
+  };
+  const views = (p) => (p.views7 != null ? `${fmt(p.views7)} views a week in`
+    : p.views != null ? `${fmt(p.views)} views so far` : "No views read yet");
+  const plat = (v) => (v === "tiktok" ? "TikTok" : v === "instagram" ? "Instagram" : String(v || ""));
+  const rows = entry.posts.map((p) => {
+    const href = safeUrl(p.url);
+    return `<article class="bcard cb-sent-row">
+        <div class="bcard-main minw0">
+          <div class="bcard-title">${escapeHtml(byId.get(p.creator_id) || "—")} · ${escapeHtml(plat(p.platform))}</div>
+          <div class="lbl">posted ${escapeHtml(String(p.posted_at || "").slice(0, 10))} · ${escapeHtml(views(p))} · ${escapeHtml(how(p))}</div>
+        </div>
+        ${href ? `<a class="ghost" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}
+      </article>`;
+  }).join("");
+  return `<div class="cb-sent-list cb-brief-posts">
+    <div class="sec-head"><h3>Posts made for this brief</h3></div>
+    ${entry.posts.length ? rows : `<p class="note">No posts matched to this brief yet.</p>`}
+  </div>`;
+}
+
 /** "Sent to" list: one row per delivery, an Unsend on each live one, plus
     Unsend for everyone. Visible whenever there's anything to show, whether or
     not the send panel itself is open. Shows nothing about whether a creator
@@ -7159,6 +7200,7 @@ function cbSentListHtml(sourceKind, sourceId, getDoc) {
           : `<button type="button" class="ghost danger cb-unsend" data-brief="${escapeHtml(d.briefId)}" data-creator="${escapeHtml(d.creator_id)}">Unsend</button>`}
       </article>`).join("")}
     </div>
+    ${cbBriefPostsHtml(entry)}
   </div>`;
 }
 

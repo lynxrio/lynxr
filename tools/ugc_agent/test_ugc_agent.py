@@ -165,7 +165,7 @@ def routine_tests():
     rt = (HERE / "ROUTINE.md").read_text(encoding="utf-8")
     check("routine: ROUTINE.md covers next, check, judge-context, publish, fail, render, gate, check_stamp, commit.sh, PR and issue",
           all(s in rt for s in ("agent.py next", "agent.py check", "judge-context", "agent.py publish", "agent.py fail", "agent.py render",
-                                "agent.py gate", "check_stamp.py", "commit.sh", "gh pr create", "gh issue create", "claude/ugc-", "SEPARATE subagent")))
+                                "agent.py gate", "check_stamp.py", "commit.sh", "repos/lynxrio/lynxr/pulls", "repos/lynxrio/lynxr/issues", "claude/ugc-", "SEPARATE subagent")))
 
     # ---- A: stub writer + stub reviewer, one article passes, one fails, then render/gate/stamp/finish/commit.sh
     tmp = tempfile.TemporaryDirectory()
@@ -194,9 +194,16 @@ def routine_tests():
     check("routine: publish refuses a revise verdict and writes nothing",
           r.returncode == 1 and "REFUSED" in r.stdout and not (work / "tools/ugc_agent/articles" / (good + ".json")).exists(), r.stdout)
     low = stub_review(out, good, "pass")
-    v = json.loads(low.read_text()); v["scores"]["voice"] = 3; low.write_text(json.dumps(v))
+    v = json.loads(low.read_text()); v["scores"]["voice"] = 2; low.write_text(json.dumps(v))
     r = sh(agent + ["publish", str(cp), "--verdict", str(low)], work)
-    check("routine: publish refuses a pass verdict with a score under 4", r.returncode == 1 and "REFUSED" in r.stdout, r.stdout)
+    check("routine: publish refuses a pass verdict with a score under 3", r.returncode == 1 and "REFUSED" in r.stdout, r.stdout)
+    # pass bar (2026-10-11): no blocking issue, no score below 3, average 4 or more
+    def jv(scores, issues=()):
+        return {"verdict": "pass", "scores": dict(zip(SCORES5, scores)), "blocking_issues": list(issues), "revision_notes": []}
+    check("pass bar: one 3 with an average of 4 or more passes", A.judge_passes(jv([5, 4, 5, 3, 4])))
+    check("pass bar: an average under 4 fails even with no score under 3", not A.judge_passes(jv([4, 4, 3, 3, 4])))
+    check("pass bar: any blocking issue fails whatever the scores", not A.judge_passes(jv([5, 5, 5, 5, 5], ["a figure"])))
+    check("pass bar: a revise verdict fails even with top scores", not A.judge_passes(dict(jv([5, 5, 5, 5, 5]), verdict="revise")))
     vp = stub_review(out, good, "pass")
     r = sh(agent + ["publish", str(cp), "--verdict", str(vp)], work)
     art_path = work / "tools/ugc_agent/articles" / (good + ".json")
@@ -687,7 +694,9 @@ def main():
     check("judge context: guides include the six guide pages", len(sp["guides"]) == 6, sp["guides"])
     jp = (HERE / "prompts/judge.txt").read_text(encoding="utf-8")
     check("judge prompt: says links are already checked and stays strict on claims",
-          "LINKS ARE ALREADY CHECKED" in jp and "Be strict" in jp and "generalisation" in jp)
+          "LINKS ARE ALREADY CHECKED" in jp and "Be strict" in jp and "sweeping claim" in jp and "a statistic, figure" in jp)
+    check("judge prompt: reasoned advice is not a blocking issue, and 'unsure means breaking' is gone",
+          "NOT blocking issues" in jp and "treat it as breaking" not in jp and "average 4 or more" in jp)
     sysp = (HERE / "prompts/system.txt").read_text(encoding="utf-8")
     check("writer prompt: steers to reasoned advice and one placeholder style",
           "advice with its reason" in sysp and "[NAME], [PRODUCT], [DATE], [NUMBER]" in sysp)
