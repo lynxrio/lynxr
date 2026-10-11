@@ -53,8 +53,11 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 
 - [UGC rates, pay and usage rights](https://lynxr.io/faq/ugc-rates-and-pay/): How UGC creators get paid, how to work out a rate, and what usage rights, raw footage and whitelisting mean for the price.
   - [How do UGC creators get paid?](https://lynxr.io/blog/how-do-ugc-creators-get-paid/): How UGC creators get paid: flat fees per video, usage and raw footage add-ons, bundles, retainers, deposits, invoices and what to do when payment runs late.
+  - [What are usage rights in UGC?](https://lynxr.io/blog/what-are-ugc-usage-rights/): UGC usage rights explained: organic versus paid use, how long and where a brand may run your video, and how to agree each term in writing first.
 - [Finding UGC brand deals](https://lynxr.io/faq/ugc-brand-deals/): How to find brands that hire UGC creators, how to pitch them, what to send, how to follow up and how to get booked again.
   - [How do you write a UGC pitch email to a brand?](https://lynxr.io/blog/ugc-pitch-email/): How to write a UGC pitch email: lead with one video idea for the brand's product, prove it with a portfolio link, ask clearly, and cut the rest.
+- [UGC briefs, revisions and delivery](https://lynxr.io/faq/ugc-briefs/): What goes in a UGC brief, how to handle vague briefs, feedback and revisions, and what to hand over when a UGC job is done.
+  - [What goes in a UGC brief?](https://lynxr.io/blog/what-goes-in-a-ugc-brief/): What goes in a UGC brief: the parts to look for, how to read a brief before you script, and the questions to send a brand when something is unclear.
 - [Writing UGC scripts](https://lynxr.io/faq/ugc-scripts/): How to write UGC scripts for different kinds of product, from skincare to apps, with an example script in every answer.
   - [What goes in a UGC script for a skincare brand?](https://lynxr.io/blog/ugc-script-for-skincare/): What a UGC script for a skincare brand needs: a hook built on a skin situation, the routine, texture on camera, an honest timeline, and the claims to leave out.
 

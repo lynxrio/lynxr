@@ -1,0 +1,265 @@
+{
+  "question_id": "q003",
+  "slug": "what-are-ugc-usage-rights",
+  "theme": "ugc-rates-and-pay",
+  "title": "What are usage rights in UGC?",
+  "description": "UGC usage rights explained: organic versus paid use, how long and where a brand may run your video, and how to agree each term in writing first.",
+  "short_answer": "Usage rights are the permissions you give a brand to use the videos you make for it: where they appear, for how long, and whether they run as ads. Agree each permission separately, because each one gives the brand more use of your work, and write every term down before you film.",
+  "sections": [
+    {
+      "heading": "What is the difference between organic and paid usage?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Organic usage means the brand posts your video on its own accounts, while paid usage means it spends money to show your video as an ad.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep them as two separate lines in your quote rather than one, so the brand can choose each on its own and you can price each on its own.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Ask the [brand](/glossary/#brand) whether it wants to run ads from your account as well, and quote that as its own line, so the question is settled before you film rather than after.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When you read a [brief](/glossary/#brief), mark every place it mentions ads, boosting, posting from your account or a usage period. [How to turn a brand brief into a script](/blog/brief-to-script/) shows a simple way to separate what is fixed from what is yours, and the same habit catches usage terms before you have agreed to them by accident.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which questions should you ask a brand about usage?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask about five things: the channels, the length of time, whether paid ads are included, what edits are allowed, and any exclusivity.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Leave none of them to be assumed. Asking each one before you film means you can price the work with the full picture in front of you.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Term",
+            "What to ask the brand",
+            "Why ask it"
+          ],
+          "table_rows": [
+            [
+              "Channels",
+              "Where will the video appear: its TikTok, its Instagram, its website, its emails, its ads?",
+              "List each place separately so you can price it."
+            ],
+            [
+              "Duration",
+              "How long may it be used, and from which start date?",
+              "An end date tells you when to check in again."
+            ],
+            [
+              "Paid ads",
+              "Will it run as an ad, and from whose account?",
+              "Quote paid ads as their own line."
+            ],
+            [
+              "Edits",
+              "May the brand cut, re-voice or combine your footage with other clips?",
+              "You know in advance how your face and voice may be changed."
+            ],
+            [
+              "Exclusivity",
+              "May you work with competing brands during the term?",
+              "Quote exclusivity as its own line, because it affects who else you can work with."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand also wants your raw footage, add that as a sixth line. Unedited clips let the brand build new videos you never saw, so ask what it plans to make from them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do usage rights change what you charge?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Price the video itself first, then add a separate line for each permission beyond organic posting, so the brand sees what each one adds.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A quote built line by line gives the brand something to remove instead of something to haggle down. If the budget is tight, the brand can drop paid ads or shorten the term, and your fee for the work itself stays where you set it. It also keeps the conversation about scope rather than about your worth.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "The video and organic posting on the brand's accounts for [NUMBER] days: [AMOUNT].",
+            "Paid ads from the brand's account for the same period: [AMOUNT].",
+            "Ads run from your account: [AMOUNT].",
+            "Each extension of [NUMBER] days: [AMOUNT].",
+            "Exclusivity in the product category for the term: [AMOUNT]."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Set your own numbers for each line and keep them the same from brand to brand, so your quotes stay consistent. For how the money itself moves once you agree, see [how UGC creators get paid](/blog/how-do-ugc-creators-get-paid/), and the wider [rates, pay and usage rights questions](/faq/ugc-rates-and-pay/) cover the rest of the topic.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you put in writing before you film?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Put the channels, the duration, the paid ads decision, the edit permissions and the fee in one written message, and ask the brand to reply confirming it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A short recap in plain words gives you both one place to check what you discussed. Keep the same friendly tone you used in your [pitch email](/blog/ugc-pitch-email/), and send it before you buy props or book a filming day.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hi [NAME], before I start on the [PRODUCT] video, here is what I understand we agreed.",
+            "Use: organic posts on your TikTok and Instagram, plus paid ads from your account, for [NUMBER] days from [DATE].",
+            "Edits: you may trim and add captions, and you will check with me before re-voicing or combining my footage with other clips.",
+            "Fee: [AMOUNT] in total, with extensions quoted separately.",
+            "Could you reply to confirm, or tell me what I have got wrong?"
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand sends its own contract, compare it with your recap and ask the brand about anything that differs from what you discussed. Before you sign a contract you are unsure about, get advice from someone qualified to give it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What happens when a brand wants to use a video for longer?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Treat it as a new request: confirm what the brand wants to add, quote the extension as its own line, and agree it in writing before the old term ends.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Put each end date in your calendar two weeks early. That gives you time to send a short note asking whether the brand wants to keep using the video, which turns the end of a term into a chance for more paid work instead of a surprise.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you see your video still live after the agreed date, send a friendly note with the dates from your recap and ask whether the brand would like to extend. Keep it short and warm, because it is an offer of more work, not a complaint.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-11",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
