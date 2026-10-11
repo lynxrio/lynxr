@@ -3692,6 +3692,7 @@ const TRACKING_LIVE = true;                   // kill switch: the Posts view and
 const SHOWCASE_APP_LIVE = true;               // kill switch: the Settings "Showcase" card and the "made with" control on Posts (plan lynxr-showcase.md)
 const INSIGHTS_APP_LIVE = true;               // kill switch: the Settings "Connected accounts" card (plan lynxr-social-insights.md). Which platforms are OFFERED comes from my_insights(), never from here.
 const COACH_APP_LIVE = false;                 // kill switch: the coach card and each video's read, its numbers and its moments on Posts (plan lynxr-coach-v1.md). OFF until the owner has read real notes; the dev preview (?obtest=1&metric=coachready) paints it regardless.
+const HOOK_CHECK_APP_LIVE = false;           // kill switch: the "lynxr hook rules" line under a script's hook (plan lynxr-hook-scorer.md). OFF until rework mode has run; ?obtest=1&hookcheck=pass|below paints it regardless.
 const GOAL_WEEK_DAY = 7, GOAL_LAST_N = 5;     // perform goal: the average views at day 7 over the latest 5 tracked videos
 /* What a creator can name as their main priority, and the goal chips that go with it. The stored target is the number:
    "10+" brand deals stores 10 and "$1k+" stores 1000 (goalChipLabel / goalLabel say it back). Progress per priority:
@@ -3835,7 +3836,9 @@ function linkWallDue() {
   if (AGENCY_STATE !== "ready") return false;         // idle | loading | missing | error -> no wall
   if (AGENCY?.state !== "accepted") return false;     // invited | left | none -> no wall
   if (!Array.isArray(PROFILES)) return false;         // the profiles read failed -> no wall
-  return PROFILES.length === 0;                       // decision (a): ADDED releases it
+  // Due until BOTH platforms are added, the same test the release uses (linkWallStep). It used to be "zero profiles",
+  // so a creator who added one username and reloaded never saw the wall again (found 2026-10-11).
+  return linkWallStep() !== null;                     // decision (a) still holds: ADDED, not verified, is what counts
 }
 
 async function agencyBriefDoc(id) {
@@ -5067,7 +5070,7 @@ let LINKWALL_CHEER_TIMER = null;
 const LINKWALL_STEPS = ["instagram", "tiktok"];
 const LINKWALL_NOTES = [
   "Link the account you post on and lynxr starts following what your videos do.",
-  "You'll need to link at least one account to carry on.",
+  "You'll need to link both accounts to carry on.",
   `This is how ${AGENCY_NAME} sees what your videos did, and how lynxr learns what works for you. Nothing else reads it.`,
 ];
 const LINKWALL_FOCUSABLE = 'button:not([disabled]), select, input, a[href]';
@@ -6355,6 +6358,7 @@ let PROFILES = null; let SETUP_SEEN_MEM = false;
 let POSTS = null; let FOLLOWERS = null; let POSTS_STATE = "idle";
 let COACH = null;           // my_coach(): { tier, state, not_yet, median_views, working_on, posts } trimmed to this creator's depth by the database, or { missing: true } when the SQL is not applied
 let COACH_PREVIEW = false;  // set only inside the localhost ?obtest=1 block, so the dev preview can paint the coach while COACH_APP_LIVE is off
+let HOOK_CHECK_PREVIEW = false;  // set only inside the localhost ?obtest=1 block (&hookcheck=pass|below), so the dev preview can paint the hook-rules line while HOOK_CHECK_APP_LIVE is off
 let SHOWCASE_ME = null;     // { featured, changed_at, approved: [post ids] } from my_showcase(), or { missing: true } when the SQL is not applied
 let INSIGHTS_ME = null;     // { platforms: {instagram, tiktok}, connected: [{platform, handle, since, status}] } from my_insights(), or { missing: true } when the SQL is not applied
 let INSIGHTS_NOTE = null;   // { text, tone } shown inside the Connected accounts card until the creator acts: where they landed, and what happened
@@ -7882,6 +7886,8 @@ function paintSideNews() {
      ...&metric=win                the first-script screen for an original script (no brand), shown on load
      ...&metric=winbrand           the first-script screen for a script written for a brand
      ...&metric=link               link TikTok (username, bio code, done) with the first-script screen behind it
+     ...&hookcheck=pass|below      paints the "lynxr hook rules" line under a script's hook (94 at/above the bar, or 72 with the rule it misses);
+                                   needs a script card on screen, e.g. &metric=winbrand, closed, then Library
    ================================================================================================================ */
 const OBTEST = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   && new URLSearchParams(location.search).get("obtest") === "1";
@@ -7971,6 +7977,11 @@ if (OBTEST) {
       { t: "3-12s", say: "Watch. One coat, no filter, no edits.", do: "Apply it in one take" },
       { t: "12-20s", say: "That's just how it looks.", do: "Turn to the window light" }],
     cta: "It's $24 at Glow. Link's in my bio.", caption: "no filter needed" };
+  /* &hookcheck=pass|below: the worker's small hookCheck record, so the preview can paint the hook-rules line (HOOK_CHECK_PREVIEW). */
+  const hcq = qs.get("hookcheck");
+  if (hcq === "pass" || hcq === "below") HOOK_CHECK_PREVIEW = true;
+  const obHookCheck = () => (hcq === "pass" ? { v: "hook-r1", score: 94, bar: 90, below: false, hook: OB_ADAPT.hook, rules: ["H1", "H2"], at: new Date().toISOString() }
+    : hcq === "below" ? { v: "hook-r1", score: 72, bar: 90, below: true, hook: OB_ADAPT.hook, rules: ["H1"], at: new Date().toISOString() } : null);
   /* Every script that has been writing for 4 seconds finishes: the original script always, the brand rewrite when a brand was ticked. */
   let obWorkerOn = false;
   const obFakeWorker = () => {
@@ -7978,7 +7989,7 @@ if (OBTEST) {
     for (const a of ME.adaptations || []) {
       if (!isWriting(a) || Date.now() - Date.parse(a.addedAt || "") < 4000) continue;
       a.source = clone(OB_SCRIPT);
-      if (a.brandId) a.adaptation = clone(OB_ADAPT);
+      if (a.brandId) { a.adaptation = clone(OB_ADAPT); const hc = obHookCheck(); if (hc) a.hookCheck = hc; }
       a.status = "done";
       a.processedAt = new Date().toISOString();
       changed = true;
@@ -8191,7 +8202,8 @@ if (OBTEST) {
           const brand = st.win === "brand";
           ME.library = [{ id: "ob-lwin", url, canon: canonUrl(url), title: "", platform: "tiktok", addedAt: at(NOW0 - 60e3) }];
           ME.adaptations = [{ id: "ob-awin", libraryId: "ob-lwin", sourceUrl: url, brandId: brand ? "ob-b1" : null, brandName: brand ? "Glow Skincare" : "",
-            title: "", status: "done", addedAt: at(NOW0 - 60e3), processedAt: at(NOW0), source: clone(OB_SCRIPT), ...(brand ? { adaptation: clone(OB_ADAPT) } : {}) }];
+            title: "", status: "done", addedAt: at(NOW0 - 60e3), processedAt: at(NOW0), source: clone(OB_SCRIPT), ...(brand ? { adaptation: clone(OB_ADAPT) } : {}),
+            ...(brand && obHookCheck() ? { hookCheck: obHookCheck() } : {}) }];
         }
       }
       POSTS = OBFAKE.posts; FOLLOWERS = OBFAKE.followers; POSTS_STATE = "ok";
@@ -12300,6 +12312,37 @@ function initPrompter() {
    call stay adjacent so they cannot drift apart again. */
 initPrompter();
 
+/* THE "LYNXR HOOK RULES" LINE under a script's hook (plan lynxr-hook-scorer.md). The worker writes a.hookCheck in rework mode only;
+   it is a CRAFT score from lynxr's own hook rules, never a prediction, and no string here may say otherwise. Each rule id maps to
+   [what it passes on, what it misses on]. Edit the hook and the line hides itself, because the score was for the old words; put
+   the old words back and it returns. A sibling of .bp-hook, never inside it: .bp-hook is on the lowercase exclusion list and this
+   is lynxr's own copy, which the house style lowercases. Nothing here is tappable, and copy and the teleprompter build from
+   the ad's fields, not from this markup. */
+const HOOK_RULE_LABELS = {
+  H1: ["Reason to stay up front", "The reason to stay comes too late"],
+  H2: ["Takes a risk", "Plays it safe"],
+  H3: ["Best line first", "The best line is buried"],
+  H4: ["The video pays it off", "Promises more than the video gives"],
+  H5: ["Keeps the payoff back", "Gives the payoff away early"],
+  H6: ["Opens in the viewer's world", "Opens like an ad"],
+  H7: ["Short and plain", "Too long or wordy"],
+  H8: ["Anyone can say it", "Leans on a look or a backstory"],
+  H9: ["A stake you can see", "The stake is hard to judge"],
+  H10: ["A real reference", "The reference is made up"],
+};
+const HOOK_CHECK_NOTE = "A craft score from lynxr's own hook rules. It does not predict views.";
+function hookCheckHtml(a) {
+  if (!(HOOK_CHECK_APP_LIVE || HOOK_CHECK_PREVIEW)) return "";
+  const hc = a && a.hookCheck;
+  if (!hc || typeof hc !== "object" || typeof hc.score !== "number" || !Number.isFinite(hc.score) || !Array.isArray(hc.rules)) return "";
+  if (hc.hook !== (a.adaptation || {}).hook) return "";
+  const below = !!hc.below;
+  const rules = hc.rules.map((id) => HOOK_RULE_LABELS[id]).filter(Boolean).map((l) => (below ? l[1] : l[0]));
+  return `<p class="bp-hookcheck${below ? " is-below" : ""}" title="${escapeHtml(HOOK_CHECK_NOTE)}"><span class="bp-hookcheck-lbl">lynxr hook rules</span><span class="bp-hookcheck-score">${escapeHtml(String(Math.round(hc.score)))}</span>${
+    rules.map((t, i) => `<span class="bp-hookcheck-rule">${below && i === 0 ? "Misses: " : ""}${escapeHtml(t)}</span>`).join("")
+  }<span class="sr-only">${escapeHtml(HOOK_CHECK_NOTE)}</span></p>`;
+}
+
 /** opts.open   — render already expanded. Used inside a Library entry the
  *                creator has just opened: they opened it to read the script, so
  *                a second disclosure to reach it is the step this removes.
@@ -12450,6 +12493,7 @@ function adaptationHtml(a, liveName, opts = {}) {
         silent ? "Opening card" : "Hook"}</span>“<span class="bp-val bp-hookval"
         contenteditable="plaintext-only" role="textbox" tabindex="0" spellcheck="false"
         data-edit="top" data-adid="${id}" data-field="hook">${escapeHtml(ad.hook)}</span>”</div>` : ""}
+      ${hookCheckHtml(a)}
       ${silent ? `<p class="bp-hint">No voiceover — put the SHOW line on screen at each beat.</p>` : ""}
       ${/* Silent scripts get no heading. "Shot by shot" sat directly above a
             list of shots, under a line that already says "no voiceover — put
@@ -13469,6 +13513,12 @@ function wireAdaptationCards(host) {
       }
     } else {
       a.adaptation[el.dataset.field] = val;
+      /* The hook-rules line (hookCheckHtml) scored the OLD words, so it goes the moment the hook is confirmed; with no repaint here
+         it would otherwise stay until the next one. Putting the old words back repaints the card, which brings it back. */
+      if (el.dataset.field === "hook") {
+        const hcl = el.closest(".bp-hook")?.nextElementSibling;
+        if (hcl && hcl.classList.contains("bp-hookcheck")) hcl.remove();
+      }
     }
     a.editedAt = new Date().toISOString();
     el.dataset.was = val;                  // the new baseline for the next Escape

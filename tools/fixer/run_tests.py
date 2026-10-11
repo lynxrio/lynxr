@@ -18,6 +18,7 @@ TESTS = [
     "pipeline/test_backup.py",
     "pipeline/test_brain_prompt.py",
     "pipeline/test_untrusted.py",
+    "pipeline/test_hook_score.py",
     "pipeline/test_brief_clips.py",
     "pipeline/test_campaigns.py",
     "pipeline/test_canary.py",

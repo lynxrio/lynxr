@@ -1277,6 +1277,18 @@
     display: block; font-style: normal; font-size: var(--fs-10); letter-spacing: .1em;
     text-transform: lowercase; color: var(--text-3); margin-bottom: 3px;
   }
+  /* The "lynxr hook rules" line (creator.js hookCheckHtml, plan lynxr-hook-scorer.md): small, muted, under the hook, a sibling
+     of .bp-hook so the house lowercase applies to it. A craft score, not an error: .is-below is NOT red and nothing here moves
+     or is tappable. The separators are drawn, not typed, so copying the script cannot carry them. */
+  .bp-hookcheck {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .35em;
+    margin: -6px 0 12px 14px; font-size: var(--fs-12); line-height: 1.5; color: var(--text-3);
+  }
+  .bp-hookcheck-lbl { letter-spacing: .02em; }
+  .bp-hookcheck-score { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text-2); }
+  .bp-hookcheck-score:has(+ .bp-hookcheck-rule)::after { content: "\2014"; margin-left: .35em; }
+  .bp-hookcheck-rule + .bp-hookcheck-rule::before { content: "\00b7"; margin-right: .35em; }
+  .bp-hookcheck.is-below .bp-hookcheck-rule { color: var(--text-2); }
   .bp-heading {
     font-size: var(--fs-105); letter-spacing: .08em; text-transform: lowercase;
     color: var(--text-3); margin-bottom: 4px;
@@ -8303,6 +8315,8 @@
     border-radius: var(--r-pill); background: var(--lbl-say-bg); color: var(--accent);
     font-size: var(--fs-105); font-weight: 700; letter-spacing: .02em; line-height: 1.5;
   }
+  /* the hook-rules line sits snug under the hook card (the card's 22px bottom margin collapses with this -14px to 8px) */
+  .pane-body .bp-hookcheck { margin: -14px 0 22px 20px; }
   .pane-body .bp-heading,
   body.agency :is(#app, #modal) .bp-heading {
     margin: 0 0 10px; font-size: var(--fs-14); font-weight: 700; letter-spacing: 0; color: var(--text);

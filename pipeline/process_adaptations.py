@@ -85,6 +85,7 @@ from video_limits import MAX_SOURCE_SECONDS, as_seconds, media_duration, too_lon
 import envcfg  # the one place a secret or config value is read; see its docstring.
 import brain_prompt  # pure stdlib, imports nothing from this repo: brain.py imports THIS module, so anything cyclic would break
 import untrusted  # defuses model-directed text in material lynxr did not write; identity on ordinary input
+import hook_score  # pure: rubric, prompts and scoring maths; no network; never imports this module
 
 ROOT = Path(__file__).parent.parent
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
@@ -440,6 +441,27 @@ FUSE_FORMAT_ADAPT = envcfg.get("FUSE_FORMAT_ADAPT", "0") not in ("0", "", "false
 # (cofounders first, then widen). Read through the module global at call time so the eval
 # harness's --set and a test can both override it.
 BRAIN_IN_PROMPT = envcfg.get("BRAIN_IN_PROMPT", "0")
+
+# THE HOOK SCORER (pipeline/hook_score.py; plan ~/.claude/plans/lynxr-hook-scorer.md). It scores the OPENING of a
+# finished creator script against lynxr's own hook rules and, in rework mode, rewrites a weak opening. IT IS A CRAFT
+# SCORE, NOT A VIEW PREDICTION. The agency path (process_campaigns.py) never calls any of it. Every value stays a
+# STRING, read at call time through the module global, so eval_scripts.py --set and a test can override it.
+#   HOOK_SCORE      off | score | rework. Default OFF: nothing below runs and no model is called.
+#   HOOK_REWORK_FOR who gets rework when HOOK_SCORE=rework. Same grammar as BRAIN_IN_PROMPT: empty = NOBODY (score
+#                   only), "all"/"1" = everyone, else a comma list of creator uuids. A secret, never a repo variable.
+HOOK_SCORE = envcfg.get("HOOK_SCORE", "off")
+HOOK_REWORK_FOR = envcfg.get("HOOK_REWORK_FOR", "")
+HOOK_THRESHOLD = envcfg.get("HOOK_THRESHOLD", "90")
+HOOK_MIN_GAIN = envcfg.get("HOOK_MIN_GAIN", "10")
+HOOK_CANDIDATES = envcfg.get("HOOK_CANDIDATES", "1")      # clamped to 1-2
+HOOK_ROUNDS = envcfg.get("HOOK_ROUNDS", "1")              # clamped to 1-2
+HOOK_MIN_FIT = envcfg.get("HOOK_MIN_FIT", "0.45")
+HOOK_DEADLINE_S = envcfg.get("HOOK_DEADLINE_S", "45")
+HOOK_CALL_TIMEOUT_S = envcfg.get("HOOK_CALL_TIMEOUT_S", "30")
+HOOK_SCORE_MODEL = envcfg.get("HOOK_SCORE_MODEL", "claude-sonnet-5-5")
+HOOK_SCORE_EFFORT = envcfg.get("HOOK_SCORE_EFFORT", "low")
+HOOK_REWORK_MODEL = envcfg.get("HOOK_REWORK_MODEL", MODEL)
+HOOK_REWORK_EFFORT = envcfg.get("HOOK_REWORK_EFFORT", "medium")
 
 FUSED_SCHEMA = {
     "type": "object",
@@ -1888,6 +1910,10 @@ def warm_prefixes(aclient):
     warm("tags", TAG_MODEL, TAG_SYSTEM, TAG_SCHEMA_VISION, TAG_EFFORT)
     warm("format", MODEL, FORMAT_SYSTEM, FORMAT_SCHEMA)
     warm("adapt", MODEL, ADAPT_SYSTEM, ADAPT_SCHEMA)
+    if str(HOOK_SCORE).strip().lower() in ("score", "rework"):
+        warm("hook-score", HOOK_SCORE_MODEL, hook_score.HOOK_SCORE_SYSTEM, hook_score.HOOK_SCORE_SCHEMA, HOOK_SCORE_EFFORT)
+    if str(HOOK_SCORE).strip().lower() == "rework":
+        warm("hook-rework", HOOK_REWORK_MODEL, hook_score.HOOK_REWORK_SYSTEM, hook_score.HOOK_REWORK_SCHEMA, HOOK_REWORK_EFFORT)
     log.info("prefix warm-up done in %.1fs", time.time() - t0)
 
 
@@ -1937,18 +1963,22 @@ def note_usage(model, msg):
 PRICES = {
     "claude-opus-5":  (5.00, 25.00),
     "claude-haiku-4-5": (1.00, 5.00),
+    "claude-sonnet-5-5": (2.00, 10.00),
 }
 
 # Which price list the numbers above came from. Written onto every lynxr_costs
 # row so a later re-price can be applied to history instead of silently
 # invalidating it. Change this whenever PRICES changes.
-PRICES_REV = "2026-08-12"
+PRICES_REV = "2026-10-09"
 
 
 def price_of(model):
-    """Rates for a model id, tolerating a dated suffix (…-20251001)."""
+    """Rates for a model id, tolerating a dated suffix (…-20251001) and nothing
+    else: an id with no exact entry is unpriced ('not measured'), never priced
+    as its neighbour. A prefix match once priced claude-opus-5-5 as Opus 5."""
+    model = str(model or "")
     for name, rates in PRICES.items():
-        if model.startswith(name):
+        if model == name or re.fullmatch(re.escape(name) + r"-\d{8}", model):
             return rates
     return None
 
@@ -2228,6 +2258,152 @@ def adapt_prompt(a, brand, creator, brain=None):
               f"=== BRAND ===\n{brand_digest(brand, creator)}")
     block = brain_prompt.creator_block(brain) if brain else ""
     return prompt + (("\n\n" + block) if block else "")
+
+
+# ------------------------------------------------------------ hook scorer
+# Creator lane only, behind HOOK_SCORE (default off). It lives HERE and not in fill_adaptation(): the canary, the A/B
+# harness and the eval all call that, and the agency lane must never reach it. Production gets it from run_entry();
+# the eval gets it from eval_scripts.py hookarm. See pipeline/hook_score.py.
+def _hook_num(v, default, lo, hi, cast=int):
+    """Parse, clamp to [lo, hi], fall back to `default` on a bad value."""
+    try:
+        return max(lo, min(hi, cast(float(str(v).strip()))))
+    except (TypeError, ValueError):
+        return default
+
+
+def hook_cfg():
+    """The `cfg` dict for hook_score.run, from the module globals."""
+    return {
+        "threshold": _hook_num(HOOK_THRESHOLD, 90, 1, 100),
+        "min_gain": _hook_num(HOOK_MIN_GAIN, 10, 0, 100),
+        "candidates": _hook_num(HOOK_CANDIDATES, 1, 1, 2),
+        "rounds": _hook_num(HOOK_ROUNDS, 1, 1, 2),
+        "min_fit": _hook_num(HOOK_MIN_FIT, 0.45, 0.0, 1.0, cast=float),
+        "scorer_model": str(HOOK_SCORE_MODEL).strip() or "claude-sonnet-5-5",
+        "rework_model": str(HOOK_REWORK_MODEL).strip() or MODEL,
+    }
+
+
+def hook_mode(cid):
+    """"off", "score" or "rework" for this creator. Rework needs HOOK_REWORK_FOR to name them (or be "all"); without
+    that it downgrades to score, so setting HOOK_SCORE=rework alone can never rewrite anyone's script."""
+    m = str(HOOK_SCORE).strip().lower()
+    if m not in ("score", "rework"):
+        return "off"
+    if m == "rework" and not brain_prompt.enabled_for(HOOK_REWORK_FOR, cid):
+        return "score"
+    return m
+
+
+def hook_call(client, model, effort, system, schema, content):
+    """One structured call for the hook scorer. Same shape as structured(), but it returns the usage instead of
+    noting it: hook calls may run on helper threads and usage() is thread-local, so hook_step() merges the record's
+    usage on the CALLING thread. Returns (parsed, {model: {in, out, write, read, calls}})."""
+    out_cfg = {"format": {"type": "json_schema", "schema": schema}}
+    if effort and not model.startswith("claude-haiku"):
+        out_cfg["effort"] = effort
+    msg = client.messages.create(
+        model=model, max_tokens=8000,
+        system=sys_block(system),
+        output_config=out_cfg,
+        messages=[{"role": "user", "content": content}])
+    stop = getattr(msg, "stop_reason", None)
+    if stop == "max_tokens":
+        raise RuntimeError("malformed model response: stopped at max_tokens=8000")
+    if stop == "refusal":
+        raise RuntimeError("the model declined to answer (stop_reason=refusal)")
+    parsed = undouble(json.loads(first_text(msg)))
+    u = getattr(msg, "usage", None)
+    return parsed, {model: {"in": getattr(u, "input_tokens", 0) or 0, "out": getattr(u, "output_tokens", 0) or 0,
+                            "write": getattr(u, "cache_creation_input_tokens", 0) or 0,
+                            "read": getattr(u, "cache_read_input_tokens", 0) or 0, "calls": 1}}
+
+
+def hook_step(a, aclient, data, cid=None, mode=None):
+    """Score (and, in rework mode, maybe rework) this entry's opening. Returns the record, or None when skipped.
+    NEVER RAISES, and is bounded by HOOK_DEADLINE_S: a creator's script must never wait on, or be lost to, this.
+
+    Score mode mutates nothing on `a`. Rework mode may replace a["adaptation"] with the chosen version and sets the
+    small creator-facing a["hookCheck"] and timings["hook"]. The spend is merged into usage() on THIS thread, so
+    run_entry's record_cost books it with the script."""
+    try:
+        mode = mode or hook_mode(cid)
+        if mode not in ("score", "rework") or not aclient or not a.get("brandId"):
+            return None
+        if not (a.get("adaptation") or {}).get("beats"):
+            return None
+        brand = next((b for b in (data.get("brands") or []) if b.get("id") == a.get("brandId")), None)
+        if not brand:
+            return None
+        facts = brand_digest(brand, data)
+        cfg = hook_cfg()
+        hclient = (aclient.with_options(timeout=_hook_num(HOOK_CALL_TIMEOUT_S, 30.0, 1.0, 300.0, cast=float), max_retries=0)
+                   if hasattr(aclient, "with_options") else aclient)
+        cancelled = threading.Event()
+
+        def call(kind, system, schema, content):
+            if cancelled.is_set():           # past the deadline: spend nothing more
+                raise RuntimeError("hook step deadline passed")
+            if kind == "score":
+                return hook_call(hclient, cfg["scorer_model"], HOOK_SCORE_EFFORT, system, schema, content)
+            return hook_call(hclient, cfg["rework_model"], HOOK_REWORK_EFFORT, system, schema, content)
+
+        res = {}
+
+        def work():
+            try:
+                res["out"] = hook_score.run(call, copy.deepcopy(a["adaptation"]),
+                                            {"facts": facts, "format": a.get("format") or {}}, cfg, mode)
+            except BaseException as e:  # noqa: BLE001
+                res["err"] = type(e).__name__
+
+        t0 = time.time()
+        th = threading.Thread(target=work, daemon=True, name="hook-step")   # daemon: a straggler can never hold the subprocess at exit
+        th.start()
+        th.join(timeout=_hook_num(HOOK_DEADLINE_S, 45.0, 0.05, 600.0, cast=float))
+        final_ad = None
+        if "out" in res:
+            final_ad, rec = res["out"]
+        elif "err" in res:
+            rec = hook_score.failed_record(mode, cfg, "error", res["err"])
+        else:
+            cancelled.set()
+            rec = hook_score.failed_record(mode, cfg, "timeout")
+        rec["seconds"] = round(time.time() - t0, 2)
+        rec["usd"] = round(sum(c for c in (cost_of(m, d) for m, d in (rec.get("usage") or {}).items())
+                               if c is not None), 6)
+        mine = usage()
+        for m, d in (rec.get("usage") or {}).items():
+            tot = mine.setdefault(m, {"in": 0, "out": 0, "calls": 0, "write": 0, "read": 0})
+            for k in ("in", "out", "calls", "write", "read"):
+                tot[k] += int(d.get(k) or 0)
+        if mode == "rework":
+            if rec.get("outcome") == "reworked" and final_ad is not None:
+                a["adaptation"] = final_ad
+            hc = hook_score.creator_summary(rec, a["adaptation"])
+            if hc is None:
+                a.pop("hookCheck", None)
+            else:
+                a["hookCheck"] = hc
+            a.setdefault("timings", {})["hook"] = rec["seconds"]
+        log.info("  hook: mode=%s outcome=%s %s→%s (%s) %.1fs $%.4f", mode, rec.get("outcome"),
+                 rec.get("original_score"), rec.get("final_score"),
+                 "hook changed" if rec.get("hook_changed") else "hook kept", rec["seconds"], rec["usd"])
+        return rec
+    except Exception as e:  # noqa: BLE001 — the scorer is never worth a creator's script
+        log.warning("  hook step skipped: %s", str(e)[:90])
+        return None
+
+
+def write_hook_score(key, cid, a, rec):
+    """Persist one hook record. Best-effort exactly like record_cost(): it may never raise, and a missing table
+    (supabase/hook_scores.sql is an owner action) degrades to one warning line with the script untouched."""
+    try:
+        sb(key, "/rest/v1/lynxr_hook_scores", method="POST",
+           body={"creator_id": cid, "adaptation_id": a["id"], **hook_score.row_fields(rec)})
+    except Exception as e:  # noqa: BLE001
+        log.warning("  hook score not recorded for %s: %s", str(a.get("id"))[:8], str(e)[:90])
 
 
 def canon_url(u):
@@ -3329,6 +3505,11 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
             fill_adaptation(a, data, aclient, notes, timings, fuse=fuse,
                              publish=lambda phase: publish_phase(key, [(cid, a)], phase),
                              brain=brain_for(key, cid))
+            hook_rec = None
+            hmode = hook_mode(cid)
+            if hmode == "rework":
+                # BEFORE the delivery graft: the creator only ever sees the chosen hook. Bounded by HOOK_DEADLINE_S.
+                hook_rec = hook_step(a, aclient, data, cid, hmode)
             # DID THIS PASS PRODUCE SOMETHING USABLE? — not "did anything
             # fail", which is what the old `attemptedAt` comparison answered
             # by accident (every source-phase marker carried a stale stamp,
@@ -3379,6 +3560,11 @@ def run_entry(key, cid, data, a, aclient, notes, fuse):
             mark_retrying(a)
             with stage(timings, "graft"):
                 graft_adaptations(key, cid, [a])   # the creator has it NOW
+            if hmode == "score" and a.get("status") == "done":
+                # AFTER the graft: the creator already has the script, so score mode adds nothing to their wait.
+                hook_rec = hook_step(a, aclient, data, cid, hmode)
+            if hook_rec:
+                write_hook_score(key, cid, a, hook_rec)
             # The value here was fetched by process_group's prefetch — a
             # thread started alongside the source pass and joined onto `rep`
             # before this group's siblings were deep-copied, so it is already

@@ -111,6 +111,16 @@ cost_rows_total = sum(r["usd"] for r in P.cost_rows(agree_usage, "x", True))
 check("log_usage's printed total and cost_rows' summed usd agree (one formula, not two)",
       round(cost_rows_total, 6), round(log_usage_total, 6))
 
+# ---- 11: exact-id pricing, no prefix matching -------------------------------
+check("price_of: claude-sonnet-5-5 is priced ($2/$10)",
+      P.price_of("claude-sonnet-5-5"), (2.0, 10.0))
+check("price_of: claude-opus-5-5 is NOT priced as Opus 5 (not measured)",
+      P.price_of("claude-opus-5-5"), None)
+check("price_of: a dated haiku id prices like the bare id",
+      P.price_of("claude-haiku-4-5-20251001"), P.price_of("claude-haiku-4-5"))
+check("price_of: claude-opus-5 -> (5.0, 25.0)",
+      P.price_of("claude-opus-5"), (5.0, 25.0))
+
 print()
 if FAILS:
     print(f"{len(FAILS)} FAILED: {', '.join(FAILS)}")

@@ -48,6 +48,9 @@ Showcase (supabase/showcase.sql, 2026-10): `lynxr_showcase_consent`, `lynxr_show
 Tier 2 (consent and the staff's decisions are slow to redo, but a missing table before the SQL is applied must only
 warn, and tier 1 would abort the whole backup); `lynxr_showcase_points` is Tier 3 (re-measurable public counts).
 
+Hook scorer (supabase/hook_scores.sql, 2026-10): `lynxr_hook_scores` is Tier 2. It cannot be re-derived (the models and the rework's
+randomness change between runs), and a missing table before the SQL is applied must only warn.
+
 Script attribution (supabase/post_match.sql, 2026-10): `lynxr_match_log` is Tier 3 because it is re-derivable by re-scoring
 the posts, and a missing table (before the SQL is applied) must only warn.
 
@@ -123,6 +126,7 @@ TABLES = (
     ("lynxr_showcase_consent", 2),     # showcase (supabase/showcase.sql): tier 2, not 1 — a missing table must only warn
     ("lynxr_showcase_entries", 2),
     ("lynxr_showcase_log", 2),
+    ("lynxr_hook_scores", 2),       # hook scorer (supabase/hook_scores.sql): tier 2 — a missing table only warns; not re-derivable (models and rework randomness change)
     ("lynxr_post_views", 3),
     ("lynxr_profile_followers", 3),
     ("lynxr_showcase_points", 3),

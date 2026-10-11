@@ -62,6 +62,22 @@ tip} (the screen was shown, once per account) and `postsSeenAt` (clears the call
 script), `navigator.vibrate` on a real phone, iOS Safari's keyboard over step 3. Plan `~/.claude/plans/lynxr-onboarding-v2.md`
 (outside this repo). Keep the tier/price map out of this file (public repo).
 
+**HOOK SCORER (2026-10-09, built, DARK; uncommitted, owner pushes).** Scores the OPENING of every finished creator script (the
+hook plus the beats starting in the first ~10 seconds) against lynxr's own written hook rules, 0-100, and in rework mode rewrites
+an opening that scores under the bar. **It is a craft score, not a view prediction, and it is not validated against performance**
+(only a handful of tracked posts are linked to a script so far). The model returns pass/partial/fail per rule and CODE turns that
+into the number: `pipeline/hook_score.py` (rubric `hook-r1`, pure, no network), wired into the creator lane only, in
+`process_adaptations.py` (`hook_step`, called from `run_entry`; the agency lane, the canary and the A/B harness never reach it).
+Everything is OFF until switched on: **`HOOK_SCORE`** = `off` | `score` | `rework` (Fly secret AND repo variable; the GitHub fallback
+reads the variable once per ~6h job); **`HOOK_REWORK_FOR`** = who gets rework, empty = nobody, `all`, or creator uuids (Fly secret AND
+repo SECRET, never a variable); `HOOK_THRESHOLD` and `HOOK_MIN_GAIN` tune it. Score mode writes nothing to a creator's row, only to
+`lynxr_hook_scores`; rework mode also puts a small `hookCheck` on the script. The line under the hook on the card is behind the code
+switch **`HOOK_CHECK_APP_LIVE`** in `creator.js` (false; `?obtest=1&view=home&metric=winbrand&hookcheck=pass|below` paints it on
+localhost). **Owner SQL: `supabase/hook_scores.sql`** (run it once; until then the worker logs one line per script and carries on).
+Free commands: `./venv/bin/python pipeline/hook_score.py --print-prompts` (exactly what the models are sent),
+`./venv/bin/python pipeline/eval_scripts.py hookarm --help`, `... hookpair --help`, `... hooksheet --help`. The paid evals and the
+staged switch-on are an owner runbook in the plan, `~/.claude/plans/lynxr-hook-scorer.md` (outside this repo; this file is public).
+
 **ONE BRAIN (architecture decision, 2026-10-07).** The script writer and the coach are ONE system, not two
 features. The thing in the middle is a per-creator **brain**: voice drawn from their own posts, which formats they
 have posted, how each did against THEIR OWN median, their goal. The writer READS it; tracking and (later) the coach

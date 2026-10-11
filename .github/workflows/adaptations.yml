@@ -163,6 +163,13 @@ jobs:
           # a secret, not a var: the value is a list of creator uuids and Actions masks secrets in public logs.
           # Unset renders empty, which brain_prompt.enabled_for reads as off. Must match the Fly secret.
           BRAIN_IN_PROMPT: ${{ secrets.BRAIN_IN_PROMPT }}
+          # Hook scorer (pipeline/hook_score.py, plan ~/.claude/plans/lynxr-hook-scorer.md). Unset renders empty = off.
+          # Repo VARIABLES, read once when this ~6h job starts: a change reaches this fallback only at the next job.
+          HOOK_SCORE: ${{ vars.HOOK_SCORE }}
+          HOOK_THRESHOLD: ${{ vars.HOOK_THRESHOLD }}
+          HOOK_MIN_GAIN: ${{ vars.HOOK_MIN_GAIN }}
+          # a secret, not a var: creator uuids, masked in public logs. Unset = nobody gets rework (score only). Must match the Fly secret.
+          HOOK_REWORK_FOR: ${{ secrets.HOOK_REWORK_FOR }}
         # Poll for ~5h45m rather than draining the queue once and exiting.
         #
         # MEASURED 2026-08-12: the cron above says every 15 minutes, but real
