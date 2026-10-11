@@ -27,6 +27,41 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**AGENCY SEND PANEL: PICK CREATORS BY BRAND (2026-10-11, UNCOMMITTED, stamp `20261011a`; plan
+`~/.claude/plans/agency-send-by-brand.md`).** Owner: "have a button that allows you to click on OncourseAI creators …
+Or two, have the brand they are working for next to their names." Both. The brand is the roster's existing `campaign`
+label (typed on the invite; several brands = commas, "Cloey, OncourseAI"), so NO SQL. The send panel shows a chip per
+brand beside each name and one button per brand above the list ("cloey creators 3", "no brand 1"): a click ticks that
+brand's creators, a second click unticks them, and each button shows all / some / none. Grouping ignores case, spaces,
+punctuation and accents ("OncourseAI" = "oncourse ai" = "Oncourse-AI"), and a label naming a client (its company, or the
+brand on its details) shows in the client's spelling; nothing fuzzier. This brief's own brand is marked "this brief" and
+listed first but is NOT ticked for you. The Creators tab has Edit / Add brand per creator (it can clear a brand, which a
+re-invite cannot), and the invite box is labelled "Brand". An open send panel now redraws when the roster changes. Creator
+side: an invite naming several brands reads "the Cloey and OncourseAI campaigns". Editing a brand for someone who has
+not accepted yet changes their invite popup's wording. Files: `app.js`, `app.css` (one block appended at the end),
+`creator.js` (`agencyInviteLine` only), the stamp on every stamped page + `404.html`. Executor-verified (stubbed agency
+harness, real clicks, real CSP, 1440 + 393): both widths ALL OK, csp violations: [], exceptions: [], screenshots checked.
+NOT verified: signed in on lynxr.io against the live roster.
+
+**ONBOARDING V2 (2026-10-09, uncommitted, owner pushes).** New creators now get three fixed steps that END in a real paste
+instead of the old welcome, priority, goal, TikTok, Instagram, "you're set" and four-step tour: step 1 priority, step 2 goal,
+step 3 a first video link (it is sent through the Home composer's own submit, so the allowance check, brand targets and the
+landing in Library are the existing ones). The script writes on the Library card as before; when it lands, a one-time "your
+first script is ready" screen opens by itself (confetti, a haptic tap where `navigator.vibrate` exists, an inline "tap any line
+to copy it" tip that replaces the tour, and one "Link TikTok" card). TikTok linking (username, then the bio code) comes AFTER that
+win; "Done" lands on Posts. Home gets a goal chip (opens Settings' goal card), a labelled composer with an inline platform
+check and a shimmering send button, a "new numbers" callout (a card above the composer on a phone, a card and a dot under Posts
+in the rail on a desktop) and, on a phone, a free-scripts line. Returning accounts never see onboarding by itself: it opens on its
+own only for an account under 24 hours old (plus the mandatory bio-code screen once per tab); older accounts reach it from
+Settings' "Finish setup" card. **Kill switch: `ONBOARD_V2_LIVE` in `creator.js`** (false brings back the old stepper, Home and
+tour with no other edit). **Waiting on the owner: `ONB_SAMPLES`** in `creator.js` (step 3's "No link handy? Try one" chips; empty = not
+drawn; give it real public TikTok/Instagram videos as `{ label, url }`). New fields on the creator's row: `firstWin` {at, adid, doneAt,
+tip} (the screen was shown, once per account) and `postsSeenAt` (clears the callout). Preview: `http://localhost:8811/?obtest=1&view=onboard`
+(add `&samples=1` for two fake sample chips; a pasted link "finishes" 4 s later and the first-script screen opens) and
+`?obtest=1&view=home&metric=win|winbrand|link|news`. Not provable on localhost: a real account's first script (it costs one free
+script), `navigator.vibrate` on a real phone, iOS Safari's keyboard over step 3. Plan `~/.claude/plans/lynxr-onboarding-v2.md`
+(outside this repo). Keep the tier/price map out of this file (public repo).
+
 **ONE BRAIN (architecture decision, 2026-10-07).** The script writer and the coach are ONE system, not two
 features. The thing in the middle is a per-creator **brain**: voice drawn from their own posts, which formats they
 have posted, how each did against THEIR OWN median, their goal. The writer READS it; tracking and (later) the coach

@@ -182,3 +182,19 @@ onboarding rules 6–15, and "never a static grey CTA".
 - All of it switches off under `prefers-reduced-motion`. This is the bounded
   exception to "motion stays minimal and functional" above.
 
+**Visual rules (owner, 2026-10-09, from "5 design tricks from the most used apps")**
+- **One color means "press this".** The primary action has one color across
+  the whole site, the way Duolingo is green and Strava is orange. Nothing else
+  uses that color, so users learn it.
+- **The paywall looks different on purpose.** The upgrade moment breaks the
+  app's usual look, so people come off autopilot and read it.
+- **No pure black or white.** Never `#000` or `#fff`. Use tinted ink and
+  tinted whites (the ink token is already `#14122b`).
+- **Mascot: flat colors, thick outline, no gradients, 2–3 colors.**
+- **Show before explaining.** The number people care about is huge and its
+  label is small: views, goal progress, scripts left, price.
+
+The action color and the flat mascot are being redesigned on the mockup canvas
+right now. Until the owner picks, the x stays the glass x and buttons stay ink:
+don't restyle either piecemeal.
+

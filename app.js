@@ -5105,7 +5105,7 @@ function renderBriefViewer(host, rec, client) {
       </div>
     </div>
     <p class="bp-msg cb-msg" id="bv-send-msg" role="status" aria-live="polite"></p>
-    <div id="cb-send-wrap">${cbSendPanelHtml("brief", rec.id)}${cbSentListHtml("brief", rec.id, sendDoc)}</div>
+    <div id="cb-send-wrap">${cbSendPanelHtml("brief", rec.id, [client?.company, rec.company])}${cbSentListHtml("brief", rec.id, sendDoc)}</div>
     ${cbSendShowsFiles("brief", rec.id) ? "" : bfSectionHtml("brief", rec.id)}
 
     ${briefScriptsHtml(rec, client)}`;
@@ -5993,6 +5993,7 @@ let ROSTER_ERR = "";    // "" | "missing" | "migrate" | "denied" | "other" (see 
 // roster_accounts() (supabase/roster_invite_by_email.sql). null = unknown: the
 // function isn't installed or the call failed, and the rows then just don't say.
 let ROSTER_ACCTS = null;
+let ROST_BRAND_EDIT = null;   // email whose brand editor is open on the Creators tab (rostBrandRowHtml), or null
 
 async function rostList() {
   return sbFetch("/rest/v1/lynxr_roster?select=email,display_name,campaign,status,creator_id,invited_at,accepted_at,left_at&order=invited_at.desc");
@@ -6015,7 +6016,10 @@ async function rostInvite(email, name, note, campaign) {
   // A re-invite only overwrites what was typed this time; blank boxes keep what's there.
   if (!prev || name) body.display_name = name || "";
   if (!prev || note) body.note = note || "";
-  if (!prev || campaign) body.campaign = String(campaign || "").trim().slice(0, 80);
+  // Brands are stored tidied (rostBrandLabel): "Cloey ,  write-it" -> "Cloey, write-it". A list that would pass 80
+  // characters is refused with a message rather than cut mid-brand.
+  const brands = rostBrandLabel(campaign);
+  if (!prev || brands) body.campaign = brands;
   // Someone who left gets a fresh invite, and the popup again, when invited again.
   if (prev?.status === "left") { body.status = "invited"; body.left_at = null; }
   return sbFetch("/rest/v1/lynxr_roster", {
@@ -6027,6 +6031,19 @@ async function rostInvite(email, name, note, campaign) {
 
 async function rostRemove(email) {
   return sbFetch(`/rest/v1/lynxr_roster?email=eq.${encodeURIComponent(email)}`, { method: "DELETE" });
+}
+
+/** The Creators tab's brand Edit: save one creator's brand label in place. Unlike a re-invite, this can clear it.
+    RLS: "staff update roster" (agency_roster.sql). select=email + return=representation turns a write that matched
+    no row into an error instead of a false "saved". */
+async function rostSetBrands(email, input) {
+  const campaign = rostBrandLabel(input);
+  const rows = await sbFetch(`/rest/v1/lynxr_roster?email=eq.${encodeURIComponent(email)}&select=email`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ campaign }),
+  });
+  if (!Array.isArray(rows) || !rows.length) throw new Error("That creator is no longer on the roster.");
 }
 
 /** The send picker only ever offers accepted members — an invited-or-left
@@ -6046,6 +6063,7 @@ function rostErrorSentence(ex, verb) {
 }
 
 async function rostLoad() {
+  const before = rostSendSig();
   try {
     const [rows, accts] = await Promise.all([rostList(), rostAccounts()]);
     ROSTER = rows;
@@ -6060,6 +6078,26 @@ async function rostLoad() {
     ROSTER_ERR = /campaign/.test(String(ex?.message || "")) ? "migrate" : cbError(ex);
   }
   if (document.getElementById("roster-host")) renderRoster();
+  if (rostSendSig() !== before) cbSendRosterChanged();
+}
+
+/** What an open send panel draws from the roster: who is offered, under what name, with which brands. rostLoad
+    compares it before and after, so revisiting the Creators tab (which reloads the roster every time) repaints
+    nothing unless something a send panel shows has changed. */
+function rostSendSig() {
+  if (ROSTER === null) return `none:${ROSTER_ERR}`;
+  return JSON.stringify(rostAccepted().map((r) => [r.creator_id, r.email, r.display_name, r.campaign]));
+}
+
+/** The roster changed under an open send panel: a brand edited on the Creators tab, a creator removed, or the roster
+    arriving after the panel opened on "Loading the roster…" (nothing redrew it before). Redraw the brief view so its
+    names, chips and brand buttons match. Same guard as the campaign poll: with an editor open or a field focused, mark
+    it pending (CB_PENDING) instead of wiping what is being typed. Ticks survive in CB_SEND_PICKS. */
+function cbSendRosterChanged() {
+  if (!document.querySelector("#briefs-host .cb-send-panel")) return;
+  if (!CAMPAIGN_VIEW && !BRIEF_VIEW) return;
+  if (cbEditorBusy()) { CB_PENDING = true; return; }
+  renderBriefsKeepScroll();
 }
 
 // ---------- Creators tab: the roster page ----------
@@ -6106,7 +6144,7 @@ function rosterHtml() {
           <input type="email" id="rost-email" autocomplete="off" placeholder="them@example.com"></label>
         <label class="ce-field"><span class="lbl">Name (optional)</span>
           <input type="text" id="rost-name" autocomplete="off"></label>
-        <label class="ce-field"><span class="lbl">Campaign (optional)</span>
+        <label class="ce-field"><span class="lbl">Brand (optional)</span>
           <input type="text" id="rost-campaign" autocomplete="off" maxlength="80"
             list="rost-campaign-opts" placeholder="e.g. Cloey — shown in their invite">
           <datalist id="rost-campaign-opts">${rostCampaignOptions()}</datalist></label>
@@ -6132,6 +6170,83 @@ function rostCampaignOptions() {
   return names.map((n) => `<option value="${escapeHtml(n)}"></option>`).join("");
 }
 
+/* BRANDS (owner, 2026-10-05: pick creators "by the brand they are working for"). The brand is the roster's `campaign`
+   label, typed on the invite: one brand, or several with commas ("Cloey, OncourseAI"). Brands are compared by a loose
+   key, so "OncourseAI", "oncourse ai" and "Oncourse-AI" are one brand, and a label naming one of the agency's clients
+   (its company, or the brand on its details) is shown in the client's own spelling. Nothing looser than that: two
+   brands that only look alike stay apart, because a brief sent to the wrong creators is worse than one more click. */
+const ROST_NO_BRAND = "_none";   // never a real key: keys are letters and digits only
+const rostBrandTidy = (s) => String(s ?? "").trim().replace(/\s+/g, " ");
+const rostBrandKey = (s) => rostBrandTidy(s).replace(/\s+campaign$/i, "")
+  .normalize("NFKD").replace(/\p{M}+/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+
+/** One label -> [{ key, raw, name }], in order, one per brand. `raw` is the tidied text as typed (what is stored);
+    `name` drops a trailing " campaign" (what is shown). Empty and punctuation-only parts are dropped. */
+function rostBrandParts(label) {
+  const out = [], seen = new Set();
+  for (const part of String(label ?? "").split(/[,;]/)) {
+    const raw = rostBrandTidy(part), key = rostBrandKey(raw);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ key, raw, name: raw.replace(/\s+campaign$/i, "") });
+  }
+  return out;
+}
+
+/** What gets stored for a typed brand box: the parts, tidied, joined with ", ". Refuses rather than cutting a brand in
+    half when that passes the column's 80 characters (roster_invite_by_email.sql). */
+function rostBrandLabel(input) {
+  const label = rostBrandParts(input).map((b) => b.raw).join(", ");
+  if (label.length > 80) throw new Error("Too long — 80 characters at most.");
+  return label;
+}
+
+/** loose key -> { key, name } in the agency's own spelling, for every client: its company name, and as a second
+    spelling the brand on its details (ctx.brand). Read straight from the Clients cache, the same way
+    rostCampaignOptions does (not loadClients(), which can write while it reads). A company name always beats
+    another client's brand name. */
+function rostClientBrands() {
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(CLIENTS_KEY)) || []; } catch {}
+  if (!Array.isArray(list)) list = [];
+  const map = new Map();
+  for (const c of list) {
+    const name = rostBrandTidy(c?.company), key = rostBrandKey(name);
+    if (key && !map.has(key)) map.set(key, { key, name });
+  }
+  for (const c of list) {
+    const target = map.get(rostBrandKey(c?.company)), alias = rostBrandKey(c?.ctx?.brand);
+    if (target && alias && !map.has(alias)) map.set(alias, target);
+  }
+  return map;
+}
+
+/** The send panel's brand groups for these roster rows.
+    groups: [{ key, name, ids }] — this brief's brand(s) first, then by name, "no brand" (ROST_NO_BRAND) last.
+    byId: creator_id -> [{ key, name }] for the chips. briefKeys: the keys that are this brief's own brand, from
+    `briefNames` (the client's company, the brief's brand name). */
+function rostBrandGroups(rows, briefNames = []) {
+  const clients = rostClientBrands();
+  const groups = new Map(), byId = new Map();
+  for (const r of rows) {
+    const brands = [];
+    for (const b of rostBrandParts(r.campaign)) {
+      const c = clients.get(b.key) || b;
+      if (!brands.some((x) => x.key === c.key)) brands.push({ key: c.key, name: c.name });
+    }
+    byId.set(r.creator_id, brands);
+    for (const b of brands.length ? brands : [{ key: ROST_NO_BRAND, name: "" }]) {
+      if (!groups.has(b.key)) groups.set(b.key, { key: b.key, name: b.name, ids: [] });
+      groups.get(b.key).ids.push(r.creator_id);
+    }
+  }
+  const briefKeys = new Set(briefNames.map(rostBrandKey).filter(Boolean).map((k) => clients.get(k)?.key || k));
+  const rank = (g) => (g.key === ROST_NO_BRAND ? 2 : briefKeys.has(g.key) ? 0 : 1);
+  const list = [...groups.values()]
+    .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  return { groups: list, byId, briefKeys };
+}
+
 /** One plain sentence per row: what the creator's side looks like right now. */
 function rostStateLine(r) {
   if (r.status === "accepted") return "Accepted — you can send them briefs.";
@@ -6152,17 +6267,41 @@ function rosterListHtml() {
     const chipCls = r.status === "accepted" ? " good" : r.status === "left" ? " bad" : "";
     const dateIso = r.status === "accepted" ? r.accepted_at : r.status === "left" ? r.left_at : r.invited_at;
     const date = escapeHtml(String(dateIso || "").slice(0, 10));
-    const campaign = r.campaign ? ` · ${escapeHtml(r.campaign)}` : "";
     return `<article class="bcard rost-card" data-email="${escapeHtml(r.email)}">
       <div class="bcard-main minw0">
         <div class="bcard-title">${escapeHtml(r.display_name || r.email)}</div>
-        <div class="lbl">${escapeHtml(r.email)} · <span class="chip${chipCls}">${escapeHtml(r.status)}</span>${campaign} · ${date}</div>
+        <div class="lbl">${escapeHtml(r.email)} · <span class="chip${chipCls}">${escapeHtml(r.status)}</span> · ${date}</div>
+        ${rostBrandRowHtml(r)}
         <p class="rost-state">${escapeHtml(rostStateLine(r))}</p>
       </div>
       <button type="button" class="ghost danger icon-only rost-remove"
         aria-label="Remove ${escapeHtml(r.email)} from the roster" title="Remove from roster">${TRASH_SVG}</button>
     </article>`;
   }).join("") + `</div>`;
+}
+
+/** A creator's brands on the Creators tab: chips plus an Edit button, or the one-line editor while ROST_BRAND_EDIT
+    names this row. The chips show the label as stored; the send panel shows the client's own spelling instead. */
+function rostBrandRowHtml(r) {
+  if (ROST_BRAND_EDIT === r.email) {
+    return `<form class="rost-brand-form" novalidate>
+        <label class="ce-field"><span class="lbl">Brands</span>
+          <input type="text" class="rost-brand-input" autocomplete="off" maxlength="80" list="rost-campaign-opts"
+            value="${escapeHtml(r.campaign || "")}" placeholder="e.g. Cloey, OncourseAI"></label>
+        <div class="bp-actions">
+          <button type="submit" class="btn rost-brand-save">Save</button>
+          <button type="button" class="ghost rost-brand-cancel">Cancel</button>
+        </div>
+      </form>
+      <p class="lbl rost-brand-hint">Commas between several brands. Until they accept, they see this in their invite.</p>
+      <p class="bp-msg cb-msg" id="rost-brand-msg" role="status" aria-live="polite"></p>`;
+  }
+  const brands = rostBrandParts(r.campaign);
+  const who = escapeHtml(r.display_name || r.email);
+  return `<div class="rost-brands">
+      ${brands.length ? brands.map((b) => `<span class="chip cb-brand-chip">${escapeHtml(b.name)}</span>`).join("") : `<span class="lbl">No brand</span>`}
+      <button type="button" class="ghost rost-brand-edit" aria-label="${brands.length ? "Edit brands" : "Add a brand"} for ${who}">${brands.length ? "Edit" : "Add brand"}</button>
+    </div>`;
 }
 
 function bindRoster(host) {
@@ -6194,7 +6333,13 @@ function bindRoster(host) {
     }
   });
 
-  host.querySelectorAll(".rost-remove").forEach((btn) => {
+  bindRosterList(host);
+}
+
+/** The cards' own controls: Remove (the two-click armDelete) and the brand editor. Separate from bindRoster so
+    repaintRosterList can redraw just the cards. */
+function bindRosterList(root) {
+  root.querySelectorAll(".rost-remove").forEach((btn) => {
     const card = btn.closest(".rost-card");
     const email = card?.dataset.email;
     armDelete(btn, "Remove", async () => {
@@ -6206,6 +6351,47 @@ function bindRoster(host) {
       }
     });
   });
+
+  const focusEdit = (email) => [...document.querySelectorAll("#roster-host .rost-card")]
+    .find((c) => c.dataset.email === email)?.querySelector(".rost-brand-edit")?.focus();
+  const close = (email) => { ROST_BRAND_EDIT = null; repaintRosterList(); focusEdit(email); };
+  root.querySelectorAll(".rost-brand-edit").forEach((btn) => btn.addEventListener("click", () => {
+    ROST_BRAND_EDIT = btn.closest(".rost-card")?.dataset.email || null;
+    repaintRosterList();
+    const inp = document.querySelector("#roster-host .rost-brand-input");
+    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  }));
+  root.querySelectorAll(".rost-brand-cancel").forEach((btn) => btn.addEventListener("click", () =>
+    close(btn.closest(".rost-card")?.dataset.email)));
+  root.querySelectorAll(".rost-brand-input").forEach((inp) => inp.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    close(inp.closest(".rost-card")?.dataset.email);
+  }));
+  root.querySelectorAll(".rost-brand-form").forEach((form) => form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const card = form.closest(".rost-card");
+    const email = card?.dataset.email;
+    const save = form.querySelector(".rost-brand-save");
+    if (save) save.disabled = true;
+    try {
+      await rostSetBrands(email, form.querySelector(".rost-brand-input")?.value || "");
+      ROST_BRAND_EDIT = null;
+      await rostLoad();   // redraws the tab, and any open send panel (cbSendRosterChanged)
+      focusEdit(email);
+    } catch (ex) {
+      if (save) save.disabled = false;
+      cbMsg(document.getElementById("rost-brand-msg"), ex?.message && !/^\d/.test(ex.message) ? ex.message : rostErrorSentence(ex, "update"), "bad", true);
+    }
+  }));
+}
+
+/** Redraw only the cards: opening or closing a brand editor must not wipe what is typed in the invite form above. */
+function repaintRosterList() {
+  const list = document.getElementById("rost-list");
+  if (!list || !ROSTER) return;
+  list.innerHTML = rosterListHtml();
+  bindRosterList(list);
 }
 
 // ---------- Showcase: "made with lynxr" entries (plan ~/.claude/plans/lynxr-showcase.md) ----------
@@ -6822,8 +7008,9 @@ function cbSendShowsFiles(sourceKind, sourceId) {
     && !ROSTER_ERR && ROSTER !== null && rostAccepted().length > 0;
 }
 
-/** The inline "Send this brief to" panel. */
-function cbSendPanelHtml(sourceKind, sourceId) {
+/** The inline "Send this brief to" panel. `briefBrands`: the names this brief's own brand goes by (its client's
+    company, its brand name). They mark that brand's button and chips; nothing is ticked because of them. */
+function cbSendPanelHtml(sourceKind, sourceId, briefBrands = []) {
   const key = agSentKey(sourceKind, sourceId);
   if (!CB_SEND_OPEN.has(key)) return "";
   if (ROSTER_ERR === "missing") {
@@ -6853,14 +7040,34 @@ function cbSendPanelHtml(sourceKind, sourceId) {
     .flatMap((b) => (b.lynxr_agency_deliveries || []).filter((d) => !d.revoked_at).map((d) => d.creator_id)));
   const picked = CB_SEND_PICKS.get(key);
   const isOn = (id) => (picked ? picked.has(id) : already.has(id));
+  /* BY BRAND (owner, 2026-10-05: "have a button that allows you to click on OncourseAI creators … Or two, have the
+     brand they are working for next to their names"). Both: a chip per brand beside each name, and one button per brand
+     above the list (rostBrandGroups). A button ticks all of that brand's creators, or unticks them when all are ticked
+     already; cbSendPaintGroups shows all / some / none. This brief's own brand is marked and listed first but never
+     ticked for you: the brand is a label typed at invite time and can be out of date, and a brief sent to the wrong
+     creators is worse than one more click. A creator with several brands sits in each of them. */
+  const { groups, byId, briefKeys } = rostBrandGroups(accepted, briefBrands);
+  const groupsHtml = groups.some((g) => g.key !== ROST_NO_BRAND)
+    ? `<div class="cb-send-groups" role="group" aria-label="Select creators by brand">
+      ${groups.map((g) => `<button type="button" class="ghost cb-send-group${briefKeys.has(g.key) ? " is-brief" : ""}" data-brand="${escapeHtml(g.key)}" aria-pressed="false">
+        <span class="cb-grp-box" aria-hidden="true"></span>
+        <span class="cb-grp-name">${g.key === ROST_NO_BRAND ? "No brand" : `${escapeHtml(g.name)} creators`}</span>
+        <span class="cb-grp-n">${g.ids.length}</span>${briefKeys.has(g.key) ? `<span class="cb-grp-tag">this brief</span>` : ""}
+      </button>`).join("")}
+    </div>`
+    : `<p class="note cb-send-groups-none">Add a brand to each creator on the Creators tab to pick them by brand here.</p>`;
+  const chips = (id) => (byId.get(id) || []).map((b) =>
+    `<span class="chip cb-brand-chip${briefKeys.has(b.key) ? " is-brief" : ""}">${escapeHtml(b.name)}</span>`).join("");
+  const brandsAttr = (id) => escapeHtml((byId.get(id) || []).map((b) => b.key).join(" ") || ROST_NO_BRAND);
   return `<div class="section cb-send-panel">
     <h3>Send this brief to</h3>
     <p class="note">They get this brief as it is now. If you edit it later, press Update under Sent to
       and they get the new version.</p>
+    ${groupsHtml}
     <div class="rost-picker">
       ${accepted.map((r) => `<label class="rost-pick-row">
-        <input type="checkbox" class="cb-send-pick" value="${escapeHtml(r.creator_id)}"${isOn(r.creator_id) ? " checked" : ""}>
-        <span>${escapeHtml(r.display_name || r.email)} <span class="lbl">${escapeHtml(r.email)}</span></span>
+        <input type="checkbox" class="cb-send-pick" value="${escapeHtml(r.creator_id)}" data-brands="${brandsAttr(r.creator_id)}"${isOn(r.creator_id) ? " checked" : ""}>
+        <span class="rost-pick-who">${escapeHtml(r.display_name || r.email)}${chips(r.creator_id)} <span class="lbl">${escapeHtml(r.email)}</span></span>
       </label>`).join("")}
     </div>
     ${cbSendShowsFiles(sourceKind, sourceId) ? bfSectionHtml(sourceKind, sourceId, { inSend: true }) : ""}
@@ -6870,6 +7077,24 @@ function cbSendPanelHtml(sourceKind, sourceId) {
     </div>
     <p class="bp-msg cb-msg" id="cb-send-msg" role="status" aria-live="polite"></p>
   </div>`;
+}
+
+/** The pick boxes of one brand group in the open send panel. Matched in script, not with a CSS attribute selector, so
+    a brand key in any alphabet needs no escaping. */
+function cbSendGroupBoxes(root, brandKey) {
+  return [...root.querySelectorAll(".cb-send-pick")].filter((c) => (c.dataset.brands || "").split(" ").includes(brandKey));
+}
+/** Each brand button's state from the ticks as they are now: aria-pressed "true" (all), "mixed" (some), "false" (none),
+    and its count, which is "3", or "2 of 3" while only some are ticked. The box in the button paints the state, so it
+    reads without colour. */
+function cbSendPaintGroups(root) {
+  root.querySelectorAll(".cb-send-group").forEach((btn) => {
+    const boxes = cbSendGroupBoxes(root, btn.dataset.brand);
+    const on = boxes.filter((c) => c.checked).length;
+    btn.setAttribute("aria-pressed", on === 0 ? "false" : on === boxes.length ? "true" : "mixed");
+    const n = btn.querySelector(".cb-grp-n");
+    if (n) n.textContent = on > 0 && on < boxes.length ? `${on} of ${boxes.length}` : String(boxes.length);
+  });
 }
 
 /** "Sent to" list: one row per delivery, an Unsend on each live one, plus
@@ -6952,8 +7177,22 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
   host.querySelectorAll(".cb-send-pick").forEach((cb) => cb.addEventListener("change", () => {
     CB_SEND_PICKS.set(key, new Set([...host.querySelectorAll(".cb-send-pick:checked")].map((c) => c.value)));
     updateGo();
+    cbSendPaintGroups(host);
+  }));
+  /* Brand buttons (cbSendPanelHtml). Setting .checked from script fires no change event, so the three things a tick
+     does are done here by hand: save the ticks (a repaint keeps them), repaint the buttons, update the Send count.
+     All of the brand ticked: untick them. Otherwise: tick them all. */
+  host.querySelectorAll(".cb-send-group").forEach((btn) => btn.addEventListener("click", () => {
+    const boxes = cbSendGroupBoxes(host, btn.dataset.brand);
+    if (!boxes.length) return;
+    const on = !boxes.every((c) => c.checked);
+    for (const c of boxes) c.checked = on;
+    CB_SEND_PICKS.set(key, new Set([...host.querySelectorAll(".cb-send-pick:checked")].map((c) => c.value)));
+    updateGo();
+    cbSendPaintGroups(host);
   }));
   updateGo();
+  cbSendPaintGroups(host);
 
   document.getElementById("cb-send-go")?.addEventListener("click", async (e) => {
     const creatorIds = [...host.querySelectorAll(".cb-send-pick:checked")].map((c) => c.value);
@@ -8977,7 +9216,7 @@ function renderCampaignView(host, client, id) {
     </div>
     <p class="note cb-notready" id="cb-notready" hidden></p>
     <p class="bp-msg cb-msg" id="cb-view-msg" role="status" aria-live="polite"></p>
-    <div id="cb-send-wrap">${cbSendPanelHtml("campaign", id)}${cbSentListHtml("campaign", id, sendDoc)}</div>
+    <div id="cb-send-wrap">${cbSendPanelHtml("campaign", id, [client?.company, campaign.brand_context?.name])}${cbSentListHtml("campaign", id, sendDoc)}</div>
     <div class="cb-progress">
       <div class="cb-progress-line" id="cb-progress-text" role="status" aria-live="polite"></div>
       <div class="cb-bar" aria-hidden="true"><div class="cb-bar-fill" id="cb-bar-fill"></div></div>

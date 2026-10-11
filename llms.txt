@@ -22,7 +22,7 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 - [lynxr](https://lynxr.io/): What lynxr is and how it works in three steps.
 - [Questions and answers](https://lynxr.io/faq/): Straight answers about what lynxr does with a link, which platforms it reads, what it costs, who owns the scripts, and how access works.
 - [Pricing](https://lynxr.io/pricing/): What lynxr costs. Free to start: 3 scripts in any rolling 7 days; no card required. lynxr pro is $24.99 a month for up to 150 scripts in any rolling 30 days and up to 30 in any 24 hours; tax is added where it applies. Post tracking of the TikTok and Instagram accounts you link is live on every plan. Coaching tips are coming soon: basic tips on free, advanced tips on pro, and the full coaching and advice on lynxr max ($74.99 a month), which is not on sale yet.
-- [How scripts work](https://lynxr.io/how-it-works/): How lynxr gets from a public TikTok or Instagram link to a script: it transcribes the video, reads the frames shot by shot, and maps the format (the hook, the beats, the turn, the close), then writes it for your brand. Includes a real before-and-after example and the built-in teleprompter.
+- [How scripts work](https://lynxr.io/how-it-works/): How lynxr gets from a public TikTok or Instagram link to a script: it transcribes the video, reads the frames shot by shot, and maps the format (the hook, the beats, the turn, the close), then writes it for your brand. Includes a before-and-after example.
 - [The coach](https://lynxr.io/how-it-works/coach/): The content coach planned for every plan (basic tips on free, advanced tips on pro, the full coaching and advice on lynxr max). It is not built yet and lynxr max is not on sale; there is no date. Post tracking, which it will read, is already live on every plan; when the coach arrives it will match each tracked post to its script and tell you what to make next.
 - [About lynxr](https://lynxr.io/about/): Who makes lynxr — lynxr LLC, a partner company of Lynx Media Group, the UGC agency.
 
@@ -32,7 +32,7 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 - [How to turn a viral video into a UGC script for a brand](https://lynxr.io/turn-a-video-into-a-script/): The step-by-step method, by hand and with lynxr.
 - [The parts of a UGC video script](https://lynxr.io/short-form-script-structure/): Hook, setup, beats, turn, close, and what each one is doing.
 - [How to write a hook](https://lynxr.io/how-to-write-a-hook/): The four hook shapes that keep working, and how to steal a hook's shape without stealing its words.
-- [A UGC script template that holds up](https://lynxr.io/ugc-script-template/): The four-part template with a real worked example, and the mistakes that make UGC read like an ad.
+- [A UGC script template that holds up](https://lynxr.io/ugc-script-template/): The four-part template with a worked example, and the mistakes that make UGC read like an ad.
 - [Remake a viral video without copying it](https://lynxr.io/remake-a-viral-video/): What to keep, what to replace, and the line between a remake and a copy.
 - [UGC and short-form video glossary](https://lynxr.io/glossary/): Plain definitions of the terms lynxr uses.
 
@@ -65,4 +65,4 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 - [Privacy policy](https://lynxr.io/privacy/): What lynxr collects, why, who it is shared with, how long it is kept, and how to have it deleted.
 - [Terms of service](https://lynxr.io/terms/): What lynxr does, what you are responsible for, who owns the scripts, what is and is not promised, and when a payment is refunded.
 - [Accessibility](https://lynxr.io/accessibility/): What works, and the specific things that do not work yet.
-- [Refunds](https://lynxr.io/terms/#refunds): The refunds section of the terms of service. Cancelling lynxr pro at any time stops the next renewal. From 22 October 2026, cancelling within 48 hours of a payment, having written fewer than 10 scripts since, refunds that payment in full and ends pro; first payments made before then keep the 14-day money-back. No pro-rata refund otherwise. Stripe is the merchant of record.
+- [Refunds](https://lynxr.io/terms/#refunds): The refunds section of the terms of service. Cancelling lynxr pro at any time stops the next renewal. From 23 October 2026, cancelling within 48 hours of a payment, having written fewer than 10 scripts since, refunds that payment in full and ends pro; first payments made before then keep the 14-day money-back. No pro-rata refund otherwise. Stripe is the merchant of record.

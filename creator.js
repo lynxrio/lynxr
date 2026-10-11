@@ -680,7 +680,10 @@ const BLANK_ME = { name: "", niches: [], brands: [], adaptations: [], library: [
                    // does not repeat on another device.
                    // deals [{at, brand}]: brand deals the creator logged by hand (the "deals" goal counts this month's).
                    // rate {usd, at}: the creator's own current rate per video, self-reported (the "rate" goal's progress).
-                   priority: null, goal: null, setup: null, tour: null, deals: [], rate: null };
+                   // firstWin {at, adid, doneAt, tip}: the first-script screen was shown (once per account, synced); tip = when
+                   // "got it" or a line copy dismissed the copy tip. postsSeenAt: when Posts was last opened with new numbers
+                   // waiting (it clears the new-numbers callout). Both are onboarding v2 (ONBOARD_V2_LIVE).
+                   priority: null, goal: null, setup: null, tour: null, deals: [], rate: null, firstWin: null, postsSeenAt: null };
 
 /** Delete a script the recoverable way: it moves to the trash with a stamp and
  *  the name of the company it was written for, so Settings can offer it back.
@@ -1738,13 +1741,16 @@ function renderNewScript(head, body) {
      attached above it. No cards and no nudge: goals live at the top of Posts, linked accounts in Settings, recent scripts in
      Library. */
   const mascot = typeof lynxrAvatar === "function" ? lynxrAvatar("done", "home-lx") : "";
+  const v2 = ONBOARD_V2_LIVE;     // onboarding v2 Home (plan lynxr-onboarding-v2.md): goal chip, a sub line, a labelled composer, a callout and a quota line
   body.innerHTML = `
-    <div class="newscript home">
+    <div class="newscript home${v2 ? " onb2" : ""}">
+      ${v2 ? `<div id="home-goal"></div>` : ""}
       <div id="home-writing"></div>
       <div id="home-verify"></div>
       <div class="newscript-greet home-greet">
         <div class="home-av">${mascot}</div>
         <h1 class="newscript-h" id="home-h"></h1>
+        ${v2 ? `<p class="onb-home-sub">Paste a video you'd love to remake.</p>` : ""}
       </div>
       ${/* THE PASTE BOX LIVES AT THE BOTTOM, like a chat composer (owner, 2026-10-03). The dock is position: sticky (not fixed), so it
             rides the bottom of the screen when the page is short and simply follows the content when it is taller. The brands (or
@@ -1753,11 +1759,13 @@ function renderNewScript(head, body) {
       ${firstRun ? `<p class="nobrand">
         <button type="button" class="linkish" id="nobrand-add">Add a brand</button>
         to get scripts written for them</p>` : ""}
+      ${v2 ? `<div id="home-news"></div>` : ""}
       <div class="composer composer-inline" id="composer">
         <div class="composer-for" id="composer-for"></div>
+        ${v2 ? `<label class="onb-composer-rule" for="composer-url">Works with TikTok videos and Instagram reels</label>` : ""}
         <form class="composer-row" id="composer-form" novalidate>
           <input type="url" id="composer-url" placeholder="Paste a TikTok or Instagram link"
-            autocomplete="off" spellcheck="false" aria-label="Paste a video link">
+            autocomplete="off" spellcheck="false"${v2 ? "" : ` aria-label="Paste a video link"`}>
           <span class="bp-plat" id="composer-plat"></span>
           <button type="submit" class="composer-send" id="composer-send" aria-label="Get the script">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
@@ -1765,6 +1773,7 @@ function renderNewScript(head, body) {
           </button>
         </form>
         <p class="composer-note" id="composer-note" role="status" aria-live="polite"></p>
+        ${v2 ? `<p class="onb-quota" id="home-quota" hidden></p>` : ""}
       </div>
       </div>
     </div>`;
@@ -2000,6 +2009,7 @@ function renderSide() {
     navPosts.hidden = !showPostsNav();
     navPosts.classList.toggle("on", VIEW.kind === "posts");
   }
+  if (ONBOARD_V2_LIVE) { paintSideNews(); paintHomeQuota(); }      // the allowance refreshes repaint the rail, not Home
   document.getElementById("nav-you").classList.toggle("on", VIEW.kind === "you");
   document.getElementById("nav-plan").classList.toggle("on", VIEW.kind === "plan");
   document.getElementById("nav-feedback").classList.toggle("on", VIEW.kind === "feedback");
@@ -3704,6 +3714,59 @@ const SETUP_SEEN_KEY = "lynxr_setup_seen";    // sessionStorage: the overlay alr
 const SETUP_ALL_MANDATORY = ["tiktok_code", "instagram_code"];   // profiles are optional again (owner 2026-10-03), but once a username is entered its bio code must be found
 const SETUP_ALL = ["priority", "goal", "tiktok", "tiktok_code", "instagram", "instagram_code"];  // the full stepper, in order
 
+/* ONBOARDING V2 (plan lynxr-onboarding-v2.md, approved 2026-10-08, built 2026-10-09). Three fixed steps that end in a real
+   first paste, a one-time "your first script is ready" screen (confetti, a copy tip instead of the tour, one Link TikTok card),
+   TikTok linking AFTER the win, and a calmer Home (goal chip, labelled composer, new-numbers callout). Everything new sits
+   behind the one switch below; false brings back today's stepper, Home and tour exactly as they were. The old code paths are
+   kept on purpose, not dead: they are what the switch restores. Every new class is `onb-*` and every new rule is at the end
+   of app.css. These constants stay ABOVE the `if (OBTEST) {` block: it runs at load, and a let/const declared below it
+   would still be in its temporal dead zone. */
+const ONBOARD_V2_LIVE = true;              // kill switch: v2 stepper (3 fixed steps + first paste), first-script screen, link-after-win, v2 Home. false = today's stepper, Home and tour.
+const ONB_STEPS = ["priority", "goal", "paste"];   // the 3 counted screens; the count never changes
+/* Step 3's "No link handy? Try one" chips. THE OWNER SUPPLIES THESE (real public TikTok/Instagram videos).
+   Shape: { label: "Product demo", url: "https://www.tiktok.com/@…/video/…" }. Empty = the chips are not drawn.
+   An entry whose url fails linkProblem() is dropped, never shown. */
+const ONB_SAMPLES = [];
+let ONB_SAMPLES_PREVIEW = null;            // set only by the localhost ?obtest=1 block (&samples=1)
+const PRIORITY_HINT = { deals: "lynxr counts the deals you log each month", rate: "Track your rate as it climbs",
+  perform: "Your average views, 7 days after posting", grow: "Followers on the accounts you link" };
+const GOAL_UNIT = { deals: (n) => (n === 1 ? "deal a month" : "deals a month"), rate: () => "a video",
+  perform: () => "views a video", grow: () => "followers" };
+let SETUP_MODE = "onboard";   // v2 only: "onboard" (steps 1-3) | "win" (first script) | "link" (username, bio code, done)
+let SETUP_NEW = false;        // v2 only: opened as a brand-new account's first run (decides where closing lands)
+let ONB_LAND = null;          // v2 only: where closing the host should land: { kind: "library", lid } | { kind: "posts" } | null
+let ONB_SEND = null;          // v2 only: a link step 3 handed to the Home composer, sent once Home is drawn
+let ONB_WIN_CHEERED = false;  // the confetti + haptic played this page load
+let ONB_VIA_WIN = false;      // v2 only: this opening reached the link flow FROM the first-script screen (Back and closing return there)
+let ONB_LINES = [];           // the first-script screen's copyable lines, original casing, by index
+
+/** "TikTok video", "Instagram reel" or "Instagram video" for a link that passed linkProblem(); "" for anything else. */
+function onbKind(url) {
+  const plat = platformOf(url);
+  if (plat === "TikTok") return "TikTok video";
+  if (plat !== "Instagram") return "";
+  try { return /\/reels?\//i.test(new URL(normalizeUrl(url) || "").pathname) ? "Instagram reel" : "Instagram video"; } catch { return "Instagram video"; }
+}
+/** Is this a free-tier account? The server's ledger when it has answered, else the plan row. (The plan_code test matters: the
+    OBTEST fake plan is status "active" with plan_code "free".) */
+const onbFreeTier = () => (ALLOWANCE ? (ALLOWANCE.plan || "free") === "free"
+  : !(planIsPaid() && PLAN?.plan_code && PLAN.plan_code !== "free"));
+/** The mono line under step 3's button: what the send will cost. "" on a paid plan. */
+function onbAllowanceLine() {
+  if (!onbFreeTier()) return "";
+  if (scriptRoom() <= 0) return quotaWallText();
+  return scriptPeriod() === 7 ? `Uses 1 of your ${scriptGrant()} free scripts this week` : `Uses 1 of your ${scriptGrant()} free scripts`;
+}
+/** The mono line under Home's composer on a phone (the rail's meter says it on a desktop). "" on a paid plan. */
+function onbHomeQuotaLine() {
+  if (!onbFreeTier()) return "";
+  const room = scriptRoom();
+  if (room > 0) return scriptPeriod() === 7 ? `${room} free script${room === 1 ? "" : "s"} left this week` : `${room} of ${scriptGrant()} free scripts left`;
+  return ALLOWANCE?.nextRoomAt ? `Next free script ${unlockWhen(ALLOWANCE.nextRoomAt)}` : "No free scripts left this week";
+}
+/** The sample videos step 3 may offer: only real, valid links. */
+const onbSamples = () => (ONB_SAMPLES_PREVIEW || ONB_SAMPLES).filter((s) => s && s.label && s.url && !linkProblem(s.url));
+
 /* PRO'S NUMBERS COME FROM THE LEDGER. lynxr_billing_plans is the one enforcing
    place for the fair-use cap, and hardcoding it here meant this page said 300
    while the database granted 150 — the kind of drift that turns into a support
@@ -3785,12 +3848,15 @@ async function acceptAgency() {
 }
 
 /** The invite sentence, shared by the popup and the section. Names the campaign only when
-    staff typed one on the invite. A label that already ends in "campaign" isn't doubled. */
+    staff typed one on the invite. A label that already ends in "campaign" isn't doubled.
+    Several brands, comma-separated on the agency side (app.js rostBrandParts), read as a
+    list: "the Cloey and OncourseAI campaigns". */
 function agencyInviteLine() {
-  const c = String(AGENCY?.campaign || "").trim().replace(/\s+campaign$/i, "");
-  return c
-    ? `${escapeHtml(AGENCY_NAME)} invited you to the ${escapeHtml(c)} campaign.`
-    : `${escapeHtml(AGENCY_NAME)} invited you to their creator roster.`;
+  const names = String(AGENCY?.campaign || "").split(/[,;]/)
+    .map((s) => s.trim().replace(/\s+/g, " ").replace(/\s+campaign$/i, "")).filter(Boolean);
+  if (!names.length) return `${escapeHtml(AGENCY_NAME)} invited you to their creator roster.`;
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${escapeHtml(AGENCY_NAME)} invited you to the ${escapeHtml(list)} campaign${names.length > 1 ? "s" : ""}.`;
 }
 
 /** One accept path for the popup and the section. It re-reads the roster either way, so the
@@ -4075,10 +4141,10 @@ function renderPlan(head, body) {
      id, which only a hand-edited row can produce — it stays a sentence pointing
      at hello@lynxr.io. Flipping PORTAL_LIVE back to false restores that
      sentence with no other edit. */
-  const manageLine = `To change your card or cancel, email <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> — there's no self-serve billing page yet, so we make the change for you. Cancelling stops the next renewal and you keep your plan to the end of the period you've already paid for. From 22 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away.`;
+  const manageLine = `To change your card or cancel, email <a href="mailto:hello@lynxr.io">hello@lynxr.io</a> — there's no self-serve billing page yet, so we make the change for you. Cancelling stops the next renewal and you keep your plan to the end of the period you've already paid for. From 23 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away.`;
   const portalLine = PLAN?.cancel_at
     ? `Changed your mind? Renew from Manage billing any time before <strong>${planDate(PLAN.cancel_at)}</strong>. Your receipts and card are there too.`
-    : `Cancelling stops the next renewal &mdash; you keep ${escapeHtml(label)} to the end of the period you've already paid for, and nothing you've written is deleted. From 22 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away. Your card and receipts are under Manage billing.`;
+    : `Cancelling stops the next renewal &mdash; you keep ${escapeHtml(label)} to the end of the period you've already paid for, and nothing you've written is deleted. From 23 October 2026, if you cancel within 48 hours of a payment, and you've written fewer than 10 scripts since, that payment is refunded and pro ends straight away. Your card and receipts are under Manage billing.`;
   const mocLine = `Stripe is the merchant of record: it takes the payment, adds any tax at checkout, and processes any refund.`;
 
   /* THE THREE OPTIONS ARE THE LANDING'S #pricing CARDS (owner, 2026-09-21:
@@ -4396,7 +4462,7 @@ function renderYou(head, body) {
             appeared before the thing they would sign out of or delete — you
             read the action, then found out whose account it was. */""}
       ${SB_EMAIL ? `<p class="note me-who">${escapeHtml(SB_EMAIL)}</p>` : ""}
-      ${TOUR_LIVE ? `<p class="note me-tour"><button type="button" class="linkish" id="replay-tour">Replay tour</button></p>` : ""}
+      ${TOUR_LIVE && !ONBOARD_V2_LIVE ? `<p class="note me-tour"><button type="button" class="linkish" id="replay-tour">Replay tour</button></p>` : ""}
       ${/* .me-actions opts this row out of the phone rule that makes action
             buttons grow to fill the row. That rule is right on a script card,
             where the buttons are the point and want big tap targets — here it
@@ -6599,6 +6665,10 @@ function setupStatus(id) {
     const plat = id.replace("_code", "");
     return (PROFILES || []).some((p) => p.platform === plat && p.verified_at) ? "done" : null;
   }
+  if (ONBOARD_V2_LIVE) {
+    if (id === "paste") return ME.setup?.steps?.paste || (scriptsUsed() > 0 ? "done" : null);   // scriptsUsed() already leaves agency copies out
+    if (id === "link") return (PROFILES || []).some((p) => p.platform === "tiktok") ? "done" : null;
+  }
   return null;
 }
 
@@ -6611,7 +6681,8 @@ function setupApplies(id) {
     const plat = id.replace("_code", "");
     return Array.isArray(PROFILES) && PROFILES.some((p) => p.platform === plat);
   }
-  return true;
+  if (ONBOARD_V2_LIVE && id === "link") return Array.isArray(PROFILES);
+  return true;                                                  // priority, and v2's paste and win
 }
 /* What counts as "left to do" (the Settings dot, the Finish setup card, whether the overlay opens by itself): the priority, the goal
    that follows it, and the bio code of a username that was entered. The username screens are asked in the stepper but never counted:
@@ -6674,10 +6745,24 @@ let SETUP_AT = null;       // the current screen id
 let SETUP_FULL = false;    // full-screen first run, with a welcome screen
 
 const setupHost = () => document.getElementById("setup-body-post");
-const setupOrder = () => [...(SETUP_FULL ? ["welcome"] : []), ...SETUP_ALL.filter(setupApplies), "done"];
+const SETUP_LINK_IDS = ["link", "tiktok_code", "instagram_code"];     // v2: the screens of the link flow, in order
+const setupOrder = () => {
+  if (ONBOARD_V2_LIVE) {
+    if (SETUP_MODE === "win") return ["win"];
+    if (SETUP_MODE === "link") return [...SETUP_LINK_IDS.filter(setupApplies), "done"];
+    return [...ONB_STEPS.filter(setupApplies), "done"];
+  }
+  return [...(SETUP_FULL ? ["welcome"] : []), ...SETUP_ALL.filter(setupApplies), "done"];
+};
 /** Where the stepper opens: the first thing that counts as left to do, else the first unanswered (optional) screen, else the end. */
-const setupFirstPending = () => SETUP_ALL.filter(setupApplies).find((id) => SETUP_COUNTED.includes(id) && !setupStatus(id))
-  || SETUP_ALL.filter(setupApplies).find((id) => !setupStatus(id)) || "done";
+const setupFirstPending = () => {
+  if (ONBOARD_V2_LIVE) {
+    return ONB_STEPS.find((id) => setupApplies(id) && !setupStatus(id))
+      || ["tiktok_code", "instagram_code"].find((id) => setupApplies(id) && !setupStatus(id)) || "done";
+  }
+  return SETUP_ALL.filter(setupApplies).find((id) => SETUP_COUNTED.includes(id) && !setupStatus(id))
+    || SETUP_ALL.filter(setupApplies).find((id) => !setupStatus(id)) || "done";
+};
 /** The next pending id after the current one, else the "done" screen. */
 function setupNext() {
   const o = setupOrder();
@@ -6685,6 +6770,16 @@ function setupNext() {
 }
 /** The previous question, whatever its status. null on the first (the welcome screen is not a question). */
 function setupBack() {
+  if (ONBOARD_V2_LIVE) {
+    if (SETUP_MODE === "win") return null;
+    if (SETUP_MODE === "link") {
+      if (SETUP_AT === "link") return ONB_VIA_WIN && onbWinRecord() ? "win" : null;
+      return SETUP_AT === "done" ? null : "link";                     // a code screen goes back to the username
+    }
+    const o = setupOrder();
+    const pv = o[o.indexOf(SETUP_AT) - 1];
+    return pv && pv !== "done" ? pv : null;
+  }
   const o = setupOrder();
   const pv = o[o.indexOf(SETUP_AT) - 1];
   return pv && pv !== "welcome" ? pv : null;
@@ -6763,6 +6858,12 @@ const setupCodeProfile = (plat) => [...(PROFILES || [])].filter((p) => p.platfor
 function renderSetup() {
   const host = setupHost();
   if (!host) return;
+  if (ONBOARD_V2_LIVE) {
+    if (SETUP_MODE === "onboard" && !setupOrder().includes(SETUP_AT)) SETUP_AT = "done";
+    if (SETUP_MODE === "onboard" && SETUP_AT === "done") { queueMicrotask(closeSetupModal); return; }   // no "you're set" screen: the last answer lands on Home
+    renderSetupV2();
+    return;
+  }
   const order = setupOrder();
   if (!order.includes(SETUP_AT)) SETUP_AT = setupFirstPending();
   const id = SETUP_AT;
@@ -6860,16 +6961,18 @@ async function setupNextPress() {
   const host = setupHost();
   const input = host?.querySelector(".setup-in");
   const val = input ? input.value : "";
-  if (id === "tiktok" || id === "instagram") {
+  if (ONBOARD_V2_LIVE && id === "paste") return onbPasteSubmit();
+  if (id === "tiktok" || id === "instagram" || (ONBOARD_V2_LIVE && id === "link")) {
+    const plat = id === "link" ? "tiktok" : id;                 // v2's "link" is the TikTok username screen
     if (!input) return setupAdvance();                          // a saved-profile screen: Next just advances
-    if (!String(val).trim()) return setupSkip();                // optional: an empty field is a skip
-    const p = parseHandle(val, id);
+    if (!String(val).trim()) return id === "link" ? setupErr(HANDLE_WHY.shape) : setupSkip();   // optional: an empty field is a skip (v2's link screen has no skip)
+    const p = parseHandle(val, plat);
     if (!p.ok) return setupErr(HANDLE_WHY[p.why]);
-    if (p.platform && p.platform !== id) return setupErr(HANDLE_WHY[`wrong_${id}`]);
-    const btn = host.querySelector('[data-setup="next"]');
+    if (p.platform && p.platform !== plat) return setupErr(HANDLE_WHY[`wrong_${plat}`]);
+    const btn = host.querySelector('[data-setup="next"], button[type="submit"]');
     if (btn) btn.disabled = true;
-    const r = await saveProfile(id, p.handle);
-    if (r && r.ok) { setupMark(id, "done"); save(); return setupAdvance(); }   // its code screen comes next
+    const r = await saveProfile(plat, p.handle);
+    if (r && r.ok) { setupMark(plat, "done"); save(); return setupAdvance(); }   // its code screen comes next
     if (btn) btn.disabled = false;
     return setupErr(HANDLE_WHY[r?.why] || HANDLE_WHY.network);
   }
@@ -6886,6 +6989,10 @@ function setupSelectChip(id, dataKey, value) {
   SETUP_PICK = { id, v: value };
   const host = setupHost();
   host?.querySelectorAll(".prio-chip, .goal-chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset[dataKey] === String(value))));
+  if (ONBOARD_V2_LIVE) {          // v2: the one Next button is already on the screen, greyed; a pick turns it on and starts its sweep
+    host?.querySelectorAll('[data-setup="pick-next"]').forEach((b) => { b.disabled = false; b.classList.add("onb-shim"); });
+    return;
+  }
   const row = host?.querySelector(".setup-nav-r");
   if (row && !row.querySelector('[data-setup="pick-next"]')) {
     row.insertAdjacentHTML("beforeend", SETUP_NEXT_BTN);
@@ -6924,17 +7031,38 @@ async function onSetupClick(e) {
   if (prio) { setupPickPriority(prio.dataset.priority); return; }
   const chip = e.target.closest(".goal-chip");
   if (chip) { setupPickGoal(Number(chip.dataset.goal)); return; }
+  if (ONBOARD_V2_LIVE) {
+    const line = e.target.closest(".onb-line");
+    if (line) { onbCopyLine(line); return; }
+  }
   const b = e.target.closest("[data-setup]");
   if (!b || b.disabled) return;
   const act = b.dataset.setup;
   const id = SETUP_AT;
   const host = setupHost();
+  if (ONBOARD_V2_LIVE) {
+    if (act === "home") { closeSetupModal(); return; }                // the default landing takes a first-script exit to the script
+    if (act === "tip-ok") { onbTipDone(); return; }
+    if (act === "link-start") {
+      ONB_VIA_WIN = true; SETUP_MODE = "link"; SETUP_AT = setupStatus("link") ? "tiktok_code" : "link"; renderSetup(); return;
+    }
+    if (act === "link-posts") { ONB_LAND = { kind: "posts" }; closeSetupModal(); return; }
+    if (act === "sample") { onbUseSample(Number(b.dataset.i)); return; }
+    if (act === "finish" && SETUP_MODE === "link") { ONB_LAND = { kind: "posts" }; closeSetupModal(); return; }
+  }
   if (act === "start") { SETUP_AT = setupFirstPending(); renderSetup(); return; }
   if (act === "notnow" || act === "finish") { closeSetupModal(); return; }
   if (act === "next") { await setupNextPress(); return; }
   if (act === "pick-next") { setupConfirmPick(); return; }
   if (act === "skip") { setupSkip(); return; }
-  if (act === "back") { const pv = setupBack(); if (pv) { SETUP_AT = pv; renderSetup(); } return; }
+  if (act === "back") {
+    const pv = setupBack();
+    if (pv) {
+      if (ONBOARD_V2_LIVE && pv === "win") SETUP_MODE = "win";
+      SETUP_AT = pv; renderSetup();
+    }
+    return;
+  }
   if (act === "copy") {
     const codeEl = document.getElementById("setup-code-post");
     if (!codeEl) return;
@@ -6951,10 +7079,11 @@ async function onSetupClick(e) {
   }
   if (act === "change") {
     // Back onto a username that was saved but not verified: remove it so the question can be answered again.
-    const prof = (PROFILES || []).find((x) => x.platform === id);
+    const plat = ONBOARD_V2_LIVE && id === "link" ? "tiktok" : id;           // v2's "link" screen is the TikTok username
+    const prof = (PROFILES || []).find((x) => x.platform === plat);
     b.disabled = true;
-    if (prof) await removeProfile(id, prof.handle);
-    if (ME.setup?.steps) { delete ME.setup.steps[id]; delete ME.setup.steps[`${id}_code`]; }
+    if (prof) await removeProfile(plat, prof.handle);
+    if (ME.setup?.steps) { delete ME.setup.steps[plat]; delete ME.setup.steps[`${plat}_code`]; }
     save();
     renderSetup();
     return;
@@ -7035,6 +7164,7 @@ async function setupCheckBio(btn) {
     e.target.removeAttribute("aria-invalid");
     const er = host.querySelector(".setup-err");
     if (er) er.hidden = true;
+    if (ONBOARD_V2_LIVE) { if (SETUP_AT === "paste") onbPasteState(); else if (SETUP_AT === "link") onbLinkState(); }
   });
 })();
 
@@ -7043,9 +7173,26 @@ async function setupCheckBio(btn) {
 /** `full`: the first-run, full-screen version for a new account (its own page, the app hidden behind it). */
 function openSetupModal(full = false, at = null) {
   if (!ONBOARD_LIVE) return;
+  const m = document.getElementById("setup-modal");
+  if (ONBOARD_V2_LIVE) {
+    // v2: both hosts (the first run and the overlay for an existing account) draw the same full-page layout. `full` only
+    // says where closing lands (SETUP_NEW). The mode is the screen family: the three steps, the first-script screen, or link TikTok.
+    SETUP_NEW = !!full;
+    SETUP_FULL = true;
+    SETUP_MODE = at === "win" ? "win" : SETUP_LINK_IDS.includes(at) ? "link" : "onboard";
+    SETUP_AT = at || setupFirstPending();
+    if (SETUP_MODE === "onboard" && ["tiktok_code", "instagram_code"].includes(SETUP_AT)) SETUP_MODE = "link";
+    ONB_VIA_WIN = SETUP_MODE === "win";
+    if (!m) return;
+    m.classList.add("setup-full", "onb-v2");
+    document.body.classList.add("setup-full-on");
+    m.hidden = false;
+    document.body.classList.add("modal-open");
+    renderSetup();
+    return;
+  }
   SETUP_FULL = !!full;
   SETUP_AT = SETUP_FULL ? "welcome" : (at || setupFirstPending());      // `at`: the link wall hands on to the bio-code screen, not to whatever question is first
-  const m = document.getElementById("setup-modal");
   if (!m) return;
   m.classList.toggle("setup-full", SETUP_FULL);
   document.body.classList.toggle("setup-full-on", SETUP_FULL);
@@ -7057,9 +7204,14 @@ function closeSetupModal() {
   const m = document.getElementById("setup-modal");
   if (!m) return;
   const wasOpen = !m.hidden;
-  const wasFull = m.classList.contains("setup-full");
+  const wasFull = ONBOARD_V2_LIVE ? SETUP_NEW : m.classList.contains("setup-full");
+  // v2: anything that leaves the first-script path (the logo, Escape, closing from the link flow) lands on the script itself.
+  if (ONBOARD_V2_LIVE && wasOpen && !ONB_LAND && (SETUP_MODE === "win" || ONB_VIA_WIN)) {
+    const a = onbWinRecord();
+    if (a) ONB_LAND = { kind: "library", lid: a.libraryId };
+  }
   m.hidden = true;
-  m.classList.remove("setup-full");
+  m.classList.remove("setup-full", "onb-v2");
   document.body.classList.remove("modal-open", "setup-full-on");
   paintSetupDue();                   // closing is never finishing: nothing is marked here
   if (wasOpen) afterSetupClosed(wasFull);
@@ -7072,6 +7224,20 @@ function afterSetupClosed(wasFull) {
   SETUP_DECIDED = true;
   if (typeof SETUP_CLOSED_HOOK === "function") SETUP_CLOSED_HOOK();
   if (!unlocked) return;
+  if (ONBOARD_V2_LIVE) {
+    const land = ONB_LAND;
+    ONB_LAND = null;
+    SETUP_MODE = "onboard";
+    ONB_VIA_WIN = false;
+    if (land?.kind === "library") openLibraryEntry(land.lid);
+    else if (land?.kind === "posts") go({ kind: "posts" });
+    else if (wasFull) go({ kind: "new" });
+    else paintHome();
+    if (ONB_SEND) { if (VIEW.kind !== "new") go({ kind: "new" }); onbFlushSend(); }
+    maybeStartTour();
+    onbMaybeWin();
+    return;
+  }
   if (wasFull) go({ kind: "new" }); else paintHome();
   maybeStartTour();
 }
@@ -7096,12 +7262,28 @@ async function setupAfterUnlock(agencyReady) {
   SETUP_DECIDED = true;      // opened or ruled out: from here the tour may start (it waits while the stepper is open)
   paintHome();               // the roster answer may have just arrived: the "put the code in your bio" card keys on it
   maybeStartTour();
+  onbMaybeWin();             // v2: a first script that finished while the app was closed gets its screen now
 }
 
 /** Opens by itself only when all of these hold. A new account gets the full-screen first run, an existing one the overlay.
     Reloading the same tab does not reopen it (sessionStorage); a new tab or a browser restart does. If a script was
     writing at load, it waits for the next load with nothing writing: setup never covers a script being written. */
 function maybeOpenSetup() {
+  if (ONBOARD_V2_LIVE) {
+    /* v2 keeps every guard below but changes WHAT opens it: only an account made in the last 24 hours gets the three steps by
+       itself (returning users never repeat onboarding, CLAUDE.md); anything older reaches them from Settings or the Home goal
+       chip. A username still waiting for its bio code keeps opening that one screen, once per tab, as it always has. */
+    const steps = onbFresh() && ONB_STEPS.some((id) => setupApplies(id) && !setupStatus(id));
+    const code = ["tiktok_code", "instagram_code"].find((id) => setupApplies(id) && !setupStatus(id));
+    if (!ONBOARD_LIVE || setupSeen() || (!steps && !code)) return;
+    if (writingQueue().length) return;
+    try { if (sessionStorage.getItem(PASTE_KEY)) return; } catch {}
+    if (BILLING_RETURN || AGENCY?.state === "invited") return;
+    if (document.body.classList.contains("modal-open")) return;
+    markSetupSeen();
+    if (steps) openSetupModal(true); else openSetupModal(false, code);
+    return;
+  }
   if (!setupUnfinished() || setupSeen()) return;
   if (writingQueue().length) return;                       // never over a script being written
   try { if (sessionStorage.getItem(PASTE_KEY)) return; } catch {}   // a pasted link is about to be sent
@@ -7109,6 +7291,11 @@ function maybeOpenSetup() {
   if (document.body.classList.contains("modal-open")) return;
   markSetupSeen();
   openSetupModal(isNewAccount());
+}
+/** v2: was this account made in the last 24 hours? (isNewAccount()'s clock, without its "never started setup" test.) */
+function onbFresh() {
+  const t = Date.parse(loadSession()?.user?.created_at || LINK_USER?.created_at || "");
+  return Number.isFinite(t) && Date.now() - t < 24 * 3600e3;
 }
 
 /** The Settings dot, the phone burger's dot and the "Finish setup" card. */
@@ -7126,6 +7313,542 @@ function paintSetupDue() {
   card.innerHTML = `<h2 class="me-card-h">Finish setup</h2><p class="ce-hint">${n} ${n === 1 ? "step" : "steps"} left.</p>`
     + `<button type="button" class="btn" id="setup-continue">Continue</button>`;
   card.querySelector("#setup-continue").addEventListener("click", () => openSetupModal(false));   // user-initiated: allowed whenever pressed
+}
+
+/* ================================================================================================================
+   ONBOARDING V2 SCREENS (ONBOARD_V2_LIVE; plan lynxr-onboarding-v2.md). Everything below only runs when the switch at
+   SETUP_ALL is on. The stepper host (#setup-modal, painted by renderSetup -> renderSetupV2) shows one of three families,
+   named by SETUP_MODE: "onboard" (steps 1-3 and the first paste), "win" (the first-script screen) and "link" (TikTok after
+   the win: username, bio code, done). Every user value goes in through textContent; no inline style="" anywhere (the CSP
+   drops it), every size is a class in the last block of app.css. Layout comes from the owner-approved mockups.
+   ================================================================================================================ */
+
+const ONB_ICON = {
+  back: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>`,
+  check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>`,
+  pencil: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>`,
+};
+const onbLogoHtml = () => `${typeof lynxrMark === "function" ? lynxrMark("onb-logo-mark") : ""}<span>lynxr</span>`;
+
+/** [question, one-line why] for steps 1-3. Plain strings: callers use textContent. */
+function setupCopyV2(id) {
+  const name = setupName();
+  if (id === "priority") return [name ? `What do you want from lynxr, ${name}?` : "What do you want from lynxr?", "Pick one. You can change it anytime."];
+  if (id === "goal") {
+    const metric = goalMetric();
+    return [(GOAL_ASK[metric] || GOAL_ASK.perform)[0], metric === "rate" ? "In US dollars. lynxr shows how close you are." : "Your goal. lynxr shows how close you are."];
+  }
+  const named = namedBrands();
+  return ["Paste a video you'd love to remake",
+    !named.length ? "lynxr turns it into a script you can film."
+      : named.length === 1 ? `lynxr turns it into a script for ${named[0].name}.` : "lynxr turns it into a script for your brands."];
+}
+
+function renderSetupV2() {
+  const host = setupHost();
+  if (!host) return;
+  const order = setupOrder();
+  if (!order.includes(SETUP_AT)) SETUP_AT = order[0] || "done";
+  if (SETUP_PICK && SETUP_PICK.id !== SETUP_AT) SETUP_PICK = null;
+  if (SETUP_MODE === "win") renderWinV2(host);
+  else if (SETUP_MODE === "link") renderLinkV2(host);
+  else renderStepV2(host);
+  onbFocusAfterRender(host);
+}
+
+/** Where focus lands after a screen is drawn: on a desktop the first control; on a phone the heading, so the keyboard does not
+    spring up over the screen. */
+function onbFocusAfterRender(host) {
+  const desktop = !!(window.matchMedia && matchMedia("(min-width: 761px)").matches);
+  let f = null;
+  if (desktop && SETUP_MODE !== "win") {
+    f = host.querySelector('.onb-opt[aria-pressed="true"], .onb-tile[aria-pressed="true"]') || host.querySelector(".onb-opt, .onb-tile")
+      || host.querySelector(".setup-in") || host.querySelector('[data-setup="checkbio"], [data-setup="finish"], [data-setup="next"]');
+  }
+  (f || host.querySelector(".setup-q"))?.focus({ preventScroll: true });
+}
+
+const onbAvatarHtml = (mood) => (typeof lynxrAvatar === "function" ? `<div class="setup-av">${lynxrAvatar(mood, "setup-lx")}</div>` : "");
+
+/* ---- steps 1 to 3 ---- */
+function renderStepV2(host) {
+  const id = SETUP_AT;
+  const at = ONB_STEPS.indexOf(id);
+  const [q, why] = setupCopyV2(id);
+  const back = setupBack();
+  const sel = id === "priority" ? (SETUP_PICK?.id === "priority" ? SETUP_PICK.v : ME.priority)
+    : id === "goal" ? (SETUP_PICK?.id === "goal" ? SETUP_PICK.v : ME.goal?.target) : null;
+  const err = `<p class="setup-err" role="alert" hidden></p>`;
+  let control = "", foot = "";
+  if (id === "priority") {
+    control = `<div class="onb-opts" role="group" aria-labelledby="setup-q-post">`
+      + PRIORITIES.map((p) => `<button type="button" class="onb-opt prio-chip" data-priority="${p}" aria-pressed="${sel === p ? "true" : "false"}">`
+        + `<span class="onb-opt-b"><span class="onb-opt-t">${escapeHtml(PRIORITY_LABEL[p])}</span><span class="onb-opt-h">${escapeHtml(PRIORITY_HINT[p])}</span></span>`
+        + `<span class="onb-radio" aria-hidden="true"></span></button>`).join("")
+      + `</div>${err}`;
+  } else if (id === "goal") {
+    const metric = goalMetric();
+    control = `<div class="onb-tiles" role="group" aria-labelledby="setup-q-post">`
+      + GOAL_KINDS[metric].steps.map((n) => `<button type="button" class="onb-tile goal-chip" data-goal="${n}" aria-pressed="${sel === n ? "true" : "false"}">`
+        + `<span class="onb-tile-n">${escapeHtml(goalChipLabel(n, metric))}</span><span class="onb-tile-u">${escapeHtml(GOAL_UNIT[metric](n))}</span></button>`).join("")
+      + `</div><p class="onb-note">${ONB_ICON.pencil}<span>Change it anytime in Settings</span></p>${err}`;
+  }
+  if (id === "priority" || id === "goal") {
+    foot = `<div class="onb-foot"><button type="button" class="btn onb-cta${sel ? " onb-shim" : ""}" data-setup="pick-next"${sel ? "" : " disabled"}>Next</button></div>`;
+  } else {
+    const samples = onbSamples();
+    control = `<form class="setup-form onb-paste" novalidate>`
+      + `<label class="onb-lbl" for="setup-in-post">Video link</label>`
+      + `<div class="onb-field"><input type="url" class="setup-in onb-url" id="setup-in-post" inputmode="url" autocomplete="off" spellcheck="false"`
+      + ` placeholder="Paste a TikTok or Instagram link" aria-describedby="onb-rule setup-why-post">`
+      + `<button type="submit" class="btn onb-cta onb-cta-in" disabled>Write my script</button></div>`
+      + `<p class="onb-rule" id="onb-rule" aria-live="polite"></p>`
+      + (samples.length ? `<div class="onb-samples"><span>No link handy? Try one</span>`
+        + samples.map((s, i) => `<button type="button" class="onb-sample" data-setup="sample" data-i="${i}"></button>`).join("") + `</div>` : "")
+      + err
+      + `<div class="onb-foot"><button type="submit" class="btn onb-cta onb-cta-foot" disabled>Write my script</button><p class="onb-mono" id="onb-allow"></p></div></form>`;
+  }
+  const steps = `<div class="onb-steps"><span class="onb-steps-n">Step ${at + 1} of ${ONB_STEPS.length}</span>`
+    + `<div class="onb-bars" aria-hidden="true">${ONB_STEPS.map((_, i) => `<i${i <= at ? ` class="on"` : ""}></i>`).join("")}</div></div>`;
+  const backR = back ? `<button type="button" class="onb-back-r" data-setup="back" aria-label="Back">${ONB_ICON.back}</button>` : `<span class="onb-back-r onb-sp" aria-hidden="true"></span>`;
+  host.innerHTML = `<div class="onb-page onb-at-${id}">`
+    + `<div class="onb-top"><div class="onb-logo" aria-hidden="true">${onbLogoHtml()}</div>${backR}${steps}`
+    + `<div class="onb-top-r"><button type="button" class="linkish onb-skip" data-setup="skip">Skip</button></div></div>`
+    + `<div class="onb-card">`
+    + (back ? `<button type="button" class="onb-back" data-setup="back">${ONB_ICON.back}<span>Back</span></button>` : "")
+    + onbAvatarHtml(id === "priority" ? "idle" : id === "goal" ? "done" : "reading")
+    + `<h2 class="setup-q onb-h" id="setup-q-post" tabindex="-1"></h2><p class="setup-why onb-sub" id="setup-why-post"></p>`
+    + (id === "paste" ? control : `${control}${foot}`) + `</div></div>`;
+  host.querySelector(".setup-q").textContent = q;
+  host.querySelector(".setup-why").textContent = why;
+  if (id === "paste") {
+    onbSamples().forEach((s, i) => { const b = host.querySelector(`.onb-sample[data-i="${i}"]`); if (b) b.textContent = s.label; });
+    const allow = onbAllowanceLine();
+    const al = host.querySelector("#onb-allow");
+    al.textContent = allow;
+    al.hidden = !allow;
+    onbPasteState();
+  }
+}
+
+/** Step 3's live verdict on the field: the rule before anything is typed, a green "ready" for a good link, the plain reason
+    for a bad one. Both buttons are the same action at two widths and move together. */
+function onbPasteState() {
+  const host = setupHost();
+  const input = host?.querySelector("#setup-in-post");
+  const rule = host?.querySelector("#onb-rule");
+  if (!input || !rule || SETUP_AT !== "paste") return;
+  const v = input.value.trim();
+  const problem = v ? linkProblem(v) : null;
+  const ok = !!v && !problem;
+  const state = ok ? "ok" : v ? "bad" : "";
+  const text = ok ? `${onbKind(v)}, ready` : v ? problem : "Works with TikTok videos and Instagram reels";
+  if (rule.dataset.k !== `${state}|${text}`) {          // only when it changed, so a screen reader is not re-read the same sentence per keystroke
+    rule.dataset.k = `${state}|${text}`;
+    rule.className = `onb-rule${state ? ` ${state}` : ""}`;
+    rule.textContent = "";
+    if (ok) rule.insertAdjacentHTML("beforeend", ONB_ICON.check);
+    const span = document.createElement("span");
+    span.textContent = text;
+    rule.appendChild(span);
+  }
+  const can = ok && (!onbFreeTier() || scriptRoom() > 0);
+  host.querySelectorAll(".onb-cta").forEach((b) => { b.disabled = !can; b.classList.toggle("onb-shim", can); });
+}
+
+/** Step 3's send: the link goes to the Home composer's own submit, so the allowance check, brand targets, the queue and the
+    landing in Library are the ones every other send uses. */
+function onbPasteSubmit() {
+  const input = setupHost()?.querySelector("#setup-in-post");
+  const v = String(input?.value || "").trim();
+  const problem = linkProblem(v);
+  if (problem) { setupErr(problem); return; }
+  onbSend(normalizeUrl(v));
+}
+function onbSend(url) {
+  ONB_SEND = url;
+  closeSetupModal();
+}
+/** Runs after the stepper has closed on Home: the exact tail of consumePendingPaste(). */
+function onbFlushSend() {
+  if (!ONB_SEND) return;
+  const input = document.getElementById("composer-url");
+  const form = document.getElementById("composer-form");
+  if (!input || !form) return;
+  input.value = ONB_SEND;
+  ONB_SEND = null;
+  input.dispatchEvent(new Event("input"));
+  form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+}
+function onbUseSample(i) {
+  const host = setupHost();
+  const s = onbSamples()[i];
+  const input = host?.querySelector("#setup-in-post");
+  if (!s || !input) return;
+  input.value = s.url;
+  input.removeAttribute("aria-invalid");
+  const er = host.querySelector(".setup-err");
+  if (er) er.hidden = true;
+  onbPasteState();
+  [...host.querySelectorAll(".onb-cta")].find((b) => b.offsetParent && !b.disabled)?.focus({ preventScroll: true });
+}
+
+/* ---- the first-script screen ---- */
+
+/** The one account-lifetime script worth celebrating: exactly one finished script (agency copies left out), still in the
+    library, finished in the last 7 days, and never shown before. An existing creator with 2+ scripts, or one old one, never
+    sees it, and nothing is written for them. */
+function onbWinCandidate() {
+  if (!ONBOARD_V2_LIVE || !ONBOARD_LIVE || ME.firstWin) return null;
+  const all = [...(ME.adaptations || []), ...(ME.trash || [])].filter((a) => !isAgencyCopy(a));
+  const done = all.filter((a) => a.status === "done");
+  if (done.length !== 1) return null;
+  const a = done[0];
+  if (!(ME.adaptations || []).includes(a)) return null;
+  const t = Date.parse(a.processedAt || a.addedAt || "");
+  if (!Number.isFinite(t) || Date.now() - t > 7 * 864e5) return null;
+  return a;
+}
+/** The script the first-script screen is about, or null. */
+function onbWinRecord() {
+  const id = ME.firstWin?.adid;
+  return id ? (ME.adaptations || []).find((a) => a.id === id && a.status === "done") || null : null;
+}
+/** Opens the first-script screen by itself, once per account, when the first script lands on whatever view the creator is on.
+    Never over a popup, the tour, the teleprompter, or text being edited; the next live-sync tick asks again. */
+function onbMaybeWin() {
+  if (!ONBOARD_V2_LIVE || !unlocked || !SETUP_DECIDED) return;
+  if (document.body.classList.contains("modal-open") || document.body.classList.contains("tour-on")) return;
+  const tp = document.getElementById("tp");
+  if (tp && !tp.hidden) return;
+  if (editInFlight()) return;
+  const a = onbWinCandidate();
+  if (!a) return;
+  ME.firstWin = { at: new Date().toISOString(), adid: a.id, doneAt: a.processedAt || null, tip: null };
+  save();
+  ONB_WIN_CHEERED = false;
+  openSetupModal(true, "win");
+}
+
+/** The script as copyable lines: [{ label, lines: [text] }]. Fills ONB_LINES (original casing, by index): copying reads it,
+    never the painted text, which the house style draws in lowercase. */
+function onbScriptLines(a) {
+  const t = (v) => String(v == null ? "" : v).trim();
+  const groups = [];
+  const ad = a.adaptation;
+  if (ad) {
+    const silent = ad.delivery === "silent" || (Array.isArray(ad.beats) && ad.beats.length > 0 && ad.beats.every((b) => !t(b.say)));
+    if (t(ad.hook)) groups.push({ label: silent ? "Opening card" : "Hook", lines: [t(ad.hook)] });
+    (ad.beats || []).forEach((b, i) => {
+      const line = t(b.say) || t(b.do) || t(b.show);
+      if (line) groups.push({ label: t(b.t) ? String(b.t) : `Beat ${i + 1}`, lines: [line] });
+    });
+    if (t(ad.cta)) groups.push({ label: silent ? "Final card" : "CTA", lines: [t(ad.cta)] });
+  } else {
+    const said = ((a.source?.script || {}).segments || []).map((s) => t(Array.isArray(s) ? s[2] : "")).filter(Boolean);
+    if (said.length) groups.push({ label: "What they say", lines: said });
+    else {
+      const shown = (a.source?.shots || []).map((s) => t(s?.visual) || t(s?.onscreen_text)).filter(Boolean);
+      if (shown.length) groups.push({ label: "What's on screen", lines: shown });
+    }
+  }
+  ONB_LINES = groups.flatMap((g) => g.lines);
+  return groups;
+}
+
+/** The link card's state: no TikTok profile, one waiting for its bio code, or a verified one. */
+function onbLinkCardState() {
+  if (!Array.isArray(PROFILES)) return null;
+  const tt = PROFILES.find((p) => p.platform === "tiktok");
+  if (!tt) return { kind: "none" };
+  return tt.verified_at ? { kind: "verified", handle: tt.handle } : { kind: "pending", handle: tt.handle };
+}
+
+function renderWinV2(host) {
+  const a = onbWinRecord();
+  const groups = a ? onbScriptLines(a) : [];
+  if (!a || !ONB_LINES.length) {                        // nothing to show: leave, onto the script's entry when there is one
+    if (a) ONB_LAND = { kind: "library", lid: a.libraryId };
+    queueMicrotask(closeSetupModal);
+    return;
+  }
+  const cheer = !ONB_WIN_CHEERED;
+  const showTip = !ME.firstWin?.tip;
+  const secs = Math.round(videoSeconds({ rec: a }));
+  const who = a.brandId ? `For ${(brandById(a.brandId) || {}).name || a.brandName || "this brand"}` : platformLabel(a.sourceUrl);
+  const meta = secs > 0 ? `${who} · about ${secs}s` : who;
+  const hover = !!(window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches);
+  let n = 0;
+  const groupsHtml = groups.map((g) => `<div class="onb-grp"><p class="onb-lbl"></p>`
+    + g.lines.map(() => {
+      const i = n++;
+      return `<button type="button" class="onb-line${i === 0 ? " onb-hook" : ""}" data-line="${i}"></button>`
+        + (i === 0 && showTip ? `<div class="onb-tip" id="onb-tip"><span class="onb-tip-t"></span><button type="button" class="onb-tip-ok" data-setup="tip-ok">Got it</button></div>` : "");
+    }).join("") + `</div>`).join("");
+  const lc = onbLinkCardState();
+  let card = "";
+  if (lc) {
+    const primary = `onb-cta${cheer ? "" : " onb-shim"}`;
+    card = lc.kind === "none"
+      ? `<h3 class="onb-lc-h">Posted it? See how it does.</h3><p class="onb-lc-p">Link your TikTok and lynxr tracks the views on every video, so you can see what works.</p>`
+        + `<ul class="onb-lc-b"><li>Views tracked for you, no pasting</li><li>Measured against your own average</li></ul>`
+        + `<button type="button" class="btn ${primary}" data-setup="link-start">Link TikTok</button>`
+      : lc.kind === "pending"
+        ? `<p class="onb-lc-p"></p><button type="button" class="btn ${primary}" data-setup="link-start">Finish linking</button>`
+        : `<p class="onb-lc-p"></p><button type="button" class="btn ${primary}" data-setup="link-posts">Open Posts</button>`;
+  }
+  host.innerHTML = `<div class="onb-page onb-at-win">`
+    + (cheer ? `<div class="onb-confetti" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="onb-cf onb-cf-${i + 1}"></i>`).join("")}</div>` : "")
+    + `<div class="onb-top onb-top-win"><button type="button" class="onb-logo" data-setup="home" aria-label="Go to lynxr">${onbLogoHtml()}</button></div>`
+    + `<div class="onb-win"><div class="onb-win-head">${onbAvatarHtml("hyped")}<div class="onb-win-t">`
+    + `<h2 class="setup-q onb-h" id="setup-q-post" tabindex="-1">Your first script is ready</h2><p class="onb-meta"></p></div></div>`
+    + `<div class="onb-win-cols"><section class="onb-card onb-script" aria-label="Your script">${groupsHtml}<p class="onb-copied" role="status" aria-live="polite"></p></section>`
+    + (card ? `<section class="onb-card onb-linkcard">${card}</section>` : "") + `</div></div></div>`;
+  host.querySelector(".onb-meta").textContent = meta;
+  host.querySelectorAll(".onb-grp .onb-lbl").forEach((el, i) => { el.textContent = groups[i].label; });
+  host.querySelectorAll(".onb-line").forEach((el) => { el.textContent = ONB_LINES[Number(el.dataset.line)]; });
+  const tipT = host.querySelector(".onb-tip-t");
+  if (tipT) tipT.textContent = hover ? "Click any line to copy it" : "Tap any line to copy it";
+  const lcp = host.querySelector(".onb-linkcard .onb-lc-p");
+  if (lcp && lc && lc.kind === "pending") lcp.textContent = "Put your code in your TikTok bio and lynxr starts tracking it.";
+  else if (lcp && lc && lc.kind === "verified") lcp.textContent = `lynxr is tracking @${lc.handle}. New videos show up on Posts.`;
+  if (cheer) onbCheer();
+}
+
+/** Confetti and a haptic tap, once per page load, when the first-script screen first paints. The haptic only where the browser
+    has a vibration API (iOS Safari does not). Everything here switches off under prefers-reduced-motion in app.css. */
+function onbCheer() {
+  if (ONB_WIN_CHEERED) return;
+  ONB_WIN_CHEERED = true;
+  try { if (typeof navigator.vibrate === "function") navigator.vibrate(24); } catch {}
+  setTimeout(() => {
+    const host = setupHost();
+    host?.querySelector(".onb-confetti")?.remove();
+    if (SETUP_MODE === "win") host?.querySelector(".onb-linkcard .onb-cta")?.classList.add("onb-shim");   // the one primary starts moving once nothing else does
+  }, 1800);
+}
+
+/** "Got it", or any line copied: the tip never comes back (synced on the creator's row). */
+function onbTipDone(focusFirst = true) {
+  if (ME.firstWin && !ME.firstWin.tip) { ME.firstWin.tip = new Date().toISOString(); save(); }
+  document.getElementById("onb-tip")?.remove();
+  if (focusFirst) setupHost()?.querySelector(".onb-line")?.focus({ preventScroll: true });
+}
+async function onbCopyLine(btn) {
+  const text = ONB_LINES[Number(btn.dataset.line)];
+  if (typeof text !== "string" || !text) return;
+  const note = setupHost()?.querySelector(".onb-copied");
+  let ok = false;
+  try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); ok = true; } } catch {}
+  if (ok) {
+    btn.classList.add("copied");
+    if (note) note.textContent = "Copied.";
+    setTimeout(() => {
+      btn.classList.remove("copied");
+      if (note && note.textContent === "Copied.") note.textContent = "";
+    }, 1200);
+  } else {
+    try { getSelection().selectAllChildren(btn); } catch {}
+    if (note) note.textContent = "Press and hold a line to copy it.";
+  }
+  if (document.getElementById("onb-tip")) onbTipDone(false);
+}
+
+/* ---- link TikTok after the win: username, bio code, done ---- */
+function renderLinkV2(host) {
+  const id = SETUP_AT;
+  const back = setupBack();
+  const isCode = id === "tiktok_code" || id === "instagram_code";
+  const plat = id === "instagram_code" ? "instagram" : "tiktok";
+  const title = id === "instagram_code" ? "Link Instagram" : "Link TikTok";
+  const backR = back ? `<button type="button" class="onb-back-r" data-setup="back" aria-label="Back">${ONB_ICON.back}</button>` : "";
+  const top = `<div class="onb-top onb-top-link"><button type="button" class="onb-logo${back ? " onb-logo-d" : ""}" data-setup="home" aria-label="Go to lynxr">${onbLogoHtml()}</button>`
+    + `${backR}<p class="onb-title"></p><span class="onb-top-sp" aria-hidden="true"></span></div>`;
+  const backPill = back ? `<button type="button" class="onb-back" data-setup="back">${ONB_ICON.back}<span></span></button>` : "";
+  const parts = (n) => `<div class="onb-parts"><div class="onb-part${n === 1 ? " on" : ""}"${n === 1 ? ` aria-current="step"` : ""}><b>1</b><span>Your username</span></div>`
+    + `<div class="onb-part${n === 2 ? " on" : ""}"${n === 2 ? ` aria-current="step"` : ""}><b>2</b><span>A code in your bio</span></div></div>`;
+  const err = `<p class="setup-err" role="alert" hidden></p>`;
+  let body = "", q = "", why = "", saved = null, codeText = null;
+  if (id === "link") {
+    const have = (PROFILES || []).find((p) => p.platform === "tiktok");
+    q = "See how every video you post does";
+    const reasons = `<div class="onb-why"><p class="onb-why-h">Why lynxr asks</p><ul>`
+      + [`Views on every video you post, tracked for you. No pasting.`, `Each video measured against your own average.`, `Public numbers only. lynxr never posts or messages for you.`]
+        .map((t) => `<li>${ONB_ICON.check}<span>${escapeHtml(t)}</span></li>`).join("") + `</ul></div>`;
+    const next = `<p class="onb-next">Next: put a short code like <span class="onb-code-eg">lynxr-a1b2c3</span> in your bio so lynxr knows the account is yours. Tracking starts that night.</p>`;
+    if (have) {
+      saved = `@${have.handle} — saved.`;
+      body = `${parts(1)}${onbAvatarHtml("coaching")}<h2 class="setup-q onb-h" id="setup-q-post" tabindex="-1"></h2><p class="setup-why onb-sub" id="setup-why-post" hidden></p>`
+        + `<p class="setup-saved"></p>`
+        + (have.verified_at ? "" : `<p class="setup-notnow"><button type="button" class="linkish" data-setup="change">Use a different username</button></p>`)
+        + `${reasons}${next}${err}<div class="onb-foot"><button type="button" class="btn onb-cta onb-shim" data-setup="next">Next</button></div>`;
+    } else {
+      body = `${parts(1)}${onbAvatarHtml("coaching")}<h2 class="setup-q onb-h" id="setup-q-post" tabindex="-1"></h2>`
+        + `<form class="setup-form onb-linkform" novalidate><label class="onb-lbl" for="setup-in-post">TikTok username</label>`
+        + `<div class="onb-handle"><span aria-hidden="true">@</span><input type="text" class="setup-in onb-handle-in" id="setup-in-post" autocomplete="off" autocapitalize="off" spellcheck="false"`
+        + ` placeholder="yourname" aria-describedby="onb-handle-hint setup-why-post"></div>`
+        + `<p class="onb-hint" id="onb-handle-hint">Your public TikTok handle. A private account can't be tracked.</p>`
+        + `<p class="setup-why onb-sub" id="setup-why-post"></p>${reasons}${next}${err}`
+        + `<div class="onb-foot"><button type="submit" class="btn onb-cta" disabled>Next</button></div></form>`;
+    }
+  } else if (isCode) {
+    const p = setupCodeProfile(plat);
+    q = `Put this code in your ${PLAT_NAME[plat]} bio`;
+    why = "Add it to your bio and save, then press the button. You can take it out once you're verified.";
+    if (p) {
+      codeText = p.verify_code;
+      body = `${parts(2)}${onbAvatarHtml("coaching")}<h2 class="setup-q onb-h" id="setup-q-post" tabindex="-1"></h2><p class="setup-why onb-sub" id="setup-why-post"></p>`
+        + `<p class="setup-code-row"><code class="setup-code" id="setup-code-post"></code> <button type="button" class="ghost" data-setup="copy">Copy</button></p>`
+        + `<p class="setup-help">Can't get it to verify? <a href="mailto:hello@lynxr.io">hello@lynxr.io</a></p>${err}`
+        + `<div class="onb-foot"><button type="button" class="btn onb-cta onb-shim" data-setup="checkbio">Check my bio</button></div>`;
+    } else {
+      saved = "That profile is verified. You can take the code out of your bio.";
+      body = `${parts(2)}${onbAvatarHtml("coaching")}<h2 class="setup-q onb-h" id="setup-q-post" tabindex="-1"></h2><p class="setup-why onb-sub" id="setup-why-post" hidden></p>`
+        + `<p class="setup-saved"></p>${err}<div class="onb-foot"><button type="button" class="btn onb-cta onb-shim" data-setup="next">Next</button></div>`;
+    }
+  } else {                                                // done
+    const v = [...(PROFILES || [])].filter((p) => p.verified_at).pop();
+    q = "You're linked";
+    why = v ? `lynxr starts tracking @${v.handle} tonight. New videos show up on Posts.` : "lynxr starts tracking tonight. New videos show up on Posts.";
+    body = `${onbAvatarHtml("hyped")}<h2 class="setup-q onb-h" id="setup-q-post" tabindex="-1"></h2><p class="setup-why onb-sub" id="setup-why-post"></p>`
+      + `<div class="onb-foot"><button type="button" class="btn onb-cta onb-shim" data-setup="finish">Done</button></div>`;
+  }
+  host.innerHTML = `<div class="onb-page onb-at-link${id === "done" ? " onb-at-linked" : ""}">${top}<div class="onb-card">${backPill}${body}</div></div>`;
+  host.querySelector(".onb-title").textContent = title;
+  const pill = host.querySelector(".onb-back span");
+  if (pill) pill.textContent = back === "win" ? "Back to my script" : "Back";
+  host.querySelector(".setup-q").textContent = q;
+  const w = host.querySelector(".setup-why");
+  if (w && why) w.textContent = why;
+  if (saved) host.querySelector(".setup-saved").textContent = saved;
+  if (codeText) host.querySelector(".setup-code").textContent = codeText;
+  onbLinkState();
+}
+/** The username screen's Next is greyed until something is typed, then it is the one moving button. */
+function onbLinkState() {
+  const host = setupHost();
+  const input = host?.querySelector(".onb-handle-in");
+  if (!input || SETUP_AT !== "link") return;
+  const can = !!input.value.trim();
+  host.querySelectorAll(".onb-cta").forEach((b) => { b.disabled = !can; b.classList.toggle("onb-shim", can); });
+}
+
+/* ---- Home: the goal chip, the new-numbers callout, the quota line ---- */
+
+/** { text, pct } for the chip at the top of Home. pct is null when there is no bar to draw. */
+function onbGoalChip() {
+  const goal = ME.goal && ME.goal.target && GOAL_KINDS[ME.goal.metric] ? ME.goal : null;
+  if (!goalMetric() || !goal) return { text: "Set your goal", pct: null };
+  const gp = goalProgress(goal, POSTS, FOLLOWERS);
+  const target = goal.target;
+  let text;
+  if (goal.metric === "deals") text = `${gp.value} of ${goalChipLabel(target, "deals")} brand ${target === 1 ? "deal" : "deals"} this month`;
+  else if (goal.metric === "rate") text = gp.value == null ? goalLabel(target, "rate") : `${moneyLabel(gp.value)} of ${moneyLabel(target)} a video`;
+  else if (goal.metric === "perform") text = gp.value == null ? goalLabel(target, "perform") : `${viewsLabel(gp.value) || "0"} of ${viewsLabel(target)} views a video`;
+  else text = gp.value == null ? goalLabel(target, "grow") : `${viewsLabel(gp.value) || "0"} of ${viewsLabel(target)} followers`;
+  return { text, pct: gp.value == null ? null : gp.pct };
+}
+
+/** A tracked video whose FIRST numbers arrived since Posts was last opened and within the last week, or null. -> { post, text } */
+function onbNewNumbers() {
+  if (!ONBOARD_V2_LIVE || !hasTracking() || !Array.isArray(POSTS)) return null;
+  const seen = Date.parse(ME.postsSeenAt || "") || 0;
+  const weekAgo = Date.now() - 7 * 864e5;
+  let best = null;
+  for (const p of POSTS) {
+    let first = Infinity;
+    for (const s of p.lynxr_post_views || []) {
+      const t = Date.parse(s.at || "");
+      if (s.views != null && Number.isFinite(t) && t < first) first = t;
+    }
+    if (first === Infinity || first <= seen || first <= weekAgo) continue;
+    if (!best || first > best.first) best = { post: p, first };
+  }
+  if (!best) return null;
+  const posted = Date.parse(best.post.posted_at || "");
+  const recent = Number.isFinite(posted) && Date.now() - posted < 6 * 864e5;
+  const text = recent ? `Your ${new Date(posted).toLocaleDateString("en-US", { weekday: "long" })} video has its first numbers`
+    : Number.isFinite(posted) ? `Your video from ${new Date(posted).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} has its first numbers`
+    : "Your latest video has its first numbers";
+  return { post: best.post, text };
+}
+
+function paintHomeGoal() {
+  const host = document.getElementById("home-goal");
+  if (!host) return;
+  const g = onbGoalChip();
+  const key = `${g.text}|${g.pct}`;
+  if (host.dataset.k === key) return;                   // unchanged: keep the DOM (and focus) as it is
+  host.dataset.k = key;
+  host.textContent = "";
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "onb-goal";
+  b.innerHTML = `<span class="onb-goal-k">Goal</span><span class="onb-goal-v"></span>`
+    + (g.pct != null ? `<span class="goal-bar onb-goal-bar" aria-hidden="true"><i></i></span>` : "")
+    + `<span class="onb-goal-edit" aria-hidden="true">${ONB_ICON.pencil}</span><span class="sr-only">, change it</span>`;
+  b.querySelector(".onb-goal-v").textContent = g.text;
+  if (g.pct != null) b.querySelector(".goal-bar > i").dataset.pct = String(g.pct);
+  b.addEventListener("click", () => {
+    go({ kind: "you" });
+    const card = document.getElementById("prof-card");
+    card?.scrollIntoView({ block: "start" });
+    (card?.querySelector('.prio-chip[aria-pressed="true"]') || card?.querySelector(".prio-chip"))?.focus({ preventScroll: true });
+  });
+  host.appendChild(b);
+  paintPostsBars(host);
+}
+function paintHomeNews() {
+  const host = document.getElementById("home-news");
+  if (!host) return;
+  const n = onbNewNumbers();
+  const key = n ? n.text : "";
+  if (host.dataset.k === key) return;
+  host.dataset.k = key;
+  host.textContent = "";
+  if (!n) return;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "onb-news-card";
+  b.innerHTML = `<span class="onb-news-dot" aria-hidden="true"></span><span class="onb-news-t"></span><span class="onb-news-see">See</span>`;
+  b.querySelector(".onb-news-t").textContent = n.text;
+  b.addEventListener("click", () => go({ kind: "posts" }));
+  host.appendChild(b);
+}
+function paintHomeQuota() {
+  const el = document.getElementById("home-quota");
+  if (!el) return;
+  const line = onbHomeQuotaLine();
+  el.textContent = line;
+  el.hidden = !line;
+}
+/** The rail's new-numbers callout and the dot on Posts. Built here on purpose: index.html is not cache-stamped, so a new
+    element in it would not reach a browser that has the old page. */
+function paintSideNews() {
+  const nav = document.getElementById("nav-posts");
+  if (!nav) return;
+  let card = document.getElementById("side-news");
+  if (!card) {
+    card = document.createElement("div");
+    card.id = "side-news";
+    card.className = "onb-news onb-news-rail";
+    card.hidden = true;
+    card.innerHTML = `<p class="onb-news-t"></p><button type="button" class="linkish onb-news-go">See them</button>`;
+    card.querySelector(".onb-news-go").addEventListener("click", () => go({ kind: "posts" }));
+    nav.after(card);
+  }
+  let dot = nav.querySelector(".onb-dot");
+  if (!dot) {
+    dot = document.createElement("span");
+    dot.className = "onb-dot";
+    dot.setAttribute("aria-hidden", "true");
+    dot.hidden = true;
+    nav.appendChild(dot);
+  }
+  const n = !nav.hidden ? onbNewNumbers() : null;
+  card.hidden = !n;
+  dot.hidden = !n;
+  if (n) card.querySelector(".onb-news-t").textContent = n.text;
 }
 
 /* ================================================================================================================
@@ -7149,6 +7872,16 @@ function paintSetupDue() {
      ?obtest=1&view=home           straight to the welcome dashboard, signed in, with fake data and the same state switcher as
                                    Posts (plus "free plan" and "script writing"); the tour does not run by itself.
      ?obtest=1&view=home&tour=1    the same, and the tour starts at once. The switcher's "run tour" button starts it any time.
+
+   ONBOARDING V2 PREVIEW (2026-10-09, plan lynxr-onboarding-v2.md):
+     ?obtest=1&view=onboard        the first run without the landing card: steps 1-3 and the first paste. A pasted link queues a
+                                   fake script that "finishes" ~4s later, and then the first-script screen opens by itself.
+     ...&view=onboard&samples=1    the same, with two sample-video chips on step 3 (the real ONB_SAMPLES stays empty until the owner
+                                   supplies videos).
+     ?obtest=1&view=home&metric=news    Home with the "new numbers" callout (and the dot + card in the rail on a desktop)
+     ...&metric=win                the first-script screen for an original script (no brand), shown on load
+     ...&metric=winbrand           the first-script screen for a script written for a brand
+     ...&metric=link               link TikTok (username, bio code, done) with the first-script screen behind it
    ================================================================================================================ */
 const OBTEST = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   && new URLSearchParams(location.search).get("obtest") === "1";
@@ -7225,12 +7958,39 @@ if (OBTEST) {
   // (the literal, not TOUR_SEEN_KEY: that const is declared further down and is not initialised yet when this block runs)
   try { sessionStorage.removeItem("lynxr_tour_seen"); } catch {}  // a reload of the preview shows the tour again
   const qs = new URLSearchParams(location.search);
+  if (qs.get("samples") === "1") ONB_SAMPLES_PREVIEW = [      // both pass linkShape
+    { label: "Product demo", url: "https://www.tiktok.com/@lynxr.io/video/7420000000000000001" },
+    { label: "Unboxing", url: "https://www.instagram.com/reel/C0bTestReel01/" }];
   if (qs.get("plan") !== "max" && !["posts", "home"].includes(qs.get("view"))) OBFAKE.plan = { ...OBFAKE.plan, plan_code: "free", features: [] };   // a new account is a free one
+  /* A script for the fake worker to "write" (v2 first-run preview): a made-up video's own script, and a brand rewrite of it. */
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const OB_SCRIPT = { duration: 22, script: { segments: [[0, 2.6, "I was today years old when I found out this does that."], [2.6, 8.4, "Watch. One take, no filter."], [8.4, 14.8, "That's just how it looks on me."], [14.8, 22, "It's twenty dollars at Target. Link's in my bio."]] },
+    shots: [{ t: 0, visual: "Close-up of the product in hand", onscreen_text: "wait for it" }, { t: 8.4, visual: "Face to camera, window light", onscreen_text: "" }] };
+  const OB_ADAPT = { hook: "I was today years old when I found out Glow Serum does this.", delivery: "spoken",
+    beats: [{ t: "0-3s", say: "I was today years old when I found out Glow Serum does this.", do: "Hold the bottle up to the camera" },
+      { t: "3-12s", say: "Watch. One coat, no filter, no edits.", do: "Apply it in one take" },
+      { t: "12-20s", say: "That's just how it looks.", do: "Turn to the window light" }],
+    cta: "It's $24 at Glow. Link's in my bio.", caption: "no filter needed" };
+  /* Every script that has been writing for 4 seconds finishes: the original script always, the brand rewrite when a brand was ticked. */
+  let obWorkerOn = false;
+  const obFakeWorker = () => {
+    let changed = false;
+    for (const a of ME.adaptations || []) {
+      if (!isWriting(a) || Date.now() - Date.parse(a.addedAt || "") < 4000) continue;
+      a.source = clone(OB_SCRIPT);
+      if (a.brandId) a.adaptation = clone(OB_ADAPT);
+      a.status = "done";
+      a.processedAt = new Date().toISOString();
+      changed = true;
+    }
+    if (changed) { renderSide(); renderPane(); onbMaybeWin(); }
+  };
   const start = (email) => {
     SB_EMAIL = String(email || "").trim() || "preview@example.com";
     ME = { ...BLANK_ME };
     PROFILES = [];
     TOUR_TAB_SEEN = false;
+    if (!obWorkerOn) { obWorkerOn = true; setInterval(obFakeWorker, 1000); }
     // When the questions close, open the app behind them (there is no sign-in here); Home and the tour follow from that.
     SETUP_CLOSED_HOOK = () => { if (!unlocked) { markSetupSeen(); unlock(); } };
     log("first run for", SB_EMAIL);
@@ -7250,6 +8010,7 @@ if (OBTEST) {
 
   /* ---- the Posts preview: fake tracked videos for each goal ---- */
   const wantView = qs.get("view");
+  if (wantView === "onboard") setTimeout(() => start("maya@example.com"), 0);      // opens the first run without the landing card
   const wantPosts = wantView === "posts" || wantView === "home";
   if (wantPosts) setTimeout(() => {            // after the whole script has run: unlock() and `unlocked` are not ready before
     const DAY = 864e5, NOW0 = Date.now();
@@ -7366,6 +8127,11 @@ if (OBTEST) {
     };
     if (wantView === "home") {
       STATES.writing = { label: "script writing", priority: "deals", goal: 5, deals: 2, writing: true };
+      // onboarding v2 (plan lynxr-onboarding-v2.md): the new-numbers callout and the three post-win screens
+      STATES.news = { label: "new numbers callout", priority: "deals", goal: 5, deals: 2, news: true };
+      STATES.win = { label: "first script (original)", priority: "deals", goal: 5, deals: 0, win: "original", profiles: [] };
+      STATES.winbrand = { label: "first script (brand)", priority: "deals", goal: 5, deals: 0, win: "brand", profiles: [] };
+      STATES.link = { label: "link tiktok", priority: "deals", goal: 5, deals: 0, link: true, profiles: [] };
     }
     // Fake Library: three videos with a script each, so "recent scripts" has something in it.
     let st0 = {};
@@ -7385,6 +8151,14 @@ if (OBTEST) {
     const apply = (key) => {
       const st = STATES[key] || STATES[DEFAULT_STATE];
       st0 = st;
+      // A stepper left open by an earlier state is hidden WITHOUT its close hooks (they would navigate and re-decide).
+      const sm = document.getElementById("setup-modal");
+      if (sm && !sm.hidden) {
+        sm.hidden = true;
+        sm.classList.remove("setup-full", "onb-v2");
+        document.body.classList.remove("modal-open", "setup-full-on");
+      }
+      ONB_LAND = null; ONB_SEND = null;
       // Fake brands in Library: two named ones with scripts, one named one with none yet. The "no brands" state has none at all.
       ME.brands = st.nobrands ? [] : [
         { id: "ob-b1", name: "Glow Skincare", site: "glowskincare.example", description: "", objective: "", niche: "skincare", code: "LYNX-OB1" },
@@ -7395,12 +8169,14 @@ if (OBTEST) {
       if (!st.priority || !st.goal) ME.setup = null;      // setup answers recorded earlier in this tab must not hide the "setup not finished" dot
       ME.deals = mkDeals(st.deals ?? 2);
       ME.rate = st.rate ? { usd: st.rate, at: at(NOW0) } : null;
+      ME.postsSeenAt = st.news ? at(NOW0 - 3 * DAY) : at(NOW0);
+      ME.firstWin = { at: at(NOW0), adid: null, tip: at(NOW0) };      // the first-script screen has been seen, unless the state is one that shows it
       OBFAKE.posts = (st.posts || ALL_POSTS).map((x) => ({ ...x }));
       OBFAKE.followers = st.followers || ALL_FOLLOWERS;
       OBFAKE.plan = planFor(st);
       PLAN = OBFAKE.plan;
       PROFILES = st.profiles || verified;
-      if (key === "rosterwall") PROFILES.length = 0;      // a username added in an earlier visit to this state must not carry over
+      if (key === "rosterwall" || st.win || st.link) PROFILES.length = 0;      // a username added in an earlier visit to this state must not carry over
       OBFAKE.profiles = PROFILES;
       {
         const f = fakeLib();
@@ -7410,6 +8186,13 @@ if (OBTEST) {
           f.ads.unshift({ id: "ob-aw", libraryId: "ob-lw", sourceUrl: url, brandId: null, brandName: "", title: "", status: "running", phase: "transcribing", addedAt: at(NOW0 - 20e3) });
         }
         ME.library = f.lib; ME.adaptations = f.ads;
+        if (st.win || st.link) {       // ONE finished script, 60 seconds old: a brand-new account's first
+          const url = "https://www.tiktok.com/@demo.win/video/7700000000000000099";
+          const brand = st.win === "brand";
+          ME.library = [{ id: "ob-lwin", url, canon: canonUrl(url), title: "", platform: "tiktok", addedAt: at(NOW0 - 60e3) }];
+          ME.adaptations = [{ id: "ob-awin", libraryId: "ob-lwin", sourceUrl: url, brandId: brand ? "ob-b1" : null, brandName: brand ? "Glow Skincare" : "",
+            title: "", status: "done", addedAt: at(NOW0 - 60e3), processedAt: at(NOW0), source: clone(OB_SCRIPT), ...(brand ? { adaptation: clone(OB_ADAPT) } : {}) }];
+        }
       }
       POSTS = OBFAKE.posts; FOLLOWERS = OBFAKE.followers; POSTS_STATE = "ok";
       COACH_PREVIEW = !!st.coach;             // the preview paints the coach even while COACH_APP_LIVE is off; this flag exists only inside this localhost-only block
@@ -7435,6 +8218,8 @@ if (OBTEST) {
         b.style.color = on ? "#14122b" : "#fff";
       });
       const u = new URL(location.href); u.searchParams.set("metric", key); history.replaceState(null, "", u);
+      if (st.win) { ME.firstWin = null; onbMaybeWin(); }
+      if (st.link) { ME.firstWin = { at: at(NOW0), adid: "ob-awin", tip: at(NOW0) }; openSetupModal(true, "link"); }
     };
     // The switcher: a fixed strip at the bottom, styled through CSSOM (the CSP drops inline style attributes).
     const bar = document.createElement("div");
@@ -8324,6 +9109,9 @@ function wireGoalCard(root, after) {
 function paintPosts() {
   const body = document.getElementById("posts-goal");
   if (!body || VIEW.kind !== "posts") return;
+  /* v2: opening Posts is what clears the "new numbers" callout. paintPosts runs on open AND when refreshPosts lands, so a slow
+     read still clears it; it writes only when something was new. */
+  if (ONBOARD_V2_LIVE && onbNewNumbers()) { ME.postsSeenAt = new Date().toISOString(); save(); paintSideNews(); }
   const a = document.activeElement;
   const busy = (el) => !!(a && el && el.contains(a) && (a.tagName === "INPUT" || a.tagName === "SELECT"));
 
@@ -8418,6 +9206,7 @@ function paintHome() {
   if (VIEW.kind !== "new") return;
   paintHomeHeadline();
   paintHomeVerify();
+  if (ONBOARD_V2_LIVE) { paintHomeGoal(); paintHomeNews(); paintHomeQuota(); }
 }
 
 /** THE BIO-CODE CARD (owner, 2026-10-07: "make the creators do the steps necessary so that I can actually see their posts").
@@ -8488,6 +9277,7 @@ function tourBlocked() {
 
 /** Start the tour on its own when every condition holds; otherwise do nothing, and the next paint of Home asks again. */
 function maybeStartTour() {
+  if (ONBOARD_V2_LIVE) return;                                     // v2 teaches the first use inline (the copy tip), not with a tour
   if (!TOUR_LIVE || TOUR || TOUR_TIMER || ME.tour || TOUR_TAB_SEEN || tourSeenInTab()) return;
   if (!unlocked || !SETUP_DECIDED || VIEW.kind !== "new") return;
   if (PLAN_STATE !== "ok" && PLAN_STATE !== "error") return;      // the Posts stop depends on the plan: wait for it
@@ -8722,6 +9512,16 @@ function wireComposer() {
     // Say no while they are still typing, not on submit. The badge already sits
     // in the paste field and is where the eye is, so an unsupported link reads
     // as refused before anyone reaches for the button.
+    // v2 Home: a valid link reads as a green check and "TikTok video" / "Instagram reel", and the send button starts its sweep.
+    const send = document.getElementById("composer-send");
+    if (ONBOARD_V2_LIVE && plat && input.closest(".newscript.home.onb2")) {
+      badge.innerHTML = `${ONB_ICON.check}<span class="onb-ok-txt"></span>`;
+      badge.querySelector(".onb-ok-txt").textContent = onbKind(u);
+      badge.className = "bp-plat on onb-ok";
+      send?.classList.add("onb-shim", "onb-ready");
+      return;
+    }
+    send?.classList.remove("onb-shim", "onb-ready");
     badge.textContent = u ? (plat || (shape === "cut_off" ? "link cut off" : badge.dataset.page ? "not a video" : "not supported")) : "";
     badge.className = "bp-plat" + (u ? (plat ? " on" : " on bad") : "");
   };
@@ -13055,6 +13855,7 @@ function startLiveSync() {
       renderSide();                                  // counts, editing or not
     }
     if (PANE_STALE && !editing) { PANE_STALE = false; renderPane(); }
+    onbMaybeWin();                                   // v2: the first script has landed -> its screen (once per account)
     /* THE `else if` THAT USED TO LIVE HERE REBUILT THE WHOLE PANE EVERY 2.5s.
        Its job was real — the overdue warning is a function of elapsed time, not
        of ME.adaptations, so something has to re-evaluate it — but renderPane()

@@ -65,8 +65,8 @@ const STRIPE = "https://api.stripe.com/v1";
 // tests can flip it). Off unless set: deploying this code changes nothing.
 const refundOn = () => (Deno.env.get("REFUND48_ENABLED") ?? "false") === "true";
 // Payments before this instant keep the old 14-day guarantee, handled by hand.
-// Midnight Boston time on 22 Oct 2026. REFUND48_FROM overrides it for a live test.
-const refundFrom = () => Date.parse(Deno.env.get("REFUND48_FROM") ?? "2026-10-22T04:00:00Z") / 1000;
+// Midnight Boston time on 23 Oct 2026. REFUND48_FROM overrides it for a live test.
+const refundFrom = () => Date.parse(Deno.env.get("REFUND48_FROM") ?? "2026-10-23T04:00:00Z") / 1000;
 
 /** Constant-time compare: a fast `===` on a signature leaks, by timing, how
     much of a forged prefix was right. */
