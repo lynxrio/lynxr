@@ -63,7 +63,8 @@ CREATORS FIRST
 
 COST (Apify, measured 2026-10-01; the full table is in the plan). Result price $0.0027.
     TikTok verification, scan, measurement and follower counts are FREE (public page + yt-dlp).
-    Instagram verification: one `details` result, only on a press, capped at TRACK_IG_VERIFY_TRIES per profile.
+    Instagram verification: one `details` result per check — on a press, or on its own at TRACK_IG_AUTOCHECK_MIN after the
+    profile is added — capped at TRACK_IG_VERIFY_TRIES per profile.
     Instagram tracking, per post: 1 discovery + 4 checkpoint lookups = 5 results = about $0.0135, so about $0.18 a month
     for a profile posting 3 a week, $0.41 daily. Likes and comments come back in the same result as views: no extra cost.
     Instagram followers: one `details` result per profile per day = about $0.081 a month per profile (30 results).
@@ -126,6 +127,20 @@ TRACK_VERIFY_PER_PASS = int(envcfg.get("TRACK_VERIFY_PER_PASS", "3"))          #
 TRACK_TT_VERIFY_TRIES = int(envcfg.get("TRACK_TT_VERIFY_TRIES", "200"))        # mirrors supabase/profiles.sql
 TRACK_IG_VERIFY_TRIES = int(envcfg.get("TRACK_IG_VERIFY_TRIES", "10"))         # mirrors supabase/profiles.sql
 TRACK_TT_AUTOCHECK_DAYS = float(envcfg.get("TRACK_TT_AUTOCHECK_DAYS", "7"))    # TikTok is checked by itself this long
+# THE WATCH WINDOW (owner, 2026-10-12: "i dont want to have creators wait 30 min before their accounts get verified, i
+# want it to be asap as soon as they put in their account name"). The code is created when the username is added, so it
+# reaches the bio a minute or two later, while the creator is still looking at the code. For TRACK_WATCH_MIN after adding,
+# a TikTok profile is checked every TRACK_WATCH_GAP_S (free), and pipeline/worker.py runs a pass that often while any
+# profile is inside the window (it reads the same two settings). Before this, TikTok's first gap was 30 minutes.
+TRACK_WATCH_MIN = float(envcfg.get("TRACK_WATCH_MIN", "20"))
+TRACK_WATCH_GAP_S = float(envcfg.get("TRACK_WATCH_GAP_S", "60"))
+# Minutes after an Instagram profile is added at which it checks itself, one paid `details` result each. Owner,
+# 2026-10-12: "whenever a creator links their accounts always run this so they get synced asap" — a roster creator's
+# Instagram had the code in its bio for half an hour and was never looked at, because nobody pressed Check, and four
+# more roster profiles sat the same way. Front-loaded into the watch window; 8 checks is about $0.02 a profile at most and
+# leaves 2 presses under TRACK_IG_VERIFY_TRIES. A username Instagram says does not exist stops checking itself. The tier
+# budget gate still applies. "" puts Instagram back on press-only.
+TRACK_IG_AUTOCHECK_MIN = envcfg.get("TRACK_IG_AUTOCHECK_MIN", "1,2,4,7,10,15,20,1440")
 TRACK_APIFY_RESERVE = float(envcfg.get("TRACK_APIFY_RESERVE", "0.2"))          # share of the cap never spent here
 TRACK_IG_FREE_STOP = float(envcfg.get("TRACK_IG_FREE_STOP", "0.5"))            # share of the Apify ceiling past which FREE accounts' Instagram work stops
 TRACK_IG_PRO_STOP = float(envcfg.get("TRACK_IG_PRO_STOP", "0.65"))             # ... and PRO accounts' (max is only ever stopped by the reserve)
@@ -284,8 +299,8 @@ def verify_due(p, now):
     """True when this profile row should be checked now.
 
     Not verified yet, under the platform's try cap, and either the creator asked (check_requested_at) or
-    it is a TikTok profile still inside its automatic window. Instagram NEVER auto-checks: it costs
-    money, so it runs on a press only. With TRACK_TT off a TikTok profile is never due."""
+    it is a TikTok profile still inside its automatic window, or an Instagram profile whose next scheduled
+    check has come round (ig_autocheck_due). With TRACK_TT off a TikTok profile is never due."""
     if p.get("verified_at"):
         return False
     ig = p.get("platform") == "instagram"
@@ -297,15 +312,52 @@ def verify_due(p, now):
     if p.get("check_requested_at"):
         return True
     if ig:
-        return False
+        return ig_autocheck_due(p, now)
     added = parse_ts(p.get("added_at"))
     if added is None or now - added >= timedelta(days=TRACK_TT_AUTOCHECK_DAYS):
         return False
     last = parse_ts(p.get("last_checked_at"))
     if last is None:
         return True
-    gap = timedelta(minutes=30) if now - added < timedelta(hours=24) else timedelta(hours=6)
+    if now - added < timedelta(minutes=TRACK_WATCH_MIN):
+        gap = timedelta(seconds=TRACK_WATCH_GAP_S)
+    elif now - added < timedelta(hours=24):
+        gap = timedelta(minutes=30)
+    else:
+        gap = timedelta(hours=6)
     return now - last >= gap
+
+
+def ig_autocheck_minutes(spec=None):
+    """The minutes after adding at which an Instagram profile checks itself, ascending, from TRACK_IG_AUTOCHECK_MIN.
+    Anything that is not a positive whole number is dropped; an empty spec means press-only."""
+    out = set()
+    for part in str(TRACK_IG_AUTOCHECK_MIN if spec is None else spec).split(","):
+        try:
+            m = int(part.strip())
+        except ValueError:
+            continue
+        if m > 0:
+            out.add(m)
+    return sorted(out)
+
+
+def ig_autocheck_due(p, now, sched=None):
+    """True when an unrequested Instagram profile's next scheduled check has come round.
+
+    The n-th check (n = verify_tries, so a press moves the schedule along too) waits until sched[n] minutes after adding
+    AND the schedule's own gap since the last check. The gap is what stops a profile added days ago from running the
+    whole schedule back to back: it gets its first check at once, then spaced the same as a new one."""
+    if p.get("status") == "not_found":
+        return False            # each look is paid, and a username that does not exist will not start to by itself
+    sched = ig_autocheck_minutes() if sched is None else sched
+    n = int(p.get("verify_tries") or 0)
+    added = parse_ts(p.get("added_at"))
+    if n >= len(sched) or added is None or now - added < timedelta(minutes=sched[n]):
+        return False
+    last = parse_ts(p.get("last_checked_at"))
+    gap = timedelta(minutes=sched[n] - (sched[n - 1] if n else 0))
+    return last is None or now - last >= gap
 
 
 def classify_verify(read, code, now_iso):
@@ -738,7 +790,7 @@ def verify_pass(key, now, dry=False, cache=None):
     cache = {} if cache is None else cache
     status, rows = rest(
         key, "/rest/v1/lynxr_profiles?verified_at=is.null"
-             "&select=creator_id,platform,handle,verify_code,verify_tries,check_requested_at,last_checked_at,added_at"
+             "&select=creator_id,platform,handle,status,verify_code,verify_tries,check_requested_at,last_checked_at,added_at"
              "&order=check_requested_at.desc.nullslast,last_checked_at.asc.nullsfirst&limit=50")
     if status != 200 or not isinstance(rows, list):
         if status:

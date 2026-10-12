@@ -78,11 +78,47 @@ check("tt page: broken json is an error",
 
 # verify_due
 ig = {"platform": "instagram", "verified_at": None, "verify_tries": 0, "added_at": ago(minutes=5)}
-check("due: IG with no request", T.verify_due(ig, NOW), False)
 check("due: IG with a request", T.verify_due({**ig, "check_requested_at": ago(minutes=1)}, NOW), True)
 check("due: IG at the cap", T.verify_due({**ig, "check_requested_at": ago(minutes=1), "verify_tries": T.TRACK_IG_VERIFY_TRIES}, NOW), False)
+# Instagram checks itself on TRACK_IG_AUTOCHECK_MIN (default 1,2,4,7,10,15,20,1440) — owner, 2026-10-12.
+check("ig schedule: default", T.ig_autocheck_minutes(), [1, 2, 4, 7, 10, 15, 20, 1440])
+check("ig schedule: leaves presses under the cap", len(T.ig_autocheck_minutes()) < T.TRACK_IG_VERIFY_TRIES, True)
+check("ig schedule: junk dropped, sorted", T.ig_autocheck_minutes("30, x, -1, 0, 5"), [5, 30])
+check("ig schedule: empty is press-only", T.ig_autocheck_minutes(""), [])
+check("due: IG 30 seconds old, never checked", T.verify_due({**ig, "added_at": ago(seconds=30)}, NOW), False)
+check("due: IG 1 minute old, never checked", T.verify_due({**ig, "added_at": ago(minutes=1)}, NOW), True)
+check("due: IG fourth check waits for 7 minutes after adding",
+      T.verify_due({**ig, "added_at": ago(minutes=6), "verify_tries": 3, "last_checked_at": ago(minutes=2)}, NOW), False)
+check("due: IG fourth check at 8 minutes, 4 since the third",
+      T.verify_due({**ig, "added_at": ago(minutes=8), "verify_tries": 3, "last_checked_at": ago(minutes=4)}, NOW), True)
+check("due: IG fourth check, but pressed 1 minute ago (gap 3)",
+      T.verify_due({**ig, "added_at": ago(minutes=8), "verify_tries": 3, "last_checked_at": ago(minutes=1)}, NOW), False)
+check("due: IG added 2 days ago, never checked, goes at once",
+      T.verify_due({**ig, "added_at": ago(days=2)}, NOW), True)
+check("due: IG added 2 days ago, checked 30 seconds ago, waits (no back-to-back catch-up)",
+      T.verify_due({**ig, "added_at": ago(days=2), "verify_tries": 1, "last_checked_at": ago(seconds=30)}, NOW), False)
+check("due: IG schedule spent, no request",
+      T.verify_due({**ig, "added_at": ago(days=5), "verify_tries": 8, "last_checked_at": ago(days=1)}, NOW), False)
+check("due: IG schedule spent, but the creator pressed Check",
+      T.verify_due({**ig, "added_at": ago(days=5), "verify_tries": 8, "check_requested_at": ago(minutes=1)}, NOW), True)
+check("due: IG not_found stops checking itself",
+      T.verify_due({**ig, "added_at": ago(minutes=3), "verify_tries": 1, "status": "not_found",
+                    "last_checked_at": ago(minutes=2)}, NOW), False)
+check("due: IG not_found still checks on a press",
+      T.verify_due({**ig, "status": "not_found", "check_requested_at": ago(minutes=1)}, NOW), True)
+T.TRACK_IG_AUTOCHECK_MIN = ""
+check("due: IG autocheck off, no request", T.verify_due(ig, NOW), False)
+check("due: IG autocheck off, with a request", T.verify_due({**ig, "check_requested_at": ago(minutes=1)}, NOW), True)
+T.TRACK_IG_AUTOCHECK_MIN = "1,2,4,7,10,15,20,1440"
 tt = {"platform": "tiktok", "verified_at": None, "verify_tries": 0}
 check("due: TT 10 minutes old, never checked", T.verify_due({**tt, "added_at": ago(minutes=10)}, NOW), True)
+# The watch window: every TRACK_WATCH_GAP_S (60s) for TRACK_WATCH_MIN (20) minutes after adding — owner, 2026-10-12.
+check("due: TT 5 minutes old, checked 70 seconds ago",
+      T.verify_due({**tt, "added_at": ago(minutes=5), "last_checked_at": ago(seconds=70)}, NOW), True)
+check("due: TT 5 minutes old, checked 30 seconds ago",
+      T.verify_due({**tt, "added_at": ago(minutes=5), "last_checked_at": ago(seconds=30)}, NOW), False)
+check("due: TT 25 minutes old (past the window), checked 5 minutes ago",
+      T.verify_due({**tt, "added_at": ago(minutes=25), "last_checked_at": ago(minutes=5)}, NOW), False)
 check("due: TT 2 hours old, checked 10 minutes ago",
       T.verify_due({**tt, "added_at": ago(hours=2), "last_checked_at": ago(minutes=10)}, NOW), False)
 check("due: TT 2 hours old, checked 31 minutes ago",

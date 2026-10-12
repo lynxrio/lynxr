@@ -68,7 +68,8 @@ TRACK LANE
     lane and the brief clips (creators first, always): bio-code verification of
     the TikTok / Instagram profiles creators add (every tier) and, from Phase B,
     scans and measurements of every verified profile (all tiers, max first under the Apify budget). One pass at most
-    every TRACK_POLL_S, or within ~TRACK_FAST_S of a creator pressing "check my bio" (setup waits on it); TRACK_POSTS=0
+    every TRACK_POLL_S, or within ~TRACK_FAST_S of a creator pressing "check my bio" (setup waits on it), or every
+    TRACK_WATCH_GAP_S while a profile added in the last TRACK_WATCH_MIN minutes is unverified; TRACK_POSTS=0
     turns it off. Fly-only like the others.
     Plan: ~/.claude/plans/lynxr-onboarding-and-post-tracking.md.
 
@@ -142,6 +143,12 @@ TRACK_POLL_S = float(envcfg.get("TRACK_POLL_S", "300"))
 # "check my bio" must not wait for the next 5-minute pass. Every TRACK_FAST_S an idle worker asks one cheap question
 # (is there a check requested in the last 3 minutes?) and runs the pass at once if so.
 TRACK_FAST_S = float(envcfg.get("TRACK_FAST_S", "8"))
+# THE WATCH WINDOW — the same two settings pipeline/track_posts.py reads. While a profile added in the last
+# TRACK_WATCH_MIN minutes is still unverified, a pass runs at most every TRACK_WATCH_GAP_S, so a code pasted into a bio is
+# found within about a minute, not at the next 5-minute pass (owner, 2026-10-12: "asap as soon as they put in their
+# account name").
+TRACK_WATCH_MIN = float(envcfg.get("TRACK_WATCH_MIN", "20"))
+TRACK_WATCH_GAP_S = float(envcfg.get("TRACK_WATCH_GAP_S", "60"))
 
 # The pipeline canary (pipeline/canary.py): known-good public videos through the real script path. Idle-only,
 # Fly-only and LAST in the chain. CANARY=0 turns it off.
@@ -286,6 +293,22 @@ def track_check_waiting(key):
     transport error: this only makes the pass sooner, the 5-minute pass still finds the request."""
     since = urllib.parse.quote((datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat(), safe="")
     url = (f"{SB_URL}/rest/v1/lynxr_profiles?verified_at=is.null&check_requested_at=gte.{since}"
+           "&select=creator_id&limit=1")
+    req = urllib.request.Request(url)
+    req.add_header("apikey", key)
+    req.add_header("Authorization", f"Bearer {key}")
+    try:
+        with urllib.request.urlopen(req, timeout=15, context=SSL_CTX) as r:
+            return bool(json.load(r))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def track_watch_waiting(key):
+    """True when a profile added in the last TRACK_WATCH_MIN minutes is not verified yet. False on any transport error,
+    for the same reason as track_check_waiting."""
+    since = urllib.parse.quote((datetime.now(timezone.utc) - timedelta(minutes=TRACK_WATCH_MIN)).isoformat(), safe="")
+    url = (f"{SB_URL}/rest/v1/lynxr_profiles?verified_at=is.null&added_at=gte.{since}"
            "&select=creator_id&limit=1")
     req = urllib.request.Request(url)
     req.add_header("apikey", key)
@@ -528,17 +551,24 @@ def main():
     clips_next = 0.0
     track_next = 0.0
     track_probe_next = 0.0
+    track_watch_next = 0.0
     fixer_next = time.time() + 60
     canary_next = time.time() + CANARY_BOOT_DELAY_S
     canary_boot = True
 
     def track_fast_due():
-        """The fast path's throttle: ask the one cheap question at most every TRACK_FAST_S."""
-        nonlocal track_probe_next
+        """The fast path's throttle: ask the one cheap question at most every TRACK_FAST_S, and the watch-window
+        question at most every TRACK_WATCH_GAP_S — which is also what keeps a watch window to one pass a minute."""
+        nonlocal track_probe_next, track_watch_next
         if time.time() < track_probe_next:
             return False
         track_probe_next = time.time() + TRACK_FAST_S
-        return track_check_waiting(key)
+        if track_check_waiting(key):
+            return True
+        if time.time() < track_watch_next:
+            return False
+        track_watch_next = time.time() + TRACK_WATCH_GAP_S
+        return track_watch_waiting(key)
 
     def agency_due(key):
         """True only when the agency lane should run right now. Also the
