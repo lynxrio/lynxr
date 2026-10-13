@@ -51,11 +51,15 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 <!-- BEGIN UGC AGENT -->
 ## Questions UGC creators ask
 
+- [Getting started as a UGC creator](https://lynxr.io/faq/ugc-getting-started/): Short answers to the questions people ask before their first paid UGC job: what the work is, what a portfolio needs and what you need to start.
+  - [What is a UGC creator?](https://lynxr.io/blog/what-is-a-ugc-creator/): What a UGC creator is, how the work differs from being an influencer, and what the day-to-day job of making short videos for brands looks like.
 - [UGC rates, pay and usage rights](https://lynxr.io/faq/ugc-rates-and-pay/): How UGC creators get paid, how to work out a rate, and what usage rights, raw footage and whitelisting mean for the price.
   - [How do UGC creators get paid?](https://lynxr.io/blog/how-do-ugc-creators-get-paid/): How UGC creators get paid: flat fees per video, usage and raw footage add-ons, bundles, retainers, deposits, invoices and what to do when payment runs late.
   - [What are usage rights in UGC?](https://lynxr.io/blog/what-are-ugc-usage-rights/): UGC usage rights explained: organic versus paid use, how long and where a brand may run your video, and how to agree each term in writing first.
+  - [How do you work out what to charge for a UGC video?](https://lynxr.io/blog/how-to-set-ugc-rates/): How to charge for UGC with a method instead of a guess: price your time, the deliverables, usage and revisions, then build a base rate with add-ons.
 - [Finding UGC brand deals](https://lynxr.io/faq/ugc-brand-deals/): How to find brands that hire UGC creators, how to pitch them, what to send, how to follow up and how to get booked again.
   - [How do you write a UGC pitch email to a brand?](https://lynxr.io/blog/ugc-pitch-email/): How to write a UGC pitch email: lead with one video idea for the brand's product, prove it with a portfolio link, ask clearly, and cut the rest.
+  - [How do you find brands that hire UGC creators?](https://lynxr.io/blog/find-brands-for-ugc/): How to find UGC brands to pitch: spot the signs a brand already buys creator-style video, build a short target list, and decide where to send each pitch.
 - [UGC briefs, revisions and delivery](https://lynxr.io/faq/ugc-briefs/): What goes in a UGC brief, how to handle vague briefs, feedback and revisions, and what to hand over when a UGC job is done.
   - [What goes in a UGC brief?](https://lynxr.io/blog/what-goes-in-a-ugc-brief/): What goes in a UGC brief: the parts to look for, how to read a brief before you script, and the questions to send a brand when something is unclear.
 - [Writing UGC scripts](https://lynxr.io/faq/ugc-scripts/): How to write UGC scripts for different kinds of product, from skincare to apps, with an example script in every answer.

@@ -2,17 +2,20 @@
   "q002": {
     "fails": 1,
     "last_fail": "2026-10-11",
-    "last_error": "Generalisation stated as fact about creators: \"the off-camera steps are the ones that are easy to forget\""
+    "last_error": "Generalisation stated as fact about creators: \"the off-camera steps are the ones that are easy to forget\"",
+    "published": "2026-10-13"
   },
   "q009": {
     "fails": 1,
     "last_fail": "2026-10-11",
-    "last_error": "Generalisation stated as fact about what brands evaluate: 'so what you show a brand is your videos, not your follower count'"
+    "last_error": "Generalisation stated as fact about what brands evaluate: 'so what you show a brand is your videos, not your follower count'",
+    "published": "2026-10-13"
   },
   "q018": {
     "fails": 1,
     "last_fail": "2026-10-11",
-    "last_error": "Second review scored originality and voice 3: signs section promises three signs but the table lists four"
+    "last_error": "Second review scored originality and voice 3: signs section promises three signs but the table lists four",
+    "published": "2026-10-13"
   },
   "q003": {
     "fails": 0,

@@ -1,0 +1,206 @@
+{
+  "question_id": "q018",
+  "slug": "find-brands-for-ugc",
+  "theme": "ugc-brand-deals",
+  "title": "How do you find brands that hire UGC creators?",
+  "description": "How to find UGC brands to pitch: spot the signs a brand already buys creator-style video, build a short target list, and decide where to send each pitch.",
+  "short_answer": "Find UGC brands by looking for ones that already post creator-style videos, then checking which of them sell products you use or could film well. Keep a short list of those brands with a contact and a reason for each, and pitch a few at a time so every message is specific.",
+  "sections": [
+    {
+      "heading": "What signs show a brand might hire UGC creators?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The clearest sign is a brand already posting or running videos that look like a regular person filmed them on a phone.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A brand that already uses [UGC](/glossary/#ugc) does not need convincing that the style works, so your pitch only has to show that you do it well. Treat your own feed as a place to take notes. When a sponsored video stops you, note the brand, the [format](/glossary/#format) and whether the person on camera seems to be a creator rather than someone famous. The questions in [how to find a video worth remaking in your niche](/blog/find-a-video-worth-remaking/) are useful here too, because a brand whose videos fit a clear format is easier to pitch an idea to.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "What you notice",
+            "What it may suggest",
+            "What to write down"
+          ],
+          "table_rows": [
+            [
+              "Sponsored videos from different faces in a talking-to-camera style",
+              "The brand may work with several creators",
+              "The brand name and the format of its best video"
+            ],
+            [
+              "Creator videos reposted on the brand's own account",
+              "The brand values this kind of content",
+              "Which video it chose to repost and why it fits"
+            ],
+            [
+              "A new product launch with little video around it",
+              "There may be room for fresh content",
+              "The product and the angle you would film"
+            ],
+            [
+              "A product you already own and use",
+              "You can film it honestly without waiting for a sample",
+              "How long you have used it and what you noticed"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Where should you start looking for brands?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Start with your own shelves, your own feed and the shop shelves in your niche, because those brands are easiest for you to film honestly.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Walk around your home and list every product you would happily talk about on camera. These give you real footage and an honest story.",
+            "Scroll TikTok and Instagram for ten minutes with a note open, and save every brand that shows up with creator-style videos.",
+            "Search your niche on TikTok and look at the brands that appear in the videos you already watch.",
+            "Look at newer and smaller brands in the same category as the ones you found, since a brand that is still building its video library may have room for a new creator.",
+            "Check the brand's website footer and social bios for a creator, partnership or press contact, and note it next to the brand."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Stay inside a niche you know. A pitch about a product you understand reads as more credible than one about a category you have never touched, and your sample videos will match what the brand sells. If you have not picked a niche yet, start with the products you already buy without thinking.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you build a target list that stays useful?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Keep one simple sheet with a row per brand, a named contact, a specific reason to pitch, and the date you last got in touch.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A list of brand names alone is hard to act on. A list with a reason on every row turns into a pitch in a few minutes, because the reason is the opening line of your message. Write the reason as something you could say to the brand: a video idea, a product you use, or a gap you noticed. Cut any brand you cannot write a reason for.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Brand: the name, plus the product you would film.",
+            "Contact: a person or an address, and where you found it.",
+            "Reason: one sentence you could open your pitch with.",
+            "Idea: the format or [hook](/glossary/#hook) you would use for this brand.",
+            "Status and date: not contacted, pitched, replied, or follow up on [DATE]."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How many brands should you pitch at once?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Pitch a small batch each week, such as five brands, so each message stays specific and you can keep up with the replies.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Sending to dozens of brands at once pushes you toward a copy-paste message, and a generic pitch is easy to ignore. A small batch lets you make one sample video or script idea for each brand. Follow up once, about a week later, with something new, such as a second idea, rather than asking whether they saw your first message. [How do you write a UGC pitch email to a brand?](/blog/ugc-pitch-email/) covers what to put in the message itself.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you have ready before you contact a brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Have a short portfolio of sample videos, one idea for that specific brand, and a clear line on what you deliver.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Your samples matter more than how you found the brand. Film three videos for products you already own, each in a different format, because a brand can judge your range from them. Write one idea for the brand you are pitching and keep it to a sentence or two. Know what your standard video includes before anyone asks, so you can answer quickly. When a brand replies with questions about pay or usage, [UGC rates, pay and usage rights](/faq/ugc-rates-and-pay/) has the answers you will need, and [finding UGC brand deals](/faq/ugc-brand-deals/) collects the rest of this topic.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-13",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

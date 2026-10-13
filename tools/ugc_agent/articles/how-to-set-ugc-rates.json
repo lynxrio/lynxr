@@ -1,0 +1,230 @@
+{
+  "question_id": "q002",
+  "slug": "how-to-set-ugc-rates",
+  "theme": "ugc-rates-and-pay",
+  "title": "How do you work out what to charge for a UGC video?",
+  "description": "How to charge for UGC with a method instead of a guess: price your time, the deliverables, usage and revisions, then build a base rate with add-ons.",
+  "short_answer": "Work out a UGC rate from what the job takes, not from a number you saw online. Add up your hours for one video, set a base rate for that work, then price extras such as usage, more hooks, raw footage and extra revisions as separate add-ons the brand can choose.",
+  "sections": [
+    {
+      "heading": "What actually goes into the price of one UGC video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Four things go into the price: your time, what you deliver, how the brand may use it, and how many changes you agree to make.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Your time is more than the minutes on camera. Reading the [brief](/glossary/#brief), writing the script, setting up light and sound, filming several takes, editing, and sending files all count, and so does the back-and-forth by message. If you only price the filming, every other step is work you do for free. Marking up the brief the way [how to turn a brand brief into a script](/blog/brief-to-script/) describes helps here, because each line you mark can add a task.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Part of the rate",
+            "Question to ask yourself",
+            "Where it shows up in your quote"
+          ],
+          "table_rows": [
+            [
+              "Time",
+              "How long does one video take me from brief to delivery?",
+              "The base rate"
+            ],
+            [
+              "Deliverables",
+              "How many videos, hooks, lengths and file types are asked for?",
+              "The base rate plus any extra versions"
+            ],
+            [
+              "Usage",
+              "Where will the brand post it, and for how long?",
+              "A separate usage line"
+            ],
+            [
+              "Revisions",
+              "How many rounds of changes am I including?",
+              "Included rounds, then a price per extra round"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you set a base rate you can stand behind?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Time your next three videos from start to finish, then price that time at an hourly figure you would be happy to earn.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Guessing your hours makes it easy to price too low, so write them down instead. Start a timer when you open the brief and stop it when the files are sent. Include the reshoot when the light went wrong. After three jobs you have a real picture of one standard video, and your base rate becomes your hourly figure multiplied by those hours, plus the cost of anything you buy for the shoot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Define a standard video in one sentence, such as one script, one hook, one edit and one round of revisions, so the base rate always means the same thing.",
+            "Decide the hourly figure before you look at the brand, because a figure picked after you see the brand tends to bend toward whatever you hope they will accept.",
+            "Round up to a figure that is easy to quote, since a clean number reads as a decision rather than a guess.",
+            "Keep a note of the hours on every job, so you can tell when a type of brief takes longer than your standard."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which add-ons should sit on top of the base rate?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Price anything beyond your standard video as a named add-on, so the brand can see what each extra costs and pick only what it needs.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Add-ons keep your base rate steady while the scope changes. When a brand asks for three extra hooks, you quote the add-on instead of reworking the whole price. Usage is the add-on that matters most, because paid ads and longer terms let the brand get more out of one video. [What are usage rights in UGC?](/blog/what-are-ugc-usage-rights/) explains the terms to ask about before you price this line.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Extra hooks: each new opening needs its own writing and filming, so price each one.",
+            "Extra lengths or cuts: a shorter or longer edit is new editing time.",
+            "Raw footage: unedited clips let the brand make its own cuts, so ask the brand how it plans to use them and price that in.",
+            "Usage beyond organic posting: price paid use and longer terms as their own line.",
+            "Rush delivery: a faster turnaround means moving other work, so charge for the disruption.",
+            "Extra revision rounds: one round is included in your standard, and each extra round is priced on its own."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you present the rate so a brand can say yes?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Send a short quote that lists the base rate, each add-on, what is included, and how you get paid, all in one message.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A quote that shows its parts is easier to approve than a single total, because the brand can drop an add-on instead of asking you to cut your rate. Agree payment terms and usage in writing with the brand before you film. [How do UGC creators get paid?](/blog/how-do-ugc-creators-get-paid/) covers the payment side. A simple quote can read like this:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hi [NAME], thanks for sending the brief for [PRODUCT].",
+            "My standard video is [AMOUNT]: one script, one hook, one edit and one round of revisions.",
+            "Extra hooks are [AMOUNT] each, and raw footage is [AMOUNT].",
+            "Usage beyond organic posting is quoted separately once you tell me where and for how long.",
+            "I can deliver by [DATE] once the brief is confirmed. Here is my portfolio: [LINK]."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "When should you raise your UGC rate, and how?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Raise your rate when your own records show the work has changed: you are booked out, jobs take longer, or your scope keeps growing.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Your hour log tells you when. If you are turning work down, your time is worth more than you are charging. If a type of brief keeps running over, your standard video no longer matches the work. Apply the new rate to new brands first, because you are not asking anyone to accept a change. For brands you already work with, give notice before the next job, say what the new rate is, and keep the message short. You do not need to justify it at length; the quality of your past work for them is the reason.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When a brand pushes back, change the scope, not the base rate. Offer the same price for fewer hooks, organic usage only, or no raw footage. That keeps your standard intact and still gives the [brand](/glossary/#brand) a way to work with you. More on pricing and usage sits in [UGC rates, pay and usage rights](/faq/ugc-rates-and-pay/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-13",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
