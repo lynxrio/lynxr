@@ -50,6 +50,82 @@ check_true("probe_path: ends &limit=1", Q.probe_path(NOW).endswith("&limit=1"))
 check_true("claim_patch_path: starts with the formats table + id filter",
            Q.claim_patch_path("abc123", NOW).startswith("/rest/v1/lynxr_campaign_formats?id=eq."))
 
+# ---- (a2) a format written from scratch is never claimed ---------------------
+# app.js cbWriteCreate makes formats with source_url "" (no video): born "done", nothing for the worker. The claim
+# filter refuses them even when queued or running (a stale app tab, or a lease that lapsed). _pg_claims evaluates the
+# claim's PostgREST logic tree against one row, so these checks exercise the real filter string, not a substring.
+def _pg_claims(logic, row):
+    """Evaluates campaign_queue's PostgREST logic tree against one row: and(..)/or(..)/a bare (..) group, and
+    col.op.value with op eq, neq, lt, lte or is, the value bare or double-quoted. A comparison with a missing (NULL)
+    column is false, as in SQL. Asserts on anything else, so a new operator cannot pass silently."""
+    pos = 0
+
+    def items():
+        nonlocal pos
+        out = [item()]
+        while logic[pos] == ",":
+            pos += 1
+            out.append(item())
+        return out
+
+    def item():
+        nonlocal pos
+        for word in ("and(", "or(", "("):
+            if logic.startswith(word, pos):
+                pos += len(word)
+                kids = items()
+                assert logic[pos] == ")", logic[pos:]
+                pos += 1
+                return ("or" if word == "or(" else "and", kids)
+        col_end = logic.index(".", pos)
+        op_end = logic.index(".", col_end + 1)
+        col, op = logic[pos:col_end], logic[col_end + 1:op_end]
+        assert op in ("eq", "neq", "lt", "lte", "is"), op
+        pos = op_end + 1
+        if logic[pos] == '"':
+            end = logic.index('"', pos + 1)
+            val, pos = logic[pos + 1:end], end + 1
+        else:
+            end = pos
+            while end < len(logic) and logic[end] not in ",)":
+                end += 1
+            val, pos = logic[pos:end], end
+        return ("cmp", col, op, val)
+
+    def ev(node):
+        if node[0] == "and":
+            return all(ev(k) for k in node[1])
+        if node[0] == "or":
+            return any(ev(k) for k in node[1])
+        _, col, op, val = node
+        v = row.get(col)
+        if op == "is":
+            return v is None and val == "null"
+        if v is None:
+            return False
+        return {"eq": str(v) == val, "neq": str(v) != val, "lt": str(v) < val, "lte": str(v) <= val}[op]
+
+    tree = item()
+    assert pos == len(logic), logic[pos:]
+    return ev(tree)
+
+
+_VID = "https://www.tiktok.com/@probe/video/7000000000000000001"
+_LAPSED = "2026-09-14T11:00:00Z"
+_ROWS = {
+    "video queued": {"status": "queued", "source_url": _VID, "retry_at": None},
+    "video running, lease lapsed": {"status": "running", "claimed_at": _LAPSED, "source_url": _VID, "retry_at": None},
+    "video done": {"status": "done", "source_url": _VID, "retry_at": None},
+    "scratch queued": {"status": "queued", "source_url": "", "retry_at": None},
+    "scratch running, lease lapsed": {"status": "running", "claimed_at": _LAPSED, "source_url": "", "retry_at": None},
+    "scratch done": {"status": "done", "source_url": "", "retry_at": None},
+}
+check("never claims a format written from scratch: the claimable rows",
+      sorted(k for k, r in _ROWS.items() if _pg_claims(logic, r)), ["video queued", "video running, lease lapsed"])
+check("without its source_url clause the filter WOULD claim a queued scratch format (the check has teeth)",
+      _pg_claims(logic.replace(',source_url.neq.""', ""), _ROWS["scratch queued"]), True)
+check_true("claimable_query: the empty-string filter survives encoding", "source_url.neq.%22%22" in query)
+
 # ---- (b) schema well-formedness ---------------------------------------------
 FORBIDDEN = ("minimum", "maximum", "minLength", "maxLength")
 

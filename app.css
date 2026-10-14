@@ -13381,3 +13381,169 @@
   @media (max-width: 560px) {
     body.agency #app main :is(.bfb-up-solo, .bfb-pick.bfb-up, .bfb-sum) { min-height: 44px; }
   }
+
+  /* ---------- IMAGES IN A NOTE + FORMATS WRITTEN FROM SCRATCH (2026-10-13) ----------
+     Plan: ~/.claude/plans/agency-note-images-and-scratch-formats.md.
+     1. .bnote-imgs: a beat note's images, on the agency card and editor (app.js cbNoteImgsHtml) and in a creator's
+        brief (creator.js lynxNoteImgsHtml). One image shows large in its own shape (.is-one: up to 360px tall, 300px on
+        phones); several are a grid of squares. Each tile is a button that opens dialog.bnote-viewer. The picture comes
+        by signed URL just after first paint, so an empty tile holds its place.
+     2. The editor's row under a note: thumbnails with a remove x, "+ add image", and its rule, shown before anything
+        is added.
+     3. The PDF's note images.
+     4. A format written from scratch has no original: its split is one column (.cb-solo).
+     5. "Add formats": two tabs, then the writer: a page to write on beside the beats it makes. Its one primary,
+        "create format", pings once it can be pressed (the home composer's cta-ping), never under reduced motion.
+     Tokens only. No inline style anywhere (the CSP drops it). */
+  :is(.pane-body, body.agency #app main) .bnote-imgs {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(132px, 100%), 1fr)); gap: 8px;
+    min-width: 0; margin: 2px 0 0; padding: 0; list-style: none;
+  }
+  :is(.pane-body, body.agency #app main) .bnote-imgs.is-one { grid-template-columns: minmax(0, 1fr); justify-items: start; }
+  :is(.pane-body, body.agency #app main) .bnote-imgs-li { position: relative; min-width: 0; margin: 0; padding: 0; }
+  :is(.pane-body, body.agency #app main) .bnote-img {
+    position: relative; display: block; width: 100%; margin: 0; padding: 0; overflow: hidden; cursor: zoom-in;
+    font: inherit; color: var(--text-3); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+  }
+  :is(.pane-body, body.agency #app main) .bnote-img img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
+  :is(.pane-body, body.agency #app main) .bnote-imgs.is-one .bnote-img { width: auto; max-width: 100%; }
+  :is(.pane-body, body.agency #app main) .bnote-imgs.is-one .bnote-img img {
+    width: auto; max-width: 100%; max-height: 360px; aspect-ratio: auto; object-fit: contain;
+  }
+  :is(.pane-body, body.agency #app main) .bnote-img img:not([src]) { width: 100%; min-width: 120px; min-height: 120px; }
+  :is(.pane-body, body.agency #app main) .bnote-img:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-bad .bnote-img { min-height: 80px; cursor: default; }
+  :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-bad .bnote-img img { visibility: hidden; }
+  :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-bad .bnote-img::after {
+    content: "image unavailable"; position: absolute; inset: 0; display: grid; place-items: center; font-size: var(--fs-115);
+  }
+  :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-busy .bnote-img {
+    display: grid; place-items: center; min-width: 120px; aspect-ratio: 1 / 1; cursor: progress; font-size: var(--fs-115);
+  }
+  @media (max-width: 560px) {
+    :is(.pane-body, body.agency #app main) .bnote-imgs.is-one .bnote-img img { max-height: 300px; }
+  }
+
+  /* the full-size viewer (app.js cbNoteImgOpen, creator.js lynxNoteImgOpen): on top of everything, outside #app */
+  dialog.bnote-viewer {
+    width: min(96vw, 1100px); max-width: 96vw; max-height: 92vh; margin: auto; padding: 0; overflow: hidden;
+    color: var(--text); background: var(--surface-flat); border: 1px solid var(--line); border-radius: var(--r-card);
+    box-shadow: var(--shadow-pop);
+  }
+  dialog.bnote-viewer[open] { display: flex; flex-direction: column; }
+  dialog.bnote-viewer::backdrop { background: var(--scrim-strong); }
+  .bnote-viewer-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--line); }
+  .bnote-viewer-name {
+    flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: var(--fs-135); text-transform: none;   /* a file name is content: its own casing */
+  }
+  .bnote-viewer-get { display: inline-flex; align-items: center; gap: 6px; }
+  .bnote-viewer-get .ico { width: 15px; height: 15px; }
+  .bnote-viewer-img { display: block; flex: 1 1 auto; min-height: 0; max-width: 100%; max-height: calc(92vh - 60px); margin: 0 auto; object-fit: contain; }
+  .bnote-viewer-msg { margin: 0; padding: 0 16px; }
+  .bnote-viewer-msg.show { padding: 8px 16px; }
+  @media (max-width: 560px) {
+    dialog.bnote-viewer { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
+    .bnote-viewer-bar .ghost { min-height: 44px; }
+    .bnote-viewer-bar .ghost.icon-only { width: 44px; height: 44px; }
+    .bnote-viewer-img { max-height: calc(100dvh - 70px); }
+  }
+
+  /* the editor's image row under a note */
+  body.agency #app main .cb-bnote-imgrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0 0; }
+  body.agency #app main .cb-bnote-imgrow > .bnote-imgs { flex: 1 0 100%; }
+  body.agency #app main .cb-bnote-imgrow > .bnote-imgs:not(.is-one) { grid-template-columns: repeat(auto-fill, minmax(96px, 120px)); }
+  body.agency #app main .cb-bnote-imgrow > .bnote-imgs.is-one .bnote-img img { max-height: 180px; }
+  body.agency #app main .cb-bnote-img-x {
+    position: absolute; top: 4px; right: 4px; z-index: 1; display: grid; place-items: center;
+    width: 30px; height: 30px; padding: 0; cursor: pointer;
+    color: var(--text); background: var(--surface-flat); border: 1px solid var(--line); border-radius: var(--r-pill);
+  }
+  body.agency #app main .cb-bnote-img-x svg { width: 14px; height: 14px; }
+  body.agency #app main .cb-bnote-img-x:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  body.agency #app main .cb-bnote-add {
+    display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 12px; cursor: pointer; user-select: none;
+    font-size: var(--fs-125); color: var(--text-2); border: 1px dashed var(--line-2); border-radius: var(--r-pill);
+  }
+  body.agency #app main .cb-bnote-add[hidden] { display: none; }
+  body.agency #app main .cb-bnote-add:hover { color: var(--text); border-color: var(--text-3); }
+  body.agency #app main .cb-bnote-add:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  body.agency #app main .cb-bnote-imgrule { font-size: var(--fs-115); color: var(--text-3); }
+  body.agency #app main .cb-bnote-field.over { outline: 2px dashed var(--text-3); outline-offset: 4px; border-radius: var(--r-inner); }
+  body.agency #app main .cb-bnote-msg.show { max-height: none; margin: 6px 0 0; }
+  @media (max-width: 560px) {
+    body.agency #app main .cb-bnote-img-x { top: 2px; right: 2px; width: 44px; height: 44px; }
+    body.agency #app main .cb-bnote-add { min-height: 44px; }
+  }
+
+  /* the PDF's note images (.cb-doc already prints in its own colours) */
+  .cb-doc .cb-doc-imgs { display: flex; flex-wrap: wrap; gap: 6pt; margin: 4pt 0 2pt; }
+  .cb-doc .cb-doc-imgs img {
+    display: block; width: auto; height: auto; max-width: 100%; max-height: 85mm; object-fit: contain;
+    border: 1px solid #bbb; break-inside: avoid; page-break-inside: avoid;
+  }
+  .cb-doc .cb-doc-imgs:has(> img + img) > img { max-width: calc(50% - 3pt); max-height: 70mm; }
+  .cb-doc .cb-doc-imgmiss { font-size: 9pt; color: #444; }
+
+  /* a format written from scratch: no original, so the script takes the whole card */
+  body.agency #app main .cb-split.cb-solo { grid-template-columns: minmax(0, 1fr); }
+
+  /* "Add formats": the two tabs */
+  body.agency #app main .cb-add-tabs {
+    display: inline-flex; gap: 4px; max-width: 100%; margin: 2px 0 14px; padding: 4px;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-pill);
+  }
+  body.agency #app main .cb-add-tab {
+    min-height: 36px; padding: 0 16px; cursor: pointer; white-space: nowrap;
+    font: inherit; font-size: var(--fs-135); font-weight: 600; color: var(--text-2); background: none; border: 0; border-radius: var(--r-pill);
+  }
+  body.agency #app main .cb-add-tab:hover { color: var(--text); }
+  body.agency #app main .cb-add-tab[aria-selected="true"] { color: var(--text); background: var(--surface-flat); box-shadow: var(--shadow-card); }
+  body.agency #app main .cb-add-tab:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  body.agency #app main .cb-add-panel[hidden] { display: none; }
+
+  /* the writer: a page (paper, no field chrome) beside the live beats */
+  body.agency #app main .cb-write-rules { margin: 0 0 12px; max-width: 72ch; }
+  body.agency #app main .cb-write-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+  body.agency #app main .cb-write-page {
+    display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 22px 26px 18px;
+    background: var(--surface-flat); border: 1px solid var(--line); border-radius: var(--r-inner);
+  }
+  body.agency #app main .cb-write-page:focus-within { border-color: var(--text-3); }
+  body.agency #app main .cb-write-page > input.cb-write-title {
+    width: 100%; min-width: 0; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; outline: none;
+    font: inherit; font-family: var(--font-display); font-size: var(--fs-21); font-weight: 700; line-height: 1.3;
+    color: var(--text); text-transform: none;
+  }
+  body.agency #app main .cb-write-page > textarea.cb-write-body {
+    width: 100%; min-height: 320px; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; outline: none;
+    resize: none; font: inherit; font-size: var(--fs-16); line-height: 1.7; color: var(--text); text-transform: none;
+  }
+  body.agency #app main .cb-write-page > :is(input, textarea)::placeholder { color: var(--text-3); }
+  body.agency #app main .cb-write-phead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 10px; }
+  body.agency #app main #cb-write-count.cb-write-over { color: var(--bad); }
+  body.agency #app main .cb-write-empty { margin: 0; }
+  body.agency #app main .cb-write-actions { margin-top: 14px; }
+  body.agency #app main #cb-write-go { position: relative; }
+  body.agency #app main #cb-write-go:not(:disabled)::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; border-radius: var(--r-pill);
+    box-shadow: 0 0 0 0 var(--text); opacity: 0; pointer-events: none;
+    animation: cta-ping 2.2s var(--ease) infinite, cta-ping-fade 2.2s linear infinite;
+  }
+  body.agency #app main #cb-write-go:is(:hover, :focus-visible, :active)::after { animation: none; }
+  @media (prefers-reduced-motion: reduce) {
+    body.agency #app main #cb-write-go::after { animation: none; opacity: 0; }
+  }
+  @media (min-width: 1024px) {
+    body.agency #app main .cb-write-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; }
+    body.agency #app main .cb-write-preview { position: sticky; top: 76px; max-height: calc(100vh - 96px); overflow: auto; }
+  }
+  @media (max-width: 560px) {
+    body.agency #app main .cb-add-tabs { display: flex; width: 100%; }
+    body.agency #app main .cb-add-tab { flex: 1 1 0; min-height: 44px; padding: 0 10px; }
+    body.agency #app main .cb-write-page { padding: 16px 16px 12px; }
+    body.agency #app main .cb-write-page > textarea.cb-write-body { min-height: 240px; }
+    body.agency #app main #cb-write-go { width: 100%; min-height: 48px; }
+  }
+  /* the creator's card for a format written from scratch: the line where "add to my library" would be */
+  .pane-body .lynx-scratch-hint { flex: 1 1 auto; min-width: 0; margin: 0; }

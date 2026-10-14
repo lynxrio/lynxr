@@ -116,8 +116,10 @@ def outside_repo(path):
 
 def plan(key, api_key, out_path, only, max_usd):
     out = outside_repo(out_path)
-    rows = P.sb(key, f"{TABLE}?select=id,status,updated_at,source,analysis,script,edited"
+    rows = P.sb(key, f"{TABLE}?select=id,status,updated_at,source_url,source,analysis,script,edited"
                      "&status=eq.done&order=created_at.asc") or []
+    # A format written from scratch (app.js cbWriteCreate, source_url "") has no original video to align its beats to.
+    rows = [r for r in rows if str(r.get("source_url") or "").strip()]
     if only:
         rows = [r for r in rows if any(r["id"].startswith(x) for x in only)]
     jobs = []

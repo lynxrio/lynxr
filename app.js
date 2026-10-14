@@ -5742,6 +5742,28 @@ function cbSlotCount(v) {
 /** "Kept exactly": a finished format by the version on screen (verbatim_script marks it), anything
     still working or failed by what it will be made as. */
 const cbIsExact = (f) => (f.status === "done" ? !!f.script?.verbatim : f.script_mode === "verbatim");
+/* A FORMAT WRITTEN FROM SCRATCH (owner, 2026-10-13: "a feature where I don't need to drop in an example video ...
+   make it like a google doc where I can just write out the script as a blank canvas"; plan
+   ~/.claude/plans/agency-note-images-and-scratch-formats.md). Made by the writer (cbWriteCreate): source_url "" (the
+   column is NOT NULL, so the empty string IS the marker), status "done" from birth, job "script", no source, no
+   analysis. Nothing about it is for the worker: pipeline/campaign_queue.py never claims a row without a source_url,
+   and supabase/scratch_formats.sql (once run) refuses any status but "done" for one. It has no original, so no player,
+   no Original times and no regenerate; everything else a format has (title, hook, needs, setup, beats, notes, images,
+   files on beats, CTA, caption, send, PDF, copy) works the same. */
+const cbIsScratch = (f) => !!f && !String(f.source_url ?? "").trim();
+/** Puts back any format written from scratch that is not "done": a tab still running app.js from before this change
+    showed Regenerate on one, and until supabase/scratch_formats.sql is run nothing stops that. The worker never
+    touches such a row, so it would sit "waiting" for ever; this sets it done again, its words untouched. Called on
+    every load and poll. */
+function cbHealScratch(formats) {
+  for (const f of formats || []) {
+    if (!cbIsScratch(f) || f.status === "done") continue;
+    const body = { status: "done", job: "script", phase: "", attempts: 0, retry_at: null, claimed_at: null,
+      claimed_by: "", error_kind: "", error_detail: "", regen_note: "" };
+    Object.assign(f, body);
+    cbPatchFormat(f.id, body).catch(() => {});
+  }
+}
 
 /* ===== BEATS AND "THE ORIGINAL" PLAY TOGETHER (owner, 2026-10-05: "why is the video and the lines of what to
    do/say/show not going together") — plan ~/.claude/plans/lynxr-agency-beat-sync.md.
@@ -5951,6 +5973,7 @@ async function cbLoadCampaign(id) {
       .then((rows) => rows[0]),
     cbSelFull((sel) => `/rest/v1/lynxr_campaign_formats?campaign_id=eq.${id}&select=${sel}&order=position.asc`),
   ]);
+  cbHealScratch(formats);                          // a format written from scratch is always "done"
   const rec = { campaign, formats, at: Date.now() };
   CB_CACHE.set(id, rec);
   return rec;
@@ -5973,6 +5996,7 @@ async function cbPoll(id) {
   for (const id2 of byId.keys()) if (!deletedIds.has(id2)) byId.delete(id2);
   cached.formats = light.map((l) => byId.get(l.id)).filter(Boolean)
     .sort((a, b) => (a.position || 0) - (b.position || 0));
+  cbHealScratch(cached.formats);
   cached.at = Date.now();
   return changed;
 }
@@ -6754,6 +6778,7 @@ function agencySendDoc(campaign, formats, client, prev) {
     formats: done.map((f) => {
       if (f.status !== "done") return had.get(f.id);
       const v = cbView(f);
+      const scratch = cbIsScratch(f);
       const out = {
         id: f.id,
         title: v.title || "",
@@ -6764,7 +6789,8 @@ function agencySendDoc(campaign, formats, client, prev) {
         framing: v.framing || "",
         audio: v.audio || "",
         hook: v.hook || "",
-        delivery: v.delivery || "",
+        // written from scratch: no worker ever set `delivery`, so it follows the words (silent when no beat is said)
+        delivery: scratch ? ((v.beats || []).some((b) => String(b.say || "").trim()) ? "spoken" : "silent") : (v.delivery || ""),
         // + `note` on a beat that has one (cbBeatsWithNotes): the note staff wrote for creators there.
         beats: cbBeatsWithNotes(f, (b) => ({ t: b.t || "", say: b.say || "", do: b.do || "", show: b.show || "" })),
         cta: v.cta || "",
@@ -6780,6 +6806,9 @@ function agencySendDoc(campaign, formats, client, prev) {
       const cover = typeof f.cover === "string" && f.cover ? f.cover : src.cover;
       if (typeof clip === "string" && clip) out.clip = clip;
       if (typeof cover === "string" && cover) out.cover = cover;
+      // creator.js: no video panel, ON SCREEN lines shown on spoken beats, no "Add to my library". Only on such a
+      // format, so every snapshot already sent reads exactly as before.
+      if (scratch) out.from_scratch = true;
       return out;
     }),
   };
@@ -7267,7 +7296,7 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
       CB_SEND_PICKS.delete(key);
       repaint();
       // Files ride on the brief's source, so every file listed now reaches these creators.
-      const nFiles = (BF_FILES.get(key)?.rows || []).length;
+      const nFiles = (BF_FILES.get(key)?.rows || []).filter((r) => !bfIsNoteImg(r.path)).length;   // note images ride in their notes
       cbMsg(msgEl(), `Sent to ${cbPlural(creatorIds.length, "creator", "creators")}${nFiles ? ` with ${cbPlural(nFiles, "file", "files")}` : ""}.`, "good");
     } catch (ex) {
       e.currentTarget.disabled = false;
@@ -7561,7 +7590,7 @@ function bfGuardPage() {
   BF_GUARDED = true;
   const guard = (e) => {
     if (!e.dataTransfer || ![...(e.dataTransfer.types || [])].includes("Files")) return;
-    if (e.target instanceof Element && e.target.closest(".bf-drop")) return;
+    if (e.target instanceof Element && e.target.closest(".bf-drop, .cb-bnote-field")) return;   // + a note's image drop
     e.preventDefault();
     if (e.type === "dragover") e.dataTransfer.dropEffect = "none";
   };
@@ -7602,7 +7631,7 @@ function bfSectionHtml(kind, sourceId, { inSend = false } = {}) {
   const total = entry.rows.reduce((s, r) => s + (Number(r.size) || 0), 0);
   const fmts = bfbFormats(kind, sourceId);
   const rows = entry.rows.map((r) => {
-    const where = bfbWhere(kind, sourceId, r.id, fmts);
+    const where = kind === "campaign" && bfIsNoteImg(r.path) ? cbNoteImgWhere(sourceId, r.id) : bfbWhere(kind, sourceId, r.id, fmts);
     return `<li class="bf-row">
         <span class="bf-main"><span class="bf-name" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</span>${where
           ? `<span class="lbl bf-at" title="${escapeHtml(where)}">${escapeHtml(where)}</span>` : ""}</span>
@@ -7950,7 +7979,7 @@ function bfbRowHtml(i, entries, files, ups = []) {
       <span class="bf-pct">uploading · ${u.pct}%</span>
     </span>`).join("");
   const input = `<input type="file" class="sr-only" multiple accept="${BF_ACCEPT}">`;
-  const left = files.filter((f) => !on.has(f.id));
+  const left = files.filter((f) => !on.has(f.id) && !bfIsNoteImg(f.path));   // a note's image lives in its note
   const add = left.length ? `<details class="bfb-add">
       <summary class="bfb-sum"><span aria-hidden="true">+</span> Add file<span class="sr-only"> to beat ${i + 1}</span></summary>
       <div class="bfb-menu" role="group" aria-label="Files you can put on beat ${i + 1}">${left.map((f) =>
@@ -8096,7 +8125,7 @@ const CB_NOTE_MAX = 4000;   // characters in one note; Save refuses more (no max
 const CB_NOTE_FOLD = 280;   // a longer note, or one over 5 lines, shows its first lines and Show all (= LYNX_NOTE_FOLD)
 
 /** Where each stored note is drawn now: an array as long as the format's beats, each entry null or
-    { text, sigs, flagged, ks }. ks are the indices into f.beat_notes drawn there; two notes that land on one beat
+    { text, imgs, sigs, flagged, ks }. ks are the indices into f.beat_notes drawn there; two notes that land on one beat
     show as one, a blank line between. */
 function cbNotesView(f) {
   const beats = cbView(f).beats || [];
@@ -8106,15 +8135,18 @@ function cbNotesView(f) {
   const sigs = beats.map(bfBeatSig);
   notes.forEach((n, k) => {
     const text = typeof n?.text === "string" ? n.text.trim() : "";
-    if (!text) return;
+    // IMAGES (plan agency-note-images-and-scratch-formats): a note may be words, images or both.
+    const imgs = (Array.isArray(n?.imgs) ? n.imgs : []).filter((m) => m && m.id && typeof m.path === "string");
+    if (!text && !imgs.length) return;
     let at = bfResolve(n, sigs);
     const flagged = at < 0;
     if (flagged) at = cbNoteByOrig(n, beats);
     if (at < 0) at = Math.min(Math.max(0, Number(n.beat) || 0), beats.length - 1);
     const had = Array.isArray(n.sigs) ? n.sigs : [];
     const cur = out[at];
-    if (!cur) { out[at] = { text, sigs: [...had], flagged, ks: [k] }; return; }
-    cur.text += "\n\n" + text;
+    if (!cur) { out[at] = { text, imgs: [...imgs], sigs: [...had], flagged, ks: [k] }; return; }
+    cur.text = cur.text && text ? cur.text + "\n\n" + text : cur.text || text;
+    for (const m of imgs) if (!cur.imgs.some((x) => x.id === m.id)) cur.imgs.push(m);
     cur.flagged = cur.flagged || flagged;
     cur.ks.push(k);
     cur.sigs = [...new Set([...cur.sigs, ...had])].slice(-BF_MAX_SIGS);
@@ -8143,7 +8175,15 @@ function cbNoteByOrig(n, beats) {
     gains the key, so a doc with no notes is exactly what it was and agDocSig never calls an old snapshot edited. */
 function cbBeatsWithNotes(f, shape) {
   const notes = cbNotesView(f);
-  return (cbView(f).beats || []).map((b, i) => (notes[i] ? { ...shape(b), note: notes[i].text } : shape(b)));
+  return (cbView(f).beats || []).map((b, i) => {
+    const n = notes[i];
+    if (!n) return shape(b);
+    // `note` only with words, `note_images` only with images whose file is still in the brief: a beat with neither
+    // gains no key, so every snapshot already sent reads exactly as before.
+    const imgs = cbNoteImgsLive(f.campaign_id, n.imgs).map((m) => ({ path: m.path, name: m.name || "image" }));
+    if (!n.text && !imgs.length) return shape(b);
+    return { ...shape(b), ...(n.text ? { note: n.text } : {}), ...(imgs.length ? { note_images: imgs } : {}) };
+  });
 }
 
 /** Save refuses a note it cannot keep: one on a beat with nothing to say, do or show (cbReadEditor drops that beat,
@@ -8154,7 +8194,10 @@ function cbEditorNoteProblem(form) {
     const fs = fields[k];
     const el = fs.querySelector('[data-bt="note"]');
     const note = (el?.value || "").trim();
-    if (!note) continue;
+    if ((fs._noteBusy || []).length) {
+      return { el, text: `Beat ${k + 1}: an image is still uploading. Wait for it to finish, then save.` };
+    }
+    if (!note && !cbNoteImgsOf(fs).length) continue;
     const g = (x) => (fs.querySelector(`[data-bt="${x}"]`)?.value || "").trim();
     if (!g("say") && !g("do") && !g("show")) {
       return { el, text: `Beat ${k + 1}: a note needs something to say, do or show on the same beat. Add a line there, or move the note to another beat.` };
@@ -8177,12 +8220,16 @@ function cbNotesFromEditor(form) {
     const words = { say: g("say"), do: g("do"), show: g("show") };
     if (!words.say && !words.do && !words.show) continue;
     const text = g("note");
-    if (text) {
+    // Only images with a row (cbNoteImgsCommit ran first); `imgs` only when there are some, so a words-only note
+    // keeps exactly the shape it had.
+    const imgs = cbNoteImgsOf(fs).filter((m) => m.id).map((m) => ({ id: m.id, path: m.path, name: m.name || "image" }));
+    if (text || imgs.length) {
       let had = [];
       try { had = JSON.parse(fs.dataset.sigs || "[]"); } catch { had = []; }
       const sig = bfBeatSig(words);
       out.push({ beat: k, orig: cbOrigCanon(g("orig")),
-        sigs: [...(Array.isArray(had) ? had : []).filter((s) => s !== sig), sig].slice(-BF_MAX_SIGS), text });
+        sigs: [...(Array.isArray(had) ? had : []).filter((s) => s !== sig), sig].slice(-BF_MAX_SIGS), text,
+        ...(imgs.length ? { imgs } : {}) });
     }
     k += 1;
   }
@@ -8221,16 +8268,19 @@ function cbNotesAfterLineEdit(f, next) {
 
 /** A drawn note on a finished card: the same box creators get (app.css .bnote), labelled for staff, and when flagged
     "beat changed" with Keep here. The text keeps its casing and line breaks. */
-function cbBeatNoteHtml(n, i) {
+function cbBeatNoteHtml(n, i, campaignId) {
   if (!n) return "";
+  const imgs = cbNoteImgsLive(campaignId, n.imgs);
+  if (!n.text && !imgs.length) return "";
   const long = n.text.length > CB_NOTE_FOLD || n.text.split("\n").length > 5;
   return `<div class="bnote${n.flagged ? " bnote-flagged" : ""}" data-bnote-beat="${i}">
       <div class="bnote-head"><span class="bnote-lbl">Note for creators</span>${n.flagged
         ? `<span class="bnote-why">beat changed</span><button type="button" class="bnote-keep"
             aria-label="Keep this note on beat ${i + 1}" title="It was written on another version of this beat">Keep here</button>` : ""}
-        <button type="button" class="bnote-copy" aria-label="Copy the note on beat ${i + 1}">Copy</button></div>
-      <p class="bnote-text${long ? " is-long" : ""}">${escapeHtml(n.text)}</p>
+        ${n.text ? `<button type="button" class="bnote-copy" aria-label="Copy the note on beat ${i + 1}">Copy</button>` : ""}</div>
+      ${n.text ? `<p class="bnote-text${long ? " is-long" : ""}">${escapeHtml(n.text)}</p>` : ""}
       ${long ? `<button type="button" class="bnote-more" aria-expanded="false">Show all</button>` : ""}
+      ${cbNoteImgsHtml(imgs, { where: ` on beat ${i + 1}` })}
       <span class="sr-only bnote-said" role="status" aria-live="polite"></span>
     </div>`;
 }
@@ -8250,7 +8300,8 @@ async function cbNoteKeep(btn) {
   const sig = bfBeatSig(beats[i]);
   const next = (Array.isArray(f.beat_notes) ? f.beat_notes : []).filter((_, k) => !n.ks.includes(k));
   next.push({ beat: i, orig: cbOrigCanon(beats[i].orig || ""),
-    sigs: [...n.sigs.filter((s) => s !== sig), sig].slice(-BF_MAX_SIGS), text: n.text });
+    sigs: [...n.sigs.filter((s) => s !== sig), sig].slice(-BF_MAX_SIGS), text: n.text,
+    ...(n.imgs.length ? { imgs: n.imgs } : {}) });   // its images stay with it
   next.sort((a, b) => a.beat - b.beat);
   btn.disabled = true;
   try {
@@ -8258,7 +8309,7 @@ async function cbNoteKeep(btn) {
     f.beat_notes = next;
     box.classList.remove("bnote-flagged");
     box.querySelector(".bnote-why")?.remove();
-    box.querySelector(".bnote-copy")?.focus({ preventScroll: true });
+    (box.querySelector(".bnote-copy") || box.querySelector("button.bnote-img"))?.focus({ preventScroll: true });
     btn.remove();
   } catch (ex) {
     btn.disabled = false;
@@ -8288,9 +8339,12 @@ async function cbNoteCopy(btn) {
   btn._noteT = setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("ok"); if (said) said.textContent = ""; }, ok ? 1600 : 4000);
 }
 
-/* Copy, Show all and Keep here, for every note box on the page: one listener, so a repainted card needs no wiring. */
+/* Copy, Show all, Keep here and a note image's full size, for every note box on the page: one listener, so a
+   repainted card needs no wiring. */
 document.addEventListener("click", (e) => {
   const t = e.target instanceof Element ? e.target : null;
+  const img = t?.closest("button.bnote-img");
+  if (img) { cbNoteImgOpen(img); return; }
   const more = t?.closest(".bnote-more");
   if (more) {
     const text = more.closest(".bnote")?.querySelector(".bnote-text");
@@ -8305,6 +8359,390 @@ document.addEventListener("click", (e) => {
   const keep = t?.closest(".bnote-keep");
   if (keep && !keep.disabled) cbNoteKeep(keep);
 });
+
+// ---------- Images in a note (owner, 2026-10-13; plan ~/.claude/plans/agency-note-images-and-scratch-formats.md) ----------
+// "Make it so the note for creators can also take a screenshot or image I want them to see." Staff paste (Cmd+V), drop
+// or choose up to CB_NOTE_IMG_MAX images into a beat's note in the format editor; creators see them under that note,
+// as thumbnails that open full size with a Download (creator.js lynxNoteImgsHtml / lynxNoteImgOpen).
+// AN IMAGE IN A NOTE IS A BRIEF FILE (supabase/brief_files.sql): bytes in the PRIVATE bucket lynxr-brief-files, a
+// lynxr_brief_files row, the same caps (20 files / 50 MB a brief) and the same creator gate (brief_file_readable: only
+// creators the brief is delivered to). What makes it a NOTE image is its object key, whose third segment starts
+// "note-" (bfIsNoteImg): the creator's "files from Lynx" list and the agency's "+ add file" menu leave those out, and
+// the files block says which note each is in. Which note lives in the note itself: beat_notes[k].imgs =
+// [{ id, path, name }], so an image moves with its note through Save, + add beat here, a regenerate, Keep here,
+// Restore and Revert, and copies with it (cbCopyNoteImgs). The sent doc carries beats[i].note_images = [{ path, name }].
+// TWO-PHASE in the editor: bytes go up the moment an image is pasted (a "note-" key and no row, so no creator can
+// reach them); the rows are written when Save is pressed (cbNoteImgsCommit); Cancel deletes bytes nothing saved
+// (cbNoteImgsDiscard); an image taken out of a note has its file deleted once that is saved (cbNoteImgsSweep).
+// SHOWN THROUGH SIGNED URLS (POST /storage/v1/object/sign/<bucket>, one hour): both pages' img-src already admits the
+// Supabase origin, and blob: is not admitted, so no CSP change. The PDF embeds them (cbNoteImgPdf).
+const CB_NOTE_IMG_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
+const CB_NOTE_IMG_ACCEPT = ".png,.jpg,.jpeg,.webp,.gif";
+const CB_NOTE_IMG_BYTES = 10 * 1048576;   // one image; the bucket's own limit is 25 MB
+const CB_NOTE_IMG_MAX = 4;                // images in one note
+const CB_NOTE_IMG_RE = /^campaign\/[A-Za-z0-9_][A-Za-z0-9_.-]*\/note-[A-Za-z0-9_.-]+\/[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
+/** True for a key cbNoteImgUpload wrote: campaign/<campaign id>/note-<random>/<file>. = creator.js lynxIsNoteImg. */
+function bfIsNoteImg(path) {
+  const p = String(path || "");
+  return CB_NOTE_IMG_RE.test(p) && !p.includes("..");
+}
+/** [{ id, path }] of every image in these beat_notes. */
+const cbNoteImgRefs = (notes) => (Array.isArray(notes) ? notes : [])
+  .flatMap((n) => (Array.isArray(n?.imgs) ? n.imgs : []))
+  .filter((m) => m && m.id && typeof m.path === "string")
+  .map((m) => ({ id: m.id, path: m.path }));
+/** A note's images whose file is still in the brief, once the brief's file list (BF_FILES) has loaded; all before. */
+function cbNoteImgsLive(campaignId, imgs) {
+  const list = (Array.isArray(imgs) ? imgs : []).filter((m) => m && m.id && bfIsNoteImg(m.path));
+  const entry = campaignId ? BF_FILES.get(agSentKey("campaign", campaignId)) : null;
+  if (!entry || entry.error) return list;
+  const ids = new Set(entry.rows.map((r) => r.id));
+  return list.filter((m) => ids.has(m.id));
+}
+
+const CB_SIGNED = new Map();   // object key -> { url, exp }: a signed URL is good for an hour; reused for 55 minutes
+/** Signed URLs for note images, by object key. A key that is not a note image is never sent; one Storage refuses
+    (removed, or this account may not read it) is simply missing from the answer. Never rejects. */
+async function cbNoteImgSign(paths) {
+  const out = new Map(), want = [];
+  for (const p of new Set(paths)) {
+    const hit = CB_SIGNED.get(p);
+    if (hit && hit.exp > Date.now()) out.set(p, hit.url);
+    else if (bfIsNoteImg(p)) want.push(p);
+  }
+  if (!want.length) return out;
+  let got = [];
+  try {
+    await sbFreshToken();                      // storage answers an expired token with 400, not 401
+    got = await sbFetch(`/storage/v1/object/sign/${BF_BUCKET}`, {
+      method: "POST", body: JSON.stringify({ expiresIn: 3600, paths: want }),
+    });
+  } catch { got = []; }
+  const base = `${SB_URL}/storage/v1`;
+  for (const g of Array.isArray(got) ? got : []) {
+    const rel = typeof g?.signedURL === "string" ? g.signedURL : "";
+    const url = /^https?:\/\//.test(rel) ? rel : base + rel;
+    if (!rel || !want.includes(g.path) || !url.startsWith(`${base}/object/sign/${BF_BUCKET}/`)) continue;
+    CB_SIGNED.set(g.path, { url, exp: Date.now() + 55 * 60000 });
+    out.set(g.path, url);
+  }
+  return out;
+}
+/** A note image that cannot be shown: its tile says so instead of staying an empty box. */
+function cbNoteImgBad(im) {
+  im.dataset.bad = "1";
+  im.closest(".bnote-imgs-li")?.classList.add("is-bad");
+}
+/** Gives every note image under `root` that has no picture yet its signed URL. */
+async function cbNoteImgHydrate(root = document) {
+  const imgs = [...root.querySelectorAll("img[data-sign-path]:not([src]):not([data-signing]):not([data-bad])")];
+  if (!imgs.length) return;
+  imgs.forEach((im) => { im.dataset.signing = "1"; });
+  const urls = await cbNoteImgSign(imgs.map((im) => im.dataset.signPath));
+  for (const im of imgs) {
+    delete im.dataset.signing;
+    const url = urls.get(im.dataset.signPath);
+    if (url) im.src = url; else cbNoteImgBad(im);
+  }
+}
+/* Every paint path (a card, the editor, the poll, a copy) draws <img data-sign-path> with no src; this one observer
+   signs them, so no paint function has to remember to. One pass per frame at most. */
+let CB_SIGN_Q = false;
+new MutationObserver(() => {
+  if (CB_SIGN_Q) return;
+  CB_SIGN_Q = true;
+  requestAnimationFrame(() => { CB_SIGN_Q = false; cbNoteImgHydrate(); });
+}).observe(document.documentElement, { childList: true, subtree: true });
+/* A signed URL that stopped working (it expired while the page sat open, or the file was removed): sign once more,
+   then give up on that tile. `error` does not bubble, hence the capture phase. */
+document.addEventListener("error", (e) => {
+  const im = e.target;
+  if (!(im instanceof HTMLImageElement) || !im.dataset.signPath) return;
+  if (im.dataset.retried) { cbNoteImgBad(im); return; }
+  im.dataset.retried = "1";
+  CB_SIGNED.delete(im.dataset.signPath);
+  im.removeAttribute("src");
+  cbNoteImgHydrate(im.parentElement || document);
+}, true);
+
+/** The images in one beat's note in the open editor: its .cb-bnote-field's data-imgs. Saved ones carry `id`; ones
+    uploaded since the editor opened carry size and mime instead, until Save writes their rows. */
+function cbNoteImgsOf(fs) {
+  try {
+    const v = JSON.parse(fs?.querySelector(".cb-bnote-field")?.dataset.imgs || "[]");
+    return Array.isArray(v) ? v.filter((m) => m && typeof m.path === "string") : [];
+  } catch { return []; }
+}
+function cbNoteImgsSet(fs, imgs) {
+  const box = fs?.querySelector(".cb-bnote-field");
+  if (!box) return;
+  box.dataset.imgs = JSON.stringify(imgs);
+  cbNoteImgRowPaint(fs);
+}
+/** One line under a beat's note in the editor, for refused or failed images; "" clears it. */
+function cbNoteImgMsg(fs, text) {
+  const p = fs?.querySelector(".cb-bnote-msg");
+  if (!p) return;
+  p.textContent = text || "";
+  p.className = `bp-msg cb-bnote-msg${text ? " show bad" : ""}`;
+}
+/** A chosen, dropped or pasted file as a note image, or why not. A pasted screenshot arrives as "image.png" from
+    every browser, so it is named for when it was pasted, the way macOS names a screenshot. */
+function cbNoteImgFile(file, pasted) {
+  const dot = file.name.lastIndexOf(".");
+  let ext = dot > 0 ? file.name.slice(dot + 1).toLowerCase() : "";
+  let name = file.name;
+  if (pasted) {
+    const byType = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" }[file.type];
+    if (byType) {
+      const d = new Date(), z = (n) => String(n).padStart(2, "0");
+      ext = byType;
+      name = `Pasted image ${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} at ${z(d.getHours())}.${z(d.getMinutes())}.${z(d.getSeconds())}.${ext}`;
+    }
+  }
+  const mime = CB_NOTE_IMG_TYPES[ext];
+  if (!mime) return { why: `${file.name}: only PNG, JPG, WebP or GIF images go in a note` };
+  if (!file.size) return { why: `${name}: the file is empty` };
+  if (file.size > CB_NOTE_IMG_BYTES) return { why: `${name}: over ${bfSize(CB_NOTE_IMG_BYTES)}` };
+  return { file, name: name.slice(0, 200), mime };
+}
+/** Uploads images into one beat's note in the open editor: the bytes only (a "note-" key, no row). Each shows as an
+    "uploading · N%" tile meanwhile (fs._noteBusy), then as a thumbnail with a remove x. The brief's caps are checked
+    first against what it holds, what is uploading and what this editor has not saved yet (the trigger checks again
+    when Save writes the rows). An editor closed meanwhile gets its bytes deleted on arrival. */
+async function cbNoteImgUpload(form, fs, files, campaignId, { pasted = false } = {}) {
+  if (!form || !fs) return;
+  const key = agSentKey("campaign", campaignId);
+  const entry = BF_FILES.get(key);
+  if (!entry || entry.error) {
+    cbNoteImgMsg(fs, entry?.error === "missing"
+      ? "Images need brief files installed — run supabase/brief_files.sql in the Supabase SQL editor."
+      : "Wait for this brief's files to load, then try again.");
+    return;
+  }
+  fs._noteBusy = fs._noteBusy || [];
+  const fields = [...form.querySelectorAll(".cb-beat-field")];
+  const pending = fields.flatMap((x) => cbNoteImgsOf(x).filter((m) => !m.id));
+  const flying = [...fields.flatMap((x) => x._noteBusy || []), ...(BF_UP.get(key) || [])];
+  let count = entry.rows.length + pending.length + flying.length;
+  let total = entry.rows.reduce((s, r) => s + (Number(r.size) || 0), 0)
+    + pending.reduce((s, m) => s + (Number(m.size) || 0), 0) + flying.reduce((s, u) => s + (Number(u.size) || 0), 0);
+  const have = cbNoteImgsOf(fs).length + fs._noteBusy.length;
+  const problems = [], queue = [];
+  for (const file of files) {
+    const c = cbNoteImgFile(file, pasted);
+    if (c.why) { problems.push(c.why); continue; }
+    if (have + queue.length >= CB_NOTE_IMG_MAX) { problems.push(`${c.name}: a note holds ${CB_NOTE_IMG_MAX} images`); continue; }
+    if (count + 1 > BF_MAX_COUNT) { problems.push(`${c.name}: a brief holds ${BF_MAX_COUNT} files, images in notes included`); continue; }
+    if (total + file.size > BF_MAX_TOTAL) { problems.push(`${c.name}: this brief's files would pass ${bfSize(BF_MAX_TOTAL)}`); continue; }
+    count += 1;
+    total += file.size;
+    queue.push({ tmp: newId(), name: c.name, size: file.size, pct: 0, file, mime: c.mime });
+  }
+  cbNoteImgMsg(fs, problems.length ? `Not added — ${problems.join("; ")}.` : "");
+  if (!queue.length) return;
+  fs._noteBusy.push(...queue);
+  cbNoteImgRowPaint(fs);
+  for (const u of queue) {
+    const path = `campaign/${bfSafe(String(campaignId))}/note-${bfSafe(newId())}/${bfSafe(u.name)}`;
+    try {
+      await sbFreshToken();
+      await bfPutObject(path, u.file, u.mime, (pct) => {
+        u.pct = pct;
+        fs.querySelectorAll(`[data-bf-up="${u.tmp}"] .bf-pct`).forEach((el) => { el.textContent = `uploading · ${pct}%`; });
+      });
+      if (!form.isConnected) { sbDeleteFile(BF_BUCKET, path).catch(() => {}); continue; }   // the editor closed meanwhile
+      form._noteUp = form._noteUp || new Map();   // every image this editor uploaded: Cancel deletes the unsaved ones
+      form._noteUp.set(path, { path, id: null });
+      cbNoteImgsSet(fs, [...cbNoteImgsOf(fs), { path, name: u.name, size: u.size, mime: u.mime }]);
+    } catch (ex) {
+      problems.push(`${u.name}: ${bfErrorSentence(ex, "upload")}`);
+    } finally {
+      fs._noteBusy = fs._noteBusy.filter((x) => x.tmp !== u.tmp);
+      cbNoteImgRowPaint(fs);
+    }
+  }
+  if (problems.length) cbNoteImgMsg(fs, `Not added — ${problems.join("; ")}.`);
+}
+/** Save, before the notes are written: one row per image uploaded since the editor opened (one insert, so the cap
+    trigger refuses all or none), then those images carry their row ids. Throws on failure; nothing else is saved. */
+async function cbNoteImgsCommit(form, campaignId) {
+  const todo = [];
+  for (const fs of form.querySelectorAll(".cb-beat-field")) for (const m of cbNoteImgsOf(fs)) if (!m.id) todo.push({ fs, m });
+  if (!todo.length) return;
+  const rows = await sbFetch("/rest/v1/lynxr_brief_files?select=id,path,name,size,mime,uploaded_at", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(todo.map(({ m }) => ({ source_kind: "campaign", source_id: String(campaignId), path: m.path,
+      name: String(m.name || "image").slice(0, 200), size: Number(m.size) || 1, mime: m.mime || "" }))),
+  });
+  const got = Array.isArray(rows) ? rows : [];
+  const byPath = new Map(got.map((r) => [r.path, r]));
+  for (const fs of new Set(todo.map((t) => t.fs))) {
+    cbNoteImgsSet(fs, cbNoteImgsOf(fs).map((m) => {
+      if (m.id) return m;
+      const r = byPath.get(m.path);
+      return r ? { id: r.id, path: r.path, name: r.name } : m;
+    }));
+  }
+  const entry = BF_FILES.get(agSentKey("campaign", campaignId));
+  for (const r of got) {
+    const up = form._noteUp?.get(r.path);
+    if (up) up.id = r.id;
+    if (entry && !entry.error && !entry.rows.some((x) => x.id === r.id)) entry.rows.push(r);   // cbNoteImgsLive sees them at once
+  }
+  if (todo.some(({ m }) => !byPath.has(m.path))) throw new Error("0 an image's row did not come back");
+}
+/** The editor closed WITHOUT saving: images uploaded into it, and rows a failed Save wrote for them, are deleted
+    unless a saved note points at them. Best effort, in the background. */
+function cbNoteImgsDiscard(form, campaignId, f) {
+  const ups = [...(form?._noteUp?.values() || [])];
+  if (!ups.length) return;
+  form._noteUp.clear();
+  const kept = new Set(cbNoteImgRefs(f?.beat_notes).map((m) => m.id));
+  (async () => {
+    let rows = 0;
+    for (const u of ups) {
+      if (u.id && kept.has(u.id)) continue;
+      try {
+        if (u.id) { await bfRemove(u.id, u.path); rows += 1; }
+        else { await sbFreshToken(); await sbDeleteFile(BF_BUCKET, u.path); }
+      } catch { /* an orphan no list points at: storage cost, reaches no one */ }
+    }
+    if (rows) { await bfEnsure("campaign", campaignId, null, true); bfRepaint("campaign", campaignId); }
+  })();
+}
+/** Deletes the note images among `candidates` ([{ id, path }]) that no note of this campaign points at any more —
+    after a Save, an in-place edit that removed a beat, or a deleted format. Rows first, then bytes (bfRemove). */
+async function cbNoteImgsSweep(campaignId, candidates) {
+  const keep = new Set();
+  for (const f of CB_CACHE.get(campaignId)?.formats || []) for (const m of cbNoteImgRefs(f.beat_notes)) keep.add(m.id);
+  const gone = new Map();
+  for (const c of candidates || []) if (c?.id && bfIsNoteImg(c.path) && !keep.has(c.id)) gone.set(c.id, c.path);
+  if (!gone.size) return;
+  for (const [id, path] of gone) {
+    try { await bfRemove(id, path); } catch { /* still listed in the files block, as in no note: Remove works there */ }
+  }
+  await bfEnsure("campaign", campaignId, null, true);
+  bfRepaint("campaign", campaignId);
+}
+/** The files block's second line for a note image: which note(s) it is in, by format and beat. */
+function cbNoteImgWhere(campaignId, fileId) {
+  const rec = CB_CACHE.get(campaignId);
+  const spots = [];
+  if (rec) cbSorted(rec).forEach((f, fi) => cbNotesView(f).forEach((n, bi) => {
+    if (n && (n.imgs || []).some((m) => m.id === fileId)) spots.push(`format ${fi + 1} · beat ${bi + 1}`);
+  }));
+  return spots.length ? `in the note on ${spots.join(", ")}` : "a note image no note uses now";
+}
+/** After a copy (Copy to new brief, or the library's Add): each copied format's notes point at the COPIED files
+    (fileMap: source file id -> target row, from bfCopyFiles). An image whose file did not copy is dropped from the copy
+    (that file is already named in the result message). Returns { failed }. */
+async function cbCopyNoteImgs(pairs, fileMap) {
+  let failed = false;
+  for (const { to } of pairs || []) {
+    const notes = Array.isArray(to?.beat_notes) ? to.beat_notes : [];
+    if (!notes.some((n) => Array.isArray(n?.imgs) && n.imgs.length)) continue;
+    const next = notes.map((n) => {
+      if (!Array.isArray(n?.imgs) || !n.imgs.length) return n;
+      const { imgs, ...rest } = n;
+      const moved = imgs.map((m) => fileMap.get(m.id)).filter(Boolean).map((r) => ({ id: r.id, path: r.path, name: r.name }));
+      return moved.length ? { ...rest, imgs: moved } : rest;
+    }).filter((n) => String(n?.text || "").trim() || (n.imgs || []).length);
+    try {
+      await cbPatchFormat(to.id, { beat_notes: next });
+      to.beat_notes = next;
+    } catch { failed = true; }
+  }
+  return { failed };
+}
+/** The PDF's note images: signed, loaded and decoded before the print dialog opens, or replaced by a line naming them.
+    Stops waiting after 12 s (a slow one may then print blank). */
+async function cbNoteImgPdf(imgs) {
+  const miss = (im) => {
+    const p = document.createElement("p");
+    p.className = "cb-doc-imgmiss";
+    p.textContent = `Image: ${im.alt || "image"} (open the brief in lynxr to see it)`;
+    im.replaceWith(p);
+  };
+  const urls = await cbNoteImgSign(imgs.map((im) => im.dataset.pdfPath));
+  const all = Promise.all(imgs.map(async (im) => {
+    const url = urls.get(im.dataset.pdfPath);
+    if (!url) { miss(im); return; }
+    im.src = url;
+    try { await im.decode(); } catch { if (im.isConnected) miss(im); }
+  }));
+  await Promise.race([all, new Promise((r) => setTimeout(r, 12000))]);
+}
+
+/** A note's images: a thumbnail each, a button that opens it full size (cbNoteImgOpen). One image shows large in its
+    own shape; several show as a grid of squares (app.css .bnote-imgs). `edit` adds a remove x per image (the format
+    editor); `busy` are uploads still going. The <img> has no src: cbNoteImgHydrate signs it once it is on the page. */
+function cbNoteImgsHtml(imgs, { edit = false, busy = [], where = "" } = {}) {
+  const list = Array.isArray(imgs) ? imgs : [];
+  if (!list.length && !busy.length) return "";
+  const one = list.length + busy.length === 1;
+  return `<ul class="bnote-imgs${one ? " is-one" : ""}" aria-label="Images in the note${where}">${list.map((m) => {
+    const name = escapeHtml(m.name || "image");
+    return `<li class="bnote-imgs-li">
+      <button type="button" class="bnote-img" data-name="${name}" aria-label="Open ${name} full size"><img data-sign-path="${escapeHtml(m.path)}" alt="${name}" loading="lazy" decoding="async"></button>
+      ${edit ? `<button type="button" class="cb-bnote-img-x" data-path="${escapeHtml(m.path)}" aria-label="Remove ${name} from this note" title="Remove">${CB_X_SVG}</button>` : ""}
+    </li>`;
+  }).join("")}${busy.map((u) => `<li class="bnote-imgs-li is-busy" data-bf-up="${escapeHtml(u.tmp)}">
+      <span class="bnote-img"><span class="bf-pct">uploading · ${u.pct}%</span></span></li>`).join("")}</ul>`;
+}
+/** Redraws one beat's image row in the open editor (thumbnails, uploads in flight, + Add image) and nothing else. */
+function cbNoteImgRowPaint(fs) {
+  const row = fs?.querySelector(".cb-bnote-imgrow");
+  if (!row) return;
+  const imgs = cbNoteImgsOf(fs), busy = fs._noteBusy || [];
+  row.querySelector(":scope > .bnote-imgs")?.remove();
+  const html = cbNoteImgsHtml(imgs, { edit: true, busy });
+  if (html) row.insertAdjacentHTML("afterbegin", html);
+  const add = row.querySelector(".cb-bnote-add");
+  if (add) add.hidden = imgs.length + busy.length >= CB_NOTE_IMG_MAX;
+}
+/** A beat's "note for creators" in the editor: the words, then its images. The rule for images is shown before any is
+    added (CLAUDE.md, input rules up front). The paste/drop/choose/remove wiring is cbBindCard's, delegated on the form. */
+function cbBeatNoteFieldHtml(note) {
+  const imgs = Array.isArray(note?.imgs) ? note.imgs : [];
+  return `<div class="cb-bnote-field" data-imgs="${escapeHtml(JSON.stringify(imgs.map(({ id, path, name }) => ({ id, path, name }))))}">
+      <label class="ce-field"><span class="lbl">Note for creators <span class="cb-aud">(they can copy it · up to ${CB_NOTE_MAX.toLocaleString("en-US")} characters)</span></span>
+        <textarea class="grow" rows="1" data-bt="note" placeholder="A prompt, caption or link for this beat">${escapeHtml(note?.text || "")}</textarea></label>
+      <div class="cb-bnote-imgrow">${cbNoteImgsHtml(imgs, { edit: true })}<label class="cb-bnote-add"${imgs.length >= CB_NOTE_IMG_MAX ? " hidden" : ""}><span aria-hidden="true">+</span> Add image<input type="file" class="sr-only" multiple accept="${CB_NOTE_IMG_ACCEPT}"></label>
+        <span class="lbl cb-bnote-imgrule">or paste or drop one · PNG, JPG, WebP or GIF · up to ${bfSize(CB_NOTE_IMG_BYTES)} · ${CB_NOTE_IMG_MAX} a note</span></div>
+      <p class="bp-msg cb-bnote-msg" role="status" aria-live="polite"></p>
+    </div>`;
+}
+/** Full size, in a <dialog> over the page: Esc, the x or a click outside the picture closes it, and focus goes back to
+    the thumbnail. Staff see the picture and its name; creator.js's copy adds Download. One dialog, made on first use. */
+function cbNoteImgOpen(btn) {
+  const small = btn.querySelector("img");
+  if (!small?.src) return;
+  let dlg = document.getElementById("bnote-viewer");
+  if (!dlg) {
+    dlg = document.createElement("dialog");
+    dlg.id = "bnote-viewer";
+    dlg.className = "bnote-viewer";
+    dlg.setAttribute("aria-label", "Image");
+    dlg.innerHTML = `<div class="bnote-viewer-bar"><span class="bnote-viewer-name"></span>
+        <button type="button" class="ghost icon-only bnote-viewer-x" aria-label="Close">${CB_X_SVG}</button></div>
+      <img class="bnote-viewer-img" alt="">`;
+    document.body.appendChild(dlg);
+    dlg.addEventListener("click", (e) => { if (e.target === dlg || e.target.closest(".bnote-viewer-x")) dlg.close(); });
+    dlg.addEventListener("close", () => {
+      dlg.querySelector(".bnote-viewer-img").removeAttribute("src");
+      if (dlg._back?.isConnected) dlg._back.focus({ preventScroll: true });
+    });
+  }
+  dlg._back = btn;
+  dlg.querySelector(".bnote-viewer-name").textContent = btn.dataset.name || "";
+  const big = dlg.querySelector(".bnote-viewer-img");
+  big.alt = btn.dataset.name || "";
+  big.src = small.src;
+  dlg.showModal();
+  dlg.querySelector(".bnote-viewer-x").focus();
+}
 
 // ---- Staff-action request bodies (Step 13's buttons send these verbatim) ----
 const cbRetryBody = () => ({
@@ -8346,10 +8784,20 @@ function campaignDocHtml(campaign, formats, client) {
       if (b.say) parts.push(`<strong>Say:</strong> “${escapeHtml(b.say)}”`);
       if (b.do) parts.push(`<strong>Do:</strong> ${escapeHtml(b.do)}`);
       if (b.show) parts.push(`<strong>On screen:</strong> “${escapeHtml(b.show)}”`);
-      const note = notes[bi] ? `<p class="cb-doc-bnote"><strong>Note:</strong> ${escapeHtml(notes[bi].text)}</p>` : "";
-      return `<li>[${escapeHtml(b.t || "")}] ${parts.join("<br>")}${note}</li>`;
+      /* A note's images are EMBEDDED (cbSavePdf signs and loads them before printing): a link to a private object is
+         dead on paper and a signed one dies in an hour (plan agency-note-images-and-scratch-formats). */
+      const n = notes[bi];
+      const imgs = n ? cbNoteImgsLive(f.campaign_id, n.imgs) : [];
+      const note = n && (n.text || imgs.length)
+        ? `<p class="cb-doc-bnote"><strong>Note:</strong> ${escapeHtml(n.text)}</p>${imgs.length ? `<div class="cb-doc-imgs">${imgs.map((m) =>
+          `<img data-pdf-path="${escapeHtml(m.path)}" alt="${escapeHtml(m.name || "image")}">`).join("")}</div>` : ""}`
+        : "";
+      // A beat with no time (written from scratch, or added by staff) prints no empty "[]".
+      return `<li>${b.t ? `[${escapeHtml(b.t)}] ` : ""}${parts.join("<br>")}${note}</li>`;
     }).join("");
-    const href = safeUrl(f.source_url);
+    // Written from scratch: there is no original video, so no line about one (cbIsScratch).
+    const scratch = cbIsScratch(f);
+    const href = scratch ? "" : safeUrl(f.source_url);
     // The original video sits directly under the title, kept on the same page
     // as it (.cb-doc-head). A worded link for the PDF, and the address itself
     // as plain text beneath it, so a paper print or a viewer that strips link
@@ -8357,9 +8805,9 @@ function campaignDocHtml(campaign, formats, client) {
     return `<section>
       <div class="cb-doc-head">
         <h2>${i + 1}. ${escapeHtml(v.title || v.hook || "Untitled format")}</h2>
-        <p class="cb-doc-video">${href
+        ${scratch ? "" : `<p class="cb-doc-video">${href
           ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">Watch the original video</a>`
-          : `<strong>Original video</strong>`}<br><span class="cb-doc-url">${escapeHtml(f.source_url || "")}</span></p>
+          : `<strong>Original video</strong>`}<br><span class="cb-doc-url">${escapeHtml(f.source_url || "")}</span></p>`}
       </div>
       ${cbNeedsAll(f).length ? `<p><strong>Needs:</strong> ${escapeHtml(cbNeedsAll(f).join(" • "))}</p>` : ""}
       ${setup}
@@ -8412,6 +8860,7 @@ function campaignDocText(campaign, formats, client) {
 // here — the progress bar and textarea heights are set through CSSOM.
 
 const CB_EXACT_CHIP = `<span class="chip cb-exact" title="The video's own words and shots, word for word — not rewritten for the client">kept exactly</span>`;
+const CB_SCRATCH_CHIP = `<span class="chip cb-scratch" title="Written here, with no video to work from">written from scratch</span>`;
 const CB_ICON = {
   up: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>`,
   down: `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>`,
@@ -8887,7 +9336,7 @@ function cbBriefListHtml(client) {
   if (!items.length) {
     if (!entry) return quiet;
     return `<div class="empty">${emptyMark("idle")}<p><strong>No briefs yet.</strong></p>
-      <p>Hit New brief to paste 1–10 inspiration links — each video becomes a production format.</p></div>${quiet}`;
+      <p>Hit New brief to paste 1–10 inspiration links — each video becomes a production format — or to write a script from scratch.</p></div>${quiet}`;
   }
   const trash = (what) => `<button type="button" class="ghost danger icon-only br-del"
       aria-label="Delete this ${what}" title="Delete this ${what}">${TRASH_SVG}</button>`;
@@ -8953,6 +9402,7 @@ function briefsSectionHtml(client) {
       </details>
       <div class="bp-actions">
         <button type="submit" class="btn" id="cb-go" disabled>Generate 0 formats</button>
+        <button type="button" class="ghost" id="cb-go-write">Write from scratch</button>
         <button type="button" class="ghost" id="cb-cancel">Cancel</button>
       </div>
       <p class="bp-msg cb-msg" id="cb-compose-msg" role="status" aria-live="polite"></p>
@@ -9097,12 +9547,13 @@ function bindBriefsSection(host, client) {
   form.addEventListener("keydown", (e) => {
     if (e.key === "Escape") { e.preventDefault(); setOpen(false); plus.focus(); }
   });
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const go = document.getElementById("cb-go");
+  /* Generate (submit) makes the brief from the pasted links. "Write from scratch" (owner, 2026-10-13) makes it with
+     whichever links are ready, none at all being fine, and opens it on the writer (cbWireWrite). */
+  const create = async (write) => {
+    const go = document.getElementById(write ? "cb-go-write" : "cb-go");
     const parsed = ctl.parsed();
     const items = parsed.filter((p) => p.r?.ok).slice(0, CB_MAX_PASTE).map((p) => ({ url: p.r.url, mode: p.keep ? "verbatim" : "adapt" }));
-    if (!items.length) {
+    if (!items.length && !write) {
       const bad = parsed.find((p) => p.r);
       cbMsg(cmsg(), bad ? cbWhySentence(bad.r.why) : "Paste at least one TikTok or Instagram video link.", "bad", true);
       (bad?.input || firstRow())?.focus();
@@ -9135,15 +9586,25 @@ function bindBriefsSection(host, client) {
       CB_LISTS.delete(client.id);
       form.reset();
       ctl.reset();                      // releases the live-sync guard
+      if (write) {
+        // Open straight onto the writer, focused. Load the brief and its "sent to" list first, as cbCopyToNewBrief
+        // does: either finishing after the first paint would repaint the page and take the focus away.
+        CB_ADD_MODE.set(id, "write");
+        CB_WRITE_FOCUS = id;
+        await cbLoadCampaign(id).catch(() => {});
+        await agEnsureSent("campaign", id);
+      }
       CAMPAIGN_VIEW = { id }; BRIEF_VIEW = null;
       renderBriefs();
-      window.scrollTo({ top: 0 });
+      if (!write) window.scrollTo({ top: 0 });
     } catch (ex) {
       cbMsg(cmsg(), cbErrorSentence(ex, "create"), "bad", true);
       go.disabled = false;
       go.textContent = face;
     }
-  });
+  };
+  form.addEventListener("submit", (e) => { e.preventDefault(); create(false); });
+  document.getElementById("cb-go-write")?.addEventListener("click", () => create(true));
 
   cbBindList(client.id);
   const entry = CB_LISTS.get(client.id);
@@ -9212,14 +9673,16 @@ function cbOriginalHtml(f, extra = "") {
     there as well … to compare it to the original"): side by side from 821px (CSS), stacked with the
     original first on phones. */
 function cbEditSplitHtml(f) {
-  return `<div class="ref-split cb-split cb-ed-split">
+  const scratch = cbIsScratch(f);                  // written from scratch: no original to compare with
+  return `<div class="ref-split cb-split cb-ed-split${scratch ? " cb-solo" : ""}">
       <div class="ref-main cb-ed-main">${cbEditorHtml(f)}</div>
-      ${cbOriginalHtml(f, " cb-ed-original")}
+      ${scratch ? "" : cbOriginalHtml(f, " cb-ed-original")}
     </div>`;
 }
 
 function cbDetailHtml(f) {
   const v = cbView(f);
+  const scratch = cbIsScratch(f);                  // no original: the script takes the whole width
   const sec = (label, inner) => inner ? `<div class="cb-sec"><div class="bp-heading">${label}</div>${inner}</div>` : "";
   const needs = cbNeedsAll(f);
   const setup = [["setting", v.setting], ["lighting", v.lighting], ["framing", v.framing], ["audio", v.audio]]
@@ -9230,7 +9693,7 @@ function cbDetailHtml(f) {
   const notes = cbNotesView(f);                  // a note on a beat draws under its lines (plan agency-beat-notes)
   const beats = (v.beats || []).map((b, i) => agBeatHtml(b.t || "",
     [["SAY", "say", b.say], ["DO", "do", b.do], ["ON SCREEN", "onscreen", b.show]], spoken, timed,
-    { ag: "cb", id: f.id, mode: "fields", i }, cbOrigOf(b, f), cbBeatNoteHtml(notes[i], i))).join("");
+    { ag: "cb", id: f.id, mode: "fields", i }, cbOrigOf(b, f), cbBeatNoteHtml(notes[i], i, f.campaign_id))).join("");
   const why = [f.analysis?.format?.why_it_works, f.analysis?.production?.hook_mechanism,
     f.analysis?.production?.repeatable_because].filter(Boolean);
   const internal = (v.strategy_note || f.internal_note || why.length) ? `
@@ -9243,7 +9706,7 @@ function cbDetailHtml(f) {
   // Hook, CTA, caption, the four setup values and the creator note edit in place too, into edited.<field> (cbBindCard's writeTop saves any field it is handed). Needs and the title stay pencil-only.
   const top = { ag: "cb", id: f.id };
   // AGENCY SCRIPT LOOK (2026-09-15): the creator's hook card, beat cards and split.
-  return `<div class="ref-split cb-split">
+  return `<div class="ref-split cb-split${scratch ? " cb-solo" : ""}">
     <div class="ref-main cd-info cb-info">
       ${v.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">Hook</span>${agTopHtml(v.hook, "hook", top, { quoted: true })}</div>` : ""}
       ${sec("Needs", needs.length ? `<ul class="cb-needs">${needs.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` : "")}
@@ -9255,11 +9718,11 @@ function cbDetailHtml(f) {
       ${sec("Creator note", v.creator_note ? `<p class="cb-note">${agTopHtml(v.creator_note, "creator_note", top, { label: "creator note", multiline: true, cls: "ag-caption" })}</p>` : "")}
       ${internal}
     </div>
-    ${cbOriginalHtml(f)}
+    ${scratch ? "" : cbOriginalHtml(f)}
   </div>`;
 }
 
-function cbBeatFieldHtml(b, i, note = null) {
+function cbBeatFieldHtml(b, i, note = null, scratch = false) {
   const area = (k, label) => `<label class="ce-field"><span class="lbl">${label}</span>
     <textarea class="grow" rows="1" data-bt="${k}">${escapeHtml(b[k] || "")}</textarea></label>`;
   /* "+ add beat here" sits on this beat's top edge and inserts a new beat ABOVE it (owner, 2026-10-04:
@@ -9272,16 +9735,15 @@ function cbBeatFieldHtml(b, i, note = null) {
       <div class="cb-beat-times">
         <label class="ce-field"><span class="lbl">Time</span>
           <input type="text" data-bt="t" value="${escapeHtml(b.t || "")}" placeholder="0-3s" autocomplete="off"></label>
-        <label class="ce-field"><span class="lbl">Original</span>
+        ${scratch ? "" : `<label class="ce-field"><span class="lbl">Original</span>
           <input type="text" data-bt="orig" value="${escapeHtml(b.orig || "")}" placeholder="8-12s" autocomplete="off"
             title="Where this beat happens in the original video, in its own seconds"></label>
         <button type="button" class="ghost cb-small cb-beat-play"${cbOrigParse(b.orig) ? "" : " disabled"}
-          aria-label="Play the original for beat ${i + 1}">${CB_PLAY_SVG}<span>Play</span></button>
+          aria-label="Play the original for beat ${i + 1}">${CB_PLAY_SVG}<span>Play</span></button>`}
       </div>
       ${area("say", "Say")}${area("do", "Do")}${area("show", "On screen")}
     </div>
-    ${CB_NOTES === true ? `<label class="ce-field cb-bnote-field"><span class="lbl">Note for creators <span class="cb-aud">(they can copy it · up to ${CB_NOTE_MAX.toLocaleString("en-US")} characters)</span></span>
-      <textarea class="grow" rows="1" data-bt="note" placeholder="A prompt, caption or link for this beat">${escapeHtml(note?.text || "")}</textarea></label>` : ""}
+    ${CB_NOTES === true ? cbBeatNoteFieldHtml(note) : ""}
     <button type="button" class="ghost cb-small cb-beat-remove">Remove beat</button>
   </fieldset>`;
 }
@@ -9289,6 +9751,7 @@ function cbBeatFieldHtml(b, i, note = null) {
 function cbEditorHtml(f) {
   const v = cbView(f);
   const notes = cbNotesView(f);
+  const scratch = cbIsScratch(f);                  // nothing was generated: one Needs box, no Original, no Revert
   const area = (k, label, val, rows = 2, wide = true, aud = "") => `
     <label class="ce-field${wide ? " ce-wide" : ""}"><span class="lbl">${label}${aud ? ` <span class="cb-aud">(${aud})</span>` : ""}</span>
       <textarea class="grow" rows="${rows}" data-ed="${k}">${escapeHtml(val || "")}</textarea></label>`;
@@ -9296,7 +9759,7 @@ function cbEditorHtml(f) {
     <div class="ce-grid">
       ${area("title", "Title", v.title, 1)}
       ${area("hook", "Hook", v.hook)}
-      ${CB_COLS === true
+      ${CB_COLS === true && !scratch
         ? `${area("staff_needs", "Your needs — one per line", (Array.isArray(f.staff_needs) ? f.staff_needs : []).join("\n"), 2, true, "kept when you regenerate")}
            ${area("needs", "Generated needs — one per line", (v.needs || []).join("\n"), 3, true, "replaced when you regenerate")}`
         : area("needs", "Needs — one per line", (v.needs || []).join("\n"), 3)}
@@ -9307,9 +9770,10 @@ function cbEditorHtml(f) {
     </div>
     <div class="cb-lbl">Script beats</div>
     <p class="note cb-beats-hint">${CB_NOTES === true
-      ? "Each beat can carry a note for creators: a prompt, caption or link they copy from that beat. To put a file on a beat, save, then press + add file under it."
+      ? "Each beat can carry a note for creators: a prompt, caption or link they copy from that beat, and screenshots they see with it. To put any other file on a beat, save, then press + add file under it."
       : "Notes on beats need one more update: run <code>supabase/beat_notes.sql</code> in the Supabase SQL editor, then reload."}</p>
-    <div class="cb-beat-list">${(v.beats || []).map((b, i) => cbBeatFieldHtml(b, i, notes[i])).join("")}</div>
+    <div class="cb-beat-list">${(v.beats || []).map((b, i) => cbBeatFieldHtml(b, i,
+      notes[i] && { ...notes[i], imgs: cbNoteImgsLive(f.campaign_id, notes[i].imgs) }, scratch)).join("")}</div>
     <button type="button" class="ghost cb-small cb-beat-add">Add beat</button>
     <div class="ce-grid cb-ed-tail">
       ${area("cta", "CTA", v.cta)}
@@ -9321,7 +9785,7 @@ function cbEditorHtml(f) {
     <div class="bp-actions">
       <button type="submit" class="btn cb-ed-save">Save changes</button>
       <button type="button" class="ghost cb-ed-cancel">Cancel</button>
-      ${f.edited ? `<button type="button" class="ghost cb-ed-revert" title="Discard the edits and show the generated version">Revert to generated</button>` : ""}
+      ${f.edited && !scratch ? `<button type="button" class="ghost cb-ed-revert" title="Discard the edits and show the generated version">Revert to generated</button>` : ""}
     </div>
   </form>`;
 }
@@ -9357,6 +9821,7 @@ function cbCardHtml(f, i, total) {
   const href = f.source_url ? safeUrl(f.source_url) : "";
   const v = cbView(f);
   const hasScript = !!(f.script || f.edited);
+  const scratch = cbIsScratch(f);                  // written from scratch: nothing to regenerate from
   const srcLink = href
     ? `<a class="cb-src cb-raw" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(cbShortUrl(f.source_url))}</a>`
     : `<span class="cb-src cb-raw">${escapeHtml(cbShortUrl(f.source_url))}</span>`;
@@ -9364,7 +9829,7 @@ function cbCardHtml(f, i, total) {
     <button type="button" class="ghost icon-only cb-up" aria-label="Move format ${n} up" title="Move up"${i === 0 || editing ? " disabled" : ""}>${CB_ICON.up}</button>
     <button type="button" class="ghost icon-only cb-down" aria-label="Move format ${n} down" title="Move down"${i === total - 1 || editing ? " disabled" : ""}>${CB_ICON.down}</button>
     ${f.status === "done" && !editing ? `<button type="button" class="ghost icon-only cb-edit" aria-label="Edit format ${n}" title="Edit">${CB_ICON.edit}</button>` : ""}
-    ${f.status !== "error" ? `<button type="button" class="ghost icon-only cb-regen" aria-label="Regenerate format ${n}" aria-expanded="${CB_REGEN.has(f.id)}"
+    ${f.status !== "error" && !scratch ? `<button type="button" class="ghost icon-only cb-regen" aria-label="Regenerate format ${n}" aria-expanded="${CB_REGEN.has(f.id)}"
       title="${busy ? "Already generating" : "Regenerate"}"${busy || editing ? " disabled" : ""}>${CB_ICON.regen}</button>` : ""}
     <button type="button" class="ghost danger icon-only b-del cb-del" aria-label="Delete format ${n}" title="Delete this format">${TRASH_SVG}</button>
   </span>`;
@@ -9374,7 +9839,7 @@ function cbCardHtml(f, i, total) {
     const weak = typeof v.fit === "number" && v.fit < 0.45;
     const blanks = cbSlotCount(v);
     head = `<h3 class="cb-fh"><span class="cb-fnum">${n}.</span> <span class="cb-title">${escapeHtml(v.title || v.hook || "Untitled format")}</span></h3>
-      <span class="cb-chips">${cbIsExact(f) ? CB_EXACT_CHIP : ""}${f.edited ? `<span class="chip">edited</span>` : ""}${weak
+      <span class="cb-chips">${scratch ? CB_SCRATCH_CHIP : cbIsExact(f) ? CB_EXACT_CHIP : ""}${f.edited && !scratch ? `<span class="chip">edited</span>` : ""}${weak
         ? `<span class="chip bad" title="${escapeHtml(v.fit_reason || "")}">weak fit<span class="sr-only">: ${escapeHtml(v.fit_reason || "")}</span></span>` : ""}${blanks
         ? `<span class="chip bad" title="Creators film this brief as written — edit these lines">${blanks} blank${blanks === 1 ? "" : "s"} to fill</span>` : ""}</span>`;
     if (f.script_prev && !editing) {
@@ -9475,7 +9940,10 @@ function cbAgencyHtml(campaign, fe) {
   </details>`;
 }
 
-function cbAddHtml(formats) {
+/** "Add formats" (owner, 2026-10-13: "dont get rid of the drop an example video, just add this other option too"):
+    two tabs, "Paste a video link" (the link rows, unchanged) and "Write from scratch" (cbWriteHtml). The tab shown is
+    remembered per brief (CB_ADD_MODE); a brief with an unsent draft opens on the writer. */
+function cbAddHtml(formats, id) {
   const room = CB_MAX_FORMATS - formats.length;
   if (room <= 0) {
     return `<p class="note cb-add-box">This campaign holds the maximum of ${CB_MAX_FORMATS} formats. Delete one to add another.</p>`;
@@ -9483,16 +9951,250 @@ function cbAddHtml(formats) {
   // One batch is at most CB_MAX_PASTE links, and never more than the campaign
   // has room for. Numbering carries on from the formats already here.
   const batch = Math.min(CB_MAX_PASTE, room);
+  const write = cbWriteMode(id) === "write";
   return `<form class="cb-add-box" id="cb-add" novalidate>
-    <div class="cb-block-head"><span class="cb-block-title" id="cb-add-h">Add inspiration videos</span>
+    <div class="cb-block-head"><span class="cb-block-title" id="cb-add-h">Add formats</span>
       <span class="lbl">up to ${room} more</span></div>
-    <div role="group" aria-labelledby="cb-add-h">${cbRowsHtml("add", formats.length + 1, batch)}</div>
-    <div class="bp-actions cb-add-actions">
-      <button type="submit" class="btn" id="cb-add-go" disabled>Add 0 videos</button>
-      <span class="lbl" id="cb-add-count" role="status" aria-live="polite"></span>
+    <div class="cb-add-tabs" role="tablist" aria-labelledby="cb-add-h">
+      <button type="button" class="cb-add-tab" role="tab" id="cb-tab-video" data-mode="video" aria-controls="cb-add-video"
+        aria-selected="${!write}" tabindex="${write ? -1 : 0}">Paste a video link</button>
+      <button type="button" class="cb-add-tab" role="tab" id="cb-tab-write" data-mode="write" aria-controls="cb-write"
+        aria-selected="${write}" tabindex="${write ? 0 : -1}">Write from scratch</button>
     </div>
-    <p class="bp-msg cb-msg" id="cb-add-msg" role="status" aria-live="polite"></p>
+    <div class="cb-add-panel" id="cb-add-video" role="tabpanel" aria-labelledby="cb-tab-video"${write ? " hidden" : ""}>
+      <div role="group" aria-labelledby="cb-tab-video">${cbRowsHtml("add", formats.length + 1, batch)}</div>
+      <div class="bp-actions cb-add-actions">
+        <button type="submit" class="btn" id="cb-add-go" disabled>Add 0 videos</button>
+        <span class="lbl" id="cb-add-count" role="status" aria-live="polite"></span>
+      </div>
+      <p class="bp-msg cb-msg" id="cb-add-msg" role="status" aria-live="polite"></p>
+    </div>
+    ${cbWriteHtml(id, write)}
   </form>`;
+}
+
+// ---------- Write from scratch (owner, 2026-10-13; plan ~/.claude/plans/agency-note-images-and-scratch-formats.md) ----------
+// A page to write the script on, like a doc: a title, then the words as they are said. Everything downstream is
+// beat-based (send doc, PDF, notes, images, files on beats, fingerprints), so the page splits into beats by one rule,
+// shown above it before anything is typed: a blank line (or a line of ---) starts the next beat; a line starting "do:"
+// is what to do, "on screen:" is text on screen, everything else is what they say. The beats it makes show live
+// beside the page, drawn exactly as the finished card draws them (agBeatHtml). The page is saved to localStorage as it
+// is typed (closing the tab loses nothing). "Create format" or Cmd/Ctrl+Enter makes one finished format with no
+// video (cbIsScratch); from then on it is edited like any other card.
+const CB_SCRATCH_DO = /^\s*do\s*:\s*/i;
+const CB_SCRATCH_SHOW = /^\s*(?:on[\s-]?screen|text on screen)\s*:\s*/i;
+const CB_SCRATCH_SAY = /^\s*say\s*:\s*/i;
+const CB_SCRATCH_RULE = /^\s*-{3,}\s*$/;
+/** The page's beats: [{ t: "", say, do, show, orig: "" }] — cbReadEditor's shape, so nothing downstream can tell. */
+function cbScratchParse(text) {
+  const blocks = [];
+  let cur = [];
+  for (const line of String(text ?? "").replace(/\r\n?/g, "\n").split("\n")) {
+    if (!line.trim() || CB_SCRATCH_RULE.test(line)) { if (cur.length) blocks.push(cur); cur = []; continue; }
+    cur.push(line);
+  }
+  if (cur.length) blocks.push(cur);
+  const join = (a) => a.join(" ").replace(/\s+/g, " ").trim();
+  return blocks.map((lines) => {
+    const say = [], act = [], show = [];
+    for (const line of lines) {
+      if (CB_SCRATCH_DO.test(line)) act.push(line.replace(CB_SCRATCH_DO, ""));
+      else if (CB_SCRATCH_SHOW.test(line)) show.push(line.replace(CB_SCRATCH_SHOW, ""));
+      else say.push(line.replace(CB_SCRATCH_SAY, ""));
+    }
+    return { t: "", say: join(say), do: join(act), show: join(show), orig: "" };
+  }).filter((b) => b.say || b.do || b.show);
+}
+/** The title typed, else the first line (up to 60 characters, cut at a word), the way an untitled doc names itself. */
+function cbScratchTitle(title, beats) {
+  const own = String(title ?? "").replace(/\s+/g, " ").trim();
+  if (own) return own.slice(0, 120);
+  const b = beats[0] || {};
+  const first = String(b.say || b.show || b.do || "").trim();
+  if (first.length <= 60) return first;
+  const cut = first.slice(0, 60);
+  const sp = cut.lastIndexOf(" ");
+  return (sp > 30 ? cut.slice(0, sp) : cut).replace(/[\s,;:.–—-]+$/, "") + "…";
+}
+const CB_WRITE_MAX = 20000;   // characters on the page; Create refuses more (keeps a brief well under the 512 KB sent-doc cap)
+const CB_WRITE_PH = "Did you know your phone can do this?\n\nHere's the trick nobody shows you.\ndo: hold the phone up to the camera\non screen: 3 taps, that's it\n\nTry it tonight and tell me if it worked.";
+const CB_ADD_MODE = new Map();   // campaign id -> "video" | "write": the tab last chosen
+let CB_WRITE_FOCUS = null;       // campaign id whose writer takes focus on its next paint (the composer's Write from scratch)
+let CB_WRITING = false;          // a Create is in flight
+const cbWriteKey = (id) => `lynxr_cb_write:${id}`;
+function cbWriteDraft(id) {
+  try {
+    const d = JSON.parse(localStorage.getItem(cbWriteKey(id)) || "null");
+    return { title: typeof d?.title === "string" ? d.title : "", body: typeof d?.body === "string" ? d.body : "" };
+  } catch { return { title: "", body: "" }; }
+}
+function cbWriteDraftSave(id, title, body) {
+  try {
+    if (!title.trim() && !body.trim()) localStorage.removeItem(cbWriteKey(id));
+    else localStorage.setItem(cbWriteKey(id), JSON.stringify({ title, body, at: Date.now() }));
+  } catch { /* storage off or full: the words stay on screen */ }
+}
+function cbWriteMode(id) {
+  if (CB_ADD_MODE.has(id)) return CB_ADD_MODE.get(id);
+  const d = cbWriteDraft(id);
+  return d.title.trim() || d.body.trim() ? "write" : "video";
+}
+function cbWriteHtml(id, shown) {
+  const d = cbWriteDraft(id);
+  return `<div class="cb-add-panel cb-write" id="cb-write" role="tabpanel" aria-labelledby="cb-tab-write"${shown ? "" : " hidden"}>
+    <p class="note cb-write-rules" id="cb-write-rules">Write it the way it's said. A blank line starts the next beat. Start a line with <strong>do:</strong> for what to do, or <strong>on screen:</strong> for text on screen.</p>
+    <div class="cb-write-grid">
+      <div class="cb-write-page">
+        <input type="text" class="cb-write-title" id="cb-write-title" value="${escapeHtml(d.title)}" placeholder="Untitled script"
+          aria-label="Title" autocomplete="off">
+        <textarea class="cb-write-body grow" id="cb-write-body" rows="12" aria-label="Script" aria-describedby="cb-write-rules"
+          placeholder="${escapeHtml(CB_WRITE_PH)}">${escapeHtml(d.body)}</textarea>
+      </div>
+      <section class="cb-write-preview" aria-labelledby="cb-write-ph">
+        <div class="cb-write-phead"><span class="cb-lbl" id="cb-write-ph">Beats</span><span class="lbl" id="cb-write-count" aria-live="polite"></span></div>
+        <div class="cb-write-beats" id="cb-write-beats"></div>
+      </section>
+    </div>
+    <div class="bp-actions cb-write-actions">
+      <button type="button" class="btn" id="cb-write-go" aria-keyshortcuts="Meta+Enter Control+Enter" disabled>Create format</button>
+    </div>
+    <p class="bp-msg cb-msg" id="cb-write-msg" role="status" aria-live="polite"></p>
+  </div>`;
+}
+/** The live beats, their count, and whether Create can be pressed. */
+function cbWriteSync() {
+  const body = document.getElementById("cb-write-body");
+  const out = document.getElementById("cb-write-beats");
+  const count = document.getElementById("cb-write-count");
+  const go = document.getElementById("cb-write-go");
+  if (!body || !out || !count || !go) return;
+  const beats = cbScratchParse(body.value);
+  const spoken = beats.some((b) => b.say);
+  out.innerHTML = beats.length
+    ? agBeatsHtml(beats.map((b) => agBeatHtml("", [["SAY", "say", b.say], ["DO", "do", b.do], ["ON SCREEN", "onscreen", b.show]],
+      spoken, false, null)).join(""), false)
+    : `<p class="note cb-write-empty">Your beats show here as you write.</p>`;
+  const over = body.value.length > CB_WRITE_MAX;
+  const said = over
+    ? `${body.value.length.toLocaleString("en-US")} of ${CB_WRITE_MAX.toLocaleString("en-US")} characters — too long`
+    : cbPlural(beats.length, "beat", "beats");
+  if (count.textContent !== said) count.textContent = said;
+  count.classList.toggle("cb-write-over", over);
+  go.disabled = !beats.length || over;
+}
+/** One finished format with no video, then the page is cleared and the new card takes focus. Nothing is queued. */
+async function cbWriteCreate(client, id) {
+  const rec = CB_CACHE.get(id);
+  const title = document.getElementById("cb-write-title");
+  const body = document.getElementById("cb-write-body");
+  const go = document.getElementById("cb-write-go");
+  const msg = () => document.getElementById("cb-write-msg");
+  if (!rec || !title || !body || !go || CB_WRITING) return;
+  const beats = cbScratchParse(body.value);
+  if (!beats.length) { cbMsg(msg(), "Write at least one line first.", "bad", true); body.focus(); return; }
+  if (body.value.length > CB_WRITE_MAX) {
+    cbMsg(msg(), `A script holds ${CB_WRITE_MAX.toLocaleString("en-US")} characters at most.`, "bad", true);
+    body.focus();
+    return;
+  }
+  if (rec.formats.length >= CB_MAX_FORMATS) {
+    cbMsg(msg(), `This campaign holds the maximum of ${CB_MAX_FORMATS} formats. Delete one to add another.`, "bad", true);
+    return;
+  }
+  CB_WRITING = true;
+  const face = go.textContent;
+  go.disabled = true;
+  go.textContent = "Creating…";
+  const pos = rec.formats.reduce((m, f) => Math.max(m, f.position ?? 0), -1) + 1;
+  const script = { title: cbScratchTitle(title.value, beats), hook: "", needs: [], setting: "", lighting: "", framing: "",
+    audio: "", beats, cta: "", caption: "", creator_note: "", strategy_note: "" };
+  let fid = null;
+  try {
+    const made = await sbFetch("/rest/v1/lynxr_campaign_formats?select=id", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ campaign_id: id, position: pos, source_url: "", job: "script", status: "done", phase: "",
+        attempts: 0, finished_at: new Date().toISOString(), script, ...(CB_COLS === true ? { script_mode: "adapt" } : {}) }),
+    });
+    fid = Array.isArray(made) ? made[0]?.id || null : null;
+  } catch (ex) {
+    CB_WRITING = false;
+    if (go.isConnected) { go.textContent = face; go.disabled = false; }
+    cbMsg(msg(), cbErrorSentence(ex, "create"), "bad", true);
+    return;
+  }
+  CB_WRITING = false;
+  cbWriteDraftSave(id, "", "");
+  title.value = "";
+  body.value = "";
+  let late = false;
+  try { await cbLoadCampaign(id); } catch { late = true; }
+  CB_LISTS.delete(client.id);
+  if (CAMPAIGN_VIEW?.id !== id) return;
+  renderBriefsKeepScroll();
+  const card = fid ? document.getElementById(`cb-f-${fid}`) : null;
+  if (card) {
+    card.scrollIntoView({ block: "start" });
+    window.scrollBy(0, -90);
+    card.focus({ preventScroll: true });
+    cbMsg(document.getElementById(`cb-fmsg-${fid}`),
+      "Created. Click any line to change it, or use the pencil to add a hook, needs, a CTA and notes for creators.", "good", true);
+  } else {
+    cbMsg(document.getElementById("cb-write-msg"), late ? "Created — reload to see it." : "Created.", late ? "bad" : "good", late);
+  }
+}
+/** The tabs (click, and the arrow / Home / End keys of an ARIA tab list), the page (draft, live beats, Enter in the
+    title goes to the page, Cmd/Ctrl+Enter creates) and Create. Called by cbBindView on every paint. */
+function cbWireWrite(host, client, id) {
+  const tabs = [...host.querySelectorAll("#cb-add .cb-add-tab")];
+  const title = document.getElementById("cb-write-title");
+  const body = document.getElementById("cb-write-body");
+  const go = document.getElementById("cb-write-go");
+  const setMode = (mode, focus) => {
+    CB_ADD_MODE.set(id, mode);
+    for (const t of tabs) {
+      const on = t.dataset.mode === mode;
+      t.setAttribute("aria-selected", String(on));
+      t.tabIndex = on ? 0 : -1;
+      const panel = document.getElementById(t.getAttribute("aria-controls"));
+      if (panel) panel.hidden = !on;
+    }
+    if (focus) tabs.find((t) => t.dataset.mode === mode)?.focus();
+    if (mode === "write" && body) { cbGrow(body); cbWriteSync(); }
+  };
+  tabs.forEach((t) => {
+    t.addEventListener("click", () => setMode(t.dataset.mode, false));
+    t.addEventListener("keydown", (e) => {
+      const k = tabs.indexOf(t);
+      const to = e.key === "ArrowRight" ? tabs[(k + 1) % tabs.length]
+        : e.key === "ArrowLeft" ? tabs[(k - 1 + tabs.length) % tabs.length]
+        : e.key === "Home" ? tabs[0] : e.key === "End" ? tabs[tabs.length - 1] : null;
+      if (!to) return;
+      e.preventDefault();
+      setMode(to.dataset.mode, true);
+    });
+  });
+  if (!title || !body || !go) return;
+  const keep = () => { cbWriteDraftSave(id, title.value, body.value); cbWriteSync(); };
+  title.addEventListener("input", keep);
+  body.addEventListener("input", keep);
+  title.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && !e.isComposing) { e.preventDefault(); body.focus(); }
+  });
+  [title, body].forEach((el) => el.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey) || e.isComposing) return;
+    e.preventDefault();
+    if (!go.disabled) cbWriteCreate(client, id);
+  }));
+  go.addEventListener("click", () => cbWriteCreate(client, id));
+  cbWriteSync();
+  if (CB_WRITE_FOCUS === id) {
+    CB_WRITE_FOCUS = null;
+    setMode("write", false);
+    title.closest(".cb-write")?.scrollIntoView({ block: "start" });
+    window.scrollBy(0, -90);
+    (title.value.trim() ? body : title).focus({ preventScroll: true });
+  }
 }
 
 function renderCampaignView(host, client, id) {
@@ -9571,9 +10273,9 @@ function renderCampaignView(host, client, id) {
     ${cbLibHtml(client, id)}
     <div class="fmt-grid cb-grid" id="cb-grid">
       ${formats.length ? formats.map((f, i) => cbCardHtml(f, i, formats.length)).join("")
-        : `<div class="empty"><p>No formats in this brief yet. Add one from the format library above, or paste a link below.</p></div>`}
+        : `<div class="empty"><p>No formats in this brief yet. Add one from the format library above, paste a link below, or write one from scratch.</p></div>`}
     </div>
-    ${cbAddHtml(formats)}`;
+    ${cbAddHtml(formats, id)}`;
 
   cbBindCrumbs();
   host.querySelectorAll(".cb-format").forEach((card) => cbBindCard(card, id));
@@ -9799,9 +10501,10 @@ function cbBindCard(card, campaignId) {
       if (!f) throw new Error("gone");
       const edited = { ...(f.edited || {}), beats };
       const notes = CB_NOTES === true ? cbNotesAfterLineEdit(f, beats) : null;   // notes follow their beat
+      const hadImgs = notes ? cbNoteImgRefs(f.beat_notes) : [];
       await cbPatchFormat(fid, notes ? { edited, beat_notes: notes } : { edited });
       f.edited = edited;
-      if (notes) f.beat_notes = notes;
+      if (notes) { f.beat_notes = notes; cbNoteImgsSweep(campaignId, hadImgs); }   // a cleared beat's note images go with it
     },
     readTop: (field) => { const f = get(); return f ? String(cbView(f)[field] ?? "") : null; },
     writeTop: async (field, val) => {
@@ -9819,7 +10522,7 @@ function cbBindCard(card, campaignId) {
       const title = card.querySelector(".cb-title");
       if (field === "hook" && v && title) title.textContent = v.title || v.hook || "Untitled format";
       const chips = card.querySelector(".cb-chips");
-      if (!chips || [...chips.querySelectorAll(".chip")].some((c) => c.textContent === "edited")) return;
+      if (!chips || cbIsScratch(get()) || [...chips.querySelectorAll(".chip")].some((c) => c.textContent === "edited")) return;   // written from scratch: never "edited"
       const chip = document.createElement("span");
       chip.className = "chip";
       chip.textContent = "edited";
@@ -9949,7 +10652,7 @@ function cbBindCard(card, campaignId) {
        the neighbours' times are never shifted behind the editor's back. */
     const newBeat = (place) => {
       const tpl = document.createElement("template");
-      tpl.innerHTML = cbBeatFieldHtml({}, 0).trim();
+      tpl.innerHTML = cbBeatFieldHtml({}, 0, null, cbIsScratch(get())).trim();
       const fs = tpl.content.firstElementChild;
       place(fs);
       wireBeat(fs);
@@ -9964,7 +10667,68 @@ function cbBindCard(card, campaignId) {
     form.querySelectorAll(".cb-beat-field").forEach(wireBeat);
     form.querySelector(".cb-beat-add").addEventListener("click", () =>
       newBeat((n) => form.querySelector(".cb-beat-list").appendChild(n)));
-    const close = (sel) => { CB_EDITING.delete(fid); repaint(sel); cbFlushPending(campaignId); };
+    /* IMAGES IN A NOTE (plan agency-note-images-and-scratch-formats). Delegated on the form, so a beat added with
+       "+ add beat here" needs no wiring. PASTE: an image on the clipboard goes into that beat's note, but only when
+       the clipboard holds no plain text — words win, so pasting a prompt or a spreadsheet pastes the words as before.
+       DROP onto the note (bfGuardPage lets .cb-bnote-field through). + ADD IMAGE chooses. The x takes one out: one
+       uploaded since the editor opened loses its bytes now; a saved one goes when the note is saved. */
+    if (CB_NOTES === true) {
+      const fsOf = (el) => el?.closest?.(".cb-beat-field") || null;
+      form.addEventListener("paste", (e) => {
+        const ta = e.target.closest?.('[data-bt="note"]');
+        const cd = e.clipboardData;
+        if (!ta || !cd) return;
+        const files = [...(cd.files || [])].filter((x) => /^image\//.test(x.type));
+        if (!files.length || (cd.getData("text/plain") || "").trim()) return;
+        e.preventDefault();
+        cbNoteImgUpload(form, fsOf(ta), files, campaignId, { pasted: true });
+      });
+      form.addEventListener("change", (e) => {
+        const inp = e.target.closest?.(".cb-bnote-add input[type=file]");
+        if (!inp) return;
+        const files = [...inp.files];
+        inp.value = "";
+        if (files.length) cbNoteImgUpload(form, fsOf(inp), files, campaignId);
+      });
+      form.addEventListener("click", (e) => {
+        const x = e.target.closest?.(".cb-bnote-img-x");
+        if (!x) return;
+        const fs = fsOf(x);
+        const gone = cbNoteImgsOf(fs).find((m) => m.path === x.dataset.path);
+        cbNoteImgsSet(fs, cbNoteImgsOf(fs).filter((m) => m.path !== x.dataset.path));
+        if (gone && !gone.id) {
+          form._noteUp?.delete(gone.path);
+          sbFreshToken().then(() => sbDeleteFile(BF_BUCKET, gone.path)).catch(() => {});
+        }
+        fs?.querySelector(".cb-bnote-add input")?.focus();
+      });
+      const zone = (e) => e.target.closest?.(".cb-bnote-field") || null;
+      form.addEventListener("dragover", (e) => {
+        const z = zone(e);
+        if (!z || ![...(e.dataTransfer?.types || [])].includes("Files")) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        z.classList.add("over");
+      });
+      form.addEventListener("dragleave", (e) => {
+        const z = zone(e);
+        if (z && !z.contains(e.relatedTarget)) z.classList.remove("over");
+      });
+      form.addEventListener("drop", (e) => {
+        const z = zone(e);
+        if (!z) return;
+        e.preventDefault();
+        z.classList.remove("over");
+        const files = [...(e.dataTransfer?.files || [])];
+        if (files.length) cbNoteImgUpload(form, fsOf(z), files, campaignId);
+      });
+    }
+    // Every way out of the editor that is not a successful Save (Cancel, Escape, Revert, an unchanged Save) deletes
+    // the images uploaded into it that no saved note points at (cbNoteImgsDiscard).
+    const close = (sel, saved = false) => {
+      if (!saved) cbNoteImgsDiscard(form, campaignId, get());
+      CB_EDITING.delete(fid); repaint(sel); cbFlushPending(campaignId);
+    };
     form.querySelector(".cb-ed-cancel").addEventListener("click", () => close(".cb-edit"));
     form.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); close(".cb-edit"); } });
     form.querySelector(".cb-ed-revert")?.addEventListener("click", async (e) => {
@@ -10001,6 +10765,18 @@ function cbBindCard(card, campaignId) {
         noteBad.el.focus();
         return;
       }
+      const save = form.querySelector(".cb-ed-save");
+      save.disabled = true;
+      /* IMAGES PASTED INTO NOTES since the editor opened get their brief-file rows now, before any note points at
+         them (cbNoteImgsCommit). If that fails nothing is saved and the images stay in the editor. */
+      if (CB_NOTES === true) {
+        try { await cbNoteImgsCommit(form, campaignId); }
+        catch (ex) {
+          save.disabled = false;
+          cbMsg(fmsg(), `Images in notes weren't saved: ${bfErrorSentence(ex, "save them")}. Nothing else was saved either.`, "bad", true);
+          return;
+        }
+      }
       const body = cbReadEditor(form);
       const notesNow = CB_NOTES === true ? cbNotesFromEditor(form) : null;
       const notesChanged = !!notesNow && agDocCanon(notesNow) !== agDocCanon(Array.isArray(f.beat_notes) ? f.beat_notes : []);
@@ -10018,16 +10794,18 @@ function cbBindCard(card, campaignId) {
       if (same && sameOwn && body.internal_note === (f.internal_note || "").trim() && !notesChanged) { close(".cb-edit"); return; }
       if (same) delete body.edited;   // only the agency's own needs or the internal note changed: not "edited"
       if (notesChanged) body.beat_notes = notesNow;   // notes alone never mark the format "edited"
-      const save = form.querySelector(".cb-ed-save");
-      save.disabled = true;
+      const hadImgs = cbNoteImgRefs(f.beat_notes);   // the images the saved notes pointed at before this Save
       try {
         await cbPatchFormat(fid, body);
         if ("edited" in body) f.edited = body.edited;
         if ("staff_needs" in body) f.staff_needs = body.staff_needs;
         if ("beat_notes" in body) f.beat_notes = body.beat_notes;
         f.internal_note = body.internal_note;
-        close(".cb-edit");
+        const upped = [...(form._noteUp?.values() || [])].filter((u) => u.id);
+        close(".cb-edit", true);
         cbMsg(fmsg(), "Saved.", "good");
+        // An image taken out of a note, or whose beat was removed, leaves the brief's files now.
+        if ("beat_notes" in body) cbNoteImgsSweep(campaignId, [...hadImgs, ...upped]);
       } catch (ex) {
         save.disabled = false;
         cbMsg(fmsg(), cbErrorSentence(ex, "save"), "bad", true);
@@ -10041,6 +10819,7 @@ function cbBindCard(card, campaignId) {
     try {
       await cbDeleteFormat(fid);
       if (rec) {
+        const goneImgs = cbNoteImgRefs(rec.formats.find((x) => x.id === fid)?.beat_notes);   // its note images leave too
         const order = cbSorted(rec).map((x) => x.id);
         const at = order.indexOf(fid);
         rec.formats = rec.formats.filter((x) => x.id !== fid);
@@ -10049,6 +10828,7 @@ function cbBindCard(card, campaignId) {
         const nextId = order[at + 1] || order[at - 1];
         (nextId ? document.getElementById(`cb-f-${nextId}`) : document.querySelector("#cb-add .cb-row-input"))?.focus();
         cbMsg(document.getElementById("cb-view-msg"), "Format deleted.", "good");
+        cbNoteImgsSweep(campaignId, goneImgs);
       }
     } catch (ex) {
       cbMsg(fmsg(), cbErrorSentence(ex, "delete"), "bad", true);
@@ -10383,6 +11163,7 @@ function cbBindView(host, client, id) {
     cbMsg(document.getElementById("cb-add-msg"), note, "good");
     document.querySelector("#cb-add .cb-row-input")?.focus();
   });
+  cbWireWrite(host, client, id);                   // the "Write from scratch" tab (plan agency-note-images-and-scratch-formats)
 }
 
 // ---------- The format library + copies (plan: ~/.claude/plans/campaign-format-library.md) ----------
@@ -10397,7 +11178,8 @@ const CB_COPY_COLS = "id,campaign_id,position,source_url,job,source,analysis,scr
     has the key wins even when it is "" — the same as cbView's spread. */
 const cbLibTitle = (f) => (f.e_title ?? f.s_title) || (f.e_hook ?? f.s_hook) || cbShortUrl(f.source_url);
 /** Canonical links already in the open brief — the identity cbParseLinks already refuses a duplicate on. */
-const cbLibHere = (id) => new Set((CB_CACHE.get(id)?.formats || []).map((f) => canonUrl(f.source_url)));
+/** Formats written from scratch have no link, so nothing marks one "already here": each Add makes another copy. */
+const cbLibHere = (id) => new Set((CB_CACHE.get(id)?.formats || []).filter((f) => !cbIsScratch(f)).map((f) => canonUrl(f.source_url)));
 
 async function cbLibLoad(clientId, openId) {
   const camps = await sbFetch(`/rest/v1/lynxr_campaigns?client_id=eq.${encodeURIComponent(clientId)}`
@@ -10450,10 +11232,10 @@ async function cbCopyFormats(targetId, ids, { startPos = 0, room = CB_MAX_FORMAT
   const seen = new Set(here);
   const take = [];
   for (const f of src) {
-    const k = canonUrl(f.source_url);
-    if (seen.has(k)) { skipped.here++; continue; }
+    const k = cbIsScratch(f) ? "" : canonUrl(f.source_url);   // no link, no duplicate to refuse
+    if (k && seen.has(k)) { skipped.here++; continue; }
     if (take.length >= room) { skipped.full++; continue; }
-    seen.add(k);
+    if (k) seen.add(k);
     take.push(f);
   }
   if (!take.length) return { added: [], pairs: [], skipped };
@@ -10524,7 +11306,8 @@ async function bfCopyFiles(srcFiles, targetId) {
     if (same) { out.here++; out.map.set(f.id, same); continue; }
     if (count + 1 > BF_MAX_COUNT) { out.failed.push({ name: f.name, why: `a brief holds ${BF_MAX_COUNT} files at most` }); continue; }
     if (total + (Number(f.size) || 0) > BF_MAX_TOTAL) { out.failed.push({ name: f.name, why: `this brief's files would pass ${bfSize(BF_MAX_TOTAL)}` }); continue; }
-    const path = `${kind}/${bfSafe(String(targetId))}/${bfSafe(newId())}/${bfSafe(String(f.path).split("/").pop())}`;
+    // A note image keeps its "note-" segment (bfIsNoteImg), so its copy is still one.
+    const path = `${kind}/${bfSafe(String(targetId))}/${bfIsNoteImg(f.path) ? "note-" : ""}${bfSafe(newId())}/${bfSafe(String(f.path).split("/").pop())}`;
     try {
       await sbFreshToken();                      // storage answers an expired token with 400, not 401
       await sbFetch("/storage/v1/object/copy", {
@@ -10617,7 +11400,7 @@ function cbLibHtml(client, id) {
       const inHere = here.has(canonUrl(f.source_url));
       if (!inHere) todo++;
       const cover = f.cover ? safeUrl(f.cover) : "";
-      const plat = platformOf(f.source_url || "") || (f.platform ? String(f.platform) : "video");
+      const plat = cbIsScratch(f) ? "written from scratch" : platformOf(f.source_url || "") || (f.platform ? String(f.platform) : "video");
       const dur = Number(f.duration) > 0 ? ` · ${Math.round(Number(f.duration))}s` : "";
       return `<li class="cb-lib-row" data-fid="${escapeHtml(f.id)}" data-q="${escapeHtml(key)}"${hit ? "" : " hidden"}>
         ${cover ? `<img class="cb-lib-thumb" src="${escapeHtml(cover)}" alt="" loading="lazy">` : `<span class="cb-lib-thumb" aria-hidden="true"></span>`}
@@ -10766,8 +11549,9 @@ function cbLibAfterAdd(client, id, newIds) {
 }
 
 const CB_PLACES_LOST = "Couldn't copy which beats its files sit on — put them back with + Add file under each beat.";
+const CB_IMGS_LOST = "Couldn't point the copied notes at their copied images — add them again in each format's editor.";
 
-function cbLibResult({ mode, title, from, n, files, req, skipped, placesLost }) {
+function cbLibResult({ mode, title, from, n, files, req, skipped, placesLost, imgsLost }) {
   const bits = [];
   if (!n && !files.copied && !req) {
     bits.push(skipped.full ? `This brief holds ${CB_MAX_FORMATS} formats — delete one to add another.`
@@ -10782,7 +11566,8 @@ function cbLibResult({ mode, title, from, n, files, req, skipped, placesLost }) 
   if (skipped.notReady) bits.push(`${cbPlural(skipped.notReady, "format isn't", "formats aren't")} ready any more — skipped.`);
   if (files.failed.length) bits.push(`Not copied: ${files.failed.map((x) => `${x.name} (${x.why})`).join("; ")}.`);
   if (placesLost) bits.push(CB_PLACES_LOST);
-  const bad = files.failed.length > 0 || skipped.full > 0 || !!placesLost || (!n && !files.copied && !req);
+  if (imgsLost) bits.push(CB_IMGS_LOST);
+  const bad = files.failed.length > 0 || skipped.full > 0 || !!placesLost || !!imgsLost || (!n && !files.copied && !req);
   return { text: bits.join(" "), tone: bad ? "bad" : "good", sticky: bad };
 }
 
@@ -10816,13 +11601,17 @@ async function cbLibAdd(client, id, fids, groupId, mode) {
     if (cur) for (const f of res.added) if (!cur.formats.some((x) => x.id === f.id)) cur.formats.push(f);
     newIds = res.added.map((f) => f.id);
     const places = g.files.length ? await cbSourcePlaces(g.files) : { rows: [], skip: null };
-    const srcFiles = mode === "all" ? g.files : cbPlacedFiles(g.files, places, res.pairs.map((p) => p.from.id));
+    // One format's Add carries the files placed on its beats AND the images in its notes.
+    const noteIds = new Set(res.pairs.flatMap((p) => cbNoteImgRefs(p.from.beat_notes).map((m) => m.id)));
+    const srcFiles = mode === "all" ? g.files
+      : [...new Set([...cbPlacedFiles(g.files, places, res.pairs.map((p) => p.from.id)), ...g.files.filter((x) => noteIds.has(x.id))])];
     let files = { copied: 0, here: 0, failed: [], map: new Map() };
     if (srcFiles.length) files = await bfCopyFiles(srcFiles, id);
     const placed = await cbCopyPlacements(res.pairs, files.map, id, places);
+    const imged = await cbCopyNoteImgs(res.pairs, files.map);   // the copies' notes point at the copied images
     const req = mode === "all" ? await cbFillBriefFields(id, g.c) : false;
     out = cbLibResult({ mode, title, from: g.c.name || "Untitled brief", n: res.added.length, files, req,
-      skipped: res.skipped, placesLost: places.skip === "error" || placed.failed });
+      skipped: res.skipped, placesLost: places.skip === "error" || placed.failed, imgsLost: imged.failed });
   } finally {
     CB_LIB_BUSY = false;
     for (const k of [...CB_LIB.keys()]) if (k !== id) CB_LIB.delete(k);   // other briefs' libraries now count stale
@@ -10883,6 +11672,7 @@ async function cbCopyToNewBrief(client, id) {
   const places = srcFiles.length ? await cbSourcePlaces(srcFiles) : { rows: [], skip: null };
   const files = await bfCopyFiles(srcFiles, nid);
   const placed = await cbCopyPlacements(res.pairs, files.map, nid, places);
+  const imged = await cbCopyNoteImgs(res.pairs, files.map);   // the copies' notes point at the copied images
   await cbLoadCampaign(nid).catch(() => {});        // open on real rows; renderCampaignView loads it if this failed
   await agEnsureSent("campaign", nid);              // pre-warm AG_SENT: renderCampaignView's own call would
                                                       // otherwise still be in flight on a brand-new id and its
@@ -10902,7 +11692,8 @@ async function cbCopyToNewBrief(client, id) {
   if (left) bits.push(`${cbPlural(left, "format", "formats")} still generating or failed — not copied.`);
   if (files.failed.length) bits.push(`Not copied: ${files.failed.map((x) => `${x.name} (${x.why})`).join("; ")}.`);
   if (lost) bits.push(CB_PLACES_LOST);
-  const bad = files.failed.length > 0 || lost;
+  if (imged.failed) bits.push(CB_IMGS_LOST);
+  const bad = files.failed.length > 0 || lost || imged.failed;
   cbMsg(document.getElementById("cb-view-msg"), bits.join(" "), bad ? "bad" : "good", bad);
 }
 
@@ -10979,27 +11770,42 @@ function cbPdfTitle(name) {
   return `${clean || "Campaign"} — brief`;
 }
 
+let CB_PDF_BUSY = false;
 /** Print only the creator document: a detached #cb-print node plus
     body.cb-printing, which the @media print rules in app.css ("Download PDF") use
-    to hide everything else. Cleaned up on afterprint. */
-function cbSavePdf(id, client) {
+    to hide everything else. Cleaned up on afterprint. Note images are signed, loaded and decoded first
+    (cbNoteImgPdf) so the print dialog has them; the button says "Preparing…" meanwhile. */
+async function cbSavePdf(id, client) {
   const rec = CB_CACHE.get(id);
-  if (!rec) return;
-  document.getElementById("cb-print")?.remove();
-  const node = document.createElement("div");
-  node.id = "cb-print";
-  node.innerHTML = campaignDocHtml(rec.campaign, cbSorted(rec), client);
-  document.body.appendChild(node);
-  document.body.classList.add("cb-printing");
-  const oldTitle = document.title;
-  // Chrome's Save as PDF takes its default filename from the title.
-  document.title = cbPdfTitle(rec.campaign.name);
-  window.addEventListener("afterprint", () => {
-    node.remove();
-    document.body.classList.remove("cb-printing");
-    document.title = oldTitle;
-  }, { once: true });
-  window.print();
+  if (!rec || CB_PDF_BUSY) return;
+  CB_PDF_BUSY = true;
+  try {
+    document.getElementById("cb-print")?.remove();
+    const node = document.createElement("div");
+    node.id = "cb-print";
+    node.innerHTML = campaignDocHtml(rec.campaign, cbSorted(rec), client);
+    document.body.appendChild(node);
+    const imgs = [...node.querySelectorAll("img[data-pdf-path]")];
+    if (imgs.length) {
+      const btn = document.getElementById("cb-pdf");
+      const face = btn?.textContent;
+      if (btn) { btn.disabled = true; btn.textContent = "Preparing…"; }
+      await cbNoteImgPdf(imgs);
+      if (btn?.isConnected) { btn.disabled = false; btn.textContent = face; }
+    }
+    document.body.classList.add("cb-printing");
+    const oldTitle = document.title;
+    // Chrome's Save as PDF takes its default filename from the title.
+    document.title = cbPdfTitle(rec.campaign.name);
+    window.addEventListener("afterprint", () => {
+      node.remove();
+      document.body.classList.remove("cb-printing");
+      document.title = oldTitle;
+    }, { once: true });
+    window.print();
+  } finally {
+    CB_PDF_BUSY = false;
+  }
 }
 
 // ---------- Ops ----------

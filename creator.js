@@ -5573,8 +5573,10 @@ function lynxFileSize(n) {
     island like the brief header above it. Nothing at all when there are no
     files. Every string is staff-typed: escapeHtml on all of it. One line per
     file: the name (its real casing — it is content), the size, Download. */
-function lynxFilesHtml(files) {
-  if (!Array.isArray(files) || !files.length) return "";
+function lynxFilesHtml(all) {
+  // An image in a note (its key's third segment starts "note-": app.js bfIsNoteImg) shows in that note, not here.
+  const files = (Array.isArray(all) ? all : []).filter((f) => f && !lynxIsNoteImg(f.path));
+  if (!files.length) return "";
   return `<div class="section lynx-files">
     <h3 class="lynx-files-h">Files from Lynx</h3>
     <ul class="lynx-file-list">${files.map((f) => `<li class="lynx-file">
@@ -5671,16 +5673,18 @@ function lynxBeatFiles(f, files, places) {
    whole, so a library copy keeps its notes and beatRow draws them there too. The box, classes and words match the
    agency card (app.js cbBeatNoteHtml / cbNoteCopy); app.css styles both. */
 const LYNX_NOTE_FOLD = 280;   // = CB_NOTE_FOLD in app.js: a longer note, or one over 5 lines, shows its first lines and Show all
-function lynxBeatNoteHtml(note, idx) {
+function lynxBeatNoteHtml(note, idx, images = []) {
   const text = typeof note === "string" ? note.trim() : "";
-  if (!text) return "";
+  const imgs = Array.isArray(images) ? images : [];
+  if (!text && !imgs.length) return "";
   const long = text.length > LYNX_NOTE_FOLD || text.split("\n").length > 5;
   const where = Number.isInteger(idx) ? ` on beat ${idx + 1}` : "";
   return `<div class="bnote">
       <div class="bnote-head"><span class="bnote-lbl">Note</span>
-        <button type="button" class="bnote-copy" aria-label="Copy the note${where}">Copy</button></div>
-      <p class="bnote-text${long ? " is-long" : ""}">${escapeHtml(text)}</p>
+        ${text ? `<button type="button" class="bnote-copy" aria-label="Copy the note${where}">Copy</button>` : ""}</div>
+      ${text ? `<p class="bnote-text${long ? " is-long" : ""}">${escapeHtml(text)}</p>` : ""}
       ${long ? `<button type="button" class="bnote-more" aria-expanded="false">Show all</button>` : ""}
+      ${lynxNoteImgsHtml(imgs, idx)}
       <span class="sr-only bnote-said" role="status" aria-live="polite"></span>
     </div>`;
 }
@@ -5706,6 +5710,8 @@ async function lynxNoteCopy(btn) {
 /* Copy and Show all for every note box on the page: one listener, so a repainted pane needs no wiring. */
 document.addEventListener("click", (e) => {
   const t = e.target instanceof Element ? e.target : null;
+  const img = t?.closest("button.bnote-img");
+  if (img) { lynxNoteImgOpen(img); return; }
   const more = t?.closest(".bnote-more");
   if (more) {
     const text = more.closest(".bnote")?.querySelector(".bnote-text");
@@ -5718,6 +5724,135 @@ document.addEventListener("click", (e) => {
   const copy = t?.closest(".bnote-copy");
   if (copy) lynxNoteCopy(copy);
 });
+
+/* IMAGES IN A NOTE (owner, 2026-10-13; plan ~/.claude/plans/agency-note-images-and-scratch-formats.md). A sent beat can
+   carry note_images = [{ path, name }] (app.js agencySendDoc): screenshots Lynx put in that beat's note. They are brief
+   files, so a creator reads them through the same delivery-gated storage policy as "files from Lynx"
+   (brief_file_readable), and only those still in this brief's list are drawn (lynxFormatCardHtml filters them). Shown
+   through one-hour SIGNED URLs: index.html's img-src admits the Supabase origin and not blob:. One image shows large,
+   several as a grid of squares; each opens full size in a <dialog> with Download (lynxFileDownload, the list's own). The
+   markup and classes are the agency's (app.js cbNoteImgsHtml / cbNoteImgOpen); app.css styles both. */
+const LYNX_NOTE_IMG_RE = /^campaign\/[A-Za-z0-9_][A-Za-z0-9_.-]*\/note-[A-Za-z0-9_.-]+\/[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
+/** = app.js bfIsNoteImg: a key of the shape campaign/<campaign id>/note-<random>/<file>. */
+function lynxIsNoteImg(path) {
+  const p = String(path || "");
+  return LYNX_NOTE_IMG_RE.test(p) && !p.includes("..");
+}
+function lynxNoteImgsHtml(imgs, idx) {
+  const list = Array.isArray(imgs) ? imgs : [];
+  if (!list.length) return "";
+  const where = Number.isInteger(idx) ? ` on beat ${idx + 1}` : "";
+  return `<ul class="bnote-imgs${list.length === 1 ? " is-one" : ""}" aria-label="Images in the note${where}">${list.map((m) => {
+    const name = escapeHtml(m.name || "image");
+    return `<li class="bnote-imgs-li"><button type="button" class="bnote-img" data-path="${escapeHtml(m.path)}" data-name="${name}"
+      aria-label="Open ${name} full size"><img data-sign-path="${escapeHtml(m.path)}" alt="${name}" loading="lazy" decoding="async"></button></li>`;
+  }).join("")}</ul>`;
+}
+const LYNX_SIGNED = new Map();   // object key -> { url, exp }: reused for 55 of its 60 minutes
+/** Signed URLs, by key, for note images only. A key Storage refuses is missing from the answer. Never rejects. */
+async function lynxNoteImgSign(paths) {
+  const out = new Map(), want = [];
+  for (const p of new Set(paths)) {
+    const hit = LYNX_SIGNED.get(p);
+    if (hit && hit.exp > Date.now()) out.set(p, hit.url);
+    else if (lynxIsNoteImg(p)) want.push(p);
+  }
+  if (!want.length) return out;
+  let got = [];
+  try {
+    await sbFreshToken();                      // storage answers an expired token with 400, not 401
+    got = await sbFetch(`/storage/v1/object/sign/${LYNX_FILES_BUCKET}`, {
+      method: "POST", body: JSON.stringify({ expiresIn: 3600, paths: want }),
+    });
+  } catch { got = []; }
+  const base = `${SB_URL}/storage/v1`;
+  for (const g of Array.isArray(got) ? got : []) {
+    const rel = typeof g?.signedURL === "string" ? g.signedURL : "";
+    const url = /^https?:\/\//.test(rel) ? rel : base + rel;
+    if (!rel || !want.includes(g.path) || !url.startsWith(`${base}/object/sign/${LYNX_FILES_BUCKET}/`)) continue;
+    LYNX_SIGNED.set(g.path, { url, exp: Date.now() + 55 * 60000 });
+    out.set(g.path, url);
+  }
+  return out;
+}
+function lynxNoteImgBad(im) {
+  im.dataset.bad = "1";
+  im.closest(".bnote-imgs-li")?.classList.add("is-bad");
+}
+async function lynxNoteImgHydrate(root = document) {
+  const imgs = [...root.querySelectorAll("img[data-sign-path]:not([src]):not([data-signing]):not([data-bad])")];
+  if (!imgs.length) return;
+  imgs.forEach((im) => { im.dataset.signing = "1"; });
+  const urls = await lynxNoteImgSign(imgs.map((im) => im.dataset.signPath));
+  for (const im of imgs) {
+    delete im.dataset.signing;
+    const url = urls.get(im.dataset.signPath);
+    if (url) im.src = url; else lynxNoteImgBad(im);
+  }
+}
+/* One observer signs every note image any repaint draws; one pass per frame at most. */
+let LYNX_SIGN_Q = false;
+new MutationObserver(() => {
+  if (LYNX_SIGN_Q) return;
+  LYNX_SIGN_Q = true;
+  requestAnimationFrame(() => { LYNX_SIGN_Q = false; lynxNoteImgHydrate(); });
+}).observe(document.documentElement, { childList: true, subtree: true });
+/* An expired or removed one: sign once more, then show the tile as unavailable. `error` does not bubble. */
+document.addEventListener("error", (e) => {
+  const im = e.target;
+  if (!(im instanceof HTMLImageElement) || !im.dataset.signPath) return;
+  if (im.dataset.retried) { lynxNoteImgBad(im); return; }
+  im.dataset.retried = "1";
+  LYNX_SIGNED.delete(im.dataset.signPath);
+  im.removeAttribute("src");
+  lynxNoteImgHydrate(im.parentElement || document);
+}, true);
+const LYNX_X_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+/** Full size in a <dialog>: the picture, its name, Download and Close. Esc, the x or a click outside the picture
+    closes it and focus goes back to the thumbnail. One dialog, made on first use. */
+function lynxNoteImgOpen(btn) {
+  const small = btn.querySelector("img");
+  if (!small?.src) return;
+  let dlg = document.getElementById("bnote-viewer");
+  if (!dlg) {
+    dlg = document.createElement("dialog");
+    dlg.id = "bnote-viewer";
+    dlg.className = "bnote-viewer";
+    dlg.setAttribute("aria-label", "Image");
+    dlg.innerHTML = `<div class="bnote-viewer-bar"><span class="bnote-viewer-name"></span>
+        <button type="button" class="ghost bnote-viewer-get">${LYNX_DL_SVG}<span>Download</span></button>
+        <button type="button" class="ghost icon-only bnote-viewer-x" aria-label="Close">${LYNX_X_SVG}</button></div>
+      <img class="bnote-viewer-img" alt="">
+      <p class="bp-msg bnote-viewer-msg" role="status" aria-live="polite"></p>`;
+    document.body.appendChild(dlg);
+    dlg.addEventListener("click", async (e) => {
+      if (e.target === dlg || e.target.closest(".bnote-viewer-x")) { dlg.close(); return; }
+      const get = e.target.closest(".bnote-viewer-get");
+      if (!get || get.disabled) return;
+      get.disabled = true;
+      const msg = dlg.querySelector(".bnote-viewer-msg");
+      try { await lynxFileDownload(dlg.dataset.path, dlg.dataset.name); }
+      catch { msg.textContent = "Couldn't download that image — try again."; msg.className = "bp-msg bnote-viewer-msg show bad"; }
+      get.disabled = false;
+    });
+    dlg.addEventListener("close", () => {
+      dlg.querySelector(".bnote-viewer-img").removeAttribute("src");
+      if (dlg._back?.isConnected) dlg._back.focus({ preventScroll: true });
+    });
+  }
+  dlg._back = btn;
+  dlg.dataset.path = btn.dataset.path || "";
+  dlg.dataset.name = btn.dataset.name || "image";
+  dlg.querySelector(".bnote-viewer-name").textContent = btn.dataset.name || "";
+  const msg = dlg.querySelector(".bnote-viewer-msg");
+  msg.textContent = "";
+  msg.className = "bp-msg bnote-viewer-msg";
+  const big = dlg.querySelector(".bnote-viewer-img");
+  big.alt = btn.dataset.name || "";
+  big.src = small.src;
+  dlg.showModal();
+  dlg.querySelector(".bnote-viewer-x").focus();
+}
 
 /* Files on beats, what the creator sees: the "add" line inside a beat. */
 const LYNX_DL_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -5842,13 +5977,14 @@ function renderLynxBrief(head, body) {
      view (Add to my library, a clip arriving) and resets when go() makes a new one. */
   if (VIEW._openFid === undefined) VIEW._openFid = formats.length === 1 ? lynxFid(formats[0], 0) : null;
   const facts = updated + top;
+  const addable = formats.filter((f) => !f.from_scratch).length;   // one written from scratch has no video: no library entry
   body.innerHTML = `
     ${facts ? `<div class="section lynx-brief-head">${facts}</div>` : ""}
     ${lynxFilesHtml(VIEW._files)}
-    ${formats.length > 1
-      ? `<div class="bp-actions"><button type="button" class="btn" id="lynx-add-all">Add all ${formats.length} to my library</button></div>`
+    ${addable > 1
+      ? `<div class="bp-actions"><button type="button" class="btn" id="lynx-add-all">Add all ${addable} to my library</button></div>`
       : ""}
-    <div class="bp-list script-grid lynx-grid">${formats.map((f, i) => lynxFormatCardHtml(f, i, lynxFid(f, i) === VIEW._openFid, lynxBeatFiles(f, VIEW._files, VIEW._fileBeats))).join("")}</div>
+    <div class="bp-list script-grid lynx-grid">${formats.map((f, i) => lynxFormatCardHtml(f, i, lynxFid(f, i) === VIEW._openFid, lynxBeatFiles(f, VIEW._files, VIEW._fileBeats), VIEW._files)).join("")}</div>
     <p class="note">Scripts Lynx sends you never count against your plan.</p>`;
 
   bindLynxBriefButtons(doc, formats, id);
@@ -5932,14 +6068,22 @@ function lynxRefPanelHtml(f, key) {
     wireAdaptationCards can fire on it. Kept from the regular card: the hook card, "Your script",
     the beats, CTA and caption, the copy icon, the cover. Left out: edit in place, + add a beat,
     delete, revert, "Also write this for". Brief-only: the chip, Add to my library, filming notes. */
-function lynxFormatCardHtml(f, i, open = false, onBeat = new Map()) {
+function lynxFormatCardHtml(f, i, open = false, onBeat = new Map(), files = []) {
   const silent = f.delivery === "silent";
   const carry = { do: "", show: "" };
   const fid = lynxFid(f, i);
   const key = `lynx:${fid}`;
+  /* WRITTEN FROM SCRATCH (plan ~/.claude/plans/agency-note-images-and-scratch-formats.md): Lynx wrote it with no video
+     (agencySendDoc sets from_scratch). No original to play or open, its SHOW lines print on spoken beats too (every
+     line was written on purpose), and it is not offered for "Add to my library", whose entries are one per video. */
+  const scratch = !!f.from_scratch;
   const href = f.source_url ? safeUrl(f.source_url) : "";
-  const plat = f.source_url ? platformLabel(f.source_url) : "";
+  const plat = f.source_url ? platformLabel(f.source_url) : scratch ? "script only" : "";
   const name = f.title || f.hook || "Untitled format";
+  // A note's images: only those whose file is still in this brief's list, so a removed one never shows.
+  const live = new Set((Array.isArray(files) ? files : []).map((x) => x && x.path).filter(Boolean));
+  const noteImgs = (b) => (Array.isArray(b?.note_images) ? b.note_images : [])
+    .filter((m) => m && live.has(m.path) && lynxIsNoteImg(m.path));
   const needs = Array.isArray(f.needs) && f.needs.length
     ? `<p class="bp-hint"><strong>Needs:</strong> ${escapeHtml(f.needs.join(" • "))}</p>` : "";
   const setup = [["Setting", f.setting], ["Lighting", f.lighting], ["Framing", f.framing], ["Audio", f.audio]]
@@ -5950,14 +6094,17 @@ function lynxFormatCardHtml(f, i, open = false, onBeat = new Map()) {
       ${needs}${setup}
       ${f.hook ? `<div class="bp-hook"><span class="bp-hook-lbl">${silent ? "Opening card" : "Hook"}</span>“<span class="bp-val bp-hookval">${escapeHtml(f.hook)}</span>”</div>` : ""}
       ${silent ? `<p class="bp-hint">No voiceover — put the SHOW line on screen at each beat.</p>` : `<div class="bp-heading">Your script</div>`}
-      <ol class="bp-beats bp-notime">${(f.beats || []).map((b, bi) => beatRow(b, carry, silent, undefined, bi, lynxBeatFilesHtml(onBeat.get(bi)))).join("")}</ol>
+      <ol class="bp-beats bp-notime">${(f.beats || []).map((b, bi) => beatRow(b, carry, silent, undefined, bi, lynxBeatFilesHtml(onBeat.get(bi)),
+        { images: noteImgs(b), show: scratch })).join("")}</ol>
       ${onBeat.size ? `<p class="bp-msg" id="lynx-bfb-msg-${i}" role="status" aria-live="polite"></p>` : ""}
       ${f.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> <span class="bp-val">${escapeHtml(f.cta)}</span></p>` : ""}
       ${f.caption ? `<p class="bp-hint"><strong>Caption:</strong> <span class="bp-val">${escapeHtml(f.caption)}</span></p>` : ""}
       ${f.note ? `<p class="bp-hint"><strong>Note:</strong> ${escapeHtml(f.note)}</p>` : ""}`;
   const foot = `
       <div class="bp-actions">
-        ${already
+        ${scratch
+          ? `<span class="bp-hint lynx-scratch-hint">Written by Lynx with no video, so it stays on this brief. Copy it to keep it.</span>`
+          : already
           ? `<button type="button" class="btn" disabled>In your library ✓</button>
              <button type="button" class="linkish lynx-open-brand" data-fid="${escapeHtml(f.id)}">open it</button>`
           : `<button type="button" class="btn lx-add" data-fid="${escapeHtml(f.id)}">Add to my library</button>`}
@@ -5996,7 +6143,7 @@ function bindLynxBriefButtons(doc, formats, briefId) {
   }));
   document.getElementById("lynx-add-all")?.addEventListener("click", (e) => {
     e.currentTarget.disabled = true;
-    for (const f of formats) addAgencyFormat(doc, f, briefId);
+    for (const f of formats) if (!f.from_scratch) addAgencyFormat(doc, f, briefId);
   });
   document.querySelectorAll(".lynx-open-brand").forEach((btn) => btn.addEventListener("click", () => {
     const f = formats.find((x) => x.id === btn.dataset.fid);
@@ -10977,6 +11124,9 @@ function queueAdaptation(item, co) {
     this only ever writes to the creator's own lynxr_creators row — nothing
     here touches the roster or delivery tables. */
 function addAgencyFormat(doc, f, briefId) {
+  // A format Lynx wrote from scratch has no video, and a library entry is one per video: never added (its card offers
+  // no button; this guards "Add all" and anything else that calls in).
+  if (f?.from_scratch) return { ok: false, reason: "scratch" };
   // 1. Dedupe first — this can be pressed again after a reload.
   const already = [...(ME.adaptations || []), ...(ME.trash || [])]
     .find((a) => a.fromAgency?.formatId === f.id);
@@ -11006,7 +11156,14 @@ function addAgencyFormat(doc, f, briefId) {
     // brief: hasTags() reads source.tags and hasSourceScript() reads
     // source.script/shots, so neither counts it as a tagged or transcribed video.
     status: "done", addedAt: new Date().toISOString(), code: trackCode(b.name || ""),
-    adaptation: { hook: f.hook, delivery: f.delivery, beats: f.beats, cta: f.cta, caption: f.caption },
+    // note_images point at brief files, readable only while the brief is delivered: a library copy keeps each note's
+    // words and leaves its images behind (plan agency-note-images-and-scratch-formats).
+    adaptation: { hook: f.hook, delivery: f.delivery, cta: f.cta, caption: f.caption,
+      beats: (Array.isArray(f.beats) ? f.beats : []).map((x) => {
+        if (!x || typeof x !== "object") return x;
+        const { note_images: _imgs, ...bt } = x;
+        return bt;
+      }) },
     ...(lynxClipOf(f) ? { source: { clip: lynxClipOf(f), cover: lynxCoverOf(f) } } : {}),
     fromAgency: { briefId, formatId: f.id, client: doc.client?.name || "", at: new Date().toISOString() },
   });
@@ -11067,7 +11224,7 @@ function beatStart(t) {
   return m ? Number(m[1]) : null;
 }
 
-function beatRow(bt, carry, silent, adid, idx, tail = "") {
+function beatRow(bt, carry, silent, adid, idx, tail = "", opts = {}) {
   let say = (bt.say || "").trim();
   let doIt = (bt.do || "").trim();
   let show = (bt.show || "").trim();
@@ -11121,8 +11278,9 @@ function beatRow(bt, carry, silent, adid, idx, tail = "") {
   // SILENT scripts keep it, because there it IS the script: `say` is empty by
   // design on every beat, and dropping SHOW would leave a shot list with the
   // actual content missing.
+  // opts.show: a format Lynx wrote from scratch prints its SHOW lines on a spoken script too (lynxFormatCardHtml).
   const rows = [row("SAY", say), row("DO", doIt, !silent),
-                silent ? row("SHOW", show, false) : ""].filter(Boolean);
+                silent || opts.show ? row("SHOW", show, false) : ""].filter(Boolean);
   if (!rows.length) return "";
   /* data-t IS THE MAPPING THE OWNER ASKED FOR — "it should match up the
      equivilent of the original video". wireAdaptationCards reads it off the
@@ -11131,7 +11289,7 @@ function beatRow(bt, carry, silent, adid, idx, tail = "") {
      cannot slide the whole list out of step with the playhead. Absent when
      beatStart() could not parse `t`; see beatStart. */
   const st = beatStart(bt.t);
-  return `<li class="bp-beat"${st === null ? "" : ` data-t="${st}"`}>${rows.join("")}${lynxBeatNoteHtml(bt.note, idx)}${tail}</li>`;
+  return `<li class="bp-beat"${st === null ? "" : ` data-t="${st}"`}>${rows.join("")}${lynxBeatNoteHtml(bt.note, idx, opts.images)}${tail}</li>`;
 }
 
 function scriptText(a) {

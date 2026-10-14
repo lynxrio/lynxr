@@ -27,6 +27,35 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**IMAGES IN BEAT NOTES + FORMATS WRITTEN FROM SCRATCH (2026-10-13, UNCOMMITTED, stamp `20261013a`; plan
+`~/.claude/plans/agency-note-images-and-scratch-formats.md`).** Owner: "Make it so the note for creators can also take a
+screenshot or image I want them to see", and "make it like a google doc where I can just write out the script as a blank
+canvas … dont get rid of the drop an example video, just add this other option too". (1) NOTE IMAGES: in the format
+editor each beat's note takes up to 4 images (Cmd+V a screenshot, drop, or + Add image; PNG/JPG/WebP/GIF, 10 MB each; a
+paste that carries text pastes the text). Each is a brief file (same private bucket, same 20-file / 50 MB cap, same
+creator gate `brief_file_readable`) whose key's third segment starts `note-`; the note's entry in `beat_notes` carries
+`imgs: [{id, path, name}]`, so an image moves with its note (Save, + add beat here, regenerate re-attach, Keep here,
+restore) and copies with it (Copy to new brief and the format library point the copies at copied files). Bytes upload on
+paste, rows are written on Save, Cancel deletes unsaved bytes, and an image taken out of a note loses its file on Save.
+The files block lists them as "in the note on format N · beat M"; "+ add file" never offers them. The sent doc carries
+`beats[i].note_images: [{path, name}]` (after Update); creators see them under the note (one large, several in a grid),
+full size in a dialog with Download, only while the file is in their `my_agency_brief_files` list, and never in "files
+from Lynx". Shown through 1-hour signed URLs (no CSP change). The PDF embeds them. No SQL. (2) WRITE FROM SCRATCH: the
+campaign view's add box is "Add formats" with two tabs, "Paste a video link" (unchanged) and "Write from scratch": a
+title and a page; a blank line (or ---) starts a beat, `do:` / `on screen:` lines are directions, the beats preview live
+beside the page, the draft is kept in localStorage per brief, and Create format (or Cmd/Ctrl+Enter) makes a format with
+`source_url = ''`, status done, job script. The worker never reads or scripts it (claim filter `source_url.neq.""` in
+`pipeline/campaign_queue.py`, unit-tested; `brief_clips` already skipped it). Its card has no original panel, no
+regenerate, a "written from scratch" chip; everything else works. The New brief composer has "Write from scratch" too.
+Creators get it with no video panel, its ON SCREEN lines shown on spoken beats, and WITHOUT "Add to my library" (a
+library entry needs a video). SQL: `supabase/scratch_formats.sql` (NEW, untracked: include it in the commit), a backstop
+CHECK (no source_url means status done) with a self-test; run it before the push; the app works without it and heals a
+stray one back to done. Files: `app.js`, `creator.js`, `app.css` (one block at the end), `pipeline/campaign_queue.py`,
+`pipeline/test_campaigns.py`, `pipeline/backfill_beat_orig.py`, `supabase/scratch_formats.sql`, the stamp on every
+stamped page + `404.html`. Executor-verified (stubbed harnesses, real clicks, keys, paste and drop, painted pixels read
+off screenshots, real CSP, 1440 + 393): all eight runs ALL OK (new agency + creator, notes-on-beats agency + creator, each at 1440 and 393), exceptions [], csp violations [], paste via keyboard, drop via drag, screenshots checked; four harness checks were corrected (a redraw before the stale-note check, a longer stub upload so the 40% tile can be read, a distinct file for the scratch format's image, a scroll before the lazy-image wait); test_campaigns.py all checks passed. NOT verified: the SQL on the live database, a real upload into the
+bucket, a real creator account, Safari's clipboard. The worker change deploys with the push (Fly auto-deploys).
+
 **LOOP V2 PART 4: COACH LEARNINGS INTO THE WRITER (2026-10-11, BUILT, DARK, UNCOMMITTED; plan `~/.claude/plans/lynxr-loop-v2.md`, which lives
 outside this repo and holds the eval stages and their pass/fail gates).** `BRAIN_IN_PROMPT` stays WHO (the creator allowlist, a Fly
 secret, and it STAYS OFF). The new `BRAIN_PROMPT_PARTS` is WHAT: a comma list of `voice`, `performance`, `watch`, `coach`; empty means

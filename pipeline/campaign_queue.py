@@ -20,8 +20,11 @@ def stamp(dt):
 
 def claimable_logic(now, lease_minutes=LEASE_MINUTES):
     cut, at = stamp(now - timedelta(minutes=lease_minutes)), stamp(now)
+    # source_url.neq."": a format WRITTEN FROM SCRATCH in the agency app (app.js cbWriteCreate) has no video, is born
+    # "done" and is never the worker's, even if a stale app tab queues it or a lease lapses. Probed against the live
+    # PostgREST on 2026-10-13: the empty quoted value parses inside the tree.
     return (f'(or(status.eq.queued,and(status.eq.running,claimed_at.lt."{cut}")),'
-            f'or(retry_at.is.null,retry_at.lte."{at}"))')
+            f'or(retry_at.is.null,retry_at.lte."{at}"),source_url.neq."")')
 
 
 def claimable_query(now, lease_minutes=LEASE_MINUTES):
