@@ -1,0 +1,242 @@
+{
+  "question_id": "q032",
+  "slug": "ugc-script-for-an-app",
+  "theme": "ugc-scripts",
+  "title": "How do you write a UGC script for an app?",
+  "description": "How to write a UGC script for an app: build it around one moment on the screen, pair every spoken line with a phone shot, and skip the feature tour.",
+  "short_answer": "A UGC script for an app is built around one moment on the screen where the app does something useful for you. Open on the everyday situation that sends you to your phone, show that single moment in a screen recording, and pair every spoken line with a clear instruction for what the phone or your hand is doing.",
+  "sections": [
+    {
+      "heading": "Why is an app harder to script than a physical product?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "An app lives on a small screen, so the camera has nothing to pick up, touch or turn over unless you plan every shot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "With a jar or a bag, the object carries the video and you can improvise around it. With an app, a viewer who cannot read the screen sees a person staring at a phone. That is why an app [script](/glossary/#script) needs a picture written for every line, and why the [two-column script](/blog/two-column-script/) suits it so well: one column for what you say, one for what the phone shows at that moment.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should an app script show instead of a feature tour?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Show one moment of value: the single tap or screen where the app does the job you opened it for.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A tour of five features turns into a slideshow, and the viewer cannot hold any of them. Pick the moment you would show a friend if they asked what the app is for, and build the whole video around reaching it. Everything before that moment is the situation that sent you to the phone; everything after is your honest reaction and a [call to action](/glossary/#call-to-action). The [parts of a UGC video script](/short-form-script-structure/) map neatly onto this: the moment of value is your turn.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brief lists several features, ask the brand which one matters most for this video. You can offer to cover the others in separate videos, each with its own moment.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you write the camera lines for an app video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write each camera line as one of three shots: your face, the phone in your hand, or a full-screen recording.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Shot",
+            "When to use it",
+            "What to write in the camera line"
+          ],
+          "table_rows": [
+            [
+              "Face to camera",
+              "The hook and your reaction",
+              "Where you are and what you are holding"
+            ],
+            [
+              "Phone in hand",
+              "Opening the app and the first tap",
+              "Which hand, which angle, and what the thumb presses"
+            ],
+            [
+              "Screen recording",
+              "The moment of value",
+              "The exact screen and the tap that gets there"
+            ],
+            [
+              "Back to face",
+              "The close",
+              "Phone lowered, eyes back on the lens"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Record the screen part separately and cut it in, because a bright phone screen filmed with a second camera can look washed out. Before you film, set the app up with realistic but made-up details, so nothing private shows and the screen looks lived in.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a finished UGC script for an app look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here is a full script for a meal-planning app, built around one moment: the shopping list appearing from the week's plan.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a meal-planning app",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "Every Sunday I stand in the supermarket aisle trying to remember what I planned to cook.",
+              "do": "Face to camera in a supermarket aisle, empty basket on your arm."
+            },
+            {
+              "part": "setup",
+              "say": "I used to write the plan on a sticky note and the list on another one. One of them always stayed on the fridge.",
+              "do": "Cut to a fridge door with a single sticky note on it, then back to your face."
+            },
+            {
+              "part": "beat 1",
+              "say": "Now I pick the week's dinners in here first.",
+              "do": "Phone in your right hand, thumb opening the app and tapping three meals on the plan screen."
+            },
+            {
+              "part": "turn",
+              "say": "Then I tap this, and the list builds itself from those meals.",
+              "do": "Full-screen recording: the tap on the list button and the shopping list appearing, grouped by aisle."
+            },
+            {
+              "part": "beat 2",
+              "say": "So in the shop, I just tick things off as I go.",
+              "do": "Phone in hand in the aisle, thumb ticking two items while you put them in the basket."
+            },
+            {
+              "part": "close",
+              "say": "That is the part I use every week. The app is linked if you want to try it.",
+              "do": "Phone lowered, eyes back on the lens, basket now half full."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Notice that the script never says the app saves time or money for everyone. It says what you noticed and what you do, which keeps it true for you and easier to fit any rules on claims in the brief. For how a different category handles the same problem, see [what goes in a UGC script for a skincare brand](/blog/ugc-script-for-skincare/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you check before you send an app script to the brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Check that every line has a shot, the moment of value is on screen, and the app's real screens match what you wrote.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Every spoken line has a camera line next to it, so nothing leaves the viewer looking at a still face and a hidden phone.",
+            "The moment of value appears as a screen recording, not only described out loud.",
+            "Each button you name exists in the current version of the app, because screens change between versions.",
+            "Nothing on screen shows your real contacts, messages or account details.",
+            "The close asks for one thing, and it is the action the brief asks for."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand wants changes, the [UGC script template](/ugc-script-template/) gives you a clean layout to send the next version in, with the moment of value marked so it survives each round.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-14",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "Every Sunday I stand in the supermarket aisle trying to remember what I planned to cook."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

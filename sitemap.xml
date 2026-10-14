@@ -145,6 +145,11 @@
   </url>
   <!-- BEGIN UGC AGENT -->
   <url>
+    <loc>https://lynxr.io/blog/do-you-need-followers-for-ugc/</loc>
+    <lastmod>2026-10-14</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/find-brands-for-ugc/</loc>
     <lastmod>2026-10-13</lastmod>
     <priority>0.6</priority>
@@ -162,6 +167,11 @@
   <url>
     <loc>https://lynxr.io/blog/ugc-pitch-email/</loc>
     <lastmod>2026-10-05</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/ugc-script-for-an-app/</loc>
+    <lastmod>2026-10-14</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -196,7 +206,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-getting-started/</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-10-14</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -206,7 +216,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-scripts/</loc>
-    <lastmod>2026-10-05</lastmod>
+    <lastmod>2026-10-14</lastmod>
     <priority>0.6</priority>
   </url>
   <!-- END UGC AGENT -->
