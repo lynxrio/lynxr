@@ -13547,3 +13547,45 @@
   }
   /* the creator's card for a format written from scratch: the line where "add to my library" would be */
   .pane-body .lynx-scratch-hint { flex: 1 1 auto; min-width: 0; margin: 0; }
+  /* ---------- CM PORTAL (owner, 2026-10-13; plan ~/.claude/plans/lynxr-cm-portal.md) ----------
+     body.agency.cm = the agency app signed in as a CM (app.js cmBoot): no tab bar, their companies, ONE big "Create a
+     new brief" in the existing ink button style (the action colour is being redesigned: do not restyle buttons here),
+     with the existing cta-ping pulse because it is the one primary action ("never a static grey CTA"), off under
+     reduced motion and while hovered or focused. Phones: full width, fixed in the bottom thumb zone. The tab bar is
+     display:none here because the global `nav { display: flex }` beats the [hidden] attribute. The big button is
+     written `#cb-new.cm-new` because the staff `body.agency #app main :is(#cb-new, #cl-add)` rule (display, width, height)
+     would otherwise outrank every .cm-new rule here. Plus the staff
+     Creators tab's CMs section. */
+  body.agency.cm #app > header nav { display: none; }
+  body.agency.cm #cm-banner { margin: 0 0 14px; color: var(--bad); }
+  body.agency.cm #cm-banner[hidden] { display: none; }
+  body.agency.cm #app main #cb-new.cm-new {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    width: 100%; min-height: 52px; margin: 6px 0 24px; font-size: var(--fs-16);
+  }
+  body.agency.cm #app main #cb-new.cm-new[aria-expanded="true"] { display: none; }
+  body.agency.cm #app main #cb-new.cm-new::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; border-radius: var(--r-pill);
+    box-shadow: 0 0 0 0 var(--text); opacity: 0; pointer-events: none;
+    animation: cta-ping 2.2s var(--ease) infinite, cta-ping-fade 2.2s linear infinite;
+  }
+  body.agency.cm #app main #cb-new.cm-new:is(:hover, :focus-visible, :active)::after { animation: none; }
+  body.agency.cm #app main .cm-co .cm-co-new { flex: none; min-height: 44px; }
+  @media (prefers-reduced-motion: reduce) {
+    body.agency.cm #app main #cb-new.cm-new::after { animation: none; opacity: 0; }
+  }
+  @media (max-width: 640px) {
+    body.agency.cm #app main #cb-new.cm-new[aria-expanded="false"] {
+      position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+      width: auto; margin: 0; z-index: 40;
+    }
+    body.agency.cm #briefs-host { padding-bottom: 84px; }
+    body.agency.cm #app main .cm-co .cm-co-new { width: 100%; }
+  }
+  body.agency #app main .cm-section .cms-rule { margin: 6px 0 0; }
+  body.agency #app main .cm-section .cm-cos { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+  body.agency #app main .cm-section .cm-co-toggle { min-height: 44px; padding: 0 14px; color: var(--text-3); }
+  body.agency #app main .cm-section .cm-co-toggle[aria-pressed="true"] {
+    color: var(--text); background: var(--surface-2); border-color: var(--text-2);
+  }
+  body.agency #app main .cm-section .cm-co-toggle[aria-pressed="true"]::before { content: "✓"; margin-right: 6px; }

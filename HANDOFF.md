@@ -27,6 +27,32 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**CM ROLE AND PORTAL (2026-10-13, UNCOMMITTED, stamp `20261013b`; plan `~/.claude/plans/lynxr-cm-portal.md`). NOT LIVE until
+the owner runs `supabase/cm_portal.sql` (either order: without it nobody is a CM and every page behaves exactly as
+before).** Owner: "a CM page … switch from a creator view to a CM view … all they could click is 'Create a new brief'
+for that specific company … no suggested videos". A CM is an ordinary lynxr account that staff tag on the agency app's
+Creators tab (new "CMs" section: add by email, which needs an existing confirmed account; tick their companies; remove).
+A CM's creator-app account menu shows "CM view" (staff still see "Agency app"); it opens /agencyonly/ in CM mode
+(`CM_MODE`, `cmBoot` in app.js): no tabs, no database, no other clients, no suggested videos, no picked-video briefs,
+no Edit brand; their companies, each with ONE "Create a new brief" (the normal composer, write-from-scratch included)
+and that company's campaign briefs, inside which everything staff have works. A CM deletes only briefs they made
+(`lynxr_campaigns.created_uid`, new, set by the database, frozen by a trigger) and sends only to accepted roster
+creators whose brand label names that brief's company. ENFORCED IN THE DATABASE: `lynxr_cms`, `lynxr_cm_clients`,
+CM policies beside the staff ones on campaigns, formats, brief files, files on beats, sent briefs, deliveries and the
+`lynxr-brief-files` bucket; SECURITY DEFINER reads `my_roles()`, `cm_clients()` (brand fields only), `cm_roster()`,
+`staff_add_cm()`; NO CM policy on `lynxr_clients`, `lynxr_videos`, `lynxr_roster`, ops, costs, sources or staff
+tables. The SQL self-tests on every run (impersonates a non-staff account as a CM, rolls back). To see a brief as
+creators do, a CM goes on the roster like any creator (staff invite their email with the company as brand) and sends
+it to themselves; a CM is never shown the link wall. Kill switch, instant: `delete from public.lynxr_cms;`. Live proof:
+`./venv/bin/python tools/cm_probe.py --plain EMAIL`, then `--cm EMAIL --staff EMAIL` (asks for passwords; writes then
+deletes one probe brief). Files: `supabase/cm_portal.sql` and `tools/cm_probe.py` (NEW, untracked: include them in the
+commit), `app.js`, `creator.js`, `app.css` (one block at the end), the stamp on every stamped page + `404.html`.
+Executor-verified: `node --check` on app.js and creator.js, `py_compile` on the probe, `check_stamp.py` ok; stubbed-browser
+harnesses at 1440 and 393 on localhost with the real CSP: CM mode (home, composer, new brief, write from scratch, send to
+the company's creator only, a 0-row save refused, unassigned banner), the staff CMs section, the no-SQL fallback, and the
+creator account menu ("CM view" / "Agency app" / nothing; no link wall for a CM) all ALL OK, `exceptions: []`, `csp
+violations: []`. NOT verified: the SQL on the live database, the live probe, a real CM sign-in.
+
 **IMAGES IN BEAT NOTES + FORMATS WRITTEN FROM SCRATCH (2026-10-13, UNCOMMITTED, stamp `20261013a`; plan
 `~/.claude/plans/agency-note-images-and-scratch-formats.md`).** Owner: "Make it so the note for creators can also take a
 screenshot or image I want them to see", and "make it like a google doc where I can just write out the script as a blank

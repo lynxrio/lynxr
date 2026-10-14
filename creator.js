@@ -3823,6 +3823,29 @@ async function refreshAgency() {
   }
 }
 const hasAgency = () => AGENCY?.state === "accepted" || AGENCY?.state === "invited";
+/* WHO THIS ACCOUNT IS (CM portal, plan ~/.claude/plans/lynxr-cm-portal.md): { staff, cm } from my_roles()
+   (supabase/cm_portal.sql), or from is_staff() alone before that SQL is run. Asked once per page load (sign-out
+   reloads). The account menu's "Agency app" / "CM view" and the link wall's CM exemption both read it. null = no
+   answer at all (offline): no link, no exemption, exactly as before. */
+let MY_ROLES = null;
+let MY_ROLES_P = null;
+function myRolesOnce() {
+  if (MY_ROLES_P) return MY_ROLES_P;
+  MY_ROLES_P = (async () => {
+    let roles = null;
+    try {
+      const r = await sbFetch("/rest/v1/rpc/my_roles", { method: "POST", body: "{}" });
+      if (r && typeof r === "object") roles = { staff: r.staff === true, cm: r.cm === true };
+    } catch { /* not installed yet, or offline: ask is_staff() as before */ }
+    if (!roles) {
+      try { roles = { staff: (await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" })) === true, cm: false }; }
+      catch { roles = null; }
+    }
+    MY_ROLES = roles;
+    return roles;
+  })();
+  return MY_ROLES_P;
+}
 /* THE LINK WALL (plan ~/.claude/plans/lynxr-link-gate.md, 2026-10-07). ROSTER ONLY, and it FAILS OPEN: every path out of
    linkWallDue() that is not a confident "accepted roster member with zero profiles" returns false, so a roster read that 404s,
    errors, hangs or is still loading lets the creator straight through. A lookup failure must never lock a roster creator out.
@@ -3833,6 +3856,7 @@ const hasAgency = () => AGENCY?.state === "accepted" || AGENCY?.state === "invit
 const LINKWALL_LIVE = true;        // kill switch for the whole wall, and for the "put the code in your bio" card on Home
 function linkWallDue() {
   if (!LINKWALL_LIVE || !ONBOARD_LIVE) return false;
+  if (MY_ROLES?.cm) return false;                     // a CM on the roster (to see briefs as creators do) is not a posting creator
   if (AGENCY_STATE !== "ready") return false;         // idle | loading | missing | error -> no wall
   if (AGENCY?.state !== "accepted") return false;     // invited | left | none -> no wall
   if (!Array.isArray(PROFILES)) return false;         // the profiles read failed -> no wall
@@ -8151,6 +8175,8 @@ function paintSideNews() {
      ...&metric=link               link TikTok (username, bio code, done) with the first-script screen behind it
      ...&hookcheck=pass|below      paints the "lynxr hook rules" line under a script's hook (94 at/above the bar, or 72 with the rule it misses);
                                    needs a script card on screen, e.g. &metric=winbrand, closed, then Library
+     ...&roles=cm|staff            my_roles() answers as a CM / as staff (CM portal plan): the account menu shows "CM view" /
+                                   "Agency app"; a CM is never shown the link wall (try it with &metric=rosterwall)
    ================================================================================================================ */
 const OBTEST = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   && new URLSearchParams(location.search).get("obtest") === "1";
@@ -8216,6 +8242,10 @@ if (OBTEST) {
       return { ok: true };
     }
     if (path.includes("/rest/v1/lynxr_profiles")) return pstore().slice();
+    if (path.includes("/rpc/my_roles")) {       // ?roles=cm|staff (CM portal plan): who this fake account is
+      const rr = new URLSearchParams(location.search).get("roles");
+      return { staff: rr === "staff", cm: rr === "cm", companies: rr === "cm" ? 1 : 0 };
+    }
     if (path.includes("/rpc/my_agency")) {      // ?roster=accepted|invited|left|none; the link-wall state defaults to accepted, every other state to none
       const rs = new URLSearchParams(location.search).get("roster") || OBFAKE.roster
         || (new URLSearchParams(location.search).get("metric") === "rosterwall" ? "accepted" : "none");
@@ -8483,7 +8513,7 @@ if (OBTEST) {
       OBFAKE.roster = key === "rosterwall" ? "accepted" : "none";      // the state just chosen, not the URL (which is rewritten below)
       if (key === "rosterwall") {
         LINKWALL_RELEASED = false; LINKWALL_ADDED = [];
-        refreshAgency().then(() => { if (linkWallDue()) openLinkWall(); });
+        Promise.all([refreshAgency(), myRolesOnce()]).then(() => { if (linkWallDue()) openLinkWall(); });
       }
       bar.querySelectorAll("button[data-state]").forEach((b) => {
         if (b.dataset.state === "tour") return;
@@ -13994,7 +14024,8 @@ function unlock() {
   // Same shape, same reason: paints #nav-lynx in only once the roster answer
   // is back, for the ~1% of creators actually on it.
   // …and, when that answer is an open invite, the popup (once per page load).
-  const agencyReady = refreshAgency().then(() => { renderSide(); if (VIEW.kind === "lynx") renderPane(); openAgencyInvite(); });
+  // The link wall reads the roster AND who this account is (a CM is never walled), so wait for both.
+  const agencyReady = Promise.all([refreshAgency(), myRolesOnce()]).then(() => { renderSide(); if (VIEW.kind === "lynx") renderPane(); openAgencyInvite(); });
   // Setup answers are saved and the overlay decided AFTER renderAll(), which is where a pasted link has already been
   // sent: setup never delays the first script.
   setupAfterUnlock(agencyReady);
@@ -14068,19 +14099,17 @@ function takeInsightsReturn() {
    the session in BOTH apps. */
 async function revealAgencySwitch() {
   if (document.getElementById("nav-agency")) return;
-  let staff = false;
-  try {
-    staff = (await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" })) === true;
-  } catch { return; }                        // offline, or no is_staff(): no link
+  const roles = await myRolesOnce();         // offline, or neither function answers: no link
+  const staff = !!roles?.staff, cm = !!roles?.cm;        // staff wins: a staff member who is also a CM sees "Agency app"
   const before = document.getElementById("nav-you");     // it joins the account menu, ahead of Settings
-  if (!staff || !before || document.getElementById("nav-agency")) return;
+  if (!(staff || cm) || !before || document.getElementById("nav-agency")) return;
   const a = document.createElement("a");
   a.className = "side-link";
   a.id = "nav-agency";
   a.setAttribute("role", "menuitem");
   a.tabIndex = -1;
   a.href = "/agencyonly/";
-  a.innerHTML = `<svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3.5-3.5"/><path d="M20 16H7l3.5 3.5"/></svg><span class="side-label">Agency app</span>`;
+  a.innerHTML = `<svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3.5-3.5"/><path d="M20 16H7l3.5 3.5"/></svg><span class="side-label">${staff ? "Agency app" : "CM view"}</span>`;
   before.parentNode.insertBefore(a, before);
 }
 
