@@ -21,6 +21,15 @@ import sys
 import urllib.error
 import urllib.request
 import uuid
+import ssl
+
+# This venv's Python has no system CA bundle, so a bare urlopen fails every request with
+# CERTIFICATE_VERIFY_FAILED (first run, 2026-10-13). Same guard the pipeline uses.
+try:
+    import certifi
+    SSL_CTX = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    SSL_CTX = ssl.create_default_context()
 
 SB_URL = "https://esakjfogplfszievvabi.supabase.co"
 SB_KEY = "sb_publishable_pTFNX2B94PE_DFLL799w4A_4VcH2xTN"   # public by design: the key app.js and creator.js ship
@@ -47,7 +56,7 @@ def call(method, path, token=None, body=None, prefer=None, raw=None, ctype=None)
         headers["Prefer"] = prefer
     req = urllib.request.Request(SB_URL + path, data=data, method=method, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=30) as res:
+        with urllib.request.urlopen(req, timeout=30, context=SSL_CTX) as res:
             status, text = res.status, res.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
         status, text = e.code, e.read().decode("utf-8", "replace")
