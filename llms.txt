@@ -54,6 +54,7 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 - [Getting started as a UGC creator](https://lynxr.io/faq/ugc-getting-started/): Short answers to the questions people ask before their first paid UGC job: what the work is, what a portfolio needs and what you need to start.
   - [What is a UGC creator?](https://lynxr.io/blog/what-is-a-ugc-creator/): What a UGC creator is, how the work differs from being an influencer, and what the day-to-day job of making short videos for brands looks like.
   - [Do you need followers to be a UGC creator?](https://lynxr.io/blog/do-you-need-followers-for-ugc/): Do you need followers for UGC work? Learn what a brand is paying for, when your own audience comes into a deal, and what to build instead of a following.
+  - [What should a UGC portfolio include?](https://lynxr.io/blog/what-to-put-in-a-ugc-portfolio/): What to put in a UGC portfolio: sample videos in different formats, alternate hooks, a short intro and contact details, and what to leave out.
 - [UGC rates, pay and usage rights](https://lynxr.io/faq/ugc-rates-and-pay/): How UGC creators get paid, how to work out a rate, and what usage rights, raw footage and whitelisting mean for the price.
   - [How do UGC creators get paid?](https://lynxr.io/blog/how-do-ugc-creators-get-paid/): How UGC creators get paid: flat fees per video, usage and raw footage add-ons, bundles, retainers, deposits, invoices and what to do when payment runs late.
   - [What are usage rights in UGC?](https://lynxr.io/blog/what-are-ugc-usage-rights/): UGC usage rights explained: organic versus paid use, how long and where a brand may run your video, and how to agree each term in writing first.
@@ -66,6 +67,10 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
 - [Writing UGC scripts](https://lynxr.io/faq/ugc-scripts/): How to write UGC scripts for different kinds of product, from skincare to apps, with an example script in every answer.
   - [What goes in a UGC script for a skincare brand?](https://lynxr.io/blog/ugc-script-for-skincare/): What a UGC script for a skincare brand needs: a hook built on a skin situation, the routine, texture on camera, an honest timeline, and the claims to leave out.
   - [How do you write a UGC script for an app?](https://lynxr.io/blog/ugc-script-for-an-app/): How to write a UGC script for an app: build it around one moment on the screen, pair every spoken line with a phone shot, and skip the feature tour.
+- [UGC hooks](https://lynxr.io/faq/ugc-hooks/): How to write the first seconds of a UGC video: hooks for ads, visual hooks, on-screen text and hook variations a brand can test.
+  - [How many hooks should you film for one UGC video?](https://lynxr.io/blog/ugc-hook-variations/): How many UGC hook variations to film for one video, what each variation should change, and how to film and deliver them all from one session.
+- [Filming and editing UGC](https://lynxr.io/faq/ugc-filming/): How to film and edit UGC on a phone: light, sound, B-roll, product demos, captions and the shots a brand needs.
+  - [How do you film UGC on a phone so it looks good?](https://lynxr.io/blog/film-ugc-on-a-phone/): How to film UGC on your phone so it looks good: clean the lens, choose the right camera, face the light, frame vertically, steady the phone, film extra takes.
 
 <!-- END UGC AGENT -->
 

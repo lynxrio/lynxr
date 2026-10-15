@@ -150,6 +150,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/film-ugc-on-a-phone/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/find-brands-for-ugc/</loc>
     <lastmod>2026-10-13</lastmod>
     <priority>0.6</priority>
@@ -162,6 +167,11 @@
   <url>
     <loc>https://lynxr.io/blog/how-to-set-ugc-rates/</loc>
     <lastmod>2026-10-13</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/ugc-hook-variations/</loc>
+    <lastmod>2026-10-15</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -195,6 +205,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/what-to-put-in-a-ugc-portfolio/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/faq/ugc-brand-deals/</loc>
     <lastmod>2026-10-13</lastmod>
     <priority>0.6</priority>
@@ -205,8 +220,18 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/faq/ugc-filming/</loc>
+    <lastmod>2026-10-15</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/faq/ugc-getting-started/</loc>
-    <lastmod>2026-10-14</lastmod>
+    <lastmod>2026-10-15</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/faq/ugc-hooks/</loc>
+    <lastmod>2026-10-15</lastmod>
     <priority>0.6</priority>
   </url>
   <url>

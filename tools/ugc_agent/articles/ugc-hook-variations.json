@@ -1,0 +1,266 @@
+{
+  "question_id": "q041",
+  "slug": "ugc-hook-variations",
+  "theme": "ugc-hooks",
+  "title": "How many hooks should you film for one UGC video?",
+  "description": "How many UGC hook variations to film for one video, what each variation should change, and how to film and deliver them all from one session.",
+  "short_answer": "Film three hooks for one UGC video unless the brief asks for a different number. Three gives a real choice without stretching the shoot, and each one should change a single thing, such as the line, the first shot or the angle, while the rest of the video stays exactly the same.",
+  "sections": [
+    {
+      "heading": "Why would a brand want more than one hook for a video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Extra hooks let a brand try different openings on the same video without booking a second shoot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The [hook](/glossary/#hook) is the first line and the first shot, and it is the cheapest part of a video to swap. The body, the product shots and the close can stay identical while the opening changes, so one shoot can become several finished videos. That is useful to anyone who wants to compare openings, and it is easy for you to supply if you plan for it before you press record.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Check the [brief](/glossary/#brief) for a number first. If it gives none, ask before you film, and offer three as your default. Agree in writing whether the extra hooks are part of the fee or priced separately, so nobody is surprised when the files arrive. For the craft of writing each line, [how to write a UGC hook that stops the scroll](/how-to-write-a-hook/) covers the shapes a strong opening can take.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should change between one hook variation and the next?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Change one thing per variation, either the line, the first shot or the angle, so each version tries a single idea.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If two versions differ in the words, the framing and the energy all at once, nobody can tell which change mattered. Three rewordings of the same sentence are no better, because they are really one hook. Aim for openings that are different in kind but each lead cleanly into the same next line. A question is one easy kind to include; [question hooks](/blog/question-hooks/) shows how to write one a viewer has to answer in their head.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Variation",
+            "What changes",
+            "Example opening"
+          ],
+          "table_rows": [
+            [
+              "Situation",
+              "The line names a moment the viewer is in",
+              "My freezer is mostly mystery parcels wrapped in foil."
+            ],
+            [
+              "Question",
+              "The line asks something the viewer has wondered",
+              "Why do I have to unwrap dinner to find out what it is?"
+            ],
+            [
+              "Picture first",
+              "The first shot carries it, with the line after",
+              "Open on a frozen foil lump being knocked on the counter, then speak."
+            ],
+            [
+              "Confession",
+              "The line admits a habit",
+              "I have thrown away good food because I could not tell what it was."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Pick three of these, not all four, and keep the rest of each take the same: same outfit, same light, same spot, same energy.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you film all the hooks in one session?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Film the body of the video first, then record every hook straight after, without changing anything in the frame.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Film the body once all the way through, so you know exactly which line every hook has to lead into.",
+            "Stay in the same position and light for the hooks, because a jump in brightness or framing gives away the edit.",
+            "Before each hook, hold up fingers for its number while the camera rolls, so you can find it in the footage later.",
+            "Leave a breath of silence before and after each line, which gives the editor room to cut.",
+            "Record each hook at least twice, so a stumble on one take does not cost you that variation.",
+            "Watch each hook joined to the first line of the body before you pack up, so you catch any opening that no longer fits."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "That last check matters because every hook makes a promise, and the body has to keep it. A situation hook and a question hook can both lead into the same [payoff](/glossary/#payoff), but a hook that promises something the body never shows will lose the viewer; [hook and payoff](/blog/hook-payoff/) explains how to spot that mismatch.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a script with hook variations look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "It is one normal script with the hook beat written several ways, and every other beat written once.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a reusable silicone freezer bag",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "My freezer is mostly mystery parcels wrapped in foil.",
+              "do": "Open the freezer door with the camera at chest height, looking in at a stack of foil bundles."
+            },
+            {
+              "part": "setup",
+              "say": "Every time I want one, I have to unwrap it at the counter just to find out what it is.",
+              "do": "Peel the corner of a foil bundle back on the counter and squint at it."
+            },
+            {
+              "part": "beat 1",
+              "say": "So I moved everything into these. They stand up on their own while I fill them.",
+              "do": "Stand an empty bag on the counter and ladle soup into it with one hand."
+            },
+            {
+              "part": "beat 2",
+              "say": "I write what it is and when I made it on the front, and it wipes off when the bag is empty.",
+              "do": "Close shot of a hand writing on the bag, then wiping a different bag clean with a cloth."
+            },
+            {
+              "part": "turn",
+              "say": "Now I can read dinner through the door instead of guessing.",
+              "do": "Lay the filled bag flat on a freezer shelf beside the foil bundles, labels facing the camera."
+            },
+            {
+              "part": "close",
+              "say": "These are the ones I use. They're linked if you want to try them.",
+              "do": "Hold a folded empty bag up to the lens, then put it in the drawer."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "To make the variations, write the other two hooks under the first and leave the rest alone. Here, the question version would replace the opening line with why do I have to unwrap dinner to find out what it is, and the picture-first version would open on a frozen foil lump knocked against the counter before any words. Both lead into the same setup, so the body never needs a second take.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How should you deliver hook variations to a brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask the brand whether it wants full cuts for every hook or the hooks and body as separate clips, then label each file plainly.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Full cuts are ready to post as they are, so make one complete video per hook if that is what was agreed.",
+            "Separate clips give an editor more freedom, so send each hook alone plus one body clip if that is the request.",
+            "Name each file by product and variation, such as freezer bag hook situation, so nobody has to open it to know what it is.",
+            "Add a short note listing each hook's opening line, so whoever reviews them can compare without pressing play."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand comes back asking for a fourth hook, check what you agreed before you film it, and offer it as an add-on if it was not part of the original job.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-15",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "My freezer is mostly mystery parcels wrapped in foil."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
