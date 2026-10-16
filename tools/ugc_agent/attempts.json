@@ -34,7 +34,8 @@
   "q004": {
     "fails": 1,
     "last_fail": "2026-10-14",
-    "last_error": "originality: 2 shared 12-word run(s) with blog/ugc-script-for-skincare/index.html, e.g. 'how to turn a brand brief into a script shows how to'"
+    "last_error": "originality: 2 shared 12-word run(s) with blog/ugc-script-for-skincare/index.html, e.g. 'how to turn a brand brief into a script shows how to'",
+    "published": "2026-10-16"
   },
   "q032": {
     "fails": 0,
@@ -51,5 +52,13 @@
   "q048": {
     "fails": 0,
     "published": "2026-10-15"
+  },
+  "q056": {
+    "fails": 0,
+    "published": "2026-10-16"
+  },
+  "q012": {
+    "fails": 0,
+    "published": "2026-10-16"
   }
 }

@@ -1,0 +1,267 @@
+{
+  "question_id": "q056",
+  "slug": "types-of-ugc-videos",
+  "theme": "ugc-formats",
+  "title": "What are the main types of UGC video?",
+  "description": "The main types of UGC videos, one line each: demo, unboxing, tutorial, testimonial, point of view and more, plus how to pick one for a brief.",
+  "short_answer": "The main types of UGC video are the demo, unboxing, tutorial, comparison, before-and-after, testimonial, get ready with me, day in the life, point of view and problem-solution. Each type is a repeatable shape, so once you can name it, you can pick the one a brief needs and script it on purpose.",
+  "sections": [
+    {
+      "heading": "Why does it help to name the type of a UGC video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Naming the type tells you what the camera has to show and in what order, before you write a single line.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A type is close to what this site calls a [format](/glossary/#format): the shape a video follows, whatever it happens to be about. When a brand asks for a demo, it is asking for that shape. If you can name the shape, you can reuse it for the next product too. [What a UGC video format is](/what-is-a-video-format/) explains why a shape carries over between products when a subject does not.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which types of UGC video put the product at the centre?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Five types put the product at the centre: the demo, the unboxing, the tutorial, the comparison and the before-and-after.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Demo: you show the product doing its one main job, in your hands, in one clear take.",
+            "Unboxing: you open the package on camera and react to what is inside, so the viewer sees it fresh.",
+            "Tutorial: you teach a short how-to where the product is one of the steps, so it earns its place in the lesson.",
+            "Comparison: you set the product next to what you used before and show the difference you noticed yourself.",
+            "Before-and-after: you film a change you can show on camera, like a tidy drawer or a set table, and leave out any change to a body, skin or money."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which types of UGC video put the creator at the centre?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Five types put you at the centre: the testimonial, get ready with me, day in the life, point of view and problem-solution.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Testimonial: you talk straight to camera about what you noticed using the product, in your own words.",
+            "Get ready with me: you go through a routine while chatting, and the product turns up as one step of it.",
+            "Day in the life: you film moments across a day, and the product appears where it fits rather than as the star.",
+            "Point of view: the camera plays the viewer, so the video acts out a moment they recognise; the [point-of-view video](/glossary/#pov-video) entry covers the term.",
+            "Problem-solution: you name a small, everyday annoyance, show what you tried, then show the product as what you switched to."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [storytime video](/glossary/#storytime-video) can sit on top of any of these, because it is a way of telling rather than a fixed set of shots. [How to script a storytime video for a brand](/blog/storytime-script/) shows how to keep the product inside the story.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you choose the right type for a brief?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Start from what the brief needs the viewer to understand, then pick the type whose shots show that most directly.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "If the brief needs the viewer to see",
+            "Try this type",
+            "Because"
+          ],
+          "table_rows": [
+            [
+              "How the product works",
+              "Demo or tutorial",
+              "The viewer watches it work instead of hearing about it."
+            ],
+            [
+              "What arrives in the box",
+              "Unboxing",
+              "The packaging and contents are the point, so they lead."
+            ],
+            [
+              "Why it beats the old way",
+              "Comparison or problem-solution",
+              "The old way is on screen, so the switch makes sense."
+            ],
+            [
+              "Where it fits in a real routine",
+              "Get ready with me or day in the life",
+              "The product sits among ordinary moments, not on a plinth."
+            ],
+            [
+              "A moment the viewer has lived",
+              "Point of view",
+              "The viewer is cast in the scene, so they stay to see it end."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brief names a type, use that one, and if it leaves the choice to you, ask the brand which of two types it prefers before you film. [How to turn a brand brief into a script](/blog/brief-to-script/) walks through matching a shape to what a brief asks for.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a problem-solution UGC script look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A problem-solution script names the annoyance, shows a failed fix, then shows the product as the switch you made, in that order.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a foldable laptop stand",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I work from my sofa, and my laptop has been living on a cushion.",
+              "do": "Wide shot of you on the sofa, laptop tilted on a cushion on your knees."
+            },
+            {
+              "part": "setup",
+              "say": "The cushion slides, the screen sits low, and I keep leaning in to read it.",
+              "do": "Close shot of the cushion slipping sideways as you type."
+            },
+            {
+              "part": "beat 1",
+              "say": "I tried a stack of books. It wobbled every time I hit a key.",
+              "do": "Set the laptop on a pile of books, tap a key, and let the pile shift."
+            },
+            {
+              "part": "turn",
+              "say": "So I tried this instead. It folds flat and opens in one move.",
+              "do": "Unfold the stand in one motion, then hold a close shot on the hinge."
+            },
+            {
+              "part": "beat 2",
+              "say": "Now the screen sits where I can see it, and the laptop stays put while I type.",
+              "do": "Side angle of the laptop on the stand as you type, with nothing moving."
+            },
+            {
+              "part": "close",
+              "say": "It folds back into my bag at the end of the day. The one I use is linked.",
+              "do": "Fold the stand, slide it into a bag, then point down at the caption."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Notice that the failed fix comes before the product. Without it, the [turn](/glossary/#the-turn) has nothing to turn from. The same beat order works for most of the types above once you swap what each shot shows, and [the parts of a UGC video script](/short-form-script-structure/) names each part.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Can you mix two types in one UGC video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "You can mix two types when one leads and the other supports it, but pick a single lead so the viewer knows what they are watching.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "An unboxing that ends in a short demo works, because the demo answers the question the unboxing raised. A get ready with me that turns into a comparison halfway through tends to lose its thread, because the viewer settled in for a routine. If you want both, film them as separate takes and offer the brand the choice.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-16",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I work from my sofa, and my laptop has been living on a cushion."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 4,
+      "ugc_focus": 5,
+      "originality": 3,
+      "voice": 4
+    }
+  }
+}
