@@ -145,6 +145,11 @@
   </url>
   <!-- BEGIN UGC AGENT -->
   <url>
+    <loc>https://lynxr.io/blog/agree-in-writing-before-ugc/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/do-you-need-followers-for-ugc/</loc>
     <lastmod>2026-10-14</lastmod>
     <priority>0.6</priority>
@@ -162,6 +167,11 @@
   <url>
     <loc>https://lynxr.io/blog/follow-up-ugc-pitch/</loc>
     <lastmod>2026-10-18</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/get-rebooked-ugc/</loc>
+    <lastmod>2026-10-19</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -225,6 +235,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/vague-ugc-brief/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/what-are-ugc-usage-rights/</loc>
     <lastmod>2026-10-11</lastmod>
     <priority>0.6</priority>
@@ -256,12 +271,12 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-brand-deals/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-10-19</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-briefs/</loc>
-    <lastmod>2026-10-11</lastmod>
+    <lastmod>2026-10-19</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -286,7 +301,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-rates-and-pay/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-10-19</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
