@@ -200,6 +200,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/ugc-ad-hooks/</loc>
+    <lastmod>2026-10-20</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/ugc-equipment-to-start/</loc>
     <lastmod>2026-10-17</lastmod>
     <priority>0.6</priority>
@@ -296,7 +301,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-hooks/</loc>
-    <lastmod>2026-10-15</lastmod>
+    <lastmod>2026-10-20</lastmod>
     <priority>0.6</priority>
   </url>
   <url>

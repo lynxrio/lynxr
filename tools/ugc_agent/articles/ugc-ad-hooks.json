@@ -1,0 +1,244 @@
+{
+  "question_id": "q042",
+  "slug": "ugc-ad-hooks",
+  "theme": "ugc-hooks",
+  "title": "What makes a UGC hook work in an ad?",
+  "description": "What makes UGC ad hooks work for strangers: name the person and the situation in the first line, show the product's world, and keep the promise.",
+  "short_answer": "A UGC hook works in an ad when a stranger can tell in the first second who the video is for and what situation it is about. Name a specific person and moment in the first line, show the place where the product gets used in the first frame, and make sure the rest of the video pays off what the hook promised.",
+  "sections": [
+    {
+      "heading": "Why does a hook for an ad need to work differently?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "An ad reaches people who never chose to watch you, so the hook has to earn attention without any goodwill from a follower.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A follower already knows your face and gives you a moment to get going. A stranger in an ad gives you nothing, so a slow warm-up, an in-joke or a greeting spends the only second you have. Plan the first line and the first frame together, because a viewer who sees nothing familiar and hears nothing about their life has no reason to stay. The basic shapes in [writing a UGC hook](/how-to-write-a-hook/) still apply; an ad only raises the bar on how fast they land.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Read the [brief](/glossary/#brief) before choosing an angle. If it names who the ad is for, write the hook for that person rather than for your own audience.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should the first line of an ad hook say?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The first line should name a specific person in a specific moment, so the right viewer recognises themselves straight away.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "General hooks such as wait for this or you need to see this ask for trust a stranger has not given you. A line that describes one small, real situation does the filtering for you: the people it describes lean in, and the rest scroll on, which is the job a [hook](/glossary/#hook) has in an ad.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Vague hook",
+            "Specific ad hook",
+            "What changed"
+          ],
+          "table_rows": [
+            [
+              "You need this in your kitchen.",
+              "If your sink fills up with pans before dinner is even served, look at this.",
+              "It names a moment the viewer has stood in."
+            ],
+            [
+              "This changed my mornings.",
+              "I leave the house at seven and my hair is still damp every time.",
+              "It describes a real routine, with no promised result."
+            ],
+            [
+              "Okay, listen to me.",
+              "Anyone who works from a kitchen table, this one is for you.",
+              "It names the person in the first few words."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should the viewer see in the first frame?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The first frame should show the product's world: the place, the mess or the moment where the product gets used.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Open on the cluttered drying rack, the fogged-up bathroom mirror or the overflowing bag, not on your face against a plain wall. The viewer reads the picture before they hear a word, so the frame should say the same thing as the line. Add the first line as on-screen text as well, because a viewer with the sound off still needs to know what the video is about.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Start mid-action, with your hands already in the situation, so there is no empty moment at the start.",
+            "Keep the product in shot or in reach, because a hook that never connects to it leaves the viewer confused later.",
+            "Film the hook in the same place as the rest of the video, so the cut from hook to setup feels continuous."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you make sure the hook keeps its promise?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write the [payoff](/glossary/#payoff) first, then write a hook that promises exactly that much and no more.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A hook that promises more than the video shows loses the viewer at the moment the gap becomes obvious, and it can push you toward a result claim the brand cannot use. Check each hook against the last beat of the script: if the ending shows a dry rack and a clear sink, the hook can name the pile of pans, but not a spotless kitchen forever. [The guide on hook and payoff](/blog/hook-payoff/) has an audit you can run on a finished draft.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does an ad hook look like inside a full script?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Inside a full script, the hook sets up one situation and every beat after it moves that situation forward.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a folding over-the-sink dish rack",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "If your sink fills up with pans before dinner is even served, look at this.",
+              "do": "Open on a sink stacked with pans and a full chopping board, steam rising, your hand reaching in."
+            },
+            {
+              "part": "setup",
+              "say": "My kitchen has about one arm's length of counter, and the drying rack used to take half of it.",
+              "do": "Pan across the small counter, then to an old drying rack crowded with plates."
+            },
+            {
+              "part": "beat 1",
+              "say": "So the rack went, and this went over the sink instead.",
+              "do": "Unfold the rack across the sink in one movement, close to the lens."
+            },
+            {
+              "part": "turn",
+              "say": "Pans drip straight into the sink, and the counter is mine again.",
+              "do": "Set two wet pans on the rack, then pull back to show the clear counter beside it."
+            },
+            {
+              "part": "close",
+              "say": "It folds up flat when I'm done. The one I use is linked.",
+              "do": "Roll the rack up, slide it beside the taps, and point down at the caption."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "How should you give the brand more than one ad hook?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Give the brand a few hooks that each change one thing, so it can compare them without reshooting the rest of the video.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Change the line, the first frame or the person you address, but keep the setup and the payoff identical, because then any difference between versions comes from the hook alone. [Filming hook variations](/blog/ugc-hook-variations/) covers how to shoot and label them in one session. Ask the brand how many hook options it wants, and agree that number before you film.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-20",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "If your sink fills up with pans before dinner is even served, look at this."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

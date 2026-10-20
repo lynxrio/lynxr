@@ -96,5 +96,19 @@
   "q025": {
     "fails": 0,
     "published": "2026-10-19"
+  },
+  "q026": {
+    "fails": 1,
+    "last_fail": "2026-10-20",
+    "last_error": "originality: 2 shared 12-word run(s) with blog/ugc-script-for-skincare/index.html"
+  },
+  "q033": {
+    "fails": 1,
+    "last_fail": "2026-10-20",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-script-for-an-app/index.html (breadcrumb + question title, not fixable in the candidate)"
+  },
+  "q042": {
+    "fails": 0,
+    "published": "2026-10-20"
   }
 }
