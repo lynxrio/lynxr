@@ -1,0 +1,213 @@
+{
+  "question_id": "q027",
+  "slug": "ugc-feedback-that-breaks-the-video",
+  "theme": "ugc-briefs",
+  "title": "What do you do when brand feedback would break the video?",
+  "description": "How to handle UGC brand feedback that would break your video: tell word changes from format changes, explain in one sentence, and offer an alternative.",
+  "short_answer": "When brand feedback would break the video, explain in one sentence what the change breaks and offer an alternative that still meets the note. Word changes, like a swapped line or a product name said differently, you simply make. Format changes, like moving the product to the opening or cutting the problem you set up, are the ones worth a short reply. Let the brand pick before you reshoot.",
+  "sections": [
+    {
+      "heading": "How do you tell whether a note would break the video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask whether the note changes what is said or changes the order and shape of the video, because only the second can break it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A word change swaps a line, a claim, a name or a caption. The video keeps its [format](/glossary/#format): the same [hook](/glossary/#hook), the same beats in the same order, the same [payoff](/glossary/#payoff). A format change moves or removes one of those parts. Putting the product in the opening shot, cutting the problem you set up, or stacking extra features into the middle all change the shape the video runs on. Use [the parts of a UGC video script](/short-form-script-structure/) as a checklist: if a note touches the hook, the turn or the close, treat it as a format change.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "The note",
+            "What kind of change",
+            "What to do"
+          ],
+          "table_rows": [
+            [
+              "Use our tagline instead of your closing line",
+              "Word change",
+              "Make it as asked"
+            ],
+            [
+              "Say the product name in the first line",
+              "Word change, if your hook line survives",
+              "Fit the name into the line you already have"
+            ],
+            [
+              "Show the product in the very first shot",
+              "Format change",
+              "Reply with what it breaks and an alternative"
+            ],
+            [
+              "Cut the part where you describe the problem",
+              "Format change",
+              "Reply with what it breaks and an alternative"
+            ],
+            [
+              "Add these extra features to the middle",
+              "Format change",
+              "Offer to give the most important one its own beat"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why should you make word changes without pushing back?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Make word changes as asked, because the brand owns its wording and the video still works with different words in the same shape.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The brand may have reasons you cannot see: a claim its team has cleared, a phrase it avoids, a product name it wants said one way. Arguing over these spends goodwill you will want later for a note that really matters. If a required line is long or stiff, place it in the beat where it sounds most natural, the way [how to turn a brand brief into a script](/blog/brief-to-script/#placing-required-lines) handles required lines in a first draft, and say it in your own rhythm without changing the words.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you explain a format change in one sentence?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Name the part of the video the note removes and what that part does for the viewer, in one plain sentence that does not defend your taste.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "One sentence keeps the reply about the video, not about you. A long reply explaining every choice reads as resistance even when you are right. Tie the sentence to something the brand already wants, such as the viewer staying to the end or the product looking believable. Some sentences you can adapt:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Showing the product first answers the question the hook asks, so the viewer has no reason to keep watching.",
+            "Cutting the problem leaves the product with nothing to solve, so the reveal has nothing to land on.",
+            "Adding the extra features in the middle pushes the reveal later and loses the pace that carries the video.",
+            "Replacing the opening line with the product name turns the first second into an ad before the viewer knows why to care."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What alternative can you offer that still meets the note?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Offer a version that gives the brand what the note is after, placed where it keeps the shape intact, and make it concrete enough to approve in one reply.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Read each note for the worry behind it. A request to show the product first may mean the brand fears viewers will not know what is being sold; a quick product shot during the setup, with the name on screen, answers that without spoiling the reveal. A request for more features may mean the brand wants one particular feature seen; pick the one the [brief](/glossary/#brief) stresses and give it its own beat. A request to cut the problem may mean the brand dislikes negative framing; keep the problem but make it lighter, so the product still has something to solve.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Write the reply so the brand can answer in one word. For example: Thanks, [NAME]. I can make the line changes exactly as written. Moving [PRODUCT] to the first shot would answer the hook straight away, so the viewer has no reason to stay. Could I show it in the second shot instead, with the name on screen, so it is clear from the start what this is? If you would still rather have it first, I will film it that way.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What if the brand still wants the change after you explain?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Make the change and film it well, because the brand has heard your reason and the decision is now theirs.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the message where you made your suggestion, so the choice is on record if the result comes up later. Film the requested version with the same care as your own, since a half-hearted take reflects on you, not on the note. If you still believe your version serves the brand better, offer it as an extra take, and settle whether that counts as a revision first, as [agreeing it in writing before you start](/blog/agree-in-writing-before-ugc/) explains.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Next time, catch the clash earlier. Send the order of beats with the script, before you film, so a format note arrives while it is still cheap to change. [What to do when a UGC brief is vague](/blog/vague-ugc-brief/) has questions you can ask up front that surface these preferences before a single shot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-21",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 5,
+      "voice": 4
+    }
+  }
+}

@@ -185,6 +185,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/product-first-frame-hook/</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/raw-footage-in-ugc/</loc>
     <lastmod>2026-10-17</lastmod>
     <priority>0.6</priority>
@@ -207,6 +212,11 @@
   <url>
     <loc>https://lynxr.io/blog/ugc-equipment-to-start/</loc>
     <lastmod>2026-10-17</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/ugc-feedback-that-breaks-the-video/</loc>
+    <lastmod>2026-10-21</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -281,7 +291,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-briefs/</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -301,7 +311,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-hooks/</loc>
-    <lastmod>2026-10-20</lastmod>
+    <lastmod>2026-10-21</lastmod>
     <priority>0.6</priority>
   </url>
   <url>

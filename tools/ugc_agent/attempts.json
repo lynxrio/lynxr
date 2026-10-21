@@ -110,5 +110,18 @@
   "q042": {
     "fails": 0,
     "published": "2026-10-20"
+  },
+  "q027": {
+    "fails": 0,
+    "published": "2026-10-21"
+  },
+  "q034": {
+    "fails": 1,
+    "last_fail": "2026-10-21",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-script-for-an-app/index.html, e.g. 'lynxr questions ugc scripts how do you write a ugc script for' (breadcrumb + question title, not fixable in the c"
+  },
+  "q043": {
+    "fails": 0,
+    "published": "2026-10-21"
   }
 }
