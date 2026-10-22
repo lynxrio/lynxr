@@ -1,0 +1,268 @@
+{
+  "question_id": "q026",
+  "slug": "ugc-revisions",
+  "theme": "ugc-briefs",
+  "title": "How should revisions work on a UGC job?",
+  "description": "How UGC revisions work in practice: agree the rounds up front, get the script approved before filming, and tell a revision apart from a new video.",
+  "short_answer": "Revisions on a UGC job work best as a set number of rounds agreed in writing, with the script approved before you film. Get every note in one batch per round, fix what was asked, and treat a change to the idea itself as a new video rather than a revision.",
+  "sections": [
+    {
+      "heading": "When should revisions happen on a UGC job?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Most of the changing should happen at the script stage, because a changed line costs you minutes and a changed video costs you a reshoot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Send the [script](/glossary/#script) to the [brand](/glossary/#brand) before you pick up the camera, and ask for a clear yes on it. A two-column layout helps here: the brand sees what you will say and what the camera will show, so a note about the setting or the product shot lands before filming, not after. [The two-column script](/blog/two-column-script/) shows how to lay it out so a brand can approve it in one read.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Then there is a second, smaller stage after filming, for the cut itself. If the script was approved, notes at this stage should be about the edit: pacing, captions, a clearer product shot. That split is what keeps a job from turning into an open-ended loop.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How many revision rounds should you offer?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Offer a fixed number of rounds and write it down before the job starts, because an unlimited offer gives neither side a point where the work is finished.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "One round on the script and one round on the edit is a simple starting point, since it covers both stages without inviting endless tweaks. If a brand asks for more, you can agree a fee per extra round instead of saying no. Put the number in the same written summary as the deliverables and deadlines; [what to agree in writing before a UGC job starts](/blog/agree-in-writing-before-ugc/) covers the rest of that summary.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Say what a round means, too. A round is one batch of notes from the brand and one updated version from you. Two emails of notes sent an hour apart still count as one round if you agree that they do, so ask the brand to send everything together.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What counts as a revision and what counts as a new video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A revision changes how the agreed idea is delivered; a new video changes the idea, the product, the format or the length.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Holding that line protects your time without turning every note into a fight. The test is simple: could this note have been given on the approved script? If the answer is yes and the script already covered it, the change is a new request, not a fix.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "The note asks for",
+            "Revision or new video",
+            "Why"
+          ],
+          "table_rows": [
+            [
+              "A different caption, a trimmed pause or a brighter product shot",
+              "Revision",
+              "It changes the delivery, not the idea."
+            ],
+            [
+              "A swapped line the script did not lock",
+              "Revision",
+              "Lines are yours to adjust within the approved story."
+            ],
+            [
+              "A new [hook](/glossary/#hook) that sets up a different problem",
+              "New video",
+              "The rest of the video was built to pay off the old one."
+            ],
+            [
+              "A different product or a different setting",
+              "New video",
+              "It needs fresh footage, not an edit."
+            ],
+            [
+              "A switch from talking to camera to a [POV video](/glossary/#pov-video)",
+              "New video",
+              "The [format](/glossary/#format) is the idea itself."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you ask for revision notes so they are usable?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask for every note in one message, tied to a moment in the video, because scattered notes lead to fixes that undo each other.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Send the cut with a short request so the brand knows how to reply. Something like this works:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Here is the first cut of [PRODUCT]. This round covers one batch of notes, so please send them together by [DATE].",
+            "For each note, tell me roughly where in the video it is, so I change the right moment.",
+            "If a note changes the hook, the product or the story, flag it, because that may need a reshoot.",
+            "If you are happy as it is, a short reply saying it is approved is all I need."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When a note would break the flow of the video, you do not have to pick between silence and an argument. [What to do when brand feedback would break the video](/blog/ugc-feedback-that-breaks-the-video/) walks through a one-sentence reply that offers an alternative.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you do when the agreed rounds run out?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Point back to what you agreed, finish the round you are in, and offer any further changes as a separate piece of work.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the tone plain and helpful, because the goal is to finish the job well, not to win. A reply like this keeps the door open: thanks for the notes, these are in, and this was the last included round. Happy to make the further changes for [AMOUNT], or to leave it here as approved. Let me know which you prefer by [DATE].",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If a small note arrives after the last round and it takes you a few minutes, you can choose to make it as goodwill. Say that it is a one-off, so the next job starts from the same agreement rather than a new habit.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you stop revisions from turning into re-shoots?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Lock the parts that cost a reshoot before filming, because those are the parts you cannot change in the edit.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Get the hook, the setting and the product shots approved in writing on the script, since each one needs new footage to change.",
+            "Ask who signs off on the brand side, so a second person does not reopen an approved script late.",
+            "Film a spare take of the hook and the key product moment, which gives you room to fix a note without going back on set.",
+            "Keep the approved script with the delivery, so any later note can be checked against it in a minute."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the [brief](/glossary/#brief) itself was thin, these approvals matter even more; [what to do when a UGC brief is vague](/blog/vague-ugc-brief/) covers the questions to ask before you write.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-22",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

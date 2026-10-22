@@ -100,12 +100,13 @@
   "q026": {
     "fails": 1,
     "last_fail": "2026-10-20",
-    "last_error": "originality: 2 shared 12-word run(s) with blog/ugc-script-for-skincare/index.html"
+    "last_error": "originality: 2 shared 12-word run(s) with blog/ugc-script-for-skincare/index.html",
+    "published": "2026-10-22"
   },
   "q033": {
-    "fails": 1,
-    "last_fail": "2026-10-20",
-    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-script-for-an-app/index.html (breadcrumb + question title, not fixable in the candidate)"
+    "fails": 2,
+    "last_fail": "2026-10-22",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-script-for-an-app/index.html, e.g. 'lynxr questions ugc scripts how do you write a ugc script for'"
   },
   "q042": {
     "fails": 0,
@@ -123,5 +124,9 @@
   "q043": {
     "fails": 0,
     "published": "2026-10-21"
+  },
+  "q044": {
+    "fails": 0,
+    "published": "2026-10-22"
   }
 }
