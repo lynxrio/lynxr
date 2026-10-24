@@ -88,8 +88,10 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
   - [What is a visual hook in UGC?](https://lynxr.io/blog/ugc-visual-hooks/): What a visual hook is in UGC, with visual hook examples: how to write the opening shot as a filmable instruction, motion versus still, and a full script.
 - [Filming and editing UGC](https://lynxr.io/faq/ugc-filming/): How to film and edit UGC on a phone: light, sound, B-roll, product demos, captions and the shots a brand needs.
   - [How do you film UGC on a phone so it looks good?](https://lynxr.io/blog/film-ugc-on-a-phone/): How to film UGC on your phone so it looks good: clean the lens, choose the right camera, face the light, frame vertically, steady the phone, film extra takes.
+  - [How do you light a UGC video at home?](https://lynxr.io/blog/light-ugc-at-home/): UGC lighting at home without a kit: face a window, switch off the room lights, keep one colour of light, and add a lamp only when daylight runs out.
 - [UGC video formats](https://lynxr.io/faq/ugc-formats/): One UGC format at a time: unboxing, GRWM, testimonial, problem-solution, before-and-after and more, each with its beats and an example script.
   - [What are the main types of UGC video?](https://lynxr.io/blog/types-of-ugc-videos/): The main types of UGC videos, one line each: demo, unboxing, tutorial, testimonial, point of view and more, plus how to pick one for a brief.
+  - [How do you script an unboxing UGC video?](https://lynxr.io/blog/ugc-unboxing-video/): How to write an unboxing UGC script: open on the first look inside, keep the box short, film each layer as its own beat, and close on one ask.
 
 <!-- END UGC AGENT -->
 

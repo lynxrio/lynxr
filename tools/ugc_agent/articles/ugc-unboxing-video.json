@@ -1,0 +1,237 @@
+{
+  "question_id": "q057",
+  "slug": "ugc-unboxing-video",
+  "theme": "ugc-formats",
+  "title": "How do you script an unboxing UGC video?",
+  "description": "How to write an unboxing UGC script: open on the first look inside, keep the box short, film each layer as its own beat, and close on one ask.",
+  "short_answer": "An unboxing UGC script is built around the moment you first see the product inside, not the outside of the box. Open on that moment or a promise of it, spend as little time as possible on tape and cardboard, give each layer of the packaging its own beat, and end with the product in use and one clear ask.",
+  "sections": [
+    {
+      "heading": "What makes an unboxing video worth watching?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "An unboxing is worth watching when it gives the viewer the first look they would get if the parcel were theirs.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Nobody stays to watch tape being cut. They stay because they want to see what is inside, how it is packed, and whether it looks the way it did online. That makes the unboxing a [format](/glossary/#format) with one built-in [payoff](/glossary/#payoff): the reveal. Everything in your [script](/glossary/#script) should either build toward that reveal or show what comes straight after it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The shape still follows [the parts of a UGC video script](/short-form-script-structure/): a hook, a short setup, beats, a turn and a close. An unboxing just fills each part with a layer of the box instead of a story.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Should the hook show the box or the product?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The hook should show or promise the first look inside, because a closed box gives the viewer nothing yet to stay for.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A sealed parcel on a table looks like every other parcel. Better options are a flash of the product before you rewind to the box, a line about what you expect to find, or the moment the lid lifts with the reaction in frame. Any shape from [the guide to writing a scroll-stopping hook](/how-to-write-a-hook/) can carry this, provided your [hook](/glossary/#hook) aims at what is inside.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Weak opening",
+            "Stronger opening",
+            "Why it is stronger"
+          ],
+          "table_rows": [
+            [
+              "Holding up a sealed box and saying what came in the post.",
+              "A quick shot of the product in your hand, then cut back to the closed box.",
+              "The viewer has already seen the payoff and wants the rest."
+            ],
+            [
+              "Cutting tape for the first few seconds.",
+              "Lid already loose, lifting it as you say the first line.",
+              "The reveal starts in the opening shot."
+            ],
+            [
+              "Reading the brand's welcome card aloud.",
+              "Saying the one thing you wanted to check when you ordered it.",
+              "It gives the viewer a question to wait on."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What beats should an unboxing script follow?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Give each layer of the packaging one beat, from the outer box to the product in your hand, and cut anything that doesn't change the picture.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "The outside, only if it matters: a box the brief wants seen, or packaging that is part of the product. Otherwise skip it.",
+            "The first layer: the lid lifting, tissue folding back, or the top of the product appearing. Keep the camera close and quiet.",
+            "The product out of the box: in your hand, turned slowly so the viewer sees the front, the side and any detail the brief names.",
+            "The extras: what else came with it, shown together in one shot rather than one at a time.",
+            "The first use: switching it on, putting it on, pouring it, or setting it where it will live. This is the turn."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Film each beat as a separate clip, so you can trim the boring frames between them and re-shoot one layer without opening a fresh box. Check the [brief](/glossary/#brief) before you start, in case the brand wants the packaging kept for a reshoot or sent back unopened.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does an unboxing UGC script look like written out?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A written unboxing script lists what you say and what the camera sees for each layer, with the first use as the turn.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a set of hanging toiletry bags for travel",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I pack for every trip the night before, so I opened this as soon as it arrived.",
+              "do": "Quick close shot of the bags laid out on the bed, then cut to the sealed box on the same bed."
+            },
+            {
+              "part": "setup",
+              "say": "I wanted one place for everything instead of three loose pouches.",
+              "do": "Lift the lid. Keep your hands and the box in frame, face out of shot."
+            },
+            {
+              "part": "beat 1",
+              "say": "First thing in there is the big one, with the hook at the top.",
+              "do": "Pull the largest bag out by its hook and let it hang from your hand so it unfolds."
+            },
+            {
+              "part": "beat 2",
+              "say": "Then two smaller ones that fit inside it.",
+              "do": "Tuck the smaller bags into the large one on camera, slowly, so the fit is visible."
+            },
+            {
+              "part": "turn",
+              "say": "This is the part I was checking: it hangs on the back of the bathroom door.",
+              "do": "Hang it on the door hook and open the zip so the viewer can see the pockets."
+            },
+            {
+              "part": "close",
+              "say": "It is going in my case for the weekend. The set is linked below.",
+              "do": "Fold it closed, drop it into a suitcase, and point to the link."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Every line says what you did or checked, and nothing promises what the set will do for the viewer's packing. That keeps it honest and keeps the reveal as the reason to watch.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How is an unboxing different from other UGC formats?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "An unboxing gets its tension from packaging and the first look, while other formats get it from a problem, a story or a comparison.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "That makes it a good fit for products that look good the moment they are seen, and a weaker fit for products whose value only shows after a week of use. If the brief needs the second kind, ask the brand whether a routine or a before-and-after style would serve it better. [What are the main types of UGC video](/blog/types-of-ugc-videos/) lays out the alternatives, and a [shot list](/glossary/#shot-list) for each layer keeps the shoot quick whichever you choose.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-24",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I pack for every trip the night before, so I opened this as soon as it arrived."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
