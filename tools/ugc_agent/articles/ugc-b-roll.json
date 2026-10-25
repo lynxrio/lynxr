@@ -1,0 +1,224 @@
+{
+  "question_id": "q049",
+  "slug": "ugc-b-roll",
+  "theme": "ugc-filming",
+  "title": "What B-roll should you film for a UGC video?",
+  "description": "What UGC B-roll to film: product, hands, setting and reaction shots, tied to each line of your script, plus spare clips that give the editor room.",
+  "short_answer": "Film B-roll that shows what each line of your script is talking about: the product up close, your hands using it, the place you use it, and your face reacting. Plan those shots from the script before you film, then grab a few spare clips of each so the brand or editor has room to cut.",
+  "sections": [
+    {
+      "heading": "What counts as B-roll in a UGC video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "B-roll is any footage that plays while your voice carries on, showing the thing you're describing instead of your face saying it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "In a talking video, the main footage is you speaking to the lens. B-roll is everything cut over the top of it: a pour, a zip, a scroll, a close shot of a label. It gives the viewer something new to look at on each [beat](/glossary/#beat), and it lets an editor trim a fumbled word without a jump cut showing.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The habits that make your main takes look clean apply here too, so read [how to film UGC on a phone so it looks good](/blog/film-ugc-on-a-phone/) before you start, and keep the same light for every clip.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which B-roll shots should be on every UGC shot list?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Plan four kinds of shot every time: the product, your hands with it, the setting, and your reaction.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Shot",
+            "What to film",
+            "Why it earns a place"
+          ],
+          "table_rows": [
+            [
+              "Product",
+              "A slow move past the label, the texture, the opening or the part the brief names.",
+              "The viewer sees exactly what is being sold."
+            ],
+            [
+              "Hands",
+              "You opening, pouring, pressing, folding or tapping it, filmed close.",
+              "It shows the product being used, not just held."
+            ],
+            [
+              "Setting",
+              "Where it lives: the shelf, the bag, the desk, the counter.",
+              "It places the product in a real day."
+            ],
+            [
+              "Reaction",
+              "A quiet look, a nod, a small smile, filmed without talking.",
+              "It gives the editor a pause to cut to between lines."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Write these as a [shot list](/glossary/#shot-list) on the same page as your [script](/glossary/#script), so nothing depends on memory once the phone is in your hand. Working through [the parts of a UGC video script](/short-form-script-structure/) in order is a simple way to make sure no part is left without a shot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you tie B-roll to the lines in your script?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Go through the script line by line and write down the one shot that would prove or show what each line says.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [two-column script](/blog/two-column-script/) makes this easy: words on the left, picture on the right. If a line says the lid clicks shut, the shot is the lid clicking shut, filmed close enough to hear it. If a line says you keep it in your bag, the shot is your hand pulling it out of the bag. When you can't think of a shot for a line, that line may be too vague to keep.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Give the [hook](/glossary/#hook) its own planned clip as well. Some edits open on B-roll instead of your face, and the ideas in [UGC visual hooks](/blog/ugc-visual-hooks/) work well as that opening shot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How much extra B-roll should you film for the edit?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Film a few versions of every planned shot and a handful of unplanned ones, because footage you skipped can't be added later.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hold each clip a few seconds longer than you think you need, so the editor can choose where it starts and stops.",
+            "Film the same action from two distances, one wide and one close, so there is a cut between them that looks deliberate.",
+            "Start each clip still, then move, then end still, because clean starts and ends are easier to cut on.",
+            "Keep the phone the same way up and the light the same for every clip, so they match when they sit side by side.",
+            "Grab a couple of clips nobody asked for, like the product on a different surface, since revisions often need one more shot."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Ask the brand whether it wants the spare clips sent as raw files with the finished video. If it does, agree in writing what is included, the way [what UGC deliverables include](/blog/ugc-deliverables/) sets out.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What B-roll mistakes are worth checking for before you wrap?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Before you pack up, watch every clip back once and check for the faults that would force a reshoot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "The label is backwards, blurred or half out of frame in the product shots.",
+            "Your hands cover the part of the product the line is about.",
+            "The background shows another brand's packaging, so move it out of shot.",
+            "A clip is too short to use because you stopped recording the moment the action ended.",
+            "One clip was filmed by the window and another under a ceiling light, so the colour jumps between them."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand's notes ask for a different picture over a line, the planned clips and spares are what let you fix it without filming again. [How to handle UGC revisions](/blog/ugc-revisions/) covers how to send that change back.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-25",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

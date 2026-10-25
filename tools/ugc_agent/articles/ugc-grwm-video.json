@@ -1,0 +1,242 @@
+{
+  "question_id": "q058",
+  "slug": "ugc-grwm-video",
+  "theme": "ugc-formats",
+  "title": "How do you script a get-ready-with-me UGC video?",
+  "description": "How to script a get-ready-with-me UGC video: write the talk track as its own story, then place the product at the routine step where it belongs.",
+  "short_answer": "Script a get-ready-with-me UGC video as two layers: a short story you tell while getting ready, and the routine your hands follow underneath it. Write the story first, list the routine steps second, then place the product at the step where you would really use it, so the story carries the viewer to it.",
+  "sections": [
+    {
+      "heading": "Why does a get-ready-with-me script need two separate layers?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The talk track keeps people watching and the routine shows the product, so each needs its own plan or one will swallow the other.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A get-ready-with-me is a [format](/glossary/#format) where the viewer sits with you while you get dressed or do your face, and you talk the whole time. If you only plan the routine, you end up narrating it step by step, which tells the viewer what they can already see. If you only plan the story, the product turns up at a random moment and feels dropped in.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Treat the talk track like a small [storytime script](/blog/storytime-script/): it has a start, a reason to keep listening and an ending. Treat the routine like a [shot list](/glossary/#shot-list): an ordered set of things your hands do on camera.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you talk about while you get ready?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Talk about where you're getting ready to go and what you're feeling about it, because that gives the routine a reason to exist.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Pick a real occasion from your week: a first day, a dinner you're nervous about, a friend's party where you know nobody.",
+            "Open the story with the tension in it, so the [hook](/glossary/#hook) is about the evening, not about makeup or clothes.",
+            "Keep the story to a few moments, because the routine sets the pace and a long story will outrun it.",
+            "Save the ending of the story for the last step of the routine, so the viewer stays for both.",
+            "Leave out anything you'd rather not have attached to a brand's video for as long as it runs."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brief asks for a set theme, such as a work morning or an evening out, build the story inside that theme. Keep the fixed parts and make the rest yours, the way [turning a brand brief into a script](/blog/brief-to-script/) lays out.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Where does the product go in a get-ready-with-me routine?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Put the product at the step where you would honestly use it, even if that step is in the middle rather than first.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Write the routine out in your real order, then mark the product's step. That step becomes the [turn](/glossary/#the-turn) of the video: the story pauses, the camera moves in, and you say one or two things about the product. Then the story picks up again. Moving the product to the start just to show it sooner breaks the routine, and the viewer can tell.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Routine step",
+            "What the story is doing",
+            "What the camera does"
+          ],
+          "table_rows": [
+            [
+              "First step",
+              "Sets up the occasion and the worry.",
+              "Bare face or plain clothes, mirror shot."
+            ],
+            [
+              "Middle steps",
+              "Adds a detail or a small twist.",
+              "Quick cuts of hands at work."
+            ],
+            [
+              "Product step",
+              "Pauses for one or two honest lines.",
+              "Close shot of the product, then on you."
+            ],
+            [
+              "Final step",
+              "Ends the story and asks for one thing.",
+              "Full look in the mirror, then to the lens."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a get-ready-with-me UGC script look like written out?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Written out, each beat pairs one moment of the story with one step of the routine, and the product sits at its natural step.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a cream blush stick",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I'm meeting my partner's oldest friends tonight, and apparently they've already heard about me.",
+              "do": "Sit at a mirror with a bare face, hair clipped back, looking into the lens."
+            },
+            {
+              "part": "setup",
+              "say": "I don't know what they've heard, which is the part I keep thinking about.",
+              "do": "Apply moisturiser with your fingertips, eyes on the mirror."
+            },
+            {
+              "part": "beat 1",
+              "say": "So I asked what they're like, and all I got was, you'll love them.",
+              "do": "Quick cut of you dabbing concealer under one eye."
+            },
+            {
+              "part": "turn",
+              "say": "This is the step I don't skip when I'm nervous. It's a cream stick, so I just tap it on and blend with my fingers.",
+              "do": "Close shot of the stick touching your cheek, then your fingers blending it out."
+            },
+            {
+              "part": "beat 2",
+              "say": "It goes in my bag too, in case I want more later.",
+              "do": "Drop the stick into a small bag on the table."
+            },
+            {
+              "part": "close",
+              "say": "I'll tell you how tonight goes. The blush is linked if you want it.",
+              "do": "Unclip your hair, look in the mirror, then turn to the lens."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "The story never stops to sell. The product step is short, and the last line promises the rest of the story, which gives the viewer a reason to watch your next video too.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How is a get-ready-with-me different from other UGC formats?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A get-ready-with-me runs on a story told over a routine, while most other formats run on the product itself.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "An [unboxing UGC video](/blog/ugc-unboxing-video/) builds every beat around the product being revealed. A demo builds every beat around what the product does. A get-ready-with-me puts the product in one step of a longer routine and lets the story do the holding. That makes it a good choice when a brief wants the product to feel like part of a real day, and a weak one when the brief needs a feature explained in detail. For the wider list of shapes to choose from, see [the main types of UGC video](/blog/types-of-ugc-videos/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-25",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I'm meeting my partner's oldest friends tonight, and apparently they've already heard about me."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

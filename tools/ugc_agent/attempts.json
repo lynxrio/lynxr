@@ -117,9 +117,9 @@
     "published": "2026-10-21"
   },
   "q034": {
-    "fails": 2,
-    "last_fail": "2026-10-23",
-    "last_error": "originality: shared 12-word run with blog/ugc-script-for-an-app/index.html from the generated breadcrumb and title ('lynxr questions ugc scripts how do you write a ugc script for'); not fixable in the"
+    "fails": 3,
+    "last_fail": "2026-10-25",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-script-for-an-app/index.html, e.g. 'lynxr questions ugc scripts how do you write a ugc script for' (breadcrumb + question title, not fixable in the a"
   },
   "q043": {
     "fails": 0,
@@ -136,7 +136,8 @@
   "q049": {
     "fails": 1,
     "last_fail": "2026-10-23",
-    "last_error": "proper noun: section 1 block 3 text has DO (anchor text 'SAY and DO' copied from a page title)"
+    "last_error": "proper noun: section 1 block 3 text has DO (anchor text 'SAY and DO' copied from a page title)",
+    "published": "2026-10-25"
   },
   "q050": {
     "fails": 0,
@@ -145,5 +146,9 @@
   "q057": {
     "fails": 0,
     "published": "2026-10-24"
+  },
+  "q058": {
+    "fails": 0,
+    "published": "2026-10-25"
   }
 }
