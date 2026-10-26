@@ -104,9 +104,9 @@
     "published": "2026-10-22"
   },
   "q033": {
-    "fails": 3,
-    "last_fail": "2026-10-24",
-    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-script-for-an-app/index.html, e.g. 'lynxr questions ugc scripts how do you write a ugc script for' (question title + breadcrumb collide)"
+    "fails": 4,
+    "last_fail": "2026-10-26",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-script-for-an-app/index.html, e.g. 'lynxr questions ugc scripts how do you write a ugc script for'"
   },
   "q042": {
     "fails": 0,
@@ -150,5 +150,13 @@
   "q058": {
     "fails": 0,
     "published": "2026-10-25"
+  },
+  "q051": {
+    "fails": 0,
+    "published": "2026-10-26"
+  },
+  "q059": {
+    "fails": 0,
+    "published": "2026-10-26"
   }
 }

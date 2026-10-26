@@ -215,6 +215,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/ugc-audio/</loc>
+    <lastmod>2026-10-26</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/ugc-b-roll/</loc>
     <lastmod>2026-10-25</lastmod>
     <priority>0.6</priority>
@@ -275,6 +280,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/ugc-testimonial-video/</loc>
+    <lastmod>2026-10-26</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/ugc-unboxing-video/</loc>
     <lastmod>2026-10-24</lastmod>
     <priority>0.6</priority>
@@ -331,12 +341,12 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-filming/</loc>
-    <lastmod>2026-10-25</lastmod>
+    <lastmod>2026-10-26</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-formats/</loc>
-    <lastmod>2026-10-25</lastmod>
+    <lastmod>2026-10-26</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
