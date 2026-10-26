@@ -7801,8 +7801,12 @@ const BF_BUCKET = "lynxr-brief-files";
 // the per-file size and the types, a trigger enforces the per-brief caps; these
 // copies only make a refusal an instant sentence instead of a failed upload.
 const BF_MAX_FILE = 25 * 1048576;
-const BF_MAX_TOTAL = 50 * 1048576;
-const BF_MAX_COUNT = 20;
+// NO PER-BRIEF CAP (owner, 2026-10-26: "can you change it so that the briefs hold more than just 20 images"
+// ... "like it infinite"). Only the per-file size limit stays, enforced by the bucket. The database trigger
+// went with it: supabase/brief_files_uncap.sql. Infinity keeps every existing `count + 1 > BF_MAX_COUNT`
+// check valid and never true.
+const BF_MAX_TOTAL = Infinity;
+const BF_MAX_COUNT = Infinity;
 // Extension -> the Content-Type sent on upload. Decided HERE from the name and
 // never from file.type: browsers disagree about fonts and zips
 // ("application/x-zip-compressed", "" for .woff2 on some systems), and the
@@ -8073,11 +8077,11 @@ function bfSectionHtml(kind, sourceId, { inSend = false } = {}) {
         <span class="lbl bf-pct">uploading · ${u.pct}%</span>
       </li>`).join("");
   return wrap(`
-    ${head(`<span class="lbl bf-total">${cbPlural(entry.rows.length, "file", "files")} · ${bfSize(total)} of ${bfSize(BF_MAX_TOTAL)}</span>`)}
+    ${head(`<span class="lbl bf-total">${cbPlural(entry.rows.length, "file", "files")} · ${bfSize(total)}</span>`)}
     <label class="bf-drop" id="bf-drop">
       <input type="file" id="bf-input" class="sr-only" multiple accept="${BF_ACCEPT}">
       <span class="bf-drop-main">Drop logos, fonts or brand files here, or <span class="bf-drop-pick">choose files</span></span>
-      <span class="lbl">PNG, JPG, WebP, GIF, SVG, PDF, ZIP, OTF, TTF, WOFF · up to ${bfSize(BF_MAX_FILE)} each · ${BF_MAX_COUNT} files and ${bfSize(BF_MAX_TOTAL)} per brief</span>
+      <span class="lbl">PNG, JPG, WebP, GIF, SVG, PDF, ZIP, OTF, TTF, WOFF · up to ${bfSize(BF_MAX_FILE)} each</span>
     </label>
     ${rows ? `<ul class="bf-list">${rows}</ul>` : ""}
     ${bfbNoteHtml(kind, sourceId)}

@@ -27,6 +27,13 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**NO PER-BRIEF FILE CAP (2026-10-26, UNCOMMITTED, stamp `20261026a`).** Owner: "can you change it so that the briefs
+hold more than just 20 images" ... "like it infinite". `app.js` sets `BF_MAX_COUNT` / `BF_MAX_TOTAL` to `Infinity`, so every
+existing check stays valid and never fires. The files line drops "of 50 MB" and the rule line drops "20 files and 50 MB
+per brief". The database trigger `lynxr_brief_files_cap` is dropped by `supabase/brief_files_uncap.sql` (owner runs it)
+and no longer created by `brief_files.sql`. Still limited: 25 MB per file (bucket), 10 MB and 4 per note for note images.
+Verified: a 25-file brief renders "25 files · 75 MB" with all 25 listed, no cap wording, `csp []`.
+
 **CM ROLE AND PORTAL (2026-10-13, UNCOMMITTED, stamp `20261013b`; plan `~/.claude/plans/lynxr-cm-portal.md`). NOT LIVE until
 the owner runs `supabase/cm_portal.sql` (either order: without it nobody is a CM and every page behaves exactly as
 before).** Owner: "a CM page … switch from a creator view to a CM view … all they could click is 'Create a new brief'

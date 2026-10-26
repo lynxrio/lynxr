@@ -35,7 +35,7 @@
 -- LIMITS — mirrored as the BF_* constants in app.js; change both together.
 --   25 MB a file ............... storage.buckets.file_size_limit
 --                                (the Free plan caps any file at 50 MB)
---   20 files and 50 MB a brief . lynxr_brief_files_cap(), below
+--   no per-brief cap ......... removed 2026-10-26 (brief_files_uncap.sql)
 --   png jpg webp gif svg pdf zip otf ttf woff woff2 ... allowed_mime_types
 --   Why this tight: the Free plan's 5 GB/month egress quota restricted this
 --   project once already (2026-09-07), and every creator a brief reaches
@@ -74,32 +74,11 @@ create table if not exists public.lynxr_brief_files (
 create index if not exists lynxr_brief_files_source_idx
   on public.lynxr_brief_files (source_kind, source_id);
 
--- Per-brief caps. Staff are the only writers, so this guards against a
--- mistake, not an attacker: two uploads landing in the same instant can pass
--- it together by one file.
-create or replace function public.lynxr_brief_files_cap()
-returns trigger
-language plpgsql
-set search_path = ''
-as $$
-declare
-  n     int;
-  total bigint;
-begin
-  select count(*), coalesce(sum(f.size), 0) into n, total
-    from public.lynxr_brief_files f
-   where f.source_kind = new.source_kind and f.source_id = new.source_id;
-  if n >= 20 or total + new.size > 52428800 then
-    raise exception 'brief_files_cap: a brief holds at most 20 files and 50 MB' using errcode = '23514';
-  end if;
-  return new;
-end;
-$$;
-
+-- No per-brief cap since 2026-10-26 (owner: "like it infinite"). The old
+-- lynxr_brief_files_cap trigger refused a brief's 21st file or anything past
+-- 50 MB; it is dropped here so a re-run of this file can't bring it back.
 drop trigger if exists lynxr_brief_files_cap on public.lynxr_brief_files;
-create trigger lynxr_brief_files_cap
-  before insert on public.lynxr_brief_files
-  for each row execute function public.lynxr_brief_files_cap();
+drop function if exists public.lynxr_brief_files_cap();
 
 alter table public.lynxr_brief_files enable row level security;
 revoke all on table public.lynxr_brief_files from anon;
