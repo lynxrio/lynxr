@@ -1,0 +1,232 @@
+{
+  "question_id": "q044",
+  "slug": "ugc-visual-hooks",
+  "theme": "ugc-hooks",
+  "title": "What is a visual hook in UGC?",
+  "description": "What a visual hook is in UGC, with visual hook examples: how to write the opening shot as a filmable instruction, motion versus still, and a full script.",
+  "short_answer": "A visual hook in UGC is the opening shot itself: what the viewer sees before they hear a word. You write it as the do line of the first beat, a filmable instruction that shows a person, a place and something already happening, so the picture earns attention even with the sound off.",
+  "sections": [
+    {
+      "heading": "How is a visual hook different from a spoken hook?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A spoken hook is the first thing you say; a visual hook is the first thing the viewer sees, and the two are planned separately.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "In a [two-column script](/glossary/#two-column-script), the spoken [hook](/glossary/#hook) sits in the say column and the visual hook sits next to it in the do column. Both land at the same moment, but they do different jobs. The line gives the viewer a reason to listen. The shot gives them a reason to look, which matters if someone is watching with the sound off or has not tuned in to your voice yet. [The two-column script](/blog/two-column-script/) shows how the columns sit side by side, and the visual hook is simply the top cell on the right.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When the shot only repeats the line, you have spent your opening on one idea twice. When it adds something, such as a place, a mess or a hand mid-movement, the viewer gets two reasons to stay instead of one.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you write a visual hook as a filmable instruction?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write it so someone else could film it without asking you a question: who is in frame, where, and what is already happening.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Vague visual hooks feel finished on the page and fall apart on set, because words like aesthetic or relatable do not tell the camera where to point. Go through [the parts of a UGC video script](/short-form-script-structure/) and treat the opening do line with the same care as the spoken one. A quick test is to read it aloud and ask whether you could set up the shot from that sentence alone.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Vague do line",
+            "Filmable do line"
+          ],
+          "table_rows": [
+            [
+              "Me looking stressed in the kitchen.",
+              "Hands digging through a crowded drawer, pulling out the wrong jar twice."
+            ],
+            [
+              "Aesthetic shot of the product.",
+              "The product on a windowsill, half in shadow, with a cold mug beside it."
+            ],
+            [
+              "Relatable morning moment.",
+              "A phone alarm going off on the floor next to an unmade bed, a hand reaching for it."
+            ],
+            [
+              "Showing the problem.",
+              "A bag tipped out on a car seat, keys sliding off the edge."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Should a visual hook use motion or a still frame?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Use motion when the problem is an action, and a still frame when the problem is a state the viewer needs a moment to read.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Pick motion for anything that happens: something spilling, falling, being searched for or being opened. The movement gives the eye something to follow straight away.",
+            "Pick a still frame for something that just is: a cluttered shelf, a stained shirt, a fridge with one sad item in it. Hold it long enough for the viewer to spot what is wrong.",
+            "Combine them by starting still and adding one movement, such as a hand entering the frame, so the viewer reads the scene and then sees it change.",
+            "Avoid a still shot of the product on its own, because it answers the question before the viewer has one. [How to hook a video when the product is in the first frame](/blog/product-first-frame-hook/) covers what to do when the brief insists on it."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a script with a strong visual hook look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here is a full example where the opening shot carries the hook and the spoken line adds to it rather than describing it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a set of stackable spice jars",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I have bought cumin three times this year because I could never find the first one.",
+              "do": "Hands pull jar after jar out of a deep cupboard and line them up on the counter, none of them the right one."
+            },
+            {
+              "part": "setup",
+              "say": "Every jar was a different shape, and the labels faced whichever way they landed.",
+              "do": "Close shot of mismatched jars with labels turned to the wall."
+            },
+            {
+              "part": "beat 1",
+              "say": "So I tipped everything out and started again with these.",
+              "do": "The empty cupboard, then a row of matching jars on the counter."
+            },
+            {
+              "part": "beat 2",
+              "say": "They stack, so the whole shelf fits in the space one row used to.",
+              "do": "Hands stacking jars into a short tower and sliding it into the cupboard."
+            },
+            {
+              "part": "turn",
+              "say": "And this is the part I actually care about.",
+              "do": "The lids face out, each one written on in marker, and a finger runs along them."
+            },
+            {
+              "part": "close",
+              "say": "Cumin, first try. The jars I use are linked.",
+              "do": "The hand picks the right jar without looking twice and closes the cupboard."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Notice that the hook shot shows the search happening rather than a tidy shelf. The viewer sees the problem in motion, and the line adds a detail the picture cannot, which is how many times it has happened.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you check a visual hook before you film it?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Watch the opening with the sound off and ask whether it makes you want to know what happens next.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Describe the shot to someone in one sentence. If they cannot picture it, the do line is still too vague.",
+            "Check that the shot shows a situation, not the answer, so there is still something for the rest of the video to pay off.",
+            "Film two or three versions of the opening shot, because a small change of angle or movement can make the scene easier to read. [How many hooks to film for one video](/blog/ugc-hook-variations/) covers delivering those versions to the brand.",
+            "Make sure the brief allows the setting and props you plan to use, since changing them later means reshooting the opening."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-22",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I have bought cumin three times this year because I could never find the first one."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

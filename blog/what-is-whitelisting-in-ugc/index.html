@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What is whitelisting in UGC?</title>
+<meta name="description" content="UGC whitelisting explained: a brand runs ads from your own handle. What access you give, what to agree in writing, and how it differs from usage rights.">
+<meta property="og:title" content="What is whitelisting in UGC?">
+<meta property="og:description" content="UGC whitelisting explained: a brand runs ads from your own handle. What access you give, what to agree in writing, and how it differs from usage rights.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="lynxr">
+<meta property="og:url" content="https://lynxr.io/blog/what-is-whitelisting-in-ugc/">
+<meta property="og:image" content="https://lynxr.io/og-v3.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What is whitelisting in UGC?">
+<meta name="twitter:description" content="UGC whitelisting explained: a brand runs ads from your own handle. What access you give, what to agree in writing, and how it differs from usage rights.">
+<meta name="twitter:image" content="https://lynxr.io/og-v3.png">
+<link rel="canonical" href="https://lynxr.io/blog/what-is-whitelisting-in-ugc/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261013b">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261013b">
+<link rel="shortcut icon" href="/favicon.ico?v=20261013b">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261013b">
+<link rel="stylesheet" href="/app.css?v=20261013b">
+<script src="/theme.js?v=20261013b"></script>
+<script src="/backdrop.js?v=20261013b" defer></script>
+<!-- BEGIN SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://lynxr.io/#organization",
+      "name": "lynxr",
+      "legalName": "lynxr LLC",
+      "disambiguatingDescription": "lynxr (lynxr.io) is the UGC creator tool: a web app that turns a TikTok or Instagram video into a script for a brand, made by lynxr LLC in Allston, Massachusetts. It is unrelated to the Honeywell and Ademco LYNXR, LYNXR-2 and LYNXR-I security control panels, to the Lynx R-1 and R-2 mixed reality headsets, and to lynxr.com.",
+      "alternateName": [
+        "lynxr.io",
+        "lynxr LLC"
+      ],
+      "url": "https://lynxr.io/",
+      "slogan": "the UGC creator tool",
+      "description": "lynxr LLC makes lynxr, the UGC creator tool: paste a TikTok or Instagram video and it writes that video's format as a script for the brand you make content for. lynxr LLC is a partner company of Lynx Media Group, the UGC agency.",
+      "logo": {
+        "@type": "ImageObject",
+        "@id": "https://lynxr.io/#logo",
+        "url": "https://lynxr.io/lynxr-logo.png",
+        "contentUrl": "https://lynxr.io/lynxr-logo.png",
+        "width": 512,
+        "height": 512,
+        "caption": "lynxr"
+      },
+      "image": {
+        "@id": "https://lynxr.io/#logo"
+      },
+      "email": "hello@lynxr.io",
+      "sameAs": [
+        "https://www.instagram.com/lynxr.io/",
+        "https://www.tiktok.com/@lynxr.io",
+        "https://www.linkedin.com/company/lynxr",
+        "https://github.com/lynxrio/lynxr"
+      ],
+      "founder": [
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": [
+            "https://www.instagram.com/junsahwang/"
+          ]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": [
+            "https://www.instagram.com/gawinhsu/"
+          ]
+        }
+      ],
+      "knowsAbout": [
+        "short-form video scripts",
+        "UGC scripts",
+        "video formats",
+        "hooks",
+        "TikTok",
+        "Instagram Reels"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://lynxmediagroup.org/#org",
+      "name": "Lynx Media Group",
+      "legalName": "Lynx Media Group LLC",
+      "url": "https://lynxmediagroup.org/",
+      "description": "A UGC agency in Allston, Massachusetts that runs creator campaigns for brands. Its partner company, lynxr LLC, makes lynxr.",
+      "logo": "https://lynxmediagroup.org/imgs/logo-social.png",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "57 Glenville Ave",
+        "addressLocality": "Allston",
+        "addressRegion": "MA",
+        "postalCode": "02134",
+        "addressCountry": "US"
+      },
+      "sameAs": [
+        "https://www.instagram.com/lynxmediagroup/",
+        "https://www.tiktok.com/@lynxmediagroup",
+        "https://www.linkedin.com/company/lynxmediagroup"
+      ],
+      "founder": [
+        {
+          "@id": "https://lynxr.io/#junsa-hwang"
+        },
+        {
+          "@id": "https://lynxr.io/#gawin-hsu"
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://lynxr.io/#website",
+      "url": "https://lynxr.io/",
+      "name": "lynxr",
+      "inLanguage": "en",
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "about": {
+        "@id": "https://lynxr.io/#lynxr"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://lynxr.io/#lynxr",
+      "name": "lynxr",
+      "url": "https://lynxr.io/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "lynxr is the UGC creator tool. It turns a short-form video into a script. You send it a public link to a TikTok or Instagram video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "featureList": [
+        "Reads a public TikTok or Instagram link. There is no file upload.",
+        "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
+        "Writes one script per company from a single link, reading the video only once.",
+        "Never asks for a platform password and never posts anything on your behalf."
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "UGC creators: people who make short-form videos for brands, and the people who brief them"
+      },
+      "isAccessibleForFree": true,
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Free to start: every account gets 3 scripts a week, no card required. Sign-up is open."
+        },
+        {
+          "@type": "Offer",
+          "name": "lynxr pro",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "24.99",
+            "priceCurrency": "USD",
+            "billingDuration": "P1M",
+            "unitText": "month"
+          },
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Up to 150 scripts in any rolling 30 days and up to 30 in any 24 hours, billed monthly. Tax is added at checkout where it applies."
+        }
+      ],
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "creator": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "alternateName": "lynxr.io"
+    }
+  ]
+}
+</script>
+<!-- END SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "@id": "https://lynxr.io/blog/what-is-whitelisting-in-ugc/#article",
+  "headline": "What is whitelisting in UGC?",
+  "description": "UGC whitelisting explained: a brand runs ads from your own handle. What access you give, what to agree in writing, and how it differs from usage rights.",
+  "image": "https://lynxr.io/og-v3.png",
+  "inLanguage": "en",
+  "datePublished": "2026-10-16",
+  "dateModified": "2026-10-16",
+  "author": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "publisher": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "isPartOf": {
+    "@id": "https://lynxr.io/#website"
+  },
+  "mentions": {
+    "@id": "https://lynxr.io/#lynxr"
+  },
+  "mainEntityOfPage": "https://lynxr.io/blog/what-is-whitelisting-in-ugc/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "lynxr",
+      "item": "https://lynxr.io/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "questions and answers",
+      "item": "https://lynxr.io/faq/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "UGC rates, pay and usage rights",
+      "item": "https://lynxr.io/faq/ugc-rates-and-pay/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "What is whitelisting in UGC?",
+      "item": "https://lynxr.io/blog/what-is-whitelisting-in-ugc/"
+    }
+  ]
+}
+</script>
+</head>
+<!-- This page's visible copy is written in normal sentence case in the
+     source, unlike the lowercase-with-exceptions convention the rest of the
+     site uses. Painted output is identical either way — text-transform:
+     lowercase in app.css flattens all of it — but a model reading the source
+     sees real casing here, because this page carries no JSON-LD twin of its
+     prose the way /faq/ does, so the body text is the only machine-readable
+     copy there is. .lp unsets the app's bare main{} container so the sections
+     below can be full-bleed. See the marketing-page block in app.css. -->
+<body class="lp">
+<svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
+
+<header class="lp-bar">
+  <div class="lp-in lp-bar-in">
+    <a class="wordmark" href="/"><svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg><span>lynxr</span></a>
+    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+         fragment does nothing from /faq/ or /privacy/ — it appends a hash to
+         the current URL and stays put. -->
+    <nav class="lp-nav" aria-label="Main">
+      <a href="/how-it-works/">how it works</a>
+      <a href="/faq/">faq</a>
+    </nav>
+    <span class="lp-actions">
+    <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
+      <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.6 8.6 0 1 0 10.6 10.6z"/></svg>
+      <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
+      <span class="tt-knob"></span>
+    </button>
+    <a class="btn" href="/">get started</a>
+    <!-- Under 760px the nav and the CTA above are display:none and this takes
+         their place. aria-expanded carries the state to a screen reader AND
+         drives which glyph is drawn, so the two cannot disagree. -->
+    <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
+            aria-expanded="false" aria-controls="lp-menu">
+      <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button></span>
+  </div>
+  <!-- Inside the bar on purpose: the bar is the sticky element, so a panel
+       parented anywhere else would scroll away from the burger that opened it.
+       `hidden` — not opacity — is what takes these links out of the tab order
+       when it is closed. -->
+  <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
+    <a href="/how-it-works/">how it works</a>
+    <a href="/faq/">faq</a>
+    <a class="btn" href="/">get started</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="lp-hero">
+    <div class="lp-in">
+      <nav class="post-crumbs" aria-label="Breadcrumb"><a href="/">lynxr</a> / <a href="/faq/">questions</a> / <a href="/faq/ugc-rates-and-pay/">rates and pay</a></nav>
+      <h1 class="lp-h1">What is whitelisting in <span class="acr">UGC</span>?</h1>
+      <p class="lp-lede">Whitelisting in <span class="acr">UGC</span> means a brand runs paid ads through your own account, so the ad shows your handle instead of theirs. You give the brand access to post ads as you, and you agree in writing how long that lasts, what it covers, and what you get to approve.</p>
+      <p class="post-meta">Published <time datetime="2026-10-16">16 October 2026</time></p>
+    </div>
+  </section>
+
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="what-does-whitelisting-actually-change-for">What does whitelisting actually change for a <span class="acr">UGC</span> creator?</h2>
+      <p class="lp-p">Whitelisting changes whose name sits on the ad: the viewer sees your handle and profile picture, not the brand's.</p>
+      <p class="lp-p">In a normal <a href="/glossary/#ugc"><span class="acr">UGC</span></a> deal you film the video, hand over the file, and the <a href="/glossary/#brand">brand</a> posts it from its own account. With whitelisting, the brand's ad team runs the video as a paid ad that looks like it came from you. Anyone who taps the name lands on your profile. The comments on that ad sit under your handle, and your face becomes the face of the campaign for as long as it runs.</p>
+      <p class="lp-p">The appeal for a brand is that an ad from a person can read more like a recommendation than a pitch. It is also why whitelisting asks more of you than a plain delivery, and why it belongs in the price conversation covered in <a href="/blog/how-to-set-ugc-rates/">working out what to charge</a>.</p>
+
+      <h2 class="lp-h2" id="how-is-whitelisting-different-from-usage">How is whitelisting different from usage rights?</h2>
+      <p class="lp-p">Usage rights decide where the brand may use your video; whitelisting decides whether the brand may use your account to run it.</p>
+      <p class="lp-p">The two can arrive together in the same offer, so keep them apart in your head before you reply. <a href="/blog/what-are-ugc-usage-rights/">What are usage rights in <span class="acr">UGC</span></a> covers the first one in detail. If the offer arrives inside a brief, <a href="/blog/brief-to-script/">mark up the brief</a> first so you can see which line asks for which. The table below shows how they differ in practice.</p>
+      <div class="post-table">
+        <table>
+          <thead><tr><th scope="col">Question</th><th scope="col">Usage rights</th><th scope="col">Whitelisting</th></tr></thead>
+          <tbody>
+            <tr><td>Whose account posts the ad?</td><td>The brand's own account.</td><td>Yours, run by the brand's ad team.</td></tr>
+            <tr><td>What does the brand get from you?</td><td>Permission to use the video file.</td><td>Permission to use the video and your handle.</td></tr>
+            <tr><td>What do you need to agree?</td><td>Where it runs and for how long.</td><td>How long access lasts, what runs, and what you approve.</td></tr>
+            <tr><td>What does it cost you?</td><td>Your video in someone else's feed.</td><td>Your name on every ad and its comments.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 class="lp-h2" id="what-access-does-a-brand-need">What access does a brand need for whitelisting?</h2>
+      <p class="lp-p">The brand needs permission, granted from inside your account, to run ads in your name, so confirm when that permission ends before you grant it.</p>
+      <p class="lp-p">The steps differ between TikTok and Instagram, so ask the brand to send you the steps it needs. Before you tap anything, check what you are granting. Ask the brand to confirm in writing exactly what its team can do with the access, and never hand over your password or login, because a request for those is not whitelisting.</p>
+      <ul class="lp-list">
+        <li>Ask which videos the access covers, so the brand cannot run an older post you never agreed to.</li>
+        <li>Ask whether the brand can edit captions or add text, because those words will appear under your name.</li>
+        <li>Ask who answers the comments on the ad, so nobody expects you to moderate a campaign you do not run.</li>
+        <li>Set a reminder for the end date, so you can check the access has stopped and remove it yourself if it has not.</li>
+      </ul>
+
+      <h2 class="lp-h2" id="what-should-you-agree-in-writing">What should you agree in writing before saying yes?</h2>
+      <p class="lp-p">Agree the length of access, which videos run, what you approve, and the price for whitelisting as its own line, all in writing.</p>
+      <p class="lp-p">A clear message now saves an awkward one later. Send something like this before the work starts, and keep the reply. If the brand sends its own agreement, read it against these points and follow what you both sign. Anything about contracts beyond that is a question for someone qualified to advise you.</p>
+      <p class="lp-p">Hi [NAME], happy to run whitelisting for [PRODUCT]. To confirm: access covers the videos we agree for this campaign only, runs until [DATE], and I approve any caption or text added under my handle before it goes live. Whitelisting is [AMOUNT] on top of the video fee, and I will remove access on [DATE] unless we agree an extension in writing.</p>
+      <p class="lp-p">Keep the payment side in the same thread, so the fee, the dates and the method all sit together. <a href="/blog/how-do-ugc-creators-get-paid/">How do <span class="acr">UGC</span> creators get paid</a> covers what to settle there.</p>
+
+      <h2 class="lp-h2" id="when-should-a-ugc-creator-turn">When should a <span class="acr">UGC</span> creator turn whitelisting down?</h2>
+      <p class="lp-p">Turn it down when you cannot see what will run under your name, or when the access has no end date.</p>
+      <p class="lp-p">Your handle is the one thing in the deal you keep after it ends. If a brand will not let you approve the captions, wants open-ended access, or asks you to say something about the product you have not seen for yourself, you can still offer the video with usage rights alone. That gives the brand the content and leaves your name out of ads you never saw. Read the <a href="/glossary/#brief">brief</a> again before you decide, because a brief that already asks for claims you would not make tells you how the ads will read too.</p>
+      <p class="lp-p">Saying no to whitelisting is not saying no to the brand. Offer the plain delivery, explain that you keep your handle for ads you approve, and leave the door open for a scoped version later.</p>
+    </div>
+  </section>
+
+  <section class="lp-band post-end">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="do-it-with-lynxr">Write your next <span class="acr">UGC</span> script with lynxr</h2>
+      <p class="lp-p">Paste a public TikTok or Instagram link on <a href="/">the homepage</a> and lynxr works out the format — hook, beats, turn, close — and writes it as a script for the brand you make content for. <a href="/how-it-works/">How lynxr writes scripts</a> shows each step. Free to start: <a href="/faq/#what-it-costs">3 scripts a week, no card</a>.</p>
+      <h2 class="lp-h2" id="more-questions">More questions about <span class="acr">UGC</span> rates, pay and usage rights</h2>
+      <ul class="lp-list">
+        <li><b><a href="/blog/how-to-set-ugc-rates/">How do you work out what to charge for a <span class="acr">UGC</span> video?</a></b> — Work out a <span class="acr">UGC</span> rate from what the job takes, not from a number you saw online.</li>
+        <li><b><a href="/blog/raw-footage-in-ugc/">Should you charge extra for raw footage in <span class="acr">UGC</span>?</a></b> — Charge for raw footage as its own line, separate from the edited video, because the unedited clips let a brand cut new ads from your work without booking you again.</li>
+        <li><b><a href="/blog/agree-in-writing-before-ugc/">What should you agree in writing before a <span class="acr">UGC</span> job starts?</a></b> — Before a <span class="acr">UGC</span> job starts, agree in writing the deliverables, revision rounds, usage, deadlines, approvals and payment timing.</li>
+        <li><b><a href="/blog/ugc-rate-card/">What should a <span class="acr">UGC</span> rate card include?</a></b> — A <span class="acr">UGC</span> rate card lists one base video and every add-on a brand can choose, each with a plain description of what it includes.</li>
+        <li><b><a href="/faq/ugc-rates-and-pay/">All questions about <span class="acr">UGC</span> rates, pay and usage rights</a></b> — getting paid and pricing your work.</li>
+      </ul>
+      <h2 class="lp-h2" id="keep-reading">Keep reading</h2>
+      <ul class="lp-list">
+        <li><b><a href="/blog/brief-to-script/">How to turn a brand brief into a script</a></b></li>
+        <li><b><a href="/ugc-script-template/">A <span class="acr">UGC</span> script template that holds up</a></b></li>
+        <li><b><a href="/faq/">Questions and answers</a></b> — about lynxr, and every topic <span class="acr">UGC</span> creators ask about.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer id="site-footer">
+  <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr</div>
+  <div class="foot-grid foot-grid-wide">
+    <div class="foot-brand">
+      <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
+      <p>your <span class="acr">UGC</span> buddy</p>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">lynxr</div>
+      <a class="foot-link" href="/">home</a>
+      <a class="foot-link" href="/how-it-works/">how it works</a>
+      <a class="foot-link" href="/faq/">faq</a>
+      <a class="foot-link" href="/pricing/">pricing</a>
+      <a class="foot-link" href="/about/">about</a>
+      <!-- Visible label "try it", accessible name "try it — join the wait
+           list". The .sr-only tail is inside the <a>, so it is part of the
+           name computation rather than a title attribute nobody hears. -->
+      <a class="foot-link" href="/">get started<span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">guides</div>
+      <a class="foot-link" href="/blog/">blog</a>
+      <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
+      <a class="foot-link" href="/turn-a-video-into-a-script/">video to script</a>
+      <a class="foot-link" href="/short-form-script-structure/">script structure</a>
+      <a class="foot-link" href="/glossary/">glossary</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">company</div>
+      <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
+      <a class="foot-link" href="/privacy/">privacy policy</a>
+      <a class="foot-link" href="/terms/">terms of service</a>
+      <a class="foot-link" href="/accessibility/">accessibility</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">socials</div>
+      <a class="foot-link" href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <a class="foot-link" href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">TikTok</a>
+      <a class="foot-link" href="https://www.linkedin.com/company/lynxr" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+    </div>
+  </div>
+  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+       of the sitewide lowercase text-transform. -->
+  <div class="foot-legal">
+    &copy; <span class="entity">lynxr LLC</span> 2026
+  </div>
+</footer>
+
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
+<script src="/site.js?v=20261013b" defer></script>
+<script src="/footer.js?v=20261013b" defer></script>
+
+</body>
+</html>

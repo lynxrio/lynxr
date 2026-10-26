@@ -1,0 +1,214 @@
+{
+  "question_id": "q051",
+  "slug": "ugc-audio",
+  "theme": "ugc-filming",
+  "title": "How do you get clear audio in a UGC video?",
+  "description": "UGC audio tips for clear sound on a phone: pick a soft room, keep the phone close, consider a clip-on mic, and check every take on headphones.",
+  "short_answer": "Clear UGC audio comes from a quiet, soft room and a microphone kept close to your mouth. Film somewhere with curtains, rugs or a sofa, keep the phone within arm's reach or use a clip-on mic, record a short test first, and check it on headphones before you film the whole video.",
+  "sections": [
+    {
+      "heading": "Why does audio matter so much in a UGC video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Audio matters because a viewer will forgive a slightly soft picture far sooner than a voice they have to strain to hear.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "In a talking video your words carry the [hook](/glossary/#hook) and the reasons to care, so echo or hiss gets in the way of the whole message. It also costs you on the brand side: a brand cannot fix a booming voice in the edit the way it can brighten a dark shot, so bad sound can mean a reshoot. Treat audio as part of the filming setup, alongside the light and the frame covered in [how to film UGC on a phone](/blog/film-ugc-on-a-phone/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which room in your home gives the clearest sound?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The clearest room is the smallest one with the most soft things in it, such as a bedroom with a bed, curtains and a rug.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Hard surfaces bounce your voice back to the microphone a fraction later, and that is what makes a recording sound hollow. Kitchens and bathrooms are full of tile, glass and bare counters, so they echo the most. Soft furnishings soak that bounce up. Clap once in each room you could use and listen to how long the sound hangs in the air; pick the room where it dies fastest.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Problem you hear",
+            "Likely cause",
+            "What to try"
+          ],
+          "table_rows": [
+            [
+              "Hollow, roomy voice",
+              "Hard walls and bare floor",
+              "Move to a softer room, or hang a thick blanket behind the phone."
+            ],
+            [
+              "Low hum under everything",
+              "Fridge, fan or heating",
+              "Switch off what you safely can while you record, then switch it back on."
+            ],
+            [
+              "Voice fades in and out",
+              "You are turning away from the phone",
+              "Keep your face towards the lens, and move the product instead of your head."
+            ],
+            [
+              "Sharp pops on some words",
+              "Breath hitting the microphone",
+              "Angle the phone slightly to one side of your mouth."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brief needs a kitchen or bathroom on screen, film the setting there and record the lines that carry the message in a softer room, then lay them over the footage. Ask the brand first whether it is happy with a voiceover for those parts, and note the answer next to the lines it affects, the way [turning a brief into a script](/blog/brief-to-script/) marks what is fixed.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How close should the phone be when you talk?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Keep the phone's microphone within about an arm's length of your mouth, because every step further away lets in more room and less of you.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The built-in microphone hears everything around it equally, so distance is the main control you have. A handheld selfie shot is close enough. A phone on a shelf across the room is not, even if the picture looks good. When the frame needs you further back, for a full outfit or a wide kitchen shot, that is the moment to think about a separate microphone.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Do you need a clip-on microphone for UGC?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "You do not need one to start, but a small clip-on microphone is worth adding once you film wider shots or anywhere you cannot control the noise.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Clip it to your collar or neckline, a hand's width below your chin, so it stays close however far the phone is.",
+            "Hide the cable or the unit under clothing if the shot is meant to look casual, and check it does not rub against fabric when you move.",
+            "Choose a wireless clip-on if you walk around or show a product at different spots, because a cable limits how far you can go.",
+            "Keep it charged and spare, because a microphone that dies mid-shoot leaves you with silent takes."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A clip-on microphone helps most for talking parts. For close product cutaways you can rely on the phone's own sound, as in [shooting UGC b-roll](/blog/ugc-b-roll/), and add your voice over the top.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you check the audio before you film everything?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Record a short test of your opening lines and play it back on headphones, because phone speakers hide hum, echo and rustle.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Say the first two lines of your [script](/glossary/#script) at the volume you will use in the real take.",
+            "Listen once for your voice: is every word clear without turning the volume up?",
+            "Listen again only for the background: hum, traffic, a neighbour, your clothes against the microphone.",
+            "Fix one thing at a time, then record the test again, so you know which change helped.",
+            "Check one more time halfway through the shoot, because a fridge or a neighbour can start up while you work."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the test clip until delivery. If a brand asks about the sound, you can show what the room sounded like and what you changed. For more on setting up a home shoot, see [how to light UGC at home](/blog/light-ugc-at-home/), and plan where each line is recorded in your [shot list](/glossary/#shot-list).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-26",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

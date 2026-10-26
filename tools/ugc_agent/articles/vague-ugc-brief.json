@@ -1,0 +1,210 @@
+{
+  "question_id": "q025",
+  "slug": "vague-ugc-brief",
+  "theme": "ugc-briefs",
+  "title": "What do you do when a UGC brief is vague?",
+  "description": "What to do with an unclear UGC brief: the questions to send back, how to propose two directions, and how to write your assumptions down before you film.",
+  "short_answer": "When a UGC brief is vague, send back a few specific questions, propose two clear directions the brand can choose between, and write down your assumptions before filming. That way the gaps get filled by a decision the brand has confirmed, not by a guess you only discover was wrong at the revision stage.",
+  "sections": [
+    {
+      "heading": "How can you tell a UGC brief is too vague to film from?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A brief is too vague to film from when you cannot write the hook, the main message and the close without guessing at what the brand wants.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Try a quick test before you reply. Read the [brief](/glossary/#brief) and write one line each for who the video is for, the single thing it should say about the product, and what the viewer should do at the end. If any line is a guess, the brief has a gap. Compare it against [what goes in a UGC brief](/blog/what-goes-in-a-ugc-brief/) to see which parts are missing, then separate what is fixed from what is left open, using the mark-up steps in [how to turn a brand brief into a script](/blog/brief-to-script/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What questions should you send back about a vague brief?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Send back a few specific questions, each one answerable in a line, about the gaps that would change what you film.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Long lists of questions can stall a job, so ask only about the gaps that change the script or the shoot. Group them in one message and number them in words, so the brand can reply point by point.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Gap in the brief",
+            "Question to send",
+            "Why it changes the video"
+          ],
+          "table_rows": [
+            [
+              "No audience",
+              "Who is this video for, and what are they dealing with right now?",
+              "It decides the hook and the setting."
+            ],
+            [
+              "No main message",
+              "If the viewer remembers one thing about [PRODUCT], what should it be?",
+              "It decides what the middle of the video shows."
+            ],
+            [
+              "No call to action",
+              "What should the viewer do at the end: tap the link, save it or comment?",
+              "It decides the close."
+            ],
+            [
+              "No must-say or must-avoid list",
+              "Are there any words you need me to use, or any I should avoid?",
+              "It stops a reshoot over one line."
+            ],
+            [
+              "No examples",
+              "Is there a past video of yours, or a style, you would like this to feel like?",
+              "It shows the tone faster than a description."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you propose two directions to a brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Propose two short, clearly different directions, each with a one-line hook idea and a sentence on the shape of the video, and ask the brand to pick one.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Choosing between two options is quicker than answering open questions, so this keeps the job moving even if the brand is busy. Make the two directions differ in [format](/glossary/#format), not just in wording, so the choice tells you something. For example, one direction could be a routine walkthrough and the other a problem-and-fix story. Keep each one to a few lines, and say which one you would choose and why, so the brand has a default to agree to.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Direction one: a day-in-the-life video that shows [PRODUCT] at the moment you reach for it, opening on the small problem it solves for you.",
+            "Direction two: a side-by-side of your old way and your new way, opening on the old way going wrong.",
+            "My pick is direction one, because the brief mentions everyday use and this shows it in context.",
+            "If you would like a mix, tell me which hook you prefer and I will build from that."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why write your assumptions down before you film?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Writing your assumptions down gives the brand a final chance to correct them, before a wrong guess costs you a reshoot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Some gaps stay open even after you ask. Rather than wait, list what you will do if you hear nothing more, and send it with a date. The brand can then reply with a quick yes or a single correction. Keep the list short and specific so it is easy to check.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hi [NAME], to keep [PRODUCT] on schedule, here is how I plan to film it unless you tell me otherwise by [DATE].",
+            "Audience: people who use the product at home on a busy weekday.",
+            "Main message: it fits into a routine you already have.",
+            "Close: ask the viewer to tap the link to see it.",
+            "Format: direction one from my last message, with two hook options."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you do if the brand never fills the gaps?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "If the brand never fills the gaps, film to your written assumptions and point back to them if feedback asks for something different.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Your confirmed or unanswered assumptions become the version of the brief you worked from. If a revision request later contradicts them, you can reply calmly: the video follows what you sent on [DATE], and a change of direction can be handled as a new concept. Whether that counts as a revision or extra work is something to agree in writing with the brand at the start, so check what your agreement says. Keep the questions, the directions and the assumptions in the same thread, so the history is in one place.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-19",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

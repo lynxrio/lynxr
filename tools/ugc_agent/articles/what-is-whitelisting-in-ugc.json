@@ -1,0 +1,226 @@
+{
+  "question_id": "q004",
+  "slug": "what-is-whitelisting-in-ugc",
+  "theme": "ugc-rates-and-pay",
+  "title": "What is whitelisting in UGC?",
+  "description": "UGC whitelisting explained: a brand runs ads from your own handle. What access you give, what to agree in writing, and how it differs from usage rights.",
+  "short_answer": "Whitelisting in UGC means a brand runs paid ads through your own account, so the ad shows your handle instead of theirs. You give the brand access to post ads as you, and you agree in writing how long that lasts, what it covers, and what you get to approve.",
+  "sections": [
+    {
+      "heading": "What does whitelisting actually change for a UGC creator?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Whitelisting changes whose name sits on the ad: the viewer sees your handle and profile picture, not the brand's.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "In a normal [UGC](/glossary/#ugc) deal you film the video, hand over the file, and the [brand](/glossary/#brand) posts it from its own account. With whitelisting, the brand's ad team runs the video as a paid ad that looks like it came from you. Anyone who taps the name lands on your profile. The comments on that ad sit under your handle, and your face becomes the face of the campaign for as long as it runs.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The appeal for a brand is that an ad from a person can read more like a recommendation than a pitch. It is also why whitelisting asks more of you than a plain delivery, and why it belongs in the price conversation covered in [working out what to charge](/blog/how-to-set-ugc-rates/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How is whitelisting different from usage rights?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Usage rights decide where the brand may use your video; whitelisting decides whether the brand may use your account to run it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The two can arrive together in the same offer, so keep them apart in your head before you reply. [What are usage rights in UGC](/blog/what-are-ugc-usage-rights/) covers the first one in detail. If the offer arrives inside a brief, [mark up the brief](/blog/brief-to-script/) first so you can see which line asks for which. The table below shows how they differ in practice.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Question",
+            "Usage rights",
+            "Whitelisting"
+          ],
+          "table_rows": [
+            [
+              "Whose account posts the ad?",
+              "The brand's own account.",
+              "Yours, run by the brand's ad team."
+            ],
+            [
+              "What does the brand get from you?",
+              "Permission to use the video file.",
+              "Permission to use the video and your handle."
+            ],
+            [
+              "What do you need to agree?",
+              "Where it runs and for how long.",
+              "How long access lasts, what runs, and what you approve."
+            ],
+            [
+              "What does it cost you?",
+              "Your video in someone else's feed.",
+              "Your name on every ad and its comments."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What access does a brand need for whitelisting?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The brand needs permission, granted from inside your account, to run ads in your name, so confirm when that permission ends before you grant it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The steps differ between TikTok and Instagram, so ask the brand to send you the steps it needs. Before you tap anything, check what you are granting. Ask the brand to confirm in writing exactly what its team can do with the access, and never hand over your password or login, because a request for those is not whitelisting.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Ask which videos the access covers, so the brand cannot run an older post you never agreed to.",
+            "Ask whether the brand can edit captions or add text, because those words will appear under your name.",
+            "Ask who answers the comments on the ad, so nobody expects you to moderate a campaign you do not run.",
+            "Set a reminder for the end date, so you can check the access has stopped and remove it yourself if it has not."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you agree in writing before saying yes?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Agree the length of access, which videos run, what you approve, and the price for whitelisting as its own line, all in writing.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A clear message now saves an awkward one later. Send something like this before the work starts, and keep the reply. If the brand sends its own agreement, read it against these points and follow what you both sign. Anything about contracts beyond that is a question for someone qualified to advise you.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Hi [NAME], happy to run whitelisting for [PRODUCT]. To confirm: access covers the videos we agree for this campaign only, runs until [DATE], and I approve any caption or text added under my handle before it goes live. Whitelisting is [AMOUNT] on top of the video fee, and I will remove access on [DATE] unless we agree an extension in writing.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the payment side in the same thread, so the fee, the dates and the method all sit together. [How do UGC creators get paid](/blog/how-do-ugc-creators-get-paid/) covers what to settle there.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "When should a UGC creator turn whitelisting down?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Turn it down when you cannot see what will run under your name, or when the access has no end date.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Your handle is the one thing in the deal you keep after it ends. If a brand will not let you approve the captions, wants open-ended access, or asks you to say something about the product you have not seen for yourself, you can still offer the video with usage rights alone. That gives the brand the content and leaves your name out of ads you never saw. Read the [brief](/glossary/#brief) again before you decide, because a brief that already asks for claims you would not make tells you how the ads will read too.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Saying no to whitelisting is not saying no to the brand. Offer the plain delivery, explain that you keep your handle for ads you approve, and leave the door open for a scoped version later.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-16",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

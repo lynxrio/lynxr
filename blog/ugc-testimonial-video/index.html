@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How do you script a testimonial-style UGC video?</title>
+<meta name="description" content="How to write a testimonial UGC script from real use: what you expected, how you used it, an honest verdict with one downside, and an example script.">
+<meta property="og:title" content="How do you script a testimonial-style UGC video?">
+<meta property="og:description" content="How to write a testimonial UGC script from real use: what you expected, how you used it, an honest verdict with one downside, and an example script.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="lynxr">
+<meta property="og:url" content="https://lynxr.io/blog/ugc-testimonial-video/">
+<meta property="og:image" content="https://lynxr.io/og-v3.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How do you script a testimonial-style UGC video?">
+<meta name="twitter:description" content="How to write a testimonial UGC script from real use: what you expected, how you used it, an honest verdict with one downside, and an example script.">
+<meta name="twitter:image" content="https://lynxr.io/og-v3.png">
+<link rel="canonical" href="https://lynxr.io/blog/ugc-testimonial-video/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261013b">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261013b">
+<link rel="shortcut icon" href="/favicon.ico?v=20261013b">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261013b">
+<link rel="stylesheet" href="/app.css?v=20261013b">
+<script src="/theme.js?v=20261013b"></script>
+<script src="/backdrop.js?v=20261013b" defer></script>
+<!-- BEGIN SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://lynxr.io/#organization",
+      "name": "lynxr",
+      "legalName": "lynxr LLC",
+      "disambiguatingDescription": "lynxr (lynxr.io) is the UGC creator tool: a web app that turns a TikTok or Instagram video into a script for a brand, made by lynxr LLC in Allston, Massachusetts. It is unrelated to the Honeywell and Ademco LYNXR, LYNXR-2 and LYNXR-I security control panels, to the Lynx R-1 and R-2 mixed reality headsets, and to lynxr.com.",
+      "alternateName": [
+        "lynxr.io",
+        "lynxr LLC"
+      ],
+      "url": "https://lynxr.io/",
+      "slogan": "the UGC creator tool",
+      "description": "lynxr LLC makes lynxr, the UGC creator tool: paste a TikTok or Instagram video and it writes that video's format as a script for the brand you make content for. lynxr LLC is a partner company of Lynx Media Group, the UGC agency.",
+      "logo": {
+        "@type": "ImageObject",
+        "@id": "https://lynxr.io/#logo",
+        "url": "https://lynxr.io/lynxr-logo.png",
+        "contentUrl": "https://lynxr.io/lynxr-logo.png",
+        "width": 512,
+        "height": 512,
+        "caption": "lynxr"
+      },
+      "image": {
+        "@id": "https://lynxr.io/#logo"
+      },
+      "email": "hello@lynxr.io",
+      "sameAs": [
+        "https://www.instagram.com/lynxr.io/",
+        "https://www.tiktok.com/@lynxr.io",
+        "https://www.linkedin.com/company/lynxr",
+        "https://github.com/lynxrio/lynxr"
+      ],
+      "founder": [
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": [
+            "https://www.instagram.com/junsahwang/"
+          ]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": [
+            "https://www.instagram.com/gawinhsu/"
+          ]
+        }
+      ],
+      "knowsAbout": [
+        "short-form video scripts",
+        "UGC scripts",
+        "video formats",
+        "hooks",
+        "TikTok",
+        "Instagram Reels"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://lynxmediagroup.org/#org",
+      "name": "Lynx Media Group",
+      "legalName": "Lynx Media Group LLC",
+      "url": "https://lynxmediagroup.org/",
+      "description": "A UGC agency in Allston, Massachusetts that runs creator campaigns for brands. Its partner company, lynxr LLC, makes lynxr.",
+      "logo": "https://lynxmediagroup.org/imgs/logo-social.png",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "57 Glenville Ave",
+        "addressLocality": "Allston",
+        "addressRegion": "MA",
+        "postalCode": "02134",
+        "addressCountry": "US"
+      },
+      "sameAs": [
+        "https://www.instagram.com/lynxmediagroup/",
+        "https://www.tiktok.com/@lynxmediagroup",
+        "https://www.linkedin.com/company/lynxmediagroup"
+      ],
+      "founder": [
+        {
+          "@id": "https://lynxr.io/#junsa-hwang"
+        },
+        {
+          "@id": "https://lynxr.io/#gawin-hsu"
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://lynxr.io/#website",
+      "url": "https://lynxr.io/",
+      "name": "lynxr",
+      "inLanguage": "en",
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "about": {
+        "@id": "https://lynxr.io/#lynxr"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://lynxr.io/#lynxr",
+      "name": "lynxr",
+      "url": "https://lynxr.io/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "lynxr is the UGC creator tool. It turns a short-form video into a script. You send it a public link to a TikTok or Instagram video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "featureList": [
+        "Reads a public TikTok or Instagram link. There is no file upload.",
+        "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
+        "Writes one script per company from a single link, reading the video only once.",
+        "Never asks for a platform password and never posts anything on your behalf."
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "UGC creators: people who make short-form videos for brands, and the people who brief them"
+      },
+      "isAccessibleForFree": true,
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Free to start: every account gets 3 scripts a week, no card required. Sign-up is open."
+        },
+        {
+          "@type": "Offer",
+          "name": "lynxr pro",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "24.99",
+            "priceCurrency": "USD",
+            "billingDuration": "P1M",
+            "unitText": "month"
+          },
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Up to 150 scripts in any rolling 30 days and up to 30 in any 24 hours, billed monthly. Tax is added at checkout where it applies."
+        }
+      ],
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "creator": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "alternateName": "lynxr.io"
+    }
+  ]
+}
+</script>
+<!-- END SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "@id": "https://lynxr.io/blog/ugc-testimonial-video/#article",
+  "headline": "How do you script a testimonial-style UGC video?",
+  "description": "How to write a testimonial UGC script from real use: what you expected, how you used it, an honest verdict with one downside, and an example script.",
+  "image": "https://lynxr.io/og-v3.png",
+  "inLanguage": "en",
+  "datePublished": "2026-10-26",
+  "dateModified": "2026-10-26",
+  "author": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "publisher": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "isPartOf": {
+    "@id": "https://lynxr.io/#website"
+  },
+  "mentions": {
+    "@id": "https://lynxr.io/#lynxr"
+  },
+  "mainEntityOfPage": "https://lynxr.io/blog/ugc-testimonial-video/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "lynxr",
+      "item": "https://lynxr.io/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "questions and answers",
+      "item": "https://lynxr.io/faq/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "UGC video formats",
+      "item": "https://lynxr.io/faq/ugc-formats/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "How do you script a testimonial-style UGC video?",
+      "item": "https://lynxr.io/blog/ugc-testimonial-video/"
+    }
+  ]
+}
+</script>
+</head>
+<!-- This page's visible copy is written in normal sentence case in the
+     source, unlike the lowercase-with-exceptions convention the rest of the
+     site uses. Painted output is identical either way — text-transform:
+     lowercase in app.css flattens all of it — but a model reading the source
+     sees real casing here, because this page carries no JSON-LD twin of its
+     prose the way /faq/ does, so the body text is the only machine-readable
+     copy there is. .lp unsets the app's bare main{} container so the sections
+     below can be full-bleed. See the marketing-page block in app.css. -->
+<body class="lp">
+<svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
+
+<header class="lp-bar">
+  <div class="lp-in lp-bar-in">
+    <a class="wordmark" href="/"><svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg><span>lynxr</span></a>
+    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+         fragment does nothing from /faq/ or /privacy/ — it appends a hash to
+         the current URL and stays put. -->
+    <nav class="lp-nav" aria-label="Main">
+      <a href="/how-it-works/">how it works</a>
+      <a href="/faq/">faq</a>
+    </nav>
+    <span class="lp-actions">
+    <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
+      <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.6 8.6 0 1 0 10.6 10.6z"/></svg>
+      <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
+      <span class="tt-knob"></span>
+    </button>
+    <a class="btn" href="/">get started</a>
+    <!-- Under 760px the nav and the CTA above are display:none and this takes
+         their place. aria-expanded carries the state to a screen reader AND
+         drives which glyph is drawn, so the two cannot disagree. -->
+    <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
+            aria-expanded="false" aria-controls="lp-menu">
+      <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button></span>
+  </div>
+  <!-- Inside the bar on purpose: the bar is the sticky element, so a panel
+       parented anywhere else would scroll away from the burger that opened it.
+       `hidden` — not opacity — is what takes these links out of the tab order
+       when it is closed. -->
+  <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
+    <a href="/how-it-works/">how it works</a>
+    <a href="/faq/">faq</a>
+    <a class="btn" href="/">get started</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="lp-hero">
+    <div class="lp-in">
+      <nav class="post-crumbs" aria-label="Breadcrumb"><a href="/">lynxr</a> / <a href="/faq/">questions</a> / <a href="/faq/ugc-formats/">formats</a></nav>
+      <h1 class="lp-h1">How do you script a testimonial-style <span class="acr">UGC</span> video?</h1>
+      <p class="lp-lede">A testimonial <span class="acr">UGC</span> script tells the story of your real use of a product in three moves: what you expected, what happened when you used it, and your honest verdict. Include one genuine downside, because it can make the rest of what you say easier to believe, and only script a testimonial for something you have actually used.</p>
+      <p class="post-meta">Published <time datetime="2026-10-26">26 October 2026</time></p>
+    </div>
+  </section>
+
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="what-makes-a-testimonial-different-from">What makes a testimonial different from other <span class="acr">UGC</span> formats?</h2>
+      <p class="lp-p">A testimonial is a verdict from your own experience, so the product is judged by you rather than demonstrated, unboxed or styled.</p>
+      <p class="lp-p">In an unboxing the viewer watches a first impression. In a testimonial they hear what you think after living with the thing. That means the <a href="/glossary/#format">format</a> runs on time: you need days or weeks of real use behind it before you can write a single line. If the brand sends the product with a short deadline, ask it how long you will have to use it before filming, and say so if that is not long enough to give a fair verdict.</p>
+      <p class="lp-p">If you want to see where it sits next to the other shapes a brand might ask for, <a href="/blog/types-of-ugc-videos/">the main types of <span class="acr">UGC</span> video</a> sets them side by side.</p>
+
+      <h2 class="lp-h2" id="what-should-you-write-down-before">What should you write down before you script a testimonial?</h2>
+      <p class="lp-p">Write down what you actually noticed while using the product, in your own words, before you look at the brief's talking points.</p>
+      <ul class="lp-list">
+        <li>What you expected before you tried it, including any doubt you had.</li>
+        <li>The first time it surprised you, good or bad, and where you were.</li>
+        <li>One small habit that changed, such as where you keep it or when you reach for it.</li>
+        <li>The thing that still annoys you, even a little.</li>
+        <li>Who you would tell to get one, and who you would tell to skip it.</li>
+      </ul>
+      <p class="lp-p">Then hold that list against the <a href="/glossary/#brief">brief</a>. Where a required point matches something you noticed, use your wording for it. Where a required point does not match your experience, tell the brand before filming rather than saying it on camera. <a href="/blog/brief-to-script/">Turning a brief into a script</a> shows a clean way to mark the fixed lines first.</p>
+
+      <h2 class="lp-h2" id="how-do-you-structure-a-testimonial">How do you structure a testimonial <span class="acr">UGC</span> script?</h2>
+      <p class="lp-p">Structure it as expectation, use and verdict, with the moment your expectation changed as the turn.</p>
+      <div class="post-table">
+        <table>
+          <thead><tr><th scope="col">Part</th><th scope="col">What you say</th><th scope="col">What the camera shows</th></tr></thead>
+          <tbody>
+            <tr><td>Hook</td><td>The doubt you had, or the problem you were living with</td><td>You with the product, or the problem itself</td></tr>
+            <tr><td>Expectation</td><td>What you thought would happen when you started</td><td>The product new, or the old way you did things</td></tr>
+            <tr><td>Use</td><td>Two or three moments from real use, told plainly</td><td>The product in the places you really use it</td></tr>
+            <tr><td>Turn</td><td>The moment your opinion changed</td><td>The specific thing that changed it, up close</td></tr>
+            <tr><td>Verdict</td><td>What you like, the one downside, and who it suits</td><td>You talking to camera, product in hand</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="lp-p">Each row is a <a href="/glossary/#beat">beat</a> that changes what is on screen, so the viewer has something new to look at while the story moves. The general shape of hook, setup and close is laid out in <a href="/short-form-script-structure/">the parts of a <span class="acr">UGC</span> video script</a>; a testimonial only decides what fills each part.</p>
+
+      <h2 class="lp-h2" id="why-should-a-testimonial-include-a">Why should a testimonial include a real downside?</h2>
+      <p class="lp-p">A real downside shows the viewer you are judging the product rather than reading praise, which makes the rest of your verdict easier to trust.</p>
+      <p class="lp-p">Pick a downside that is true, specific and small enough to live with, such as a lid that is fiddly or a charger cable that is short. Say it plainly, then say why you still use the product. Avoid inventing a fake flaw that is secretly a compliment, because it tends to sound like a dodge. Agree with the brand before filming that the script will include one honest downside, so the line is not cut in review and you are not asked to reshoot it.</p>
+      <p class="lp-p">If you genuinely did not like the product, do not script a testimonial at all. Tell the brand what you found, and offer a different format, such as a demonstration of how it works, if it still wants a video from you.</p>
+
+      <h2 class="lp-h2" id="what-does-a-finished-testimonial-script">What does a finished testimonial script look like?</h2>
+      <p class="lp-p">A finished testimonial script reads like you telling a friend how the product has gone, with each line tied to a shot of real use.</p>
+      <figure class="post-script">
+        <figcaption>Example script — written for this answer, for a cordless handheld vacuum</figcaption>
+        <ol class="ps-beats">
+          <li><span class="ps-part">hook</span><span class="ps-say">say: &ldquo;I was sure a vacuum this small would end up in a cupboard within a week.&rdquo;</span><span class="ps-do">do: Hold the handheld vacuum up next to your face, then glance at a closed cupboard door.</span></li>
+          <li><span class="ps-part">setup</span><span class="ps-say">say: &ldquo;I've had it a month now, and I wanted it for crumbs under the table and cat hair on the sofa.&rdquo;</span><span class="ps-do">do: Show crumbs under a kitchen chair, then the sofa cushion with hair on it.</span></li>
+          <li><span class="ps-part">beat 1</span><span class="ps-say">say: &ldquo;It lives on the wall by the door, so I grab it on my way past instead of dragging the big one out.&rdquo;</span><span class="ps-do">do: Film it on its wall mount, then your hand lifting it off in one move.</span></li>
+          <li><span class="ps-part">turn</span><span class="ps-say">say: &ldquo;This is where I changed my mind. The nozzle actually fits into the sofa seams, which I wasn't expecting.&rdquo;</span><span class="ps-do">do: Close shot of the nozzle sliding along a sofa seam.</span></li>
+          <li><span class="ps-part">beat 2</span><span class="ps-say">say: &ldquo;The downside: the bin is tiny. I empty it after every room.&rdquo;</span><span class="ps-do">do: Pop the bin open over the kitchen bin and tap it out.</span></li>
+          <li><span class="ps-part">close</span><span class="ps-say">say: &ldquo;If you want a quick pass every day, this is the one I use, and it's linked. If you want one deep clean a week, keep your big one.&rdquo;</span><span class="ps-do">do: Clip it back on the wall mount and look back at the camera.</span></li>
+        </ol>
+      </figure>
+      <p class="lp-p">The downside sits after the turn, so it lands once the viewer already believes you, and the close tells them who should skip it. That honest close is what keeps the video a testimonial rather than an advert read from a sheet. For a format built on first impressions instead of lived use, compare <a href="/blog/ugc-unboxing-video/">scripting an unboxing video</a>.</p>
+    </div>
+  </section>
+
+  <section class="lp-band post-end">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="do-it-with-lynxr">Write your next <span class="acr">UGC</span> script with lynxr</h2>
+      <p class="lp-p">Paste a public TikTok or Instagram link on <a href="/">the homepage</a> and lynxr works out the format — hook, beats, turn, close — and writes it as a script for the brand you make content for. <a href="/how-it-works/">How lynxr writes scripts</a> shows each step. Free to start: <a href="/faq/#what-it-costs">3 scripts a week, no card</a>.</p>
+      <h2 class="lp-h2" id="more-questions">More questions about <span class="acr">UGC</span> video formats</h2>
+      <ul class="lp-list">
+        <li><b><a href="/blog/ugc-grwm-video/">How do you script a get-ready-with-me <span class="acr">UGC</span> video?</a></b> — Script a get-ready-with-me <span class="acr">UGC</span> video as two layers: a short story you tell while getting ready, and the routine your hands follow underneath it.</li>
+        <li><b><a href="/blog/ugc-unboxing-video/">How do you script an unboxing <span class="acr">UGC</span> video?</a></b> — An unboxing <span class="acr">UGC</span> script is built around the moment you first see the product inside, not the outside of the box.</li>
+        <li><b><a href="/blog/types-of-ugc-videos/">What are the main types of <span class="acr">UGC</span> video?</a></b> — The main types of <span class="acr">UGC</span> video are the demo, unboxing, tutorial, comparison, before-and-after, testimonial, get ready with me, day in the life, point of view and problem-solution.</li>
+        <li><b><a href="/faq/ugc-formats/">All questions about <span class="acr">UGC</span> video formats</a></b> — one format at a time.</li>
+      </ul>
+      <h2 class="lp-h2" id="keep-reading">Keep reading</h2>
+      <ul class="lp-list">
+        <li><b><a href="/what-is-a-video-format/">What a <span class="acr">UGC</span> video format is</a></b></li>
+        <li><b><a href="/blog/storytime-script/">How to script a storytime video for a brand</a></b></li>
+        <li><b><a href="/faq/">Questions and answers</a></b> — about lynxr, and every topic <span class="acr">UGC</span> creators ask about.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer id="site-footer">
+  <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr</div>
+  <div class="foot-grid foot-grid-wide">
+    <div class="foot-brand">
+      <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
+      <p>your <span class="acr">UGC</span> buddy</p>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">lynxr</div>
+      <a class="foot-link" href="/">home</a>
+      <a class="foot-link" href="/how-it-works/">how it works</a>
+      <a class="foot-link" href="/faq/">faq</a>
+      <a class="foot-link" href="/pricing/">pricing</a>
+      <a class="foot-link" href="/about/">about</a>
+      <!-- Visible label "try it", accessible name "try it — join the wait
+           list". The .sr-only tail is inside the <a>, so it is part of the
+           name computation rather than a title attribute nobody hears. -->
+      <a class="foot-link" href="/">get started<span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">guides</div>
+      <a class="foot-link" href="/blog/">blog</a>
+      <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
+      <a class="foot-link" href="/turn-a-video-into-a-script/">video to script</a>
+      <a class="foot-link" href="/short-form-script-structure/">script structure</a>
+      <a class="foot-link" href="/glossary/">glossary</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">company</div>
+      <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
+      <a class="foot-link" href="/privacy/">privacy policy</a>
+      <a class="foot-link" href="/terms/">terms of service</a>
+      <a class="foot-link" href="/accessibility/">accessibility</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">socials</div>
+      <a class="foot-link" href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <a class="foot-link" href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">TikTok</a>
+      <a class="foot-link" href="https://www.linkedin.com/company/lynxr" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+    </div>
+  </div>
+  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+       of the sitewide lowercase text-transform. -->
+  <div class="foot-legal">
+    &copy; <span class="entity">lynxr LLC</span> 2026
+  </div>
+</footer>
+
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
+<script src="/site.js?v=20261013b" defer></script>
+<script src="/footer.js?v=20261013b" defer></script>
+
+</body>
+</html>

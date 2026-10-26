@@ -1,0 +1,267 @@
+{
+  "question_id": "q043",
+  "slug": "product-first-frame-hook",
+  "theme": "ugc-hooks",
+  "title": "How do you hook a UGC video when the product is in the first frame?",
+  "description": "A product video hook for when the product must be in the first frame: make it the question, hold back the result, and compare a weak and a strong script.",
+  "short_answer": "When the product has to be in the first frame, make it the question rather than the answer, and hold back what it does until later. Show it in a state that needs explaining: half used, in an odd place, or caught in the problem it is meant for. The viewer sees the product at once but still has a reason to stay.",
+  "sections": [
+    {
+      "heading": "Why does a product in the first frame weaken a hook?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A product shown up front can answer the hook before it is asked, and a viewer with no open question has no reason to keep watching.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [hook](/glossary/#hook) works by opening a gap that the rest of the video closes. A product held up to the lens with its name said aloud closes that gap in the first second: here is the thing, here is what it is. The brief may still require the product on screen from the start, and that is the brand's call. Your job is to keep it in frame without letting it give the answer away. The [payoff](/glossary/#payoff) still has to come later, which is the match [hook and payoff](/blog/hook-payoff/) is built around.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you make the product the question instead of the answer?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Show the product in a state or place that needs explaining, so the first frame raises a question the viewer wants answered.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Product as the answer",
+            "Product as the question"
+          ],
+          "table_rows": [
+            [
+              "Holding the lunch box up to the camera and naming it",
+              "The lunch box is in the freezer, and you open the door to show it"
+            ],
+            [
+              "Pointing at the desk lamp and listing its settings",
+              "The lamp is on in the middle of a bright afternoon, and you say there is a reason"
+            ],
+            [
+              "A tidy flat lay of the backpack with its name on screen",
+              "The backpack sits soaked on a doorstep, and you start to unzip it slowly"
+            ],
+            [
+              "Spraying the cleaner towards the lens",
+              "The cleaner sits next to a pile of things you were about to throw away"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Each version on the right keeps the product in the first frame, so it still meets a brief that asks for that, but leaves the viewer asking why. Write that question down in one line before you film. If you cannot, the frame is still giving the answer.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you hold back the result without hiding the product?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Keep the product visible but delay the shot that shows what it does, and fill the gap with the situation and what you tried.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Name the situation before any feature, so the viewer knows what is at stake before seeing it handled.",
+            "Keep the product in your hand or the corner of the frame during the setup, so it never leaves the screen.",
+            "Save the close shot of it working for the turn, so the reveal gives the viewer something new to look at.",
+            "Cut any line that announces the result early, such as a line telling the viewer what the bag protects, and let the shot show what happens instead."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The delayed shot becomes your [turn](/glossary/#the-turn), so give it the most care when you film. If you are recording several openings for the same product, [how many hooks to film for one UGC video](/blog/ugc-hook-variations/) helps you plan them so each one keeps the product in frame.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a before and after pair of scripts look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here are two versions for the same product: the first leads with the answer, and the second turns the same first frame into a question.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a roll-top waterproof backpack",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "This is the roll-top backpack I take on my bike.",
+              "do": "Hold the backpack up to the camera in a clean, bright hallway."
+            },
+            {
+              "part": "setup",
+              "say": "It has a laptop sleeve, a roll-top closure and straps you can adjust.",
+              "do": "Turn the bag around slowly to show each part in turn."
+            },
+            {
+              "part": "beat 1",
+              "say": "I rode home in the rain with it yesterday.",
+              "do": "Shot of a wet street through the front window."
+            },
+            {
+              "part": "close",
+              "say": "It's linked if you want one.",
+              "do": "Point at the bag, then at the bottom of the screen."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "The first frame there is fine; the words are the problem. By the end of the first line the viewer knows the product, what it is for and that you like it, so nothing is left to find out. Here is the same product with the hook rewritten.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a roll-top waterproof backpack",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I left this on the doorstep in a downpour with my laptop inside.",
+              "do": "Open on the backpack on a wet doorstep, rain falling, water beading on the fabric."
+            },
+            {
+              "part": "setup",
+              "say": "I ran back in for my keys and forgot it was out there.",
+              "do": "Shot of you opening the front door and stopping when you see the bag."
+            },
+            {
+              "part": "beat 1",
+              "say": "It sat in that the whole time I was looking for them.",
+              "do": "Close shot of water running off the rolled top."
+            },
+            {
+              "part": "turn",
+              "say": "So this is the part I was nervous about.",
+              "do": "Bring the bag inside, unroll the top and lift out the laptop and a paper notebook."
+            },
+            {
+              "part": "beat 2",
+              "say": "Okay, here's what's inside.",
+              "do": "Set the laptop and notebook on the table and open the notebook close to the lens."
+            },
+            {
+              "part": "close",
+              "say": "It's the roll-top one, and it's linked below.",
+              "do": "Hold the bag up to the camera, rolled shut."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "The product is in the first frame of both. Only the second makes the viewer wait for something, and the wait is filled with a situation rather than a list of features. Film only what really happens with the product on the day, and keep any product claim to wording the brand has approved, never a result you have not seen. If the hook also has to work as a paid ad, [what makes a UGC hook work in an ad](/blog/ugc-ad-hooks/) goes further.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you check a product-first hook before you film?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Read the first line while looking at the first frame, and ask what the viewer still does not know.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the answer is nothing, rewrite the line rather than the frame, because the brief may fix the frame but the words are yours. If the answer is what happened next, or why the product is there at all, you have a hook. For more opening shapes that fit around a fixed first frame, work through [how to write a UGC hook that stops the scroll](/how-to-write-a-hook/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-21",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "This is the roll-top backpack I take on my bike.",
+    "I left this on the doorstep in a downpour with my laptop inside."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

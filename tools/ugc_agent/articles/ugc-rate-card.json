@@ -1,0 +1,224 @@
+{
+  "question_id": "q006",
+  "slug": "ugc-rate-card",
+  "theme": "ugc-rates-and-pay",
+  "title": "What should a UGC rate card include?",
+  "description": "What to put on a UGC rate card: the base video, extra hooks, raw footage, usage and rush lines, plus the terms that stop a quote turning into extra unpaid work.",
+  "short_answer": "A UGC rate card lists one base video and every add-on a brand can choose, each with a plain description of what it includes. Put the base video first, then extra hooks, raw footage, usage and rush delivery as separate lines, and finish with the terms: revisions, turnaround and how you get paid.",
+  "sections": [
+    {
+      "heading": "What is a rate card for, if you already quote each job?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A rate card is the menu you send before a quote, so a brand can see every option and pick without a long back and forth.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A quote answers one [brief](/glossary/#brief). A rate card answers the question a brand asks first: what can I buy from you? Writing it once also forces you to decide what each thing costs before someone is waiting on a reply, which is when it is easiest to undercharge. If you have not settled your numbers yet, do that first with [working out what to charge for a UGC video](/blog/how-to-set-ugc-rates/), then come back and lay the result out here.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which line items belong on a UGC rate card?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Give the base video its own line, then list each add-on separately so the brand can see exactly what it is adding and why it costs more.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Line item",
+            "What it includes",
+            "Your price"
+          ],
+          "table_rows": [
+            [
+              "Base video",
+              "One edited video from one script, with one [hook](/how-to-write-a-hook/), captions and one round of revisions",
+              "[AMOUNT]"
+            ],
+            [
+              "Extra hook",
+              "A new opening line and first shot, cut onto the same body of the video",
+              "[AMOUNT] each"
+            ],
+            [
+              "Raw footage",
+              "Every usable take from the shoot, unedited, sent as separate files",
+              "[AMOUNT]"
+            ],
+            [
+              "Paid usage",
+              "Permission for the brand to run the video as an ad, for a period you agree in writing",
+              "[AMOUNT] per period"
+            ],
+            [
+              "Rush delivery",
+              "Delivery sooner than your standard turnaround",
+              "[AMOUNT] on top of the order"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the column called your price filled with your own figures, not a range. A range invites the brand to pick the bottom of it. If the extra hooks line raises questions, point the brand to [how many hooks to film for one video](/blog/ugc-hook-variations/) so it can see what each one gives it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How should you describe each line so nobody misreads it?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Describe each line by what the brand receives, in files and permissions, so the price is tied to something it can check.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Say what is delivered, not how hard it was: one edited video with captions is clearer than a fully produced piece.",
+            "Name the limits inside the base line, such as one script and one round of revisions, because anything not written there will be read as included.",
+            "Describe raw footage by what is in the folder, and link your note on [charging for raw footage](/blog/raw-footage-in-ugc/) if a brand pushes back on paying for it.",
+            "Keep usage as its own line and say what it covers in plain words, because a brand can only agree to a permission it understands.",
+            "Write rush delivery against your standard turnaround, so the brand can see what it is paying to skip."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What terms should sit under the prices?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Under the prices, list the few terms that decide whether a job stays the size you priced it: revisions, turnaround, usage and payment.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Write each term as one short line. Revisions: one round included, further rounds priced per round. Turnaround: your standard time from receiving the product and the approved script. Usage: organic posting is included unless the brand adds paid usage, and every permission is agreed in writing before you film, which the guide to [usage rights in UGC](/blog/what-are-ugc-usage-rights/) explains in more depth. Payment: how and when you invoice, agreed with the brand in writing before work starts. Leave the legal wording to the agreement itself; the rate card only has to make the terms easy to see.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you send a rate card without it reading like a price list?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Send the rate card after a brand shows interest, with a short note that suggests one combination for its brief, so it has a starting point.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A bare table makes the brand do the maths. A suggested package does it for them. You could write: Thanks for sending the brief, [NAME]. My rate card is attached. For [PRODUCT], I would suggest the base video with two extra hooks, so you can test openings against each other, delivered by [DATE]. That comes to [AMOUNT]. Happy to adjust if you need raw footage or paid usage as well.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the card to one page, export it as a file that opens on a phone, and put the date you last updated it in the footer. When you change a price, change the card first, so the next brand never sees an old figure.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you leave off a UGC rate card?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Leave off anything that is not a choice the brand makes, because every extra line is another thing to question before it says yes.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Your hours or costs: the brand is buying a result, and showing the working invites it to negotiate each part.",
+            "Discount lines you have not decided to offer, because once a discount is printed it becomes the price.",
+            "Services you would rather not do. If a line is on the card, expect a brand to order it.",
+            "Your follower count. A [UGC](/glossary/#ugc) job sells the video you make, not a post to your audience, so keep the card about the work."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-18",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

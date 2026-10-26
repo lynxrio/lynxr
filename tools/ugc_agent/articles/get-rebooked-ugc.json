@@ -1,0 +1,229 @@
+{
+  "question_id": "q021",
+  "slug": "get-rebooked-ugc",
+  "theme": "ugc-brand-deals",
+  "title": "How do you get a brand to book you again for UGC?",
+  "description": "How to turn one UGC job into repeat clients: deliver early and organised, add spare hook options, ask for feedback and pitch the next video with one idea.",
+  "short_answer": "To get a brand to book you again, make the first job easy to manage and then propose the next video yourself. Deliver on time with clearly named files, include a spare hook, ask what worked, and follow up with one concrete idea built on that answer, so saying yes takes the brand very little effort.",
+  "sections": [
+    {
+      "heading": "What makes a brand want to book a UGC creator again?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A brand has a reason to book you again when the first job was easy to run and you hand it a clear next step.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "You cannot control what a brand's ads do after you deliver, so focus on what you can control: how smooth the job felt from the brand's side and whether you leave the door open with something specific. Treat the whole job, from the [brief](/glossary/#brief) to the final files, as the pitch for the second one. Getting the script right from the start helps here, and [how to turn a brand brief into a script](/blog/brief-to-script/) covers how to read what the brand fixed and what it left to you.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you deliver a UGC job so it is easy to work with?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Deliver a little before the deadline, in one tidy folder, with files named so anyone on the brand's team can find the right one.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Confirm the deadline and the deliverables in writing at the start, so there is nothing to guess at the end.",
+            "Send a short update when the product arrives and when filming is done, because silence makes people chase.",
+            "Name each file with the product, the version and the hook, such as [PRODUCT] video one hook two, so nobody has to open every clip to sort them.",
+            "Put the finished cuts, any agreed raw clips and a short note in one shared folder, and send one message with one link.",
+            "Write in the note what each file is and what was changed in each revision round."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If something will be late, say so as soon as you know, with a new date. A brand can plan around a delay it hears about early.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why include extra hook options with your delivery?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Extra hook options give the brand more to test from the same footage, which makes your delivery more useful than a single cut.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Filming two or three alternative openings costs you little extra time on the day, because the setup and lighting are already in place. Agree in advance whether these are included in the price or offered as an extra, then label them clearly. A brand that can try different [hook](/glossary/#hook) versions has more to learn from your video, and you have a natural reason to ask later which one it used. [How many hooks should you film for one UGC video](/blog/ugc-hook-variations/) goes into how to plan them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you ask a brand for feedback after a UGC job?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask one short, specific question after delivery, then again once the brand has had time to post or run the video.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A vague \"any feedback?\" is easy to ignore. A question the brand can answer in a line gets you something you can use in the next pitch. Pick one of these and send it in the same thread as the delivery, so the context is right there.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "When",
+            "What to ask",
+            "What you learn"
+          ],
+          "table_rows": [
+            [
+              "On delivery",
+              "Is there anything you would like changed before you sign these off?",
+              "Whether the brief landed and what to adjust."
+            ],
+            [
+              "After posting",
+              "Which of the hook options did you end up using?",
+              "Which opening style suits this brand."
+            ],
+            [
+              "A little later",
+              "Is there a product or angle you would like to try next?",
+              "What the brand is planning, so your next idea fits."
+            ],
+            [
+              "If it went quiet",
+              "Would it help if I sent one idea for the next video?",
+              "Whether the brand is open to a proposal."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you pitch the next video to a brand you have worked with?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Pitch the next video as one concrete idea built on what you learned, with a short outline the brand can approve in one reply.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A repeat pitch is warmer than a cold one, because the brand already knows your work. Keep it short and specific: name the idea, say why it fits, and make the next step obvious. If you want more structure for the email itself, [how do you write a UGC pitch email to a brand](/blog/ugc-pitch-email/) has the parts, and [how do you follow up when a brand does not reply](/blog/follow-up-ugc-pitch/) covers what to do if this one goes unanswered.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hi [NAME], thanks again for the [PRODUCT] videos.",
+            "You mentioned the hook about the morning routine was the one you used, so I have an idea that builds on it.",
+            "The next video would show [PRODUCT] in the evening version of that routine, with the same shape and a new opening line.",
+            "I can send a one-page outline by [DATE] if that sounds useful.",
+            "Same deliverables and terms as last time, unless you would like something different."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you do if a brand does not book you again?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "If a brand does not rebook, ask once whether there is anything you could do differently, then keep the relationship polite and move on.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A no can have reasons that have nothing to do with you, such as a paused campaign or a change of budget, so do not read too much into silence. Send one friendly check-in after a while with a fresh idea, and keep the finished videos in your portfolio if your agreement allows it. Each job you run this way also gives you a cleaner delivery routine to use with the next brand you find.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-19",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

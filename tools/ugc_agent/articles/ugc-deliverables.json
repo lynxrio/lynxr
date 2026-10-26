@@ -1,0 +1,272 @@
+{
+  "question_id": "q028",
+  "slug": "ugc-deliverables",
+  "theme": "ugc-briefs",
+  "title": "What should you deliver at the end of a UGC job?",
+  "description": "A checklist of UGC deliverables to hand over at the end of a job: final cuts, hook variations, captions, clear file names and a short handover note.",
+  "short_answer": "At the end of a UGC job, deliver exactly what the brief and your written agreement list, named so the brand can find each file without asking. That list can include the final cuts, any agreed hook variations, a captions file, raw footage only if it was agreed, and a short handover note that says what is in the folder.",
+  "sections": [
+    {
+      "heading": "What counts as a deliverable on a UGC job?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A deliverable is any file the brand agreed to receive, so the list comes from the brief and your written agreement, not from memory.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Before you export anything, reread the [brief](/glossary/#brief), using the marks you made when you [turned it into a script](/blog/brief-to-script/), and the message where the job was agreed. Copy every promised item into one list: how many videos, how many versions of each, which lengths, whether captions are burned in or sent separately, and whether raw clips are part of the deal. If two sources disagree, ask the brand which one wins before you deliver, because fixing the wrong export later costs you a second upload and a second round of their attention.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the job never had a clear list, [what to agree in writing before a UGC job starts](/blog/agree-in-writing-before-ugc/) covers what to pin down next time. For this job, send the brand your list and ask them to confirm it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which files go in the final delivery folder?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The folder holds the agreed final cuts first, then any agreed extras, each in its own clearly named file.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "File",
+            "What it is",
+            "Send it when"
+          ],
+          "table_rows": [
+            [
+              "Final cut",
+              "The finished video, edited to the length and shape in the brief",
+              "Always"
+            ],
+            [
+              "Hook variations",
+              "The same video with a different opening, each exported as its own file",
+              "When agreed, or offered as a named extra"
+            ],
+            [
+              "Clean version",
+              "The final cut with no burned-in captions or text, so the brand can add its own",
+              "When the brief mentions ads or editing on their side"
+            ],
+            [
+              "Captions file",
+              "The spoken words as a separate text file, timed to the video",
+              "When captions are agreed, or the brand wants to translate"
+            ],
+            [
+              "Raw footage",
+              "Your unedited clips, trimmed of false starts",
+              "Only when it was agreed and priced"
+            ],
+            [
+              "Handover note",
+              "A short message listing every file and what it is for",
+              "Always"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Each [hook](/glossary/#hook) variation should be a complete video, not just the first few seconds. A brand testing openings needs files it can upload as they are, and a loose clip leaves them to do the edit you were paid for. [Should you charge extra for raw footage in UGC?](/blog/raw-footage-in-ugc/) explains why raw clips sit on their own line.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How should you name the files?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Name every file so a stranger could tell what it is without opening it: brand, product, version and length, in the same order every time.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The person who booked you may not be the person who uploads the ad. A file called final edit new tells that second person nothing. A fixed pattern does the explaining for you and makes it obvious if something is missing.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Start with [NAME] for the brand and [PRODUCT] for the item, so the files sort together in a shared folder.",
+            "Add the version: main, hook two, hook three, clean. Write the version the same way on every file.",
+            "Add the length in words or as short, medium or long, so a brand cutting for different placements can pick fast.",
+            "End with [DATE] of delivery, so a later revision never overwrites the first file in their records.",
+            "Keep raw clips in their own subfolder, so nobody mistakes an unedited clip for a finished ad."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What goes in the handover note?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The handover note lists what you sent, where it is, and what happens next, in a message short enough to read in one go.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "It saves the brand from opening every file to check, and it gives you a written record of what was delivered and when. Send it in the same thread where the job was agreed, so it sits next to the terms.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hi [NAME], the final files for [PRODUCT] are in this folder: [LINK].",
+            "Inside: [NUMBER] final cuts, [NUMBER] hook variations, a clean version with no captions, and the captions file.",
+            "Each file name gives the version and length, so you can match them to your placements.",
+            "This delivery uses round one of the revisions we agreed. If you would like changes, send all notes together by [DATE].",
+            "Thanks for having me on this one. I would be glad to film the next round."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If notes come back, [how revisions should work on a UGC job](/blog/ugc-revisions/) covers how to handle them without the job reopening from scratch.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you check before you hit send?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Watch every exported file once, start to finish, with sound on, because export errors show up only on playback.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Open the folder link in a private browser window to confirm the brand can open it without asking you for access.",
+            "Check that every item on your agreed list is in the folder, and nothing that was not agreed.",
+            "Read the captions against the audio, because one wrong word in a product name is the note you will get first.",
+            "Confirm each file is vertical and matches the length in the brief.",
+            "Check the [call to action](/glossary/#call-to-action) in each cut matches the one the brief asked for, word for word."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A clean, complete delivery also makes the next booking easier to ask for, and [getting a brand to book you again](/blog/get-rebooked-ugc/) picks up from here.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What if the brand asks for something that was not agreed?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Treat an extra request as a new item: say yes with a price or a timeline, or say what was agreed and offer it as an add-on.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A brand may ask for raw clips, a different length or more hook variations after the fact. You can agree, but put it in writing first so the scope is clear. A short reply works: happy to add [NUMBER] more hook variations for [AMOUNT], and I can deliver them by [DATE]. That keeps the original job closed, and it keeps the extra work paid.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-23",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

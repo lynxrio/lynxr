@@ -34,7 +34,8 @@
   "q004": {
     "fails": 1,
     "last_fail": "2026-10-14",
-    "last_error": "originality: 2 shared 12-word run(s) with blog/ugc-script-for-skincare/index.html, e.g. 'how to turn a brand brief into a script shows how to'"
+    "last_error": "originality: 2 shared 12-word run(s) with blog/ugc-script-for-skincare/index.html, e.g. 'how to turn a brand brief into a script shows how to'",
+    "published": "2026-10-16"
   },
   "q032": {
     "fails": 0,
@@ -51,5 +52,111 @@
   "q048": {
     "fails": 0,
     "published": "2026-10-15"
+  },
+  "q056": {
+    "fails": 0,
+    "published": "2026-10-16"
+  },
+  "q012": {
+    "fails": 0,
+    "published": "2026-10-16"
+  },
+  "q005": {
+    "fails": 0,
+    "published": "2026-10-17"
+  },
+  "q013": {
+    "fails": 0,
+    "published": "2026-10-17"
+  },
+  "q019": {
+    "fails": 0,
+    "published": "2026-10-17"
+  },
+  "q006": {
+    "fails": 0,
+    "published": "2026-10-18"
+  },
+  "q014": {
+    "fails": 0,
+    "published": "2026-10-18"
+  },
+  "q020": {
+    "fails": 0,
+    "published": "2026-10-18"
+  },
+  "q007": {
+    "fails": 0,
+    "published": "2026-10-19"
+  },
+  "q021": {
+    "fails": 0,
+    "published": "2026-10-19"
+  },
+  "q025": {
+    "fails": 0,
+    "published": "2026-10-19"
+  },
+  "q026": {
+    "fails": 1,
+    "last_fail": "2026-10-20",
+    "last_error": "originality: 2 shared 12-word run(s) with blog/ugc-script-for-skincare/index.html",
+    "published": "2026-10-22"
+  },
+  "q033": {
+    "fails": 4,
+    "last_fail": "2026-10-26",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-script-for-an-app/index.html, e.g. 'lynxr questions ugc scripts how do you write a ugc script for'"
+  },
+  "q042": {
+    "fails": 0,
+    "published": "2026-10-20"
+  },
+  "q027": {
+    "fails": 0,
+    "published": "2026-10-21"
+  },
+  "q034": {
+    "fails": 3,
+    "last_fail": "2026-10-25",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-script-for-an-app/index.html, e.g. 'lynxr questions ugc scripts how do you write a ugc script for' (breadcrumb + question title, not fixable in the a"
+  },
+  "q043": {
+    "fails": 0,
+    "published": "2026-10-21"
+  },
+  "q044": {
+    "fails": 0,
+    "published": "2026-10-22"
+  },
+  "q028": {
+    "fails": 0,
+    "published": "2026-10-23"
+  },
+  "q049": {
+    "fails": 1,
+    "last_fail": "2026-10-23",
+    "last_error": "proper noun: section 1 block 3 text has DO (anchor text 'SAY and DO' copied from a page title)",
+    "published": "2026-10-25"
+  },
+  "q050": {
+    "fails": 0,
+    "published": "2026-10-24"
+  },
+  "q057": {
+    "fails": 0,
+    "published": "2026-10-24"
+  },
+  "q058": {
+    "fails": 0,
+    "published": "2026-10-25"
+  },
+  "q051": {
+    "fails": 0,
+    "published": "2026-10-26"
+  },
+  "q059": {
+    "fails": 0,
+    "published": "2026-10-26"
   }
 }

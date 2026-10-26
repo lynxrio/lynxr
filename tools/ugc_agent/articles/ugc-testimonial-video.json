@@ -1,0 +1,256 @@
+{
+  "question_id": "q059",
+  "slug": "ugc-testimonial-video",
+  "theme": "ugc-formats",
+  "title": "How do you script a testimonial-style UGC video?",
+  "description": "How to write a testimonial UGC script from real use: what you expected, how you used it, an honest verdict with one downside, and an example script.",
+  "short_answer": "A testimonial UGC script tells the story of your real use of a product in three moves: what you expected, what happened when you used it, and your honest verdict. Include one genuine downside, because it can make the rest of what you say easier to believe, and only script a testimonial for something you have actually used.",
+  "sections": [
+    {
+      "heading": "What makes a testimonial different from other UGC formats?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A testimonial is a verdict from your own experience, so the product is judged by you rather than demonstrated, unboxed or styled.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "In an unboxing the viewer watches a first impression. In a testimonial they hear what you think after living with the thing. That means the [format](/glossary/#format) runs on time: you need days or weeks of real use behind it before you can write a single line. If the brand sends the product with a short deadline, ask it how long you will have to use it before filming, and say so if that is not long enough to give a fair verdict.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you want to see where it sits next to the other shapes a brand might ask for, [the main types of UGC video](/blog/types-of-ugc-videos/) sets them side by side.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you write down before you script a testimonial?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write down what you actually noticed while using the product, in your own words, before you look at the brief's talking points.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "What you expected before you tried it, including any doubt you had.",
+            "The first time it surprised you, good or bad, and where you were.",
+            "One small habit that changed, such as where you keep it or when you reach for it.",
+            "The thing that still annoys you, even a little.",
+            "Who you would tell to get one, and who you would tell to skip it."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Then hold that list against the [brief](/glossary/#brief). Where a required point matches something you noticed, use your wording for it. Where a required point does not match your experience, tell the brand before filming rather than saying it on camera. [Turning a brief into a script](/blog/brief-to-script/) shows a clean way to mark the fixed lines first.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you structure a testimonial UGC script?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Structure it as expectation, use and verdict, with the moment your expectation changed as the turn.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Part",
+            "What you say",
+            "What the camera shows"
+          ],
+          "table_rows": [
+            [
+              "Hook",
+              "The doubt you had, or the problem you were living with",
+              "You with the product, or the problem itself"
+            ],
+            [
+              "Expectation",
+              "What you thought would happen when you started",
+              "The product new, or the old way you did things"
+            ],
+            [
+              "Use",
+              "Two or three moments from real use, told plainly",
+              "The product in the places you really use it"
+            ],
+            [
+              "Turn",
+              "The moment your opinion changed",
+              "The specific thing that changed it, up close"
+            ],
+            [
+              "Verdict",
+              "What you like, the one downside, and who it suits",
+              "You talking to camera, product in hand"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Each row is a [beat](/glossary/#beat) that changes what is on screen, so the viewer has something new to look at while the story moves. The general shape of hook, setup and close is laid out in [the parts of a UGC video script](/short-form-script-structure/); a testimonial only decides what fills each part.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why should a testimonial include a real downside?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A real downside shows the viewer you are judging the product rather than reading praise, which makes the rest of your verdict easier to trust.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Pick a downside that is true, specific and small enough to live with, such as a lid that is fiddly or a charger cable that is short. Say it plainly, then say why you still use the product. Avoid inventing a fake flaw that is secretly a compliment, because it tends to sound like a dodge. Agree with the brand before filming that the script will include one honest downside, so the line is not cut in review and you are not asked to reshoot it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you genuinely did not like the product, do not script a testimonial at all. Tell the brand what you found, and offer a different format, such as a demonstration of how it works, if it still wants a video from you.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a finished testimonial script look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A finished testimonial script reads like you telling a friend how the product has gone, with each line tied to a shot of real use.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a cordless handheld vacuum",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I was sure a vacuum this small would end up in a cupboard within a week.",
+              "do": "Hold the handheld vacuum up next to your face, then glance at a closed cupboard door."
+            },
+            {
+              "part": "setup",
+              "say": "I've had it a month now, and I wanted it for crumbs under the table and cat hair on the sofa.",
+              "do": "Show crumbs under a kitchen chair, then the sofa cushion with hair on it."
+            },
+            {
+              "part": "beat 1",
+              "say": "It lives on the wall by the door, so I grab it on my way past instead of dragging the big one out.",
+              "do": "Film it on its wall mount, then your hand lifting it off in one move."
+            },
+            {
+              "part": "turn",
+              "say": "This is where I changed my mind. The nozzle actually fits into the sofa seams, which I wasn't expecting.",
+              "do": "Close shot of the nozzle sliding along a sofa seam."
+            },
+            {
+              "part": "beat 2",
+              "say": "The downside: the bin is tiny. I empty it after every room.",
+              "do": "Pop the bin open over the kitchen bin and tap it out."
+            },
+            {
+              "part": "close",
+              "say": "If you want a quick pass every day, this is the one I use, and it's linked. If you want one deep clean a week, keep your big one.",
+              "do": "Clip it back on the wall mount and look back at the camera."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "The downside sits after the turn, so it lands once the viewer already believes you, and the close tells them who should skip it. That honest close is what keeps the video a testimonial rather than an advert read from a sheet. For a format built on first impressions instead of lived use, compare [scripting an unboxing video](/blog/ugc-unboxing-video/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-26",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I was sure a vacuum this small would end up in a cupboard within a week."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
