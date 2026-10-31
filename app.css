@@ -9432,6 +9432,10 @@
   body.agency #app main .bcard { padding: 18px 20px; }
   body.agency #app main .bcard-title { font-size: var(--fs-16); font-weight: 700; letter-spacing: -.01em; }
   body.agency #app main .bcard .lbl { font-size: var(--fs-13); margin-top: 2px; }
+  /* client cards: niche on one line (a long one gets an ellipsis), the brief count always shows */
+  body.agency #app main .cl-meta { display: flex; min-width: 0; }
+  body.agency #app main .cl-niche { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body.agency #app main .cl-meta .cl-brief-count { flex: none; white-space: pre; }
   /* ---- (agency) the client page head (an island) and the crumbs (on the backdrop) ---- */
   body.agency #app main .crumbs { margin-bottom: 10px; }
   body.agency #app main .crumb-link { padding: 4px 11px; color: var(--text-2); }
@@ -13666,3 +13670,23 @@
     }
     body.agency.cm #app > header nav .tab:not([hidden]) { flex: 1 1 0; justify-content: center; min-height: 44px; }
   }
+
+  /* ---------- CREATORS ON THEIR CLIENT'S PAGE (owner, 2026-10-31; plan ~/.claude/plans/agency-creators-in-client-folders.md) ----------
+     A client's page lists its creators under its briefs (app.js clientCrewHtml, #cl-crew), drawn the way the Briefs
+     list above it is: heading and cards on the backdrop, no island around them. The AGENCY GLASS PASS island rule
+     scores two ids (its :has() list counts #cl-brief-list); this selector scores the same and wins by coming later.
+     The empty page's "Invite a creator" is a 44px ghost. The Creators tab keeps the invite, Add a CM and only the
+     creators on no client: one line under its heading says where everyone else is, and that short list gets the CMs
+     block's hairline above it. */
+  body.agency #app main #cl-crew.section.cl-crew {
+    background: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+    border: 0; border-radius: 0; box-shadow: none; padding: 0;
+  }
+  body.agency #app main #cl-crew-goto { min-height: 44px; margin-top: 6px; }
+  body.agency #app main .rost-where { margin: -6px 0 14px; }
+  body.agency #app main .section > .rost-where:last-child { margin-bottom: 0; }
+  body.agency #app main #rost-list:empty { margin: 0; }
+  body.agency #app main #rost-list > .rost-unplaced-h {
+    margin: 0 0 4px; padding: 16px 0 0; border-top: 1px solid var(--line); font-size: var(--fs-15);
+  }
+  body.agency #app main #rost-list > .rost-unplaced-rule { margin: 0 0 12px; }

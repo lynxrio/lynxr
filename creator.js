@@ -5985,7 +5985,7 @@ function renderLynxBrief(head, body) {
   ].filter(Boolean).join("");
 
   /* UPDATED BY THE AGENCY (owner, 2026-09-23: "allow the agency side the edit the scripts and
-     briefs"). Staff can now rewrite a brief they already sent (app.js agStampDoc / agUpdateSent), and
+     briefs"). Staff can now rewrite a brief they already sent (app.js agStampDoc / agSend: Send to creators again), and
      the doc says when in updated_at — set only when something readable changed. Said once, under the
      title. A script this creator already added from this brief lives in their own library, which the
      agency cannot write, so it did NOT change: say that too, only when there is one. */
