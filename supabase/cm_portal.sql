@@ -25,6 +25,8 @@
 -- Dashboard → SQL Editor → New query → paste → Run. Standalone, idempotent, safe to re-run. Order against the push does
 -- not matter: before this runs, the app treats every account exactly as it does today.
 -- **No real email address, uuid or object path anywhere in this file — the repo is public.**
+-- AFTER supabase/cm_manager.sql exists: re-run that file after any re-run of this one. It redefines my_roles() (adds
+-- "manager") and staff_add_cm() (staff OR manager); re-running this file alone puts the old two back.
 
 -- ── 0. Prerequisites ─────────────────────────────────────────────────────────────────────────────────────────────
 do $$ begin

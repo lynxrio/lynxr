@@ -13626,3 +13626,43 @@
     body.agency.cm #app main #cm-inv-go { width: 100%; min-height: 48px; }
     body.agency.cm #app main .cm-crew-card { flex-wrap: wrap; }
   }
+
+  /* ---------- CM MANAGER + THE CM NAV (owner, 2026-10-30; plan ~/.claude/plans/lynxr-cm-manager.md) ----------
+     CMs and managers (body.agency.cm; a manager also has .cm-manager) get the staff header's tab bar back, cut to two
+     tabs, Clients and Creators (app.js cmStripAgencyChrome): this rule beats the CM PORTAL block's display:none by
+     coming later in the file. A CM's Creators tab keeps the CM CREATORS block's big "Invite a creator" (fixed in the phone
+     thumb zone), so its panel gets the same bottom room #briefs-host has; a card for a creator on several of the CM's
+     companies stacks one remove button per company. On every Creators tab that has CMs (staff and managers), "Add a CM"
+     is a one-line ghost form directly under the invite form, and the CM list folds under a 44px "CMs" summary: the
+     invite stays the one ink button on the screen. */
+  body.agency.cm #app > header nav { display: flex; }
+  body.agency.cm .cm-crew-card .cm-crew-rms { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  body.agency #app main .cms-block { margin: 20px 0 0; padding: 16px 0 0; border-top: 1px solid var(--line); }
+  body.agency #app main .cms-block .cms-h { margin: 0 0 8px; }
+  body.agency #app main .cms-block .cms-add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 0; }
+  body.agency #app main .cms-block .cms-add-field { flex: 1 1 260px; min-width: 0; margin: 0; }
+  body.agency #app main .cms-block #cms-add-go { flex: 0 0 auto; min-height: 44px; }
+  body.agency #app main .cms-block .cms-rule { margin: 6px 0 0; }
+  body.agency #app main .cms-block .cms-more { margin: 8px 0 0; }
+  body.agency #app main .cms-block .cms-more > summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; }
+  body.agency #app main .cms-block .cms-more .lede { margin: 4px 0 12px; }
+  @media (max-width: 640px) {
+    body.agency.cm #roster-host { padding-bottom: 84px; }
+    body.agency.cm .cm-crew-card .cm-crew-rms { width: 100%; align-items: stretch; }
+    body.agency #app main .cms-block #cms-add-go { width: 100%; }
+  }
+
+  /* CM AND MANAGER HEADER ON PHONES (2026-10-30). In CM and manager mode the bar holds the two marks, two tabs,
+     "creator app" and "sign out". At 393px that overflowed and the nav scrolled sideways, so "clients" sat cut off
+     at the left ("…ents") where a CM couldn't see it. On phones the tabs get their own full-width row under the marks
+     and buttons: two equal 44px targets, nothing scrolls. Staff keep their scrolling single-row bar. */
+  @media (max-width: 640px) {
+    body.agency.cm #app > header {
+      height: auto; min-height: 52px; flex-wrap: wrap; row-gap: 6px; padding-block: 6px;
+      border-radius: 26px;
+    }
+    body.agency.cm #app > header nav {
+      order: 10; flex: 1 0 100%; margin-left: 0; overflow: visible; display: flex; gap: 6px;
+    }
+    body.agency.cm #app > header nav .tab:not([hidden]) { flex: 1 1 0; justify-content: center; min-height: 44px; }
+  }

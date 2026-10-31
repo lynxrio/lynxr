@@ -3835,10 +3835,10 @@ function myRolesOnce() {
     let roles = null;
     try {
       const r = await sbFetch("/rest/v1/rpc/my_roles", { method: "POST", body: "{}" });
-      if (r && typeof r === "object") roles = { staff: r.staff === true, cm: r.cm === true };
+      if (r && typeof r === "object") roles = { staff: r.staff === true, cm: r.cm === true, manager: r.manager === true };
     } catch { /* not installed yet, or offline: ask is_staff() as before */ }
     if (!roles) {
-      try { roles = { staff: (await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" })) === true, cm: false }; }
+      try { roles = { staff: (await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" })) === true, cm: false, manager: false }; }
       catch { roles = null; }
     }
     MY_ROLES = roles;
@@ -3856,7 +3856,7 @@ function myRolesOnce() {
 const LINKWALL_LIVE = true;        // kill switch for the whole wall, and for the "put the code in your bio" card on Home
 function linkWallDue() {
   if (!LINKWALL_LIVE || !ONBOARD_LIVE) return false;
-  if (MY_ROLES?.cm) return false;                     // a CM on the roster (to see briefs as creators do) is not a posting creator
+  if (MY_ROLES?.cm || MY_ROLES?.manager) return false;   // a CM or manager on the roster (to see briefs as creators do) is not a posting creator
   if (AGENCY_STATE !== "ready") return false;         // idle | loading | missing | error -> no wall
   if (AGENCY?.state !== "accepted") return false;     // invited | left | none -> no wall
   if (!Array.isArray(PROFILES)) return false;         // the profiles read failed -> no wall
@@ -8175,7 +8175,7 @@ function paintSideNews() {
      ...&metric=link               link TikTok (username, bio code, done) with the first-script screen behind it
      ...&hookcheck=pass|below      paints the "lynxr hook rules" line under a script's hook (94 at/above the bar, or 72 with the rule it misses);
                                    needs a script card on screen, e.g. &metric=winbrand, closed, then Library
-     ...&roles=cm|staff            my_roles() answers as a CM / as staff (CM portal plan): the account menu shows "CM view" /
+     ...&roles=cm|staff|manager    my_roles() answers as a CM / staff / manager: the account menu shows "CM view" / "Manager view" /
                                    "Agency app"; a CM is never shown the link wall (try it with &metric=rosterwall)
    ================================================================================================================ */
 const OBTEST = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
@@ -8242,9 +8242,9 @@ if (OBTEST) {
       return { ok: true };
     }
     if (path.includes("/rest/v1/lynxr_profiles")) return pstore().slice();
-    if (path.includes("/rpc/my_roles")) {       // ?roles=cm|staff (CM portal plan): who this fake account is
+    if (path.includes("/rpc/my_roles")) {       // ?roles=cm|staff|manager (CM portal + manager plans): who this fake account is
       const rr = new URLSearchParams(location.search).get("roles");
-      return { staff: rr === "staff", cm: rr === "cm", companies: rr === "cm" ? 1 : 0 };
+      return { staff: rr === "staff", cm: rr === "cm", manager: rr === "manager", companies: rr === "cm" ? 1 : 0 };
     }
     if (path.includes("/rpc/my_agency")) {      // ?roster=accepted|invited|left|none; the link-wall state defaults to accepted, every other state to none
       const rs = new URLSearchParams(location.search).get("roster") || OBFAKE.roster
@@ -14100,16 +14100,17 @@ function takeInsightsReturn() {
 async function revealAgencySwitch() {
   if (document.getElementById("nav-agency")) return;
   const roles = await myRolesOnce();         // offline, or neither function answers: no link
-  const staff = !!roles?.staff, cm = !!roles?.cm;        // staff wins: a staff member who is also a CM sees "Agency app"
+  // staff wins: a staff member who is also a CM or manager sees "Agency app"; a manager who is also a CM sees "Manager view"
+  const staff = !!roles?.staff, cm = !!roles?.cm, manager = !!roles?.manager;
   const before = document.getElementById("nav-you");     // it joins the account menu, ahead of Settings
-  if (!(staff || cm) || !before || document.getElementById("nav-agency")) return;
+  if (!(staff || cm || manager) || !before || document.getElementById("nav-agency")) return;
   const a = document.createElement("a");
   a.className = "side-link";
   a.id = "nav-agency";
   a.setAttribute("role", "menuitem");
   a.tabIndex = -1;
   a.href = "/agencyonly/";
-  a.innerHTML = `<svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3.5-3.5"/><path d="M20 16H7l3.5 3.5"/></svg><span class="side-label">${staff ? "Agency app" : "CM view"}</span>`;
+  a.innerHTML = `<svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3.5-3.5"/><path d="M20 16H7l3.5 3.5"/></svg><span class="side-label">${staff ? "Agency app" : manager ? "Manager view" : "CM view"}</span>`;
   before.parentNode.insertBefore(a, before);
 }
 

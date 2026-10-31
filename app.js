@@ -26,6 +26,7 @@ let CM_MODE = false;
 let CM_CLIENTS = [];        // [{ id, company, niche, ctx, briefs: [], posts: [] }] from cm_clients(): a CM's ONLY client list
 let MY_ROLES = null;        // { staff, cm, companies } once my_roles() answered; null = unknown (not installed yet, offline)
 let CM_COMPOSE_FOR = null;  // a client id: open its "Create a new brief" composer on the next paint of its page
+let CM_MANAGER = false;     // a CM MANAGER (lynxr_cm_managers): CM_MODE too, over EVERY client (plan lynxr-cm-manager.md)
 let unlocked = false;
 function unlock(rows) {
   if (unlocked) return;   // guard: double-unlock would double-bind listeners
@@ -320,7 +321,8 @@ async function loadFailureReason(m) {
       const staff = await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" });
       if (staff === false) {
         // A CM whose my_roles() call failed on the way in (a network blip) lands here: don't call them a creator.
-        if ((await myRoles())?.cm) return "Couldn't open your companies — check your connection and reload.";
+        const r = await myRoles();
+        if (r?.cm || r?.manager) return "Couldn't open your clients — check your connection and reload.";
         return "That's a creator account — it has no agency access. Ask us for the creator link instead.";
       }
     } catch { /* pre-staff-gate database, or offline: fall through */ }
@@ -341,7 +343,7 @@ async function revealCreatorSwitch() {
   if (document.getElementById("to-creator")) return;
   // Staff AND CMs get the link back to the creator app. MY_ROLES is known after enterSignedIn(); ask is_staff()
   // only when it is not (my_roles() not installed yet).
-  let staff = !!(MY_ROLES && (MY_ROLES.staff || MY_ROLES.cm));
+  let staff = !!(MY_ROLES && (MY_ROLES.staff || MY_ROLES.cm || MY_ROLES.manager));
   if (!MY_ROLES) {
     try {
       staff = (await sbFetch("/rest/v1/rpc/is_staff", { method: "POST", body: "{}" })) === true;
@@ -357,32 +359,39 @@ async function revealCreatorSwitch() {
   signout.parentNode.insertBefore(a, signout);
 }
 
-/** { staff, cm, companies } from my_roles() (supabase/cm_portal.sql), or null when it is not installed or the call
+/** { staff, cm, manager, companies } from my_roles() (supabase/cm_portal.sql), or null when it is not installed or the call
     failed. Never throws. */
 async function myRoles() {
   try {
     const r = await sbFetch("/rest/v1/rpc/my_roles", { method: "POST", body: "{}" });
     return r && typeof r === "object"
-      ? { staff: r.staff === true, cm: r.cm === true, companies: Number(r.companies) || 0 } : null;
+      ? { staff: r.staff === true, cm: r.cm === true, manager: r.manager === true, companies: Number(r.companies) || 0 } : null;
   } catch { return null; }
 }
 
 /* WHO IS SIGNING IN. The one path after any sign-in (the form, a reset/invite link, a stored session). Staff, and
-   EVERYONE while my_roles() is not installed, take the agency path exactly as before. A CM who is not staff gets the
-   CM portal (cmBoot), which never reads lynxr_videos or lynxr_clients. The video read starts at the same moment as
-   the roles call, so staff wait no longer than they did; a CM's comes back empty and is dropped. `onStage(text)` is the
-   gate's busy line (the form and the reset path pass one; a stored session runs silently). Throws what the old path
-   threw, so every caller's catch still says the same things. */
+   EVERYONE while my_roles() is not installed, take the agency path exactly as before. A CM or a CM manager who is not
+   staff gets the portal (cmBoot), which never reads lynxr_videos or lynxr_clients. So that a CM's browser never even
+   asks for the video database, the roles call goes FIRST; only a browser whose last agency sign-in was staff
+   (AG_ROLE_KEY, a speed hint, never a permission) starts the big video read alongside it, so staff wait no longer than
+   before. `onStage(text)` is the gate's busy line (the form and the reset path pass one; a stored session runs
+   silently). Throws what the old path threw, so every caller's catch still says the same things. */
+const AG_ROLE_KEY = "lynxr_agency_role";   // "staff" | "cm" | "manager" (plan lynxr-cm-manager.md, D14)
 async function enterSignedIn(onStage) {
-  const rowsP = sbFetchVideos().then((rows) => ({ rows }), (ex) => ({ ex }));
+  let hint = "";
+  try { hint = localStorage.getItem(AG_ROLE_KEY) || ""; } catch { /* private window */ }
+  const readVideos = () => sbFetchVideos().then((rows) => ({ rows }), (ex) => ({ ex }));
+  const early = hint === "staff" ? readVideos() : null;
   MY_ROLES = await myRoles();
-  if (MY_ROLES?.cm && !MY_ROLES.staff) {
-    onStage?.("Opening your companies…");
+  const portal = !!MY_ROLES && !MY_ROLES.staff && (MY_ROLES.cm || MY_ROLES.manager);
+  try { localStorage.setItem(AG_ROLE_KEY, portal ? (MY_ROLES.manager ? "manager" : "cm") : "staff"); } catch { /* private window */ }
+  if (portal) {
+    onStage?.("Opening your clients…");
     await cmBoot();
     return;
   }
   onStage?.("Loading database…");
-  const got = await rowsP;
+  const got = await (early || readVideos());
   if (got.ex) throw got.ex;
   try { await syncClients(); } catch { SYNC_OK = false; }
   unlock(got.rows);
@@ -392,7 +401,8 @@ async function enterSignedIn(onStage) {
 /** A CM's companies, from cm_clients(): the brand fields only (never the legacy briefs, posts or agency numbers
     stored in the same lynxr_clients row). Shaped like a client record so every brief-builder function takes it. */
 async function cmFetchClients() {
-  const rows = await sbFetch("/rest/v1/rpc/cm_clients", { method: "POST", body: "{}" });
+  // A manager gets EVERY live client (mgr_clients(), supabase/cm_manager.sql); a CM only theirs. Same brand fields either way.
+  const rows = await sbFetch(CM_MANAGER ? "/rest/v1/rpc/mgr_clients" : "/rest/v1/rpc/cm_clients", { method: "POST", body: "{}" });
   return (Array.isArray(rows) ? rows : []).filter((c) => c && c.id).map((c) => ({
     id: String(c.id), company: String(c.company || "Client"), niche: String(c.niche || ""),
     ctx: c.ctx && typeof c.ctx === "object" ? c.ctx : {}, briefs: [], posts: [],
@@ -402,35 +412,35 @@ async function cmFetchClients() {
 /** Into the CM portal. A failed company read stays on the gate with a sentence (and does not throw: the caller's catch
     would blame the database). */
 async function cmBoot() {
+  CM_MANAGER = !!MY_ROLES?.manager;   // before the read: cmFetchClients asks mgr_clients() for a manager
   let list;
   try { list = await cmFetchClients(); }
   catch {
-    document.getElementById("err").textContent = "Signed in, but couldn't load your companies — check your connection and reload.";
+    CM_MANAGER = false;
+    document.getElementById("err").textContent = "Signed in, but couldn't load your clients — check your connection and reload.";
     return;
   }
   CM_MODE = true;
   CM_CLIENTS = list;
   SYNC_OK = true;
   document.body.classList.add("cm");
-  document.title = "lynxr — CM";
+  if (CM_MANAGER) document.body.classList.add("cm-manager");
+  document.title = CM_MANAGER ? "lynxr — manager" : "lynxr — CM";
   cmStripAgencyChrome();
   unlockCm();
 }
 
-/** The agency app with everything a CM must not reach taken OUT of the page, not hidden: the Database, Creators,
-    Showcase and Ops tabs and their panels, the footer's Sections links and its corpus count. #tab-briefs stays in the
-    DOM (activateTab needs it); the tab bar is hidden by app.css (body.agency.cm). */
+/** The agency app with everything a CM or manager must not reach taken OUT of the page, not hidden: the Database,
+    Showcase and Ops tabs and their panels, the footer's Sections links and its corpus count. What stays is the staff
+    tab bar cut to two tabs, Clients (#tab-briefs) and Creators (#tab-roster) (owner, 2026-10-30: "they only need
+    clients, creators at the top nav"); unlockCm binds them. The sticky #cm-banner sits above both tabs' panels. */
 function cmStripAgencyChrome() {
-  for (const id of ["tab-database", "tab-roster", "tab-showcase", "tab-ops",
-    "panel-database", "panel-roster", "panel-showcase", "panel-ops"]) {
+  for (const id of ["tab-database", "tab-showcase", "tab-ops", "panel-database", "panel-showcase", "panel-ops"]) {
     document.getElementById(id)?.remove();
   }
-  TABS.splice(0, TABS.length, ["tab-briefs", "panel-briefs"]);
-  const nav = document.querySelector("#app > header nav");
-  if (nav) nav.hidden = true;
+  TABS.splice(0, TABS.length, ["tab-briefs", "panel-briefs"], ["tab-roster", "panel-roster"]);
   document.querySelector("#site-footer .foot-link[data-tab]")?.closest(".foot-col")?.remove();
   document.getElementById("foot-count")?.closest("p")?.remove();
-  document.getElementById("home-mark")?.setAttribute("aria-label", "lynxr — back to your companies");
   if (!document.getElementById("cm-banner")) {
     const p = document.createElement("p");
     p.id = "cm-banner";
@@ -438,7 +448,7 @@ function cmStripAgencyChrome() {
     p.setAttribute("role", "status");
     p.setAttribute("aria-live", "polite");
     p.hidden = true;
-    document.getElementById("panel-briefs")?.prepend(p);
+    document.querySelector("#app main")?.prepend(p);
   }
 }
 
@@ -449,11 +459,12 @@ function unlockCm() {
   document.getElementById("err").textContent = "";
   gate.style.display = "none";
   app.style.display = "block";
+  initTabs();               // Clients and Creators: cmStripAgencyChrome cut TABS to those two
   activateTab("tab-briefs");
   updateSyncBadge();
   renderBriefs();
   cmStartRefresh();
-  revealCreatorSwitch();   // "Creator app": MY_ROLES already says CM, so no extra request
+  revealCreatorSwitch();   // "Creator app": MY_ROLES already says CM or manager, so no extra request
   agBarHide();
 }
 
@@ -470,6 +481,18 @@ function cmBanner(text) {
     live sync uses. */
 async function cmRefreshTick() {
   if (!CM_MODE || !SB_TOKEN || document.hidden) return;
+  // The role first: staff can take it away (or make a CM a manager) while this page is open. The database already
+  // refuses every write the moment a role goes; this only says so, and never repaints over anything typed.
+  const roles = await myRoles();
+  if (roles && CM_MANAGER && !roles.manager) {
+    cmBanner("Your manager access was turned off, so changes here can't be saved any more. Reload the page.");
+    return;
+  }
+  if (roles && !CM_MANAGER && !roles.cm && !roles.manager) {
+    cmBanner("Your CM access was turned off, so changes here can't be saved any more. Reload the page.");
+    return;
+  }
+  if (roles && !CM_MANAGER && roles.manager) cmBanner("You're a manager now. Reload the page to see every client.");
   let fresh;
   try { fresh = await cmFetchClients(); }
   catch { SYNC_OK = false; updateSyncBadge(); return; }
@@ -480,9 +503,14 @@ async function cmRefreshTick() {
   const openId = CLIENT_VIEW?.id;
   const lost = openId && !fresh.some((c) => c.id === openId) ? CM_CLIENTS.find((c) => c.id === openId) : null;
   CM_CLIENTS.splice(0, CM_CLIENTS.length, ...fresh);
-  if (lost) cmBanner(`You were taken off ${lost.company}, so changes to its briefs can't be saved any more. Copy anything you still need.`);
+  if (lost) {
+    cmBanner(CM_MANAGER
+      ? `${lost.company} isn't a client any more, so changes to its briefs can't be saved. Copy anything you still need.`
+      : `You were taken off ${lost.company}, so changes to its briefs can't be saved any more. Copy anything you still need.`);
+  }
   if (cbEditorBusy() || cbUnsavedWork()) return;
   renderBriefs();
+  if (!CM_MANAGER && document.getElementById("cm-crew")) rostLoad();   // a CM's Creators tab: its company list moved
 }
 let CM_REFRESH_STARTED = false;
 function cmStartRefresh() {
@@ -810,7 +838,11 @@ function activateTab(tabId) {
   // it is loading. NOT a setInterval: this is a look-when-I-want surface, and a
   // background poller in a tab left open all day is a database bill for nobody.
   if (tabId === "tab-ops") ensureOps();
-  if (tabId === "tab-roster") { rostLoad(); cmsLoad(); }
+  if (tabId === "tab-roster") {
+    if (!document.querySelector("#roster-host > *")) renderRoster();   // first visit: the loader at once, not a blank panel
+    rostLoad();
+    if (!CM_MODE || CM_MANAGER) cmsLoad();   // staff and managers manage CMs; a CM's Creators tab has no CMs section
+  }
   if (tabId === "tab-showcase") scLoad();
 }
 function initTabs() {
@@ -5107,8 +5139,9 @@ function refreshNextBriefBtn(client) {
   old.replaceWith(el);
 }
 
-/* THE CM HOME (plan ~/.claude/plans/lynxr-cm-portal.md). One company: straight to its page, nothing to choose. Several:
-   one card each, and on each card the one thing a CM does there, "Create a new brief". None: say who adds them. */
+/* THE CLIENTS TAB IN CM MODE (plans lynxr-cm-portal.md, lynxr-cm-manager.md). One client: straight to its page, nothing
+   to choose. Several: one card each. A CM's card carries the one thing a CM does there, "Create a new brief"; a manager
+   sees EVERY client, so the cards only open (one ink button per screen, not a column of them). None: say who adds them. */
 function renderCmHome(host) {
   if (CM_CLIENTS.length === 1) {
     CLIENT_VIEW = { id: CM_CLIENTS[0].id }; BRIEF_VIEW = null; CAMPAIGN_VIEW = null;
@@ -5116,25 +5149,28 @@ function renderCmHome(host) {
     return;
   }
   if (!CM_CLIENTS.length) {
-    host.innerHTML = `<div class="section"><div class="sec-head"><h2>Your companies</h2></div>
-      <div class="empty">${emptyMark("idle")}<p><strong>You're not on a company yet.</strong></p>
-        <p>Lynx Media Group adds you to the companies you work on. They show up here when they do.</p></div></div>`;
+    host.innerHTML = `<div class="section"><div class="sec-head"><h2>Clients</h2></div>
+      <div class="empty">${emptyMark("idle")}${CM_MANAGER
+        ? `<p><strong>No clients yet.</strong></p>
+        <p>Lynx Media Group adds clients in the agency app. They show up here when they do.</p>`
+        : `<p><strong>You're not on a company yet.</strong></p>
+        <p>Lynx Media Group adds you to the companies you work on. They show up here when they do.</p>`}</div></div>`;
     return;
   }
   const count = (c) => escapeHtml(cbClientCountText(c).replace(/^ · /, ""));
-  host.innerHTML = `<div class="section"><div class="sec-head"><h2>Your companies <span class="pill">${CM_CLIENTS.length}</span></h2></div>
+  host.innerHTML = `<div class="section"><div class="sec-head"><h2>Clients <span class="pill">${CM_CLIENTS.length}</span></h2></div>
     <div class="brief-stack cm-cos">` + CM_CLIENTS.map((c) => `
       <article class="bcard opens cm-co" data-id="${escapeHtml(c.id)}" role="button" tabindex="0" aria-label="Open ${escapeHtml(c.company)}">
         <div class="bcard-main minw0">
           <div class="bcard-title">${escapeHtml(c.company)}</div>
           <div class="lbl cl-brief-count" data-cid="${escapeHtml(c.id)}">${count(c)}</div>
         </div>
-        <button type="button" class="btn cm-co-new" aria-label="Create a new brief for ${escapeHtml(c.company)}">Create a new brief</button>
+        ${CM_MANAGER ? "" : `<button type="button" class="btn cm-co-new" aria-label="Create a new brief for ${escapeHtml(c.company)}">Create a new brief</button>`}
       </article>`).join("") + `</div></div>`;
   host.querySelectorAll(".cm-co").forEach((card) => {
     const id = card.dataset.id;
     openOnCard(card, () => { CLIENT_VIEW = { id }; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs(); window.scrollTo({ top: 0 }); });
-    card.querySelector(".cm-co-new").addEventListener("click", (e) => {
+    card.querySelector(".cm-co-new")?.addEventListener("click", (e) => {
       e.stopPropagation();
       CM_COMPOSE_FOR = id;
       CLIENT_VIEW = { id }; BRIEF_VIEW = null; CAMPAIGN_VIEW = null;
@@ -5151,15 +5187,16 @@ function renderCmHome(host) {
   });
 }
 
-/* A CM's company page: the company, ONE big "Create a new brief" (the brief builder staff use, opened in place), then
-   that company's briefs. No Edit brand, no Details, no suggested videos, no picked-video briefs (cm_clients() never
-   returns them). The button IS #cb-new, so bindBriefsSection wires it exactly as it wires staff's "New brief"; app.css
-   hides it while the composer is open, so the composer's own buttons are the only ones on screen. */
+/* A CM's (or manager's) client page: the client, ONE big "Create a new brief" (the brief builder staff use, opened in
+   place), then that client's briefs. No Edit brand, no Details, no suggested videos, no picked-video briefs
+   (cm_clients() and mgr_clients() never return them), and no Creators button: creators live on the Creators tab (plan
+   ~/.claude/plans/lynxr-cm-manager.md, D10). The button IS #cb-new, so bindBriefsSection wires it exactly as it wires
+   staff's "New brief"; app.css hides it while the composer is open. */
 function renderCmClientPage(host, client) {
   const sub = [client.niche, client.ctx?.audience].filter(Boolean).map(escapeHtml).join(" · ");
   host.innerHTML = `
     ${CM_CLIENTS.length > 1 ? `<nav class="crumbs" aria-label="Breadcrumb">
-      <button type="button" class="crumb-link" id="cl-back">Companies</button>
+      <button type="button" class="crumb-link" id="cl-back">Clients</button>
       <span class="crumb-sep">›</span>
       <span class="crumb-here">${escapeHtml(client.company)}</span>
     </nav>` : ""}
@@ -5168,7 +5205,6 @@ function renderCmClientPage(host, client) {
         <div class="bcard-title">${escapeHtml(client.company)}</div>
         ${sub ? `<div class="lbl">${sub}</div>` : ""}
       </div>
-      <button type="button" class="ghost cm-crew-open" id="cm-crew-open"><span>Creators</span>${cmCrewCountHtml(client)}</button>
     </div>
     <button type="button" class="btn cm-new" id="cb-new" aria-expanded="false" aria-controls="cb-compose">Create a new brief</button>
     ${briefsSectionHtml(client)}`;
@@ -5176,25 +5212,28 @@ function renderCmClientPage(host, client) {
   document.getElementById("cl-back")?.addEventListener("click", () => {
     CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs();
   });
-  document.getElementById("cm-crew-open")?.addEventListener("click", () => cmOpenCreators(client.id));
-  if (ROSTER === null && !ROSTER_ERR) rostLoad();   // fills the Creators count (cmCrewRepaint)
   if (CM_COMPOSE_FOR === client.id) {
     CM_COMPOSE_FOR = null;
     document.getElementById("cb-new")?.click();
   }
 }
 
-/* A CM'S CREATORS (owner, 2026-10-30: "allow the CMs to be able to add creators and send briefs … only the essential
-   essential things"; plan ~/.claude/plans/lynxr-cm-creators.md). One company's creators, opened from the "Creators"
-   button in that company's page head. The company is the page the CM is on, so nothing is picked: cm_invite_creator()
-   (supabase/cm_creators.sql) labels the invite with that company itself, appends it to a creator already on another
-   brand, and refuses a company the CM is not on. ONE big "Invite a creator" opens a two-field form in place; each card
-   says invited or accepted and has one way off this company (cm_remove_creator(), which takes off only this company's
-   brand). The DATABASE is the gate: a CM still has no policy on lynxr_roster. NOTHING IS EMAILED: the creator sees
-   creator.js's invite popup the next time they open lynxr with that email. */
-const cmCrew = (client) => (ROSTER || []).filter((r) => Array.isArray(r.client_ids) && r.client_ids.includes(client.id));
-const cmCrewCountHtml = (client) => (ROSTER === null ? "" : `<span class="pill" id="cm-crew-n">${cmCrew(client).length}</span>`);
+/* A CM'S CREATORS TAB (owner, 2026-10-30: "they only need clients, creators at the top nav"; plan
+   ~/.claude/plans/lynxr-cm-manager.md, which replaces the per-company Creators screen of lynxr-cm-creators.md). Every
+   creator on the CM's companies in one list, each card naming its company (only the CM's own: other brands on the label
+   are not shown). ONE big "Invite a creator" opens the form in place; it asks which client only when the CM has more
+   than one. cm_invite_creator() (supabase/cm_creators.sql) labels the invite with that company itself and refuses a
+   company the CM is not on; cm_remove_creator() takes off only that company's brand, so a creator on two of the CM's
+   companies gets one button per company. The DATABASE is the gate: a CM still has no policy on lynxr_roster. NOTHING IS
+   EMAILED: the creator sees creator.js's invite popup the next time they open lynxr with that email. Drawn into
+   #roster-host by renderRoster -> cmCrewRepaint. A manager never comes here: their Creators tab is the staff roster. */
 const CM_CREW_CAP = 20;   // v_cap in supabase/cm_creators.sql; the database enforces it, this only words the refusal
+let CM_CREW_FOR = null;   // a company id the invite form should open on (the send panel's "Go to Creators"), or null
+const cmCo = (id) => CM_CLIENTS.find((c) => c.id === id) || null;
+/** The CM's companies this roster row is on, in the CM's own company order. */
+const cmCrewCos = (r) => CM_CLIENTS.filter((c) => Array.isArray(r.client_ids) && r.client_ids.includes(c.id));
+/** "A", "A and B", "A, B and C". */
+const cmAnd = (names) => (names.length < 3 ? names.join(" and ") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
 
 /** One sentence for a cm_invite_creator / cm_remove_creator answer: { ok: true, result, status } or { ok: false, reason }.
     Shown through cbMsg (textContent), so the company name needs no escaping here. */
@@ -5226,50 +5265,42 @@ function cmCrewSay(r, company) {
   }
 }
 
-/** Open a company's Creators screen. Re-reads the roster on every visit (the staff Creators tab does the same). */
-function cmOpenCreators(id) {
-  const loadedBefore = ROSTER !== null || !!ROSTER_ERR;
-  CLIENT_VIEW = { id, creators: true }; BRIEF_VIEW = null; CAMPAIGN_VIEW = null;
-  renderBriefs();
-  window.scrollTo({ top: 0 });
-  if (loadedBefore) rostLoad();   // a first load is started by renderCmCreators itself
+/** The send panel's "Go to Creators": the Creators tab, with the invite form open on this company. */
+function cmGotoCreators(clientId) {
+  CM_CREW_FOR = cmCo(clientId) ? clientId : null;
+  activateTab("tab-roster");   // rostLoad -> renderRoster -> cmCrewRepaint draws the tab; a form already there is used now
+  cmCrewApplyFor();
 }
 
-function renderCmCreators(host, client) {
-  const co = escapeHtml(client.company);
-  host.innerHTML = `${cbCrumbsHtml(client, "Creators")}
-    <div class="page-head cl-head cm-head">
-      <div class="minw0">
-        <div class="bcard-title">Creators</div>
-        <div class="lbl">${co}'s creators. Once they accept, you can send them ${co} briefs.</div>
-      </div>
-    </div>
-    <div id="cm-crew">${cmCrewBodyHtml(client)}</div>`;
-  // The crumbs come from cbCrumbsHtml but are bound here, not by cbBindCrumbs: its "company" crumb keeps CLIENT_VIEW,
-  // and this screen has to drop CLIENT_VIEW.creators to land on the company page.
-  document.getElementById("cv-clients")?.addEventListener("click", () => {
-    CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs();
-  });
-  document.getElementById("cv-back")?.addEventListener("click", () => {
-    CLIENT_VIEW = { id: client.id }; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs(); window.scrollTo({ top: 0 });
-  });
-  bindCmCrew(document.getElementById("cm-crew"), client);
-  if (ROSTER === null && !ROSTER_ERR) rostLoad();   // never unconditionally: rostLoad repaints through cmCrewRepaint
+/** Open the invite form on CM_CREW_FOR, when one is asked for and the form is on the page. */
+function cmCrewApplyFor() {
+  const form = document.getElementById("cm-inv-form");
+  if (!CM_CREW_FOR || !form) return;
+  const sel = document.getElementById("cm-inv-co");
+  if (sel) { sel.value = CM_CREW_FOR; sel.dispatchEvent(new Event("change")); }
+  CM_CREW_FOR = null;
+  form.hidden = false;
+  document.getElementById("cm-inv-open")?.setAttribute("aria-expanded", "true");
+  document.getElementById("cm-inv-email")?.focus();
 }
 
-function cmCrewBodyHtml(client) {
+function cmCrewBodyHtml() {
   if (ROSTER === null && !ROSTER_ERR) {
-    return `<div class="loader" role="status" aria-live="polite">${loaderMark()}
-      <div class="loader-text"><div class="lbl">Loading creators…</div></div></div>`;
+    return `<div class="section rost-section"><div class="loader" role="status" aria-live="polite">${loaderMark()}
+      <div class="loader-text"><div class="lbl">Loading creators…</div></div></div></div>`;
   }
   if (ROSTER_ERR) {
-    return `<p class="note">Couldn't load the creators. <button type="button" class="ghost" id="cm-crew-retry">Try again</button></p>`;
+    return `<div class="section rost-section"><p class="note">Couldn't load the creators. <button type="button" class="ghost" id="cm-crew-retry">Try again</button></p></div>`;
   }
-  const co = escapeHtml(client.company);
-  const invite = CM_CAN_INVITE
-    ? `<button type="button" class="btn cm-inv-open" id="cm-inv-open" aria-expanded="false" aria-controls="cm-inv-form">Invite a creator</button>
+  const many = CM_CLIENTS.length > 1;
+  const invite = !CM_CLIENTS.length ? ""
+    : !CM_CAN_INVITE ? `<p class="note cm-crew-off">Adding creators here isn't switched on yet. Lynx Media Group can invite them for you.</p>`
+    : `<button type="button" class="btn cm-inv-open" id="cm-inv-open" aria-expanded="false" aria-controls="cm-inv-form">Invite a creator</button>
     <form class="client-details cm-inv" id="cm-inv-form" hidden novalidate>
       <div class="ce-grid">
+        ${many ? `<label class="ce-field"><span class="lbl">Client</span>
+          <select id="cm-inv-co"><option value="">Choose a client</option>${CM_CLIENTS.map((c) =>
+            `<option value="${escapeHtml(c.id)}">${escapeHtml(c.company)}</option>`).join("")}</select></label>` : ""}
         <label class="ce-field"><span class="lbl">Their email</span>
           <input type="email" id="cm-inv-email" autocomplete="off" maxlength="254" placeholder="them@example.com"></label>
         <label class="ce-field"><span class="lbl">Name (optional)</span>
@@ -5277,93 +5308,103 @@ function cmCrewBodyHtml(client) {
       </div>
       <p class="lbl cm-inv-rule">Use the email they sign in to lynxr with, or will sign up with. lynxr doesn't email them: tell them yourself, and the invite pops up when they open lynxr.io.</p>
       <div class="bp-actions">
-        <button type="submit" class="btn" id="cm-inv-go" disabled>Invite to ${co}</button>
+        <button type="submit" class="btn" id="cm-inv-go" disabled>${many ? "Invite" : `Invite to ${escapeHtml(CM_CLIENTS[0].company)}`}</button>
         <button type="button" class="ghost" id="cm-inv-cancel">Cancel</button>
       </div>
       <p class="bp-msg cb-msg" id="cm-inv-msg" role="status" aria-live="polite"></p>
-    </form>`
-    : `<p class="note cm-crew-off">Adding creators here isn't switched on yet. Lynx Media Group can invite them for you.</p>`;
+    </form>`;
   return `${invite}
     <p class="bp-msg cb-msg" id="cm-crew-msg" role="status" aria-live="polite"></p>
-    <div class="section rost-section" id="cm-crew-list">${cmCrewListHtml(client)}</div>`;
+    <div class="section rost-section" id="cm-crew-list">${cmCrewListHtml()}</div>`;
 }
 
-function cmCrewListHtml(client) {
-  const rows = cmCrew(client);
-  const co = escapeHtml(client.company);
+function cmCrewListHtml() {
+  const rows = (ROSTER || []).filter((r) => cmCrewCos(r).length);
   const head = `<div class="sec-head"><h2>Creators <span class="pill">${rows.length}</span></h2></div>`;
   if (!rows.length) {
-    return `${head}<div class="empty">${emptyMark("idle")}<p><strong>No creators on ${co} yet.</strong></p>
+    return `${head}<div class="empty">${emptyMark("idle")}<p><strong>No creators yet.</strong></p>
       <p>${CM_CAN_INVITE ? "Invite them by email. They show up here, and in Send, once they accept."
         : "Lynx Media Group invites them for now. They show up here once they accept."}</p></div>`;
   }
   return `${head}<div class="rost-cards">` + rows.map((r) => {
     const accepted = r.status === "accepted";
+    const cos = cmCrewCos(r);
     const date = escapeHtml(String((accepted ? r.accepted_at : r.invited_at) || "").slice(0, 10));
-    const brands = rostBrandParts(r.campaign);
     const who = escapeHtml(r.display_name || r.email);
+    const rm = (c) => {
+      const co = escapeHtml(c.company);
+      const face = cos.length > 1 ? (accepted ? `Remove from ${co}` : `Cancel invite to ${co}`) : (accepted ? "Remove" : "Cancel invite");
+      return `<button type="button" class="ghost danger cm-crew-rm" data-client="${escapeHtml(c.id)}"
+        aria-label="${accepted ? `Remove ${who} from ${co}` : `Cancel the invite for ${who} to ${co}`}">${face}</button>`;
+    };
     return `<article class="bcard rost-card cm-crew-card" data-email="${escapeHtml(r.email)}">
       <div class="bcard-main minw0">
         <div class="bcard-title">${who}</div>
         <div class="lbl">${escapeHtml(r.email)} · <span class="chip${accepted ? " good" : ""}">${accepted ? "accepted" : "invited"}</span>${date ? ` · ${date}` : ""}</div>
-        ${brands.length ? `<div class="rost-brands">${brands.map((b) => `<span class="chip cb-brand-chip">${escapeHtml(b.name)}</span>`).join("")}</div>` : ""}
-        <p class="rost-state">${accepted ? `Accepted. You can send them ${co} briefs.` : "Invited. They'll see it when they open lynxr with this email."}</p>
+        <div class="rost-brands">${cos.map((c) => `<span class="chip cb-brand-chip">${escapeHtml(c.company)}</span>`).join("")}</div>
+        <p class="rost-state">${accepted ? `Accepted. You can send them ${escapeHtml(cmAnd(cos.map((c) => c.company)))} briefs.` : "Invited. They'll see it when they open lynxr with this email."}</p>
       </div>
-      ${CM_CAN_INVITE ? `<button type="button" class="ghost danger cm-crew-rm" aria-label="${accepted ? `Remove ${who} from ${co}` : `Cancel the invite for ${who}`}">${accepted ? "Remove" : "Cancel invite"}</button>` : ""}
+      ${CM_CAN_INVITE ? `<div class="cm-crew-rms">${cos.map(rm).join("")}</div>` : ""}
     </article>`;
   }).join("") + `</div>`;
 }
 
-/** rostLoad finished (CM mode): redraw the Creators count on a company page, and the open Creators screen. A typed
-    invite survives: with the form on the page only the list is redrawn. */
+/** Draw a CM's Creators tab (renderRoster calls this in CM mode). A typed invite survives a re-read: with the form on
+    the page only the list is redrawn. */
 function cmCrewRepaint() {
-  if (!CM_MODE || !CLIENT_VIEW) return;
-  const client = CM_CLIENTS.find((c) => c.id === CLIENT_VIEW.id);
-  if (!client) return;
-  const btn = document.getElementById("cm-crew-open");
-  if (btn) btn.innerHTML = `<span>Creators</span>${cmCrewCountHtml(client)}`;
-  const box = document.getElementById("cm-crew");
-  if (!box) return;
+  const host = document.getElementById("roster-host");
+  if (!CM_MODE || CM_MANAGER || !host) return;
   const list = document.getElementById("cm-crew-list");
   if (list && document.getElementById("cm-inv-form") && CM_CAN_INVITE && ROSTER !== null) {
-    list.innerHTML = cmCrewListHtml(client);
-    bindCmCrewList(list, client);
+    list.innerHTML = cmCrewListHtml();
+    bindCmCrewList(list);
     return;
   }
-  box.innerHTML = cmCrewBodyHtml(client);
-  bindCmCrew(box, client);
+  host.innerHTML = `<div id="cm-crew">${cmCrewBodyHtml()}</div>`;
+  bindCmCrew(document.getElementById("cm-crew"));
 }
 
-function bindCmCrew(box, client) {
+function bindCmCrew(box) {
   if (!box) return;
   document.getElementById("cm-crew-retry")?.addEventListener("click", () => rostLoad());
   const open = document.getElementById("cm-inv-open");
   const form = document.getElementById("cm-inv-form");
+  const sel = document.getElementById("cm-inv-co");
   const email = document.getElementById("cm-inv-email");
   const name = document.getElementById("cm-inv-name");
   const go = document.getElementById("cm-inv-go");
-  const ready = () => { const v = String(email?.value || "").trim(); return v.length <= 254 && ROST_EMAIL_RE.test(v); };
-  const paintGo = () => { if (go) go.disabled = !ready(); };
+  const chosen = () => cmCo(sel ? sel.value : CM_CLIENTS[0]?.id);
+  const ready = () => { const v = String(email?.value || "").trim(); return !!chosen() && v.length <= 254 && ROST_EMAIL_RE.test(v); };
+  const paintGo = () => {
+    if (!go) return;
+    go.disabled = !ready();
+    const c = chosen();
+    go.textContent = c ? `Invite to ${c.company}` : "Invite";
+  };
   const setOpen = (on) => {
     if (!form) return;
     form.hidden = !on;
     open?.setAttribute("aria-expanded", String(on));
-    if (on) email?.focus(); else open?.focus();
+    if (on) (sel && !sel.value ? sel : email)?.focus(); else open?.focus();
   };
   open?.addEventListener("click", () => setOpen(true));
-  // Cancel discards what was typed; Escape only hides the form (the brief composer's rule).
+  // Cancel discards what was typed and chosen; Escape only hides the form (the brief composer's rule).
   document.getElementById("cm-inv-cancel")?.addEventListener("click", () => {
     if (email) email.value = "";
     if (name) name.value = "";
+    if (sel) sel.value = "";
     paintGo();
     setOpen(false);
   });
   form?.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); setOpen(false); } });
   email?.addEventListener("input", paintGo);
+  sel?.addEventListener("change", paintGo);
   form?.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const client = chosen();
     if (!ready()) {
-      cbMsg(document.getElementById("cm-inv-msg"), cmCrewSay({ ok: false, reason: "bad_email" }, client.company), "bad", true);
+      cbMsg(document.getElementById("cm-inv-msg"),
+        client ? cmCrewSay({ ok: false, reason: "bad_email" }, client.company) : "Choose a client first.", "bad", true);
       return;
     }
     go.disabled = true;
@@ -5384,34 +5425,34 @@ function bindCmCrew(box, client) {
     if (r?.ok) document.getElementById("cm-inv-email")?.focus();
   });
   paintGo();
-  bindCmCrewList(document.getElementById("cm-crew-list"), client);
+  bindCmCrewList(document.getElementById("cm-crew-list"));
+  cmCrewApplyFor();
 }
 
-/** Each card's one way off this company: the two-click armDelete, never a browser dialog. */
-function bindCmCrewList(list, client) {
+/** Each company's way off a card: the two-click armDelete, never a browser dialog. */
+function bindCmCrewList(list) {
   list?.querySelectorAll(".cm-crew-rm").forEach((btn) => {
     const email = btn.closest(".cm-crew-card")?.dataset.email;
+    const clientId = btn.dataset.client;
     armDelete(btn, "Remove", async () => {
       btn.disabled = true;
+      const company = cmCo(clientId)?.company;
       let r;
       try {
         r = await sbFetch("/rest/v1/rpc/cm_remove_creator", { method: "POST",
-          body: JSON.stringify({ p_client: client.id, p_email: email }) });
+          body: JSON.stringify({ p_client: clientId, p_email: email }) });
       } catch (ex) {
         r = { ok: false, reason: cbError(ex) === "missing" ? "missing" : "other" };
       }
       if (r?.ok || r?.reason === "not_yours" || r?.reason === "gone") await rostLoad();
       else btn.disabled = false;
-      cbMsg(document.getElementById("cm-crew-msg"), cmCrewSay(r, client.company), r?.ok ? "good" : "bad", !r?.ok);
+      cbMsg(document.getElementById("cm-crew-msg"), cmCrewSay(r, company), r?.ok ? "good" : "bad", !r?.ok);
     });
   });
 }
 
 function renderClientPage(host, client) {
-  if (CM_MODE) {   // CLIENT_VIEW.creators: that company's Creators screen (cmOpenCreators); any navigation rebuilds CLIENT_VIEW without it
-    if (CLIENT_VIEW?.creators) renderCmCreators(host, client); else renderCmClientPage(host, client);
-    return;
-  }
+  if (CM_MODE) { renderCmClientPage(host, client); return; }   // CM and manager: no Edit brand, Details or suggested videos
   // Briefs are stored newest-first and numbered oldest-first so "Brief 1" is
   // where the client started — cbBriefItems keeps that numbering.
   host.innerHTML = `
@@ -6517,6 +6558,7 @@ async function rostList() {
   // the CM's companies, each with the client_ids its label names; the send panel still offers only accepted ones
   // (rostAccepted). Before that file is run it 404s, and cm_roster() (supabase/cm_portal.sql: accepted only) stands in,
   // with inviting off (CM_CAN_INVITE false).
+  if (CM_MANAGER) return sbFetch("/rest/v1/rpc/mgr_roster", { method: "POST", body: "{}" });   // the whole roster, read-only (supabase/cm_manager.sql)
   if (CM_MODE) {
     try {
       const rows = await sbFetch("/rest/v1/rpc/cm_creators", { method: "POST", body: "{}" });
@@ -6539,6 +6581,26 @@ async function rostAccounts() {
   } catch { return null; }
 }
 
+/* MANAGER ROSTER WRITES (plan ~/.claude/plans/lynxr-cm-manager.md). A manager has no policy on lynxr_roster: these
+   functions (supabase/cm_manager.sql) are the only door, and none of them can mark anyone accepted or delete an accepted
+   creator's row. A refusal comes back as { ok: false, reason } and is thrown as a plain sentence (no leading status
+   code), which the Creators tab's handlers show as it is; a network or HTTP error still starts with its status code
+   and gets rostErrorSentence. */
+const MGR_ROSTER_SAYS = {
+  not_manager: "This account can't change the roster any more.",
+  bad_email: "That doesn't look like an email address.",
+  too_long: "Too long — 80 characters at most.",
+  busy: "Someone else just changed this creator. Try again.",
+  gone: "That creator is no longer on the roster.",
+  accepted: "Only Lynx Media Group staff can take an accepted creator off the roster. To take them off a client, edit their brands.",
+  other: "Couldn't do that — check the connection and try again.",
+};
+async function mgrRosterCall(fn, body) {
+  const r = await sbFetch(`/rest/v1/rpc/${fn}`, { method: "POST", body: JSON.stringify(body) });
+  if (!r || r.ok !== true) throw new Error(MGR_ROSTER_SAYS[r?.reason] || MGR_ROSTER_SAYS.other);
+  return r;
+}
+
 async function rostInvite(email, name, note, campaign) {
   const clean = String(email || "").trim().toLowerCase();
   if (!clean || clean.length > 254 || !ROST_EMAIL_RE.test(clean)) {
@@ -6552,6 +6614,9 @@ async function rostInvite(email, name, note, campaign) {
   // Brands are stored tidied (rostBrandLabel): "Cloey ,  write-it" -> "Cloey, write-it". A list that would pass 80
   // characters is refused with a message rather than cut mid-brand.
   const brands = rostBrandLabel(campaign);
+  if (CM_MANAGER) {   // blank boxes keep what is there; someone who left is asked again (the database decides both)
+    return mgrRosterCall("mgr_invite_creator", { p_email: clean, p_name: name || "", p_brands: brands, p_note: note || "" });
+  }
   if (!prev || brands) body.campaign = brands;
   // Someone who left gets a fresh invite, and the popup again, when invited again.
   if (prev?.status === "left") { body.status = "invited"; body.left_at = null; }
@@ -6563,6 +6628,7 @@ async function rostInvite(email, name, note, campaign) {
 }
 
 async function rostRemove(email) {
+  if (CM_MANAGER) return mgrRosterCall("mgr_remove_creator", { p_email: email });   // pending or left rows only
   return sbFetch(`/rest/v1/lynxr_roster?email=eq.${encodeURIComponent(email)}`, { method: "DELETE" });
 }
 
@@ -6571,6 +6637,7 @@ async function rostRemove(email) {
     no row into an error instead of a false "saved". */
 async function rostSetBrands(email, input) {
   const campaign = rostBrandLabel(input);
+  if (CM_MANAGER) { await mgrRosterCall("mgr_set_brands", { p_email: email, p_brands: campaign }); return; }
   const rows = await sbFetch(`/rest/v1/lynxr_roster?email=eq.${encodeURIComponent(email)}&select=email`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
@@ -6583,9 +6650,10 @@ async function rostSetBrands(email, input) {
     address can't receive a delivery (the RLS policy in agency_roster.sql
     refuses it too; this just keeps the UI from offering what the database
     would reject). */
-// CM mode: only the creators of the company on screen (cm_roster() tags each with the CM's matching client_ids).
+// CM mode: only the creators of the company on screen (cm_roster() tags each with the CM's matching client_ids). A
+// manager, like staff, is offered every accepted creator (plan lynxr-cm-manager.md, D5).
 const rostAccepted = () => (ROSTER || []).filter((r) => r.status === "accepted"
-  && (!CM_MODE || (Array.isArray(r.client_ids) && r.client_ids.includes(CLIENT_VIEW?.id))));
+  && (!CM_MODE || CM_MANAGER || (Array.isArray(r.client_ids) && r.client_ids.includes(CLIENT_VIEW?.id))));
 
 /** Fills ROSTER / ROSTER_ERR and repaints the Creators tab if it's on screen.
     Reuses cbError's classifier: a 404/PGRST205 (table missing, i.e.
@@ -6613,7 +6681,6 @@ async function rostLoad() {
     ROSTER_ERR = !CM_MODE && /campaign/.test(String(ex?.message || "")) ? "migrate" : cbError(ex);
   }
   if (document.getElementById("roster-host")) renderRoster();
-  if (CM_MODE) cmCrewRepaint();   // a CM's Creators screen or the Creators count on a company page (renderCmCreators)
   if (rostSendSig() !== before) cbSendRosterChanged();
 }
 
@@ -6645,7 +6712,23 @@ function cbSendRosterChanged() {
 function renderRoster() {
   const host = document.getElementById("roster-host");
   if (!host) return;
-  host.innerHTML = rosterHtml() + `<div id="cms-host">${cmsHtml()}</div>`;
+  // A CM's own Creators tab: their companies' creators only, through cm_creators() (cmCrewRepaint). Staff and managers
+  // get the roster below; a manager's reads and writes go through the mgr_* functions (rostList, rostInvite, rostRemove,
+  // rostSetBrands), never the table.
+  if (CM_MODE && !CM_MANAGER) { cmCrewRepaint(); return; }
+  // A half-typed invite or CM email survives a roster re-read (a manager's send panel re-reads it): only the cards are
+  // redrawn. Both forms clear their own fields before they ask for a re-read, so a finished invite still redraws all.
+  const typed = ["rost-email", "rost-name", "rost-campaign", "rost-note", "cms-email"]
+    .some((id) => (document.getElementById(id)?.value || "").trim());
+  if (typed && ROSTER && document.getElementById("rost-list")) { repaintRosterList(); return; }
+  host.innerHTML = rosterHtml();
+  // "Add a CM" sits directly under the invite form (owner, 2026-10-30: "dont have him have to scroll to the bottom of the
+  // entire screen"): rosterHtml leaves #cms-host there. With no form (the roster failed to load) the CMs get their own
+  // island after the note.
+  if (!document.getElementById("cms-host")) {
+    host.insertAdjacentHTML("beforeend", `<div class="section rost-section"><div id="cms-host"></div></div>`);
+  }
+  document.getElementById("cms-host").innerHTML = cmsHtml();
   bindRoster(host);
   bindCms();
 }
@@ -6693,6 +6776,7 @@ function rosterHtml() {
       </div>
       <p class="bp-msg cb-msg" id="rost-invite-msg" role="status" aria-live="polite"></p>
     </form>
+    <div id="cms-host"></div>
     <div class="rost-list" id="rost-list">${rosterListHtml()}</div>
   </div>`;
 }
@@ -6808,8 +6892,8 @@ function rosterListHtml() {
         ${rostBrandRowHtml(r)}
         <p class="rost-state">${escapeHtml(rostStateLine(r))}</p>
       </div>
-      <button type="button" class="ghost danger icon-only rost-remove"
-        aria-label="Remove ${escapeHtml(r.email)} from the roster" title="Remove from roster">${TRASH_SVG}</button>
+      ${CM_MANAGER && r.status === "accepted" ? "" : `<button type="button" class="ghost danger icon-only rost-remove"
+        aria-label="Remove ${escapeHtml(r.email)} from the roster" title="Remove from roster">${TRASH_SVG}</button>`}
     </article>`;
   }).join("") + `</div>`;
 }
@@ -6881,7 +6965,8 @@ function bindRosterList(root) {
         await rostRemove(email);
         await rostLoad();
       } catch (ex) {
-        cbMsg(document.getElementById("rost-invite-msg"), rostErrorSentence(ex, "remove from"), "bad", true);
+        cbMsg(document.getElementById("rost-invite-msg"),
+          ex?.message && !/^\d/.test(ex.message) ? ex.message : rostErrorSentence(ex, "remove from"), "bad", true);
       }
     });
   });
@@ -6930,10 +7015,12 @@ function repaintRosterList() {
 
 // ---------- CMs: who builds briefs for which companies (plan ~/.claude/plans/lynxr-cm-portal.md) ----------
 // Staff only (supabase/cm_portal.sql): lynxr_cms is written only through staff_add_cm() (checks is_staff()) and
-// deleted by staff; lynxr_cm_clients is written and deleted by staff. Shown on the Creators tab, under the roster.
+// deleted by staff; lynxr_cm_clients is written and deleted by staff. A CM MANAGER may do all of it too
+// (supabase/cm_manager.sql). Shown on the Creators tab, directly under the invite form (plan lynxr-cm-manager.md, D9).
 let CMS = null;               // [{ user_id, email, added_at, lynxr_cm_clients: [{ client_id }] }] | null = not loaded
 let CMS_ERR = "";             // "" | "missing" | "denied" | "other" (cbError)
 const CMS_BUSY = new Set();   // `${uid}|${clientId}` toggles in flight
+let CMS_OPEN = false;         // the "CMs N" fold: closed by default, opened by an add, kept across repaints
 const CMS_SAYS = {
   added: "Added. They'll see “CM view” in their lynxr account menu. Now tick the companies they work on.",
   no_account: "No lynxr account uses that email yet. Ask them to sign up on lynxr.io with it, then add them again.",
@@ -6977,30 +7064,30 @@ function cmsAssign(uid, clientId, on) {
 }
 
 function cmsHtml() {
-  const head = (n) => `<div class="sec-head"><h2>CMs${n == null ? "" : ` <span class="pill">${n}</span>`}</h2></div>`;
+  const head = `<h3 class="cms-h">CMs</h3>`;
   if (CMS === null && !CMS_ERR) {
-    return `<div class="section cm-section">${head()}<div class="loader" role="status" aria-live="polite">${loaderMark()}
+    return `<div class="cm-section cms-block">${head}<div class="loader" role="status" aria-live="polite">${loaderMark()}
       <div class="loader-text"><div class="lbl">Loading CMs…</div></div></div></div>`;
   }
-  if (CMS_ERR === "missing") return `<div class="section cm-section">${head()}<p class="note">CMs aren't installed yet — run <code>supabase/cm_portal.sql</code> in the Supabase SQL editor.</p></div>`;
-  if (CMS_ERR === "denied") return `<div class="section cm-section">${head()}<p class="note">This account can't manage CMs.</p></div>`;
-  if (CMS_ERR) return `<div class="section cm-section">${head()}<p class="note">Couldn't load the CMs. <button type="button" class="ghost" id="cms-retry">Try again</button></p></div>`;
+  if (CMS_ERR === "missing") return `<div class="cm-section cms-block">${head}<p class="note">CMs aren't installed yet — run <code>supabase/cm_portal.sql</code> in the Supabase SQL editor.</p></div>`;
+  if (CMS_ERR === "denied") return `<div class="cm-section cms-block">${head}<p class="note">This account can't manage CMs.</p></div>`;
+  if (CMS_ERR) return `<div class="cm-section cms-block">${head}<p class="note">Couldn't load the CMs. <button type="button" class="ghost" id="cms-retry">Try again</button></p></div>`;
   const clients = loadClients().filter((c) => c && c.id)
     .sort((a, b) => String(a.company || "").localeCompare(String(b.company || ""), undefined, { sensitivity: "base" }));
-  return `<div class="section cm-section">
-    ${head(CMS.length)}
-    <p class="lede">A CM signs in with their own lynxr account and builds briefs only for the companies you tick here.
-      They never see the database, other clients, suggested videos or ops.</p>
-    <form class="client-details cms-add" id="cms-add-form" novalidate>
-      <div class="ce-grid">
-        <label class="ce-field"><span class="lbl">Email</span>
-          <input type="email" id="cms-email" autocomplete="off" placeholder="them@example.com"></label>
-      </div>
-      <p class="lbl cms-rule">They sign up on lynxr.io with this email and confirm it first.</p>
-      <div class="bp-actions"><button type="submit" class="btn" id="cms-add-go">Add CM</button></div>
-      <p class="bp-msg cb-msg" id="cms-msg" role="status" aria-live="polite"></p>
+  return `<div class="cm-section cms-block">
+    <form class="cms-add" id="cms-add-form" novalidate>
+      <label class="ce-field cms-add-field"><span class="lbl">Add a CM</span>
+        <input type="email" id="cms-email" autocomplete="off" placeholder="them@example.com"></label>
+      <button type="submit" class="ghost" id="cms-add-go">Add CM</button>
     </form>
-    <div class="cms-list" id="cms-list">${cmsListHtml(clients)}</div>
+    <p class="lbl cms-rule">They sign up on lynxr.io with this email and confirm it first.</p>
+    <p class="bp-msg cb-msg" id="cms-msg" role="status" aria-live="polite"></p>
+    <details class="cb-more cms-more" id="cms-more"${CMS_OPEN ? " open" : ""}>
+      <summary>CMs <span class="pill">${CMS.length}</span></summary>
+      <p class="lede">A CM signs in with their own lynxr account and builds briefs only for the companies you tick here.
+        They never see the database, other clients, suggested videos or ops.</p>
+      <div class="cms-list" id="cms-list">${cmsListHtml(clients)}</div>
+    </details>
   </div>`;
 }
 
@@ -7040,6 +7127,7 @@ function bindCms() {
   const host = document.getElementById("cms-host");
   if (!host) return;
   document.getElementById("cms-retry")?.addEventListener("click", () => cmsLoad());
+  document.getElementById("cms-more")?.addEventListener("toggle", (e) => { CMS_OPEN = e.target.open; });
   document.getElementById("cms-add-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const input = document.getElementById("cms-email");
@@ -7057,8 +7145,12 @@ function bindCms() {
     try {
       const r = await cmsAdd(email);
       if (r && r.ok) {
+        CMS_OPEN = true;                           // open the list on them, so their companies can be ticked at once
         await cmsLoad();                           // redraws the section: the form comes back empty
         cbMsg(document.getElementById("cms-msg"), CMS_SAYS.added, "good", true);
+        const card = [...document.querySelectorAll("#cms-list .cm-card")].find((c) => c.dataset.uid === String(r.user_id || ""));
+        card?.scrollIntoView({ block: "nearest" });
+        card?.querySelector(".cm-co-toggle")?.focus({ preventScroll: true });
         return;
       }
       cbMsg(msg(), CMS_SAYS[r?.reason] || CMS_SAYS.other, "bad", true);
@@ -7749,7 +7841,7 @@ function cbSendPanelHtml(sourceKind, sourceId, briefBrands = []) {
     </div>`;
   }
   const accepted = rostAccepted();
-  if (!accepted.length && CM_MODE) {
+  if (!accepted.length && CM_MODE && !CM_MANAGER) {   // a manager gets the staff sentence below
     const co = escapeHtml(briefBrands[0] || "this company");
     if (!CM_CAN_INVITE) {   // supabase/cm_creators.sql not run yet: only staff can invite
       return `<div class="section cb-send-panel">
@@ -7786,7 +7878,7 @@ function cbSendPanelHtml(sourceKind, sourceId, briefBrands = []) {
         <span class="cb-grp-n">${g.ids.length}</span>${briefKeys.has(g.key) ? `<span class="cb-grp-tag">this brief</span>` : ""}
       </button>`).join("")}
     </div>`
-    : CM_MODE ? "" : `<p class="note cb-send-groups-none">Add a brand to each creator on the Creators tab to pick them by brand here.</p>`;
+    : CM_MODE && !CM_MANAGER ? "" : `<p class="note cb-send-groups-none">Add a brand to each creator on the Creators tab to pick them by brand here.</p>`;
   const chips = (id) => (byId.get(id) || []).map((b) =>
     `<span class="chip cb-brand-chip${briefKeys.has(b.key) ? " is-brief" : ""}">${escapeHtml(b.name)}</span>`).join("");
   const brandsAttr = (id) => escapeHtml((byId.get(id) || []).map((b) => b.key).join(" ") || ROST_NO_BRAND);
@@ -7935,7 +8027,7 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
     repaint();
   });
   document.getElementById("cb-send-goto-roster")?.addEventListener("click", () => activateTab("tab-roster"));
-  document.getElementById("cb-send-goto-crew")?.addEventListener("click", () => { if (CLIENT_VIEW) cmOpenCreators(CLIENT_VIEW.id); });
+  document.getElementById("cb-send-goto-crew")?.addEventListener("click", () => cmGotoCreators(CLIENT_VIEW?.id));
 
   const updateGo = () => {
     const n = host.querySelectorAll(".cb-send-pick:checked").length;
@@ -9643,7 +9735,7 @@ function cbUnsavedWork() {
   if ([...document.querySelectorAll(".cb-row-input")].some((i) => i.value.trim())) return true;
   if ((document.getElementById("cb-name")?.value || "").trim()) return true;
   if ((document.getElementById("cb-instructions")?.value || "").trim()) return true;
-  if ((document.getElementById("cm-inv-email")?.value || "").trim()) return true;   // a half-typed CM invite (renderCmCreators)
+  if ((document.getElementById("cm-inv-email")?.value || "").trim()) return true;   // a half-typed CM invite (cmCrewBodyHtml)
   if (document.querySelector("#cl-brand-box:not([hidden])")) return true;
   if (document.getElementById("cl-add-form")) return true;   // the Add client view is open
   return CB_EDITING.size > 0 || CB_REGEN.size > 0 || CB_REPLACE.size > 0 || !!CB_FIELD_EDIT;
@@ -10055,7 +10147,7 @@ function cbBriefListHtml(client) {
 }
 
 function briefsSectionHtml(client) {
-  const picks = SUGGEST_PICKS.size;
+  const picks = CM_MODE ? 0 : SUGGEST_PICKS.size;   // CM and manager mode never carry suggested-video picks
   const nextName = cbNextBriefName(client);
   const head = `<div class="sec-head">
       <h2>Briefs <span class="pill" id="cl-brief-count">${cbBriefItems(client).length}</span></h2>
@@ -10312,9 +10404,9 @@ const cbSorted = (rec) => [...rec.formats].sort((a, b) => (a.position ?? 0) - (b
 const cbShortUrl = (u) => String(u || "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
 
 function cbCrumbsHtml(client, here) {
-  // CM mode: "Companies", and no first crumb at all for a CM on one company (their home IS that company's page).
+  // CM and manager mode: no first crumb at all with one client (their home IS that client's page).
   const first = CM_MODE && CM_CLIENTS.length <= 1 ? ""
-    : `<button type="button" class="crumb-link" id="cv-clients">${CM_MODE ? "Companies" : "Clients"}</button>
+    : `<button type="button" class="crumb-link" id="cv-clients">Clients</button>
     <span class="crumb-sep">›</span>`;
   return `<nav class="crumbs" aria-label="Breadcrumb">
     ${first}
