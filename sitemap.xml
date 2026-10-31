@@ -155,6 +155,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/film-a-ugc-product-demo/</loc>
+    <lastmod>2026-10-31</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/film-ugc-on-a-phone/</loc>
     <lastmod>2026-10-15</lastmod>
     <priority>0.6</priority>
@@ -255,6 +260,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/ugc-problem-solution-video/</loc>
+    <lastmod>2026-10-31</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/ugc-rate-card/</loc>
     <lastmod>2026-10-18</lastmod>
     <priority>0.6</priority>
@@ -341,12 +351,12 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-filming/</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-31</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-formats/</loc>
-    <lastmod>2026-10-26</lastmod>
+    <lastmod>2026-10-31</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
