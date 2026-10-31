@@ -1,0 +1,237 @@
+{
+  "question_id": "q060",
+  "slug": "ugc-problem-solution-video",
+  "theme": "ugc-formats",
+  "title": "How do you script a problem-solution UGC video?",
+  "description": "How to script a problem-solution UGC video: make the problem visible before the product appears, bring it in at the turn, and close on what you noticed.",
+  "short_answer": "A problem-solution UGC video spends its first half on a problem the viewer can see, with no product in shot, then brings the product in at the turn. Show the problem in your real life, try one thing that did not work, introduce the product as the next attempt, and close on what you noticed.",
+  "sections": [
+    {
+      "heading": "What is a problem-solution UGC video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "It is a video format where the viewer watches you live with a problem first and only meets the product once they already want the problem gone.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The shape is simple: problem, failed attempt, product, what changed. What makes it a [format](/glossary/#format) and not just a topic is that the order carries the persuasion. Swap the product and the problem, and the same order still works for a kitchen gadget, a sleep mask or a budgeting app. [What a UGC video format is](/what-is-a-video-format/) explains why an order like this travels between brands. For how it sits next to other styles, see [what are the main types of UGC video](/blog/types-of-ugc-videos/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why should the problem come before the product appears?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Keep the product out of shot at first, because a viewer who recognises the problem keeps watching to see it solved, while an early product reads as an ad.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The problem is the [hook](/glossary/#hook). If the product is on the counter from the first frame, the viewer can guess the ending, and the problem becomes a formality. Hide it in a drawer, out of focus or off camera until the moment you reach for it. The problem also has to be shown, not described. Saying your cupboard is messy does less than opening it and letting a stack of lids slide out.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Pick a problem you really have, because you can then film it on any day without staging it.",
+            "Choose one the camera can see in a single shot: a cold corner, a cable that keeps falling, a drawer that will not shut.",
+            "Keep it small and specific, since a narrow problem is easier for a viewer to recognise as their own.",
+            "Check the brief before you choose, and ask the brand which problem it wants the product tied to if the brief does not say."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Where does the product come in?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The product comes in at [the turn](/glossary/#the-turn), right after a failed attempt, so it arrives as the next thing you tried rather than a miracle.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The failed attempt is an easy beat to cut, but keep it, because it is the one that makes the video believable. It shows you took the problem seriously and that the product was not the first thing you grabbed. One attempt is enough. Two can work if each is a single line. Then the turn is a short sentence and a clear action: you reach for the product and the camera sees it properly for the first time. [The parts of a UGC video script](/short-form-script-structure/) covers how the turn sets up everything after it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Part",
+            "Its job",
+            "What to avoid"
+          ],
+          "table_rows": [
+            [
+              "Problem",
+              "Let the viewer see the problem in your space",
+              "Naming the product or showing its packaging"
+            ],
+            [
+              "Failed attempt",
+              "Show one honest thing you tried first",
+              "Mocking another product or a rival by name"
+            ],
+            [
+              "Turn",
+              "Bring the product in with one clear action",
+              "A long explanation of features"
+            ],
+            [
+              "What changed",
+              "Show the difference you noticed on camera",
+              "Promising the same change for every viewer"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a problem-solution script look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here is a full one for a draught excluder, with the product hidden until the turn and the close kept to what the camera can show.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a fabric draught excluder for the bottom of a door",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "The heating's on, and I'm still sitting on my sofa in a coat.",
+              "do": "Wide shot of you on the sofa in a coat, then a slow pan to the gap under the living room door."
+            },
+            {
+              "part": "setup",
+              "say": "There's a gap under this door, and you can feel the air coming through it.",
+              "do": "Hold your palm flat near the gap so the hair on your wrist moves."
+            },
+            {
+              "part": "beat 1",
+              "say": "I tried a rolled-up towel. It slid away every time someone opened the door.",
+              "do": "Open the door and let the towel get dragged across the floor."
+            },
+            {
+              "part": "turn",
+              "say": "So I got one of these. It sits on both sides of the door and moves with it.",
+              "do": "Take the excluder out of a drawer and slide it onto the bottom of the door."
+            },
+            {
+              "part": "beat 2",
+              "say": "Same test as before.",
+              "do": "Hold your palm near the gap again, wrist still this time, then open and close the door."
+            },
+            {
+              "part": "close",
+              "say": "The coat's off. It's linked if you've got a door like mine.",
+              "do": "Back on the sofa without the coat, door shut, excluder in frame."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "How do you keep the solution honest?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Repeat the same test you used for the problem, and say only what you noticed, because a matching before and after is proof the viewer can check.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Film the problem and the solution in the same place and the same light, so the only thing that changes is the product.",
+            "Use the same action for both, like the palm near the gap, because a different test makes the comparison meaningless.",
+            "Speak in the first person about your space and your day, and leave out lines about what it does for everyone.",
+            "Use only problems you really have and products you really used, and agree in writing with the brand how the video discloses that it is paid."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the close promises more than the solution beat showed, the viewer notices the gap. [Hook and payoff](/blog/hook-payoff/) shows how to bring the two back into line. If the problem you chose reads as personal, the [testimonial-style UGC video](/blog/ugc-testimonial-video/) shape may suit the brief better.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-10-31",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "The heating's on, and I'm still sitting on my sofa in a coat."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
