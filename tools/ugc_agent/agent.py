@@ -657,6 +657,16 @@ def cmd_next(args):
         print(json.dumps({"status": "already ran today", "briefs": []}))
         return 0
     probs = G.site_problems(root)
+    # SELF-HEAL A SPLIT STAMP (2026-10-30). A stamp bump made on a checkout that was missing this routine's newest
+    # pages left 25 agent pages on the old ?v= stamp, and every run from 10-27 to 10-30 refused here, publishing
+    # nothing. Agent pages copy their chrome (and so their stamp) from the model page on every render, so when a split
+    # stamp is the ONLY problem, re-render and look again: if the whole site is then on one stamp, carry on. The
+    # healed pages are agent-owned, so they ride in this run's commit like any re-render. Anything else still refuses.
+    if probs and all(p.startswith("stamps in use:") for p in probs):
+        R.render_all(root)
+        probs = G.site_problems(root)
+        if not probs:
+            print("healed a split cache stamp by re-rendering the agent pages from the model page")
     if probs:
         print("the untouched tree fails the site gate; nothing is built on it:")
         print_problems(probs)

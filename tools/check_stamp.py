@@ -596,7 +596,26 @@ def main(argv):
         return run_staged()
     if args.range:
         return run_range(args.range)
+    warn_if_behind()
     return run_worktree()
+
+
+def warn_if_behind():
+    """Warn, never fail, when this checkout is behind the last-fetched origin/main.
+
+    WHY (2026-10-30): a stamp bump made here on 2026-10-26 ran on a checkout missing a week of the UGC routine's
+    commits. Locally every page agreed, so this script said `ok`, but the merge left 25 agent pages on the old
+    stamp, and the routine refused to publish for four days. A bump only covers the pages this checkout has, so
+    pull first. No network: this compares against whatever `git fetch` last saw."""
+    try:
+        r = subprocess.run(["git", "rev-list", "--count", "HEAD..origin/main"], capture_output=True, text=True,
+                           timeout=10)
+        behind = int(r.stdout.strip() or 0) if r.returncode == 0 else 0
+    except Exception:  # noqa: BLE001 -- no git, no origin: nothing to warn about
+        return
+    if behind:
+        print(f"WARNING: this checkout is {behind} commit(s) behind origin/main. Pull before bumping the stamp, "
+              "or pages added on main (the UGC routine's) keep the old one.", file=sys.stderr)
 
 
 if __name__ == "__main__":

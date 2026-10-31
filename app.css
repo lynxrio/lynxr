@@ -13589,3 +13589,40 @@
     color: var(--text); background: var(--surface-2); border-color: var(--text-2);
   }
   body.agency #app main .cm-section .cm-co-toggle[aria-pressed="true"]::before { content: "✓"; margin-right: 6px; }
+  /* ---------- CM CREATORS (owner, 2026-10-30; plan ~/.claude/plans/lynxr-cm-creators.md) ----------
+     A CM's company page gets a "Creators" button in its head (ghost, 44px tall). It opens that company's Creators
+     screen: ONE big "Invite a creator", the same ink button, full width, cta-ping pulse and phone thumb-zone placement as
+     "Create a new brief" (#cb-new.cm-new in the CM PORTAL block). It opens a two-field form whose "Invite to <company>"
+     is then the one thing that pulses, and only once it can be pressed (disabled = .btn:disabled's faded look). The
+     reduced-motion rule repeats the animation rule's exact selector so it wins on specificity. */
+  body.agency.cm #app main .cm-head .cm-crew-open {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-left: auto;
+  }
+  body.agency.cm #app main #cm-inv-open {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    width: 100%; min-height: 52px; margin: 6px 0 24px; font-size: var(--fs-16);
+  }
+  body.agency.cm #app main #cm-inv-open[aria-expanded="true"] { display: none; }
+  body.agency.cm #app main #cm-inv-go { position: relative; }
+  body.agency.cm #app main :is(#cm-inv-open[aria-expanded="false"], #cm-inv-go:not(:disabled))::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; border-radius: var(--r-pill);
+    box-shadow: 0 0 0 0 var(--text); opacity: 0; pointer-events: none;
+    animation: cta-ping 2.2s var(--ease) infinite, cta-ping-fade 2.2s linear infinite;
+  }
+  body.agency.cm #app main :is(#cm-inv-open, #cm-inv-go):is(:hover, :focus-visible, :active)::after { animation: none; }
+  body.agency.cm #app main #cm-inv-form { margin: 6px 0 24px; }
+  body.agency.cm #app main #cm-inv-form[hidden] { display: none; }
+  body.agency.cm #app main .cm-inv-rule { margin: 0 0 12px; }
+  body.agency.cm #app main .cm-crew-off { margin: 6px 0 18px; }
+  body.agency.cm #app main .cm-crew-card .cm-crew-rm { flex: 0 0 auto; min-height: 44px; }
+  @media (prefers-reduced-motion: reduce) {
+    body.agency.cm #app main :is(#cm-inv-open[aria-expanded="false"], #cm-inv-go:not(:disabled))::after { animation: none; opacity: 0; }
+  }
+  @media (max-width: 640px) {
+    body.agency.cm #app main #cm-inv-open[aria-expanded="false"] {
+      position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+      width: auto; margin: 0; z-index: 40;
+    }
+    body.agency.cm #app main #cm-inv-go { width: 100%; min-height: 48px; }
+    body.agency.cm #app main .cm-crew-card { flex-wrap: wrap; }
+  }

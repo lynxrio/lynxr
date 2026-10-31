@@ -5168,6 +5168,7 @@ function renderCmClientPage(host, client) {
         <div class="bcard-title">${escapeHtml(client.company)}</div>
         ${sub ? `<div class="lbl">${sub}</div>` : ""}
       </div>
+      <button type="button" class="ghost cm-crew-open" id="cm-crew-open"><span>Creators</span>${cmCrewCountHtml(client)}</button>
     </div>
     <button type="button" class="btn cm-new" id="cb-new" aria-expanded="false" aria-controls="cb-compose">Create a new brief</button>
     ${briefsSectionHtml(client)}`;
@@ -5175,14 +5176,242 @@ function renderCmClientPage(host, client) {
   document.getElementById("cl-back")?.addEventListener("click", () => {
     CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs();
   });
+  document.getElementById("cm-crew-open")?.addEventListener("click", () => cmOpenCreators(client.id));
+  if (ROSTER === null && !ROSTER_ERR) rostLoad();   // fills the Creators count (cmCrewRepaint)
   if (CM_COMPOSE_FOR === client.id) {
     CM_COMPOSE_FOR = null;
     document.getElementById("cb-new")?.click();
   }
 }
 
+/* A CM'S CREATORS (owner, 2026-10-30: "allow the CMs to be able to add creators and send briefs … only the essential
+   essential things"; plan ~/.claude/plans/lynxr-cm-creators.md). One company's creators, opened from the "Creators"
+   button in that company's page head. The company is the page the CM is on, so nothing is picked: cm_invite_creator()
+   (supabase/cm_creators.sql) labels the invite with that company itself, appends it to a creator already on another
+   brand, and refuses a company the CM is not on. ONE big "Invite a creator" opens a two-field form in place; each card
+   says invited or accepted and has one way off this company (cm_remove_creator(), which takes off only this company's
+   brand). The DATABASE is the gate: a CM still has no policy on lynxr_roster. NOTHING IS EMAILED: the creator sees
+   creator.js's invite popup the next time they open lynxr with that email. */
+const cmCrew = (client) => (ROSTER || []).filter((r) => Array.isArray(r.client_ids) && r.client_ids.includes(client.id));
+const cmCrewCountHtml = (client) => (ROSTER === null ? "" : `<span class="pill" id="cm-crew-n">${cmCrew(client).length}</span>`);
+const CM_CREW_CAP = 20;   // v_cap in supabase/cm_creators.sql; the database enforces it, this only words the refusal
+
+/** One sentence for a cm_invite_creator / cm_remove_creator answer: { ok: true, result, status } or { ok: false, reason }.
+    Shown through cbMsg (textContent), so the company name needs no escaping here. */
+function cmCrewSay(r, company) {
+  const co = String(company || "this company");
+  if (r?.ok) {
+    if (r.result === "invited") return "Invited. lynxr doesn't email them: tell them to open lynxr.io with that email, and the invite pops up there.";
+    if (r.result === "added") return r.status === "accepted"
+      ? `Added. They were already on the Lynx roster, so you can send them ${co} briefs now.`
+      : `Added ${co} to their invite. They'll see it when they open lynxr with that email.`;
+    if (r.result === "already") return `They're already on ${co}.`;
+    if (r.result === "cancelled") return "Invite cancelled.";
+    if (r.result === "removed") return r.status === "accepted"
+      ? `Removed from ${co}. Briefs you already sent stay with them until you unsend them.`
+      : `${co} is off their invite. It stays open for their other brands.`;
+  }
+  switch (r?.reason) {
+    case "left": return "They left the Lynx roster. Ask Lynx Media Group to invite them again.";
+    case "cap": return `That's ${Number(r.cap) || CM_CREW_CAP} invites in the last 24 hours, the most for one day. Try again tomorrow, or ask Lynx Media Group.`;
+    case "too_long": return "This creator has too many brands for one more. Ask Lynx Media Group.";
+    case "bad_email": return "That doesn't look like an email address.";
+    case "not_cm": return `You're not on ${co} any more, so you can't change its creators.`;
+    case "not_yours": return `This creator isn't on ${co} any more.`;
+    case "gone": return "This creator isn't on the roster any more.";
+    case "busy": return "Someone else just changed this creator. Try again.";
+    case "no_brand": return "This company has no name to invite under. Ask Lynx Media Group.";
+    case "missing": return "Adding creators isn't switched on yet. Lynx Media Group can invite them for you.";
+    default: return "Couldn't do that. Check the connection and try again.";
+  }
+}
+
+/** Open a company's Creators screen. Re-reads the roster on every visit (the staff Creators tab does the same). */
+function cmOpenCreators(id) {
+  const loadedBefore = ROSTER !== null || !!ROSTER_ERR;
+  CLIENT_VIEW = { id, creators: true }; BRIEF_VIEW = null; CAMPAIGN_VIEW = null;
+  renderBriefs();
+  window.scrollTo({ top: 0 });
+  if (loadedBefore) rostLoad();   // a first load is started by renderCmCreators itself
+}
+
+function renderCmCreators(host, client) {
+  const co = escapeHtml(client.company);
+  host.innerHTML = `${cbCrumbsHtml(client, "Creators")}
+    <div class="page-head cl-head cm-head">
+      <div class="minw0">
+        <div class="bcard-title">Creators</div>
+        <div class="lbl">${co}'s creators. Once they accept, you can send them ${co} briefs.</div>
+      </div>
+    </div>
+    <div id="cm-crew">${cmCrewBodyHtml(client)}</div>`;
+  // The crumbs come from cbCrumbsHtml but are bound here, not by cbBindCrumbs: its "company" crumb keeps CLIENT_VIEW,
+  // and this screen has to drop CLIENT_VIEW.creators to land on the company page.
+  document.getElementById("cv-clients")?.addEventListener("click", () => {
+    CLIENT_VIEW = null; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs();
+  });
+  document.getElementById("cv-back")?.addEventListener("click", () => {
+    CLIENT_VIEW = { id: client.id }; BRIEF_VIEW = null; CAMPAIGN_VIEW = null; renderBriefs(); window.scrollTo({ top: 0 });
+  });
+  bindCmCrew(document.getElementById("cm-crew"), client);
+  if (ROSTER === null && !ROSTER_ERR) rostLoad();   // never unconditionally: rostLoad repaints through cmCrewRepaint
+}
+
+function cmCrewBodyHtml(client) {
+  if (ROSTER === null && !ROSTER_ERR) {
+    return `<div class="loader" role="status" aria-live="polite">${loaderMark()}
+      <div class="loader-text"><div class="lbl">Loading creators…</div></div></div>`;
+  }
+  if (ROSTER_ERR) {
+    return `<p class="note">Couldn't load the creators. <button type="button" class="ghost" id="cm-crew-retry">Try again</button></p>`;
+  }
+  const co = escapeHtml(client.company);
+  const invite = CM_CAN_INVITE
+    ? `<button type="button" class="btn cm-inv-open" id="cm-inv-open" aria-expanded="false" aria-controls="cm-inv-form">Invite a creator</button>
+    <form class="client-details cm-inv" id="cm-inv-form" hidden novalidate>
+      <div class="ce-grid">
+        <label class="ce-field"><span class="lbl">Their email</span>
+          <input type="email" id="cm-inv-email" autocomplete="off" maxlength="254" placeholder="them@example.com"></label>
+        <label class="ce-field"><span class="lbl">Name (optional)</span>
+          <input type="text" id="cm-inv-name" autocomplete="off" maxlength="80" placeholder="what you call them"></label>
+      </div>
+      <p class="lbl cm-inv-rule">Use the email they sign in to lynxr with, or will sign up with. lynxr doesn't email them: tell them yourself, and the invite pops up when they open lynxr.io.</p>
+      <div class="bp-actions">
+        <button type="submit" class="btn" id="cm-inv-go" disabled>Invite to ${co}</button>
+        <button type="button" class="ghost" id="cm-inv-cancel">Cancel</button>
+      </div>
+      <p class="bp-msg cb-msg" id="cm-inv-msg" role="status" aria-live="polite"></p>
+    </form>`
+    : `<p class="note cm-crew-off">Adding creators here isn't switched on yet. Lynx Media Group can invite them for you.</p>`;
+  return `${invite}
+    <p class="bp-msg cb-msg" id="cm-crew-msg" role="status" aria-live="polite"></p>
+    <div class="section rost-section" id="cm-crew-list">${cmCrewListHtml(client)}</div>`;
+}
+
+function cmCrewListHtml(client) {
+  const rows = cmCrew(client);
+  const co = escapeHtml(client.company);
+  const head = `<div class="sec-head"><h2>Creators <span class="pill">${rows.length}</span></h2></div>`;
+  if (!rows.length) {
+    return `${head}<div class="empty">${emptyMark("idle")}<p><strong>No creators on ${co} yet.</strong></p>
+      <p>${CM_CAN_INVITE ? "Invite them by email. They show up here, and in Send, once they accept."
+        : "Lynx Media Group invites them for now. They show up here once they accept."}</p></div>`;
+  }
+  return `${head}<div class="rost-cards">` + rows.map((r) => {
+    const accepted = r.status === "accepted";
+    const date = escapeHtml(String((accepted ? r.accepted_at : r.invited_at) || "").slice(0, 10));
+    const brands = rostBrandParts(r.campaign);
+    const who = escapeHtml(r.display_name || r.email);
+    return `<article class="bcard rost-card cm-crew-card" data-email="${escapeHtml(r.email)}">
+      <div class="bcard-main minw0">
+        <div class="bcard-title">${who}</div>
+        <div class="lbl">${escapeHtml(r.email)} · <span class="chip${accepted ? " good" : ""}">${accepted ? "accepted" : "invited"}</span>${date ? ` · ${date}` : ""}</div>
+        ${brands.length ? `<div class="rost-brands">${brands.map((b) => `<span class="chip cb-brand-chip">${escapeHtml(b.name)}</span>`).join("")}</div>` : ""}
+        <p class="rost-state">${accepted ? `Accepted. You can send them ${co} briefs.` : "Invited. They'll see it when they open lynxr with this email."}</p>
+      </div>
+      ${CM_CAN_INVITE ? `<button type="button" class="ghost danger cm-crew-rm" aria-label="${accepted ? `Remove ${who} from ${co}` : `Cancel the invite for ${who}`}">${accepted ? "Remove" : "Cancel invite"}</button>` : ""}
+    </article>`;
+  }).join("") + `</div>`;
+}
+
+/** rostLoad finished (CM mode): redraw the Creators count on a company page, and the open Creators screen. A typed
+    invite survives: with the form on the page only the list is redrawn. */
+function cmCrewRepaint() {
+  if (!CM_MODE || !CLIENT_VIEW) return;
+  const client = CM_CLIENTS.find((c) => c.id === CLIENT_VIEW.id);
+  if (!client) return;
+  const btn = document.getElementById("cm-crew-open");
+  if (btn) btn.innerHTML = `<span>Creators</span>${cmCrewCountHtml(client)}`;
+  const box = document.getElementById("cm-crew");
+  if (!box) return;
+  const list = document.getElementById("cm-crew-list");
+  if (list && document.getElementById("cm-inv-form") && CM_CAN_INVITE && ROSTER !== null) {
+    list.innerHTML = cmCrewListHtml(client);
+    bindCmCrewList(list, client);
+    return;
+  }
+  box.innerHTML = cmCrewBodyHtml(client);
+  bindCmCrew(box, client);
+}
+
+function bindCmCrew(box, client) {
+  if (!box) return;
+  document.getElementById("cm-crew-retry")?.addEventListener("click", () => rostLoad());
+  const open = document.getElementById("cm-inv-open");
+  const form = document.getElementById("cm-inv-form");
+  const email = document.getElementById("cm-inv-email");
+  const name = document.getElementById("cm-inv-name");
+  const go = document.getElementById("cm-inv-go");
+  const ready = () => { const v = String(email?.value || "").trim(); return v.length <= 254 && ROST_EMAIL_RE.test(v); };
+  const paintGo = () => { if (go) go.disabled = !ready(); };
+  const setOpen = (on) => {
+    if (!form) return;
+    form.hidden = !on;
+    open?.setAttribute("aria-expanded", String(on));
+    if (on) email?.focus(); else open?.focus();
+  };
+  open?.addEventListener("click", () => setOpen(true));
+  // Cancel discards what was typed; Escape only hides the form (the brief composer's rule).
+  document.getElementById("cm-inv-cancel")?.addEventListener("click", () => {
+    if (email) email.value = "";
+    if (name) name.value = "";
+    paintGo();
+    setOpen(false);
+  });
+  form?.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); setOpen(false); } });
+  email?.addEventListener("input", paintGo);
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!ready()) {
+      cbMsg(document.getElementById("cm-inv-msg"), cmCrewSay({ ok: false, reason: "bad_email" }, client.company), "bad", true);
+      return;
+    }
+    go.disabled = true;
+    let r;
+    try {
+      r = await sbFetch("/rest/v1/rpc/cm_invite_creator", { method: "POST",
+        body: JSON.stringify({ p_client: client.id, p_email: email.value.trim().toLowerCase(), p_name: name.value.trim() }) });
+    } catch (ex) {
+      r = { ok: false, reason: cbError(ex) === "missing" ? "missing" : "other" };
+    }
+    if (r?.ok) {
+      email.value = "";
+      name.value = "";
+      await rostLoad();   // cmCrewRepaint redraws the list and leaves this form alone
+    }
+    cbMsg(document.getElementById("cm-inv-msg"), cmCrewSay(r, client.company), r?.ok ? "good" : "bad", true);
+    paintGo();
+    if (r?.ok) document.getElementById("cm-inv-email")?.focus();
+  });
+  paintGo();
+  bindCmCrewList(document.getElementById("cm-crew-list"), client);
+}
+
+/** Each card's one way off this company: the two-click armDelete, never a browser dialog. */
+function bindCmCrewList(list, client) {
+  list?.querySelectorAll(".cm-crew-rm").forEach((btn) => {
+    const email = btn.closest(".cm-crew-card")?.dataset.email;
+    armDelete(btn, "Remove", async () => {
+      btn.disabled = true;
+      let r;
+      try {
+        r = await sbFetch("/rest/v1/rpc/cm_remove_creator", { method: "POST",
+          body: JSON.stringify({ p_client: client.id, p_email: email }) });
+      } catch (ex) {
+        r = { ok: false, reason: cbError(ex) === "missing" ? "missing" : "other" };
+      }
+      if (r?.ok || r?.reason === "not_yours" || r?.reason === "gone") await rostLoad();
+      else btn.disabled = false;
+      cbMsg(document.getElementById("cm-crew-msg"), cmCrewSay(r, client.company), r?.ok ? "good" : "bad", !r?.ok);
+    });
+  });
+}
+
 function renderClientPage(host, client) {
-  if (CM_MODE) { renderCmClientPage(host, client); return; }
+  if (CM_MODE) {   // CLIENT_VIEW.creators: that company's Creators screen (cmOpenCreators); any navigation rebuilds CLIENT_VIEW without it
+    if (CLIENT_VIEW?.creators) renderCmCreators(host, client); else renderCmClientPage(host, client);
+    return;
+  }
   // Briefs are stored newest-first and numbered oldest-first so "Brief 1" is
   // where the client started — cbBriefItems keeps that numbering.
   host.innerHTML = `
@@ -6279,11 +6508,26 @@ let ROSTER_ERR = "";    // "" | "missing" | "migrate" | "denied" | "other" (see 
 // function isn't installed or the call failed, and the rows then just don't say.
 let ROSTER_ACCTS = null;
 let ROST_BRAND_EDIT = null;   // email whose brand editor is open on the Creators tab (rostBrandRowHtml), or null
+// CM mode only: true once cm_creators() answered (supabase/cm_creators.sql is run), false while it is not installed (the
+// Creators screen is then read-only and the send panel says to ask Lynx Media Group), null = not asked yet.
+let CM_CAN_INVITE = null;
 
 async function rostList() {
-  // A CM may not read lynxr_roster: cm_roster() returns only the accepted creators they may send to, each with the
-  // client_ids of the CM's companies whose brand their label names (supabase/cm_portal.sql).
-  if (CM_MODE) return sbFetch("/rest/v1/rpc/cm_roster", { method: "POST", body: "{}" });
+  // A CM may not read lynxr_roster. cm_creators() (supabase/cm_creators.sql) returns the INVITED and ACCEPTED creators of
+  // the CM's companies, each with the client_ids its label names; the send panel still offers only accepted ones
+  // (rostAccepted). Before that file is run it 404s, and cm_roster() (supabase/cm_portal.sql: accepted only) stands in,
+  // with inviting off (CM_CAN_INVITE false).
+  if (CM_MODE) {
+    try {
+      const rows = await sbFetch("/rest/v1/rpc/cm_creators", { method: "POST", body: "{}" });
+      CM_CAN_INVITE = true;
+      return rows;
+    } catch (ex) {
+      if (cbError(ex) !== "missing") throw ex;
+      CM_CAN_INVITE = false;
+      return sbFetch("/rest/v1/rpc/cm_roster", { method: "POST", body: "{}" });
+    }
+  }
   return sbFetch("/rest/v1/lynxr_roster?select=email,display_name,campaign,status,creator_id,invited_at,accepted_at,left_at&order=invited_at.desc");
 }
 
@@ -6369,6 +6613,7 @@ async function rostLoad() {
     ROSTER_ERR = !CM_MODE && /campaign/.test(String(ex?.message || "")) ? "migrate" : cbError(ex);
   }
   if (document.getElementById("roster-host")) renderRoster();
+  if (CM_MODE) cmCrewRepaint();   // a CM's Creators screen or the Creators count on a company page (renderCmCreators)
   if (rostSendSig() !== before) cbSendRosterChanged();
 }
 
@@ -7506,8 +7751,14 @@ function cbSendPanelHtml(sourceKind, sourceId, briefBrands = []) {
   const accepted = rostAccepted();
   if (!accepted.length && CM_MODE) {
     const co = escapeHtml(briefBrands[0] || "this company");
-    return `<div class="section cb-send-panel">
+    if (!CM_CAN_INVITE) {   // supabase/cm_creators.sql not run yet: only staff can invite
+      return `<div class="section cb-send-panel">
       <p class="note">None of ${co}'s creators are on the roster yet. Ask Lynx Media Group to invite them with ${co} as their brand.</p>
+    </div>`;
+    }
+    return `<div class="section cb-send-panel">
+      <p class="note">None of ${co}'s creators have accepted yet. Invite them, and they show up here once they accept.</p>
+      <button type="button" class="ghost" id="cb-send-goto-crew">Go to Creators</button>
     </div>`;
   }
   if (!accepted.length) {
@@ -7673,7 +7924,9 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
 
   document.getElementById("cb-send-toggle")?.addEventListener("click", () => {
     if (CB_SEND_OPEN.has(key)) { CB_SEND_OPEN.delete(key); CB_SEND_PICKS.delete(key); } else CB_SEND_OPEN.add(key);
-    if (CB_SEND_OPEN.has(key) && ROSTER === null && !ROSTER_ERR) rostLoad();
+    // CM mode re-reads on every open, so a creator who accepted after this page loaded is offered (rostLoad compares
+    // what the panel shows before and after, and cbSendRosterChanged repaints only if it changed). Staff: as before.
+    if (CB_SEND_OPEN.has(key) && (CM_MODE || (ROSTER === null && !ROSTER_ERR))) rostLoad();
     repaint();
   });
   document.getElementById("cb-send-cancel")?.addEventListener("click", () => {
@@ -7682,6 +7935,7 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
     repaint();
   });
   document.getElementById("cb-send-goto-roster")?.addEventListener("click", () => activateTab("tab-roster"));
+  document.getElementById("cb-send-goto-crew")?.addEventListener("click", () => { if (CLIENT_VIEW) cmOpenCreators(CLIENT_VIEW.id); });
 
   const updateGo = () => {
     const n = host.querySelectorAll(".cb-send-pick:checked").length;
@@ -9389,6 +9643,7 @@ function cbUnsavedWork() {
   if ([...document.querySelectorAll(".cb-row-input")].some((i) => i.value.trim())) return true;
   if ((document.getElementById("cb-name")?.value || "").trim()) return true;
   if ((document.getElementById("cb-instructions")?.value || "").trim()) return true;
+  if ((document.getElementById("cm-inv-email")?.value || "").trim()) return true;   // a half-typed CM invite (renderCmCreators)
   if (document.querySelector("#cl-brand-box:not([hidden])")) return true;
   if (document.getElementById("cl-add-form")) return true;   // the Add client view is open
   return CB_EDITING.size > 0 || CB_REGEN.size > 0 || CB_REPLACE.size > 0 || !!CB_FIELD_EDIT;

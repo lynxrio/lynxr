@@ -8,6 +8,11 @@ change to supabase/cm_portal.sql or any agency policy: reading the SQL is not ev
     ./venv/bin/python tools/cm_probe.py --plain EMAIL                 # an ordinary creator: sees nothing agency-side
     ./venv/bin/python tools/cm_probe.py --cm EMAIL [--staff EMAIL]    # a test CM; --staff adds the cross-company and
                                                                       # sending checks and cleans up after them
+    ./venv/bin/python tools/cm_probe.py --cm EMAIL --staff EMAIL --cap   # also proves the 20-a-day invite cap; that test
+                                                                      # CM then cannot invite for 24 hours
+
+Adding creators (supabase/cm_creators.sql): the CM run also invites, appends to and removes roster rows for addresses at
+example.invalid (never a real inbox or account) and deletes every one of them at the end.
 
 The CM run writes and then deletes: one brief named "cm probe, delete me" on the CM's first company (by id), one
 format written from scratch in it, one 4-byte file in its storage folder, and (with --staff) one sent-brief record with
@@ -19,7 +24,9 @@ import getpass
 import json
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
 import uuid
 import ssl
 
@@ -39,7 +46,13 @@ FAILS = []
 AGENCY_TABLES = ["lynxr_campaigns", "lynxr_campaign_formats", "lynxr_agency_briefs", "lynxr_agency_deliveries",
                  "lynxr_brief_files", "lynxr_brief_file_beats", "lynxr_cm_clients", "lynxr_cms"]
 CLOSED_TABLES = ["lynxr_videos", "lynxr_clients", "lynxr_roster", "lynxr_staff", "lynxr_ops", "lynxr_costs",
-                 "lynxr_sources", "lynxr_feedback"]
+                 "lynxr_sources", "lynxr_feedback", "lynxr_cm_roster_log"]
+PROBE_DOMAIN = "example.invalid"   # never a real inbox, and no lynxr account can ever have it
+CM_DAILY_CAP = 20                  # v_cap in supabase/cm_creators.sql
+
+
+def q(s):
+    return urllib.parse.quote(str(s), safe="")
 
 
 def call(method, path, token=None, body=None, prefer=None, raw=None, ctype=None):
@@ -107,6 +120,20 @@ def run_plain(email):
     for fn in ("cm_clients", "cm_roster"):
         status, js, _ = call("POST", f"/rest/v1/rpc/{fn}", token, body={})
         check(f"{fn}: empty", status == 200 and js == [], f"HTTP {status} {js}")
+    status, js, text = call("POST", "/rest/v1/rpc/cm_creators", token, body={})
+    check("cm_creators: empty (run supabase/cm_creators.sql first)", status == 200 and js == [],
+          f"HTTP {status} {text[:160]}")
+    status, _, text = call("POST", "/rest/v1/rpc/cm_creators", None, body={})
+    check("cm_creators: anonymous callers refused", refused(status, text), f"HTTP {status} {text[:160]}")
+    fake = "probe-unassigned-" + uuid.uuid4().hex[:8]
+    probe_addr = f"cm-probe-plain-{uuid.uuid4().hex[:8]}@{PROBE_DOMAIN}"
+    for fn, body in (("cm_invite_creator", {"p_client": fake, "p_email": probe_addr, "p_name": ""}),
+                     ("cm_remove_creator", {"p_client": fake, "p_email": probe_addr})):
+        status, js, text = call("POST", f"/rest/v1/rpc/{fn}", token, body=body)
+        check(f"{fn}: refused (not a CM)", status == 200 and isinstance(js, dict) and js.get("reason") == "not_cm",
+              f"HTTP {status} {text[:160]}")
+        status, _, text = call("POST", f"/rest/v1/rpc/{fn}", None, body=body)
+        check(f"{fn}: anonymous callers refused", refused(status, text), f"HTTP {status} {text[:160]}")
     status, _, text = call("POST", "/rest/v1/lynxr_campaigns", token,
                            body={"client_id": "probe-" + uuid.uuid4().hex[:8], "name": "probe"})
     check("cannot create a brief", refused(status, text), f"HTTP {status} {text[:160]}")
@@ -157,7 +184,136 @@ def cross_company(token, stoken, uid, ids, pid, company, crew):
         call("DELETE", f"/rest/v1/lynxr_agency_briefs?id=eq.{bid}", stoken)   # staff clean-up; deliveries cascade
 
 
-def run_cm(email, staff_email):
+def other_company(stoken, ids):
+    """A lynxr_clients id this CM is not on (staff read), or a made-up one when there is none."""
+    status, rows, _ = call("GET", "/rest/v1/lynxr_clients?select=id", stoken)
+    skip = {"ingest-queue", "deleted-clients", "source-edits"}
+    for r in listed(status, rows) or []:
+        if r.get("id") and r["id"] not in ids and r["id"] not in skip:
+            return r["id"]
+    return "probe-unassigned-" + uuid.uuid4().hex[:8]
+
+
+def crew_checks(token, stoken, uid, ids, company, cap):
+    """CMs adding creators (supabase/cm_creators.sql). Writes only roster rows for @example.invalid addresses and removes
+    every one of them at the end: staff delete them, or (without --staff) the CM cancels them itself."""
+    made = []
+
+    def addr(tag):
+        e = f"cm-probe-{tag}-{uuid.uuid4().hex[:8]}@{PROBE_DOMAIN}"
+        made.append(e)
+        return e
+
+    def rpc(fn, body):
+        status, js, text = call("POST", f"/rest/v1/rpc/{fn}", token, body=body)
+        return js if status == 200 and isinstance(js, dict) else {"http": status, "text": text[:160]}
+
+    def invite(cid, e, name=""):
+        return rpc("cm_invite_creator", {"p_client": cid, "p_email": e, "p_name": name})
+
+    def remove(cid, e):
+        return rpc("cm_remove_creator", {"p_client": cid, "p_email": e})
+
+    def row(e):   # staff ground truth; None = no such row
+        status, js, _ = call("GET", f"/rest/v1/lynxr_roster?email=eq.{q(e)}&select=email,campaign,status,display_name",
+                             stoken)
+        return js[0] if status == 200 and isinstance(js, list) and js else None
+
+    def crew():
+        status, js, _ = call("POST", "/rest/v1/rpc/cm_creators", token, body={})
+        return listed(status, js)
+
+    try:
+        rows = crew()
+        check("cm_creators: answers (run supabase/cm_creators.sql first)", rows is not None, rows)
+        if rows is None:
+            return
+        check("cm_creators: only my companies' creators",
+              all(r.get("client_ids") and set(r["client_ids"]) <= ids for r in rows), rows)
+        check("cm_creators: invited or accepted only", all(r.get("status") in ("invited", "accepted") for r in rows), rows)
+        check("cm_creators: no account id on a pending invite",
+              all(r.get("creator_id") is None for r in rows if r.get("status") == "invited"), rows)
+
+        mine = addr("mine")
+        js = invite(company, mine, "Probe Person")
+        check("can invite a creator to my company", js.get("ok") is True and js.get("result") == "invited", js)
+        check("the invite is listed in cm_creators, on my company",
+              any(r.get("email") == mine and company in (r.get("client_ids") or []) for r in crew() or []), mine)
+        js = invite(company, mine)
+        check("inviting the same email again adds nothing", js.get("ok") is True and js.get("result") == "already", js)
+        js = invite(company, "not an email")
+        check("a malformed email is refused", js.get("reason") == "bad_email", js)
+        elsewhere = other_company(stoken, ids) if stoken else "probe-unassigned-" + uuid.uuid4().hex[:8]
+        outside = addr("outside")
+        js = invite(elsewhere, outside)
+        check("cannot invite to a company I'm not on", js.get("ok") is False and js.get("reason") == "not_cm", js)
+
+        if stoken:
+            got = row(mine)
+            check("the new row is an invite, labelled by the database, with the name given",
+                  got is not None and got["status"] == "invited" and got["campaign"] != ""
+                  and got["display_name"] == "Probe Person", got)
+            check("and nothing was made for the other company", row(outside) is None, row(outside))
+
+            theirs = addr("theirs")
+            status, _, text = call("POST", "/rest/v1/lynxr_roster", stoken,
+                                   body={"email": theirs, "campaign": "Probe Other Brand"})
+            check("(staff) made a creator on another brand", status in (200, 201), f"HTTP {status} {text[:160]}")
+            js = remove(company, theirs)
+            check("cannot take another brand's creator off", js.get("ok") is False and js.get("reason") == "not_yours", js)
+            status, js2, text = call("PATCH", f"/rest/v1/lynxr_roster?email=eq.{q(theirs)}&select=email", token,
+                                     prefer="return=representation", body={"campaign": "hijacked"})
+            check("cannot relabel a roster row directly", (status == 200 and js2 == []) or refused(status, text),
+                  f"HTTP {status} {text[:160]}")
+            status, js2, text = call("DELETE", f"/rest/v1/lynxr_roster?email=eq.{q(theirs)}&select=email", token,
+                                     prefer="return=representation")
+            check("cannot delete a roster row directly", (status == 200 and js2 == []) or refused(status, text),
+                  f"HTTP {status} {text[:160]}")
+            status, _, text = call("POST", "/rest/v1/lynxr_roster", token, body={"email": addr("direct"), "campaign": "x"})
+            check("cannot insert a roster row directly", refused(status, text), f"HTTP {status} {text[:160]}")
+            got = row(theirs)
+            check("the other brand's creator is untouched", got is not None and got["campaign"] == "Probe Other Brand", got)
+            check("and is not in my cm_creators", not any(r.get("email") == theirs for r in crew() or []), theirs)
+
+            js = invite(company, theirs)
+            check("adding my company to a creator on another brand appends it", js.get("result") == "added", js)
+            got = row(theirs)
+            check("their label names both brands", got is not None and got["campaign"].startswith("Probe Other Brand, "), got)
+            js = remove(company, theirs)
+            check("removing takes only my company off", js.get("ok") is True and js.get("result") == "removed", js)
+            got = row(theirs)
+            check("their row stays, with the other brand only", got is not None and got["campaign"] == "Probe Other Brand", got)
+
+        js = remove(company, mine)
+        check("can cancel my own pending invite", js.get("ok") is True and js.get("result") == "cancelled", js)
+        if stoken:
+            check("the cancelled invite is gone", row(mine) is None, row(mine))
+
+        if cap and not stoken:
+            print("note: --cap needs --staff (it reads the log to count)")
+        elif cap:
+            print(f"cap: inviting probe addresses until refused; this test CM cannot invite again for 24 hours")
+            last = {}
+            for _ in range(CM_DAILY_CAP + 2):
+                last = invite(company, addr("cap"))
+                if last.get("ok") is not True:
+                    break
+            since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+            status, logged, _ = call("GET", f"/rest/v1/lynxr_cm_roster_log?cm_id=eq.{q(uid)}"
+                                            f"&kind=in.(invite,add_brand)&made_at=gt.{q(since)}&select=id", stoken)
+            n = len(logged) if status == 200 and isinstance(logged, list) else None
+            check(f"the cap refuses past {CM_DAILY_CAP} in 24 hours",
+                  last.get("reason") == "cap" and last.get("cap") == CM_DAILY_CAP and n == CM_DAILY_CAP,
+                  {"answer": last, "logged": n})
+    finally:
+        for e in made:
+            if stoken:
+                call("DELETE", f"/rest/v1/lynxr_roster?email=eq.{q(e)}", stoken)
+            else:
+                remove(company, e)
+
+
+def run_cm(email, staff_email, cap=False):
     token, uid = sign_in(email)
     stoken = sign_in(staff_email)[0] if staff_email else None
 
@@ -217,6 +373,7 @@ def run_cm(email, staff_email):
     check("cannot tag anyone a CM", status == 200 and isinstance(js, dict) and js.get("ok") is False, js)
 
     company = sorted(ids)[0]
+    crew_checks(token, stoken, uid, ids, company, cap)
     status, made, text = call("POST", "/rest/v1/lynxr_campaigns?select=id,created_uid", token,
                               prefer="return=representation",
                               body={"client_id": company, "name": "cm probe, delete me", "created_by": "cm probe"})
@@ -257,11 +414,13 @@ def main():
     g.add_argument("--plain", metavar="EMAIL", help="an ordinary creator account (not staff, not a CM)")
     g.add_argument("--cm", metavar="EMAIL", help="a test CM account that is on at least one company")
     ap.add_argument("--staff", metavar="EMAIL", help="with --cm: a staff account, for ground truth and clean-up")
+    ap.add_argument("--cap", action="store_true",
+                    help="with --cm and --staff: also prove the 20-a-day invite cap (that test CM cannot invite for 24 hours)")
     a = ap.parse_args()
     if a.plain:
         run_plain(a.plain)
     else:
-        run_cm(a.cm, a.staff)
+        run_cm(a.cm, a.staff, a.cap)
     print(f"\n{len(FAILS)} FAILED: {', '.join(FAILS)}" if FAILS else "\nALL PASS")
     sys.exit(1 if FAILS else 0)
 

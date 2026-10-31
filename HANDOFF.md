@@ -27,6 +27,27 @@ naming a path there publishes it.
 
 ### THE STATE NOW. Read this and you can work; everything under "History" is how it got here.
 
+**CMS ADD CREATORS (2026-10-30, UNCOMMITTED, stamp `20261030a`; plan `~/.claude/plans/lynxr-cm-creators.md`). NOT LIVE until
+the owner runs `supabase/cm_creators.sql` (after `cm_portal.sql`; either order against the push: before it, a CM's
+Creators screen is read-only).** Owner: "allow the CMs to be able to add creators and send briefs … only the essential
+essential things". A CM's company page has a "Creators" button: that company's invited and accepted creators, ONE "Invite
+a creator" (email + optional name; no brand box: the database labels the invite with the company) and "Cancel invite" /
+"Remove" on each card. ENFORCED IN THE DATABASE, still no CM policy on `lynxr_roster`: `cm_creators()`,
+`cm_invite_creator()` (own companies only; appends the company to a creator already on another brand instead of making a
+second row; refuses someone who left; 20 invites or brands added per CM per rolling 24 h) and `cm_remove_creator()` (takes
+off only that company's brand; deletes a row only when it is a pending invite left with no brand; never deletes an
+accepted creator). Every change lands in `lynxr_cm_roster_log` (staff read). NOTHING IS EMAILED: the creator sees the
+existing popup the next time they open lynxr with that confirmed email, so CMs tell them themselves; only a brand-new
+creator's password sign-up sends mail (the auth mailer). CMs can now put themselves on their own company to see briefs as
+creators do. In CM mode the send panel re-reads the roster each time it opens, so a creator who just accepted is offered.
+Live proof: `./venv/bin/python tools/cm_probe.py --plain EMAIL`, then `--cm EMAIL --staff EMAIL` (`--cap` also proves the
+cap and leaves that test CM unable to invite for 24 h). Kill switch for inviting only: `revoke execute on function
+public.cm_invite_creator(text, text, text) from authenticated;` (re-running the SQL file undoes it). Files:
+`supabase/cm_creators.sql` (NEW, untracked: include it in the commit), `tools/cm_probe.py`, `app.js`, `app.css` (one block
+at the end), the stamp on every stamped page + `404.html`. Executor-verified (stubbed browser; nothing run against the live database): node --check, py_compile,
+check_stamp ok, the Step 10 harness ALL OK at 1440 and 393 with exceptions [] and csp [], the Step 11 regression unchanged from the
+baseline at both widths. NOT yet run live: the SQL itself and `cm_probe.py`.
+
 **NO PER-BRIEF FILE CAP (2026-10-26, UNCOMMITTED, stamp `20261026a`).** Owner: "can you change it so that the briefs
 hold more than just 20 images" ... "like it infinite". `app.js` sets `BF_MAX_COUNT` / `BF_MAX_TOTAL` to `Infinity`, so every
 existing check stays valid and never fires. The files line drops "of 50 MB" and the rule line drops "20 files and 50 MB
