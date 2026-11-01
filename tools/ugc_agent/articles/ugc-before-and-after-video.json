@@ -1,0 +1,229 @@
+{
+  "question_id": "q061",
+  "slug": "ugc-before-and-after-video",
+  "theme": "ugc-formats",
+  "title": "How do you script a before-and-after UGC video honestly?",
+  "description": "How to script a before and after UGC video honestly: film both halves in the same light and angle, script the in-between, and never stage the after shot.",
+  "short_answer": "An honest before-and-after UGC video films the same real thing twice, in the same light from the same spot, and shows the work that happened in between. Script the middle as carefully as the reveal, say plainly how much time passed, and never film an after that you set up rather than earned.",
+  "sections": [
+    {
+      "heading": "What makes a before-and-after UGC video honest?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A before-and-after is honest when both shots show the same real thing under the same conditions, and the change between them is something you actually did.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The viewer judges this [format](/glossary/#format) by comparing two frames, so anything that differs apart from the product becomes a question. Brighter light, a closer angle or a tidier background all make the after look better for reasons that have nothing to do with what you are showing. The shape is close to the one in [how to script a problem-solution UGC video](/blog/ugc-problem-solution-video/), with one difference: the proof is a direct visual comparison, so the camera has to be trusted more than your words. If you want the wider picture of how formats are built, [what a UGC video format is](/what-is-a-video-format/) breaks one into its parts.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why does the in-between matter more than the reveal?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The in-between matters because it is the part that shows you did the work, and without it the reveal looks like two unrelated clips.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Treat the middle as two or three short beats rather than a montage. Each [beat](/glossary/#beat) should show one step with the product in your hand, so the viewer learns how it is used while they wait for the result. Speak during these beats about what you are doing and why, not about how good it will look. If you cut time out, say so in a line such as I left it overnight, because an unexplained jump is where doubt starts.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you keep the light and angle the same?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Keep the phone fixed in one place and film both shots at the same time of day, so the only thing that changes is the subject.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Mount the phone on a stand or prop it against something heavy, and mark where it stands with a piece of tape in case you have to move it.",
+            "Film near the same window at the same hour, or switch every lamp off and use one light you control for both shots.",
+            "Write the framing into your [shot list](/glossary/#shot-list) before the before shot, including the zoom, so you can match it later.",
+            "Leave the background exactly as it was. If you tidy the room, do it before the before shot, not between the two.",
+            "Watch the before clip again just before you film the after, so you can line the frame up by eye."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a before-and-after script look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A before-and-after script opens on the before, spends most of its beats on the work, and lets the matching after shot do the talking.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a set of stackable drawer dividers",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "This drawer has swallowed every phone charger I've owned, and it gives them back one at a time.",
+              "do": "Top-down shot of a crowded kitchen drawer pulled fully open, phone mounted overhead."
+            },
+            {
+              "part": "setup",
+              "say": "Everything in here is something I use. None of it has a place to go.",
+              "do": "Lift a tangle of cables and let it drop back in."
+            },
+            {
+              "part": "beat 1",
+              "say": "So it all comes out first, and the camera stays exactly where it is.",
+              "do": "Empty the drawer onto a towel beside it. The phone does not move."
+            },
+            {
+              "part": "beat 2",
+              "say": "These are stackable dividers. They go in before anything goes back.",
+              "do": "Lay the dividers into the empty drawer and slide them to fit."
+            },
+            {
+              "part": "beat 3",
+              "say": "Cables in the long one, batteries in the small ones. The broken stuff isn't going back in.",
+              "do": "Put items back by group, dropping a few into a bin bag off to the side."
+            },
+            {
+              "part": "turn",
+              "say": "Same drawer, same light, same spot.",
+              "do": "Hold the finished top-down shot, then show it side by side with the first frame."
+            },
+            {
+              "part": "close",
+              "say": "The dividers I used are linked, if your drawer looks like my before.",
+              "do": "Close the drawer, then open it again in one smooth pull."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Every spoken line is something the creator did or saw. The comparison in the turn carries the result, so the script never has to describe it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you do when the change is slow or small?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "When the change is slow or small, show it at its real size and say how long it took, rather than making it look bigger than it was.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Situation",
+            "What to film",
+            "What to say"
+          ],
+          "table_rows": [
+            [
+              "The change takes days",
+              "The before and after from the same marked spot, filmed on the days they happened",
+              "How long you waited, in plain words"
+            ],
+            [
+              "The change is subtle",
+              "A closer matching shot of the one area that changed",
+              "What you noticed, without words like transformed"
+            ],
+            [
+              "You missed the before",
+              "Nothing. Start again on a new surface or skip the format",
+              "Ask the brand for a different format instead"
+            ],
+            [
+              "The after is not as good as hoped",
+              "The real after",
+              "What it did and did not do, and tell the brand before you post"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Never stage an after by cleaning, editing or swapping the subject off camera. If the brief asks for a result you have not seen, ask the brand whether a different shape would suit, such as a [testimonial-style video](/blog/ugc-testimonial-video/) that talks about what you noticed without a split comparison.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-01",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "This drawer has swallowed every phone charger I've owned, and it gives them back one at a time."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

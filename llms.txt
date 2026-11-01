@@ -66,6 +66,7 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
   - [Should you charge extra for raw footage in UGC?](https://lynxr.io/blog/raw-footage-in-ugc/): Raw footage in UGC explained: what counts as raw files, why they let a brand cut more ads, and how to price and hand them over as a separate line.
   - [What should a UGC rate card include?](https://lynxr.io/blog/ugc-rate-card/): What to put on a UGC rate card: the base video, extra hooks, raw footage, usage and rush lines, plus the terms that stop a quote turning into extra unpaid work.
   - [What should you agree in writing before a UGC job starts?](https://lynxr.io/blog/agree-in-writing-before-ugc/): A UGC contract checklist for creators: the deliverables, revision rounds, usage, deadlines, approvals and payment timing to confirm in writing before you film.
+  - [How do you price a bundle of UGC videos?](https://lynxr.io/blog/ugc-video-bundles/): How to build and price UGC video packages: what goes in a bundle, why shared work lowers the cost of each extra video, and which add-ons to price separately.
 - [Finding UGC brand deals](https://lynxr.io/faq/ugc-brand-deals/): How to find brands that hire UGC creators, how to pitch them, what to send, how to follow up and how to get booked again.
   - [How do you write a UGC pitch email to a brand?](https://lynxr.io/blog/ugc-pitch-email/): How to write a UGC pitch email: lead with one video idea for the brand's product, prove it with a portfolio link, ask clearly, and cut the rest.
   - [How do you find brands that hire UGC creators?](https://lynxr.io/blog/find-brands-for-ugc/): How to find UGC brands to pitch: spot the signs a brand already buys creator-style video, build a short target list, and decide where to send each pitch.
@@ -98,6 +99,7 @@ the Lynx R-1 or R2 mixed reality headsets, or lynxr.com. lynxr is at lynxr.io.
   - [How do you script a get-ready-with-me UGC video?](https://lynxr.io/blog/ugc-grwm-video/): How to script a get-ready-with-me UGC video: write the talk track as its own story, then place the product at the routine step where it belongs.
   - [How do you script a testimonial-style UGC video?](https://lynxr.io/blog/ugc-testimonial-video/): How to write a testimonial UGC script from real use: what you expected, how you used it, an honest verdict with one downside, and an example script.
   - [How do you script a problem-solution UGC video?](https://lynxr.io/blog/ugc-problem-solution-video/): How to script a problem-solution UGC video: make the problem visible before the product appears, bring it in at the turn, and close on what you noticed.
+  - [How do you script a before-and-after UGC video honestly?](https://lynxr.io/blog/ugc-before-and-after-video/): How to script a before and after UGC video honestly: film both halves in the same light and angle, script the in-between, and never stage the after shot.
 
 <!-- END UGC AGENT -->
 

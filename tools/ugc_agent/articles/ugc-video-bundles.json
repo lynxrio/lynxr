@@ -1,0 +1,206 @@
+{
+  "question_id": "q008",
+  "slug": "ugc-video-bundles",
+  "theme": "ugc-rates-and-pay",
+  "title": "How do you price a bundle of UGC videos?",
+  "description": "How to build and price UGC video packages: what goes in a bundle, why shared work lowers the cost of each extra video, and which add-ons to price separately.",
+  "short_answer": "Price a bundle of UGC videos by starting from your single-video rate and taking off only the work you do once for the whole set. Shared work such as receiving the product, setting up and scripting the batch is where a bundle saves you time, so that saving is what you can pass on.",
+  "sections": [
+    {
+      "heading": "What goes into a UGC video bundle?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A UGC bundle is a fixed set of videos for one product, sold as one package with a clear list of what each video includes.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Write down what one video means before you price several of them. That list usually needs the length, how many versions of the [hook](/glossary/#hook) you film for it, how many rounds of revisions it gets and what format the file arrives in. Once one video is defined, a bundle is just a number of those videos plus anything you choose to add. If you have not settled your single-video price yet, start with [how to work out what to charge for a UGC video](/blog/how-to-set-ugc-rates/), because every bundle price is built from it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why price videos as a bundle instead of one at a time?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A bundle lets you do the setup work once for several videos, so you can charge less per video without earning less for your time.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When you film one video, the product delivery, the first read of the [brief](/glossary/#brief), the lighting and the back-and-forth with the brand all sit on that one job. Spread across several videos, those costs shrink for each one. The brand also gets several angles on the same product from one booking, which gives it something to compare. Both reasons are worth saying out loud when you send the quote, because they explain why the bundle is a better deal rather than just a lower number. A bundle that is easy to compare against your single price also makes your [rate card](/blog/ugc-rate-card/) easier to read. Marking up the brief once for the whole set, as in [how to turn a brand brief into a script](/blog/brief-to-script/), is part of that shared work.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you work out what each extra video should cost?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Split your work into the parts you do once per bundle and the parts you repeat for every video, then discount only the first kind.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Work",
+            "Done once per bundle",
+            "Done for every video"
+          ],
+          "table_rows": [
+            [
+              "Reading the brief and asking questions",
+              "Yes",
+              "Only if each video has its own angle"
+            ],
+            [
+              "Setting up light, sound and the set",
+              "Yes, if you film the batch in one session",
+              "No"
+            ],
+            [
+              "Writing the script",
+              "No",
+              "Yes, each video needs its own"
+            ],
+            [
+              "Filming hooks and takes",
+              "No",
+              "Yes"
+            ],
+            [
+              "Editing and captions",
+              "No",
+              "Yes"
+            ],
+            [
+              "Revisions",
+              "No",
+              "Yes, each video gets its own rounds"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Look at the right-hand column before you lower anything. Scripting, filming and editing take the same effort for the fourth video as for the first, so a deep cut on extra videos means working for less. Keep the saving to the shared work, and if the brand wants each video in a different location or with a different product, treat those as separate jobs rather than one bundle.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which extras should sit outside the bundle price?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Keep anything that changes how long the brand can use the videos, or adds extra footage, as a separate line, so the bundle price stays easy to compare.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Raw footage. Unedited clips take time to sort and send, so price them on their own, as covered in [should you charge extra for raw footage](/blog/raw-footage-in-ugc/).",
+            "Usage beyond the default. If the brand wants the videos in paid ads or for longer, add it as its own line. [What usage rights are in UGC](/blog/what-are-ugc-usage-rights/) explains what to ask about.",
+            "Extra hook versions. Offer more hooks per video as an add-on, because each one is another take and another edit.",
+            "Faster delivery. A tighter deadline moves other work, so name it and price it separately.",
+            "Extra revision rounds. Say how many rounds each video includes, and price any beyond that."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you write a bundle into a quote?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write each bundle as one line that lists the videos, what each one includes and the price, then list the extras underneath with their own prices.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Single video: one video for [PRODUCT], [NUMBER] hook versions, one round of revisions, edited with captions, [AMOUNT].",
+            "Bundle: [NUMBER] videos for [PRODUCT], each with [NUMBER] hook versions and one round of revisions, filmed in one batch and delivered by [DATE], [AMOUNT].",
+            "Extras: raw footage [AMOUNT], extended usage [AMOUNT], extra hook version [AMOUNT] each.",
+            "Line to send with it: I've priced the bundle lower per video because I film the set in one session, so you get more angles on [PRODUCT] for less than booking each one on its own."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Agree the final scope with the brand in writing before you start, including what happens if it wants to drop a video halfway through. [What you should agree in writing before a UGC job starts](/blog/agree-in-writing-before-ugc/) lists the points worth covering.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-01",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
