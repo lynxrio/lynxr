@@ -6644,6 +6644,29 @@ async function rostSetBrands(email, input) {
   if (!Array.isArray(rows) || !rows.length) throw new Error("That creator is no longer on the roster.");
 }
 
+/** TAG THEM IN BOTH (owner, 2026-11-01: "if one creator is assigned to more than one campaign, tag them in both").
+    After a send, every recipient whose brands don't already name this brief's client gets that client appended, so
+    they show in its folder and its send-panel group. Staff and managers only: a CM can only send to creators who
+    already carry its company. Best effort, one creator at a time: a failed tag (too long, gone) never fails the send.
+    Returns the display names that were tagged. */
+async function rostTagSent(creatorIds, brand) {
+  const key = rostBrandKey(brand);
+  if ((CM_MODE && !CM_MANAGER) || !key || !Array.isArray(ROSTER)) return [];
+  const clients = rostClientBrands(), target = clients.get(key)?.key || key;
+  const tagged = [];
+  for (const id of creatorIds) {
+    const r = ROSTER.find((x) => x.creator_id === id);
+    if (!r || rostBrandParts(r.campaign).some((b) => (clients.get(b.key)?.key || b.key) === target)) continue;
+    try {
+      const label = rostBrandLabel([r.campaign, rostBrandTidy(brand)].filter(Boolean).join(", "));
+      await rostSetBrands(r.email, label);
+      r.campaign = label;
+      tagged.push(r.display_name || r.email);
+    } catch { /* leave this one as it was */ }
+  }
+  return tagged;
+}
+
 /** The send picker only ever offers accepted members — an invited-or-left
     address can't receive a delivery (the RLS policy in agency_roster.sql
     refuses it too; this just keeps the UI from offering what the database
@@ -8203,12 +8226,17 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
     try {
       await agSend(doc, sourceKind, sourceId, creatorIds, existing);
       await agEnsureSent(sourceKind, sourceId, null, true);
+      const brand = (CM_MODE ? CM_CLIENTS : clientsCacheList()).find((c) => c.id === CLIENT_VIEW?.id)?.company || doc.client?.name || "";
+      const tagged = await rostTagSent(creatorIds, brand);
       CB_SEND_OPEN.delete(key);
       CB_SEND_PICKS.delete(key);
       repaint();
       // Files ride on the brief's source, so every file listed now reaches these creators.
       const nFiles = (BF_FILES.get(key)?.rows || []).filter((r) => !bfIsNoteImg(r.path)).length;   // note images ride in their notes
-      cbMsg(msgEl(), `Sent to ${cbPlural(creatorIds.length, "creator", "creators")}${nFiles ? ` with ${cbPlural(nFiles, "file", "files")}` : ""}.`, "good");
+      const tagNote = !tagged.length ? ""
+        : tagged.length === 1 ? ` Added ${rostBrandTidy(brand)} to ${tagged[0]}'s brands.`
+        : ` Added ${rostBrandTidy(brand)} to ${tagged.length} creators' brands.`;
+      cbMsg(msgEl(), `Sent to ${cbPlural(creatorIds.length, "creator", "creators")}${nFiles ? ` with ${cbPlural(nFiles, "file", "files")}` : ""}.${tagNote}`, "good");
     } catch (ex) {
       e.currentTarget.disabled = false;
       cbMsg(document.getElementById("cb-send-msg"), agSendErrorSentence(ex), "bad", true);
