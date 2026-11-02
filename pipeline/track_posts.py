@@ -17,6 +17,12 @@ WHAT IT DOES, IN ORDER (one pass: verify -> scan -> measure -> followers -> show
         watermark in lynxr_posts, each with a day-0 snapshot in lynxr_post_views. A first scan backfills
         TRACK_BACKFILL_DAYS. If the videos belong to a different platform account number than the one recorded at
         verification the profile is marked `changed` and nothing is stored.
+    SCAN STATE (plan ~/.claude/plans/tracking-always-works.md). A listing that comes back with nothing usable asks the
+        ACCOUNT (TikTok's public page, free; Instagram's details, one result that is also that day's follower count) and records
+        lynxr_profiles.scan_state: ok (a quiet profile is ok), private, gone (two looks in a row) or failing. The creator sees
+        private / gone / long failing in Settings and on Posts. A private or gone profile is re-checked on its own (TikTok every
+        TRACK_TT_SCAN_RETRY_H, Instagram daily) and listed again the moment it is readable. Every lane's outcomes feed
+        track.health.lanes, which pipeline/watchdog.py reads to tell one creator's problem from a systemic break.
     MEASURE (every tier). Re-read each stored video at day 1, 3, 7 and 30 after posting (TRACK_CHECKPOINTS) and
         add a snapshot of its views, likes and comments. TikTok is free (yt-dlp); Instagram is one Apify result.
     FOLLOWERS (every tier). One follower-count snapshot per verified profile per UTC day in
@@ -92,11 +98,15 @@ RUN
         ./venv/bin/python pipeline/track_posts.py --verify-dry tiktok <handle> <code>
             # the REAL check for one profile from this Mac: reads the bio, prints it, says whether <code> is in it.
             # No database access, nothing written. Free. Instagram needs --spend (one Apify result, about $0.0027).
+        ./venv/bin/python pipeline/track_posts.py --scan-dry tiktok <handle>
+            # the REAL listing + account check for one profile from this Mac and the scan_state it would get. No database
+            # access. Free. Instagram needs --spend (up to two Apify results, about $0.0054).
         ./venv/bin/python pipeline/track_posts.py --match-dry POST_ID
             # the whole match path for one stored post: prints the candidate table and the decision. Reads the database,
             # never writes it. Costs one free audio download and one local Whisper pass.
 """
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -163,6 +173,12 @@ TRACK_MEASURE_MAX_FAILS = int(envcfg.get("TRACK_MEASURE_MAX_FAILS", "3"))      #
 TRACK_FOLLOWERS = envcfg.get("TRACK_FOLLOWERS", "1") not in ("0", "", "false", "False")
 TRACK_IG_FOLLOWERS = envcfg.get("TRACK_IG_FOLLOWERS", "1") not in ("0", "", "false", "False")
 TRACK_FOLLOW_RETRY_H = float(envcfg.get("TRACK_FOLLOW_RETRY_H", "6"))
+# SCAN STATE (plan ~/.claude/plans/tracking-always-works.md): whether lynxr can read a verified profile's videos, in
+# lynxr_profiles.scan_state (supabase/profile_scan_state.sql), which the creator sees. Never `status` (see scan_profile).
+SCAN_OK, SCAN_PRIVATE, SCAN_GONE, SCAN_FAILING = "ok", "private", "gone", "failing"
+# A TikTok profile whose last scan did not succeed (failing, private or gone) is looked at again this soon: free, and how
+# an account made public again is picked up within hours. Instagram keeps TRACK_IG_SCAN_H (each look is paid).
+TRACK_TT_SCAN_RETRY_H = float(envcfg.get("TRACK_TT_SCAN_RETRY_H", "6"))
 # MATCH (the script-attribution lane, pipeline/post_match.py). TRACK_MATCH=0 stops it; TRACK_MATCH_WRITE=0 is shadow mode (score and
 # log, link nothing). The thresholds are the ones reviewed on 2026-09-21 and move only on reviewed data from lynxr_match_log.
 TRACK_MATCH = envcfg.get("TRACK_MATCH", "1") not in ("0", "", "false", "False")
@@ -248,7 +264,7 @@ TT_PRIVATE_STATUS = 10222   # "ErrBizUserSecret": the account exists and is priv
 
 
 def parse_tt_page(html):
-    """{found, private, bio, uid, followers, error} from a TikTok profile page. Never raises.
+    """{found, private, bio, uid, followers, videos, error} from a TikTok profile page. Never raises.
 
     `found` is true only for statusCode 0 with a user id. `error` is true when the page carried no
     readable profile data at all (a block page, a captcha, garbage): that is "TikTok did not answer",
@@ -256,28 +272,30 @@ def parse_tt_page(html):
 
     `followers` is the follower count, or None. statsV2.followerCount is a decimal string holding the exact count
     (96000317 for the account measured 2026-10-01); stats.followerCount is the same number rounded (96000000), so it
-    is only the fallback."""
-    out = {"found": False, "private": False, "bio": "", "uid": None, "followers": None, "error": True}
+    is only the fallback. `videos` is userInfo.statsV2/stats.videoCount, or None."""
+    out = {"found": False, "private": False, "bio": "", "uid": None, "followers": None, "videos": None, "error": True}
     try:
         m = TT_SCRIPT_RE.search(html or "")
         if not m:
             return out
         detail = json.loads(m.group(1))["__DEFAULT_SCOPE__"]["webapp.user-detail"]
         out["error"] = False
-        user = ((detail.get("userInfo") or {}).get("user")) or {}
+        info = detail.get("userInfo") or {}
+        user = info.get("user") or {}
+        videos = count_or_none((info.get("statsV2") or {}).get("videoCount"), (info.get("stats") or {}).get("videoCount"))
         if detail.get("statusCode") == 0 and user.get("id"):
-            info = detail.get("userInfo") or {}
             out.update(found=True, private=bool(user.get("privateAccount")),
                        bio=str(user.get("signature") or ""), uid=str(user["id"]),
                        followers=count_or_none((info.get("statsV2") or {}).get("followerCount"),
-                                               (info.get("stats") or {}).get("followerCount")))
+                                               (info.get("stats") or {}).get("followerCount")),
+                       videos=videos)
         elif detail.get("statusCode") == TT_PRIVATE_STATUS and user.get("id"):
             # A private account: TikTok returns the user but hides the bio (signature is ""), so the code
             # can never be read. Measured 2026-10-01 on a real private profile.
-            out.update(found=True, private=True, bio="", uid=str(user["id"]))
+            out.update(found=True, private=True, bio="", uid=str(user["id"]), videos=videos)
         return out
     except Exception:  # noqa: BLE001 -- garbage in, "did not answer" out
-        return {"found": False, "private": False, "bio": "", "uid": None, "followers": None, "error": True}
+        return {"found": False, "private": False, "bio": "", "uid": None, "followers": None, "videos": None, "error": True}
 
 
 def parse_ts(s):
@@ -419,19 +437,23 @@ def next_measure_at(posted_at, now, cps=None):
 
 def scan_due(p, now):
     """True when a profile row should be scanned now: verified, not `changed`, its platform is switched on, and it was
-    last scanned longer ago than that platform's interval."""
+    last scanned longer ago than that platform's interval. A TikTok profile whose LAST scan did not succeed
+    (last_scan_ok_at missing or older than last_scan_at) is looked at again after TRACK_TT_SCAN_RETRY_H."""
     if not p.get("verified_at") or p.get("status") == "changed":
         return False
     plat = p.get("platform")
+    last = parse_ts(p.get("last_scan_at"))
     if plat == "tiktok":
         if not TRACK_TT:
             return False
         hours = TRACK_TT_SCAN_H
+        ok = parse_ts(p.get("last_scan_ok_at"))
+        if last is not None and (ok is None or ok < last):
+            hours = min(hours, TRACK_TT_SCAN_RETRY_H)
     elif plat == "instagram":
         hours = TRACK_IG_SCAN_H
     else:
         return False
-    last = parse_ts(p.get("last_scan_at"))
     return last is None or now - last >= timedelta(hours=hours)
 
 
@@ -528,6 +550,108 @@ def merge_counts(*sources):
     return out
 
 
+LANES = {}           # this pass's outcomes per lane ("scan:tiktok", ...): {"ok": n, "fail": n, "keys": [who_of ids]}; run() clears it
+LANE_KEYS_MAX = 20
+
+
+def who_of(cid, platform, handle):
+    """An 8-character id for one profile, so the health row can count DISTINCT profiles without a handle or a uuid."""
+    return hashlib.sha256(f"{cid}|{platform}|{handle}".encode()).hexdigest()[:8]
+
+
+def lane_note(lane, platform, ok, who=None):
+    """Count one outcome of one lane this pass. Only "lynxr or the platform could not do it" is ever noted as a failure:
+    a creator's own private or deleted account never is (the callers skip it)."""
+    t = LANES.setdefault(f"{lane}:{platform}", {"ok": 0, "fail": 0, "keys": []})
+    if ok:
+        t["ok"] += 1
+    else:
+        t["fail"] += 1
+        if who and who not in t["keys"]:
+            t["keys"].append(who)
+
+
+def classify_scan_failure(platform, kind, acct, since, prev=None):
+    """The scan_state after a listing that returned nothing usable. Pure.
+    kind: tt_list_read's / ig_posts_read's second value, or "unparsed"; acct: account_check()'s answer or None; since: the
+    datetime the listing asked from; prev: the profile's current scan_state.
+      ok       public, and simply nothing newer than `since` (TikTok: 0 videos; Instagram: 0 posts, or its newest post is
+               not newer than `since`, or the newest is not known)
+      private  the platform says private (TikTok: also yt-dlp's own private answer when the page itself was silent)
+      gone     no such username — only on the SECOND look in a row (prev failing or gone); a first look is failing
+      failing  anything else"""
+    if acct is None:
+        return SCAN_PRIVATE if (platform == "tiktok" and kind == "private") else SCAN_FAILING
+    st = acct.get("state")
+    if st == "private":
+        return SCAN_PRIVATE
+    if st == "gone":
+        return SCAN_GONE if prev in (SCAN_FAILING, SCAN_GONE) else SCAN_FAILING
+    if platform == "tiktok":
+        return SCAN_OK if acct.get("videos") == 0 else SCAN_FAILING
+    if acct.get("videos") == 0:
+        return SCAN_OK
+    newest = parse_ts(acct.get("newest_at"))
+    return SCAN_OK if (newest is None or newest <= since) else SCAN_FAILING
+
+
+def profile_summary(rows, now, stuck_h=48):
+    """Pure. Per platform, from the verified profile rows: {"verified", "ok", "private", "gone", "failing", "stuck",
+    "unknown"}. stuck = failing for stuck_h hours (scan_state_at), or, with no scan_state, last_scan_ok_at (else
+    verified_at) older than stuck_h. Counts only, never a handle."""
+    out = {}
+    for p in rows or []:
+        plat = p.get("platform") if isinstance(p, dict) else None
+        if plat not in ("tiktok", "instagram"):
+            continue
+        s = out.setdefault(plat, {"verified": 0, "ok": 0, "private": 0, "gone": 0, "failing": 0, "stuck": 0, "unknown": 0})
+        s["verified"] += 1
+        st = p.get("scan_state")
+        if st in (SCAN_OK, SCAN_PRIVATE, SCAN_GONE, SCAN_FAILING):
+            s[st] += 1
+        else:
+            s["unknown"] += 1
+        if st == SCAN_FAILING:
+            ref = parse_ts(p.get("scan_state_at")) or parse_ts(p.get("last_scan_ok_at"))
+        elif st is None:
+            ref = parse_ts(p.get("last_scan_ok_at")) or parse_ts(p.get("verified_at"))
+        else:
+            continue
+        if ref is None or now - ref >= timedelta(hours=stuck_h):
+            s["stuck"] += 1
+    return out
+
+
+def lanes_merge(prev, tally, now_iso):
+    """Pure. track.health's `lanes`, folded forward by one pass. prev: the stored dict (junk ignored),
+    {"scan:tiktok": {"ok_at", "fail_streak", "fail_since", "fail_last", "fail_keys"}}; tally: this pass's LANES.
+    Any success this pass resets the lane (ok_at now, streak 0). Only failures extend it: streak += fail, fail_since kept
+    (or now), fail_last now, distinct ids added (oldest dropped past LANE_KEYS_MAX), ok_at kept. A lane not exercised is
+    copied unchanged."""
+    out = {}
+    if isinstance(prev, dict):
+        for k, v in prev.items():
+            if isinstance(k, str) and isinstance(v, dict):
+                out[k] = dict(v)
+    for k, t in (tally if isinstance(tally, dict) else {}).items():
+        if not isinstance(t, dict):
+            continue
+        ok, fail = int(t.get("ok") or 0), int(t.get("fail") or 0)
+        cur = out.get(k, {})
+        if ok > 0:
+            out[k] = {"ok_at": now_iso, "fail_streak": 0, "fail_since": None, "fail_last": None, "fail_keys": []}
+        elif fail > 0:
+            keys = [x for x in (cur.get("fail_keys") or []) if isinstance(x, str)]
+            for x in t.get("keys") or []:
+                if isinstance(x, str) and x not in keys:
+                    keys.append(x)
+            streak = cur.get("fail_streak")
+            streak = streak if isinstance(streak, int) and not isinstance(streak, bool) else 0
+            out[k] = {"ok_at": cur.get("ok_at"), "fail_streak": streak + fail, "fail_since": cur.get("fail_since") or now_iso,
+                      "fail_last": now_iso, "fail_keys": keys[-LANE_KEYS_MAX:]}
+    return out
+
+
 # ── I/O (never raise) ────────────────────────────────────────────────────────────────────────────
 
 def rest(key, path, method="GET", body=None, prefer=None):
@@ -601,6 +725,15 @@ def apify_ok():
     return current < (1 - TRACK_APIFY_RESERVE) * ceiling
 
 
+def apify_why():
+    """Why the Apify guard is closed, for the watchdog's words: "no_token" | "ledger_unknown" | "over_guard"; None when open."""
+    if not P.apify_token():
+        return "no_token"
+    if apify_room() is None:
+        return "ledger_unknown"
+    return None if apify_ok() else "over_guard"
+
+
 def apify_run(body):
     """The dataset items of one synchronous run, or None. The token rides in a header, never the URL."""
     global APIFY_RESULTS
@@ -626,8 +759,9 @@ def apify_run(body):
 
 
 def ig_details(handle):
-    """{found, private, bio, uid, followers} for an Instagram profile, or None when Apify did not answer.
-    The same single `details` result serves verification (bio, uid) and the daily follower count."""
+    """{found, private, bio, uid, followers, posts, newest_at} for an Instagram profile, or None when Apify did not answer.
+    The same single `details` result serves verification (bio, uid) and the daily follower count. `posts` (postsCount) and
+    `newest_at` (the newest latestPosts timestamp) let a refused posts run be told apart from a quiet profile."""
     if not good_handle(handle):
         return None
     items = apify_run({"directUrls": [f"https://www.instagram.com/{handle}/"], "resultsType": "details",
@@ -636,11 +770,14 @@ def ig_details(handle):
         return None
     item = items[0] if isinstance(items[0], dict) else {}
     if item.get("error"):
-        return {"found": False, "private": False, "bio": "", "uid": None, "followers": None}
+        return {"found": False, "private": False, "bio": "", "uid": None, "followers": None, "posts": None, "newest_at": None}
     if not item.get("id"):
         return None
+    stamps = [parse_ts(p.get("timestamp")) for p in (item.get("latestPosts") or []) if isinstance(p, dict)]
+    stamps = [s for s in stamps if s is not None]
     return {"found": True, "private": bool(item.get("private")), "bio": str(item.get("biography") or ""),
-            "uid": str(item["id"]), "followers": count_or_none(item.get("followersCount"))}
+            "uid": str(item["id"]), "followers": count_or_none(item.get("followersCount")),
+            "posts": count_or_none(item.get("postsCount")), "newest_at": iso(max(stamps)) if stamps else None}
 
 
 TIER_RANK = {"max": 0, "pro": 1, "free": 2}
@@ -713,35 +850,63 @@ def ytdlp_json(args, timeout):
 # looked exactly like an unreadable account. Measured 2026-10-07 on a real creator: verified on both platforms, code in
 # her bio, 0 followers and 0 videos — recorded as a scan failure for a day. The phrase is yt-dlp's own.
 TT_EMPTY_PROFILE = "does not have any videos posted"
+# yt-dlp raises this ONLY on TikTok's own statusCode 10222 (TikTokUserIE, checked in 2026.07.04 and 2026.10.26): definitive.
+# NOT "Unable to extract secondary user ID" (a private account with videos, a username that no longer exists, and a blocked
+# profile page all end there; on 2026-10-31 the account behind it answered 10221, no such user), NOT the "either private or has
+# embedding disabled" warning (a guess after the embed page failed; --no-warnings hides it anyway), and NOT "likely either
+# private or all of their videos are private" (a broken item-list API says it too). Those are settled by the free page read.
+TT_PRIVATE_PROFILE = "This user's account is private"
+
+
+def tt_list_failure(err):
+    """What yt-dlp's stderr says about a TikTok profile listing that returned nothing: "empty" | "private" | "unclear". Pure."""
+    e = err or ""
+    if TT_EMPTY_PROFILE in e:
+        return "empty"
+    if TT_PRIVATE_PROFILE in e:
+        return "private"
+    return "unclear"
+
+
+def tt_list_read(handle):
+    """(entries or None, kind). kind: "ok" (a list, possibly empty), "empty" (yt-dlp says nothing is posted: [] — a readable
+    profile with nothing on it is an EMPTY list, not a failure), "private" (TikTok's own private answer) or "unclear"."""
+    if not good_handle(handle):
+        return None, "unclear"
+    d, err = ytdlp_run(["--flat-playlist", "--playlist-end", str(TRACK_TT_LIST_LIMIT), "--dump-single-json",
+                        f"https://www.tiktok.com/@{handle}"], 90)
+    if d is None:
+        kind = tt_list_failure(err)
+        return ([] if kind == "empty" else None), kind
+    entries = d.get("entries")
+    return (entries if isinstance(entries, list) else []), "ok"
 
 
 def tt_list(handle):
     """The newest TikTok entries of a profile (a list, possibly empty), or None when yt-dlp could not read it."""
-    if not good_handle(handle):
-        return None
-    d, err = ytdlp_run(["--flat-playlist", "--playlist-end", str(TRACK_TT_LIST_LIMIT), "--dump-single-json",
-                        f"https://www.tiktok.com/@{handle}"], 90)
-    if d is None:
-        # A readable profile with nothing on it is an EMPTY list, not a failure: there is nothing wrong with the
-        # creator or with us, and the next post will be picked up normally.
-        return [] if TT_EMPTY_PROFILE in (err or "") else None
-    entries = d.get("entries")
-    return entries if isinstance(entries, list) else []
+    return tt_list_read(handle)[0]
 
 
-def ig_posts(handle, since):
-    """The Instagram posts newer than `since` (a datetime), as Apify items, or None when the run failed or every item was
-    a refusal (a private or missing profile). The boundary post itself comes back too, onlyPostsNewerThan being
-    inclusive (measured 2026-10-01): the caller keeps only posts strictly newer."""
+def ig_posts_read(handle, since):
+    """(items or None, kind). The Instagram posts newer than `since` (a datetime), as Apify items; the boundary post itself
+    comes back too, onlyPostsNewerThan being inclusive (measured 2026-10-01): the caller keeps only posts strictly newer.
+    kind: "ok" (items, possibly the empty-scan placeholder), "refused" (EVERY item is an error item, e.g. Apify's
+    [{"error": "no_items", "errorDescription": "Empty or private data for provided input"}] — a quiet, private or missing
+    profile; scan_profile asks the account which) or "failed" (Apify did not answer)."""
     if not good_handle(handle):
-        return None
+        return None, "failed"
     items = apify_run({"directUrls": [f"https://www.instagram.com/{handle}/"], "resultsType": "posts",
                        "resultsLimit": TRACK_IG_LIST_LIMIT, "onlyPostsNewerThan": iso(since), "addParentData": False})
     if items is None:
-        return None
+        return None, "failed"
     if items and all(isinstance(i, dict) and i.get("error") for i in items):
-        return None
-    return items
+        return None, "refused"
+    return items, "ok"
+
+
+def ig_posts(handle, since):
+    """ig_posts_read's items alone: None for a failed run or an all-refusal answer."""
+    return ig_posts_read(handle, since)[0]
 
 
 def measure(post):
@@ -780,6 +945,71 @@ def follower_read(platform, handle):
     if not r or r.get("error") or not r.get("found") or r.get("followers") is None:
         return None
     return {"uid": r.get("uid"), "followers": r["followers"]}
+
+
+def account_check(platform, handle):
+    """What the platform says about the ACCOUNT, for telling "nothing new" from "private" from "gone" once a listing came back
+    empty-handed: {"state": "public" | "private" | "gone", "uid", "followers", "videos", "newest_at"}, or None when the
+    platform did not answer (nothing can be concluded). TikTok: its public profile page, free (TikTok's own statusCode:
+    10222 private, 10221 no such user). Instagram: ONE paid `details` result; the caller holds the budget gate."""
+    if platform == "tiktok":
+        html = tt_profile_page(handle)
+        r = parse_tt_page(html) if html else None
+        if not r or r.get("error"):
+            return None
+        if not r.get("found"):
+            return {"state": "gone", "uid": None, "followers": None, "videos": None, "newest_at": None}
+        return {"state": "private" if r.get("private") else "public", "uid": r.get("uid"),
+                "followers": r.get("followers"), "videos": r.get("videos"), "newest_at": None}
+    if platform == "instagram":
+        r = ig_details(handle)
+        if r is None:
+            return None
+        if not r.get("found"):
+            return {"state": "gone", "uid": None, "followers": None, "videos": None, "newest_at": None}
+        return {"state": "private" if r.get("private") else "public", "uid": r.get("uid"),
+                "followers": r.get("followers"), "videos": r.get("posts"), "newest_at": r.get("newest_at")}
+    return None
+
+
+_SCAN_STATE = {"v": None}      # None = not asked in this process; True / False = lynxr_profiles.scan_state exists
+
+
+def scan_state_ok(key):
+    """True once supabase/profile_scan_state.sql is applied, asked once per process (each worker pass is its own process).
+    Until then every scan_state read and write is left out: PostgREST refuses a PATCH that names an unknown column WHOLE,
+    which would also drop last_scan_at and stop tracking — the opposite of this plan."""
+    if _SCAN_STATE["v"] is None:
+        st, _ = rest(key, "/rest/v1/lynxr_profiles?select=scan_state&limit=1")
+        if st == 200:
+            _SCAN_STATE["v"] = True
+        elif st in (400, 404):
+            _SCAN_STATE["v"] = False
+            log.info("track_posts: lynxr_profiles.scan_state missing — is supabase/profile_scan_state.sql applied?")
+        else:
+            return False                         # transient: ask again next time
+    return _SCAN_STATE["v"]
+
+
+def scan_state_patch(state, prev, now_iso, supported):
+    """The scan_state fields of a profile PATCH: {} without the column; scan_state_at moves only when the state CHANGES."""
+    if not supported:
+        return {}
+    out = {"scan_state": state}
+    if state != prev:
+        out["scan_state_at"] = now_iso
+    return out
+
+
+def store_followers_from(key, r, acct, now):
+    """Best effort: an account check that read a follower count is today's follower snapshot too, so followers_pass does not
+    pay for (or fetch) the same number again today. Nothing is written without a count."""
+    if not acct or acct.get("followers") is None:
+        return
+    rest(key, "/rest/v1/lynxr_profile_followers?on_conflict=creator_id,platform,handle,day", method="POST",
+         body=[{"creator_id": r.get("creator_id"), "platform": r.get("platform"), "handle": r.get("handle"),
+                "day": now.date().isoformat(), "at": iso(now), "followers": acct["followers"]}],
+         prefer="resolution=merge-duplicates,return=minimal")
 
 
 # ── the pass ──────────────────────────────────────────────────────────────────────────────────────
@@ -827,6 +1057,7 @@ def verify_pass(key, now, dry=False, cache=None):
             read = ig_details(r.get("handle"))
         else:
             continue
+        lane_note("verify", plat, bool(read) and not read.get("error"), who_of(r.get("creator_id"), plat, r.get("handle")))
         now_iso = now.isoformat().replace("+00:00", "Z")
         patch = {"verify_tries": int(r.get("verify_tries") or 0) + 1, "last_checked_at": now_iso,
                  "check_requested_at": None,
@@ -860,38 +1091,100 @@ def profile_where(r):
             f"&platform=eq.{q(r.get('platform'))}&handle=eq.{q(r.get('handle'))}")
 
 
-def scan_profile(key, r, now, stats):
-    """Scan one verified profile of a tracked creator: list its newest videos, store the new ones with a day-0 snapshot,
-    check the videos still belong to the verified account, refresh a TikTok profile's stored counts, move the watermark."""
+def scan_profile(key, r, now, stats, cache=None):
+    """Scan one verified profile: list its newest videos, store the new ones with a day-0 snapshot, check the videos still belong
+    to the verified account, refresh a TikTok profile's stored counts, move the watermark — and record whether lynxr can read
+    it at all (scan_state; plan ~/.claude/plans/tracking-always-works.md).
+
+    A listing that brings back nothing usable is not a failure by itself: the ACCOUNT is asked (account_check: TikTok's public
+    page, free; Instagram's details, one result that is also today's follower count) and classify_scan_failure() decides
+    between nothing-new (ok), private, gone and failing. A profile already private or gone is asked about its account FIRST
+    and is listed only once it is readable again, so recovery needs nobody."""
     plat, handle, cid = r.get("platform"), r.get("handle"), r.get("creator_id")
+    cache = {} if cache is None else cache
     where = profile_where(r)
     now_iso = iso(now)
     since = since_for(r, now)
-    if plat == "tiktok":
-        entries = tt_list(handle)
-        raw = None if entries is None else [tt_entry_to_post(e) for e in entries]
-        stats["scanned_tt"] += 1
-    else:
-        items = ig_posts(handle, since)
-        raw = None if items is None else [ig_item_to_post(i) for i in items]
-        stats["scanned_ig"] += 1
-    if raw is None:
-        # DO NOT TOUCH `status` HERE. This lane only ever runs on a profile whose verified_at is set (see due_scan and
-        # due_followers), so writing a scan outcome into `status` overwrites the VERIFICATION state with scan health —
-        # and the app then tells a correctly verified creator that the platform "didn't answer". Scan health already
-        # has its own columns: last_scan_at moves every attempt, last_scan_ok_at only on success, so a stale pair is
-        # the signal. (The owner-mismatch branch below is different: that genuinely un-verifies the profile.)
-        rest(key, where, method="PATCH", body={"last_scan_at": now_iso}, prefer="return=minimal")
-        stats["scan_failed"] += 1
-        return
-    posts = [x for x in raw if x and x["video"]]
-    if owner_mismatch(posts, r.get("platform_uid"), handle):
+    sup = scan_state_ok(key)
+    prev = r.get("scan_state") if sup else None
+    who = who_of(cid, plat, handle)
+    stats["scanned_tt" if plat == "tiktok" else "scanned_ig"] += 1
+
+    def unread(state):
+        # DO NOT TOUCH `status` HERE. This lane only ever runs on a profile whose verified_at is set (see scan_due and
+        # follower_due), so writing a scan outcome into `status` overwrites the VERIFICATION state with scan health —
+        # and the app then tells a correctly verified creator that the platform "didn't answer". Scan health has its own
+        # columns: last_scan_at moves every attempt, last_scan_ok_at only on success, and scan_state says why
+        # (supabase/profile_scan_state.sql). (The owner-mismatch branch is different: that genuinely un-verifies the profile.)
+        body = {"last_scan_at": now_iso}
+        if state is not None:
+            body.update(scan_state_patch(state, prev, now_iso, sup))
+        rest(key, where, method="PATCH", body=body, prefer="return=minimal")
+        if state == SCAN_PRIVATE:
+            stats["scan_private"] += 1
+        elif state == SCAN_GONE:
+            stats["scan_gone"] += 1
+        else:
+            stats["scan_failed"] += 1
+            lane_note("scan", plat, False, who)
+
+    def changed():
         # The username now belongs to someone else: store nothing, and ask for the code again.
         rest(key, where, method="PATCH", body={"status": "changed", "verified_at": None, "last_scan_at": now_iso},
              prefer="return=minimal")
         stats["scan_changed"] += 1
-        return
-    patch = {"last_scan_at": now_iso, "last_scan_ok_at": now_iso, "status": "verified"}
+
+    def ask():
+        """account_check() and what it implies: another platform account number -> (None, True) for `changed`; a follower
+        count read on the way is stored as today's snapshot."""
+        a = account_check(plat, handle)
+        if a and a.get("uid") and r.get("platform_uid") and str(a["uid"]) != str(r["platform_uid"]):
+            return None, True
+        store_followers_from(key, r, a, now)
+        return a, False
+
+    acct = None
+    # 1. Private or gone last time: ask about the account first, and list nothing while it stays that way. (Instagram: this
+    #    details call is the one paid call scan_pass's ig_gate allowed; no posts run is made.)
+    if prev in (SCAN_PRIVATE, SCAN_GONE):
+        acct, moved = ask()
+        if moved:
+            return changed()
+        if acct is None:
+            return unread(None)                     # nothing answered: keep the state, look again next time
+        if acct.get("state") != "public":
+            return unread(classify_scan_failure(plat, "unclear", acct, since, prev))
+        # public again: list it below, like any other scan
+    # 2. List.
+    if plat == "tiktok":
+        entries, kind = tt_list_read(handle)
+        raw = None if entries is None else [tt_entry_to_post(e) for e in entries]
+    else:
+        items, kind = ig_posts_read(handle, since)
+        raw = None if items is None else [ig_item_to_post(i) for i in items]
+    # Two or more entries and not one of them readable: the format changed under us. That is not an empty profile.
+    if raw is not None and len(raw) >= 2 and not any(raw):
+        raw, kind = None, "unparsed"
+    # 3. Nothing usable came back: ask the account (once), then decide.
+    if raw is None:
+        if acct is None and kind != "unparsed" and not (plat == "instagram" and kind == "failed"):
+            if plat == "instagram" and not ig_gate(tier_of(key, cid, cache)):
+                rest(key, where, method="PATCH", body={"last_scan_at": now_iso}, prefer="return=minimal")
+                stats["scan_skipped_budget"] += 1
+                return
+            acct, moved = ask()
+            if moved:
+                return changed()
+        state = classify_scan_failure(plat, kind, acct, since, prev)
+        if state != SCAN_OK:
+            return unread(state)
+        posts = []                                  # public, and nothing newer than `since`: a good scan with nothing new
+    else:
+        posts = [x for x in raw if x and x["video"]]
+        if owner_mismatch(posts, r.get("platform_uid"), handle):
+            return changed()
+    patch = {"last_scan_at": now_iso, "last_scan_ok_at": now_iso, "status": "verified",
+             **scan_state_patch(SCAN_OK, prev, now_iso, sup)}
     if not r.get("platform_uid"):
         uid = next((x["owner_uid"] for x in posts if x["owner_uid"]), "")
         if uid:
@@ -915,6 +1208,7 @@ def scan_profile(key, r, now, stats):
             # Nothing stored: do not move the watermark past videos we failed to keep.
             rest(key, where, method="PATCH", body={"last_scan_at": now_iso}, prefer="return=minimal")
             stats["scan_failed"] += 1
+            lane_note("scan", plat, False, who)
             return
         by_url = {x["canonical_url"]: x for x in new}
         snaps = []
@@ -943,25 +1237,35 @@ def scan_profile(key, r, now, stats):
                     rest(key, f"/rest/v1/lynxr_posts?id=eq.{q(sp.get('id'))}", method="PATCH", body=grow, prefer="return=minimal")
     newest = max((parse_ts(x["posted_at"]) for x in posts if parse_ts(x["posted_at"])), default=None)
     old = parse_ts(r.get("watermark_at"))
+    acct_newest = parse_ts((acct or {}).get("newest_at"))
     if newest is not None and (old is None or newest > old):
         patch["watermark_at"] = iso(newest)
+    elif not posts and acct_newest is not None and acct_newest != old:
+        # Instagram, nothing newer than `since`, and the account told us its newest post (never newer than `since` here,
+        # see classify_scan_failure): make it the watermark, so the next posts run returns it as the inclusive boundary
+        # post instead of a refusal, and no details call is needed tomorrow. Nothing newer exists, so nothing is skipped.
+        patch["watermark_at"] = iso(acct_newest)
     rest(key, where, method="PATCH", body=patch, prefer="return=minimal")
+    lane_note("scan", plat, True, who)
 
 
 def scan_pass(key, now, dry=False, cache=None):
     """Scan the verified profiles that are due (every tier, max accounts first). Returns the counts."""
     stats = {"verified_profiles": 0, "scanned_tt": 0, "scanned_ig": 0, "scan_failed": 0, "scan_changed": 0,
-             "new_posts": 0, "scan_skipped_budget": 0}
+             "new_posts": 0, "scan_skipped_budget": 0, "scan_private": 0, "scan_gone": 0, "profiles": {}}
     cache = {} if cache is None else cache
+    cols = "creator_id,platform,handle,platform_uid,status,verified_at,last_scan_at,last_scan_ok_at,watermark_at"
+    if scan_state_ok(key):
+        cols += ",scan_state,scan_state_at"
     status, rows = rest(
-        key, "/rest/v1/lynxr_profiles?verified_at=not.is.null"
-             "&select=creator_id,platform,handle,platform_uid,status,verified_at,last_scan_at,watermark_at"
+        key, f"/rest/v1/lynxr_profiles?verified_at=not.is.null&select={cols}"
              f"&order=last_scan_at.asc.nullsfirst&limit={PROFILE_READ_LIMIT}")
     if status != 200 or not isinstance(rows, list):
         if status:
             log.info("track_posts: lynxr_profiles not readable for scanning (HTTP %s)", status)
         return stats
     stats["verified_profiles"] = len(rows)
+    stats["profiles"] = profile_summary(rows, now)
     due = by_tier([r for r in rows if scan_due(r, now)], key, cache)[:TRACK_SCAN_PER_PASS]
     for r in due:
         if dry:
@@ -972,22 +1276,27 @@ def scan_pass(key, now, dry=False, cache=None):
         if r.get("platform") == "instagram" and not ig_gate(tier_of(key, r.get("creator_id"), cache)):
             stats["scan_skipped_budget"] += 1
             continue
-        scan_profile(key, r, now, stats)
+        scan_profile(key, r, now, stats, cache=cache)
     return stats
 
 
 def measure_pass(key, now, dry=False, cache=None):
     """Re-read the posts that have reached a checkpoint (every tier, max accounts first) and add a snapshot of their counts.
     Returns the counts."""
-    stats = {"measured": 0, "measure_failed": 0, "measure_skipped_budget": 0}
+    stats = {"measured": 0, "measure_failed": 0, "measure_skipped_budget": 0, "measure_blocked": 0}
     cache = {} if cache is None else cache
     status, rows = rest(
         key, f"/rest/v1/lynxr_posts?next_measure_at=lte.{q(iso(now))}"
-             "&select=id,creator_id,platform,url,posted_at,measure_fails&order=next_measure_at.asc&limit=20")
+             "&select=id,creator_id,platform,handle,url,posted_at,measure_fails&order=next_measure_at.asc&limit=20")
     if status != 200 or not isinstance(rows, list):
         if status:
             log.info("track_posts: lynxr_posts not readable (HTTP %s) — is supabase/post_tracking.sql applied?", status)
         return stats
+    blocked = set()      # profiles that are private or gone: their posts cannot be read, so they are not tried (or paid for)
+    if not dry and scan_state_ok(key):
+        st, b = rest(key, "/rest/v1/lynxr_profiles?scan_state=in.(private,gone)&select=creator_id,platform,handle&limit=200")
+        if st == 200 and isinstance(b, list):
+            blocked = {(x.get("creator_id"), x.get("platform"), x.get("handle")) for x in b if isinstance(x, dict)}
     live = by_tier(rows, key, cache)
     for r in live[:TRACK_MEASURE_PER_PASS]:
         if dry:
@@ -995,11 +1304,19 @@ def measure_pass(key, now, dry=False, cache=None):
             continue
         if P.queued_work(key):
             break
+        where = f"/rest/v1/lynxr_posts?id=eq.{q(r.get('id'))}"
+        if (r.get("creator_id"), r.get("platform"), r.get("handle")) in blocked:
+            # Nothing can be read while the account is private or gone: move on to the next checkpoint without a try and without
+            # an Apify call. If it is public again by then, that checkpoint is measured normally.
+            nm = next_measure_at(r.get("posted_at"), now)
+            rest(key, where, method="PATCH", body={"measure_fails": 0, "next_measure_at": iso(nm) if nm else None},
+                 prefer="return=minimal")
+            stats["measure_blocked"] += 1
+            continue
         if r.get("platform") == "instagram" and not ig_gate(tier_of(key, r.get("creator_id"), cache)):
             stats["measure_skipped_budget"] += 1
             continue
         got = measure(r)
-        where = f"/rest/v1/lynxr_posts?id=eq.{q(r.get('id'))}"
         if got is None:
             fails = int(r.get("measure_fails") or 0) + 1
             if fails >= TRACK_MEASURE_MAX_FAILS:
@@ -1009,6 +1326,7 @@ def measure_pass(key, now, dry=False, cache=None):
             rest(key, where, method="PATCH", body={"measure_fails": fails, "next_measure_at": iso(nm) if nm else None},
                  prefer="return=minimal")
             stats["measure_failed"] += 1
+            lane_note("measure", r.get("platform"), False, who_of(r.get("creator_id"), r.get("platform"), r.get("handle")))
             continue
         posted = r.get("posted_at")
         nm = next_measure_at(posted, now)
@@ -1019,6 +1337,7 @@ def measure_pass(key, now, dry=False, cache=None):
                     "at": iso(now), "views": got["views"], "likes": got["likes"], "comments": got["comments"]}],
              prefer="resolution=merge-duplicates,return=minimal")
         stats["measured"] += 1
+        lane_note("measure", r.get("platform"), True)
     return stats
 
 
@@ -1030,10 +1349,11 @@ def followers_pass(key, now, dry=False, cache=None):
     if not TRACK_FOLLOWERS:
         return stats
     cache = {} if cache is None else cache
+    cols = "creator_id,platform,handle,platform_uid,status,verified_at,followers_try_at"
+    if scan_state_ok(key):
+        cols += ",scan_state"
     status, rows = rest(
-        key, "/rest/v1/lynxr_profiles?verified_at=not.is.null"
-             "&select=creator_id,platform,handle,platform_uid,status,verified_at,followers_try_at"
-             f"&limit={PROFILE_READ_LIMIT}")
+        key, f"/rest/v1/lynxr_profiles?verified_at=not.is.null&select={cols}&limit={PROFILE_READ_LIMIT}")
     if status != 200 or not isinstance(rows, list):
         if status:
             log.info("track_posts: lynxr_profiles not readable for follower counts (HTTP %s) — are supabase/profiles.sql and supabase/post_tracking.sql applied?", status)
@@ -1058,7 +1378,10 @@ def followers_pass(key, now, dry=False, cache=None):
         if read is None:
             rest(key, where, method="PATCH", body={"followers_try_at": now_iso}, prefer="return=minimal")
             stats["followers_failed"] += 1
+            if r.get("scan_state") not in (SCAN_PRIVATE, SCAN_GONE):
+                lane_note("followers", plat, False, who_of(cid, plat, handle))
             continue
+        lane_note("followers", plat, True)
         uid = str(read.get("uid") or "")
         if r.get("platform_uid") and uid and uid != str(r["platform_uid"]):
             rest(key, where, method="PATCH", body={"status": "changed", "verified_at": None, "followers_try_at": now_iso},
@@ -1315,18 +1638,18 @@ def match_dry(key, post_id):
 
 
 def write_health(key, stats):
-    """Best-effort: lynxr_ops 'track.health' = this pass's counts plus `at`, and `apify_closed_since` (the first pass that
-    found the Apify spend guard closed, kept while it stays closed, cleared once it is open: the watchdog's
-    tracking-budget alarm reads it)."""
+    """Best-effort: lynxr_ops 'track.health' = this pass's counts plus `at`, `apify_closed_since` (the first pass that found the
+    Apify spend guard closed, kept while it stays closed, cleared once open: the watchdog's tracking-budget alarm) and `lanes`
+    (each lane's failure streak folded forward from the stored value by lanes_merge(): the watchdog's tracking-down alarm)."""
     now_iso = P.now_iso()
-    closed = None
-    if stats.get("apify_ok") is False:
-        closed = now_iso
-        st, rows = rest(key, "/rest/v1/lynxr_ops?key=eq.track.health&select=value&limit=1")
-        if st == 200 and isinstance(rows, list) and rows and isinstance(rows[0].get("value"), dict):
-            closed = rows[0]["value"].get("apify_closed_since") or now_iso
+    st, rows = rest(key, "/rest/v1/lynxr_ops?key=eq.track.health&select=value&limit=1")
+    prev = rows[0]["value"] if (st == 200 and isinstance(rows, list) and rows and isinstance(rows[0], dict)
+                                and isinstance(rows[0].get("value"), dict)) else {}
+    closed = (prev.get("apify_closed_since") or now_iso) if stats.get("apify_ok") is False else None
     rest(key, "/rest/v1/lynxr_ops?on_conflict=key", method="POST",
-         body={"key": "track.health", "value": {**stats, "at": now_iso, "apify_closed_since": closed}, "updated_at": now_iso},
+         body={"key": "track.health",
+               "value": {**stats, "at": now_iso, "apify_closed_since": closed, "lanes": lanes_merge(prev.get("lanes"), LANES, now_iso)},
+               "updated_at": now_iso},
          prefer="resolution=merge-duplicates")
 
 
@@ -1370,7 +1693,55 @@ def print_verify_dry(platform, handle, code, spend=False):
     return 0 if verdict["status"] == "verified" else 1
 
 
+def scan_dry(platform, handle, spend=False, now=None):
+    """The REAL listing and account check for one profile and the scan_state they would give, with NO database access. It asks
+    for the last TRACK_BACKFILL_DAYS (a first scan) and treats the profile as having no state yet. TikTok is free; Instagram is
+    one Apify `posts` result plus, after a refusal, one `details` result (about $0.0054 at most) and needs spend=True.
+    Returns {"error": str} or {"kind", "entries", "account", "verdict"}."""
+    handle = str(handle or "").strip().lower().lstrip("@")
+    if platform not in ("tiktok", "instagram"):
+        return {"error": "platform must be tiktok or instagram"}
+    if not good_handle(handle):
+        return {"error": "that is not a valid username"}
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=TRACK_BACKFILL_DAYS)
+    if platform == "instagram":
+        if not spend:
+            return {"error": "instagram costs up to two Apify results (about $0.0054): add --spend to run it"}
+        if not apify_ok():
+            return {"error": "no Apify token, or the account is past its spend guard"}
+        items, kind = ig_posts_read(handle, since)
+        n = None if items is None else sum(1 for i in items if ig_item_to_post(i))
+    else:
+        entries, kind = tt_list_read(handle)
+        n = None if entries is None else sum(1 for e in entries if tt_entry_to_post(e))
+    acct = None
+    if n is None and not (platform == "instagram" and kind == "failed"):
+        acct = account_check(platform, handle)
+    verdict = SCAN_OK if n is not None else classify_scan_failure(platform, kind, acct, since, None)
+    return {"kind": kind, "entries": n, "account": acct, "verdict": verdict}
+
+
+def print_scan_dry(platform, handle, spend=False):
+    """scan_dry for a terminal. Prints what was listed, what the account said and the verdict; never a token. Exit 0 unless the
+    input was refused."""
+    out = scan_dry(platform, handle, spend)
+    if out.get("error"):
+        print(out["error"])
+        return 2
+    print(f"listing: {out['kind']}" + (f", {out['entries']} readable entries" if out["entries"] is not None else ""))
+    a = out["account"]
+    if a is None:
+        print("account: not asked" if out["entries"] is not None else "account: no answer")
+    else:
+        print(f"account: {a['state']} · videos {a.get('videos')} · newest {a.get('newest_at')} · followers {a.get('followers')}")
+    note = " (gone is recorded on the second look in a row)" if (a and a.get("state") == "gone" and out["verdict"] == SCAN_FAILING) else ""
+    print(f"verdict: {out['verdict']}{note}")
+    return 0
+
+
 def run(key, dry=False):
+    LANES.clear()
     cache = {}                                       # each creator's tier (entitlement_for), for this pass
     for t in BUDGET_SKIPS:
         BUDGET_SKIPS[t] = 0
@@ -1409,14 +1780,20 @@ def run(key, dry=False):
         log.warning("brain pass failed: %s", str(e)[:120])
     stats = {**v, **sc, **m, **f, "budget_skips": dict(BUDGET_SKIPS), "showcase": shw, "match": mt, "insights": ins, "shape": shp, "brain": br}
     n = APIFY_RESULTS
-    log.info("track_posts: verify %d (verified %d, budget-skipped %d) · scan tt %d ig %d (new %d, failed %d, changed %d) · "
-             "measure %d (failed %d) · followers %d (failed %d) · budget skips max %d pro %d free %d · apify ~%d results (~$%.4f)",
+    log.info("track_posts: verify %d (verified %d, budget-skipped %d) · scan tt %d ig %d (new %d, failed %d, private %d, gone %d, changed %d) · "
+             "measure %d (failed %d, blocked %d) · followers %d (failed %d) · budget skips max %d pro %d free %d · apify ~%d results (~$%.4f)",
              v["checked"], v["verified"], v["skipped_budget"], sc["scanned_tt"], sc["scanned_ig"], sc["new_posts"],
-             sc["scan_failed"], sc["scan_changed"] + f["followers_changed"], m["measured"], m["measure_failed"],
-             f["followers"], f["followers_failed"], BUDGET_SKIPS["max"], BUDGET_SKIPS["pro"], BUDGET_SKIPS["free"],
-             n, n * P.APIFY_PRICE_PER_LOOKUP_USD)
+             sc["scan_failed"], sc["scan_private"], sc["scan_gone"], sc["scan_changed"] + f["followers_changed"],
+             m["measured"], m["measure_failed"], m["measure_blocked"], f["followers"], f["followers_failed"],
+             BUDGET_SKIPS["max"], BUDGET_SKIPS["pro"], BUDGET_SKIPS["free"], n, n * P.APIFY_PRICE_PER_LOOKUP_USD)
     if not dry:
         stats["apify_ok"] = apify_ok()
+        stats["apify_why"] = None if stats["apify_ok"] else apify_why()
+        room = apify_room() if P.apify_token() else None
+        stats["apify_room"] = [round(room[0] + APIFY_RESULTS * P.APIFY_PRICE_PER_LOOKUP_USD, 4), room[1]] if room else None
+        stats["ig_stops"] = {"free": TRACK_IG_FREE_STOP, "pro": TRACK_IG_PRO_STOP}
+        stats["switches_off"] = [name for name, on in (("TRACK_TT", TRACK_TT), ("TRACK_FOLLOWERS", TRACK_FOLLOWERS),
+                                                       ("TRACK_IG_FOLLOWERS", TRACK_IG_FOLLOWERS)) if not on]
         write_health(key, stats)
     return stats
 
@@ -1429,8 +1806,11 @@ def main():
     ap.add_argument("--verify-dry", nargs=3, metavar=("PLATFORM", "HANDLE", "CODE"),
                     help="run the REAL bio check for one profile from this machine, with no database access: "
                          "prints what was read and whether CODE is in the bio")
+    ap.add_argument("--scan-dry", nargs=2, metavar=("PLATFORM", "HANDLE"),
+                    help="the REAL listing and account check for one profile, with no database access: prints the scan_state it "
+                         "would get. TikTok is free; instagram needs --spend (up to two Apify results)")
     ap.add_argument("--spend", action="store_true",
-                    help="with --verify-dry instagram: allow the one Apify result it costs (about $0.0027)")
+                    help="with --verify-dry or --scan-dry instagram: allow the Apify results it costs")
     ap.add_argument("--match-dry", type=int, metavar="POST_ID",
                     help="the whole script-match path for one stored post (lynxr_posts.id): prints the candidate table and the "
                          "decision. Reads the database but NEVER writes it (no link, no log row). Costs one free audio "
@@ -1438,6 +1818,8 @@ def main():
     args = ap.parse_args()
     if args.verify_dry:
         sys.exit(print_verify_dry(*args.verify_dry, spend=args.spend))
+    if args.scan_dry:
+        sys.exit(print_scan_dry(*args.scan_dry, spend=args.spend))
     env = P.load_env(P.ROOT / ".env")
     try:
         key = envcfg.secret("SUPABASE_SERVICE_ROLE_KEY", env.get("SUPABASE_SERVICE_ROLE_KEY"),

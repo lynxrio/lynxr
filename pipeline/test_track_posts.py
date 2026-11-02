@@ -17,7 +17,8 @@ import track_posts as T  # noqa: E402
 # The real I/O helpers, kept before the tests below replace them with stubs.
 REAL_SCAN_PROFILE = T.scan_profile
 REAL = {n: getattr(T, n) for n in ("ig_details", "tt_profile_page", "measure", "tt_list", "ig_posts", "follower_read",
-                                     "apify_ok", "tier_of", "apify_run", "ytdlp_json", "rest")}
+                                     "apify_ok", "tier_of", "apify_run", "ytdlp_json", "rest",
+                                     "tt_list_read", "ig_posts_read", "account_check", "ig_gate")}
 
 FAILS = []
 
@@ -75,6 +76,14 @@ check("tt page: garbage is an error", (junk["found"], junk["error"]), (False, Tr
 check("tt page: None is an error", T.parse_tt_page(None)["error"], True)
 check("tt page: broken json is an error",
       T.parse_tt_page('<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="x">{nope</script>')["error"], True)
+
+v0 = T.parse_tt_page(page({"statusCode": 0, "userInfo": {"user": {"id": 7}, "stats": {"videoCount": 0}}}))
+check("tt page: videoCount 0 is 0, not None", v0["videos"], 0)
+v8 = T.parse_tt_page(page({"statusCode": 0, "userInfo": {"user": {"id": 7}, "statsV2": {"videoCount": "8"}, "stats": {"videoCount": 8}}}))
+check("tt page: videoCount from statsV2", v8["videos"], 8)
+check("tt page: no stats -> videos None", T.parse_tt_page(page({"statusCode": 0, "userInfo": {"user": {"id": 7}}}))["videos"], None)
+g10221 = T.parse_tt_page(page({"statusCode": 10221, "userInfo": {}}))   # what TikTok answered for a renamed/deleted account, 2026-10-31
+check("tt page: 10221 -> not found, not an error, no videos", (g10221["found"], g10221["error"], g10221["videos"]), (False, False, None))
 
 # verify_due
 ig = {"platform": "instagram", "verified_at": None, "verify_tries": 0, "added_at": ago(minutes=5)}
@@ -283,6 +292,34 @@ T.apify_run = lambda body: [{"id": 1, "biography": "b", "followersCount": -1}]
 check("ig details: hidden followers -> None", T.ig_details("x")["followers"], None)
 T.apify_run = lambda body: [{"error": "not_found"}]
 check("ig details: error item -> not found, no followers", (T.ig_details("x")["found"], T.ig_details("x")["followers"]), (False, None))
+T.apify_run = lambda body: [{"id": 9, "private": False, "postsCount": 0, "followersCount": 900}]
+check("ig details: postsCount 0, no latestPosts", (T.ig_details("x")["posts"], T.ig_details("x")["newest_at"]), (0, None))
+T.apify_run = lambda body: [{"id": 9, "postsCount": 7, "latestPosts": [{"timestamp": "2026-08-20T10:00:00.000Z"}, {"timestamp": "2026-08-27T16:00:00.000Z"}, "junk"]}]
+check("ig details: newest_at is the newest latestPosts timestamp", (T.ig_details("x")["posts"], T.ig_details("x")["newest_at"]), (7, "2026-08-27T16:00:00Z"))
+# account_check(): the account itself
+T.account_check = REAL["account_check"]
+T.tt_profile_page = lambda h: page({"statusCode": 0, "userInfo": {"user": {"id": 7, "privateAccount": True}, "stats": {"videoCount": 12, "followerCount": 50}}})
+check("account tt: privateAccount", T.account_check("tiktok", "a.b")["state"], "private")
+T.tt_profile_page = lambda h: page({"statusCode": 10222, "userInfo": {"user": {"id": 7, "privateAccount": True}}})
+check("account tt: 10222 private", T.account_check("tiktok", "a.b")["state"], "private")
+T.tt_profile_page = lambda h: page({"statusCode": 10221, "userInfo": {}})
+check("account tt: 10221 gone", T.account_check("tiktok", "a.b")["state"], "gone")
+T.tt_profile_page = lambda h: page({"statusCode": 0, "userInfo": {"user": {"id": 7}, "stats": {"videoCount": 0}}})
+check("account tt: public with 0 videos", (lambda a: (a["state"], a["videos"], a["uid"]))(T.account_check("tiktok", "a.b")), ("public", 0, "7"))
+T.tt_profile_page = lambda h: "<html>captcha</html>"
+check("account tt: a block page is no answer", T.account_check("tiktok", "a.b"), None)
+T.tt_profile_page = lambda h: None
+check("account tt: no page is no answer", T.account_check("tiktok", "a.b"), None)
+T.ig_details = lambda h: {"found": True, "private": False, "bio": "", "uid": "9", "followers": 900, "posts": 0, "newest_at": None}
+check("account ig: public, 0 posts", (lambda a: (a["state"], a["videos"], a["followers"]))(T.account_check("instagram", "a.b")), ("public", 0, 900))
+T.ig_details = lambda h: {"found": True, "private": True, "bio": "", "uid": "9", "followers": 900, "posts": 7, "newest_at": None}
+check("account ig: private", T.account_check("instagram", "a.b")["state"], "private")
+T.ig_details = lambda h: {"found": False, "private": False, "bio": "", "uid": None, "followers": None, "posts": None, "newest_at": None}
+check("account ig: an error item reads as gone", T.account_check("instagram", "a.b")["state"], "gone")
+T.ig_details = lambda h: None
+check("account ig: Apify did not answer", T.account_check("instagram", "a.b"), None)
+check("account: unknown platform", T.account_check("youtube", "a.b"), None)
+T.ig_details = REAL["ig_details"]
 
 # checkpoints / age_days / next_measure_at
 check("checkpoints: junk, dupes and negatives dropped", T.checkpoints("7,1,x,1,-3"), [1, 7])
@@ -310,6 +347,57 @@ check("scan_due: unknown platform", T.scan_due({**vt, "platform": "youtube"}, NO
 T.TRACK_TT = False
 check("scan_due: TRACK_TT off", T.scan_due(vt, NOW), False)
 T.TRACK_TT = True
+check("scan_due: tt last scan failed 7h ago -> retried", T.scan_due({**vt, "last_scan_at": ago(hours=7), "last_scan_ok_at": ago(days=3)}, NOW), True)
+check("scan_due: tt last scan failed 5h ago -> not yet", T.scan_due({**vt, "last_scan_at": ago(hours=5), "last_scan_ok_at": ago(days=3)}, NOW), False)
+check("scan_due: tt last scan ok 7h ago -> waits the day", T.scan_due({**vt, "last_scan_at": ago(hours=7), "last_scan_ok_at": ago(hours=7)}, NOW), False)
+check("scan_due: ig failed 7h ago -> waits the day (paid)", T.scan_due({**vt, "platform": "instagram", "last_scan_at": ago(hours=7), "last_scan_ok_at": ago(days=3)}, NOW), False)
+S30 = NOW - timedelta(days=30)
+pub = lambda **kw: {"state": "public", "uid": "9", "followers": 1, "videos": None, "newest_at": None, **kw}
+for name, args, want in (
+    ("tt: nothing answered", ("tiktok", "unclear", None, S30, None), "failing"),
+    ("tt: yt-dlp's own private answer, page silent", ("tiktok", "private", None, S30, None), "private"),
+    ("tt: page says private", ("tiktok", "unclear", {"state": "private"}, S30, None), "private"),
+    ("tt: no such user, first look", ("tiktok", "unclear", {"state": "gone"}, S30, None), "failing"),
+    ("tt: no such user, second look", ("tiktok", "unclear", {"state": "gone"}, S30, "failing"), "gone"),
+    ("tt: still gone", ("tiktok", "unclear", {"state": "gone"}, S30, "gone"), "gone"),
+    ("tt: public, 0 videos", ("tiktok", "unclear", pub(videos=0), S30, None), "ok"),
+    ("tt: public with videos but the list failed", ("tiktok", "unclear", pub(videos=12), S30, None), "failing"),
+    ("tt: public, count unknown", ("tiktok", "unclear", pub(), S30, None), "failing"),
+    ("ig: refused, 0 posts (all deleted)", ("instagram", "refused", pub(videos=0), S30, None), "ok"),
+    ("ig: refused, newest older than since", ("instagram", "refused", pub(videos=7, newest_at="2026-08-27T16:00:00Z"), S30, None), "ok"),
+    ("ig: refused, newest exactly at since", ("instagram", "refused", pub(videos=7, newest_at=T.iso(S30)), S30, None), "ok"),
+    ("ig: refused although a newer post exists", ("instagram", "refused", pub(videos=7, newest_at=ago(hours=2)), S30, None), "failing"),
+    ("ig: refused, newest unknown", ("instagram", "refused", pub(videos=7), S30, None), "ok"),
+    ("ig: refused, private", ("instagram", "refused", {"state": "private"}, S30, None), "private"),
+    ("ig: gone, first look", ("instagram", "refused", {"state": "gone"}, S30, "ok"), "failing"),
+    ("ig: gone, second look", ("instagram", "refused", {"state": "gone"}, S30, "failing"), "gone"),
+    ("ig: Apify did not answer", ("instagram", "failed", None, S30, None), "failing"),
+    ("ig: unparsed listing", ("instagram", "unparsed", None, S30, None), "failing"),
+):
+    check(f"classify: {name}", T.classify_scan_failure(*args), want)
+rows_s = [{"platform": "tiktok", "scan_state": "ok", "last_scan_ok_at": ago(hours=2)},
+          {"platform": "tiktok", "scan_state": "private", "scan_state_at": ago(days=5)},
+          {"platform": "tiktok", "scan_state": "failing", "scan_state_at": ago(hours=50)},
+          {"platform": "tiktok", "scan_state": "failing", "scan_state_at": ago(hours=10)},
+          {"platform": "instagram", "scan_state": None, "last_scan_ok_at": ago(days=3), "verified_at": ago(days=9)},
+          {"platform": "instagram", "scan_state": None, "last_scan_ok_at": ago(hours=3)},
+          {"platform": "instagram", "scan_state": "gone", "scan_state_at": ago(days=1)}]
+ps = T.profile_summary(rows_s, NOW)
+check("summary tiktok", ps["tiktok"], {"verified": 4, "ok": 1, "private": 1, "gone": 0, "failing": 2, "stuck": 1, "unknown": 0})
+check("summary instagram", ps["instagram"], {"verified": 3, "ok": 0, "private": 0, "gone": 1, "failing": 0, "stuck": 1, "unknown": 2})
+NI = T.iso(NOW)
+m1 = T.lanes_merge({"scan:tiktok": {"ok_at": None, "fail_streak": 3, "fail_since": ago(hours=5), "fail_last": ago(hours=1), "fail_keys": ["a1", "b2"]}},
+                   {"scan:tiktok": {"ok": 1, "fail": 2, "keys": ["c3"]}}, NI)
+check("lanes: one success resets the lane", m1["scan:tiktok"], {"ok_at": NI, "fail_streak": 0, "fail_since": None, "fail_last": None, "fail_keys": []})
+m2 = T.lanes_merge({"scan:tiktok": {"ok_at": ago(days=1), "fail_streak": 2, "fail_since": ago(hours=5), "fail_last": ago(hours=1), "fail_keys": ["a1", "b2"]}},
+                   {"scan:tiktok": {"ok": 0, "fail": 2, "keys": ["b2", "c3"]}}, NI)
+check("lanes: failures extend the streak, keep fail_since and ok_at, add distinct ids",
+      tuple(m2["scan:tiktok"][k] for k in ("fail_streak", "fail_since", "ok_at", "fail_last", "fail_keys")), (4, ago(hours=5), ago(days=1), NI, ["a1", "b2", "c3"]))
+m3 = T.lanes_merge({"measure:instagram": {"fail_streak": 1, "fail_keys": ["z"]}}, {"scan:tiktok": {"ok": 0, "fail": 1, "keys": ["a"]}}, NI)
+check("lanes: an idle lane is carried; a new failing lane starts now", (m3["measure:instagram"]["fail_streak"], m3["scan:tiktok"]["fail_streak"], m3["scan:tiktok"]["fail_since"]), (1, 1, NI))
+check("lanes: junk in, empty out", (T.lanes_merge("junk", {}, NI), T.lanes_merge(None, None, NI)), ({}, {}))
+m4 = T.lanes_merge({}, {"scan:tiktok": {"ok": 0, "fail": 30, "keys": [f"k{i}" for i in range(30)]}}, NI)
+check("lanes: at most 20 ids kept, newest last", (len(m4["scan:tiktok"]["fail_keys"]), m4["scan:tiktok"]["fail_keys"][-1]), (20, "k29"))
 check("since: watermark wins", T.since_for({"watermark_at": ago(days=2)}, NOW), NOW - timedelta(days=2))
 check("since: no watermark -> backfill", T.since_for({}, NOW), NOW - timedelta(days=T.TRACK_BACKFILL_DAYS))
 
@@ -393,6 +481,28 @@ T.ytdlp_run = lambda args, timeout: (None, "")
 check("tt_list: no stderr at all is still None", T.tt_list("quiet"), None)
 T.ytdlp_run = lambda args, timeout: ({"entries": [{"id": "1"}]}, "")
 check("tt_list: entries pass through", T.tt_list("ok"), [{"id": "1"}])
+SECUID_ERR = ('ERROR: [tiktok:user] a.b: Unable to extract secondary user ID. If you are able to get the channel_id from a '
+              'video posted by this user, try using "tiktokuser:channel_id" as the input URL (replacing `channel_id` with its '
+              'actual value)')
+EMBED_WARN = "WARNING: [tiktok:user] This user's account is either private or has embedding disabled"
+PRIVATE_ERR = ("ERROR: [tiktok:user] a.b: This user's account is private. Log into an account that has access. Use "
+               "--cookies-from-browser or --cookies for the authentication.")
+ALLPRIV_ERR = ("ERROR: [tiktok:user] a.b: This user's account is likely either private or all of their videos are private. "
+               "Log into an account that has access")
+check("tt_list_failure: empty", T.tt_list_failure("ERROR: [tiktok:user] a.b: This account does not have any videos posted"), "empty")
+check("tt_list_failure: the secondary-user-ID error is NOT private", T.tt_list_failure(SECUID_ERR), "unclear")
+check("tt_list_failure: the embed warning plus that error is still unclear", T.tt_list_failure(EMBED_WARN + "\n" + SECUID_ERR), "unclear")
+check("tt_list_failure: TikTok's own private answer", T.tt_list_failure(PRIVATE_ERR), "private")
+check("tt_list_failure: 'likely either private or all videos private' is unclear", T.tt_list_failure(ALLPRIV_ERR), "unclear")
+check("tt_list_failure: nothing", (T.tt_list_failure(""), T.tt_list_failure(None)), ("unclear", "unclear"))
+T.ytdlp_run = lambda args, timeout: (None, SECUID_ERR)
+check("tt_list_read: secondary-user-ID error", T.tt_list_read("a.b"), (None, "unclear"))
+T.ytdlp_run = lambda args, timeout: (None, PRIVATE_ERR)
+check("tt_list_read: private", T.tt_list_read("a.b"), (None, "private"))
+T.ytdlp_run = lambda args, timeout: (None, "ERROR: [tiktok:user] a.b: This account does not have any videos posted")
+check("tt_list_read: empty", T.tt_list_read("a.b"), ([], "empty"))
+T.ytdlp_run = lambda args, timeout: ({"entries": [{"id": "1"}]}, "")
+check("tt_list_read: entries", T.tt_list_read("a.b"), ([{"id": "1"}], "ok"))
 T.ytdlp_run = _REAL_RUN
 
 # the handle guard on the new fetchers: no subprocess, no request
@@ -436,6 +546,9 @@ def setup_world(routes, *, tier="max", tiers=None, queued=False, apify=True, spe
     T._ROOM["v"] = (spent, 5.0)                    # this month's Apify spend and the ceiling (the soft stops are shares of it)
     for t in T.BUDGET_SKIPS:
         T.BUDGET_SKIPS[t] = 0
+    T.account_check = lambda platform, handle: None
+    T._SCAN_STATE["v"] = None
+    T.ig_gate = REAL["ig_gate"]
     return T.rest
 
 
@@ -461,15 +574,18 @@ def inserted(path, body):
     return 201, [{**r, "id": 100 + i} for i, r in enumerate(body)]
 
 
+_tt = lambda x: (x, "ok" if x is not None else "unclear")
+_ig = lambda x: (x, "ok" if x is not None else "failed")
+
 # scan: no tier gate any more -- a FREE account's TikTok profile is scanned
 r = setup_world([("lynxr_profiles", (200, [PROF_TT])), ("on_conflict=creator_id,canonical_url", inserted), ("lynxr_posts?creator_id", (200, []))], tier="free")
-T.tt_list = lambda h: tt_entries(2)
+T.tt_list_read = lambda h: _tt(tt_entries(2))
 s1 = T.scan_pass("k", NOW)
 check("scan: a free account is scanned too", s1["scanned_tt"], 1)
 
 # scan: a TikTok profile, first scan (backfill), likes and comments stored with the day-0 snapshot
 r = setup_world([("lynxr_profiles", (200, [PROF_TT])), ("on_conflict=creator_id,canonical_url", inserted), ("lynxr_posts?creator_id", (200, []))])
-T.tt_list = lambda h: tt_entries(2, 30, 24 * 40)          # 2h old, 30h old, and one 40 days old (before the 30-day backfill)
+T.tt_list_read = lambda h: _tt(tt_entries(2, 30, 24 * 40))          # 2h old, 30h old, and one 40 days old (before the 30-day backfill)
 s1 = T.scan_pass("k", NOW)
 ins = r.to("on_conflict=creator_id,canonical_url", "POST")
 check("scan tt: two posts stored, the 40-day-old one is not", (s1["new_posts"], len(ins[0][2])), (2, 2))
@@ -486,7 +602,7 @@ check("scan tt: profile PATCH moves the watermark to the newest post", (pp["stat
 # scan: second scan is incremental; the watermark post is not stored again
 wm = {**PROF_TT, "watermark_at": T.iso(NOW - timedelta(hours=2)), "last_scan_at": ago(hours=25)}
 r = setup_world([("lynxr_profiles", (200, [wm])), ("on_conflict=creator_id,canonical_url", inserted), ("lynxr_posts?creator_id", (200, []))])
-T.tt_list = lambda h: tt_entries(2, 30)                    # the newest IS the watermark: nothing is newer
+T.tt_list_read = lambda h: _tt(tt_entries(2, 30))                    # the newest IS the watermark: nothing is newer
 s1 = T.scan_pass("k", NOW)
 check("scan tt: nothing newer than the watermark -> no insert", (s1["new_posts"], len(r.to("on_conflict=creator_id,canonical_url"))), (0, 0))
 check("scan tt: ok still stamped", r.to("handle=eq.a.b", "PATCH")[-1][2]["last_scan_ok_at"], T.iso(NOW))
@@ -502,7 +618,7 @@ check("scan tt refresh: a stored count above the listing is left alone, a lower 
 
 # scan: ownership change -> `changed`, nothing stored
 r = setup_world([("lynxr_profiles", (200, [PROF_TT])), ("on_conflict=creator_id,canonical_url", inserted)])
-T.tt_list = lambda h: [{**e, "uploader_id": "42"} for e in tt_entries(2)]
+T.tt_list_read = lambda h: _tt([{**e, "uploader_id": "42"} for e in tt_entries(2)])
 s1 = T.scan_pass("k", NOW)
 check("scan mismatch: changed, verified_at cleared, nothing inserted",
       (s1["scan_changed"], r.to("handle=eq.a.b", "PATCH")[0][2]["status"], r.to("handle=eq.a.b", "PATCH")[0][2]["verified_at"],
@@ -510,7 +626,7 @@ check("scan mismatch: changed, verified_at cleared, nothing inserted",
 
 # scan: the list failed -> unavailable, retried after the interval (last_scan_at moves)
 r = setup_world([("lynxr_profiles", (200, [PROF_TT]))])
-T.tt_list = lambda h: None
+T.tt_list_read = lambda h: _tt(None)
 s1 = T.scan_pass("k", NOW)
 # A failed scan moves last_scan_at and NOTHING ELSE. It must not write `status`: this lane only runs on profiles whose
 # verified_at is set, so a scan outcome there overwrites the verification state and the app tells a verified creator
@@ -518,22 +634,23 @@ s1 = T.scan_pass("k", NOW)
 check("scan failure: last_scan_at only, status untouched",
       (s1["scan_failed"], "status" in r.writes()[0][2], "last_scan_at" in r.writes()[0][2], "verified_at" in r.writes()[0][2]),
       (1, False, True, False))
+check("scan failure: recorded as failing", r.writes()[0][2].get("scan_state"), "failing")
 
 # scan: an insert that did not land must not move the watermark
 r = setup_world([("lynxr_profiles", (200, [PROF_TT])), ("on_conflict=creator_id,canonical_url", (500, None))])
-T.tt_list = lambda h: tt_entries(2)
+T.tt_list_read = lambda h: _tt(tt_entries(2))
 s1 = T.scan_pass("k", NOW)
 check("scan insert failure: watermark not moved", ("watermark_at" in r.to("handle=eq.a.b", "PATCH")[-1][2], s1["scan_failed"]), (False, 1))
 
 # scan: yield to a creator
 r = setup_world([("lynxr_profiles", (200, [PROF_TT]))], queued=True)
-T.tt_list = lambda h: (_ for _ in ()).throw(AssertionError("must not list"))
+T.tt_list_read = lambda h: _tt((_ for _ in ()).throw(AssertionError("must not list")))
 s1 = T.scan_pass("k", NOW)
 check("scan yield: queued_work -> no list, no write", (len(r.writes()), s1["scanned_tt"]), (0, 0))
 
 # scan: Instagram without budget makes no Apify call
 r = setup_world([("lynxr_profiles", (200, [PROF_IG]))], apify=False)
-T.ig_posts = lambda h, since: (_ for _ in ()).throw(AssertionError("must not call Apify"))
+T.ig_posts_read = lambda h, since: _ig((_ for _ in ()).throw(AssertionError("must not call Apify")))
 s1 = T.scan_pass("k", NOW)
 check("scan ig budget: no call, no write, counted", (len(r.writes()), s1["scan_skipped_budget"]), (0, 1))
 
@@ -541,15 +658,24 @@ check("scan ig budget: no call, no write, counted", (len(r.writes()), s1["scan_s
 bound = {**PROF_IG, "watermark_at": T.iso(NOW - timedelta(hours=5)), "last_scan_at": ago(hours=25)}
 r = setup_world([("lynxr_profiles", (200, [bound])), ("on_conflict=creator_id,canonical_url", inserted)])
 seen = {}
-T.ig_posts = lambda h, since: seen.setdefault("since", since) and ig_items(5, 2) + [{"inputUrl": "x"}]   # boundary (5h) + a new one (2h) + placeholder
+T.ig_posts_read = lambda h, since: _ig(seen.setdefault("since", since) and ig_items(5, 2) + [{"inputUrl": "x"}])   # boundary (5h) + a new one (2h) + placeholder
 s1 = T.scan_pass("k", NOW)
 check("scan ig: asked for posts newer than the watermark", seen["since"], NOW - timedelta(hours=5))
 check("scan ig: boundary post and placeholder dropped, only the strictly newer stored", (s1["new_posts"], len(r.to("on_conflict=creator_id,canonical_url")[0][2])), (1, 1))
 check("scan ig: likes and comments stored", (lambda b: (b["views"], b["likes"], b["comments"]))(r.to("on_conflict=creator_id,canonical_url")[0][2][0]), (4000, 180, 3))
+T.ig_posts_read = REAL["ig_posts_read"]
 T.apify_run = lambda body: [{"error": "not_found"}]
 check("ig_posts: only error items -> None", REAL["ig_posts"]("a.b", NOW), None)
 T.apify_run = lambda body: [{"inputUrl": "x"}]
 check("ig_posts: the empty-scan placeholder is a successful empty scan", REAL["ig_posts"]("a.b", NOW), [{"inputUrl": "x"}])
+NO_ITEMS = [{"error": "no_items", "errorDescription": "Empty or private data for provided input"}]   # Apify, measured 2026-10-31
+T.apify_run = lambda body: NO_ITEMS
+check("ig_posts_read: Apify's no_items -> refused", REAL["ig_posts_read"]("a.b", NOW), (None, "refused"))
+check("ig_posts: the wrapper still says None for it", REAL["ig_posts"]("a.b", NOW), None)
+T.apify_run = lambda body: None
+check("ig_posts_read: no answer -> failed", REAL["ig_posts_read"]("a.b", NOW), (None, "failed"))
+T.apify_run = lambda body: [{"inputUrl": "x"}]
+check("ig_posts_read: the empty-scan placeholder is ok", REAL["ig_posts_read"]("a.b", NOW), ([{"inputUrl": "x"}], "ok"))
 sent = {}
 T.apify_run = lambda body: sent.update(body) or []
 REAL["ig_posts"]("a.b", NOW)
@@ -558,22 +684,139 @@ check("ig_posts: the run asks for posts, newer than the datetime, limited", (sen
 
 # scan: Instagram ownership
 r = setup_world([("lynxr_profiles", (200, [PROF_IG]))])
-T.ig_posts = lambda h, since: ig_items(2, owner="999", name="someone.else")
+T.ig_posts_read = lambda h, since: _ig(ig_items(2, owner="999", name="someone.else"))
 s1 = T.scan_pass("k", NOW)
 check("scan ig mismatch: changed", (s1["scan_changed"], r.writes()[0][2]["status"]), (1, "changed"))
+
+# ── scan_state (plan tracking-always-works.md) ──
+def prof_patch(r):
+    return r.to("handle=eq.a.b", "PATCH")[-1][2]
+
+# TikTok: a username that no longer exists (2026-10-31: yt-dlp's secondary-user-ID error; TikTok's page 10221)
+r = setup_world([("lynxr_profiles", (200, [PROF_TT]))])
+T.tt_list_read = lambda h: (None, "unclear")
+T.account_check = lambda plat, h: {"state": "gone", "uid": None, "followers": None, "videos": None, "newest_at": None}
+s1 = T.scan_pass("k", NOW)
+pp = prof_patch(r)
+check("scan gone, first look: failing, no ok stamp, status untouched", (pp.get("scan_state"), "last_scan_ok_at" in pp, "status" in pp, s1["scan_failed"]), ("failing", False, False, 1))
+r = setup_world([("lynxr_profiles", (200, [{**PROF_TT, "scan_state": "failing", "last_scan_at": ago(hours=7)}]))])
+T.tt_list_read = lambda h: (None, "unclear")
+T.account_check = lambda plat, h: {"state": "gone", "uid": None, "followers": None, "videos": None, "newest_at": None}
+s1 = T.scan_pass("k", NOW)
+pp = prof_patch(r)
+check("scan gone, second look: gone, scan_state_at set, not a failure", (pp.get("scan_state"), pp.get("scan_state_at"), s1["scan_gone"], s1["scan_failed"]), ("gone", T.iso(NOW), 1, 0))
+
+# TikTok private: told apart from broken, its follower count kept, not a lane failure
+T.LANES.clear()
+r = setup_world([("lynxr_profiles", (200, [PROF_TT]))])
+T.tt_list_read = lambda h: (None, "unclear")
+T.account_check = lambda plat, h: {"state": "private", "uid": "107955", "followers": 50, "videos": 12, "newest_at": None}
+s1 = T.scan_pass("k", NOW)
+pp = prof_patch(r)
+check("scan private: state private, last_scan_at moves, no ok stamp, status and verified_at untouched", (pp.get("scan_state"), pp.get("last_scan_at"), "last_scan_ok_at" in pp, "status" in pp, "verified_at" in pp), ("private", T.iso(NOW), False, False, False))
+check("scan private: counted as private, not a failure, no lane failure", (s1["scan_private"], s1["scan_failed"], T.LANES.get("scan:tiktok", {}).get("fail", 0)), (1, 0, 0))
+check("scan private: the follower count read on the way is today's snapshot", [c[2][0]["followers"] for c in r.to("lynxr_profile_followers?on_conflict", "POST")], [50])
+
+# a private profile is asked about its account first and NOT listed while it stays private
+r = setup_world([("lynxr_profiles", (200, [{**PROF_TT, "scan_state": "private", "last_scan_at": ago(hours=7)}]))])
+T.tt_list_read = lambda h: (_ for _ in ()).throw(AssertionError("must not list a private profile"))
+T.account_check = lambda plat, h: {"state": "private", "uid": "107955", "followers": None, "videos": 12, "newest_at": None}
+s1 = T.scan_pass("k", NOW)
+pp = prof_patch(r)
+check("scan private again: no listing, state kept, scan_state_at not moved", (pp.get("scan_state"), "scan_state_at" in pp, s1["scan_private"]), ("private", False, 1))
+
+# ... and it recovers by itself once public
+r = setup_world([("lynxr_profiles", (200, [{**PROF_TT, "scan_state": "private", "last_scan_at": ago(hours=7)}])), ("on_conflict=creator_id,canonical_url", inserted), ("lynxr_posts?creator_id", (200, []))])
+T.account_check = lambda plat, h: {"state": "public", "uid": "107955", "followers": 51, "videos": 13, "newest_at": None}
+T.tt_list_read = lambda h: _tt(tt_entries(2))
+s1 = T.scan_pass("k", NOW)
+pp = prof_patch(r)
+check("scan recovery: listed, ok, scan_state_at moves, ok stamp, the post stored", (pp.get("scan_state"), pp.get("scan_state_at"), pp.get("last_scan_ok_at"), s1["new_posts"]), ("ok", T.iso(NOW), T.iso(NOW), 1))
+
+# Instagram, every post deleted: Apify's no_items refusal -> details -> a good scan with nothing new
+IG_Q = {**PROF_IG, "watermark_at": T.iso(NOW - timedelta(days=17)), "last_scan_ok_at": ago(days=16), "last_scan_at": ago(hours=25)}
+r = setup_world([("lynxr_profiles", (200, [IG_Q]))])
+T.ig_posts_read = lambda h, since: (None, "refused")
+T.account_check = lambda plat, h: {"state": "public", "uid": "25025320", "followers": 900, "videos": 0, "newest_at": None}
+s1 = T.scan_pass("k", NOW)
+pp = prof_patch(r)
+check("scan ig all deleted: ok, ok stamp moves, watermark kept", (pp.get("scan_state"), pp.get("last_scan_ok_at"), "watermark_at" in pp, s1["scan_failed"]), ("ok", T.iso(NOW), False, 0))
+check("scan ig all deleted: the details result is today's follower snapshot", [c[2][0]["followers"] for c in r.to("lynxr_profile_followers?on_conflict", "POST")], [900])
+
+# Instagram, never scanned OK, newest post older than the 30-day first scan
+IG_OLD = {**PROF_IG, "watermark_at": None, "last_scan_ok_at": None, "last_scan_at": ago(hours=25)}
+r = setup_world([("lynxr_profiles", (200, [IG_OLD]))])
+T.ig_posts_read = lambda h, since: (None, "refused")
+T.account_check = lambda plat, h: {"state": "public", "uid": "25025320", "followers": 9, "videos": 7, "newest_at": "2026-08-27T16:00:00Z"}
+T.scan_pass("k", NOW)
+pp = prof_patch(r)
+check("scan ig quiet first scan: ok, and the watermark becomes the newest post", (pp.get("scan_state"), pp.get("last_scan_ok_at"), pp.get("watermark_at")), ("ok", T.iso(NOW), "2026-08-27T16:00:00Z"))
+
+# Instagram: refused although the account shows a newer post -> failing (the posts run is what broke)
+r = setup_world([("lynxr_profiles", (200, [IG_OLD]))])
+T.ig_posts_read = lambda h, since: (None, "refused")
+T.account_check = lambda plat, h: {"state": "public", "uid": "25025320", "followers": 9, "videos": 7, "newest_at": T.iso(NOW - timedelta(hours=2))}
+s1 = T.scan_pass("k", NOW)
+pp = prof_patch(r)
+check("scan ig inconsistent: failing, no ok stamp", (pp.get("scan_state"), "last_scan_ok_at" in pp, s1["scan_failed"]), ("failing", False, 1))
+
+# Instagram: Apify did not answer -> no details call
+r = setup_world([("lynxr_profiles", (200, [IG_OLD]))])
+T.ig_posts_read = lambda h, since: (None, "failed")
+T.account_check = lambda plat, h: (_ for _ in ()).throw(AssertionError("no details call after a failed run"))
+s1 = T.scan_pass("k", NOW)
+check("scan ig no answer: failing, no details call", (prof_patch(r).get("scan_state"), s1["scan_failed"]), ("failing", 1))
+
+# Instagram: refused, and the budget closes before the details call
+r = setup_world([("lynxr_profiles", (200, [IG_OLD]))])
+T.ig_posts_read = lambda h, since: (None, "refused")
+_gates = [True, False]
+T.ig_gate = lambda tier: _gates.pop(0)
+s1 = T.scan_pass("k", NOW)
+check("scan ig refused, budget closed for details: last_scan_at only, a budget skip", (sorted(prof_patch(r)), s1["scan_skipped_budget"], s1["scan_failed"]), (["last_scan_at"], 1, 0))
+T.ig_gate = REAL["ig_gate"]
+
+# the account check finds another account number -> changed
+r = setup_world([("lynxr_profiles", (200, [PROF_TT]))])
+T.tt_list_read = lambda h: (None, "unclear")
+T.account_check = lambda plat, h: {"state": "public", "uid": "999", "followers": 5, "videos": 3, "newest_at": None}
+s1 = T.scan_pass("k", NOW)
+check("scan: the account has another number -> changed", (prof_patch(r).get("status"), prof_patch(r).get("verified_at", "x"), s1["scan_changed"]), ("changed", None, 1))
+
+# a listing whose entries all fail to parse is a changed format, not an empty profile
+r = setup_world([("lynxr_profiles", (200, [PROF_TT]))])
+T.tt_list_read = lambda h: ([{"no": "url"}, {"no": "url"}, {"no": "url"}], "ok")
+T.account_check = lambda plat, h: (_ for _ in ()).throw(AssertionError("unparsed: no account call"))
+s1 = T.scan_pass("k", NOW)
+check("scan unparsed: failing", (prof_patch(r).get("scan_state"), s1["scan_failed"]), ("failing", 1))
+
+# an unexplained failure is noted in the lane with the profile's id
+T.LANES.clear()
+r = setup_world([("lynxr_profiles", (200, [PROF_TT]))])
+T.tt_list_read = lambda h: (None, "unclear")
+T.scan_pass("k", NOW)
+check("lanes: an unexplained scan failure is noted with the profile's id", T.LANES.get("scan:tiktok"), {"ok": 0, "fail": 1, "keys": [T.who_of("c1", "tiktok", "a.b")]})
+
+# without supabase/profile_scan_state.sql: scan_state is neither read nor written
+r = setup_world([("select=scan_state&limit=1", (400, None)), ("lynxr_profiles", (200, [PROF_TT]))])
+T.tt_list_read = lambda h: (None, "unclear")
+T.scan_pass("k", NOW)
+check("no scan_state column: not selected, not written",
+      (any("scan_state" in c[1] for c in r.calls if c[0] == "GET" and "select=scan_state&limit=1" not in c[1]),
+       any(isinstance(c[2], dict) and "scan_state" in c[2] for c in r.writes())), (False, False))
 
 # scan: at most TRACK_SCAN_PER_PASS profiles
 T.TRACK_SCAN_PER_PASS = 2
 r = setup_world([("lynxr_profiles", (200, [{**PROF_TT, "handle": "a"}, {**PROF_TT, "handle": "b"}, {**PROF_TT, "handle": "c"}])),
                  ("lynxr_posts", (200, []))])
-T.tt_list = lambda h: []
+T.tt_list_read = lambda h: _tt([])
 s1 = T.scan_pass("k", NOW)
 check("scan: at most TRACK_SCAN_PER_PASS per pass", s1["scanned_tt"], 2)
 T.TRACK_SCAN_PER_PASS = 3
 
 # dry run: nothing written, nothing fetched
 r = setup_world([("lynxr_profiles", (200, [PROF_TT]))])
-T.tt_list = lambda h: (_ for _ in ()).throw(AssertionError("must not list"))
+T.tt_list_read = lambda h: _tt((_ for _ in ()).throw(AssertionError("must not list")))
 s1 = T.scan_pass("k", NOW, dry=True)
 check("scan dry: no fetch, no write", (len(r.writes()), s1["scanned_tt"]), (0, 0))
 
@@ -622,6 +865,15 @@ check("measure failure: no snapshot written", len(r.to("lynxr_post_views")), 0)
 r = setup_world([("lynxr_posts?next_measure_at", (200, [{**DUE, "posted_at": ago(days=40), "measure_fails": 2}]))])
 T.measure_pass("k", NOW)
 check("measure failure on the last checkpoint: next is None", r.to("lynxr_posts?id=eq.5", "PATCH")[0][2]["next_measure_at"], None)
+
+DUE_B = {**DUE, "handle": "a.b"}
+T.measure = lambda post: (_ for _ in ()).throw(AssertionError("a private profile's post is not measured"))
+r = setup_world([("scan_state=in.", (200, [{"creator_id": "c1", "platform": "tiktok", "handle": "a.b"}])),
+                 ("select=scan_state&limit=1", (200, [])), ("lynxr_posts?next_measure_at", (200, [DUE_B]))])
+sm = T.measure_pass("k", NOW)
+b = r.to("lynxr_posts?id=eq.5", "PATCH")[0][2]
+check("measure blocked: no read, next checkpoint, no try counted", (sm["measure_blocked"], sm["measured"], b["measure_fails"], b["next_measure_at"]),
+      (1, 0, 0, T.iso(T.parse_ts(DUE_B["posted_at"]) + timedelta(days=7))))
 
 T.TRACK_MEASURE_PER_PASS = 1
 T.measure = lambda post: {"views": 1, "likes": 1, "comments": 1}
@@ -767,7 +1019,7 @@ check("by_tier: max, pro, free; stable", [r["n"] for r in T.by_tier(
       [4, 2, 5, 1, 3])
 T.TRACK_SCAN_PER_PASS = 1
 scanned = []
-T.scan_profile = lambda key, r, now, stats: scanned.append(r["creator_id"])
+T.scan_profile = lambda key, r, now, stats, cache=None: scanned.append(r["creator_id"])
 setup_world([("lynxr_profiles", (200, [{**PROF_TT, "creator_id": "cf"}, {**PROF_TT, "creator_id": "cp"}, {**PROF_TT, "creator_id": "cm"}]))], tiers=TIERS)
 T.scan_pass("k", NOW)
 check("scan: the one slot goes to the max account, not the free one that came first", scanned, ["cm"])
@@ -780,8 +1032,8 @@ T.scan_profile = REAL_SCAN_PROFILE
 T.TRACK_SCAN_PER_PASS = 5
 
 # Instagram scan under budget pressure: free is refused at 2.6 of 5.0, pro and max are not
-T.tt_list = lambda h: []
-T.ig_posts = lambda h, since: []
+T.tt_list_read = lambda h: _tt([])
+T.ig_posts_read = lambda h, since: _ig([])
 igp = [{**PROF_IG, "creator_id": "cf"}, {**PROF_IG, "creator_id": "cp"}, {**PROF_IG, "creator_id": "cm"}]
 r = setup_world([("lynxr_profiles", (200, igp))], tiers=TIERS, spent=2.6)
 s1 = T.scan_pass("k", NOW)
@@ -811,12 +1063,31 @@ out = T.run("k", dry=True)
 check("run dry: every phase reports, nothing counted", (out["checked"], out["scanned_tt"], out["scanned_ig"], out["measured"], out["followers"]), (0, 0, 0, 0, 0))
 health = []
 T.rest = lambda key, path, method="GET", body=None, prefer=None: (health.append(body), (200, []))[1] if "track.health" in str(body) or "lynxr_ops" in path else (200, [])
+T._ROOM["v"] = (0.0, 5.0)
 out = T.run("k")
 hb = [b for b in health if isinstance(b, dict) and b.get("key") == "track.health"]
 check("run: health written with the new counts", (len(hb), sorted(k for k in ("verified_profiles", "scanned_tt", "new_posts", "measured", "followers", "apify_ok", "budget_skips") if k in hb[0]["value"])),
       (1, sorted(["verified_profiles", "scanned_tt", "new_posts", "measured", "followers", "apify_ok", "budget_skips"])))
 check("run: health carries the budget skips by tier", hb[0]["value"]["budget_skips"], {"max": 0, "pro": 0, "free": 0})
+check("run: health carries lanes and the profile summary", ("lanes" in hb[0]["value"], "profiles" in hb[0]["value"]), (True, True))
+posted = []
+T.rest = lambda key, path, method="GET", body=None, prefer=None: (
+    (200, [{"value": {"lanes": {"scan:tiktok": {"ok_at": None, "fail_streak": 5, "fail_since": "2026-10-01T06:00:00Z",
+                                                "fail_last": "2026-10-01T11:00:00Z", "fail_keys": ["a", "b"]}}}}])
+    if method == "GET" else (posted.append(body), (201, None))[1])
+T.LANES.clear()
+T.lane_note("scan", "tiktok", False, "c")
+T.write_health("k", {"apify_ok": True})
+lv = posted[0]["value"]["lanes"]["scan:tiktok"]
+check("write_health: the stored streak is carried forward", (lv["fail_streak"], lv["fail_keys"], lv["fail_since"]), (6, ["a", "b", "c"], "2026-10-01T06:00:00Z"))
 
+
+# scan_dry: stubs only
+T.tt_list_read = lambda h: (None, "unclear")
+T.account_check = lambda plat, h: {"state": "gone", "uid": None, "followers": None, "videos": None, "newest_at": None}
+check("scan_dry tt: unclear + gone -> failing on a first look", T.scan_dry("tiktok", "@A.B")["verdict"], "failing")
+check("scan_dry ig: refuses without --spend", "error" in T.scan_dry("instagram", "a.b"), True)
+check("scan_dry: bad handle", "error" in T.scan_dry("tiktok", "../x"), True)
 
 # measure() refuses a link that is not on its own platform's host.
 T.measure = REAL["measure"]

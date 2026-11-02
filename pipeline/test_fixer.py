@@ -82,6 +82,7 @@ for k, want in (("worker-down", "worker-down"), ("inflight:ab12cd34", "inflight"
                 ("deploy-failed:123", "deploy-failed"), ("ci-failed:123", "ci-failed"), ("drill:pr", "drill:pr"),
                 ("drill:brain", "drill:brain"), ("drill:restart", "drill:restart"), ("rerun:ab12cd34", "ignore"),
                 ("softfail:cover", "ignore"), ("selftest", "ignore"), ("ci-unverified", "ignore"),
+                ("tracking-down:scan:tiktok", "ignore"), ("tracking-stale", "ignore"), ("tracking-budget", "ignore"),
                 ("something-new", "other")):
     check(f"(b) {k}", F.incident_class(k), want)
 
@@ -254,6 +255,7 @@ check("(q) the same one is not due again", keys2, [])
 keys3, _ = D.due({"canary"}, {"canary": ago(30)}, new, NOW)
 check("(q) a NEW episode of the same key is due", keys3, ["canary"])
 check("(q) selftest is never due", D.due({"selftest"}, {"selftest": ago(5)}, {}, NOW)[0], [])
+check("(q) a tracking alarm is never due", D.due({"tracking-down:scan:tiktok"}, {"tracking-down:scan:tiktok": ago(5)}, {}, NOW)[0], [])
 full = {"sent": {}, "ledger": [ago(i * 60) for i in range(1, 7)]}
 check("(q) 6 dispatches inside the hour: none", D.due({"canary"}, {"canary": ago(5)}, full, NOW)[0], [])
 _, pruned = D.due({"inflight:aa"}, {"inflight:aa": ago(5)}, {"sent": {"canary": ago(500), "inflight:aa": ago(500)}, "ledger": []}, NOW)

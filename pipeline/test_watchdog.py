@@ -753,6 +753,47 @@ two = {"history": [{"at": ago(NOW, 3600), "ok": True}, {"at": ago(NOW, 1800), "o
 check("a two-entry history reads 1/2", "canary: 1/2 passes ok (24h)" in W.digest([], 0, NOW, NOW, canary=two), True)
 check("digest with canary=None has no canary line", "canary:" in W.digest([], 0, NOW, NOW), False)
 
+# ---- tracking-down / tracking-stuck / escalation / digest line (plan tracking-always-works.md) ----------------
+def _lane(streak=6, keys=("a", "b", "c"), since_h=2, last_min=10, ok_h=8):
+    return {"fail_streak": streak, "fail_keys": list(keys), "fail_since": ago(NOW, since_h * 3600),
+            "fail_last": ago(NOW, last_min * 60), "ok_at": ago(NOW, ok_h * 3600) if ok_h is not None else None}
+
+
+def _down(lanes):
+    return [a for a in _th(track_health={"at": ago(NOW, 60), "lanes": lanes}) if a["key"].startswith("tracking-down")]
+
+
+_d = _down({"scan:tiktok": _lane()})
+check("6 failures across 3 profiles -> tracking-down:scan:tiktok", [a["key"] for a in _d], ["tracking-down:scan:tiktok"])
+check("tracking-down 2h in -> digest only", _d[0]["page"], False)
+check("tracking-down body: no @, no http", ("@" in _d[0]["body"] or "http" in _d[0]["body"]), False)
+check("tracking-down tiktok names the image refresh", "refresh worker image" in _d[0]["body"], True)
+check("tracking-down 7h in pages per TRACK_PAGE_AFTER_H", _down({"scan:tiktok": _lane(since_h=7)})[0]["page"], W.TRACK_PAGE_AFTER_H is not None)
+check("streak 5 -> silent", _down({"scan:tiktok": _lane(streak=5)}), [])
+check("2 different profiles -> silent (one creator's trouble)", _down({"scan:tiktok": _lane(keys=("a", "b"))}), [])
+check("last failure 25h ago -> silent", _down({"scan:tiktok": _lane(last_min=25 * 60)}), [])
+_d = _down({"measure:instagram": _lane()})
+check("instagram measure lane: own key, apify hint", (_d[0]["key"], "apify" in _d[0]["body"]), ("tracking-down:measure:instagram", True))
+check("unknown lane names ignored", _down({"coach:tiktok": _lane(), "scan:youtube": _lane()}), [])
+for _junk in ("x", 5, {"scan:tiktok": "x"}, {"scan:tiktok": {"fail_streak": "6"}}, {"scan:tiktok": {**_lane(), "fail_since": "nope"}}):
+    check(f"malformed lanes {_junk!r} -> silent", _down(_junk), [])
+_st = [a for a in _th(track_health={"at": ago(NOW, 60), "profiles": {"tiktok": {"stuck": 1}, "instagram": {"stuck": 0}}}) if a["key"] == "tracking-stuck"]
+check("one stuck profile -> tracking-stuck, digest only", (len(_st), _st[0]["page"] if _st else None), (1, False))
+check("tracking-stuck body: no @, no http", ("@" in _st[0]["body"] or "http" in _st[0]["body"]) if _st else None, False)
+check("no stuck profile -> silent", [a for a in _th(track_health={"at": ago(NOW, 60), "profiles": {"tiktok": {"stuck": 0}}}) if a["key"] == "tracking-stuck"], [])
+_ts = [a for a in _th(track_health={"at": ago(NOW, 13 * 3600)}) if a["key"] == "tracking-stale"]
+check("tracking-stale 13h pages per TRACK_STALE_PAGE_H", _ts[0]["page"], W.TRACK_STALE_PAGE_H is not None)
+_tb = [a for a in _th(track_health={"at": ago(NOW, 60), "apify_ok": False, "apify_why": "no_token", "apify_closed_since": ago(NOW, 7 * 3600)}) if a["key"] == "tracking-budget"]
+check("tracking-budget no token 7h: names the token, pages per TRACK_PAGE_AFTER_H", ("token" in _tb[0]["title"], _tb[0]["page"]), (True, W.TRACK_PAGE_AFTER_H is not None))
+_tb = [a for a in _th(track_health={"at": ago(NOW, 60), "apify_ok": False, "apify_why": "over_guard", "apify_closed_since": ago(NOW, 7 * 3600)}) if a["key"] == "tracking-budget"]
+check("tracking-budget, the designed guard -> never pages", _tb[0]["page"], False)
+_thd = {"at": ago(NOW, 60), "profiles": {"tiktok": {"verified": 22, "ok": 21, "private": 0, "gone": 1, "failing": 0, "stuck": 0, "unknown": 0}},
+        "apify_room": [2.6, 5.0], "ig_stops": {"free": 0.5, "pro": 0.65}, "switches_off": []}
+_tl = [l for l in W.digest([], 0, NOW, NOW, track=_thd).splitlines() if l.startswith("tracking:")]
+check("digest: one tracking line with counts and the paused tier", (len(_tl), "22 verified" in _tl[0], "1 gone" in _tl[0], "free instagram paused" in _tl[0], "pro instagram paused" in _tl[0]), (1, True, True, True, False))
+check("digest: track=None -> no tracking line", "tracking:" in W.digest([], 0, NOW, NOW), False)
+check("digest: track={} -> no report yet", "tracking: no report yet" in W.digest([], 0, NOW, NOW, track={}), True)
+
 # ---- the fixer hook never raises into a tick ---------------------------------
 import fixer_dispatch as _FD  # noqa: E402
 _orig_maybe = _FD.maybe_dispatch

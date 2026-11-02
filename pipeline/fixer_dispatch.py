@@ -29,6 +29,10 @@ from datetime import datetime, timezone
 DISPATCH_KEY = "fixer.dispatched"
 PAUSE_KEY = "fixer.pause"
 SKIP = {"selftest", "ci-unverified", "watchdog-blind"}
+# Post-tracking alarms (pipeline/watchdog.py: tracking-down:*, tracking-stale, tracking-budget, tracking-stuck) are never handed
+# to the fixer: its runbook proves a fix with the script canary, which never lists a profile, so it could neither tell whether a
+# rebuild helped nor stop spending brain runs on one. The page names the fix. Plan ~/.claude/plans/tracking-always-works.md.
+SKIP_PREFIXES = ("tracking-",)
 MAX_PER_HOUR = 6
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 API = "https://api.github.com/repos/{repo}/actions/workflows/fixer.yml/dispatches"
@@ -77,7 +81,7 @@ def due(paging_keys, latches, state, now):
         if d is not None and 0 <= (now - d).total_seconds() < 3600:
             ledger.append(t)
     keys = [k for k in sorted(paging_keys)
-            if k not in SKIP and (latches or {}).get(k) and sent.get(k) != latches[k]]
+            if k not in SKIP and not k.startswith(SKIP_PREFIXES) and (latches or {}).get(k) and sent.get(k) != latches[k]]
     if keys and len(ledger) < MAX_PER_HOUR:
         for k in keys:
             sent[k] = latches[k]
@@ -98,7 +102,7 @@ def maybe_dispatch(key, paging_keys, ops_get, ops_put, now, env=None, urlopen=No
         if paused((ops_get(key, PAUSE_KEY) or {}).get("value"), now):
             return "paused"
         latches = {k: ((ops_get(key, f"alarm.{k}") or {}).get("value") or {}).get("opened_at")
-                   for k in paging_keys if k not in SKIP}
+                   for k in paging_keys if k not in SKIP and not k.startswith(SKIP_PREFIXES)}
         state = (ops_get(key, DISPATCH_KEY) or {}).get("value") or {}
         keys, new = due(paging_keys, latches, state, now)
         if not keys:

@@ -6967,12 +6967,24 @@ async function refreshAllowance() {
 
 const PLAT_NAME = { tiktok: "TikTok", instagram: "Instagram" };
 
+/** Every profile read asks for these. scan_state / scan_state_at (whether lynxr can read a verified profile's videos; plan
+    ~/.claude/plans/tracking-always-works.md) are added while PROFILE_SCAN_COLS is true; a 400 (the column is not there yet)
+    turns it off for this page load and the read is repeated without them, so a missing column never empties the list. */
+const PROFILE_COLS = "platform,handle,verify_code,verified_at,status,verify_tries,last_checked_at,check_requested_at,last_scan_ok_at";
+let PROFILE_SCAN_COLS = true;
+const profilesRead = () => sbFetch(`/rest/v1/lynxr_profiles?select=${PROFILE_COLS}${PROFILE_SCAN_COLS ? ",scan_state,scan_state_at" : ""}&order=added_at.asc`);
+
 /** The creator's profiles, from the table. Silent on failure: with the SQL not applied, or offline, the old
     value (null at first) stays and the profile steps simply do not apply. */
 async function refreshProfiles() {
   if (!ONBOARD_LIVE) return;
   try {
-    const rows = await sbFetch("/rest/v1/lynxr_profiles?select=platform,handle,verify_code,verified_at,status,verify_tries,last_checked_at,check_requested_at,last_scan_ok_at&order=added_at.asc");
+    let rows;
+    try { rows = await profilesRead(); } catch (e) {
+      if (!PROFILE_SCAN_COLS || !/^400\b/.test(String(e?.message || ""))) throw e;
+      PROFILE_SCAN_COLS = false;       // supabase/profile_scan_state.sql not run yet: read what there is, stop asking
+      rows = await profilesRead();
+    }
     if (Array.isArray(rows)) PROFILES = rows;
   } catch { /* keep the old value */ }
   if (typeof paintProfiles === "function") paintProfiles();
@@ -6980,6 +6992,7 @@ async function refreshProfiles() {
   if (typeof paintSetupDue === "function") paintSetupDue();
   if (typeof paintHome === "function") paintHome();
   if (typeof paintLinkWall === "function") paintLinkWall();
+  if (typeof paintPosts === "function") paintPosts();
 }
 
 /** A username out of what a person typed or pasted: "@Name", "name", a profile link. Pure.
@@ -8682,6 +8695,10 @@ if (OBTEST) {
       performnoprof:{ label: "perform, no profile", priority: "perform", goal: 10000, posts: [], followers: [], profiles: [] },
       performfree:  { label: "perform, free plan (+ coach, free depth)", priority: "perform", goal: 10000, plan: "free", coach: "ready", profiles: [{ ...verified[0] }] },
       grow:         { label: "grow goal", priority: "grow", goal: 10000 },
+      privateprof:  { label: "tracking: an account went private", priority: "perform", goal: 10000, profiles: [{ ...verified[0], scan_state: "private", scan_state_at: at(NOW0 - 2 * DAY) }, { ...verified[1], scan_state: "ok" }] },
+      goneprof:     { label: "tracking: a username is gone", priority: "perform", goal: 10000, profiles: [{ ...verified[0], scan_state: "ok" }, { ...verified[1], scan_state: "gone", scan_state_at: at(NOW0 - 3 * DAY) }] },
+      failingprof:  { label: "tracking: unread for 3 days", priority: "perform", goal: 10000, profiles: [{ ...verified[0], scan_state: "failing", scan_state_at: at(NOW0 - 3 * DAY) }, { ...verified[1], scan_state: "ok" }] },
+      allprivate:   { label: "tracking: every account private, no videos", priority: "perform", goal: 10000, posts: [], profiles: verified.map((p) => ({ ...p, scan_state: "private", scan_state_at: at(NOW0 - DAY) })) },
       rosterwall:   { label: "roster, no profile (link wall)", priority: "deals", goal: 5, deals: 2, posts: [], followers: [], profiles: [] },
       noprofile:    { label: "grow, no profile", priority: "grow", goal: 10000, posts: [], followers: [], profiles: [] },
       nogoal:       { label: "no goal", priority: "deals", goal: null },
@@ -8854,6 +8871,42 @@ if (OBTEST) {
 /* ---------- SETTINGS: goal, profiles, creators you look up to ---------- */
 const IG_VERIFY_TRIES = 10;   // mirrors supabase/profiles.sql and pipeline/track_posts.py TRACK_IG_VERIFY_TRIES
 
+/* ---------- SCAN STATE: can lynxr read a verified profile's videos? (plan ~/.claude/plans/tracking-always-works.md) ----------
+   pipeline/track_posts.py writes lynxr_profiles.scan_state: ok | private | gone | failing (null = not known yet). It clears
+   itself when the account is readable again, so nothing here asks the creator to press anything. Each line is HTML with the
+   handle escaped. */
+const SCAN_FAILING_SHOW = true;      // owner decision D3: say so when lynxr could not read an account for 48h for no stated reason
+const SCAN_FAILING_SHOW_H = 48;
+/** When an unexplained failure began, once it has lasted SCAN_FAILING_SHOW_H, else null. */
+function scanFailingSince(p) {
+  if (!SCAN_FAILING_SHOW || p.scan_state !== "failing") return null;
+  const t = Date.parse(p.scan_state_at || "");
+  return Number.isFinite(t) && Date.now() - t >= SCAN_FAILING_SHOW_H * 3600e3 ? new Date(t) : null;
+}
+const scanDay = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+/** Settings: the line for a verified profile lynxr cannot read, or null. */
+function profScanLine(p) {
+  const h = `@${escapeHtml(p.handle)}`;
+  const name = escapeHtml(PLAT_NAME[p.platform] || p.platform);
+  if (p.scan_state === "private") return `Verified, but ${h} is private now, so lynxr can't see your videos. Make it public and lynxr picks them up again on its own.`;
+  if (p.scan_state === "gone") return `lynxr can't find ${h} on ${name} any more. If you changed your username, remove this one and add the new one.`;
+  const since = scanFailingSince(p);
+  return since ? `Verified. lynxr hasn't been able to read your videos here since ${scanDay(since)}. It keeps trying, and there's nothing you need to do.` : null;
+}
+/** The verified profiles (not changed, not taken). */
+const verifiedProfiles = () => (PROFILES || []).filter((p) => p.verified_at && p.status !== "changed" && p.status !== "taken");
+/** Posts: one line per verified profile lynxr cannot read. */
+function postsScanLines() {
+  return verifiedProfiles().map((p) => {
+    const h = `@${escapeHtml(p.handle)}`;
+    const name = escapeHtml(PLAT_NAME[p.platform] || p.platform);
+    if (p.scan_state === "private") return `${h} on ${name} is private, so lynxr can't see new videos on it. Make it public and they show up here again.`;
+    if (p.scan_state === "gone") return `lynxr can't find ${h} on ${name} any more. If you changed your username, add the new one in Settings.`;
+    const since = scanFailingSince(p);
+    return since ? `lynxr hasn't been able to read ${h} on ${name} since ${scanDay(since)}. It keeps trying, and there's nothing you need to do.` : null;
+  }).filter(Boolean);
+}
+
 /** One profile's status sentence and whether Check is offered. */
 function profStatus(p) {
   const name = PLAT_NAME[p.platform] || p.platform;
@@ -8867,7 +8920,7 @@ function profStatus(p) {
   // before 2026-10-07 still carry it, and only `changed`/`taken` legitimately revoke a verification (both clear
   // verified_at in the same write).
   if (p.verified_at && p.status !== "changed" && p.status !== "taken") {
-    return out("Verified. You can take the code out of your bio.", false);
+    return out(profScanLine(p) || "Verified. You can take the code out of your bio.", false);
   }
   // SAY WHEN WE LAST LOOKED. Verification runs on a background lane, so a creator pastes the code, the line says
   // exactly what it said before, and nothing visibly happens for minutes. One emailed on 2026-10-08 — "I put the
@@ -9709,11 +9762,13 @@ function paintPosts() {
   if (own.querySelector(".post-made:not(.pm-closing) select")) return;     // a script picker is open: do not rebuild it under the creator
   const mine = Array.isArray(POSTS) ? POSTS : [];
   const verified = hasVerifiedProfile();
+  const scanLines = postsScanLines();
   own.innerHTML = `<h2 class="me-card-h">Your videos <span class="pill">${mine.length}</span></h2>`
+    + scanLines.map((l) => `<p class="posts-note">${l}</p>`).join("")
     + (POSTS === null ? `<p class="posts-note">${POSTS_STATE === "error" ? "Couldn't load your videos. Try again in a moment." : "Loading…"}</p>`
       : mine.length ? `<ul class="post-rows">${mine.map(postRowHtml).join("")}</ul><p class="bp-msg" id="posts-made-flash" role="status" aria-live="polite"></p>`
       : !verified ? `<p class="posts-note">Link your TikTok or Instagram in Settings and lynxr tracks every video on it automatically.</p><button type="button" class="ghost" id="posts-settings">Open Settings</button>`
-      : `<p class="posts-note">lynxr checks your accounts once a day. New videos show up here.</p>`);
+      : scanLines.length && scanLines.length >= verifiedProfiles().length ? "" : `<p class="posts-note">lynxr checks your accounts once a day. New videos show up here.</p>`);
   document.getElementById("posts-settings")?.addEventListener("click", () => go({ kind: "you" }));
   paintPostsBars(own);
   wirePostMade(own);

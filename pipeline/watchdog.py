@@ -52,6 +52,17 @@ PAGES THE PHONE (page: True):
                       2 passes in a row ('canary.health' in lynxr_ops). The title
                       names the failing stage; the body carries the rollback or
                       refresh hint. Soft stages never page.
+    tracking-down:<lane>:<platform>
+                      post tracking (pipeline/track_posts.py): TRACK_DOWN_STREAK
+                      failures in a row on one lane across TRACK_DOWN_DISTINCT
+                      different profiles, past TRACK_PAGE_AFTER_H hours. Every
+                      creator on that platform loses new videos and counts. One
+                      creator's private or deleted account never counts.
+    tracking-stale    the tracking lane has not reported for TRACK_STALE_PAGE_H
+                      hours although the worker is up.
+    tracking-budget   no_token / ledger_unknown (a missing or dead Apify token),
+                      past TRACK_PAGE_AFTER_H hours. The designed spend guard
+                      (over_guard) stays digest-only.
 
 DIGEST ONLY (page: False) — still reported, once a day, in digest()'s
 "quiet:" line, never on the phone:
@@ -75,11 +86,15 @@ DIGEST ONLY (page: False) — still reported, once a day, in digest()'s
                       Nobody lost a script and view counts are untouched.
     tracking-stale    the post-tracking lane (pipeline/track_posts.py, Fly) has
                       not written lynxr_ops 'track.health' in 3 hours although
-                      the worker was seen in the last 10 minutes. Tracking is
-                      max-only: late numbers, never a lost script.
+                      the worker was seen in the last 10 minutes (first
+                      TRACK_STALE_PAGE_H hours; it pages after that).
     tracking-budget   the Apify spend guard (80% of the cap) has been closed for
                       over 3 hours: Instagram checks, view counts and follower
                       counts are paused. TikTok is unaffected.
+    tracking-down     a systemic post-tracking break, before TRACK_PAGE_AFTER_H
+                      hours (it pages after that).
+    tracking-stuck    profiles that have not scanned for 48h for no stated reason
+                      (track.health.profiles).
     canary-paused     lynxr_ops 'canary.pause' is set: nothing checks the script
                       path between real pastes.
     canary-stale      the canary has not reported for 6 hours although the worker
@@ -213,6 +228,16 @@ COST_APIFY_TTL_S = int(envcfg.get("COST_APIFY_TTL_S", "900"))
 # the same default, so the breaker that stops paid lookups and the line the Ops
 # tab draws can never disagree — even when the owner overrides it.
 APIFY_BREAKER_USD = float(envcfg.get("APIFY_MAX_MONTHLY_USD", "45"))
+
+# POST TRACKING (plan ~/.claude/plans/tracking-always-works.md; owner decision D2). CODE CONSTANTS, NOT ENV, on purpose:
+# the Fly worker AND the two GitHub callers all run check_all(), and run_once() clears any latched alarm a tick does not page
+# for — two callers reading different values would open and "resolve" the same alarm every two minutes.
+TRACK_DOWN_STREAK = 6          # failed attempts in a row on one lane...
+TRACK_DOWN_DISTINCT = 3        # ...across this many different profiles...
+TRACK_DOWN_FRESH_H = 24        # ...the latest within this many hours = lynxr or the platform, not one creator's account
+TRACK_PAGE_AFTER_H = 6         # a systemic tracking break (or a dead Apify token) pages once it has lasted this long; None = digest only
+TRACK_STALE_PAGE_H = 12        # tracking-stale pages past this many hours; None = digest only
+TRACK_LANE_WORDS = {"scan": "new-video checks", "measure": "view counts", "followers": "follower counts", "verify": "bio checks"}
 
 SOFTFAIL_SUBSYSTEMS = ("source_upsert", "video_upsert", "cover", "meta")
 
@@ -671,34 +696,94 @@ def check_all(rows, sources_recent, worker_seen_at, now=None, charges_24h=0,
             "priority": 2, "tags": "warning", "page": False,
         })
 
-    # ---- tracking-stale / tracking-budget -----------------------------------
-    # DIGEST ONLY, both. pipeline/track_posts.py (the post-tracking lane) writes lynxr_ops 'track.health' at the end of
-    # every pass. Tracking is max-only and max is not for sale yet, so a stalled lane means a granted account's numbers
-    # are late, not that a creator lost a script: it belongs in the digest, never on a phone.
-    #   tracking-stale   the lane has not written health for 3 hours although the worker itself was seen in the last
-    #                    10 minutes (so it is not just "Fly is down", which worker-down already covers).
-    #   tracking-budget  `apify_closed_since` (the first pass that found the Apify spend guard closed, cleared the next
-    #                    time it is open) is more than 3 hours old: Instagram checks and counts have been paused that long.
-    # When max goes on sale a tracking-down PAGE is warranted; that is a later decision, not this one.
+    # ---- tracking-stale / tracking-budget / tracking-down / tracking-stuck ------------------------------------------------
+    # pipeline/track_posts.py writes lynxr_ops 'track.health' at the end of every pass. Tracking is for EVERY tier since
+    # 2026-10-03, so a platform-wide break costs every creator on it their new videos and counts (plan tracking-always-works.md):
+    #   tracking-stale   the lane has not written health for 3h although the worker was seen in the last 10 minutes (not just
+    #                    "Fly is down": worker-down covers that). Digest; pages past TRACK_STALE_PAGE_H.
+    #   tracking-budget  `apify_closed_since` is over 3h old. The designed spend guard (over_guard) never pages; a missing or dead
+    #                    token (no_token / ledger_unknown) pages past TRACK_PAGE_AFTER_H.
+    #   tracking-down:<lane>:<platform>  track.health.lanes: TRACK_DOWN_STREAK failures in a row across TRACK_DOWN_DISTINCT
+    #                    different profiles, the latest within TRACK_DOWN_FRESH_H. A creator's own private or deleted account is
+    #                    never counted as a failure there. Digest; pages past TRACK_PAGE_AFTER_H.
+    #   tracking-stuck   DIGEST ONLY: profiles that have not scanned for 48h for no stated reason (track.health.profiles).
     th = track_health if isinstance(track_health, dict) else {}
     th_at = _parse_iso(th.get("at"))
     if (th_at is not None and worker_seen_at is not None
             and (now - worker_seen_at).total_seconds() <= 10 * 60
             and (now - th_at).total_seconds() > 3 * 3600):
+        stale_h = (now - th_at).total_seconds() / 3600
+        page = TRACK_STALE_PAGE_H is not None and stale_h >= TRACK_STALE_PAGE_H
         alarms.append({
             "key": "tracking-stale",
-            "title": "post tracking has not run for 3 hours",
-            "body": ("the tracking lane has not reported in 3 hours although the worker is up. "
-                     "profile checks, new videos and counts are late. fly logs: grep track_posts"),
-            "priority": 2, "tags": "warning", "page": False,
+            "title": f"post tracking has not run for {stale_h:.0f} hours",
+            "body": (f"the tracking lane has not reported in {stale_h:.0f} hours although the worker is up. "
+                     "profile checks, new videos and counts are late for every creator. fly logs: grep track_posts"),
+            "priority": 3 if page else 2, "tags": "warning", "page": page,
         })
     closed = _parse_iso(th.get("apify_closed_since"))
     if closed is not None and (now - closed).total_seconds() > 3 * 3600:
+        closed_h = (now - closed).total_seconds() / 3600
+        why = th.get("apify_why")
+        if why == "no_token":
+            title = "instagram tracking stopped: no apify token"
+            body = ("the worker has no usable APIFY_API_TOKEN, so instagram checks, view counts and follower counts have "
+                    f"stopped for {closed_h:.0f}h. tiktok is unaffected. fly secrets list -a lynxr-worker")
+        elif why == "ledger_unknown":
+            title = "instagram tracking stopped: apify not answering"
+            body = (f"apify's account ledger has not answered for {closed_h:.0f}h (a revoked token, or apify is down), so "
+                    "instagram checks, view counts and follower counts have stopped. tiktok is unaffected.")
+        else:
+            title = "instagram tracking paused: apify budget"
+            body = ("the Apify spend guard has been closed for over 3 hours, so instagram checks, view counts "
+                    "and follower counts are paused. tiktok is unaffected. it reopens on the 1st or with a bigger plan.")
+        page = why in ("no_token", "ledger_unknown") and TRACK_PAGE_AFTER_H is not None and closed_h >= TRACK_PAGE_AFTER_H
+        alarms.append({"key": "tracking-budget", "title": title, "body": body,
+                       "priority": 3 if page else 2, "tags": "warning", "page": page})
+    lanes = th.get("lanes") if isinstance(th.get("lanes"), dict) else {}
+    for name in sorted(k for k in lanes if isinstance(k, str)):
+        ln = lanes[name]
+        lane, _, plat = name.partition(":")
+        if not isinstance(ln, dict) or lane not in TRACK_LANE_WORDS or plat not in ("tiktok", "instagram"):
+            continue
+        streak, keys = ln.get("fail_streak"), ln.get("fail_keys")
+        since, last = _parse_iso(ln.get("fail_since")), _parse_iso(ln.get("fail_last"))
+        if not isinstance(streak, int) or isinstance(streak, bool) or since is None or last is None:
+            continue
+        distinct = len({k for k in keys if isinstance(k, str)}) if isinstance(keys, list) else 0
+        if (streak < TRACK_DOWN_STREAK or distinct < TRACK_DOWN_DISTINCT
+                or (now - last).total_seconds() > TRACK_DOWN_FRESH_H * 3600):
+            continue
+        lasted_h = max(0.0, (now - since).total_seconds() / 3600)
+        ok_at = _parse_iso(ln.get("ok_at"))
+        ok_txt = "never" if ok_at is None else f"{max(0.0, (now - ok_at).total_seconds() / 3600):.0f}h ago"
+        hint = ("likely a yt-dlp or tiktok change, or tiktok refusing the worker: run actions > refresh worker image to pull "
+                "the newest yt-dlp. " if plat == "tiktok" else
+                "likely apify or instagram: check the apify console and the worker's apify token. ")
+        page = TRACK_PAGE_AFTER_H is not None and lasted_h >= TRACK_PAGE_AFTER_H
+        words = TRACK_LANE_WORDS[lane]
         alarms.append({
-            "key": "tracking-budget",
-            "title": "instagram tracking paused: apify budget",
-            "body": ("the Apify spend guard has been closed for over 3 hours, so instagram checks, view counts "
-                     "and follower counts are paused. tiktok is unaffected. it reopens on the 1st or with a bigger plan."),
+            "key": f"tracking-down:{lane}:{plat}",
+            "title": f"post tracking down: {plat} {words}",
+            "body": (f"the last {streak} {plat} {words} all failed, across {distinct} different profiles, for "
+                     f"{lasted_h:.0f}h (last success {ok_txt}). one creator's private or deleted account never counts "
+                     f"here. {hint}fly logs | grep track_posts"),
+            "priority": 3 if page else 2, "tags": "warning", "page": page,
+        })
+    prof = th.get("profiles") if isinstance(th.get("profiles"), dict) else {}
+    stuck = {}
+    for plat in ("tiktok", "instagram"):
+        s_ = prof.get(plat)
+        v = s_.get("stuck") if isinstance(s_, dict) else None
+        if isinstance(v, int) and not isinstance(v, bool) and v > 0:
+            stuck[plat] = v
+    if stuck:
+        alarms.append({
+            "key": "tracking-stuck",
+            "title": "some profiles have not scanned for 48h",
+            "body": (", ".join(f"{n} {p}" for p, n in stuck.items()) + " profile(s) have not scanned for over 48h for "
+                     "no stated reason (private and deleted accounts are not counted). tools/tracking_health.py lists "
+                     "them; fly logs | grep track_posts"),
             "priority": 2, "tags": "warning", "page": False,
         })
 
@@ -852,7 +937,48 @@ def _fmt_s(val):
     return f"{val:.0f}s" if val is not None else "—"
 
 
-def digest(rows, sources_total, worker_seen_at, now, open_alarms=None, fallback_seen_at=None, canary=None):
+def _tracking_line(th):
+    """The digest's tracking line from lynxr_ops 'track.health''s value: None -> "" (no line); a non-dict or {} -> "no report yet"."""
+    if th is None:
+        return ""
+    if not isinstance(th, dict) or not th:
+        return "tracking: no report yet"
+
+    def num(d, k):
+        v = d.get(k)
+        return v if isinstance(v, int) and not isinstance(v, bool) else 0
+
+    parts = []
+    prof = th.get("profiles") if isinstance(th.get("profiles"), dict) else {}
+    for plat in ("tiktok", "instagram"):
+        s = prof.get(plat)
+        if not isinstance(s, dict):
+            continue
+        bits = [f"{num(s, 'verified')} verified", f"{num(s, 'ok')} ok"]
+        for k, word in (("private", "private"), ("gone", "gone"), ("failing", "failing"), ("unknown", "no state yet")):
+            if num(s, k):
+                bits.append(f"{num(s, k)} {word}")
+        if num(s, "stuck"):
+            bits.append(f"{num(s, 'stuck')} stuck over 48h")
+        parts.append(f"{plat} " + ", ".join(bits))
+    room = th.get("apify_room")
+    if (isinstance(room, list) and len(room) == 2
+            and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in room)):
+        spent, ceiling = float(room[0]), float(room[1])
+        txt = f"apify ${spent:.2f} of ${ceiling:.2f}"
+        stops = th.get("ig_stops") if isinstance(th.get("ig_stops"), dict) else {}
+        for tier in ("free", "pro"):
+            s = stops.get(tier)
+            if isinstance(s, (int, float)) and not isinstance(s, bool) and ceiling > 0 and spent >= s * ceiling:
+                txt += f", {tier} instagram paused"
+        parts.append(txt)
+    off = th.get("switches_off")
+    if isinstance(off, list) and off:
+        parts.append("OFF: " + ", ".join(str(x) for x in off[:5]))
+    return "tracking: " + (" · ".join(parts) if parts else "no profiles yet")
+
+
+def digest(rows, sources_total, worker_seen_at, now, open_alarms=None, fallback_seen_at=None, canary=None, track=None):
     """One daily message, priority 2 (arrives without a sound). THE DIGEST IS
     WHAT MAKES SILENCE MEAN SOMETHING — without a daily "all good" the owner
     cannot tell a healthy system from a dead alarm.
@@ -869,6 +995,8 @@ def digest(rows, sources_total, worker_seen_at, now, open_alarms=None, fallback_
     `canary` is lynxr_ops 'canary.health''s value. None (the default) adds no
     line at all, so every existing digest expectation is unchanged; {} reads
     "canary: no report yet".
+
+    `track` is lynxr_ops 'track.health''s value; None (the default) adds no line.
     """
     report = LR.build_report(rows, "24h", 60, now=now)
     if report["n"]:
@@ -946,7 +1074,8 @@ def digest(rows, sources_total, worker_seen_at, now, open_alarms=None, fallback_
             ver = (cdict.get("versions") or {}).get("yt_dlp") if isinstance(cdict.get("versions"), dict) else None
             line_canary = (f"canary: {n_ok}/{len(inside)} passes ok (24h) · model run {full_ago} "
                            f"{'ok' if not script_streak else 'FAILING'} · yt-dlp {ver or '?'}")
-    return "\n".join(x for x in (line1, line2, line3, line_quality, line3_notes, line4, line5, line_canary) if x)
+    line_track = _tracking_line(track)
+    return "\n".join(x for x in (line1, line2, line3, line_quality, line3_notes, line4, line5, line_canary, line_track) if x)
 
 
 # =============================================================================
@@ -1132,7 +1261,8 @@ def _maybe_digest(key, rows, now, open_alarms=None, force=False):
     sources_total = _sources_count(key)
     body = digest(rows, sources_total, worker_seen_at, now, open_alarms=open_alarms,
                   fallback_seen_at=fallback_seen_at,
-                  canary=(ops_get(key, "canary.health") or {}).get("value") or {})
+                  canary=(ops_get(key, "canary.health") or {}).get("value") or {},
+                  track=(ops_get(key, "track.health") or {}).get("value") or {})
     notify("daily digest", body, priority=2, tags="chart_with_upwards_trend")
     ops_put(key, "digest.last", {"date": now.date().isoformat()})
     return True

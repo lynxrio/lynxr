@@ -148,7 +148,7 @@ def incident_class(key):
         return "ci-failed"
     if key in ("drill:restart", "drill:brain", "drill:pr"):
         return key
-    if key in FD.SKIP or key.startswith(("rerun:", "softfail:")):
+    if key in FD.SKIP or key.startswith(("rerun:", "softfail:") + FD.SKIP_PREFIXES):
         return "ignore"
     return "other"
 
