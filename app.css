@@ -13690,3 +13690,41 @@
     margin: 0 0 4px; padding: 16px 0 0; border-top: 1px solid var(--line); font-size: var(--fs-15);
   }
   body.agency #app main #rost-list > .rost-unplaced-rule { margin: 0 0 12px; }
+
+  /* ---------- BRANDS UNDER LIBRARY (owner, 2026-10-31; plan ~/.claude/plans/creator-library-campaign-sections.md) ----------
+     Creator app only. creator.js paintSideCampaigns builds #side-camps under #nav-library: one row per brand a Lynx brief
+     came from, indented so its words line up with Library's. A brand's name is content and keeps its capitals
+     (.camp-name). The unread dot is the Posts row's new-numbers pink. */
+  #side-camps[hidden] { display: none; }
+  .side-camps { display: flex; flex-direction: column; gap: 2px; margin: -2px 0 2px; }
+  .shell > .side .side-link.side-camp { padding: 7px 12px 7px 36px; min-height: 34px; font-size: var(--fs-13); font-weight: 400; }
+  .shell > .side .side-link.side-camp.unread { color: var(--text); font-weight: 600; }
+  .shell > .side .side-link.side-camp.on { font-weight: 600; }
+  .camp-name { text-transform: none; }
+  .side-camp-dot { flex: none; width: 8px; height: 8px; margin-left: auto; border-radius: 50%; background: #ff7eb8; }
+  @media (max-width: 820px) {
+    .shell > .side .side-link.side-camp { min-height: 46px; }
+  }
+
+  /* A brand's page: the newest four briefs as tabs, the rest in an Older menu. 44px on a phone; the strip scrolls
+     sideways rather than wrapping. The selected one takes the ink fill the Library's own tabs use. */
+  .camp-tabs { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; overflow-x: auto; scrollbar-width: none; }
+  .camp-tabs::-webkit-scrollbar { display: none; }
+  .camp-tab {
+    flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 14px;
+    border: 1px solid var(--line); border-radius: var(--r-pill); background: none; color: var(--text-2);
+    font: inherit; font-size: var(--fs-125); white-space: nowrap; cursor: pointer;
+  }
+  .camp-tab:not(.on):hover { background: var(--hover); color: var(--text); }
+  .camp-tab.on { background: var(--fill); border-color: var(--fill); color: var(--on-fill); font-weight: 600; }
+  .camp-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #ff7eb8; }
+  .camp-older { flex: none; display: inline-flex; }
+  .camp-older select {
+    min-height: 34px; padding: 6px 12px; border: 1px solid var(--line); border-radius: var(--r-pill);
+    background: none; color: var(--text-2); font: inherit; font-size: var(--fs-125); cursor: pointer;
+  }
+  .camp-older.on select { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
+  .lynx-brief-name { margin: 0 0 8px; font-size: var(--fs-15); font-weight: 600; color: var(--text); }
+  @media (max-width: 820px) {
+    .camp-tab, .camp-older select { min-height: 44px; }
+  }

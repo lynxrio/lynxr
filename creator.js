@@ -683,7 +683,8 @@ const BLANK_ME = { name: "", niches: [], brands: [], adaptations: [], library: [
                    // firstWin {at, adid, doneAt, tip}: the first-script screen was shown (once per account, synced); tip = when
                    // "got it" or a line copy dismissed the copy tip. postsSeenAt: when Posts was last opened with new numbers
                    // waiting (it clears the new-numbers callout). Both are onboarding v2 (ONBOARD_V2_LIVE).
-                   priority: null, goal: null, setup: null, tour: null, deals: [], rate: null, firstWin: null, postsSeenAt: null };
+                   // briefsSeen [briefId]: Lynx briefs this creator has opened (the unread dot under Library). null = not seeded yet.
+                   priority: null, goal: null, setup: null, tour: null, deals: [], rate: null, firstWin: null, postsSeenAt: null, briefsSeen: null };
 
 /** Delete a script the recoverable way: it moves to the trash with a stamp and
  *  the name of the company it was written for, so Settings can offer it back.
@@ -1666,7 +1667,36 @@ function closeSendOverlay() {
   focusLibraryEntry({ scroll: true });
 }
 
-function go(view) {
+/* A BRAND PAGE WRITES ITS ADDRESS (plan creator-library-campaign-sections.md, contract C4): /?lynx=<lynxKey> for its
+   newest brief, /?lynx=<key>&brief=<uuid> for one brief. ONLY WRITTEN HERE, NEVER READ: the brief-link plan's
+   lynxLinkInit() is the one reader of ?lynx= / ?brief=. Only those two parameters are ever set or removed; everything
+   else on the URL (obtest, utm, the #fragment) is kept. A history entry is PUSHED only when the URL changes (into, out
+   of, or between brand pages), so Back walks those; moving between other views REPLACES the current entry's state as
+   before. Back/Forward restore from history.state alone. */
+function routeUrlFor(view) {
+  const u = new URL(location.href);
+  u.searchParams.delete("lynx");
+  u.searchParams.delete("brief");
+  if (view.kind === "lynxcamp") {
+    if (view.key) u.searchParams.set("lynx", view.key);
+    if (view.briefId && !view.auto) u.searchParams.set("brief", view.briefId);   // auto = the page picked the newest itself
+  }
+  return u.pathname + u.search + u.hash;
+}
+/** mode "push" pushes only when the URL changes, else replaces; "replace" always replaces; "state" stores the view on
+    the current entry without touching the URL. Called only by go(), openLynxCamp (through go) and unlock(): never from
+    inside a render, which would rewrite the PREVIOUS entry before a push. */
+function writeRoute(view, mode) {
+  try {
+    const state = { lynxrView: { kind: view.kind, key: view.key || null, briefId: view.auto ? null : (view.briefId || null), id: view.id || null } };
+    if (mode === "state") { history.replaceState(state, ""); return; }
+    const url = routeUrlFor(view);
+    if (mode === "push" && url !== location.pathname + location.search + location.hash) history.pushState(state, "", url);
+    else history.replaceState(state, "", url);
+  } catch { /* a browser throttling history calls: the view still changed */ }
+}
+
+function go(view, { nav = "push" } = {}) {
   closeAcctMenu(false);    // a route change closes the account menu; focus goes to the pane below, not back to the row
   releaseCardLanding();
   // Leaving the Library abandons whatever entry a send was pointed at —
@@ -1693,6 +1723,7 @@ function go(view) {
   // navigation. #pane-head carries tabindex="-1" in index.html so it can take
   // focus programmatically without joining the tab order itself.
   document.getElementById("pane-head")?.focus({ preventScroll: true });
+  if (nav !== "none") writeRoute(VIEW, nav);
 }
 
 /** The phone top bar: the menu button and the current page's name (small, muted), in the pill that carries the x. It is navigation,
@@ -1972,6 +2003,47 @@ function wireAcctMenu() {
   document.addEventListener("click", (e) => { if (ACCT.open && !e.target.closest("#acct")) closeAcctMenu(false); });
 }
 
+/* THE BRANDS UNDER LIBRARY (owner, 2026-10-31: "a subsection of the library … kind of like how Claude does with its
+   separate chat sessions"). Built here, not in index.html, which is not cache-stamped. One plain row per brand a Lynx
+   brief came from, newest activity first, with a pink dot while it has a brief the creator has not opened. Nothing at
+   all for a creator with no briefs. */
+function activeCampKey() {
+  if (VIEW.kind === "lynxcamp") return VIEW.key || null;
+  if (VIEW.kind === "brand") return campaignForBrand(brandById(VIEW.id))?.key || null;   // D2 = A: its folder sits under its row
+  return null;
+}
+function paintSideCampaigns() {
+  const lib = document.getElementById("nav-library");
+  if (!lib) return;
+  let box = document.getElementById("side-camps");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "side-camps";
+    box.className = "side-camps";
+    box.setAttribute("role", "group");
+    box.setAttribute("aria-label", "Campaigns");
+    box.hidden = true;
+    box.addEventListener("click", (e) => {
+      const row = e.target.closest("[data-camp]");
+      if (row) openLynxCamp(row.dataset.camp, null);
+    });
+    lib.after(box);
+  }
+  seedBriefsSeen();
+  const camps = lynxCampaigns();
+  const on = activeCampKey();
+  const html = camps.map((c) => {
+    const unread = c.briefs.some((b) => briefUnseen(b.id));
+    const here = c.key === on;
+    return `<button type="button" class="side-link side-camp${here ? " on" : ""}${unread ? " unread" : ""}" data-camp="${escapeHtml(c.key)}"${here ? ' aria-current="page"' : ""}>`
+      + `<span class="side-label camp-name">${escapeHtml(c.name)}</span>`
+      + (unread ? `<span class="side-camp-dot" aria-hidden="true"></span><span class="sr-only">new brief</span>` : "")
+      + `</button>`;
+  }).join("");
+  if (box._sig !== html) { box._sig = html; box.innerHTML = html; }
+  box.hidden = !camps.length;
+}
+
 function renderSide() {
   document.getElementById("side-who").textContent = SB_EMAIL || "";
   paintAcct();
@@ -2003,7 +2075,8 @@ function renderSide() {
   quota.classList.toggle("spent", used >= grant);
   document.getElementById("nav-new").classList.toggle("on", VIEW.kind === "new");
   // A brand's page is a place inside the Library, so the Library row stays lit while one is open.
-  document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library" || VIEW.kind === "brand");
+  document.getElementById("nav-library").classList.toggle("on", VIEW.kind === "library" || (VIEW.kind === "brand" && !activeCampKey()));
+  paintSideCampaigns();
   const navPosts = document.getElementById("nav-posts");
   if (navPosts) {
     navPosts.hidden = !showPostsNav();
@@ -2018,11 +2091,10 @@ function renderSide() {
   // rather than flashing the rail in and out on every sign-in.
   const navLynx = document.getElementById("nav-lynx");
   if (navLynx) {
-    navLynx.hidden = !hasAgency();
+    navLynx.hidden = !hasAgency() || lynxCampaigns().length > 0;   // its briefs live under Library once there are any (the view stays: C5)
     navLynx.classList.toggle("on", VIEW.kind === "lynx");
     const n = document.getElementById("nav-lynx-n");
-    if (n) n.textContent = AGENCY?.state === "invited" ? "1"
-      : AGENCY?.state === "accepted" && AGENCY.briefs.length ? String(AGENCY.briefs.length) : "";
+    if (n) n.textContent = AGENCY?.state === "invited" ? "1" : "";
   }
 
   paintSetupDue();
@@ -2206,7 +2278,7 @@ function renderPaneInner() {
   if (VIEW.kind === "posts") return renderPosts(head, body);
   if (VIEW.kind === "feedback") return renderFeedback(head, body);
   if (VIEW.kind === "lynx") return renderLynx(head, body);
-  if (VIEW.kind === "lynxbrief") return renderLynxBrief(head, body);
+  if (VIEW.kind === "lynxcamp") return renderLynxCamp(head, body);
   if (VIEW.kind === "brand") {
     const b = brandById(VIEW.id);
     if (b) return renderBrand(head, body, b);
@@ -2405,13 +2477,14 @@ function wireBrandLookup(b) {
 
 // ---------- brand view ----------
 function renderBrand(head, body, b) {
+  const camp = campaignForBrand(b);   // D2 = A: a brand with a row under Library goes back to it
   const scripts = brandScripts(b);
   const ready = scripts.filter((a) => a.status === "done" && a.adaptation).length;
   const writing = scripts.filter(isWriting).length;
 
   head.innerHTML = `
     ${paneBarHtml("Library")}
-    <p class="pane-crumb"><button type="button" class="linkish" id="brand-back">Library <span aria-hidden="true">\u203a</span></button></p>
+    <p class="pane-crumb"><button type="button" class="linkish" id="brand-back">${camp ? `<span class="camp-name">${escapeHtml(camp.name)}</span>` : "Library"} <span aria-hidden="true">\u203a</span></button></p>
     <div class="pane-title">
       <div class="bcard-title" id="brand-heading" role="heading" aria-level="1">${escapeHtml(b.name || "Untitled brand")}</div>
       ${/* No standing script COUNT here any more — the list of scripts is
@@ -2709,7 +2782,7 @@ function renderBrand(head, body, b) {
     go(ME.brands.length ? { kind: "library" } : { kind: "new" });
   };
   armDelete(head.querySelector(".b-del"), "Delete this brand", removeBrand);
-  document.getElementById("brand-back")?.addEventListener("click", () => go({ kind: "library" }));
+  document.getElementById("brand-back")?.addEventListener("click", () => (camp ? openLynxCamp(camp.key, null) : go({ kind: "library" })));
 
 
   renderScripts(b);
@@ -2725,7 +2798,7 @@ let LIB_Q = "";
 // picking one. Not persisted. Until the viewer picks one (or a send lands on All videos) it follows the account: By brand
 // once there is at least one named brand, All videos before that. Read it through libMode().
 let LIB_MODE = null;
-const libMode = () => LIB_MODE || (namedBrands().length ? "brand" : "all");
+const libMode = () => LIB_MODE || (namedBrands().some((b) => !libHidesBrand(b)) ? "brand" : "all");
 const LIB_SEARCH_AT = 4;      // searching three items is noise; the box stays hidden
 
 /* ================= FINDING A SCRIPT =================
@@ -3130,7 +3203,7 @@ function renderLibrary(head, body) {
         <button type="button" class="ghost lib-newbrand" id="lib-new-brand">New brand</button>
       </div>
       <p class="composer-note" id="lib-flash" role="status" aria-live="polite"></p>
-      ${ME.library.length >= LIB_SEARCH_AT ? findBarHtml({
+      ${ME.library.filter(libShowsItem).length >= LIB_SEARCH_AT ? findBarHtml({
         id: "lib", q: LIB_Q, sort: LIB_SORT, sorts: ["new", "old", "az", "most"],
         placeholder: "search titles, brands, captions", brief: "search videos",
         what: "your library",
@@ -3191,15 +3264,16 @@ function wireBrandNames(host) {
 function paintLibraryList() {
   const host = document.getElementById("lib-list");
   if (!host) return;
+  const libAll = ME.library.filter(libShowsItem);
 
-  if (!ME.library.length) {
+  if (!libAll.length) {
     host.innerHTML = `<div class="empty lib-empty">
       ${emptyDemo()}
       <p><strong>Nothing in your library yet.</strong></p>
       <p>Find a video worth remaking, paste the link, and pick who it's for. We write the script
       and it shows up here — one entry per video, however many companies you script it for.</p>
       <div class="bp-actions"><button type="button" class="btn" id="lib-empty-cta">Add your first script</button></div>
-    </div>${ME.brands.map((b) => bareBrandGroupHtml(b)).join("")}`;
+    </div>${ME.brands.filter((b) => !libHidesBrand(b)).map((b) => bareBrandGroupHtml(b)).join("")}`;
     host.querySelector("#lib-empty-cta").addEventListener("click", () => go({ kind: "new" }));
     wireBrandNames(host);
     return;
@@ -3214,7 +3288,7 @@ function paintLibraryList() {
      stop scrolling" — the two things a creator actually remembers. See libHay. */
   const q = LIB_Q.trim();
   const shown = findSort(
-    q ? ME.library.filter((it) => findMatch(libHay(it), q)) : ME.library,
+    q ? libAll.filter((it) => findMatch(libHay(it), q)) : libAll,
     LIB_SORT, (it) => sourceLabel(it), (it) => libScripts(it).length);
 
   /* Two different questions, one line, and never both at once.
@@ -3236,7 +3310,7 @@ function paintLibraryList() {
      Silent when the two agree — there is nothing to explain then. */
   const tally = document.getElementById("lib-count");
   if (tally) {
-    const saved = ME.library.length;
+    const saved = libAll.length;
     const tagged = taggedVideoCount();
     tally.textContent =
       shown.length !== saved ? `${shown.length} of ${saved}`
@@ -3261,11 +3335,11 @@ function paintLibraryList() {
     // One block per company, so "what does Cloey actually have?" is answerable
     // at a glance. A video reused across three companies appears under each —
     // that repetition IS the answer to the question this view asks.
-    const blocks = ME.brands.map((b) => {
-      const items = shown.filter((it) => libScripts(it).some((a) => a.brandId === b.id));
+    const blocks = ME.brands.filter((b) => !libHidesBrand(b)).map((b) => {
+      const items = shown.filter((it) => libVisibleScripts(it).some((a) => a.brandId === b.id));
       if (!items.length) return q ? "" : bareBrandGroupHtml(b);     // not while searching: a brand with nothing to match is noise
-      const ready = ME.adaptations.filter((a) => a.brandId === b.id && a.status === "done").length;
-      const busy = ME.adaptations.filter((a) => a.brandId === b.id && isWriting(a)).length;
+      const ready = ME.adaptations.filter((a) => a.brandId === b.id && !inCampaignRow(a) && a.status === "done").length;
+      const busy = ME.adaptations.filter((a) => a.brandId === b.id && !inCampaignRow(a) && isWriting(a)).length;
       /* A DETAILS, OPEN BY DEFAULT (owner, 2026-08-26: "add a box around the
          entire brand section that can collapse"). data-gid is what lets
          restoreDisclosures keep a closed one closed across the 2.5s repaint —
@@ -3322,7 +3396,7 @@ function paintLibraryList() {
        source transcript and shot list next to its rewrite (hasSourceScript), so
        a video scripted for a company belongs here too, at no extra cost. */
     const items = shown.filter((it) =>
-      libScripts(it).some((a) => !a.brandId || hasSourceScript(a)));
+      libVisibleScripts(it).some((a) => !a.brandId || hasSourceScript(a)));
     host.innerHTML = items.length
       ? `<div class="bp-list script-grid">${items.map((it) => libraryItemHtml(it, SCOPE_ORIGINAL)).join("")}</div>`
       : `<div class="empty"><p><strong>No original scripts yet.</strong></p>
@@ -3419,7 +3493,7 @@ function paintLibraryList() {
  *  because Medceptor's copy was — the exact question this view exists to
  *  answer, answered wrongly. */
 function libraryItemHtml(item, scopeBrandId) {
-  const all = libScripts(item);
+  const all = libVisibleScripts(item);
   const asOriginal = scopeBrandId === SCOPE_ORIGINAL;
   /* THE ORIGINAL SCRIPT BELONGS TO THE VIDEO, NOT TO A BRAND. One video
      scripted for three companies is three records carrying the SAME transcript
@@ -3808,12 +3882,16 @@ const AGENCY_NAME = "Lynx Media Group";
 const AGENCY_MARK = `<svg class="lynx-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.69 22.36L22.46 22.33 22.11 22.18 21.71 21.94 21.16 21.51 20.06 20.86 18.88 20.31 17.84 19.91 16.64 19.56 15.34 19.28 14.08 19.11 12.67 19.01 11.33 19.01 9.89 19.11 8.51 19.31 6.89 19.68 5.67 20.08 4.49 20.59 3.19 21.29 2.69 21.61 2.31 21.91 1.79 22.23 1.62 22.31 1.29 22.36 1.16 22.31 1.08 22.22 1.0 22.05 1.0 21.57 1.18 20.78 3.05 14.9 5.92 5.68 6.11 5.17 6.25 4.88 6.49 4.57 6.84 4.34 7.27 4.32 7.71 4.54 8.0 4.83 8.35 5.37 9.53 7.7 10.17 8.9 10.37 9.2 10.61 9.46 10.84 9.59 11.01 9.59 11.19 9.49 11.35 9.3 11.7 8.65 14.12 2.73 14.42 2.18 14.69 1.89 14.86 1.77 15.23 1.64 15.51 1.67 15.74 1.77 16.07 2.07 16.33 2.53 16.45 2.85 22.82 20.79 22.97 21.45 23.0 21.99 22.9 22.25 22.84 22.31 22.69 22.36Z"/></svg>`;
 let AGENCY = null;                              // { state, briefs: [...], campaign } or null = not asked
 let AGENCY_STATE = "idle";                      // idle | loading | ready | missing | error
+let AGENCY_AT = 0;                              // when my_agency() last answered (the tab-return re-read, Step 6)
 async function refreshAgency() {
   if (AGENCY_STATE !== "ready") AGENCY_STATE = "loading";
   try {
     AGENCY = await sbFetch("/rest/v1/rpc/my_agency", { method: "POST", body: "{}" });
     AGENCY_STATE = "ready";
+    AGENCY_AT = Date.now();
   } catch (ex) {
+    // A re-read that fails after a good one keeps the good one: the brand rows under Library must not vanish on a blip.
+    if (AGENCY_STATE === "ready" && AGENCY) return;
     // Not installed yet (supabase/agency_roster.sql hasn't been applied) —
     // silent, per the plan: the section simply never appears. Any other
     // failure (offline, a real error) is "error", which the section DOES
@@ -3823,6 +3901,81 @@ async function refreshAgency() {
   }
 }
 const hasAgency = () => AGENCY?.state === "accepted" || AGENCY?.state === "invited";
+/* BRANDS UNDER LIBRARY (owner, 2026-10-31; plan ~/.claude/plans/creator-library-campaign-sections.md). One rail row per
+   brand a Lynx brief came from. lynxKey() = rostBrandKey() in app.js, letter for letter: change them together. The
+   brief-link plan (agency-brief-share-link.md) builds ?lynx= with rostBrandKey and calls lynxKey during script load,
+   so it is a hoisted function that uses nothing declared after it. */
+function lynxKey(s) {
+  return String(s ?? "").trim().replace(/\s+/g, " ").replace(/\s+campaign$/i, "")
+    .normalize("NFKD").replace(/\p{M}+/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+let CAMPS_MEMO = { src: undefined, state: "", list: [] };
+/** [{ key, name, briefs: [{ id, title, client_name, sent_at, formats }] }]: newest activity first, briefs newest
+    first. [] unless the roster has answered "accepted". Recomputed only when AGENCY is a new object. */
+function lynxCampaigns() {
+  if (CAMPS_MEMO.src === AGENCY && CAMPS_MEMO.state === AGENCY_STATE) return CAMPS_MEMO.list;
+  const list = [];
+  if (AGENCY_STATE === "ready" && AGENCY?.state === "accepted") {
+    const byKey = new Map();
+    const briefs = (Array.isArray(AGENCY.briefs) ? AGENCY.briefs : []).filter((b) => b && b.id)
+      .map((b) => ({ ...b, id: String(b.id) }))
+      .sort((x, y) => (Date.parse(y.sent_at || "") || 0) - (Date.parse(x.sent_at || "") || 0));
+    for (const b of briefs) {
+      const name = String(b.client_name ?? "").trim().replace(/\s+/g, " ") || AGENCY_NAME;   // no client name: files under the agency
+      const key = lynxKey(name) || "lynx";
+      if (!byKey.has(key)) { const c = { key, name, briefs: [] }; byKey.set(key, c); list.push(c); }
+      byKey.get(key).briefs.push(b);
+    }
+  }
+  CAMPS_MEMO = { src: AGENCY, state: AGENCY_STATE, list };
+  return list;
+}
+/** First sight of the brand rows: briefs sent more than 7 days ago count as read; newer ones show the dot until opened. */
+function seedBriefsSeen() {
+  if (Array.isArray(ME.briefsSeen) || !lynxCampaigns().length) return;
+  const cut = Date.now() - 7 * 864e5;
+  ME.briefsSeen = lynxCampaigns().flatMap((c) => c.briefs)
+    .filter((b) => (Date.parse(b.sent_at || "") || 0) < cut).map((b) => b.id);
+  save();
+}
+function briefUnseen(id) { return Array.isArray(ME.briefsSeen) && !ME.briefsSeen.includes(String(id)); }
+/** Opening a brief reads it. Kept to the briefs still delivered, so the list never outgrows the roster's own. */
+function markBriefSeen(id) {
+  seedBriefsSeen();
+  if (!id || !Array.isArray(ME.briefsSeen) || ME.briefsSeen.includes(String(id))) return;
+  const live = new Set(lynxCampaigns().flatMap((c) => c.briefs.map((b) => b.id)));
+  ME.briefsSeen = [...ME.briefsSeen.filter((x) => live.has(x)), String(id)];
+  save();
+  renderSide();
+}
+/** Contract C3 (agency-brief-share-link.md): open a brand's page. briefId null = its newest brief; key null = the brand
+    that briefId files under. A brief link landing from the link plan's waiting loader (VIEW._lynxWait) REPLACES that
+    entry, so Back never returns to a loader. */
+function openLynxCamp(key, briefId) {
+  const view = { kind: "lynxcamp", key: key || null };
+  if (briefId) view.briefId = String(briefId);
+  go(view, { nav: VIEW && VIEW._lynxWait ? "replace" : "push" });
+}
+/* D2 = A (plan creator-library-campaign-sections.md): a script saved from a Lynx brief whose brand has its own row under
+   Library lives under that row, so the Library page leaves it out. FAILS OPEN: until the roster has answered (or when it
+   cannot), no brand has a row and nothing is hidden. */
+function campaignForBrand(b) {
+  if (!b) return null;
+  const k = lynxKey(b.name || "");
+  return lynxCampaigns().find((c) => c.key === k) || null;
+}
+function inCampaignRow(a) {
+  if (!a || !a.fromAgency) return false;
+  const k = lynxKey(a.fromAgency.client || a.brandName || "");
+  return lynxCampaigns().some((c) => c.key === k);
+}
+function libVisibleScripts(item) { return libScripts(item).filter((a) => !inCampaignRow(a)); }
+function libShowsItem(item) { const all = libScripts(item); return !all.length || all.some((a) => !inCampaignRow(a)); }
+/** A brand Library does not show: it has a row and nothing in it but saved brief scripts. A brand that also holds the
+    creator's own scripts stays, showing only those. */
+function libHidesBrand(b) {
+  return !!campaignForBrand(b) && !ME.adaptations.some((x) => x.brandId === b.id && !inCampaignRow(x));
+}
 /* WHO THIS ACCOUNT IS (CM portal, plan ~/.claude/plans/lynxr-cm-portal.md): { staff, cm } from my_roles()
    (supabase/cm_portal.sql), or from is_staff() alone before that SQL is run. Asked once per page load (sign-out
    reloads). The account menu's "Agency app" / "CM view" and the link wall's CM exemption both read it. null = no
@@ -5068,7 +5221,7 @@ function ensureAgencyInviteModal() {
       </div>
       <div class="sendbox-body">
         <p class="lynx-invite-h" id="lynx-invite-h"></p>
-        <p class="bp-hint">Accept and the briefs they send you show up here, under ${escapeHtml(AGENCY_NAME)}.
+        <p class="bp-hint">Accept and the briefs they send you show up under Library, one row per brand.
           They never see your own scripts, library or plan, and agency scripts never count against your plan.</p>
         <p class="bp-msg" id="lynx-invite-msg" role="status" aria-live="polite"></p>
         <div class="sendbox-actions lynx-invite-actions">
@@ -5469,7 +5622,7 @@ function renderLynx(head, body) {
   if (AGENCY.state === "invited") {
     body.innerHTML = `<div class="bcard lynx-card">
       <p><strong>${agencyInviteLine()}</strong></p>
-      <p class="bp-hint">You'll see briefs Lynx sends you here. They never see your own scripts,
+      <p class="bp-hint">Once you accept, the briefs Lynx sends you show up under Library, one row per brand. They never see your own scripts,
         library or plan, and agency scripts never count against your plan.</p>
       <div class="bp-actions"><button type="button" class="btn" id="lynx-accept">Accept</button></div>
       <p class="bp-msg" id="lynx-accept-msg" role="status" aria-live="polite"></p>
@@ -5514,7 +5667,7 @@ function renderLynx(head, body) {
   // in the interface calls it.
 
   body.querySelectorAll(".lynx-brief-card").forEach((card) => {
-    const open = () => go({ kind: "lynxbrief", id: card.dataset.id });
+    const open = () => openLynxCamp(null, card.dataset.id);
     card.addEventListener("click", open);
     card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
   });
@@ -5931,25 +6084,101 @@ function lynxWatchClips(id) {
   }, LYNX_CLIP_POLL_MS);
 }
 
+/** A brand's page (contract C2): VIEW = { kind: "lynxcamp", key, briefId }. With no briefId (its row, or ?lynx= alone)
+    the newest brief opens and VIEW.auto marks that the page picked it, so the address names only the brand. A briefId
+    wins over the key: the brief decides which brand page it is. Delegates the brief itself to renderLynxBrief. */
+function renderLynxCamp(head, body) {
+  const bare = (html) => {
+    head.innerHTML = `${paneBarHtml("Library")}${pageH1("Library")}`;
+    document.getElementById("side-open").addEventListener("click", (e) => {
+      const open = document.body.classList.toggle("side-open");
+      e.currentTarget.setAttribute("aria-expanded", open);
+    });
+    body.innerHTML = html;
+  };
+  if (AGENCY_STATE === "idle" || (AGENCY_STATE === "loading" && !AGENCY)) {
+    bare(`<div class="loader" role="status" aria-live="polite">${loaderMark()}
+      <div class="loader-text"><div class="lbl">Loading…</div></div></div>`);
+    if (AGENCY_STATE === "idle") refreshAgency().then(() => { if (VIEW.kind === "lynxcamp") { renderSide(); renderPane(); } });
+    return;
+  }
+  if (!AGENCY || AGENCY_STATE === "missing" || AGENCY_STATE === "error") {
+    bare(`<div class="empty"><p>Couldn't load this section.</p></div>`);
+    return;
+  }
+  // Not accepted yet, or left: the Lynx section's own card says what to do.
+  if (AGENCY.state === "invited" || AGENCY.state === "left") return renderLynx(head, body);
+  const camps = lynxCampaigns();
+  const asked = VIEW.briefId ? camps.find((c) => c.briefs.some((b) => b.id === VIEW.briefId)) : null;
+  const camp = asked || camps.find((c) => c.key === VIEW.key) || null;
+  if (!camp) {
+    bare(`<div class="empty"><p>${VIEW.briefId ? "This brief isn't available any more." : "This campaign isn't available any more."}</p>
+      <button type="button" class="ghost" id="camp-lib">Go to Library</button></div>`);
+    document.getElementById("camp-lib").addEventListener("click", () => go({ kind: "library" }));
+    return;
+  }
+  VIEW.key = camp.key;
+  if (!asked) { VIEW.briefId = camp.briefs[0].id; VIEW.auto = true; }   // its newest; a brief no longer delivered falls back here
+  renderLynxBrief(head, body, camp);
+  paintSideCampaigns();          // a brief-only open learns its brand here: light its row
+}
+
+const CAMP_TABS_MAX = 4;         // Hick: four tabs at most; the rest wait in the Older menu
+/** "This week" for a newest brief sent in the last 7 days, else its send date ("Oct 21"). */
+function briefTabLabel(b, i) {
+  const t = Date.parse(b.sent_at || "");
+  if (i === 0 && Number.isFinite(t) && Date.now() - t < 7 * 864e5) return "This week";
+  return asOfLabel(b.sent_at) || "Brief";
+}
+function campTabsHtml(camp, sel) {
+  if (camp.briefs.length < 2) return "";
+  const tabs = camp.briefs.slice(0, CAMP_TABS_MAX).map((b, i) => {
+    const on = b.id === sel;
+    return `<button type="button" class="camp-tab${on ? " on" : ""}" data-bid="${escapeHtml(b.id)}"${i === 0 ? ' data-newest="1"' : ""} aria-pressed="${on}">`
+      + escapeHtml(briefTabLabel(b, i))
+      + (!on && briefUnseen(b.id) ? `<span class="camp-dot" aria-hidden="true"></span><span class="sr-only"> new</span>` : "")
+      + `</button>`;
+  }).join("");
+  const older = camp.briefs.slice(CAMP_TABS_MAX);
+  const olderOn = older.some((b) => b.id === sel);
+  const menu = older.length
+    ? `<label class="camp-older${olderOn ? " on" : ""}"><span class="sr-only">Older briefs</span><select class="camp-older-sel">`
+      + `<option value=""${olderOn ? "" : " selected"}>Older</option>`
+      + older.map((b) => `<option value="${escapeHtml(b.id)}"${b.id === sel ? " selected" : ""}>${escapeHtml(briefTabLabel(b, CAMP_TABS_MAX))}${b.id !== sel && briefUnseen(b.id) ? " · new" : ""}</option>`).join("")
+      + `</select></label>`
+    : "";
+  return `<div class="camp-tabs" role="group" aria-label="Briefs">${tabs}${menu}</div>`;
+}
+function wireCampTabs(head, camp) {
+  head.querySelectorAll(".camp-tab").forEach((t) => t.addEventListener("click", () => {
+    if (t.classList.contains("on")) return;
+    openLynxCamp(camp.key, t.dataset.newest ? null : t.dataset.bid);
+  }));
+  head.querySelector(".camp-older-sel")?.addEventListener("change", (e) => {
+    if (e.target.value) openLynxCamp(camp.key, e.target.value);
+  });
+}
+
 /** The brief page: read-only (decision 4), loaded via agencyBriefDoc(VIEW.id).
     The fetch result is kept on the VIEW object itself, not a module cache —
-    each go({kind:"lynxbrief", id}) is a NEW VIEW object, so navigating away
+    each go() to a brand page is a NEW VIEW object, so navigating away
     and back always re-fetches rather than showing a stale doc. `VIEW !==
     myView` after the await is how a navigation that happened meanwhile is
     detected, the same pattern liveRec() uses elsewhere in this file. */
-function renderLynxBrief(head, body) {
-  const id = VIEW.id;
-  /* The brief's name is the page's name, the way a brand page's head is the brand (renderBrand).
-     "Brief" only until the doc has arrived. */
-  const title = (VIEW._docId === id && VIEW._doc && VIEW._doc.title) || "Brief";
+function renderLynxBrief(head, body, camp) {
+  const id = VIEW.briefId;
+  // Reading a brief clears its dot. Done before the head is drawn, so its own tab never shows one.
+  if (VIEW._docId === id && VIEW._doc) markBriefSeen(id);
   head.innerHTML = `
-    ${paneBarHtml(AGENCY_NAME)}
-    <div class="pane-title"><div class="bcard-title">${escapeHtml(title)}</div></div>
-    <p class="pane-sub lynx-from">${AGENCY_MARK}From ${escapeHtml(AGENCY_NAME)}.</p>`;
+    ${paneBarHtml("Library")}
+    <div class="pane-title"><div class="bcard-title camp-name" id="camp-heading" role="heading" aria-level="1">${escapeHtml(camp.name)}</div></div>
+    <p class="pane-sub lynx-from">${AGENCY_MARK}From ${escapeHtml(AGENCY_NAME)}.</p>
+    ${campTabsHtml(camp, id)}`;
   document.getElementById("side-open").addEventListener("click", (e) => {
     const open = document.body.classList.toggle("side-open");
     e.currentTarget.setAttribute("aria-expanded", open);
   });
+  wireCampTabs(head, camp);
 
   if (VIEW._docId !== id) {
     body.innerHTML = `<div class="loader" role="status" aria-live="polite">${loaderMark()}
@@ -5967,8 +6196,8 @@ function renderLynxBrief(head, body) {
   const doc = VIEW._doc;
   if (!doc) {
     body.innerHTML = `<div class="empty"><p>This brief isn't available any more.</p>
-      <button type="button" class="ghost" id="lynx-brief-back">Back</button></div>`;
-    document.getElementById("lynx-brief-back").addEventListener("click", () => go({ kind: "lynx" }));
+      <button type="button" class="ghost" id="lynx-brief-back">Go to Library</button></div>`;
+    document.getElementById("lynx-brief-back").addEventListener("click", () => go({ kind: "library" }));
     return;
   }
 
@@ -5992,7 +6221,7 @@ function renderLynxBrief(head, body) {
   const updatedOn = /^\d{4}-\d{2}-\d{2}/.test(String(doc.updated_at || "")) ? String(doc.updated_at).slice(0, 10) : "";
   const hasCopy = (ME.adaptations || []).some((a) => a.fromAgency?.briefId === id);
   const updated = updatedOn
-    ? `<p class="bp-hint lynx-updated">Updated ${escapeHtml(updatedOn)}.${hasCopy ? " Scripts already in your library keep the version you added." : ""}</p>`
+    ? `<p class="bp-hint lynx-updated">Updated ${escapeHtml(updatedOn)}.${hasCopy ? " Copies you saved keep the version you saved." : ""}</p>`
     : "";
   const formats = Array.isArray(doc.formats) ? doc.formats : [];
   /* ONE FORMAT OPENS ITSELF; SEVERAL WAIT AS TILES — the Library's own rule (libraryItemHtml: "A single
@@ -6000,13 +6229,14 @@ function renderLynxBrief(head, body) {
      list IS the choice"). VIEW._openFid lives on this VIEW object, so it survives a repaint of the same
      view (Add to my library, a clip arriving) and resets when go() makes a new one. */
   if (VIEW._openFid === undefined) VIEW._openFid = formats.length === 1 ? lynxFid(formats[0], 0) : null;
-  const facts = updated + top;
+  const named = doc.title ? `<p class="lynx-brief-name">${escapeHtml(doc.title)}</p>` : "";   // the page title is the brand now
+  const facts = named + updated + top;
   const addable = formats.filter((f) => !f.from_scratch).length;   // one written from scratch has no video: no library entry
   body.innerHTML = `
     ${facts ? `<div class="section lynx-brief-head">${facts}</div>` : ""}
     ${lynxFilesHtml(VIEW._files)}
     ${addable > 1
-      ? `<div class="bp-actions"><button type="button" class="btn" id="lynx-add-all">Add all ${addable} to my library</button></div>`
+      ? `<div class="bp-actions"><button type="button" class="btn" id="lynx-add-all">Save all ${addable}</button></div>`
       : ""}
     <div class="bp-list script-grid lynx-grid">${formats.map((f, i) => lynxFormatCardHtml(f, i, lynxFid(f, i) === VIEW._openFid, lynxBeatFiles(f, VIEW._files, VIEW._fileBeats), VIEW._files)).join("")}</div>
     <p class="note">Scripts Lynx sends you never count against your plan.</p>`;
@@ -6129,9 +6359,9 @@ function lynxFormatCardHtml(f, i, open = false, onBeat = new Map(), files = []) 
         ${scratch
           ? `<span class="bp-hint lynx-scratch-hint">Written by Lynx with no video, so it stays on this brief. Copy it to keep it.</span>`
           : already
-          ? `<button type="button" class="btn" disabled>In your library ✓</button>
-             <button type="button" class="linkish lynx-open-brand" data-fid="${escapeHtml(f.id)}">open it</button>`
-          : `<button type="button" class="btn lx-add" data-fid="${escapeHtml(f.id)}">Add to my library</button>`}
+          ? `<button type="button" class="btn" disabled>Saved ✓</button>
+             <button type="button" class="linkish lynx-open-brand" data-fid="${escapeHtml(f.id)}">edit your copy</button>`
+          : `<button type="button" class="btn lx-add" data-fid="${escapeHtml(f.id)}">Save a copy</button>`}
         <span class="bp-icons">
           <button type="button" class="ghost icon-only lx-copy" data-fid="${escapeHtml(f.id)}"
             aria-label="Copy this script" title="Copy this script">
@@ -6142,7 +6372,7 @@ function lynxFormatCardHtml(f, i, open = false, onBeat = new Map(), files = []) 
         </span>
       </div>
       ${already ? `<p class="bp-hint">Saved to your ${escapeHtml(already.brandName || "")} folder — edit it there.</p>` : ""}`;
-  const chip = already ? statusChip("good", "in your library", "added") : statusChip("", "from Lynx", "");
+  const chip = already ? statusChip("good", "saved a copy", "saved") : statusChip("", "from Lynx", "");
   return `<details class="bp-item lynx-fmt"${open ? " open" : ""} data-fid="${escapeHtml(fid)}">
     <summary>
       <span class="bp-caret" aria-hidden="true">▸</span>
@@ -8177,6 +8407,8 @@ function paintSideNews() {
                                    needs a script card on screen, e.g. &metric=winbrand, closed, then Library
      ...&roles=cm|staff|manager    my_roles() answers as a CM / staff / manager: the account menu shows "CM view" / "Manager view" /
                                    "Agency app"; a CM is never shown the link wall (try it with &metric=rosterwall)
+     ...&roster=accepted&briefs=demo   an accepted roster creator with 7 Lynx briefs from 3 brands (rows under Library,
+                                   brief tabs, an Older menu, one script already saved)
    ================================================================================================================ */
 const OBTEST = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   && new URLSearchParams(location.search).get("obtest") === "1";
@@ -8186,6 +8418,32 @@ if (OBTEST) {
   const pstore = () => OBFAKE.profiles || fakeProfiles;     // the array the profile reads answer from: a state's own list, else the first-run one
   const presses = {};
   const OBFAKE = { insights: { platforms: { instagram: true, tiktok: new URLSearchParams(location.search).get("obins") === "both" }, connected: new URLSearchParams(location.search).get("obins") === "connected" ? [{ platform: "instagram", handle: "maya.makes", since: new Date(Date.now() - 864e5).toISOString(), status: "active" }] : [] }, posts: [], followers: [], profiles: null, showcase: { featured: false, changed_at: null, approved: [] }, plan: { status: "active", plan_code: "max", features: ["post_tracking", "advanced_coaching"], plans: { max: { label: "max" } }, has_customer: false } };
+  /* &briefs=demo (plan creator-library-campaign-sections.md): briefs from three brands, uuid-shaped ids like the real ones.
+     OncourseAI has five (one spelled "Oncourse AI", still the same row), so it gets four tabs and an Older menu. */
+  const OB_B = (n) => `0b000000-0000-4000-8000-00000000000${n}`;
+  const obAgo = (days) => new Date(Date.now() - days * 864e5).toISOString();
+  const OB_BRIEFS = [
+    { id: OB_B(1), client_name: "OncourseAI", title: "OncourseAI Oct 26th - Nov 2nd Content Brief", sent_at: obAgo(0.05), formats: 2 },
+    { id: OB_B(2), client_name: "Write-it.us", title: "Write-it Content Brief 10/26/26 - 11/1/26", sent_at: obAgo(2), formats: 1 },
+    { id: OB_B(3), client_name: "OncourseAI", title: "OncourseAI 10/21 - 10/28 Content Brief", sent_at: obAgo(8), formats: 2 },
+    { id: OB_B(4), client_name: "Oncourse AI", title: "OncourseAI 10/13 - 10/20 Content Brief", sent_at: obAgo(16), formats: 1 },
+    { id: OB_B(5), client_name: "OncourseAI", title: "OncourseAI 10/5 - 10/12 Content Brief", sent_at: obAgo(23), formats: 1 },
+    { id: OB_B(6), client_name: "Cloey: Style Companion", title: "Cloey: 10/4 - 10/11 Content Brief", sent_at: obAgo(27), formats: 1 },
+    { id: OB_B(7), client_name: "OncourseAI", title: "OncourseAI 9/24 1st Brief", sent_at: obAgo(37), formats: 1 },
+  ];
+  const obFmt = (bid, n, title) => ({ id: `${bid}-f${n}`, title,
+    source_url: `https://www.tiktok.com/@demo.brief/video/771000000000000${bid.slice(-1)}${n}00`,
+    hook: "Nobody tells you this about nursing school.", delivery: "spoken",
+    beats: [{ t: "0-3s", say: "Nobody tells you this about nursing school.", do: "Talk straight to camera" },
+            { t: "3-10s", say: "This app quizzes me while I make coffee.", do: "Show the app on your phone" }],
+    cta: "Link's in my bio.", caption: "study hack", clip_state: "failed" });
+  const OB_BRIEF_DOC = (id) => {
+    const b = OB_BRIEFS.find((x) => x.id === id);
+    if (!b) return null;
+    return { v: 1, title: b.title, client: { name: b.client_name, sells: "A study app", audience: "", features: [] },
+      instructions: "", sent_at: b.sent_at,
+      formats: Array.from({ length: b.formats }, (_, i) => obFmt(b.id, i + 1, i ? "Day in my life" : "Hook and demo")) };
+  };
   sbFetch = async function (path, opts = {}) {      // eslint-disable-line no-func-assign -- preview only
     const body = opts.body ? JSON.parse(opts.body) : null;
     log("no network:", opts.method || "GET", path, body);
@@ -8246,10 +8504,14 @@ if (OBTEST) {
       const rr = new URLSearchParams(location.search).get("roles");
       return { staff: rr === "staff", cm: rr === "cm", manager: rr === "manager", companies: rr === "cm" ? 1 : 0 };
     }
+    if (path.includes("/rpc/my_agency_brief_files") || path.includes("/rpc/my_agency_brief_file_beats")) return [];
+    if (path.includes("/rpc/my_agency_brief")) return OB_BRIEF_DOC(body && body.p_id);
     if (path.includes("/rpc/my_agency")) {      // ?roster=accepted|invited|left|none; the link-wall state defaults to accepted, every other state to none
       const rs = new URLSearchParams(location.search).get("roster") || OBFAKE.roster
         || (new URLSearchParams(location.search).get("metric") === "rosterwall" ? "accepted" : "none");
-      return { state: ["accepted", "invited", "left"].includes(rs) ? rs : "none", briefs: [], campaign: "Cloey" };
+      const st = ["accepted", "invited", "left"].includes(rs) ? rs : "none";
+      const demo = st === "accepted" && new URLSearchParams(location.search).get("briefs") === "demo";
+      return { state: st, briefs: demo ? OB_BRIEFS.map((b) => ({ ...b })) : [], campaign: "Cloey" };
     }
     return null;
   };
@@ -8475,6 +8737,7 @@ if (OBTEST) {
       ME.rate = st.rate ? { usd: st.rate, at: at(NOW0) } : null;
       ME.postsSeenAt = st.news ? at(NOW0 - 3 * DAY) : at(NOW0);
       ME.firstWin = { at: at(NOW0), adid: null, tip: at(NOW0) };      // the first-script screen has been seen, unless the state is one that shows it
+      ME.briefsSeen = null;   // re-seed the unread dots for each state
       OBFAKE.posts = (st.posts || ALL_POSTS).map((x) => ({ ...x }));
       OBFAKE.followers = st.followers || ALL_FOLLOWERS;
       OBFAKE.plan = planFor(st);
@@ -8499,6 +8762,16 @@ if (OBTEST) {
             ...(brand && obHookCheck() ? { hookCheck: obHookCheck() } : {}) }];
         }
       }
+      if (new URLSearchParams(location.search).get("briefs") === "demo" && !st.win && !st.link) {
+        // One OncourseAI script already saved from the 10/21 brief, filed under an OncourseAI brand the way addAgencyFormat files it.
+        const f3 = obFmt(OB_B(3), 1, "Hook and demo"), t3 = at(NOW0 - 7 * DAY);
+        ME.brands.push({ id: "ob-b4", name: "OncourseAI", site: "", description: "A study app", objective: "", niche: "", code: "LYNX-OB4" });
+        ME.library.push({ id: "ob-lcopy", url: f3.source_url, canon: canonUrl(f3.source_url), title: f3.title, platform: "tiktok", addedAt: t3 });
+        ME.adaptations.push({ id: "ob-acopy", libraryId: "ob-lcopy", sourceUrl: f3.source_url, brandId: "ob-b4", brandName: "OncourseAI",
+          title: f3.title, status: "done", addedAt: t3, code: "LYNX-OB4",
+          adaptation: { hook: f3.hook, delivery: f3.delivery, beats: f3.beats, cta: f3.cta, caption: f3.caption },
+          fromAgency: { briefId: OB_B(3), formatId: f3.id, client: "OncourseAI", at: t3 } });
+      }
       POSTS = OBFAKE.posts; FOLLOWERS = OBFAKE.followers; POSTS_STATE = "ok";
       COACH_PREVIEW = !!st.coach;             // the preview paints the coach even while COACH_APP_LIVE is off; this flag exists only inside this localhost-only block
       OBFAKE.coach = st.coach ? coachFor(st) : null;
@@ -8522,7 +8795,7 @@ if (OBTEST) {
         b.style.background = on ? "#fff" : "rgba(255,255,255,.1)";
         b.style.color = on ? "#14122b" : "#fff";
       });
-      const u = new URL(location.href); u.searchParams.set("metric", key); history.replaceState(null, "", u);
+      const u = new URL(location.href); u.searchParams.set("metric", key); history.replaceState(history.state, "", u);
       if (st.win) { ME.firstWin = null; onbMaybeWin(); }
       if (st.link) { ME.firstWin = { at: at(NOW0), adid: "ob-awin", tip: at(NOW0) }; openSetupModal(true, "link"); }
     };
@@ -14013,6 +14286,7 @@ function unlock() {
   document.getElementById("app").style.display = "block";
   if (HOME) enterApp();
   renderAll();
+  writeRoute(VIEW, "state");   // the first entry carries its view for Back; the URL is left alone (the link plan reads it)
   startLiveSync();
   // AFTER SIGN-IN. renderAll() has already painted the rail from the local
   // count; this repaints it with the server's the moment it answers. Not
@@ -14026,6 +14300,8 @@ function unlock() {
   // …and, when that answer is an open invite, the popup (once per page load).
   // The link wall reads the roster AND who this account is (a CM is never walled), so wait for both.
   const agencyReady = Promise.all([refreshAgency(), myRolesOnce()]).then(() => { renderSide(); if (VIEW.kind === "lynx") renderPane(); openAgencyInvite(); });
+  // Library and a saved script's folder depend on which brands have rows (Steps 8–9): repaint once the roster answers.
+  agencyReady.then(() => { if ((VIEW.kind === "library" || VIEW.kind === "brand") && !editInFlight()) renderPane(); });
   // Setup answers are saved and the overlay decided AFTER renderAll(), which is where a pasted link has already been
   // sent: setup never delays the first script.
   setupAfterUnlock(agencyReady);
@@ -14034,6 +14310,21 @@ function unlock() {
   takeBillingReturn();
   takeInsightsReturn();
 }
+
+/* A NEW WEEKLY BRIEF WHILE THE APP SITS OPEN (plan creator-library-campaign-sections.md). Coming back to the tab re-reads
+   my_agency() at most once every 5 minutes, roster creators only. It repaints only when the brands or briefs changed, so a
+   playing video is not interrupted for nothing, and never mid-edit. A failed re-read keeps what was there (refreshAgency). */
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || !unlocked || AGENCY_STATE !== "ready" || !hasAgency()) return;
+  if (Date.now() - AGENCY_AT < 5 * 60e3) return;
+  const sig = () => JSON.stringify([AGENCY?.state, lynxCampaigns().map((c) => [c.key, c.briefs.map((b) => b.id)])]);
+  const before = sig();
+  refreshAgency().then(() => {
+    if (sig() === before) return;
+    renderSide();
+    if (["lynxcamp", "lynx", "library", "brand"].includes(VIEW.kind) && !editInFlight()) renderPane();
+  });
+});
 
 /* BACK FROM STRIPE. billing-checkout sets success_url to /?billing=done,
    cancel_url to /?billing=cancelled and the portal's return_url to
@@ -14905,6 +15196,18 @@ document.getElementById("nav-posts")?.addEventListener("click", () => { go({ kin
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
 document.getElementById("nav-plan").addEventListener("click", () => go({ kind: "plan" }));
 document.getElementById("nav-lynx").addEventListener("click", () => go({ kind: "lynx" }));
+/* BACK AND FORWARD (plan creator-library-campaign-sections.md). Only entries this app wrote (history.state.lynxrView)
+   are pages; anything else (a #fragment link, the sign-in card's entry) is ignored. Never reads the URL (contract C4). */
+addEventListener("popstate", (e) => {
+  if (!unlocked) return;
+  const r = e.state && e.state.lynxrView;
+  if (!r) return;
+  const v = { kind: r.kind };
+  if (r.key) v.key = r.key;
+  if (r.briefId) v.briefId = r.briefId;
+  if (r.id) v.id = r.id;
+  go(v, { nav: "none" });
+});
 /* THE RAIL TOGGLE AND SETTINGS STAY ONE FACT. theme.js owns the flip and
    announces it; this mirrors the choice into ME so it reaches the creator's
    other devices (same job as Settings' own change handler), and keeps the
