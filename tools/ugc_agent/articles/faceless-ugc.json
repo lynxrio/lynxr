@@ -1,0 +1,260 @@
+{
+  "question_id": "q015",
+  "slug": "faceless-ugc",
+  "theme": "ugc-getting-started",
+  "title": "Can you make UGC without showing your face?",
+  "description": "Faceless UGC works when each video is built on your hands, voice or screen. Formats that suit it, how to check the brief, and how to script with no face.",
+  "short_answer": "You can make UGC without showing your face by building each video around your hands, your voice or your screen instead. Hands-only demos, voiceover over product shots and screen recordings all work, as long as the brief does not ask for a face and the script gives the viewer something new to watch with every line.",
+  "sections": [
+    {
+      "heading": "Which UGC formats work without showing a face?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Hands-only demos, voiceover over product shots, screen recordings and point-of-view shots all work without a face, because each one gives the camera something else to watch.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Format",
+            "What the camera sees",
+            "Suits",
+            "Watch out for"
+          ],
+          "table_rows": [
+            [
+              "Hands-only demo",
+              "Your hands opening, using and putting the product away.",
+              "Physical products with a texture, a mechanism or a mess to deal with.",
+              "Your nails, sleeves and the surface underneath fill the whole frame."
+            ],
+            [
+              "Voiceover over product shots",
+              "Close-ups and room shots of the product, with your voice on top.",
+              "Products whose story is a routine or a problem you had.",
+              "The voice carries the hook, so record it somewhere quiet."
+            ],
+            [
+              "Screen recording",
+              "The app on your phone, with your taps visible.",
+              "Apps and other digital products.",
+              "Clear your notifications and home screen before you record."
+            ],
+            [
+              "Point-of-view shot",
+              "The scene from your eyes, phone held at chest height.",
+              "Things you use on the move, such as a bag or a bottle.",
+              "Move slowly, so the viewer can follow what you are doing."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Each of these is a [format](/glossary/#format) in its own right, not a lesser version of a talking video. Pick the one that shows the product best, then check the brief allows it. If you are unsure what counts as a format and what is only a topic, read [what a UGC video format is](/what-is-a-video-format/) before you choose.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you know if a brand will take faceless UGC?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Read the brief, then ask, because only the brand can tell you whether this job needs a face on camera.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Look in the [brief](/glossary/#brief) for words like talking head, reaction, speaking to camera or on-camera talent. Any of those means a face is part of the job, and a faceless pitch would miss it. If the brief says nothing either way, ask before you quote or script:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "“Hi [NAME], before I script this, can I check one thing? I film hands-only and voiceover videos rather than talking to camera. For [PRODUCT] I'd show it in use with my voice over the top. Does that work for this brief?”",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Asking first saves you writing a script the brand can't use, and it tells the brand exactly what it is getting. Once the format is agreed, the steps in [how to turn a brand brief into a script](/blog/brief-to-script/) apply just as they would to any other video.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you script a video when nobody sees your face?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Plan the picture first and the words second, because without a face the viewer reads every feeling from your hands and your voice.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Give every spoken line its own shot. A face can hold a line on its own, but a still product can't, so plan a new angle or action each time you speak.",
+            "Open on movement. A hand tearing a seal or a thumb mid-scroll gives the viewer something to watch before you have said a word.",
+            "Let your voice do the work your face would. Record the voiceover separately and slower than feels natural, because a voice with no face has to carry the warmth.",
+            "React with your hands. A pause before you open something, a tap on the lid or a slow turn of the bottle all read as a feeling.",
+            "Write it as a [two-column script](/glossary/#two-column-script), so you and the brand can see the shot that goes with every line."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a refillable glass spray bottle",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I was binning a plastic spray bottle every single time the cleaner ran out.",
+              "do": "Close shot of your hand dropping an empty plastic bottle into a recycling bin."
+            },
+            {
+              "part": "setup",
+              "say": "So the plastic one is gone, and this lives under my sink now.",
+              "do": "Your hands set a glass spray bottle on the counter beside a small refill sachet."
+            },
+            {
+              "part": "beat 1",
+              "say": "The refill is a little sachet. In it goes, then water up to the line.",
+              "do": "Overhead shot of your hands tipping the sachet in and filling the bottle at the tap."
+            },
+            {
+              "part": "turn",
+              "say": "The bit I like is the weight. It doesn't skate off the counter when I put it down.",
+              "do": "Close-up of one spray on the counter, then the bottle set down and staying put."
+            },
+            {
+              "part": "close",
+              "say": "It's linked, if your cupboard has as many empty bottles as mine did.",
+              "do": "Your hands slide the bottle back under the sink and close the cupboard door."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "What do you need to film faceless UGC well?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "You need steady framing, good light on your hands and clear sound, because those replace the face as the thing people watch.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the kit simple. The basics in [what equipment you need to start making UGC](/blog/ugc-equipment-to-start/) still apply, and for hands-only work the piece that matters most is something that holds your phone still above a table, so both hands are free. Film near a window with the light falling across your hands, not behind them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Then treat your hands like a presenter. Tidy your nails, push your sleeves back and clear the surface, because in a faceless video those details are the frame. Do a test take and watch it back with the sound off, so you can see whether the picture tells the story on its own.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Can faceless videos go in a UGC portfolio?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "They can, as long as you label each sample with its format, so a brand can see at a glance what you offer.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Make a few faceless samples that each show a different format: one hands-only demo, one voiceover and one screen recording. That shows range without a face in any of them. [How to make UGC samples before any brand hires you](/blog/ugc-samples-without-a-brand/) walks through picking products for them, and [what a UGC portfolio should include](/blog/what-to-put-in-a-ugc-portfolio/) covers how to lay them out.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you would show your face for some jobs, say so on the portfolio too. It lets a brand with a talking brief still consider you, and it means you decide the trade-off job by job instead of ruling yourself out.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-02",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I was binning a plastic spray bottle every single time the cleaner ran out."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}
