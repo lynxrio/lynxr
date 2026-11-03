@@ -410,7 +410,7 @@ if (document.body.classList.contains("home") && "scrollRestoration" in history) 
    performs the x is pointer-events: none, aria-hidden and takes no layout; where it rests is chosen by
    MEASURING the page so it covers no text and no control; no JS or a thrown error leaves the hero
    exactly as it is with no performer at all; reduced motion and a background tab never arm it.
-   IT DOES NOT RUN when the gate opens on load (?signup=1, an invite ?e=/?c=, a confirmation, OAuth
+   IT DOES NOT RUN when the gate opens on load (?signup=1, an invite ?e=/?c=, a brief link ?lynx=, a confirmation, OAuth
    or reset link in the #fragment), when a session is stored (resume() in creator.js takes the visitor
    into the app), or when the cards are not on screen. If the gate opens or the app replaces the page
    mid-flight, it ends.
@@ -440,7 +440,7 @@ const hxPick = (sel) => {
 (function armPerformer() {
   const sec = document.querySelector("body.home .hx");
   if (!HX.on || !sec) return;   // reduced motion, a background tab, not the landing
-  if (/[?&](signup=1|e=|c=)/.test(location.search) || /access_token|refresh_token|error|type=/.test(location.hash)) return;
+  if (/[?&](signup=1|e=|c=|lynx=)/.test(location.search) || /access_token|refresh_token|error|type=/.test(location.hash)) return;
   try { if (localStorage.getItem("lynxr_creator_session")) return; } catch { /* storage blocked: carry on */ }
   if (document.body.classList.contains("gate-on") || scrollY > 0) return;
   /* HOLD FIRST, MEASURE SECOND: the measuring below forces the first style pass, which is the moment

@@ -13705,3 +13705,22 @@
   .ag-save, .ad-save { align-self: center; font-size: var(--fs-115); color: var(--text-3); white-space: nowrap; }
   .ag-save.bad, .ad-save.bad { color: var(--bad); }
   .ag-save[hidden], .ad-save[hidden] { display: none; }
+
+  /* ---------- THE CREATOR LINK (owner, 2026-10-31: "a direct link I can give to all the creators"; plan
+     ~/.claude/plans/agency-brief-share-link.md) ----------
+     Agency: under a brief's "Sent to" heading, the link creators open and one ghost Copy link (44px). Send to creators
+     stays the page's one ink button. Creator app: the sign-in card's line saying why it opened (#gate-lynx-note, built by
+     creator.js; the agreement line under it keeps its own -22px pull), and the Lynx view's line when Lynx hasn't sent that
+     client's brief yet (.lynx-link-note). */
+  body.agency #app main .cb-link { display: flex; align-items: center; gap: 12px; margin: 0 0 6px; }
+  body.agency #app main .cb-link > .minw0 { flex: 1 1 auto; }
+  body.agency #app main .cb-link-url { display: block; margin-top: 2px; font-size: var(--fs-135); color: var(--text); overflow-wrap: anywhere; }
+  body.agency #app main #cb-link-copy { flex: none; min-height: 44px; }
+  body.agency #app main .cb-link-note { margin: 0 0 12px; }
+  @media (max-width: 640px) {
+    body.agency #app main .cb-link { flex-wrap: wrap; }
+    body.agency #app main #cb-link-copy { width: 100%; }
+  }
+  #gate .gate-lynx-note { margin: -24px 0 36px; font-size: var(--fs-14); line-height: 1.45; font-weight: 600; color: var(--text); }
+  #gate .gate-lynx-note[hidden] { display: none; }
+  .lynx-link-note { margin: 4px 0 18px; }

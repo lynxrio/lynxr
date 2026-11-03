@@ -6849,6 +6849,7 @@ const ROST_NO_BRAND = "_none";   // never a real key: keys are letters and digit
 const rostBrandTidy = (s) => String(s ?? "").trim().replace(/\s+/g, " ");
 const rostBrandKey = (s) => rostBrandTidy(s).replace(/\s+campaign$/i, "")
   .normalize("NFKD").replace(/\p{M}+/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+// creator.js lynxKey is this same function: the creator link (agCreatorLink) depends on both agreeing. Change both together.
 
 /** One label -> [{ key, raw, name }], in order, one per brand. `raw` is the tidied text as typed (what is stored);
     `name` drops a trailing " campaign" (what is shown). Empty and punctuation-only parts are dropped. */
@@ -7972,6 +7973,18 @@ function agStampDoc(doc, prev) {
   else if (prev.updated_at) out.updated_at = prev.updated_at;
   return out;
 }
+/** THE LINK CREATORS OPEN (owner, 2026-10-31: "a direct link I can give to all the creators. It goes to their respective
+    accounts for the right brief for that week"; plan ~/.claude/plans/agency-brief-share-link.md). One link per client,
+    /?lynx=<loose key of the SENT snapshot's client name>, which is exactly the client_name my_agency() hands creators, so
+    it matches what the creator app groups by even when a brand name differs from the company. creator.js opens each
+    creator's newest brief from that client, so the same link works every week and can be pinned in Discord. It grants
+    nothing: a creator only ever sees what was sent to them. AG_LINK_PER_BRIEF adds &brief=<id>: exactly this brief. */
+const AG_LINK_PER_BRIEF = false;
+function agCreatorLink(doc, briefId) {
+  const key = rostBrandKey(doc?.client?.name);
+  if (!key) return "";
+  return `${location.origin}/?lynx=${encodeURIComponent(key)}${AG_LINK_PER_BRIEF && briefId ? `&brief=${encodeURIComponent(briefId)}` : ""}`;
+}
 /** Same shape as cbErrorSentence, plus the one error specific to sending: a
     403 on the deliveries insert means the target rostered address is not
     (or is no longer) an accepted member — the RLS policy in
@@ -8170,10 +8183,22 @@ function cbSentListHtml(sourceKind, sourceId, getDoc) {
   }
   const theirs = liveRow
     ? String(liveRow.doc?.updated_at || liveRow.doc?.sent_at || liveRow.created_at || "").slice(0, 10) : "";
+  /* THE CREATOR LINK (plan agency-brief-share-link.md): only while someone has this brief, under the heading. One ghost
+     button; Send to creators stays the page's one ink button. */
+  const link = liveRow ? agCreatorLink(liveRow.doc, liveRow.id) : "";
+  const linkName = rostBrandTidy(liveRow?.doc?.client?.name || "").replace(/\s+campaign$/i, "");
   return `<div class="section cb-sent-section">
     <div class="sec-head"><h3>Sent to</h3>
       ${anyLive ? `<button type="button" class="ghost danger cb-unsend-all" data-brief="${escapeHtml(deliveries[0].briefId)}">Unsend for everyone</button>` : ""}
     </div>
+    ${link ? `<div class="cb-link">
+      <div class="minw0"><div class="lbl">Link for creators</div><code class="cb-link-url" id="cb-link-url">${escapeHtml(link)}</code></div>
+      <button type="button" class="ghost" id="cb-link-copy" data-url="${escapeHtml(link)}">Copy link</button>
+    </div>
+    <p class="note cb-link-note">${AG_LINK_PER_BRIEF
+      ? "Opens this brief for each creator it was sent to."
+      : `Each creator who opens it lands on the newest ${escapeHtml(linkName || "client")} brief you sent them, so the same link works every week. Pin it in Discord.`}</p>
+    <p class="bp-msg cb-msg" id="cb-link-msg" role="status" aria-live="polite"></p>` : ""}
     ${liveRow ? `<p class="note cb-push-note">${stale
         ? "Edited since they got it — they still see the older version until you press Send to creators again."
         : "Edits here reach them when you press Send to creators again."}${theirs ? ` Their version is from ${escapeHtml(theirs)}.` : ""}</p>` : ""}
@@ -8290,6 +8315,24 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
     }
   });
 
+  /* Copy link: the same feedback as a note's Copy (cbNoteCopy). Refused (no clipboard, an old in-app browser): the link
+     is selected instead, so it can be copied by hand. */
+  document.getElementById("cb-link-copy")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const said = document.getElementById("cb-link-msg");
+    let ok = false;
+    try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(btn.dataset.url || ""); ok = true; } } catch { /* refused */ }
+    clearTimeout(btn._linkT);
+    if (ok) {
+      btn.textContent = "Copied ✓";
+      cbMsg(said, "Copied. Paste it in Discord.", "good");
+    } else {
+      try { getSelection().selectAllChildren(document.getElementById("cb-link-url")); } catch { /* nothing to select with */ }
+      btn.textContent = "Selected";
+      cbMsg(said, "Couldn't copy here. The link is selected, so copy it from your keyboard or menu.", "bad", true);
+    }
+    btn._linkT = setTimeout(() => { btn.textContent = "Copy link"; }, ok ? 1600 : 4000);
+  });
   host.querySelectorAll(".cb-unsend").forEach((btn) => {
     armDelete(btn, "Unsend", async () => {
       try {

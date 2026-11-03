@@ -774,7 +774,8 @@ function confirmRedirect() {
   let p = null;
   try { p = JSON.parse(sessionStorage.getItem(PASTE_KEY) || "null"); } catch {}
   if (p && p.url && Date.now() - (p.at || 0) <= PASTE_TTL_MS && !linkProblem(p.url)) u.searchParams.set("paste", p.url);
-  return u.href;
+  lynxLinkStash();                 // a confirmation opened in this browser finds it even if the mail's link loses the query
+  return withLynxLink(u.href);
 }
 
 /* The confirmation mail again — from "check your email" and from a sign-in refused with "Email not
@@ -4202,6 +4203,131 @@ const AGENCY_ACCEPT_SAYS = {
   gone: "This invite was withdrawn.",
 };
 
+/* LYNX LINKS (owner, 2026-10-31: "a direct link I can give to all the creators. It goes to their respective accounts for
+   the right brief for that week"; plan ~/.claude/plans/agency-brief-share-link.md). The agency app's "Copy link" (app.js
+   agCreatorLink) gives https://lynxr.io/?lynx=<client key>, optionally &brief=<id>. A signed-in creator lands on their
+   NEWEST brief from that client, in that client's section (openLynxCamp, plan creator-library-campaign-sections.md), or
+   on the one brief named. THE LINK CARRIES NO ACCESS: what it opens comes from my_agency(), which lists only briefs
+   delivered to this account and not unsent. A brief missing from that list is never asked for, and no sentence says
+   whether it exists. It only opens a view (never writes, never spends), so unlike ?paste= it is honoured on any load.
+   Signed out, it opens the sign-in card and survives the trip: a localStorage note (2 hours) covers Google and a
+   confirmation opened in this browser; confirmRedirect() and the reset mail carry it to another browser. A QUERY, never
+   a #fragment: Supabase hands the session back in the fragment. */
+const LYNX_LINK_KEY = "lynxr_lynx_link";
+const LYNX_LINK_TTL_MS = 2 * 60 * 60 * 1000;
+const LYNX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+let LYNX_LINK = null;        // { key, brief } while a link waits to be opened, else null
+const LYNX_LINK_SAYS = {
+  notYet: (name) => `${AGENCY_NAME} hasn't sent you a ${name} brief yet. It shows up here when they do.`,
+  none: `This link opens briefs from ${AGENCY_NAME}. If they invited you, sign in with the email they invited.`,
+  staff: "This link opens a brief in a creator's own account. To see it, open the agency side from your account menu.",
+};
+const LYNX_GATE_SAYS = {
+  in: `Sign in to open your brief from ${AGENCY_NAME}.`,
+  up: `Use the email ${AGENCY_NAME} invited. Your brief opens once you're in.`,
+  sent: "Open the link in that email and your brief opens.",
+  reset: "Set a new password and your brief opens.",
+};
+
+/** The link on this address, else the note a signed-out visit left (2 hours). Called once at load. */
+function lynxLinkInit() {
+  const q = new URLSearchParams(location.search);
+  const key = lynxKey(String(q.get("lynx") || "").slice(0, 200));
+  const raw = String(q.get("brief") || "");
+  if (key && key.length <= 80) {
+    LYNX_LINK = { key, brief: LYNX_UUID.test(raw) ? raw.toLowerCase() : "" };
+    if (!loadSession()?.refresh_token) lynxLinkStash();
+    return;
+  }
+  try {
+    const s = JSON.parse(localStorage.getItem(LYNX_LINK_KEY) || "null");
+    if (s && typeof s.key === "string" && s.key && lynxKey(s.key) === s.key && Date.now() - (s.at || 0) <= LYNX_LINK_TTL_MS) {
+      LYNX_LINK = { key: s.key, brief: LYNX_UUID.test(String(s.brief || "")) ? String(s.brief).toLowerCase() : "" };
+    } else if (s) localStorage.removeItem(LYNX_LINK_KEY);
+  } catch { /* storage blocked: the address bar is all there is */ }
+}
+/** Keep the waiting link for the trip through Google or a confirmation mail opened in this browser. */
+function lynxLinkStash() {
+  if (!LYNX_LINK) return;
+  try { localStorage.setItem(LYNX_LINK_KEY, JSON.stringify({ key: LYNX_LINK.key, brief: LYNX_LINK.brief, at: Date.now() })); } catch {}
+}
+/** Done with it: forget the note and take lynx= / brief= off the address bar (everything else, #fragment too, stays). */
+function lynxLinkDone() {
+  LYNX_LINK = null;
+  try { localStorage.removeItem(LYNX_LINK_KEY); } catch {}
+  const u = new URL(location.href);
+  if (!u.searchParams.has("lynx") && !u.searchParams.has("brief")) return;
+  u.searchParams.delete("lynx");
+  u.searchParams.delete("brief");
+  try { history.replaceState(history.state, "", u.pathname + u.search + u.hash); } catch {}
+}
+/** `href` with the waiting link on it: the confirmation and reset mails. */
+function withLynxLink(href) {
+  if (!LYNX_LINK) return href;
+  const u = new URL(href);
+  u.searchParams.set("lynx", LYNX_LINK.key);
+  if (LYNX_LINK.brief) u.searchParams.set("brief", LYNX_LINK.brief);
+  return u.href;
+}
+/** The client's name as this creator's invite spells it ("Cloey"), else as a brief of theirs does, else the key. */
+function lynxLinkName(key) {
+  const label = String(AGENCY?.campaign || "").split(/[,;]/)
+    .map((s) => s.trim().replace(/\s+/g, " ").replace(/\s+campaign$/i, "")).find((s) => s && lynxKey(s) === key);
+  if (label) return label;
+  return (AGENCY?.briefs || []).find((b) => lynxKey(b.client_name) === key)?.client_name || key;
+}
+/** Where a link lands: that client's section, on that brief (creator-library-campaign-sections.md, contract C3).
+    Without that plan's function this falls back to the brief page that exists today. */
+function lynxLinkOpen(key, briefId) {
+  if (typeof openLynxCamp === "function") openLynxCamp(key, briefId);
+  else go({ kind: "lynxbrief", id: briefId });
+}
+/** Open the waiting link, once my_agency() and my_roles() have answered. Returns true when it navigated. An open invite
+    keeps the link waiting for the Accept, which calls this again. Offline or not installed: kept for a reload. */
+function lynxLinkLand() {
+  const link = LYNX_LINK;
+  if (!link) return false;
+  if (AGENCY_STATE !== "ready" || !AGENCY) { lynxLinkStash(); return false; }
+  const st = AGENCY.state;
+  if (st === "invited") { go({ kind: "lynx" }); return true; }
+  lynxLinkDone();                 // before any go(): a view that writes its own address wins
+  if (st === "left") { go({ kind: "lynx" }); return true; }
+  if (st !== "accepted") {
+    go({ kind: "new" });
+    say(MY_ROLES?.staff || MY_ROLES?.cm || MY_ROLES?.manager ? LYNX_LINK_SAYS.staff : LYNX_LINK_SAYS.none);
+    return true;
+  }
+  const briefs = AGENCY.briefs || [];          // newest delivery first: my_agency() orders by sent_at desc
+  const pick = (link.brief && briefs.find((b) => b.id === link.brief))
+    || briefs.find((b) => lynxKey(b.client_name) === link.key) || null;
+  if (!pick) { go({ kind: "lynx", note: LYNX_LINK_SAYS.notYet(lynxLinkName(link.key)) }); return true; }
+  lynxLinkOpen(lynxKey(pick.client_name), pick.id);
+  return true;
+}
+/** From unlock(): land only if they are still on the waiting view; a press elsewhere meanwhile cancels the link. */
+function lynxLinkLandOnUnlock() {
+  if (!LYNX_LINK) return false;
+  if (!VIEW._lynxWait) { lynxLinkDone(); return false; }
+  return lynxLinkLand();
+}
+/** The sign-in card says why it opened. Built on first use, under #gate-tagline, because the HTML is not cache-stamped
+    and could lag this file. Hidden in any mode without a line, or when no link waits. */
+function paintGateLynxNote(mode) {
+  const text = LYNX_LINK ? LYNX_GATE_SAYS[mode] || "" : "";
+  let el = document.getElementById("gate-lynx-note");
+  if (!text) { if (el) el.hidden = true; return; }
+  if (!el) {
+    const tag = document.getElementById("gate-tagline");
+    if (!tag) return;
+    el = document.createElement("p");
+    el.id = "gate-lynx-note";
+    el.className = "gate-lynx-note";
+    tag.insertAdjacentElement("afterend", el);
+  }
+  el.textContent = text;
+  el.hidden = false;
+}
+
 /* WHO COUNTS AS PAYING. The same three the database calls entitled in
    entitlement_for() — including past_due, deliberately: the card failed, the
    provider is retrying, and taking the product away on day one of a failed
@@ -5390,7 +5516,7 @@ function ensureAgencyInviteModal() {
     const out = await runAgencyAccept();
     if (out === "accepted") {
       closeAgencyInvite();
-      go({ kind: "lynx" });   // land on the section: their briefs, or "Waiting on briefs."
+      if (!lynxLinkLand()) go({ kind: "lynx" });   // a waiting brief link lands on its brief; else the section: their briefs, or "Waiting on briefs."
       return;
     }
     renderSide();
@@ -5780,7 +5906,7 @@ function renderLynx(head, body) {
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       const out = await runAgencyAccept();
-      if (out === "accepted") { renderSide(); renderPane(); return; }
+      if (out === "accepted") { renderSide(); if (!lynxLinkLand()) renderPane(); return; }
       flashMsg("lynx-accept-msg", AGENCY_ACCEPT_SAYS[out], "bad");
       if (out === "gone") { btn.remove(); renderSide(); return; }
       btn.disabled = false;
@@ -5798,7 +5924,10 @@ function renderLynx(head, body) {
 
   // accepted
   const briefs = AGENCY.briefs || [];
+  // A brief link for a client with nothing sent yet (lynxLinkLand) says so, once, above the list.
+  const linkNote = VIEW.note ? `<p class="note lynx-link-note" role="status">${escapeHtml(VIEW.note)}</p>` : "";
   body.innerHTML = `
+    ${linkNote}
     ${briefs.length
       ? `<div class="lynx-briefs">${briefs.map((b) => `
         <article class="bcard opens lynx-brief-card" data-id="${escapeHtml(b.id)}" role="button" tabindex="0"
@@ -5810,7 +5939,7 @@ function renderLynx(head, body) {
       : /* Owner, 2026-09-22: "when there are no briefs yet, just have it blank or just say something
            simple like waiting on briefs". The avatar that used to sit here had no size outside the
            agency app (.empty-mark is styled under body.agency only), so it filled the pane. */
-        `<p class="note lynx-empty">Waiting on briefs.</p>`}`;
+        linkNote ? "" : `<p class="note lynx-empty">Waiting on briefs.</p>`}`;
   // No "leave the roster" control here — owner, 2026-09-23: "dont even add this as an
   // option". The leave_agency() RPC still exists in supabase/agency_roster.sql; nothing
   // in the interface calls it.
@@ -14453,6 +14582,9 @@ function unlock() {
   document.getElementById("gate").style.display = "none";
   document.getElementById("app").style.display = "block";
   if (HOME) enterApp();
+  /* A brief link is waiting (lynxLinkLand): hold on the Lynx loader rather than flash New script while the roster
+     answers. "loading" with AGENCY null draws renderLynx's loader without a second my_agency() request. */
+  if (LYNX_LINK) { VIEW = { kind: "lynx", _lynxWait: true }; if (!AGENCY) AGENCY_STATE = "loading"; }
   renderAll();
   writeRoute(VIEW, "state");   // the first entry carries its view for Back; the URL is left alone (the link plan reads it)
   startLiveSync();
@@ -14467,7 +14599,7 @@ function unlock() {
   // is back, for the ~1% of creators actually on it.
   // …and, when that answer is an open invite, the popup (once per page load).
   // The link wall reads the roster AND who this account is (a CM is never walled), so wait for both.
-  const agencyReady = Promise.all([refreshAgency(), myRolesOnce()]).then(() => { renderSide(); if (VIEW.kind === "lynx") renderPane(); openAgencyInvite(); });
+  const agencyReady = Promise.all([refreshAgency(), myRolesOnce()]).then(() => { renderSide(); if (!lynxLinkLandOnUnlock() && VIEW.kind === "lynx") renderPane(); openAgencyInvite(); });
   // Library and a saved script's folder depend on which brands have rows (Steps 8–9): repaint once the roster answers.
   agencyReady.then(() => { if ((VIEW.kind === "library" || VIEW.kind === "brand") && !editInFlight()) renderPane(); });
   // Setup answers are saved and the overlay decided AFTER renderAll(), which is where a pasted link has already been
@@ -14848,6 +14980,7 @@ function takeOauthFlag() {
    (https://lynxr.io/** and http://localhost:8811/**) or GoTrue silently sends
    the creator to the Site URL instead — signed in, on the wrong page. */
 function oauthStart(provider) {
+  lynxLinkStash();
   try {
     sessionStorage.setItem(OAUTH_FLAG, JSON.stringify({
       provider, mode: GATE_MODE, at: Date.now(),
@@ -14973,6 +15106,7 @@ function setGateMode(mode) {
   document.getElementById("gate-go").disabled = false;
   if (up) { if (SEATS_OPEN === null) refreshSeats(); else applySeatState(); }
   applyOauthState();
+  paintGateLynxNote(mode);
 }
 
 /* THE MERGED HOME'S GATE OPEN/CLOSE. On every other page #gate is simply the
@@ -15009,6 +15143,8 @@ document.addEventListener("click", (e) => {
   showGate(t.dataset.gate === "in" ? "in" : "up");
 });
 
+lynxLinkInit();   // a brief link (?lynx=), before anything below opens the gate
+
 // The homepage CTA links to ?signup=1, so "Create your account" lands on the
 // create form rather than the sign-in form the visitor has no credentials for.
 if (/[?&]signup=1\b/.test(location.search)) setGateMode("up");
@@ -15037,6 +15173,13 @@ if (HOME && (/[?&]signup=1\b/.test(location.search) || INVITED_EMAIL || INVITE))
   showGate("up");
   if (INVITED_EMAIL) document.getElementById("pw")?.focus();
 }
+/* A brief link opened signed out: the sign-in card, with one line saying why (paintGateLynxNote). Not when an invite or
+   sign-up link already opened the card, not when a session is stored (resume() takes them in), and not when the
+   address carries a confirmation or provider return (sessionFromLink() owns those). */
+if (HOME && LYNX_LINK && !document.body.classList.contains("gate-on") && !loadSession()?.refresh_token
+    && !/access_token|refresh_token|error/.test(location.hash)) {
+  showGate("in");
+}
 
 /* Forgot password. Supabase answers /recover with 200 whether or not the
    address exists — deliberately, so the endpoint can't be used to find out who
@@ -15058,7 +15201,7 @@ document.getElementById("gate-forgot").addEventListener("click", async () => {
   try {
     // Same per-request redirect as signup: the link must come back to whichever
     // host served this page, not to the project's single Site URL.
-    const back = encodeURIComponent(location.origin + CREATOR_PATH);
+    const back = encodeURIComponent(withLynxLink(location.origin + CREATOR_PATH));
     const res = await fetch(`${SB_URL}/auth/v1/recover?redirect_to=${back}`, {
       method: "POST",
       headers: { apikey: SB_KEY, "Content-Type": "application/json" },
@@ -15517,7 +15660,7 @@ async function sessionFromLink() {
   const sess = loadSession();
   if (!sess?.refresh_token) return;
   try { await sbRefresh(sess.refresh_token); }
-  catch { clearSession(); return; }
+  catch { clearSession(); if (HOME && LYNX_LINK) { lynxLinkStash(); showGate("in"); } return; }
   /* THE DEVICE MIRROR GOES IN FIRST, BEFORE THE NETWORK IS ASKED ANYTHING.
      Two things fall out of the order. A send that never reached Supabase is
      back in ME by the time pull() runs, so the merge carries it up instead of
