@@ -5618,7 +5618,7 @@ function renderBriefViewer(host, rec, client) {
         <div class="lbl">${escapeHtml(rec.company)} \u00b7 ${escapeHtml((rec.createdAt || "").slice(0, 10))}</div>
       </div>
       <div class="cb-export">
-        <button type="button" class="btn cb-send-btn" id="cb-send-toggle"${rec.items.length ? "" : " disabled"}>${CB_ICON.send}<span>Send to creators</span></button>
+        ${cbSendToggleHtml("brief", rec.id, !rec.items.length)}
       </div>
     </div>
     <p class="bp-msg cb-msg" id="bv-send-msg" role="status" aria-live="polite"></p>
@@ -7980,6 +7980,7 @@ function agStampDoc(doc, prev) {
 function agSendErrorSentence(ex) {
   const kind = cbError(ex);
   if (kind === "missing") return "Sending isn't installed yet — run supabase/agency_roster.sql in the Supabase SQL editor.";
+  if (/^401\b/.test(String(ex?.message || ""))) return "You've been signed out, so nothing was sent. Reload the page, sign in and send again.";
   if (kind === "denied") return "That creator has not accepted the invite yet.";
   return "Couldn't send — check the connection and try again.";
 }
@@ -7997,6 +7998,15 @@ function agSendErrorSentence(ex) {
 function cbSendShowsFiles(sourceKind, sourceId) {
   return CB_SEND_OPEN.has(agSentKey(sourceKind, sourceId))
     && !ROSTER_ERR && ROSTER !== null && rostAccepted().length > 0;
+}
+
+/** The page head's send button. Closed: the primary "Send to creators", which opens the panel. Open: a plain Close (owner,
+    2026-11-03: a CM ticked a brand, pressed "Send to creators" again to send, and that closed the panel with nothing sent;
+    the panel's own Send sat 1,400px down, past the roster and the files). The one way to send is the panel's bar. */
+function cbSendToggleHtml(sourceKind, sourceId, disabled = false) {
+  return CB_SEND_OPEN.has(agSentKey(sourceKind, sourceId))
+    ? `<button type="button" class="ghost cb-send-btn" id="cb-send-toggle" aria-expanded="true">Close</button>`
+    : `<button type="button" class="btn cb-send-btn" id="cb-send-toggle" aria-expanded="false"${disabled ? " disabled" : ""}>${CB_ICON.send}<span>Send to creators</span></button>`;
 }
 
 /** The inline "Send this brief to" panel. `briefBrands`: the names this brief's own brand goes by (its client's
@@ -8064,8 +8074,7 @@ function cbSendPanelHtml(sourceKind, sourceId, briefBrands = []) {
   const brandsAttr = (id) => escapeHtml((byId.get(id) || []).map((b) => b.key).join(" ") || ROST_NO_BRAND);
   return `<div class="section cb-send-panel">
     <h3>Send this brief to</h3>
-    <p class="note">They get this brief as it is now. If you edit it later, press Send to creators again
-      and they get the new version.</p>
+    <p class="note">They get this brief as it is now. If you edit it later, send it again and they get the new version.</p>
     ${groupsHtml}
     <div class="rost-picker">
       ${accepted.map((r) => `<label class="rost-pick-row">
@@ -8074,11 +8083,13 @@ function cbSendPanelHtml(sourceKind, sourceId, briefBrands = []) {
       </label>`).join("")}
     </div>
     ${cbSendShowsFiles(sourceKind, sourceId) ? bfSectionHtml(sourceKind, sourceId, { inSend: true }) : ""}
-    <div class="bp-actions">
-      <button type="button" class="btn" id="cb-send-go" disabled>Send to 0 creators</button>
-      <button type="button" class="ghost" id="cb-send-cancel">Cancel</button>
+    <div class="cb-send-bar">
+      <div class="bp-actions">
+        <button type="button" class="btn" id="cb-send-go" disabled>Send to 0 creators</button>
+        <button type="button" class="ghost" id="cb-send-cancel">Cancel</button>
+      </div>
+      <p class="bp-msg cb-msg" id="cb-send-msg" role="status" aria-live="polite"></p>
     </div>
-    <p class="bp-msg cb-msg" id="cb-send-msg" role="status" aria-live="polite"></p>
   </div>`;
 }
 
@@ -8234,44 +8245,48 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
   document.getElementById("cb-send-go")?.addEventListener("click", async (e) => {
     const go = e.currentTarget;
     const creatorIds = [...host.querySelectorAll(".cb-send-pick:checked")].map((c) => c.value);
-    if (!creatorIds.length) return;
-    // What creators get is built from this page's copy: every edit on it must be saved first (AUTOSAVE).
-    if (sourceKind === "campaign" && !(await cbOutboxFlushCampaign(sourceId))) {
-      cbMsg(document.getElementById("cb-send-msg"), CB_UNSAVED_SEND, "bad", true);
-      return;
-    }
-    // Sending again over an existing snapshot is an update too: keep in-progress formats
-    // (agencySendDoc's prev), keep the first sent_at, move updated_at only if something changed.
-    const prevRow = AG_SENT.get(key)?.rows?.[0] || null;
-    const doc = agStampDoc(getDoc(prevRow?.doc || null), prevRow?.doc || null);
-    if (!doc) return;
-    const existing = prevRow?.id;
-    const had = new Set((prevRow?.lynxr_agency_deliveries || []).filter((d) => !d.revoked_at).map((d) => d.creator_id));
-    if (prevRow?.doc && agDocSig(doc) === agDocSig(prevRow.doc) && creatorIds.every((c) => had.has(c))) {
+    if (!creatorIds.length || go.disabled) return;
+    // NEVER A SILENT SEND (2026-11-03): the button is off from the first await, and every way out either sends, says
+    // why it didn't, or closes the panel with a sentence. A throw anywhere lands in the catch below.
+    go.disabled = true;
+    const goBack = (text) => { go.disabled = false; cbMsg(document.getElementById("cb-send-msg"), text, "bad", true); };
+    const done = (text) => {        // the panel closes; the sentence goes under the page head, scrolled to if it is off screen
       CB_SEND_OPEN.delete(key);
       CB_SEND_PICKS.delete(key);
       repaint();
-      cbMsg(msgEl(), "They already have this version.", "good");
-      return;
-    }
-    go.disabled = true;
+      cbMsg(msgEl(), text, "good");
+      msgEl()?.scrollIntoView({ block: "nearest" });
+    };
+    let sent = false;
     try {
+      // What creators get is built from this page's copy: every edit on it must be saved first (AUTOSAVE).
+      if (sourceKind === "campaign" && !(await cbOutboxFlushCampaign(sourceId))) { goBack(CB_UNSAVED_SEND); return; }
+      // Sending again over an existing snapshot is an update too: keep in-progress formats
+      // (agencySendDoc's prev), keep the first sent_at, move updated_at only if something changed.
+      const prevRow = AG_SENT.get(key)?.rows?.[0] || null;
+      const doc = agStampDoc(getDoc(prevRow?.doc || null), prevRow?.doc || null);
+      if (!doc) { goBack("There's nothing ready to send in this brief yet."); return; }
+      const existing = prevRow?.id;
+      const had = new Set((prevRow?.lynxr_agency_deliveries || []).filter((d) => !d.revoked_at).map((d) => d.creator_id));
+      if (prevRow?.doc && agDocSig(doc) === agDocSig(prevRow.doc) && creatorIds.every((c) => had.has(c))) {
+        done("They already have this version.");
+        return;
+      }
       await agSend(doc, sourceKind, sourceId, creatorIds, existing);
+      sent = true;
       await agEnsureSent(sourceKind, sourceId, null, true);
       const brand = (CM_MODE ? CM_CLIENTS : clientsCacheList()).find((c) => c.id === CLIENT_VIEW?.id)?.company || doc.client?.name || "";
       const tagged = await rostTagSent(creatorIds, brand);
-      CB_SEND_OPEN.delete(key);
-      CB_SEND_PICKS.delete(key);
-      repaint();
       // Files ride on the brief's source, so every file listed now reaches these creators.
       const nFiles = (BF_FILES.get(key)?.rows || []).filter((r) => !bfIsNoteImg(r.path)).length;   // note images ride in their notes
       const tagNote = !tagged.length ? ""
         : tagged.length === 1 ? ` Added ${rostBrandTidy(brand)} to ${tagged[0]}'s brands.`
         : ` Added ${rostBrandTidy(brand)} to ${tagged.length} creators' brands.`;
-      cbMsg(msgEl(), `Sent to ${cbPlural(creatorIds.length, "creator", "creators")}${nFiles ? ` with ${cbPlural(nFiles, "file", "files")}` : ""}.${tagNote}`, "good");
+      done(`Sent to ${cbPlural(creatorIds.length, "creator", "creators")}${nFiles ? ` with ${cbPlural(nFiles, "file", "files")}` : ""}.${tagNote}`);
     } catch (ex) {
-      go.disabled = false;
-      cbMsg(document.getElementById("cb-send-msg"), agSendErrorSentence(ex), "bad", true);
+      // Past agSend the brief is out: a failed Sent-to refresh or brand tag must not read as "couldn't send".
+      if (sent) done(`Sent to ${cbPlural(creatorIds.length, "creator", "creators")}.`);
+      else goBack(agSendErrorSentence(ex));
     }
   });
 
@@ -11489,7 +11504,7 @@ function renderCampaignView(host, client, id) {
         <div class="lbl">${escapeHtml((campaign.created_at || "").slice(0, 10))} · <span id="cb-fcount"></span></div>
       </div>
       <div class="cb-export">
-        <button type="button" class="btn cb-send-btn" id="cb-send-toggle">${CB_ICON.send}<span>Send to creators</span></button>
+        ${cbSendToggleHtml("campaign", id)}
         <button type="button" class="ghost cb-copy-new" id="cb-copy-new" data-title="Start the next brief with this one's ready formats, requirements and files. Nothing is regenerated.">Copy to new brief</button>
         <button type="button" class="btn cb-pdf-btn" id="cb-pdf" data-title="Save the creator brief as a PDF: ready formats only, no agency notes.">Download PDF</button>
         ${cbCanDelete(campaign) ? `<button type="button" class="ghost danger icon-only b-del" id="cb-del-campaign"

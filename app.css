@@ -11567,6 +11567,21 @@
   .cb-send-btn svg { width: 16px; height: 16px; }
   .cb-send-panel { margin: 0 0 18px; }
   .cb-send-panel h3 { margin: 0 0 6px; font-size: var(--fs-15); }
+  /* The panel's Send row stays on screen while the panel is (2026-11-03): with a long roster and a brief's files under it,
+     the button sat 1,400px below the brand buttons and the head's "Send to creators" looked like the way to send. It
+     runs to the panel's edges and stops at the panel's foot; the same tinted glass as the sticky chrome, no blur. */
+  body.agency #app main .cb-send-panel .cb-send-bar {
+    position: sticky; bottom: 0; z-index: 2;
+    margin: 14px calc(-1 * var(--ag-pad)) calc(-1 * var(--ag-pad)); padding: 12px var(--ag-pad);
+    background: var(--glass); border-top: 1px solid var(--line);
+    border-radius: 0 0 var(--ag-radius) var(--ag-radius);
+  }
+  body.agency #app main .cb-send-panel .cb-send-bar .bp-actions { margin-top: 0; }
+  body.agency #app main .cb-send-panel .cb-send-bar .cb-msg:empty { display: none; }
+  @media (max-width: 820px) {   /* the agency phone width (--ag-pad 14px): Send full width in the thumb zone */
+    body.agency #app main .cb-send-panel .cb-send-bar #cb-send-go { flex: 1; min-height: 44px; white-space: nowrap; }
+    body.agency #app main .cb-send-panel .cb-send-bar #cb-send-cancel { flex: none; min-height: 44px; }
+  }
   .rost-picker { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-height: 320px; overflow-y: auto; }
   .rost-pick-row { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: var(--fs-135); }
   .rost-pick-row input { width: 17px; height: 17px; flex: none; accent-color: var(--text); }
