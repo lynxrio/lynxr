@@ -4298,10 +4298,11 @@ function lynxLinkLand() {
     return true;
   }
   const briefs = AGENCY.briefs || [];          // newest delivery first: my_agency() orders by sent_at desc
-  const pick = (link.brief && briefs.find((b) => b.id === link.brief))
-    || briefs.find((b) => lynxKey(b.client_name) === link.key) || null;
+  const asked = (link.brief && briefs.find((b) => b.id === link.brief)) || null;
+  const pick = asked || briefs.find((b) => lynxKey(b.client_name) === link.key) || null;
   if (!pick) { go({ kind: "lynx", note: LYNX_LINK_SAYS.notYet(lynxLinkName(link.key)) }); return true; }
-  lynxLinkOpen(lynxKey(pick.client_name), pick.id);
+  // No brief named (or not theirs): the client's newest, chosen by the section itself, so the address names only the client.
+  lynxLinkOpen(lynxKey(pick.client_name), asked ? pick.id : null);
   return true;
 }
 /** From unlock(): land only if they are still on the waiting view; a press elsewhere meanwhile cancels the link. */
