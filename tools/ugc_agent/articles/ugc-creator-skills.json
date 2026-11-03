@@ -1,0 +1,241 @@
+{
+  "question_id": "q016",
+  "slug": "ugc-creator-skills",
+  "theme": "ugc-getting-started",
+  "title": "What skills does a UGC creator need?",
+  "description": "The UGC creator skills worth building first, from scripting and hooks to delivery, light, sound and editing, and a simple way to practise each one at home.",
+  "short_answer": "A UGC creator needs seven skills: scripting, writing hooks, talking naturally on camera, getting clean light and sound, editing, reading a brief, and communicating clearly with a brand. None of them needs talent to start. Each one improves fastest with a short, repeatable practice you can do at home.",
+  "sections": [
+    {
+      "heading": "Which skills matter most when you are just starting?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Start with scripting and on-camera delivery, because every video you make depends on both and you can practise them with a phone and a product you own.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Light, sound and editing matter too, but they are partly solved by setup: a window, a quiet room and a simple edit get you a long way. Writing and delivery are not solved by setup. They are the parts a [brand](/glossary/#brand) is paying a [creator](/glossary/#creator) for, so put your first hours there. If you are still deciding whether this work suits you, [what is a UGC creator?](/blog/what-is-a-ugc-creator/) explains the job itself before the skills.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Skill",
+            "What it lets you do",
+            "How to practise it"
+          ],
+          "table_rows": [
+            [
+              "Scripting",
+              "Turn a product into a short story with a clear order.",
+              "Write one script a day for something in your kitchen."
+            ],
+            [
+              "Hooks",
+              "Give a viewer a reason to stay past the opening line.",
+              "Write five openings for the same product and film the best two."
+            ],
+            [
+              "On-camera delivery",
+              "Sound like yourself while saying planned words.",
+              "Film the same script three times, each time from memory of the beats, not the lines."
+            ],
+            [
+              "Light and sound",
+              "Make footage a brand can use without fixing it.",
+              "Record one clip in each room you could film in and compare them."
+            ],
+            [
+              "Editing",
+              "Cut a take down so every second earns its place.",
+              "Re-edit an old clip shorter, then shorter again."
+            ],
+            [
+              "Briefs and communication",
+              "Deliver what was asked and keep the job calm.",
+              "Rewrite a sample brief as a checklist before you film."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you get better at writing scripts and hooks?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write a lot of short scripts on a fixed structure, because a structure shows you exactly which part of a weak script is weak.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Use the parts in [the parts of a UGC video script](/short-form-script-structure/) as your frame: a [hook](/glossary/#hook), a setup, a few beats, a turn and a close. When a draft feels flat, check each part in order. Often the hook promises one thing and the middle delivers another, and you will only catch that when you are looking for it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Pick one object you own and write a script for it every day for a week, so you stop relying on the product being interesting.",
+            "Write the hook last, after you know what the video pays off, so the opening points at something real.",
+            "Read each script out loud before filming, because a line that is hard to say will sound written on camera.",
+            "Keep a file of openings you liked in other videos and note why they worked, without copying the words."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you sound natural on camera when you are nervous?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Learn the beats rather than the exact words, then talk to one person you know through the lens, so the delivery sounds like speech instead of reading.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Word-for-word memorising makes your eyes drift while you search for the next line. Knowing that beat two is where you open the box and beat three is where you show the inside lets you say it a little differently each take, which is how people talk. Film several takes in a row without stopping to watch them, because the third or fourth take is where you start to relax.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If being on camera is the part holding you back, [can you make UGC without showing your face?](/blog/faceless-ugc/) covers hands-only and voiceover styles you can build on while your delivery improves.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How much do you need to know about light, sound and editing?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "You need enough to make footage that is evenly lit, clearly heard and cut tight, and you can learn that in a few practice sessions.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Face a window, film in a room with soft furnishings, and keep your phone close enough that your voice is the loudest thing in the clip. In the edit, cut every pause before a line and every breath after it, then watch it back once with the sound off to check the pictures still tell the story. [What equipment do you need to start making UGC?](/blog/ugc-equipment-to-start/) covers what is worth adding later, but the practice comes before the purchase.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why do reading briefs and communicating count as skills?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "They decide whether a good video is the right video, and they are what makes a brand comfortable sending you the next job.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [brief](/glossary/#brief) holds the lines you must say, the claims you must not make, and the format the brand has in mind. Missing one of those can mean refilming, however good the take was. Read it twice: once for the idea and once with a pen, marking what is fixed and what is yours to decide. [How to turn a brand brief into a script](/blog/brief-to-script/) walks through that markup step by step.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Communication is mostly confirming things before they become problems. When a brief is unclear, ask one specific question rather than guessing, such as, [NAME], should the product be in frame for the hook, or only from the setup onwards? Send the delivery date back in writing when you accept a job, and say early if anything will move it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you show these skills before anyone has hired you?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Make a small set of sample videos that each show a different skill, so whoever views them can judge your range quickly.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Write one around a strong hook, one that shows a product demo with clean light and sound, and one that follows a mock brief you wrote yourself. That last one proves you can work to instructions, which a polished video alone does not show. [How do you make UGC samples before any brand hires you?](/blog/ugc-samples-without-a-brand/) has a plan for choosing products and shaping each sample.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-03",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

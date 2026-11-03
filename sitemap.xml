@@ -245,6 +245,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/ugc-creator-skills/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/ugc-deliverables/</loc>
     <lastmod>2026-10-23</lastmod>
     <priority>0.6</priority>
@@ -365,8 +370,13 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/why-brands-pick-a-ugc-creator/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/faq/ugc-brand-deals/</loc>
-    <lastmod>2026-11-02</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -386,7 +396,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-getting-started/</loc>
-    <lastmod>2026-11-02</lastmod>
+    <lastmod>2026-11-03</lastmod>
     <priority>0.6</priority>
   </url>
   <url>

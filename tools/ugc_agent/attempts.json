@@ -168,9 +168,9 @@
     "published": "2026-10-31"
   },
   "q035": {
-    "fails": 1,
-    "last_fail": "2026-11-01",
-    "last_error": "originality: shared 12-word run with blog/ugc-script-for-an-app/ comes from the fixed question title and breadcrumb ('lynxr questions ugc scripts how do you write a ugc script for'), not the body; unf"
+    "fails": 2,
+    "last_fail": "2026-11-03",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-script-for-an-app/index.html, e.g. 'lynxr questions ugc scripts how do you write a ugc script for' (breadcrumb+question title, not body text)"
   },
   "q061": {
     "fails": 0,
@@ -191,5 +191,13 @@
   "q022": {
     "fails": 0,
     "published": "2026-11-02"
+  },
+  "q016": {
+    "fails": 0,
+    "published": "2026-11-03"
+  },
+  "q023": {
+    "fails": 0,
+    "published": "2026-11-03"
   }
 }

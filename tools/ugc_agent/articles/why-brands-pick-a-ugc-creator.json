@@ -1,0 +1,213 @@
+{
+  "question_id": "q023",
+  "slug": "why-brands-pick-a-ugc-creator",
+  "theme": "ugc-brand-deals",
+  "title": "What makes a brand choose one UGC creator over another?",
+  "description": "How to stand out as a UGC creator using signals you control: sharp hooks, clean audio, samples that follow a brief, clear replies and a delivery date you keep.",
+  "short_answer": "A brand chooses between UGC creators based on what it can see and check: your opening seconds, your audio, whether your samples follow a brief, and how clearly you reply. You cannot control who else applies, but you can make each of those signals easy to judge in the short time someone spends on your work.",
+  "sections": [
+    {
+      "heading": "What can a brand actually judge when comparing creators?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A brand can only judge what you put in front of it: your samples, your message and how you handle the first exchange.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Everything else, such as how hard you work or how much you care, is invisible until it shows up in one of those three places. That is useful, because it turns a vague question about standing out into a short checklist you can work through. Treat every sample, every reply and every file name as evidence a stranger will read without you there to explain it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Signal",
+            "What the brand sees",
+            "What you can do this week"
+          ],
+          "table_rows": [
+            [
+              "Opening seconds",
+              "Whether a sample holds attention before the product appears.",
+              "Recut the first line of each sample so it starts mid-moment."
+            ],
+            [
+              "Audio",
+              "Whether your voice is clear without turning the volume up.",
+              "Rerecord any sample with echo or background hum."
+            ],
+            [
+              "Brief fit",
+              "Whether you can make something to instructions, not only to taste.",
+              "Film one sample to a written mock brief and say so."
+            ],
+            [
+              "Replies",
+              "Whether working with you will be easy.",
+              "Answer every question in the order it was asked."
+            ],
+            [
+              "Delivery",
+              "Whether the date you give is the date files arrive.",
+              "Quote a date you can beat, then beat it."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do your samples show you can hold attention?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Open every sample on a moment rather than an introduction, so whoever is reviewing it sees your strongest skill before they decide to skip.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A reviewer comparing several creators may watch only the start of each video. If your [hook](/glossary/#hook) is a greeting or a product held up to the lens, the part you are proudest of may never get seen. Cut straight to the situation, using the patterns in [this guide to writing a hook](/how-to-write-a-hook/): the spill, the messy shelf, the moment before you leave the house. [What is a visual hook in UGC?](/blog/ugc-visual-hooks/) has ways to make that opening frame do work even with the sound off.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Order matters too. Put the sample closest to the brand's own product category first, because it saves the reviewer from imagining how you would handle their item.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why does following a brief set you apart?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Following a brief shows a brand that you can deliver what it asked for, which a polished video made to your own taste cannot prove.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [brief](/glossary/#brief) carries required lines, banned claims and a shape the brand has in mind. If you have never worked to one, write a short mock brief for a product you own and make a sample that hits every point. Then label it in your portfolio as made to a brief, and list what the brief asked for underneath. There is a [step-by-step markup method](/blog/brief-to-script/) you can follow so nothing gets missed.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Say any required line word for word, because a paraphrase can mean a reshoot.",
+            "Keep the product visible where the brief asks, not only where it looks best.",
+            "Deliver the length and aspect ratio requested, so the file is usable the moment it lands.",
+            "Name files the way the brief asks, or clearly by version, so nobody has to guess which is final."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How does the way you reply affect the choice?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Your replies are a preview of the job, so answer clearly, completely and in the order you were asked.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When a brand writes back with questions, each unanswered one creates another round of messages. A reply that handles everything at once saves the reader time, and that ease is something they can feel straight away. Keep it short and plain, and end with the next step rather than an open question.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "For example: Thanks, [NAME]. Yes, I can film the [PRODUCT] in my kitchen with daylight. I can deliver on [DATE], with three hook options and the raw clips. If that works, send the brief and I will confirm the plan the same day. If you are writing the first message rather than a reply, the [answer on pitch emails](/blog/ugc-pitch-email/) covers that step.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you stop doing if you keep getting passed over?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Stop changing everything at once, and change one signal at a time, so you can tell which change made a difference.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "It is tempting to redo your whole portfolio after a few silences. Instead, go back to the signals table and pick the weakest one. If your audio is the issue, fix it across every sample before touching anything else. If your samples have no brief behind them, add one that does. Ask a brand that passed whether they would share one thing that would have changed their mind, and act on it if they answer. Once you are booked, the [answer on getting rebooked](/blog/get-rebooked-ugc/) covers keeping the work coming.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-03",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
