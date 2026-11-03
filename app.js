@@ -826,6 +826,7 @@ const TABS = [
   ["tab-ops", "panel-ops"],
 ];
 function activateTab(tabId) {
+  agFlushAll();                                    // AUTOSAVE: a tab change saves what was typed
   // The New Client tab (tab-brief) was retired 2026-09-28. Any caller still naming it, or any id that is
   // not a tab, lands on Clients rather than hiding every panel.
   if (!TABS.some(([t]) => t === tabId)) tabId = "tab-briefs";
@@ -1186,6 +1187,7 @@ function sourceHostLabel(u) {
 }
 
 function renderSources() {
+  agFlushAll();                                    // AUTOSAVE: a corrected line is saved before the list is redrawn
   const host = document.getElementById("src-list");
   if (!host) return;
 
@@ -1324,7 +1326,7 @@ function bindSourceEdits(host) {
         srcRebuild();
         return srcFieldValue(rowOf(canon), path);   // seconds come back as the number stored
       },
-      failText: () => "Couldn't save that correction. Check the connection and try again.",
+      failText: () => "Couldn't save that correction yet. lynxr keeps trying.",
       saved: () => settle(canon),
       repaint: () => renderSources(),
     };
@@ -2623,6 +2625,7 @@ function openModalBindings(key, row) {
 }
 
 function closeModal() {
+  agFlushAll();                                    // AUTOSAVE
   const modal = document.getElementById("modal");
   modal.hidden = true;
   document.getElementById("modal-content").innerHTML = "";  // stops playback
@@ -3530,6 +3533,8 @@ const TRASH_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="curr
   ><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>`;
 
 function renderBriefs() {
+  agFlushAll();                                    // typing in a line or the format editor is saved before the DOM goes (AUTOSAVE)
+  cbOutboxResume();                                // the first render after sign-in sends what an earlier visit left unsaved
   const host = document.getElementById("briefs-host");
   const list = loadClients();
 
@@ -4138,11 +4143,11 @@ function agBeatSplice(bt, mode, field, val) {
 
 const agNorm = (v) => (v || "").replace(/\s+/g, " ").trim();
 const agText = (v) => String(v ?? "").replace(/\r\n?/g, "\n");   // a caption: exact, bar CRLF
-/** Is a script line being typed in, or changed and not yet saved, under `root`? A repaint then would
- *  throw the change away, so every repaint guard asks (creator.js editInFlight, same rule). */
+/** Is a script line being typed in, or typed in and not saved yet, under `root`? A repaint then would take the caret
+ *  (or words a refused or failing save is still holding) away, so every repaint guard asks (creator.js editInFlight). */
 function agEditInFlight(root = document) {
   const a = document.activeElement;
-  return !!(a && a.isContentEditable && root.contains(a)) || !!root.querySelector("[data-edit].is-pending");
+  return !!(a && a.isContentEditable && root.contains(a)) || !!root.querySelector("[data-edit].is-dirty");
 }
 /** Put "edited" beside a heading once, when the first line edit lands (no repaint does it). */
 function agMarkEdited(heading) {
@@ -4196,157 +4201,176 @@ function agKeepInView(el) {
   window.addEventListener("resize", keep);
 }
 
-/* AGENCY SCRIPT LINES, EDITED IN PLACE (owner, 2026-09-16: "make the do lines for any script on any
-   side of lynxr be editable the same way"). creator.js's model, line for line: the value span is the
-   input, a changed line is not saved until its tick or Enter, the cross or Escape puts it back, blur
-   keeps the change pending, and paste is plain text. The same classes (.bp-val[contenteditable],
-   .is-pending, .edit-confirm, .edit-ok, .edit-no) carry the same indicator.
-   What differs is storage. `store(el)` returns the script a line belongs to:
-     { read() -> the current beats, fresh from storage (strings; {t, say, do, show} objects when the
-         line's data-agmode is "fields"),
-       write(beats) -> saves the whole list as the override (may be async, may throw),
-       readTop(field) -> the hook / cta / caption as it shows now (null if the script has none),
-       writeTop(field, value) -> saves that one override ("" = cleared, as creator.js allows),
-       saved(field) -> marks the script edited on screen, repaint() -> redraws it from storage,
-       pencil -> true where the pencil editor exists, failText(ex) -> a failed save's sentence }
-   Hook and CTA lines are data-edit="top", like creator.js's (added 2026-09-16: "make the hook and
-   cta lines editable too", then "make the caption lines editable too"). A CAPTION KEEPS ITS LINE
-   BREAKS: its value is compared and saved as typed (only CRLF becomes LF), where every other line
-   collapses whitespace as creator.js does, and Shift+Enter adds a break; Enter still saves. Any
-   line with aria-multiline="true" gets that behaviour (a caption; a source's "why it works").
-   check(field, value) -> a sentence when the value cannot be saved on that line (nothing is written).
-   A string beat is changed through agBeatSplice, so only the edited line's characters move. Before
-   writing, the line's stored value must still be the one the page drew; if a sync or another tab
-   changed it, the save is refused and the script redrawn rather than written over. */
+/* AGENCY SCRIPT LINES, EDITED IN PLACE AND SAVED AS THEY ARE TYPED.
+   Owner, 2026-09-16: "make the do lines for any script on any side of lynxr be editable the same way" — the value span
+   is the input, paste is plain text. Owner, 2026-11-02: "get rid of the check line, and just when they edit it, it
+   saves automatically" (a CM rewrote a whole script, never pressed the tick, and lost it; plan
+   ~/.claude/plans/autosave-edits.md). The tick-and-cross row under a changed line is gone.
+   SAVING. A line saves itself AG_AUTOSAVE_MS after the last keystroke (and at least every AG_AUTOSAVE_MAX_MS while
+   typing goes on), at once when it loses focus, and when agFlushAll() runs (a view change, the tab going away). Enter
+   and Escape both leave the line, so both save; Shift+Enter in a multi-line field is a line break. There is no
+   per-line discard: the way back is the browser's undo while the caret is in the line, and the script's own revert /
+   restore controls.
+   NEVER ONLY ON SCREEN. Every keystroke is copied to localStorage (a line draft) until that line's save lands; a tab
+   that dies mid-sentence gets the words back the next time the line is drawn — only while the line still reads what it
+   read before the edit (`was`), so a draft can never land on a different beat.
+   NOTHING IS REWRITTEN UNDER THE CARET. A save never sets textContent while the line has focus (that moves the caret to
+   the start and strips the space just typed); the tidied text goes back once the line is left.
+   A line with typing not saved yet carries .is-dirty, which every repaint guard reads (agEditInFlight). A beat whose
+   every line is cleared is removed only once its line is left, and never when store.protect(i) says why not.
+   Storage is per surface. `store(el)` returns the script a line belongs to:
+     { read() -> the current beats (strings; {t, say, do, show} objects when data-agmode is "fields"),
+       write(beats, burst) -> saves the whole list (may be async, may throw; burst = a Set kept from focus to blur),
+       readTop(field) / writeTop(field, value) -> one hook / cta / caption / … value ("" = cleared; may hand back the
+       value as stored), saved(field), repaint(), pencil, failText(ex), check(field, value) -> a sentence when the value
+       cannot be saved on that line, protect(i) -> a sentence when beat i must not be removed by clearing it,
+       status(state) -> paints the surface's quiet save status ("saving" | "failed" | "stopped") }
+   A string beat is changed through agBeatSplice, so only the edited line's characters move. Before writing, the line's
+   stored value must still be `was`; if a sync or another tab changed it, the save is refused and the script redrawn,
+   and the message quotes what was typed, so nothing is lost. */
 function agWireInlineEdit(root, store) {
   if (!root) return;
-  const rowOf = (el) => el.closest("li.bp-beat, .bp-hook, .src-tag, .src-beats > li") || el.parentElement;
   const multi = (el) => el.getAttribute("aria-multiline") === "true";
   const valOf = (el, v) => (multi(el) ? agText(v) : agNorm(v));
-  const clearPending = (el) => {
-    el.classList.remove("is-pending");
-    rowOf(el).querySelector(".edit-confirm")?.remove();
+  const keyOf = (el) => `lynxr_line_draft:${agUid()}:${el.dataset.ag}:${el.dataset.agid}:${el.dataset.edit}:${el.dataset.field}:${el.dataset.beat ?? ""}`;
+  const dropDraft = (el) => { try { localStorage.removeItem(keyOf(el)); } catch { /* private window */ } };
+  const putDraft = (el) => {
+    try { localStorage.setItem(keyOf(el), JSON.stringify({ was: el.dataset.was, text: el.textContent, at: new Date().toISOString() })); }
+    catch { /* private window or full storage: the save still runs */ }
   };
-  const revertEdit = (el) => {
-    if (el.dataset.was !== undefined) el.textContent = el.dataset.was;
-    clearPending(el);
-    agLineMsg(el, "");
+  const clean = (el) => {                                   // nothing of this line is outstanding
+    el.classList.remove("is-dirty");
+    dropDraft(el);
+    el._first = 0; el._retryN = 0; el._refused = false;
+    clearTimeout(el._retryT);
   };
-  const commitEdit = async (el) => {
+  const tidy = (el) => {                                    // after the caret has gone: show the text as stored
+    if (document.activeElement === el || el.textContent === el.dataset.was) return;
+    if (valOf(el, el.textContent) === valOf(el, el.dataset.was)) el.textContent = el.dataset.was;
+  };
+  const commitEdit = async (el, { final }) => {
+    clearTimeout(el._t); el._t = null;
     const val = valOf(el, el.textContent);
     const was = valOf(el, el.dataset.was);
-    if (val === was) { clearPending(el); return; }            // nothing to save
+    if (val === was) { clean(el); tidy(el); return; }       // nothing to save
     const st = store(el);
-    if (!st || el.dataset.saving) return;
+    if (!st) return;
+    if (el.dataset.saving) { el._again = true; return; }    // the save in flight runs this again when it lands
     const i = Number(el.dataset.beat), field = el.dataset.field, mode = el.dataset.agmode;
+    const refuse = (text) => {                              // while typing, say nothing yet: the line may still change
+      if (!final) return;
+      el._refused = true;
+      agLineMsg(el, text);
+      st.status?.("stopped");
+    };
     const conflict = () => {
+      el.classList.remove("is-dirty");
+      dropDraft(el);
       st.repaint();
       const q = `[data-ag="${el.dataset.ag}"][data-agid="${CSS.escape(el.dataset.agid)}"]`;
       const again = document.querySelector(`[data-edit="${el.dataset.edit}"]${q}[data-field="${field}"]`)
         || document.querySelector(`[data-edit]${q}`);
-      if (again) agLineMsg(again, "This script changed since the page drew it, so that line wasn't saved. This is the saved version.");
+      if (again) agLineMsg(again, `This script changed since the page drew it, so that line wasn't saved over it. This is the saved version. What you typed: “${val}”`);
     };
+    let out = "", list = null, next = null;
     if (el.dataset.edit === "top") {
       const now = st.readTop ? st.readTop(field) : null;
       if (now == null || valOf(el, now) !== was) { conflict(); return; }
-      const out = val.trim() ? val : "";                      // cleared: the line is not drawn next time
-      const why = st.check ? st.check(field, out) : "";       // a value this line cannot hold
-      if (why) { agLineMsg(el, why); return; }
-      el.dataset.saving = "1";
-      let shown;
-      try {
-        shown = await st.writeTop(field, out);                // may hand back the value as stored
-      } catch (ex) {
-        agLineMsg(el, st.failText ? st.failText(ex) : "Couldn't save that line. Try again.");
-        return;
-      } finally {
-        delete el.dataset.saving;
-      }
-      agLineMsg(el, "");
-      el.textContent = shown == null ? out : String(shown);
-      el.dataset.was = el.textContent;
-      clearPending(el);
-      st.saved(field);
-      return;
-    }
-    const beats = st.read() || [];
-    const cur = beats[i];
-    const now = cur == null ? null
-      : mode === "fields" ? String(cur[field] ?? "") : (agBeatParse(cur, mode)[field]?.v ?? null);
-    if (now === null || agNorm(now) !== was) { conflict(); return; }
-    let next;
-    if (mode === "fields") {
-      const b = { ...cur, [field]: val };
-      next = agNorm(b.say) || agNorm(b.do) || agNorm(b.show) ? b : "";
+      out = val.trim() ? val : "";                          // cleared: the line is not drawn next time
+      const why = st.check ? st.check(field, out) : "";
+      if (why) { refuse(why); return; }
     } else {
-      next = agBeatSplice(cur, mode, field, val);
+      const beats = st.read() || [];
+      const cur = beats[i];
+      const now = cur == null ? null
+        : mode === "fields" ? String(cur[field] ?? "") : (agBeatParse(cur, mode)[field]?.v ?? null);
+      if (now === null || agNorm(now) !== was) { conflict(); return; }
+      if (mode === "fields") {
+        const b = { ...cur, [field]: val };
+        next = agNorm(b.say) || agNorm(b.do) || agNorm(b.show) ? b : "";
+      } else {
+        next = agBeatSplice(cur, mode, field, val);
+      }
+      if (next === null) {
+        refuse("That change can't be saved on this line without rewriting the rest of the beat, so it isn't saved. "
+          + (st.pencil ? "Use the pencil to edit the whole beat, or change the line back." : "Change the line back to keep it."));
+        return;
+      }
+      if (next === "") {
+        if (!final) return;                                 // a cleared beat goes only once its line is left
+        const keep = st.protect ? st.protect(i) : "";
+        if (keep) { el.textContent = el.dataset.was; clean(el); agLineMsg(el, keep); return; }
+      }
+      list = beats.slice();
+      if (next === "") list.splice(i, 1);                   // every line cleared: the beat goes
+      else list[i] = next;
     }
-    if (next === null) {
-      agLineMsg(el, "That change can't be saved on this line without rewriting the rest of the beat. "
-        + (st.pencil ? "Use the pencil to edit the whole beat, or press Esc to undo." : "Press Esc to undo."));
-      return;
-    }
-    const list = beats.slice();
-    if (next === "") list.splice(i, 1);                       // every line cleared: the beat goes
-    else list[i] = next;
     el.dataset.saving = "1";
+    let shown;
     try {
-      await st.write(list);
+      shown = el.dataset.edit === "top" ? await st.writeTop(field, out) : await st.write(list, el._burst || null);
     } catch (ex) {
-      agLineMsg(el, st.failText ? st.failText(ex) : "Couldn't save that line. Try again.");
+      agLineMsg(el, st.failText ? st.failText(ex) : "Couldn't save that line yet. lynxr keeps trying.");
+      st.status?.("failed");
+      clearTimeout(el._retryT);
+      el._retryN = (el._retryN || 0) + 1;
+      el._retryT = setTimeout(() => { if (el.isConnected) commitEdit(el, { final: document.activeElement !== el }); },
+        AG_RETRY_MS[Math.min(el._retryN - 1, AG_RETRY_MS.length - 1)]);
       return;
     } finally {
       delete el.dataset.saving;
     }
     agLineMsg(el, "");
-    if (next === "") { st.repaint(); return; }                // the row goes, and later indices shift
-    el.textContent = val;
-    el.dataset.was = val;                                     // the new baseline for the next Escape
-    clearPending(el);
+    if (next === "") { clean(el); st.repaint(); return; }   // the row goes, and later indices shift
+    el.dataset.was = el.dataset.edit === "top" ? (shown == null ? out : String(shown)) : val;   // the new baseline
+    if (valOf(el, el.textContent) === valOf(el, el.dataset.was)) clean(el);
+    else putDraft(el);                                      // typed on while it saved: that part is still to come
+    tidy(el);
     st.saved(field);
-  };
-  const showPending = (el) => {
-    if (el.classList.contains("is-pending")) return;
-    el.classList.add("is-pending");
-    const wrap = document.createElement("span");
-    wrap.className = "edit-confirm";
-    wrap.innerHTML =
-      `<button type="button" class="edit-ok" aria-label="Save this line" title="Save this line (Enter)">` +
-      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg></button>` +
-      `<button type="button" class="edit-no" aria-label="Discard this change" title="Discard this change (Esc)">` +
-      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
-    // mousedown, as in creator.js: the line keeps its caret until the button has acted. click still
-    // reaches a keyboard press (Tab to the tick, Enter), which fires no mousedown.
-    const ok = wrap.querySelector(".edit-ok"), no = wrap.querySelector(".edit-no");
-    ok.addEventListener("mousedown", (e) => { e.preventDefault(); commitEdit(el); });
-    no.addEventListener("mousedown", (e) => { e.preventDefault(); revertEdit(el); });
-    ok.addEventListener("click", (e) => { if (e.detail === 0) { commitEdit(el); el.focus(); } });
-    no.addEventListener("click", (e) => { if (e.detail === 0) { revertEdit(el); el.focus(); } });
-    rowOf(el).appendChild(wrap);
-    // the tick and cross sit under the line: on a phone, keep them above the keyboard too
-    if (document.activeElement === el) requestAnimationFrame(() => agKeepInView(wrap));
+    if (el._again) { el._again = false; commitEdit(el, { final: document.activeElement !== el }); }
   };
   root.querySelectorAll("[data-edit][data-ag]").forEach((el) => {
-    // The undo value is captured at wire time, not on focus (see creator.js for why).
-    el.dataset.was = el.textContent;
+    el.dataset.was = el.textContent;                        // the stored value as drawn (captured at wire time, not on focus)
+    el._commitNow = () => commitEdit(el, { final: true });
+    // A line draft from a tab that died, or a save that never landed: back in, while the line still reads what it did.
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(keyOf(el))); } catch { d = null; }
+    if (d && typeof d.text === "string") {
+      if (d.was === el.textContent && valOf(el, d.text) !== valOf(el, d.was)) {
+        el.textContent = d.text;
+        el.classList.add("is-dirty");
+        setTimeout(() => commitEdit(el, { final: true }), 0);
+      } else dropDraft(el);
+    }
     el.addEventListener("paste", (e) => {
       e.preventDefault();
       const t = (e.clipboardData || window.clipboardData).getData("text/plain");
       document.execCommand("insertText", false, valOf(el, t));
     });
     el.addEventListener("input", () => {
-      if (valOf(el, el.textContent) === valOf(el, el.dataset.was)) clearPending(el);
-      else showPending(el);
+      clearTimeout(el._t); el._t = null;
+      if (valOf(el, el.textContent) === valOf(el, el.dataset.was)) { clean(el); return; }
+      el.classList.add("is-dirty");
+      putDraft(el);
+      store(el)?.status?.("saving");
+      if (!el._first) el._first = Date.now();
+      el._t = setTimeout(() => commitEdit(el, { final: false }),
+        Math.max(0, Math.min(AG_AUTOSAVE_MS, el._first + AG_AUTOSAVE_MAX_MS - Date.now())));
     });
-    // stopPropagation: the video modal closes on a document-level Escape, and a line's Escape
-    // means "undo this line", not "close". Shift+Enter in a caption is a line break (the browser's
-    // own, plain text in a plaintext-only field).
     // A phone keyboard covers the bottom of the screen: keep the line being edited above it.
-    el.addEventListener("focus", () => setTimeout(() => { if (document.activeElement === el) agKeepInView(el); }, 300));
+    el.addEventListener("focus", () => {
+      el._burst = new Set();
+      setTimeout(() => { if (document.activeElement === el) agKeepInView(el); }, 300);
+    });
+    el.addEventListener("blur", () => {
+      const done = () => { el._burst = null; };
+      if (el.classList.contains("is-dirty")) commitEdit(el, { final: true }).finally(done);
+      else { tidy(el); done(); }
+    });
+    // stopPropagation: the video modal closes on a document-level Escape; here Escape only leaves the line.
     el.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && e.shiftKey && multi(el)) { e.stopPropagation(); return; }
-      if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); commitEdit(el); el.blur(); }
-      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); revertEdit(el); el.blur(); }
+      if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); e.stopPropagation(); el.blur(); }
     });
   });
 }
@@ -6469,6 +6493,7 @@ async function cbLoadCampaign(id) {
   cbHealScratch(formats);                          // a format written from scratch is always "done"
   const rec = { campaign, formats, at: Date.now() };
   CB_CACHE.set(id, rec);
+  cbOutboxOverlay(id);                             // what this browser has not saved yet, back over the fresh rows (AUTOSAVE)
   return rec;
 }
 
@@ -6490,6 +6515,7 @@ async function cbPoll(id) {
   cached.formats = light.map((l) => byId.get(l.id)).filter(Boolean)
     .sort((a, b) => (a.position || 0) - (b.position || 0));
   cbHealScratch(cached.formats);
+  cbOutboxOverlay(id);                             // a poll never paints the saved version over unsaved typing (AUTOSAVE)
   cached.at = Date.now();
   return changed;
 }
@@ -8206,8 +8232,14 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
   cbSendPaintGroups(host);
 
   document.getElementById("cb-send-go")?.addEventListener("click", async (e) => {
+    const go = e.currentTarget;
     const creatorIds = [...host.querySelectorAll(".cb-send-pick:checked")].map((c) => c.value);
     if (!creatorIds.length) return;
+    // What creators get is built from this page's copy: every edit on it must be saved first (AUTOSAVE).
+    if (sourceKind === "campaign" && !(await cbOutboxFlushCampaign(sourceId))) {
+      cbMsg(document.getElementById("cb-send-msg"), CB_UNSAVED_SEND, "bad", true);
+      return;
+    }
     // Sending again over an existing snapshot is an update too: keep in-progress formats
     // (agencySendDoc's prev), keep the first sent_at, move updated_at only if something changed.
     const prevRow = AG_SENT.get(key)?.rows?.[0] || null;
@@ -8222,7 +8254,7 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
       cbMsg(msgEl(), "They already have this version.", "good");
       return;
     }
-    e.currentTarget.disabled = true;
+    go.disabled = true;
     try {
       await agSend(doc, sourceKind, sourceId, creatorIds, existing);
       await agEnsureSent(sourceKind, sourceId, null, true);
@@ -8238,7 +8270,7 @@ function cbBindSend(host, sourceKind, sourceId, getDoc, repaint, msgId = "cb-vie
         : ` Added ${rostBrandTidy(brand)} to ${tagged.length} creators' brands.`;
       cbMsg(msgEl(), `Sent to ${cbPlural(creatorIds.length, "creator", "creators")}${nFiles ? ` with ${cbPlural(nFiles, "file", "files")}` : ""}.${tagNote}`, "good");
     } catch (ex) {
-      e.currentTarget.disabled = false;
+      go.disabled = false;
       cbMsg(document.getElementById("cb-send-msg"), agSendErrorSentence(ex), "bad", true);
     }
   });
@@ -9101,14 +9133,14 @@ function cbBeatsWithNotes(f, shape) {
 
 /** Save refuses a note it cannot keep: one on a beat with nothing to say, do or show (cbReadEditor drops that beat,
     and the note would go with it), or one over CB_NOTE_MAX. { el, text } or null. */
-function cbEditorNoteProblem(form) {
+function cbEditorNoteProblem(form, { uploading = true } = {}) {
   const fields = [...form.querySelectorAll(".cb-beat-field")];
   for (let k = 0; k < fields.length; k++) {
     const fs = fields[k];
     const el = fs.querySelector('[data-bt="note"]');
     const note = (el?.value || "").trim();
-    if ((fs._noteBusy || []).length) {
-      return { el, text: `Beat ${k + 1}: an image is still uploading. Wait for it to finish, then save.` };
+    if (uploading && (fs._noteBusy || []).length) {
+      return { el, text: `Beat ${k + 1}: an image is still uploading. Wait for it to finish, then press Done.` };
     }
     if (!note && !cbNoteImgsOf(fs).length) continue;
     const g = (x) => (fs.querySelector(`[data-bt="${x}"]`)?.value || "").trim();
@@ -9152,8 +9184,8 @@ function cbNotesFromEditor(form) {
 /** An in-place line edit on a finished card (agWireInlineEdit) rewrites one beat's words, or removes the beat when
     every line of it is cleared. The notes follow, so a reworded beat's note is not flagged "beat changed": a note
     drawn unflagged on a beat whose words changed gains the new fingerprint, and a note drawn on a removed beat goes
-    with it. Flagged notes are left as they are. null = nothing to write. */
-function cbNotesAfterLineEdit(f, next) {
+    with it. Flagged notes are left as they are. null = nothing to write. burst: see agWireInlineEdit. */
+function cbNotesAfterLineEdit(f, next, burst = null) {
   const notes = Array.isArray(f?.beat_notes) ? f.beat_notes : [];
   if (!notes.length) return null;
   const prev = cbView(f).beats || [];
@@ -9166,7 +9198,11 @@ function cbNotesAfterLineEdit(f, next) {
       if (ps[j] === ns[j] || !view[j] || view[j].flagged) continue;
       for (const k of view[j].ks) {
         const had = Array.isArray(out[k].sigs) ? out[k].sigs : [];
-        out[k] = { ...out[k], beat: j, sigs: [...had.filter((s) => s !== ns[j]), ns[j]].slice(-BF_MAX_SIGS) };
+        // AUTOSAVE: a line saves several times while it is typed. `burst` holds the fingerprints this focus has added,
+        // so each save replaces the last one instead of piling up; the note keeps one fingerprint per edit.
+        const kept = burst ? had.filter((s) => !burst.has(s)) : had;
+        if (burst && !had.includes(ns[j])) burst.add(ns[j]);
+        out[k] = { ...out[k], beat: j, sigs: [...kept.filter((s) => s !== ns[j]), ns[j]].slice(-BF_MAX_SIGS) };
       }
     }
   } else if (ns.length === ps.length - 1) {
@@ -9216,18 +9252,12 @@ async function cbNoteKeep(btn) {
     sigs: [...n.sigs.filter((s) => s !== sig), sig].slice(-BF_MAX_SIGS), text: n.text,
     ...(n.imgs.length ? { imgs: n.imgs } : {}) });   // its images stay with it
   next.sort((a, b) => a.beat - b.beat);
-  btn.disabled = true;
-  try {
-    await cbPatchFormat(f.id, { beat_notes: next });
-    f.beat_notes = next;
-    box.classList.remove("bnote-flagged");
-    box.querySelector(".bnote-why")?.remove();
-    (box.querySelector(".bnote-copy") || box.querySelector("button.bnote-img"))?.focus({ preventScroll: true });
-    btn.remove();
-  } catch (ex) {
-    btn.disabled = false;
-    cbMsg(document.getElementById(`cb-fmsg-${f.id}`), cbErrorSentence(ex, "save"), "bad", true);
-  }
+  // Through the outbox (AUTOSAVE): a line save still on its way must not land after this and put the old notes back.
+  cbOutboxPut(campaignId, f, { beat_notes: next });
+  box.classList.remove("bnote-flagged");
+  box.querySelector(".bnote-why")?.remove();
+  (box.querySelector(".bnote-copy") || box.querySelector("button.bnote-img"))?.focus({ preventScroll: true });
+  btn.remove();
 }
 
 /** Copy hands over the note exactly as stored: textContent is the source text (lowercase is CSS only). On a
@@ -9468,6 +9498,7 @@ async function cbNoteImgUpload(form, fs, files, campaignId, { pasted = false } =
       form._noteUp = form._noteUp || new Map();   // every image this editor uploaded: Cancel deletes the unsaved ones
       form._noteUp.set(path, { path, id: null });
       cbNoteImgsSet(fs, [...cbNoteImgsOf(fs), { path, name: u.name, size: u.size, mime: u.mime }]);
+      form.dispatchEvent(new Event("input", { bubbles: true }));   // the editor saves itself (AUTOSAVE)
     } catch (ex) {
       problems.push(`${u.name}: ${bfErrorSentence(ex, "upload")}`);
     } finally {
@@ -9798,6 +9829,291 @@ const CB_LOADING = new Set();
 const CB_LOAD_ERR = new Map();    // campaign id -> cbError kind of the failed first load
 let CB_LANE = null;               // { value, at, fetching }
 let CB_ADD_KEEP = null;           // { id, values } typed add-video rows carried across a repaint
+
+/* ---------- AUTOSAVE (owner, 2026-11-02: "When people make edits to a script or beats or whatever, get rid of the check
+   line, and just when they edit it, it saves automatically" — a CM rewrote a whole script, never pressed the tick, and
+   lost all of it. Plan: ~/.claude/plans/autosave-edits.md) ----------
+   Typed words are never only on screen. Three layers, all keyed by the signed-in account (agUid):
+     1. LINE DRAFTS — agWireInlineEdit copies every keystroke to localStorage (lynxr_line_draft:…) until the line's save
+        lands, and puts it back the next time that line is drawn while it still reads what it read before the edit.
+     2. FORMAT-EDITOR DRAFTS — the pencil editor copies every change (lynxr_fmt_draft:<uid>:<fid>) until it has been
+        handed to the outbox; a reload reopens the editor with it (cbOutboxOverlay, cbEdView).
+     3. THE OUTBOX — a campaign format's changed fields (CB_OUTBOX, mirrored to lynxr_cb_outbox:<uid>), PATCHed in the
+        background, retried on AG_RETRY_MS until they land, resumed at the next load (cbOutboxResume / cbOutboxOverlay),
+        and laid back over every fetch of that format, so a poll never paints the saved version over them. The PATCH
+        only applies to the same finished version of the format (status=eq.done and the same finished_at): a format
+        regenerated meanwhile is never written over (process_campaigns moves `edited` into script_prev when it
+        finishes). Every other write of `edited` or `beat_notes` goes through the outbox (Keep here, Revert to
+        generated) or waits for it (regenerate, restore, send). */
+const AG_AUTOSAVE_MS = 1500;          // a pause this long while typing saves
+const AG_AUTOSAVE_MAX_MS = 10000;     // typing on without a pause still saves this often
+const AG_RETRY_MS = [2000, 5000, 10000, 20000, 30000, 60000];   // a failed save tries again on this ladder, then every minute
+const AG_DRAFT_DAYS = 14;             // drafts and outbox entries older than this are dropped at load
+const CB_OUTBOX_HOLD_MS = 15000;      // a landed save is laid over fetches this long (a poll that left before it landed)
+const AG_PAGE_LOAD = Math.random().toString(36).slice(2);   // which page load wrote a format-editor draft
+const agUid = () => SB_UID || "anon";
+const CB_OUTBOX = new Map();          // fid -> { campaignId, body, rev, finished, at, tries, timer, flying, again, acked, ackedAt, stopped, restored }
+const CB_SAVE_STATE = new Map();      // fid -> "saving" | "saved" | "failed" | "stopped": the card head's status, kept across repaints
+const CB_NOTICE = new Map();          // fid -> { text, tone, until }: a card message that must survive repaints for a while
+let CB_OUTBOX_RESUMED = false, AG_DRAFTS_SWEPT = false, AG_FLUSHING = false;
+const CB_SAVE_WORDS = { saving: "Saving…", saved: "Saved", failed: "Couldn't save · retrying", stopped: "Couldn't save" };
+const CB_RESTORED_TEXT = "Restored edits from this browser that hadn't saved yet.";
+const CB_UNSAVED_TEXT = "Your last edits haven't saved yet, so this waited. Try again once the card says saved.";
+const CB_UNSAVED_SEND = "Some edits on this brief haven't saved yet, so nothing was sent. Wait until the cards say saved, then send.";
+const cbOutboxKey = () => `lynxr_cb_outbox:${agUid()}`;
+const cbEdDraftKey = (fid) => `lynxr_fmt_draft:${agUid()}:${fid}`;
+const agClone = (v) => JSON.parse(JSON.stringify(v));
+/** The same finished version of a format: finished_at compared as a moment, not as text (PostgREST and the browser write
+    the same moment differently). */
+const cbSameFinish = (a, b) => (!a && !b) || (!!a && !!b && Date.parse(a) === Date.parse(b));
+
+/** The card's one quiet status, in its head (cbSaveHtml draws it on every render from CB_SAVE_STATE). */
+function cbSavePaint(fid, state) {
+  if (state) CB_SAVE_STATE.set(fid, state); else CB_SAVE_STATE.delete(fid);
+  const el = document.getElementById(`cb-save-${fid}`);
+  if (!el) return;
+  el.textContent = CB_SAVE_WORDS[state] || "";
+  el.classList.toggle("bad", state === "failed" || state === "stopped");
+  el.hidden = !state;
+}
+function cbSaveHtml(fid) {
+  const st = CB_SAVE_STATE.get(fid) || "";
+  return `<span class="ag-save${st === "failed" || st === "stopped" ? " bad" : ""}" id="cb-save-${escapeHtml(fid)}" role="status"`
+    + ` aria-live="polite"${st ? "" : " hidden"}>${escapeHtml(CB_SAVE_WORDS[st] || "")}</span>`;
+}
+/** A message on a format card that a repaint must not wipe (cbBindCard shows it again until `ms` has passed). */
+function cbNotice(fid, text, tone, ms) {
+  CB_NOTICE.set(fid, { text, tone, until: Date.now() + ms });
+  cbMsg(document.getElementById(`cb-fmsg-${fid}`), text, tone, tone === "bad");
+}
+
+function cbOutboxStore() {
+  const out = {};
+  for (const [fid, o] of CB_OUTBOX) if (o.body) out[fid] = { campaignId: o.campaignId, body: o.body, finished: o.finished ?? null, at: o.at };
+  try {
+    if (Object.keys(out).length) localStorage.setItem(cbOutboxKey(), JSON.stringify(out));
+    else localStorage.removeItem(cbOutboxKey());
+  } catch { /* private window or full storage: the in-memory outbox still saves */ }
+}
+/** Take in what an earlier visit left in localStorage (entries not already in memory), once per entry. */
+function cbOutboxLoad() {
+  const cutoff = Date.now() - AG_DRAFT_DAYS * 864e5;
+  if (!AG_DRAFTS_SWEPT) {                  // once per page load: forget drafts nobody came back for
+    AG_DRAFTS_SWEPT = true;
+    try {
+      for (const k of Object.keys(localStorage)) {
+        if (!k.startsWith("lynxr_line_draft:") && !k.startsWith("lynxr_fmt_draft:")) continue;
+        let at = 0;
+        try { at = Date.parse(JSON.parse(localStorage.getItem(k))?.at || ""); } catch { at = 0; }
+        if (!(at > cutoff)) localStorage.removeItem(k);
+      }
+    } catch { /* private window */ }
+  }
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(cbOutboxKey())) || {}; } catch { saved = {}; }
+  for (const [fid, s] of Object.entries(saved)) {
+    if (!s?.body || CB_OUTBOX.has(fid) || !(Date.parse(s.at || "") > cutoff)) continue;
+    CB_OUTBOX.set(fid, { campaignId: s.campaignId, body: s.body, finished: s.finished ?? null, at: s.at, rev: 1, tries: 0, restored: true });
+    cbNotice(fid, CB_RESTORED_TEXT, "good", 10000);
+  }
+}
+/** Hand a format's changed fields to the outbox: the cache shows them at once, localStorage keeps them, and the PATCH
+    goes now (or right after the one in flight). `body` holds whole top-level fields (edited, beat_notes, staff_needs,
+    internal_note); a later put of the same field replaces it. */
+function cbOutboxPut(campaignId, f, body) {
+  const copy = agClone(body);
+  const o = CB_OUTBOX.get(f.id) || { campaignId, rev: 0, tries: 0 };
+  o.body = { ...(o.body || {}), ...copy };
+  o.rev += 1;
+  o.at = new Date().toISOString();
+  o.campaignId = campaignId;
+  o.finished = f.finished_at ?? null;
+  o.acked = null; o.stopped = false; o.restored = false;
+  CB_OUTBOX.set(f.id, o);
+  CB_NOTICE.delete(f.id);
+  Object.assign(f, agClone(copy));
+  cbOutboxStore();
+  cbSavePaint(f.id, "saving");
+  cbOutboxKick(f.id, 0);
+}
+function cbOutboxKick(fid, wait) {
+  const o = CB_OUTBOX.get(fid);
+  if (!o) return;
+  clearTimeout(o.timer);
+  o.timer = setTimeout(() => { o.timer = null; cbOutboxSend(fid); }, wait);
+}
+/** One PATCH of everything the outbox holds for this format. Resolves true once it has landed (or there was nothing). */
+function cbOutboxSend(fid, { keepalive = false } = {}) {
+  const o = CB_OUTBOX.get(fid);
+  if (!o || !o.body) return Promise.resolve(true);
+  if (o.stopped) return Promise.resolve(false);
+  if (o.flying) { o.again = true; return o.flying; }
+  clearTimeout(o.timer); o.timer = null;
+  const rev = o.rev, body = o.body;
+  // return=representation in every mode: no row back means nothing changed, which is never "saved".
+  const patch = (fin) => sbFetch(`/rest/v1/lynxr_campaign_formats?id=eq.${encodeURIComponent(fid)}&status=eq.done`
+    + `&${fin ? `finished_at=eq.${encodeURIComponent(fin)}` : "finished_at=is.null"}&select=id`,
+    { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(body), keepalive });
+  o.flying = (async () => {
+    try {
+      let rows = await patch(o.finished);
+      if (!Array.isArray(rows) || !rows.length) {
+        // Nothing changed. Ask the row why before giving up: only a format regenerated, deleted or out of this
+        // account's reach is "gone"; the same moment written another way is not.
+        const now = await sbFetch(`/rest/v1/lynxr_campaign_formats?id=eq.${encodeURIComponent(fid)}&select=status,finished_at`);
+        const r = Array.isArray(now) ? now[0] : null;
+        if (r && r.status === "done" && cbSameFinish(r.finished_at, o.finished)) { o.finished = r.finished_at || null; rows = await patch(o.finished); }
+      }
+      if (!Array.isArray(rows) || !rows.length) throw new Error("409 not applied");
+      o.tries = 0;
+      if (o.rev === rev) {
+        o.body = null; o.acked = body; o.ackedAt = Date.now();
+        cbSavePaint(fid, "saved");
+      } else o.again = true;                    // typed again while it flew: the rest goes next
+      return true;
+    } catch (ex) {
+      const kind = /^409 not applied/.test(String(ex?.message || "")) ? "gone" : cbError(ex);
+      if (kind === "other") {
+        o.tries += 1;
+        cbSavePaint(fid, "failed");
+        cbOutboxKick(fid, AG_RETRY_MS[Math.min(o.tries - 1, AG_RETRY_MS.length - 1)]);
+      } else {
+        o.stopped = true;
+        if (kind === "gone") o.body = null;     // nothing to resume: the format moved on without these words
+        cbSavePaint(fid, "stopped");
+        cbNotice(fid, kind === "gone"
+          ? "This format changed while you were editing (it is regenerating, was deleted, or this account can't edit it any more), so the last edit wasn't saved."
+          : cbErrorSentence(ex, "save"), "bad", 60000);
+      }
+      return false;
+    } finally {
+      o.flying = null;
+      cbOutboxStore();
+      if (o.again) { o.again = false; if (o.body && !o.stopped) cbOutboxKick(fid, 0); }
+    }
+  })();
+  return o.flying;
+}
+/** Everything this format has in the outbox, on the server now. true = nothing left unsaved. */
+async function cbOutboxFlush(fid) {
+  for (let i = 0; i < 4; i++) {
+    const o = CB_OUTBOX.get(fid);
+    if (!o) return true;
+    if (o.stopped) return !o.body;
+    if (o.flying) { await o.flying; continue; }
+    if (!o.body) return true;
+    if (!(await cbOutboxSend(fid))) return false;
+  }
+  const o = CB_OUTBOX.get(fid);
+  return !o || (!o.body && !o.stopped);
+}
+async function cbOutboxFlushCampaign(campaignId) {
+  const fids = [...CB_OUTBOX].filter(([, o]) => o.campaignId === campaignId).map(([fid]) => fid);
+  return (await Promise.all(fids.map((fid) => cbOutboxFlush(fid)))).every(Boolean);
+}
+/** A deleted format: forget its outbox entry and every draft of it. */
+function cbOutboxDrop(fid) {
+  const o = CB_OUTBOX.get(fid);
+  if (o) clearTimeout(o.timer);
+  CB_OUTBOX.delete(fid);
+  cbOutboxStore();
+  cbSavePaint(fid, "");
+  try {
+    localStorage.removeItem(cbEdDraftKey(fid));
+    for (const k of Object.keys(localStorage)) if (k.startsWith(`lynxr_line_draft:${agUid()}:cb:${fid}:`)) localStorage.removeItem(k);
+  } catch { /* private window */ }
+}
+/** Once per page load, at the first render after sign-in: send what an earlier visit left in the outbox, whichever brief
+    it belongs to (the PATCH's status and finished_at filters keep it off a format regenerated since). */
+function cbOutboxResume() {
+  if (CB_OUTBOX_RESUMED || !SB_UID) return;
+  CB_OUTBOX_RESUMED = true;
+  cbOutboxLoad();
+  for (const [fid, o] of CB_OUTBOX) {
+    if (!o.body || o.flying || o.stopped) continue;
+    o.restored = false;
+    cbSavePaint(fid, "saving");
+    cbOutboxKick(fid, 0);
+  }
+}
+/** After every fetch of a campaign's formats (cbLoadCampaign, cbPoll): lay what this browser has not saved yet back over
+    the fresh rows, send entries restored from localStorage, forget entries whose format is gone or was regenerated, and
+    reopen a format editor that was left with a draft. */
+function cbOutboxOverlay(campaignId) {
+  cbOutboxLoad();
+  const rec = CB_CACHE.get(campaignId);
+  if (!rec) return;
+  const byId = new Map(rec.formats.map((f) => [f.id, f]));
+  for (const [fid, o] of [...CB_OUTBOX]) {
+    if (o.campaignId !== campaignId) continue;
+    const f = byId.get(fid);
+    if (!f) { if (!o.flying) CB_OUTBOX.delete(fid); continue; }       // the format was deleted
+    const same = f.status === "done" && cbSameFinish(f.finished_at, o.finished);
+    if (o.body) {
+      if (!same) {
+        if (o.flying) continue;                                       // its PATCH will find out and say so
+        CB_OUTBOX.delete(fid); cbSavePaint(fid, "");                  // regenerated meanwhile: never write old words over it
+        cbNotice(fid, "This format was regenerated, so an edit that hadn't saved yet wasn't applied.", "bad", 60000);
+        continue;
+      }
+      Object.assign(f, agClone(o.body));
+      if (o.restored && !o.stopped && !o.flying) { o.restored = false; cbSavePaint(fid, "saving"); cbOutboxKick(fid, 0); }
+    } else if (o.acked && same && Date.now() - o.ackedAt < CB_OUTBOX_HOLD_MS) {
+      Object.assign(f, agClone(o.acked));
+    } else if (!o.stopped && !o.flying) {
+      CB_OUTBOX.delete(fid);
+    }
+  }
+  cbOutboxStore();
+  // A format editor left with a draft it had not handed over (a reload, a tab that died, a refused value) opens again.
+  for (const f of rec.formats) {
+    if (f.status !== "done" || CB_EDITING.has(f.id)) continue;
+    const d = cbEdDraftRead(f.id);
+    if (!d || d.campaignId !== campaignId) continue;
+    CB_EDITING.add(f.id);
+    if (d.load !== AG_PAGE_LOAD) cbNotice(f.id, CB_RESTORED_TEXT, "good", 10000);
+  }
+}
+function cbEdDraftRead(fid) {
+  try { const d = JSON.parse(localStorage.getItem(cbEdDraftKey(fid))); return d && d.body ? d : null; } catch { return null; }
+}
+/** The format as its editor should show it: this browser's unsaved editor draft laid over the cache, when there is one. */
+function cbEdView(f) {
+  const d = cbEdDraftRead(f.id);
+  if (!d) return f;
+  return { ...f, ...(d.body.edited ? { edited: d.body.edited } : {}), internal_note: d.body.internal_note ?? f.internal_note,
+    ...("staff_needs" in d.body ? { staff_needs: d.body.staff_needs } : {}), ...(Array.isArray(d.notes) ? { beat_notes: d.notes } : {}) };
+}
+/** Save, now, every script line typed in and not yet saved and every open format editor (a view change, the tab going
+    away). A line's save into the outbox happens synchronously inside this call; the network follows. */
+function agFlushAll() {
+  if (AG_FLUSHING) return;
+  AG_FLUSHING = true;
+  try {
+    document.querySelectorAll("[data-edit][data-ag].is-dirty").forEach((el) => { if (!el.dataset.saving) el._commitNow?.(); });
+    document.querySelectorAll("form.cb-editor").forEach((form) => form._flushNow?.());
+  } finally { AG_FLUSHING = false; }
+}
+/** A save that failed and has not landed since, or a value that cannot be saved: the one case worth the browser's
+    leave-page prompt (an ordinary save in flight is already on this device). */
+function agSaveFailing() {
+  return [...CB_OUTBOX.values()].some((o) => o.body && (o.tries > 0 || o.stopped))
+    || [...document.querySelectorAll("[data-edit][data-ag].is-dirty")].some((el) => el._retryN > 0 || el._refused)
+    || [...document.querySelectorAll("form.cb-editor")].some((form) => form._refused);
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { agFlushAll(); return; }
+  for (const [fid, o] of CB_OUTBOX) if (o.body && !o.flying && !o.stopped) cbOutboxKick(fid, 0);   // back: retry now
+});
+addEventListener("online", () => { for (const [fid, o] of CB_OUTBOX) if (o.body && !o.flying && !o.stopped) cbOutboxKick(fid, 0); });
+addEventListener("pagehide", () => {
+  agFlushAll();
+  for (const [fid, o] of CB_OUTBOX) if (o.body && !o.stopped) cbOutboxSend(fid, { keepalive: true });
+});
+addEventListener("beforeunload", (e) => {
+  agFlushAll();
+  if (agSaveFailing()) { e.preventDefault(); e.returnValue = ""; }
+});
 
 /* THE FORMAT LIBRARY (plan: ~/.claude/plans/campaign-format-library.md, 2026-09-25). Every READY
    format of this client's OTHER campaign briefs, grouped by brief, newest first, added to the open
@@ -10597,7 +10913,7 @@ function cbOriginalHtml(f, extra = "") {
 function cbEditSplitHtml(f) {
   const scratch = cbIsScratch(f);                  // written from scratch: no original to compare with
   return `<div class="ref-split cb-split cb-ed-split${scratch ? " cb-solo" : ""}">
-      <div class="ref-main cb-ed-main">${cbEditorHtml(f)}</div>
+      <div class="ref-main cb-ed-main">${cbEditorHtml(cbEdView(f), !!f.edited)}</div>
       ${scratch ? "" : cbOriginalHtml(f, " cb-ed-original")}
     </div>`;
 }
@@ -10670,7 +10986,7 @@ function cbBeatFieldHtml(b, i, note = null, scratch = false) {
   </fieldset>`;
 }
 
-function cbEditorHtml(f) {
+function cbEditorHtml(f, hasEdits = !!f.edited) {
   const v = cbView(f);
   const notes = cbNotesView(f);
   const scratch = cbIsScratch(f);                  // nothing was generated: one Needs box, no Original, no Revert
@@ -10692,7 +11008,7 @@ function cbEditorHtml(f) {
     </div>
     <div class="cb-lbl">Script beats</div>
     <p class="note cb-beats-hint">${CB_NOTES === true
-      ? "Each beat can carry a note for creators: a prompt, caption or link they copy from that beat, and screenshots they see with it. To put any other file on a beat, save, then press + add file under it."
+      ? "Each beat can carry a note for creators: a prompt, caption or link they copy from that beat, and screenshots they see with it. To put any other file on a beat, press Done, then + add file under it."
       : "Notes on beats need one more update: run <code>supabase/beat_notes.sql</code> in the Supabase SQL editor, then reload."}</p>
     <div class="cb-beat-list">${(v.beats || []).map((b, i) => cbBeatFieldHtml(b, i,
       notes[i] && { ...notes[i], imgs: cbNoteImgsLive(f.campaign_id, notes[i].imgs) }, scratch)).join("")}</div>
@@ -10705,9 +11021,8 @@ function cbEditorHtml(f) {
       ${area("internal_note", "Internal note", f.internal_note, 2, true, "agency only")}
     </div>
     <div class="bp-actions">
-      <button type="submit" class="btn cb-ed-save">Save changes</button>
-      <button type="button" class="ghost cb-ed-cancel">Cancel</button>
-      ${f.edited && !scratch ? `<button type="button" class="ghost cb-ed-revert" title="Discard the edits and show the generated version">Revert to generated</button>` : ""}
+      <button type="submit" class="btn cb-ed-save" title="Changes save as you type. Done closes the editor.">Done</button>
+      ${hasEdits && !scratch ? `<button type="button" class="ghost cb-ed-revert" title="Discard the edits and show the generated version">Revert to generated</button>` : ""}
     </div>
   </form>`;
 }
@@ -10763,7 +11078,7 @@ function cbCardHtml(f, i, total) {
     head = `<h3 class="cb-fh"><span class="cb-fnum">${n}.</span> <span class="cb-title">${escapeHtml(v.title || v.hook || "Untitled format")}</span></h3>
       <span class="cb-chips">${scratch ? CB_SCRATCH_CHIP : cbIsExact(f) ? CB_EXACT_CHIP : ""}${f.edited && !scratch ? `<span class="chip">edited</span>` : ""}${weak
         ? `<span class="chip bad" title="${escapeHtml(v.fit_reason || "")}">weak fit<span class="sr-only">: ${escapeHtml(v.fit_reason || "")}</span></span>` : ""}${blanks
-        ? `<span class="chip bad" title="Creators film this brief as written — edit these lines">${blanks} blank${blanks === 1 ? "" : "s"} to fill</span>` : ""}</span>`;
+        ? `<span class="chip bad" title="Creators film this brief as written — edit these lines">${blanks} blank${blanks === 1 ? "" : "s"} to fill</span>` : ""}${cbSaveHtml(f.id)}</span>`;
     if (f.script_prev && !editing) {
       extra += `<div class="cb-restore-row"><button type="button" class="ghost cb-small cb-restore">Restore previous version</button></div>`;
     }
@@ -11409,33 +11724,44 @@ function cbBindCard(card, campaignId) {
   const fmsg = () => document.getElementById(`cb-fmsg-${fid}`);
   const repaint = (sel) => cbRepaintCard(campaignId, fid, sel);
   const after = () => { cbPaintSummary(campaignId); cbEnsurePoll(campaignId); };
+  const notice = CB_NOTICE.get(fid);               // a card message that outlives a repaint (cbNotice, AUTOSAVE)
+  if (notice && notice.until > Date.now()) cbMsg(fmsg(), notice.text, notice.tone, notice.tone === "bad");
+  else CB_NOTICE.delete(fid);
 
   card.querySelector(".cb-up")?.addEventListener("click", () => cbMove(campaignId, fid, -1));
   card.querySelector(".cb-down")?.addEventListener("click", () => cbMove(campaignId, fid, +1));
-  /* A line edited in place is written as `edited.beats` (a hook, CTA or caption as `edited.hook`,
-     `.cta`, `.caption`), the same override the format editor saves (cbView lays `edited` over
-     `script`), so "Revert to generated" undoes all of it. */
+  /* A line edited in place is written as `edited.beats` (a hook, CTA or caption as `edited.hook`, `.cta`, `.caption`),
+     the same override the format editor saves (cbView lays `edited` over `script`), so "Revert to generated" undoes all
+     of it. Writes go through the outbox (cbOutboxPut, AUTOSAVE): the cache and localStorage have them at once, the
+     PATCH follows and retries until it lands, and the card head says Saving… / Saved / Couldn't save. */
   agWireInlineEdit(card.querySelector(".cb-info"), () => (get() ? {
     pencil: true,
     read: () => { const f = get(); return f ? (cbView(f).beats || []) : null; },
-    write: async (beats) => {
+    write: (beats, burst) => {
       const f = get();
       if (!f) throw new Error("gone");
       const edited = { ...(f.edited || {}), beats };
-      const notes = CB_NOTES === true ? cbNotesAfterLineEdit(f, beats) : null;   // notes follow their beat
+      const notes = CB_NOTES === true ? cbNotesAfterLineEdit(f, beats, burst) : null;   // notes follow their beat
       const hadImgs = notes ? cbNoteImgRefs(f.beat_notes) : [];
-      await cbPatchFormat(fid, notes ? { edited, beat_notes: notes } : { edited });
-      f.edited = edited;
-      if (notes) { f.beat_notes = notes; cbNoteImgsSweep(campaignId, hadImgs); }   // a cleared beat's note images go with it
+      cbOutboxPut(campaignId, f, notes ? { edited, beat_notes: notes } : { edited });
+      if (notes) cbNoteImgsSweep(campaignId, hadImgs);   // a removed beat's note images go with it (protect() keeps beats with notes)
     },
     readTop: (field) => { const f = get(); return f ? String(cbView(f)[field] ?? "") : null; },
-    writeTop: async (field, val) => {
+    writeTop: (field, val) => {
       const f = get();
       if (!f) throw new Error("gone");
-      const edited = { ...(f.edited || {}), [field]: val };
-      await cbPatchFormat(fid, { edited });
-      f.edited = edited;
+      cbOutboxPut(campaignId, f, { edited: { ...(f.edited || {}), [field]: val } });
     },
+    // Clearing every line of a beat removes it, but not a beat that carries a note for creators: on a mere blur that
+    // would take the note (and its images) with it. The editor's Remove beat is the deliberate way.
+    protect: (i) => {
+      const f = get();
+      const n = f && CB_NOTES === true ? cbNotesView(f)[i] : null;
+      return n && (n.text || n.imgs.length)
+        ? "This beat has a note for creators, so it wasn't removed. To remove it, open the editor (the pencil) and press Remove beat."
+        : "";
+    },
+    status: (state) => cbSavePaint(fid, state),
     failText: (ex) => cbErrorSentence(ex, "save"),
     saved: (field) => {
       bfRepaint("campaign", campaignId);           // a reworded beat may now be flagged "beat changed"
@@ -11471,13 +11797,17 @@ function cbBindCard(card, campaignId) {
   card.querySelector(".cb-regen-go")?.addEventListener("click", async (e) => {
     const f = get();
     if (!f) return;
+    const btn = e.currentTarget;
     const kb = card.querySelector(".cb-regen-row .cb-keep-box");
     const body = cbRegenerateBody(f, (card.querySelector("[data-regen-note]")?.value || "").trim(),
       kb ? (kb.checked ? "verbatim" : "adapt") : undefined);
-    e.currentTarget.disabled = true;
+    btn.disabled = true;
+    // Regenerating moves `edited` into script_prev (process_campaigns): the edits must be on the server first, or they
+    // would land after the new script and be laid over it (AUTOSAVE).
+    if (!(await cbOutboxFlush(fid))) { btn.disabled = false; cbMsg(fmsg(), CB_UNSAVED_TEXT, "bad", true); return; }
     try {
       await cbPatchFormat(fid, body);
-      cbMergeLocal(f, body);
+      cbMergeLocal(get() || f, body);
       CB_REGEN.delete(fid);
       repaint(".cb-state");
       after();
@@ -11487,10 +11817,14 @@ function cbBindCard(card, campaignId) {
     }
   });
   card.querySelector(".cb-restore")?.addEventListener("click", async (e) => {
-    const f = get();
-    if (!f?.script_prev) return;
+    const f0 = get();
+    if (!f0?.script_prev) return;
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    // The swap keeps today's `edited` as the new previous version: it must be the saved one (AUTOSAVE).
+    if (!(await cbOutboxFlush(fid))) { btn.disabled = false; cbMsg(fmsg(), CB_UNSAVED_TEXT, "bad", true); return; }
+    const f = get() || f0;
     const body = cbRestoreBody(f);
-    e.currentTarget.disabled = true;
     try {
       await cbPatchFormat(fid, body);
       cbMergeLocal(f, body);
@@ -11567,6 +11901,7 @@ function cbBindCard(card, campaignId) {
       const next = fs.nextElementSibling || fs.previousElementSibling;
       fs.remove();
       renumber();
+      form.dispatchEvent(new Event("input", { bubbles: true }));   // a removed beat is a change the editor saves (AUTOSAVE)
       (next?.querySelector("input, textarea") || form.querySelector(".cb-beat-add")).focus();
     });
     /* A new, empty beat. It goes into the DOM beside the others rather than through a repaint, so
@@ -11618,6 +11953,7 @@ function cbBindCard(card, campaignId) {
         const fs = fsOf(x);
         const gone = cbNoteImgsOf(fs).find((m) => m.path === x.dataset.path);
         cbNoteImgsSet(fs, cbNoteImgsOf(fs).filter((m) => m.path !== x.dataset.path));
+        form.dispatchEvent(new Event("input", { bubbles: true }));   // AUTOSAVE
         if (gone && !gone.id) {
           form._noteUp?.delete(gone.path);
           sbFreshToken().then(() => sbDeleteFile(BF_BUCKET, gone.path)).catch(() => {});
@@ -11645,65 +11981,56 @@ function cbBindCard(card, campaignId) {
         if (files.length) cbNoteImgUpload(form, fsOf(z), files, campaignId);
       });
     }
-    // Every way out of the editor that is not a successful Save (Cancel, Escape, Revert, an unchanged Save) deletes
-    // the images uploaded into it that no saved note points at (cbNoteImgsDiscard).
-    const close = (sel, saved = false) => {
-      if (!saved) cbNoteImgsDiscard(form, campaignId, get());
-      CB_EDITING.delete(fid); repaint(sel); cbFlushPending(campaignId);
-    };
-    form.querySelector(".cb-ed-cancel").addEventListener("click", () => close(".cb-edit"));
-    form.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); close(".cb-edit"); } });
-    form.querySelector(".cb-ed-revert")?.addEventListener("click", async (e) => {
-      const f = get();
-      if (!f) return;
-      e.currentTarget.disabled = true;
+    /* THE EDITOR SAVES ITSELF (owner, 2026-11-02; plan ~/.claude/plans/autosave-edits.md). Every change is copied to
+       localStorage at once (cbEdDraftKey: a reload reopens the editor with it) and handed to the outbox AG_AUTOSAVE_MS
+       after the last one (at least every AG_AUTOSAVE_MAX_MS), when focus leaves the editor, when the view changes
+       (form._flushNow, from agFlushAll), and on Done. There is no Cancel: what was typed is kept. Done (or Escape) saves
+       and closes; it stays open only to point at what cannot be saved yet: a bad Original time, a note on a beat with
+       nothing on it, an image still uploading or whose file row failed. Revert to generated is the way back.
+       Images taken out of a note lose their files only once the editor has closed AND its save has landed. */
+    const openImgs = cbNoteImgRefs(get()?.beat_notes);   // what the saved notes pointed at when the editor opened
+    const draftKey = cbEdDraftKey(fid);
+    let edT = null, edFirst = 0, edRev = 0, edBusy = null, edClosed = false;
+    const writeDraft = () => {
+      edRev += 1;
       try {
-        await cbPatchFormat(fid, { edited: null });
-        f.edited = null;
-        close(".cb-edit");
-        cbMsg(fmsg(), "Back to the generated version.", "good");
-      } catch (ex) {
-        e.target.closest("button").disabled = false;
-        cbMsg(fmsg(), cbErrorSentence(ex, "save"), "bad", true);
-      }
-    });
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const f = get();
-      if (!f) return;
+        localStorage.setItem(draftKey, JSON.stringify({ at: new Date().toISOString(), load: AG_PAGE_LOAD, campaignId,
+          body: cbReadEditor(form), notes: CB_NOTES === true ? cbNotesFromEditor(form) : null }));
+      } catch { /* private window or full storage: the outbox still saves */ }
+    };
+    const fail = (el, text, done) => {
+      form._refused = true;
+      if (el) markInvalid(el, `cb-fmsg-${fid}`);
+      cbNotice(fid, text, "bad", 60000);   // a notice, not a bare message: the card repaints right after a reload restores a draft
+      cbSavePaint(fid, "stopped");
+      if (done && el) el.focus();
+      return false;
+    };
+    // One pass: check what cannot be saved, give pasted images their rows, hand whatever changed to the outbox.
+    // false = something is not saved (and the message says what).
+    const saveOnce = async (done) => {
+      if (edClosed) return true;
+      if (!get()) return false;
+      const rev = edRev;
       const badOrig = [...form.querySelectorAll('.cb-beat-field [data-bt="orig"]')]
         .find((inp) => inp.value.trim() && !cbOrigParse(inp.value));
       if (badOrig) {
         const n = [...form.querySelectorAll(".cb-beat-field")].indexOf(badOrig.closest(".cb-beat-field")) + 1;
-        markInvalid(badOrig, `cb-fmsg-${fid}`);
-        cbMsg(fmsg(), `Beat ${n}: write where it is in the original in seconds, like 8-12s or 0:08-0:12.`, "bad", true);
-        badOrig.focus();
-        return;
+        return fail(badOrig, `Beat ${n}: write where it is in the original in seconds, like 8-12s or 0:08-0:12. Nothing in this editor saves until then.`, done);
       }
-      const noteBad = CB_NOTES === true ? cbEditorNoteProblem(form) : null;
-      if (noteBad) {
-        markInvalid(noteBad.el, `cb-fmsg-${fid}`);
-        cbMsg(fmsg(), noteBad.text, "bad", true);
-        noteBad.el.focus();
-        return;
-      }
-      const save = form.querySelector(".cb-ed-save");
-      save.disabled = true;
-      /* IMAGES PASTED INTO NOTES since the editor opened get their brief-file rows now, before any note points at
-         them (cbNoteImgsCommit). If that fails nothing is saved and the images stay in the editor. */
-      if (CB_NOTES === true) {
-        try { await cbNoteImgsCommit(form, campaignId); }
-        catch (ex) {
-          save.disabled = false;
-          cbMsg(fmsg(), `Images in notes weren't saved: ${bfErrorSentence(ex, "save them")}. Nothing else was saved either.`, "bad", true);
-          return;
-        }
-      }
+      const noteBad = CB_NOTES === true ? cbEditorNoteProblem(form, { uploading: done }) : null;
+      if (noteBad) return fail(noteBad.el, noteBad.text, done);
+      // Only an image without its row gives this pass anything to wait for; otherwise it runs straight through, so a
+      // flush on pagehide hands the outbox its body before the page goes.
+      let imgFail = null;
+      const needsRows = CB_NOTES === true && [...form.querySelectorAll(".cb-beat-field")].some((fs) => cbNoteImgsOf(fs).some((m) => !m.id));
+      if (needsRows) { try { await cbNoteImgsCommit(form, campaignId); } catch (ex) { imgFail = ex; } }
+      const f = get();
+      if (!f || edClosed) return !!f;
       const body = cbReadEditor(form);
       const notesNow = CB_NOTES === true ? cbNotesFromEditor(form) : null;
       const notesChanged = !!notesNow && agDocCanon(notesNow) !== agDocCanon(Array.isArray(f.beat_notes) ? f.beat_notes : []);
-      // Nothing changed: close without writing, so an unchanged Save does not
-      // mark the format "edited".
+      // Nothing changed: nothing is written, so an unchanged editor never marks the format "edited".
       const v = cbView(f);
       const same = Object.keys(body.edited).every((k) =>
         JSON.stringify(body.edited[k]) === JSON.stringify(k === "needs" || k === "beats"
@@ -11713,26 +12040,92 @@ function cbBindCard(card, campaignId) {
           : String(v[k] || "").trim()));
       const ownNow = (Array.isArray(f.staff_needs) ? f.staff_needs : []).map((s) => String(s).trim()).filter(Boolean);
       const sameOwn = !("staff_needs" in body) || JSON.stringify(body.staff_needs) === JSON.stringify(ownNow);
-      if (same && sameOwn && body.internal_note === (f.internal_note || "").trim() && !notesChanged) { close(".cb-edit"); return; }
-      if (same) delete body.edited;   // only the agency's own needs or the internal note changed: not "edited"
-      if (notesChanged) body.beat_notes = notesNow;   // notes alone never mark the format "edited"
-      const hadImgs = cbNoteImgRefs(f.beat_notes);   // the images the saved notes pointed at before this Save
-      try {
-        await cbPatchFormat(fid, body);
-        if ("edited" in body) f.edited = body.edited;
-        if ("staff_needs" in body) f.staff_needs = body.staff_needs;
-        if ("beat_notes" in body) f.beat_notes = body.beat_notes;
-        f.internal_note = body.internal_note;
-        const upped = [...(form._noteUp?.values() || [])].filter((u) => u.id);
-        close(".cb-edit", true);
-        cbMsg(fmsg(), "Saved.", "good");
-        // An image taken out of a note, or whose beat was removed, leaves the brief's files now.
-        if ("beat_notes" in body) cbNoteImgsSweep(campaignId, [...hadImgs, ...upped]);
-      } catch (ex) {
-        save.disabled = false;
-        cbMsg(fmsg(), cbErrorSentence(ex, "save"), "bad", true);
+      if (!(same && sameOwn && body.internal_note === (f.internal_note || "").trim() && !notesChanged)) {
+        if (same) delete body.edited;                    // only the agency's own needs, the internal note or notes changed: not "edited"
+        if (notesChanged) body.beat_notes = notesNow;    // notes alone never mark the format "edited"
+        cbOutboxPut(campaignId, f, body);
       }
+      if (edRev === rev) { try { localStorage.removeItem(draftKey); } catch { /* private window */ } }   // it is in the outbox now
+      if (imgFail) {
+        form._refused = true;
+        cbNotice(fid, `An image in a note isn't saved yet: ${bfErrorSentence(imgFail, "save it")}. It's tried again on your next change, and when you press Done.`, "bad", 60000);
+        cbSavePaint(fid, "stopped");
+        return false;
+      }
+      form._refused = false;
+      if (CB_NOTICE.get(fid)?.tone === "bad") CB_NOTICE.delete(fid);   // the refusal is fixed; a "restored" notice stays
+      form.querySelectorAll('[aria-invalid="true"]').forEach((el) => clearInvalid(el));
+      const m = fmsg();
+      if (m?.classList.contains("bad")) { m.textContent = ""; m.className = "bp-msg cb-msg"; }
+      const o = CB_OUTBOX.get(fid);
+      if (!o?.body && !o?.stopped) cbSavePaint(fid, o?.acked ? "saved" : "");
+      return true;
+    };
+    const runSave = (done = false) => {
+      clearTimeout(edT); edT = null; edFirst = 0;
+      if (edBusy) return edBusy.then(() => runSave(done));
+      edBusy = saveOnce(done).finally(() => { edBusy = null; });
+      return edBusy;
+    };
+    const schedule = () => {
+      if (edClosed) return;
+      writeDraft();
+      cbSavePaint(fid, "saving");
+      if (!edFirst) edFirst = Date.now();
+      clearTimeout(edT);
+      edT = setTimeout(() => runSave(false), Math.max(0, Math.min(AG_AUTOSAVE_MS, edFirst + AG_AUTOSAVE_MAX_MS - Date.now())));
+    };
+    form.addEventListener("input", schedule);
+    form.addEventListener("focusout", (e) => { if (!edClosed && !form.contains(e.relatedTarget)) runSave(false); });
+    // Closing for good: once its save has landed, images no note keeps lose their files (rows first, then bytes).
+    const finish = (sel) => {
+      edClosed = true;
+      clearTimeout(edT); edT = null;
+      try { localStorage.removeItem(draftKey); } catch { /* private window */ }
+      CB_EDITING.delete(fid); repaint(sel); cbFlushPending(campaignId);
+      cbOutboxFlush(fid).then((landed) => {
+        if (!landed) return;
+        cbNoteImgsDiscard(form, campaignId, get());
+        cbNoteImgsSweep(campaignId, openImgs);
+      });
+    };
+    const done = async () => {
+      if (edClosed) return;
+      const btn = form.querySelector(".cb-ed-save");
+      if (btn) btn.disabled = true;
+      const ok = await runSave(true);
+      if (btn) btn.disabled = false;
+      if (ok && !edClosed) finish(".cb-edit");
+    };
+    form.addEventListener("submit", (e) => { e.preventDefault(); done(); });
+    form.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); done(); } });
+    form.querySelector(".cb-ed-revert")?.addEventListener("click", async (e) => {
+      const f = get();
+      if (!f || edClosed) return;
+      e.currentTarget.disabled = true;
+      edClosed = true;                       // nothing typed before this click is saved after it
+      clearTimeout(edT); edT = null;
+      await edBusy;                          // a save already running reaches the outbox first; the revert replaces it
+      cbOutboxPut(campaignId, get() || f, { edited: null });
+      finish(".cb-edit");
+      cbNotice(fid, "Back to the generated version.", "good", 5000);
     });
+    // A view change (agFlushAll) or the tab going away: save now. If the editor did not survive the render, it closed.
+    form._flushNow = () => {
+      if (edClosed) return;
+      runSave(false).then(() => {
+        if (edClosed || CB_EDITING.has(fid)) return;
+        edClosed = true;
+        cbOutboxFlush(fid).then((landed) => {
+          if (!landed) return;
+          cbNoteImgsDiscard(form, campaignId, get());
+          cbNoteImgsSweep(campaignId, openImgs);
+        });
+      });
+    };
+    // Reopened with a draft from an earlier visit (cbOutboxOverlay): it saves itself as soon as it can.
+    const d0 = cbEdDraftRead(fid);
+    if (d0 && d0.load !== AG_PAGE_LOAD) schedule();
   }
 
   const del = card.querySelector(".cb-del");
@@ -11740,6 +12133,7 @@ function cbBindCard(card, campaignId) {
     const rec = CB_CACHE.get(campaignId);
     try {
       await cbDeleteFormat(fid);
+      cbOutboxDrop(fid);                             // its unsaved edits and drafts go with it (AUTOSAVE)
       if (rec) {
         const goneImgs = cbNoteImgRefs(rec.formats.find((x) => x.id === fid)?.beat_notes);   // its note images leave too
         const order = cbSorted(rec).map((x) => x.id);

@@ -1102,8 +1102,141 @@ function restoreLocalMe() {
   if (!saved?.data) return false;
   ME = { ...BLANK_ME, ...saved.data };
   if (saved.dirty) DIRTY = true;
+  if (applyEditDrafts()) DIRTY = true;   // autosave drafts (AUTOSAVE): the mirror may predate the last keystrokes
   if (migrateUgc()) DIRTY = true;
   return true;
+}
+
+/* ---------- AUTOSAVE: A SCRIPT EDIT IS SAVED AS IT IS TYPED (owner, 2026-11-02: "get rid of the check line, and just when
+   they edit it, it saves automatically"; plan ~/.claude/plans/autosave-edits.md) ----------
+   wireAdaptationCards applies every keystroke to ME and editDraftPut copies the whole edited script to this device
+   (EDIT_DRAFTS, keyed per account) BEFORE anything touches the network. The device mirror (saveLocalMe) is not enough
+   on its own: pull() lets the server win for every script it knows, so an edit that never reached Supabase was erased
+   by the next pull. The drafts are laid back over every pull and over the mirror (applyEditDrafts).
+   SAVING: EDIT_SAVE_MS after the last keystroke (at least every EDIT_SAVE_MAX_MS), at once when the line is left, on a
+   view change and when the tab is hidden. flushEdits() re-reads the row first (pull), so the write carries whatever the
+   worker grafted in meanwhile instead of rolling it back; save() writes it and its outbox retries until it lands. A
+   draft is kept EDIT_HOLD_MS after its save lands: a worker graft that replaced the whole script in that window
+   (process_adaptations graft_adaptations swaps entries whole) is put right by the next pull. */
+const EDIT_SAVE_MS = 1500;
+const EDIT_SAVE_MAX_MS = 10000;
+const EDIT_HOLD_MS = 60000;
+const editDraftKey = () => `lynxr_edit_drafts_${SB_UID || "anon"}`;
+let EDIT_DRAFTS = null;        // { [adid]: { rev, adaptation, orig, editedAt, at, savedAt } }, read from localStorage on first use
+let EDIT_DRAFTS_KEY = "";      // whose drafts EDIT_DRAFTS holds
+let EDIT_REV = Date.now();     // never reused across page loads, so a stored draft's rev cannot collide with a new one
+let EDIT_T = null, EDIT_FIRST = 0, EDIT_FLYING = null, EDIT_AGAIN = false, EDIT_FAILING = false;
+const EDIT_STATE = new Map();  // adid -> "saving" | "saved" | "failed" | "stopped": a repaint draws the same status
+const EDIT_WORDS = { saving: "Saving…", saved: "Saved", failed: "Couldn't save · retrying", stopped: "Couldn't save" };
+
+function editDrafts() {
+  const k = editDraftKey();
+  if (!EDIT_DRAFTS || EDIT_DRAFTS_KEY !== k) {
+    EDIT_DRAFTS_KEY = k;
+    try { EDIT_DRAFTS = JSON.parse(localStorage.getItem(k)) || {}; } catch { EDIT_DRAFTS = {}; }
+  }
+  return EDIT_DRAFTS;
+}
+function editDraftsStore() {
+  const d = editDrafts();
+  try {
+    if (Object.keys(d).length) localStorage.setItem(editDraftKey(), JSON.stringify(d));
+    else localStorage.removeItem(editDraftKey());
+  } catch { /* private mode or full: ME still holds the edit and save() still runs */ }
+}
+function editDraftPut(a) {
+  editDrafts()[a.id] = { rev: ++EDIT_REV, adaptation: JSON.parse(JSON.stringify(a.adaptation)),
+    orig: a.adaptationOrig ? JSON.parse(JSON.stringify(a.adaptationOrig)) : null, editedAt: a.editedAt || null,
+    at: new Date().toISOString(), savedAt: 0 };
+  editDraftsStore();
+}
+function editDraftDrop(adid) { delete editDrafts()[adid]; editDraftsStore(); EDIT_STATE.delete(adid); paintEditState(adid); }
+function editDraftsClear() { EDIT_DRAFTS = {}; try { localStorage.removeItem(editDraftKey()); } catch { /* private mode */ } }
+function editUnsaved() { const d = editDrafts(); return Object.keys(d).filter((k) => !d[k].savedAt); }
+
+/** One script's status line (.ad-save in its card footer); with no `state`, repaint what EDIT_STATE holds. */
+function paintEditState(adid, state) {
+  if (state !== undefined) { if (state) EDIT_STATE.set(adid, state); else EDIT_STATE.delete(adid); }
+  const st = EDIT_STATE.get(adid) || "";
+  document.querySelectorAll(`.ad-save[data-save-for="${CSS.escape(adid)}"]`).forEach((el) => {
+    el.textContent = EDIT_WORDS[st] || "";
+    el.classList.toggle("bad", st === "failed" || st === "stopped");
+    el.hidden = !st;
+  });
+}
+function editStateHtml(adid) {
+  const st = EDIT_STATE.get(adid) || "";
+  return `<span class="ad-save${st === "failed" || st === "stopped" ? " bad" : ""}" data-save-for="${escapeHtml(adid)}" role="status"`
+    + ` aria-live="polite"${st ? "" : " hidden"}>${escapeHtml(EDIT_WORDS[st] || "")}</span>`;
+}
+
+/** Lay every draft over ME (after a pull, or over the device mirror). True when the row must be written: a draft changed
+    ME, or one is not saved yet. prune: also forget drafts of scripts that are gone (only on the server's word). */
+function applyEditDrafts({ prune = false } = {}) {
+  const d = editDrafts();
+  const now = Date.now();
+  let dirty = false;
+  for (const [adid, dr] of Object.entries(d)) {
+    if (dr.savedAt && now - dr.savedAt > EDIT_HOLD_MS) { delete d[adid]; continue; }
+    const a = (ME.adaptations || []).find((x) => x.id === adid);
+    if (!a) { if (prune) delete d[adid]; continue; }
+    if (JSON.stringify(a.adaptation || null) !== JSON.stringify(dr.adaptation)) {
+      a.adaptation = JSON.parse(JSON.stringify(dr.adaptation));
+      if (dr.editedAt) a.editedAt = dr.editedAt;
+      if (!a.adaptationOrig && dr.orig) a.adaptationOrig = JSON.parse(JSON.stringify(dr.orig));
+      if (dr.savedAt) { dr.savedAt = 0; dr.rev = ++EDIT_REV; }   // saved, then written over (a graft): save it again
+      dirty = true;
+    }
+    if (!dr.savedAt) dirty = true;
+  }
+  editDraftsStore();
+  return dirty;
+}
+/** save()'s run() calls these three. revs = { adid: rev } of the unsaved drafts a write carries. */
+function editRevsNow() {
+  const d = editDrafts();
+  return Object.fromEntries(Object.entries(d).filter(([, x]) => !x.savedAt).map(([k, x]) => [k, x.rev]));
+}
+function editSaveLanded(revs) {
+  const d = editDrafts();
+  const now = Date.now();
+  for (const [adid, rev] of Object.entries(revs || {})) {
+    if (d[adid] && d[adid].rev === rev) { d[adid].savedAt = now; paintEditState(adid, "saved"); }
+  }
+  editDraftsStore();
+  EDIT_FAILING = false;
+  if (editUnsaved().length) scheduleEditFlush(EDIT_SAVE_MS);     // typed again while it flew
+}
+function editSaveFailed(final) {
+  const first = !EDIT_FAILING;
+  EDIT_FAILING = true;
+  const open = editUnsaved();
+  for (const adid of open) paintEditState(adid, final ? "stopped" : "failed");
+  if (first && !final && open.length) say("Couldn't save your edit yet. lynxr keeps trying, and keeps a copy on this device.", "bad");
+}
+function scheduleEditFlush(wait = EDIT_SAVE_MS) {
+  if (!EDIT_FIRST) EDIT_FIRST = Date.now();
+  clearTimeout(EDIT_T);
+  EDIT_T = setTimeout(flushEdits, Math.max(0, Math.min(wait, EDIT_FIRST + EDIT_SAVE_MAX_MS - Date.now())));
+}
+async function flushEdits() {
+  clearTimeout(EDIT_T); EDIT_T = null; EDIT_FIRST = 0;
+  if (!editUnsaved().length) return;
+  if (EDIT_FLYING) { EDIT_AGAIN = true; return EDIT_FLYING; }
+  for (const adid of editUnsaved()) paintEditState(adid, "saving");
+  EDIT_FLYING = (async () => {
+    try {
+      // Re-read first, so this write carries what the worker grafted since the last pull. pull() lays the drafts back
+      // over the row and saves it itself when they are not on the server yet (SAVE_PENDING is set while it does).
+      // Skipped while another write is pending or failed (DIRTY): a pull then would drop that local change.
+      if (!SAVE_PENDING && !DIRTY && SB_TOKEN) { try { await pull(); } catch { /* offline: the save below queues the retry */ } }
+      if (!SAVE_PENDING && editUnsaved().length) await save({ now: true });
+    } finally {
+      EDIT_FLYING = null;
+      if (EDIT_AGAIN) { EDIT_AGAIN = false; flushEdits(); }
+    }
+  })();
+  return EDIT_FLYING;
 }
 
 function scheduleRetry() {
@@ -1122,6 +1255,7 @@ function save({ now = false } = {}) {
   renderSyncBadge("saving");
   clearTimeout(SAVE_T);
   const run = async () => {
+    const revs = editRevsNow();      // the autosave drafts this write carries (AUTOSAVE)
     try {
       await sbFetch("/rest/v1/lynxr_creators", {
         method: "POST",
@@ -1134,6 +1268,7 @@ function save({ now = false } = {}) {
       clearTimeout(RETRY_T);
       RETRY_T = null;
       saveLocalMe();                 // record that it landed
+      editSaveLanded(revs);
     } catch (ex) {
       SYNC_OK = false;
       /* THE ONE FAILURE RETRYING CANNOT FIX. supabase/write_guards.sql bounds
@@ -1166,8 +1301,10 @@ function save({ now = false } = {}) {
         clearTimeout(RETRY_T);
         RETRY_T = null;
         say("Your library is too large to save — delete some entries.", "bad");
+        editSaveFailed(true);
       } else {
         scheduleRetry();
+        editSaveFailed(false);
       }
     }
     SAVE_PENDING = false;
@@ -1184,6 +1321,14 @@ function save({ now = false } = {}) {
 addEventListener("online", () => { if (DIRTY) save({ now: true }); });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && DIRTY) save({ now: true });
+});
+/* AUTOSAVE: the tab going away saves what was typed. The write may not finish before the page does; the drafts are on
+   this device either way and come back with the next pull. The browser's leave-page prompt appears only while a save is
+   known to be failing (not a confirm dialog: nothing is decided in it, it only delays the close). */
+document.addEventListener("visibilitychange", () => { if (document.hidden && editUnsaved().length) flushEdits(); });
+addEventListener("pagehide", () => { if (editUnsaved().length) flushEdits(); });
+addEventListener("beforeunload", (e) => {
+  if (EDIT_FAILING && editUnsaved().length) { e.preventDefault(); e.returnValue = ""; }
 });
 
 /** Fill in anything a stored row predates, and return whether it changed —
@@ -1302,6 +1447,7 @@ async function pull() {
     SERVER_IDS = new Set((server.adaptations || []).map((a) => a.id));
     SERVER_SEEN = true;
     ME = mergeUnsent(server, ME);
+    if (applyEditDrafts({ prune: true })) DIRTY = true;   // autosave drafts the server has not got yet, or lost to a graft (AUTOSAVE)
     // A new device has no local choice; the row's is the only one there is.
     if (!storedTheme() && ME.theme) applyTheme(ME.theme);
   }
@@ -1697,6 +1843,7 @@ function writeRoute(view, mode) {
 }
 
 function go(view, { nav = "push" } = {}) {
+  if (EDIT_T) flushEdits();   // leaving a view: a pending autosave goes now (AUTOSAVE)
   closeAcctMenu(false);    // a route change closes the account menu; focus goes to the pane below, not back to the row
   releaseCardLanding();
   // Leaving the Library abandons whatever entry a send was pointed at —
@@ -4773,6 +4920,7 @@ function renderYou(head, body) {
     // next person to open this app should not find someone else's library
     // sitting in it before the gate has even been answered.
     clearLocalMe();
+    editDraftsClear();
     location.reload();
   });
 
@@ -4802,6 +4950,7 @@ function renderYou(head, body) {
       // deleted account must not leave its library cached on the phone.
       clearSession();
       clearLocalMe();
+      editDraftsClear();
       location.reload();
     } catch (ex) {
       // PGRST202 is "function not found" — supabase/delete_account.sql has not
@@ -8528,7 +8677,7 @@ if (OBTEST) {
     }
     return null;
   };
-  save = function () { log("save (no-op)", JSON.stringify({ priority: ME.priority, goal: ME.goal, setup: ME.setup })); };   // eslint-disable-line no-func-assign
+  save = function () { log("save (no-op)", JSON.stringify({ priority: ME.priority, goal: ME.goal, setup: ME.setup })); editSaveLanded(editRevsNow()); };   // eslint-disable-line no-func-assign -- the preview "lands" every autosave so its status reads Saved
   // (the literal, not TOUR_SEEN_KEY: that const is declared further down and is not initialised yet when this block runs)
   try { sessionStorage.removeItem("lynxr_tour_seen"); } catch {}  // a reload of the preview shows the tour again
   const qs = new URLSearchParams(location.search);
@@ -11552,15 +11701,11 @@ function isTyping() {
 
 /* IS THERE AN EDIT THE CREATOR HAS NOT FINISHED WITH?
 
-   isTyping() is not enough on its own any more. A changed line waits for its
-   tick, and waiting does not require the caret: click away from a line you
-   have edited and it stays on screen, changed, pending, with NOTHING focused.
-   A repaint at that moment would rebuild the card from the record and throw
-   the change away silently — the creator would watch their edit vanish with no
-   error and nothing to undo. So a pending line blocks a repaint exactly as a
-   caret does. */
+   Only while the caret is in a field. A script line used to wait for its tick, so a changed, unticked line had to block
+   repaints as well; lines save themselves now (AUTOSAVE, near save()) and every keystroke is already in ME, so a repaint
+   once the caret has gone redraws exactly what was typed. */
 function editInFlight() {
-  return isTyping() || !!document.querySelector("[data-edit].is-pending");
+  return isTyping();   // AUTOSAVE (2026-11-02): no line waits for a tick any more; every keystroke is already in ME
 }
 
 /** THE SECOND A BEAT STARTS, off the `t` string the model already writes.
@@ -13171,14 +13316,17 @@ function adaptationHtml(a, liveName, opts = {}) {
         ${!TP_ENABLED ? "" : `<button type="button" class="btn ad-prompt" data-adid="${id}"
           >${silent ? "Cue cards" : "Teleprompter"}</button>`}
         ${`${/* NO SAVE, NO CANCEL, NO PENCIL. Every line is edited where it is
-                read and commits on blur, so a Save button would be a second
-                way to do what leaving the field already did — and a Cancel
-                that appeared to undo edits already written would be a lie.
-                Escape reverts the line you are in; that is the undo.
+                read and saves itself as it is typed (AUTOSAVE, near save()), so
+                a Save button would be a second way to do what typing already
+                did — and a Cancel that appeared to undo edits already written
+                would be a lie. The undo is the revert button.
 
-                Copy and delete stay: they are things you do TO the script,
-                same as before. Pushed right by .bp-icons so the destructive
-                one is not adjacent to the one you press most. */""}
+                .ad-save is the card's one quiet status (Saving… / Saved /
+                Couldn't save), left of the icons. Copy and delete stay: they
+                are things you do TO the script, same as before. Pushed right
+                by .bp-icons so the destructive one is not adjacent to the one
+                you press most. */""}
+          ${editStateHtml(a.id)}
           <span class="bp-icons">
             ${/* ONLY ONCE THERE IS SOMETHING TO GO BACK TO. `adaptationOrig` is
                   written the first time a line is confirmed, and `editedAt`
@@ -14075,22 +14223,15 @@ function wireAdaptationCards(host) {
      queueAdaptation, which now enforces one script per video per brand with no
      way around it. */
 
-  /* EDITING, IN PLACE, CONFIRMED PER LINE.
+  /* EDITING, IN PLACE, SAVED AS IT IS TYPED (owner, 2026-11-02: "get rid of the check line, and just when they edit it,
+     it saves automatically" — the per-line tick of 2026-08-25 is gone; plan ~/.claude/plans/autosave-edits.md).
 
-     Nothing here calls the API, spends from the allowance, or can fail.
-
-     A CHANGED LINE IS NOT SAVED UNTIL IT IS CONFIRMED. Owner, 2026-08-25:
-     "after i edit the script add a confirm button or something only on the
-     part that i edited." So blur does NOT commit — leaving a line you have
-     changed keeps the change on screen, pending, with its tick still showing.
-     Only the tick, or Enter, writes it to the record; only the cross, or
-     Escape, puts it back.
-
-     THE TICK IS POSITIONED ABSOLUTELY, and that is not cosmetic. `.bp-beat` is
-     a `42px 1fr` grid whose children are label, value, label, value — putting
-     a third element in that flow would make every row a different shape the
-     moment it was touched, which is the exact thing the in-place editor exists
-     to avoid. It is anchored to the row instead and takes no layout space. */
+     Nothing here calls the API, spends from the allowance, or can fail on its own: every keystroke is applied to ME and
+     copied to this device (editDraftPut), and flushEdits() writes the row a moment later (AUTOSAVE, near save()).
+     Leaving the line saves at once; Enter and Escape both leave it. There is no per-line discard: the way back is the
+     browser's undo while the caret is in the line, and the card's revert to the script as written.
+     The DOM is never rewritten under the caret: what is stored is the tidy, collapsed text, and the line is tidied on
+     screen only once it is left. */
   let refreshRevertBtn = () => {};   // replaced below, once host is known
   const beatsOf = (adid) => {
     const a = ME.adaptations.find((x) => x.id === adid);
@@ -14102,134 +14243,101 @@ function wireAdaptationCards(host) {
     });
   };
   const norm = (v) => (v || "").replace(/\s+/g, " ").trim();
-  const rowOf = (el) => el.closest("li.bp-beat, .bp-hook, .bp-hint") || el.parentElement;
 
-  /* THE SCRIPT AS IT WAS WRITTEN, kept the first time a line is confirmed and
-     never again. Nothing upstream stores one — the worker writes `adaptation`
-     and an edit overwrites it in place — so without this snapshot "revert to
-     the original" has nothing to revert to. Taken at the LAST moment before
-     the first mutation, so it is the delivered script, not a half-edited one.
-     Its presence is also what decides whether the revert button is offered at
-     all: a script nobody has edited needs no way back. */
+  /* THE SCRIPT AS IT WAS WRITTEN, kept the first time a line changes and never again. Nothing upstream stores one — the
+     worker writes `adaptation` and an edit overwrites it in place — so without this snapshot "revert to the original"
+     has nothing to revert to. Taken at the LAST moment before the first mutation, so it is the delivered script, not a
+     half-edited one. Its presence is also what decides whether the revert button is offered at all. */
   const keepPristine = (a) => {
     if (!a.adaptationOrig) a.adaptationOrig = JSON.parse(JSON.stringify(a.adaptation));
   };
-
-  const clearPending = (el) => {
-    el.classList.remove("is-pending");
-    rowOf(el).querySelector(".edit-confirm")?.remove();
-  };
-
-  const revertEdit = (el) => {
-    if (el.dataset.was !== undefined) el.textContent = el.dataset.was;
-    clearPending(el);
-  };
-
-  const commitEdit = (el) => {
+  /** The stored value a line shows. Looked up fresh every time: a pull may have replaced ME since the card was drawn. */
+  const storedOf = (a, el) => el.dataset.edit === "beat"
+    ? String(((a.adaptation.beats || [])[Number(el.dataset.beat)] || {})[el.dataset.field] ?? "")
+    : String(a.adaptation[el.dataset.field] ?? "");
+  /** One keystroke: into ME and onto the device, then a save soon. */
+  const editInput = (el) => {
     const a = beatsOf(el.dataset.adid);
     if (!a) return;
     const val = norm(el.textContent);
-    if (val === norm(el.dataset.was)) { clearPending(el); return; }   // nothing to save
+    if (val === norm(storedOf(a, el))) return;            // a caret move, or typed back to what is stored
     keepPristine(a);
-    el.textContent = val;                                // normalise what is shown
     if (el.dataset.edit === "beat") {
       const b = (a.adaptation.beats || [])[Number(el.dataset.beat)];
       if (!b) return;
       b[el.dataset.field] = val;
-      /* A beat confirmed empty is one the creator deleted by clearing it — the
-         same rule the old Save button applied. Repaint, because the row goes. */
-      if (!norm(b.say) && !norm(b.do) && !norm(b.show)) {
-        a.adaptation.beats = a.adaptation.beats.filter((x) => x !== b);
-        a.editedAt = new Date().toISOString();
-        save({ now: true });
-        renderPane(); keepOpenAll(a.id);
-        return;
-      }
     } else {
       a.adaptation[el.dataset.field] = val;
-      /* The hook-rules line (hookCheckHtml) scored the OLD words, so it goes the moment the hook is confirmed; with no repaint here
-         it would otherwise stay until the next one. Putting the old words back repaints the card, which brings it back. */
+      /* The hook-rules line (hookCheckHtml) scored the OLD words, so it goes the moment the hook changes; a repaint
+         brings it back only if the words are put back exactly (hookCheckHtml compares them). */
       if (el.dataset.field === "hook") {
         const hcl = el.closest(".bp-hook")?.nextElementSibling;
         if (hcl && hcl.classList.contains("bp-hookcheck")) hcl.remove();
       }
     }
     a.editedAt = new Date().toISOString();
-    el.dataset.was = val;                  // the new baseline for the next Escape
-    clearPending(el);
-    save({ now: true });
-    /* No repaint. The DOM already shows exactly what was typed, and rebuilding
-       the card here is what used to snap it shut on save. Only the footer
-       needs a nudge, because confirming the FIRST edit is what brings the
-       revert button into existence. */
+    editDraftPut(a);
+    paintEditState(a.id, "saving");
     refreshRevertBtn(a);
+    scheduleEditFlush();
   };
-
-  const showPending = (el) => {
-    if (el.classList.contains("is-pending")) return;
-    el.classList.add("is-pending");
-    const row = rowOf(el);
-    const wrap = document.createElement("span");
-    wrap.className = "edit-confirm";
-    wrap.innerHTML =
-      `<button type="button" class="edit-ok" aria-label="Save this line" title="Save this line (Enter)">` +
-      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg></button>` +
-      `<button type="button" class="edit-no" aria-label="Discard this change" title="Discard this change (Esc)">` +
-      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
-    // mousedown, not click: the field blurs on mousedown and a click listener
-    // would fire after the caret had already left, which is fine here but
-    // reads as a frame of lag on the button you just pressed.
-    wrap.querySelector(".edit-ok").addEventListener("mousedown", (e) => { e.preventDefault(); commitEdit(el); });
-    wrap.querySelector(".edit-no").addEventListener("mousedown", (e) => { e.preventDefault(); revertEdit(el); });
-    row.appendChild(wrap);
+  /** Leaving a line: tidy it on screen, drop a beat whose every line is now empty, save now. */
+  const editLeave = (el) => {
+    editInput(el);
+    const a = beatsOf(el.dataset.adid);
+    if (!a) return;
+    const shown = norm(el.textContent);
+    if (el.textContent !== shown) el.textContent = shown;
+    if (el.dataset.edit === "beat") {
+      const i = Number(el.dataset.beat);
+      const b = (a.adaptation.beats || [])[i];
+      /* A beat left with every line empty is one the creator deleted by clearing it (the rule the old Save button
+         applied). Its row is taken out here and the later rows renumbered rather than repainting: a repaint during the
+         mousedown that moved focus would swallow the click that caused it. */
+      if (b && !norm(b.say) && !norm(b.do) && !norm(b.show)) {
+        a.adaptation.beats = a.adaptation.beats.filter((x) => x !== b);
+        a.editedAt = new Date().toISOString();
+        editDraftPut(a);
+        el.closest("li.bp-beat")?.remove();
+        host.querySelectorAll(`[data-adid="${CSS.escape(a.id)}"][data-beat]`).forEach((x) => {
+          const k = Number(x.dataset.beat);
+          if (k > i) x.dataset.beat = String(k - 1);
+        });
+        host.querySelectorAll(`.bp-insbeat[data-adid="${CSS.escape(a.id)}"]`).forEach((x) => {
+          const k = Number(x.dataset.at);
+          if (k > i) x.dataset.at = String(k - 1);
+        });
+      }
+    }
+    flushEdits();
   };
 
   host.querySelectorAll("[data-edit]").forEach((el) => {
-    /* THE UNDO VALUE IS CAPTURED AT WIRE TIME, not on focus. A focus listener
-       is one event away from never having run — a programmatic focus does not
-       fire one in an unfocused tab, and neither does restoring focus after a
-       repaint — and Escape then had no original to restore. */
-    el.dataset.was = el.textContent;
-
     el.addEventListener("paste", (e) => {
       e.preventDefault();
       const t = (e.clipboardData || window.clipboardData).getData("text/plain");
       document.execCommand("insertText", false, norm(t));
     });
-
-    // The tick appears the moment the line differs from what is saved, and
-    // disappears again if the creator types it back to how it was.
-    el.addEventListener("input", () => {
-      if (norm(el.textContent) === norm(el.dataset.was)) clearPending(el);
-      else showPending(el);
-    });
-
+    el.addEventListener("input", () => editInput(el));
+    el.addEventListener("blur", () => editLeave(el));
+    // Enter and Escape both leave the line, and leaving saves it.
     el.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); commitEdit(el); el.blur(); }
-      if (e.key === "Escape") { e.preventDefault(); revertEdit(el); el.blur(); }
+      if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); el.blur(); }
     });
   });
 
-  /* Adding a beat changes every later beat's index, so the card is rebuilt, and a rebuild would
-     drop any line typed but not yet confirmed with its tick. Those lines are carried across: read
-     before the repaint, shifted past the new beat, typed back in, and shown pending again (the
-     same tick and cross), so nothing is saved that the creator did not confirm. */
+  /* Adding a beat changes every later beat's index, so the card is rebuilt. Nothing typed is lost: every keystroke is
+     already in ME (editInput), and the line being typed in was left, and saved, when the button was pressed. */
   const addBeatAt = (a, at) => {
-    const pending = [...host.querySelectorAll("[data-edit].is-pending")].map((el) => ({
-      adid: el.dataset.adid, edit: el.dataset.edit, field: el.dataset.field,
-      beat: el.dataset.beat === undefined ? null : Number(el.dataset.beat), text: el.textContent }));
+    keepPristine(a);
     const beats = [...(a.adaptation.beats || [])];
     beats.splice(at, 0, { say: "", do: "Describe the shot", show: "" });
     a.adaptation.beats = beats;
     a.editedAt = new Date().toISOString();
-    save({ now: true });
+    editDraftPut(a);
+    paintEditState(a.id, "saving");
+    flushEdits();
     renderPane(); keepOpenAll(a.id);
-    for (const p of pending) {
-      const beat = p.edit === "beat" && p.adid === a.id && p.beat >= at ? p.beat + 1 : p.beat;
-      const el = document.querySelector(`[data-edit="${CSS.escape(p.edit)}"][data-adid="${CSS.escape(p.adid)}"]`
-        + `[data-field="${CSS.escape(p.field)}"]${beat === null ? "" : `[data-beat="${beat}"]`}`);
-      if (el) { el.textContent = p.text; el.dispatchEvent(new Event("input")); }
-    }
     // Land the caret in the line just added rather than making them find it.
     document.querySelector(`[data-adid="${CSS.escape(a.id)}"][data-beat="${at}"]`)?.focus();
   };
@@ -14268,8 +14376,12 @@ function wireAdaptationCards(host) {
      `adaptationOrig` is kept afterwards, not cleared: reverting twice is a
      no-op rather than a way to lose the original. */
   function wireRevert(btn) {
-    armDelete(btn, "Revert edits", () => {
-      const a = ME.adaptations.find((x) => x.id === btn.dataset.adid);
+    armDelete(btn, "Revert edits", async () => {
+      const adid = btn.dataset.adid;
+      clearTimeout(EDIT_T); EDIT_T = null;
+      editDraftDrop(adid);                 // nothing may lay the edits back over the reverted script (AUTOSAVE)
+      await EDIT_FLYING;                   // an autosave already out lands first, so the revert is the last write
+      const a = ME.adaptations.find((x) => x.id === adid);   // looked up after the wait: a pull may have replaced ME
       if (!a || !a.adaptationOrig) return;
       a.adaptation = JSON.parse(JSON.stringify(a.adaptationOrig));
       delete a.editedAt;
@@ -14281,6 +14393,7 @@ function wireAdaptationCards(host) {
   host.querySelectorAll(".ad-revert").forEach(wireRevert);
 
   host.querySelectorAll(".ad-del").forEach((btn) => armDelete(btn, "Delete script", () => {
+    editDraftDrop(btn.dataset.adid);       // AUTOSAVE: a deleted script's draft must not come back
     trashAdaptations((x) => x.id === btn.dataset.adid);
     save(); renderSide(); renderPane();   // the video stays in the Library
   }));

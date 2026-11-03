@@ -1457,37 +1457,6 @@
   }
   .bp-addbeat:hover { color: var(--text-2); }
 
-  /* ---- the per-line confirm ----
-     A GRID ROW, NOT AN OVERLAY. Two earlier shapes were both wrong:
-     absolutely positioning it needed `padding-right` reserved on the value to
-     stop it covering the words, and that reservation re-wrapped the line —
-     MEASURED at +102.75px on a long one, which is precisely the "expands too
-     much" this whole editor exists to fix. Overlaying without the reservation
-     does not reflow but hides the tail of a long line instead.
-     So it is a real grid item spanning both columns, adding ~26px UNDER the
-     one line being edited: local, predictable, and it can neither cover text
-     nor re-wrap it. */
-  .edit-confirm {
-    grid-column: 1 / -1; justify-self: end;
-    display: inline-flex; gap: 2px; margin-top: 4px;
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--r-pill); padding: 2px;
-  }
-  .edit-confirm button {
-    display: grid; place-items: center; width: 22px; height: 22px;
-    border: 0; border-radius: var(--r-round); background: transparent;
-    color: var(--text-3); cursor: pointer; padding: 0;
-  }
-  .edit-confirm button svg { width: 13px; height: 13px; display: block; }
-  .edit-ok:hover { color: var(--good); background: var(--surface-2); }
-  .edit-no:hover { color: var(--bad); background: var(--surface-2); }
-  .edit-confirm button:focus-visible { outline: 2px solid var(--text-3); outline-offset: 1px; }
-  /* An unconfirmed line reads as unfinished rather than saved. Inset, like the
-     focus shadow, so it costs no layout. */
-  .bp-val.is-pending {
-    background: var(--surface-2);
-    box-shadow: inset 2px 0 0 var(--good);
-  }
   @media (prefers-reduced-motion: reduce) {
     .bp-val[contenteditable] { transition: none; }
   }
@@ -8788,20 +8757,11 @@
      The bar is now a 2px background stripe pinned to the left edge: dead straight, no layout shift,
      and no slivers (an inset shadow on a box with rounded right corners painted faint lines along
      the top and bottom, measured). Only the right corners round. Focus = accent line on a faint
-     wash; an edited but unsaved line = the same straight line in green. */
+     wash. (The green line for an edited, unsaved line went with the tick on 2026-11-02: lines save themselves.) */
   .bp-val[contenteditable] { border-radius: 0 8px 8px 0; }
   .bp-val[contenteditable]:focus {
     background: linear-gradient(var(--focus-ring), var(--focus-ring)) left / 2px 100% no-repeat, var(--surface-2);
     box-shadow: none;
-  }
-  /* [contenteditable] is in these two selectors on purpose: the plain :hover wash above has that
-     weight, and a lighter pending rule lost its green stripe whenever the pointer was over the line. */
-  .bp-val[contenteditable].is-pending {
-    background: linear-gradient(var(--good), var(--good)) left / 2px 100% no-repeat, var(--surface-2);
-    box-shadow: none;
-  }
-  .bp-val[contenteditable].is-pending:focus {
-    background: linear-gradient(var(--focus-ring), var(--focus-ring)) left / 2px 100% no-repeat, var(--surface-2);
   }
   /* A line emptied while editing stays on the page in the creator app too. At 560px and under,
      `.bp-beat > span:empty { display: none }` hid the value span the moment its last character went,
@@ -10085,17 +10045,11 @@
   body.agency #app main #src-list .bp-val.ag-at[contenteditable]::before { content: "@"; }
   body.agency #app main #src-list .bp-val.ag-at[contenteditable]:empty::before { content: "@\2026"; }
   body.agency #app main #src-list .src-tag:has(> .bp-val[contenteditable]) { gap: 0; cursor: text; }
-  body.agency #app main #src-list .src-tag > .edit-confirm { margin: 0 -4px 0 6px; align-self: center; }
   body.agency #app main #src-list .src-beats > li { cursor: text; }
   body.agency #app main #src-list .src-bt > .bp-val[contenteditable] { display: inline-block; font: inherit; color: inherit; }
   body.agency #app main #src-list .src-why > .bp-val[aria-multiline="true"] { display: block; white-space: pre-wrap; }
-  body.agency #app main #src-list .src-why > .edit-confirm { display: flex; width: fit-content; margin: 6px 0 0 auto; }
-  body.agency #app main #src-list .src-field > .edit-confirm { margin: 0 0 0 auto; }
   body.agency #app main #src-list .src-actions { margin-top: 14px; }
   @media (max-width: 820px), (pointer: coarse) {
-    body.agency #app main #src-list .edit-confirm { gap: 4px; padding: 3px; }
-    body.agency #app main #src-list .edit-confirm button { width: 36px; height: 36px; }
-    body.agency #app main #src-list .edit-confirm button svg { width: 16px; height: 16px; }
     body.agency #app main #src-list .bp-val[contenteditable] { padding-top: 6px; padding-bottom: 6px; margin-top: -6px; margin-bottom: -6px; }
   }
 
@@ -11768,7 +11722,7 @@
   .bf-at { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ---- agency: the row under a beat. A full-width grid row at the END of the beat card: `order`
-     keeps it below the line editor's tick-and-cross (.edit-confirm), which is appended later. ---- */
+     keeps it last in the beat card. ---- */
   body.agency #app main li.bp-beat > .bfb {
     grid-column: 1 / -1; order: 1; min-width: 0;
     display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
@@ -13728,3 +13682,11 @@
   @media (max-width: 820px) {
     .camp-tab, .camp-older select { min-height: 44px; }
   }
+
+  /* ---- AUTOSAVE: the one quiet save status (owner, 2026-11-02; plan ~/.claude/plans/autosave-edits.md) ----
+     The tick-and-cross under an edited line is gone: lines save themselves. An agency format card says so in its head
+     (.ag-save, last in .cb-chips), a creator script card in its footer, left of the icons (.ad-save). Small, the third
+     text colour, no motion; red only while a save is failing. It is not a control, so no 44px rule applies. */
+  .ag-save, .ad-save { align-self: center; font-size: var(--fs-115); color: var(--text-3); white-space: nowrap; }
+  .ag-save.bad, .ad-save.bad { color: var(--bad); }
+  .ag-save[hidden], .ad-save[hidden] { display: none; }
