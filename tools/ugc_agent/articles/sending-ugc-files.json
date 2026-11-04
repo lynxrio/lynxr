@@ -1,0 +1,261 @@
+{
+  "question_id": "q029",
+  "slug": "sending-ugc-files",
+  "theme": "ugc-briefs",
+  "title": "How do you name and send UGC files to a brand?",
+  "description": "How to send UGC files to a brand: a file naming scheme that tracks drafts and versions, one folder per job, and a delivery link that keeps working.",
+  "short_answer": "Name each UGC file with the brand, product, video, version and stage in one fixed order, and send everything through one shared folder link per job. Keep drafts and finals in separate folders, never overwrite a file the brand has seen, and write a short message with each link saying exactly what changed.",
+  "sections": [
+    {
+      "heading": "Why does file naming matter so much on a UGC job?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "File names are how you and the brand point at the same video without confusion, so a fixed pattern saves rounds of back and forth.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "On a job with several videos, each with a draft, a revised cut and a final, you can end up with a dozen files that look alike. When the brand writes back about the second hook, both of you need to know which file that means. A name that carries the version and the stage answers that before anyone asks. It also helps when the person who reviews the [brief](/glossary/#brief) is not the person who downloads the finals. If you wrote the cut from a brief, the guide on [turning a brand brief into a script](/blog/brief-to-script/) shows how to send the script back, and the same habit of labelling carries through to the files.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "This answer covers how files move during the job. For what belongs in the finished handover, see [what you should deliver at the end of a UGC job](/blog/ugc-deliverables/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What naming scheme should you use for drafts and finals?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Use one order for every file on every job: brand, product, video, version, stage, then date, joined with hyphens and no spaces.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The pattern looks like [NAME]-[PRODUCT]-video-a-hook-b-draft-one-[DATE]. Hyphens and lowercase survive every upload and download without turning into strange characters, which spaces and symbols sometimes do. Letters for videos and hooks keep them apart from the draft count, so video-a-hook-b can never be misread as a revision number.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Part of the name",
+            "What to write",
+            "Why it is there"
+          ],
+          "table_rows": [
+            [
+              "Brand and product",
+              "[NAME]-[PRODUCT]",
+              "Files from one job sort together in any folder."
+            ],
+            [
+              "Video and hook",
+              "video-a, hook-b",
+              "Each cut and each opening has its own name for feedback."
+            ],
+            [
+              "Stage",
+              "draft-one, draft-two, final",
+              "Anyone can see at a glance whether a file is approved."
+            ],
+            [
+              "Variant",
+              "clean, captions",
+              "A version with no burned-in text is never mistaken for the main cut."
+            ],
+            [
+              "Date",
+              "[DATE] the file was sent",
+              "Two files sent on different days can never share a name."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand gives you its own naming rule in the brief, use theirs. It is their system the files end up in, so their rule wins over yours.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How should you set up the folders?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Make one shared folder per job, with a subfolder for each round of drafts and a separate one for finals.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Name the top folder [NAME]-[PRODUCT]-[DATE] for the start of the job, so you can find it again months later.",
+            "Add a drafts-round-one folder, then a drafts-round-two folder only when a second round starts, so each round of feedback stays tied to the files it was about.",
+            "Add a finals folder and put files in it only after the brand has approved them in writing.",
+            "Keep raw clips and any extras in their own folder, so nobody uploads an unedited clip by mistake.",
+            "Keep your own project files and spare takes on your side, outside the shared folder, because the brand only needs what you agreed to send."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keeping old rounds visible also helps when feedback starts to pull the video somewhere new. You can point to the round where a choice was agreed, which is useful when [feedback would break the video](/blog/ugc-feedback-that-breaks-the-video/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you handle a new version after feedback?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Export the revised cut as a new file with the next stage in its name, and leave the earlier file where it is.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Overwriting a file the brand has already seen means their notes now point at a video that no longer exists, and a link they saved may open the wrong cut. A new file named draft-two sits next to draft-one, so the reviewer can compare the two and check that each note was handled. Count rounds the same way you agreed them, so the file names match [how revisions work on the job](/blog/ugc-revisions/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When a round changes only one [hook](/glossary/#hook), send only that file, and say in your message that the rest of the video is unchanged. The reviewer then knows exactly where to look.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you keep a delivery link working?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Share the job folder once, set access to anyone with the link who should see it, and never move or rename that folder after sending.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Send the folder link, not a link to each file, so new rounds show up in the place the brand already has.",
+            "Check whether the link expires, and if it does, set it to last past the date the brand needs the files, then note that date in your message.",
+            "Do not delete or tidy the folder after the job ends without asking the brand first, because someone there may still be pulling files from it.",
+            "If you have to send a fresh link, say clearly in your message that the old one has stopped working.",
+            "Ask the brand at the start how they want to receive files, since some teams prefer to upload into a folder of their own."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should the message with the link say?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The message should name the round, list each file, and say what changed, so the brand can review without opening anything first.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Hi [NAME], round two for [PRODUCT] is in the drafts-round-two folder here: [LINK]. Video A now opens on the new hook you asked for, and the close uses your wording. Video B is unchanged. Could you send notes by [DATE], so I can deliver finals on time?",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the same short shape for every round. A message the brand can read in one glance, sitting next to file names that match it, does more to make the job feel easy than any extra polish on the edit.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-04",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
