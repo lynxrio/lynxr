@@ -1,0 +1,260 @@
+{
+  "question_id": "q046",
+  "slug": "ugc-on-screen-text-hook",
+  "theme": "ugc-hooks",
+  "title": "How do you write on-screen text for a UGC hook?",
+  "description": "How to write on-screen text for a UGC hook: add what the spoken line leaves out, keep it short enough to read, and make it work with the sound off.",
+  "short_answer": "On-screen text for a UGC hook should add one thing the spoken line does not say, in words short enough to read before the shot changes. Write it so a viewer with the sound off still understands the situation, and keep it to a single idea placed clear of your face and the product.",
+  "sections": [
+    {
+      "heading": "What should on-screen text add to a spoken hook?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "On-screen text should carry the context or the stakes, while your voice carries the feeling, so the two together say more than either alone.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [hook](/glossary/#hook) has two channels in the opening frame: what you say and what the viewer reads. If the text simply types out the spoken line, one channel is wasted. Give each a job instead. The voice can be casual and personal, and the text can name the situation in plain words: who this is for, what went wrong, or what is about to be tested. The shapes in [how to write a hook](/how-to-write-a-hook/) all still apply; the text is one more place to land the same idea.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the text and the voice pointing at the same moment. If the text promises a test and the voice starts a story about your week, the viewer has to pick one, and the opening falls apart.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How short should hook text be?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Hook text should be short enough that you can read it out twice, at a relaxed pace, while it is still on screen.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "That test works better than any word limit, because it ties the length to your own edit. Play the clip back, read the text aloud, and start again from the top. If the shot changes before your second read ends, cut words or hold the shot longer. The viewer is also watching your face and the frame, so the text gets only part of their attention.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Cut filler words such as so, just, honestly and literally first, because they add reading time and no meaning.",
+            "Use one line if you can and two at most, since a third line pushes the text over your face or the product.",
+            "Swap long words for short ones: tried instead of experimented, broke instead of malfunctioned.",
+            "Drop the product name from the hook text unless the brief asks for it, because the situation is what makes a stranger stop.",
+            "Leave punctuation light, since a full stop and a dash are enough to show where the line breaks."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you make hook text work with the sound off?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write the text so a viewer who never hears you still knows what situation they are looking at and why to keep watching.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Mute your own draft and watch the first moment on a phone. If the frame plus the text does not explain itself, the text is leaning on the audio. Rewrite it until the picture and the words make sense together without sound, then check that your voice adds something on top rather than repeating it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Spoken line",
+            "Text that only repeats it",
+            "Text that adds to it"
+          ],
+          "table_rows": [
+            [
+              "I did not expect this to go the way it went.",
+              "Did not expect this",
+              "Testing a sofa brush on dog hair"
+            ],
+            [
+              "Okay, I have to show you what happened with my plants.",
+              "What happened with my plants",
+              "Away a fortnight. Plants on their own."
+            ],
+            [
+              "This has been in my bag every day since spring.",
+              "In my bag every day",
+              "The one thing I refill weekly"
+            ],
+            [
+              "I nearly sent this back.",
+              "Nearly sent it back",
+              "Why I kept it after all"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "In each case the added text answers the question the spoken line leaves open. That is what lets the two work as a pair. A [visual hook](/blog/ugc-visual-hooks/) can take the same role when the picture itself shows the situation, and then the text can stay even shorter.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Where should hook text sit on the screen?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Place hook text in the upper middle of the frame, clear of your face, the product and the edges where on-screen buttons and captions appear.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Plan the space before you film, not in the edit. Leave room above your head or beside the product when you frame the shot, so the text has somewhere clean to go. Pick a plain style with a solid background or outline, because busy kitchens and patterned walls make thin text hard to read. If the brand has supplied a text style in the [brief](/glossary/#brief), use that instead, and ask before changing it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Check the finished video in the TikTok or Instagram upload preview before you send it, so you can see the text against the real interface rather than a clean editing screen.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a script with on-screen hook text look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write the on-screen text into the do column of the script, next to the spoken line it supports, so it is filmed and edited as part of the plan.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a rubber pet hair brush for sofas",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I vacuumed this sofa yesterday, and look at the arm.",
+              "do": "Close-up of a fabric sofa arm covered in dog hair, dog asleep in the background. Text near the top: Vacuumed yesterday. Dog hair already back."
+            },
+            {
+              "part": "setup",
+              "say": "The vacuum leaves the stuff woven into the fabric, so I'm trying this on one cushion.",
+              "do": "Hold up the rubber brush next to the cushion. Text: One cushion. One brush."
+            },
+            {
+              "part": "beat 1",
+              "say": "Short strokes, all in one direction.",
+              "do": "Brush one cushion in a single continuous clip from a fixed phone position."
+            },
+            {
+              "part": "beat 2",
+              "say": "And this is what came up off that one cushion.",
+              "do": "Lift the clump of hair off the brush and hold it to the lens."
+            },
+            {
+              "part": "turn",
+              "say": "So that's the one I did, next to the one I didn't.",
+              "do": "Pull back to show both cushions side by side in the same light. Text: Brushed. Not brushed."
+            },
+            {
+              "part": "close",
+              "say": "It lives in the drawer by the sofa now. It's linked if you've got a shedder too.",
+              "do": "Drop the brush into a side table drawer and close it."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "The hook text gives the timeline and the problem, while the voice gives your reaction. If you film more than one opening for the brand, write separate text for each, as described in [filming hook variations](/blog/ugc-hook-variations/), rather than reusing one line across all of them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-05",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I vacuumed this sofa yesterday, and look at the arm."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

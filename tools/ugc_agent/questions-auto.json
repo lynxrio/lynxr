@@ -1,1 +1,119 @@
-[]
+[
+  {
+    "id": "a001",
+    "theme": "ugc-getting-started",
+    "priority": 3,
+    "question": "How do you practise UGC before your first paid job?",
+    "slug": "practise-ugc-before-first-job",
+    "target_query": "how to practice ugc",
+    "angle": "A practice routine: pick a product you own, script, film, review your own footage, repeat. Leave out portfolio building and pitching, which have their own answers."
+  },
+  {
+    "id": "a002",
+    "theme": "ugc-getting-started",
+    "priority": 3,
+    "question": "How do you get comfortable talking to the camera for UGC?",
+    "slug": "comfortable-on-camera-for-ugc",
+    "target_query": "how to be comfortable on camera ugc",
+    "angle": "Practical drills for nerves and stiffness: talking to one person, short takes, rewatching. No claims about confidence outcomes."
+  },
+  {
+    "id": "a003",
+    "theme": "ugc-getting-started",
+    "priority": 3,
+    "question": "Can you do UGC alongside a full-time job?",
+    "slug": "ugc-alongside-a-full-time-job",
+    "target_query": "ugc creator part time",
+    "angle": "Planning filming around limited time: batching, lead times to agree with brands, saying no. Leave out income and tax."
+  },
+  {
+    "id": "a004",
+    "theme": "ugc-brand-deals",
+    "priority": 3,
+    "question": "How do you spot a UGC brand deal that isn't worth taking?",
+    "slug": "spot-a-bad-ugc-deal",
+    "target_query": "ugc red flags brand deal",
+    "angle": "Warning signs in briefs and messages: vague scope, unlimited revisions, pressure to fake use. Questions to ask; no legal advice."
+  },
+  {
+    "id": "a005",
+    "theme": "ugc-brand-deals",
+    "priority": 3,
+    "question": "How do you reply when a brand offers only free product?",
+    "slug": "reply-to-free-product-offer",
+    "target_query": "ugc brand offers free product",
+    "angle": "How to decide and how to word a polite reply either way, with an example message. No figures."
+  },
+  {
+    "id": "a006",
+    "theme": "ugc-brand-deals",
+    "priority": 3,
+    "question": "How do you turn a one-off UGC job into regular work?",
+    "slug": "one-off-ugc-job-to-regular-work",
+    "target_query": "ugc ongoing work with brand",
+    "angle": "Offering a follow-up idea set after delivery and proposing a simple repeat arrangement. Must not duplicate the rebooking answer: focus on proposing the ongoing structure."
+  },
+  {
+    "id": "a007",
+    "theme": "ugc-briefs",
+    "priority": 3,
+    "question": "What questions should you ask a brand before you start filming?",
+    "slug": "questions-to-ask-before-filming-ugc",
+    "target_query": "questions to ask brand ugc",
+    "angle": "A short list of questions that prevent reshoots, with why each matters and a message template. Distinct from what goes in a brief."
+  },
+  {
+    "id": "a008",
+    "theme": "ugc-briefs",
+    "priority": 3,
+    "question": "What do you do when a brand misses its own feedback deadline?",
+    "slug": "brand-misses-ugc-feedback-deadline",
+    "target_query": "brand not giving ugc feedback",
+    "angle": "Polite follow-ups, what to agree about waiting, keeping the files ready. No contract or legal claims."
+  },
+  {
+    "id": "a009",
+    "theme": "ugc-briefs",
+    "priority": 3,
+    "question": "How do you send a script to a brand for approval?",
+    "slug": "send-ugc-script-for-approval",
+    "target_query": "ugc script approval",
+    "angle": "Format, what to include with it, how to ask for specific sign-off, and an example message."
+  },
+  {
+    "id": "a010",
+    "theme": "ugc-scripts",
+    "priority": 3,
+    "question": "How do you fit the brand's key points into a short UGC script?",
+    "slug": "fit-key-points-into-ugc-script",
+    "target_query": "ugc script key messages",
+    "angle": "Choosing which points to say, show or put in text, and cutting the rest; example script."
+  },
+  {
+    "id": "a011",
+    "theme": "ugc-hooks",
+    "priority": 3,
+    "question": "How do you know if your UGC hook is too slow?",
+    "slug": "ugc-hook-too-slow",
+    "target_query": "ugc hook too slow",
+    "angle": "Self-checks for a slow opening: what to cut, where to start the clip; example script. No timings in seconds."
+  },
+  {
+    "id": "a012",
+    "theme": "ugc-filming",
+    "priority": 3,
+    "question": "How do you film UGC when you live with other people?",
+    "slug": "film-ugc-in-a-shared-home",
+    "target_query": "filming ugc shared house",
+    "angle": "Finding quiet spots and times, background checks, privacy of housemates. No equipment brands."
+  },
+  {
+    "id": "a013",
+    "theme": "ugc-filming",
+    "priority": 3,
+    "question": "How do you organise UGC footage before you edit?",
+    "slug": "organise-ugc-footage",
+    "target_query": "organize ugc footage",
+    "angle": "Naming clips, marking good takes, keeping hook versions apart. Distinct from naming files for delivery."
+  }
+]
