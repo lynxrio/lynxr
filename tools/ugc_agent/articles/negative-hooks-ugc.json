@@ -1,0 +1,233 @@
+{
+  "question_id": "q045",
+  "slug": "negative-hooks-ugc",
+  "theme": "ugc-hooks",
+  "title": "How do you write a negative hook a brand will approve?",
+  "description": "Negative hook examples for UGC that a brand will approve: aim at a habit or a mistake, never a person or a rival product, and pay it off within the video.",
+  "short_answer": "A negative hook a brand will approve points at a habit or a mistake, never at the viewer as a person or at a rival product. Name something you used to do, show why it annoyed you, and make sure the video pays it off with what you do now, so the negative line leads somewhere useful.",
+  "sections": [
+    {
+      "heading": "What is a negative hook in a UGC video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A negative hook opens by naming a mistake or a bad habit, so the viewer checks whether it applies to them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Lines like stop doing this, I was doing this wrong, or the mistake I made for ages all work the same way. They create a small worry that the rest of the video answers. That makes a negative [hook](/glossary/#hook) a promise, and the promise has to be kept by the end, which [hook and payoff](/blog/hook-payoff/) explains in more depth.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why might a brand reject a negative hook?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A brand may reject a negative hook when it insults the viewer, attacks another product, or promises a fix the video cannot show.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The brand's name sits next to every word you say, so a line that makes the viewer feel stupid makes the brand look unkind too. A line that knocks a rival product can create trouble the brand did not ask for, and a line that names a problem the product cannot visibly solve sets up a claim nobody can back. Read the [brief](/glossary/#brief) for banned words and tone notes before you write, and ask the brand if it says nothing about negative openings, because some teams have a view on them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you aim a negative hook at a habit instead of a person?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Put yourself or the action at the centre of the line, not the viewer, so the problem belongs to a habit anyone could have.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Aimed at the wrong thing",
+            "Aimed at a habit",
+            "What changed"
+          ],
+          "table_rows": [
+            [
+              "You're washing your face wrong.",
+              "I was rinsing my face with water hot enough to make tea.",
+              "The mistake is yours, so nobody feels told off."
+            ],
+            [
+              "Stop buying that cheap stuff.",
+              "Stop rinsing the blender straight after the smoothie sets.",
+              "It names an action, not a rival product."
+            ],
+            [
+              "If your kitchen looks like this, it's embarrassing.",
+              "My spice cupboard is the reason dinner takes forever.",
+              "It points at a cupboard, not the viewer's home."
+            ],
+            [
+              "This is ruining your sleep.",
+              "I kept scrolling in bed with every light still on.",
+              "It describes what you did, with no health claim."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A quick test: read the line aloud and ask whether a stranger could take it as a comment about them. If the answer is yes, rewrite it in the first person or move the blame onto an object, a routine or a moment of the day.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Where are the limits for a brand-safe negative hook?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Keep the negative line about something the camera can show and the product can change on screen, and stop there.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Never name or show another brand's product, even blurred, because the brand would be the one answering for it.",
+            "Leave out bodies, health and appearance as the problem, since a negative line there can read as shaming and can drift into a claim.",
+            "Keep the worry small and everyday, such as a sticky lid or a lost charger, so the payoff can match it inside the video.",
+            "Avoid words like ruin, toxic or disgusting unless the brief allows them, because they raise the stakes past what a short video can resolve.",
+            "Make the turn show what you do now, not what the product does for everyone, so the line stays about your experience."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you are unsure, film a neutral version of the opening as well. [How many hooks to film for one UGC video](/blog/ugc-hook-variations/) covers how to hand the brand more than one opening to choose from.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a negative hook script look like from start to finish?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here is a short script where the negative hook names a habit, the middle shows it, and the [turn](/glossary/#the-turn) replaces it with something better.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a reusable silicone food cover that stretches over bowls",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "Stop doing what I did, which was wrestling cling film over a bowl every night.",
+              "do": "Close shot of your hands pulling cling film that folds onto itself and sticks to your fingers."
+            },
+            {
+              "part": "setup",
+              "say": "It tears in the wrong place, it never sits flat, and then it goes straight in the bin.",
+              "do": "Drop the crumpled sheet into the bin, then look at the lens."
+            },
+            {
+              "part": "beat 1",
+              "say": "So now I keep these in the drawer instead.",
+              "do": "Open a drawer and lift out a stack of silicone covers in different sizes."
+            },
+            {
+              "part": "turn",
+              "say": "It just stretches over the top, and that's the bowl covered.",
+              "do": "Stretch a cover over a bowl of leftovers in one smooth move, held in frame."
+            },
+            {
+              "part": "beat 2",
+              "say": "Next day it comes off, goes in the sink, and back in the drawer.",
+              "do": "Peel the cover off, rinse it under the tap, and put it back in the drawer."
+            },
+            {
+              "part": "close",
+              "say": "The ones I use are linked, if your roll of cling film is nearly done.",
+              "do": "Hold the covered bowl up to the lens, then put it in the fridge."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Notice that the hook blames a habit the creator had, the setup shows it on camera, and nothing in the script says what the product will do for the viewer. For openings where the product has to appear in the first frame, see [hooking a UGC video when the product is in the first frame](/blog/product-first-frame-hook/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-04",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "Stop doing what I did, which was wrestling cling film over a bowl every night."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

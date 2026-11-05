@@ -1,0 +1,250 @@
+{
+  "question_id": "q030",
+  "slug": "ugc-changes-after-delivery",
+  "theme": "ugc-briefs",
+  "title": "What do you do when a brand asks for changes after delivery?",
+  "description": "What to do when a brand asks for UGC changes after delivery: check what you agreed, sort small fixes from new work, and quote extra work politely.",
+  "short_answer": "When a brand asks for changes after delivery, check the request against what you agreed before you reply. Make small fixes that fall inside the agreed revisions, and treat anything that changes the idea, the script or the shoot as new work you quote for separately, in a calm and friendly message.",
+  "sections": [
+    {
+      "heading": "What should you check before you reply to a change request?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Check the written agreement, the brief and your earlier messages, so you know exactly what was promised before you answer.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A change request feels urgent, and it is tempting to reply within minutes with a yes. Wait until you have the facts in front of you. Open the [brief](/glossary/#brief) the brand sent, the scope you agreed in writing, and any message where the script or [shot list](/glossary/#shot-list) was approved. Those three things decide whether the request is a revision you owe or a new piece of work.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "How many rounds of revisions you agreed, and how many you have used.",
+            "Whether the brand approved the script before you filmed, because approved lines are harder to call a mistake later.",
+            "What the brief said about length, aspect ratio, captions and the [call to action](/glossary/#call-to-action).",
+            "Whether the request matches something the brief asked for that you missed."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If nothing was agreed about revisions, that is worth fixing on your next job. [Checking the brief before you film](/blog/what-goes-in-a-ugc-brief/) is the easiest place to catch it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you tell a small fix from new work?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A small fix changes how the agreed video is finished; new work changes what the video is or needs you to film again.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Sort each request on its own, because one message from a brand can hold both kinds. A useful test is to ask whether you can make the change from footage you already have. If you can, it is close to a fix. If it needs a new idea, a new location, a reshoot or a script [rebuilt from the brief](/blog/brief-to-script/), it is new work, however small the brand makes it sound.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Request",
+            "Fix or new work",
+            "Why"
+          ],
+          "table_rows": [
+            [
+              "Swap a caption word or correct a spelling",
+              "Fix",
+              "It is finishing work on the video you already delivered"
+            ],
+            [
+              "Trim a pause or move the product shot earlier",
+              "Fix",
+              "You can do it from footage you already have"
+            ],
+            [
+              "Use a different take you already filmed",
+              "Fix, if revisions remain",
+              "It counts toward the agreed rounds"
+            ],
+            [
+              "Change the hook to a new idea",
+              "New work",
+              "It needs a new line and new filming"
+            ],
+            [
+              "Film it again in a different room or outfit",
+              "New work",
+              "It is a reshoot, not an edit"
+            ],
+            [
+              "Make a second version for another placement",
+              "New work",
+              "It is an extra deliverable"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "There is also a third kind: feedback that would break what makes the video work. If a change would bury the hook or turn the video into an advert, say so with your reason before you make it. [Handling feedback that breaks the video](/blog/ugc-feedback-that-breaks-the-video/) covers how to push back on that.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you handle the small fixes?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Make agreed small fixes quickly and without fuss, then send the new file with a note listing exactly what changed.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A short list of changes saves the brand from watching the whole video twice looking for the difference, and it gives you a written record of the round. Name the new file so it cannot be confused with the first one, for example by adding the word revised and the date. If the fix uses up a revision round, say so plainly in the same message, so nobody is surprised when the rounds run out. [How revisions work](/blog/ugc-revisions/) goes into setting rounds up in the first place.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you quote for extra work without souring the relationship?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Quote for extra work by agreeing with the idea first, then naming what it involves and what it would cost, in one short message.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Leading with the idea shows you are on the brand's side and want the video to do well. Naming what the change involves shows why it is separate, without sounding defensive. Then give the brand a clear choice, so the conversation ends with a decision rather than a stand-off. You can copy this and edit it:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hi [NAME], thanks for the notes on the [PRODUCT] video. The caption change and the trim are done, and the new file is here: [LINK].",
+            "The new hook idea is a good one. It needs a fresh line and a reshoot of the opening, so it sits outside the revisions we agreed.",
+            "I can film it as an extra for [AMOUNT] and have it with you by [DATE].",
+            "If you would rather keep the current version, it is ready to use as it is. Just let me know which you prefer."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the fixes and the quote in the same message, with the fixes first. The brand gets something finished straight away, and the extra work reads as an offer rather than a refusal.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What if the brand says the change was always part of the job?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Point to the written agreement calmly, quote the relevant line, and ask how the brand would like to go ahead.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the tone about the work, not about who is right. Something like: the brief I worked from said [NAME] wanted one version with the product shown in the kitchen, which is what I delivered, so a second setting would be a new shoot. Then offer the same choice as before. If the agreement really is unclear, decide whether to absorb the change this time, and write the missing detail into your next agreement so it cannot come up again.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Anything about payment terms, rights or what the agreement legally means is something to settle in writing with the brand, not something to guess at in a chat thread.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-05",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
