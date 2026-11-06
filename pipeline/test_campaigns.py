@@ -178,7 +178,7 @@ check("brand_block(full dict): lines in the documented order",
       full_labels,
       ["Brand", "What it is", "Product / app", "Niche", "Who it is for",
        "Their main pain points", "Key features", "Value propositions",
-       "Brand tone and language", "Call to action to use",
+       "Brand tone and language",
        "Website / app link", "Brand-specific instructions and past campaign notes",
        "Audience daily habits", "Audience goals"])
 
@@ -401,8 +401,9 @@ check_true("AGENCY_READ_SCHEMA requires key_moments", "key_moments" in C.AGENCY_
 _orig_structured = P.structured
 
 
-def _script(say):
-    return {"beats": [{"t": "0-2s", "say": say, "do": "d", "show": ""}, {"t": "2-4s", "say": "ok", "do": "d", "show": ""}]}
+def _script(say, caption="new routine #a #b #c #d #e"):
+    return {"beats": [{"t": "0-2s", "say": say, "do": "d", "show": ""}, {"t": "2-4s", "say": "ok", "do": "d", "show": ""}],
+            "caption": caption}
 
 
 def _stub(answers):
@@ -427,8 +428,32 @@ try:
     P.structured, _c = _stub([_script("I had [how many] tabs open"), RuntimeError("boom")])
     _o, _left = C.write_script(object(), "prompt", FIXTURE_ANALYSIS)
     check_true("write_script: a failed repair keeps the first answer", _left == 1 and "[how many]" in _o["beats"][0]["say"])
+    # rule 18: exactly five hashtags
+    P.structured, _c = _stub([_script("fine", "love it #a #b #c #d #e #f #g")])
+    _o, _left = C.write_script(object(), "prompt", FIXTURE_ANALYSIS)
+    check("write_script: seven hashtags trimmed to five, no extra call", (_o["caption"], len(_c)),
+          ("love it #a #b #c #d #e", 1))
+    P.structured, _c = _stub([_script("fine", "love it #a #b"), {"hashtags": ["#c", "d", "#A", "e", "f"]}])
+    _o, _left = C.write_script(object(), "prompt", FIXTURE_ANALYSIS)
+    check("write_script: two hashtags topped up to five by one call", (_o["caption"], len(_c)),
+          ("love it #a #b #c #d #e", 2))
+    check_true("write_script: the top-up asks for the three missing", "the 3 missing" in _c[1])
+    P.structured, _c = _stub([_script("fine", "love it"), RuntimeError("boom")])
+    _o, _left = C.write_script(object(), "prompt", FIXTURE_ANALYSIS)
+    check("write_script: a failed top-up keeps the caption", _o["caption"], "love it")
 finally:
     P.structured = _orig_structured
+
+check("five_tags: a repeat comes out, words kept", C.five_tags("my #Glow routine #glow #a"), "my #Glow routine #a")
+check("five_tags: a sixth inline tag comes out of its sentence",
+      C.five_tags("#a #b #c #d #e and #f too"), "#a #b #c #d #e and too")
+check("five_tags: lines kept", C.five_tags("line one\nline two #a #b #c #d #e #f"), "line one\nline two #a #b #c #d #e")
+check("five_tags: extra words become tags", C.five_tags("hi", ["skin care", "#glow"]), "hi #skincare #glow")
+check("caption_tags: distinct, in order", C.caption_tags("#a #B #b #c"), ["#a", "#B", "#c"])
+check_true("AGENCY_SCRIPT_SCHEMA has no cta",
+           "cta" not in C.AGENCY_SCRIPT_SCHEMA["properties"] and "cta" not in C.AGENCY_SCRIPT_SCHEMA["required"])
+check_true("AGENCY_SCRIPT_SYSTEM: rule 18 says five hashtags", "exactly 5 hashtags" in C.AGENCY_SCRIPT_SYSTEM)
+check_true("brand_block leaves the brand's CTA out", "download the app" not in C.brand_block(FULL_BC))
 
 # ---- (s) run_format routing ---------------------------------------------------------
 _saved = (C.sbx, P.fill_source, P.fetch_meta, P.structured, C.pool_source, C.record_agency_cost)

@@ -142,12 +142,13 @@ AGENCY_SCRIPT_SCHEMA = {"type": "object", "additionalProperties": False, "proper
     "setting":    {"type": "string"}, "lighting": {"type": "string"},
     "framing":    {"type": "string"}, "audio": {"type": "string"},
     "beats":      AGENCY_BEAT,
-    "cta":        P.ADAPT_SCHEMA["properties"]["cta"],
-    "caption":    P.ADAPT_SCHEMA["properties"]["caption"],
+    # No `cta` (owner, 2026-11-05: "for making briefs, you can completely remove the CTA").
+    "caption":    {"type": "string", "description": "the post caption: a line or two in the creator's voice, "
+                   "then exactly 5 hashtags, never 4 and never 6"},
     "creator_note":  {"type": "string", "description": "one or two practical filming tips; shown to creators"},
     "strategy_note": {"type": "string", "description": "agency team only: why this format suits this brand and what to watch for"}},
   "required": ["title","fit","fit_reason","delivery","hook","needs","setting","lighting","framing","audio",
-               "beats","cta","caption","creator_note","strategy_note"]}
+               "beats","caption","creator_note","strategy_note"]}
 AGENCY_SCRIPT_SYSTEM = P.ADAPT_SYSTEM + """
 
 ---
@@ -179,7 +180,8 @@ different creators will film from, with the original video attached.
    sets one of them, follow the rule.
 13. The campaign rules are binding and print at the top of the brief. Never
    contradict them, and do not repeat them inside beats.
-14. If the BRAND block gives a call to action, `cta` uses it. Never invent a
+14. This brief has no call to action. Do not end on one ("link in bio", "download
+   it now") unless the format or the campaign rules have one. Never invent a
    discount, code, price or offer.
 15. NO SLOTS IN THIS BRIEF — this replaces rule 8's [slot] instruction here. Several
    creators film this exactly as written and none of them will fill in a blank, so
@@ -195,7 +197,8 @@ different creators will film from, with the original video attached.
    produced a result for the creator ("it saved me three hours a day", "it got me a
    250"). Rule 8's last paragraph and rule 14 still apply.
 16. `strategy_note` is read by the agency team only and is never shown to creators,
-   so no other field may depend on it.""" + "\n17. " + ORIG_RULE
+   so no other field may depend on it.""" + "\n17. " + ORIG_RULE + """
+18. `caption` ends with exactly 5 hashtags: never 4, never 6, each one different."""
 
 
 # ============================================================================
@@ -238,8 +241,6 @@ def brand_block(bc):
         lines.append(f"Value propositions: {g('valueProps')}")
     if g("tone"):
         lines.append(f"Brand tone and language: {g('tone')}")
-    if g("cta"):
-        lines.append(f"Call to action to use: {g('cta')}")
     if g("site"):
         lines.append(f"Website / app link: {g('site')}")
     if g("notes"):
@@ -485,7 +486,7 @@ def verbatim_script(source, analysis):
         "needs": [str(x).strip() for x in (an.get("key_moments") or []) if str(x).strip()][:8],
         "setting": str(prod.get("setting") or ""), "lighting": str(prod.get("lighting") or ""),
         "framing": str(prod.get("camera") or ""), "audio": str(prod.get("audio") or ""),
-        "beats": beats, "cta": "", "caption": str(s.get("caption") or "")[:2200],
+        "beats": beats, "caption": five_tags(str(s.get("caption") or "")[:2200]),
         "creator_note": "", "strategy_note": "",
         "verbatim": True,
     }
@@ -532,12 +533,78 @@ def slot_repair_text(found):
             "again with no square brackets anywhere.")
 
 
+# EXACTLY FIVE HASHTAGS in a brief's caption (owner, 2026-11-05: "make the limit 5. No more, no less."). The schema
+# cannot count (structured outputs take no array or string limits), so rule 18 asks and five_tags() enforces: extra
+# tags and repeats come out; a caption left short gets one small call for the missing ones (write_script).
+CAPTION_TAGS = 5
+HASHTAG_RE = re.compile(r"#\w+")
+TAGS_SCHEMA = {"type": "object", "additionalProperties": False,
+               "properties": {"hashtags": {"type": "array", "items": {"type": "string"}}},
+               "required": ["hashtags"]}
+
+
+def caption_tags(caption):
+    """The caption's hashtags in order, each once (repeats compared without case)."""
+    seen, out = set(), []
+    for t in HASHTAG_RE.findall(str(caption or "")):
+        if t.lower() not in seen:
+            seen.add(t.lower())
+            out.append(t)
+    return out
+
+
+def five_tags(caption, extra=()):
+    """The caption with at most CAPTION_TAGS distinct hashtags: a repeat or a sixth one comes out where it stood, and
+    `extra` (words, with or without the #) tops it up at the end. The words around the tags are kept as written.
+    Fewer than five only when the caption and `extra` together hold fewer."""
+    seen = set()
+
+    def keep(m):
+        k = m.group(0).lower()
+        if k in seen or len(seen) >= CAPTION_TAGS:
+            return ""
+        seen.add(k)
+        return m.group(0)
+
+    text = HASHTAG_RE.sub(keep, str(caption or ""))
+    text = "\n".join(re.sub(r"[ \t]{2,}", " ", line).strip() for line in text.split("\n")).strip()
+    add = []
+    for t in extra or ():
+        tag = "#" + re.sub(r"\W+", "", str(t or ""))
+        if len(tag) > 1 and tag.lower() not in seen and len(seen) < CAPTION_TAGS:
+            seen.add(tag.lower())
+            add.append(tag)
+    if add:
+        text = f"{text} {' '.join(add)}".strip()
+    return text
+
+
+def fill_tags(aclient, prompt, script):
+    """Rule 18's backstop: a caption with fewer than five hashtags gets the missing ones from one small call
+    (only then). A failed call keeps the caption as it was. Changes `script` in place."""
+    cap = five_tags(script.get("caption"))
+    missing = CAPTION_TAGS - len(caption_tags(cap))
+    if missing > 0:
+        try:
+            got = P.structured(aclient, AGENCY_SCRIPT_SYSTEM, TAGS_SCHEMA,
+                               prompt + "\n\n=== IMPORTANT ===\nThe format is written. Its caption is: "
+                               f"{cap or '(empty)'}\nIt needs exactly {CAPTION_TAGS} hashtags and has "
+                               f"{CAPTION_TAGS - missing}. Return only the {missing} missing hashtag(s) in "
+                               "`hashtags`, none already in the caption.", max_tokens=2000)
+            cap = five_tags(cap, (got or {}).get("hashtags") or [])
+        except Exception as e:  # noqa: BLE001 — a failed top-up never fails the format
+            log.warning("hashtag top-up failed: %s", str(e)[:120])
+    script["caption"] = cap
+    return script
+
+
 def write_script(aclient, prompt, analysis):
     """The script job's model calls. One write; one retry when the answer is thin (unchanged); then
     rule 15's BACKSTOP: if any [slot] survived, one repair call (~$0.08-0.17, only then). A repair that
     fails or does not reduce the slots is dropped and the first answer kept; any slot still left shows
-    on the agency card as "N blanks to fill" (app.js cbSlotCount). Errors from the first two calls
-    propagate exactly as before. Returns (script, slots_left)."""
+    on the agency card as "N blanks to fill" (app.js cbSlotCount). Then rule 18's: exactly five hashtags
+    in the caption (fill_tags). Errors from the first two calls propagate exactly as before.
+    Returns (script, slots_left)."""
     out = P.structured(aclient, AGENCY_SCRIPT_SYSTEM, AGENCY_SCRIPT_SCHEMA, prompt, max_tokens=MAX_TOKENS)
     if P.thin_script(out, (analysis or {}).get("format")):
         out = P.structured(
@@ -559,6 +626,7 @@ def write_script(aclient, prompt, analysis):
                 out = fixed
         except Exception as e:  # noqa: BLE001 — a failed repair never fails the format
             log.warning("slot repair failed: %s", str(e)[:120])
+    fill_tags(aclient, prompt, out)
     return out, SC.slots(out)
 
 

@@ -6194,14 +6194,22 @@ function lynxIsNoteImg(path) {
   const p = String(path || "");
   return LYNX_NOTE_IMG_RE.test(p) && !p.includes("..");
 }
+/* A note can hold VIDEOS too (owner, 2026-11-05; app.js CB_NOTE_IMG_TYPES): told apart by the key's extension, the
+   same test as app.js bfIsVideo. A video tile shows its first frame and a play mark, and plays in the viewer. */
+const LYNX_VIDEO_RE = /\.(mp4|m4v|mov|webm)$/i;
+const LYNX_PLAY_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>`;
 function lynxNoteImgsHtml(imgs, idx) {
   const list = Array.isArray(imgs) ? imgs : [];
   if (!list.length) return "";
   const where = Number.isInteger(idx) ? ` on beat ${idx + 1}` : "";
-  return `<ul class="bnote-imgs${list.length === 1 ? " is-one" : ""}" aria-label="Images in the note${where}">${list.map((m) => {
+  return `<ul class="bnote-imgs${list.length === 1 ? " is-one" : ""}" aria-label="Images and videos in the note${where}">${list.map((m) => {
     const name = escapeHtml(m.name || "image");
-    return `<li class="bnote-imgs-li"><button type="button" class="bnote-img" data-path="${escapeHtml(m.path)}" data-name="${name}"
-      aria-label="Open ${name} full size"><img data-sign-path="${escapeHtml(m.path)}" alt="${name}" loading="lazy" decoding="async"></button></li>`;
+    const vid = LYNX_VIDEO_RE.test(String(m.path || ""));
+    const media = vid
+      ? `<video data-sign-path="${escapeHtml(m.path)}" muted playsinline preload="metadata" tabindex="-1"></video><span class="bnote-play" aria-hidden="true">${LYNX_PLAY_SVG}</span>`
+      : `<img data-sign-path="${escapeHtml(m.path)}" alt="${name}" loading="lazy" decoding="async">`;
+    return `<li class="bnote-imgs-li"><button type="button" class="bnote-img${vid ? " is-video" : ""}" data-path="${escapeHtml(m.path)}" data-name="${name}"
+      aria-label="${vid ? "Play" : "Open"} ${name} full size">${media}</button></li>`;
   }).join("")}</ul>`;
 }
 const LYNX_SIGNED = new Map();   // object key -> { url, exp }: reused for 55 of its 60 minutes
@@ -6236,14 +6244,15 @@ function lynxNoteImgBad(im) {
   im.closest(".bnote-imgs-li")?.classList.add("is-bad");
 }
 async function lynxNoteImgHydrate(root = document) {
-  const imgs = [...root.querySelectorAll("img[data-sign-path]:not([src]):not([data-signing]):not([data-bad])")];
+  const imgs = [...root.querySelectorAll(":is(img, video)[data-sign-path]:not([src]):not([data-signing]):not([data-bad])")];
   if (!imgs.length) return;
   imgs.forEach((im) => { im.dataset.signing = "1"; });
   const urls = await lynxNoteImgSign(imgs.map((im) => im.dataset.signPath));
   for (const im of imgs) {
     delete im.dataset.signing;
     const url = urls.get(im.dataset.signPath);
-    if (url) im.src = url; else lynxNoteImgBad(im);
+    // a video tile asks for its first frame, which iOS Safari otherwise leaves black
+    if (url) im.src = im.tagName === "VIDEO" ? `${url}#t=0.1` : url; else lynxNoteImgBad(im);
   }
 }
 /* One observer signs every note image any repaint draws; one pass per frame at most. */
@@ -6256,7 +6265,7 @@ new MutationObserver(() => {
 /* An expired or removed one: sign once more, then show the tile as unavailable. `error` does not bubble. */
 document.addEventListener("error", (e) => {
   const im = e.target;
-  if (!(im instanceof HTMLImageElement) || !im.dataset.signPath) return;
+  if (!(im instanceof HTMLImageElement || im instanceof HTMLVideoElement) || !im.dataset.signPath) return;
   if (im.dataset.retried) { lynxNoteImgBad(im); return; }
   im.dataset.retried = "1";
   LYNX_SIGNED.delete(im.dataset.signPath);
@@ -6264,10 +6273,11 @@ document.addEventListener("error", (e) => {
   lynxNoteImgHydrate(im.parentElement || document);
 }, true);
 const LYNX_X_SVG = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
-/** Full size in a <dialog>: the picture, its name, Download and Close. Esc, the x or a click outside the picture
-    closes it and focus goes back to the thumbnail. One dialog, made on first use. */
+/** Full size in a <dialog>: the picture (or the video, playing, with its controls), its name, Download and Close. Esc,
+    the x or a click outside the picture closes it, a video stops, and focus goes back to the thumbnail. One dialog,
+    made on first use. */
 function lynxNoteImgOpen(btn) {
-  const small = btn.querySelector("img");
+  const small = btn.querySelector("img, video");
   if (!small?.src) return;
   let dlg = document.getElementById("bnote-viewer");
   if (!dlg) {
@@ -6279,6 +6289,7 @@ function lynxNoteImgOpen(btn) {
         <button type="button" class="ghost bnote-viewer-get">${LYNX_DL_SVG}<span>Download</span></button>
         <button type="button" class="ghost icon-only bnote-viewer-x" aria-label="Close">${LYNX_X_SVG}</button></div>
       <img class="bnote-viewer-img" alt="">
+      <video class="bnote-viewer-vid" controls playsinline hidden></video>
       <p class="bp-msg bnote-viewer-msg" role="status" aria-live="polite"></p>`;
     document.body.appendChild(dlg);
     dlg.addEventListener("click", async (e) => {
@@ -6288,11 +6299,15 @@ function lynxNoteImgOpen(btn) {
       get.disabled = true;
       const msg = dlg.querySelector(".bnote-viewer-msg");
       try { await lynxFileDownload(dlg.dataset.path, dlg.dataset.name); }
-      catch { msg.textContent = "Couldn't download that image — try again."; msg.className = "bp-msg bnote-viewer-msg show bad"; }
+      catch { msg.textContent = "Couldn't download that file — try again."; msg.className = "bp-msg bnote-viewer-msg show bad"; }
       get.disabled = false;
     });
     dlg.addEventListener("close", () => {
       dlg.querySelector(".bnote-viewer-img").removeAttribute("src");
+      const vid = dlg.querySelector(".bnote-viewer-vid");
+      vid.pause();
+      vid.removeAttribute("src");
+      vid.load();
       if (dlg._back?.isConnected) dlg._back.focus({ preventScroll: true });
     });
   }
@@ -6303,9 +6318,18 @@ function lynxNoteImgOpen(btn) {
   const msg = dlg.querySelector(".bnote-viewer-msg");
   msg.textContent = "";
   msg.className = "bp-msg bnote-viewer-msg";
-  const big = dlg.querySelector(".bnote-viewer-img");
-  big.alt = btn.dataset.name || "";
-  big.src = small.src;
+  const isVid = small.tagName === "VIDEO";
+  dlg.setAttribute("aria-label", isVid ? "Video" : "Image");
+  const big = dlg.querySelector(".bnote-viewer-img"), vid = dlg.querySelector(".bnote-viewer-vid");
+  big.hidden = isVid;
+  vid.hidden = !isVid;
+  if (isVid) {
+    vid.src = small.src.replace(/#.*$/, "");
+    vid.play().catch(() => { /* the controls are there to start it */ });
+  } else {
+    big.alt = btn.dataset.name || "";
+    big.src = small.src;
+  }
   dlg.showModal();
   dlg.querySelector(".bnote-viewer-x").focus();
 }
@@ -6613,7 +6637,8 @@ function lynxFormatCardHtml(f, i, open = false, onBeat = new Map(), files = []) 
   const href = f.source_url ? safeUrl(f.source_url) : "";
   const plat = f.source_url ? platformLabel(f.source_url) : scratch ? "script only" : "";
   const name = f.title || f.hook || "Untitled format";
-  // A note's images: only those whose file is still in this brief's list, so a removed one never shows.
+  // No CTA line (owner, 2026-11-05: "completely remove the CTA"): one in a brief sent before that is not drawn,
+  // copied or kept. A note's images: only those whose file is still in this brief's list, so a removed one never shows.
   const live = new Set((Array.isArray(files) ? files : []).map((x) => x && x.path).filter(Boolean));
   const noteImgs = (b) => (Array.isArray(b?.note_images) ? b.note_images : [])
     .filter((m) => m && live.has(m.path) && lynxIsNoteImg(m.path));
@@ -6630,7 +6655,6 @@ function lynxFormatCardHtml(f, i, open = false, onBeat = new Map(), files = []) 
       <ol class="bp-beats bp-notime">${(f.beats || []).map((b, bi) => beatRow(b, carry, silent, undefined, bi, lynxBeatFilesHtml(onBeat.get(bi)),
         { images: noteImgs(b), show: scratch })).join("")}</ol>
       ${onBeat.size ? `<p class="bp-msg" id="lynx-bfb-msg-${i}" role="status" aria-live="polite"></p>` : ""}
-      ${f.cta ? `<p class="bp-hint"><strong>${silent ? "Final card" : "CTA"}:</strong> <span class="bp-val">${escapeHtml(f.cta)}</span></p>` : ""}
       ${f.caption ? `<p class="bp-hint"><strong>Caption:</strong> <span class="bp-val">${escapeHtml(f.caption)}</span></p>` : ""}
       ${f.note ? `<p class="bp-hint"><strong>Note:</strong> ${escapeHtml(f.note)}</p>` : ""}`;
   const foot = `
@@ -6704,7 +6728,7 @@ function bindLynxBriefButtons(doc, formats, briefId) {
     try {
       await navigator.clipboard.writeText(scriptText({
         brandName: doc.client?.name || "", sourceUrl: f.source_url || "",
-        adaptation: { hook: f.hook, delivery: f.delivery, beats: f.beats, cta: f.cta, caption: f.caption },
+        adaptation: { hook: f.hook, delivery: f.delivery, beats: f.beats, cta: "", caption: f.caption },
       }));
       const face = btn.innerHTML;
       btn.innerHTML = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -9065,7 +9089,7 @@ if (OBTEST) {
         ME.library.push({ id: "ob-lcopy", url: f3.source_url, canon: canonUrl(f3.source_url), title: f3.title, platform: "tiktok", addedAt: t3 });
         ME.adaptations.push({ id: "ob-acopy", libraryId: "ob-lcopy", sourceUrl: f3.source_url, brandId: "ob-b4", brandName: "OncourseAI",
           title: f3.title, status: "done", addedAt: t3, code: "LYNX-OB4",
-          adaptation: { hook: f3.hook, delivery: f3.delivery, beats: f3.beats, cta: f3.cta, caption: f3.caption },
+          adaptation: { hook: f3.hook, delivery: f3.delivery, beats: f3.beats, cta: "", caption: f3.caption },
           fromAgency: { briefId: OB_B(3), formatId: f3.id, client: "OncourseAI", at: t3 } });
       }
       POSTS = OBFAKE.posts; FOLLOWERS = OBFAKE.followers; POSTS_STATE = "ok";
@@ -11795,7 +11819,7 @@ function addAgencyFormat(doc, f, briefId) {
     status: "done", addedAt: new Date().toISOString(), code: trackCode(b.name || ""),
     // note_images point at brief files, readable only while the brief is delivered: a library copy keeps each note's
     // words and leaves its images behind (plan agency-note-images-and-scratch-formats).
-    adaptation: { hook: f.hook, delivery: f.delivery, cta: f.cta, caption: f.caption,
+    adaptation: { hook: f.hook, delivery: f.delivery, cta: "", caption: f.caption,
       beats: (Array.isArray(f.beats) ? f.beats : []).map((x) => {
         if (!x || typeof x !== "object") return x;
         const { note_images: _imgs, ...bt } = x;

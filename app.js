@@ -2049,17 +2049,11 @@ function tailoredScript(row, ctx, slot) {
     `[2–12s] One problem, one solution: ${brand}'s ${f1}, shown not told.`,
     `[12–22s] Result + one-line payoff for ${aud.toLowerCase()}.`,
   ];
-  const ctas = [
-    `Search “${brand}” — don't spell out the link.`,
-    `“Link in bio if you want to try ${f1} yourself.”`,
-    `“Comment ‘${brand.split(" ")[0].toUpperCase()}’ and I'll send it to you.”`,
-    `“It's free to try — that's the whole pitch.”`,
-  ];
   return {
     heading: `${fmtName} × ${row.hook_pattern || "Other"} — pattern template (no transcript yet)`,
     hook,
     beats: beats[fmtName] || fallback,
-    cta: `[last 3s] CTA: ${ctas[slot % ctas.length]}`,
+    cta: "",                                     // no CTA in a brief (owner, 2026-11-05)
   };
 }
 
@@ -2385,7 +2379,7 @@ function clientSuggestions(client, count = 8) {
 // ANY SIZE (owner, 2026-09-22: "it won't let me save the brief unless i got 10 videos in there,
 // just make it so i can make the brief at any amount"). There was one number, 10, acting as BOTH
 // the floor for Save and the ceiling for picking. Both are gone: one video is a brief, and there
-// is no upper stop. Scripts still differ per slot — tailoredScript() indexes its features and CTAs
+// is no upper stop. Scripts still differ per slot — tailoredScript() indexes its features
 // with slot % length, so slot 11 reads as well as slot 1.
 let CART = new Map();        // rowKey -> row
 /* rowKey -> { beats, hook, cta }, for scripts edited in the video modal before the brief exists
@@ -2571,7 +2565,7 @@ function openModalBindings(key, row) {
   const copyBtn = document.getElementById("modal-copy");
   if (copyBtn) copyBtn.addEventListener("click", async () => {
     const s = agScriptFor(row, BRIEF_CTX, cartSlot(key), DRAFT_EDITS.get(key));
-    const text = `${s.heading}\n${s.hook ? `Hook: “${s.hook}”\n` : ""}${s.beats.join("\n")}\n${s.cta}`;
+    const text = `${s.heading}\n${s.hook ? `Hook: “${s.hook}”\n` : ""}${s.beats.join("\n")}`;
     try { await navigator.clipboard.writeText(text); copyBtn.textContent = "Copied ✓"; } catch {}
   });
   /* LINE EDITS here are drafts (DRAFT_EDITS) until the brief is saved; saveCurrentBrief moves them
@@ -3446,7 +3440,6 @@ function scriptsAsText(ctx, items) {
     const s = agScriptFor(row, ctx, i - 1, DRAFT_EDITS.get(rowKey(row)));   // what the modal shows
     out += `SCRIPT ${i} — ${s.heading}\n${s.hook ? `Hook: “${s.hook}”\n` : ""}`;
     for (const b of s.beats) out += b + "\n";
-    out += s.cta + "\n";
     out += `Reference: ${row.title || ""}\n${row.creator || "—"} · ${fmt(views(row))} views · ${row.url || ""}\n\n`;
   }
   return out;
@@ -3809,7 +3802,6 @@ function clientDetailsHtml(client) {
       ${row("features", (ctx.feats || []).join(", "))}
       ${brow("description", ctx.description)}
       ${brow("tone", ctx.tone)}
-      ${brow("cta", ctx.cta)}
       ${brow("site", ctx.site)}
       ${row("briefs", client.briefs.length)}
       ${SHOW_BLUEPRINTS ? row("blueprints", (client.blueprints || []).length) : ""}
@@ -3986,17 +3978,18 @@ function agScriptMode(s) {
  *  read this as well, so they hand over what is on the screen, not the version underneath. */
 function agScriptFor(row, ctx, slot, draft) {
   const s = tailoredScript(row, ctx, slot);
-  const e = draft || { beats: row.editedBeats, hook: row.editedHook, cta: row.editedCta };
-  const out = { ...s };
+  const e = draft || { beats: row.editedBeats, hook: row.editedHook };
+  // NO CTA IN A BRIEF (owner, 2026-11-05: "you can completely remove the CTA"): one typed into an older brief
+  // (editedCta) is kept in the record and no longer drawn, copied, exported or sent.
+  const out = { ...s, cta: "" };
   if (e.beats) out.beats = e.beats;
   if (e.hook != null) out.hook = e.hook;
-  if (e.cta != null) out.cta = e.cta;
-  if (e.beats || e.hook != null || e.cta != null) out.edited = true;
+  if (e.beats || e.hook != null) out.edited = true;
   return out;
 }
 /** Does a brief item, or a modal draft, carry any line edit? */
-const agItemEdited = (it) => !!it && (!!it.editedBeats || it.editedHook != null || it.editedCta != null);
-const agDraftEdited = (d) => !!d && (!!d.beats || d.hook != null || d.cta != null);
+const agItemEdited = (it) => !!it && (!!it.editedBeats || it.editedHook != null);
+const agDraftEdited = (d) => !!d && (!!d.beats || d.hook != null);
 /** A tailored CTA is stored with its label ("[last 3s] CTA: …"); only the words after it are the
  *  line, so the label is never typed over. [label, words]. */
 function agCtaParts(cta) {
@@ -6252,7 +6245,7 @@ function cbNeedsAll(f) {
 const CB_SLOT_RE = /\[[^\]]{3,80}\]/g;
 function cbSlotCount(v) {
   const beats = v.beats || [];
-  const text = [v.hook, v.cta, v.caption, ...beats.map((b) => b.say), ...beats.map((b) => b.show)]
+  const text = [v.hook, v.caption, ...beats.map((b) => b.say), ...beats.map((b) => b.show)]   // no CTA is drawn
     .map((x) => String(x || "")).join(" ");
   return (text.match(CB_SLOT_RE) || []).length;
 }
@@ -7755,7 +7748,6 @@ function agencySendDoc(campaign, formats, client, prev) {
         delivery: scratch ? ((v.beats || []).some((b) => String(b.say || "").trim()) ? "spoken" : "silent") : (v.delivery || ""),
         // + `note` on a beat that has one (cbBeatsWithNotes): the note staff wrote for creators there.
         beats: cbBeatsWithNotes(f, (b) => ({ t: b.t || "", say: b.say || "", do: b.do || "", show: b.show || "" })),
-        cta: v.cta || "",
         caption: v.caption || "",
         note: v.creator_note || "",
       };
@@ -7833,7 +7825,6 @@ function briefSendDoc(rec, client) {
         hook: s.hook || "",
         delivery: mode === "silent" ? "silent" : "spoken",
         beats,
-        cta: agCtaParts(s.cta).join(""),
         caption: row.title || "",
         note: "",
       };
@@ -8370,7 +8361,10 @@ const BF_BUCKET = "lynxr-brief-files";
 // Mirrors supabase/brief_files.sql — change both together. The bucket enforces
 // the per-file size and the types, a trigger enforces the per-brief caps; these
 // copies only make a refusal an instant sentence instead of a failed upload.
-const BF_MAX_FILE = 25 * 1048576;
+// 500 MB a file since videos came in (owner, 2026-11-05: "allow me to add video files as well to the briefs, along
+// with images"): supabase/brief_files_video.sql sets the bucket, and the project's own upload limit (Dashboard ->
+// Storage -> Settings) has to be at least as high.
+const BF_MAX_FILE = 500 * 1048576;
 // NO PER-BRIEF CAP (owner, 2026-10-26: "can you change it so that the briefs hold more than just 20 images"
 // ... "like it infinite"). Only the per-file size limit stays, enforced by the bucket. The database trigger
 // went with it: supabase/brief_files_uncap.sql. Infinity keeps every existing `count + 1 > BF_MAX_COUNT`
@@ -8385,7 +8379,11 @@ const BF_TYPES = {
   png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif",
   svg: "image/svg+xml", pdf: "application/pdf", zip: "application/zip",
   otf: "font/otf", ttf: "font/ttf", woff: "font/woff", woff2: "font/woff2",
+  mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", webm: "video/webm",
 };
+/** A brief file that is a video, by its key's extension (the key keeps it: bfSafe cuts from the front) or its type. */
+const BF_VIDEO_RE = /\.(mp4|m4v|mov|webm)$/i;
+const bfIsVideo = (m) => BF_VIDEO_RE.test(String(m?.path || m?.name || "")) || /^video\//.test(String(m?.mime || ""));
 const BF_ACCEPT = Object.keys(BF_TYPES).map((e) => "." + e).join(",");
 let BF_FILES = new Map();     // agSentKey(kind, id) -> { rows, error } | undefined = not loaded
 const BF_LOADING = new Set(); // keys in flight
@@ -8431,13 +8429,18 @@ function bfSize(n) {
 /** A thrown sbFetch / upload error -> a short phrase, used as "<file>: <phrase>".
     Storage errors arrive as HTTP 400 with the real status in the body, so the
     body text is matched, not the status. */
-function bfErrorSentence(ex, verb) {
+function bfErrorSentence(ex, verb, mime = "") {
   const msg = String(ex?.message || ex || "");
+  // The app refuses a file over BF_MAX_FILE or of a type it does not know before it uploads, so a refusal for size,
+  // type or count from Supabase means the database has not had brief_files_video.sql yet.
+  const setup = "run supabase/brief_files_video.sql in the Supabase SQL editor";
   if (/Bucket not found|NoSuchBucket|PGRST20[25]|does not exist/i.test(msg))
     return "attachments aren't installed yet — run supabase/brief_files.sql in the Supabase SQL editor";
-  if (/brief_files_cap/.test(msg)) return `this brief is at its limit (${BF_MAX_COUNT} files, ${bfSize(BF_MAX_TOTAL)})`;
-  if (/maximum allowed size|Payload too large|EntityTooLarge|"413"/i.test(msg)) return `over the ${bfSize(BF_MAX_FILE)} limit`;
-  if (/mime type|InvalidMimeType|invalid_mime_type|"415"/i.test(msg)) return "that file type isn't allowed";
+  if (/brief_files_cap/.test(msg)) return `the old limit of 20 files a brief is still on — ${setup}`;
+  if (/maximum allowed size|Payload too large|EntityTooLarge|"413"|lynxr_brief_files_size_check/i.test(msg))
+    return `Supabase still stops files below ${bfSize(BF_MAX_FILE)} — ${setup}, then raise Storage → Settings → upload limit`;
+  if (/mime type|InvalidMimeType|invalid_mime_type|"415"/i.test(msg))
+    return /^video\//.test(mime) ? `videos aren't switched on in Supabase yet — ${setup}` : "that file type isn't allowed";
   if (/row-level security|Unauthorized|AccessDenied|^40[13]\b|42501/i.test(msg)) return "this account can't change brief files";
   return `couldn't ${verb} — check the connection and try again`;
 }
@@ -8557,7 +8560,7 @@ async function bfUpload(kind, sourceId, files, repaint, { at = null, say: sayHer
         }
       }
     } catch (ex) {
-      problems.push(`${u.name}: ${bfErrorSentence(ex, "upload")}`);
+      problems.push(`${u.name}: ${bfErrorSentence(ex, "upload", u.mime)}`);
     }
     BF_UP.set(key, (BF_UP.get(key) || []).filter((x) => x.tmp !== u.tmp));
   }
@@ -8650,8 +8653,8 @@ function bfSectionHtml(kind, sourceId, { inSend = false } = {}) {
     ${head(`<span class="lbl bf-total">${cbPlural(entry.rows.length, "file", "files")} · ${bfSize(total)}</span>`)}
     <label class="bf-drop" id="bf-drop">
       <input type="file" id="bf-input" class="sr-only" multiple accept="${BF_ACCEPT}">
-      <span class="bf-drop-main">Drop logos, fonts or brand files here, or <span class="bf-drop-pick">choose files</span></span>
-      <span class="lbl">PNG, JPG, WebP, GIF, SVG, PDF, ZIP, OTF, TTF, WOFF · up to ${bfSize(BF_MAX_FILE)} each</span>
+      <span class="bf-drop-main">Drop logos, fonts, brand files or videos here, or <span class="bf-drop-pick">choose files</span></span>
+      <span class="lbl">PNG, JPG, WebP, GIF, SVG, PDF, ZIP, OTF, TTF, WOFF, MP4, MOV, WebM · up to ${bfSize(BF_MAX_FILE)} each</span>
     </label>
     ${rows ? `<ul class="bf-list">${rows}</ul>` : ""}
     ${bfbNoteHtml(kind, sourceId)}
@@ -9366,7 +9369,7 @@ document.addEventListener("click", (e) => {
 // or choose up to CB_NOTE_IMG_MAX images into a beat's note in the format editor; creators see them under that note,
 // as thumbnails that open full size with a Download (creator.js lynxNoteImgsHtml / lynxNoteImgOpen).
 // AN IMAGE IN A NOTE IS A BRIEF FILE (supabase/brief_files.sql): bytes in the PRIVATE bucket lynxr-brief-files, a
-// lynxr_brief_files row, the same caps (20 files / 50 MB a brief) and the same creator gate (brief_file_readable: only
+// lynxr_brief_files row, the same (no) caps and the same creator gate (brief_file_readable: only
 // creators the brief is delivered to). What makes it a NOTE image is its object key, whose third segment starts
 // "note-" (bfIsNoteImg): the creator's "files from Lynx" list and the agency's "+ add file" menu leave those out, and
 // the files block says which note each is in. Which note lives in the note itself: beat_notes[k].imgs =
@@ -9377,10 +9380,16 @@ document.addEventListener("click", (e) => {
 // (cbNoteImgsDiscard); an image taken out of a note has its file deleted once that is saved (cbNoteImgsSweep).
 // SHOWN THROUGH SIGNED URLS (POST /storage/v1/object/sign/<bucket>, one hour): both pages' img-src already admits the
 // Supabase origin, and blob: is not admitted, so no CSP change. The PDF embeds them (cbNoteImgPdf).
-const CB_NOTE_IMG_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
-const CB_NOTE_IMG_ACCEPT = ".png,.jpg,.jpeg,.webp,.gif";
-const CB_NOTE_IMG_BYTES = 10 * 1048576;   // one image; the bucket's own limit is 25 MB
-const CB_NOTE_IMG_MAX = 4;                // images in one note
+// VIDEOS TOO, NO CAP (owner, 2026-11-05: "allow me to add video files as well to the briefs, along with images. Make it
+// the same, like drop-in, so it's not two separate things"): the same paste, drop and + Add take videos, which sit in
+// the note's row beside its images, play in the same viewer, and print as a line in the PDF. A video is told apart by
+// its key's extension (bfIsVideo), so the notes and the sent doc keep their { id, path, name } shape. "I thought we
+// made it infinite": a note held 4 at most; now it holds any number, like the brief.
+const CB_NOTE_IMG_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif",
+  mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", webm: "video/webm" };
+const CB_NOTE_IMG_ACCEPT = ".png,.jpg,.jpeg,.webp,.gif,.mp4,.m4v,.mov,.webm";
+const CB_NOTE_IMG_BYTES = 10 * 1048576;   // one image; a video may be up to BF_MAX_FILE
+const CB_NOTE_IMG_MAX = Infinity;         // images and videos in one note: no cap
 const CB_NOTE_IMG_RE = /^campaign\/[A-Za-z0-9_][A-Za-z0-9_.-]*\/note-[A-Za-z0-9_.-]+\/[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 /** True for a key cbNoteImgUpload wrote: campaign/<campaign id>/note-<random>/<file>. = creator.js lynxIsNoteImg. */
 function bfIsNoteImg(path) {
@@ -9429,21 +9438,22 @@ async function cbNoteImgSign(paths) {
   }
   return out;
 }
-/** A note image that cannot be shown: its tile says so instead of staying an empty box. */
+/** A note image or video that cannot be shown: its tile says so instead of staying an empty box. */
 function cbNoteImgBad(im) {
   im.dataset.bad = "1";
   im.closest(".bnote-imgs-li")?.classList.add("is-bad");
 }
-/** Gives every note image under `root` that has no picture yet its signed URL. */
+/** Gives every note image or video under `root` that has no picture yet its signed URL. A video tile asks for its
+    first frame (#t=0.1), which iOS Safari otherwise leaves black. */
 async function cbNoteImgHydrate(root = document) {
-  const imgs = [...root.querySelectorAll("img[data-sign-path]:not([src]):not([data-signing]):not([data-bad])")];
+  const imgs = [...root.querySelectorAll(":is(img, video)[data-sign-path]:not([src]):not([data-signing]):not([data-bad])")];
   if (!imgs.length) return;
   imgs.forEach((im) => { im.dataset.signing = "1"; });
   const urls = await cbNoteImgSign(imgs.map((im) => im.dataset.signPath));
   for (const im of imgs) {
     delete im.dataset.signing;
     const url = urls.get(im.dataset.signPath);
-    if (url) im.src = url; else cbNoteImgBad(im);
+    if (url) im.src = im.tagName === "VIDEO" ? `${url}#t=0.1` : url; else cbNoteImgBad(im);
   }
 }
 /* Every paint path (a card, the editor, the poll, a copy) draws <img data-sign-path> with no src; this one observer
@@ -9458,7 +9468,7 @@ new MutationObserver(() => {
    then give up on that tile. `error` does not bubble, hence the capture phase. */
 document.addEventListener("error", (e) => {
   const im = e.target;
-  if (!(im instanceof HTMLImageElement) || !im.dataset.signPath) return;
+  if (!(im instanceof HTMLImageElement || im instanceof HTMLVideoElement) || !im.dataset.signPath) return;
   if (im.dataset.retried) { cbNoteImgBad(im); return; }
   im.dataset.retried = "1";
   CB_SIGNED.delete(im.dataset.signPath);
@@ -9502,9 +9512,10 @@ function cbNoteImgFile(file, pasted) {
     }
   }
   const mime = CB_NOTE_IMG_TYPES[ext];
-  if (!mime) return { why: `${file.name}: only PNG, JPG, WebP or GIF images go in a note` };
+  if (!mime) return { why: `${file.name}: only images (PNG, JPG, WebP, GIF) or videos (MP4, MOV, WebM) go in a note` };
   if (!file.size) return { why: `${name}: the file is empty` };
-  if (file.size > CB_NOTE_IMG_BYTES) return { why: `${name}: over ${bfSize(CB_NOTE_IMG_BYTES)}` };
+  const most = /^video\//.test(mime) ? BF_MAX_FILE : CB_NOTE_IMG_BYTES;
+  if (file.size > most) return { why: `${name}: over ${bfSize(most)}` };
   return { file, name: name.slice(0, 200), mime };
 }
 /** Uploads images into one beat's note in the open editor: the bytes only (a "note-" key, no row). Each shows as an
@@ -9558,7 +9569,7 @@ async function cbNoteImgUpload(form, fs, files, campaignId, { pasted = false } =
       cbNoteImgsSet(fs, [...cbNoteImgsOf(fs), { path, name: u.name, size: u.size, mime: u.mime }]);
       form.dispatchEvent(new Event("input", { bubbles: true }));   // the editor saves itself (AUTOSAVE)
     } catch (ex) {
-      problems.push(`${u.name}: ${bfErrorSentence(ex, "upload")}`);
+      problems.push(`${u.name}: ${bfErrorSentence(ex, "upload", u.mime)}`);
     } finally {
       fs._noteBusy = fs._noteBusy.filter((x) => x.tmp !== u.tmp);
       cbNoteImgRowPaint(fs);
@@ -9684,10 +9695,13 @@ function cbNoteImgsHtml(imgs, { edit = false, busy = [], where = "" } = {}) {
   const list = Array.isArray(imgs) ? imgs : [];
   if (!list.length && !busy.length) return "";
   const one = list.length + busy.length === 1;
-  return `<ul class="bnote-imgs${one ? " is-one" : ""}" aria-label="Images in the note${where}">${list.map((m) => {
+  return `<ul class="bnote-imgs${one ? " is-one" : ""}" aria-label="Images and videos in the note${where}">${list.map((m) => {
     const name = escapeHtml(m.name || "image");
+    const media = bfIsVideo(m)                    // a video: its first frame and a play mark; it plays in the viewer
+      ? `<video data-sign-path="${escapeHtml(m.path)}" muted playsinline preload="metadata" tabindex="-1"></video><span class="bnote-play" aria-hidden="true">${CB_PLAY_SVG}</span>`
+      : `<img data-sign-path="${escapeHtml(m.path)}" alt="${name}" loading="lazy" decoding="async">`;
     return `<li class="bnote-imgs-li">
-      <button type="button" class="bnote-img" data-name="${name}" aria-label="Open ${name} full size"><img data-sign-path="${escapeHtml(m.path)}" alt="${name}" loading="lazy" decoding="async"></button>
+      <button type="button" class="bnote-img${bfIsVideo(m) ? " is-video" : ""}" data-name="${name}" aria-label="${bfIsVideo(m) ? "Play" : "Open"} ${name} full size">${media}</button>
       ${edit ? `<button type="button" class="cb-bnote-img-x" data-path="${escapeHtml(m.path)}" aria-label="Remove ${name} from this note" title="Remove">${CB_X_SVG}</button>` : ""}
     </li>`;
   }).join("")}${busy.map((u) => `<li class="bnote-imgs-li is-busy" data-bf-up="${escapeHtml(u.tmp)}">
@@ -9704,22 +9718,23 @@ function cbNoteImgRowPaint(fs) {
   const add = row.querySelector(".cb-bnote-add");
   if (add) add.hidden = imgs.length + busy.length >= CB_NOTE_IMG_MAX;
 }
-/** A beat's "note for creators" in the editor: the words, then its images. The rule for images is shown before any is
-    added (CLAUDE.md, input rules up front). The paste/drop/choose/remove wiring is cbBindCard's, delegated on the form. */
+/** A beat's "note for creators" in the editor: the words, then its images and videos. The rule for them is shown before
+    any is added (CLAUDE.md, input rules up front). The paste/drop/choose/remove wiring is cbBindCard's, delegated on the form. */
 function cbBeatNoteFieldHtml(note) {
   const imgs = Array.isArray(note?.imgs) ? note.imgs : [];
   return `<div class="cb-bnote-field" data-imgs="${escapeHtml(JSON.stringify(imgs.map(({ id, path, name }) => ({ id, path, name }))))}">
       <label class="ce-field"><span class="lbl">Note for creators <span class="cb-aud">(they can copy it · up to ${CB_NOTE_MAX.toLocaleString("en-US")} characters)</span></span>
         <textarea class="grow" rows="1" data-bt="note" placeholder="A prompt, caption or link for this beat">${escapeHtml(note?.text || "")}</textarea></label>
-      <div class="cb-bnote-imgrow">${cbNoteImgsHtml(imgs, { edit: true })}<label class="cb-bnote-add"${imgs.length >= CB_NOTE_IMG_MAX ? " hidden" : ""}><span aria-hidden="true">+</span> Add image<input type="file" class="sr-only" multiple accept="${CB_NOTE_IMG_ACCEPT}"></label>
-        <span class="lbl cb-bnote-imgrule">or paste or drop one · PNG, JPG, WebP or GIF · up to ${bfSize(CB_NOTE_IMG_BYTES)} · ${CB_NOTE_IMG_MAX} a note</span></div>
+      <div class="cb-bnote-imgrow">${cbNoteImgsHtml(imgs, { edit: true })}<label class="cb-bnote-add"${imgs.length >= CB_NOTE_IMG_MAX ? " hidden" : ""}><span aria-hidden="true">+</span> Add image or video<input type="file" class="sr-only" multiple accept="${CB_NOTE_IMG_ACCEPT}"></label>
+        <span class="lbl cb-bnote-imgrule">or paste or drop them · images up to ${bfSize(CB_NOTE_IMG_BYTES)} · MP4, MOV or WebM videos up to ${bfSize(BF_MAX_FILE)}</span></div>
       <p class="bp-msg cb-bnote-msg" role="status" aria-live="polite"></p>
     </div>`;
 }
 /** Full size, in a <dialog> over the page: Esc, the x or a click outside the picture closes it, and focus goes back to
-    the thumbnail. Staff see the picture and its name; creator.js's copy adds Download. One dialog, made on first use. */
+    the thumbnail. Staff see the picture and its name; creator.js's copy adds Download. One dialog, made on first use.
+    A video plays there with its controls, and stops when the dialog closes. */
 function cbNoteImgOpen(btn) {
-  const small = btn.querySelector("img");
+  const small = btn.querySelector("img, video");
   if (!small?.src) return;
   let dlg = document.getElementById("bnote-viewer");
   if (!dlg) {
@@ -9729,19 +9744,33 @@ function cbNoteImgOpen(btn) {
     dlg.setAttribute("aria-label", "Image");
     dlg.innerHTML = `<div class="bnote-viewer-bar"><span class="bnote-viewer-name"></span>
         <button type="button" class="ghost icon-only bnote-viewer-x" aria-label="Close">${CB_X_SVG}</button></div>
-      <img class="bnote-viewer-img" alt="">`;
+      <img class="bnote-viewer-img" alt="">
+      <video class="bnote-viewer-vid" controls playsinline hidden></video>`;
     document.body.appendChild(dlg);
     dlg.addEventListener("click", (e) => { if (e.target === dlg || e.target.closest(".bnote-viewer-x")) dlg.close(); });
     dlg.addEventListener("close", () => {
       dlg.querySelector(".bnote-viewer-img").removeAttribute("src");
+      const vid = dlg.querySelector(".bnote-viewer-vid");
+      vid.pause();
+      vid.removeAttribute("src");
+      vid.load();
       if (dlg._back?.isConnected) dlg._back.focus({ preventScroll: true });
     });
   }
   dlg._back = btn;
   dlg.querySelector(".bnote-viewer-name").textContent = btn.dataset.name || "";
-  const big = dlg.querySelector(".bnote-viewer-img");
-  big.alt = btn.dataset.name || "";
-  big.src = small.src;
+  const isVid = small.tagName === "VIDEO";
+  dlg.setAttribute("aria-label", isVid ? "Video" : "Image");
+  const big = dlg.querySelector(".bnote-viewer-img"), vid = dlg.querySelector(".bnote-viewer-vid");
+  big.hidden = isVid;
+  vid.hidden = !isVid;
+  if (isVid) {
+    vid.src = small.src.replace(/#.*$/, "");
+    vid.play().catch(() => { /* the controls are there to start it */ });
+  } else {
+    big.alt = btn.dataset.name || "";
+    big.src = small.src;
+  }
   dlg.showModal();
   dlg.querySelector(".bnote-viewer-x").focus();
 }
@@ -9792,7 +9821,9 @@ function campaignDocHtml(campaign, formats, client) {
       const imgs = n ? cbNoteImgsLive(f.campaign_id, n.imgs) : [];
       const note = n && (n.text || imgs.length)
         ? `<p class="cb-doc-bnote"><strong>Note:</strong> ${escapeHtml(n.text)}</p>${imgs.length ? `<div class="cb-doc-imgs">${imgs.map((m) =>
-          `<img data-pdf-path="${escapeHtml(m.path)}" alt="${escapeHtml(m.name || "image")}">`).join("")}</div>` : ""}`
+          bfIsVideo(m)                           // paper cannot play one: name it
+            ? `<p class="cb-doc-imgmiss">Video: ${escapeHtml(m.name || "video")} (open the brief in lynxr to watch it)</p>`
+            : `<img data-pdf-path="${escapeHtml(m.path)}" alt="${escapeHtml(m.name || "image")}">`).join("")}</div>` : ""}`
         : "";
       // A beat with no time (written from scratch, or added by staff) prints no empty "[]".
       return `<li>${b.t ? `[${escapeHtml(b.t)}] ` : ""}${parts.join("<br>")}${note}</li>`;
@@ -9814,7 +9845,6 @@ function campaignDocHtml(campaign, formats, client) {
       ${cbNeedsAll(f).length ? `<p><strong>Needs:</strong> ${escapeHtml(cbNeedsAll(f).join(" • "))}</p>` : ""}
       ${setup}
       <ol>${beats}</ol>
-      ${v.cta ? `<p><strong>CTA:</strong> “${escapeHtml(v.cta)}”</p>` : ""}
       <p><strong>Post caption:</strong> ${escapeHtml(v.caption || "")}</p>
       ${v.creator_note ? `<p><strong>Note:</strong> ${escapeHtml(v.creator_note)}</p>` : ""}
     </section>`;
@@ -9846,7 +9876,6 @@ function campaignDocText(campaign, formats, client) {
       if (b.show) parts.push(`On screen: "${b.show}"`);
       lines.push(`[${b.t || ""}] ${parts.join(" / ")}`);
     });
-    if (v.cta) lines.push(`CTA: "${v.cta}"`);
     lines.push(`Post caption: ${v.caption || ""}`);
     if (v.creator_note) lines.push(`Note: ${v.creator_note}`);
     lines.push("");
@@ -10488,7 +10517,6 @@ function brandFormHtml(bc, prefix) {
     ${input("features", "Key features (comma-separated, up to 8)", (bc.features || []).join(", "), "", true)}
     ${area("valueProps", "Value propositions", bc.valueProps)}
     ${area("tone", "Brand tone and language", bc.tone)}
-    ${input("cta", "CTA", bc.cta, "e.g. Download free — link in bio")}
     ${input("site", "Website / app link", bc.site, "https://")}
     ${area("notes", "Previous campaign notes / brand instructions", bc.notes)}
     <details class="ce-wide cb-more"${bc.habits || bc.goals ? " open" : ""}>
@@ -10510,7 +10538,7 @@ function readBrandForm(root, base = {}) {
     name: val("name"), niche: val("niche"), description: val("description"), product: val("product"),
     audience: val("audience"), audienceNotes: val("audienceNotes"), painPoints: val("painPoints"),
     features: val("features").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 8),
-    valueProps: val("valueProps"), tone: val("tone"), cta: val("cta"), site: val("site"),
+    valueProps: val("valueProps"), tone: val("tone"), site: val("site"),
     notes: val("notes"), habits: val("habits"), goals: val("goals"),
   };
 }
@@ -10999,7 +11027,7 @@ function cbDetailHtml(f) {
       ${f.internal_note ? `<div class="cb-sec"><div class="bp-heading">Internal note</div><p>${escapeHtml(f.internal_note)}</p></div>` : ""}
       ${why.length ? `<div class="cb-sec"><div class="bp-heading">Why the original works</div>${why.map((w) => `<p>${escapeHtml(w)}</p>`).join("")}</div>` : ""}
     </div>` : "";
-  // Hook, CTA, caption, the four setup values and the creator note edit in place too, into edited.<field> (cbBindCard's writeTop saves any field it is handed). Needs and the title stay pencil-only.
+  // Hook, caption, the four setup values and the creator note edit in place too, into edited.<field> (cbBindCard's writeTop saves any field it is handed). Needs and the title stay pencil-only.
   const top = { ag: "cb", id: f.id };
   // AGENCY SCRIPT LOOK (2026-09-15): the creator's hook card, beat cards and split.
   return `<div class="ref-split cb-split${scratch ? " cb-solo" : ""}">
@@ -11009,7 +11037,6 @@ function cbDetailHtml(f) {
       ${sec("Setup", setup.length ? `<div class="cb-setup">${setup.map(([l, x]) =>
         `<div class="cb-setup-row"><span class="cb-setup-lbl">${l}</span><span class="cb-setup-val">${agTopHtml(x, l, top)}</span></div>`).join("")}</div>` : "")}
       ${sec("Script", agBeatsHtml(beats, timed))}
-      ${sec("CTA", v.cta ? `<p class="cb-note">${agTopHtml(v.cta, "cta", top, { quoted: true })}</p>` : "")}
       ${sec("Post caption", v.caption ? `<p class="cb-note">${agTopHtml(v.caption, "caption", top)}</p>` : "")}
       ${sec("Creator note", v.creator_note ? `<p class="cb-note">${agTopHtml(v.creator_note, "creator_note", top, { label: "creator note", multiline: true, cls: "ag-caption" })}</p>` : "")}
       ${internal}
@@ -11072,7 +11099,6 @@ function cbEditorHtml(f, hasEdits = !!f.edited) {
       notes[i] && { ...notes[i], imgs: cbNoteImgsLive(f.campaign_id, notes[i].imgs) }, scratch)).join("")}</div>
     <button type="button" class="ghost cb-small cb-beat-add">Add beat</button>
     <div class="ce-grid cb-ed-tail">
-      ${area("cta", "CTA", v.cta)}
       ${area("caption", "Post caption", v.caption)}
       ${area("creator_note", "Creator note", v.creator_note, 2, true, "shown to creators")}
       ${area("strategy_note", "Strategy note", v.strategy_note, 2, true, "agency only")}
@@ -11097,7 +11123,7 @@ function cbReadEditor(form) {
       title: val("title"), hook: val("hook"),
       needs: val("needs").split("\n").map((s) => s.trim()).filter(Boolean),
       setting: val("setting"), lighting: val("lighting"), framing: val("framing"), audio: val("audio"),
-      beats, cta: val("cta"), caption: val("caption"),
+      beats, caption: val("caption"),
       creator_note: val("creator_note"), strategy_note: val("strategy_note"),
     },
     internal_note: val("internal_note"),
@@ -11208,7 +11234,7 @@ function cbAgencyHtml(campaign, fe) {
   const open = CB_AGENCY_OPEN.has(campaign.id) || fe === "brand" || fe === "internal_notes";
   const rows = [["brand", bc.name], ["company", bc.company], ["niche", bc.niche], ["description", bc.description],
     ["product", bc.product], ["audience", bc.audience], ["who it's for", bc.audienceNotes], ["pain points", bc.painPoints],
-    ["features", (bc.features || []).join(", ")], ["value props", bc.valueProps], ["tone", bc.tone], ["cta", bc.cta],
+    ["features", (bc.features || []).join(", ")], ["value props", bc.valueProps], ["tone", bc.tone],
     ["site", bc.site], ["notes", bc.notes], ["daily habits", bc.habits], ["deep goals", bc.goals]].filter(([, x]) => x);
   return `<details class="cb-agency" id="cb-agency"${open ? " open" : ""}>
     <summary>Agency only — never exported</summary>
@@ -11402,7 +11428,7 @@ async function cbWriteCreate(client, id) {
   go.textContent = "Creating…";
   const pos = rec.formats.reduce((m, f) => Math.max(m, f.position ?? 0), -1) + 1;
   const script = { title: cbScratchTitle(title.value, beats), hook: "", needs: [], setting: "", lighting: "", framing: "",
-    audio: "", beats, cta: "", caption: "", creator_note: "", strategy_note: "" };
+    audio: "", beats, caption: "", creator_note: "", strategy_note: "" };
   let fid = null;
   try {
     const made = await sbFetch("/rest/v1/lynxr_campaign_formats?select=id", {
@@ -11433,7 +11459,7 @@ async function cbWriteCreate(client, id) {
     window.scrollBy(0, -90);
     card.focus({ preventScroll: true });
     cbMsg(document.getElementById(`cb-fmsg-${fid}`),
-      "Created. Click any line to change it, or use the pencil to add a hook, needs, a CTA and notes for creators.", "good", true);
+      "Created. Click any line to change it, or use the pencil to add a hook, needs and notes for creators.", "good", true);
   } else {
     cbMsg(document.getElementById("cb-write-msg"), late ? "Created — reload to see it." : "Created.", late ? "bad" : "good", late);
   }
@@ -11993,7 +12019,7 @@ function cbBindCard(card, campaignId) {
         const ta = e.target.closest?.('[data-bt="note"]');
         const cd = e.clipboardData;
         if (!ta || !cd) return;
-        const files = [...(cd.files || [])].filter((x) => /^image\//.test(x.type));
+        const files = [...(cd.files || [])].filter((x) => /^(image|video)\//.test(x.type));
         if (!files.length || (cd.getData("text/plain") || "").trim()) return;
         e.preventDefault();
         cbNoteImgUpload(form, fsOf(ta), files, campaignId, { pasted: true });

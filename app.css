@@ -13378,23 +13378,33 @@
     position: relative; display: block; width: 100%; margin: 0; padding: 0; overflow: hidden; cursor: zoom-in;
     font: inherit; color: var(--text-3); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
   }
-  :is(.pane-body, body.agency #app main) .bnote-img img { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
+  :is(.pane-body, body.agency #app main) .bnote-img :is(img, video) { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
   :is(.pane-body, body.agency #app main) .bnote-imgs.is-one .bnote-img { width: auto; max-width: 100%; }
-  :is(.pane-body, body.agency #app main) .bnote-imgs.is-one .bnote-img img {
+  :is(.pane-body, body.agency #app main) .bnote-imgs.is-one .bnote-img :is(img, video) {
     width: auto; max-width: 100%; max-height: 360px; aspect-ratio: auto; object-fit: contain;
   }
-  :is(.pane-body, body.agency #app main) .bnote-img img:not([src]) { width: 100%; min-width: 120px; min-height: 120px; }
+  :is(.pane-body, body.agency #app main) .bnote-img :is(img, video):not([src]) { width: 100%; min-width: 120px; min-height: 120px; }
+  /* a video in a note (2026-11-05): its first frame under a round play mark; it plays in the viewer */
+  :is(.pane-body, body.agency #app main) .bnote-img.is-video { cursor: pointer; }
+  :is(.pane-body, body.agency #app main) .bnote-play {
+    position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 44px; height: 44px;
+    margin: -22px 0 0 -22px; color: var(--text); background: var(--glass-solid); border: 1px solid var(--line);
+    border-radius: 50%; pointer-events: none;
+  }
+  :is(.pane-body, body.agency #app main) .bnote-play svg { width: 18px; height: 18px; margin-left: 2px; }
   :is(.pane-body, body.agency #app main) .bnote-img:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
   :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-bad .bnote-img { min-height: 80px; cursor: default; }
-  :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-bad .bnote-img img { visibility: hidden; }
+  :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-bad .bnote-img :is(img, video) { visibility: hidden; }
   :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-bad .bnote-img::after {
     content: "image unavailable"; position: absolute; inset: 0; display: grid; place-items: center; font-size: var(--fs-115);
   }
+  :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-bad .bnote-img.is-video::after { content: "video unavailable"; }
+  :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-bad .bnote-play { display: none; }
   :is(.pane-body, body.agency #app main) .bnote-imgs-li.is-busy .bnote-img {
     display: grid; place-items: center; min-width: 120px; aspect-ratio: 1 / 1; cursor: progress; font-size: var(--fs-115);
   }
   @media (max-width: 560px) {
-    :is(.pane-body, body.agency #app main) .bnote-imgs.is-one .bnote-img img { max-height: 300px; }
+    :is(.pane-body, body.agency #app main) .bnote-imgs.is-one .bnote-img :is(img, video) { max-height: 300px; }
   }
 
   /* the full-size viewer (app.js cbNoteImgOpen, creator.js lynxNoteImgOpen): on top of everything, outside #app */
@@ -13412,21 +13422,22 @@
   }
   .bnote-viewer-get { display: inline-flex; align-items: center; gap: 6px; }
   .bnote-viewer-get .ico { width: 15px; height: 15px; }
-  .bnote-viewer-img { display: block; flex: 1 1 auto; min-height: 0; max-width: 100%; max-height: calc(92vh - 60px); margin: 0 auto; object-fit: contain; }
+  .bnote-viewer-img, .bnote-viewer-vid { display: block; flex: 1 1 auto; min-height: 0; max-width: 100%; max-height: calc(92vh - 60px); margin: 0 auto; object-fit: contain; }
+  .bnote-viewer-img[hidden], .bnote-viewer-vid[hidden] { display: none; }
   .bnote-viewer-msg { margin: 0; padding: 0 16px; }
   .bnote-viewer-msg.show { padding: 8px 16px; }
   @media (max-width: 560px) {
     dialog.bnote-viewer { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
     .bnote-viewer-bar .ghost { min-height: 44px; }
     .bnote-viewer-bar .ghost.icon-only { width: 44px; height: 44px; }
-    .bnote-viewer-img { max-height: calc(100dvh - 70px); }
+    .bnote-viewer-img, .bnote-viewer-vid { max-height: calc(100dvh - 70px); }
   }
 
   /* the editor's image row under a note */
   body.agency #app main .cb-bnote-imgrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0 0; }
   body.agency #app main .cb-bnote-imgrow > .bnote-imgs { flex: 1 0 100%; }
   body.agency #app main .cb-bnote-imgrow > .bnote-imgs:not(.is-one) { grid-template-columns: repeat(auto-fill, minmax(96px, 120px)); }
-  body.agency #app main .cb-bnote-imgrow > .bnote-imgs.is-one .bnote-img img { max-height: 180px; }
+  body.agency #app main .cb-bnote-imgrow > .bnote-imgs.is-one .bnote-img :is(img, video) { max-height: 180px; }
   body.agency #app main .cb-bnote-img-x {
     position: absolute; top: 4px; right: 4px; z-index: 1; display: grid; place-items: center;
     width: 30px; height: 30px; padding: 0; cursor: pointer;
