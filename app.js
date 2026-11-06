@@ -9130,7 +9130,9 @@ function bfbWire(row, kind, sourceId, formatId, i, sig) {
 // a revert or a restore never drops a note: at worst it is flagged "beat changed" on its best guess, and Keep here
 // (or saving the editor) settles it. Creators and the PDF get each note on the beat it is drawn on, flagged or not:
 // what staff see is what goes out. A note goes with its beat when that beat is removed.
-const CB_NOTE_MAX = 4000;   // characters in one note; Save refuses more (no maxlength, so a paste is never cut short)
+// NO LENGTH LIMIT on a note (owner, 2026-11-05: "lift both"). It was 4,000 characters; the only ceiling left is the
+// database's backstop, 10 MB of notes a format (supabase/brief_limits.sql), about 2,500 notes of 4,000 characters.
+const CB_NOTE_MAX = Infinity;
 const CB_NOTE_FOLD = 280;   // a longer note, or one over 5 lines, shows its first lines and Show all (= LYNX_NOTE_FOLD)
 
 /** Where each stored note is drawn now: an array as long as the format's beats, each entry null or
@@ -9391,7 +9393,8 @@ document.addEventListener("click", (e) => {
 const CB_NOTE_IMG_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif",
   mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", webm: "video/webm" };
 const CB_NOTE_IMG_ACCEPT = ".png,.jpg,.jpeg,.webp,.gif,.mp4,.m4v,.mov,.webm";
-const CB_NOTE_IMG_BYTES = 10 * 1048576;   // one image; a video may be up to BF_MAX_FILE
+// One image or video: BF_MAX_FILE (5 GB), the brief's own per-file limit. Images had 10 MB until the owner hit it with a
+// retina screenshot (2026-11-05: "No limits on anything ... any screenshot or any image we add will still go through").
 const CB_NOTE_IMG_MAX = Infinity;         // images and videos in one note: no cap
 const CB_NOTE_IMG_RE = /^campaign\/[A-Za-z0-9_][A-Za-z0-9_.-]*\/note-[A-Za-z0-9_.-]+\/[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 /** True for a key cbNoteImgUpload wrote: campaign/<campaign id>/note-<random>/<file>. = creator.js lynxIsNoteImg. */
@@ -9517,8 +9520,7 @@ function cbNoteImgFile(file, pasted) {
   const mime = CB_NOTE_IMG_TYPES[ext];
   if (!mime) return { why: `${file.name}: only images (PNG, JPG, WebP, GIF) or videos (MP4, MOV, WebM) go in a note` };
   if (!file.size) return { why: `${name}: the file is empty` };
-  const most = /^video\//.test(mime) ? BF_MAX_FILE : CB_NOTE_IMG_BYTES;
-  if (file.size > most) return { why: `${name}: over ${bfSize(most)}` };
+  if (file.size > BF_MAX_FILE) return { why: `${name}: over ${bfSize(BF_MAX_FILE)}` };
   return { file, name: name.slice(0, 200), mime };
 }
 /** Uploads images into one beat's note in the open editor: the bytes only (a "note-" key, no row). Each shows as an
@@ -9726,10 +9728,10 @@ function cbNoteImgRowPaint(fs) {
 function cbBeatNoteFieldHtml(note) {
   const imgs = Array.isArray(note?.imgs) ? note.imgs : [];
   return `<div class="cb-bnote-field" data-imgs="${escapeHtml(JSON.stringify(imgs.map(({ id, path, name }) => ({ id, path, name }))))}">
-      <label class="ce-field"><span class="lbl">Note for creators <span class="cb-aud">(they can copy it · up to ${CB_NOTE_MAX.toLocaleString("en-US")} characters)</span></span>
+      <label class="ce-field"><span class="lbl">Note for creators <span class="cb-aud">(they can copy it)</span></span>
         <textarea class="grow" rows="1" data-bt="note" placeholder="A prompt, caption or link for this beat">${escapeHtml(note?.text || "")}</textarea></label>
       <div class="cb-bnote-imgrow">${cbNoteImgsHtml(imgs, { edit: true })}<label class="cb-bnote-add"${imgs.length >= CB_NOTE_IMG_MAX ? " hidden" : ""}><span aria-hidden="true">+</span> Add image or video<input type="file" class="sr-only" multiple accept="${CB_NOTE_IMG_ACCEPT}"></label>
-        <span class="lbl cb-bnote-imgrule">or paste or drop them · images up to ${bfSize(CB_NOTE_IMG_BYTES)} · MP4, MOV or WebM videos up to ${bfSize(BF_MAX_FILE)}</span></div>
+        <span class="lbl cb-bnote-imgrule">or paste or drop them · images or MP4, MOV, WebM videos · up to ${bfSize(BF_MAX_FILE)} each</span></div>
       <p class="bp-msg cb-bnote-msg" role="status" aria-live="polite"></p>
     </div>`;
 }

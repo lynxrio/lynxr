@@ -23,10 +23,11 @@ end $$;
 
 alter table public.lynxr_campaign_formats add column if not exists beat_notes jsonb not null default '[]'::jsonb;
 alter table public.lynxr_campaign_formats drop constraint if exists lynxr_campaign_formats_beat_notes_check;
--- An array, and at most 128 KB per format. The editor caps a note at 4,000 characters; this is the backstop that keeps
--- one format from crowding the 512 KB sent-doc cap (agency_roster.sql, lynxr_agency_briefs_doc_size).
+-- An array, and at most 10 MB per format: a backstop only. The editor has no length limit on a note since 2026-11-05
+-- (it was 4,000 characters, and this was 128 KB; supabase/brief_limits.sql raised both live), and the sent doc holds
+-- 50 MB (agency_roster.sql, lynxr_agency_briefs_doc_size).
 alter table public.lynxr_campaign_formats add constraint lynxr_campaign_formats_beat_notes_check
-  check (jsonb_typeof(beat_notes) = 'array' and octet_length(beat_notes::text) <= 131072);
+  check (jsonb_typeof(beat_notes) = 'array' and octet_length(beat_notes::text) <= 10485760);
 
 comment on column public.lynxr_campaign_formats.beat_notes is 'Staff notes on beats, for creators: [{beat, orig, sigs, text}]. The worker never writes it, so a regeneration cannot replace it. Drawn and sent by app.js (cbNotesView, agencySendDoc).';
 
@@ -60,12 +61,12 @@ begin
     exception when check_violation then null;
     end;
 
-    -- 4. more than 128 KB is refused
+    -- 4. more than 10 MB is refused
     begin
       update public.lynxr_campaign_formats
-         set beat_notes = jsonb_build_array(jsonb_build_object('text', repeat('x', 140000)))
+         set beat_notes = jsonb_build_array(jsonb_build_object('text', repeat('x', 10500000)))
        where id = fid;
-      raise exception 'beat_notes accepted 140 KB';
+      raise exception 'beat_notes accepted 10.5 MB';
     exception when check_violation then null;
     end;
 

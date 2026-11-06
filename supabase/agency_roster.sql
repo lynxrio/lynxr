@@ -61,7 +61,7 @@ create table if not exists public.lynxr_agency_briefs (
   sent_by     uuid,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
-  constraint lynxr_agency_briefs_doc_size check (octet_length(doc::text) <= 524288)
+  constraint lynxr_agency_briefs_doc_size check (octet_length(doc::text) <= 52428800)   -- 50 MB since 2026-11-05 (brief_limits.sql)
 );
 
 -- lynxr_agency_deliveries: who a brief was sent to, and whether it is still
