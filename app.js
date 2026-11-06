@@ -8361,10 +8361,12 @@ const BF_BUCKET = "lynxr-brief-files";
 // Mirrors supabase/brief_files.sql — change both together. The bucket enforces
 // the per-file size and the types, a trigger enforces the per-brief caps; these
 // copies only make a refusal an instant sentence instead of a failed upload.
-// 500 MB a file since videos came in (owner, 2026-11-05: "allow me to add video files as well to the briefs, along
-// with images"): supabase/brief_files_video.sql sets the bucket, and the project's own upload limit (Dashboard ->
-// Storage -> Settings) has to be at least as high.
-const BF_MAX_FILE = 500 * 1048576;
+// 5 GB a file since videos came in (owner, 2026-11-05: "allow me to add video files as well to the briefs" ... "a number
+// that ... would be a non-issue"). 5 GB is the most one standard (non-resumable) upload to Supabase Storage takes,
+// counted in decimal bytes so it stays under that ceiling however Supabase counts it. supabase/brief_files_video.sql
+// sets the bucket and the row CHECK to the same number; the project's Global file size limit (Dashboard -> Storage ->
+// Settings) is 10 GB, above it.
+const BF_MAX_FILE = 5e9;
 // NO PER-BRIEF CAP (owner, 2026-10-26: "can you change it so that the briefs hold more than just 20 images"
 // ... "like it infinite"). Only the per-file size limit stays, enforced by the bucket. The database trigger
 // went with it: supabase/brief_files_uncap.sql. Infinity keeps every existing `count + 1 > BF_MAX_COUNT`
@@ -8423,7 +8425,8 @@ function bfSize(n) {
   n = Number(n) || 0;
   if (n < 1024) return `${n} B`;
   if (n < 1048576) return `${Math.round(n / 1024)} KB`;
-  return `${(n / 1048576).toFixed(n < 10485760 ? 1 : 0)} MB`;
+  if (n < 1e9) return `${(n / 1048576).toFixed(n < 10485760 ? 1 : 0)} MB`;
+  return `${+(n / 1e9).toFixed(1)} GB`;           // BF_MAX_FILE (5e9) reads "5 GB"
 }
 
 /** A thrown sbFetch / upload error -> a short phrase, used as "<file>: <phrase>".
@@ -8438,7 +8441,7 @@ function bfErrorSentence(ex, verb, mime = "") {
     return "attachments aren't installed yet — run supabase/brief_files.sql in the Supabase SQL editor";
   if (/brief_files_cap/.test(msg)) return `the old limit of 20 files a brief is still on — ${setup}`;
   if (/maximum allowed size|Payload too large|EntityTooLarge|"413"|lynxr_brief_files_size_check/i.test(msg))
-    return `Supabase still stops files below ${bfSize(BF_MAX_FILE)} — ${setup}, then raise Storage → Settings → upload limit`;
+    return `Supabase still stops files below ${bfSize(BF_MAX_FILE)} — ${setup}, then raise Storage → Settings → Global file size limit`;
   if (/mime type|InvalidMimeType|invalid_mime_type|"415"/i.test(msg))
     return /^video\//.test(mime) ? `videos aren't switched on in Supabase yet — ${setup}` : "that file type isn't allowed";
   if (/row-level security|Unauthorized|AccessDenied|^40[13]\b|42501/i.test(msg)) return "this account can't change brief files";

@@ -33,8 +33,8 @@
 --   instant they cut off the brief. Staff read every file, by design.
 --
 -- LIMITS — mirrored as the BF_* constants in app.js; change both together.
---   500 MB a file .............. storage.buckets.file_size_limit (2026-11-05, brief_files_video.sql;
---                                the project's Storage upload limit must be at least as high)
+--   5 GB a file ................ storage.buckets.file_size_limit (2026-11-05, brief_files_video.sql: the most
+--                                one standard upload takes; the project's Global file size limit is 10 GB)
 --   no per-brief cap ......... removed 2026-10-26 (brief_files_uncap.sql)
 --   png jpg webp gif svg pdf zip otf ttf woff woff2 mp4 mov webm ... allowed_mime_types
 --   Why this tight: the Free plan's 5 GB/month egress quota restricted this
@@ -66,7 +66,7 @@ create table if not exists public.lynxr_brief_files (
                 and position('..' in path) = 0
                 and split_part(path, '/', 1) = source_kind),
   name        text not null check (name <> '' and char_length(name) <= 200),  -- the real file name, shown to people
-  size        bigint not null check (size > 0 and size <= 524288000),   -- 500 MB since 2026-11-05 (brief_files_video.sql)
+  size        bigint not null check (size > 0 and size <= 5000000000),  -- 5 GB since 2026-11-05 (brief_files_video.sql)
   mime        text not null default '',
   uploaded_by uuid default auth.uid(),      -- staff; no FK, same as lynxr_roster.invited_by
   uploaded_at timestamptz not null default now()
@@ -159,7 +159,7 @@ grant execute on function public.my_agency_brief_files(uuid) to authenticated;
 do $$
 begin
   insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-  values ('lynxr-brief-files', 'lynxr-brief-files', false, 524288000,
+  values ('lynxr-brief-files', 'lynxr-brief-files', false, 5000000000,
           array['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml',
                 'application/pdf', 'application/zip',
                 'font/otf', 'font/ttf', 'font/woff', 'font/woff2',
@@ -169,7 +169,7 @@ begin
         file_size_limit = excluded.file_size_limit,
         allowed_mime_types = excluded.allowed_mime_types;
 exception when others then
-  raise notice 'lynxr-brief-files bucket NOT created (%). Dashboard -> Storage -> New bucket: name lynxr-brief-files, Public bucket OFF, Restrict file size ON = 500 MB, Allowed MIME types = image/png, image/jpeg, image/webp, image/gif, image/svg+xml, application/pdf, application/zip, font/otf, font/ttf, font/woff, font/woff2, video/mp4, video/quicktime, video/webm.', sqlerrm;
+  raise notice 'lynxr-brief-files bucket NOT created (%). Dashboard -> Storage -> New bucket: name lynxr-brief-files, Public bucket OFF, Restrict file size ON = 5 GB, Allowed MIME types = image/png, image/jpeg, image/webp, image/gif, image/svg+xml, application/pdf, application/zip, font/otf, font/ttf, font/woff, font/woff2, video/mp4, video/quicktime, video/webm.', sqlerrm;
 end $$;
 
 do $$
