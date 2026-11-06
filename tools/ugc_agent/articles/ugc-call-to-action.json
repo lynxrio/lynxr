@@ -1,0 +1,256 @@
+{
+  "question_id": "q038",
+  "slug": "ugc-call-to-action",
+  "theme": "ugc-scripts",
+  "title": "How do you write a call to action for a UGC ad?",
+  "description": "How to write a UGC call to action that sounds earned: one ask tied to the last beat, wording for links, saves, comments and shopping, and lines to cut.",
+  "short_answer": "A good call to action in a UGC ad is one short ask in the close that follows straight from the last thing you showed. Pick the single action the brief wants, say it in your own words, and tie it to the moment just before it, so the ask feels like the end of the story rather than a sales line bolted on.",
+  "sections": [
+    {
+      "heading": "Where does the call to action go in a UGC script?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The call to action goes in the close, right after the payoff, and it should take one sentence.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "By the time you ask, the viewer has seen the problem, the product and the moment it made sense. That is the only point where an ask feels earned, because they now have a reason to act. Put it earlier and you are asking before you have shown anything. The [call to action](/glossary/#call-to-action) belongs inside [the close](/glossary/#the-close), and [the parts of a UGC video script](/short-form-script-structure/) shows how the close sits after every other part.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep it to one sentence and one breath. If the close needs a second sentence, the second one is often explaining something the video should already have shown, so move that into an earlier beat instead.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why should a UGC ad ask for only one thing?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask for one thing, because a viewer who hears two asks has to choose, and a choice at the end of a video is easy to skip.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A close like follow me, save this and tap the link gives the viewer three jobs and no reason to do any of them. One ask lets you build the last beat around it. Read the [brief](/glossary/#brief) before you write a word, because the brief should name the action the brand is paying for, and that choice decides your close. If the brief is unclear, ask the brand which single action matters most, and write the close only after you hear back. [How to turn a brand brief into a script](/blog/brief-to-script/) covers where required lines like this go.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand insists on two asks, put the one it cares about most last, because the last line is the one the viewer is left holding.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should the call to action say for each goal?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The wording depends on what the brand wants the viewer to do, so match the verb to that action and give the viewer a reason drawn from your video.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Goal",
+            "Line that sounds earned",
+            "Why it works"
+          ],
+          "table_rows": [
+            [
+              "Tap the link",
+              "If your mornings look like my before, it's linked.",
+              "It points back to the problem the viewer just recognised."
+            ],
+            [
+              "Save the video",
+              "Save this for the next time you're packing in a hurry.",
+              "It names the moment the viewer will need it again."
+            ],
+            [
+              "Comment",
+              "Tell me which drawer in your house is the worst one.",
+              "It asks a question only the viewer can answer."
+            ],
+            [
+              "Shop now",
+              "The one I use is the small one, and it's in my link.",
+              "It narrows the choice so the viewer knows what to pick."
+            ],
+            [
+              "Use a code",
+              "My code is [NAME] if you want to try it.",
+              "It is short, and the brief supplies the exact code."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Notice that each line refers to something already in the video. That link back is what keeps the ask from sounding like a voiceover read by someone else.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you make a call to action sound earned instead of salesy?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write the ask as the last line of your story, in your own voice, and cut every word only a sales page would say.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Reuse a detail from the hook, because it closes the loop the viewer has been waiting on.",
+            "For link and shop asks, say what you use before you say where to find it, so the ask reads as a tip from someone who tried it.",
+            "Drop words like amazing, life-changing and must-have, because they make the close sound copied from an ad.",
+            "Say the line out loud before you film, and rewrite anything you would not say to a friend.",
+            "Keep the camera on the product or the result while you speak, so the viewer has something to look at besides your face."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If a line still sounds stiff, the problem is often the script before it. [How do you write a UGC script that doesn't sound scripted?](/blog/ugc-script-that-sounds-natural/) works through that in more detail, and [hook and payoff](/blog/hook-payoff/) explains why a close only lands when the video kept its promise.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a full UGC script with a call to action look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here is a short script where the close points back to the hook, so the ask feels like the end of the story.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a set of reusable silicone food bags",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "My lunch has leaked into my work bag for the third week running, and I'm done with it.",
+              "do": "Open on a damp bag lining being pulled out and held up to the camera."
+            },
+            {
+              "part": "setup",
+              "say": "I've been using flimsy sandwich bags, and they split at the seam by the afternoon.",
+              "do": "Show a torn sandwich bag in the bin, then the empty lunch shelf in the fridge."
+            },
+            {
+              "part": "beat 1",
+              "say": "So I switched to these. They seal with a slide, and I can hear it click shut.",
+              "do": "Close shot of the seal sliding across, held long enough to see it close."
+            },
+            {
+              "part": "beat 2",
+              "say": "Last night's leftovers go in, I press the air out, and slide it shut.",
+              "do": "Spoon leftovers into one bag, press it flat on the counter and slide the seal closed."
+            },
+            {
+              "part": "turn",
+              "say": "This is the bit I like. It stands up in my bag next to my laptop, and I can see what's inside.",
+              "do": "Stand the filled bag upright in the work bag beside the laptop and tilt the camera down into it."
+            },
+            {
+              "part": "close",
+              "say": "If your bag smells like yesterday's lunch, the ones I use are linked.",
+              "do": "Hold the set up next to the bag, then drop one back inside."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "The close only works because the hook named the problem first. Swap the hook and you would need to rewrite the ask too. The [ugc script template](/ugc-script-template/) shows the same order as fill-in steps.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-06",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "My lunch has leaked into my work bag for the third week running, and I'm done with it."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

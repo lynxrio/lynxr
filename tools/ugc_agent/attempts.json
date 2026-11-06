@@ -219,5 +219,18 @@
   "q046": {
     "fails": 0,
     "published": "2026-11-05"
+  },
+  "q038": {
+    "fails": 0,
+    "published": "2026-11-06"
+  },
+  "a001": {
+    "fails": 0,
+    "published": "2026-11-06"
+  },
+  "a004": {
+    "fails": 1,
+    "last_fail": "2026-11-06",
+    "last_error": "originality: 2 shared 12-word run(s) with blog/how-do-ugc-creators-get-paid/index.html"
   }
 }

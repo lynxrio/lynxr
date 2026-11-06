@@ -210,6 +210,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/practise-ugc-before-first-job/</loc>
+    <lastmod>2026-11-06</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/product-first-frame-hook/</loc>
     <lastmod>2026-10-21</lastmod>
     <priority>0.6</priority>
@@ -252,6 +257,11 @@
   <url>
     <loc>https://lynxr.io/blog/ugc-before-and-after-video/</loc>
     <lastmod>2026-11-01</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/ugc-call-to-action/</loc>
+    <lastmod>2026-11-06</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -421,7 +431,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-getting-started/</loc>
-    <lastmod>2026-11-03</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -436,7 +446,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-scripts/</loc>
-    <lastmod>2026-11-04</lastmod>
+    <lastmod>2026-11-06</lastmod>
     <priority>0.6</priority>
   </url>
   <!-- END UGC AGENT -->
