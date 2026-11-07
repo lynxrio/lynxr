@@ -1,0 +1,235 @@
+{
+  "question_id": "a005",
+  "slug": "reply-to-free-product-offer",
+  "theme": "ugc-brand-deals",
+  "title": "How do you reply when a brand offers only free product?",
+  "description": "When a UGC brand offers free product instead of pay, decide what the offer is worth to you first, then send a short, polite reply you can copy and adapt.",
+  "short_answer": "Reply to a free-product offer by deciding first whether it is worth your time, then answering politely and clearly either way. Thank the brand, say what you can offer for product alone or what you need to take the job on, and keep the door open so a paid job can follow later.",
+  "sections": [
+    {
+      "heading": "How do you decide whether a free-product offer is worth taking?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Decide by asking what the job gives you besides the product: a sample to show, a product you would buy anyway, or a brand worth working with again.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A free-product offer still costs you planning, filming, editing and revisions, so weigh it as work, not as a gift. Before you reply, read what the brand actually wants. Ask for the [brief](/glossary/#brief) if there is none, because the size of the ask decides most of the answer. The guide on [turning a brief into a script](/blog/brief-to-script/) helps you see how much work sits behind a short request.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Question to ask yourself",
+            "Leans towards yes",
+            "Leans towards no"
+          ],
+          "table_rows": [
+            [
+              "Would this video work as a sample?",
+              "It fills a gap in your portfolio.",
+              "It looks like videos you already have."
+            ],
+            [
+              "Do you want the product?",
+              "You would use it with or without the job.",
+              "It would sit in a drawer."
+            ],
+            [
+              "How big is the ask?",
+              "One short video, used where you agree.",
+              "Several videos, edits and open-ended use."
+            ],
+            [
+              "Is there a path to paid work?",
+              "The brand says it books creators for paid jobs.",
+              "Nothing in the message points past this one."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should a yes reply to a free-product offer say?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A yes reply should thank the brand, confirm exactly what you will deliver for the product, and ask the questions that stop the job from growing later.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Agreeing to the product without a scope leaves the ask open, and extra requests are harder to turn down once you have said yes. Put the deliverables, meaning each finished [UGC](/glossary/#ugc) video and its edits, in the reply itself, so the email becomes the record. The answer on [what to agree in writing before a job starts](/blog/agree-in-writing-before-ugc/) covers the details worth pinning down.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Hi [NAME], thank you for thinking of me for [PRODUCT]. I'd be happy to make one video in exchange for the product. That covers one finished video with one round of changes, delivered by [DATE]. Could you send the brief and let me know where you plan to use it? Once I have those, I'll confirm and send my address.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the scope in that reply small and specific, because it is easier to add a second video later than to take one back.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you say no to a free-product offer without burning the bridge?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Say no by thanking the brand, giving a short reason, and stating what it would take to work together, so the next message from them can be a paid offer.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A no that ends with an option reads as a business decision rather than a rejection. You do not owe a long explanation. One sentence on why, one on what you offer instead, and a friendly close is enough.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Hi [NAME], thank you for reaching out about [PRODUCT]. I'm not taking on product-only jobs at the moment, because each video takes the same planning and editing time as a paid one. My rate for one video is [AMOUNT], and I've attached a couple of recent examples. If that works for a future campaign, I'd love to hear from you.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Attach work that fits the product. The answer on [what to send with a pitch](/blog/what-to-send-with-a-ugc-pitch/) covers choosing it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Can you counter a free-product offer instead of saying yes or no?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Countering works when you want the job but the offer does not cover the work, so you propose a smaller ask or a paid version.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A counter gives the brand a choice rather than a door shut in its face. Pick one option, not all of them, because one clear proposal is easier to answer than a menu.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Offer a smaller job for the product, such as one short video with no edits beyond trimming.",
+            "Offer the video for product plus a fee you set, and say what the fee covers.",
+            "Offer to film the product for your own samples, with no rights for the brand to use it, and say you would be glad to quote for paid use.",
+            "Ask whether there is a paid budget for the same brief, and say you would quote once you have seen it."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Whatever you propose, ask the brand to confirm it in writing before the product ships, because a parcel arriving is not an agreement on scope.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you do if the brand does not reply?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Send one short follow-up after a few days, then move on and put the time into pitching brands that have budgets.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A single polite nudge is easy to answer and does not pressure anyone. Restate your offer in one line and leave it there. The answer on [following up when a brand goes quiet](/blog/follow-up-ugc-pitch/) has wording you can adapt. If there is still no reply, take the effort you would have spent on a product-only job and put it into a [pitch email](/blog/ugc-pitch-email/) to a brand you would rather work with.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-07",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
