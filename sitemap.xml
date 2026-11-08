@@ -245,6 +245,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/spot-a-bad-ugc-deal/</loc>
+    <lastmod>2026-11-08</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/types-of-ugc-videos/</loc>
     <lastmod>2026-10-16</lastmod>
     <priority>0.6</priority>
@@ -252,6 +257,16 @@
   <url>
     <loc>https://lynxr.io/blog/ugc-ad-hooks/</loc>
     <lastmod>2026-10-20</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/ugc-ad-vs-organic/</loc>
+    <lastmod>2026-11-08</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/ugc-alongside-a-full-time-job/</loc>
+    <lastmod>2026-11-08</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -421,7 +436,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-brand-deals/</loc>
-    <lastmod>2026-11-07</lastmod>
+    <lastmod>2026-11-08</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -441,7 +456,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-getting-started/</loc>
-    <lastmod>2026-11-07</lastmod>
+    <lastmod>2026-11-08</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -456,7 +471,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-scripts/</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-08</lastmod>
     <priority>0.6</priority>
   </url>
   <!-- END UGC AGENT -->

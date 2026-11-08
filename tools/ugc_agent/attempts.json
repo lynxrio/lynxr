@@ -231,7 +231,8 @@
   "a004": {
     "fails": 1,
     "last_fail": "2026-11-06",
-    "last_error": "originality: 2 shared 12-word run(s) with blog/how-do-ugc-creators-get-paid/index.html"
+    "last_error": "originality: 2 shared 12-word run(s) with blog/how-do-ugc-creators-get-paid/index.html",
+    "published": "2026-11-08"
   },
   "a002": {
     "fails": 0,
@@ -240,5 +241,13 @@
   "a005": {
     "fails": 0,
     "published": "2026-11-07"
+  },
+  "q039": {
+    "fails": 0,
+    "published": "2026-11-08"
+  },
+  "a003": {
+    "fails": 0,
+    "published": "2026-11-08"
   }
 }

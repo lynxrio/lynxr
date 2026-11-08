@@ -1,0 +1,223 @@
+{
+  "question_id": "a004",
+  "slug": "spot-a-bad-ugc-deal",
+  "theme": "ugc-brand-deals",
+  "title": "How do you spot a UGC brand deal that isn't worth taking?",
+  "description": "The red flags that mark a UGC brand deal as not worth taking, from vague scope to endless revisions, and the questions to ask before you say yes.",
+  "short_answer": "A UGC brand deal is not worth taking when you cannot say exactly what you are making, how many changes are included and when it is due. Watch for a scope that keeps growing, revisions with no limit, pressure to fake use of the product, and answers that go vague when you ask a direct question.",
+  "sections": [
+    {
+      "heading": "What are the warning signs in a UGC brief?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The warning signs in a brief are missing basics: no clear deliverable, no deadline, no limit on changes and no word on where the video will run.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A short [brief](/glossary/#brief) is not a problem on its own. A brief that leaves the deliverable open is, because whatever is not written down can be asked for later at no extra cost to anyone but you. Read it with a pen and mark every line that tells you what to make, by when and how many times you will change it. If you cannot mark all three, ask before you agree. Once the basics are settled, [how to turn a brand brief into a script](/blog/brief-to-script/) walks through the rest of the brief.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "What you see",
+            "Why it matters",
+            "What to ask"
+          ],
+          "table_rows": [
+            [
+              "Make a few videos for us",
+              "A few can turn into as many as the brand likes",
+              "How many finished videos, and how long is each one?"
+            ],
+            [
+              "Changes until we're happy",
+              "There is no point at which the job is done",
+              "How many rounds of changes are included?"
+            ],
+            [
+              "We'll use it everywhere",
+              "You cannot tell what you are agreeing to",
+              "Where will the video run, and for how long?"
+            ],
+            [
+              "As soon as you can",
+              "You will be judged against a date nobody wrote down",
+              "What date do you need the final files?"
+            ],
+            [
+              "Just film a quick one first and we'll see",
+              "Unpaid trial work can be used without a deal",
+              "Can we agree the terms before I film anything?"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you do if a brand asks you to fake using the product?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Turn down any request to claim results you have not had, to pretend you have used a product you have not, or to hide that the video is paid.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "These requests can come in softly: a line in the script that says the product changed your routine before it has even arrived, or a note asking you not to mention that you were sent it. Your face is on the video long after the job is paid, so a false claim costs you more than it costs the brand. Offer an honest version instead, built on what you can show on camera, and see how the brand answers. A brand that takes the honest version is one you can work with. A brand that insists is a deal to walk away from.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you have not tried the product yet, say so plainly and ask for time with it before filming. [Can you pitch a brand whose product you haven't tried?](/blog/pitch-a-product-you-havent-tried/) covers how to talk about a product honestly when you are new to it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do red flags look like in the messages before a deal?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Red flags in messages are pressure, vagueness and a scope that grows each time you reply, before anything has been agreed.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "You are asked to start today and sort out the details later, which leaves you with nothing to point to if the details change.",
+            "Each message adds one more ask, such as an extra hook, a photo set or a second version, without any change to what you get in return.",
+            "A direct question about scope or dates gets a friendly reply that does not answer it.",
+            "You are asked to send raw footage or a sample first, with no word on whether it can be used.",
+            "The offer is product only, and the list of asks reads like a paid job. [How do you reply when a brand offers only free product?](/blog/reply-to-free-product-offer/) has wording for that case."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "One of these on its own may just be a busy person writing fast. Two or three together tell you how the job is likely to go once you have started, so weigh them before you say yes.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which questions should you ask before you say yes?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask what you are delivering, when it is due, how many changes are included, where it will run and when you will be paid.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Put the questions in one message, so the answers come back in one place you can point to later. Clear answers are a good sign on their own, because a [brand](/glossary/#brand) that knows what it wants tends to say so. A message you can copy: Hi [NAME], thanks for thinking of me for [PRODUCT]. Before I say yes, could you confirm a few things? How many finished videos you need and how long each one is. The date you need the final files. How many rounds of changes are included. Where the videos will run and for how long. When payment is sent. Once I have those, I can confirm by [DATE].",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Agree the answers in writing with the brand before you film. Whether that is a contract, an order form or an email thread is for you and the brand to decide, but keep it somewhere you can find it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you turn down a UGC deal without burning the bridge?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Turn it down briefly, give one honest reason and leave the door open for a version of the job that would work.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "You do not owe a long explanation, and a long one invites a debate. Name the one thing that would have to change, because that gives the brand a real choice rather than a closed door. A reply you can adapt: Thanks [NAME], I appreciate the offer. I can't take this one on as it stands, because the number of changes isn't fixed. If you can set it at one round, I'd be glad to look again.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep a note of the deals you turn down and why. Over time it shows you which warning signs you are seeing again and again, and that makes the next decision quicker. More on finding the right work is in [finding UGC brand deals](/faq/ugc-brand-deals/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-08",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

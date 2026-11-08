@@ -1,0 +1,256 @@
+{
+  "question_id": "q039",
+  "slug": "ugc-ad-vs-organic",
+  "theme": "ugc-scripts",
+  "title": "How is a UGC ad script different from an organic post?",
+  "description": "How a UGC ad script differs from an organic post: who it speaks to, how early the product appears, and a close that asks for one clear action.",
+  "short_answer": "A UGC ad script is written for a stranger who never chose to follow you, so it names who the video is for and shows the product sooner. The format can stay the same as an organic post. What changes is the order of the beats and a close that asks the viewer to do one thing.",
+  "sections": [
+    {
+      "heading": "Who is a UGC ad actually talking to?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A UGC ad talks to someone who has never seen you before and did not choose to watch, so the script has to earn every second.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "An organic post lands with people who already know your face or picked your video from a feed of things they like. They give you a little patience. An ad viewer gives you none, and they have no idea why a stranger is holding a product. That is why the ad version of a script tells them early who it is for: a person with a messy desk, a person who cooks for one, a person who hates ironing. Naming the viewer lets the right people stay and lets everyone else scroll on, which is fine, because the brand is paying to reach the first group.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Before you write a word, ask the brand who the ad is aimed at if the [brief](/glossary/#brief) does not say. That one answer shapes the [hook](/glossary/#hook), the setup and the close.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Does the structure change between an ad and an organic post?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The parts stay the same in both, but an ad moves the product and the reason to care closer to the start.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Both use a hook, a setup, beats, a turn and a close, as laid out in [the parts of a UGC video script](/short-form-script-structure/). An organic post can wander for a while before the product shows up, because the story is the point. In an ad the product should be on screen, or at least in your hand, by the second beat, because a viewer who leaves early should still have seen what it is. Keep the same format you would use organically. Only the order and the pace change.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Part of the script",
+            "Organic post",
+            "UGC ad"
+          ],
+          "table_rows": [
+            [
+              "Hook",
+              "Can be a mood, a joke or a story with no product yet",
+              "Names a situation the target viewer is in right now"
+            ],
+            [
+              "Who it is for",
+              "Left unsaid, because your followers already know",
+              "Said out loud or shown in the first lines"
+            ],
+            [
+              "Product",
+              "Can arrive late, as a reveal",
+              "In frame by the second beat"
+            ],
+            [
+              "Close",
+              "A reaction, a question or nothing at all",
+              "One clear action, said and shown"
+            ],
+            [
+              "Length",
+              "Whatever the story needs",
+              "Only what the brief asks for, with every line doing a job"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How should the close of a UGC ad be different?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The close of an ad asks for one specific action in plain words, while an organic close can simply end the story.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "An organic post can finish on a laugh and leave the viewer to work out the rest. In an ad, the viewer needs to be told what the next step is, because they arrived with no plan. Pick one action, the one the brief names, and say it the way you would tell a friend: where it is and why they might want it. Two actions in one close split the viewer's attention, so leave the second one out. There is more on wording in [how to write a call to action for a UGC ad](/blog/ugc-call-to-action/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Film the [call to action](/glossary/#call-to-action) with something to look at, such as you pointing down or holding the product to the lens. A spoken line over a still shot gives the viewer a reason to leave right when you need them most.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a UGC ad script look like next to an organic one?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here is an ad version for a product with an obvious viewer, written so the product appears early and the close asks for one thing.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The organic version of this video might open on the tangled bag as a joke and only reveal the pouch at the end. The ad version below names the viewer in the hook, puts the pouch in hand in the setup, and spends the close on one ask.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a padded cable organiser pouch",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "If you work from cafes, you know the moment you tip your whole bag out looking for one charger.",
+              "do": "Tip a work bag onto a cafe table so cables, earbuds and a charger spill out in a knot."
+            },
+            {
+              "part": "setup",
+              "say": "That was me every morning, so now everything goes in this before it goes in the bag.",
+              "do": "Hold the closed pouch up to the lens, then set it on the table next to the mess."
+            },
+            {
+              "part": "beat 1",
+              "say": "Charger on this side, cables in the loops, earbuds in the little pocket.",
+              "do": "Open the pouch flat and fill each section, one item at a time, in a single overhead shot."
+            },
+            {
+              "part": "beat 2",
+              "say": "It zips flat, so it slides in next to my laptop instead of sitting at the bottom.",
+              "do": "Zip it closed and slide it into the laptop sleeve of the bag."
+            },
+            {
+              "part": "turn",
+              "say": "Next cafe, I just pull out the one thing I need.",
+              "do": "Cut to a different table, open the pouch and lift out the charger without looking."
+            },
+            {
+              "part": "close",
+              "say": "It's linked below if your bag looks like mine did.",
+              "do": "Point down toward the caption while holding the pouch in the other hand."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "What should you check before sending an ad script to the brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Check that a stranger would know who the video is for, what the product is and what to do next, each within the script itself.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Read the hook alone and ask whether the target viewer would recognise themselves in it, because that is the only reason they stop.",
+            "Find the line where the product first appears; if it comes after the second beat, move it up so early leavers still see it.",
+            "Cut any line that only makes sense to someone who already follows you, such as an inside joke or a reference to an earlier post.",
+            "Make sure the close asks for exactly the action in the brief, because a different ask can send viewers somewhere the brand did not plan for.",
+            "Ask the brand whether it wants a version with a different hook, since an ad can be tested with several openings over the same body."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand wants the ad to feel exactly like an organic post, keep the warmth and the casual wording, and still keep the product early and the close clear. Those two changes do the ad's job without making it sound like an ad. [How to write a UGC script that doesn't sound scripted](/blog/ugc-script-that-sounds-natural/) covers the wording side.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-08",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "If you work from cafes, you know the moment you tip your whole bag out looking for one charger."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
