@@ -180,6 +180,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/fit-key-points-into-ugc-script/</loc>
+    <lastmod>2026-11-09</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/follow-up-ugc-pitch/</loc>
     <lastmod>2026-10-18</lastmod>
     <priority>0.6</priority>
@@ -210,6 +215,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/one-off-ugc-job-to-regular-work/</loc>
+    <lastmod>2026-11-09</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/pitch-a-product-you-havent-tried/</loc>
     <lastmod>2026-11-02</lastmod>
     <priority>0.6</priority>
@@ -222,6 +232,11 @@
   <url>
     <loc>https://lynxr.io/blog/product-first-frame-hook/</loc>
     <lastmod>2026-10-21</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/questions-to-ask-before-filming-ugc/</loc>
+    <lastmod>2026-11-09</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -436,12 +451,12 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-brand-deals/</loc>
-    <lastmod>2026-11-08</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-briefs/</loc>
-    <lastmod>2026-11-05</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -471,7 +486,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-scripts/</loc>
-    <lastmod>2026-11-08</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <priority>0.6</priority>
   </url>
   <!-- END UGC AGENT -->

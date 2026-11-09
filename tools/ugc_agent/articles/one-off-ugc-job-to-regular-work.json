@@ -1,0 +1,246 @@
+{
+  "question_id": "a006",
+  "slug": "one-off-ugc-job-to-regular-work",
+  "theme": "ugc-brand-deals",
+  "title": "How do you turn a one-off UGC job into regular work?",
+  "description": "Turn a single UGC job into ongoing work with a brand: send a short set of follow-up ideas, then propose one simple repeat arrangement they can try.",
+  "short_answer": "To turn a one-off UGC job into regular work, send a few follow-up ideas after delivery, then propose one simple repeat arrangement with a set rhythm and scope. A standing plan gives the brand one decision instead of a fresh pitch to weigh every time, and keeping the first version small makes it easy to try.",
+  "sections": [
+    {
+      "heading": "When should you suggest ongoing work to a brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Suggest it once the first videos are delivered and approved, and any changes are settled, so the brand is judging finished work rather than a promise.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Raising it in the middle of a job puts two decisions in front of the brand at once, and the open one, the current video, is the one they care about. Wait until the files are with them and the feedback is in. If the delivery itself still needs work, fix that first: the delivery habits in [how to get a brand to book you again](/blog/get-rebooked-ugc/) cover that part. This answer starts where that one ends, with turning a yes to one more video into a standing plan.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A good moment is the message where you ask what worked. Their answer tells you which direction to build the ideas on, and it gives you a natural reason to write again a few days later with something concrete.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What goes in a follow-up idea set?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A follow-up idea set is three short video ideas built on the job you just finished, each one described in a line or two.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Three is enough to show range without turning the message into homework. Build each idea from something you learned on the first job, so the brand can see you were paying attention rather than sending a generic list. Keeping the same [format](/glossary/#format) and changing what goes inside it works well here, because the brand already knows that shape suits their product. [What a UGC video format is](/what-is-a-video-format/) explains why a format can carry a new angle.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "The same format with a new [hook](/glossary/#hook), aimed at a different reason someone might want the product.",
+            "A different moment of use you noticed while filming, such as the product in a second room or at another time of day.",
+            "A video tied to something the brand mentioned is coming up, like a launch or a new colour, so the idea has an obvious date.",
+            "One line under each idea on what the viewer would see first, so the brand can picture it without a call."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What kind of repeat arrangement should you propose?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Propose one arrangement, not a menu, because a single clear option is a yes-or-no decision the brand can make in one reply.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Pick the one that matches what the brand told you about how they use the videos. If you are unsure, ask them before you write the proposal, because the wrong structure can sound like you did not listen.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Arrangement",
+            "What you offer",
+            "When it fits"
+          ],
+          "table_rows": [
+            [
+              "A monthly batch",
+              "A set number of videos each month from one agreed brief",
+              "The brand posts or runs ads on a steady schedule"
+            ],
+            [
+              "A hook round",
+              "One base video with several alternative openings",
+              "The brand wants to test different angles on the same product"
+            ],
+            [
+              "A seasonal set",
+              "A small group of videos planned around a launch or a season",
+              "The brand works in campaigns rather than every month"
+            ],
+            [
+              "A trial block",
+              "A short run of rounds with a check-in at the end",
+              "The brand likes your work but is not ready to commit to more"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you word the proposal so it is easy to accept?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Word it as a short message with the ideas first, the arrangement second and one question at the end, so the brand only has to answer that question.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Here is a version you can adapt. Hi [NAME], thanks again for the feedback on the [PRODUCT] videos. While filming I noted three ideas that build on what worked, below. If they are useful, I could make [NUMBER] videos a month for you, from one brief agreed by [DATE] each month, for [AMOUNT] per month. We could try it for [NUMBER] months and then look at what worked before deciding on anything longer. Would you like me to send a draft brief for the first month?",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Ending on a small, specific question helps, because offering to draft the first brief moves the work onto you and leaves the brand with a quick reply. Keep the ideas visible in the same message, so the arrangement reads as a way to make them rather than a sales pitch.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should a repeat arrangement spell out in writing?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write down the scope, the rhythm, the price and how either side can pause, so you and the brand work from the same page every month.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "How many videos and hook options each round includes, so extra asks are easy to spot and price.",
+            "When the [brief](/glossary/#brief) arrives and when you deliver, so a late brief moves your deadline rather than squeezing your filming time.",
+            "How many rounds of revisions each video includes.",
+            "How the brand may use the videos, exactly as you both agree it in writing.",
+            "How either side pauses or ends the arrangement, and how much notice that needs."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you have not priced a group of videos before, [how to price a bundle of UGC videos](/blog/ugc-video-bundles/) walks through the thinking. The warning signs in [how to spot a UGC brand deal that isn't worth taking](/blog/spot-a-bad-ugc-deal/) apply to repeat work too, and they matter more when the same terms repeat every month.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you do if the brand says not yet?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Thank them, ask what would make it a better fit later, and offer to make one of the ideas as a single video so the work keeps going.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If they give a reason, such as a budget review or a campaign that has not been planned yet, write it down with any date they mention, and get back in touch close to it with an updated idea rather than the same proposal. If they do not reply at all, give it a little time and send one short nudge; [how to follow up when a brand doesn't reply](/blog/follow-up-ugc-pitch/) has wording you can borrow. Each single video you make in the meantime is another chance to show the arrangement would be easy to run.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-09",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

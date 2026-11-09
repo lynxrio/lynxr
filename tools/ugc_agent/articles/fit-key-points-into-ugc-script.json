@@ -1,0 +1,241 @@
+{
+  "question_id": "a010",
+  "slug": "fit-key-points-into-ugc-script",
+  "theme": "ugc-scripts",
+  "title": "How do you fit the brand's key points into a short UGC script?",
+  "description": "How to fit a brand's key messages into a short UGC script: rank them, decide which to say, show or put on screen, and cut the rest without losing the brief.",
+  "short_answer": "To fit a brand's key points into a short UGC script, build it around the point that matters most, then show or caption the others instead of saying them all. Anything that still does not fit comes out of this video and goes back to the brand as an idea for the next one.",
+  "sections": [
+    {
+      "heading": "Why can't a short script say every key point?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Every spoken point costs time and attention, so a short script that says them all ends up as a list the viewer stops following.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [brief](/glossary/#brief) can list several key points with equal weight, but a short video has room for one idea told well. When you try to say all of them, each [beat](/glossary/#beat) turns into a feature, the story disappears, and the video starts to sound like an advert read aloud. The fix is not to talk faster. It is to decide which points carry the video and which ones can travel another way. [How long a UGC script should be](/blog/how-long-should-a-script-be/) shows what fits at each length, which helps you judge how much room you really have.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you decide which key point matters most?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Pick the point that answers the problem your hook names, because that is the one the viewer stayed to hear.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brief does not rank its points, ask the brand to choose one before you write: which point would you keep if the video could only make one? That single question saves a round of changes, because it moves the hard decision to the brand before anything is filmed. If they rank them, build your [hook](/glossary/#hook) around the top one and treat the rest as support. Lines the brand needs word for word are a separate matter: [where the brand's required lines go](/blog/brief-to-script/#placing-required-lines) covers placing those.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Write every key point on its own line.",
+            "Mark the one the brand ranked first, or the one your hook leads to.",
+            "Next to each other point, write whether the camera could show it without words.",
+            "Anything left that is neither the main point nor showable goes on a separate list for later."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which points should you say, show or put on screen?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Say the main point, show anything the camera can prove, and put short facts in on-screen text, so each point gets the channel that suits it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Kind of point",
+            "Where it goes",
+            "Why"
+          ],
+          "table_rows": [
+            [
+              "The main reason to care",
+              "Said out loud, in your own words",
+              "It carries the story and needs your voice"
+            ],
+            [
+              "Something you can do with your hands",
+              "Shown, with little or no talking",
+              "Watching it happen is clearer than hearing about it"
+            ],
+            [
+              "A short plain fact, like a size or a fit",
+              "On-screen text over a shot",
+              "The viewer reads it while you keep talking about something else"
+            ],
+            [
+              "A detail that needs explaining",
+              "Cut from this video",
+              "Explaining it would take the time the main point needs"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Showing and captioning let one beat carry two points at once. While you say the main line, your hands can demonstrate a second point and a caption can state a third, and none of them fight for the same moment.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a short script that fits the key points look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "It says one main point, shows two more, and puts a short fact on screen, with every line tied to something the camera sees.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The brief here listed four points for a magnetic car phone mount: it holds the phone steady, it goes on with one hand, the charging cable still plugs in, and it clips onto an air vent. Steady is the main point and is said. One hand and charging are shown. The vent clip is a caption.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a magnetic car phone mount",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "My phone has ended up in the footwell on every roundabout since I got this car.",
+              "do": "Parked car. Close shot of a phone lying face down in the passenger footwell, then a hand reaching down for it."
+            },
+            {
+              "part": "setup",
+              "say": "My old holder needed both hands, so the phone just lived on the seat.",
+              "do": "Creator struggles to squeeze the phone into an old spring-clip holder with both hands, then gives up and drops it on the seat."
+            },
+            {
+              "part": "beat 1",
+              "say": "This one is a magnet, so I just bring the phone close.",
+              "do": "One hand brings the phone towards the mount on the vent and lets go. On-screen text reads: clips onto the air vent."
+            },
+            {
+              "part": "beat 2",
+              "say": "And the charger still plugs in while it's on there.",
+              "do": "Close shot of the cable going into the phone while it sits on the mount."
+            },
+            {
+              "part": "turn",
+              "say": "Same roundabout as before, and it stayed put.",
+              "do": "Filmed by a passenger from the back seat: the phone on the mount through a roundabout, the driver's hands on the wheel."
+            },
+            {
+              "part": "close",
+              "say": "It's linked below, if your phone keeps ending up on the floor too.",
+              "do": "Parked again. Creator lifts the phone off with one hand and taps it straight back on."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Notice that the one-hand point is never said. The hook shows the problem, beat one shows the fix with one hand, and the viewer gets it without a line spent on it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you do with the key points you cut?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Tell the brand which points you left out and why, and offer each one as the lead point of another video or hook.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Put a short note with the script: I built this around [PRODUCT] holding steady, showed the charging and the one-hand fit, and left out the detail on mounting angles, which could lead a second video. That turns a cut into a choice the brand can see and overrule, rather than a point they think you forgot. A cut point can also become an alternative opening, as long as the rest of the video still pays it off. The same say, show or caption split works for an app, where [writing a UGC script for an app](/blog/ugc-script-for-an-app/) covers turning screens into camera lines, and it keeps the [call to action](/blog/ugc-call-to-action/) free to ask for one thing.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-09",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "My phone has ended up in the footwell on every roundabout since I got this car."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

@@ -1,0 +1,237 @@
+{
+  "question_id": "a007",
+  "slug": "questions-to-ask-before-filming-ugc",
+  "theme": "ugc-briefs",
+  "title": "What questions should you ask a brand before you start filming?",
+  "description": "The questions to ask a brand before you film UGC, from product version to framing and delivery, so you catch the gaps that cause reshoots early.",
+  "short_answer": "Before you film, ask the brand which version of the product to show, where and how it should appear, whether the script needs approval, and what files they expect back. These are the gaps that turn into reshoots, so send them in one short message and wait for written answers before you set up the camera.",
+  "sections": [
+    {
+      "heading": "Why ask questions when the brief already looks complete?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A brief says what the video should say, but it can leave out the practical details of the shoot that only matter once the camera is rolling.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [brief](/glossary/#brief) can be clear about the message and still silent on which shade to show, whether the label must face the lens, or whether you can film in your bathroom. Those are small questions before the shoot and expensive ones after it, because a wrong answer means setting up, lighting and filming again. Checking what the brief contains is covered in [what goes in a UGC brief](/blog/what-goes-in-a-ugc-brief/). This answer is about the questions you add on top, even when nothing in the brief looks vague.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A useful test is to picture yourself pressing record. Every decision you would have to guess at in that moment is a question to send first.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which questions about the product should you ask?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask which exact version of the product to show, how it should look on camera, and whether anything about it is changing soon.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Which version, size, colour or flavour should appear, so you do not film the one they are phasing out.",
+            "Is the packaging you received the current packaging, because a new label after the shoot makes every clip out of date.",
+            "Should the logo or label face the camera in a particular shot, so you can plan the angle instead of fixing it in the edit.",
+            "Is there a way the product must not be used or shown, so you do not film a step the brand cannot run.",
+            "Are there any words you should never use about it, if that is not already in the brief."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Once you have the answers, mark them on the brief alongside the lines you must say. The method in [how to turn a brand brief into a script](/blog/brief-to-script/) works for these notes too, because it keeps what is fixed apart from what is yours to choose.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which questions about the shoot itself should you ask?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask about the setting, the people in frame, the framing and the opening, because each of these is fixed the moment you film.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Question",
+            "Why it matters",
+            "What happens if you skip it"
+          ],
+          "table_rows": [
+            [
+              "Is there a setting you want, or one to avoid?",
+              "The room tells the viewer who the product is for",
+              "A whole video filmed in the wrong place"
+            ],
+            [
+              "Can anyone else, or a pet, appear in frame?",
+              "The brand may want the video to feature only you",
+              "Clips you cannot use without cutting them out"
+            ],
+            [
+              "Vertical only, or a wider version too?",
+              "Framing is chosen on the day and cannot be widened later",
+              "A reshoot for a second shape"
+            ],
+            [
+              "How many [hook](/glossary/#hook) options do you want filmed?",
+              "Extra openings are cheap to film on the day and costly later",
+              "A second setup just for new openings"
+            ],
+            [
+              "Do you want to approve the script before I film?",
+              "It moves changes to the cheapest stage",
+              "Notes on wording after the footage is done"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand answers the framing question, write your [shot list](/glossary/#shot-list) around it straight away, so every planned shot already fits the shape they asked for.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which questions about the edit and delivery should you ask?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask whether the brand wants a finished edit or raw clips, and what should be burned into the video, so you shoot with the end file in mind.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Captions, music and on-screen text change how you film. If the brand adds its own text later, you need clear space at the top or bottom of the frame. If they want the video without music, you need a quiet room rather than a track to cover the noise. If they want raw clips, you need clean starts and ends on every take. Ask too how they want the files named and sent, so delivery is one step rather than a back-and-forth. [What you deliver at the end of a UGC job](/blog/ugc-deliverables/) lists the files these answers decide.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you send the questions in one message?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Send them together in one numbered message, product first and delivery last, so the brand can reply line by line in a single pass.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Hi [NAME], thanks for the brief for [PRODUCT]. Before I film on [DATE], a few quick questions so I get it right first time. One, which version should I show, and is the packaging I have the current one? Two, is there a setting you want, or one to avoid? Three, vertical only, or a wider version too? Four, how many opening options would you like? Five, would you like to approve the script before I film? Six, finished edit, raw clips, or both, and should captions or music be added? If I hear back by [DATE], I can keep the delivery date we agreed.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Only keep the questions the brief has not already answered. A shorter message is quicker to reply to, and it shows you read the brief properly.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you do if the brand does not answer before you film?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write down the choice you will make for each open question, send it to the brand, and film to those choices once your deadline needs you to start.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A line such as I will film vertical only, in my kitchen, with the packaging I received, unless you tell me otherwise by [DATE] turns silence into a decision you can point back to. Where a choice is cheap to cover, cover both: film a spare opening or a wider safety shot, because it costs you minutes on the day. If a note arrives later that contradicts what you wrote down, [how revisions should work on a UGC job](/blog/ugc-revisions/) helps you decide whether it is a change or a new video.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-09",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
