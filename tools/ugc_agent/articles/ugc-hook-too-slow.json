@@ -1,0 +1,259 @@
+{
+  "question_id": "a011",
+  "slug": "ugc-hook-too-slow",
+  "theme": "ugc-hooks",
+  "title": "How do you know if your UGC hook is too slow?",
+  "description": "Is your UGC hook too slow? Self-checks to find the dead air at the start, what to cut, and where to start the clip, with an example script.",
+  "short_answer": "Your UGC hook is too slow if the first thing a viewer sees and hears is not yet the problem, the picture or the question the video is about. Watch the opening with the sound off and then with your eyes closed. If either pass starts with a greeting, a setup line or you getting into position, cut until it does not.",
+  "sections": [
+    {
+      "heading": "What are the signs that a UGC hook is too slow?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A hook is too slow when anything comes before the line or picture that makes the video worth watching.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The [hook](/glossary/#hook) has one job: give a stranger a reason to stay for the next line. Anything you say or do before that reason arrives is a wait the viewer did not ask for. These are the patterns worth looking for in your own footage:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "You open with a greeting, your name or a line like so I wanted to talk about something.",
+            "The first frame shows you reaching for the phone, settling into the chair or taking a breath.",
+            "The product or the problem only appears after you have explained why you are filming.",
+            "The interesting word sits at the end of a long sentence instead of near the front.",
+            "The on-screen text says the same thing as your voice, so nothing new reaches the viewer."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If your opener matches any of these, the fix is rarely a new idea. It is the same idea, moved forward. Once the dead air is gone, the [guide to writing a scroll-stopping hook](/how-to-write-a-hook/) helps you choose which kind of opener to sharpen.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you test your own hook before sending it?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Watch the opening three ways: sound off, eyes closed, and on a phone held at arm's length, as a stranger would see it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Each pass checks a different channel, because a viewer might meet your video through only one of them. With the sound off, ask whether the first frame shows something specific. With your eyes closed, ask whether the first words name a situation. At arm's length, ask whether you can tell what the video is about before you would naturally flick away. Write down the exact moment each pass gets interesting, then compare it with where the clip starts. The gap between the two is what to cut.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A second check is to read your [script](/glossary/#script) aloud and stop after the first sentence. If someone hearing only that sentence could not guess the topic, the sentence is a warm-up. [The parts of a UGC video script](/short-form-script-structure/) shows what the setup is for, so you can move the warm-up there or delete it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you cut from a slow opening?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Cut everything that explains, introduces or prepares, and keep only the words and picture that show the situation.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Slow opening",
+            "What to do with it"
+          ],
+          "table_rows": [
+            [
+              "Okay so, hi, I have been meaning to show you this",
+              "Delete it. Start on the next sentence."
+            ],
+            [
+              "A long sentence with the key word at the end",
+              "Flip it so the specific detail comes first."
+            ],
+            [
+              "You walking into frame before you speak",
+              "Start the clip once you are already in position and talking."
+            ],
+            [
+              "Background on why you bought the product",
+              "Move it to the setup, after the viewer knows the problem."
+            ],
+            [
+              "On-screen text that repeats your first line",
+              "Replace it with a detail the voice does not give."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If a cut leaves the hook leaning on the line after it, that is fine. The [payoff](/glossary/#payoff) can arrive later as long as the opener raises the question it answers.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Where should the clip actually start?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Start the clip mid-action or mid-sentence, at the first frame where the problem or the product is already visible.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When you film, roll early and keep talking past the line, so the edit has room to trim both ends. Then in the edit, scrub to the frame where your mouth starts the hook line or your hand is already on the product, and cut there. Starting a fraction late is better than a fraction early, because a clipped breath reads as energy and a pause reads as hesitation. If the [brief](/glossary/#brief) asks for a specific first shot, start on that shot and apply the same rule to it. [Product in the first frame](/blog/product-first-frame-hook/) goes further on opening with the object itself, and [visual hooks](/blog/ugc-visual-hooks/) helps when the picture is doing the work.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a fixed hook look like in a full script?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A fixed hook names the situation in the first line and shows it in the first frame, and the setup handles everything else.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The slow draft of this video opened with: Hi, so I have been trying to read more before bed and I found something that helps. Everything useful in that sentence is in the last few words. The version below moves the situation to the front and lets the camera show it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a clip-on reading light",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I read in bed, and the person next to me sleeps with a pillow over their face.",
+              "do": "Open already in bed, main light on, with a pillow over the face of someone beside you. No walk-in."
+            },
+            {
+              "part": "setup",
+              "say": "The big light was the only option, so one of us was always annoyed.",
+              "do": "Point up at the ceiling light, then back at the pillow."
+            },
+            {
+              "part": "beat 1",
+              "say": "So this clips onto the book itself.",
+              "do": "Close-up of your hand clipping the light onto the cover."
+            },
+            {
+              "part": "beat 2",
+              "say": "Big light off. It lights the page and not much else.",
+              "do": "Switch off the main light. Hold the shot on the lit page with the dark room around it."
+            },
+            {
+              "part": "turn",
+              "say": "And the pillow has finally come off.",
+              "do": "Pan to the person beside you, pillow moved, eyes closed."
+            },
+            {
+              "part": "close",
+              "say": "It's linked, if bedtime reading is a sore point in your house too.",
+              "do": "Hold the book with the light on it toward the camera."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Once one hook works, it is worth filming a couple of alternatives with the same fast start. [Hook variations](/blog/ugc-hook-variations/) shows how to write them without changing the rest of the video.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-10",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I read in bed, and the person next to me sleeps with a pillow over their face."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

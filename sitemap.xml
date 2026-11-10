@@ -170,6 +170,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/film-ugc-in-a-shared-home/</loc>
+    <lastmod>2026-11-10</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/film-ugc-on-a-phone/</loc>
     <lastmod>2026-10-15</lastmod>
     <priority>0.6</priority>
@@ -335,6 +340,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/ugc-hook-too-slow/</loc>
+    <lastmod>2026-11-10</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/ugc-hook-variations/</loc>
     <lastmod>2026-10-15</lastmod>
     <priority>0.6</priority>
@@ -461,7 +471,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-filming/</loc>
-    <lastmod>2026-10-31</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -476,7 +486,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-hooks/</loc>
-    <lastmod>2026-11-05</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <priority>0.6</priority>
   </url>
   <url>

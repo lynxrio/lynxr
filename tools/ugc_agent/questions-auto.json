@@ -115,5 +115,122 @@
     "slug": "organise-ugc-footage",
     "target_query": "organize ugc footage",
     "angle": "Naming clips, marking good takes, keeping hook versions apart. Distinct from naming files for delivery."
+  },
+  {
+    "id": "a014",
+    "theme": "ugc-filming",
+    "priority": 3,
+    "question": "How do you film UGC outdoors without it looking messy?",
+    "slug": "film-ugc-outdoors",
+    "target_query": "filming ugc outside",
+    "angle": "Choosing a spot, wind and passers-by, keeping strangers out of frame, matching shots. No equipment brands."
+  },
+  {
+    "id": "a015",
+    "theme": "ugc-filming",
+    "priority": 3,
+    "question": "How do you reshoot one UGC scene so it matches the rest?",
+    "slug": "reshoot-a-ugc-scene-to-match",
+    "target_query": "reshoot ugc scene match",
+    "angle": "Noting outfit, light, framing and product position so a pickup shot blends in. No editing tool names."
+  },
+  {
+    "id": "a016",
+    "theme": "ugc-filming",
+    "priority": 3,
+    "question": "How do you film UGC with a product that is hard to show?",
+    "slug": "film-a-product-that-is-hard-to-show",
+    "target_query": "how to film ugc for boring product",
+    "angle": "Small, clear or plain products: showing use, scale and detail through hands and context. No result claims."
+  },
+  {
+    "id": "a017",
+    "theme": "ugc-hooks",
+    "priority": 3,
+    "question": "Should a UGC hook mention the product at all?",
+    "slug": "should-the-hook-mention-the-product",
+    "target_query": "ugc hook mention product",
+    "angle": "When naming the product early helps and when it hurts, and asking the brand which it prefers. No platform ranking claims."
+  },
+  {
+    "id": "a018",
+    "theme": "ugc-hooks",
+    "priority": 3,
+    "question": "How do you write a UGC hook that isn't clickbait?",
+    "slug": "ugc-hook-without-clickbait",
+    "target_query": "ugc hook not clickbait",
+    "angle": "Hooks the rest of the video can pay off honestly; how to test that a promise is kept. No figures."
+  },
+  {
+    "id": "a019",
+    "theme": "ugc-scripts",
+    "priority": 3,
+    "question": "How do you cut a UGC script that runs too long?",
+    "slug": "cut-a-ugc-script-that-runs-long",
+    "target_query": "ugc script too long",
+    "angle": "What to cut first, merging beats, keeping required lines from the brief. No timings in seconds."
+  },
+  {
+    "id": "a020",
+    "theme": "ugc-scripts",
+    "priority": 3,
+    "question": "How do you write a UGC script in your own voice?",
+    "slug": "ugc-script-in-your-own-voice",
+    "target_query": "ugc script own voice",
+    "angle": "Rewriting brand copy into how you actually talk while keeping required claims intact; example script."
+  },
+  {
+    "id": "a021",
+    "theme": "ugc-briefs",
+    "priority": 3,
+    "question": "What do you do when a brief asks for too much in one video?",
+    "slug": "brief-asks-for-too-much",
+    "target_query": "ugc brief too many points",
+    "angle": "Prioritising with the brand, proposing a split into more videos, wording the reply. No pricing figures."
+  },
+  {
+    "id": "a022",
+    "theme": "ugc-briefs",
+    "priority": 3,
+    "question": "How do you confirm a brief before you start filming?",
+    "slug": "confirm-a-ugc-brief-before-filming",
+    "target_query": "confirm ugc brief",
+    "angle": "Playing the brief back in your own words in a short written message; what to restate. No contract claims."
+  },
+  {
+    "id": "a023",
+    "theme": "ugc-brand-deals",
+    "priority": 3,
+    "question": "How do you say no to a UGC job politely?",
+    "slug": "turn-down-a-ugc-job",
+    "target_query": "how to decline ugc job",
+    "angle": "Wording for declining while keeping the door open; when to suggest alternatives. No pay figures."
+  },
+  {
+    "id": "a024",
+    "theme": "ugc-brand-deals",
+    "priority": 3,
+    "question": "How do you ask a brand for feedback after a job?",
+    "slug": "ask-a-brand-for-feedback-after-a-job",
+    "target_query": "ask brand for ugc feedback",
+    "angle": "Short questions that get useful answers, timing the ask, using answers in the next pitch. No figures."
+  },
+  {
+    "id": "a025",
+    "theme": "ugc-getting-started",
+    "priority": 3,
+    "question": "How do you plan your first week as a UGC creator?",
+    "slug": "first-week-as-a-ugc-creator",
+    "target_query": "starting ugc first week",
+    "angle": "Concrete practice and portfolio steps for the first days, without income promises or named tools."
+  },
+  {
+    "id": "a026",
+    "theme": "ugc-rates-and-pay",
+    "priority": 3,
+    "question": "How do you explain your UGC rate to a brand?",
+    "slug": "explain-your-ugc-rate",
+    "target_query": "justify ugc rate to brand",
+    "angle": "Describing scope and what is included rather than defending a number. No figures, no financial advice."
   }
 ]

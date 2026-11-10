@@ -261,5 +261,18 @@
   "a010": {
     "fails": 0,
     "published": "2026-11-09"
+  },
+  "a008": {
+    "fails": 1,
+    "last_fail": "2026-11-10",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-changes-after-delivery/index.html ('lynxr questions briefs and revisions what do you do when a brand')"
+  },
+  "a011": {
+    "fails": 0,
+    "published": "2026-11-10"
+  },
+  "a012": {
+    "fails": 0,
+    "published": "2026-11-10"
   }
 }
