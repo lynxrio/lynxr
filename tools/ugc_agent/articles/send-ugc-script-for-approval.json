@@ -1,0 +1,237 @@
+{
+  "question_id": "a009",
+  "slug": "send-ugc-script-for-approval",
+  "theme": "ugc-briefs",
+  "title": "How do you send a script to a brand for approval?",
+  "description": "How to send a UGC script for approval: the format to use, what to attach, how to ask for clear sign-off, and a message you can copy and adapt.",
+  "short_answer": "Send the script as one shared document, laid out with what you say beside what the camera sees, and ask the brand to approve it or mark changes. Name exactly what needs sign-off, such as the hook, the required lines and the shots, and give a reply-by day, so the answer comes back as a clear yes or a specific change.",
+  "sections": [
+    {
+      "heading": "What format should a UGC script be in when you send it?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Use one shared document the brand can open in a browser, with the spoken lines on one side and the shots on the other.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [two-column script](/glossary/#two-column-script) lets the person reviewing it see the words and the picture at the same moment, so a comment lands on the exact line it is about. If you have not set one up before, [how to lay out a two-column script](/blog/two-column-script/) walks through it. The point is that the [script](/glossary/#script) you send is the one you will film, written the way you will say it, not a summary of the idea.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Share a link rather than an attachment, because everyone then comments on the same copy and nobody edits an old version.",
+            "Turn on comments or suggestions, so the brand can mark a change without rewriting your lines.",
+            "Put the brand, the product and the version in the document title, so a second draft never gets mixed up with the first.",
+            "Keep each beat on its own row, because a reviewer can then approve or question one moment at a time."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you include alongside the script?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Include your hook options, a note showing where each brief point lands, and any open questions, so the brand can review everything in one pass.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Each extra takes a minute to add and saves a round of back and forth. Tying every line to the [brief](/glossary/#brief) also shows the brand you read it closely, which is the same habit described in [how to turn a brand brief into a script](/blog/brief-to-script/). Put these at the top of the document, above the script, so they are the first thing anyone sees.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "What to add",
+            "Why it helps"
+          ],
+          "table_rows": [
+            [
+              "Two or three hook options, labelled",
+              "The brand picks one now instead of asking for a new opening after you film."
+            ],
+            [
+              "Required lines, highlighted",
+              "The brand can check the exact wording without hunting for it."
+            ],
+            [
+              "A short note per beat on which brief point it covers",
+              "It shows nothing from the brief was dropped."
+            ],
+            [
+              "Where you will film and which props you will use",
+              "Setting and props are easy to change before filming and hard to change after."
+            ],
+            [
+              "Your open questions, as a short list",
+              "They get answered in the same reply as the approval."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you ask for a specific sign-off instead of a vague thumbs up?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask the brand to confirm named parts one by one, because a reply that just says looks good may not cover the hook or the required lines.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A general yes feels like progress, but it leaves room for a surprise later: someone else at the brand sees the video and asks why the opening changed. A short checklist turns approval into a set of small decisions the reviewer can answer quickly. Keep it to the parts that are expensive to change once you have filmed.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Which [hook](/glossary/#hook) to film, or whether to film more than one.",
+            "That the required lines are worded exactly right.",
+            "That the setting, props and shots in the second column are fine.",
+            "That the ending asks for the action the brand wants.",
+            "Who else needs to see it, so approval comes from the person who can give it."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a good approval message look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A good approval message is short: one line on what you are sending, a few named things to confirm, and the day you need a reply.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Here is one you can copy and adapt. Each part matches something in the document, so the reviewer can reply point by point.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hi [NAME], the script for [PRODUCT] is ready for your approval: [LINK]. Comments are on, so you can mark changes on the line itself.",
+            "There are three hook options at the top. Please tell me which one to film, or if you would like more than one.",
+            "The required lines from the brief are highlighted. Could you check the wording is exactly right?",
+            "The right-hand column shows where I will film and which props I will use. Let me know if anything there should change.",
+            "I am filming on [DATE], so a reply by the day before keeps us on schedule. Once you approve, I will film this version as written."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The last line matters most. Saying you will film this version as written makes it clear that approval is a decision, not a first look.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you do if the brand goes quiet or approves only part?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Send one short follow-up that repeats the reply-by day and lists the parts still open, then wait for a written answer before filming them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the follow-up as easy to answer as the first message: Hi [NAME], just checking on the script for [PRODUCT]. I still need your pick of hook and a yes on the required lines before I film on [DATE]. If only some parts come back approved, write down in the same thread which parts are agreed and which are still open, so nobody has to remember it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Once the script is approved, save a copy of that exact version. If feedback after you deliver asks for something the approved script never had, you can point to what was signed off, which makes [changes after delivery](/blog/ugc-changes-after-delivery/) a calmer conversation. It also helps to agree with the brand in writing how many rounds of edits the job includes, as covered in [how revisions should work on a UGC job](/blog/ugc-revisions/). Settling that early, alongside the [questions to ask before you start filming](/blog/questions-to-ask-before-filming-ugc/), keeps the approval step about the script itself.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-11",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

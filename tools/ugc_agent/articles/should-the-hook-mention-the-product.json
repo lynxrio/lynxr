@@ -1,0 +1,259 @@
+{
+  "question_id": "a017",
+  "slug": "should-the-hook-mention-the-product",
+  "theme": "ugc-hooks",
+  "title": "Should a UGC hook mention the product at all?",
+  "description": "When a UGC hook should mention the product, when holding it back works better, how to decide per video, and how to ask the brand which opening it wants.",
+  "short_answer": "A UGC hook can mention the product when the product itself is the surprise, but leave it out when the viewer needs to recognise a problem first. Decide by what your first line promises, and ask the brand whether it wants the product named in the opening, because a brief can settle the choice for you.",
+  "sections": [
+    {
+      "heading": "When does naming the product in the hook help?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Name the product in the hook when the product is the thing worth stopping for: an odd shape, a new idea, or something the viewer has never seen.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "In those cases the product is the question the viewer wants answered, so hiding it wastes your strongest line. A [hook](/glossary/#hook) like I didn't know you could get a kettle that folds flat works because the product and the surprise are the same thing. Every hook pattern in [the guide to writing a UGC hook](/how-to-write-a-hook/) still applies; you are just choosing the product as the subject.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Say what the product is in plain words, such as a folding kettle, rather than its full name, unless the brief asks for the name.",
+            "Pair the mention with the reason it is interesting, because a product type on its own gives the viewer nothing to wonder about.",
+            "Keep the line short enough to say in one breath, so the product does not crowd out the hook itself."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "When does mentioning the product too early hurt?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Mentioning it early hurts when the viewer has to care about the problem before the product means anything to them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A product the viewer has never heard of is just a word in the first second, and a first line that sounds like a pitch gives a viewer who feels sold to a reason to leave. Opening on a situation they recognise earns the product a place later. It also gives you a cleaner [payoff](/glossary/#payoff), because the video sets up a problem and then answers it, which is the balance covered in [hook and payoff](/blog/hook-payoff/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Saying the product and showing it are separate choices. You can keep it in frame from the start and still not name it until later; [hooking a video when the product is in the first frame](/blog/product-first-frame-hook/) covers the visual side, so this answer sticks to what you say.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you decide for a specific video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Decide by asking what the viewer needs first, the product or the problem, and then check that against the brief.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Situation",
+            "Mention the product in the hook?",
+            "Why"
+          ],
+          "table_rows": [
+            [
+              "The product looks unusual or does something unexpected",
+              "Yes, name what it is",
+              "The product is the surprise, so it carries the hook."
+            ],
+            [
+              "It solves a problem the viewer may not notice yet",
+              "No, open on the problem",
+              "The viewer needs a reason to care before the product lands."
+            ],
+            [
+              "The brief gives a required opening line",
+              "Follow the brief",
+              "The brand has made the call, so your job is to make that line sound natural."
+            ],
+            [
+              "The brand says the ad is for people already comparing options",
+              "Name the product type early",
+              "Those viewers are looking for the category, so naming it tells them they are in the right place."
+            ],
+            [
+              "You are not sure",
+              "Film both",
+              "The brand can choose from two real openings instead of a description of one."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the video is an ad, ask the brand who it is for before you choose, and read [what makes a UGC hook work in an ad](/blog/ugc-ad-hooks/) for the questions that shape an ad opening.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a hook that holds the product back sound like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "It names the situation in the first line and brings the product in at the turn, once the viewer wants an answer.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "In the script below the product is never named until [the turn](/glossary/#the-turn), and even then it is called what it is, not given a brand name. Swap the hook for a product-first line and the rest still works, which is useful if the brand wants both.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a silicone baking mat",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "Every batch of cookies I bake leaves a layer of itself welded to the tray.",
+              "do": "Close shot of a baking tray with cookie bits stuck on, a spatula scraping at them."
+            },
+            {
+              "part": "setup",
+              "say": "I've been lining it with paper, and I still end up soaking the tray overnight.",
+              "do": "Creator holds up a crumpled sheet of baking paper next to the tray sitting in the sink."
+            },
+            {
+              "part": "beat 1",
+              "say": "So tonight I'm trying something different.",
+              "do": "Creator takes a rolled-up mat out of a drawer and unrolls it onto a clean tray."
+            },
+            {
+              "part": "turn",
+              "say": "This is a silicone baking mat. It lies flat on the tray, so there's no cutting and no paper.",
+              "do": "Hand presses the mat flat; the camera tilts to show it covering the tray edge to edge."
+            },
+            {
+              "part": "beat 2",
+              "say": "Same dough, same oven, same timer as last time.",
+              "do": "Creator spoons dough onto the mat and slides the tray into the oven."
+            },
+            {
+              "part": "beat 3",
+              "say": "And tonight they lifted straight off. No scraping.",
+              "do": "Close shot as baked cookies are lifted off the mat with a spatula, the mat visible underneath."
+            },
+            {
+              "part": "close",
+              "say": "It rolls back up into the drawer. The one I used is linked.",
+              "do": "Creator rinses the mat, rolls it up and puts it back in the drawer."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Should you ask the brand which opening it prefers?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask before you film, because a brief can require the product name in the first line or rule it out, and guessing wrong means a reshoot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Check the [brief](/glossary/#brief) first; if it says nothing about the opening, a one-line question settles it: For the opening, would you like [PRODUCT] named in the first line, or should I open on the problem and bring it in later? I can film both if that helps.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Offering both can be the simplest answer. Film the product-first hook and the problem-first hook against the same body, label them clearly, and let the brand choose. [How many hooks to film for one video](/blog/ugc-hook-variations/) explains how to plan those versions so they join the rest of the video cleanly.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-11",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "Every batch of cookies I bake leaves a layer of itself welded to the tray."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

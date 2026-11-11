@@ -1,0 +1,234 @@
+{
+  "question_id": "a013",
+  "slug": "organise-ugc-footage",
+  "theme": "ugc-filming",
+  "title": "How do you organise UGC footage before you edit?",
+  "description": "How to organise UGC footage before you edit: sort clips by beat, mark the good takes while you film, and keep each hook version apart for a faster cut.",
+  "short_answer": "Organise UGC footage by sorting every clip into folders that match the beats of your script, then marking the best take of each before you open the editor. Keep each hook version in its own labelled folder, so you can cut the variations the brand asked for without searching through the whole shoot.",
+  "sections": [
+    {
+      "heading": "Why organise your footage before you start editing?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Sorting first shows you a missing shot while you can still refilm it, and it keeps the edit about choices instead of searching.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A phone saves every take in one long roll, named in an order that means nothing to you. If you start cutting straight from that roll, you end up scrubbing through near-identical clips to find the one where you didn't stumble. Sorting against your [shot list](/glossary/#shot-list) turns the roll into a checklist: each part of the video either has a usable take or it doesn't. The parts are the same ones in [the parts of a UGC video script](/short-form-script-structure/), so your folders can follow the script from top to bottom.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Do the sorting on the same day you film. The light, the props and the setting are still in place, so a quick pickup shot matches the rest of the footage.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you mark the good takes while you are still filming?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Mark them on the spot with a signal the camera records, so the footage itself tells you which takes to keep.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Say the part out loud before each take, such as hook A or the demo beat, because the first second of the clip then labels it.",
+            "Give a thumbs up to the lens at the end of a take you liked, so you can spot it in the thumbnail or by skipping to the last frame.",
+            "Keep a short paper note beside your shot list and tick the take you want, because memory blurs after a long session.",
+            "Cover the lens with your hand between attempts in one long recording, which leaves a dark frame you can find fast on the timeline.",
+            "Say what went wrong after a bad take, such as lost the line, so you know why you skipped it."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How should you name and sort the clips?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Name each clip with its part, its version and whether you are keeping it, and put it in one folder per part of the script.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "These are working names for you, not the names the brand sees. Delivery names follow their own rules, covered in [how to name and send UGC files](/blog/sending-ugc-files/). Keep working names short and lowercase, with the part first, so clips sort themselves in order.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Folder",
+            "What goes in it",
+            "Example clip name"
+          ],
+          "table_rows": [
+            [
+              "hooks",
+              "Every hook version, each with its own letter",
+              "hook-a-keep, hook-b-spare"
+            ],
+            [
+              "setup",
+              "The lines straight after the hook",
+              "setup-keep"
+            ],
+            [
+              "beats",
+              "Each middle beat, named by what happens in it",
+              "beat-demo-keep, beat-texture-spare"
+            ],
+            [
+              "close",
+              "The last line and the ask",
+              "close-keep"
+            ],
+            [
+              "broll",
+              "Cutaways and close shots with no speaking",
+              "broll-pour-keep"
+            ],
+            [
+              "not used",
+              "Every clip you are not keeping, moved here rather than deleted",
+              "beat-demo-lostline"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Give [B-roll](/blog/ugc-b-roll/) its own folder even if you only filmed a handful of shots. Cutaways are what you reach for when a spoken take has a stumble, and you want to find them without opening every clip.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you keep different hook versions apart?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Give each hook its own letter, keep its takes in the hooks folder, and write down which setup take follows it cleanly.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When a brand asks for more than one [hook](/glossary/#hook), the rest of the video stays the same and only the opening changes. That only works if each hook joins the setup without a jump in your position, your expression or the product's place on the table. After you film each hook, check the last frame against the first frame of your setup take, and note any hook that needs its own bridging line.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the letters the same in your notes, your folder and the script you sent for approval. If the brand picked hook B in the script, you want hook-b on the timeline, not a guess about which take that was.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you check before you open the editor?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Check that every part of the script has a keep take, then back up the whole shoot before you delete or move anything else.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Every [beat](/glossary/#beat) folder holds at least one clip marked keep.",
+            "Each hook letter has one keep take, and you know which setup it joins.",
+            "Any required lines from the [brief](/glossary/#brief) are said word for word in the keep take, because those are the lines a reviewer checks first.",
+            "Play each keep take with sound on, since a clip that looks right can still carry a hum or a clipped word, as [getting clear audio](/blog/ugc-audio/) explains.",
+            "The not used folder is still there, untouched, until the brand has approved the final video."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If something is missing, refilm it now rather than working around it in the edit. Set the phone in the same spot with the same light, and use the steps in [filming UGC on a phone](/blog/film-ugc-on-a-phone/) to match the framing of the rest.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-11",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
