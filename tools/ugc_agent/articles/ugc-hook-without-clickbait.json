@@ -1,0 +1,251 @@
+{
+  "question_id": "a018",
+  "slug": "ugc-hook-without-clickbait",
+  "theme": "ugc-hooks",
+  "title": "How do you write a UGC hook that isn't clickbait?",
+  "description": "A UGC hook that is not clickbait makes one small promise the video can keep. Learn how to write it, test it against the footage and fix one that overreaches.",
+  "short_answer": "A UGC hook stops being clickbait when it makes one specific promise that the rest of the video visibly keeps. Write the payoff first, then write a hook that points at it, and check that a viewer who watches to the end gets exactly what the opening line suggested, no bigger and no vaguer.",
+  "sections": [
+    {
+      "heading": "What makes a hook feel like clickbait?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A hook feels like clickbait when the opening promises more than the video delivers, so the viewer feels tricked by the end instead of rewarded.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The problem is the gap, not the energy. A bold [hook](/glossary/#hook) is fine if the video backs it up, and a quiet one can still mislead. Watch for three warning signs in your own drafts: a claim about everyone, such as a line saying every viewer needs this; a secret or shock that the video never reveals; and a result the product cannot honestly show on camera. The post on [hook and payoff](/blog/hook-payoff/) explains why a mismatch loses the viewer. This answer is about writing the line so the mismatch never happens.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Why should you write the payoff before the hook?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write the payoff first because the hook is a promise, and you can only make an honest promise once you know what you are able to show.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Look at the brief and your footage plan, and find the single moment a viewer would screenshot. That moment is your [payoff](/glossary/#payoff).",
+            "Describe that moment in one plain sentence, such as the lid clicking shut and the bottle staying dry upside down in a bag.",
+            "Now write a hook that asks the question the payoff answers. If the payoff is a dry bag, the hook can be about a leaky bag.",
+            "Read the hook and the payoff out loud one after the other. If they sound like the same story, you are close."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Working this way keeps you inside what the product can show, which matters for brand work because the brief limits what you can claim. The guide on [writing a hook](/how-to-write-a-hook/) covers the openers themselves; use it once you know the payoff.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you test that the video keeps the hook's promise?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Test the promise by writing the hook as a question, then finding the exact line or shot in your script that answers it. If you cannot point to one, the hook overreaches.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Check",
+            "Ask yourself",
+            "If the answer is no"
+          ],
+          "table_rows": [
+            [
+              "Proof",
+              "Can the camera show the thing the hook mentions",
+              "Change the hook to something you can film"
+            ],
+            [
+              "Size",
+              "Is the payoff as big as the hook makes it sound",
+              "Shrink the hook, not the payoff"
+            ],
+            [
+              "Timing",
+              "Does the answer land before the viewer gives up",
+              "Move the payoff earlier or cut the setup"
+            ],
+            [
+              "Scope",
+              "Does it speak about you, not about everyone",
+              "Rewrite it in the first person"
+            ],
+            [
+              "Brief",
+              "Would the brand sign off on the claim",
+              "Ask the brand before you film it"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Run the check on the finished edit too. Watch only the first line and the last shot, back to back. If a stranger would feel the second answers the first, the hook is honest.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does an honest hook look like in a full script?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "An honest hook names a real, small problem the creator has, and the video ends on a shot that shows how that problem went for them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a reusable water bottle with a locking straw lid",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I stopped carrying water to work because every bottle I owned ended up soaking my notebook.",
+              "do": "Hold up a crinkled, water-stained notebook to the camera."
+            },
+            {
+              "part": "setup",
+              "say": "So I wanted one test before I trusted a new one: upside down, in my bag, all morning.",
+              "do": "Fill the bottle at the sink and click the lid shut."
+            },
+            {
+              "part": "beat 1",
+              "say": "The straw folds down and the lid locks over it.",
+              "do": "Close-up of the straw folding down and the lock sliding across."
+            },
+            {
+              "part": "beat 2",
+              "say": "In it goes, upside down, next to the notebook I am fond of.",
+              "do": "Drop the bottle upside down into a bag beside a clean notebook."
+            },
+            {
+              "part": "turn",
+              "say": "This is the bit I was nervous about.",
+              "do": "Cut to the same bag later, unzipping it slowly."
+            },
+            {
+              "part": "close",
+              "say": "Dry notebook, dry bag. That is the one I carry now, and it is linked.",
+              "do": "Lift the dry notebook out, then the bottle, and hold both to camera."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "The hook promises one thing, a notebook that stays dry, and the close shows exactly that. It says nothing about every bag or every commute, only what this creator saw.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you fix a hook that promises too much?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Fix an overreaching hook by making it smaller and more personal, not by padding the video. Swap claims about everyone for one thing that happened to you.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Swap a universal claim for your own experience, so a line about what everyone gets wrong becomes what you kept getting wrong.",
+            "Replace a vague secret with the actual detail, so the viewer knows what they are waiting for.",
+            "Cut words like best, only and never unless the video proves them, because each one raises the bar for the payoff.",
+            "If the brand asks for a stronger line, offer two versions and let the brand choose, the way the answer on [hooks for ads](/blog/ugc-ad-hooks/) suggests testing options."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If a negative angle is tempting, the answer on [negative hooks a brand will approve](/blog/negative-hooks-ugc/) shows how to keep it honest. Then run the promise check again before you film.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-12",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I stopped carrying water to work because every bottle I owned ended up soaking my notebook."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
