@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How do you reshoot one UGC scene so it matches the rest?</title>
+<meta name="description" content="How to reshoot a UGC scene so it matches the rest: note outfit, light, framing and product position, then film a pickup that blends into the edit.">
+<meta property="og:title" content="How do you reshoot one UGC scene so it matches the rest?">
+<meta property="og:description" content="How to reshoot a UGC scene so it matches the rest: note outfit, light, framing and product position, then film a pickup that blends into the edit.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="lynxr">
+<meta property="og:url" content="https://lynxr.io/blog/reshoot-a-ugc-scene-to-match/">
+<meta property="og:image" content="https://lynxr.io/og-v3.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How do you reshoot one UGC scene so it matches the rest?">
+<meta name="twitter:description" content="How to reshoot a UGC scene so it matches the rest: note outfit, light, framing and product position, then film a pickup that blends into the edit.">
+<meta name="twitter:image" content="https://lynxr.io/og-v3.png">
+<link rel="canonical" href="https://lynxr.io/blog/reshoot-a-ugc-scene-to-match/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261105c">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261105c">
+<link rel="shortcut icon" href="/favicon.ico?v=20261105c">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261105c">
+<link rel="stylesheet" href="/app.css?v=20261105c">
+<script src="/theme.js?v=20261105c"></script>
+<script src="/backdrop.js?v=20261105c" defer></script>
+<!-- BEGIN SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://lynxr.io/#organization",
+      "name": "lynxr",
+      "legalName": "lynxr LLC",
+      "disambiguatingDescription": "lynxr (lynxr.io) is the UGC creator tool: a web app that turns a TikTok or Instagram video into a script for a brand, made by lynxr LLC in Allston, Massachusetts. It is unrelated to the Honeywell and Ademco LYNXR, LYNXR-2 and LYNXR-I security control panels, to the Lynx R-1 and R-2 mixed reality headsets, and to lynxr.com.",
+      "alternateName": [
+        "lynxr.io",
+        "lynxr LLC"
+      ],
+      "url": "https://lynxr.io/",
+      "slogan": "the UGC creator tool",
+      "description": "lynxr LLC makes lynxr, the UGC creator tool: paste a TikTok or Instagram video and it writes that video's format as a script for the brand you make content for. lynxr LLC is a partner company of Lynx Media Group, the UGC agency.",
+      "logo": {
+        "@type": "ImageObject",
+        "@id": "https://lynxr.io/#logo",
+        "url": "https://lynxr.io/lynxr-logo.png",
+        "contentUrl": "https://lynxr.io/lynxr-logo.png",
+        "width": 512,
+        "height": 512,
+        "caption": "lynxr"
+      },
+      "image": {
+        "@id": "https://lynxr.io/#logo"
+      },
+      "email": "hello@lynxr.io",
+      "sameAs": [
+        "https://www.instagram.com/lynxr.io/",
+        "https://www.tiktok.com/@lynxr.io",
+        "https://www.linkedin.com/company/lynxr",
+        "https://github.com/lynxrio/lynxr"
+      ],
+      "founder": [
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": [
+            "https://www.instagram.com/junsahwang/"
+          ]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": [
+            "https://www.instagram.com/gawinhsu/"
+          ]
+        }
+      ],
+      "knowsAbout": [
+        "short-form video scripts",
+        "UGC scripts",
+        "video formats",
+        "hooks",
+        "TikTok",
+        "Instagram Reels"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://lynxmediagroup.org/#org",
+      "name": "Lynx Media Group",
+      "legalName": "Lynx Media Group LLC",
+      "url": "https://lynxmediagroup.org/",
+      "description": "A UGC agency in Allston, Massachusetts that runs creator campaigns for brands. Its partner company, lynxr LLC, makes lynxr.",
+      "logo": "https://lynxmediagroup.org/imgs/logo-social.png",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "57 Glenville Ave",
+        "addressLocality": "Allston",
+        "addressRegion": "MA",
+        "postalCode": "02134",
+        "addressCountry": "US"
+      },
+      "sameAs": [
+        "https://www.instagram.com/lynxmediagroup/",
+        "https://www.tiktok.com/@lynxmediagroup",
+        "https://www.linkedin.com/company/lynxmediagroup"
+      ],
+      "founder": [
+        {
+          "@id": "https://lynxr.io/#junsa-hwang"
+        },
+        {
+          "@id": "https://lynxr.io/#gawin-hsu"
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://lynxr.io/#website",
+      "url": "https://lynxr.io/",
+      "name": "lynxr",
+      "inLanguage": "en",
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "about": {
+        "@id": "https://lynxr.io/#lynxr"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://lynxr.io/#lynxr",
+      "name": "lynxr",
+      "url": "https://lynxr.io/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "lynxr is the UGC creator tool. It turns a short-form video into a script. You send it a public link to a TikTok or Instagram video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "featureList": [
+        "Reads a public TikTok or Instagram link. There is no file upload.",
+        "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
+        "Writes one script per company from a single link, reading the video only once.",
+        "Never asks for a platform password and never posts anything on your behalf."
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "UGC creators: people who make short-form videos for brands, and the people who brief them"
+      },
+      "isAccessibleForFree": true,
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Free to start: every account gets 3 scripts a week, no card required. Sign-up is open."
+        },
+        {
+          "@type": "Offer",
+          "name": "lynxr pro",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "24.99",
+            "priceCurrency": "USD",
+            "billingDuration": "P1M",
+            "unitText": "month"
+          },
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Up to 150 scripts in any rolling 30 days and up to 30 in any 24 hours, billed monthly. Tax is added at checkout where it applies."
+        }
+      ],
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "creator": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "alternateName": "lynxr.io"
+    }
+  ]
+}
+</script>
+<!-- END SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "@id": "https://lynxr.io/blog/reshoot-a-ugc-scene-to-match/#article",
+  "headline": "How do you reshoot one UGC scene so it matches the rest?",
+  "description": "How to reshoot a UGC scene so it matches the rest: note outfit, light, framing and product position, then film a pickup that blends into the edit.",
+  "image": "https://lynxr.io/og-v3.png",
+  "inLanguage": "en",
+  "datePublished": "2026-11-13",
+  "dateModified": "2026-11-13",
+  "author": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "publisher": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "isPartOf": {
+    "@id": "https://lynxr.io/#website"
+  },
+  "mentions": {
+    "@id": "https://lynxr.io/#lynxr"
+  },
+  "mainEntityOfPage": "https://lynxr.io/blog/reshoot-a-ugc-scene-to-match/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "lynxr",
+      "item": "https://lynxr.io/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "questions and answers",
+      "item": "https://lynxr.io/faq/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Filming and editing UGC",
+      "item": "https://lynxr.io/faq/ugc-filming/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "How do you reshoot one UGC scene so it matches the rest?",
+      "item": "https://lynxr.io/blog/reshoot-a-ugc-scene-to-match/"
+    }
+  ]
+}
+</script>
+</head>
+<!-- This page's visible copy is written in normal sentence case in the
+     source, unlike the lowercase-with-exceptions convention the rest of the
+     site uses. Painted output is identical either way — text-transform:
+     lowercase in app.css flattens all of it — but a model reading the source
+     sees real casing here, because this page carries no JSON-LD twin of its
+     prose the way /faq/ does, so the body text is the only machine-readable
+     copy there is. .lp unsets the app's bare main{} container so the sections
+     below can be full-bleed. See the marketing-page block in app.css. -->
+<body class="lp">
+<svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
+
+<header class="lp-bar">
+  <div class="lp-in lp-bar-in">
+    <a class="wordmark" href="/"><svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg><span>lynxr</span></a>
+    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+         fragment does nothing from /faq/ or /privacy/ — it appends a hash to
+         the current URL and stays put. -->
+    <nav class="lp-nav" aria-label="Main">
+      <a href="/how-it-works/">how it works</a>
+      <a href="/faq/">faq</a>
+    </nav>
+    <span class="lp-actions">
+    <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
+      <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.6 8.6 0 1 0 10.6 10.6z"/></svg>
+      <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
+      <span class="tt-knob"></span>
+    </button>
+    <a class="btn" href="/">get started</a>
+    <!-- Under 760px the nav and the CTA above are display:none and this takes
+         their place. aria-expanded carries the state to a screen reader AND
+         drives which glyph is drawn, so the two cannot disagree. -->
+    <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
+            aria-expanded="false" aria-controls="lp-menu">
+      <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button></span>
+  </div>
+  <!-- Inside the bar on purpose: the bar is the sticky element, so a panel
+       parented anywhere else would scroll away from the burger that opened it.
+       `hidden` — not opacity — is what takes these links out of the tab order
+       when it is closed. -->
+  <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
+    <a href="/how-it-works/">how it works</a>
+    <a href="/faq/">faq</a>
+    <a class="btn" href="/">get started</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="lp-hero">
+    <div class="lp-in">
+      <nav class="post-crumbs" aria-label="Breadcrumb"><a href="/">lynxr</a> / <a href="/faq/">questions</a> / <a href="/faq/ugc-filming/">filming and editing</a></nav>
+      <h1 class="lp-h1">How do you reshoot one <span class="acr">UGC</span> scene so it matches the rest?</h1>
+      <p class="lp-lede">To reshoot one <span class="acr">UGC</span> scene so it matches, rebuild what the viewer saw in the shots around it: the same outfit, light, framing and product position. Check each of those against a still from the original footage before you record, then film the pickup a little longer than you need so it cuts in cleanly.</p>
+      <p class="post-meta">Published <time datetime="2026-11-13">13 November 2026</time></p>
+    </div>
+  </section>
+
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="what-should-you-note-before-you">What should you note before you reshoot a scene?</h2>
+      <p class="lp-p">Note the things that give a reshoot away first: your outfit, where the light came from, how tight the frame was, and where the product sat.</p>
+      <p class="lp-p">Open the clip that comes just before the scene you are replacing and the clip just after it. Pause each one and take a screenshot, because a still is easier to compare against than a memory. If you kept your clips labelled the way <a href="/blog/organise-ugc-footage/">organising your footage before you edit</a> suggests, finding the neighbours takes a minute. Then write down what you see, line by line, the same way you would write a <a href="/glossary/#shot-list">shot list</a> before a first shoot. If you planned the shoot as a <a href="/blog/two-column-script/">two-column script</a>, the column for what the camera sees already holds half of these notes.</p>
+      <div class="post-table">
+        <table>
+          <thead><tr><th scope="col">What to check</th><th scope="col">What to write down</th><th scope="col">Why it shows if you miss it</th></tr></thead>
+          <tbody>
+            <tr><td>Outfit and hair</td><td>The top, any jewellery, glasses, whether your hair was up or down and which side it fell on.</td><td>A change of clothes between two cuts reads as a different day straight away.</td></tr>
+            <tr><td>Light</td><td>Which window or lamp lit you, which side of your face was brighter, and the time of day.</td><td>A cooler or darker shot stands out even when nothing else has changed.</td></tr>
+            <tr><td>Framing</td><td>Where your eyes sat in the frame, how much of your shoulders showed, and the phone height.</td><td>A jump in size between two shots looks like a mistake rather than a cut.</td></tr>
+            <tr><td>Product</td><td>Which hand held it, which side of the label faced the lens, and how full or open it was.</td><td>A lid that is on in one shot and off in the next pulls attention away from what you are saying.</td></tr>
+            <tr><td>Background</td><td>What sat on the shelf or counter behind you and where.</td><td>A mug that appears and vanishes is the first thing a sharp viewer spots.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 class="lp-h2" id="how-do-you-match-the-light">How do you match the light when the original was filmed days ago?</h2>
+      <p class="lp-p">Film at the same time of day, in the same spot, because daylight changes direction and colour as the day goes on.</p>
+      <p class="lp-p">If the first shoot used window light in the morning, set up for the morning again rather than trying to fake it in the evening with a lamp. Open or close the curtains to the same point, and switch on or off the same room lights. The setups in <a href="/blog/light-ugc-at-home/">how to light a <span class="acr">UGC</span> video at home</a> are easier to repeat if you note which one you used the first time.</p>
+      <p class="lp-p">Before the real take, record a short test clip and put it next to your screenshot. Look at the side of your face nearest the window and at the colour of the wall behind you. If the test looks warmer or flatter, move a little closer to or further from the light until it lines up. When the weather is different from the first day, it can be quicker to wait for a matching day than to fight it.</p>
+
+      <h2 class="lp-h2" id="how-do-you-get-the-framing">How do you get the framing and product position the same?</h2>
+      <p class="lp-p">Hold a still of the original frame next to your phone and line up your eyes, shoulders and the product against it before you press record.</p>
+      <ul class="lp-list">
+        <li>Use the same lens on your phone as before, because switching between the wide and standard lens changes how close everything looks.</li>
+        <li>Put the phone back at the same height and distance; a small piece of tape on the floor or table marks the spot for next time.</li>
+        <li>Mark where the product stood with a pencil dot or a scrap of tape, so it goes back to the same place after every take.</li>
+        <li>Turn the label to face the lens at the same angle, and match how full the product looks, because a half-empty bottle next to a full one reads as a different day.</li>
+        <li>Sit or stand the same way, since leaning in a little changes your size in the frame more than you would expect.</li>
+      </ul>
+      <p class="lp-p">If you film on your phone's front camera, the screen shows you the frame as you go, which makes lining up easier. The habits in <a href="/blog/film-ugc-on-a-phone/">filming <span class="acr">UGC</span> on a phone</a> about locking focus and exposure help here too, since a frame that keeps adjusting will never match a still.</p>
+
+      <h2 class="lp-h2" id="how-do-you-film-the-pickup">How do you film the pickup so it cuts in cleanly?</h2>
+      <p class="lp-p">Start the take a line before the part you are replacing and keep going a line past it, so the edit has room to choose a clean cut.</p>
+      <p class="lp-p">Before you record, play the original clip once with the sound on. Listen to your pace and your energy, then say your first line over the old footage until it feels the same. A reshoot often comes out a little flatter or a little faster, because you have said the line so many times it no longer feels new.</p>
+      <p class="lp-p">Record in the same room with the same microphone, if you used one, because a change in room sound is as noticeable as a change in light. <a href="/blog/ugc-audio/">Getting clear audio in a <span class="acr">UGC</span> video</a> covers how to keep that sound steady. Film three takes, and in at least one of them hold still for a second at the start and the end, which gives you a clean place to join the old footage.</p>
+
+      <h2 class="lp-h2" id="what-if-the-reshoot-still-does">What if the reshoot still does not match the rest?</h2>
+      <p class="lp-p">Reshoot the whole beat instead of one line, because a complete beat can stand on its own without sitting right against the old footage.</p>
+      <p class="lp-p">A <a href="/glossary/#beat">beat</a> that starts and ends with a change on screen gives the viewer a reason for things to look a little different. If even that shows, cover the join with a cutaway: a close shot of the product or your hands, as in <a href="/blog/ugc-b-roll/">what B-roll to film for a <span class="acr">UGC</span> video</a>. The viewer hears your voice carry on while the picture moves to the product, and the mismatch is gone by the time you are back on screen.</p>
+      <p class="lp-p">If none of that works, tell the brand before you deliver rather than hoping nobody notices. A short message such as [NAME], the light changed between shoots, so I have refilmed the full product section to keep it consistent. The new version is here: [LINK] lets them choose with the facts in front of them.</p>
+
+      <h2 class="lp-h2" id="how-do-you-make-the-next">How do you make the next reshoot easier?</h2>
+      <p class="lp-p">Take a reference photo of your whole setup before every shoot, because it costs a few seconds and removes the guessing if a scene comes back.</p>
+      <p class="lp-p">Stand where the phone will be and photograph the scene, then step back and photograph the phone, the light and the product from the side. Keep the outfit on a hanger until the brand has signed off the video, and keep a little of the product unopened. Save the photos in the same folder as the footage, so the next time a <a href="/glossary/#brief">brief</a> asks for one changed line, everything you need to match it is in one place.</p>
+    </div>
+  </section>
+
+  <section class="lp-band post-end">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="do-it-with-lynxr">Write your next <span class="acr">UGC</span> script with lynxr</h2>
+      <p class="lp-p">Paste a public TikTok or Instagram link on <a href="/">the homepage</a> and lynxr works out the format — hook, beats, turn, close — and writes it as a script for the brand you make content for. <a href="/how-it-works/">How lynxr writes scripts</a> shows each step. Free to start: <a href="/faq/#what-it-costs">3 scripts a week, no card</a>.</p>
+      <h2 class="lp-h2" id="more-questions">More questions about Filming and editing <span class="acr">UGC</span></h2>
+      <ul class="lp-list">
+        <li><b><a href="/blog/film-ugc-outdoors/">How do you film <span class="acr">UGC</span> outdoors without it looking messy?</a></b> — To film <span class="acr">UGC</span> outdoors without it looking messy, pick a calm spot with a plain background, film at a quiet time, and keep the light the same in every shot.</li>
+        <li><b><a href="/blog/organise-ugc-footage/">How do you organise <span class="acr">UGC</span> footage before you edit?</a></b> — Organise <span class="acr">UGC</span> footage by sorting every clip into folders that match the beats of your script, then marking the best take of each before you open the editor.</li>
+        <li><b><a href="/blog/film-ugc-in-a-shared-home/">How do you film <span class="acr">UGC</span> when you live with other people?</a></b> — To film <span class="acr">UGC</span> when you live with other people, agree set filming slots with them, pick one corner you can reset quickly, and check every frame before you send it.</li>
+        <li><b><a href="/faq/ugc-filming/">All questions about Filming and editing <span class="acr">UGC</span></a></b> — light, sound and the shots to film.</li>
+      </ul>
+      <h2 class="lp-h2" id="keep-reading">Keep reading</h2>
+      <ul class="lp-list">
+        <li><b><a href="/blog/two-column-script/">The two-column script: SAY and DO side by side</a></b></li>
+        <li><b><a href="/short-form-script-structure/">The parts of a <span class="acr">UGC</span> video script</a></b></li>
+        <li><b><a href="/faq/">Questions and answers</a></b> — about lynxr, and every topic <span class="acr">UGC</span> creators ask about.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer id="site-footer">
+  <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr</div>
+  <div class="foot-grid foot-grid-wide">
+    <div class="foot-brand">
+      <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
+      <p>your <span class="acr">UGC</span> buddy</p>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">lynxr</div>
+      <a class="foot-link" href="/">home</a>
+      <a class="foot-link" href="/how-it-works/">how it works</a>
+      <a class="foot-link" href="/faq/">faq</a>
+      <a class="foot-link" href="/pricing/">pricing</a>
+      <a class="foot-link" href="/about/">about</a>
+      <!-- Visible label "try it", accessible name "try it — join the wait
+           list". The .sr-only tail is inside the <a>, so it is part of the
+           name computation rather than a title attribute nobody hears. -->
+      <a class="foot-link" href="/">get started<span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">guides</div>
+      <a class="foot-link" href="/blog/">blog</a>
+      <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
+      <a class="foot-link" href="/turn-a-video-into-a-script/">video to script</a>
+      <a class="foot-link" href="/short-form-script-structure/">script structure</a>
+      <a class="foot-link" href="/glossary/">glossary</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">company</div>
+      <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
+      <a class="foot-link" href="/privacy/">privacy policy</a>
+      <a class="foot-link" href="/terms/">terms of service</a>
+      <a class="foot-link" href="/accessibility/">accessibility</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">socials</div>
+      <a class="foot-link" href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <a class="foot-link" href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">TikTok</a>
+      <a class="foot-link" href="https://www.linkedin.com/company/lynxr" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+    </div>
+  </div>
+  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+       of the sitewide lowercase text-transform. -->
+  <div class="foot-legal">
+    &copy; <span class="entity">lynxr LLC</span> 2026
+  </div>
+</footer>
+
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
+<script src="/site.js?v=20261105c" defer></script>
+<script src="/footer.js?v=20261105c" defer></script>
+
+</body>
+</html>

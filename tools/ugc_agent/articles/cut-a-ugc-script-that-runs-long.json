@@ -1,0 +1,270 @@
+{
+  "question_id": "a019",
+  "slug": "cut-a-ugc-script-that-runs-long",
+  "theme": "ugc-scripts",
+  "title": "How do you cut a UGC script that runs too long?",
+  "description": "When a UGC script is too long, cut repeats and lines the picture already shows, merge beats that make the same point, and keep the brief's required lines.",
+  "short_answer": "Cut a UGC script that runs too long by removing what repeats or what the camera already shows, then merging beats that make the same point. Mark the lines the brief requires before you start, so every cut happens around them. Read the new version aloud and record it once before you send it.",
+  "sections": [
+    {
+      "heading": "What should you cut first when a UGC script runs long?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Cut the warm-up before the hook first, then any line that says something a second time, because neither gives the viewer anything new.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Work through the script in a fixed order, so you are not weighing every line against every other line at once. Each pass removes a different kind of extra, and the lines you care about are left standing at the end. If you are not sure how long the finished video should be, [how long should a UGC script be](/blog/how-long-should-a-script-be/) helps you set the target before you start trimming.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "The warm-up: anything before the [hook](/glossary/#hook), such as a greeting or a line about what the video is going to be. The hook should be the first thing said.",
+            "Repeats: the same point made twice in different words. Keep the version that is more specific and delete the other.",
+            "Lines the picture already says: if the camera shows the lid clicking shut, you do not need to say it clicks shut.",
+            "Second examples: when one example makes the point, a second one only makes the video longer.",
+            "Extra features: anything that is not in the brief and does not help the one idea the video is built on.",
+            "Soft endings: a thank you, a sign-off or a second ask after the close."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you spot lines the camera already shows?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Put each spoken line next to what is on screen at that moment, and cut any line that only describes the picture.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "This is where a [two-column script](/blog/two-column-script/) earns its place, because your spoken words and the picture sit in neighbouring columns, so a doubled line is easy to catch. A spoken line should add something the picture cannot: why it matters to you, what you were doing before, or what you noticed. Here is how the check looks on a few lines.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Line as written",
+            "What the camera shows",
+            "Decision"
+          ],
+          "table_rows": [
+            [
+              "So I'm opening the box now.",
+              "Hands opening the box.",
+              "Cut it. The picture already says it."
+            ],
+            [
+              "It comes in this little pouch.",
+              "The pouch, held up to the lens.",
+              "Cut it, or swap it for why the pouch matters to you."
+            ],
+            [
+              "I keep it in my work bag, so it comes everywhere.",
+              "The product going into a bag.",
+              "Keep it. The picture cannot say where it lives or why."
+            ],
+            [
+              "You can see how thin it is.",
+              "The product turned side on.",
+              "Cut it and let the shot do the work."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you merge two beats into one?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Merge two beats when they make the same point, by saying the stronger line while the camera shows the other beat's action.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Read each [beat](/glossary/#beat) and write its point in a few words in the margin. If two margins say much the same thing, those beats can become one. Say one beat's line over the other beat's picture, so nothing the viewer needs is lost, only the time it took to show them separately.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "For example, a beat where you explain that your old bottle leaked and a beat where you show the wet bag make the same point. Keep the bag on screen and say the leak line over it. When two beats make different points, do not merge them; cut the weaker one instead, because a beat that tries to carry two ideas is harder to follow than a short script.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you do with the lines the brief says you must include?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Mark the required lines before you cut anything, then trim around them and leave their wording exactly as the brief gives it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Highlight every line the [brief](/glossary/#brief) asks for, word for word, so you cannot cut one by accident halfway through a pass. Shortening a required line can change its meaning, so leave it alone even when a shorter version sounds better to you. [Fitting the brand's key points into a short script](/blog/fit-key-points-into-ugc-script/) covers where those lines can sit so they do not crowd the hook.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the script is still too long once everything else is gone, ask rather than guess. A message such as [NAME], with every required point in, the script runs past the length in the brief. Could one point move to on-screen text or the caption, or would you rather I drop one detail about [PRODUCT] from the middle? lets the brand choose what matters most.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a UGC script look like after it has been cut?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A cut script has one idea, beats that each change what is on screen, and no line the picture could say on its own.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The draft behind this example had a greeting, two stories about leaking bottles and a list of every feature. The cut version keeps one story, says nothing the camera shows, and lets the bag on screen carry the point.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a collapsible water bottle with a clip lid",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "My work bag has room for a laptop or a water bottle, and I kept choosing the laptop.",
+              "do": "Close-up of a packed work bag, a laptop sliding in and the zip pulled shut."
+            },
+            {
+              "part": "setup",
+              "say": "So I'd get to my desk and buy a drink on the way, every single morning.",
+              "do": "Hand placing a paper cup on a desk beside the bag."
+            },
+            {
+              "part": "beat 1",
+              "say": "This one folds down once it's empty.",
+              "do": "Hands pressing the empty bottle flat on the desk."
+            },
+            {
+              "part": "turn",
+              "say": "And now it clips to the outside, so the laptop gets the inside.",
+              "do": "The flat bottle clipped to the bag strap, then the bag lifted onto a shoulder."
+            },
+            {
+              "part": "close",
+              "say": "The one I use is linked, if your bag is as full as mine.",
+              "do": "Creator holds the folded bottle to the lens, then lowers it."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "How do you check the cut version is short enough?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Record yourself reading the cut script at your normal pace and compare it with the length the brief asks for.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Reading in your head runs faster than speaking, so a script that looks short on the page can still run long on camera. Say it out loud with the pauses you would really take, and do the actions with your hands as you go. If it still runs over, go back through the passes in the same order. Reading it aloud also shows where a line sounds written rather than said, and [a script that doesn't sound scripted](/blog/ugc-script-that-sounds-natural/) has ways to loosen those lines without adding length.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-13",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "My work bag has room for a laptop or a water bottle, and I kept choosing the laptop."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

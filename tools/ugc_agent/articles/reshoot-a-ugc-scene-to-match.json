@@ -1,0 +1,246 @@
+{
+  "question_id": "a015",
+  "slug": "reshoot-a-ugc-scene-to-match",
+  "theme": "ugc-filming",
+  "title": "How do you reshoot one UGC scene so it matches the rest?",
+  "description": "How to reshoot a UGC scene so it matches the rest: note outfit, light, framing and product position, then film a pickup that blends into the edit.",
+  "short_answer": "To reshoot one UGC scene so it matches, rebuild what the viewer saw in the shots around it: the same outfit, light, framing and product position. Check each of those against a still from the original footage before you record, then film the pickup a little longer than you need so it cuts in cleanly.",
+  "sections": [
+    {
+      "heading": "What should you note before you reshoot a scene?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Note the things that give a reshoot away first: your outfit, where the light came from, how tight the frame was, and where the product sat.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Open the clip that comes just before the scene you are replacing and the clip just after it. Pause each one and take a screenshot, because a still is easier to compare against than a memory. If you kept your clips labelled the way [organising your footage before you edit](/blog/organise-ugc-footage/) suggests, finding the neighbours takes a minute. Then write down what you see, line by line, the same way you would write a [shot list](/glossary/#shot-list) before a first shoot. If you planned the shoot as a [two-column script](/blog/two-column-script/), the column for what the camera sees already holds half of these notes.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "What to check",
+            "What to write down",
+            "Why it shows if you miss it"
+          ],
+          "table_rows": [
+            [
+              "Outfit and hair",
+              "The top, any jewellery, glasses, whether your hair was up or down and which side it fell on.",
+              "A change of clothes between two cuts reads as a different day straight away."
+            ],
+            [
+              "Light",
+              "Which window or lamp lit you, which side of your face was brighter, and the time of day.",
+              "A cooler or darker shot stands out even when nothing else has changed."
+            ],
+            [
+              "Framing",
+              "Where your eyes sat in the frame, how much of your shoulders showed, and the phone height.",
+              "A jump in size between two shots looks like a mistake rather than a cut."
+            ],
+            [
+              "Product",
+              "Which hand held it, which side of the label faced the lens, and how full or open it was.",
+              "A lid that is on in one shot and off in the next pulls attention away from what you are saying."
+            ],
+            [
+              "Background",
+              "What sat on the shelf or counter behind you and where.",
+              "A mug that appears and vanishes is the first thing a sharp viewer spots."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you match the light when the original was filmed days ago?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Film at the same time of day, in the same spot, because daylight changes direction and colour as the day goes on.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the first shoot used window light in the morning, set up for the morning again rather than trying to fake it in the evening with a lamp. Open or close the curtains to the same point, and switch on or off the same room lights. The setups in [how to light a UGC video at home](/blog/light-ugc-at-home/) are easier to repeat if you note which one you used the first time.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Before the real take, record a short test clip and put it next to your screenshot. Look at the side of your face nearest the window and at the colour of the wall behind you. If the test looks warmer or flatter, move a little closer to or further from the light until it lines up. When the weather is different from the first day, it can be quicker to wait for a matching day than to fight it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you get the framing and product position the same?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Hold a still of the original frame next to your phone and line up your eyes, shoulders and the product against it before you press record.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Use the same lens on your phone as before, because switching between the wide and standard lens changes how close everything looks.",
+            "Put the phone back at the same height and distance; a small piece of tape on the floor or table marks the spot for next time.",
+            "Mark where the product stood with a pencil dot or a scrap of tape, so it goes back to the same place after every take.",
+            "Turn the label to face the lens at the same angle, and match how full the product looks, because a half-empty bottle next to a full one reads as a different day.",
+            "Sit or stand the same way, since leaning in a little changes your size in the frame more than you would expect."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you film on your phone's front camera, the screen shows you the frame as you go, which makes lining up easier. The habits in [filming UGC on a phone](/blog/film-ugc-on-a-phone/) about locking focus and exposure help here too, since a frame that keeps adjusting will never match a still.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you film the pickup so it cuts in cleanly?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Start the take a line before the part you are replacing and keep going a line past it, so the edit has room to choose a clean cut.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Before you record, play the original clip once with the sound on. Listen to your pace and your energy, then say your first line over the old footage until it feels the same. A reshoot often comes out a little flatter or a little faster, because you have said the line so many times it no longer feels new.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Record in the same room with the same microphone, if you used one, because a change in room sound is as noticeable as a change in light. [Getting clear audio in a UGC video](/blog/ugc-audio/) covers how to keep that sound steady. Film three takes, and in at least one of them hold still for a second at the start and the end, which gives you a clean place to join the old footage.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What if the reshoot still does not match the rest?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Reshoot the whole beat instead of one line, because a complete beat can stand on its own without sitting right against the old footage.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [beat](/glossary/#beat) that starts and ends with a change on screen gives the viewer a reason for things to look a little different. If even that shows, cover the join with a cutaway: a close shot of the product or your hands, as in [what B-roll to film for a UGC video](/blog/ugc-b-roll/). The viewer hears your voice carry on while the picture moves to the product, and the mismatch is gone by the time you are back on screen.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If none of that works, tell the brand before you deliver rather than hoping nobody notices. A short message such as [NAME], the light changed between shoots, so I have refilmed the full product section to keep it consistent. The new version is here: [LINK] lets them choose with the facts in front of them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you make the next reshoot easier?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Take a reference photo of your whole setup before every shoot, because it costs a few seconds and removes the guessing if a scene comes back.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Stand where the phone will be and photograph the scene, then step back and photograph the phone, the light and the product from the side. Keep the outfit on a hanger until the brand has signed off the video, and keep a little of the product unopened. Save the photos in the same folder as the footage, so the next time a [brief](/glossary/#brief) asks for one changed line, everything you need to match it is in one place.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-13",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 5,
+      "voice": 4
+    }
+  }
+}

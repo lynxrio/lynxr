@@ -150,8 +150,18 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/brief-asks-for-too-much/</loc>
+    <lastmod>2026-11-13</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/comfortable-on-camera-for-ugc/</loc>
     <lastmod>2026-11-07</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/cut-a-ugc-script-that-runs-long/</loc>
+    <lastmod>2026-11-13</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -262,6 +272,11 @@
   <url>
     <loc>https://lynxr.io/blog/reply-to-free-product-offer/</loc>
     <lastmod>2026-11-07</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/reshoot-a-ugc-scene-to-match/</loc>
+    <lastmod>2026-11-13</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -491,12 +506,12 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-briefs/</loc>
-    <lastmod>2026-11-11</lastmod>
+    <lastmod>2026-11-13</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-filming/</loc>
-    <lastmod>2026-11-12</lastmod>
+    <lastmod>2026-11-13</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -521,7 +536,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-scripts/</loc>
-    <lastmod>2026-11-09</lastmod>
+    <lastmod>2026-11-13</lastmod>
     <priority>0.6</priority>
   </url>
   <!-- END UGC AGENT -->

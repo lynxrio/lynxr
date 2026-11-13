@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How do you cut a UGC script that runs too long?</title>
+<meta name="description" content="When a UGC script is too long, cut repeats and lines the picture already shows, merge beats that make the same point, and keep the brief's required lines.">
+<meta property="og:title" content="How do you cut a UGC script that runs too long?">
+<meta property="og:description" content="When a UGC script is too long, cut repeats and lines the picture already shows, merge beats that make the same point, and keep the brief's required lines.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="lynxr">
+<meta property="og:url" content="https://lynxr.io/blog/cut-a-ugc-script-that-runs-long/">
+<meta property="og:image" content="https://lynxr.io/og-v3.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How do you cut a UGC script that runs too long?">
+<meta name="twitter:description" content="When a UGC script is too long, cut repeats and lines the picture already shows, merge beats that make the same point, and keep the brief's required lines.">
+<meta name="twitter:image" content="https://lynxr.io/og-v3.png">
+<link rel="canonical" href="https://lynxr.io/blog/cut-a-ugc-script-that-runs-long/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261105c">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261105c">
+<link rel="shortcut icon" href="/favicon.ico?v=20261105c">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261105c">
+<link rel="stylesheet" href="/app.css?v=20261105c">
+<script src="/theme.js?v=20261105c"></script>
+<script src="/backdrop.js?v=20261105c" defer></script>
+<!-- BEGIN SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://lynxr.io/#organization",
+      "name": "lynxr",
+      "legalName": "lynxr LLC",
+      "disambiguatingDescription": "lynxr (lynxr.io) is the UGC creator tool: a web app that turns a TikTok or Instagram video into a script for a brand, made by lynxr LLC in Allston, Massachusetts. It is unrelated to the Honeywell and Ademco LYNXR, LYNXR-2 and LYNXR-I security control panels, to the Lynx R-1 and R-2 mixed reality headsets, and to lynxr.com.",
+      "alternateName": [
+        "lynxr.io",
+        "lynxr LLC"
+      ],
+      "url": "https://lynxr.io/",
+      "slogan": "the UGC creator tool",
+      "description": "lynxr LLC makes lynxr, the UGC creator tool: paste a TikTok or Instagram video and it writes that video's format as a script for the brand you make content for. lynxr LLC is a partner company of Lynx Media Group, the UGC agency.",
+      "logo": {
+        "@type": "ImageObject",
+        "@id": "https://lynxr.io/#logo",
+        "url": "https://lynxr.io/lynxr-logo.png",
+        "contentUrl": "https://lynxr.io/lynxr-logo.png",
+        "width": 512,
+        "height": 512,
+        "caption": "lynxr"
+      },
+      "image": {
+        "@id": "https://lynxr.io/#logo"
+      },
+      "email": "hello@lynxr.io",
+      "sameAs": [
+        "https://www.instagram.com/lynxr.io/",
+        "https://www.tiktok.com/@lynxr.io",
+        "https://www.linkedin.com/company/lynxr",
+        "https://github.com/lynxrio/lynxr"
+      ],
+      "founder": [
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": [
+            "https://www.instagram.com/junsahwang/"
+          ]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": [
+            "https://www.instagram.com/gawinhsu/"
+          ]
+        }
+      ],
+      "knowsAbout": [
+        "short-form video scripts",
+        "UGC scripts",
+        "video formats",
+        "hooks",
+        "TikTok",
+        "Instagram Reels"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://lynxmediagroup.org/#org",
+      "name": "Lynx Media Group",
+      "legalName": "Lynx Media Group LLC",
+      "url": "https://lynxmediagroup.org/",
+      "description": "A UGC agency in Allston, Massachusetts that runs creator campaigns for brands. Its partner company, lynxr LLC, makes lynxr.",
+      "logo": "https://lynxmediagroup.org/imgs/logo-social.png",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "57 Glenville Ave",
+        "addressLocality": "Allston",
+        "addressRegion": "MA",
+        "postalCode": "02134",
+        "addressCountry": "US"
+      },
+      "sameAs": [
+        "https://www.instagram.com/lynxmediagroup/",
+        "https://www.tiktok.com/@lynxmediagroup",
+        "https://www.linkedin.com/company/lynxmediagroup"
+      ],
+      "founder": [
+        {
+          "@id": "https://lynxr.io/#junsa-hwang"
+        },
+        {
+          "@id": "https://lynxr.io/#gawin-hsu"
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://lynxr.io/#website",
+      "url": "https://lynxr.io/",
+      "name": "lynxr",
+      "inLanguage": "en",
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "about": {
+        "@id": "https://lynxr.io/#lynxr"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://lynxr.io/#lynxr",
+      "name": "lynxr",
+      "url": "https://lynxr.io/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "lynxr is the UGC creator tool. It turns a short-form video into a script. You send it a public link to a TikTok or Instagram video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "featureList": [
+        "Reads a public TikTok or Instagram link. There is no file upload.",
+        "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
+        "Writes one script per company from a single link, reading the video only once.",
+        "Never asks for a platform password and never posts anything on your behalf."
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "UGC creators: people who make short-form videos for brands, and the people who brief them"
+      },
+      "isAccessibleForFree": true,
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Free to start: every account gets 3 scripts a week, no card required. Sign-up is open."
+        },
+        {
+          "@type": "Offer",
+          "name": "lynxr pro",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "24.99",
+            "priceCurrency": "USD",
+            "billingDuration": "P1M",
+            "unitText": "month"
+          },
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Up to 150 scripts in any rolling 30 days and up to 30 in any 24 hours, billed monthly. Tax is added at checkout where it applies."
+        }
+      ],
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "creator": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "alternateName": "lynxr.io"
+    }
+  ]
+}
+</script>
+<!-- END SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "@id": "https://lynxr.io/blog/cut-a-ugc-script-that-runs-long/#article",
+  "headline": "How do you cut a UGC script that runs too long?",
+  "description": "When a UGC script is too long, cut repeats and lines the picture already shows, merge beats that make the same point, and keep the brief's required lines.",
+  "image": "https://lynxr.io/og-v3.png",
+  "inLanguage": "en",
+  "datePublished": "2026-11-13",
+  "dateModified": "2026-11-13",
+  "author": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "publisher": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "isPartOf": {
+    "@id": "https://lynxr.io/#website"
+  },
+  "mentions": {
+    "@id": "https://lynxr.io/#lynxr"
+  },
+  "mainEntityOfPage": "https://lynxr.io/blog/cut-a-ugc-script-that-runs-long/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "lynxr",
+      "item": "https://lynxr.io/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "questions and answers",
+      "item": "https://lynxr.io/faq/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Writing UGC scripts",
+      "item": "https://lynxr.io/faq/ugc-scripts/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "How do you cut a UGC script that runs too long?",
+      "item": "https://lynxr.io/blog/cut-a-ugc-script-that-runs-long/"
+    }
+  ]
+}
+</script>
+</head>
+<!-- This page's visible copy is written in normal sentence case in the
+     source, unlike the lowercase-with-exceptions convention the rest of the
+     site uses. Painted output is identical either way — text-transform:
+     lowercase in app.css flattens all of it — but a model reading the source
+     sees real casing here, because this page carries no JSON-LD twin of its
+     prose the way /faq/ does, so the body text is the only machine-readable
+     copy there is. .lp unsets the app's bare main{} container so the sections
+     below can be full-bleed. See the marketing-page block in app.css. -->
+<body class="lp">
+<svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
+
+<header class="lp-bar">
+  <div class="lp-in lp-bar-in">
+    <a class="wordmark" href="/"><svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg><span>lynxr</span></a>
+    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+         fragment does nothing from /faq/ or /privacy/ — it appends a hash to
+         the current URL and stays put. -->
+    <nav class="lp-nav" aria-label="Main">
+      <a href="/how-it-works/">how it works</a>
+      <a href="/faq/">faq</a>
+    </nav>
+    <span class="lp-actions">
+    <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
+      <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.6 8.6 0 1 0 10.6 10.6z"/></svg>
+      <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
+      <span class="tt-knob"></span>
+    </button>
+    <a class="btn" href="/">get started</a>
+    <!-- Under 760px the nav and the CTA above are display:none and this takes
+         their place. aria-expanded carries the state to a screen reader AND
+         drives which glyph is drawn, so the two cannot disagree. -->
+    <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
+            aria-expanded="false" aria-controls="lp-menu">
+      <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button></span>
+  </div>
+  <!-- Inside the bar on purpose: the bar is the sticky element, so a panel
+       parented anywhere else would scroll away from the burger that opened it.
+       `hidden` — not opacity — is what takes these links out of the tab order
+       when it is closed. -->
+  <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
+    <a href="/how-it-works/">how it works</a>
+    <a href="/faq/">faq</a>
+    <a class="btn" href="/">get started</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="lp-hero">
+    <div class="lp-in">
+      <nav class="post-crumbs" aria-label="Breadcrumb"><a href="/">lynxr</a> / <a href="/faq/">questions</a> / <a href="/faq/ugc-scripts/"><span class="acr">UGC</span> scripts</a></nav>
+      <h1 class="lp-h1">How do you cut a <span class="acr">UGC</span> script that runs too long?</h1>
+      <p class="lp-lede">Cut a <span class="acr">UGC</span> script that runs too long by removing what repeats or what the camera already shows, then merging beats that make the same point. Mark the lines the brief requires before you start, so every cut happens around them. Read the new version aloud and record it once before you send it.</p>
+      <p class="post-meta">Published <time datetime="2026-11-13">13 November 2026</time></p>
+    </div>
+  </section>
+
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="what-should-you-cut-first-when">What should you cut first when a <span class="acr">UGC</span> script runs long?</h2>
+      <p class="lp-p">Cut the warm-up before the hook first, then any line that says something a second time, because neither gives the viewer anything new.</p>
+      <p class="lp-p">Work through the script in a fixed order, so you are not weighing every line against every other line at once. Each pass removes a different kind of extra, and the lines you care about are left standing at the end. If you are not sure how long the finished video should be, <a href="/blog/how-long-should-a-script-be/">how long should a <span class="acr">UGC</span> script be</a> helps you set the target before you start trimming.</p>
+      <ul class="lp-list">
+        <li>The warm-up: anything before the <a href="/glossary/#hook">hook</a>, such as a greeting or a line about what the video is going to be. The hook should be the first thing said.</li>
+        <li>Repeats: the same point made twice in different words. Keep the version that is more specific and delete the other.</li>
+        <li>Lines the picture already says: if the camera shows the lid clicking shut, you do not need to say it clicks shut.</li>
+        <li>Second examples: when one example makes the point, a second one only makes the video longer.</li>
+        <li>Extra features: anything that is not in the brief and does not help the one idea the video is built on.</li>
+        <li>Soft endings: a thank you, a sign-off or a second ask after the close.</li>
+      </ul>
+
+      <h2 class="lp-h2" id="how-do-you-spot-lines-the">How do you spot lines the camera already shows?</h2>
+      <p class="lp-p">Put each spoken line next to what is on screen at that moment, and cut any line that only describes the picture.</p>
+      <p class="lp-p">This is where a <a href="/blog/two-column-script/">two-column script</a> earns its place, because your spoken words and the picture sit in neighbouring columns, so a doubled line is easy to catch. A spoken line should add something the picture cannot: why it matters to you, what you were doing before, or what you noticed. Here is how the check looks on a few lines.</p>
+      <div class="post-table">
+        <table>
+          <thead><tr><th scope="col">Line as written</th><th scope="col">What the camera shows</th><th scope="col">Decision</th></tr></thead>
+          <tbody>
+            <tr><td>So I'm opening the box now.</td><td>Hands opening the box.</td><td>Cut it. The picture already says it.</td></tr>
+            <tr><td>It comes in this little pouch.</td><td>The pouch, held up to the lens.</td><td>Cut it, or swap it for why the pouch matters to you.</td></tr>
+            <tr><td>I keep it in my work bag, so it comes everywhere.</td><td>The product going into a bag.</td><td>Keep it. The picture cannot say where it lives or why.</td></tr>
+            <tr><td>You can see how thin it is.</td><td>The product turned side on.</td><td>Cut it and let the shot do the work.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 class="lp-h2" id="how-do-you-merge-two-beats">How do you merge two beats into one?</h2>
+      <p class="lp-p">Merge two beats when they make the same point, by saying the stronger line while the camera shows the other beat's action.</p>
+      <p class="lp-p">Read each <a href="/glossary/#beat">beat</a> and write its point in a few words in the margin. If two margins say much the same thing, those beats can become one. Say one beat's line over the other beat's picture, so nothing the viewer needs is lost, only the time it took to show them separately.</p>
+      <p class="lp-p">For example, a beat where you explain that your old bottle leaked and a beat where you show the wet bag make the same point. Keep the bag on screen and say the leak line over it. When two beats make different points, do not merge them; cut the weaker one instead, because a beat that tries to carry two ideas is harder to follow than a short script.</p>
+
+      <h2 class="lp-h2" id="what-do-you-do-with-the">What do you do with the lines the brief says you must include?</h2>
+      <p class="lp-p">Mark the required lines before you cut anything, then trim around them and leave their wording exactly as the brief gives it.</p>
+      <p class="lp-p">Highlight every line the <a href="/glossary/#brief">brief</a> asks for, word for word, so you cannot cut one by accident halfway through a pass. Shortening a required line can change its meaning, so leave it alone even when a shorter version sounds better to you. <a href="/blog/fit-key-points-into-ugc-script/">Fitting the brand's key points into a short script</a> covers where those lines can sit so they do not crowd the hook.</p>
+      <p class="lp-p">If the script is still too long once everything else is gone, ask rather than guess. A message such as [NAME], with every required point in, the script runs past the length in the brief. Could one point move to on-screen text or the caption, or would you rather I drop one detail about [PRODUCT] from the middle? lets the brand choose what matters most.</p>
+
+      <h2 class="lp-h2" id="what-does-a-ugc-script-look">What does a <span class="acr">UGC</span> script look like after it has been cut?</h2>
+      <p class="lp-p">A cut script has one idea, beats that each change what is on screen, and no line the picture could say on its own.</p>
+      <p class="lp-p">The draft behind this example had a greeting, two stories about leaking bottles and a list of every feature. The cut version keeps one story, says nothing the camera shows, and lets the bag on screen carry the point.</p>
+      <figure class="post-script">
+        <figcaption>Example script — written for this answer, for a collapsible water bottle with a clip lid</figcaption>
+        <ol class="ps-beats">
+          <li><span class="ps-part">hook</span><span class="ps-say">say: &ldquo;My work bag has room for a laptop or a water bottle, and I kept choosing the laptop.&rdquo;</span><span class="ps-do">do: Close-up of a packed work bag, a laptop sliding in and the zip pulled shut.</span></li>
+          <li><span class="ps-part">setup</span><span class="ps-say">say: &ldquo;So I'd get to my desk and buy a drink on the way, every single morning.&rdquo;</span><span class="ps-do">do: Hand placing a paper cup on a desk beside the bag.</span></li>
+          <li><span class="ps-part">beat 1</span><span class="ps-say">say: &ldquo;This one folds down once it's empty.&rdquo;</span><span class="ps-do">do: Hands pressing the empty bottle flat on the desk.</span></li>
+          <li><span class="ps-part">turn</span><span class="ps-say">say: &ldquo;And now it clips to the outside, so the laptop gets the inside.&rdquo;</span><span class="ps-do">do: The flat bottle clipped to the bag strap, then the bag lifted onto a shoulder.</span></li>
+          <li><span class="ps-part">close</span><span class="ps-say">say: &ldquo;The one I use is linked, if your bag is as full as mine.&rdquo;</span><span class="ps-do">do: Creator holds the folded bottle to the lens, then lowers it.</span></li>
+        </ol>
+      </figure>
+
+      <h2 class="lp-h2" id="how-do-you-check-the-cut">How do you check the cut version is short enough?</h2>
+      <p class="lp-p">Record yourself reading the cut script at your normal pace and compare it with the length the brief asks for.</p>
+      <p class="lp-p">Reading in your head runs faster than speaking, so a script that looks short on the page can still run long on camera. Say it out loud with the pauses you would really take, and do the actions with your hands as you go. If it still runs over, go back through the passes in the same order. Reading it aloud also shows where a line sounds written rather than said, and <a href="/blog/ugc-script-that-sounds-natural/">a script that doesn't sound scripted</a> has ways to loosen those lines without adding length.</p>
+    </div>
+  </section>
+
+  <section class="lp-band post-end">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="do-it-with-lynxr">Write your next <span class="acr">UGC</span> script with lynxr</h2>
+      <p class="lp-p">Paste a public TikTok or Instagram link on <a href="/">the homepage</a> and lynxr works out the format — hook, beats, turn, close — and writes it as a script for the brand you make content for. <a href="/how-it-works/">How lynxr writes scripts</a> shows each step. Free to start: <a href="/faq/#what-it-costs">3 scripts a week, no card</a>.</p>
+      <h2 class="lp-h2" id="more-questions">More questions about Writing <span class="acr">UGC</span> scripts</h2>
+      <ul class="lp-list">
+        <li><b><a href="/blog/fit-key-points-into-ugc-script/">How do you fit the brand's key points into a short <span class="acr">UGC</span> script?</a></b> — To fit a brand's key points into a short <span class="acr">UGC</span> script, build it around the point that matters most, then show or caption the others instead of saying them all.</li>
+        <li><b><a href="/blog/ugc-ad-vs-organic/">How is a <span class="acr">UGC</span> ad script different from an organic post?</a></b> — A <span class="acr">UGC</span> ad script is written for a stranger who never chose to follow you, so it names who the video is for and shows the product sooner.</li>
+        <li><b><a href="/blog/ugc-call-to-action/">How do you write a call to action for a <span class="acr">UGC</span> ad?</a></b> — A good call to action in a <span class="acr">UGC</span> ad is one short ask in the close that follows straight from the last thing you showed.</li>
+        <li><b><a href="/faq/ugc-scripts/">All questions about Writing <span class="acr">UGC</span> scripts</a></b> — scripts for every kind of product.</li>
+      </ul>
+      <h2 class="lp-h2" id="keep-reading">Keep reading</h2>
+      <ul class="lp-list">
+        <li><b><a href="/ugc-script-template/">A <span class="acr">UGC</span> script template that holds up</a></b></li>
+        <li><b><a href="/short-form-script-structure/">The parts of a <span class="acr">UGC</span> video script</a></b></li>
+        <li><b><a href="/faq/">Questions and answers</a></b> — about lynxr, and every topic <span class="acr">UGC</span> creators ask about.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer id="site-footer">
+  <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr</div>
+  <div class="foot-grid foot-grid-wide">
+    <div class="foot-brand">
+      <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
+      <p>your <span class="acr">UGC</span> buddy</p>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">lynxr</div>
+      <a class="foot-link" href="/">home</a>
+      <a class="foot-link" href="/how-it-works/">how it works</a>
+      <a class="foot-link" href="/faq/">faq</a>
+      <a class="foot-link" href="/pricing/">pricing</a>
+      <a class="foot-link" href="/about/">about</a>
+      <!-- Visible label "try it", accessible name "try it — join the wait
+           list". The .sr-only tail is inside the <a>, so it is part of the
+           name computation rather than a title attribute nobody hears. -->
+      <a class="foot-link" href="/">get started<span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">guides</div>
+      <a class="foot-link" href="/blog/">blog</a>
+      <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
+      <a class="foot-link" href="/turn-a-video-into-a-script/">video to script</a>
+      <a class="foot-link" href="/short-form-script-structure/">script structure</a>
+      <a class="foot-link" href="/glossary/">glossary</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">company</div>
+      <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
+      <a class="foot-link" href="/privacy/">privacy policy</a>
+      <a class="foot-link" href="/terms/">terms of service</a>
+      <a class="foot-link" href="/accessibility/">accessibility</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">socials</div>
+      <a class="foot-link" href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <a class="foot-link" href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">TikTok</a>
+      <a class="foot-link" href="https://www.linkedin.com/company/lynxr" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+    </div>
+  </div>
+  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+       of the sitewide lowercase text-transform. -->
+  <div class="foot-legal">
+    &copy; <span class="entity">lynxr LLC</span> 2026
+  </div>
+</footer>
+
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
+<script src="/site.js?v=20261105c" defer></script>
+<script src="/footer.js?v=20261105c" defer></script>
+
+</body>
+</html>

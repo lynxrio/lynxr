@@ -1,0 +1,226 @@
+{
+  "question_id": "a021",
+  "slug": "brief-asks-for-too-much",
+  "theme": "ugc-briefs",
+  "title": "What do you do when a brief asks for too much in one video?",
+  "description": "When a UGC brief has too many points for one video, sort the asks, give the brand a clear choice, and offer to split the rest into more videos.",
+  "short_answer": "When a brief asks for too much in one video, sort its asks into what the video is for and what could live elsewhere, then let the brand choose. Offer one focused version and a split into separate videos, and send that choice before you write the full script, so nobody is surprised by what gets left out.",
+  "sections": [
+    {
+      "heading": "How do you tell a brief is asking for too much?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write one line for every ask in the brief, then try to give each line its own beat; if the beats will not fit, the brief is overloaded.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [brief](/glossary/#brief) can list features, a story, a required line, a call to action and a mood all at once, and each one sounds reasonable on its own. The trouble shows up when you lay them out in order. Every point needs a [beat](/glossary/#beat) where the viewer sees it, and a video with more points than beats ends up saying things without showing them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Start by separating what is fixed from what is yours to choose, as in [turning a brand brief into a script](/blog/brief-to-script/). Then count the asks against the length the brand gave you. If you find yourself planning to say three features in one breath, or the hook has to wait for a list to finish, that is the signal to talk to the brand before writing further.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you sort the asks before you reply?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Sort every ask into three groups: what the video is for, what has to appear somewhere, and what would be nice but could go.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Do this sorting yourself first, because a brand can answer a clear proposal faster than an open question. Look for the one problem the product solves for the person in the brief; start from that, because it is the best guess at why the video exists. Your sorting is a suggestion, not a decision, so present it as one.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Group",
+            "What goes in it",
+            "Where it ends up"
+          ],
+          "table_rows": [
+            [
+              "The core",
+              "The one problem and the one feature that answers it.",
+              "Spoken and shown, built into the hook and the turn."
+            ],
+            [
+              "Must appear",
+              "Required lines, the product name, the call to action.",
+              "Spoken once, word for word, in the place the brief asks."
+            ],
+            [
+              "Could move",
+              "Extra features, a second use, a detail about the packaging.",
+              "On-screen text, the caption, or a separate video."
+            ],
+            [
+              "Could go",
+              "Asks that pull against the core, such as a second audience.",
+              "Raised with the brand as a question, not quietly dropped."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What options should you give the brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Give the brand two clear options: one focused video built on the core, or the same asks split across more than one video.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Focus: one video on the core, with the must-appear lines in place and the other points moved to on-screen text or the caption. This keeps the job the size it was agreed.",
+            "Split: one video per main point, each with its own hook. Each video gets room to show its point instead of naming it.",
+            "Trim and confirm: if neither fits, list the asks you would leave out and ask the brand to confirm before you film.",
+            "Keep each option to a line or two, so the brand can reply with one word."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A split means more videos, and more videos is more work, so agree the new scope and fee in writing with the brand before you film anything extra. Treat it as a new ask rather than something you add for free, because that keeps the conversation clear for both sides.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you word the reply to the brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Lead with what you want the video to do, name the problem in one sentence, and end with a choice the brand can answer quickly.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the tone on the video's side rather than your own, because the point is a stronger result for them, not less work for you. A message you can adapt:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Thanks for the brief, [NAME]. I want this video to land the main reason someone would pick [PRODUCT], and with every point in, each one would get a mention but none would get shown. Two ways I could handle it: one video on the core point, with the extra features as on-screen text, or a short series where each feature gets its own video. Which works better for you? I can send the script for the first option by [DATE].",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Send this before the full script, not with it, so you do not write a version that gets thrown away. If you have not asked your opening questions yet, the list in [what to ask a brand before you start filming](/blog/questions-to-ask-before-filming-ugc/) can go in the same message.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What if the brand still wants everything in one video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write the best version you can with everything in, and use the picture to carry the points you cannot say.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "It is their video, so once they have heard the trade-off, the call is theirs. Let the hand-held shots and on-screen text show the secondary features while your voice stays on the core point, and keep the [hook](/glossary/#hook) on one idea even if the middle gets busy. When you send the script, add a short note on which points sit in text rather than speech, as in [sending a script to a brand for approval](/blog/send-ugc-script-for-approval/), so nothing looks missing.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep a copy of the message where you raised the trade-off. If feedback later says the video feels crowded, you can point back to the options you offered and suggest the split again, calmly and without blame.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-13",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
