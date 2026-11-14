@@ -263,9 +263,9 @@
     "published": "2026-11-09"
   },
   "a008": {
-    "fails": 2,
-    "last_fail": "2026-11-12",
-    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-changes-after-delivery/index.html, e.g. 'lynxr questions briefs and revisions what do you do when a brand' (page breadcrumb + question title; not fix"
+    "fails": 3,
+    "last_fail": "2026-11-14",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-changes-after-delivery/index.html (breadcrumb + title 'what do you do when a brand')"
   },
   "a011": {
     "fails": 0,
@@ -306,5 +306,13 @@
   "a021": {
     "fails": 0,
     "published": "2026-11-13"
+  },
+  "a016": {
+    "fails": 0,
+    "published": "2026-11-14"
+  },
+  "a020": {
+    "fails": 0,
+    "published": "2026-11-14"
   }
 }

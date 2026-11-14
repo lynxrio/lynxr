@@ -1,0 +1,269 @@
+{
+  "question_id": "a016",
+  "slug": "film-a-product-that-is-hard-to-show",
+  "theme": "ugc-filming",
+  "title": "How do you film UGC with a product that is hard to show?",
+  "description": "How to film UGC for a boring or hard-to-show product: use your hands for scale, show it in use, and film the detail a viewer cannot see in a still.",
+  "short_answer": "Film a hard-to-show product by showing what it does in your hands rather than what it looks like on a table. Give it a size reference, a moment of use and one close detail, and let the setting explain the rest, so a small, clear or plain item still reads on a phone screen.",
+  "sections": [
+    {
+      "heading": "Why do some products look like nothing on camera?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Small, clear, flat or plain products give the camera no shape, colour or movement to hold on, so they vanish into the frame.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A tiny supplement capsule, a clear gel, a white charging cable or a grey sachet can all sit in the middle of a shot and still go unnoticed. The fix is not a fancier camera. It is giving the viewer something to compare the product with, something happening to it, and a reason to look closer. Plan those three before you film, and mark them in the camera column of a [two-column script](/blog/two-column-script/), so every line has a picture that carries the product.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the [brief](/glossary/#brief) lists shots the [brand](/glossary/#brand) needs, start from that list and add these on top, rather than replacing it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you show the size of a small product?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Put it next to something every viewer already knows the size of, ideally your own hand, because a hand gives scale without any words.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Hold the product between finger and thumb, or rest it in an open palm close to the lens. Then pull back so the hand and the item are both in frame for a beat. If a hand alone is not enough, set it next to a key, a mug or a phone. Say the comparison out loud too, in plain terms: it fits in my coat pocket, it is about the length of my thumb.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Keep the background plain behind small items, because busy patterns swallow them.",
+            "Move the product, not the camera, so the eye follows one thing.",
+            "Film the size shot twice, once close and once wider, so you have a choice in the edit."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you film when the product itself does nothing visible?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Film the moment before and after you use it, because the change in your routine is the story when the product has no action of its own.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A plain storage pouch does nothing, but your bag going from a tangle of cables to one neat pocket does. A clear spray does nothing visible, but your hand reaching for it at the same point every morning shows where it fits. Keep it to what you really did and noticed, and leave out any promise about what it will do for someone else. [The guide to filming a product demo](/blog/film-a-ugc-product-demo/) covers how to keep a use shot honest and unstaged.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Your [hook](/glossary/#hook) can lean on the situation instead of the product. Here is a short example built around an item with no movement of its own.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a clear silicone cable organiser",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I found my charger in the bottom of my bag again, under a loose snack bar.",
+              "do": "Tip the bag out onto a bed so the tangled cable lands on top."
+            },
+            {
+              "part": "setup",
+              "say": "The cable is never the problem. Where it ends up is.",
+              "do": "Hold the knotted cable up to the lens and let it hang."
+            },
+            {
+              "part": "beat 1",
+              "say": "So this little clip lives on the strap now.",
+              "do": "Pinch the clear organiser between finger and thumb next to the strap buckle."
+            },
+            {
+              "part": "beat 2",
+              "say": "The cable wraps once and clicks in.",
+              "do": "Close-up of the cable sliding in, filmed against a dark fabric so the clear plastic shows its edge."
+            },
+            {
+              "part": "turn",
+              "say": "Next morning I just pulled it off the strap and plugged in.",
+              "do": "One hand unclips it at a desk while the other holds the phone."
+            },
+            {
+              "part": "close",
+              "say": "It is linked below if your cable keeps escaping too.",
+              "do": "Hold it up to the camera in an open palm, then drop it back into the bag."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "How do you make a clear or plain product readable?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Change what is behind it and how the light hits it, because a clear or plain item only shows up against contrast.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Put a clear product in front of a dark surface, and a white product in front of a mid-tone one. Turn it slowly near a window so the edges catch the light. For a liquid, film it moving: a drop on a fingertip, a pour, a pump. For plain packaging, film the one detail that has texture, such as a seam, a lid opening or a fold. [Lighting a UGC video at home](/blog/light-ugc-at-home/) helps if your room only has one window.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Product type",
+            "What goes wrong",
+            "What to film instead"
+          ],
+          "table_rows": [
+            [
+              "Very small",
+              "It shrinks to a dot in a wide shot",
+              "Hand for scale, then a close-up held still"
+            ],
+            [
+              "Clear or see-through",
+              "It blends into the background",
+              "A dark surface behind it and window light on its edges"
+            ],
+            [
+              "Plain packaging",
+              "Nothing to look at",
+              "The one texture: opening the lid, peeling the seal, a fold"
+            ],
+            [
+              "Works out of sight",
+              "No visible action",
+              "Your routine before and after, filmed in the same spot"
+            ],
+            [
+              "Looks like every rival",
+              "No reason to look twice",
+              "The detail you chose it for, named out loud as you show it"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which extra shots should you film for the edit?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Film a few short clips of the product in its real setting, because the editor needs cutaways to cover lines where the product is not doing anything.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "A placing shot: you putting it where it lives, on a shelf, in a bag, on a desk.",
+            "A reach shot: your hand picking it up without looking, which shows it is part of your day.",
+            "A detail shot: the lid, button or texture, filmed close and held for a slow count.",
+            "A scale shot: the item in your palm or next to something familiar.",
+            "A packed-away shot: the product put back, so the video can end on it."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Let every cutaway run on past the point where you would stop, so the edit has room to trim. [The list of B-roll worth filming](/blog/ugc-b-roll/) has more ideas when one product shot is not enough. If you are unsure what the brand wants to see most, ask before filming rather than guessing.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-14",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I found my charger in the bottom of my bag again, under a loose snack bar."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

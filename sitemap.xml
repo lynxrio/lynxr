@@ -175,6 +175,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/film-a-product-that-is-hard-to-show/</loc>
+    <lastmod>2026-11-14</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/film-a-ugc-product-demo/</loc>
     <lastmod>2026-10-31</lastmod>
     <priority>0.6</priority>
@@ -435,6 +440,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/ugc-script-in-your-own-voice/</loc>
+    <lastmod>2026-11-14</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/ugc-script-that-sounds-natural/</loc>
     <lastmod>2026-11-04</lastmod>
     <priority>0.6</priority>
@@ -511,7 +521,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-filming/</loc>
-    <lastmod>2026-11-13</lastmod>
+    <lastmod>2026-11-14</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -536,7 +546,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-scripts/</loc>
-    <lastmod>2026-11-13</lastmod>
+    <lastmod>2026-11-14</lastmod>
     <priority>0.6</priority>
   </url>
   <!-- END UGC AGENT -->
