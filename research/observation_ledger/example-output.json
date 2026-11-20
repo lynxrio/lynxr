@@ -1,0 +1,137 @@
+{
+  "evidence_type": "synthetic_fixture",
+  "fixture_payload_sha256": "5fc16ce2736edf1247b1eadf9bb53391662a63a499a6d71d3409fadbecb379b7",
+  "imported_observations": 9,
+  "interpretation": "Invented data validates temporal queries only; no real observations, predictions or performance evaluated.",
+  "measurement_age_ms": 172800000,
+  "mode": "availability_simulation_not_contemporaneous_history",
+  "separate_v2_observation_ids": [
+    "syn:d-48-v2-late",
+    "syn:e-48-v2"
+  ],
+  "walk_forward": [
+    {
+      "cutoff_exclusive": "2025-01-05T00:00:00.000Z",
+      "definition_id": "syn:views-v1",
+      "missingness": {
+        "observed": 1
+      },
+      "observations": [
+        {
+          "available_at": "2025-01-02T01:00:00.000Z",
+          "missingness": "observed",
+          "observation_id": "syn:a-48",
+          "observed_at": "2025-01-02T00:00:00.000Z",
+          "post_id": "syn:post-a",
+          "value": 100
+        }
+      ],
+      "permission_states": {
+        "granted": 1
+      },
+      "recorded_mode_rows_at_this_past_cutoff": 0
+    },
+    {
+      "cutoff_exclusive": "2025-01-12T00:00:00.000Z",
+      "definition_id": "syn:views-v1",
+      "missingness": {
+        "observed": 3,
+        "unavailable": 1
+      },
+      "observations": [
+        {
+          "available_at": "2025-01-02T01:00:00.000Z",
+          "missingness": "observed",
+          "observation_id": "syn:a-48",
+          "observed_at": "2025-01-02T00:00:00.000Z",
+          "post_id": "syn:post-a",
+          "value": 100
+        },
+        {
+          "available_at": "2025-01-10T01:00:00.000Z",
+          "missingness": "observed",
+          "observation_id": "syn:b-late",
+          "observed_at": "2025-01-04T00:00:00.000Z",
+          "post_id": "syn:post-b",
+          "value": 50
+        },
+        {
+          "available_at": "2025-01-07T01:00:00.000Z",
+          "missingness": "unavailable",
+          "observation_id": "syn:c-private",
+          "observed_at": "2025-01-07T00:00:00.000Z",
+          "post_id": "syn:post-c",
+          "value": null
+        },
+        {
+          "available_at": "2025-01-10T01:00:00.000Z",
+          "missingness": "observed",
+          "observation_id": "syn:d-48",
+          "observed_at": "2025-01-10T00:00:00.000Z",
+          "post_id": "syn:post-d",
+          "value": 200
+        }
+      ],
+      "permission_states": {
+        "granted": 4
+      },
+      "recorded_mode_rows_at_this_past_cutoff": 0
+    },
+    {
+      "cutoff_exclusive": "2025-01-19T00:00:00.000Z",
+      "definition_id": "syn:views-v1",
+      "missingness": {
+        "observed": 3,
+        "permission_denied": 1,
+        "unavailable": 1
+      },
+      "observations": [
+        {
+          "available_at": "2025-01-02T01:00:00.000Z",
+          "missingness": "observed",
+          "observation_id": "syn:a-48",
+          "observed_at": "2025-01-02T00:00:00.000Z",
+          "post_id": "syn:post-a",
+          "value": 100
+        },
+        {
+          "available_at": "2025-01-10T01:00:00.000Z",
+          "missingness": "observed",
+          "observation_id": "syn:b-late",
+          "observed_at": "2025-01-04T00:00:00.000Z",
+          "post_id": "syn:post-b",
+          "value": 50
+        },
+        {
+          "available_at": "2025-01-07T01:00:00.000Z",
+          "missingness": "unavailable",
+          "observation_id": "syn:c-private",
+          "observed_at": "2025-01-07T00:00:00.000Z",
+          "post_id": "syn:post-c",
+          "value": null
+        },
+        {
+          "available_at": "2025-01-10T01:00:00.000Z",
+          "missingness": "observed",
+          "observation_id": "syn:d-48",
+          "observed_at": "2025-01-10T00:00:00.000Z",
+          "post_id": "syn:post-d",
+          "value": 200
+        },
+        {
+          "available_at": "2025-01-14T01:00:00.000Z",
+          "missingness": "permission_denied",
+          "observation_id": "syn:f-denied",
+          "observed_at": "2025-01-14T00:00:00.000Z",
+          "post_id": "syn:post-f",
+          "value": null
+        }
+      ],
+      "permission_states": {
+        "denied": 1,
+        "granted": 4
+      },
+      "recorded_mode_rows_at_this_past_cutoff": 0
+    }
+  ]
+}
