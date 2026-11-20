@@ -37,6 +37,7 @@ TESTS = [
     "pipeline/test_link_checks.py",
     "pipeline/test_prefilter.py",
     "pipeline/test_script_checks.py",
+    "pipeline/test_synthetic_eval.py",
     "pipeline/test_showcase.py",
     "pipeline/test_track_posts.py",
     "pipeline/test_video_limits.py",

@@ -9,6 +9,7 @@ inside the repo" rule, which is the same reasoning). The repo itself only
 ever holds synthetic strings (pipeline/test_script_checks.py).
 
 Subcommands (see script-quality.md steps 3-7 for the full spec of each):
+    synthetic [--format markdown|json]       free — bundled synthetic checks, no worker imports
     audit     [--since YYYY-MM-DD]           read-only, free
     fixtures                                  read-only, free — freezes 20 cases
     run       --arm NAME [...]                the only subcommand that spends money
@@ -39,6 +40,13 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+# This bounded path must run before production imports or eval-directory creation.
+# It reads only checked-in invented fixtures; legacy commands retain their setup.
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "synthetic":
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from synthetic_eval import main as synthetic_main
+    raise SystemExit(synthetic_main(sys.argv[2:]))
 
 ROOT = Path(__file__).resolve().parent.parent
 PIPELINE = Path(__file__).resolve().parent
@@ -1820,6 +1828,9 @@ def build_parser():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
+
+    import synthetic_eval
+    synthetic_eval.configure(sub.add_parser("synthetic", help="free — bundled synthetic-only deterministic regression report"))
 
     p_audit = sub.add_parser("audit", help="tally the checks over every real backup")
     p_audit.add_argument("--since", default=None, help="YYYY-MM-DD, only snapshots from this date on")

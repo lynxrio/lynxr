@@ -1,0 +1,844 @@
+{
+  "id": "mission-001-synthetic-v1",
+  "evidence_type": "synthetic_fixture",
+  "provenance": "All fixtures are deliberately invented and versioned in pipeline/fixtures/script_quality_synthetic.json. Existing script_checks.py supplies word counting, lexical hook overlap, delivery matching and narrow claim-token matching. Synthetic conditions are test budgets, not Schedule B acceptance criteria.",
+  "cases": [
+    {
+      "id": "clean-spoken",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": []
+    },
+    {
+      "id": "word-budget-exceeded",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 10
+      },
+      "expected_failures": [
+        "length.words"
+      ]
+    },
+    {
+      "id": "hook-repeated",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "A simpler morning starts here",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": [
+        "hook.repetition"
+      ]
+    },
+    {
+      "id": "overlapping-and-overlong",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "3-13s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": [
+        "timing.order_2",
+        "timing.source_duration"
+      ]
+    },
+    {
+      "id": "reversed-timing",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "4-0s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": [
+        "timing.beat_1"
+      ]
+    },
+    {
+      "id": "missing-conditions",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {},
+      "format": {},
+      "brand": {},
+      "conditions": {},
+      "expected_failures": []
+    },
+    {
+      "id": "format-malformed",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": -1
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": [
+        "structure.format"
+      ]
+    },
+    {
+      "id": "split-beat-needs-review",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          },
+          {
+            "role": "extra structural beat",
+            "seconds": 1
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": []
+    },
+    {
+      "id": "obvious-claim-mismatches",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "Visit imagined-tray.example.com for 50% off with free shipping",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": []
+    },
+    {
+      "id": "silent-with-speech-conflict",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "silent",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": false,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": [
+        "structure.source_delivery"
+      ]
+    },
+    {
+      "id": "invalid-delivery",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "narrated",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": [
+        "structure.delivery"
+      ]
+    },
+    {
+      "id": "malformed-beats",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          "invalid"
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": [
+        "structure.beats"
+      ]
+    },
+    {
+      "id": "invalid-time-syntax",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "NaN-Infinitys",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": [
+        "timing.beat_1"
+      ]
+    },
+    {
+      "id": "timing-gap",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "5-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": []
+    },
+    {
+      "id": "silent-clean",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "silent",
+        "hook": "A simpler morning starts here",
+        "cta": "See how it fits your desk",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": false,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": []
+    },
+    {
+      "id": "qualitative-promises",
+      "evidence_type": "synthetic_fixture",
+      "provenance": "Invented for detector regression; no creator, brand, video, model output, or literature source.",
+      "adaptation": {
+        "delivery": "spoken",
+        "hook": "A simpler morning starts here",
+        "cta": "Guaranteed results, clinically proven to cure clutter",
+        "caption": "A desk idea",
+        "beats": [
+          {
+            "t": "0-4s",
+            "say": "The tray keeps each small item within reach",
+            "do": "Place tray on desk",
+            "show": "Desk tray"
+          },
+          {
+            "t": "4-8s",
+            "say": "Move it aside when you need more room",
+            "do": "Slide tray away",
+            "show": "Clear desk"
+          }
+        ]
+      },
+      "source": {
+        "duration": 10,
+        "script": {
+          "has_speech": true,
+          "text": "A quiet morning begins at this desk where every little item has a place and the surface stays clear today"
+        }
+      },
+      "format": {
+        "name": "Reveal then reset",
+        "beats": [
+          {
+            "role": "reveal",
+            "seconds": 4
+          },
+          {
+            "role": "reset",
+            "seconds": 4
+          }
+        ]
+      },
+      "brand": {
+        "name": "Imaginary Tray",
+        "description": "A small desk tray that holds everyday items. No claims about price or promotions."
+      },
+      "conditions": {
+        "max_spoken_words": 40
+      },
+      "expected_failures": []
+    }
+  ]
+}
