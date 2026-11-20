@@ -1,0 +1,1019 @@
+[
+  {
+    "availability": "available",
+    "available_at": "2024-12-10T03:00:00Z",
+    "collected_at": "2024-12-10T02:00:00Z",
+    "content_hash": "invented-content-fixture-a-h0",
+    "creator": "fixture-a",
+    "discovered_at": "2024-12-10T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-10T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "fixture-a-h0",
+    "near_duplicate_group": "invented-group-fixture-a-h0",
+    "observations": [
+      {
+        "available_at": "2024-12-12T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-a-h0",
+        "observed_at": "2024-12-12T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-a-h0",
+        "views": 100
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-10T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-11T03:00:00Z",
+    "collected_at": "2024-12-11T02:00:00Z",
+    "content_hash": "invented-content-fixture-a-h1",
+    "creator": "fixture-a",
+    "discovered_at": "2024-12-11T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-11T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Curiosity Gap",
+      "niche": "Productivity & Apps",
+      "pacing": "slow",
+      "product_entry": "late",
+      "reveal": "late",
+      "roles": [
+        "setup",
+        "withhold",
+        "reveal",
+        "cta"
+      ]
+    },
+    "format_id": "reveal",
+    "id": "fixture-a-h1",
+    "near_duplicate_group": "invented-group-fixture-a-h1",
+    "observations": [
+      {
+        "available_at": "2024-12-13T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-a-h1",
+        "observed_at": "2024-12-13T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-a-h1",
+        "views": 200
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-11T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-12T03:00:00Z",
+    "collected_at": "2024-12-12T02:00:00Z",
+    "content_hash": "invented-content-fixture-a-h2",
+    "creator": "fixture-a",
+    "discovered_at": "2024-12-12T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-12T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Audience Call-Out",
+      "niche": "Productivity & Apps",
+      "pacing": "moderate",
+      "product_entry": "early",
+      "reveal": "mid",
+      "roles": [
+        "promise",
+        "item",
+        "comparison",
+        "payoff",
+        "cta"
+      ]
+    },
+    "format_id": "list",
+    "id": "fixture-a-h2",
+    "near_duplicate_group": "invented-group-fixture-a-h2",
+    "observations": [
+      {
+        "available_at": "2024-12-14T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-a-h2",
+        "observed_at": "2024-12-14T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-a-h2",
+        "views": 100
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-12T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-13T03:00:00Z",
+    "collected_at": "2024-12-13T02:00:00Z",
+    "content_hash": "invented-content-fixture-a-h3",
+    "creator": "fixture-a",
+    "discovered_at": "2024-12-13T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-13T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Question",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "early",
+      "reveal": "mid",
+      "roles": [
+        "problem",
+        "screen_demo",
+        "measurement",
+        "cta"
+      ]
+    },
+    "format_id": "unadopted",
+    "id": "fixture-a-h3",
+    "near_duplicate_group": "invented-group-fixture-a-h3",
+    "observations": [
+      {
+        "available_at": "2024-12-15T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-a-h3",
+        "observed_at": "2024-12-15T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-a-h3",
+        "views": 500
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-13T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-10T03:00:00Z",
+    "collected_at": "2024-12-10T02:00:00Z",
+    "content_hash": "invented-content-fixture-b-h0",
+    "creator": "fixture-b",
+    "discovered_at": "2024-12-10T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-10T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "fixture-b-h0",
+    "near_duplicate_group": "invented-group-fixture-b-h0",
+    "observations": [
+      {
+        "available_at": "2024-12-12T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-b-h0",
+        "observed_at": "2024-12-12T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-b-h0",
+        "views": 1000
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-10T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-11T03:00:00Z",
+    "collected_at": "2024-12-11T02:00:00Z",
+    "content_hash": "invented-content-fixture-b-h1",
+    "creator": "fixture-b",
+    "discovered_at": "2024-12-11T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-11T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Curiosity Gap",
+      "niche": "Productivity & Apps",
+      "pacing": "slow",
+      "product_entry": "late",
+      "reveal": "late",
+      "roles": [
+        "setup",
+        "withhold",
+        "reveal",
+        "cta"
+      ]
+    },
+    "format_id": "reveal",
+    "id": "fixture-b-h1",
+    "near_duplicate_group": "invented-group-fixture-b-h1",
+    "observations": [
+      {
+        "available_at": "2024-12-13T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-b-h1",
+        "observed_at": "2024-12-13T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-b-h1",
+        "views": 500
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-11T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-12T03:00:00Z",
+    "collected_at": "2024-12-12T02:00:00Z",
+    "content_hash": "invented-content-fixture-b-h2",
+    "creator": "fixture-b",
+    "discovered_at": "2024-12-12T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-12T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Audience Call-Out",
+      "niche": "Productivity & Apps",
+      "pacing": "moderate",
+      "product_entry": "early",
+      "reveal": "mid",
+      "roles": [
+        "promise",
+        "item",
+        "comparison",
+        "payoff",
+        "cta"
+      ]
+    },
+    "format_id": "list",
+    "id": "fixture-b-h2",
+    "near_duplicate_group": "invented-group-fixture-b-h2",
+    "observations": [
+      {
+        "available_at": "2024-12-14T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-b-h2",
+        "observed_at": "2024-12-14T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-b-h2",
+        "views": 1000
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-12T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-13T03:00:00Z",
+    "collected_at": "2024-12-13T02:00:00Z",
+    "content_hash": "invented-content-fixture-b-h3",
+    "creator": "fixture-b",
+    "discovered_at": "2024-12-13T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-13T04:00:00Z",
+    "format": {
+      "audience": "athletes",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Question",
+      "niche": "Fitness & Wellness",
+      "pacing": "fast",
+      "product_entry": "early",
+      "reveal": "late",
+      "roles": [
+        "challenge",
+        "demonstration",
+        "result",
+        "cta"
+      ]
+    },
+    "format_id": "fitness",
+    "id": "fixture-b-h3",
+    "near_duplicate_group": "invented-group-fixture-b-h3",
+    "observations": [
+      {
+        "available_at": "2024-12-15T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-b-h3",
+        "observed_at": "2024-12-15T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-b-h3",
+        "views": 800
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-13T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-10T03:00:00Z",
+    "collected_at": "2024-12-10T02:00:00Z",
+    "content_hash": "invented-content-fixture-c-h0",
+    "creator": "fixture-c",
+    "discovered_at": "2024-12-10T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-10T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "fixture-c-h0",
+    "near_duplicate_group": "invented-group-fixture-c-h0",
+    "observations": [
+      {
+        "available_at": "2024-12-12T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-c-h0",
+        "observed_at": "2024-12-12T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-c-h0",
+        "views": 50
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-10T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-11T03:00:00Z",
+    "collected_at": "2024-12-11T02:00:00Z",
+    "content_hash": "invented-content-fixture-c-h1",
+    "creator": "fixture-c",
+    "discovered_at": "2024-12-11T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-11T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Curiosity Gap",
+      "niche": "Productivity & Apps",
+      "pacing": "slow",
+      "product_entry": "late",
+      "reveal": "late",
+      "roles": [
+        "setup",
+        "withhold",
+        "reveal",
+        "cta"
+      ]
+    },
+    "format_id": "reveal",
+    "id": "fixture-c-h1",
+    "near_duplicate_group": "invented-group-fixture-c-h1",
+    "observations": [
+      {
+        "available_at": "2024-12-13T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-c-h1",
+        "observed_at": "2024-12-13T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-c-h1",
+        "views": 60
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-11T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-12T03:00:00Z",
+    "collected_at": "2024-12-12T02:00:00Z",
+    "content_hash": "invented-content-fixture-c-h2",
+    "creator": "fixture-c",
+    "discovered_at": "2024-12-12T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-12T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Audience Call-Out",
+      "niche": "Productivity & Apps",
+      "pacing": "moderate",
+      "product_entry": "early",
+      "reveal": "mid",
+      "roles": [
+        "promise",
+        "item",
+        "comparison",
+        "payoff",
+        "cta"
+      ]
+    },
+    "format_id": "list",
+    "id": "fixture-c-h2",
+    "near_duplicate_group": "invented-group-fixture-c-h2",
+    "observations": [
+      {
+        "available_at": "2024-12-14T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-c-h2",
+        "observed_at": "2024-12-14T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-c-h2",
+        "views": 50
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-12T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-13T03:00:00Z",
+    "collected_at": "2024-12-13T02:00:00Z",
+    "content_hash": "invented-content-fixture-c-h3",
+    "creator": "fixture-c",
+    "discovered_at": "2024-12-13T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-13T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "fixture-c-h3",
+    "near_duplicate_group": "invented-group-fixture-c-h3",
+    "observations": [
+      {
+        "available_at": "2024-12-15T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-c-h3",
+        "observed_at": "2024-12-15T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-c-h3",
+        "views": 30
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-13T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-10T03:00:00Z",
+    "collected_at": "2024-12-10T02:00:00Z",
+    "content_hash": "invented-content-fixture-zero-h0",
+    "creator": "fixture-zero",
+    "discovered_at": "2024-12-10T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-10T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "fixture-zero-h0",
+    "near_duplicate_group": "invented-group-fixture-zero-h0",
+    "observations": [
+      {
+        "available_at": "2024-12-12T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-zero-h0",
+        "observed_at": "2024-12-12T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-zero-h0",
+        "views": 0
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-10T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-11T03:00:00Z",
+    "collected_at": "2024-12-11T02:00:00Z",
+    "content_hash": "invented-content-fixture-zero-h1",
+    "creator": "fixture-zero",
+    "discovered_at": "2024-12-11T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-11T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Curiosity Gap",
+      "niche": "Productivity & Apps",
+      "pacing": "slow",
+      "product_entry": "late",
+      "reveal": "late",
+      "roles": [
+        "setup",
+        "withhold",
+        "reveal",
+        "cta"
+      ]
+    },
+    "format_id": "reveal",
+    "id": "fixture-zero-h1",
+    "near_duplicate_group": "invented-group-fixture-zero-h1",
+    "observations": [
+      {
+        "available_at": "2024-12-13T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-zero-h1",
+        "observed_at": "2024-12-13T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-zero-h1",
+        "views": 0
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-11T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-12T03:00:00Z",
+    "collected_at": "2024-12-12T02:00:00Z",
+    "content_hash": "invented-content-fixture-zero-h2",
+    "creator": "fixture-zero",
+    "discovered_at": "2024-12-12T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-12T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Audience Call-Out",
+      "niche": "Productivity & Apps",
+      "pacing": "moderate",
+      "product_entry": "early",
+      "reveal": "mid",
+      "roles": [
+        "promise",
+        "item",
+        "comparison",
+        "payoff",
+        "cta"
+      ]
+    },
+    "format_id": "list",
+    "id": "fixture-zero-h2",
+    "near_duplicate_group": "invented-group-fixture-zero-h2",
+    "observations": [
+      {
+        "available_at": "2024-12-14T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-zero-h2",
+        "observed_at": "2024-12-14T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-zero-h2",
+        "views": 0
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-12T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-11-01T03:00:00Z",
+    "collected_at": "2024-11-01T02:00:00Z",
+    "content_hash": "invented-content-historical-lifetime-only",
+    "creator": "fixture-a",
+    "discovered_at": "2024-11-01T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-11-01T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Audience Call-Out",
+      "niche": "Productivity & Apps",
+      "pacing": "moderate",
+      "product_entry": "early",
+      "reveal": "mid",
+      "roles": [
+        "promise",
+        "item",
+        "comparison",
+        "payoff",
+        "cta"
+      ]
+    },
+    "format_id": "list",
+    "id": "historical-lifetime-only",
+    "near_duplicate_group": "invented-group-historical-lifetime-only",
+    "observations": [
+      {
+        "available_at": "2026-01-01T00:01:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-historical-lifetime-only",
+        "observed_at": "2026-01-01T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "historical-lifetime-only",
+        "views": 999999
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-11-01T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-10T03:00:00Z",
+    "collected_at": "2024-12-10T02:00:00Z",
+    "content_hash": "invented-content-fixture-a-h0",
+    "creator": "fixture-a",
+    "discovered_at": "2024-12-10T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-10T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "historical-duplicate",
+    "near_duplicate_group": "invented-group-fixture-a-h0",
+    "observations": [
+      {
+        "available_at": "2024-12-12T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-a-h0",
+        "observed_at": "2024-12-12T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-a-h0",
+        "views": 100
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-10T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2026-01-01T02:00:00Z",
+    "collected_at": "2026-01-01T01:00:00Z",
+    "content_hash": "invented-content-fixture-a-h0",
+    "creator": "fixture-a",
+    "discovered_at": "2026-01-01T00:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2026-01-01T03:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "future-discovered",
+    "near_duplicate_group": "invented-group-fixture-a-h0",
+    "observations": [
+      {
+        "available_at": "2024-12-12T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-a-h0",
+        "observed_at": "2024-12-12T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-a-h0",
+        "views": 100
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-10T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-10T03:00:00Z",
+    "collected_at": "2024-12-10T02:00:00Z",
+    "content_hash": "invented-content-fixture-a-h0",
+    "creator": "fixture-a",
+    "discovered_at": "2024-12-10T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2026-01-01T00:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "future-extracted",
+    "near_duplicate_group": "invented-group-fixture-a-h0",
+    "observations": [
+      {
+        "available_at": "2024-12-12T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-a-h0",
+        "observed_at": "2024-12-12T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-a-h0",
+        "views": 100
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-10T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-10T03:00:00Z",
+    "collected_at": "2024-12-10T02:00:00Z",
+    "content_hash": "invented-content-fixture-a-h0",
+    "creator": "fixture-a",
+    "discovered_at": null,
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-10T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "unknown-time",
+    "near_duplicate_group": "invented-group-fixture-a-h0",
+    "observations": [
+      {
+        "available_at": "2024-12-12T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-a-h0",
+        "observed_at": "2024-12-12T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-a-h0",
+        "views": 100
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-10T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-10T03:00:00Z",
+    "collected_at": "2024-12-10T02:00:00Z",
+    "content_hash": "invented-content-fixture-a-h0",
+    "creator": "fixture-a",
+    "discovered_at": "2024-12-10T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-10T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "permission-unknown",
+    "near_duplicate_group": "invented-group-fixture-a-h0",
+    "observations": [
+      {
+        "available_at": "2024-12-12T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-a-h0",
+        "observed_at": "2024-12-12T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-a-h0",
+        "views": 100
+      }
+    ],
+    "permission": "unknown",
+    "platform": "instagram",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-10T00:00:00Z",
+    "sampling_probability": 1
+  },
+  {
+    "availability": "available",
+    "available_at": "2024-12-10T03:00:00Z",
+    "collected_at": "2024-12-10T02:00:00Z",
+    "content_hash": "invented-content-fixture-a-h0",
+    "creator": "fixture-a",
+    "discovered_at": "2024-12-10T01:00:00Z",
+    "evidence_type": "synthetic_fixture",
+    "feature_version": "invented-structure-v1",
+    "features_available_at": "2024-12-10T04:00:00Z",
+    "format": {
+      "audience": "makers",
+      "cta": "late",
+      "delivery": "spoken",
+      "hook": "Relatable Pain",
+      "niche": "Productivity & Apps",
+      "pacing": "fast",
+      "product_entry": "mid",
+      "reveal": "late",
+      "roles": [
+        "pain",
+        "demo",
+        "resolution",
+        "cta"
+      ]
+    },
+    "format_id": "problem-demo",
+    "id": "other-platform",
+    "near_duplicate_group": "invented-group-fixture-a-h0",
+    "observations": [
+      {
+        "available_at": "2024-12-12T00:05:00Z",
+        "evidence_type": "synthetic_fixture",
+        "id": "obs-fixture-a-h0",
+        "observed_at": "2024-12-12T00:00:00Z",
+        "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+        "video_id": "fixture-a-h0",
+        "views": 100
+      }
+    ],
+    "permission": "synthetic_only",
+    "platform": "tiktok",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "published_at": "2024-12-10T00:00:00Z",
+    "sampling_probability": 1
+  }
+]

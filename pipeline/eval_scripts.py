@@ -9,6 +9,7 @@ inside the repo" rule, which is the same reasoning). The repo itself only
 ever holds synthetic strings (pipeline/test_script_checks.py).
 
 Subcommands (see script-quality.md steps 3-7 for the full spec of each):
+    historical [--format markdown|json]      bundled synthetic point-in-time proof; no worker imports
     audit     [--since YYYY-MM-DD]           read-only, free
     fixtures                                  read-only, free — freezes 20 cases
     run       --arm NAME [...]                the only subcommand that spends money
@@ -39,6 +40,13 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+# The synthetic historical path must precede production imports and directory creation.
+# Same isolation pattern reviewed in PR #10; no dependency on its unmerged branch.
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "historical":
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from historical_backtest import main as historical_main
+    raise SystemExit(historical_main(sys.argv[2:]))
 
 ROOT = Path(__file__).resolve().parent.parent
 PIPELINE = Path(__file__).resolve().parent
@@ -1820,6 +1828,11 @@ def build_parser():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
+
+    import historical_backtest
+    p_historical = sub.add_parser("historical", help="bundled synthetic-only point-in-time proof")
+    p_historical.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    p_historical.set_defaults(func=lambda a: historical_backtest.main(["--format", a.format]))
 
     p_audit = sub.add_parser("audit", help="tally the checks over every real backup")
     p_audit.add_argument("--since", default=None, help="YYYY-MM-DD, only snapshots from this date on")

@@ -1,0 +1,38 @@
+{
+  "age_hours": 48,
+  "age_tolerance_hours": 0,
+  "candidate_end": "2025-01-07T00:00:00Z",
+  "candidate_start": "2025-01-05T00:00:00Z",
+  "complete_candidate_manifest": true,
+  "creators": [
+    "fixture-a",
+    "fixture-b",
+    "fixture-c",
+    "fixture-d",
+    "fixture-zero"
+  ],
+  "cutoff": "2025-01-05T00:00:00Z",
+  "evidence_type": "synthetic_fixture",
+  "feature_version": "invented-structure-v1",
+  "k": 2,
+  "matching": {
+    "cta": 0.1,
+    "delivery": 0.1,
+    "hook": 0.2,
+    "pacing": 0.1,
+    "product_entry": 0.1,
+    "reveal": 0.1,
+    "roles": 0.3,
+    "roles_min": 0.8,
+    "threshold": 0.85
+  },
+  "min_baseline": 3,
+  "outcome_close": "2025-01-10T00:00:00Z",
+  "platform": "instagram",
+  "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+  "roster_available_at": "2025-01-01T00:00:00Z",
+  "sampling_probability": 1,
+  "seed": 17,
+  "target_niche": "Productivity & Apps",
+  "version": "historical-v1"
+}

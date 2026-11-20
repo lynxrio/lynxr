@@ -1,0 +1,83 @@
+[
+  {
+    "available_at": "2025-01-07T00:05:00Z",
+    "evidence_type": "synthetic_fixture",
+    "id": "obs-future-under",
+    "observed_at": "2025-01-07T00:00:00Z",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "video_id": "future-under",
+    "views": 30
+  },
+  {
+    "available_at": "2025-01-08T00:05:00Z",
+    "evidence_type": "synthetic_fixture",
+    "id": "obs-future-typical",
+    "observed_at": "2025-01-08T00:00:00Z",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "video_id": "future-typical",
+    "views": 150
+  },
+  {
+    "available_at": "2025-01-07T12:05:00Z",
+    "evidence_type": "synthetic_fixture",
+    "id": "obs-future-over",
+    "observed_at": "2025-01-07T12:00:00Z",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "video_id": "future-over",
+    "views": 1800
+  },
+  {
+    "available_at": "2025-01-08T12:05:00Z",
+    "evidence_type": "synthetic_fixture",
+    "id": "obs-future-breakout",
+    "observed_at": "2025-01-08T12:00:00Z",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "video_id": "future-breakout",
+    "views": 200
+  },
+  {
+    "available_at": "2025-01-08T18:05:00Z",
+    "evidence_type": "synthetic_fixture",
+    "id": "obs-future-unknown",
+    "observed_at": "2025-01-08T18:00:00Z",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "video_id": "future-unknown",
+    "views": null
+  },
+  {
+    "available_at": "2026-01-01T00:01:00Z",
+    "evidence_type": "synthetic_fixture",
+    "id": "obs-future-lifetime-only",
+    "observed_at": "2026-01-01T00:00:00Z",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "video_id": "future-lifetime-only",
+    "views": 450
+  },
+  {
+    "available_at": "2025-01-07T18:05:00Z",
+    "evidence_type": "synthetic_fixture",
+    "id": "obs-future-no-baseline",
+    "observed_at": "2025-01-07T18:00:00Z",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "video_id": "future-no-baseline",
+    "views": 300
+  },
+  {
+    "available_at": "2025-01-07T18:05:00Z",
+    "evidence_type": "synthetic_fixture",
+    "id": "obs-future-zero-baseline",
+    "observed_at": "2025-01-07T18:00:00Z",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "video_id": "future-zero-baseline",
+    "views": 5
+  },
+  {
+    "available_at": "2025-01-07T22:05:00Z",
+    "evidence_type": "synthetic_fixture",
+    "id": "obs-future-generic",
+    "observed_at": "2025-01-07T22:00:00Z",
+    "provenance": "Deliberately invented Mission 002 data; no real creator, video, metric or model output.",
+    "video_id": "future-generic",
+    "views": 50
+  }
+]
