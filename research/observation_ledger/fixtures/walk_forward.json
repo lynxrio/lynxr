@@ -1,0 +1,359 @@
+{
+  "schema_version": 1,
+  "evidence_type": "synthetic_fixture",
+  "artifact_id": "syn:walk-forward-fixture",
+  "payload_sha256": "5fc16ce2736edf1247b1eadf9bb53391662a63a499a6d71d3409fadbecb379b7",
+  "observations": [
+    {
+      "schema_version": 1,
+      "evidence_type": "synthetic_fixture",
+      "platform": "instagram",
+      "creator_id": "syn:creator-a",
+      "source": {
+        "source_id": "syn:export-source",
+        "source_record_id": "syn:a-48",
+        "artifact_id": "syn:walk-forward-fixture",
+        "evidence_ref": "syn:invented-origin",
+        "method": "invented_fixture"
+      },
+      "permission": {
+        "status": "granted",
+        "purpose": "synthetic_research_only",
+        "evidence_ref": "syn:invented-permission",
+        "available_at": "2024-12-01T00:00:00Z"
+      },
+      "metric": {
+        "definition_id": "syn:views-v1",
+        "name": "views",
+        "version": "syn:counter-v1",
+        "unit": "count",
+        "definition": "SYNTHETIC: cumulative plays including repeat plays; invented fixture semantics."
+      },
+      "post_status": "available",
+      "missingness": "observed",
+      "extraction_version": "syn:extract-v1",
+      "analysis_version": "syn:ledger-v1",
+      "observation_id": "syn:a-48",
+      "post_id": "syn:post-a",
+      "published_at": "2024-12-31T00:00:00Z",
+      "observed_at": "2025-01-02T00:00:00Z",
+      "collected_at": "2025-01-02T00:00:00Z",
+      "extracted_at": "2025-01-02T01:00:00Z",
+      "available_at": "2025-01-02T01:00:00Z",
+      "value": 100,
+      "measurement_age_ms": 172800000
+    },
+    {
+      "schema_version": 1,
+      "evidence_type": "synthetic_fixture",
+      "platform": "instagram",
+      "creator_id": "syn:creator-a",
+      "source": {
+        "source_id": "syn:export-source",
+        "source_record_id": "syn:a-96",
+        "artifact_id": "syn:walk-forward-fixture",
+        "evidence_ref": "syn:invented-origin",
+        "method": "invented_fixture"
+      },
+      "permission": {
+        "status": "granted",
+        "purpose": "synthetic_research_only",
+        "evidence_ref": "syn:invented-permission",
+        "available_at": "2024-12-01T00:00:00Z"
+      },
+      "metric": {
+        "definition_id": "syn:views-v1",
+        "name": "views",
+        "version": "syn:counter-v1",
+        "unit": "count",
+        "definition": "SYNTHETIC: cumulative plays including repeat plays; invented fixture semantics."
+      },
+      "post_status": "available",
+      "missingness": "observed",
+      "extraction_version": "syn:extract-v1",
+      "analysis_version": "syn:ledger-v1",
+      "observation_id": "syn:a-96",
+      "post_id": "syn:post-a",
+      "published_at": "2024-12-31T00:00:00Z",
+      "observed_at": "2025-01-04T00:00:00Z",
+      "collected_at": "2025-01-04T00:00:00Z",
+      "extracted_at": "2025-01-04T01:00:00Z",
+      "available_at": "2025-01-04T01:00:00Z",
+      "value": 160,
+      "measurement_age_ms": 345600000
+    },
+    {
+      "schema_version": 1,
+      "evidence_type": "synthetic_fixture",
+      "platform": "instagram",
+      "creator_id": "syn:creator-a",
+      "source": {
+        "source_id": "syn:export-source",
+        "source_record_id": "syn:b-late",
+        "artifact_id": "syn:walk-forward-fixture",
+        "evidence_ref": "syn:invented-origin",
+        "method": "invented_fixture"
+      },
+      "permission": {
+        "status": "granted",
+        "purpose": "synthetic_research_only",
+        "evidence_ref": "syn:invented-permission",
+        "available_at": "2024-12-01T00:00:00Z"
+      },
+      "metric": {
+        "definition_id": "syn:views-v1",
+        "name": "views",
+        "version": "syn:counter-v1",
+        "unit": "count",
+        "definition": "SYNTHETIC: cumulative plays including repeat plays; invented fixture semantics."
+      },
+      "post_status": "available",
+      "missingness": "observed",
+      "extraction_version": "syn:extract-v1",
+      "analysis_version": "syn:ledger-v1",
+      "observation_id": "syn:b-late",
+      "post_id": "syn:post-b",
+      "published_at": "2025-01-02T00:00:00Z",
+      "observed_at": "2025-01-04T00:00:00Z",
+      "collected_at": "2025-01-04T00:00:00Z",
+      "extracted_at": "2025-01-10T01:00:00Z",
+      "available_at": "2025-01-10T01:00:00Z",
+      "value": 50,
+      "measurement_age_ms": 172800000
+    },
+    {
+      "schema_version": 1,
+      "evidence_type": "synthetic_fixture",
+      "platform": "instagram",
+      "creator_id": "syn:creator-a",
+      "source": {
+        "source_id": "syn:export-source",
+        "source_record_id": "syn:c-private",
+        "artifact_id": "syn:walk-forward-fixture",
+        "evidence_ref": "syn:invented-origin",
+        "method": "invented_fixture"
+      },
+      "permission": {
+        "status": "granted",
+        "purpose": "synthetic_research_only",
+        "evidence_ref": "syn:invented-permission",
+        "available_at": "2024-12-01T00:00:00Z"
+      },
+      "metric": {
+        "definition_id": "syn:views-v1",
+        "name": "views",
+        "version": "syn:counter-v1",
+        "unit": "count",
+        "definition": "SYNTHETIC: cumulative plays including repeat plays; invented fixture semantics."
+      },
+      "post_status": "private",
+      "missingness": "unavailable",
+      "extraction_version": "syn:extract-v1",
+      "analysis_version": "syn:ledger-v1",
+      "observation_id": "syn:c-private",
+      "post_id": "syn:post-c",
+      "published_at": "2025-01-05T00:00:00Z",
+      "observed_at": "2025-01-07T00:00:00Z",
+      "collected_at": "2025-01-07T00:00:00Z",
+      "extracted_at": "2025-01-07T01:00:00Z",
+      "available_at": "2025-01-07T01:00:00Z",
+      "value": null,
+      "measurement_age_ms": 172800000
+    },
+    {
+      "schema_version": 1,
+      "evidence_type": "synthetic_fixture",
+      "platform": "instagram",
+      "creator_id": "syn:creator-a",
+      "source": {
+        "source_id": "syn:export-source",
+        "source_record_id": "syn:d-capture",
+        "artifact_id": "syn:walk-forward-fixture",
+        "evidence_ref": "syn:invented-origin",
+        "method": "invented_fixture"
+      },
+      "permission": {
+        "status": "granted",
+        "purpose": "synthetic_research_only",
+        "evidence_ref": "syn:invented-permission",
+        "available_at": "2024-12-01T00:00:00Z"
+      },
+      "metric": {
+        "definition_id": "syn:views-v1",
+        "name": "views",
+        "version": "syn:counter-v1",
+        "unit": "count",
+        "definition": "SYNTHETIC: cumulative plays including repeat plays; invented fixture semantics."
+      },
+      "post_status": "available",
+      "missingness": "observed",
+      "extraction_version": "syn:extract-v1",
+      "analysis_version": "syn:ledger-v1",
+      "observation_id": "syn:d-48",
+      "post_id": "syn:post-d",
+      "published_at": "2025-01-08T00:00:00Z",
+      "observed_at": "2025-01-10T00:00:00Z",
+      "collected_at": "2025-01-10T00:00:00Z",
+      "extracted_at": "2025-01-10T01:00:00Z",
+      "available_at": "2025-01-10T01:00:00Z",
+      "value": 200,
+      "measurement_age_ms": 172800000
+    },
+    {
+      "schema_version": 1,
+      "evidence_type": "synthetic_fixture",
+      "platform": "instagram",
+      "creator_id": "syn:creator-a",
+      "source": {
+        "source_id": "syn:export-source",
+        "source_record_id": "syn:a-deleted",
+        "artifact_id": "syn:walk-forward-fixture",
+        "evidence_ref": "syn:invented-origin",
+        "method": "invented_fixture"
+      },
+      "permission": {
+        "status": "granted",
+        "purpose": "synthetic_research_only",
+        "evidence_ref": "syn:invented-permission",
+        "available_at": "2024-12-01T00:00:00Z"
+      },
+      "metric": {
+        "definition_id": "syn:views-v1",
+        "name": "views",
+        "version": "syn:counter-v1",
+        "unit": "count",
+        "definition": "SYNTHETIC: cumulative plays including repeat plays; invented fixture semantics."
+      },
+      "post_status": "deleted",
+      "missingness": "deleted",
+      "extraction_version": "syn:extract-v1",
+      "analysis_version": "syn:ledger-v1",
+      "observation_id": "syn:a-deleted",
+      "post_id": "syn:post-a",
+      "published_at": "2024-12-31T00:00:00Z",
+      "observed_at": "2025-01-11T00:00:00Z",
+      "collected_at": "2025-01-11T00:00:00Z",
+      "extracted_at": "2025-01-11T01:00:00Z",
+      "available_at": "2025-01-11T01:00:00Z",
+      "value": null,
+      "measurement_age_ms": 950400000
+    },
+    {
+      "schema_version": 1,
+      "evidence_type": "synthetic_fixture",
+      "platform": "instagram",
+      "creator_id": "syn:creator-a",
+      "source": {
+        "source_id": "syn:export-source",
+        "source_record_id": "syn:e-48-v2",
+        "artifact_id": "syn:walk-forward-fixture",
+        "evidence_ref": "syn:invented-origin",
+        "method": "invented_fixture"
+      },
+      "permission": {
+        "status": "granted",
+        "purpose": "synthetic_research_only",
+        "evidence_ref": "syn:invented-permission",
+        "available_at": "2024-12-01T00:00:00Z"
+      },
+      "metric": {
+        "definition_id": "syn:views-v2",
+        "name": "views",
+        "version": "syn:counter-v2",
+        "unit": "count",
+        "definition": "SYNTHETIC: unique accounts rather than repeat plays; intentionally incompatible counter definition."
+      },
+      "post_status": "available",
+      "missingness": "observed",
+      "extraction_version": "syn:extract-v2",
+      "analysis_version": "syn:ledger-v1",
+      "observation_id": "syn:e-48-v2",
+      "post_id": "syn:post-e",
+      "published_at": "2025-01-15T00:00:00Z",
+      "observed_at": "2025-01-17T00:00:00Z",
+      "collected_at": "2025-01-17T00:00:00Z",
+      "extracted_at": "2025-01-17T01:00:00Z",
+      "available_at": "2025-01-17T01:00:00Z",
+      "value": 250,
+      "measurement_age_ms": 172800000
+    },
+    {
+      "schema_version": 1,
+      "evidence_type": "synthetic_fixture",
+      "platform": "instagram",
+      "creator_id": "syn:creator-a",
+      "source": {
+        "source_id": "syn:export-source",
+        "source_record_id": "syn:d-capture",
+        "artifact_id": "syn:walk-forward-fixture",
+        "evidence_ref": "syn:invented-origin",
+        "method": "invented_fixture"
+      },
+      "permission": {
+        "status": "granted",
+        "purpose": "synthetic_research_only",
+        "evidence_ref": "syn:invented-permission",
+        "available_at": "2024-12-01T00:00:00Z"
+      },
+      "metric": {
+        "definition_id": "syn:views-v2",
+        "name": "views",
+        "version": "syn:counter-v2",
+        "unit": "count",
+        "definition": "SYNTHETIC: unique accounts rather than repeat plays; intentionally incompatible counter definition."
+      },
+      "post_status": "available",
+      "missingness": "observed",
+      "extraction_version": "syn:extract-v2",
+      "analysis_version": "syn:ledger-v1",
+      "observation_id": "syn:d-48-v2-late",
+      "post_id": "syn:post-d",
+      "published_at": "2025-01-08T00:00:00Z",
+      "observed_at": "2025-01-10T00:00:00Z",
+      "collected_at": "2025-01-10T00:00:00Z",
+      "extracted_at": "2025-01-16T01:00:00Z",
+      "available_at": "2025-01-16T01:00:00Z",
+      "value": 120,
+      "measurement_age_ms": 172800000
+    },
+    {
+      "schema_version": 1,
+      "evidence_type": "synthetic_fixture",
+      "platform": "instagram",
+      "creator_id": "syn:creator-a",
+      "source": {
+        "source_id": "syn:export-source",
+        "source_record_id": "syn:f-denied",
+        "artifact_id": "syn:walk-forward-fixture",
+        "evidence_ref": "syn:invented-origin",
+        "method": "invented_fixture"
+      },
+      "permission": {
+        "status": "denied",
+        "purpose": "synthetic_research_only",
+        "evidence_ref": "syn:invented-permission",
+        "available_at": "2024-12-01T00:00:00Z"
+      },
+      "metric": {
+        "definition_id": "syn:views-v1",
+        "name": "views",
+        "version": "syn:counter-v1",
+        "unit": "count",
+        "definition": "SYNTHETIC: cumulative plays including repeat plays; invented fixture semantics."
+      },
+      "post_status": "unknown",
+      "missingness": "permission_denied",
+      "extraction_version": "syn:extract-v1",
+      "analysis_version": "syn:ledger-v1",
+      "observation_id": "syn:f-denied",
+      "post_id": "syn:post-f",
+      "published_at": "2025-01-12T00:00:00Z",
+      "observed_at": "2025-01-14T00:00:00Z",
+      "collected_at": "2025-01-14T00:00:00Z",
+      "extracted_at": "2025-01-14T01:00:00Z",
+      "available_at": "2025-01-14T01:00:00Z",
+      "value": null,
+      "measurement_age_ms": 172800000
+    }
+  ]
+}

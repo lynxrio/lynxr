@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lynxr Quant Lab · Script intelligence</title><link rel="stylesheet" href="/lab.css"><script defer src="/intelligence.js"></script></head>
+<body>
+<aside class="sidebar"><a class="brand" href="/">lynxr<span>QUANT LAB</span></a><div class="local">OFFLINE RESEARCH · NO MEDIA FETCH</div><nav aria-label="Research navigation"><a class="button" href="/">Return to real Reels</a></nav><div class="sidebar-note"><p>Evidence before recommendations.</p><small>Manual annotations and descriptive signals. No production connections or predictive alpha.</small></div></aside>
+<main><header><span>LYNXR RESEARCH / SCRIPT INTELLIGENCE</span><a class="button" href="/api/intelligence.json">Export reproducible report</a></header>
+<h1>Review the evidence.</h1><p>Explore existing licensed human-annotated Reels. Source categories remain attributed judgments, not Lynxr video viewing. Current permission gates any separately configured creator export.</p>
+<div id="error" role="alert" hidden></div>
+<section><h2>Real-record review priorities</h2><p>Ranked by coverage and sampled creator breadth. These are places to inspect examples, not forecasts of future performance. Ratios use other same-account posts in coarse age bands.</p><div id="signal-summary"></div><div id="signal-table" class="table-wrap"></div><div id="scope" class="provenance-card"></div></section>
+<section><h2>Authorized creator observations</h2><div id="authorized-state" class="provenance-card"></div><p>Missing clocks are retained for accounting, excluded from chronological analysis. Current permission is rechecked on each server request. Browser drafts never write the ledger.</p></section>
+<section><h2>Manual format annotation</h2><p>Select a real source record. Review only evidence you have permission to use. Published global labels cannot establish timecoded narrative beats, spoken delivery, reveal or product entry. Leave those unknown unless separately authorized evidence supplies them.</p>
+<form id="annotation-form" class="annotation-form">
+<label for="annotation-post">Real source record</label><select id="annotation-post" required></select>
+<a id="original-source" class="button" target="_blank" rel="noopener noreferrer">Open original on Instagram</a>
+<label for="annotator">Annotator / reviewer</label><input id="annotator" maxlength="200" required placeholder="Name or research reviewer ID">
+<label for="grant-id">Reviewed permission grant ID</label><input id="grant-id" maxlength="200" required placeholder="Must match the offline permission manifest">
+<label for="evidence-mode">Evidence actually reviewed</label><select id="evidence-mode"><option value="licensed_annotation_review">Published licensed annotations only</option><option value="authorized_video_review">Separately authorized video review</option><option value="creator_supplied_annotation">Creator-supplied annotation</option></select>
+<label for="evidence-reference">Evidence reference and attribution</label><input id="evidence-reference" maxlength="500" required placeholder="Document / row / authorized asset reference; no credentials">
+<label for="format-json">Format annotation · JSON null means unknown</label><textarea id="format-json" rows="22" maxlength="30000" spellcheck="false" required></textarea>
+<details><summary>Taxonomy and decision rules</summary><pre id="taxonomy"></pre><p>Beats have role, start_s, end_s and modality; intervals must be ordered and nonoverlapping. Hook boundaries need both start_s and end_s. Product-entry/reveal are seconds from video start. Pace is a subjective slow/medium/fast category, not cuts per second. “none” is explicitly observed absence; null is unknown. The visual delivery label means no speech, not merely a visually interesting video. Each independent revision is preserved; it does not silently replace another rater.</p></details>
+<button class="primary button" type="submit">Download annotation draft</button><p id="draft-status" role="status">Drafts require explicit offline admission with verified permission evidence. Nothing is saved to production.</p>
+</form></section>
+</main></body></html>

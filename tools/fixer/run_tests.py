@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 TESTS = [
+    "pipeline/test_observation_ledger.py",
     "pipeline/test_ai_retry.py",
     "pipeline/test_allowance.py",
     "pipeline/test_backup.py",
@@ -43,6 +44,7 @@ TESTS = [
     "pipeline/test_views.py",
     "pipeline/test_watchdog.py",
     "tools/fixer/test_gate.py",
+    "pipeline/test_quant_lab.py",
 ]
 
 
