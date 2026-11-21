@@ -1,0 +1,251 @@
+{
+  "question_id": "a042",
+  "slug": "hook-for-a-familiar-product",
+  "theme": "ugc-hooks",
+  "title": "How do you write a hook for a product most people already know?",
+  "description": "How to write a UGC hook for a familiar, everyday product by finding a specific situation or detail from your own home instead of naming the category.",
+  "short_answer": "Write a hook for a familiar product by opening on a specific moment from your own life, not on the product category. Skip the line everyone could say, find one small situation or detail only you have filmed, and let the product arrive as the answer to it a few seconds later.",
+  "sections": [
+    {
+      "heading": "Why is a hook for an everyday product harder to write?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Naming a familiar product tells the viewer nothing new, so the hook has to carry something they have not seen before.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "With a new gadget, showing it can be the surprise. With a towel, a kettle or a toothbrush, the viewer already has one, so a line like this is the best towel I own gives them no reason to keep watching. The fix is to move the [hook](/glossary/#hook) away from the product and onto a moment around it: the mess, the habit, the small annoyance, the odd place it ended up. That moment is yours, so it is new even when the product is not.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "This also changes where the product goes. For a familiar item it often works to hold the name back for a beat or two; [should a UGC hook mention the product at all?](/blog/should-the-hook-mention-the-product/) walks through that choice in more depth.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Where do you find a fresh angle on a familiar product?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Look at the moments before, during and after you use the product, and pick the one that is most specific to your home.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Use the product for a few days with your phone nearby and write down anything that makes you pause. The hook shapes in [the main hook guide](/how-to-write-a-hook/) still apply; what changes is where the material comes from. These four sources give you a starting point.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Where to look",
+            "Question to ask yourself",
+            "Hook it could lead to"
+          ],
+          "table_rows": [
+            [
+              "The mess around it",
+              "What does the spot look like before I use it?",
+              "There are three mugs of cold tea on my desk and I made all of them."
+            ],
+            [
+              "The habit it replaced",
+              "What did I do instead, and why did I stop?",
+              "I was boiling the kettle twice every morning because I kept forgetting it."
+            ],
+            [
+              "One small detail",
+              "What part of it would I point at if a friend picked it up?",
+              "Look at the bristles on this, then look at the ones on my old brush."
+            ],
+            [
+              "Who else uses it",
+              "Does anyone in my home use it differently?",
+              "My flatmate has been using my good scissors to open parcels."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Every line in the right-hand column is something you would have to see or live to write. That is the test: if any creator could say the line without owning the product, find a more specific moment.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you turn a small detail into a hook line?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write the obvious line first, cross it out, then rewrite it around the one detail you can show in the first shot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Write the generic version, such as I love this towel, so you know what you are moving away from.",
+            "List three moments from your notes where the product, or the problem it fixes for you, was in the room.",
+            "Pick the moment with a picture you can film in one shot, because the first frame has to back up the first line.",
+            "Rewrite the line so it names the moment, not the product, and keep it to one breath.",
+            "Say it out loud to camera and cut any word you stumble on."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Write two or three versions from different moments and film them all, so the brand can choose. [How many hooks should you film for one UGC video?](/blog/ugc-hook-variations/) covers how to shoot the alternatives without reshooting the whole video.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a script with a familiar-product hook look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here the hook opens on a crowded towel hook, and the product only appears once that moment has been shown.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a thick cotton bath towel",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "My bathroom has one hook and four towels fighting over it.",
+              "do": "Film the overloaded hook up close as one towel slides off the pile onto the floor."
+            },
+            {
+              "part": "setup",
+              "say": "Every towel we own is thin, so we just kept adding more.",
+              "do": "Pull a thin towel off the hook and hold it up so the window light shows through it."
+            },
+            {
+              "part": "beat 1",
+              "say": "So I swapped the whole pile for two of these.",
+              "do": "Drop the thin towels in a basket, then fold the thick towel over your arm."
+            },
+            {
+              "part": "beat 2",
+              "say": "It has a loop sewn in, so it hangs on its own instead of sliding off.",
+              "do": "Hang the towel by its loop, let go, and hold the shot while it stays put."
+            },
+            {
+              "part": "turn",
+              "say": "Same hook, same bathroom, and now there's only one thing on it.",
+              "do": "Step back to show the whole hook with the single towel hanging neatly."
+            },
+            {
+              "part": "close",
+              "say": "These are the ones I got. They're linked, if your hook needs a break too.",
+              "do": "Lift the towel off the hook and hold it towards the camera."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "How do you check the hook does not oversell an ordinary product?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Check that the rest of the video shows exactly what the hook sets up, and nothing bigger, before you send it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "With an everyday product it is tempting to inflate the opening to make up for the product being plain, with lines like you have been doing this wrong your whole life. If the video then shows a normal towel on a hook, the [payoff](/glossary/#payoff) falls short and the viewer feels tricked. Read your hook, then watch the last few seconds, and ask whether the ending answers the opening in full. [Hook and payoff](/blog/hook-payoff/) has a quick way to audit that match.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Last, read the hook against the [brief](/glossary/#brief). If the brand asks for the product to be seen in the first frame, keep your moment and put the product inside it, as in this answer on [a product that has to open the video](/blog/product-first-frame-hook/), rather than dropping the moment altogether.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-21",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "My bathroom has one hook and four towels fighting over it."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

@@ -1,0 +1,276 @@
+{
+  "question_id": "a039",
+  "slug": "things-i-wish-i-knew-ugc-video",
+  "theme": "ugc-formats",
+  "title": "How do you script a 'things I wish I knew' UGC video?",
+  "description": "How to script a things I wish I knew UGC video: choosing honest lessons from real use, ordering them into beats, and closing without a result claim.",
+  "short_answer": "Script a things I wish I knew UGC video as a short list of honest lessons from using the product, each shown on camera, ending on why you use it. Open on the wish, give each lesson its own beat with something to see, and close by pointing the viewer to the product without promising them anything.",
+  "sections": [
+    {
+      "heading": "What makes a things I wish I knew video work for a brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "It works because each lesson is practical advice from your own use, so the product appears as something you learned to live with, not something you are selling.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The format borrows the shape of a friend warning you before you buy. That gives you a built-in [hook](/glossary/#hook), the wish itself, and a reason for the viewer to stay, because they are waiting for the next lesson. It differs from a [testimonial-style video](/blog/ugc-testimonial-video/) in one way that matters: a testimonial says why you like the product, while this format says what you would do differently. The lessons carry the video, and the product sits inside every one of them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you want to see where it sits among other shapes, [what are the main types of UGC video?](/blog/types-of-ugc-videos/) lays them out side by side.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you choose which lessons to include?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Pick three lessons you actually learned from using the product, each one something you can show rather than only say.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Use the product for a while before you write, and keep a note on your phone of every small surprise: a habit you changed, a mistake you made once, a way of storing it you settled on. Then sort the notes. Three lessons fit a short video, because each one needs a line and a picture. Mix the kinds of lesson so the list does not feel like the same point three times, and check each against the [parts of a UGC video script](/short-form-script-structure/) so you know where it will sit.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Kind of lesson",
+            "What it sounds like",
+            "Why it earns a place"
+          ],
+          "table_rows": [
+            [
+              "A habit you changed",
+              "I stopped putting it in the cupboard",
+              "Shows the product in your real routine"
+            ],
+            [
+              "A mistake you made once",
+              "I left it wet and regretted it",
+              "Feels honest, and the viewer avoids the same mistake"
+            ],
+            [
+              "A small trick you found",
+              "Keep a cloth next to it every time",
+              "Gives the viewer something to copy straight away"
+            ],
+            [
+              "Something you misjudged",
+              "I thought it would be fussy, and it isn't",
+              "Answers a doubt without claiming a result"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Leave out any lesson that is really a result, such as it changed my skin or it saved me money. Those are claims, and a lesson about how you use something keeps the video honest and easy for the brand to approve.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you turn the lessons into beats?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Give each lesson its own [beat](/glossary/#beat), open on the wish, and save the reason you still use the product for the turn near the end.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hook: name the wish and the product category in one line, so the viewer knows what the list is about.",
+            "Setup: one line on how long you have used it or how you nearly gave up, which tells the viewer the lessons are earned.",
+            "Lessons: one beat each, said plainly and shown at the same moment, with the most useful lesson first.",
+            "Turn: the line that ties the lessons together, usually why you kept going with it.",
+            "Close: point to the product and stop, without adding a new lesson."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Number the lessons out loud. Saying one, two, three gives the viewer a map and lets them feel the end coming, which keeps the list from drifting. The [turn](/glossary/#the-turn) then lands as the payoff the hook promised: the reason the wish mattered at all.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a things I wish I knew script look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here is a full script built from three real-use lessons, with what you say and what the camera sees on each line.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a cast-iron frying pan",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "Three things I wish someone had told me before I bought a cast-iron pan.",
+              "do": "Hold the pan up by its handle with both hands, close to the lens."
+            },
+            {
+              "part": "setup",
+              "say": "I've had this one since the spring, and I nearly gave up on it in the first week.",
+              "do": "Set the pan down on the hob and wipe the inside with a cloth."
+            },
+            {
+              "part": "beat 1",
+              "say": "One. It's heavy, so stop putting it away. It lives on the hob now.",
+              "do": "Lift the pan with one hand, show the effort, then put it back on the hob and step back."
+            },
+            {
+              "part": "beat 2",
+              "say": "Two. Dry it straight after you wash it. I left it on the rack once and I won't again.",
+              "do": "Rinse the pan at the sink, towel it dry, and set it on a low flame for a moment."
+            },
+            {
+              "part": "beat 3",
+              "say": "Three. The handle gets hot as well, so keep a cloth right next to it.",
+              "do": "Fold a tea towel over the handle and slide the pan across the hob."
+            },
+            {
+              "part": "turn",
+              "say": "Once I stopped treating it like my old pan, I started reaching for it every night.",
+              "do": "Crack an egg into the pan and let it sizzle in frame."
+            },
+            {
+              "part": "close",
+              "say": "This is the one I've got. It's linked, if you're thinking about your first.",
+              "do": "Tilt the pan towards the camera, then put it back on the hob."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "How do you close the video without overselling?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Close by saying what you use and where to find it, then stop, because the lessons have already done the persuading.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A quiet [call to action](/glossary/#call-to-action) fits this format better than a push, since the whole video is framed as advice. Check the brief for any required wording first, and fit it into the close rather than adding a separate line after it. If the brief asks for an offer or a code, say it once in the close, in your own words where the brand allows that.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What goes wrong in a things I wish I knew script?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "The script goes wrong when a lesson turns into a complaint, a claim, or a list too long to remember.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "A lesson that sounds like a flaw: frame it as what you do about it, and ask the brand whether it is happy with that lesson before you film.",
+            "A lesson that is a result: swap it for a habit or a trick you can show, so nothing in the video promises an outcome.",
+            "Too many lessons: cut to three, because a viewer can hold three in their head and a longer list blurs.",
+            "A lesson with no picture: find something to film for it, or cut it, since a line with nothing to see slows the video.",
+            "A close that adds one more tip: move the tip into a beat, so the close stays about the product."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-21",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "Three things I wish someone had told me before I bought a cast-iron pan."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
