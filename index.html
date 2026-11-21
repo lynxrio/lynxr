@@ -75,13 +75,13 @@
 <meta name="twitter:description" content="Paste a link. Get a script for your next UGC video, written for the brand you make it for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261114i">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261114i">
-<link rel="shortcut icon" href="/favicon.ico?v=20261114i">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261114i">
-<link rel="stylesheet" href="/app.css?v=20261114i">
-<script src="/theme.js?v=20261114i"></script>
-<script src="/backdrop.js?v=20261114i" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261120d">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261120d">
+<link rel="shortcut icon" href="/favicon.ico?v=20261120d">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261120d">
+<link rel="stylesheet" href="/app.css?v=20261120d">
+<script src="/theme.js?v=20261120d"></script>
+<script src="/backdrop.js?v=20261120d" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -232,9 +232,9 @@
           "name": "free",
           "price": "0",
           "priceCurrency": "USD",
-          "availability": "https://schema.org/InStock",
+          "availability": "https://schema.org/LimitedAvailability",
           "url": "https://lynxr.io/pricing/",
-          "description": "Free to start: every account gets 3 scripts a week, no card required. Sign-up is open."
+          "description": "Free to start: every account gets 3 scripts a week, no card required. New accounts open in batches from the waitlist."
         },
         {
           "@type": "Offer",
@@ -318,8 +318,10 @@
   <!-- THE FIRST SCREEN IS THE LAUNCH VIDEO, AT THE FULL SIZE OF THE SCREEN (owner, 2026-11-13: "I want the new landing page
        to be the demo video ... the first thing"; 2026-11-14: "Have it so that we use the full display size that is
        available on the screen"; plans ~/.claude/plans/landing-video-first.md, then the Mist-style restyle). One small
-       heading (the page's only h1), the video, and ONE primary action: "get started" opens the real sign-up gate
-       (creator.js's [data-gate] handler; with JS off it is a plain link to /?signup=1). DESKTOP: the section is exactly
+       heading (the page's only h1), the video, and ONE primary action: "join the waitlist" opens the waitlist card
+       (owner, 2026-11-20, plan ~/.claude/plans/waitlist-referral-queue.md: public sign-up is a referral queue released
+       in batches; creator.js's [data-gate="wait"] handler hands it to home.js; with JS off it is a plain link to
+       /?signup=1, which opens the same card once JS runs). DESKTOP: the section is exactly
        one screen tall (svh); the video is the largest 16:9 box that fits between the heading and the button, never
        cropped (the app window in the second half spans most of the frame, so a cover crop would cut it), and the
        button sits right under it. PHONE: one evenly spaced group: the video as a rounded card with its controls in
@@ -353,8 +355,20 @@
           </video>
         </div>
       </div>
+      <!-- THE FRIEND'S BANNER (owner, 2026-11-20: "there is a nice banner the other user can see on their end"). A friend's
+           link (/?join=CODE) or invite link (/?gift=CODE) shows #lp-invite and home.js puts .is-invited on this block, which
+           turns it into one glass card: the x, one line saying a friend sent them, one short line, and the page's ONE
+           button under it, full width. The button is the same #lp-first-cta (the one thing that moves), so there is never a
+           second "join" next to it; the referral rides in the code home.js keeps at arrival (wlRef / wlGift). On a phone the
+           card sits in the thumb zone under the video; on a desktop right under it. No name: the link does not carry one.
+           Text by textContent in home.js; nothing here is interpolated. -->
       <div class="lp-first-go">
-        <a class="btn lp-first-cta onb-shim" id="lp-first-cta" href="/?signup=1" data-gate="up">Get started</a>
+        <div class="lp-invite" id="lp-invite" hidden>
+          <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
+          <p class="lp-invite-t" id="lp-invite-t">A friend invited you to lynxr</p>
+          <p class="lp-invite-s" id="lp-invite-s">Join and they move up 10 places.</p>
+        </div>
+        <a class="btn lp-first-cta onb-shim" id="lp-first-cta" href="/?signup=1" data-gate="wait">Join the waitlist</a>
       </div>
     </div>
   </section>
@@ -442,23 +456,14 @@
     </div>
   </section>
 
-  <!-- THE CLOSING LINE AND THE PASTE BOX: Mist's "one small line, then the action again", with lynxr's #1 growth path
-       (paste a link) as the action. Restyled calm (a small line, the cards' tinted white) in the Mist restyle. -->
+  <!-- THE CLOSING LINE AND THE ACTION AGAIN: Mist's "one small line, then the action again". The paste box that stood
+       here became a plain "join the waitlist" button on 2026-11-20 (plan ~/.claude/plans/waitlist-referral-queue.md,
+       D11): public sign-up is a waitlist now, so a pasted link would have nowhere to go. No .onb-shim: the page's one
+       moving button is the first screen's. -->
   <section class="lp-sec lp-close">
     <div class="lp-in">
-      <h2 class="lp-h2">ready to build your script?</h2>
-      <div class="composer composer-inline lp-composer">
-        <form class="composer-row" data-hero data-note="lp-composer-note" novalidate data-lx-spot>
-          <input type="url" placeholder="paste instagram/tiktok link"
-            autocomplete="off" spellcheck="false" aria-label="Paste a video link">
-          <span class="bp-plat"></span>
-          <button type="submit" class="composer-send" aria-label="Get the script">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-          </button>
-        </form>
-        <p class="composer-note" id="lp-composer-note" role="status" aria-live="polite"></p>
-      </div>
+      <h2 class="lp-h2">we let people in 100 at a time.</h2>
+      <a class="btn lp-close-cta" href="/?signup=1" data-gate="wait">Join the waitlist</a>
     </div>
   </section>
 
@@ -480,10 +485,10 @@
         <a class="foot-link" href="/faq/">faq</a>
         <a class="foot-link" href="/pricing/">pricing</a>
         <a class="foot-link" href="/about/">about</a>
-        <!-- Visible label "try it", accessible name "try it — join the wait
-             list". The .sr-only tail is inside the <a>, so it is part of the
-             name computation rather than a title attribute nobody hears. -->
-        <a class="foot-link" href="/" data-gate="up">get started<span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
+        <!-- Visible label "join the waitlist", accessible name "join the waitlist — lynxr opens in batches of
+             100". The .sr-only tail is inside the <a>, so it is part of the name computation rather than a
+             title attribute nobody hears. -->
+        <a class="foot-link" href="/" data-gate="wait">join the waitlist<span class="sr-only"> &mdash; lynxr opens in batches of 100</span></a>
       </div>
       <div class="foot-col">
         <div class="foot-label">guides</div>
@@ -632,6 +637,66 @@
       <p class="gate-other" id="gate-sent-done" hidden>You're signed in on the tab the link opened.
         <button type="button" class="linkish" id="gate-sent-here">Continue here</button></p>
     </div>
+    <!-- THE WAITLIST (owner, 2026-11-20; plans ~/.claude/plans/waitlist-referral-queue.md, waitlist-beli-referrals.md, and
+         the simplification the same day: "the most simple and easy to follow thing ever ... enter their email and then they
+         get sent to a refer a friend ... but they can also just leave that page and go to their queue position display").
+         Four more modes of this card, set by creator.js setGateMode and painted by home.js (WL_UI):
+           "wait"   the join card: one field, one button, the one legal line.
+           "refer"  right after joining: +10 places a friend, TEXT A FRIEND (an sms: link on a phone), copy the link, skip.
+           "spot"   THE QUEUE PAGE, their home while they wait: no card and no app chrome (body.wl-page), the backdrop, the
+                    x in the corner, "coming soon", the place in line huge with its label small, at most two quiet links.
+           "gift"   a friend's ?gift= invite ("you're invited").
+         "refer" and "spot" are pages (body.wl-page), "wait" and "gift" stay cards. Every string a server answer fills is
+         set with textContent by home.js; nothing here is interpolated, the sms: href is built by home.js, and the Discord
+         link has no href until home.js has checked one. The one moving thing per screen is one .onb-shim button: #wl-go
+         once an email is typed, #wlr-text (or #wlr-copy on a computer) on the refer screen, the queue page's one button
+         (made by home.js), #wlg-go on the gift card. -->
+    <div class="gate-wait" id="gate-wait" hidden>
+      <form class="field login wl-form" id="wl-form" novalidate>
+        <input type="email" id="wl-email" placeholder="Email" aria-label="Your email" autocomplete="email"
+               autocapitalize="none" autocorrect="off" spellcheck="false">
+        <button type="submit" class="btn onb-shim" id="wl-go" disabled>Join the waitlist</button>
+      </form>
+      <p class="wl-promise">We'll email you a link to confirm your spot and again when it's your turn, plus the occasional
+        lynxr update. One click stops them. <a href="/privacy/">Privacy policy</a></p>
+    </div>
+    <div class="gate-refer" id="gate-refer" hidden>
+      <div class="wl-main">
+        <p class="wl-num is-plus" id="wlr-big" tabindex="-1"><span class="sr-only">Move up </span>+10</p>
+        <p class="wl-num-lbl" id="wlr-lbl">places for every friend who joins with your link</p>
+        <p class="wl-link" id="wlr-link" hidden></p>
+      </div>
+      <div class="wl-acts wl-r-acts">
+        <a class="btn onb-shim wl-r-go" id="wlr-text" href="sms:" hidden>Text a friend</a>
+        <button type="button" class="ghost wl-r-alt" id="wlr-copy">Copy link</button>
+        <button type="button" class="ghost wl-r-alt" id="wlr-share" hidden>Share</button>
+        <p class="gate-other"><button type="button" class="linkish" id="wlr-skip">Skip, see my place in line</button></p>
+      </div>
+    </div>
+    <div class="gate-spot" id="gate-spot" hidden>
+      <div class="wl-main">
+        <p class="wl-num" id="wl-num" tabindex="-1"></p>
+        <p class="wl-num-lbl" id="wl-num-lbl"></p>
+        <p class="wl-title" id="wl-title" hidden><svg class="wl-title-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 3.2l2.6 5.5 6 .7-4.4 4.1 1.2 5.9L12 16.4l-5.4 3 1.2-5.9-4.4-4.1 6-.7z"/></svg><span>Founding creator</span></p>
+        <p class="wl-line" id="wl-line"></p>
+        <p class="wl-batch" id="wl-batch" hidden></p>
+        <p class="wl-friends" id="wl-friends" hidden></p>
+      </div>
+      <div class="wl-acts" id="wl-acts"></div>
+      <p class="wl-discord-row" id="wl-discord-row" hidden><a class="wl-discord" id="wl-discord" target="_blank" rel="noopener noreferrer">Join the lynxr Discord</a></p>
+    </div>
+    <div class="gate-gift" id="gate-gift" hidden>
+      <p class="wl-num is-word" id="wlg-big" tabindex="-1">You're invited</p>
+      <p class="wl-num-lbl" id="wlg-lbl">A friend gave you an invite to lynxr.</p>
+      <p class="wl-line" id="wlg-line">Claim it with your email and make your account now.</p>
+      <form class="field login wl-form" id="wlg-form" novalidate>
+        <input type="email" id="wlg-email" placeholder="Email" aria-label="Your email" autocomplete="email"
+               autocapitalize="none" autocorrect="off" spellcheck="false">
+        <button type="submit" class="btn onb-shim" id="wlg-go" disabled>Claim my invite</button>
+      </form>
+      <p class="wl-promise" id="wlg-promise">We'll email you a link to make your account. Nothing else. <a href="/privacy/">Privacy policy</a></p>
+      <div class="wl-acts" id="wlg-acts"></div>
+    </div>
     <div class="err" id="err" role="status" aria-live="polite"></div>
     <!-- SEATS-FULL FALLBACK, HOME ONLY. applySeatState() in creator.js reveals
          this when SEATS_OPEN === false; hidden otherwise. data-carry-utm is
@@ -640,6 +705,9 @@
     <p class="gate-other" id="gate-full" hidden>
       <a id="gate-full-link" href="/" data-carry-utm>back to the homepage</a>
     </p>
+    <!-- A refused sign-up (not invited, not released yet): creator.js signupError() unhides this, and the button
+         opens the waitlist card with the typed email. Hidden again on every mode change. -->
+    <p class="gate-other" id="gate-wl-offer" hidden><button type="button" class="linkish" id="gate-wl-offer-go">join the waitlist</button></p>
     <p class="gate-other" id="resend-wrap" hidden>
       <button type="button" class="linkish" id="gate-resend">Send me the confirmation link again</button>
     </p>
@@ -743,7 +811,8 @@
           <span class="quota-bar" aria-hidden="true"><i id="side-quota-fill"></i></span>
         </div>
         <!-- THE ACCOUNT ROW (owner, 2026-10-03, after Claude's sidebar footer): initial, name, plan, a chevron. It opens a
-             menu UPWARD with the email and sync state, then Plan, Feedback and Settings (and, for staff, the Agency app link
+             menu UPWARD with the email and sync state, then Plan, Invite friends (only while sign-up is closed and the account has
+             invites: creator.js paintInviteNav), Feedback and Settings (and, for staff, the Agency app link
              that revealAgencySwitch() adds). The menu items keep the ids they had as rail rows. Sign out lives inside
              Settings, not here: a rare, irreversible-feeling action one slip away from Feedback. The two dots: red when
              sync is failing (it wins), otherwise #nav-you-dot while setup is unfinished. Wired in creator.js (acctMenu). -->
@@ -760,6 +829,11 @@
             <button type="button" class="side-link" id="nav-plan" role="menuitem" tabindex="-1">
               <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg>
               <span class="side-label">Plan</span>
+            </button>
+            <button type="button" class="side-link" id="nav-invite" role="menuitem" tabindex="-1" hidden>
+              <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M19 8v6M16 11h6"/></svg>
+              <span class="side-label">Invite friends</span>
+              <span class="side-count" id="nav-invite-n"></span>
             </button>
             <button type="button" class="side-link" id="nav-feedback" role="menuitem" tabindex="-1">
               <svg class="side-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-5a8.4 8.4 0 0 1-.8-3.6 8.4 8.4 0 0 1 8.4-8.4h.5a8.4 8.4 0 0 1 8 8Z"/></svg>
@@ -977,10 +1051,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20261114i" defer></script>
-<script src="/footer.js?v=20261114i" defer></script>
-<script src="/home.js?v=20261114i" defer></script>
-<script src="/avatar.js?v=20261114i" defer></script>
-<script src="/creator.js?v=20261114i" defer></script>
+<script src="/site.js?v=20261120d" defer></script>
+<script src="/footer.js?v=20261120d" defer></script>
+<script src="/home.js?v=20261120d" defer></script>
+<script src="/avatar.js?v=20261120d" defer></script>
+<script src="/creator.js?v=20261120d" defer></script>
 </body>
 </html>

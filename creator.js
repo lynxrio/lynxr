@@ -825,6 +825,13 @@ const FULL_MSG = "lynxr is invite-only and full right now — "
   + "we'll come to you as we open up.";
 let SEATS_OPEN = null;                       // null = not asked yet
 let INVITE_REQUIRED = false;
+/* THE WAITLIST'S CLOSED GATE (owner, 2026-11-20; plan ~/.claude/plans/waitlist-referral-queue.md). With invites required,
+   most people who reach "create your account" are let in WITHOUT typing a code (a Lynx roster invite, a release link
+   whose code rides silently from ?c=, or Google with the same address), so the code box stays hidden until the
+   server has actually refused a code (signupError sets CODE_ASKED). GATE_UP_NOTE is the line home.js asks for when
+   the waitlist routes someone straight to "create your account" (gateUpFromWaitlist). */
+let CODE_ASKED = false;
+let GATE_UP_NOTE = "";
 
 /* The invite that brought them here. An invite link is
    /?signup=1&e=<email>&c=<code> (older invites say /creatorsonly/, whose stub
@@ -874,7 +881,7 @@ function applySeatState() {
   // so the same build serves an open signup, a seat-capped one and an
   // invite-only one without a redeploy.
   const wrap = document.getElementById("invite-wrap");
-  if (wrap) wrap.hidden = !INVITE_REQUIRED;
+  if (wrap) wrap.hidden = !(INVITE_REQUIRED && CODE_ASKED);
   if (SEATS_OPEN === false) {
     document.getElementById("gate-go").disabled = true;
     document.getElementById("err").textContent = FULL_MSG;
@@ -934,6 +941,21 @@ function signupError(raw) {
   // trigger's own text arrives as `message` with a 500. Named separately
   // because "you're not on the list" and "that code is wrong" are different
   // problems and the second one is fixable by the person reading it.
+  /* THE WAITLIST'S REFUSALS (plan waitlist-referral-queue step 9). On the home page with the waitlist markup, "not
+     invited" (and a bare database refusal, which is how a Google return can arrive) says the doors open in batches
+     and offers the waitlist card with the typed email (#gate-wl-offer). A code that does not match asks for the
+     one in their lynxr email and shows the code box. Without the waitlist markup the old sentences stand. */
+  if (WAITLIST_ON) {
+    if (/no invite for this address/i.test(s) || /database error saving new user|unexpected_failure/i.test(s)) {
+      document.getElementById("gate-wl-offer")?.removeAttribute("hidden");
+      return WL_REFUSED_SAYS;
+    }
+    if (/invite code does not match/i.test(s)) {
+      CODE_ASKED = true;
+      document.getElementById("invite-wrap")?.removeAttribute("hidden");
+      return WL_BAD_CODE_SAYS;
+    }
+  }
   if (/no invite for this address/i.test(s))
     return "That email isn't on the invite list. Use the address your invite was sent to, "
       + "or join the waitlist at lynxr.io.";
@@ -2087,7 +2109,7 @@ function paintAcct() {
   document.getElementById("acct-name").textContent = name;
   document.getElementById("acct-plan").textContent = plan ? ` · ${plan}` : "";
   document.getElementById("nav-account")?.classList.toggle("on",
-    !ACCT.open && ["plan", "feedback", "you"].includes(VIEW.kind));
+    !ACCT.open && ["plan", "invite", "feedback", "you"].includes(VIEW.kind));
 }
 
 /** At most one dot on the account row: a failing sync wins over unfinished setup. */
@@ -2231,8 +2253,10 @@ function renderSide() {
     navPosts.classList.toggle("on", VIEW.kind === "posts");
   }
   if (ONBOARD_V2_LIVE) { paintSideNews(); paintHomeQuota(); }      // the allowance refreshes repaint the rail, not Home
+  paintSideInvite();                                                // after paintSideNews: that callout wins
   document.getElementById("nav-you").classList.toggle("on", VIEW.kind === "you");
   document.getElementById("nav-plan").classList.toggle("on", VIEW.kind === "plan");
+  paintInviteNav();
   document.getElementById("nav-feedback").classList.toggle("on", VIEW.kind === "feedback");
   // Lynx Media Group: hidden for the ~99% of creators not on the roster.
   // AGENCY is null until refreshAgency() answers — nothing paints until then,
@@ -2422,6 +2446,7 @@ function renderPaneInner() {
   const body = document.getElementById("pane-body");
   if (VIEW.kind === "new") return renderNewScript(head, body);
   if (VIEW.kind === "plan") return renderPlan(head, body);
+  if (VIEW.kind === "invite") return renderInvite(head, body);
   if (VIEW.kind === "you") return renderYou(head, body);
   if (VIEW.kind === "posts") return renderPosts(head, body);
   if (VIEW.kind === "feedback") return renderFeedback(head, body);
@@ -4018,6 +4043,168 @@ async function refreshPlan() {
   }
 }
 
+/* INVITE FRIENDS (owner, 2026-11-20; plan ~/.claude/plans/waitlist-beli-referrals.md, B12-B13). Every account has a few
+   invites (my_gifts(): {on, gate_open, code, total, left, waiting, joined, crew, title}; counts only, never a friend's
+   address), shared as ONE personal link, /?gift=<code>. They are shown only while public sign-up is closed: with it open
+   anyone can sign up, so an invite means nothing (giftsOn). The view is the account menu's "Invite friends": the number
+   left, huge, its label small, the link, and one moving "Share an invite". A rail callout teaches it once, after the
+   first script, and never returns (ME.noticesSeen "invites", synced on the creator's row). crew and title are stored
+   and returned but not painted here yet (owner: "and later the app"). Declared above the OBTEST block, which runs at
+   load. */
+let GIFTS = null;                 // the last my_gifts() answer, or null
+let GIFTS_STATE = "idle";         // idle | loading | ok | error
+const GIFT_CODE_RE = /^[A-HJ-NP-Z2-9]{8}$/;
+/* The prewritten share message (C54). Sentence case on purpose: the creator's own message in another app, where no CSS
+   lowercases it. */
+const GIFT_SHARE_MSG = "I've got a lynxr invite for you, so you can skip the waitlist. Paste a video you love and lynxr writes you a script to remake it.";
+const INVITE_SAYS = {                                                                                   // C53, C55
+  why: "Each invite lets a friend skip the waitlist and make their account now.",
+  zero: "You've given all your invites. Friends can still join the waitlist at lynxr.io.",
+  one: "invite left", many: "invites left",
+  share: "Share an invite", copy: "Copy invite link", copied: "Copied.", hold: "Press and hold the link to copy it.",
+  joined: (j) => `${j} joined with your invites`,
+  waiting: (w) => `${w} claimed, waiting for them to make their account`,
+  loading: "Loading your invites…", error: "Couldn't load your invites.", retry: "Try again",
+  off: "Invites aren't available right now.",
+  rail: (n) => `You have ${n} ${n === 1 ? "invite" : "invites"}. Friends you invite skip the waitlist.`,
+  railGo: "Invite friends", railX: "Not now",
+};
+const giftsOn = () => !!(GIFTS && GIFTS.on && !GIFTS.gate_open);
+/** The link to share, or "" when the answer has no usable code. */
+const giftLink = () => (giftsOn() && GIFT_CODE_RE.test(String(GIFTS.code || "")) ? `${location.origin}/?gift=${GIFTS.code}` : "");
+/** Ask my_gifts(). A re-read keeps the last good answer on screen while it runs; a failure keeps it too, if there is one. */
+async function refreshGifts() {
+  if (GIFTS_STATE !== "ok") { GIFTS_STATE = "loading"; if (VIEW.kind === "invite") paintInvite(); }
+  try {
+    const g = await sbFetch("/rest/v1/rpc/my_gifts", { method: "POST", body: "{}" });
+    GIFTS = g && typeof g === "object" ? g : null;
+    GIFTS_STATE = "ok";
+  } catch {
+    if (GIFTS_STATE !== "ok") { GIFTS = null; GIFTS_STATE = "error"; }
+  }
+  paintInviteNav();
+  paintSideInvite();
+  if (VIEW.kind === "invite") paintInvite();          // in place: the view's nodes stay (focus, a press in flight)
+}
+/** The account menu's item and its count chip. */
+function paintInviteNav() {
+  const nav = document.getElementById("nav-invite");
+  if (!nav) return;
+  nav.hidden = !giftsOn();
+  const n = document.getElementById("nav-invite-n");
+  if (n) n.textContent = giftsOn() && Number(GIFTS.left) > 0 ? String(Number(GIFTS.left)) : "";
+  nav.classList.toggle("on", VIEW.kind === "invite");
+}
+/** "Not now", or opening the view: the callout never comes back. */
+function markInvitesSeen() {
+  if (!ME || !Array.isArray(ME.noticesSeen)) return;
+  if (ME.noticesSeen.includes("invites")) return;
+  ME.noticesSeen.push("invites");
+  save();
+}
+function renderInvite(head, body) {
+  head.innerHTML = `
+    ${paneBarHtml("Invite friends")}
+    ${pageH1("Invite friends")}`;
+  document.getElementById("side-open").addEventListener("click", (e) => {
+    const open = document.body.classList.toggle("side-open");
+    e.currentTarget.setAttribute("aria-expanded", open);
+  });
+  // A fixed structure; every value goes in with textContent (paintInvite).
+  body.innerHTML = `<div class="inv">
+    <p class="inv-num" id="inv-num"></p>
+    <p class="inv-lbl" id="inv-lbl"></p>
+    <p class="inv-why" id="inv-why"></p>
+    <p class="inv-link" id="inv-link"></p>
+    <div class="inv-act" id="inv-act"><button type="button" class="btn onb-shim" id="inv-go"></button></div>
+    <p class="inv-status" id="inv-status" role="status" aria-live="polite"></p>
+    <p class="inv-note" id="inv-joined" hidden></p>
+    <p class="inv-note" id="inv-waiting" hidden></p>
+  </div>`;
+  document.getElementById("inv-go").addEventListener("click", inviteGo);
+  if (GIFTS_STATE === "idle") refreshGifts();
+  paintInvite();
+  markInvitesSeen();
+  paintSideInvite();
+}
+/** Fill the invite view from GIFTS / GIFTS_STATE. Safe to call any time: it only touches the view's own nodes. */
+function paintInvite() {
+  const $i = (id) => document.getElementById(id);
+  const num = $i("inv-num"), lbl = $i("inv-lbl"), why = $i("inv-why"), link = $i("inv-link"), act = $i("inv-act");
+  const go = $i("inv-go"), status = $i("inv-status"), joined = $i("inv-joined"), waiting = $i("inv-waiting");
+  if (!num || !lbl || !why || !link || !act || !go || !status || !joined || !waiting) return;
+  const url = giftLink();
+  const ok = GIFTS_STATE === "ok" && giftsOn() && !!url;
+  for (const el of [num, lbl, why, link, act, joined, waiting]) el.hidden = !ok;
+  if (!ok) {
+    status.replaceChildren();
+    if (GIFTS_STATE === "idle" || GIFTS_STATE === "loading") status.textContent = INVITE_SAYS.loading;
+    else if (GIFTS_STATE === "error") {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "linkish"; b.textContent = INVITE_SAYS.retry;
+      b.addEventListener("click", () => refreshGifts());
+      status.append(document.createTextNode(INVITE_SAYS.error + " "), b);
+    } else status.textContent = INVITE_SAYS.off;
+    return;
+  }
+  const left = Math.max(0, Number(GIFTS.left) || 0);
+  num.textContent = String(left);
+  lbl.textContent = left === 1 ? INVITE_SAYS.one : INVITE_SAYS.many;
+  why.textContent = left > 0 ? INVITE_SAYS.why : INVITE_SAYS.zero;
+  link.textContent = url;
+  link.hidden = left <= 0;                            // an exhausted link only leads a friend to "this invite has been used"
+  act.hidden = left <= 0;                             // nothing to share: nothing moves
+  if (go.textContent !== INVITE_SAYS.copied) go.textContent = typeof navigator.share === "function" ? INVITE_SAYS.share : INVITE_SAYS.copy;
+  if (status.textContent === INVITE_SAYS.loading || status.querySelector("button")) status.textContent = "";
+  const j = Math.max(0, Number(GIFTS.joined) || 0), w = Math.max(0, Number(GIFTS.waiting) || 0);
+  joined.textContent = j > 0 ? INVITE_SAYS.joined(j) : ""; joined.hidden = !(j > 0);
+  waiting.textContent = w > 0 ? INVITE_SAYS.waiting(w) : ""; waiting.hidden = !(w > 0);
+}
+async function inviteGo() {
+  const url = giftLink();
+  const go = document.getElementById("inv-go");
+  const status = document.getElementById("inv-status");
+  if (!url || !go) return;
+  if (typeof navigator.share === "function") {
+    try { await navigator.share({ title: "lynxr", text: GIFT_SHARE_MSG, url }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }        // anything else: copy instead
+  }
+  let ok = false;
+  try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(url); ok = true; } } catch {}
+  if (ok) {
+    go.textContent = INVITE_SAYS.copied;
+    setTimeout(() => { if (go.textContent === INVITE_SAYS.copied) go.textContent = typeof navigator.share === "function" ? INVITE_SAYS.share : INVITE_SAYS.copy; }, 1200);
+  } else {
+    try { getSelection().selectAllChildren(document.getElementById("inv-link")); } catch {}
+    if (status) status.textContent = INVITE_SAYS.hold;
+  }
+}
+/** The rail's one-time callout (the paintSideNews pattern): after the first script, while invites are left, until it is
+    dismissed or the view is opened. Never together with the new-numbers callout, which wins. Built here, not in
+    index.html, which is not cache-stamped. */
+function paintSideInvite() {
+  const foot = document.querySelector("#side .side-foot");
+  if (!foot) return;
+  let card = document.getElementById("side-invite");
+  if (!card) {
+    card = document.createElement("div");
+    card.id = "side-invite";
+    card.className = "onb-news onb-news-rail";
+    card.hidden = true;
+    card.innerHTML = `<p class="onb-news-t"></p><p class="onb-news-acts"><button type="button" class="linkish onb-news-go"></button> <button type="button" class="linkish onb-news-x"></button></p>`;
+    card.querySelector(".onb-news-go").textContent = INVITE_SAYS.railGo;
+    card.querySelector(".onb-news-x").textContent = INVITE_SAYS.railX;
+    card.querySelector(".onb-news-go").addEventListener("click", () => go({ kind: "invite" }));
+    card.querySelector(".onb-news-x").addEventListener("click", () => { markInvitesSeen(); card.hidden = true; });
+    foot.before(card);
+  }
+  const seen = !ME || !Array.isArray(ME.noticesSeen) || ME.noticesSeen.includes("invites");
+  const left = giftsOn() ? Math.max(0, Number(GIFTS.left) || 0) : 0;
+  const show = left > 0 && !!ME?.firstWin && !seen && document.getElementById("side-news")?.hidden !== false;
+  card.hidden = !show;
+  if (show) card.querySelector(".onb-news-t").textContent = INVITE_SAYS.rail(left);
+}
+
 /* AGENCY: Lynx Media Group's roster (plan:
    ~/.claude/plans/agency-send-brief-to-creators.md). Same shape as PLAN
    above — one object, one state, no polling. AGENCY_NAME is hardcoded
@@ -4314,7 +4501,10 @@ function lynxLinkLandOnUnlock() {
 /** The sign-in card says why it opened. Built on first use, under #gate-tagline, because the HTML is not cache-stamped
     and could lag this file. Hidden in any mode without a line, or when no link waits. */
 function paintGateLynxNote(mode) {
-  const text = LYNX_LINK ? LYNX_GATE_SAYS[mode] || "" : "";
+  /* The same line serves the waitlist (plan waitlist-referral-queue): "you don't need the waitlist" when it routed
+     someone here, or "you're in" on a release link's create card. */
+  const text = LYNX_LINK ? LYNX_GATE_SAYS[mode] || ""
+    : mode === "up" && WAITLIST_ON ? GATE_UP_NOTE || (INVITED_EMAIL ? WL_INVITED_SAYS : "") : "";
   let el = document.getElementById("gate-lynx-note");
   if (!text) { if (el) el.hidden = true; return; }
   if (!el) {
@@ -8725,6 +8915,8 @@ function paintSideNews() {
                                    "Agency app"; a CM is never shown the link wall (try it with &metric=rosterwall)
      ...&roster=accepted&briefs=demo   an accepted roster creator with 7 Lynx briefs from 3 brands (rows under Library,
                                    brief tabs, an Older menu, one script already saved)
+     ...&gifts=3|1|0|off|open|err  what my_gifts() answers (Invite friends: the account menu item, its chip and the rail
+                                   callout); ?obtest=1&view=invite&gifts=3 opens the Invite friends view itself
    ================================================================================================================ */
 const OBTEST = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   && new URLSearchParams(location.search).get("obtest") === "1";
@@ -8829,6 +9021,16 @@ if (OBTEST) {
       const demo = st === "accepted" && new URLSearchParams(location.search).get("briefs") === "demo";
       return { state: st, briefs: demo ? OB_BRIEFS.map((b) => ({ ...b })) : [], campaign: "Cloey" };
     }
+    if (path.includes("/rpc/my_gifts")) {      // ?gifts=3|1|0|off|open|err (Invite friends, waitlist-beli-referrals B12)
+      const gq = new URLSearchParams(location.search).get("gifts");
+      const G = { on: true, gate_open: false, code: "ABCDEFGH", total: 3, left: 3, waiting: 0, joined: 0, crew: 0, title: null };
+      if (gq === "err") throw new Error("500 obtest: my_gifts");
+      if (gq === "3") return { ...G };
+      if (gq === "1") return { ...G, left: 1, waiting: 1, joined: 1, crew: 1 };
+      if (gq === "0") return { ...G, left: 0, waiting: 1, joined: 2, crew: 2 };
+      if (gq === "open") return { ...G, gate_open: true };
+      return { on: false };                     // "off", or absent
+    }
     return null;
   };
   save = function () { log("save (no-op)", JSON.stringify({ priority: ME.priority, goal: ME.goal, setup: ME.setup })); editSaveLanded(editRevsNow()); };   // eslint-disable-line no-func-assign -- the preview "lands" every autosave so its status reads Saved
@@ -8893,7 +9095,7 @@ if (OBTEST) {
   /* ---- the Posts preview: fake tracked videos for each goal ---- */
   const wantView = qs.get("view");
   if (wantView === "onboard") setTimeout(() => start("maya@example.com"), 0);      // opens the first run without the landing card
-  const wantPosts = wantView === "posts" || wantView === "home";
+  const wantPosts = wantView === "posts" || wantView === "home" || wantView === "invite";     // invite: the home preview, on Invite friends
   if (wantPosts) setTimeout(() => {            // after the whole script has run: unlock() and `unlocked` are not ready before
     const DAY = 864e5, NOW0 = Date.now();
     const at = (ms) => new Date(ms).toISOString();
@@ -9167,6 +9369,7 @@ if (OBTEST) {
     OBFAKE.profiles = first.profiles || verified;
     unlock();
     apply(new URLSearchParams(location.search).get("metric") || DEFAULT_STATE);
+    if (wantView === "invite") go({ kind: "invite" });
     if (wantView === "home" && qs.get("tour") === "1") setTimeout(() => startTour(true), 300);
   }, 0);
 }
@@ -14632,6 +14835,7 @@ function unlock() {
   setupAfterUnlock(agencyReady);
   // The plan first (it says whether this account is tracked, which decides the Posts link), then the tracked videos.
   refreshPlan().then(() => { renderSide(); paintHome(); refreshPosts(); maybeStartTour(); });
+  refreshGifts();          // Invite friends (B12): not awaited, paints the menu item and the rail callout when it answers
   takeBillingReturn();
   takeInsightsReturn();
 }
@@ -14743,7 +14947,10 @@ function enterApp() {
      engine this app supports. */
   document.querySelector('meta[name="viewport"]')?.setAttribute("content",
     "width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content");
-  document.body.classList.remove("home", "gate-on");
+  document.body.classList.remove("home", "gate-on", "wl-page");
+  /* Signed in: this device's waitlist spot link has done its job (home.js lands a signed-out visitor who holds one on the
+     queue page). Forget it, so signing out later shows the landing, not a "you're in" page for an account that exists. */
+  try { localStorage.removeItem("lynxr_wl_spot"); } catch { /* storage blocked: nothing kept to forget */ }
   window.LP_TEARDOWN?.();
   document.getElementById("lp-main")?.remove();
   document.querySelector(".lp-bar")?.remove();
@@ -14887,15 +15094,34 @@ function startLiveSync() {
    Do not treat a bump here as consent re-taken. The policy's own "changes to
    this policy" section promises an email for a material change, and that email
    is the mechanism; this is only the label on it. */
-const PRIVACY_VERSION = "2026-10-05";
+const PRIVACY_VERSION = "2026-11-20";
 /* The terms' version, from terms/index.html's "last updated" line. The sign-in card's agreement line
    names the terms too since 2026-09-25, so the record says which terms. Bump with that page's date. */
-const TERMS_VERSION = "2026-10-11";
+const TERMS_VERSION = "2026-11-20";
 
 /* THE MERGED HOME. `/` hosts three layers in one document — #lp-main
    (marketing), #gate (auth) and #app (the app). HOME is false on any other
    page that loads this file, so every branch below is inert there. */
 const HOME = !!document.getElementById("lp-main");
+/* THE WAITLIST SWITCH IS THE MARKUP (plan waitlist-referral-queue step 9): index.html's #gate-wait. Revert that markup and
+   every waitlist branch in this file goes quiet, so the gate behaves exactly as it did before. home.js paints the
+   waitlist cards; this file only routes to them (window.lynxrWaitlist) and words the refusals. */
+const WAITLIST_ON = HOME && !!document.getElementById("gate-wait");
+/* NO PASSWORD WHILE ON THE WAITLIST (owner, 2026-11-20: "remove the password thing, just have it so that once we launch
+   that is when they put in a password"). A join answered "account" (the email already has an account, is staff, holds an
+   invite or is on a Lynx roster) no longer opens the create card. The join card says the email already has access and
+   points at "sign in" (home.js). ACCESS_EMAIL remembers that email so the sign-in card is prefilled and its switch
+   offers "Create one" for it: a Lynx campaign creator's roster email has access but may have no account yet. */
+let ACCESS_EMAIL = "";
+function gateAccessFromWaitlist(email) {
+  ACCESS_EMAIL = email || "";
+  const f = document.getElementById("email");
+  if (f && email) f.value = email;
+}
+const WL_REFUSED_SAYS = "lynxr opens in batches, and this email isn't in one yet. Join the waitlist to get your spot.";
+const WL_BAD_CODE_SAYS = "Open the link in your lynxr email on this device, or type the code from it below.";
+const WL_INVITED_SAYS = "You're in. Choose a password, or continue with Google with this same email.";
+const WL_ACCOUNT_SAYS = "You don't need the waitlist. Create your account below, or sign in if you already have one.";
 const PASTE_KEY = "lynxr_pending_paste";
 const PASTE_TTL_MS = 2 * 60 * 60 * 1000;   // a waiting paste is good for two hours (consumePendingPaste, confirmRedirect)
 
@@ -15019,10 +15245,12 @@ function oauthStart(provider) {
 /* WHEN THE BUTTONS ARE NOT AN OPTION.
    Creating an account is the only mode the front-door gate in
    supabase/invites.sql applies to, and it is the only mode where a provider
-   button can be refused by the trigger. An invite code rides on signup metadata
-   (`data: { invite }`) and a provider signup has nowhere to put one — so while
-   invites ARE the gate, these buttons cannot work and must not be offered.
-   Seats-full gives the same answer as the submit button's.
+   button can be refused by the trigger. CHANGED 2026-11-20 (plan
+   waitlist-referral-queue): the trigger now accepts provider "google" for an
+   address on the Lynx roster or with an outstanding invite (Google proves the
+   address, so no code is needed), so the buttons stay while invites are the
+   gate. A refused Google return comes back through signupError, which offers
+   the waitlist. Only seats-full still hides them, with the submit button's answer.
    Signing IN is left alone on purpose: it inserts no row for an account that
    already exists, so a creator who set up with Google keeps their way back in
    whatever the front door is doing. */
@@ -15031,7 +15259,7 @@ function applyOauthState() {
   if (!box) return;
   const any = OAUTH_ON.google || OAUTH_ON.apple;
   const inGate = GATE_MODE === "in" || GATE_MODE === "up";
-  const blocked = GATE_MODE === "up" && (INVITE_REQUIRED || SEATS_OPEN === false);
+  const blocked = GATE_MODE === "up" && SEATS_OPEN === false;
   box.hidden = !any || !inGate || blocked;
   document.getElementById("oauth-google").hidden = !OAUTH_ON.google;
   document.getElementById("oauth-apple").hidden = !OAUTH_ON.apple;
@@ -15056,9 +15284,19 @@ function setGateMode(mode) {
   const up = mode === "up";
   const reset = mode === "reset";
   const sent = mode === "sent";      // account made; waiting on the email link
+  /* THE WAITLIST'S FOUR MODES (plan waitlist-referral-queue step 9; "gift" from waitlist-beli-referrals B8; "refer" and the
+     queue page from the owner's simplification, 2026-11-20): "wait" (the email box), "refer" (right after joining: text a
+     friend), "spot" (THE QUEUE PAGE: the place in line) and "gift" (a friend's invite link: "you're invited"). home.js
+     paints all four; here they only swap which block shows. "refer" and "spot" are full pages, not a card
+     (body.wl-page in app.css): the backdrop, the x, the number, no app chrome. */
+  const wl = mode === "wait" || mode === "spot" || mode === "gift" || mode === "refer";
+  const wlPage = mode === "spot" || mode === "refer";
+  if (mode !== "up") GATE_UP_NOTE = "";
   const pw = document.getElementById("pw");
   document.getElementById("gate-tagline").textContent =
-    sent ? "check your email"
+    mode === "wait" ? "join the waitlist" : mode === "spot" ? "coming soon" : mode === "refer" ? "you're on the list"
+      : mode === "gift" ? "skip the waitlist"
+      : sent ? "check your email"
       : reset ? "choose a new password" : up ? "create your account" : "for creators";
   // The email is known from the link; asking for it again invites a typo that
   // would silently reset nothing.
@@ -15073,7 +15311,7 @@ function setGateMode(mode) {
   const consent = up || mode === "in";
   document.getElementById("gate-consent").hidden = !consent;
   const fine = document.querySelector("#gate .gate-fine");
-  if (fine) fine.hidden = consent;
+  if (fine) fine.hidden = consent || mode === "wait" || mode === "gift" || wlPage;   // promise lines carry their own policy link; the pages stay bare
   /* THE INVITE FIELD IS HIDDEN HERE TOO — the reset that was missing.
      applySeatState() owns SHOWING it, but it opens with
      `if (GATE_MODE !== "up") return;` and setGateMode only calls it when `up`,
@@ -15087,7 +15325,7 @@ function setGateMode(mode) {
      prefill happens once at load — so clearing on every mode change would cost
      an invited creator their code the first time they toggled to sign-in and
      back, with nowhere to get it again. An invite code must not be silently thrown away. */
-  document.getElementById("invite-wrap").hidden = !(up && INVITE_REQUIRED);
+  document.getElementById("invite-wrap").hidden = !(up && INVITE_REQUIRED && CODE_ASKED);
   document.getElementById("gate-go").textContent =
     reset ? "Save new password" : up ? "Create account" : "Enter";
   pw.setAttribute("autocomplete", up || reset ? "new-password" : "current-password");
@@ -15097,27 +15335,39 @@ function setGateMode(mode) {
      every field in it is refused until they confirm — offering a filled-in
      password box that cannot work is the app inviting a failure it already
      knows about. */
-  document.getElementById("gate-form").hidden = sent;
+  document.getElementById("gate-form").hidden = sent || wl;
   // ...and the check-your-email block takes its place (filled by showSent). Leaving "sent" stops
   // the resend countdown and forgets the other-tab notice.
   document.getElementById("gate-sent").hidden = !sent;
+  const wWait = document.getElementById("gate-wait");
+  if (wWait) wWait.hidden = mode !== "wait";
+  const wSpot = document.getElementById("gate-spot");
+  if (wSpot) wSpot.hidden = mode !== "spot";
+  const wGift = document.getElementById("gate-gift");
+  if (wGift) wGift.hidden = mode !== "gift";
+  const wRefer = document.getElementById("gate-refer");
+  if (wRefer) wRefer.hidden = mode !== "refer";
+  document.getElementById("gate-wl-offer")?.setAttribute("hidden", "");
+  document.body.classList.toggle("gate-wl", wl);
+  document.body.classList.toggle("wl-page", wlPage);
   if (!sent) {
     clearInterval(SENT_T);
     SENT_LEFT = 0;
     document.getElementById("gate-sent-done").hidden = true;
   }
   // Nothing to switch to mid-reset, and no point offering another reset mail.
-  document.querySelector(".gate-switch").hidden = reset;
-  document.getElementById("forgot-wrap").hidden = up || reset || sent;
+  document.querySelector(".gate-switch").hidden = reset || wlPage;
+  document.getElementById("forgot-wrap").hidden = up || reset || sent || wl;
   /* In "sent" this doubles as the safeguard the old wording carried in a
      sentence. sbSignUp cannot tell a NEW address from one that already has an
      account without leaking which is which, so both land here — and someone who
      re-used an existing address is waiting for a link that was never sent.
      "already have an account? sign in" is exactly what they need, and it says
      the same thing to everyone, so it leaks nothing. */
+  const toIn = up || sent || mode === "wait" || mode === "gift";
   document.getElementById("switch-lede").textContent =
-    up || sent ? "Already have an account?" : "Don't have an account?";
-  document.getElementById("switch-mode").textContent = up || sent ? "Sign in" : "Create one";
+    toIn ? "Already have an account?" : "Don't have an account?";
+  document.getElementById("switch-mode").textContent = toIn ? "Sign in" : gateWaitFirst() ? "Join the waitlist" : "Create one";
   document.getElementById("err").textContent = "";
   clearGateErrors();
   // The resend link belongs to a failed sign-in, not to the create form.
@@ -15132,6 +15382,23 @@ function setGateMode(mode) {
   if (up) { if (SEATS_OPEN === null) refreshSeats(); else applySeatState(); }
   applyOauthState();
   paintGateLynxNote(mode);
+}
+
+/* WAITLIST FIRST: on the home page with the waitlist markup, "create an account" means "join the waitlist" unless a link
+   says otherwise. A brief link (?lynx=), a release or invite link (?c= / ?e=) keep the create card exactly as before. */
+const gateWaitFirst = () => WAITLIST_ON && !LYNX_LINK && !INVITE && !INVITED_EMAIL
+  && !(ACCESS_EMAIL && (document.getElementById("email")?.value || "").trim().toLowerCase() === ACCESS_EMAIL);
+/** home.js, for a join answered "account" (on the Lynx roster, holding an invite, or already signed up): the create card
+    with their email in it and one line saying why. A gift link passes its own line (`note`), and "make my account now"
+    passes {askCode: true}, so the invite-code field shows BEFORE submit (the code is in their email), not as an error
+    after. One argument behaves exactly as before. */
+function gateUpFromWaitlist(email, note, opts) {
+  const f = document.getElementById("email");
+  if (f && email) f.value = email;
+  GATE_UP_NOTE = typeof note === "string" && note ? note : WL_ACCOUNT_SAYS;   // before the mode change: setGateMode("up") keeps it and paints it (paintGateLynxNote)
+  if (opts?.askCode) CODE_ASKED = true;
+  setGateMode("up");
+  document.getElementById(email ? "pw" : "email")?.focus();
 }
 
 /* THE MERGED HOME'S GATE OPEN/CLOSE. On every other page #gate is simply the
@@ -15150,10 +15417,11 @@ function showGate(mode) {
   // state object is what popstate below tests, so a Back that lands on some
   // OTHER entry does not get mistaken for this one.
   try { history.pushState({ lynxrGate: 1 }, "", location.pathname + location.search); } catch {}
-  document.getElementById(mode === "reset" ? "pw" : "email")?.focus();
+  document.getElementById(mode === "reset" ? "pw" : mode === "wait" ? "wl-email" : mode === "spot" ? "wl-num"
+    : mode === "refer" ? "wlr-big" : mode === "gift" ? "wlg-email" : "email")?.focus();
 }
 function hideGate() {
-  document.body.classList.remove("gate-on");
+  document.body.classList.remove("gate-on", "wl-page");
   document.getElementById("err").textContent = "";
   clearGateErrors();
 }
@@ -15165,6 +15433,10 @@ document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-gate]");
   if (!t || !HOME) return;
   e.preventDefault();           // the control is a real <a href="/"> so it works with JS off
+  if (t.dataset.gate === "wait") {                 // the waitlist (home.js); without it, the create card as before
+    if (window.lynxrWaitlist) window.lynxrWaitlist.open(); else showGate("up");
+    return;
+  }
   showGate(t.dataset.gate === "in" ? "in" : "up");
 });
 
@@ -15172,7 +15444,9 @@ lynxLinkInit();   // a brief link (?lynx=), before anything below opens the gate
 
 // The homepage CTA links to ?signup=1, so "Create your account" lands on the
 // create form rather than the sign-in form the visitor has no credentials for.
-if (/[?&]signup=1\b/.test(location.search)) setGateMode("up");
+/* With the waitlist (plan waitlist-referral-queue): a bare ?signup=1 (no e/c/lynx) is the public "get started" link and
+   opens the waitlist card below instead; a release or invite link carries e/c and behaves exactly as before. */
+if (/[?&]signup=1\b/.test(location.search) && !gateWaitFirst()) setGateMode("up");
 
 /* An invite link carries both halves — ?e=<address>&c=<code> — so the invited
    person types a password and nothing else. Filling these in is also the only
@@ -15195,8 +15469,11 @@ if (INVITE) {
    marketing page. Open it. A creator who is already signed in is taken into
    the app by resume() at the end of this file, which also closes the gate. */
 if (HOME && (/[?&]signup=1\b/.test(location.search) || INVITED_EMAIL || INVITE)) {
-  showGate("up");
-  if (INVITED_EMAIL) document.getElementById("pw")?.focus();
+  if (gateWaitFirst() && window.lynxrWaitlist) window.lynxrWaitlist.open();
+  else {
+    showGate("up");
+    if (INVITED_EMAIL) document.getElementById("pw")?.focus();
+  }
 }
 /* A brief link opened signed out: the sign-in card, with one line saying why (paintGateLynxNote). Not when an invite or
    sign-up link already opened the card, not when a session is stored (resume() takes them in), and not when the
@@ -15289,8 +15566,17 @@ document.getElementById("gate-resend").addEventListener("click", async () => {
 });
 
 document.getElementById("switch-mode").addEventListener("click", () => {
-  setGateMode(GATE_MODE === "up" ? "in" : "up");
+  /* From sign in: the waitlist when it is the way in (the typed email comes along), else the create card. From
+     create / check your email / the waitlist card: sign in. */
+  if (GATE_MODE === "in" && gateWaitFirst() && window.lynxrWaitlist) {
+    window.lynxrWaitlist.open((document.getElementById("email").value || "").trim());
+    return;
+  }
+  setGateMode(GATE_MODE === "up" || GATE_MODE === "sent" || GATE_MODE === "wait" || GATE_MODE === "gift" ? "in" : "up");
   document.getElementById(document.getElementById("email").value ? "pw" : "email").focus();
+});
+document.getElementById("gate-wl-offer-go")?.addEventListener("click", () => {
+  window.lynxrWaitlist?.open((document.getElementById("email").value || "").trim());
 });
 
 /* CHECK YOUR EMAIL (owner, 2026-09-25) — after a sign-up. The resend waits out the same 60 seconds
@@ -15531,6 +15817,7 @@ wireAcctMenu();
 document.getElementById("nav-posts")?.addEventListener("click", () => { go({ kind: "posts" }); refreshPosts(); });
 document.getElementById("nav-you").addEventListener("click", () => go({ kind: "you" }));
 document.getElementById("nav-plan").addEventListener("click", () => go({ kind: "plan" }));
+document.getElementById("nav-invite")?.addEventListener("click", () => { go({ kind: "invite" }); if (GIFTS_STATE !== "loading") refreshGifts(); });
 document.getElementById("nav-lynx").addEventListener("click", () => go({ kind: "lynx" }));
 /* BACK AND FORWARD (plan creator-library-campaign-sections.md). Only entries this app wrote (history.state.lynxrView)
    are pages; anything else (a #fragment link, the sign-in card's entry) is ignored. Never reads the URL (contract C4). */

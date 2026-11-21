@@ -845,6 +845,7 @@ function activateTab(tabId) {
     if (!document.querySelector("#roster-host > *")) renderRoster();   // first visit: the loader at once, not a blank panel
     rostLoad();
     if (!CM_MODE || CM_MANAGER) cmsLoad();   // staff and managers manage CMs; a CM's Creators tab has no CMs section
+    if (!CM_MODE) wlCardLoad();              // the waitlist card: staff only, never a CM or a manager (plan waitlist-referral-queue)
   }
   if (tabId === "tab-showcase") scLoad();
 }
@@ -7212,13 +7213,233 @@ function rostGotoInvite(client) {
 // Staff only (supabase/cm_portal.sql): lynxr_cms is written only through staff_add_cm() (checks is_staff()) and
 // deleted by staff; lynxr_cm_clients is written and deleted by staff. A CM MANAGER may do all of it too
 // (supabase/cm_manager.sql). Shown on the Creators tab, directly under the invite form (plan lynxr-cm-manager.md, D9).
+/* ---------- THE WAITLIST, FOR STAFF (owner, 2026-11-20; plan ~/.claude/plans/waitlist-referral-queue.md, step 12) ----------
+   A card at the top of the Creators tab: how many are waiting, "Release the next 100" (two clicks, armDelete: no
+   confirm()), "Let one person in", and "Send them" for let-in emails that have not gone yet. STAFF ONLY: activateTab
+   calls this only when !CM_MODE, so a CM or a CM manager never gets the card (the function refuses them anyway: it
+   checks lynxr_staff). Built in JS because agencyonly/index.html is not cache-stamped.
+   The numbers come from staff_waitlist_stats() (supabase/waitlist_queue.sql; null for anyone not staff). The actions go
+   to the waitlist Edge Function (supabase/functions/waitlist; its header holds the call contract), which writes the
+   invites and sends the emails. UPDATES ARE SURGICAL: the card is built once, then each re-read only rewrites the
+   tile numbers, the button's count and the "Send them" row, so a half-typed email and a result line survive it. */
+const WL_STAFF_SAYS = {
+  missing: "The waitlist isn't installed yet — run supabase/waitlist_queue.sql in the Supabase SQL editor.",
+  denied: "This account can't read the waitlist.",
+  loadFail: "Couldn't load the waitlist.",
+  unreachable: "Couldn't reach the waitlist. Try again.",
+  notStaff: "This account can't release the waitlist.",
+  off: "The waitlist is switched off (the WAITLIST_MODE secret on the function).",
+  tooSoon: "A batch just went out. Wait a minute.",
+  badN: "Couldn't release: the batch size isn't valid.",
+  badEmail: "That doesn't look like an email address.",
+  capWhy: "the daily email cap, or a send that failed",
+  hint: "Campaign creators don't need the waitlist: invite them on the roster below.",
+  capHint: "Up to 80 emails go out a day unless the cap was raised; the rest wait under Send them.",
+};
+let WL_STATS = null;          // the last staff_waitlist_stats() answer
+let WL_RELEASE_N = 0;         // the batch size the release button was built with (armDelete keeps its face)
+
+/** The function, as staff: the session's bearer token, a JSON body, NO apikey header (the 2026-09-21 preflight bug,
+    creator.js "apikey"), and sbFetch's refresh-once on a 401. Resolves {status, body}; a network failure throws. */
+async function wlStaffCall(body) {
+  const attempt = () => fetch(`${SB_URL}/functions/v1/waitlist`, {
+    method: "POST",
+    headers: { "content-type": "application/json", Authorization: `Bearer ${SB_TOKEN}` },
+    body: JSON.stringify(body),
+  });
+  let res = await attempt();
+  if (res.status === 401 && sbLoadSession()?.refresh_token) {
+    try {
+      SB_REFRESHING = SB_REFRESHING
+        || sbRefresh(sbLoadSession().refresh_token).finally(() => { SB_REFRESHING = null; });
+      await SB_REFRESHING;
+      res = await attempt();
+    } catch { /* refresh failed: the 401 stands */ }
+  }
+  const out = await res.json().catch(() => ({}));
+  return { status: res.status, body: out && typeof out === "object" ? out : {} };
+}
+
+function wlHost() {
+  let host = document.getElementById("wl-host");
+  if (!host) {
+    const roster = document.getElementById("roster-host");
+    if (!roster) return null;
+    roster.insertAdjacentHTML("beforebegin", '<div id="wl-host"></div>');
+    host = document.getElementById("wl-host");
+  }
+  return host;
+}
+
+async function wlCardLoad() {
+  const host = wlHost();
+  if (!host) return;
+  if (!host.querySelector(".wl-card")) {
+    host.innerHTML = `<div class="section wl-card-wait"><div class="loader" role="status" aria-live="polite">${loaderMark()}
+      <div class="loader-text"><div class="lbl">Loading the waitlist…</div></div></div></div>`;
+  }
+  let stats;
+  try {
+    stats = await sbFetch("/rest/v1/rpc/staff_waitlist_stats", { method: "POST", body: "{}" });
+  } catch (ex) {
+    const m = String(ex?.message || "");
+    if (host.querySelector(".wl-card")) return;              // a re-read that failed: keep the card as it was
+    if (/^404\b|PGRST202|could not find the function/i.test(m)) { wlCardNote(host, WL_STAFF_SAYS.missing, false); return; }
+    wlCardNote(host, WL_STAFF_SAYS.loadFail, true);
+    return;
+  }
+  if (!stats || typeof stats !== "object") { wlCardNote(host, WL_STAFF_SAYS.denied, false); return; }
+  WL_STATS = stats;
+  if (!host.querySelector(".wl-card")) wlCardBuild(host);
+  wlCardPaint(host);
+}
+
+function wlCardNote(host, text, retry) {
+  host.innerHTML = `<div class="section wl-card-note"><div class="sec-head"><h2>Waitlist</h2></div>
+    <p class="note">${escapeHtml(text)}${retry ? ' <button type="button" class="ghost" id="wl-retry">Try again</button>' : ""}</p></div>`;
+  document.getElementById("wl-retry")?.addEventListener("click", () => { host.innerHTML = ""; wlCardLoad(); });
+}
+
+function wlCardBuild(host) {
+  host.innerHTML = `<div class="section wl-card">
+    <div class="sec-head"><h2>Waitlist</h2></div>
+    <div class="stats wl-stats" id="wl-stats">
+      <div class="stat"><div class="label">Waiting</div><div class="value" data-k="waiting"></div><div class="sub">confirmed, in line</div></div>
+      <div class="stat"><div class="label">Not confirmed</div><div class="value" data-k="unconfirmed"></div><div class="sub">joined, email not confirmed</div></div>
+      <div class="stat"><div class="label">Let in</div><div class="value" data-k="released"></div><div class="sub" id="wl-last"></div></div>
+      <div class="stat"><div class="label">Made an account</div><div class="value" data-k="joined"></div><div class="sub wl-gift-sub" id="wl-joined-sub">from a waitlist invite</div></div>
+    </div>
+    <div class="wl-release-row"><span id="wl-release-slot"></span></div>
+    <p class="lbl wl-cap">${escapeHtml(WL_STAFF_SAYS.capHint)}</p>
+    <form class="wl-letin" id="wl-letin-form" novalidate>
+      <label class="ce-field wl-letin-field"><span class="lbl">Let one person in</span>
+        <input type="email" id="wl-letin-email" autocomplete="off" placeholder="them@example.com"></label>
+      <button type="submit" class="ghost" id="wl-letin-go">Let in</button>
+    </form>
+    <p class="wl-unmailed" id="wl-unmailed" hidden><span id="wl-unmailed-n"></span>
+      <button type="button" class="ghost" id="wl-send-them">Send them</button></p>
+    <p class="bp-msg cb-msg" id="wl-msg" role="status" aria-live="polite"></p>
+    <p class="lbl wl-hint">${escapeHtml(WL_STAFF_SAYS.hint)}</p>
+  </div>`;
+  WL_RELEASE_N = 0;
+  document.getElementById("wl-letin-form").addEventListener("submit", (e) => { e.preventDefault(); wlLetIn(); });
+  document.getElementById("wl-send-them").addEventListener("click", wlSendThem);
+  host.querySelectorAll("#wl-stats .value").forEach((el) => { el.dataset.fresh = "1"; });
+}
+
+/** Rewrite only what a new stats answer changes. */
+function wlCardPaint(host) {
+  const s = WL_STATS || {};
+  host.querySelectorAll("#wl-stats .value").forEach((el) => {
+    const n = Number(s[el.dataset.k]) || 0;
+    if (el.dataset.fresh) { delete el.dataset.fresh; animateCount(el, n, (v) => fmt(Math.round(v))); }
+    else el.textContent = fmt(n);
+  });
+  /* C57 (plan waitlist-beli-referrals B15): how many of them came in on a friend's invite, once any have. */
+  const jsub = document.getElementById("wl-joined-sub");
+  if (jsub) jsub.textContent = "from a waitlist invite" + (Number(s.gift_joined) > 0 ? ` · ${fmt(Number(s.gift_joined))} from friends' invites` : "");
+  const last = document.getElementById("wl-last");
+  if (last) last.textContent = s.last_batch ? `last batch #${s.last_batch}${s.last_batch_at ? ", " + agoLabel(s.last_batch_at) : ""}` : "no batch yet";
+  const n = Math.max(1, Number(s.batch_size) || 100);
+  if (n !== WL_RELEASE_N) {                       // armDelete remembers the face, so a new count is a new button
+    WL_RELEASE_N = n;
+    const slot = document.getElementById("wl-release-slot");
+    if (slot) {
+      slot.innerHTML = `<button type="button" class="btn wl-release" id="wl-release">Release the next ${fmt(n)}</button>`;
+      const btn = document.getElementById("wl-release");
+      armDelete(btn, "Release", () => wlRelease(btn, n));
+    }
+  }
+  const un = Number(s.unmailed) || 0;
+  const row = document.getElementById("wl-unmailed");
+  if (row) {
+    row.hidden = un <= 0;
+    document.getElementById("wl-unmailed-n").textContent = `${fmt(un)} let-in ${un === 1 ? "email" : "emails"} not sent yet`;
+  }
+}
+
+function wlSay(text, tone) { cbMsg(document.getElementById("wl-msg"), text, tone, true); }
+/** A refusal every action shares, or null when the answer is the action's own. */
+function wlStaffRefusal(r) {
+  if (r.status === 401 || r.status === 403) return WL_STAFF_SAYS.notStaff;
+  if (r.body.status === "off") return WL_STAFF_SAYS.off;
+  if (r.status >= 500 || r.body.status === "error" || r.body.error === "error") return WL_STAFF_SAYS.unreachable;
+  return null;
+}
+
+async function wlRelease(btn, n) {
+  btn.disabled = true;
+  btn.classList.remove("armed");
+  btn.textContent = "Releasing…";
+  try {
+    const r = await wlStaffCall({ action: "release", n });
+    const no = wlStaffRefusal(r);
+    const b = r.body;
+    if (no) wlSay(no, "bad");
+    else if (b.error === "too_soon") wlSay(WL_STAFF_SAYS.tooSoon, "bad");
+    else if (b.error === "bad_n") wlSay(WL_STAFF_SAYS.badN, "bad");
+    else if (Number.isFinite(Number(b.batch))) {
+      const un = Number(b.unmailed) || 0;
+      wlSay(`Batch ${b.batch}: ${fmt(Number(b.released) || 0)} let in, ${fmt(Number(b.mailed) || 0)} emailed.`
+        + (un > 0 ? ` ${fmt(un)} not emailed yet (${WL_STAFF_SAYS.capWhy}) — press Send them later.` : ""),
+        un > 0 ? "" : "good");
+    } else wlSay(WL_STAFF_SAYS.unreachable, "bad");
+  } catch { wlSay(WL_STAFF_SAYS.unreachable, "bad"); }
+  btn.disabled = false;
+  btn.textContent = `Release the next ${fmt(n)}`;
+  wlCardLoad();
+}
+
+async function wlLetIn() {
+  const input = document.getElementById("wl-letin-email");
+  const go = document.getElementById("wl-letin-go");
+  const email = String(input?.value || "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email)) { wlSay(WL_STAFF_SAYS.badEmail, "bad"); input?.focus(); return; }
+  go.disabled = true;
+  try {
+    const r = await wlStaffCall({ action: "let_in", email });
+    const no = wlStaffRefusal(r);
+    const st = r.body.status;
+    if (no) wlSay(no, "bad");
+    else if (st === "sent") { wlSay(`Sent to ${email}.`, "good"); input.value = ""; }
+    else if (st === "has_account") wlSay(`${email} already has an account.`, "");
+    else if (st === "bad_email") wlSay(WL_STAFF_SAYS.badEmail, "bad");
+    else if (st === "mail_failed" && r.body.in_unmailed === false)
+      wlSay(`Let in, but the email to ${email} didn't send. They weren't on the waitlist, so Send them won't list them: press Let in again.`, "bad");
+    else if (st === "mail_failed") wlSay(`Let in, but the email to ${email} didn't send — press Send them.`, "bad");
+    else wlSay(WL_STAFF_SAYS.unreachable, "bad");
+  } catch { wlSay(WL_STAFF_SAYS.unreachable, "bad"); }
+  go.disabled = false;
+  wlCardLoad();
+}
+
+async function wlSendThem() {
+  const btn = document.getElementById("wl-send-them");
+  btn.disabled = true;
+  try {
+    const r = await wlStaffCall({ action: "retry_release" });
+    const no = wlStaffRefusal(r);
+    const b = r.body;
+    if (no) wlSay(no, "bad");
+    else if (Number.isFinite(Number(b.listed))) {
+      const listed = Number(b.listed) || 0, mailed = Number(b.mailed) || 0, un = Number(b.unmailed) || 0;
+      if (!listed) wlSay("Nothing was waiting to send.", "");
+      else wlSay(`Sent ${fmt(mailed)} of ${fmt(listed)}.`
+        + (un > 0 ? ` ${fmt(un)} still waiting (${WL_STAFF_SAYS.capWhy}) — press Send them again later.` : ""),
+        un > 0 ? "" : "good");
+    } else wlSay(WL_STAFF_SAYS.unreachable, "bad");
+  } catch { wlSay(WL_STAFF_SAYS.unreachable, "bad"); }
+  btn.disabled = false;
+  wlCardLoad();
+}
+
 let CMS = null;               // [{ user_id, email, added_at, lynxr_cm_clients: [{ client_id }] }] | null = not loaded
 let CMS_ERR = "";             // "" | "missing" | "denied" | "other" (cbError)
 const CMS_BUSY = new Set();   // `${uid}|${clientId}` toggles in flight
 let CMS_OPEN = false;         // the "CMs N" fold: closed by default, opened by an add, kept across repaints
 const CMS_SAYS = {
   added: "Added. They'll see “CM view” in their lynxr account menu. Now tick the companies they work on.",
-  no_account: "No lynxr account uses that email yet. Ask them to sign up on lynxr.io with it, then add them again.",
+  no_account: "No lynxr account uses that email yet. Let them in from Waitlist above (they get an email to create their account), then add them again.",
   unconfirmed: "They signed up but haven't confirmed their email yet. Once they click the link in their inbox, add them again.",
   already: "They're already a CM.",
   bad_email: "That doesn't look like an email address.",
@@ -7275,7 +7496,7 @@ function cmsHtml() {
         <input type="email" id="cms-email" autocomplete="off" placeholder="them@example.com"></label>
       <button type="submit" class="ghost" id="cms-add-go">Add CM</button>
     </form>
-    <p class="lbl cms-rule">They sign up on lynxr.io with this email and confirm it first.</p>
+    <p class="lbl cms-rule">They need a lynxr account with this email first. If they don't have one, let them in from Waitlist above.</p>
     <p class="bp-msg cb-msg" id="cms-msg" role="status" aria-live="polite"></p>
     <details class="cb-more cms-more" id="cms-more"${CMS_OPEN ? " open" : ""}>
       <summary>CMs <span class="pill">${CMS.length}</span></summary>

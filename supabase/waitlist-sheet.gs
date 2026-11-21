@@ -1,4 +1,8 @@
 /**
+ * RETIRED 2026-11-20 (owner: "turn it off"): home.js no longer posts to this. Supabase is the only store of
+ * waitlist emails. The deployment still accepts POSTs until it is disabled in Apps Script (Deploy -> Manage
+ * deployments -> Archive), because its URL is in this repo's history.
+ *
  * lynxr — mirror landing-page waitlist signups into a Google Sheet.
  *
  * Sheet: https://docs.google.com/spreadsheets/d/1ypPfMkF6jpyQJ-9WCNoyjcjTenXrePhMz2uv96LjScY/

@@ -14204,3 +14204,267 @@
       animation-fill-mode: both; animation-play-state: paused;
     }
   }
+
+  /* ============== THE WAITLIST (2026-11-20, plan ~/.claude/plans/waitlist-referral-queue.md, steps 11 and 12) ==============
+     index.html #gate-wait / #gate-spot (painted by home.js, modes from creator.js setGateMode; the refer screen, the queue
+     page as a page and the friend's banner are the block after the next one), the closing band's
+     .lp-close-cta, the refused-sign-up offer #gate-wl-offer, and the agency app's staff card #wl-host (app.js wlCardLoad).
+     EVERY SELECTOR starts with #gate .gate-wait, #gate .gate-spot, #gate .wl-, body.gate-wl, #gate-wl-offer, .lp-close-cta
+     (under body.home) or body.agency #wl-host, so nothing here reaches another screen. Tokens only; .btn itself is not
+     restyled (the action colour is still being decided): these rules size and place it. The number is huge and its
+     label small (show before explaining). The one moving thing per card is the .onb-shim button home.js picks; the
+     shimmer is already off under reduced motion (the .onb-shim block), and nothing here adds motion. */
+  #gate .gate-wait[hidden], #gate .gate-spot[hidden], #gate .wl-batch[hidden], #gate .wl-link[hidden],
+  #gate .wl-friends[hidden], #gate .wl-num[hidden], #gate .wl-num-lbl[hidden], #gate .wl-line[hidden], #gate-wl-offer[hidden] { display: none; }
+  #gate .gate-wait, #gate .gate-spot { text-align: center; }
+  #gate .wl-promise { margin: 14px 0 0; font-size: var(--fs-12); line-height: 1.55; color: var(--text-3); }
+  #gate .wl-promise a { color: var(--text-2); border-bottom: 1px solid var(--line-2); }
+  #gate .wl-promise a:hover { color: var(--text); }
+  /* (2,1,1): beats #gate :is(.field.login input[type="email"], …) (1,3,1), which sets the field's grey edge */
+  #gate #gate-wait input[aria-invalid="true"] { border-color: var(--bad); }
+  #gate-wait:has([aria-invalid="true"]) ~ #err { color: var(--bad); }
+  /* The card's primary: full width, 48px (Fitts; touch targets 44px+). */
+  #gate :is(#wl-go, .wl-act-go, .wl-leave) { width: 100%; min-height: 48px; }
+  /* The spot card. The number is the biggest thing on the card; a long one steps down a size (home.js .is-long /
+     .is-longer by digit count) so "#12,345" still fits the 320px column, and "you're in" (.is-word) likewise. */
+  #gate .wl-num {
+    margin: 4px 0 6px; font-size: clamp(64px, 20vw, 112px); line-height: 1; font-weight: 700; letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums; color: var(--text); outline: none; overflow-wrap: anywhere;
+  }
+  #gate .wl-num.is-long { font-size: clamp(56px, 16vw, 84px); }
+  #gate .wl-num.is-longer { font-size: clamp(44px, 12vw, 64px); }
+  #gate .wl-num.is-word { font-size: clamp(40px, 12vw, 56px); letter-spacing: -0.03em; margin-bottom: 14px; }
+  #gate .wl-num-lbl { margin: 0 0 18px; font-size: var(--fs-13); line-height: 1.4; color: var(--text-3); }
+  #gate .wl-line { margin: 0 0 6px; font-size: var(--fs-14); line-height: 1.5; color: var(--text); overflow-wrap: anywhere; outline: none; }
+  #gate .wl-batch { margin: 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-2); }
+  /* The share URL is content (its code's real capitals), so it opts out of the house lowercase here, in CSS. */
+  #gate .wl-link {
+    margin: 0; padding: 11px 15px; border-radius: 14px; text-transform: none; user-select: all; -webkit-user-select: all;
+    overflow-wrap: anywhere; font-size: var(--fs-13); line-height: 1.4; color: var(--text);
+    background: var(--field-input); border: 1px solid var(--line-2); box-shadow: inset 0 1px 3px var(--field-input-inset);
+  }
+  #gate .wl-friends { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
+  #gate .wl-acts { margin-top: 6px; }
+  #gate .wl-acts > :is(.wl-act-go, .wl-leave) { margin-top: 18px; }
+  #gate .wl-acts .gate-other { margin-top: 22px; }
+  #gate .wl-acts .linkish:disabled { color: var(--text-3); border-bottom-color: transparent; cursor: default; }
+  /* 44px+ targets for the card's text buttons (13px above and below a ~18px line), without moving anything: padding cancelled by a matching margin. */
+  #gate :is(.gate-wait, .gate-spot) .linkish, #gate-wl-offer .linkish {
+    padding: 13px 0; margin: -13px 0;
+    /* the underline as text-decoration: a border-bottom would sit under the 12px of padding, far from the words */
+    border-bottom: 0; text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 4px;
+  }
+  #gate :is(.gate-wait, .gate-spot) .linkish:hover:not(:disabled), #gate-wl-offer .linkish:hover { text-decoration-color: var(--text-2); }
+  #gate .wl-acts .linkish:disabled { text-decoration: none; }
+  #gate-wl-offer { margin-top: 14px; }
+  /* PHONES: the card fills the screen and the primary sits at the bottom, full width, in the thumb zone (Fitts).
+     Wait and spot modes only (body.gate-wl); sign in and create keep the centred 400px glass card. */
+  @media (max-width: 640px) {
+    body.gate-wl #gate { place-items: stretch; }
+    body.gate-wl #gate .gate-card { min-height: calc(100svh - 48px); display: flex; flex-direction: column; }
+    body.gate-wl #gate .gate-card > .wordmark { align-self: center; }
+    body.gate-wl #gate .gate-card > .gate-back { align-self: flex-start; }
+    body.gate-wl #gate :is(.gate-wait, .gate-spot):not([hidden]) { flex: 1 0 auto; display: flex; flex-direction: column; }
+    body.gate-wl #gate .gate-wait .wl-form { margin-top: auto; padding-top: 18px; }
+  }
+  /* THE CLOSING BAND'S BUTTON (index.html .lp-close): the first screen's button shape, without its shimmer. */
+  html body.home #lp-main > .lp-close .lp-close-cta {
+    display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+    min-width: 240px; min-height: 52px; margin-top: 18px; padding: 0 28px; font-size: 16px; text-decoration: none;
+  }
+  @media (max-width: 640px) { html body.home #lp-main > .lp-close .lp-close-cta { width: 100%; min-width: 0; } }
+  /* The staff card (app.js wlCardLoad): first thing on the Creators tab, the Ops tab's tile row, one ink button
+     (two clicks: armDelete) and a one-line ghost form shaped like "Add a CM". Staff only; never in CM or manager mode. */
+  body.agency #wl-host .wl-card .stats { margin: 0 0 16px; }
+  body.agency #wl-host .wl-release-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  body.agency #wl-host #wl-release-slot { display: contents; }   /* the button, not its slot, is the flex item (full width on a phone) */
+  body.agency #wl-host .wl-release { min-height: 44px; padding-left: 22px; padding-right: 22px; }
+  body.agency #wl-host .wl-release.armed { color: var(--armed-fg); border-color: var(--armed-line); background: var(--armed-bg); }
+  body.agency #wl-host .wl-cap { margin: 8px 0 0; }
+  body.agency #wl-host .wl-letin { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 18px 0 0; }
+  body.agency #wl-host .wl-letin-field { flex: 1 1 260px; min-width: 0; margin: 0; }
+  body.agency #wl-host #wl-letin-go, body.agency #wl-host #wl-send-them { flex: 0 0 auto; min-height: 44px; }
+  body.agency #wl-host .wl-unmailed { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0 0; font-size: var(--fs-13); color: var(--text-2); }
+  body.agency #wl-host .wl-unmailed[hidden] { display: none; }
+  body.agency #wl-host .wl-card .bp-msg.show { max-height: 120px; }
+  body.agency #wl-host .wl-hint { margin: 10px 0 0; }
+  body.agency #wl-host .note #wl-retry { margin-left: 6px; }
+  @media (max-width: 640px) {
+    body.agency #wl-host .wl-release, body.agency #wl-host #wl-letin-go { width: 100%; }
+  }
+
+  /* ============== INVITES, CREW, FOUNDING CREATOR, STORY IMAGE, DISCORD (2026-11-20, plan ~/.claude/plans/waitlist-beli-referrals.md, B14) ==============
+     The gift card #gate-gift (a friend's ?gift= link; it reuses the #gate .wl-* rules above), the spot card's title chip,
+     crew number, story button + fixture preview and Discord link, the creator app's Invite friends view (.pane-body .inv)
+     with its menu item #nav-invite and the one-time rail callout #side-invite, and the staff card's sub-line. EVERY
+     SELECTOR starts with #gate .gate-gift, #gate .wl-title, #gate .wl-crew-n, #gate .wl-story-, #gate .wl-discord,
+     #gate #wlg-, #gate-gift, body.gate-wl, .pane-body .inv, #nav-invite, #side-invite or body.agency #wl-host .wl-gift-sub.
+     Tokens only; .btn and the x are not restyled. Nothing here animates: the one moving thing per screen is the .onb-shim
+     button the script picks (#wlg-go, #inv-go), already off under reduced motion. */
+  #gate .gate-gift[hidden], #gate .wl-title[hidden], #gate .wl-story-go[hidden], #gate .wl-story-prev[hidden],
+  #gate .wl-discord-row[hidden], #gate .gate-gift [hidden], #nav-invite[hidden], #side-invite[hidden], .pane-body .inv [hidden] { display: none; }
+  #gate .gate-gift { text-align: center; }
+  /* The gift card's primary joins the base full-width, 48px set; its field error turns the field and the line red. */
+  #gate #wlg-go { width: 100%; min-height: 48px; }
+  #gate #gate-gift input[aria-invalid="true"] { border-color: var(--bad); }
+  #gate-gift:has([aria-invalid="true"]) ~ #err { color: var(--bad); }
+  #gate .gate-gift .wl-line { margin-bottom: 18px; }
+  #gate .gate-gift .wl-promise { margin-top: 14px; }
+  #gate .gate-gift .linkish {
+    padding: 13px 0; margin: -13px 0; border-bottom: 0;
+    text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 4px;
+  }
+  #gate .gate-gift .linkish:hover:not(:disabled) { text-decoration-color: var(--text-2); }
+  #gate .gate-gift .wl-acts .linkish:disabled { text-decoration: none; }
+  /* The founding creator chip: a quiet pill under the number's label, never a button. */
+  #gate .wl-title {
+    display: flex; width: fit-content; align-items: center; gap: 6px; margin: -6px auto 14px; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--line-2); background: var(--surface-2); color: var(--text); font-size: var(--fs-12); font-weight: 600; line-height: 1.2;
+  }
+  #gate .wl-title-ico { flex: none; width: 14px; height: 14px; color: var(--text-2); }
+  #gate .wl-crew-n { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  #gate .wl-friends { font-size: var(--fs-13); color: var(--text-2); }
+  #gate .wl-story-go { width: 100%; min-height: 44px; margin-top: 0; }
+  #gate .wl-story-prev canvas { display: block; width: 100%; max-width: 270px; height: auto; margin: 14px auto 0; border-radius: 16px; }
+  #gate .wl-discord-row { margin: 14px 0 0; text-align: center; font-size: var(--fs-13); }
+  #gate .wl-discord {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 0; color: var(--text-2); border-bottom: 0;
+    text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 4px;
+  }
+  #gate .wl-discord:hover { color: var(--text); text-decoration-color: var(--text-2); }
+  @media (max-width: 640px) {
+    body.gate-wl #gate .gate-gift:not([hidden]) { flex: 1 0 auto; display: flex; flex-direction: column; }
+    body.gate-wl #gate .gate-gift .wl-form { margin-top: auto; padding-top: 18px; }
+    body.gate-wl #gate .gate-gift .wl-form[hidden] + .wl-promise + .wl-acts { margin-top: auto; padding-top: 22px; }
+  }
+  /* THE CREATOR APP'S INVITE FRIENDS VIEW (creator.js renderInvite): the number left, huge, its label small, the link, one
+     full-width button (in the thumb zone on a phone, sticky above the bottom edge). */
+  .pane-body .inv { box-sizing: border-box; max-width: 440px; margin: 0 auto; padding: 40px 20px 24px; text-align: center; }
+  .pane-body .inv .inv-num {
+    margin: 0; font-size: clamp(72px, 18vw, 120px); line-height: 1; font-weight: 700; letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums; color: var(--text);
+  }
+  .pane-body .inv .inv-lbl { margin: 6px 0 18px; font-size: var(--fs-13); color: var(--text-3); }
+  .pane-body .inv :is(.inv-why, .inv-note, .inv-status) { margin: 0; font-size: var(--fs-14); line-height: 1.5; color: var(--text-2); }
+  .pane-body .inv .inv-note { margin-top: 10px; font-size: var(--fs-13); }
+  .pane-body .inv .inv-status:not(:empty) { margin-top: 14px; }
+  /* The link is content: its code's real capitals opt out of the house lowercase, here in CSS. */
+  .pane-body .inv .inv-link {
+    margin: 16px 0; padding: 12px 14px; border-radius: 12px; text-transform: none; user-select: all; -webkit-user-select: all;
+    overflow-wrap: anywhere; font-size: var(--fs-13); line-height: 1.4; color: var(--text);
+    background: var(--field-input); border: 1px solid var(--field-input-edge);
+  }
+  .pane-body .inv #inv-go { width: 100%; min-height: 48px; }
+  .pane-body .inv .inv-status .linkish { margin-left: 4px; }
+  /* Phones: the column fills the screen under the top bar and the button goes last, at the bottom (the thumb zone), sticky
+     if the notes ever push it below the fold. */
+  @media (max-width: 640px) {
+    .pane-body .inv { display: flex; flex-direction: column; min-height: calc(100svh - var(--inv-top, 96px)); padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+    .pane-body .inv .inv-act { order: 9; margin-top: auto; padding-top: 18px; position: sticky; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 1; }
+  }
+  /* The one-time rail callout: the new-numbers callout's shape, as a glass well (the press colour stays on buttons). */
+  #side-invite {
+    margin: 2px 4px 8px; padding: 12px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line-2);
+    color: var(--text); font-size: 13px; line-height: 1.4; text-align: left;
+  }
+  #side-invite .onb-news-t { margin: 0; font-size: 13px; }
+  #side-invite .onb-news-acts { display: flex; gap: 16px; margin: 6px 0 0; }
+  #side-invite .linkish { min-height: 32px; font-size: 13px; color: var(--text); }
+  #side-invite .onb-news-go { font-weight: 700; }
+  #side-invite .onb-news-x { color: var(--text-2); }
+  /* The staff card's "Made an account" sub-line (app.js wlCardPaint): no rule needed beyond .sub; the class marks it. */
+  body.agency #wl-host .wl-gift-sub { overflow-wrap: anywhere; }
+
+  /* ============== THE REFER SCREEN, THE QUEUE PAGE AND THE FRIEND'S BANNER (owner, 2026-11-20: "the most simple and easy to
+     follow thing ever ... dont add the side nav bar just have it be the background and it saying coming soon or somehitng
+     and their queu postion and a lynxr some where") ==============
+     body.wl-page (creator.js setGateMode "refer" / "spot"): the sign-in card's glass goes and the card IS the page: the
+     backdrop, the x in the top-left corner exactly where the landing's sits, the content in one 440px column. A desktop
+     centres the group, the button right under the number; a phone centres the number in the space above and puts the
+     button full width at the bottom, in the thumb zone (Fitts). There is no app chrome to hide: #app stays hidden until
+     sign-in. The join card and the invite card stay cards. EVERY SELECTOR starts with body.wl-page, #gate .gate-refer,
+     #gate .wl-eyebrow, #gate .wl-r-, #gate #wlr-, html body.home .lp-invite, html body.home .lp-first-go.is-invited or
+     html body.home.wl-invited. Tokens only; .btn and the x are not restyled. Nothing here animates: the one moving button
+     is the .onb-shim home.js picks (off under reduced motion). */
+  #gate .gate-refer[hidden], #gate #wlr-text[hidden], #gate #wlr-share[hidden] { display: none; }
+  #gate .gate-refer { text-align: center; }
+  body.wl-page #gate { place-items: stretch; padding: 0; }
+  body.wl-page #gate > .gate-card {
+    position: static;                     /* the corner x is placed against #gate (the screen), as on the landing */
+    box-sizing: border-box; display: flex; flex-direction: column;
+    width: 100%; max-width: 440px; min-height: 100vh; min-height: 100svh; margin: 0 auto;
+    padding: calc(var(--lpc-edge, 20px) + 44px + 16px) 24px calc(24px + env(safe-area-inset-bottom));
+    background: none; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  body.wl-page #gate .gate-card > :is(.gate-back, .tagline) { display: none; }
+  /* the landing's corner mark: same inset, same 28px x, same 18px word (html body.home .lp-bar .wordmark) */
+  body.wl-page #gate .gate-card > .wordmark {
+    position: absolute; top: calc(var(--lpc-edge, 20px) - 8px); left: var(--lpc-edge, 20px); margin: 0;
+    min-height: 44px; gap: 8px; font-size: 18px;
+  }
+  body.wl-page #gate .gate-card > .wordmark .mark { width: 28px; height: 28px; }
+  body.wl-page #gate :is(.gate-refer, .gate-spot):not([hidden]) { flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center; }
+  body.wl-page #gate .wl-main { display: flex; flex-direction: column; align-items: center; }
+  /* "coming soon" / "you're on the list": the small line over the number (home.js eyebrow) */
+  #gate .wl-eyebrow { margin: 0 0 4px; font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--text-2); }
+  /* the number: bigger than on the old card, it is the page */
+  body.wl-page #gate .wl-num { margin: 0 0 8px; font-size: clamp(84px, 27vw, 148px); }
+  body.wl-page #gate .wl-num.is-long { font-size: clamp(64px, 20vw, 112px); }
+  body.wl-page #gate .wl-num.is-longer { font-size: clamp(48px, 15vw, 84px); }
+  body.wl-page #gate .wl-num.is-word { margin-bottom: 14px; font-size: clamp(52px, 16vw, 80px); }
+  body.wl-page #gate .wl-num-lbl { margin: 0 0 18px; font-size: var(--fs-14); max-width: 30ch; }
+  body.wl-page #gate .wl-line { max-width: 34ch; font-size: 15px; }
+  body.wl-page #gate .wl-batch { margin-top: 2px; }
+  body.wl-page #gate .wl-friends { margin: 8px 0 0; }
+  body.wl-page #gate .wl-link { width: 100%; box-sizing: border-box; margin-top: 4px; }
+  /* the actions: one full-width button, then quiet links */
+  body.wl-page #gate .wl-acts { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
+  body.wl-page #gate .wl-acts > * { margin: 0; }
+  body.wl-page #gate .wl-acts > .gate-other { margin-top: 10px; }
+  body.wl-page #gate .wl-acts > .gate-other + .gate-other { margin-top: 4px; }
+  body.wl-page #gate :is(.wl-act-go, .wl-leave, .wl-r-go) { width: 100%; min-height: 52px; font-size: 16px; }
+  body.wl-page #gate .wl-r-alt { width: 100%; min-height: 48px; }
+  #gate #wlr-text { display: flex; align-items: center; justify-content: center; box-sizing: border-box; text-decoration: none; }
+  #gate .gate-refer .linkish {
+    padding: 13px 0; margin: -13px 0; border-bottom: 0;
+    text-decoration: underline; text-decoration-color: var(--line-2); text-decoration-thickness: 1px; text-underline-offset: 4px;
+  }
+  #gate .gate-refer .linkish:hover { text-decoration-color: var(--text-2); }
+  body.wl-page #gate .wl-discord-row { margin-top: 10px; }
+  body.wl-page #gate #err:empty { display: none; }
+  body.wl-page #gate #err { margin-top: 14px; }
+  @media (max-width: 640px) {
+    body.wl-page #gate > .gate-card { padding-left: 20px; padding-right: 20px; }
+    body.wl-page #gate :is(.gate-refer, .gate-spot):not([hidden]) { justify-content: flex-start; }
+    body.wl-page #gate .wl-main { margin: auto 0; padding: 8px 0 20px; }
+    body.wl-page #gate .wl-acts { margin-top: 0; }
+  }
+  /* THE JOIN CARD ON A PHONE: one field and one button left, so the full-height card was mostly empty glass. It now hugs
+     its content and sits at the bottom of the screen (a sheet), the field and the button still full width in the thumb
+     zone. The invite card keeps the full-height layout above. */
+  @media (max-width: 640px) {
+    body.gate-wl #gate:has(> .gate-card > .gate-wait:not([hidden])) { align-items: end; }
+    body.gate-wl #gate > .gate-card:has(> .gate-wait:not([hidden])) { min-height: 0; }
+    body.gate-wl #gate .gate-wait:not([hidden]) { flex: 0 0 auto; }
+    body.gate-wl #gate .gate-wait .wl-form { margin-top: 0; padding-top: 0; }
+  }
+  /* THE FRIEND'S BANNER (index.html #lp-invite; home.js WL_UI.banner): the first screen's button inside one glass card
+     that says a friend sent them: the x, a 17px line, a short line, the button full width. The video gives up the height
+     (--lpf-go is the button's slot in the first screen's height math), so the group still fits one screen. */
+  html body.home .lp-invite[hidden] { display: none; }
+  html body.home.wl-invited { --lpf-go: 158px; }
+  html body.home .lp-first-go.is-invited {
+    box-sizing: border-box; width: min(100%, 440px); gap: 16px; padding: 18px; border-radius: 28px;
+    background: var(--gl-fill); -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
+    border: 1px solid var(--gl-edge); box-shadow: var(--gl-shadow);
+  }
+  html body.home .lp-invite {
+    display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 14px; align-items: center; width: 100%; text-align: left;
+  }
+  html body.home .lp-invite .mark { grid-row: 1 / span 2; width: 44px; height: 44px; }
+  html body.home .lp-invite-t { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.25; color: var(--text); }
+  html body.home .lp-invite-s { margin: 3px 0 0; font-size: var(--fs-14); line-height: 1.4; color: var(--text-2); }
+  html body.home .lp-first-go.is-invited .lp-first-cta { width: 100%; min-width: 0; }
+  @media (max-width: 640px) {
+    html body.home .lp-first-go.is-invited { width: 100%; padding: 16px; border-radius: 24px; }
+  }
