@@ -1,0 +1,273 @@
+{
+  "question_id": "a040",
+  "slug": "ugc-routine-video-one-product",
+  "theme": "ugc-formats",
+  "title": "How do you script a routine video around one product?",
+  "description": "How to write a UGC routine video script around one product: pick a routine you really do, place the product at the step it changes, and keep the rest short.",
+  "short_answer": "Script a routine video by choosing a real routine you already do, then placing the product at the single step it changes. Keep the other steps quick and mostly silent, give the product step the close shot and the full sentences, and end on the finished routine instead of a pitch.",
+  "sections": [
+    {
+      "heading": "Which routine should you build the video around?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Pick a routine you already do in real life, because a viewer can tell when the steps were invented for the camera.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A routine video is a [format](/glossary/#format) where the shape is the order of the steps, not the product. That matters, because the steps are what make it feel like a normal post. If you have to make up a routine to fit the product in, the viewer has nothing familiar to hold on to. [What a UGC video format is](/what-is-a-video-format/) explains why the shape can carry a product it was never built for, as long as the shape itself is true.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Choose a routine with a clear start and a clear end, such as leaving the house, making a first drink, or a clean-up before bed. A clear end gives the video somewhere to land.",
+            "Keep it to three to five steps you can film in one place, so you are not moving lights and the phone between every shot.",
+            "Make sure the product belongs in it. If you would never use it at that moment, pick a different routine rather than forcing it.",
+            "Do the routine once without filming and write the steps down in order. That list becomes the skeleton of the script."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Where should the product sit in the routine?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Put the product at the one step it changes, and let the steps before it build up to that moment.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the product appears in the first second and stays in every shot, the video stops being a routine and becomes a demo. If it shows up halfway through, at the step where something used to be slow or annoying, the routine gives it a reason to be there. Each [beat](/glossary/#beat) before that step should be short and change what is on screen. The parts of a routine still map onto [the parts of a UGC video script](/short-form-script-structure/): the early steps are the setup, the product step is the turn, and the finished routine is the close.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Routine",
+            "Steps before the product",
+            "The product step",
+            "How it ends"
+          ],
+          "table_rows": [
+            [
+              "Leaving for work",
+              "Kettle on, bag packed, keys found",
+              "The drink gets made while you put shoes on",
+              "Out the door with the mug"
+            ],
+            [
+              "A clean-up before bed",
+              "Dishes stacked, counter cleared",
+              "The one surface that took longest gets done fast",
+              "Lights off on a clear kitchen"
+            ],
+            [
+              "Packing a gym bag",
+              "Shoes in, towel in",
+              "The item that used to leak or tangle goes in",
+              "Bag zipped and on your shoulder"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you keep the product the focus without it feeling like an ad?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Give the product the only close shot and the only full sentences, and keep every other step quick, wide and nearly silent.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The contrast does the work. When the rest of the routine moves fast, the moment the camera slows down and moves in tells the viewer this is the step that matters, without you saying so. That is [the turn](/glossary/#the-turn) in this shape. A [get-ready-with-me video](/blog/ugc-grwm-video/) works the same way across several products; a routine around one product is stricter, because there is only one place the camera is allowed to linger.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Say what you did, not what the product is. A line about pressing a button and walking away reads as a real morning. A list of features reads as an ad.",
+            "Show the old way once, briefly, before the product step. One shot of the pan in the sink is enough to explain why the step changed.",
+            "Keep your hands busy with the routine. Holding the product up to the lens breaks the routine for a moment and makes it look staged.",
+            "Let the product step run a little longer than the rest. A slow pour or a full action shown from start to finish gives the viewer time to look."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a routine video script look like in practice?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here is a short routine script that keeps the steps quick and slows down only for the product.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a small electric milk frother",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "This is my whole morning before work, and one step of it used to make me late.",
+              "do": "Wide shot of the kitchen counter in window light. Walk into frame and switch the kettle on."
+            },
+            {
+              "part": "setup",
+              "say": "Kettle on, lunch in the bag, keys out of the bowl.",
+              "do": "Three quick cuts, one for each step, all from the same wide angle."
+            },
+            {
+              "part": "beat 1",
+              "say": "Coffee was the slow bit, because I heated milk in a pan and then had to wash the pan.",
+              "do": "Show yesterday's milk pan sitting in the sink. Hold for a moment, no close-up."
+            },
+            {
+              "part": "turn",
+              "say": "Now the milk goes in here, I press it once, and I go and find my shoes.",
+              "do": "Move the camera in close. Pour milk into the frother, press the button, then walk out of frame while it runs."
+            },
+            {
+              "part": "beat 2",
+              "say": "By the time my shoes are on, it's ready, and there is nothing left to wash.",
+              "do": "Walk back in and pour the milk into the mug in one slow close shot."
+            },
+            {
+              "part": "close",
+              "say": "That's my morning now. The frother I use is linked, for anyone still heating milk in a pan.",
+              "do": "Pick up the mug and the bag together and walk towards the door."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Notice that only the turn gets a close shot and the only explanation of how the product works. Everything else is the routine, filmed from one wide angle, so the viewer recognises a normal morning before the product arrives.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What goes wrong in routine videos, and how do you fix it?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Routine videos go wrong when there are too many steps, when the product is everywhere, or when nothing changes at the product step.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Too many steps: cut the routine back until the product step arrives near the middle. [How long a UGC script should be](/blog/how-long-should-a-script-be/) helps you judge what fits.",
+            "The product in every shot: take it out of the early steps entirely, so its first appearance is the moment it matters.",
+            "No change at the product step: if the step looks the same before and after, the video has no turn. Show the slower old way once so there is something to compare against.",
+            "A pitch at the end: close on the finished routine and one simple line, so the ending feels like the end of your morning rather than the start of an ad."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you fit the brand's brief into a routine video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Put any required lines inside the product step, where you are already talking, so they sound like part of the routine.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Read the [brief](/glossary/#brief) before you choose the routine, because it may name a moment of the day, a setting, or a line you have to say. If it asks for something the routine cannot hold, ask the brand which matters more before you film, rather than squeezing both in. If you want a method for sorting fixed lines from free ones, [turning a brand brief into a script](/blog/brief-to-script/) walks through it. Send the step list with the script, so the brand can see where its product sits before you shoot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-22",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "This is my whole morning before work, and one step of it used to make me late."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

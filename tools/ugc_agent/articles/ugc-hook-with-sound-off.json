@@ -1,0 +1,264 @@
+{
+  "question_id": "a043",
+  "slug": "ugc-hook-with-sound-off",
+  "theme": "ugc-hooks",
+  "title": "How do you write a hook that works with the sound off?",
+  "description": "How to write a UGC hook that works with the sound off: let the first frame show the problem happening and add a few words of text to name it.",
+  "short_answer": "A hook works with the sound off when the first frame shows the problem happening and a few words of on-screen text name it. Write the action first, then the text, then the spoken line, and test it muted before you film the rest. If the muted version makes sense, the sound only adds to it.",
+  "sections": [
+    {
+      "heading": "What makes a hook work when nobody can hear it?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A muted hook works when the picture carries the problem and the text carries the point, so the spoken line is a bonus rather than the whole message.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A viewer might be on a train, in a waiting room or next to someone asleep, so plan for the opening to land without audio. That changes the order you write in. A spoken [hook](/glossary/#hook) starts with words. A sound-off hook starts with something the camera can catch in motion: a thing going wrong, a reaction, a mess, a before. The ideas in [how to write a UGC hook that stops the scroll](/how-to-write-a-hook/) still apply; the difference is that each one has to be filmable, not only sayable.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Write the action first. Describe in one line what the camera sees in the first moment, before you write any words at all.",
+            "Add text second. Choose the few words that tell the viewer why the action matters to them.",
+            "Write the spoken line last, so it adds something the picture and text have not already said.",
+            "Keep all three pointing at the same problem, because a viewer who reads one thing and sees another has to stop and work it out."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you test whether your hook needs sound?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Film a rough version of the opening, watch it muted, and ask whether a stranger would know what the video is about.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Film just the hook on your phone, without lighting or a second take. You are checking the idea, not the shot.",
+            "Watch it back with the volume off, once, at normal speed. Do not pause, because a viewer will not pause either.",
+            "Write down in one sentence what you think the video is about. If that sentence needs the spoken line to make sense, the hook depends on sound.",
+            "Show it muted to someone who has not read the script and ask the same question. Their answer is more honest than yours, because you already know what you meant."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When the muted test fails, the fix is almost always in the picture, not the text. A [visual hook](/blog/ugc-visual-hooks/) gives you more ways to put the problem in front of the camera.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you turn a spoken hook into one you can see?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Take the problem your spoken line describes and find the single moment where it is visibly happening, then open on that moment.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Spoken line on its own",
+            "What the camera shows instead",
+            "Text on screen"
+          ],
+          "table_rows": [
+            [
+              "My phone is always dying.",
+              "A phone screen going dark mid-message",
+              "and it's not even lunch"
+            ],
+            [
+              "I can never find anything in my bag.",
+              "A hand digging, then tipping the whole bag onto a table",
+              "every morning"
+            ],
+            [
+              "My plants keep dying.",
+              "A drooping plant beside a full watering can",
+              "I did water it"
+            ],
+            [
+              "My hair goes flat by the afternoon.",
+              "A side-by-side of the same parting at breakfast and at the desk",
+              "same day"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Notice that the text never repeats the spoken line. It adds the detail that makes the picture personal, such as when it happens or what you already tried.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How much on-screen text should a muted hook use?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Use as few words as the viewer can read in a glance, and let them say what the picture cannot show.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the text has to explain the whole idea, the action is not doing its job. Keep it to one short line, place it away from the part of the frame where the action happens, and leave it up long enough to read twice. [Writing on-screen text for a UGC hook](/blog/ugc-on-screen-text-hook/) covers wording and placement in more depth; for a sound-off hook, the rule that matters most is that the text and the action make one point between them, not two.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a sound-off hook look like in a script?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A sound-off script puts the action and the text in the first beat, and the spoken line follows them rather than leads.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a non-slip pad that sits under a rug",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "Watch what this rug does every time I walk through the door.",
+              "do": "Film from floor height. Step onto the rug and let it slide away under your foot. On-screen text from the first frame: my hallway, every morning."
+            },
+            {
+              "part": "setup",
+              "say": "I've straightened it, taped it, and parked a shoe on the corner.",
+              "do": "Three quick cuts: pulling the rug straight, tape peeling up, a shoe on one corner. Text: tried all of these."
+            },
+            {
+              "part": "beat 1",
+              "say": "So tonight it gets one of these underneath.",
+              "do": "Lift the rug, lay the pad flat on the floor, then lower the rug back on top. Text: the bit underneath."
+            },
+            {
+              "part": "turn",
+              "say": "Same door, same feet. Let's try that again.",
+              "do": "Return to the floor-height angle from the hook. Step onto the rug the same way. It stays where it is."
+            },
+            {
+              "part": "close",
+              "say": "The pad I used is linked, for anyone whose rug moves every time they step on it.",
+              "do": "Tap the rug with your foot and point down at it. Text: linked below."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Watch it muted in your head: a rug sliding, then a rug staying put, from the same angle. That pair tells the story without a word. Writing it as a [two-column script](/glossary/#two-column-script) helps, because you can read the do column alone and check it still makes sense.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What if the brief asks for a spoken opening line?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Keep the spoken line the brief asks for, and make the picture and text carry the same idea so the opening still works muted.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A required line in the [brief](/glossary/#brief) does not stop you choosing what the camera sees while you say it. Put the action on screen at the same moment as the line, and use text to name the problem in your own words. If the required line can only be understood by hearing it, ask the brand whether you can add text alongside it, and explain that it keeps the opening clear for anyone watching without sound. When the product has to appear straight away, [hooking a video with the product in the first frame](/blog/product-first-frame-hook/) shows how to keep the problem in view as well.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-22",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "Watch what this rug does every time I walk through the door."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

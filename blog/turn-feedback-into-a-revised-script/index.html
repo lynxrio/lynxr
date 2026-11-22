@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How do you turn brand feedback into a revised script?</title>
+<meta name="description" content="How to revise a UGC script from brand feedback: match each note to the line it changes, ask about vague notes, and send back a version that shows what moved.">
+<meta property="og:title" content="How do you turn brand feedback into a revised script?">
+<meta property="og:description" content="How to revise a UGC script from brand feedback: match each note to the line it changes, ask about vague notes, and send back a version that shows what moved.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="lynxr">
+<meta property="og:url" content="https://lynxr.io/blog/turn-feedback-into-a-revised-script/">
+<meta property="og:image" content="https://lynxr.io/og-v3.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How do you turn brand feedback into a revised script?">
+<meta name="twitter:description" content="How to revise a UGC script from brand feedback: match each note to the line it changes, ask about vague notes, and send back a version that shows what moved.">
+<meta name="twitter:image" content="https://lynxr.io/og-v3.png">
+<link rel="canonical" href="https://lynxr.io/blog/turn-feedback-into-a-revised-script/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261120d">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261120d">
+<link rel="shortcut icon" href="/favicon.ico?v=20261120d">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261120d">
+<link rel="stylesheet" href="/app.css?v=20261120d">
+<script src="/theme.js?v=20261120d"></script>
+<script src="/backdrop.js?v=20261120d" defer></script>
+<!-- BEGIN SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://lynxr.io/#organization",
+      "name": "lynxr",
+      "legalName": "lynxr LLC",
+      "disambiguatingDescription": "lynxr (lynxr.io) is the UGC creator tool: a web app that turns a TikTok or Instagram video into a script for a brand, made by lynxr LLC in Allston, Massachusetts. It is unrelated to the Honeywell and Ademco LYNXR, LYNXR-2 and LYNXR-I security control panels, to the Lynx R-1 and R-2 mixed reality headsets, and to lynxr.com.",
+      "alternateName": [
+        "lynxr.io",
+        "lynxr LLC"
+      ],
+      "url": "https://lynxr.io/",
+      "slogan": "the UGC creator tool",
+      "description": "lynxr LLC makes lynxr, the UGC creator tool: paste a TikTok or Instagram video and it writes that video's format as a script for the brand you make content for. lynxr LLC is a partner company of Lynx Media Group, the UGC agency.",
+      "logo": {
+        "@type": "ImageObject",
+        "@id": "https://lynxr.io/#logo",
+        "url": "https://lynxr.io/lynxr-logo.png",
+        "contentUrl": "https://lynxr.io/lynxr-logo.png",
+        "width": 512,
+        "height": 512,
+        "caption": "lynxr"
+      },
+      "image": {
+        "@id": "https://lynxr.io/#logo"
+      },
+      "email": "hello@lynxr.io",
+      "sameAs": [
+        "https://www.instagram.com/lynxr.io/",
+        "https://www.tiktok.com/@lynxr.io",
+        "https://www.linkedin.com/company/lynxr",
+        "https://github.com/lynxrio/lynxr"
+      ],
+      "founder": [
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": [
+            "https://www.instagram.com/junsahwang/"
+          ]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": [
+            "https://www.instagram.com/gawinhsu/"
+          ]
+        }
+      ],
+      "knowsAbout": [
+        "short-form video scripts",
+        "UGC scripts",
+        "video formats",
+        "hooks",
+        "TikTok",
+        "Instagram Reels"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://lynxmediagroup.org/#org",
+      "name": "Lynx Media Group",
+      "legalName": "Lynx Media Group LLC",
+      "url": "https://lynxmediagroup.org/",
+      "description": "A UGC agency in Allston, Massachusetts that runs creator campaigns for brands. Its partner company, lynxr LLC, makes lynxr.",
+      "logo": "https://lynxmediagroup.org/imgs/logo-social.png",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "57 Glenville Ave",
+        "addressLocality": "Allston",
+        "addressRegion": "MA",
+        "postalCode": "02134",
+        "addressCountry": "US"
+      },
+      "sameAs": [
+        "https://www.instagram.com/lynxmediagroup/",
+        "https://www.tiktok.com/@lynxmediagroup",
+        "https://www.linkedin.com/company/lynxmediagroup"
+      ],
+      "founder": [
+        {
+          "@id": "https://lynxr.io/#junsa-hwang"
+        },
+        {
+          "@id": "https://lynxr.io/#gawin-hsu"
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://lynxr.io/#website",
+      "url": "https://lynxr.io/",
+      "name": "lynxr",
+      "inLanguage": "en",
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "about": {
+        "@id": "https://lynxr.io/#lynxr"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://lynxr.io/#lynxr",
+      "name": "lynxr",
+      "url": "https://lynxr.io/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "lynxr is the UGC creator tool. It turns a short-form video into a script. You send it a public link to a TikTok or Instagram video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "featureList": [
+        "Reads a public TikTok or Instagram link. There is no file upload.",
+        "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
+        "Writes one script per company from a single link, reading the video only once.",
+        "Never asks for a platform password and never posts anything on your behalf."
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "UGC creators: people who make short-form videos for brands, and the people who brief them"
+      },
+      "isAccessibleForFree": true,
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Free to start: every account gets 3 scripts a week, no card required. Sign-up is open."
+        },
+        {
+          "@type": "Offer",
+          "name": "lynxr pro",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "24.99",
+            "priceCurrency": "USD",
+            "billingDuration": "P1M",
+            "unitText": "month"
+          },
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Up to 150 scripts in any rolling 30 days and up to 30 in any 24 hours, billed monthly. Tax is added at checkout where it applies."
+        }
+      ],
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "creator": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "alternateName": "lynxr.io"
+    }
+  ]
+}
+</script>
+<!-- END SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "@id": "https://lynxr.io/blog/turn-feedback-into-a-revised-script/#article",
+  "headline": "How do you turn brand feedback into a revised script?",
+  "description": "How to revise a UGC script from brand feedback: match each note to the line it changes, ask about vague notes, and send back a version that shows what moved.",
+  "image": "https://lynxr.io/og-v3.png",
+  "inLanguage": "en",
+  "datePublished": "2026-11-22",
+  "dateModified": "2026-11-22",
+  "author": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "publisher": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "isPartOf": {
+    "@id": "https://lynxr.io/#website"
+  },
+  "mentions": {
+    "@id": "https://lynxr.io/#lynxr"
+  },
+  "mainEntityOfPage": "https://lynxr.io/blog/turn-feedback-into-a-revised-script/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "lynxr",
+      "item": "https://lynxr.io/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "questions and answers",
+      "item": "https://lynxr.io/faq/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "Writing UGC scripts",
+      "item": "https://lynxr.io/faq/ugc-scripts/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "How do you turn brand feedback into a revised script?",
+      "item": "https://lynxr.io/blog/turn-feedback-into-a-revised-script/"
+    }
+  ]
+}
+</script>
+</head>
+<!-- This page's visible copy is written in normal sentence case in the
+     source, unlike the lowercase-with-exceptions convention the rest of the
+     site uses. Painted output is identical either way — text-transform:
+     lowercase in app.css flattens all of it — but a model reading the source
+     sees real casing here, because this page carries no JSON-LD twin of its
+     prose the way /faq/ does, so the body text is the only machine-readable
+     copy there is. .lp unsets the app's bare main{} container so the sections
+     below can be full-bleed. See the marketing-page block in app.css. -->
+<body class="lp">
+<svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
+
+<header class="lp-bar">
+  <div class="lp-in lp-bar-in">
+    <a class="wordmark" href="/"><svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg><span>lynxr</span></a>
+    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+         fragment does nothing from /faq/ or /privacy/ — it appends a hash to
+         the current URL and stays put. -->
+    <nav class="lp-nav" aria-label="Main">
+      <a href="/how-it-works/">how it works</a>
+      <a href="/faq/">faq</a>
+    </nav>
+    <span class="lp-actions">
+    <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
+      <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.6 8.6 0 1 0 10.6 10.6z"/></svg>
+      <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
+      <span class="tt-knob"></span>
+    </button>
+    <a class="btn" href="/">get started</a>
+    <!-- Under 760px the nav and the CTA above are display:none and this takes
+         their place. aria-expanded carries the state to a screen reader AND
+         drives which glyph is drawn, so the two cannot disagree. -->
+    <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
+            aria-expanded="false" aria-controls="lp-menu">
+      <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button></span>
+  </div>
+  <!-- Inside the bar on purpose: the bar is the sticky element, so a panel
+       parented anywhere else would scroll away from the burger that opened it.
+       `hidden` — not opacity — is what takes these links out of the tab order
+       when it is closed. -->
+  <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
+    <a href="/how-it-works/">how it works</a>
+    <a href="/faq/">faq</a>
+    <a class="btn" href="/">get started</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="lp-hero">
+    <div class="lp-in">
+      <nav class="post-crumbs" aria-label="Breadcrumb"><a href="/">lynxr</a> / <a href="/faq/">questions</a> / <a href="/faq/ugc-scripts/"><span class="acr">UGC</span> scripts</a></nav>
+      <h1 class="lp-h1">How do you turn brand feedback into a revised script?</h1>
+      <p class="lp-lede">Turn brand feedback into a revised script by matching every note to the line it changes, making only those changes, and showing what moved and why. Ask one clear question about any note you cannot place, rather than guessing, so the next round is about the video and not about the notes.</p>
+      <p class="post-meta">Published <time datetime="2026-11-22">22 November 2026</time></p>
+    </div>
+  </section>
+
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="what-should-you-do-first-when">What should you do first when the feedback arrives?</h2>
+      <p class="lp-p">Read every note once without changing anything, then copy each one into its own line in a list so none gets lost.</p>
+      <p class="lp-p">Feedback can arrive as comments on a document, a long message, or a voice note, and the notes may not follow the order of the <a href="/glossary/#script">script</a>. If you start editing at the first note, you may rewrite a line that a later note asks you to cut. A flat list fixes that, because you can see the whole picture before you touch a word. It also gives you something to tick off when you send the revision.</p>
+      <ul class="lp-list">
+        <li>Number each note in the order it reached you, so you can refer to it later without quoting it in full.</li>
+        <li>Keep the brand's own words for each note. Paraphrasing at this stage can quietly change what was asked.</li>
+        <li>Mark any note that mentions wording the brand needs, such as a product name or a phrase it has to approve, because those are the ones you cannot reshape.</li>
+        <li>Put the original script beside the list, split into the parts in <a href="/short-form-script-structure/">the parts of a <span class="acr">UGC</span> video script</a>, so each note has a clear place to land.</li>
+      </ul>
+
+      <h2 class="lp-h2" id="how-do-you-match-each-note">How do you match each note to the line it changes?</h2>
+      <p class="lp-p">Give every note a home in one part of the script, the hook, a beat, the turn or the close, and write down the change you will make there.</p>
+      <p class="lp-p">Some notes point straight at a line. Others describe a feeling, such as the video being slow or too salesy, and you have to find which line causes it. For a note about pace, look first at the <a href="/glossary/#hook">hook</a> and the first <a href="/glossary/#beat">beat</a>, because that is where a viewer decides to stay. For a note about tone, look first at the close. Write the change next to the note before you edit, so you can check the plan in one glance.</p>
+      <div class="post-table">
+        <table>
+          <thead><tr><th scope="col">Note as written</th><th scope="col">Where it lands</th><th scope="col">The change you make</th></tr></thead>
+          <tbody>
+            <tr><td>It takes too long to get going.</td><td>Hook and setup</td><td>Cut the setup to one line and open on the problem itself</td></tr>
+            <tr><td>Can we see the product earlier?</td><td>Beat one</td><td>Bring the first product shot forward to the end of the setup</td></tr>
+            <tr><td>Please mention the clip-on lid.</td><td>The turn</td><td>Add the lid to the turn, where you already handle the product</td></tr>
+            <tr><td>The ending feels a bit pushy.</td><td>Close</td><td>Swap the sales line for one plain sentence about what you did</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 class="lp-h2" id="what-do-you-do-with-a">What do you do with a note you cannot place?</h2>
+      <p class="lp-p">Ask one specific question about it before you revise, because a guess can cost you a whole extra round.</p>
+      <p class="lp-p">A note such as make it more fun or it needs more energy can point at the words, the delivery or the edit. Offer the brand a choice instead of an open question, so it can answer in one line. A short message works well: Hi [NAME], thanks for the notes on the [PRODUCT] script. On note [NUMBER], do you mean the wording of the opening line, or how I deliver it on camera? I can send the revised script by [DATE] either way. If two notes pull in opposite directions, that is a different problem, and <a href="/blog/conflicting-feedback-from-a-brand/">handling feedback from two people at a brand</a> covers it.</p>
+
+      <h2 class="lp-h2" id="what-does-a-revised-script-look">What does a revised script look like after the notes?</h2>
+      <p class="lp-p">A revised script keeps everything the brand did not comment on and changes only the lines the notes pointed to.</p>
+      <p class="lp-p">Here is the script after the four notes in the table above. The hook now opens on the problem, the product arrives at the end of the setup, the lid is in the turn, and the close is plain.</p>
+      <figure class="post-script">
+        <figcaption>Example script — written for this answer, for a lunch box with a clip-on lid</figcaption>
+        <ol class="ps-beats">
+          <li><span class="ps-part">hook</span><span class="ps-say">say: &ldquo;I have been carrying my lunch to work in a takeaway tub with a cracked lid.&rdquo;</span><span class="ps-do">do: Close shot of a split plastic lid being pressed down and popping back up.</span></li>
+          <li><span class="ps-part">setup</span><span class="ps-say">say: &ldquo;So this week I swapped it for this.&rdquo;</span><span class="ps-do">do: Hand sets the lunch box on the counter next to the old tub.</span></li>
+          <li><span class="ps-part">beat 1</span><span class="ps-say">say: &ldquo;Rice on one side, the sauce in the little pot, salad on the other.&rdquo;</span><span class="ps-do">do: Fill each compartment in turn, filmed from above.</span></li>
+          <li><span class="ps-part">turn</span><span class="ps-say">say: &ldquo;And the lid clips down on all four sides, so I can hear that it's shut.&rdquo;</span><span class="ps-do">do: Close the lid and press each clip in turn, close enough to see each one catch.</span></li>
+          <li><span class="ps-part">close</span><span class="ps-say">say: &ldquo;That's what is in my bag this week. The one I'm using is linked.&rdquo;</span><span class="ps-do">do: Slide the box into a work bag and zip it.</span></li>
+        </ol>
+      </figure>
+      <p class="lp-p">If the brand asked for exact words, such as the name of a feature, place them where you already handle the product, as the lid line does here. <a href="/blog/required-wording-in-ugc-script/">Adding required wording naturally</a> shows more ways to do it.</p>
+
+      <h2 class="lp-h2" id="how-do-you-send-the-revised">How do you send the revised script back?</h2>
+      <p class="lp-p">Send the new script with a one-line reply to each note, saying what changed and where, so the brand can check it without comparing versions.</p>
+      <ul class="lp-list">
+        <li>Put the changes where the brand can see them, for example in a different colour or with the old line struck through, because it saves them reading the whole script again.</li>
+        <li>Answer each numbered note in one line: what you changed and in which part.</li>
+        <li>Say plainly if you left a note out, and why, so it does not look as though you missed it.</li>
+        <li>Keep the earlier version, named clearly, in case the brand wants to go back to a line.</li>
+        <li>A <a href="/blog/two-column-script/">two-column script</a> makes this easier, because a note about a shot and a note about a line sit in different columns.</li>
+      </ul>
+
+      <h2 class="lp-h2" id="what-if-a-note-would-weaken">What if a note would weaken the script?</h2>
+      <p class="lp-p">Make the change if the brand still wants it, but first explain briefly what it would cost and offer another way to get what the note is after.</p>
+      <p class="lp-p">A note asking for three more product points, for example, might push the product step so late that the <a href="/glossary/#payoff">payoff</a> lands after a viewer has left. Say that, then offer a version: I can fit one of these into the turn and put the others in the caption, or I can add all three and trim the setup. Let the brand choose, and follow its answer. When the issue is length rather than content, <a href="/blog/cut-a-ugc-script-that-runs-long/">cutting a script that runs long</a> helps you decide what goes.</p>
+    </div>
+  </section>
+
+  <section class="lp-band post-end">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="do-it-with-lynxr">Write your next <span class="acr">UGC</span> script with lynxr</h2>
+      <p class="lp-p">Paste a public TikTok or Instagram link on <a href="/">the homepage</a> and lynxr works out the format — hook, beats, turn, close — and writes it as a script for the brand you make content for. <a href="/how-it-works/">How lynxr writes scripts</a> shows each step. Free to start: <a href="/faq/#what-it-costs">3 scripts a week, no card</a>.</p>
+      <h2 class="lp-h2" id="more-questions">More questions about Writing <span class="acr">UGC</span> scripts</h2>
+      <ul class="lp-list">
+        <li><b><a href="/blog/required-wording-in-ugc-script/">How do you add the brand's required wording to a script naturally?</a></b> — Keep the brand's required wording exactly as written and change everything around it instead.</li>
+        <li><b><a href="/blog/ugc-script-with-no-talking/">How do you write a <span class="acr">UGC</span> script with no talking?</a></b> — Write a <span class="acr">UGC</span> script with no talking as a list of actions, each paired with one short line of on-screen text.</li>
+        <li><b><a href="/blog/ugc-script-in-your-own-voice/">How do you write a <span class="acr">UGC</span> script in your own voice?</a></b> — Write a <span class="acr">UGC</span> script in your own voice by saying the brand's copy out loud, then rewriting each line the way you would explain it to a friend.</li>
+        <li><b><a href="/faq/ugc-scripts/">All questions about Writing <span class="acr">UGC</span> scripts</a></b> — scripts for every kind of product.</li>
+      </ul>
+      <h2 class="lp-h2" id="keep-reading">Keep reading</h2>
+      <ul class="lp-list">
+        <li><b><a href="/ugc-script-template/">A <span class="acr">UGC</span> script template that holds up</a></b></li>
+        <li><b><a href="/short-form-script-structure/">The parts of a <span class="acr">UGC</span> video script</a></b></li>
+        <li><b><a href="/faq/">Questions and answers</a></b> — about lynxr, and every topic <span class="acr">UGC</span> creators ask about.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer id="site-footer">
+  <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr</div>
+  <div class="foot-grid foot-grid-wide">
+    <div class="foot-brand">
+      <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
+      <p>your <span class="acr">UGC</span> buddy</p>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">lynxr</div>
+      <a class="foot-link" href="/">home</a>
+      <a class="foot-link" href="/how-it-works/">how it works</a>
+      <a class="foot-link" href="/faq/">faq</a>
+      <a class="foot-link" href="/pricing/">pricing</a>
+      <a class="foot-link" href="/about/">about</a>
+      <!-- Visible label "try it", accessible name "try it — join the wait
+           list". The .sr-only tail is inside the <a>, so it is part of the
+           name computation rather than a title attribute nobody hears. -->
+      <a class="foot-link" href="/">get started<span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">guides</div>
+      <a class="foot-link" href="/blog/">blog</a>
+      <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
+      <a class="foot-link" href="/turn-a-video-into-a-script/">video to script</a>
+      <a class="foot-link" href="/short-form-script-structure/">script structure</a>
+      <a class="foot-link" href="/glossary/">glossary</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">company</div>
+      <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
+      <a class="foot-link" href="/privacy/">privacy policy</a>
+      <a class="foot-link" href="/terms/">terms of service</a>
+      <a class="foot-link" href="/accessibility/">accessibility</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">socials</div>
+      <a class="foot-link" href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <a class="foot-link" href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">TikTok</a>
+      <a class="foot-link" href="https://www.linkedin.com/company/lynxr" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+    </div>
+  </div>
+  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+       of the sitewide lowercase text-transform. -->
+  <div class="foot-legal">
+    &copy; <span class="entity">lynxr LLC</span> 2026
+  </div>
+</footer>
+
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
+<script src="/site.js?v=20261120d" defer></script>
+<script src="/footer.js?v=20261120d" defer></script>
+
+</body>
+</html>

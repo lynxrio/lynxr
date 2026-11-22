@@ -1,0 +1,265 @@
+{
+  "question_id": "a045",
+  "slug": "turn-feedback-into-a-revised-script",
+  "theme": "ugc-scripts",
+  "title": "How do you turn brand feedback into a revised script?",
+  "description": "How to revise a UGC script from brand feedback: match each note to the line it changes, ask about vague notes, and send back a version that shows what moved.",
+  "short_answer": "Turn brand feedback into a revised script by matching every note to the line it changes, making only those changes, and showing what moved and why. Ask one clear question about any note you cannot place, rather than guessing, so the next round is about the video and not about the notes.",
+  "sections": [
+    {
+      "heading": "What should you do first when the feedback arrives?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Read every note once without changing anything, then copy each one into its own line in a list so none gets lost.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Feedback can arrive as comments on a document, a long message, or a voice note, and the notes may not follow the order of the [script](/glossary/#script). If you start editing at the first note, you may rewrite a line that a later note asks you to cut. A flat list fixes that, because you can see the whole picture before you touch a word. It also gives you something to tick off when you send the revision.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Number each note in the order it reached you, so you can refer to it later without quoting it in full.",
+            "Keep the brand's own words for each note. Paraphrasing at this stage can quietly change what was asked.",
+            "Mark any note that mentions wording the brand needs, such as a product name or a phrase it has to approve, because those are the ones you cannot reshape.",
+            "Put the original script beside the list, split into the parts in [the parts of a UGC video script](/short-form-script-structure/), so each note has a clear place to land."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you match each note to the line it changes?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Give every note a home in one part of the script, the hook, a beat, the turn or the close, and write down the change you will make there.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Some notes point straight at a line. Others describe a feeling, such as the video being slow or too salesy, and you have to find which line causes it. For a note about pace, look first at the [hook](/glossary/#hook) and the first [beat](/glossary/#beat), because that is where a viewer decides to stay. For a note about tone, look first at the close. Write the change next to the note before you edit, so you can check the plan in one glance.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Note as written",
+            "Where it lands",
+            "The change you make"
+          ],
+          "table_rows": [
+            [
+              "It takes too long to get going.",
+              "Hook and setup",
+              "Cut the setup to one line and open on the problem itself"
+            ],
+            [
+              "Can we see the product earlier?",
+              "Beat one",
+              "Bring the first product shot forward to the end of the setup"
+            ],
+            [
+              "Please mention the clip-on lid.",
+              "The turn",
+              "Add the lid to the turn, where you already handle the product"
+            ],
+            [
+              "The ending feels a bit pushy.",
+              "Close",
+              "Swap the sales line for one plain sentence about what you did"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you do with a note you cannot place?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask one specific question about it before you revise, because a guess can cost you a whole extra round.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A note such as make it more fun or it needs more energy can point at the words, the delivery or the edit. Offer the brand a choice instead of an open question, so it can answer in one line. A short message works well: Hi [NAME], thanks for the notes on the [PRODUCT] script. On note [NUMBER], do you mean the wording of the opening line, or how I deliver it on camera? I can send the revised script by [DATE] either way. If two notes pull in opposite directions, that is a different problem, and [handling feedback from two people at a brand](/blog/conflicting-feedback-from-a-brand/) covers it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a revised script look like after the notes?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A revised script keeps everything the brand did not comment on and changes only the lines the notes pointed to.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Here is the script after the four notes in the table above. The hook now opens on the problem, the product arrives at the end of the setup, the lid is in the turn, and the close is plain.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a lunch box with a clip-on lid",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "I have been carrying my lunch to work in a takeaway tub with a cracked lid.",
+              "do": "Close shot of a split plastic lid being pressed down and popping back up."
+            },
+            {
+              "part": "setup",
+              "say": "So this week I swapped it for this.",
+              "do": "Hand sets the lunch box on the counter next to the old tub."
+            },
+            {
+              "part": "beat 1",
+              "say": "Rice on one side, the sauce in the little pot, salad on the other.",
+              "do": "Fill each compartment in turn, filmed from above."
+            },
+            {
+              "part": "turn",
+              "say": "And the lid clips down on all four sides, so I can hear that it's shut.",
+              "do": "Close the lid and press each clip in turn, close enough to see each one catch."
+            },
+            {
+              "part": "close",
+              "say": "That's what is in my bag this week. The one I'm using is linked.",
+              "do": "Slide the box into a work bag and zip it."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand asked for exact words, such as the name of a feature, place them where you already handle the product, as the lid line does here. [Adding required wording naturally](/blog/required-wording-in-ugc-script/) shows more ways to do it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you send the revised script back?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Send the new script with a one-line reply to each note, saying what changed and where, so the brand can check it without comparing versions.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Put the changes where the brand can see them, for example in a different colour or with the old line struck through, because it saves them reading the whole script again.",
+            "Answer each numbered note in one line: what you changed and in which part.",
+            "Say plainly if you left a note out, and why, so it does not look as though you missed it.",
+            "Keep the earlier version, named clearly, in case the brand wants to go back to a line.",
+            "A [two-column script](/blog/two-column-script/) makes this easier, because a note about a shot and a note about a line sit in different columns."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What if a note would weaken the script?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Make the change if the brand still wants it, but first explain briefly what it would cost and offer another way to get what the note is after.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A note asking for three more product points, for example, might push the product step so late that the [payoff](/glossary/#payoff) lands after a viewer has left. Say that, then offer a version: I can fit one of these into the turn and put the others in the caption, or I can add all three and trim the setup. Let the brand choose, and follow its answer. When the issue is length rather than content, [cutting a script that runs long](/blog/cut-a-ugc-script-that-runs-long/) helps you decide what goes.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-22",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "I have been carrying my lunch to work in a takeaway tub with a cracked lid."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
