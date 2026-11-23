@@ -245,6 +245,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/film-ugc-product-close-ups/</loc>
+    <lastmod>2026-11-23</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/find-brands-for-ugc/</loc>
     <lastmod>2026-10-13</lastmod>
     <priority>0.6</priority>
@@ -387,6 +392,11 @@
   <url>
     <loc>https://lynxr.io/blog/spot-a-bad-ugc-deal/</loc>
     <lastmod>2026-11-08</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/test-ugc-hooks-before-sending/</loc>
+    <lastmod>2026-11-23</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -570,6 +580,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/ugc-video-answering-a-question/</loc>
+    <lastmod>2026-11-23</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/ugc-video-bundles/</loc>
     <lastmod>2026-11-01</lastmod>
     <priority>0.6</priority>
@@ -631,12 +646,12 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-filming/</loc>
-    <lastmod>2026-11-20</lastmod>
+    <lastmod>2026-11-23</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-formats/</loc>
-    <lastmod>2026-11-22</lastmod>
+    <lastmod>2026-11-23</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -646,7 +661,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-hooks/</loc>
-    <lastmod>2026-11-22</lastmod>
+    <lastmod>2026-11-23</lastmod>
     <priority>0.6</priority>
   </url>
   <url>

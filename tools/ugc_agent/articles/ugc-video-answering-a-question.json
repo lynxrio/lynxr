@@ -1,0 +1,284 @@
+{
+  "question_id": "a041",
+  "slug": "ugc-video-answering-a-question",
+  "theme": "ugc-formats",
+  "title": "How do you script a UGC video that answers a viewer question?",
+  "description": "How to script a reply to comment UGC video: pick a real question, open on it, answer with the product in hand, and close on one clear next step.",
+  "short_answer": "A question-answer UGC video opens on one viewer question, answers it on camera with the product in your hand, and ends on one next step. Choose a question the product can settle visibly, show or read it first, then let the footage do the answering before you say anything about where to buy.",
+  "sections": [
+    {
+      "heading": "Where do you find a question worth answering?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Pick a question that the product can answer on camera, because showing the answer is more convincing than saying it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Start with real comments under your own videos or under the brand's posts, and note the exact wording people use. If nothing fits, write a likely question yourself from the [brief](/glossary/#brief): look at what it says the product does, then ask what a doubtful buyer would type underneath. Ask the brand before you show a real person's comment or name on screen, and agree in writing whether a question you wrote is fine or whether it wants only real ones. Only open with someone asked when a real person did; a question you wrote yourself is asked in your own voice.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Good: a question with a visible answer, such as whether a lid stays shut in a packed bag.",
+            "Good: a question about use, such as how much to put on or where it fits in a routine.",
+            "Weak: a question about feelings or taste, because the camera cannot show the answer.",
+            "Avoid: a question that invites a claim you cannot film, such as whether it works for everyone."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you turn the question into a hook?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Put the question in the first line, word for word or close to it, so the viewer knows within a breath what the video will settle.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "You have two ways to show it. Read it aloud while holding the product, or put it on screen as text and react to it. Reading it works with sound on; on-screen text keeps the [hook](/glossary/#hook) clear for anyone watching muted. Doing both costs nothing. The guide to [question hooks](/blog/question-hooks/) covers how closed and open questions set up different answers, which matters here because a yes-or-no question needs a visible yes or no.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the viewer's voice in the question. If the comment says the lid looks flimsy, keep the word flimsy, because that doubt is what the rest of the video answers.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What order should the answer follow?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Answer in the order the doubt runs: restate the worry, set up a fair test, show it, then add one thing they did not ask about.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Treat it as a close cousin of a [problem-solution video](/blog/ugc-problem-solution-video/), except the problem arrives in someone else's words. That changes your tone: you are replying to a person, so speak to them, not to a crowd.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Part",
+            "What it does",
+            "What to film"
+          ],
+          "table_rows": [
+            [
+              "Hook",
+              "States the viewer's question",
+              "The question on screen, product in hand"
+            ],
+            [
+              "Setup",
+              "Makes the test fair and hard",
+              "You preparing the toughest version of the test"
+            ],
+            [
+              "Beats",
+              "Show the answer happening",
+              "The product in real use, in one place you can see"
+            ],
+            [
+              "Turn",
+              "Adds a detail nobody asked about",
+              "A close-up of the part you came to like"
+            ],
+            [
+              "Close",
+              "Answers the person and gives one next step",
+              "You speaking to camera, then pointing to the link"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The [turn](/short-form-script-structure/#turn) matters more than it looks. Without it the video ends the moment the question is answered, and the viewer has no reason to stay for the close.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a finished question-answer script look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Here is one built around a likely viewer doubt, with the answer filmed rather than claimed.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a stackable lunch container with clip-down lid",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "Can this lunch box really go sideways in a gym bag? I packed soup in it to find out.",
+              "do": "Show the question as on-screen text, then lift the closed container into frame."
+            },
+            {
+              "part": "setup",
+              "say": "Soup felt like the meanest test I could pick.",
+              "do": "Ladle soup into the container and press each clip down on camera."
+            },
+            {
+              "part": "beat 1",
+              "say": "It goes in on its side, under my towel and my shoes.",
+              "do": "Push it sideways into a full gym bag and zip the bag shut."
+            },
+            {
+              "part": "beat 2",
+              "say": "That's after the walk to work and the bus.",
+              "do": "Open the bag at a desk and lift out the towel first, then the container."
+            },
+            {
+              "part": "turn",
+              "say": "What I didn't expect is the clips. They open with one thumb.",
+              "do": "Close-up of one thumb flicking each clip open."
+            },
+            {
+              "part": "close",
+              "say": "So that's my answer. If your bag has had a soup day too, it's the one I used.",
+              "do": "Look to camera, then point to wherever the brand wants the link, if it gives you one."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Notice that the creator never says the container will not leak for anyone. They show what happened in their own bag and let the viewer decide.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What goes wrong with question-answer videos?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "It is easy to write a hook with a sharp question and a middle that answers a softer one, so check the [payoff](/glossary/#payoff) against the hook's exact words.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "The answer is spoken, not shown. Fix it by filming the test, even a short one, before you talk about it.",
+            "The question is too broad. Narrow it to one situation so a single test can settle it.",
+            "The setup is too easy. Pick the harder version of the test, because an easy pass convinces nobody.",
+            "The close asks for two things. Pick one [call to action](/glossary/#call-to-action), because two asks split the viewer's attention.",
+            "The video talks to a crowd. Address the person who asked, since the format is a reply."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you send this script to the brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Send the script with a note on where the question came from, so the brand can approve the source as well as the words.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Say whether the question is a real comment, a paraphrase, or one you wrote from the brief, and offer a second hook that phrases the same doubt differently. A brand can then pick the wording without asking you to rewrite the whole script. If it wants the question to come from its own comments, ask it to send the questions it would like answered, and write one short script for each.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-23",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "Can this lunch box really go sideways in a gym bag? I packed soup in it to find out."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

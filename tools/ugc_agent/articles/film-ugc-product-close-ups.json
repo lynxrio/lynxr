@@ -1,0 +1,250 @@
+{
+  "question_id": "a046",
+  "slug": "film-ugc-product-close-ups",
+  "theme": "ugc-filming",
+  "title": "How do you film close-ups of a product on a phone?",
+  "description": "How to film a UGC product close up on a phone: find the right distance, lock focus on the label, keep the shot steady, and light texture without glare.",
+  "short_answer": "To film a product close-up on a phone, move in only as far as focus holds, lock focus on the detail, and keep the phone still. Move the product instead of the phone. Light from the side for texture and from the front for labels, then check every close-up at full size before you pack away.",
+  "sections": [
+    {
+      "heading": "How close should the phone be to the product?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Hold the phone as close as it can get while the detail stays sharp, and no closer, because a phone lens can only focus down to a certain distance.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Start an arm's length away and slide the phone in slowly while you watch the label. The moment the letters go soft, pull back a little until they sharpen again. That is your working distance for this product. If you need the detail bigger than that, try your phone's closer lens or close-up mode if it has one, or film slightly wider and crop in the edit, since a sharp crop looks better than a blurry full frame. Framing and settings for wider shots are covered in [the basics of filming on a phone](/blog/film-ugc-on-a-phone/); this answer only covers getting close.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you stop the focus from hunting?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Tap and hold on the detail you want sharp until the screen shows focus is locked, because a phone left on automatic focus keeps searching every time something moves.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Lock focus and brightness on the label itself, not the edge of the box. Once it is locked, move the product rather than the phone, so the distance stays the same and the lock still holds. If you slide or rotate the product, keep it on the same plane: turning it towards or away from the lens changes the distance and blurs it. If the focus jumps mid-shot anyway, stop, lock again and redo the shot rather than hoping the edit can save it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you lay your script out as a [two-column script](/blog/two-column-script/), write each close-up into the do column next to the line it supports, so you know exactly which detail to lock on.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Lock on the words you need readable, such as the product name or the instructions.",
+            "Lock again every time you change the product's distance from the lens.",
+            "Wipe the lens before each set of close-ups, because a smudge softens everything."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you keep a close-up steady?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Rest the phone on something solid instead of holding it, because any wobble is magnified when the frame is that tight.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A stack of books, a box or a mug works as a stand. If you have to hand-hold, put both elbows on the table and breathe out as you start recording. Slide the product into frame slowly and let it stop for a beat, so the edit has a clean still moment to cut on. Slow movement also gives the focus time to keep up. If you live with other people and the table is shared, set the stand up and leave it in place until every close-up is done, so each one matches.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you light labels and textures?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Light from the side to show texture and from the front to show a label, and tilt shiny packaging until the glare slides off it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Side light throws tiny shadows into a texture, which is what lets a viewer see a cream's swirl or a fabric's weave. Front light flattens those shadows, which is what you want for printed words. A window is enough for both: turn the product to choose. For more on working with daylight and lamps, see [how do you light a UGC video at home](/blog/light-ugc-at-home/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Surface",
+            "Light from",
+            "Watch for"
+          ],
+          "table_rows": [
+            [
+              "Printed label",
+              "The front, soft",
+              "Your phone's reflection in a glossy finish"
+            ],
+            [
+              "Cream or gel",
+              "The side, low",
+              "Highlights that hide the texture"
+            ],
+            [
+              "Fabric or knit",
+              "The side, at a slant",
+              "Flat light that makes it look like plastic"
+            ],
+            [
+              "Glass or metal",
+              "Behind a sheet of paper",
+              "Hot spots and the room reflected back"
+            ],
+            [
+              "Clear bottle",
+              "Behind the product",
+              "The label being lost in shadow"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which close-ups should you film for one product?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Film one close-up for every detail the script mentions, plus the label, because each line about the product needs a picture to sit on.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Go through the script line by line and add a close-up to your [shot list](/glossary/#shot-list) wherever the words describe something small. Then check the [brief](/glossary/#brief) for any detail the brand asks to see, such as a logo or a specific feature. A useful set looks like this:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "The label or product name, readable and level.",
+            "The texture or material, under side light.",
+            "The part that moves: a lid, a clip, a pump or a button, in use.",
+            "The product in your hand, so the viewer can judge its size.",
+            "One detail you noticed yourself, which gives the edit an honest extra shot."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Film each one twice, once still and once with slow movement, so the editor has a choice. The answer on [what B-roll should you film for a UGC video](/blog/ugc-b-roll/) covers the wider shots that sit around these.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you check close-ups before you stop filming?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Play each close-up back at full screen and zoom in on the label, because a shot that looks sharp on a small preview can be soft on a bigger screen.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Check three things: the words are readable, the focus holds from start to end, and there is no glare on the part that matters. If any one fails, reshoot it while the light and setup are still the same. The checks in [how do you check UGC footage before you stop filming](/blog/check-ugc-footage-before-wrapping/) apply to the rest of the shoot too.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-23",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

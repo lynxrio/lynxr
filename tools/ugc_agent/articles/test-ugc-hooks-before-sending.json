@@ -1,0 +1,270 @@
+{
+  "question_id": "a044",
+  "slug": "test-ugc-hooks-before-sending",
+  "theme": "ugc-hooks",
+  "title": "How do you test your own hooks before sending them to a brand?",
+  "description": "Test UGC hooks yourself before a brand sees them: read each one aloud, cut every spare word, and check the video pays off exactly what the hook promises.",
+  "short_answer": "You test a hook before sending it by reading it aloud, cutting every word it can lose, and checking the video delivers what it promises. Run those three checks on each version, fix what fails, and send the brand only hooks that pass all three, with a note on what each one promises.",
+  "sections": [
+    {
+      "heading": "What should you check before anything else?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Check that you can say, in one plain sentence, what the hook promises the viewer, because a hook you cannot summarise will not land either.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Write that sentence under the hook in your draft. If the [hook](/glossary/#hook) is about a basket hogging the floor, the promise is something like: this video shows a basket that gets out of the way. If you find yourself writing two promises, the hook is doing two jobs, and you should split it into two versions rather than send one muddled line. For the shapes a hook can take, start with the [hook-writing guide](/how-to-write-a-hook/); this answer is about checking one once it exists.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you test a hook by reading it aloud?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Record yourself saying the hook at normal speed, then play it back without looking at the page, because your ear catches what your eyes skip.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Say it once, in the voice you would use on camera, into a voice note.",
+            "Listen back the next time you pick up your phone, so you hear it fresh.",
+            "Mark every place you stumbled, took a breath, or sounded like you were reading.",
+            "Rewrite those spots in the words you would use to a friend, then record it again.",
+            "Stop when you can say it twice in a row without thinking about it."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A stumble on the page becomes a stumble on camera, and a retake costs more than a rewrite. If a line only works when you read it, it belongs in on-screen text, not in your mouth.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you cut a hook down without losing it?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Remove one word at a time and keep each cut if the promise still makes sense, because every word before the point is a word the viewer waits through.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Take a draft such as: so I have been looking for a better way to deal with my laundry basket and I think I finally found one. Cut the warm-up, the hedging and the build. What is left is the situation itself: my laundry basket takes up more floor than my bed. The second line is shorter, and it is also more specific, which gives the viewer something to picture. If your hook still feels slow after cutting, the checks in [how do you know if your UGC hook is too slow](/blog/ugc-hook-too-slow/) help you find where it drags.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Watch for words that sound like a hook without saying anything: honestly, okay so, you guys, I need to tell you. Cut them first.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you check that the video pays off the hook?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Point to the exact shot that keeps the hook's promise, because a hook the video never answers loses the viewer and the brand's trust.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Go back to the one-sentence promise you wrote. Find the [payoff](/glossary/#payoff) in your script and write its beat name next to the promise. If you cannot find it, either rewrite the hook to promise what the video does show, or add the shot. The article on [hook and payoff](/blog/hook-payoff/) goes deeper on fixing a hook that promises too much.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Check",
+            "How to run it",
+            "What a fail looks like"
+          ],
+          "table_rows": [
+            [
+              "Promise",
+              "Write what the hook promises in one sentence",
+              "You need two sentences, or the word and"
+            ],
+            [
+              "Read aloud",
+              "Record it, listen back later",
+              "You stumble, breathe mid-line, or sound read"
+            ],
+            [
+              "Cut",
+              "Remove words one at a time",
+              "A word goes and nothing changes"
+            ],
+            [
+              "Payoff",
+              "Name the beat that keeps the promise",
+              "No beat answers it, or it arrives last"
+            ],
+            [
+              "Brief",
+              "Compare it with the brief's rules",
+              "It uses a word or claim the brief rules out"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a hook look like after these checks?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "It names one situation in plain words, and a later beat shows that situation being solved on camera.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a foldable fabric laundry basket",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "My laundry basket takes up more floor than my bed.",
+              "do": "Wide shot of a full rigid basket blocking a narrow bedroom floor."
+            },
+            {
+              "part": "setup",
+              "say": "And on wash day it's empty, and still in the way.",
+              "do": "Show the empty rigid basket wedged in the doorway."
+            },
+            {
+              "part": "beat 1",
+              "say": "So I tried one that folds flat.",
+              "do": "Lift the folded basket from the gap behind the door."
+            },
+            {
+              "part": "beat 2",
+              "say": "Pull the rim up, and it's a basket again.",
+              "do": "Pull the rim open in one motion and drop clothes in."
+            },
+            {
+              "part": "turn",
+              "say": "The part I use most is the handles. One hand down the stairs.",
+              "do": "Carry it down the stairs with one hand, the other on the rail."
+            },
+            {
+              "part": "close",
+              "say": "Then it folds back behind the door. It's the one I used, if your floor is losing too.",
+              "do": "Fold it flat and slide it behind the door, then point to where the brand wants the link."
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "text": "Run the checks on this hook. The promise is a basket that gets out of the way. Beat one and the close are the payoff. Nothing can be cut without losing the picture.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you send the brand with your tested hooks?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Send each passing hook with its one-line promise and the beat that pays it off, so the brand can choose on substance, not on which line sounds catchier.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Put the versions in a short list under the script and say which one you would lead with and why. Check each against the [brief](/glossary/#brief) before it goes, since a line that breaks the brief's rules wastes a round of feedback. If the brand rejects one anyway, the steps in [how do you rewrite a hook a brand rejected](/blog/rewrite-a-rejected-ugc-hook/) pick up from there.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-23",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "My laundry basket takes up more floor than my bed."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 4,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
