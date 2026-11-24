@@ -113,7 +113,10 @@ const SOURCE = signupSource();
    v3 (2026-11-20) is the referral queue: the same launch news and occasional updates, PLUS the emails the queue
    itself needs: confirm your spot, your spot (on a re-send), and your turn. A leave link is in every one, and
    leaving stops all of it. v2 and v1 rows keep what they agreed to; the release email is the only one a v1 row
-   is sent (privacy/index.html says what v3 promises). */
+   is sent (privacy/index.html says what v3 promises).
+   Still v3 since 2026-11-23 (no confirmation, plan ~/.claude/plans/waitlist-no-confirm.md): the WELCOME email on
+   joining replaced the confirm email one for one, so the promise is not broader (one email on joining, one when it's
+   your turn, occasional updates) and the tag does not change. */
 const CONSENT = "waitlist-queue-v3";
 
 /* Deliberately loose. A regex that "properly" validates an address rejects
@@ -612,41 +615,53 @@ for (const el of document.querySelectorAll("[data-carry-utm]")) {
    Public sign-up is a referral queue released in batches. Everything the browser may do goes through ONE door, the
    waitlist Edge Function (supabase/functions/waitlist): join, "your spot", send-it-again, leave. The table behind it
    is locked to the server (supabase/waitlist_queue.sql), so there is no direct write to fall back on. Nothing in a
-   browser is ever answered an email address, a private token or an invite code: those travel by email to the person
-   they belong to. The one thing the page holds is the person's own spot token, and only after they arrived through
-   the link in an email (?spot=).
+   browser is ever answered an email address or an invite code: those travel by email to the person they belong to.
+   The one thing the page holds is the person's own spot token: from the link in an email (?spot=), or (since
+   2026-11-23) from the answer to a BRAND-NEW join, which carries the new entry's token to the browser that created it
+   and never for an address that was already on the list (plan ~/.claude/plans/waitlist-no-confirm.md, D2).
+   NO CONFIRMATION (owner, 2026-11-21): everyone is in line from the moment they join, the one email is a welcome, and
+   a friend's join counts for whoever's link brought them as soon as they join.
 
    This block is LOGIC. It does not paint the cards: the markup is in index.html (#gate-wait, #gate-spot) and the
    painters are assigned to WL_UI below by the interface step (plan step 10). Until they are, a call still runs and
    nothing is drawn. Every lookup of an element is guarded, so a page without the markup does nothing at all.
 
-   THE URL. A link carries ?join=<share code> (a friend's link), ?spot=<private token> (+ &confirm=<token> to confirm
-   the address, + &stop=1 to leave), or ?gift=<invite code> (a friend's personal invite link: "you're invited", plan
+   THE URL. A link carries ?join=<share code> (a friend's link; the share link itself is /join/?c=<code>, a static page
+   with its own link preview that forwards here as ?join=: join/forward.js), ?spot=<private token> (+ &stop=1 to
+   leave; + &confirm=<token> only on the confirm links still in inboxes from before 2026-11-23: COMPATIBILITY, passed
+   on to the function and never shown), or ?gift=<invite code> (a friend's personal invite link: "you're invited", plan
    ~/.claude/plans/waitlist-beli-referrals.md). They are read ONCE at load, then removed from the address bar with replaceState,
    keeping every other parameter and the fragment (creator.js reads signup, e, c, lynx, paste, obtest after this).
    They are QUERY parameters, never a #fragment: site.js strips fragments 120 ms after load.
 
    WHAT IS KEPT ON THE DEVICE (localStorage, always in try/catch; the page works with it empty)
-     lynxr_wl_spot  {token, at}   the private link to the person's own spot, written only after the server has
-                                  recognised it (a spot answer of unconfirmed / waiting / released), dropped on none / left
+     lynxr_wl_spot  {token, at}   the private link to the person's own spot, written after a brand-new join (the
+                                  answer's token) or once the server has recognised it (a spot answer of waiting /
+                                  released, or "unconfirmed" from a database not yet re-run), dropped on none / left
      lynxr_wl_join  {code, at}    a friend's share code, kept 30 days, so a person who opens the link now and joins
                                   tomorrow still credits the friend
      lynxr_wl_gift  {code, at}    a friend's invite code (?gift=), kept 30 days, so "join the waitlist" later reopens the
                                   invite instead; dropped once it is claimed, used up, dead, or invites are off
 
-   THE FLOW (owner, 2026-11-20: "enter their email and then they get sent to a refer a friend ... but they can also just
-   leave that page and go to their queue position display"): join card -> REFER screen (text a friend, copy the link,
-   skip) -> THE QUEUE PAGE (their place in line, their home while they wait). A visitor whose device keeps their spot
-   link lands straight on the queue page (wlBoot); a friend's ?join= or ?gift= link shows the friend's banner on the
-   landing instead (WL_UI.banner), and a ?gift= invite beats a kept spot (it skips the line).
+   THE FLOW (owner, 2026-11-21: "the most streamlined" flow, the invite goes through Messages): join card -> THE QUEUE
+   PAGE, whose first view after a join says "lynxr sent you an email" over the place in line, with one button, INVITE A
+   FRIEND -> the REFER screen (+10 a friend, their first name asked once, just in time and optional, then Invite a
+   friend = Messages on a phone, the share sheet on a computer; copy link; back). Four taps from the landing to
+   Messages. A visitor whose device keeps their spot link lands straight on the queue page (wlBoot); a friend's ?join=
+   or ?gift= link shows the friend's banner on the landing instead (WL_UI.banner: "{Name} is inviting you to lynxr",
+   the name looked up for that code by ref_peek, never read from the link), and a ?gift= invite beats a kept spot.
 
    ?wltest=<scenario> (localhost / 127.0.0.1 ONLY) swaps the network for canned answers so every card can be looked at
-   without sending anything: wait, wait-ref, new (the refer screen a join opens), new-next, new-nomail, exists, account,
-   limited, error, unconfirmed, waiting, confirmed, released, left, none, stop (the queue page); crew, founding,
-   released-discord (its crew line, title and Discord link); invite and gift-invite (the landing with a friend's banner
-   for a ?join= / a ?gift= link); gift, gift-used, gift-none, gift-off, gift-open (the invite card as a friend's link
-   opens it), gift-claimed, gift-nomail, gift-again, gift-account, gift-busy (the same, then claimed with
-   friend@example.invalid). It never touches localStorage. (story is parked with the story image: see the painter.)
+   without sending anything: wait, wait-ref (the join card), new, new-guess (the queue page a join opens, joined as
+   you@ / maya.lee@example.invalid), new-next, new-nomail, exists, account, limited, error; waiting, unconfirmed (an old
+   database's word: paints exactly as waiting), released, left, none, stop (the queue page from a link); crew, founding,
+   released-discord (its crew line, title and Discord link); refer (new-guess, then its Invite a friend pressed: the
+   name field prefilled "Maya"), refer-named (a spot whose invite name is already "Maya", then the same press); invite,
+   invite-named and gift-invite (the landing with a friend's banner for a ?join= without / with a name, and a ?gift=
+   link); gift, gift-used, gift-none, gift-off, gift-open (the invite card as a friend's link opens it), gift-claimed,
+   gift-nomail, gift-again, gift-account, gift-busy (the same, then claimed with friend@example.invalid). It never
+   touches localStorage, and every body it is handed is kept in window.__wlCalls so a check can read what would have
+   been sent. (story is parked with the story image: see the painter.)
    =========================================================================================================== */
 const WL_FN = `${SB_URL}/functions/v1/waitlist`;
 const WL_SPOT_KEY = "lynxr_wl_spot";
@@ -658,9 +673,15 @@ const WL_TEST_TOKEN = "f".repeat(32);
 const WL_GIFT_KEY = "lynxr_wl_gift";
 /* The only Discord links the page will ever show (the same rule as the database CHECK and the function's DISCORD_RE). */
 const WL_DISCORD = /^https:\/\/(discord\.gg\/[A-Za-z0-9-]{2,32}|discord\.com\/invite\/[A-Za-z0-9-]{2,32})$/;
-/* The prewritten share message (C58). Sentence case on purpose: it is the creator's own message in another app, where no
-   CSS lowercases it. */
-const WL_SHARE_MSG = "Join me on the lynxr waitlist. Paste a video you love and lynxr writes you a script to remake it.";
+/* The prewritten text message (C135), followed by a space and the share link. Sentence case on purpose: it is the
+   creator's own message in their own Messages app, where no CSS lowercases it. */
+const WL_SHARE_MSG = "I just joined the lynxr waitlist and I want you on it with me! lynxr helps you make better videos, faster. Join with my link:";
+/** The share link (owner, 2026-11-21): /join/ has its own link preview ("you're invited to lynxr") and forwards to
+    /?join=CODE. The name is never in it (it is looked up for the code, so a link cannot claim to be from anyone). */
+const wlShareUrl = (code) => `${location.origin}/join/?c=${code}`;
+/* THE INVITE NAME (plan waitlist-no-confirm, Assumption 3). The page, the function and the database agree: the first
+   word only, 1 to 20 characters, letters of any script plus ' ’ and -. */
+const WL_NAME = /^\p{L}[\p{L}\p{M}'’-]{0,19}$/u;
 /* The create card's one line when a gift link routes someone there (C50 / C51 / C52; creator.js paints it). */
 const WL_GIFT_ACCOUNT_SAYS = "You don't need an invite. Create your account below, or sign in if you already have one.";
 const WL_GIFT_OPEN_SAYS = "lynxr is open right now. Create your account below.";
@@ -674,10 +695,12 @@ const WL_UI = {
   loading: null,   // (what: "spot" | "join")            a call is in flight
   wait: null,      // (email)                            the wait card was opened (email prefill, or "")
   joined: null,    // (answer, email)                    the answer to a join: {status: new|exists|account|bad_email|limited|off|error, ...}
-  spot: null,      // (answer, {token, confirm, stop})   the answer to a spot load: {state: unconfirmed|waiting|released|left|none|limited|off|error, ...}
+  spot: null,      // (answer, {token, confirm, stop})   the answer to a spot load: {state: waiting|released|left|none|limited|off|error, name?, ...}
+                   //                                    ("unconfirmed" from a database not yet re-run is painted exactly as waiting)
   gift: null,      // (answer, {code, phase: "peek"|"claim", email})   a gift link: peek {state: ok|used_up|none|off|limited|error},
                    //                                    claim {status: claimed|again|bad_email|used_up|none|off|busy|limited|error, mailed}
-  banner: null,    // (kind: "join" | "gift" | "used" | "none" | "off")   the friend's banner on the landing
+  banner: null,    // (kind: "join" | "join-wait" | "gift" | "used" | "none" | "off", name?)   the friend's banner on the
+                   //                                    landing; "join-wait" holds its place, unread, while the name is asked
 };
 
 /** The five keys read at load: valid values only (anything else is ignored, never stored, never sent). */
@@ -689,6 +712,8 @@ const WL_ARRIVAL = (() => {
     if (WL_CODE.test(j)) out.join = j;
     const s = (q.get("spot") || "").trim().toLowerCase();
     if (WL_TOKEN.test(s)) out.spot = s;
+    // COMPATIBILITY: confirm links mailed before 2026-11-23 still carry &confirm=. It is passed on to the function
+    // (which ignores it once the database is re-run) and never changes what the page shows.
     const c = (q.get("confirm") || "").trim().toLowerCase();
     if (WL_TOKEN.test(c)) out.confirm = c;
     out.stop = q.get("stop") === "1";
@@ -710,21 +735,23 @@ const WLTEST = (() => {
   try { name = new URLSearchParams(location.search).get("wltest"); } catch { return null; }
   if (name === null) return null;
   name = name.trim().toLowerCase() || "wait";
-  const NEW = { status: "new", position: 7, ref_code: "ABCDEFGH", mailed: true, batch_size: 100, places: 10 };
+  const NEW = { status: "new", position: 7, ref_code: "ABCDEFGH", mailed: true, batch_size: 100, places: 10, token: WL_TEST_TOKEN };
   const JOIN = {
-    wait: NEW, "wait-ref": NEW, new: NEW,
+    wait: NEW, "wait-ref": NEW, new: NEW, "new-guess": NEW, refer: NEW,
     "new-next": { ...NEW, position: 42, batch_size: 30 },     // behind the next batch: "invite k friends to reach it"
     "new-nomail": { ...NEW, mailed: false },
     exists: { status: "exists", mailed: true },
     account: { status: "account" }, limited: { status: "limited" }, error: { status: "error" },
   };
-  const SPOT_BASE = { ref_code: "ABCDEFGH", referrals: 0, crew: 0, title_crew: 3, just_confirmed: false, batch_size: 100, places: 10 };
+  /* who the join scenarios join as: maya.lee@ has an obvious first name (the refer screen prefills "Maya"), you@ has none */
+  const AS = { "new-guess": "maya.lee@example.invalid", refer: "maya.lee@example.invalid" };
+  const SPOT_BASE = { ref_code: "ABCDEFGH", referrals: 0, crew: 0, title_crew: 3, batch_size: 100, places: 10 };
   const DISCORD = "https://discord.gg/lynxrtest";              // a fixture value: the real link lives only in the database
   const FOUNDING = { ...SPOT_BASE, state: "waiting", position: 31, crew: 3, referrals: 3, title: "founding", discord: DISCORD };
   const SPOT = {
-    unconfirmed: { ...SPOT_BASE, state: "unconfirmed", position: 7 },
+    unconfirmed: { ...SPOT_BASE, state: "unconfirmed", position: 142, crew: 2, referrals: 2 },   // = waiting, an old database's word
     waiting: { ...SPOT_BASE, state: "waiting", position: 142, crew: 2, referrals: 2 },
-    confirmed: { ...SPOT_BASE, state: "waiting", position: 7, just_confirmed: true },
+    "refer-named": { ...SPOT_BASE, state: "waiting", position: 142, crew: 2, referrals: 2, name: "Maya" },
     released: { ...SPOT_BASE, state: "released", crew: 2, referrals: 2 },
     left: { ...SPOT_BASE, state: "left" },
     none: { state: "none" },
@@ -738,7 +765,7 @@ const WLTEST = (() => {
      friend@example.invalid answers. A second claim (send it again) answers "again". */
   const PEEK = { gift: "ok", "gift-used": "used_up", "gift-none": "none", "gift-off": "off", "gift-open": "open",
     "gift-claimed": "ok", "gift-nomail": "ok", "gift-again": "ok", "gift-account": "ok", "gift-busy": "ok", "gift-invite": "ok" };
-  const BANNER = { invite: "join", "gift-invite": "gift" };          // the landing with a friend's banner, nothing opened
+  const BANNER = { invite: "join", "invite-named": "join", "gift-invite": "gift" };   // the landing with a friend's banner, nothing opened
   const CLAIM = {
     gift: { status: "claimed", mailed: true },
     "gift-claimed": { status: "claimed", mailed: true }, "gift-nomail": { status: "claimed", mailed: false },
@@ -747,15 +774,24 @@ const WLTEST = (() => {
   if (!(name in JOIN) && !(name in SPOT) && !(name in PEEK) && !(name in BANNER)) return null;
   const pause = (ms) => new Promise((r) => setTimeout(r, ms));
   let claims = 0;
+  const calls = (window.__wlCalls = []);                      // every body, as it would have been sent
   return {
     name,
     kind: name in BANNER ? "banner" : name in SPOT ? "spot" : name in PEEK ? "gift" : "wait",
     banner: BANNER[name] || "",
+    as: AS[name] || "you@example.invalid",
+    pressInvite: name === "refer" || name === "refer-named",     // then press the queue page's Invite a friend
     claimNow: name in CLAIM && name !== "gift",                   // the claim scenarios claim at once; "gift" waits for a person
     async call(body) {
+      calls.push(JSON.parse(JSON.stringify(body)));
       await pause(250);                                      // a visible network moment
       if (body.action === "join") return { ...(JOIN[name] || NEW) };
       if (body.action === "spot") return { ...(SPOT[name] || SPOT.waiting) };
+      if (body.action === "name") {
+        const n = typeof body.name === "string" ? body.name : "";
+        return n === "" ? { ok: true } : WL_NAME.test(n) ? { ok: true, name: n } : { ok: false, reason: "bad_name" };
+      }
+      if (body.action === "ref_peek") return name === "invite-named" ? { name: "Maya" } : {};
       if (body.action === "resend") return { ok: true, mailed: true };
       if (body.action === "stop") return { ok: true };
       if (body.action === "gift_peek") return { state: PEEK[name] || "ok" };
@@ -784,7 +820,7 @@ function wlStoredSpot() {
 
 /** A friend's share code. A fresh ?join= replaces an older one; one older than 30 days is dropped. Returns "" for none. */
 function wlRef() {
-  if (WLTEST) return WLTEST.name === "wait-ref" || WLTEST.name === "invite" ? "ABCDEFGH" : "";
+  if (WLTEST) return ["wait-ref", "invite", "invite-named"].includes(WLTEST.name) ? "ABCDEFGH" : "";
   if (WL_ARRIVAL.join) { wlStore(WL_JOIN_KEY, { code: WL_ARRIVAL.join, at: Date.now() }); return WL_ARRIVAL.join; }
   const v = wlRead(WL_JOIN_KEY);
   if (v && WL_CODE.test(String(v.code || "")) && Date.now() - Number(v.at) < WL_JOIN_TTL) return v.code;
@@ -812,13 +848,15 @@ function wlGiftForget() { WL_ARRIVAL.gift = ""; wlDrop(WL_GIFT_KEY); }
 function wlForget() { wlDrop(WL_SPOT_KEY); wlDrop(WL_JOIN_KEY); wlGiftForget(); }
 
 /** One call to the function. A CORS "simple request": a string body and NO headers, so the browser sends text/plain
-    and never a preflight (the function reads req.text()). Always resolves: an object, or {status:"error"}. */
-async function wlCall(body) {
+    and never a preflight (the function reads req.text()). Always resolves: an object, or {status:"error"}.
+    `opts.keepalive`: the request outlives the page (the invite name is saved on the same tap that opens Messages,
+    which can take the page away). */
+async function wlCall(body, opts) {
   if (WLTEST) return WLTEST.call(body);
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 15000);
   try {
-    const res = await fetch(WL_FN, { method: "POST", body: JSON.stringify(body), signal: ctl.signal });
+    const res = await fetch(WL_FN, { method: "POST", body: JSON.stringify(body), signal: ctl.signal, keepalive: !!(opts && opts.keepalive) });
     const js = await res.json();
     return js && typeof js === "object" ? js : { status: "error" };
   } catch {
@@ -842,13 +880,17 @@ async function wlSubmit(raw) {
   if (WL_UI.loading) WL_UI.loading("join");
   const res = await wlCall({ action: "join", email, ref: wlRef(), source: SOURCE, consent: CONSENT });
   const out = res && typeof res.status === "string" ? res : { status: "error" };
+  // a brand-new entry's own private link, handed to the browser that made it (never for "exists"): this device comes
+  // back to its live queue page, "send it again" needs no retyping, and the invite name can be set at once
+  if (out.status === "new" && WL_TOKEN.test(String(out.token || ""))) wlStore(WL_SPOT_KEY, { token: out.token, at: Date.now() });
   if (out.status === "account" && typeof gateAccessFromWaitlist === "function") gateAccessFromWaitlist(email);   // no create card: see creator.js
   if (WL_UI.joined) WL_UI.joined(out, email);
   return out;
 }
 
 /** SPOT: the answer to a private link. {state: ...}; anything unrecognised becomes {state:"error"}. A state the server
-    recognises as the person's own (unconfirmed / waiting / released) keeps the token on this device; none / left drop it. */
+    recognises as the person's own (waiting / released, or an old database's unconfirmed) keeps the token on this
+    device; none / left drop it. `ctx.confirm` (an old confirm link) is passed on unchanged: compatibility only. */
 async function wlSpot(token, ctx) {
   const c = ctx || {};
   const body = { action: "spot", token };
@@ -939,6 +981,31 @@ async function wlGiftClaim(code, raw) {
   return out;
 }
 
+/** THE INVITE NAME. What a person types: trimmed, the first word only, at most 20 characters ("" for nothing). */
+function wlCleanName(s) {
+  return String(s || "").trim().split(/\s+/)[0].slice(0, 20);
+}
+/** A first name to suggest from the address, only when it is obvious: "maya.lee@..." -> "Maya". The local part must hold
+    a . _ or - and its first piece be 2 to 12 plain letters; anything else ("you@", "mlee93@") suggests nothing. */
+function wlNameGuess(email) {
+  const local = String(email || "").split("@")[0] || "";
+  if (!/[._-]/.test(local)) return "";
+  const first = local.split(/[._+-]/)[0];
+  return /^[a-z]{2,12}$/i.test(first) ? first[0].toUpperCase() + first.slice(1).toLowerCase() : "";
+}
+/** Save (or clear, with "") the invite name on the person's own entry. A keepalive request: it is made on the same tap
+    that opens Messages. Resolves {ok, name} (name only when the function confirms one). */
+async function wlSetName(token, name) {
+  const res = await wlCall({ action: "name", token, name }, { keepalive: true });
+  const n = res && typeof res.name === "string" && WL_NAME.test(res.name) ? res.name : "";
+  return { ok: !!(res && res.ok === true), name: n };
+}
+/** The name a share code's owner chose for their invites, or "" (no name, unknown code, trouble: all the same). */
+async function wlRefName(code) {
+  const res = await wlCall({ action: "ref_peek", code });
+  return res && typeof res.name === "string" && WL_NAME.test(res.name) ? res.name : "";
+}
+
 /** "Leave the waitlist". Resolves {ok}; on success the stored private link is dropped. */
 async function wlLeave(token) {
   const res = await wlCall({ action: "stop", token });
@@ -976,22 +1043,29 @@ window.lynxrWaitlist = { open: wlOpen };
    calls (no markup strings, no style attributes: CSP).
    THE SCREENS
      join card   one field, one button, the legal line.
-     refer       right after a join: "+10" huge, its label small, TEXT A FRIEND (an sms: link that opens the phone's
-                 Messages with the prewritten message and their link; a computer gets "copy your link" first and the
-                 system share sheet where there is one), copy link, and "skip, see my place in line".
-     queue page  their home while they wait (a page, no card, no app chrome): "coming soon", the place in line huge, one
-                 short line, one button, at most two quiet links.
-     banner      a friend's ?join= / ?gift= link: the landing's one button wrapped in a card that says a friend sent them.
+     queue page  their home while they wait (a page, no card, no app chrome): the small line ("lynxr sent you an email"
+                 right after joining, else "coming soon"), the place in line huge, one short line, ONE button, INVITE A
+                 FRIEND, then at most two quiet links ("didn't get it? send it again" after a join; "use a different
+                 email").
+     refer       "+10" huge, its label small, the optional first-name field the first time (plan waitlist-no-confirm B4),
+                 INVITE A FRIEND (an sms: link that opens the phone's Messages with the prewritten message and their
+                 /join/ link; a computer's share sheet, or "copy your invite link" where there is none), copy link, and
+                 "back to my place in line".
+     banner      a friend's ?join= / ?gift= link: the landing's one button wrapped in a card with the happy x saying who
+                 is inviting them.
    ONE THING MOVES PER SCREEN: #wl-go (join card, only once an email is typed: disabled stops .onb-shim); #wlr-text on a
-   phone's refer screen, #wlr-copy on a computer's; the queue page's one button; #wlg-go on the invite card (once an
-   email is typed) or its one "join the waitlist" dead end; the banner's #lp-first-cta. "Leave the waitlist?" moves
-   nothing on purpose: a destructive choice is never pushed. app.css switches the shimmer off under reduced motion. No
-   confetti: joining is not the first win.
-   STATES: join (empty, typing, bad address, joining, limited, paused, offline, trouble, already in line, account ->
-   create card); refer (phone / computer, copied, copy refused -> the link shown to press and hold, from a join / from
-   the queue page); queue page (loading, unconfirmed from a join / from a link, mail not sent, waiting, just confirmed,
-   founding creator, crew, released -> create your account, leave?, left, dead link, limited / paused / trouble with
-   "try again"). The C-numbers are the plan's copy list (~/.claude/plans/waitlist-copy-review.md).
+   phone's refer screen, #wlr-share on a computer's with a share sheet, #wlr-copy without; the queue page's one button;
+   #wlg-go on the invite card (once an email is typed) or its one "join the waitlist" dead end; the banner's
+   #lp-first-cta (plus the x's single wave as it appears, the bounded exception). "Leave the waitlist?" moves nothing on
+   purpose: a destructive choice is never pushed. app.css switches the shimmer off under reduced motion, and the wave
+   is never started under it. No confetti: joining is not the first win.
+   STATES: join (empty, typing, bad address, joining, limited, paused, offline, trouble, already on the list, account ->
+   sign in); queue page (loading, just joined and mailed / not mailed, waiting from a link, an old database's
+   unconfirmed = waiting, founding creator, crew, released -> create your account, leave?, left, dead link, limited /
+   paused / trouble with "try again"); refer (phone / computer with a share sheet / without, a name to ask (guessed or
+   empty), typed invalid, already named -> "change", no token -> no field, copied, copy refused -> the link shown to
+   press and hold); banner (named, unnamed, name slow or failing -> "a friend", gift kinds). The C-numbers are the
+   plan's copy list (~/.claude/plans/waitlist-copy-review.md).
    =========================================================================================================== */
 (function wlPaint() {
   const wait = $("gate-wait"), spotCard = $("gate-spot");
@@ -1017,21 +1091,26 @@ window.lynxrWaitlist = { open: wlOpen };
     joining: "Joining…",
     loading: "Loading your place in line…",
     label: "your place in line",                                                                       // C14
-    sentTo: (email) => `Confirm your email to hold it. We sent a link to ${email}.`,                     // C15
-    inInbox: "Confirm your email to hold it. The link is in your inbox.",
-    confirmed: "Confirmed. You're in line.",                                                            // C16
+    sent: "lynxr sent you an email", onList: "you're on the list",                                     // C126 / C127
+    sentTo: ["It's on its way to ", ", with a link back to this page any time."],                       // C126, around the address
     nextBatch: (n) => `You're in the next batch of ${n}.`,                                              // C17
     invite: (k) => `Invite ${k} ${k === 1 ? "friend" : "friends"} to reach the next batch.`,
-    moveUp: "Invite friends to move up",                                                               // C104
+    inviteFriend: "Invite a friend",                                                                   // C129 / C132
     soon: "coming soon", yourTurn: "it's your turn",                                                   // C105
-    onList: "you're on the list", moveUpTag: "move up the line",                                       // C106
-    text: "Text a friend", copyLink: "Copy link", copyYours: "Copy your link", shareSheet: "Share",     // C107
+    moveUpTag: "move up the line",                                                                     // C131
+    copyLink: "Copy link", copyInvite: "Copy your invite link",                                        // C132
     copied: "Copied", hold: "Press and hold the link to copy it.",
-    skip: "Skip, see my place in line", back: "Back to my place in line",                             // C108
+    back: "Back to my place in line",                                                                  // C131
+    didntGet: "Didn't get it? ",                                                                       // C130
+    // the invite name, asked once, just in time (C133 / C134)
+    nameSees: (n) => `Friends will see “${n} is inviting you to lynxr”.`,
+    nameNone: "Friends will see “A friend is inviting you to lynxr”.",
+    nameBad: "Just your first name, using letters.",
+    nameSet: (n) => `Friends see “${n} is inviting you”.`,
     crew: "Your crew: ",                                                                               // C42
     crewMore: (k) => ` · ${k} more to become a founding creator`,
-    exists: "You're already in line. We've emailed you a link to your spot.",                           // C19
-    existsQuiet: "You're already in line. The link to your spot is in your inbox.",
+    exists: "You're already on the list! We just emailed you the link to your place in line.",          // C125
+    existsQuiet: "You're already on the list! The link to your place in line is in your inbox.",
     noMail: "We couldn't send your email just now. Press send it again in a few minutes.",              // C20
     inWord: "You're in",                                                                               // C21
     released: "Your batch is open. Create your account with the email you joined with.",              // C109
@@ -1162,7 +1241,7 @@ window.lynxrWaitlist = { open: wlOpen };
     batchLine.hidden = !text;
   };
   /* "Your crew: N · K more to become a founding creator" (C42): ONE short line, and only once someone has joined with
-     their link (no "bring 3 friends" pitch at zero: the button already says it). Confirmed spots only. */
+     their link (no "bring 3 friends" pitch at zero: the button already says it). Every waiting page (since 2026-11-23 there is no unconfirmed one). */
   const setCrew = (a) => {
     if (!friends) return;
     const n = Math.max(0, Number(a.crew ?? a.referrals) || 0), t = Math.max(0, Number(a.title_crew) || 0);
@@ -1199,13 +1278,14 @@ window.lynxrWaitlist = { open: wlOpen };
     const out = await wlSpot(token, ctx);
     paintSpot(out, { token, confirm: !!ctx.confirm, stop: !!ctx.stop });
   };
-  /* "Send it again" for an unconfirmed spot. After a fresh join it asks the join again (the page holds no token yet);
-     from a link it asks for a resend. The first email's 60 s cooldown counts from when it went, not from this paint. */
-  const againBtn = (c, joinedSpot) => {
+  /* "Didn't get it? Send it again", right after a join. With the new entry's token (every new join since 2026-11-23)
+     it asks for a resend; an answer without one (an older function) asks the join again. The first email's 60 s
+     cooldown counts from when it went, not from this paint, so coming Back from the refer screen does not reset it. */
+  const againBtn = (c) => {
     const again = linkBtn(SAYS.again, async () => {
       again.disabled = true;
       busy("Sending…");
-      if (joinedSpot) {
+      if (!c.token) {
         const r = await wlCall({ action: "join", email: c.email, ref: wlRef(), source: SOURCE, consent: CONSENT });
         const sent = (r.status === "new" || r.status === "exists") && r.mailed === true;
         say(sent ? SAYS.sentAgain : r.status === "new" || r.status === "exists" ? SAYS.noMail : failSays(r.status));
@@ -1214,16 +1294,17 @@ window.lynxrWaitlist = { open: wlOpen };
       } else {
         const r = await wlResend(c.token);
         say(r.ok && r.mailed ? SAYS.sentAgain : r.wait_s ? SAYS.soonS(r.wait_s) : SAYS.noMail);
+        if (r.ok && r.mailed) c.sentAt = Date.now();
         cooled(again, r.ok && r.mailed ? 60 : r.wait_s);
       }
     });
-    if (joinedSpot && c.mailed && c.sentAt) cooled(again, 60 - (Date.now() - c.sentAt) / 1000);
+    if (c.sentAt) cooled(again, 60 - (Date.now() - c.sentAt) / 1000);
     return again;
   };
 
   /** Paint an answer on the queue page. `a` is a spot answer ({state, position, ref_code, referrals, crew, title,
-      just_confirmed, batch_size, places, discord}); `c` says where it came from: {token, confirm, stop} for a link,
-      {join: true, email, mailed, sentAt} for a fresh join. */
+      batch_size, places, discord, name}); `c` says where it came from: {token, confirm, stop} for a link,
+      {join: true, token, email, mailed, sentAt} for a fresh join ("lynxr sent you an email": the first view). */
   const paintSpot = (a, c) => {
     mode("spot");                                                 // also clears the gate's status line
     clearSpot();
@@ -1244,16 +1325,23 @@ window.lynxrWaitlist = { open: wlOpen };
         else { leave.disabled = false; say(SAYS.trouble); }
       });
       acts.append(leave, row(linkBtn(SAYS.keep, () => reload(c.token, {}))));
-    } else if (st === "waiting" || st === "unconfirmed") {
+    } else if (st === "waiting" || st === "unconfirmed") {         // "unconfirmed": an old database's word, the same page
+      if (c.join) eyebrow(spotCard, c.mailed ? SAYS.sent : SAYS.onList);
       setNum(a.position);
-      if (st === "unconfirmed") setLine(c.join ? (c.mailed ? SAYS.sentTo(c.email) : SAYS.noMail) : SAYS.inInbox);
-      else if (a.just_confirmed) setLine(SAYS.confirmed);
+      if (c.join && c.mailed) {                                   // the address in <strong>, built with DOM calls (C126)
+        line.replaceChildren(document.createTextNode(SAYS.sentTo[0]), el("strong", "", String(c.email || "")),
+          document.createTextNode(SAYS.sentTo[1]));
+        line.hidden = false;
+      } else if (c.join) setLine(SAYS.noMail);
       setTitle(a);
       setBatch(a);
-      if (st === "waiting") { setCrew(a); setDiscord(a); }       // confirmed only: never on an unconfirmed page
+      setCrew(a);
+      setDiscord(a);
       const code = codeOf(a);
-      if (code && referOk) acts.append(primary(SAYS.moveUp, () => paintRefer(code, false)));
-      if (st === "unconfirmed") acts.append(row(againBtn(c, !!c.join)));
+      if (code && referOk) {
+        acts.append(primary(SAYS.inviteFriend, () => paintRefer(code, { token: c.token || "", name: a.name || "", email: c.email || "" })));
+      }
+      if (c.join) acts.append(row(document.createTextNode(SAYS.didntGet), againBtn(c)));
       acts.append(row(linkBtn(SAYS.other, otherEmail)));
     } else if (st === "released") {
       eyebrow(spotCard, SAYS.yourTurn);
@@ -1288,11 +1376,17 @@ window.lynxrWaitlist = { open: wlOpen };
   };
 
   /* ---------------- the refer screen ----------------
-     TEXT A FRIEND. On a phone it is a real link to the Messages app with the message already written: iOS reads
-     `sms:&body=…`, Android `sms:?body=…` (both URL-encoded). A link, not a script, so the tap itself opens Messages and
-     no in-app browser can swallow it as a popup. On a computer there is no texting to hand to, so "copy your link" is
-     the button and the system share sheet (Messages on a Mac) is offered where the browser has one. The message is
-     WL_SHARE_MSG + the link, in the creator's own casing (CSS lowercases only what is drawn here, never what is sent). */
+     INVITE A FRIEND (owner, 2026-11-21: the referral goes through Messages). On a phone it is a real link to the
+     Messages app with the message already written: iOS reads `sms:&body=…`, Android `sms:?body=…` (both URL-encoded).
+     A link, not a script, so the tap itself opens Messages and no in-app browser can swallow it as a popup. On a
+     computer with a share sheet (Messages on a Mac) the same words open it; with none, "copy your invite link" is the
+     button. The message is WL_SHARE_MSG + the /join/ link, in the creator's own casing (CSS lowercases only what is
+     drawn here, never what is sent). Exactly one of #wlr-text / #wlr-share / #wlr-copy wears .onb-shim at a time.
+     THE NAME, JUST IN TIME: the first time (an entry this device holds the token of, no name saved yet) one optional
+     field, "your first name", prefilled when the address makes it obvious; the same tap on Invite a friend saves it
+     (keepalive) and opens Messages. Empty = "a friend". Invalid = a hint, nothing saved, the invite still works. Once
+     a name is saved the next visit shows one line and "change" instead. Without a token there is nothing to save it
+     on, so no field. */
   const PLATFORM = (() => {
     const ua = navigator.userAgent || "";
     if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ios";   // iPadOS asks as a Mac
@@ -1300,6 +1394,7 @@ window.lynxrWaitlist = { open: wlOpen };
     return "";
   })();
   let shareUrl = "";
+  let rCtx = { token: "", name: "", email: "" };                  // whose refer screen this is (paintRefer)
   const shareText = () => `${WL_SHARE_MSG} ${shareUrl}`;
   const smsHref = (body) => (PLATFORM === "ios" ? "sms:&body=" : "sms:?body=") + encodeURIComponent(body);
   const copyLink = async (btn, label) => {
@@ -1315,52 +1410,136 @@ window.lynxrWaitlist = { open: wlOpen };
     try { getSelection().selectAllChildren(rLink); } catch { /* nothing to select */ }
     say(SAYS.hold);
   };
-  const paintRefer = (code, fresh) => {
+  const nForm = $("wlr-name-form"), nField = $("wlr-name"), nHint = $("wlr-name-hint");
+  const nSet = $("wlr-name-set"), nSays = $("wlr-name-says"), nChange = $("wlr-name-change");
+  const nameOk = !!(nForm && nField && nHint && nSet && nSays && nChange);
+  const nameHint = () => {
+    const v = wlCleanName(nField.value);
+    const bad = v !== "" && !WL_NAME.test(v);
+    nHint.textContent = v === "" ? SAYS.nameNone : bad ? SAYS.nameBad : SAYS.nameSees(v);
+    nHint.classList.toggle("is-bad", bad);
+    if (bad) nField.setAttribute("aria-invalid", "true"); else nField.removeAttribute("aria-invalid");
+  };
+  const paintName = () => {
+    if (!nameOk) return;
+    const named = WL_NAME.test(rCtx.name);
+    nForm.hidden = !rCtx.token || named;
+    nSet.hidden = !rCtx.token || !named;
+    if (!rCtx.token) return;
+    if (named) { nSays.textContent = SAYS.nameSet(rCtx.name); return; }
+    nField.value = wlNameGuess(rCtx.email);
+    nameHint();
+  };
+  /* Save what the field says, when it is showing, changed, and either a valid name or empty (clearing). Never awaited
+     by the caller: the tap that calls it goes on to open Messages (or the share sheet) at once. */
+  const saveName = () => {
+    if (!nameOk || nForm.hidden || !rCtx.token) return;
+    const ctx = rCtx;
+    const v = wlCleanName(nField.value);
+    if (v !== "" && !WL_NAME.test(v)) return;
+    if (v === (ctx.saving ?? ctx.name)) return;                   // unchanged, or the same value already on its way
+    ctx.saving = v;
+    wlSetName(ctx.token, v).then((r) => {
+      if (ctx.saving === v) delete ctx.saving;
+      if (!r.ok) return;
+      ctx.name = r.name;
+      if (shown && shown.c && shown.c.token === ctx.token) shown.a.name = r.name;   // the next visit shows the named line
+    });
+  };
+  const paintRefer = (code, ctx) => {
     if (!referOk) return;
-    shareUrl = `${location.origin}/?join=${code}`;
+    const c = ctx || {};
+    rCtx = { token: WL_TOKEN.test(String(c.token || "")) ? c.token : "", name: WL_NAME.test(String(c.name || "")) ? c.name : "",
+      email: String(c.email || "") };
+    shareUrl = wlShareUrl(code);
     mode("refer");
-    eyebrow($("gate-refer"), fresh ? SAYS.onList : SAYS.moveUpTag);
+    eyebrow($("gate-refer"), SAYS.moveUpTag);
     rLink.textContent = shareUrl;
     rLink.hidden = true;
     const phone = !!PLATFORM;
+    const sheet = !phone && !!rShare && typeof navigator.share === "function";
     if (phone) rText.href = smsHref(shareText()); else rText.removeAttribute("href");
+    rText.textContent = SAYS.inviteFriend;
     rText.hidden = !phone;
-    rCopy.className = phone ? "ghost wl-r-alt" : "btn onb-shim wl-r-go";   // the one moving button: #wlr-text on a phone
-    rCopy.textContent = rCopy.dataset.label = phone ? SAYS.copyLink : SAYS.copyYours;
-    if (rShare) rShare.hidden = phone || typeof navigator.share !== "function";
-    rSkip.textContent = fresh ? SAYS.skip : SAYS.back;
+    if (rShare) { rShare.textContent = SAYS.inviteFriend; rShare.hidden = !sheet; }
+    const copyFirst = !phone && !sheet;                           // a computer with no share sheet: copying IS the invite
+    rCopy.className = copyFirst ? "btn onb-shim wl-r-go" : "ghost wl-r-alt";
+    rCopy.textContent = rCopy.dataset.label = copyFirst ? SAYS.copyInvite : SAYS.copyLink;
+    rSkip.textContent = SAYS.back;
+    paintName();
     focusOn(rBig);
   };
   if (referOk) {
-    rCopy.addEventListener("click", () => copyLink(rCopy, rCopy.dataset.label || SAYS.copyLink));
+    rText.addEventListener("click", () => saveName());           // never preventDefault: the link itself opens Messages
+    rCopy.addEventListener("click", () => { saveName(); copyLink(rCopy, rCopy.dataset.label || SAYS.copyLink); });
     rShare?.addEventListener("click", async () => {
+      saveName();
       try { await navigator.share({ title: "lynxr", text: WL_SHARE_MSG, url: shareUrl }); }
-      catch (e) { if (!e || e.name !== "AbortError") copyLink(rCopy, rCopy.dataset.label || SAYS.copyYours); }
+      catch (e) { if (!e || e.name !== "AbortError") copyLink(rCopy, rCopy.dataset.label || SAYS.copyLink); }
     });
     rSkip.addEventListener("click", () => { if (shown) paintSpot(shown.a, shown.c); });
   }
+  if (nameOk) {
+    nField.addEventListener("input", nameHint);
+    nForm.addEventListener("submit", (e) => e.preventDefault());   // never a real submit (form-action 'none')
+    nField.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      saveName();
+      nField.blur();
+    });
+    nChange.addEventListener("click", () => {
+      nSet.hidden = true;
+      nForm.hidden = false;
+      nField.value = rCtx.name;
+      nameHint();
+      nField.focus();
+      try { nField.select(); } catch { /* fine */ }
+    });
+  }
 
   /* ---------------- the friend's banner on the landing ----------------
-     The page's one button (#lp-first-cta) inside a card that says a friend sent them (C110-C112). The video above makes
-     room for it (body.wl-invited in app.css). The button still runs creator.js's [data-gate="wait"] -> wlOpen: a kept
-     invite opens the invite card, a kept share code rides along on the join. */
+     The page's one button (#lp-first-cta) inside a card that says who is inviting them (C136, C111, C112): "{Name} is
+     inviting you to lynxr" with the name the friend chose for their invites (looked up for the code by wlJoinBanner,
+     never read from the link), else "a friend". The video above makes room for it (body.wl-invited in app.css). The x
+     is a live glass x in its happy "giggle" face (avatar.js; no looping mood) and waves ONCE when the words appear:
+     never under reduced motion, never twice in one page load; nothing else on the landing moves for it, and the CTA's
+     own shimmer stays the one loop. "join-wait" shows the card with its words held invisible while the name is asked
+     (at most 1.2 s), so the first screen does not change size when they arrive and "a friend" never turns into a name.
+     The button still runs creator.js's [data-gate="wait"] -> wlOpen: a kept invite opens the invite card, a kept share
+     code rides along on the join. */
   const inv = $("lp-invite"), invT = $("lp-invite-t"), invS = $("lp-invite-s"), cta = $("lp-first-cta");
   const BANNER = {
-    join: ["A friend invited you to lynxr", "Join and they move up 10 places.", SAYS.join],                // C110
-    gift: ["A friend gave you an invite", "Skip the waitlist and make your account now.", "Claim your invite"],   // C111
-    used: ["This invite has been used", "You can still join the waitlist.", SAYS.join],                  // C112
-    none: ["This invite link doesn't work", "You can still join the waitlist.", SAYS.join],
-    off: ["Invites are paused right now", "You can still join the waitlist.", SAYS.join],
+    join: (n) => (n
+      ? [`${n} is inviting you to lynxr`, `Join the waitlist and you'll help ${n} move up 10 places.`, SAYS.join]   // C136
+      : ["A friend is inviting you to lynxr", "Join the waitlist and you'll help them move up 10 places.", SAYS.join]),
+    gift: () => ["A friend gave you an invite", "Skip the waitlist and make your account now.", "Claim your invite"],   // C111
+    used: () => ["This invite has been used", "You can still join the waitlist.", SAYS.join],                  // C112
+    none: () => ["This invite link doesn't work", "You can still join the waitlist.", SAYS.join],
+    off: () => ["Invites are paused right now", "You can still join the waitlist.", SAYS.join],
   };
-  WL_UI.banner = (kind) => {
-    const b = BANNER[kind];
-    if (!b || !inv || !invT || !invS || !cta) return;
+  const wave = () => {
+    if (inv.dataset.waved || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const x = inv.querySelector(".lp-invite-x .lx");
+    if (!x || typeof window.lynxrGesture !== "function") return;
+    inv.dataset.waved = "1";
+    // the gesture is one-shot (0.7 s); taking its class off lets the arm settle back into the giggle pose
+    x.addEventListener("animationend", () => window.lynxrGesture(x, null), { once: true });
+    window.lynxrGesture(x, "hello");
+  };
+  WL_UI.banner = (kind, name) => {
+    const pending = kind === "join-wait";
+    const k = pending ? "join" : kind;
+    if (!BANNER[k] || !inv || !invT || !invS || !cta) return;
+    const b = BANNER[k](k === "join" && WL_NAME.test(String(name || "")) ? name : "");
     invT.textContent = b[0];
     invS.textContent = b[1];
     cta.textContent = b[2];
+    inv.classList.toggle("is-pending", pending);
     inv.hidden = false;
     inv.parentElement.classList.add("is-invited");
     document.body.classList.add("wl-invited");
+    if (!pending && (k === "join" || k === "gift")) wave();
   };
 
   /* ---------------- the story image (B10) — PARKED 2026-11-20 ----------------
@@ -1649,8 +1828,8 @@ window.lynxrWaitlist = { open: wlOpen };
     busy(SAYS.loading);
   };
   WL_UI.wait = () => paintWait();
-  /* A new join goes to the refer screen first (owner: "they get sent to a refer a friend ... and are encouraged to");
-     its skip lands on the queue page painted from this same answer, so nothing is asked twice. */
+  /* A new join lands on the queue page itself, its first view saying "lynxr sent you an email" (owner, 2026-11-21; D1):
+     one screen, one button, Invite a friend. The refer screen no longer opens by itself. */
   WL_UI.joined = (out, email) => {
     joining = false;
     go.removeAttribute("aria-busy");
@@ -1659,11 +1838,11 @@ window.lynxrWaitlist = { open: wlOpen };
     if (s === "account") { say(SAYS.access); return; }             // no password box from the waitlist (owner, 2026-11-20)
     if (s === "bad_email") { say(SAYS.bad); flag(true); field.focus(); return; }
     if (s === "new") {
-      const a = { state: "unconfirmed", position: out.position, ref_code: out.ref_code, referrals: 0,
+      const a = { state: "waiting", position: out.position, ref_code: out.ref_code, referrals: 0,
         batch_size: out.batch_size, places: out.places };
-      const c = { join: true, email, mailed: out.mailed === true, sentAt: out.mailed === true ? Date.now() : 0 };
-      const code = codeOf(a);
-      if (code && referOk) { shown = { a, c }; paintRefer(code, true); } else paintSpot(a, c);
+      const c = { join: true, token: WL_TOKEN.test(String(out.token || "")) ? out.token : "", email,
+        mailed: out.mailed === true, sentAt: out.mailed === true ? Date.now() : 0 };
+      paintSpot(a, c);
       return;
     }
     if (s === "exists") { say(out.mailed ? SAYS.exists : SAYS.existsQuiet); return; }
@@ -1671,6 +1850,15 @@ window.lynxrWaitlist = { open: wlOpen };
   };
   WL_UI.spot = (out, ctx) => paintSpot(out, ctx || {});
 })();
+
+/** THE FRIEND'S BANNER for a share code: the card holds its place unread, the name the friend chose is asked once (at
+    most 1.2 s), then the words are painted ONCE: "{Name} is inviting you to lynxr", or "A friend ..." when there is no
+    name, the answer is slow, or anything fails. A name that arrives after the timer is ignored (no flash). */
+async function wlJoinBanner(code) {
+  WL_UI.banner?.("join-wait");
+  const name = await Promise.race([wlRefName(code), new Promise((r) => setTimeout(() => r(""), 1200))]);
+  WL_UI.banner?.("join", name);
+}
 
 /** On DOMContentLoaded, which fires AFTER the deferred creator.js has run (it owns showGate and the session).
     Who lands where, first match wins: a signed-in creator -> the app (creator.js); a ?spot= link -> the queue page; a
@@ -1682,11 +1870,12 @@ function wlBoot() {
   if (!$("gate-wait")) return;                                  // no waitlist markup on this page: nothing to do
   if (WLTEST) {
     if (WLTEST.kind === "banner") {
-      if (WLTEST.banner === "gift") wlGiftBanner("ABCDEFGH"); else WL_UI.banner?.("join");
+      if (WLTEST.banner === "gift") wlGiftBanner("ABCDEFGH"); else wlJoinBanner("ABCDEFGH");
       return;
     }
+    const press = () => { if (WLTEST.pressInvite) $("wl-acts")?.querySelector(".wl-act-go")?.click(); };
     if (WLTEST.kind === "spot") {
-      wlOpenSpot(WL_TEST_TOKEN, { confirm: WLTEST.name === "confirmed" ? WL_TEST_TOKEN : "", stop: WLTEST.name === "stop" });
+      wlOpenSpot(WL_TEST_TOKEN, { stop: WLTEST.name === "stop" }).then(press);
       return;
     }
     if (WLTEST.kind === "gift") {
@@ -1694,7 +1883,7 @@ function wlBoot() {
       return;
     }
     wlOpen("");
-    if (WLTEST.name !== "wait" && WLTEST.name !== "wait-ref") wlSubmit("you@example.invalid");   // the card the answer opens
+    if (WLTEST.name !== "wait" && WLTEST.name !== "wait-ref") wlSubmit(WLTEST.as).then(press);   // the card the answer opens
     return;
   }
   let signedIn = false;
@@ -1707,7 +1896,8 @@ function wlBoot() {
   if (/access_token|refresh_token|error/.test(location.hash)) return;
   const kept = wlStoredSpot();
   if (kept) { wlOpenSpot(kept, {}); return; }
-  if (wlRef()) WL_UI.banner?.("join");
+  const ref = wlRef();
+  if (ref) wlJoinBanner(ref);
 }
 if (document.readyState === "complete") wlBoot();
 else document.addEventListener("DOMContentLoaded", wlBoot);

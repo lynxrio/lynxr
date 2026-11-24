@@ -28,13 +28,13 @@
 <meta name="twitter:description" content="What lynxr collects, why, who it is shared with, how long it is kept, and how to have it deleted.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/privacy/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261120d">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261120d">
-<link rel="shortcut icon" href="/favicon.ico?v=20261120d">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261120d">
-<link rel="stylesheet" href="/app.css?v=20261120d">
-<script src="/theme.js?v=20261120d"></script>
-<script src="/backdrop.js?v=20261120d" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261120e">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261120e">
+<link rel="shortcut icon" href="/favicon.ico?v=20261120e">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261120e">
+<link rel="stylesheet" href="/app.css?v=20261120e">
+<script src="/theme.js?v=20261120e"></script>
+<script src="/backdrop.js?v=20261120e" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -231,7 +231,7 @@
   "name": "lynxr — privacy",
   "description": "What lynxr collects, why, who it is shared with, how long it is kept, and how to have it deleted.",
   "inLanguage": "en",
-  "dateModified": "2026-11-20",
+  "dateModified": "2026-11-23",
   "isPartOf": { "@id": "https://lynxr.io/#website" },
   "about": { "@id": "https://lynxr.io/#lynxr" }
 }
@@ -291,7 +291,7 @@
 
   <section>
   <h1>privacy</h1>
-  <p class="legal-date">last updated 20 november 2026</p>
+  <p class="legal-date">last updated 23 november 2026</p>
 
   <p>lynxr is run by <span class="entity">lynxr LLC</span>
     (&ldquo;we&rdquo;, &ldquo;us&rdquo;), a
@@ -307,8 +307,8 @@
   <section>
   <h2>the short version</h2>
   <ul>
-    <li>the waitlist holds <strong>your place in line</strong>. we email you to
-      confirm it, when it&rsquo;s your turn, and the occasional update. nothing
+    <li>the waitlist holds <strong>your place in line</strong>. we email you a
+      link to it when you join, again when it&rsquo;s your turn, and the occasional update. nothing
       else, and one click stops it.</li>
     <li>other creators cannot see what you make in lynxr, and that is
       enforced by the database rather than by the interface. who owns the
@@ -337,18 +337,23 @@
     only the hostname (&ldquo;tiktok.com&rdquo;), never the full referring
     address, because a full address can carry search terms or private path
     segments that are none of our business.</p>
-  <p>to run the line we also store <strong>your place in line</strong>, whether
-    you have confirmed your email, a private link that shows your place, your own
+  <p>to run the line we also store <strong>your place in line</strong>, a
+    private link that shows your place and when you first opened it, your own
     share code, how many friends joined with it, and, if a friend&rsquo;s link
     brought you, which waitlist entry it belongs to. a friend who shares their
     link sees only how many people joined with it, never who. when it is your
     turn we record that too, and create the invite your account is made with.</p>
-  <p>when a friend who joined with your link confirms their email, we record that
+  <p>when a friend joins with your link, we record that
     they joined through you. that is how we count <strong>your crew</strong>, and
     three friends earns the <strong>founding creator</strong> title, which we
     store with your entry and, if you make a lynxr account, with your account. if
     either of you later makes an account, we link that record to it. your crew is
     a number: nobody sees who else is in it.</p>
+  <p>if you choose a <strong>name for your invites</strong>, we store it with your
+    entry and show it to anyone who opens your invite link (&ldquo;maya is inviting
+    you to lynxr&rdquo;). it is optional: leave it empty and they see &ldquo;a
+    friend&rdquo;. you can change or clear it from your place in line, and it is
+    deleted with your entry.</p>
   <p>the &ldquo;share to your story&rdquo; image is drawn by your own browser, on
     your device. it is never sent to us, and where you post it is up to you.</p>
   <p>the lynxr discord is a separate service run by discord under its own privacy
@@ -356,10 +361,11 @@
     your waitlist entry or your lynxr account.</p>
   <p>to stop the form being abused we keep a scrambled (hashed) form of your IP
     address for up to two days, used only to count how many times one connection
-    joins; it is never stored with your entry.</p>
+    joins, and how many of those joins used the same friend&rsquo;s link; it is never
+    stored with your entry.</p>
   <p>we also record the exact wording you agreed to at the time, so that if we
     ever change what we promise, we can tell who agreed to what.</p>
-  <p>we use it to <strong>confirm your spot</strong>, to tell you <strong>when it
+  <p>we use it to <strong>send you your place in line</strong>, to tell you <strong>when it
     is your turn</strong>, and to send <strong>the occasional update on what we
     are building</strong>. that is all. we do not sell it, rent it, or share it
     outside the processors listed below, and we will not add you to any other
@@ -641,8 +647,7 @@
 
   <section>
   <h2>how long we keep it</h2>
-  <p><strong>waitlist entries</strong> that are never confirmed are deleted after
-    30 days. other entries are deleted 90 days after your turn comes, or sooner
+  <p><strong>waitlist entries</strong> are deleted 90 days after your turn comes, or sooner
     if you leave the waitlist and ask us to delete it.</p>
   <p><strong>claimed invites</strong> that are never used are deleted after 14
     days. the record of who invited whom is deleted when either person&rsquo;s
@@ -724,8 +729,8 @@
     to track you, and both are cleared when you sign out.</p>
   <p>this tab also remembers that the setup window has been shown, so it does
     not keep reopening; that note is gone when you close the tab.</p>
-  <p>if you open your place in line from one of our emails, this browser
-    remembers that private link so the homepage can show your place. if a
+  <p>when you join the waitlist, or open your place in line from one of our emails,
+    this browser remembers that private link so the homepage can show your place. if a
     friend&rsquo;s link brought you, it remembers their share code, or their
     invite, for 30 days. &ldquo;use a different email&rdquo; on the waitlist card
     forgets all of them.</p>
@@ -806,8 +811,8 @@
 
 <!-- The top bar's hide-on-scroll and the burger menu. Public pages only —
      see the file's own header for why it must never reach either app. -->
-<script src="/site.js?v=20261120d" defer></script>
-<script src="/footer.js?v=20261120d" defer></script>
+<script src="/site.js?v=20261120e" defer></script>
+<script src="/footer.js?v=20261120e" defer></script>
 
 </body>
 </html>

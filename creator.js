@@ -15094,7 +15094,7 @@ function startLiveSync() {
    Do not treat a bump here as consent re-taken. The policy's own "changes to
    this policy" section promises an email for a material change, and that email
    is the mechanism; this is only the label on it. */
-const PRIVACY_VERSION = "2026-11-20";
+const PRIVACY_VERSION = "2026-11-23";
 /* The terms' version, from terms/index.html's "last updated" line. The sign-in card's agreement line
    names the terms too since 2026-09-25, so the record says which terms. Bump with that page's date. */
 const TERMS_VERSION = "2026-11-20";

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Live probe for the waitlist queue (plan: ~/.claude/plans/waitlist-referral-queue.md and its delta
-~/.claude/plans/waitlist-beli-referrals.md, supabase/waitlist_queue.sql, supabase/functions/waitlist). Reading the SQL is
+"""Live probe for the waitlist queue (plan: ~/.claude/plans/waitlist-referral-queue.md and its deltas
+~/.claude/plans/waitlist-beli-referrals.md and ~/.claude/plans/waitlist-no-confirm.md, supabase/waitlist_queue.sql,
+supabase/functions/waitlist). Reading the SQL is
 not evidence (HANDOFF.md): this talks to the live project exactly as a browser does, with the PUBLIC publishable key, and
 says what a stranger can and cannot do.
 
     ./venv/bin/python tools/waitlist_probe.py                 # anonymous; WRITES NOTHING you would keep (see below)
-    ./venv/bin/python tools/waitlist_probe.py --join          # sends up to 2 Resend TEST mails (counted against quota)
+    ./venv/bin/python tools/waitlist_probe.py --join          # sends up to 2 Resend TEST mails (the welcome email)
     ./venv/bin/python tools/waitlist_probe.py --staff EMAIL   # a staff account (password asked with getpass): the
                                                               # stats RPC and a DRY release, which writes and sends nothing
     ./venv/bin/python tools/waitlist_probe.py --gate          # only when sign-up is closed: a stranger is refused
@@ -181,6 +182,14 @@ def run_anon():
     rpc_closed("waitlist_gift_mark", "waitlist_gift_mark", {"p_email": "probe"})
     rpc_closed("lynxr_link_account", "lynxr_link_account", {"p_uid": str(uuid.uuid4()), "p_email": f"wl-probe@{PROBE_DOMAIN}"})
     rpc_closed("my_gifts", "my_gifts", {})
+    # The no-confirmation layer (waitlist_no_confirm, 2026-11-21): six more server-only functions, each with input that cannot
+    # write even if the call were wrongly allowed (an address nobody has, a random token, a code no one holds).
+    rpc_closed("lynxr_wl_credit_friend", "lynxr_wl_credit_friend", {"p_email": f"wl-probe@{PROBE_DOMAIN}"})
+    rpc_closed("lynxr_wl_uncredit", "lynxr_wl_uncredit", {"p_email": f"wl-probe@{PROBE_DOMAIN}"})
+    rpc_closed("waitlist_strip", "waitlist_strip", {"p_referrer": f"wl-probe@{PROBE_DOMAIN}", "p_scope": "unseen", "p_drop": False})
+    rpc_closed("waitlist_set_name", "waitlist_set_name", {"p_token": uuid.uuid4().hex, "p_name": "Probe"})
+    rpc_closed("waitlist_ref_name", "waitlist_ref_name", {"p_code": "ZZZZZZZZ"})
+    rpc_closed("lynxr_wl_from_confirm", "lynxr_wl_from_confirm", {})
     for table in ("lynxr_members", "lynxr_gift_claims", "lynxr_crew"):
         status, js, text = call("GET", f"/rest/v1/{table}?select=*&limit=1")
         if missing(status, text):
@@ -208,11 +217,21 @@ def run_anon():
             status, js, text = fn_call({"action": "gift", "code": code, "email": "probe"})
             check("function: gift with a malformed email -> {status:'bad_email'} and nothing is written",
                   status == 200 and isinstance(js, dict) and js == {"status": "bad_email"}, f"HTTP {status} {text[:160]}")
+        # The invite-name actions. An older deployed function answers 400 unknown_action: not a failure, nothing proven.
+        status, js, text = fn_call({"action": "ref_peek", "code": code})
+        if status == 400 and "unknown_action" in text:
+            skip("function ref_peek / name", "the deployed function predates the invite-name actions (redeploy supabase/functions/waitlist)")
+        else:
+            check("function: ref_peek with a code no one holds -> exactly {} (no name, nothing else)",
+                  status == 200 and js == {}, f"HTTP {status} {text[:160]}")
+            status, js, text = fn_call({"action": "name", "token": uuid.uuid4().hex, "name": "Probe"})
+            check("function: name with a random token -> {ok:false} and nothing is written",
+                  status == 200 and js == {"ok": False}, f"HTTP {status} {text[:160]}")
 
 
 # ── --join: two real calls to the function (Resend test sink) ─────────────────────────────────────────────────────
 def run_join():
-    print("--join sends the confirmation email to a Resend TEST address (delivered+...@resend.dev) and then joins the same")
+    print("--join sends the welcome email to a Resend TEST address (delivered+...@resend.dev) and then joins the same")
     print("address again. That is at most 2 emails, counted against today's Resend quota, and one waitlist row you delete after.")
     if input("type yes to send: ").strip().lower() != "yes":
         print("not sent")
@@ -223,12 +242,17 @@ def run_join():
     if not fn_deployed(status, text):
         check("function: join", False, "the waitlist function is not deployed (plan step 5)")
         return
-    allowed = {"status", "position", "ref_code", "mailed", "batch_size", "places"}
+    allowed = {"status", "position", "ref_code", "mailed", "batch_size", "places", "token"}
     check("join -> new, with a position", status == 200 and isinstance(js, dict) and js.get("status") == "new" and isinstance(js.get("position"), int), f"HTTP {status} {text[:200]}")
     check("join answers only the allowed keys", isinstance(js, dict) and set(js) == allowed, text[:200])
-    check("join answer carries no token, address or invite code", not re.search(r"[0-9a-f]{32}", text) and "@" not in text and "resend.dev" not in text, text[:200])
+    # The one token that may leave: the new entry's own, to the browser whose request created it. Nothing else of that shape.
+    tokens = re.findall(r"[0-9a-f]{32}", text)
+    check("join answer holds exactly one 32-hex value (the entry's own token), no address and no invite code",
+          isinstance(js, dict) and len(tokens) == 1 and js.get("token") == tokens[0] and "@" not in text and "resend.dev" not in text, text[:200])
     status, js, text = fn_call({"action": "join", "email": addr, "source": "probe", "consent": "waitlist-queue-v3"})
-    check("join again -> exists, only status + mailed", status == 200 and isinstance(js, dict) and set(js) == {"status", "mailed"} and js.get("status") == "exists", f"HTTP {status} {text[:200]}")
+    check("join again -> exists, only status + mailed",
+          status == 200 and isinstance(js, dict) and set(js) == {"status", "mailed"} and js.get("status") == "exists", f"HTTP {status} {text[:200]}")
+    check("the exists answer holds no token at all (typing someone's address must not hand over their page)", not re.search(r"[0-9a-f]{32}", text), text[:200])
     print("      Clean up the probe row in the SQL editor:")
     print("        delete from public.lynxr_waitlist where email like 'delivered+wlprobe-%@resend.dev';")
 
@@ -250,11 +274,14 @@ def run_staff(email):
     if missing(status, text):
         check("staff: staff_waitlist_stats", False, "not installed (plan step 2)")
     else:
-        want = {"waiting", "unconfirmed", "released", "joined", "left", "unmailed", "pending_mail", "last_batch", "last_batch_at", "batch_size", "places",
+        want = {"waiting", "referred", "unseen", "released", "joined", "left", "unmailed", "pending_mail", "last_batch", "last_batch_at", "batch_size", "places",
                 "gifted", "gift_joined"}
-        check("staff: staff_waitlist_stats returns the numbers", status == 200 and isinstance(js, dict) and want <= set(js), f"HTTP {status} {text[:200]}")
+        if status == 200 and isinstance(js, dict) and "unconfirmed" in js and "referred" not in js:
+            skip("staff: staff_waitlist_stats referred / unseen", "supabase/waitlist_queue.sql has not been re-run since the no-confirmation revision (it still answers unconfirmed)")
+        else:
+            check("staff: staff_waitlist_stats returns the numbers", status == 200 and isinstance(js, dict) and want <= set(js), f"HTTP {status} {text[:200]}")
         if isinstance(js, dict):
-            print(f"INFO  waiting {js.get('waiting')}, not confirmed {js.get('unconfirmed')}, let in {js.get('released')}, "
+            print(f"INFO  waiting {js.get('waiting')}, from friends {js.get('referred')}, never opened {js.get('unseen')}, let in {js.get('released')}, "
                   f"made an account {js.get('joined')}, left {js.get('left')}, batch {js.get('batch_size')}, places {js.get('places')}, "
                   f"gifts claimed {js.get('gifted')}, joined from a gift {js.get('gift_joined')}")
     status, js, text = fn_call({"action": "release", "n": 3, "dry": True}, auth=token)

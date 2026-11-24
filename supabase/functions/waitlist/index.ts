@@ -1,13 +1,16 @@
-// waitlist -- the public waitlist's one writer: join, "your spot", send-it-again, leave, gift invites, and (for staff)
-// release the next batch / let one person in. Plan: ~/.claude/plans/waitlist-referral-queue.md (owner, 2026-11-20),
-// plus the delta ~/.claude/plans/waitlist-beli-referrals.md (gift invites, founding creator title, crew, Discord).
+// waitlist -- the public waitlist's one writer: join, "your spot", send-it-again, leave, gift invites, the invite name,
+// and (for staff) release the next batch / let one person in. Plan: ~/.claude/plans/waitlist-referral-queue.md (owner,
+// 2026-11-20), the delta ~/.claude/plans/waitlist-beli-referrals.md (gift invites, founding creator title, crew, Discord)
+// and ~/.claude/plans/waitlist-no-confirm.md (owner, 2026-11-21: no email confirmation, a welcome email, "Invite a friend").
 //
 // WHY AN EDGE FUNCTION. The publishable key is in a public repo, so nothing a browser sends can be trusted, and the
-// queue's rules (a referral is worth exactly 10 places, only when the friend CONFIRMS, never above #1) have to live
+// queue's rules (a referral is worth exactly 10 places, counted when the friend JOINS, never above #1) have to live
 // where a browser cannot bend them. supabase/waitlist_queue.sql locks lynxr_waitlist to the server: no insert, update,
 // delete or token read from any browser role. This function calls the SQL functions with the service role, spends
-// the email, and answers a browser ONLY what it may see: never an email address, a view token, a confirm token or
-// an invite code (those travel by email, to the address that owns them).
+// the email, and answers a browser ONLY what it may see: never an email address, a confirm token or an invite code
+// (those travel by email, to the address that owns them), and a view token only in the one exception below: a
+// brand-new entry's own view token, to the browser whose request created it (status new), never for an address that
+// already existed (typing someone's address must never hand over their page).
 //
 // WHAT STANDS BETWEEN AN ANONYMOUS CALLER AND AN EMAIL (in this order)
 //   1. Origin   a browser caller must come from ORIGINS (403 otherwise). The one-click unsubscribe POST that mail
@@ -40,6 +43,7 @@
 //   WL_IP_HOUR          default 5      joins (and send-it-agains, and gift claims) per visitor per hour
 //   WL_IP_DAY           default 20     per visitor per UTC day
 //   WL_JOIN_DAY         default 2000   joins per UTC day, everyone together
+//   WL_CREDIT_IP_DAY    default 3      credited joins per friend's link per visitor per UTC day; 0 = no join carries a referral
 //   (no new secret for gifts: a gift claim reuses the three limits above, and the daily ceiling on gift claims is the
 //    SQL setting lynxr_waitlist_settings.gift_day. The Discord link is the SQL setting discord_url, validated here
 //    again before it reaches an email or a browser: nothing about it is hard-coded in this file.)
@@ -52,16 +56,22 @@
 //
 // CALL -- anonymous, from the page, a CORS "simple request" (text/plain body, NO custom headers, so no preflight):
 //   POST {"action":"join","email":"...","ref":"<share code>","source":"...","consent":"..."}
-//        -> {"status":"new","position":N,"ref_code":"...","mailed":bool,"batch_size":100,"places":10}
+//        -> {"status":"new","position":N,"ref_code":"...","mailed":bool,"batch_size":100,"places":10,"token":"<32 hex>"}
+//             (the welcome email goes to the address; token = the new entry's own view token, only on `new`)
 //        -> {"status":"exists","mailed":bool}      already in line (an email with their link is sent when allowed)
 //        -> {"status":"account"}                   no waitlist needed: invited, on the roster, or already signed up
 //        -> {"status":"bad_email"|"limited"|"off"|"error"}
-//   POST {"action":"spot","token":"<32 hex>","confirm":"<32 hex, optional>"}
-//        -> {"state":"unconfirmed"|"waiting"|"released"|"left"|"none", "position":N, "ref_code":"...", "referrals":N,
-//           "just_confirmed":bool, "batch_size":N, "places":N, "crew":N, "title":"founding"?, "title_crew":N,
-//           "discord":"<invite link>"?}        (position only while in line; title and discord only when set. This
-//           answer is a WHITELIST: any other key the database returns is dropped here.)
+//   POST {"action":"spot","token":"<32 hex>","confirm":"<32 hex, optional, ignored>"}
+//        -> {"state":"waiting"|"released"|"left"|"none", "position":N, "ref_code":"...", "referrals":N,
+//           "batch_size":N, "places":N, "crew":N, "title":"founding"?, "title_crew":N, "discord":"<invite link>"?,
+//           "name":"Maya"?}        (position only while in line; title, discord and name only when set. This
+//           answer is a WHITELIST: any other key the database returns is dropped here. A database not yet re-run
+//           may still answer "unconfirmed": the page treats it exactly like "waiting".)
 //        -> {"state":"limited"|"off"|"error"}
+//   POST {"action":"name","token":"<32 hex>","name":"Maya"}   -> {"ok":true,"name":"Maya"?} | {"ok":false,"reason":"bad_name"?}
+//        the optional invite name: first word only, 1 to 20 letters (NAME_RE); an empty name clears it.
+//   POST {"action":"ref_peek","code":"<8-char share code>"}   -> {"name":"Maya"} or {} (no name, unknown code, limited,
+//        off, error: always {}). What a friend's banner shows; never anything else about the referrer.
 //   POST {"action":"gift_peek","code":"<8-char gift code>"}      -> {"state":"ok"|"used_up"|"none"|"off"|"open"}
 //        or {"state":"limited"|"error"}.   Never the giver, the code or an email.
 //   POST {"action":"gift","code":"<8-char gift code>","email":"..."}
@@ -217,13 +227,18 @@ const goodEmail = (s: unknown): s is string => typeof s === "string" && s.length
 const clip = (s: unknown, n = 200) => (typeof s === "string" ? s.slice(0, n) : "");
 const goodToken = (s: unknown): s is string => typeof s === "string" && TOKEN_RE.test(s);
 /** What a browser may be told about a spot. Nothing outside this list leaves the function. */
-const SPOT_KEYS = ["state", "position", "ref_code", "referrals", "just_confirmed", "batch_size", "places", "crew", "title", "title_crew", "discord"];
+const SPOT_KEYS = ["state", "position", "ref_code", "referrals", "batch_size", "places", "crew", "title", "title_crew", "discord", "name"];
+/** The invite name: first word only, 1 to 20 letters of any script plus ' and \u2019 and - (the page, this function and the
+    database all say the same thing). Written with an escape: this file stays pure ASCII because it is pasted by hand. */
+const NAME_RE = /^\p{L}[\p{L}\p{M}'\u2019-]{0,19}$/u;
+const cleanName = (s: unknown) => (typeof s === "string" ? s.trim().split(/\s+/)[0] ?? "" : "").slice(0, 40);
+const goodName = (s: unknown): s is string => typeof s === "string" && s.length <= 20 && NAME_RE.test(s);
 const GIFT_PEEK_STATES = ["ok", "used_up", "none", "off", "open"];
 /** Gift answers that are the status and nothing else (no mail follows them). */
 const GIFT_PLAIN_STATUSES = ["account", "used_up", "none", "off", "open", "busy", "bad_email"];
 
 // -- mail --------------------------------------------------------------------------------------------------------
-type MailKind = "confirm" | "spot" | "release" | "gift";
+type MailKind = "welcome" | "spot" | "release" | "gift";
 /** Extras every kind may carry. `discord` is the settings' invite link (null = no Discord line at all). */
 type MailExtra = { discord?: string | null };
 type MailData = {
@@ -261,27 +276,31 @@ export function buildMail(kind: MailKind, d: MailData, site: string, batch = 100
     "List-Unsubscribe": `<${SB_URL}/functions/v1/waitlist?stop=${view}>`,
     "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
   } : {};
-  const shareUrl = d.ref_code ? `${site}/?join=${encodeURIComponent(d.ref_code)}` : "";
+  const shareUrl = d.ref_code ? `${site}/join/?c=${encodeURIComponent(d.ref_code)}` : "";
   const leaveUrl = view ? `${site}/?spot=${view}&stop=1` : "";
+  // An old database that still asks for confirmation hands over a confirm token; opening the link then confirms. Never visible text.
+  const confirmTail = typeof d.confirm_token === "string" && TOKEN_RE.test(d.confirm_token) ? `&confirm=${d.confirm_token}` : "";
+  const queueUrl = view ? `${site}/?spot=${view}${confirmTail}` : `${site}/`;
   const pos = d.position != null && Number.isFinite(Number(d.position)) ? "#" + Number(d.position).toLocaleString("en-US") : "";
 
-  let subject = "", big = "", small = "", lead = "", button = "", href = "", sub = "", after = "", fine = "";
-  if (kind === "confirm") {
-    subject = "confirm your spot on the lynxr waitlist";
-    small = "the lynxr waitlist"; big = pos; sub = "your place in line";
-    lead = `confirm your email to hold it. we let people in ${batch} at a time.`;
-    button = "confirm my spot";
-    href = view && d.confirm_token ? `${site}/?spot=${view}&confirm=${d.confirm_token}` : `${site}/`;
-    after = "every friend who joins with your link moves you up 10 places:";
-    fine = "didn't ask to join? ignore this email and you won't hear from us.";
+  let subject = "", hello = "", big = "", small = "", lead = "", button = "", href = "", sub = "", after = "", fine = "";
+  if (kind === "welcome") {
+    subject = "hey, lynxr here! you're on the waitlist";
+    small = "lynxr"; hello = "hey, lynxr here!";
+    lead = "i'm so glad you're on the waitlist. i can't wait to help you make your next video.";
+    big = pos; sub = "your place in line";
+    button = "see my place in line";
+    href = queueUrl;
+    after = "want in sooner? every friend who joins with your link moves you up 10 places:";
+    fine = "you got this because this address joined the lynxr waitlist on lynxr.io. wasn't you? leave the waitlist below and you won't hear from us again.";
   } else if (kind === "spot") {
-    subject = "your spot on the lynxr waitlist";
-    small = "the lynxr waitlist"; big = pos; sub = "your place in line";
-    lead = "";
-    button = "see your spot";
-    href = view ? `${site}/?spot=${view}` : `${site}/`;
-    after = "every friend who joins with your link moves you up 10 places:";
-    fine = "you got this because you joined the lynxr waitlist.";
+    subject = "your place in line for lynxr";
+    small = "lynxr"; big = pos; sub = "your place in line";
+    lead = "here's your link again. it's the same page every time, so keep this email handy.";
+    button = "see my place in line";
+    href = queueUrl;
+    after = "want in sooner? every friend who joins with your link moves you up 10 places:";
+    fine = "you got this because this address is on the lynxr waitlist.";
   } else if (kind === "gift") {
     subject = "a friend gave you a lynxr invite";
     small = "lynxr"; big = "you're invited"; sub = "";
@@ -300,26 +319,31 @@ export function buildMail(kind: MailKind, d: MailData, site: string, batch = 100
     fine = view ? "you got this because you joined the lynxr waitlist." : "you got this because a lynxr team member invited you.";
   }
 
+  // The welcome email reads: lynxr, hello, the lead, the number. Every other kind keeps its order: the number, then the lead.
+  const leadFirst = kind === "welcome";
   const font = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;";
   const html =
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>` +
     `<body style="margin:0;padding:0;background:${PAPER};"><div style="max-width:480px;margin:0 auto;padding:32px 20px;${font}color:${INK};">` +
     `<p style="margin:0 0 4px;font-size:13px;color:${MUTED};">${esc(small)}</p>` +
+    (hello ? `<p style="margin:0 0 8px;font-size:20px;line-height:1.3;font-weight:700;">${esc(hello)}</p>` : "") +
+    (leadFirst && lead ? `<p style="margin:0 0 24px;font-size:16px;line-height:1.5;">${esc(lead)}</p>` : "") +
     (big ? `<p style="margin:0;font-size:64px;line-height:1;font-weight:700;letter-spacing:-0.04em;">${esc(big)}</p>` : "") +
     (sub ? `<p style="margin:6px 0 0;font-size:13px;color:${MUTED};">${esc(sub)}</p>` : "") +
-    (lead ? `<p style="margin:24px 0 0;font-size:16px;line-height:1.5;">${esc(lead)}</p>` : "") +
+    (!leadFirst && lead ? `<p style="margin:24px 0 0;font-size:16px;line-height:1.5;">${esc(lead)}</p>` : "") +
     `<p style="margin:24px 0;"><a href="${esc(href)}" style="display:inline-block;background:${INK};color:${PAPER};text-decoration:none;font-weight:600;font-size:16px;padding:14px 24px;border-radius:12px;">${esc(button)}</a></p>` +
     (after ? `<p style="margin:0;font-size:14px;line-height:1.5;color:${MUTED};">${esc(after)}</p>` : "") +
-    ((kind === "confirm" || kind === "spot") && shareUrl ? `<p style="margin:6px 0 0;font-size:14px;word-break:break-all;"><a href="${esc(shareUrl)}" style="color:${INK};">${esc(shareUrl)}</a></p>` : "") +
+    ((kind === "welcome" || kind === "spot") && shareUrl ? `<p style="margin:6px 0 0;font-size:14px;word-break:break-all;"><a href="${esc(shareUrl)}" style="color:${INK};">${esc(shareUrl)}</a></p>` : "") +
     (discord ? `<p style="margin:18px 0 0;font-size:14px;line-height:1.5;color:${MUTED};">${esc(DISCORD_LINE)} <a href="${esc(discord)}" style="color:${INK};">${esc(discord)}</a></p>` : "") +
     `<hr style="border:0;border-top:1px solid ${RULE};margin:28px 0 16px;">` +
     `<p style="margin:0;font-size:12px;line-height:1.5;color:${MUTED};">${esc(fine)}</p>` +
     `<p style="margin:8px 0 0;font-size:12px;line-height:1.5;color:${MUTED};">lynxr LLC` +
     (leaveUrl ? ` &middot; <a href="${esc(leaveUrl)}" style="color:${MUTED};">leave the waitlist</a>` : "") + `</p>` +
     `</div></body></html>`;
+  const number = big && sub ? `${big}\n${sub}` : big;
   const text = [
-    small, big && sub ? `${big}\n${sub}` : big, lead, `${button}: ${href}`, after,
-    kind === "confirm" || kind === "spot" ? shareUrl : "", discord ? `${DISCORD_LINE}\n${discord}` : "", "", fine, leaveUrl ? `lynxr LLC \u00b7 leave the waitlist: ${leaveUrl}` : "lynxr LLC",
+    small, hello, ...(leadFirst ? [lead, number] : [number, lead]), `${button}: ${href}`, after,
+    kind === "welcome" || kind === "spot" ? shareUrl : "", discord ? `${DISCORD_LINE}\n${discord}` : "", "", fine, leaveUrl ? `lynxr LLC \u00b7 leave the waitlist: ${leaveUrl}` : "lynxr LLC",
   ].filter((x) => x !== undefined && x !== null).join("\n\n").replace(/\n{3,}/g, "\n\n");
   return { subject, html, text, headers };
 }
@@ -366,7 +390,7 @@ async function mailOne(kind: MailKind, d: MailData, site: string, batch: number,
   try { allowed = Number(await rpc("waitlist_mail_take", { p_n: 1, p_cap: int("WL_MAIL_DAY", 80) })) || 0; } catch { allowed = 0; }
   if (allowed < 1) { await markMailed([d.email], "pending"); return false; }
   if (!(await resendOne(toMsg(kind, d, site, batch, extra)))) { await markMailed([d.email], "pending"); return false; }
-  await markMailed([d.email], kind === "release" ? "release" : kind);
+  await markMailed([d.email], kind === "release" ? "release" : "spot");   // the welcome email and "your place" are both 'spot' (an old database ignores any other word)
   return true;
 }
 
@@ -448,7 +472,8 @@ Deno.serve(async (req: Request) => {
   const STAFF = ["release", "retry_release", "let_in"];
 
   if (mailMode() === "off") {
-    return json(action === "spot" || action === "gift_peek" ? { state: "off" } : STAFF.includes(action) ? { error: "off" } : { status: "off" }, 200, origin);
+    return json(action === "spot" || action === "gift_peek" ? { state: "off" } : STAFF.includes(action) ? { error: "off" }
+      : action === "name" ? { ok: false } : action === "ref_peek" ? {} : { status: "off" }, 200, origin);
   }
 
   try {
@@ -491,12 +516,23 @@ Deno.serve(async (req: Request) => {
     // -- anonymous --
     if (action === "join") {
       if (!goodEmail(body.email)) return json({ status: "bad_email" }, 200, origin);
-      const { hash, src } = await visitorKey(req);
+      const { ip, src } = clientIp(req.headers);
+      const day = new Date().toISOString().slice(0, 10);              // the same two values visitorKey() uses
+      const hash = await ipHash(ip, day);
       const take = await rpc("waitlist_take", { p_ip: hash, p_kind: "join", p_hour: int("WL_IP_HOUR", 5), p_day: int("WL_IP_DAY", 20), p_all: int("WL_JOIN_DAY", 2000) });
       if (take !== "ok") { console.log("waitlist limited", String(take), "ip-src", src); return json({ status: "limited" }, 200, origin); }
-      const ref = clip(body.ref, 16).toUpperCase();
+      // A friend's join counts for their referrer at once, so a second meter caps how many joins one visitor can push through
+      // one friend's link a day. Past it the join still works; it just carries no referral. Keyed on a hash of ip + code.
+      let ref = clip(body.ref, 16).toUpperCase();
+      if (!GIFT_CODE_RE.test(ref)) ref = "";
+      const credLim = int("WL_CREDIT_IP_DAY", 3);
+      if (ref && credLim <= 0) ref = "";
+      else if (ref) {
+        const ct = await rpc("waitlist_take", { p_ip: await ipHash(`${ip}|ref:${ref}`, day), p_kind: "credit", p_hour: credLim, p_day: credLim, p_all: 1000000 });
+        if (ct !== "ok") { console.log("waitlist credit limited", String(ct), "ip-src", src); ref = ""; }
+      }
       const r = await rpc("waitlist_join", {
-        p_email: (body.email as string).trim(), p_ref: /^[A-HJ-NP-Z2-9]{8}$/.test(ref) ? ref : "",
+        p_email: (body.email as string).trim(), p_ref: ref,
         p_source: clip(body.source, 60), p_consent: clip(body.consent, 60),
       });
       if (r?.status === "account") return json({ status: "account" }, 200, origin);
@@ -505,12 +541,16 @@ Deno.serve(async (req: Request) => {
       const st = await getSettings();
       let mailed = false;
       if (r.may_mail === true) {
-        const kind: MailKind = r.kind === "release" ? "release" : r.kind === "spot" ? "spot" : "confirm";
+        // A brand-new entry gets the welcome email; an address that was already in line gets its place again.
+        const kind: MailKind = r.kind === "release" ? "release" : r.status === "new" ? "welcome" : "spot";
         mailed = await mailOne(kind, r, site, st.batch_size, { discord: st.discord });
       }
       console.log("waitlist join", r.status, "mailed", mailed);
       if (r.status === "new") {
-        return json({ status: "new", position: r.position, ref_code: r.ref_code, mailed, batch_size: st.batch_size, places: st.places }, 200, origin);
+        // The one place a view token leaves this function: a brand-new entry's own, to the browser whose request created it.
+        // Never for `exists`: typing someone's address must not hand over their page.
+        const own = typeof r.view_token === "string" && TOKEN_RE.test(r.view_token) ? { token: r.view_token } : {};
+        return json({ status: "new", position: r.position, ref_code: r.ref_code, mailed, batch_size: st.batch_size, places: st.places, ...own }, 200, origin);
       }
       return json({ status: "exists", mailed }, 200, origin);
     }
@@ -528,6 +568,7 @@ Deno.serve(async (req: Request) => {
       const out: Record<string, unknown> = {};
       for (const k of SPOT_KEYS) if (r[k] !== undefined && r[k] !== null) out[k] = r[k];
       if ("discord" in out && !(typeof out.discord === "string" && DISCORD_RE.test(out.discord))) delete out.discord;
+      if ("name" in out && !goodName(out.name)) delete out.name;
       if (typeof out.state !== "string") return json({ state: "error" }, 200, origin);
       return json(out, 200, origin);
     }
@@ -561,6 +602,31 @@ Deno.serve(async (req: Request) => {
       return json({ status, mailed }, 200, origin);
     }
 
+    if (action === "name") {
+      if (!goodToken(body.token)) return json({ ok: false }, 200, origin);
+      const name = cleanName(body.name);
+      if (name && !goodName(name)) return json({ ok: false, reason: "bad_name" }, 200, origin);
+      const { hash } = await visitorKey(req);
+      const h = int("WL_SPOT_HOUR", 120);
+      const take = await rpc("waitlist_take", { p_ip: hash, p_kind: "spot", p_hour: h, p_day: h * 5, p_all: 20000 });
+      if (take !== "ok") return json({ ok: false }, 200, origin);
+      const r = await rpc("waitlist_set_name", { p_token: body.token, p_name: name });
+      if (r && typeof r === "object" && r.ok === true) return json(goodName(r.name) ? { ok: true, name: r.name } : { ok: true }, 200, origin);
+      return json(r && typeof r === "object" && r.reason === "bad_name" ? { ok: false, reason: "bad_name" } : { ok: false }, 200, origin);
+    }
+
+    if (action === "ref_peek") {
+      const code = clip(body.code, 16).toUpperCase();
+      if (!GIFT_CODE_RE.test(code)) return json({}, 200, origin);
+      const { hash } = await visitorKey(req);
+      const h = int("WL_SPOT_HOUR", 120);
+      const take = await rpc("waitlist_take", { p_ip: hash, p_kind: "spot", p_hour: h, p_day: h * 5, p_all: 20000 });
+      if (take !== "ok") return json({}, 200, origin);
+      const r = await rpc("waitlist_ref_name", { p_code: code });
+      // Only the display name, and only if it passes the same shape check: never anything else about the referrer.
+      return json(r && typeof r === "object" && goodName(r.name) ? { name: r.name } : {}, 200, origin);
+    }
+
     if (action === "resend") {
       if (!goodToken(body.token)) return json({ ok: false, mailed: false }, 200, origin);
       const { hash } = await visitorKey(req);
@@ -569,7 +635,7 @@ Deno.serve(async (req: Request) => {
       const info = await rpc("waitlist_mail_info", { p_token: body.token });
       if (!info?.ok) return json({ ok: false, mailed: false, wait_s: Number(info?.wait_s) || 0 }, 200, origin);
       const st = await getSettings();
-      const kind: MailKind = info.kind === "release" ? "release" : info.kind === "spot" ? "spot" : "confirm";
+      const kind: MailKind = info.kind === "release" ? "release" : "spot";
       const mailed = await mailOne(kind, info, site, st.batch_size, { discord: st.discord });
       return json({ ok: true, mailed }, 200, origin);
     }
@@ -589,6 +655,7 @@ Deno.serve(async (req: Request) => {
     // Includes "supabase/waitlist_queue.sql not run yet": the RPC answers 404 and the page shows its generic line.
     console.error("waitlist error", String(e).slice(0, 120));
     if (STAFF.includes(action)) return json({ error: "server" }, 500, origin);
-    return json(action === "spot" || action === "gift_peek" ? { state: "error" } : action === "resend" ? { ok: false, mailed: false } : action === "stop" ? { ok: false } : { status: "error" }, 200, origin);
+    return json(action === "spot" || action === "gift_peek" ? { state: "error" } : action === "resend" ? { ok: false, mailed: false }
+      : action === "stop" || action === "name" ? { ok: false } : action === "ref_peek" ? {} : { status: "error" }, 200, origin);
   }
 });

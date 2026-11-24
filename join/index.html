@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- /join/?c=CODE IS THE SHARE LINK (owner, 2026-11-21; plan ~/.claude/plans/waitlist-no-confirm.md, B6). A friend's
+     "Invite a friend" text carries this URL, so the link preview in Messages is this page's own Open Graph card
+     ("you're invited to lynxr" + /og-invite.png) instead of the homepage's. forward.js sends the visitor on to
+     /?join=CODE at once, keeping every other query key and the #fragment; the landing then shows the friend's banner,
+     whose name is looked up for the code (never put in this link). A bad or missing code goes to / plain. GitHub Pages
+     is static, so the preview cannot carry the friend's name: that needs a server route. The meta refresh is the
+     no-JavaScript fallback (it drops the code). noindex; canonical points home; not in sitemap.xml. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>you're invited to lynxr</title>
+<meta name="description" content="Join the waitlist with your friend's link. lynxr helps you make better videos, faster.">
+<link rel="canonical" href="https://lynxr.io/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="lynxr">
+<meta property="og:title" content="you're invited to lynxr">
+<meta property="og:description" content="Join the waitlist with your friend's link. lynxr helps you make better videos, faster.">
+<meta property="og:url" content="https://lynxr.io/join/">
+<meta property="og:image" content="https://lynxr.io/og-invite.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="lynxr: you're invited">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="you're invited to lynxr">
+<meta name="twitter:description" content="Join the waitlist with your friend's link. lynxr helps you make better videos, faster.">
+<meta name="twitter:image" content="https://lynxr.io/og-invite.png">
+<link rel="stylesheet" href="/app.css?v=20261120e">
+<script src="/theme.js?v=20261120e"></script>
+<script src="/join/forward.js?v=20261120e"></script>
+<meta http-equiv="refresh" content="3; url=/">
+</head>
+<body>
+<main class="legal">
+  <h1>you're invited to lynxr</h1>
+  <p>if you are not taken there, <a href="/">go to lynxr.io</a>.</p>
+</main>
+</body>
+</html>

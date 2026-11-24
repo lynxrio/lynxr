@@ -75,13 +75,13 @@
 <meta name="twitter:description" content="Paste a link. Get a script for your next UGC video, written for the brand you make it for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v3.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261120d">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261120d">
-<link rel="shortcut icon" href="/favicon.ico?v=20261120d">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261120d">
-<link rel="stylesheet" href="/app.css?v=20261120d">
-<script src="/theme.js?v=20261120d"></script>
-<script src="/backdrop.js?v=20261120d" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261120e">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261120e">
+<link rel="shortcut icon" href="/favicon.ico?v=20261120e">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261120e">
+<link rel="stylesheet" href="/app.css?v=20261120e">
+<script src="/theme.js?v=20261120e"></script>
+<script src="/backdrop.js?v=20261120e" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -360,13 +360,16 @@
            turns it into one glass card: the x, one line saying a friend sent them, one short line, and the page's ONE
            button under it, full width. The button is the same #lp-first-cta (the one thing that moves), so there is never a
            second "join" next to it; the referral rides in the code home.js keeps at arrival (wlRef / wlGift). On a phone the
-           card sits in the thumb zone under the video; on a desktop right under it. No name: the link does not carry one.
-           Text by textContent in home.js; nothing here is interpolated. -->
+           card sits in the thumb zone under the video; on a desktop right under it. THE NAME (owner, 2026-11-21: "[name]
+           is inviting you to lynxr", "really cute with the x"): the link carries only the code; home.js asks the
+           function for the name that code's owner chose (ref_peek) and says "a friend" without one. The x is a live
+           glass x (avatar.js renders [data-lx-mood]) in its happy giggle face, which does not loop; it waves once as the
+           words appear, never under reduced motion. Text by textContent in home.js; nothing here is interpolated. -->
       <div class="lp-first-go">
         <div class="lp-invite" id="lp-invite" hidden>
-          <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
-          <p class="lp-invite-t" id="lp-invite-t">A friend invited you to lynxr</p>
-          <p class="lp-invite-s" id="lp-invite-s">Join and they move up 10 places.</p>
+          <span class="lp-invite-x" data-lx-mood="giggle" aria-hidden="true"></span>
+          <p class="lp-invite-t" id="lp-invite-t">A friend is inviting you to lynxr</p>
+          <p class="lp-invite-s" id="lp-invite-s">Join the waitlist and you'll help them move up 10 places.</p>
         </div>
         <a class="btn lp-first-cta onb-shim" id="lp-first-cta" href="/?signup=1" data-gate="wait">Join the waitlist</a>
       </div>
@@ -642,35 +645,44 @@
          get sent to a refer a friend ... but they can also just leave that page and go to their queue position display").
          Four more modes of this card, set by creator.js setGateMode and painted by home.js (WL_UI):
            "wait"   the join card: one field, one button, the one legal line.
-           "refer"  right after joining: +10 places a friend, TEXT A FRIEND (an sms: link on a phone), copy the link, skip.
-           "spot"   THE QUEUE PAGE, their home while they wait: no card and no app chrome (body.wl-page), the backdrop, the
-                    x in the corner, "coming soon", the place in line huge with its label small, at most two quiet links.
+           "spot"   THE QUEUE PAGE, their home while they wait, and where a join lands ("lynxr sent you an email" over the
+                    number, 2026-11-23): no card and no app chrome (body.wl-page), the backdrop, the x in the corner, the
+                    place in line huge with its label small, ONE button (Invite a friend), at most two quiet links.
+           "refer"  from the queue page's button: +10 places a friend, the optional first name the first time, INVITE A
+                    FRIEND (an sms: link on a phone, the share sheet on a computer), copy the link, back.
            "gift"   a friend's ?gift= invite ("you're invited").
          "refer" and "spot" are pages (body.wl-page), "wait" and "gift" stay cards. Every string a server answer fills is
          set with textContent by home.js; nothing here is interpolated, the sms: href is built by home.js, and the Discord
          link has no href until home.js has checked one. The one moving thing per screen is one .onb-shim button: #wl-go
-         once an email is typed, #wlr-text (or #wlr-copy on a computer) on the refer screen, the queue page's one button
-         (made by home.js), #wlg-go on the gift card. -->
+         once an email is typed, #wlr-text (phone), #wlr-share (computer with a share sheet) or #wlr-copy (without) on
+         the refer screen, the queue page's one button (made by home.js), #wlg-go on the gift card. -->
     <div class="gate-wait" id="gate-wait" hidden>
       <form class="field login wl-form" id="wl-form" novalidate>
         <input type="email" id="wl-email" placeholder="Email" aria-label="Your email" autocomplete="email"
                autocapitalize="none" autocorrect="off" spellcheck="false">
         <button type="submit" class="btn onb-shim" id="wl-go" disabled>Join the waitlist</button>
       </form>
-      <p class="wl-promise">We'll email you a link to confirm your spot and again when it's your turn, plus the occasional
-        lynxr update. One click stops them. <a href="/privacy/">Privacy policy</a></p>
+      <p class="wl-promise">We'll email you a link to your place in line now, and again when it's your turn, plus the
+        occasional lynxr update. One click stops them. <a href="/privacy/">Privacy policy</a></p>
     </div>
     <div class="gate-refer" id="gate-refer" hidden>
       <div class="wl-main">
         <p class="wl-num is-plus" id="wlr-big" tabindex="-1"><span class="sr-only">Move up </span>+10</p>
         <p class="wl-num-lbl" id="wlr-lbl">places for every friend who joins with your link</p>
+        <form class="wl-name" id="wlr-name-form" novalidate hidden>
+          <label class="wl-name-lbl" for="wlr-name">Your first name</label>
+          <input type="text" id="wlr-name" maxlength="20" autocomplete="given-name" autocapitalize="words"
+                 spellcheck="false" placeholder="First name" aria-describedby="wlr-name-hint">
+          <p class="wl-name-hint" id="wlr-name-hint" aria-live="polite"></p>
+        </form>
+        <p class="wl-name-set" id="wlr-name-set" hidden><span id="wlr-name-says"></span> <button type="button" class="linkish" id="wlr-name-change">Change</button></p>
         <p class="wl-link" id="wlr-link" hidden></p>
       </div>
       <div class="wl-acts wl-r-acts">
-        <a class="btn onb-shim wl-r-go" id="wlr-text" href="sms:" hidden>Text a friend</a>
+        <a class="btn onb-shim wl-r-go" id="wlr-text" href="sms:" hidden>Invite a friend</a>
+        <button type="button" class="btn onb-shim wl-r-go" id="wlr-share" hidden>Invite a friend</button>
         <button type="button" class="ghost wl-r-alt" id="wlr-copy">Copy link</button>
-        <button type="button" class="ghost wl-r-alt" id="wlr-share" hidden>Share</button>
-        <p class="gate-other"><button type="button" class="linkish" id="wlr-skip">Skip, see my place in line</button></p>
+        <p class="gate-other"><button type="button" class="linkish" id="wlr-skip">Back to my place in line</button></p>
       </div>
     </div>
     <div class="gate-spot" id="gate-spot" hidden>
@@ -1051,10 +1063,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20261120d" defer></script>
-<script src="/footer.js?v=20261120d" defer></script>
-<script src="/home.js?v=20261120d" defer></script>
-<script src="/avatar.js?v=20261120d" defer></script>
-<script src="/creator.js?v=20261120d" defer></script>
+<script src="/site.js?v=20261120e" defer></script>
+<script src="/footer.js?v=20261120e" defer></script>
+<script src="/home.js?v=20261120e" defer></script>
+<script src="/avatar.js?v=20261120e" defer></script>
+<script src="/creator.js?v=20261120e" defer></script>
 </body>
 </html>

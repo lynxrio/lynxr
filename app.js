@@ -7304,8 +7304,8 @@ function wlCardBuild(host) {
   host.innerHTML = `<div class="section wl-card">
     <div class="sec-head"><h2>Waitlist</h2></div>
     <div class="stats wl-stats" id="wl-stats">
-      <div class="stat"><div class="label">Waiting</div><div class="value" data-k="waiting"></div><div class="sub">confirmed, in line</div></div>
-      <div class="stat"><div class="label">Not confirmed</div><div class="value" data-k="unconfirmed"></div><div class="sub">joined, email not confirmed</div></div>
+      <div class="stat"><div class="label">Waiting</div><div class="value" data-k="waiting"></div><div class="sub">in line</div></div>
+      <div class="stat"><div class="label">From friends</div><div class="value" data-k="referred"></div><div class="sub">joined with a friend's link</div></div>
       <div class="stat"><div class="label">Let in</div><div class="value" data-k="released"></div><div class="sub" id="wl-last"></div></div>
       <div class="stat"><div class="label">Made an account</div><div class="value" data-k="joined"></div><div class="sub wl-gift-sub" id="wl-joined-sub">from a waitlist invite</div></div>
     </div>

@@ -5,7 +5,10 @@
 //
 // What matters here: an anonymous page can call this and it can spend email. Each gate (Origin, input shape, the
 // per-visitor meter, the daily mail cap, the off switch, the missing key) is proven to stop the SEND, not just to
-// return a different word; and nothing a browser is answered carries an email address, a token or an invite code.
+// return a different word; and nothing a browser is answered carries an email address, a confirm token or an invite
+// code. The one token it may carry is a brand-new entry's own view token (status new, never exists). Since 2026-11-21
+// there is no email confirmation: a new entry gets a welcome email, a friend's join carries its referral through a
+// second per-link meter, and two small actions (name, ref_peek) serve the invite name.
 import { readFileSync } from "node:fs";
 
 const DIR = new URL(".", import.meta.url).pathname;   // this file lives beside the functions
@@ -51,8 +54,11 @@ globalThis.fetch = async (url, init = {}) => {
   throw new Error("unexpected fetch " + u);
 };
 
-const NEW = { status: "new", email: "wl-test@example.invalid", kind: "confirm", view_token: VIEW, confirm_token: CONF,
+// What the database answers for a brand-new entry since the no-confirmation SQL: kind 'spot', no confirm token.
+const NEW = { status: "new", email: "wl-test@example.invalid", kind: "spot", view_token: VIEW,
   ref_code: "ABCDEFGH", position: 42, may_mail: true };
+// What a database that has NOT been re-run still answers (the new function must keep working against it).
+const OLD_NEW = { ...NEW, kind: "confirm", confirm_token: CONF };
 const reset = () => {
   calls.length = 0; resendStatus = 200; batchStatus = 200;
   settingsRow = { batch_size: 100, places: 10, discord_url: null, title_crew: 3 };
@@ -68,13 +74,15 @@ const reset = () => {
     waitlist_mark_mailed: undefined,
     waitlist_stop: true,
     waitlist_spot: { state: "waiting", position: 7, ref_code: "ABCDEFGH", referrals: 0, just_confirmed: false, batch_size: 100, places: 10 },
-    waitlist_mail_info: { ok: true, email: "wl-test@example.invalid", kind: "confirm", view_token: VIEW, confirm_token: CONF, ref_code: "ABCDEFGH", position: 9, code: null },
+    waitlist_mail_info: { ok: true, email: "wl-test@example.invalid", kind: "spot", view_token: VIEW, ref_code: "ABCDEFGH", position: 9, code: null },
     waitlist_release: { batch: 3, count: 50 },
     waitlist_unmailed: { rows: [] },
     waitlist_let_in: { status: "ok", email: "let@example.invalid", code: "QRSTUVWX", view_token: null },
     waitlist_gift_peek: { state: "ok" },
     waitlist_gift_claim: { status: "claimed", email: "g@example.invalid", code: "QRSTUVWX", may_mail: true },
     waitlist_gift_mark: undefined,
+    waitlist_set_name: { ok: true, name: "Maya" },
+    waitlist_ref_name: { name: "Maya" },
   };
 };
 reset();
@@ -131,21 +139,22 @@ check("4a new -> exactly one /emails call, to that address, from WAITLIST_FROM",
   sent.length === 1 && resendBatches().length === 0 && msg.to[0] === "wl-test@example.invalid" && msg.from === "lynxr <wl@example.invalid>");
 check("4b the mail carries the one-click List-Unsubscribe headers, pointed at the function",
   msg.headers["List-Unsubscribe"] === `<https://sb.test/functions/v1/waitlist?stop=${VIEW}>` && msg.headers["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click");
-check("4c the confirm mail: subject, position, confirm link, share link, leave link",
-  msg.subject === "confirm your spot on the lynxr waitlist" && msg.html.includes("#42")
-  && msg.html.includes(`https://lynxr.io/?spot=${VIEW}&amp;confirm=${CONF}`) && msg.html.includes("https://lynxr.io/?join=ABCDEFGH")
-  && msg.html.includes(`https://lynxr.io/?spot=${VIEW}&amp;stop=1`) && msg.text.includes(`?spot=${VIEW}&confirm=${CONF}`) && msg.html.includes("lynxr LLC"));
-check("4d the browser's answer has exactly the allowed keys",
-  r.status === 200 && keys(b) === "batch_size,mailed,places,position,ref_code,status" && b.status === "new" && b.position === 42 && b.ref_code === "ABCDEFGH"
-  && b.mailed === true && b.batch_size === 100 && b.places === 10);
-check("4e ...and no token, invite code or email address anywhere in it",
-  !JSON.stringify(b).includes(VIEW) && !JSON.stringify(b).includes(CONF) && !JSON.stringify(b).includes("wl-test") && !JSON.stringify(b).includes("@"));
+check("4c the welcome mail: subject, hello, lead, position, link to the place in line (no confirm), share link, leave link",
+  msg.subject === "hey, lynxr here! you're on the waitlist" && msg.html.includes("hey, lynxr here!")
+  && msg.text.includes("i'm so glad you're on the waitlist. i can't wait to help you make your next video.") && msg.html.includes("#42")
+  && msg.html.includes(`href="https://lynxr.io/?spot=${VIEW}"`) && !msg.html.includes("confirm=") && !msg.text.includes("confirm=")
+  && msg.html.includes("https://lynxr.io/join/?c=ABCDEFGH") && msg.html.includes(`https://lynxr.io/?spot=${VIEW}&amp;stop=1`) && msg.html.includes("lynxr LLC"));
+check("4d the browser's answer has exactly the allowed keys, and the new entry's own token",
+  r.status === 200 && keys(b) === "batch_size,mailed,places,position,ref_code,status,token" && b.status === "new" && b.position === 42 && b.ref_code === "ABCDEFGH"
+  && b.mailed === true && b.batch_size === 100 && b.places === 10 && b.token === VIEW);
+check("4e ...and no confirm token, invite code or email address anywhere in it",
+  !JSON.stringify(b).includes(CONF) && !JSON.stringify(b).includes("wl-test") && !JSON.stringify(b).includes("@"));
 const jn = rpcOf("waitlist_join")[0].args;
 check("4f the join RPC gets the trimmed address, a clean share code, source and consent tag",
   jn.p_email === "Wl-Test@Example.invalid" && jn.p_ref === "ABCDEFGH" && jn.p_source === "ref:tiktok.com" && jn.p_consent === "waitlist-queue-v3");
-check("4g sent mail is recorded as sent (confirm), after a one-email cap check",
+check("4g sent mail is recorded as sent (spot), after a one-email cap check",
   rpcOf("waitlist_mail_take")[0].args.p_n === 1 && rpcOf("waitlist_mail_take")[0].args.p_cap === 80
-  && rpcOf("waitlist_mark_mailed")[0].args.p_kind === "confirm" && rpcOf("waitlist_mark_mailed")[0].args.p_emails[0] === "wl-test@example.invalid");
+  && rpcOf("waitlist_mark_mailed")[0].args.p_kind === "spot" && rpcOf("waitlist_mark_mailed")[0].args.p_emails[0] === "wl-test@example.invalid");
 reset(); await post({ action: "join", email: "a@example.invalid", ref: "not a code" });
 check("4h a malformed share code never reaches the database", rpcOf("waitlist_join")[0].args.p_ref === "");
 
@@ -159,11 +168,11 @@ check("5b Resend refuses -> the join still works, mailed:false, flagged pending"
 reset(); rpcReply.waitlist_join = { ...NEW, may_mail: false }; r = await post({ action: "join", email: "a@example.invalid" }); b = await r.json();
 check("5c the SQL throttle says no -> no cap spent, no Resend", b.mailed === false && rpcOf("waitlist_mail_take").length === 0 && resendAny().length === 0);
 
-reset(); rpcReply.waitlist_join = { ...NEW, status: "exists", kind: "spot", confirm_token: null }; r = await post({ action: "join", email: "a@example.invalid" }); b = await r.json();
+reset(); rpcReply.waitlist_join = { ...NEW, status: "exists", kind: "spot" }; r = await post({ action: "join", email: "a@example.invalid" }); b = await r.json();
 const m6 = resendSingles()[0] && JSON.parse(resendSingles()[0].body);
 check("6a exists -> answer is exactly status + mailed", keys(b) === "mailed,status" && b.status === "exists" && b.mailed === true);
-check("6b an already-confirmed person is sent their spot, not a confirm link",
-  m6 && m6.subject === "your spot on the lynxr waitlist" && m6.html.includes(`?spot=${VIEW}`) && !m6.html.includes("confirm="));
+check("6b someone already in line is sent their place again, not a welcome",
+  m6 && m6.subject === "your place in line for lynxr" && m6.html.includes(`?spot=${VIEW}`) && !m6.html.includes("confirm=") && !m6.html.includes("hey, lynxr here!"));
 check("6c ...and it is recorded as spot", rpcOf("waitlist_mark_mailed")[0].args.p_kind === "spot");
 
 reset(); rpcReply.waitlist_join = { status: "account" }; r = await post({ action: "join", email: "a@example.invalid" }); b = await r.json();
@@ -185,7 +194,7 @@ reset(); rpcReply.waitlist_take = "ip_hour"; r = await post({ action: "spot", to
 check("8e spot over the meter -> limited, no spot RPC", b.state === "limited" && rpcOf("waitlist_spot").length === 0);
 
 reset(); r = await post({ action: "resend", token: VIEW }); b = await r.json();
-check("8f resend -> one mail, recorded; answer {ok, mailed}", resendSingles().length === 1 && keys(b) === "mailed,ok" && b.ok && b.mailed && rpcOf("waitlist_mark_mailed")[0].args.p_kind === "confirm");
+check("8f resend -> one mail, recorded as spot; answer {ok, mailed}", resendSingles().length === 1 && keys(b) === "mailed,ok" && b.ok && b.mailed && rpcOf("waitlist_mark_mailed")[0].args.p_kind === "spot");
 reset(); rpcReply.waitlist_mail_info = { ok: false, wait_s: 840 }; r = await post({ action: "resend", token: VIEW }); b = await r.json();
 check("8g resend inside the throttle -> {ok:false, wait_s}, no cap spent, no Resend", b.ok === false && b.wait_s === 840 && resendAny().length === 0 && rpcOf("waitlist_mail_take").length === 0);
 
@@ -291,7 +300,7 @@ check("14f ...in_unmailed:true for someone who was on the waitlist", b.status ==
 // ---------------------------------------------------------------- the mail itself
 const hostile = FN.buildMail("release", { email: 'x"><script>alert(1)</script>@example.invalid', view_token: VIEW, code: "A<B", position: null }, "https://lynxr.io", 100);
 check("15a every value is HTML-escaped", !hostile.html.includes("<script>") && hostile.html.includes("&lt;script&gt;") && !hostile.html.includes('x"><'));
-const allMail = ["confirm", "spot", "release", "gift"].map((k) => FN.buildMail(k, { email: "a@example.invalid", view_token: VIEW, confirm_token: CONF, ref_code: "ABCDEFGH", position: 1234, code: "QRSTUVWX" }, "https://lynxr.io", 100));
+const allMail = ["welcome", "spot", "release", "gift"].map((k) => FN.buildMail(k, { email: "a@example.invalid", view_token: VIEW, confirm_token: CONF, ref_code: "ABCDEFGH", position: 1234, code: "QRSTUVWX" }, "https://lynxr.io", 100));
 check("15b no pure black or white in any of the four mails", allMail.every((m) => !/#(000|fff)(?![0-9a-f])/i.test(m.html) && !/#(000000|ffffff)/i.test(m.html)));
 check("15c positions are formatted, tokens are only ever in links", allMail[0].html.includes("#1,234") && allMail.every((m) => !m.html.includes('src=')));
 check("15d the entity name is spelled lynxr LLC in all four mails", allMail.every((m) => m.html.includes("lynxr LLC") && m.text.includes("lynxr LLC")));
@@ -386,7 +395,7 @@ check("17k a foreign Origin cannot claim a gift", r.status === 403 && calls.leng
 const hasDiscord = (m) => /discord/i.test(m.html) || /discord/i.test(m.text);
 reset(); settingsRow.discord_url = "https://discord.gg/lynxrtest"; await post({ action: "join", email: "a@example.invalid" });
 let dm = resendSingles()[0] && JSON.parse(resendSingles()[0].body);
-check("18a a set Discord link is in the confirm mail, html and text, with the line",
+check("18a a set Discord link is in the welcome mail, html and text, with the line",
   dm && dm.html.includes("https://discord.gg/lynxrtest") && dm.text.includes("https://discord.gg/lynxrtest")
   && dm.html.includes("come say hi on the lynxr discord") && dm.text.includes("come say hi on the lynxr discord:\nhttps://discord.gg/lynxrtest"));
 reset(); settingsRow.discord_url = "https://discord.com/invite/lynxr-test"; await post({ action: "gift", code: "ABCDEFGH", email: "g@example.invalid" });
@@ -414,29 +423,29 @@ check("18b a non-Discord URL in the settings is in no mail (and a hostile one ne
   dm && !hasDiscord(dm) && !dm.html.includes("evil.example") && !hasDiscord(evil) && !evil.html.includes("<script>"));
 const noDisc = [];
 reset(); settingsRow.discord_url = null;
-await post({ action: "join", email: "a@example.invalid" });                                        // confirm
-rpcReply.waitlist_join = { ...NEW, status: "exists", kind: "spot", confirm_token: null }; await post({ action: "join", email: "a@example.invalid" });   // spot
+await post({ action: "join", email: "a@example.invalid" });                                        // welcome
+rpcReply.waitlist_join = { ...NEW, status: "exists", kind: "spot" }; await post({ action: "join", email: "a@example.invalid" });   // spot
 await post({ action: "let_in", email: "let@example.invalid" }, { auth: "staff-token" });           // release
 await post({ action: "gift", code: "ABCDEFGH", email: "g@example.invalid" });                       // gift
 for (const c of resendSingles()) noDisc.push(JSON.parse(c.body));
-check("18c no Discord setting -> no discord in the confirm, spot, release or gift mail (four mails sent)",
+check("18c no Discord setting -> no discord in the welcome, spot, release or gift mail (four mails sent)",
   noDisc.length === 4 && noDisc.every((m) => !hasDiscord(m)));
 check("18c' the settings request asks for the Discord and title columns", calls.some((c) => c.u.includes("lynxr_waitlist_settings") && c.u.includes("discord_url") && c.u.includes("title_crew")));
 reset(); settingsRow.discord_url = "https://discord.gg/lynxrtest";
-const fourDisc = ["confirm", "spot", "release", "gift"].map((k) => FN.buildMail(k, { email: "a@example.invalid", view_token: VIEW, confirm_token: CONF, ref_code: "ABCDEFGH", position: 5, code: "QRSTUVWX" }, "https://lynxr.io", 100, { discord: settingsRow.discord_url }));
+const fourDisc = ["welcome", "spot", "release", "gift"].map((k) => FN.buildMail(k, { email: "a@example.invalid", view_token: VIEW, confirm_token: CONF, ref_code: "ABCDEFGH", position: 5, code: "QRSTUVWX" }, "https://lynxr.io", 100, { discord: settingsRow.discord_url }));
 check("18d buildMail: all four kinds carry the Discord line when given a valid link, and no pure black or white", fourDisc.every((m) => m.html.includes("come say hi on the lynxr discord") && !/#(000|fff)(?![0-9a-f])/i.test(m.html)));
 reset(); settingsRow = {};   // the settings row answers without the numbers: defaults, no Discord
 await post({ action: "join", email: "a@example.invalid" });
 dm = resendSingles()[0] && JSON.parse(resendSingles()[0].body);
-check("18e an unusable settings row falls back to the defaults and a join still mails, without Discord", dm && !hasDiscord(dm) && dm.html.includes("we let people in 100 at a time"));
+check("18e an unusable settings row falls back to the defaults and a join still sends the welcome mail, without Discord", dm && !hasDiscord(dm) && dm.subject === "hey, lynxr here! you're on the waitlist");
 
 // ---------------------------------------------------------------- the spot answer is a whitelist
-reset(); rpcReply.waitlist_spot = { state: "waiting", position: 7, ref_code: "ABCDEFGH", referrals: 2, just_confirmed: false, batch_size: 100, places: 10,
-  crew: 2, title: "founding", title_crew: 3, discord: "https://discord.gg/lynxrtest",
+reset(); rpcReply.waitlist_spot = { state: "waiting", position: 7, ref_code: "ABCDEFGH", referrals: 2, just_confirmed: true, batch_size: 100, places: 10,
+  crew: 2, title: "founding", title_crew: 3, discord: "https://discord.gg/lynxrtest", name: "Maya",
   email: "leak@example.invalid", view_token: VIEW, confirm_token: CONF, code: "QRSTUVWX", id: 5 };
 r = await post({ action: "spot", token: VIEW }); b = await r.json();
-check("19a spot strips email, tokens, code and unknown keys; keeps crew, title, title_crew, discord",
-  keys(b) === "batch_size,crew,discord,just_confirmed,places,position,ref_code,referrals,state,title,title_crew"
+check("19a spot strips email, tokens, code, the retired just_confirmed and unknown keys; keeps crew, title, title_crew, discord, name",
+  keys(b) === "batch_size,crew,discord,name,places,position,ref_code,referrals,state,title,title_crew" && b.name === "Maya"
   && b.crew === 2 && b.title === "founding" && b.title_crew === 3 && b.discord === "https://discord.gg/lynxrtest"
   && !JSON.stringify(b).includes("@") && !JSON.stringify(b).includes(VIEW) && !JSON.stringify(b).includes(CONF) && !JSON.stringify(b).includes("QRSTUVWX"));
 reset(); rpcReply.waitlist_spot = { state: "waiting", position: 7, crew: 0, title_crew: 3, discord: "https://evil.example" };
@@ -451,6 +460,112 @@ check("19e null title/discord are absent, not null", !("title" in b) && !("disco
 
 check("19f no Discord invite URL is hard-coded in the function (the only literals are the shape regexes)",
   !/https:\/\/discord\.(gg|com\/invite)\/[A-Za-z0-9-]+/.test(src.replace(/DISCORD_RE = [^\n]*\n/, "").replace(/\/\/.*$/gm, "")));
+
+// ---------------------------------------------------------------- no confirmation (plan waitlist-no-confirm)
+// 20: the function file is pasted through a clipboard, so it stays ASCII; and the word "confirm" is nowhere a person reads.
+check("20a the function source is pure ASCII (it is pasted by hand)", !/[^\x00-\x7f]/.test(src));
+const visible = (m) => [m.html.replace(/href="[^"]*"/g, ""), m.text.replace(/https?:\S+/g, "")].join("\n");
+const mailsOld = ["welcome", "spot", "release", "gift"].map((k) => FN.buildMail(k, { email: "a@example.invalid", view_token: VIEW, confirm_token: CONF, ref_code: "ABCDEFGH", position: 1234, code: "QRSTUVWX" }, "https://lynxr.io", 100));
+check("20b no mail kind shows the word confirm once hrefs and URLs are removed (even when an old database sends a confirm token)",
+  mailsOld.every((m) => !/confirm/i.test(visible(m))) && allMail.every((m) => !/confirm/i.test(visible(m))));
+reset(); rpcReply.waitlist_join = { ...OLD_NEW }; r = await post({ action: "join", email: "a@example.invalid" }); b = await r.json();
+const mo = resendSingles()[0] && JSON.parse(resendSingles()[0].body);
+check("20c an old database (kind confirm + confirm token): the welcome link still carries the confirm token, invisibly, and says nothing about it",
+  mo && mo.subject === "hey, lynxr here! you're on the waitlist" && mo.html.includes(`?spot=${VIEW}&amp;confirm=${CONF}`) && mo.text.includes(`?spot=${VIEW}&confirm=${CONF}`)
+  && !/confirm/i.test(visible(mo)) && b.status === "new" && b.token === VIEW && !JSON.stringify(b).includes(CONF) && rpcOf("waitlist_mark_mailed")[0].args.p_kind === "spot");
+reset(); rpcReply.waitlist_join = { ...NEW, status: "exists" }; r = await post({ action: "join", email: "a@example.invalid" }); b = await r.json();
+check("20d an exists answer never carries a token (typing someone's address must not hand over their page)", !("token" in b) && keys(b) === "mailed,status" && !JSON.stringify(b).includes(VIEW));
+reset(); rpcReply.waitlist_join = { ...NEW, view_token: "not-a-token" }; r = await post({ action: "join", email: "a@example.invalid" }); b = await r.json();
+check("20e a view token that is not 32 hex is never handed on", b.status === "new" && !("token" in b));
+reset(); rpcReply.waitlist_mail_info = { ok: true, email: "wl-test@example.invalid", kind: "confirm", view_token: VIEW, confirm_token: CONF, ref_code: "ABCDEFGH", position: 9, code: null };
+r = await post({ action: "resend", token: VIEW }); b = await r.json();
+const mr = resendSingles()[0] && JSON.parse(resendSingles()[0].body);
+check("20f send-it-again against an old database (kind confirm) sends 'your place', never a confirm email, and records spot",
+  mr && mr.subject === "your place in line for lynxr" && !/confirm/i.test(visible(mr)) && mr.html.includes(`&amp;confirm=${CONF}`) && rpcOf("waitlist_mark_mailed")[0].args.p_kind === "spot");
+const wm = allMail[0], sm = allMail[1];
+check("20g welcome reads lynxr, hello, lead, number; spot keeps the number first and says it is the same link again",
+  wm.html.indexOf("hey, lynxr here!") < wm.html.indexOf("glad you") && wm.html.indexOf("glad you") < wm.html.indexOf("#1,234")
+  && sm.html.indexOf("#1,234") < sm.html.indexOf("same page every time") && !sm.html.includes("hey, lynxr here!")
+  && wm.text.indexOf("hey, lynxr here!") < wm.text.indexOf("#1,234") && wm.html.includes("want in sooner? every friend who joins with your link moves you up 10 places:")
+  && wm.html.includes("https://lynxr.io/join/?c=ABCDEFGH") && !wm.html.includes("?join="));
+
+// 21: a friend's join counts at once, so a second meter limits joins through one friend's link per visitor per day.
+reset(); r = await post({ action: "join", email: "a@example.invalid", ref: "abcdefgh" }); b = await r.json();
+let tks = rpcOf("waitlist_take");
+check("21a a join with a link makes two meter calls; the second is kind credit, 3 an hour and a day, a different hash that holds no IP",
+  tks.length === 2 && tks[0].args.p_kind === "join" && tks[1].args.p_kind === "credit" && tks[1].args.p_hour === 3 && tks[1].args.p_day === 3
+  && tks[1].args.p_all === 1000000 && /^[0-9a-f]{32}$/.test(tks[1].args.p_ip) && tks[1].args.p_ip !== tks[0].args.p_ip
+  && !JSON.stringify(calls).includes("203.0.113.7") && rpcOf("waitlist_join")[0].args.p_ref === "ABCDEFGH" && b.status === "new");
+reset(); rpcReply.waitlist_take = (a) => (a.p_kind === "credit" ? "ip_day" : "ok");
+r = await post({ action: "join", email: "a@example.invalid", ref: "ABCDEFGH" }); b = await r.json();
+check("21b past the per-link limit the join still works, carrying no referral", rpcOf("waitlist_join")[0].args.p_ref === "" && b.status === "new" && resendSingles().length === 1);
+reset(); ENV.WL_CREDIT_IP_DAY = "0"; r = await post({ action: "join", email: "a@example.invalid", ref: "ABCDEFGH" }); b = await r.json();
+check("21c WL_CREDIT_IP_DAY=0 -> one meter call only, and no join carries a referral", rpcOf("waitlist_take").length === 1 && rpcOf("waitlist_join")[0].args.p_ref === "" && b.status === "new");
+reset(); await post({ action: "join", email: "a@example.invalid" });
+check("21d no link -> one meter call only", rpcOf("waitlist_take").length === 1 && rpcOf("waitlist_join")[0].args.p_ref === "");
+reset(); ENV.WL_CREDIT_IP_DAY = "7"; await post({ action: "join", email: "a@example.invalid", ref: "ABCDEFGH" });
+check("21e the per-link limit comes from WL_CREDIT_IP_DAY", rpcOf("waitlist_take")[1].args.p_hour === 7 && rpcOf("waitlist_take")[1].args.p_day === 7);
+reset(); await post({ action: "join", email: "a@example.invalid", ref: "ABCDEFGH" }, { ip: "198.51.100.9" });
+const tkOther = rpcOf("waitlist_take")[1].args.p_ip;
+reset(); await post({ action: "join", email: "a@example.invalid", ref: "ABCDEFGH" });
+const tkSame = rpcOf("waitlist_take")[1].args.p_ip;
+reset(); await post({ action: "join", email: "a@example.invalid", ref: "QRSTUVWX" });
+check("21f the per-link meter is keyed on the visitor AND the code", tkOther !== tkSame && rpcOf("waitlist_take")[1].args.p_ip !== tkSame);
+reset(); rpcReply.waitlist_take = (a) => (a.p_kind === "join" ? "ip_hour" : "ok"); await post({ action: "join", email: "a@example.invalid", ref: "ABCDEFGH" });
+check("21g a join the first meter refuses never spends the per-link meter", rpcOf("waitlist_take").length === 1 && rpcOf("waitlist_join").length === 0);
+
+// 22: the invite name
+reset(); r = await post({ action: "name", token: "short", name: "Maya" }); b = await r.json();
+check("22a name with a malformed token -> {ok:false}, nothing fetched", JSON.stringify(b) === '{"ok":false}' && calls.length === 0);
+reset(); r = await post({ action: "name", token: VIEW, name: "1000" }); b = await r.json();
+check("22b a name that is not letters -> {ok:false, reason:bad_name}, nothing fetched", JSON.stringify(b) === '{"ok":false,"reason":"bad_name"}' && calls.length === 0);
+reset(); r = await post({ action: "name", token: VIEW, name: "a".repeat(21) }); b = await r.json();
+check("22b' a 21-letter name is refused before any call", b.reason === "bad_name" && calls.length === 0);
+reset(); r = await post({ action: "name", token: VIEW, name: " Maya Lee " }); b = await r.json();
+check("22c ' Maya Lee ' -> the RPC gets the first word, the answer is {ok:true,name}, metered as a spot call",
+  rpcOf("waitlist_set_name").length === 1 && rpcOf("waitlist_set_name")[0].args.p_name === "Maya" && rpcOf("waitlist_set_name")[0].args.p_token === VIEW
+  && JSON.stringify(b) === '{"ok":true,"name":"Maya"}' && rpcOf("waitlist_take")[0].args.p_kind === "spot" && rpcOf("waitlist_take")[0].args.p_hour === 120 && resendAny().length === 0);
+reset(); rpcReply.waitlist_set_name = { ok: true, name: "evil.com", email: "leak@example.invalid" }; r = await post({ action: "name", token: VIEW, name: "Maya" }); b = await r.json();
+check("22d a name the database returns that fails the shape check is dropped from the answer", JSON.stringify(b) === '{"ok":true}');
+reset(); r = await post({ action: "name", token: VIEW, name: "" }); b = await r.json();
+check("22e an empty name is sent as such (it clears the name)", rpcOf("waitlist_set_name")[0].args.p_name === "" && b.ok === true);
+reset(); rpcReply.waitlist_set_name = { ok: false, reason: "none" }; r = await post({ action: "name", token: VIEW, name: "Maya" }); b = await r.json();
+check("22f an unknown token -> {ok:false} (the reason is not passed on)", JSON.stringify(b) === '{"ok":false}');
+reset(); rpcReply.waitlist_take = "ip_hour"; r = await post({ action: "name", token: VIEW, name: "Maya" }); b = await r.json();
+check("22g over the spot meter -> {ok:false}, no name RPC", JSON.stringify(b) === '{"ok":false}' && rpcOf("waitlist_set_name").length === 0);
+reset(); r = await post({ action: "name", token: VIEW, name: "María-José" }); b = await r.json();
+check("22h letters of other scripts and a hyphen are fine", rpcOf("waitlist_set_name").length === 1 && b.ok === true);
+reset(); r = await post({ action: "name", token: VIEW, name: "O’Brien" }); b = await r.json();
+check("22i a curly apostrophe is fine (the regex is written with an escape in the source)", rpcOf("waitlist_set_name").length === 1);
+
+// 23: what a friend's banner may learn about a share code
+reset(); r = await post({ action: "ref_peek", code: "bad" }); b = await r.json();
+check("23a ref_peek with a malformed code -> {}, nothing fetched", JSON.stringify(b) === "{}" && calls.length === 0);
+reset(); rpcReply.waitlist_ref_name = { name: "Maya", email: "leak@example.invalid", id: 3 }; r = await post({ action: "ref_peek", code: "abcdefgh" }); b = await r.json();
+check("23b a good code -> exactly {name}, the code upper-cased, extra keys dropped, metered as a spot call",
+  JSON.stringify(b) === '{"name":"Maya"}' && rpcOf("waitlist_ref_name")[0].args.p_code === "ABCDEFGH" && rpcOf("waitlist_take")[0].args.p_kind === "spot" && resendAny().length === 0);
+reset(); rpcReply.waitlist_ref_name = { name: "evil.com" }; r = await post({ action: "ref_peek", code: "ABCDEFGH" }); b = await r.json();
+check("23c an invalid name -> {}", JSON.stringify(b) === "{}");
+reset(); rpcReply.waitlist_take = "ip_hour"; r = await post({ action: "ref_peek", code: "ABCDEFGH" }); b = await r.json();
+check("23d over the meter -> {}, no lookup", JSON.stringify(b) === "{}" && rpcOf("waitlist_ref_name").length === 0);
+reset(); ENV.WAITLIST_MODE = "off"; r = await post({ action: "ref_peek", code: "ABCDEFGH" }); b = await r.json();
+const offPeek = JSON.stringify(b), offPeekCalls = calls.length;
+reset(); ENV.WAITLIST_MODE = "off"; r = await post({ action: "name", token: VIEW, name: "Maya" }); b = await r.json();
+check("23e WAITLIST_MODE=off -> ref_peek {}, name {ok:false}, nothing fetched", offPeek === "{}" && offPeekCalls === 0 && JSON.stringify(b) === '{"ok":false}' && calls.length === 0);
+reset(); rpcReply.waitlist_ref_name = new Response("{}", { status: 404 }); r = await post({ action: "ref_peek", code: "ABCDEFGH" }); b = await r.json();
+const peek404 = JSON.stringify(b), peekStatus = r.status;
+reset(); rpcReply.waitlist_set_name = new Response("{}", { status: 404 }); r = await post({ action: "name", token: VIEW, name: "Maya" }); b = await r.json();
+check("23f SQL not re-run (RPC 404) -> ref_peek {}, name {ok:false}, both 200", peek404 === "{}" && peekStatus === 200 && JSON.stringify(b) === '{"ok":false}' && r.status === 200);
+reset(); r = await post({ action: "ref_peek", code: "ABCDEFGH" }, { origin: "https://evil.example" });
+check("23g a foreign Origin cannot peek", r.status === 403 && calls.length === 0);
+
+// 24: the spot answer's name is shape-checked too
+reset(); rpcReply.waitlist_spot = { state: "waiting", position: 7, name: "x.com" }; r = await post({ action: "spot", token: VIEW }); b = await r.json();
+check("24a spot drops an invalid name", !("name" in b) && b.state === "waiting");
+reset(); rpcReply.waitlist_spot = { state: "waiting", position: 7, name: "Maya" }; r = await post({ action: "spot", token: VIEW }); b = await r.json();
+check("24b spot keeps a valid name", b.name === "Maya");
+reset(); rpcReply.waitlist_spot = { state: "unconfirmed", position: 7, ref_code: "ABCDEFGH" }; r = await post({ action: "spot", token: VIEW }); b = await r.json();
+check("24c a database not yet re-run still answers unconfirmed: passed through for the page to treat as waiting", b.state === "unconfirmed" && b.position === 7);
 
 clearInterval(keepAlive);
 console.log(results.join("\n"));

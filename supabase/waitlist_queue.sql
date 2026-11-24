@@ -1,7 +1,11 @@
--- Lynxr — the public waitlist as a queue: private position links, referral links worth 10 places, email
--- confirmation, a staff "release the next 100" button, and a sign-up gate that still lets Lynx Media Group
--- campaign creators in. Plan: ~/.claude/plans/waitlist-referral-queue.md (owner, 2026-11-20).
--- Dashboard → SQL Editor → New query → paste this whole file → Run. Standalone, idempotent, safe to re-run.
+-- Lynxr — the public waitlist as a queue: private position links, referral links worth 10 places, a staff
+-- "release the next 100" button, and a sign-up gate that still lets Lynx Media Group campaign creators in.
+-- Plan: ~/.claude/plans/waitlist-referral-queue.md (owner, 2026-11-20); revised by ~/.claude/plans/waitlist-no-confirm.md
+-- (owner, 2026-11-21): NO EMAIL CONFIRMATION. Everyone is in line from the moment they join, they get one welcome email
+-- with the link to their place, and a friend's join counts for the referrer at once (see THE MOVE).
+-- Dashboard → SQL Editor → New query → paste this whole file → Run. Standalone, idempotent, safe to re-run over the live
+-- install: the first run after the 2026-11-21 revision also runs the one-time switch (section 1i4) that puts every
+-- never-confirmed entry in line at its original place and credits their referrers, once.
 -- Needs, already applied live: staff_gate.sql, signup_gate.sql, invites.sql, agency_roster.sql, schema.sql's
 -- lynxr_waitlist plus waitlist_consent.sql, waitlist_unsubscribe.sql and write_guards.sql.
 -- **No real email address, invite code or uuid anywhere in this file — the repo is public.**
@@ -16,7 +20,11 @@
 --                             confirmed — decision D6; one commented line below flips that) and the table is LOCKED to
 --                             the server: no browser, signed in or not, can insert, update, delete or read the
 --                             tokens. The Edge Function supabase/functions/waitlist (service role) is the only writer.
---   lynxr_waitlist_settings   one row: batch_size (100), places per referral (10), max_credits per person (20).
+--                             (2026-11-21) also seen_at (first time the private link was opened), credit + credited_at
+--                             (what this friend's join did for their referrer) and display_name (the invite name).
+--                             confirmed_at stays as the "in line since" time: release, positions and stats key on it.
+--   lynxr_waitlist_settings   one row: batch_size (100), places per referral (10), max_credits per person (20), and
+--                             (2026-11-21) credit_when ('join' | 'open'), credit_day (0 = no limit), no_credit_domains.
 --                             Change by SQL, no deploy:  update public.lynxr_waitlist_settings set places = 5;
 --   lynxr_waitlist_meter      per-visitor and global counters (a hashed IP, never the IP) for the function's limits
 --                             and the daily cap on waitlist email.
@@ -35,11 +43,23 @@
 --     lynxr_after_signup      a NEW trigger on auth.users (AFTER INSERT): links a new account to its gift claim, its crew
 --                             edges and its waitlist title. Wrapped so it can never block a sign-up.
 --     four new columns on lynxr_waitlist_settings: gifts (3), gift_day (100), title_crew (3), discord_url (null).
+--   no-confirmation layer     (plan ~/.claude/plans/waitlist-no-confirm.md, owner 2026-11-21), section 1i3 / 1i4
+--     lynxr_wl_credit_friend  decides ONCE what one friend's join does for their referrer, records it on the friend's row
+--     lynxr_wl_uncredit       moves a referrer back (used by waitlist_strip)
+--     waitlist_strip          the staff tool: take back the credits of friends who never opened their email (SQL editor)
+--     waitlist_set_name / waitlist_ref_name   the optional invite name ("Maya is inviting you to lynxr")
+--     lynxr_wl_from_confirm   the one-time switch from "confirm to count" to "join to count" (run once, section 1i4)
 --
 -- THE MOVE ("a friend joins with your link, you go up 10 places"). Exactly `places` positions, applied when the
--- friend CONFIRMS their email (never when they merely type an address — that is farmable), never above #1, and
--- at most `max_credits` friends per person. Order is a numeric sort_key; a move gives the person a new key
--- strictly between two existing ones, so nobody ever ties and nobody else's key changes.
+-- friend JOINS (owner, 2026-11-21; it was "when the friend confirms" until then), never above #1, and at most
+-- `max_credits` friends per person. Guards, none of which adds a step for a real person: the Edge Function's join
+-- meter (5 an hour, 20 a day per connection) and its per-link limit (WL_CREDIT_IP_DAY, 3 credited joins per friend's
+-- link per connection per day), inbox folding (Gmail dots and +tags, and + on Outlook/iCloud/Proton/Fastmail) and no
+-- self-referral, the cap above, a list of disposable domains whose joins earn no credit (no_credit_domains), an optional
+-- per-person daily limit (credit_day, off at launch), and "each friend inbox counts once, ever". Leaving the waitlist
+-- does NOT take a credit back. seen_at records whether the friend ever opened their email; it gates nothing unless you
+-- switch to credit_when = 'open' (a friend counts the first time they open their link). Order is a numeric sort_key; a
+-- move gives the person a new key strictly between two existing ones, so nobody ever ties and nobody else's key changes.
 --
 -- WHO CAN STILL MAKE AN ACCOUNT WHEN require_invite IS ON
 --   1. the `internal` list on lynxr_signup_gate (yours, always);
@@ -64,22 +84,42 @@
 --   hide Discord:       update public.lynxr_waitlist_settings set discord_url = null where id = 1;
 --   stop the after-sign-up bookkeeping:  drop trigger if exists lynxr_after_signup on auth.users;
 --                       (sign-up itself is unaffected either way; only crew / title linking stops)
+--   count a friend on first OPEN instead of on join (if farming shows up):
+--                       update public.lynxr_waitlist_settings set credit_when = 'open' where id = 1;
+--   a daily limit per person (0 = none):   update public.lynxr_waitlist_settings set credit_day = 10 where id = 1;
+--   add a disposable domain (its joins earn no credit):
+--                       update public.lynxr_waitlist_settings set no_credit_domains = array_append(no_credit_domains, '<domain>') where id = 1;
+--   clear an invite name:  update public.lynxr_waitlist set display_name = null where email = '<their email>';
+--   the Edge Function secret WL_CREDIT_IP_DAY (default 3; 0 = no referral counts at all) limits credited joins per
+--   friend's link per connection per day.
 --
 -- SET THE DISCORD LINK (shows on the spot card and in every waitlist email within seconds, no deploy; the database
 -- refuses anything that is not a discord.gg/<code> or discord.com/invite/<code> link):
 --   update public.lynxr_waitlist_settings set discord_url = 'https://discord.gg/<code>' where id = 1;
 --
--- RETENTION (privacy page, plan P6). waitlist_join() opportunistically deletes, at most 200 rows a call: entries
--- never confirmed after 30 days, and entries released more than 90 days ago. Leavers stay as tombstones.
+-- RETENTION (privacy page, plan P6). waitlist_join() opportunistically deletes, at most 200 rows a call, entries
+-- released more than 90 days ago (since 2026-11-21 everyone is in line from the moment they join, so there is no
+-- "never confirmed" entry to delete). Leavers stay as tombstones.
 --
 -- LOOK AT IT (after Run)
 --   select count(*) filter (where confirmed_at is not null and released_at is null and unsubscribed_at is null) as waiting,
---          count(*) filter (where confirmed_at is null and unsubscribed_at is null) as unconfirmed,
+--          count(*) filter (where credit in ('moved', 'crew')) as referred,
+--          count(*) filter (where seen_at is null and released_at is null and unsubscribed_at is null) as never_opened,
 --          count(*) filter (where released_at is not null and batch <> 0) as let_in,
 --          count(*) filter (where unsubscribed_at is not null) as left
 --     from public.lynxr_waitlist;
 --   select email, sort_key, referrals, confirmed_at from public.lynxr_waitlist
 --    where confirmed_at is not null and released_at is null and unsubscribed_at is null order by sort_key limit 20;
+-- WATCH (read-only): who gained most from friends lately, and how many of those friends never opened their email
+--   select r.email, r.referrals, r.title, count(*) as friends,
+--          count(*) filter (where f.credited_at > now() - interval '24 hours') as last_24h,
+--          count(*) filter (where f.seen_at is null) as never_opened,
+--          count(distinct split_part(f.email, '@', 2)) as domains
+--     from public.lynxr_waitlist r
+--     join public.lynxr_waitlist f on f.referred_by = r.email and f.credit in ('moved', 'crew')
+--    group by r.email, r.referrals, r.title order by last_24h desc, never_opened desc limit 20;
+-- STRIP:  select public.waitlist_strip('<their email>');               -- friends who never opened their email
+--         select public.waitlist_strip('<their email>', 'all', true);  -- every credit, and delete those friends' entries
 -- Release by hand instead of the staff button:   select public.waitlist_release(100, true);   -- dry run
 -- Export for the owner's eyes ONLY to ~/Desktop, never inside the repo (a waitlist CSV is every address).
 
@@ -134,6 +174,20 @@ alter table public.lynxr_waitlist_settings
   add column if not exists title_crew  int not null default 3   check (title_crew between 0 and 100),     -- confirmed friends that earn the title; 0 = stop awarding it
   add column if not exists discord_url text constraint lynxr_wl_discord_shape check (discord_url is null or
     discord_url ~ '^https://(discord\.gg/[A-Za-z0-9-]{2,32}|discord\.com/invite/[A-Za-z0-9-]{2,32})$');
+-- No-confirmation knobs (owner, 2026-11-21). credit_when: 'join' = a friend counts the moment they join (the default);
+-- 'open' = the first time they open their private link (a one-line fallback if farming shows up). credit_day: the most
+-- friends one person can be credited for in a rolling 24 h; 0 = no limit. no_credit_domains: joins from these domains are
+-- recorded but earn the referrer nothing. from_confirm_at is set once lynxr_wl_from_confirm() has run (section 1i4).
+alter table public.lynxr_waitlist_settings
+  add column if not exists credit_when text not null default 'join' check (credit_when in ('join', 'open')),
+  add column if not exists credit_day  int  not null default 0      check (credit_day between 0 and 1000),
+  add column if not exists no_credit_domains text[] not null default array[
+    'mailinator.com','guerrillamail.com','guerrillamail.net','sharklasers.com','grr.la','10minutemail.com','temp-mail.org',
+    'tempmail.com','tempmail.net','yopmail.com','yopmail.net','trashmail.com','getnada.com','maildrop.cc','dispostable.com',
+    'throwawaymail.com','mailnesia.com','fakeinbox.com','mintemail.com','emailondeck.com','mohmal.com','tempail.com',
+    'tempr.email','discard.email','spamgourmet.com','mytemp.email','burnermail.io','inboxkitten.com','moakt.com',
+    'emailfake.com']::text[],
+  add column if not exists from_confirm_at timestamptz;   -- set once lynxr_wl_from_confirm() has run (section 1i4)
 alter table public.lynxr_waitlist_settings enable row level security;
 revoke all on table public.lynxr_waitlist_settings from anon, authenticated;
 grant select on table public.lynxr_waitlist_settings to authenticated;
@@ -147,7 +201,7 @@ create policy "staff read waitlist settings"
 alter table public.lynxr_waitlist
   add column if not exists email_norm       text,           -- lynxr_wl_norm(email): gmail dots / +tags folded, so one inbox is one place
   add column if not exists view_token       text,           -- private link to the person's own spot; shows position, never the email
-  add column if not exists confirm_token    text,           -- one-time; null once confirmed
+  add column if not exists confirm_token    text,           -- RETIRED 2026-11-21 (nothing sets it any more); lynxr_wl_from_confirm() nulls the old ones
   add column if not exists ref_code         text,           -- their share code (same alphabet as invite codes)
   add column if not exists referred_by      text references public.lynxr_waitlist (email) on update cascade on delete set null,
   add column if not exists sort_key         numeric,        -- queue order, smallest first; a move picks a key between two others
@@ -163,7 +217,24 @@ alter table public.lynxr_waitlist
   add column if not exists mail_pending     boolean not null default false,   -- an email was owed and not sent (cap or Resend down)
   add column if not exists legacy           boolean not null default false,   -- joined before the queue existed
   add column if not exists title            text check (title in ('founding')),   -- "founding creator": earned at title_crew confirmed friends, permanent
-  add column if not exists title_at         timestamptz;
+  add column if not exists title_at         timestamptz,
+  -- the no-confirmation columns (owner, 2026-11-21)
+  add column if not exists seen_at          timestamptz,    -- the first time the private link was opened (waitlist_spot); gates nothing by default
+  add column if not exists credit           text,           -- what THIS friend's join did for their referrer; null = not decided yet (see lynxr_wl_credit_friend)
+  add column if not exists credited_at      timestamptz,    -- when it counted ('moved' | 'crew' only)
+  add column if not exists display_name     text;           -- the optional invite name: first word, 1-20 letters (waitlist_set_name)
+
+-- credit: moved | crew | none | domain | day | stripped. display_name: the same shape the Edge Function and the page enforce
+-- (first word only, 1 to 20 characters, no digits, spaces, control characters or the punctuation listed below).
+alter table public.lynxr_waitlist drop constraint if exists lynxr_wl_credit_shape;
+alter table public.lynxr_waitlist add constraint lynxr_wl_credit_shape
+  check (credit is null or credit in ('moved', 'crew', 'none', 'domain', 'day', 'stripped'));
+alter table public.lynxr_waitlist drop constraint if exists lynxr_wl_name_shape;
+alter table public.lynxr_waitlist add constraint lynxr_wl_name_shape
+  check (display_name is null or (char_length(display_name) between 1 and 20
+         and display_name !~ '[[:cntrl:][:space:][:digit:]]'
+         and translate(display_name, '<>@/\:.,;!?#$%&*+=~^|"()[]{}_`', '') = display_name));
+create index if not exists lynxr_waitlist_referred_by_idx on public.lynxr_waitlist (referred_by);
 
 create sequence if not exists public.lynxr_waitlist_seq;
 
@@ -268,7 +339,8 @@ revoke insert, update, delete, truncate, references, trigger on table public.lyn
 revoke select on table public.lynxr_waitlist from authenticated;
 -- Staff still read the list (the existing "staff read the waitlist" policy), but only these columns: the tokens,
 -- the share code and the throttle state are unreadable from any browser.
-grant select (email, source, created_at, consent, unsubscribed_at, confirmed_at, referrals, released_at, batch, legacy, title)
+grant select (email, source, created_at, consent, unsubscribed_at, confirmed_at, referrals, released_at, batch, legacy, title,
+              seen_at, credit, credited_at, display_name)
   on table public.lynxr_waitlist to authenticated;
 grant select, insert, update, delete on table public.lynxr_waitlist to service_role;
 grant usage, select, update on sequence public.lynxr_waitlist_seq to service_role;
@@ -414,8 +486,8 @@ revoke all on table public.lynxr_gift_claims from anon, authenticated;
 grant select, insert, update, delete on table public.lynxr_gift_claims to service_role;
 
 -- THE CREW: the referral graph, and later the friend graph. One edge per (friend, how they came): a waitlist friend counts
--- when they CONFIRM their email, a gifted friend when they CREATE their account (the code they needed came by email, so
--- that is the real action). Keyed on FOLDED emails (lynxr_wl_norm) because most edges are written before either side has
+-- when they JOIN (since 2026-11-21; lynxr_wl_credit_friend), a gifted friend when they CREATE their account (the code they
+-- needed came by email, so that is the real action). Keyed on FOLDED emails (lynxr_wl_norm) because most edges are written before either side has
 -- an account; inviter_id / member_id are filled in as soon as an account exists (lynxr_after_signup, or at write time when
 -- it already does). One edge per (friend, via): the first inviter keeps the credit, a rejoin never counts twice.
 -- Kudos later = "an edge exists between these two account ids, either direction" (both ids set).
@@ -543,10 +615,11 @@ create trigger lynxr_signup_gate
 
 -- ── 1i. The queue functions ──────────────────────────────────────────────────────────────────────────────────────
 -- Lock order everywhere: the advisory lock 'lynxr_waitlist_order' FIRST, then row locks. That is what keeps
--- two simultaneous confirmations from deadlocking on a shared referrer.
+-- two simultaneous joins from deadlocking on a shared referrer.
 
--- Where a sort_key stands: 1 + the confirmed, unreleased, still-subscribed rows ahead of it. (An unconfirmed
--- row's number is the place it will hold once confirmed.) Volatile for the same reason as the verdict.
+-- Where a sort_key stands: 1 + the in-line (confirmed_at set), unreleased, still-subscribed rows ahead of it. Since
+-- 2026-11-21 every entry is in line from the moment it joins; confirmed_at is simply "in line since". Volatile for the same
+-- reason as the verdict.
 create or replace function public.lynxr_wl_position(p_key numeric)
 returns int
 language sql
@@ -606,7 +679,8 @@ end $$;
 revoke all on function public.lynxr_wl_invite(text, text) from public, anon, authenticated;
 grant execute on function public.lynxr_wl_invite(text, text) to service_role;
 
--- THE MOVE. See the header. Called by waitlist_spot() when a friend confirms; takes the same advisory lock.
+-- THE MOVE. See the header. Called by lynxr_wl_credit_friend() (when a friend joins, or first opens their link under
+-- credit_when = 'open', or in the one-time switch); takes the same advisory lock.
 create or replace function public.waitlist_credit(p_email text)
 returns void
 language plpgsql
@@ -660,8 +734,12 @@ end $$;
 revoke all on function public.waitlist_credit(text) from public, anon, authenticated;
 grant execute on function public.waitlist_credit(text) to service_role;
 
--- JOIN. Returns the full picture to the Edge Function, which strips it to status/mailed/position before it answers
--- a browser. Never writes a row for an address that already has (or may make) an account.
+-- JOIN. Returns the full picture to the Edge Function, which strips it to status/mailed/position (and, for a brand-new
+-- entry only, its own view token) before it answers a browser. Never writes a row for an address that already has (or may
+-- make) an account. Since 2026-11-21 a new row is in line at once (confirmed_at = now(), no confirm token) and a friend's
+-- join credits their referrer here (lynxr_wl_credit_friend). The kind of a new row is 'spot', never 'welcome' or 'confirm':
+-- a deployed older Edge Function maps any unknown kind to its confirm email with a dead link, and the FUNCTION picks the
+-- welcome email from status = 'new'.
 create or replace function public.waitlist_join(p_email text, p_ref text, p_source text, p_consent text)
 returns jsonb
 language plpgsql
@@ -678,12 +756,12 @@ declare
   g          public.lynxr_signup_gate%rowtype;
   w          public.lynxr_waitlist%rowtype;
   v_referrer text;
-  v_tok      text;
   v_tries    int := 0;
   v_raced    boolean := false;
   v_may      boolean;
   v_kind     text;
   v_code     text;
+  v_when     text := coalesce((select s.credit_when from public.lynxr_waitlist_settings s where s.id = 1), 'join');
 begin
   if v_e !~ '^[^@[:space:]]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}$' or length(v_e) > 254 then
     return jsonb_build_object('status', 'bad_email');
@@ -698,13 +776,12 @@ begin
   v_ref  := upper(btrim(coalesce(p_ref, '')));
   if v_ref !~ '^[A-HJ-NP-Z2-9]{8}$' then v_ref := null; end if;
 
-  -- Retention (D10), at most 200 rows a call: never-confirmed entries after 30 days, released ones after 90.
+  -- Retention (D10), at most 200 rows a call: entries released more than 90 days ago. (Since 2026-11-21 everyone is in
+  -- line from the moment they join, so there is no "never confirmed after 30 days" entry any more.)
   delete from public.lynxr_waitlist x
    where x.email in (
      select p.email from public.lynxr_waitlist p
-      where (p.confirmed_at is null and not p.legacy and p.released_at is null
-             and p.created_at < now() - interval '30 days')
-         or (p.released_at is not null and p.released_at < now() - interval '90 days')
+      where p.released_at is not null and p.released_at < now() - interval '90 days'
       order by p.created_at
       limit 200);
   -- Community retention (plan beli B1), same lock already held: claimed gifts nobody used within 14 days go back to the
@@ -749,28 +826,26 @@ begin
 
   if w.email is not null then
     if w.unsubscribed_at is not null then
-      -- Rejoin at the back. created_at restarts the retention clock; a friend already credited once for this
-      -- row is not credited again.
+      -- Rejoin at the back, in line at once. created_at restarts the retention clock. A friend already credited
+      -- once (credit is set, whatever it was) keeps that decision and is never credited again; one who was not
+      -- takes the link of THIS request.
       update public.lynxr_waitlist x
-         set unsubscribed_at = null, confirmed_at = null,
-             confirm_token = replace(gen_random_uuid()::text, '-', ''),
+         set unsubscribed_at = null, confirmed_at = now(), confirm_token = null,
              sort_key = nextval('public.lynxr_waitlist_seq'),
              created_at = now(), mailed_at = null, mail_pending = false,
              released_at = null, batch = null, release_mailed_at = null,
-             referred_by = case when w.confirmed_at is not null then null else v_referrer end,
+             referred_by = case when x.credit is null then v_referrer else x.referred_by end,
              consent = coalesce(nullif(v_cons, ''), x.consent)
        where x.email = w.email
        returning * into w;
-    elsif w.confirmed_at is null then
-      -- Still unconfirmed: the link of THIS request wins, so a stranger who pre-registered the address cannot
-      -- keep the credit.
-      update public.lynxr_waitlist x set referred_by = v_referrer where x.email = w.email returning * into w;
+      if v_when = 'join' and w.credit is null and w.referred_by is not null then
+        perform public.lynxr_wl_credit_friend(w.email);
+        select * into w from public.lynxr_waitlist x where x.email = w.email;
+      end if;
     end if;
 
     v_may := public.lynxr_wl_mail_ok(w.mailed_at, w.mail_day, w.mail_n);
-    if w.confirmed_at is null then
-      v_kind := 'confirm';
-    elsif w.released_at is not null and w.batch is distinct from 0 then
+    if w.released_at is not null and w.batch is distinct from 0 then
       select i.code into v_code from public.lynxr_invites i
        where lower(i.email) = lower(w.email) and i.redeemed_at is null order by i.created_at desc limit 1;
       v_kind := case when v_code is null then 'spot' else 'release' end;
@@ -778,7 +853,7 @@ begin
       v_kind := 'spot';
     end if;
     return jsonb_build_object('status', 'exists', 'email', w.email, 'kind', v_kind,
-                              'view_token', w.view_token, 'confirm_token', w.confirm_token,
+                              'view_token', w.view_token,
                               'ref_code', w.ref_code, 'position', public.lynxr_wl_position(w.sort_key),
                               'code', case when v_kind = 'release' then v_code else null end,
                               'may_mail', v_may);
@@ -787,10 +862,9 @@ begin
   -- New. Retry on a unique violation (a share-code collision); an address that raced in is treated as existing.
   loop
     v_tries := v_tries + 1;
-    v_tok := replace(gen_random_uuid()::text, '-', '');
     begin
-      insert into public.lynxr_waitlist (email, email_norm, source, consent, confirm_token, ref_code, referred_by)
-      values (v_e, v_norm, v_src, v_cons, v_tok, public.new_invite_code(), v_referrer)
+      insert into public.lynxr_waitlist (email, email_norm, source, consent, confirmed_at, ref_code, referred_by)
+      values (v_e, v_norm, v_src, v_cons, now(), public.new_invite_code(), v_referrer)
       returning * into w;
       exit;
     exception when unique_violation then
@@ -806,23 +880,28 @@ begin
   end loop;
 
   if v_raced then
-    return jsonb_build_object('status', 'exists', 'email', w.email,
-                              'kind', case when w.confirmed_at is null then 'confirm' else 'spot' end,
-                              'view_token', w.view_token, 'confirm_token', w.confirm_token,
+    return jsonb_build_object('status', 'exists', 'email', w.email, 'kind', 'spot',
+                              'view_token', w.view_token,
                               'ref_code', w.ref_code, 'position', public.lynxr_wl_position(w.sort_key),
                               'code', null, 'may_mail', false);
   end if;
 
-  return jsonb_build_object('status', 'new', 'email', w.email, 'kind', 'confirm',
-                            'view_token', w.view_token, 'confirm_token', w.confirm_token,
+  -- A friend's join counts now (credit_when = 'join'); under 'open' it counts the first time they open their link.
+  if v_when = 'join' and v_referrer is not null then
+    perform public.lynxr_wl_credit_friend(w.email);
+  end if;
+
+  return jsonb_build_object('status', 'new', 'email', w.email, 'kind', 'spot',
+                            'view_token', w.view_token,
                             'ref_code', w.ref_code, 'position', public.lynxr_wl_position(w.sort_key),
                             'may_mail', true);
 end $$;
 revoke all on function public.waitlist_join(text, text, text, text) from public, anon, authenticated;
 grant execute on function public.waitlist_join(text, text, text, text) to service_role;
 
--- SPOT: what the private link shows. NEVER the email, the confirm token or an invite code. With p_confirm it also
--- confirms the address (once) and credits whoever's link brought them.
+-- SPOT: what the private link shows. NEVER the email, a token or an invite code. The first time a private link is opened
+-- it records seen_at (and, under credit_when = 'open', credits whoever's link brought that friend). p_confirm is ignored:
+-- it is kept so the deployed Edge Function, and the confirm links already sitting in inboxes, keep working as plain links.
 create or replace function public.waitlist_spot(p_token text, p_confirm text)
 returns jsonb
 language plpgsql
@@ -832,71 +911,49 @@ set search_path = ''
 as $$
 declare
   w        public.lynxr_waitlist%rowtype;
-  v_just   boolean := false;
   v_state  text;
   v_pos    int;
   v_size   int;
   v_places int;
-  v_conf   boolean := coalesce(p_confirm, '') <> '';
   v_tcrew  int;
   v_disc   text;
-  rf       public.lynxr_waitlist%rowtype;                          -- the referrer, when the friend's confirm credits one
+  n        int;
 begin
   if p_token is null or p_token !~ '^[0-9a-f]{32}$' then
     return jsonb_build_object('state', 'none');
   end if;
-  if v_conf then
-    perform pg_advisory_xact_lock(hashtext('lynxr_waitlist_order'));   -- advisory first, then the row (see 1i)
-    select * into w from public.lynxr_waitlist x where x.view_token = p_token for update;
-  else
-    select * into w from public.lynxr_waitlist x where x.view_token = p_token;
-  end if;
+  select * into w from public.lynxr_waitlist x where x.view_token = p_token;
   if w.email is null then
     return jsonb_build_object('state', 'none');
   end if;
 
-  if v_conf and w.confirmed_at is null and w.unsubscribed_at is null
-     and w.confirm_token is not null and w.confirm_token = p_confirm then
-    update public.lynxr_waitlist x set confirmed_at = now(), confirm_token = null
-     where x.email = w.email
-     returning * into w;
-    v_just := true;
-    if w.referred_by is not null then
-      -- The crew edge and the title come first and do not depend on the move: a referrer who was already let in (or who
-      -- left) still gets their crew counted, but no move (waitlist_credit below ignores released and left rows).
-      select * into rf from public.lynxr_waitlist x where x.email = w.referred_by;
-      if rf.email is not null and rf.unsubscribed_at is null then
-        insert into public.lynxr_crew (inviter_norm, member_norm, via, inviter_id, member_id)
-        values (coalesce(rf.email_norm, public.lynxr_wl_norm(rf.email)),
-                coalesce(w.email_norm,  public.lynxr_wl_norm(w.email)),
-                'waitlist',
-                (select u.id from auth.users u where lower(u.email) = lower(rf.email) limit 1),
-                (select u.id from auth.users u where lower(u.email) = lower(w.email)  limit 1))
-        on conflict (member_norm, via) do nothing;
-        perform public.lynxr_wl_title_check(coalesce(rf.email_norm, public.lynxr_wl_norm(rf.email)), rf.email, null);
-      end if;
-      perform public.waitlist_credit(w.referred_by);
+  if w.seen_at is null then
+    perform pg_advisory_xact_lock(hashtext('lynxr_waitlist_order'));   -- advisory first, then the row (see 1i)
+    -- Not "update ... returning * into w": a no-row update (someone else opened it first) would blank w.
+    update public.lynxr_waitlist x set seen_at = now() where x.email = w.email and x.seen_at is null;
+    get diagnostics n = row_count;
+    if n > 0 and coalesce((select s.credit_when from public.lynxr_waitlist_settings s where s.id = 1), 'join') = 'open' then
+      perform public.lynxr_wl_credit_friend(w.email);
     end if;
     select * into w from public.lynxr_waitlist x where x.email = w.email;
   end if;
 
   v_state := case when w.unsubscribed_at is not null then 'left'
                   when w.released_at is not null     then 'released'
-                  when w.confirmed_at is not null    then 'waiting'
-                  else 'unconfirmed' end;
-  if v_state in ('waiting', 'unconfirmed') then
+                  else 'waiting' end;
+  if v_state = 'waiting' then
     v_pos := public.lynxr_wl_position(w.sort_key);
   end if;
   select s.batch_size, s.places, s.title_crew, s.discord_url into v_size, v_places, v_tcrew, v_disc
     from public.lynxr_waitlist_settings s where s.id = 1;
 
-  -- A whitelist, never a row: no email, token or invite code can leave through here. title and discord are absent when
-  -- null (jsonb_strip_nulls); crew is a number, never who is in it.
+  -- A whitelist, never a row: no email, token or invite code can leave through here. title, discord and name are absent
+  -- when null (jsonb_strip_nulls); crew is a number, never who is in it; name is the person's own invite name.
   return jsonb_strip_nulls(jsonb_build_object(
     'state', v_state, 'position', v_pos, 'ref_code', w.ref_code, 'referrals', w.referrals,
-    'just_confirmed', v_just, 'batch_size', coalesce(v_size, 100), 'places', coalesce(v_places, 10),
+    'batch_size', coalesce(v_size, 100), 'places', coalesce(v_places, 10),
     'crew', public.lynxr_wl_crew(coalesce(w.email_norm, public.lynxr_wl_norm(w.email)), null),
-    'title', w.title, 'title_crew', coalesce(v_tcrew, 3), 'discord', v_disc));
+    'title', w.title, 'title_crew', coalesce(v_tcrew, 3), 'discord', v_disc, 'name', w.display_name));
 end $$;
 revoke all on function public.waitlist_spot(text, text) from public, anon, authenticated;
 grant execute on function public.waitlist_spot(text, text) to service_role;
@@ -927,9 +984,7 @@ begin
     return jsonb_build_object('ok', false, 'wait_s', 0, 'reason', 'left');
   end if;
 
-  if w.confirmed_at is null then
-    v_kind := 'confirm';
-  elsif w.released_at is not null and w.batch is distinct from 0 then
+  if w.released_at is not null and w.batch is distinct from 0 then
     select i.code into v_code from public.lynxr_invites i
      where lower(i.email) = lower(w.email) and i.redeemed_at is null order by i.created_at desc limit 1;
     v_kind := case when v_code is null then 'spot' else 'release' end;
@@ -948,7 +1003,7 @@ begin
   end if;
 
   return jsonb_build_object('ok', true, 'email', w.email, 'kind', v_kind,
-                            'view_token', w.view_token, 'confirm_token', w.confirm_token,
+                            'view_token', w.view_token,
                             'ref_code', w.ref_code, 'position', public.lynxr_wl_position(w.sort_key),
                             'code', case when v_kind = 'release' then v_code else null end);
 end $$;
@@ -956,7 +1011,9 @@ revoke all on function public.waitlist_mail_info(text) from public, anon, authen
 grant execute on function public.waitlist_mail_info(text) to service_role;
 
 -- Record what the Edge Function did with the mail.
---   'confirm' | 'spot'  sent: mailed_at = now, the day's count rolls, the pending flag clears
+--   'spot'              sent (the welcome email and "your place in line" are both 'spot' since 2026-11-21): mailed_at =
+--                       now, the day's count rolls, the pending flag clears. 'confirm' is still accepted, the same way,
+--                       so a deployed older Edge Function that has an email in flight keeps working.
 --   'pending'           an email was owed and was NOT sent (daily cap, or Resend refused): "Send them" retries
 --   'release'           the release email went: release_mailed_at = now
 create or replace function public.waitlist_mark_mailed(p_emails text[], p_kind text)
@@ -1142,7 +1199,8 @@ begin
   end if;
   select jsonb_build_object(
     'waiting',      count(*) filter (where w.confirmed_at is not null and w.released_at is null and w.unsubscribed_at is null),
-    'unconfirmed',  count(*) filter (where w.confirmed_at is null and w.unsubscribed_at is null),
+    'referred',     count(*) filter (where w.credit in ('moved', 'crew')),
+    'unseen',       count(*) filter (where w.seen_at is null and w.released_at is null and w.unsubscribed_at is null),
     'released',     count(*) filter (where w.released_at is not null and w.batch is distinct from 0),
     'joined',       (select count(*) from public.lynxr_invites i where i.note like 'waitlist%' and i.redeemed_at is not null),
     'left',         count(*) filter (where w.unsubscribed_at is not null),
@@ -1450,7 +1508,7 @@ begin
     perform public.lynxr_wl_title_check(public.lynxr_wl_norm(v_ge), v_ge, v_giver);
   end if;
 
-  -- 2. their waitlist edge (made when they confirmed) and edges where they invited others now carry the account id
+  -- 2. their waitlist edge (made when they joined) and edges where they invited others now carry the account id
   update public.lynxr_crew set member_id  = p_uid where member_norm  = v_norm and member_id  is null;
   update public.lynxr_crew set inviter_id = p_uid where inviter_norm = v_norm and inviter_id is null;
 
@@ -1556,19 +1614,314 @@ end $$;
 revoke all on function public.my_gifts() from public, anon;
 grant execute on function public.my_gifts() to authenticated, service_role;
 
+-- ── 1i3. A friend's join counts (owner, 2026-11-21) ──────────────────────────────────────────────────────────────────
+-- Plan ~/.claude/plans/waitlist-no-confirm.md. Everyone is in line from the moment they join, and a friend's join moves the
+-- referrer up. Same lock order as 1i: the advisory lock 'lynxr_waitlist_order' FIRST, then row locks. Everything here is
+-- server-only (service_role, or the owner in the SQL editor): a browser reaches it only through the Edge Function.
+
+-- Decides, ONCE, what one friend's join does for the person whose link brought them, records the decision on the FRIEND's
+-- row (credit, credited_at) and returns it. Callers: waitlist_join (the friend joined or rejoined), waitlist_spot (the
+-- friend first opened their link, only under credit_when = 'open') and lynxr_wl_from_confirm (the one-time switch).
+-- The five words:
+--   moved    the referrer moved up `places` positions, or was already #1: counted, and the crew grew
+--   crew     counted in the crew but nobody moved: the referrer hit max_credits, or was already let in
+--   none     nothing counted: the referrer left or does not exist, or this inbox already counted for someone (once, ever)
+--   domain   the friend's address is on a disposable domain (settings.no_credit_domains)
+--   day      the referrer already has settings.credit_day credited friends in the last 24 hours
+-- Returns null (and writes nothing) when there is nothing to decide: no such row, no referrer, already decided, or left.
+create or replace function public.lynxr_wl_credit_friend(p_email text)
+returns text
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  f        public.lynxr_waitlist%rowtype;
+  rf       public.lynxr_waitlist%rowtype;
+  s        public.lynxr_waitlist_settings%rowtype;
+  v_c      text;
+  v_edge   int;
+  v_before int;
+  v_after  int;
+begin
+  perform pg_advisory_xact_lock(hashtext('lynxr_waitlist_order'));
+  select * into f from public.lynxr_waitlist x where x.email = p_email for update;
+  if f.email is null or f.referred_by is null or f.credit is not null or f.unsubscribed_at is not null then
+    return null;
+  end if;
+  select * into s from public.lynxr_waitlist_settings x where x.id = 1;
+  select * into rf from public.lynxr_waitlist x where x.email = f.referred_by;
+  if rf.email is null or rf.unsubscribed_at is not null then
+    v_c := 'none';
+  elsif split_part(lower(f.email), '@', 2) = any (coalesce(s.no_credit_domains, '{}'::text[])) then
+    v_c := 'domain';
+  elsif coalesce(s.credit_day, 0) > 0
+        and (select count(*) from public.lynxr_waitlist x
+              where x.referred_by = rf.email and x.credit in ('moved', 'crew')
+                and x.credited_at > now() - interval '24 hours') >= s.credit_day then
+    v_c := 'day';
+  else
+    insert into public.lynxr_crew (inviter_norm, member_norm, via, inviter_id, member_id)
+    values (coalesce(rf.email_norm, public.lynxr_wl_norm(rf.email)), coalesce(f.email_norm, public.lynxr_wl_norm(f.email)),
+            'waitlist',
+            (select u.id from auth.users u where lower(u.email) = lower(rf.email) limit 1),
+            (select u.id from auth.users u where lower(u.email) = lower(f.email) limit 1))
+    on conflict (member_norm, via) do nothing;
+    get diagnostics v_edge = row_count;
+    if v_edge = 0 then
+      v_c := 'none';                                   -- this inbox already counted for someone: once, ever
+    else
+      -- The crew edge and the title come first and do not depend on the move: a referrer who was already let in still
+      -- gets their crew counted, but no move (waitlist_credit ignores released and left rows, and the cap).
+      perform public.lynxr_wl_title_check(coalesce(rf.email_norm, public.lynxr_wl_norm(rf.email)), rf.email, null);
+      v_before := rf.referrals;
+      perform public.waitlist_credit(rf.email);         -- the existing move: exactly `places`, never above #1, the cap
+      select x.referrals into v_after from public.lynxr_waitlist x where x.email = rf.email;
+      v_c := case when coalesce(v_after, 0) > coalesce(v_before, 0) then 'moved' else 'crew' end;
+    end if;
+  end if;
+  update public.lynxr_waitlist x
+     set credit = v_c, credited_at = case when v_c in ('moved', 'crew') then now() else null end
+   where x.email = f.email;
+  return v_c;
+end $$;
+revoke all on function public.lynxr_wl_credit_friend(text) from public, anon, authenticated;
+grant execute on function public.lynxr_wl_credit_friend(text) to service_role;
+
+-- Moves a referrer BACK `places` positions, never past the back, and takes one off their referrals. Used by
+-- waitlist_strip to undo a credit that moved them. A referrer who was let in, left or is not in line just loses the count.
+create or replace function public.lynxr_wl_uncredit(p_email text)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  a        public.lynxr_waitlist%rowtype;
+  v_places int := coalesce((select s.places from public.lynxr_waitlist_settings s where s.id = 1), 10);
+  p        int;
+  n        int;
+  target   int;
+  kprev    numeric;
+  knext    numeric;
+  newk     numeric;
+begin
+  perform pg_advisory_xact_lock(hashtext('lynxr_waitlist_order'));
+  select * into a from public.lynxr_waitlist w where w.email = p_email for update;
+  if a.email is null then
+    return;
+  end if;
+  if a.released_at is not null or a.unsubscribed_at is not null or a.confirmed_at is null then
+    update public.lynxr_waitlist w set referrals = greatest(0, w.referrals - 1) where w.email = a.email;
+    return;
+  end if;
+  p := public.lynxr_wl_position(a.sort_key);
+  select count(*)::int into n from public.lynxr_waitlist w
+   where w.confirmed_at is not null and w.released_at is null and w.unsubscribed_at is null;
+  target := least(n, p + v_places);
+  if target > p then
+    select w.sort_key into kprev from public.lynxr_waitlist w
+     where w.confirmed_at is not null and w.released_at is null and w.unsubscribed_at is null and w.email <> a.email
+     order by w.sort_key offset target - 2 limit 1;
+    knext := (select min(w.sort_key) from public.lynxr_waitlist w where w.sort_key > kprev and w.email <> a.email);
+    -- nothing after kprev at all: a fresh key from the sequence is "the back" and can never collide with a new join's
+    newk := case when knext is null then nextval('public.lynxr_waitlist_seq')::numeric else (kprev + knext) * 0.5 end;
+    update public.lynxr_waitlist w set sort_key = newk, referrals = greatest(0, w.referrals - 1) where w.email = a.email;
+  else
+    update public.lynxr_waitlist w set referrals = greatest(0, w.referrals - 1) where w.email = a.email;
+  end if;
+end $$;
+revoke all on function public.lynxr_wl_uncredit(text) from public, anon, authenticated;
+grant execute on function public.lynxr_wl_uncredit(text) to service_role;
+
+-- STAFF TOOL, run in the SQL editor (the owner is the only caller; every browser role is refused). Takes back what friends
+-- earned a referrer. p_scope 'unseen' = only friends who never opened their email; 'all' = every credited friend. p_drop
+-- also deletes those friends' entries, so fakes stop holding places and never get a release email; without it they stay in
+-- line with credit = 'stripped'. A title earned with friends that were taken back goes too (the one exception to
+-- "permanent once earned"). Answers {stripped, dropped, referrals, title, position} or {error: none | bad_scope}.
+--   select public.waitlist_strip('<their email>');                    -- friends who never opened their email
+--   select public.waitlist_strip('<their email>', 'all', true);       -- every credit, and delete those friends' entries
+create or replace function public.waitlist_strip(p_referrer text, p_scope text default 'unseen', p_drop boolean default false)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_e    text := lower(btrim(coalesce(p_referrer, '')));
+  r      public.lynxr_waitlist%rowtype;
+  f      record;
+  v_uids uuid[];
+  v_n    int := 0;
+  v_d    int := 0;
+  v_t    int;
+  v_norm text;
+  v_fn   text;
+begin
+  if coalesce(p_scope, '') not in ('unseen', 'all') then
+    return jsonb_build_object('error', 'bad_scope');
+  end if;
+  perform pg_advisory_xact_lock(hashtext('lynxr_waitlist_order'));
+  select * into r from public.lynxr_waitlist w
+   where w.email = v_e or w.email_norm = public.lynxr_wl_norm(v_e)
+   order by (w.email = v_e) desc
+   limit 1;
+  if r.email is null then
+    return jsonb_build_object('error', 'none');
+  end if;
+  v_norm := coalesce(r.email_norm, public.lynxr_wl_norm(r.email));
+  select array_agg(distinct x.id) into v_uids from (
+    select u.id from auth.users u where lower(u.email) = r.email
+    union
+    select c.inviter_id from public.lynxr_crew c where c.inviter_norm = v_norm and c.inviter_id is not null) x;
+  for f in select w.email, w.email_norm, w.credit from public.lynxr_waitlist w
+            where w.referred_by = r.email and w.credit in ('moved', 'crew') and (p_scope = 'all' or w.seen_at is null)
+            order by w.created_at desc loop
+    v_fn := coalesce(f.email_norm, public.lynxr_wl_norm(f.email));
+    if f.credit = 'moved' then
+      perform public.lynxr_wl_uncredit(r.email);
+    end if;
+    delete from public.lynxr_crew c where c.member_norm = v_fn and c.via = 'waitlist';
+    if p_drop then
+      delete from public.lynxr_crew c where c.inviter_norm = v_fn and c.inviter_id is null;
+      delete from public.lynxr_waitlist w where w.email = f.email;
+      v_d := v_d + 1;
+    else
+      update public.lynxr_waitlist w set credit = 'stripped' where w.email = f.email;
+    end if;
+    v_n := v_n + 1;
+  end loop;
+  -- a title earned with friends that were taken back goes too
+  select coalesce(s.title_crew, 3) into v_t from public.lynxr_waitlist_settings s where s.id = 1;
+  if v_t > 0 and public.lynxr_wl_crew(v_norm, v_uids[1]) < v_t then
+    update public.lynxr_waitlist w set title = null, title_at = null where w.email = r.email;
+    update public.lynxr_members m set title = null, title_at = null where m.id = any (coalesce(v_uids, '{}'::uuid[]));
+  end if;
+  select * into r from public.lynxr_waitlist w where w.email = r.email;
+  return jsonb_build_object('stripped', v_n, 'dropped', v_d, 'referrals', r.referrals, 'title', r.title,
+    'position', case when r.released_at is null and r.unsubscribed_at is null then public.lynxr_wl_position(r.sort_key) end);
+end $$;
+revoke all on function public.waitlist_strip(text, text, boolean) from public, anon, authenticated;
+grant execute on function public.waitlist_strip(text, text, boolean) to service_role;
+
+-- The optional invite name ("Maya is inviting you to lynxr"). First word only, 1 to 20 characters, no digits, control
+-- characters or the punctuation listed (the table's lynxr_wl_name_shape check says the same, so a name cannot get in any
+-- other way). An empty name clears it. Answers {ok: true, name?} | {ok: false, reason: 'bad_name' | 'none'}.
+create or replace function public.waitlist_set_name(p_token text, p_name text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_n text := split_part(regexp_replace(btrim(coalesce(p_name, '')), '\s+', ' ', 'g'), ' ', 1);
+  n   int;
+begin
+  if p_token is null or p_token !~ '^[0-9a-f]{32}$' then
+    return jsonb_build_object('ok', false, 'reason', 'none');
+  end if;
+  if v_n <> '' and (char_length(v_n) > 20 or v_n ~ '[[:cntrl:][:digit:]]'
+                    or translate(v_n, '<>@/\:.,;!?#$%&*+=~^|"()[]{}_`', '') <> v_n) then
+    return jsonb_build_object('ok', false, 'reason', 'bad_name');
+  end if;
+  update public.lynxr_waitlist w set display_name = nullif(v_n, '')
+   where w.view_token = p_token and w.unsubscribed_at is null;
+  get diagnostics n = row_count;
+  if n = 0 then
+    return jsonb_build_object('ok', false, 'reason', 'none');
+  end if;
+  return jsonb_strip_nulls(jsonb_build_object('ok', true, 'name', nullif(v_n, '')));
+end $$;
+revoke all on function public.waitlist_set_name(text, text) from public, anon, authenticated;
+grant execute on function public.waitlist_set_name(text, text) to service_role;
+
+-- What a friend's banner may show about a share code: the referrer's display name, nothing else. {} when there is none
+-- (no name set, an unknown code, or the referrer left).
+create or replace function public.waitlist_ref_name(p_code text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((select jsonb_build_object('name', w.display_name) from public.lynxr_waitlist w
+                    where w.ref_code = upper(btrim(coalesce(p_code, ''))) and w.unsubscribed_at is null
+                      and w.display_name is not null limit 1), '{}'::jsonb);
+$$;
+revoke all on function public.waitlist_ref_name(text) from public, anon, authenticated;
+grant execute on function public.waitlist_ref_name(text) to service_role;
+
+-- The one-time switch from "confirm to count" to "join to count", run by section 1i4 (and by the self-test on made-up rows).
+--   a. a friend who confirmed under the old rule: their referrer was dealt with then. Record it as decided.
+--   b. a never-confirmed entry is in line from when it joined (same sort_key, so the same place).
+--   c. the friends among those now credit whoever's link brought them, oldest first, by today's rules.
+-- Returns how many friends step c looked at. Re-running it is harmless: every row it touches is then decided.
+create or replace function public.lynxr_wl_from_confirm()
+returns int
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  r record;
+  n int := 0;
+begin
+  perform pg_advisory_xact_lock(hashtext('lynxr_waitlist_order'));
+  update public.lynxr_waitlist w set credit = 'moved', credited_at = w.confirmed_at
+   where w.referred_by is not null and w.confirmed_at is not null and w.confirm_token is null and w.credit is null;
+  update public.lynxr_waitlist w set confirmed_at = w.created_at, confirm_token = null where w.confirmed_at is null;
+  for r in select w.email from public.lynxr_waitlist w
+            where w.referred_by is not null and w.credit is null and w.unsubscribed_at is null
+            order by w.created_at, w.email loop
+    perform public.lynxr_wl_credit_friend(r.email);
+    n := n + 1;
+  end loop;
+  update public.lynxr_waitlist w set confirm_token = null where w.confirm_token is not null;
+  return n;
+end $$;
+revoke all on function public.lynxr_wl_from_confirm() from public, anon, authenticated;
+grant execute on function public.lynxr_wl_from_confirm() to service_role;
+
+-- ── 1i4. From confirmation to join (once) ────────────────────────────────────────────────────────────────────────────
+-- Runs on the first run of this revision and is a no-op on every run after it (from_confirm_at remembers). It is a REAL
+-- write, outside the self-test's rollback: it puts never-confirmed entries in line at their original place and credits
+-- their referrers.
+do $$ begin
+  if (select s.from_confirm_at from public.lynxr_waitlist_settings s where s.id = 1) is null then
+    perform public.lynxr_wl_from_confirm();
+    update public.lynxr_waitlist_settings set from_confirm_at = now() where id = 1;
+  end if;
+end $$;
+
 -- ── 1j. SELF-TEST. Runs every time this file is run and WRITES NOTHING: the inner block raises LX001 at the end,
 -- which rolls back everything it did (including the live rows it quiets and the sign-up switch it flips); the handler
 -- turns that into a NOTICE. Any wrong answer raises a real error instead, and the whole file is rolled back — fix
--- before re-running. Probe addresses are all at example.invalid (or a Gmail local part with a hyphen, which Gmail
--- cannot issue), so nothing here can be a real inbox. ──────────────────────────────────────────────────────────────
+-- before re-running. Probe addresses are all at example.invalid or throwaway.invalid (or a Gmail local part with a
+-- hyphen, which Gmail cannot issue), so nothing here can be a real inbox. ─────────────────────────────────────────────
+-- NOTE (2026-11-21): the one-time switch of section 1i4 is NOT inside this rollback; section 0 below tests the same function
+-- on made-up rows. Positions in sections 3-5 count every entry in line, because everyone is in line from the moment they join.
 do $$
 declare
   g       public.lynxr_signup_gate%rowtype;
   v       text;
   ja jsonb; jb jsonb; jc jsonb; jd jsonb; je jsonb; jf jsonb; js jsonb; jr jsonb;
-  pos_a   int; pos_b int; pos_b2 int;
+  pos_a   int; pos_b int; pos_b2 int; pos_c int; pos_c2 int; ref_b int; ref_d int;
   cnt     int; mx int; dist int;
   k_exp   int;
+  jall4   jsonb := '[]'::jsonb;                                  -- every spot answer made in sections 3-5, for 4g
+  -- section 0 (the one-time switch) and the guards of section 4
+  o1_email text := 'wl-selftest-o1@example.invalid';
+  o2_email text := 'wl-selftest-o2@example.invalid';
+  o3_email text := 'wl-selftest-o3@example.invalid';
+  x4a_email text := 'wl-selftest-x4a@example.invalid';
+  x4b_email text := 'wl-selftest-x4b@throwaway.invalid';
+  x4c_email text := 'wl-selftest-x4c@example.invalid';
+  x4d_email text := 'wl-selftest-x4d@example.invalid';
   a_email text := 'wl-selftest-a@example.invalid';
   b_email text := 'wl-selftest-b@example.invalid';
   c_email text := 'wl-selftest-c@example.invalid';
@@ -1582,7 +1935,8 @@ declare
   acct    text;
   -- sections 11-14 (plan beli B2)
   u_id    uuid;  v_id uuid;  accts uuid[];  u_mail text;  v_mail text;
-  jg jsonb; jh jsonb; jk jsonb; jl jsonb; jq jsonb; jx1 jsonb; jx2 jsonb; jx3 jsonb;
+  jg jsonb; jh jsonb; jk jsonb; jl jsonb; jq jsonb; jx1 jsonb; jx2 jsonb; jx3 jsonb; jn jsonb;
+  r_tok   text;  r_code text;
   jall    jsonb := '[]'::jsonb;                                  -- every spot answer made in section 13, for 13g
   gcode   text;  vcode text;
   g1_email text := 'wl-selftest-g1@example.invalid';
@@ -1599,7 +1953,32 @@ begin
     -- Quiet every live row (rolled back below) so positions are deterministic, and pin the knobs to their defaults.
     update public.lynxr_waitlist set unsubscribed_at = coalesce(unsubscribed_at, now())
      where email not like '%@example.invalid';
-    update public.lynxr_waitlist_settings set batch_size = 100, places = 10, max_credits = 20 where id = 1;
+    update public.lynxr_waitlist_settings
+       set batch_size = 100, places = 10, max_credits = 20, credit_when = 'join', credit_day = 0,
+           no_credit_domains = array['throwaway.invalid']
+     where id = 1;
+
+    -- 0. the one-time switch from confirmation to join, on made-up old-shape rows: o1 confirmed two days ago, o2 a friend of
+    --    o1 who never confirmed (it still holds a confirm token), o3 a friend of o1 who confirmed under the old rule.
+    insert into public.lynxr_waitlist (email, source, confirmed_at, created_at)
+      values (o1_email, 'selftest', now() - interval '2 days', now() - interval '2 days');
+    insert into public.lynxr_waitlist (email, source, confirmed_at, created_at, confirm_token, referred_by)
+      values (o2_email, 'selftest', null, now() - interval '1 day', repeat('e', 32), o1_email);
+    insert into public.lynxr_waitlist (email, source, confirmed_at, created_at, referred_by)
+      values (o3_email, 'selftest', now() - interval '12 hours', now() - interval '12 hours', o1_email);
+    cnt := public.lynxr_wl_from_confirm();
+    if not exists (select 1 from public.lynxr_waitlist w where w.email = o2_email and w.confirmed_at = w.created_at
+                      and w.confirm_token is null and w.credit = 'moved') then
+      raise exception 'waitlist self-test 0a: a never-confirmed friend was not put in line and credited'; end if;
+    if (select w.credit from public.lynxr_waitlist w where w.email = o3_email) is distinct from 'moved' then
+      raise exception 'waitlist self-test 0b: a friend who had confirmed was not recorded as decided'; end if;
+    if (select w.referrals from public.lynxr_waitlist w where w.email = o1_email) is distinct from 1 then
+      raise exception 'waitlist self-test 0c: o1 should have exactly one credit (o2), got %',
+        (select w.referrals from public.lynxr_waitlist w where w.email = o1_email); end if;
+    if exists (select 1 from public.lynxr_waitlist w where w.email like 'wl-selftest-%' and w.confirm_token is not null) then
+      raise exception 'waitlist self-test 0d: a confirm token survived the switch'; end if;
+    if cnt < 1 then raise exception 'waitlist self-test 0e: the switch looked at % friends (want at least 1)', cnt; end if;
+    update public.lynxr_waitlist set unsubscribed_at = now() where email like 'wl-selftest-o%';
 
     -- 1. norm
     if public.lynxr_wl_norm('J.Doe+x@GMail.com') <> 'jdoe@gmail.com' then
@@ -1652,29 +2031,63 @@ begin
       raise exception 'waitlist self-test 2l: with require_invite off a stranger got %', v; end if;
     update public.lynxr_signup_gate set require_invite = true where id = 1;
 
-    -- 3. join. Fifteen confirmed rows first (they are the line A joins at the back of), then A, B (A's link), C, D (A's link),
-    --    E (B's link).
+    -- 3. join. Fifteen in-line rows first (the line A joins the back of), then A, B (A's link), C, D (A's link), E (B's link).
+    --    Since 2026-11-21 a join puts the person in line at once and a friend's join moves their referrer up at once. Pattern
+    --    for every friend join from here on: read the referrer's position p0 with waitlist_spot first, then check that it is
+    --    greatest(1, p0 - 10) after the join and that referrals went up by one.
     insert into public.lynxr_waitlist (email, source, confirmed_at)
       select 'wl-selftest-f' || x || '@example.invalid', 'selftest', now() from generate_series(1, 15) x;
     jr := public.waitlist_join('not an email', '', 'selftest', '');
     if jr->>'status' <> 'bad_email' then raise exception 'waitlist self-test 3a: bad email gave %', jr; end if;
     ja := public.waitlist_join(upper(a_email), '', 'Self Test!', 'waitlist-queue-v3');
     if ja->>'status' <> 'new' then raise exception 'waitlist self-test 3b: A gave %', ja; end if;
+    if ja->>'kind' <> 'spot' or ja ? 'confirm_token' then
+      raise exception 'waitlist self-test 3b2: a new join must answer kind spot and carry no confirm token: %', ja; end if;
+    if not exists (select 1 from public.lynxr_waitlist w where w.email = a_email and w.confirmed_at is not null and w.credit is null) then
+      raise exception 'waitlist self-test 3b3: A is not in line at once, or already has a credit'; end if;
     if (select source from public.lynxr_waitlist where email = a_email) <> 'selftest' then
       raise exception 'waitlist self-test 3c: source was not cleaned'; end if;
-    if (ja->>'position')::int <> 16 then raise exception 'waitlist self-test 3d: A unconfirmed position % (want 16)', ja->>'position'; end if;
+    if (ja->>'position')::int <> 16 then raise exception 'waitlist self-test 3d: A position % (want 16)', ja->>'position'; end if;
+
+    js := public.waitlist_spot(ja->>'view_token', null);   jall4 := jall4 || js;
+    pos_a := (js->>'position')::int;
+    if pos_a <> 16 then raise exception 'waitlist self-test 3d2: A should be #16 before any friend, got %', js; end if;
     jb := public.waitlist_join(b_email, lower(ja->>'ref_code'), 'selftest', '');
     if jb->>'status' <> 'new' then raise exception 'waitlist self-test 3e: B gave %', jb; end if;
     if (select referred_by from public.lynxr_waitlist where email = b_email) is distinct from a_email then
       raise exception 'waitlist self-test 3f: B was not tied to A''s share code'; end if;
+    if (select credit from public.lynxr_waitlist where email = b_email) is distinct from 'moved'
+       or not exists (select 1 from public.lynxr_crew c where c.member_norm = public.lynxr_wl_norm(b_email) and c.via = 'waitlist'
+                         and c.inviter_norm = public.lynxr_wl_norm(a_email)) then
+      raise exception 'waitlist self-test 3f2: B''s join did not count (credit moved + a crew edge)'; end if;
+    js := public.waitlist_spot(ja->>'view_token', null);   jall4 := jall4 || js;
+    if (js->>'position')::int <> greatest(1, pos_a - 10) or (js->>'referrals')::int <> 1 then
+      raise exception 'waitlist self-test 3f3: A should be #% with 1 referral after B joined, got %', greatest(1, pos_a - 10), js; end if;
+
     jc := public.waitlist_join(c_email, 'nonsense', 'selftest', '');
-    if jc->>'status' <> 'new' or (select referred_by from public.lynxr_waitlist where email = c_email) is not null then
+    if jc->>'status' <> 'new' or (select referred_by from public.lynxr_waitlist where email = c_email) is not null
+       or (select credit from public.lynxr_waitlist where email = c_email) is not null then
       raise exception 'waitlist self-test 3g: C gave % / a bad share code was kept', jc; end if;
-    jd := public.waitlist_join(d_email, ja->>'ref_code', 'selftest', '');
-    je := public.waitlist_join(e_email, jb->>'ref_code', 'selftest', '');
-    if jd->>'status' <> 'new' or je->>'status' <> 'new' then raise exception 'waitlist self-test 3h: D/E gave % %', jd, je; end if;
+
+    pos_a := (js->>'position')::int;
+    jd := public.waitlist_join(d_email, ja->>'ref_code', 'selftest', '');                 -- D joins: A (#6) goes to #1, not above
+    if jd->>'status' <> 'new' then raise exception 'waitlist self-test 3h: D gave %', jd; end if;
+    js := public.waitlist_spot(ja->>'view_token', null);   jall4 := jall4 || js;
+    if (js->>'position')::int <> greatest(1, pos_a - 10) or (js->>'position')::int <> 1 or (js->>'referrals')::int <> 2 then
+      raise exception 'waitlist self-test 3h2: a referrer at #6 should land at exactly #1 with 2 referrals, got %', js; end if;
+    if (select min(w.sort_key) from public.lynxr_waitlist w) <> (select w.sort_key from public.lynxr_waitlist w where w.email = a_email) then
+      raise exception 'waitlist self-test 3h3: A is not the first key'; end if;
+
+    js := public.waitlist_spot(jb->>'view_token', null);   jall4 := jall4 || js;
+    pos_b := (js->>'position')::int;  ref_b := (js->>'referrals')::int;                   -- B: 17 and 0
+    je := public.waitlist_join(e_email, jb->>'ref_code', 'selftest', '');                 -- E joins with B's link: B moves
+    if je->>'status' <> 'new' then raise exception 'waitlist self-test 3h4: E gave %', je; end if;
+    js := public.waitlist_spot(jb->>'view_token', null);   jall4 := jall4 || js;
+    if (js->>'position')::int <> greatest(1, pos_b - 10) or (js->>'referrals')::int <> ref_b + 1 then
+      raise exception 'waitlist self-test 3h5: B should be #% with % referrals after E joined, got %', greatest(1, pos_b - 10), ref_b + 1, js; end if;
+
     jr := public.waitlist_join(a_email, ja->>'ref_code', 'selftest', '');
-    if jr->>'status' <> 'exists' or jr->>'kind' <> 'confirm' then raise exception 'waitlist self-test 3i: A again gave %', jr; end if;
+    if jr->>'status' <> 'exists' or jr->>'kind' <> 'spot' then raise exception 'waitlist self-test 3i: A again gave %', jr; end if;
     if (select referred_by from public.lynxr_waitlist where email = a_email) is not null then
       raise exception 'waitlist self-test 3j: A became their own referral'; end if;
     jr := public.waitlist_join('wl-self.test@gmail.com', '', 'selftest', '');
@@ -1687,70 +2100,111 @@ begin
     if jr->>'status' <> 'account' then raise exception 'waitlist self-test 3n: an invited address gave %', jr; end if;
     if exists (select 1 from public.lynxr_waitlist where email in (roster, inv)) then
       raise exception 'waitlist self-test 3o: the account route wrote a row'; end if;
+    select count(*), count(distinct public.lynxr_wl_position(w.sort_key)), max(public.lynxr_wl_position(w.sort_key))
+      into cnt, dist, mx
+      from public.lynxr_waitlist w
+     where w.confirmed_at is not null and w.released_at is null and w.unsubscribed_at is null;
+    if cnt <> 21 or dist <> cnt or mx <> cnt then
+      raise exception 'waitlist self-test 3p: positions are not 1..21 exactly once (count %, distinct %, max %)', cnt, dist, mx; end if;
 
-    -- 4. confirm and the move
-    js := public.waitlist_spot(ja->>'view_token', ja->>'confirm_token');
-    if js->>'state' <> 'waiting' or (js->>'just_confirmed')::boolean is not true or (js->>'position')::int <> 16 then
-      raise exception 'waitlist self-test 4a: confirming A gave %', js; end if;
-    if js->>'email' is not null or js->>'confirm_token' is not null or js->>'view_token' is not null or js->>'code' is not null then
-      raise exception 'waitlist self-test 4b: waitlist_spot leaked a secret: %', js; end if;
-    js := public.waitlist_spot(ja->>'view_token', ja->>'confirm_token');
-    if (js->>'just_confirmed')::boolean is not false then raise exception 'waitlist self-test 4c: the confirm link worked twice'; end if;
-    js := public.waitlist_spot(jb->>'view_token', 'wrongwrong');
-    if js->>'state' <> 'unconfirmed' then raise exception 'waitlist self-test 4d: a wrong confirm token confirmed B: %', js; end if;
-    pos_a := 16;
-    js := public.waitlist_spot(jb->>'view_token', jb->>'confirm_token');            -- B confirms: A is credited
-    if (js->>'just_confirmed')::boolean is not true then raise exception 'waitlist self-test 4e: B did not confirm: %', js; end if;
-    js := public.waitlist_spot(ja->>'view_token', null);
-    if (js->>'position')::int <> greatest(1, pos_a - 10) or (js->>'referrals')::int <> 1 then
-      raise exception 'waitlist self-test 4f: A should be #% with 1 referral, got %', greatest(1, pos_a - 10), js; end if;
-    select count(*), count(distinct public.lynxr_wl_position(w.sort_key)), max(public.lynxr_wl_position(w.sort_key))
-      into cnt, dist, mx
-      from public.lynxr_waitlist w
-     where w.confirmed_at is not null and w.released_at is null and w.unsubscribed_at is null;
-    if cnt <> 17 or dist <> cnt or mx <> cnt then
-      raise exception 'waitlist self-test 4g: positions are not 1..% exactly once (count %, distinct %, max %)', cnt, cnt, dist, mx; end if;
-    js := public.waitlist_spot(jd->>'view_token', jd->>'confirm_token');            -- D confirms: A (#6) goes to #1, not above
-    js := public.waitlist_spot(ja->>'view_token', null);
-    if (js->>'position')::int <> 1 or (js->>'referrals')::int <> 2 then
-      raise exception 'waitlist self-test 4h: a referrer at #6 should land at exactly #1, got %', js; end if;
-    if (select min(w.sort_key) from public.lynxr_waitlist w) <> (select w.sort_key from public.lynxr_waitlist w where w.email = a_email) then
-      raise exception 'waitlist self-test 4i: A is not the first key'; end if;
-    select count(*), count(distinct public.lynxr_wl_position(w.sort_key)), max(public.lynxr_wl_position(w.sort_key))
-      into cnt, dist, mx
-      from public.lynxr_waitlist w
-     where w.confirmed_at is not null and w.released_at is null and w.unsubscribed_at is null;
-    if cnt <> 18 or dist <> cnt or mx <> cnt then
-      raise exception 'waitlist self-test 4j: positions are not 1..% exactly once after the second move', cnt; end if;
-    -- the cap: with max_credits = 0 a confirmed friend moves nobody
-    js := public.waitlist_spot(jb->>'view_token', null);
-    pos_b := (js->>'position')::int;
+    -- 4. the guards, and who sees what. Each knob is put back right after its check.
+    js := public.waitlist_spot(jb->>'view_token', null);   jall4 := jall4 || js;
+    pos_b := (js->>'position')::int;  ref_b := (js->>'referrals')::int;                   -- B: 7 and 1
+    -- 4a the cap: a friend still counts for the crew, but nobody moves
     update public.lynxr_waitlist_settings set max_credits = 0 where id = 1;
-    js := public.waitlist_spot(je->>'view_token', je->>'confirm_token');            -- E confirms; B's link brought them
+    jf := public.waitlist_join(x4a_email, jb->>'ref_code', 'selftest', '');
     update public.lynxr_waitlist_settings set max_credits = 20 where id = 1;
-    js := public.waitlist_spot(jb->>'view_token', null);
-    if (js->>'position')::int <> pos_b or (js->>'referrals')::int <> 0 then
-      raise exception 'waitlist self-test 4k: credit beyond max_credits moved B (was #%, now %)', pos_b, js; end if;
-    perform public.waitlist_credit('wl-selftest-nobody@example.invalid');           -- no such person: a quiet no-op
+    js := public.waitlist_spot(jb->>'view_token', null);   jall4 := jall4 || js;
+    if jf->>'status' <> 'new' or (select credit from public.lynxr_waitlist where email = x4a_email) is distinct from 'crew'
+       or (js->>'position')::int <> pos_b or (js->>'referrals')::int <> ref_b
+       or not exists (select 1 from public.lynxr_crew c where c.member_norm = public.lynxr_wl_norm(x4a_email) and c.via = 'waitlist') then
+      raise exception 'waitlist self-test 4a: with max_credits = 0 a friend should count as crew and move nobody (credit %, B %)',
+        (select credit from public.lynxr_waitlist where email = x4a_email), js; end if;
+    -- 4b a disposable domain: recorded, earns nothing
+    jg := public.waitlist_join(x4b_email, jb->>'ref_code', 'selftest', '');
+    js := public.waitlist_spot(jb->>'view_token', null);   jall4 := jall4 || js;
+    if jg->>'status' <> 'new' or (select credit from public.lynxr_waitlist where email = x4b_email) is distinct from 'domain'
+       or (js->>'position')::int <> pos_b or (js->>'referrals')::int <> ref_b
+       or exists (select 1 from public.lynxr_crew c where c.member_norm = public.lynxr_wl_norm(x4b_email)) then
+      raise exception 'waitlist self-test 4b: a disposable-domain friend should earn nothing (credit %, B %)',
+        (select credit from public.lynxr_waitlist where email = x4b_email), js; end if;
+    -- 4c the per-person daily limit
+    update public.lynxr_waitlist_settings set credit_day = 1 where id = 1;
+    jh := public.waitlist_join(x4c_email, jb->>'ref_code', 'selftest', '');
+    update public.lynxr_waitlist_settings set credit_day = 0 where id = 1;
+    js := public.waitlist_spot(jb->>'view_token', null);   jall4 := jall4 || js;
+    if jh->>'status' <> 'new' or (select credit from public.lynxr_waitlist where email = x4c_email) is distinct from 'day'
+       or (js->>'position')::int <> pos_b or (js->>'referrals')::int <> ref_b
+       or exists (select 1 from public.lynxr_crew c where c.member_norm = public.lynxr_wl_norm(x4c_email)) then
+      raise exception 'waitlist self-test 4c: past credit_day a friend should earn nothing (credit %, B %)',
+        (select credit from public.lynxr_waitlist where email = x4c_email), js; end if;
+    -- 4d credit_when = 'open': nothing at join, the move happens the first time the friend opens their link, once
+    update public.lynxr_waitlist_settings set credit_when = 'open' where id = 1;
+    jk := public.waitlist_join(x4d_email, jb->>'ref_code', 'selftest', '');
+    js := public.waitlist_spot(jb->>'view_token', null);   jall4 := jall4 || js;
+    if jk->>'status' <> 'new' or (select credit from public.lynxr_waitlist where email = x4d_email) is not null
+       or (js->>'position')::int <> pos_b or (js->>'referrals')::int <> ref_b then
+      raise exception 'waitlist self-test 4d: under credit_when = open a join must not count yet (B %)', js; end if;
+    js := public.waitlist_spot(jk->>'view_token', null);   jall4 := jall4 || js;           -- the friend opens their link
+    if (select seen_at from public.lynxr_waitlist where email = x4d_email) is null
+       or (select credit from public.lynxr_waitlist where email = x4d_email) is distinct from 'moved' then
+      raise exception 'waitlist self-test 4d2: opening the link did not count the friend (credit %)',
+        (select credit from public.lynxr_waitlist where email = x4d_email); end if;
+    js := public.waitlist_spot(jb->>'view_token', null);   jall4 := jall4 || js;
+    if (js->>'position')::int <> greatest(1, pos_b - 10) or (js->>'referrals')::int <> ref_b + 1 then
+      raise exception 'waitlist self-test 4d3: B should be #% with % referrals after the friend opened, got %', greatest(1, pos_b - 10), ref_b + 1, js; end if;
+    js := public.waitlist_spot(jk->>'view_token', null);   jall4 := jall4 || js;           -- a second load changes nothing
+    update public.lynxr_waitlist_settings set credit_when = 'join' where id = 1;
+    jr := public.waitlist_spot(jb->>'view_token', null);   jall4 := jall4 || jr;
+    if (jr->>'position')::int <> greatest(1, pos_b - 10) or (jr->>'referrals')::int <> ref_b + 1 then
+      raise exception 'waitlist self-test 4d4: a second open counted the friend again: %', jr; end if;
+    -- 4e seen_at is only ever the first open; 4f the old confirm token is ignored, not an error
+    if (select seen_at from public.lynxr_waitlist where email = a_email) is null
+       or (select seen_at from public.lynxr_waitlist where email = c_email) is not null then
+      raise exception 'waitlist self-test 4e: seen_at should be set for A (opened) and empty for C (never opened)'; end if;
+    js := public.waitlist_spot(jc->>'view_token', repeat('0', 32));   jall4 := jall4 || js;
+    if js->>'state' <> 'waiting' then raise exception 'waitlist self-test 4f: an ignored confirm token changed the answer: %', js; end if;
+    -- 4g no spot answer made in sections 3-5 carries a secret or the retired just_confirmed
+    -- (checked at the end of section 5, below)
 
     -- 5. leaving
-    pos_b := (public.waitlist_spot(jb->>'view_token', null)->>'position')::int;
+    js := public.waitlist_spot(jc->>'view_token', null);   jall4 := jall4 || js;
+    pos_c := (js->>'position')::int;                                                      -- C is behind A, B and the fifteen
     if public.waitlist_stop(ja->>'view_token') is not true then raise exception 'waitlist self-test 5a: stop returned false'; end if;
     if public.waitlist_stop(ja->>'view_token') is not false then raise exception 'waitlist self-test 5b: stop was not idempotent'; end if;
-    js := public.waitlist_spot(ja->>'view_token', null);
+    js := public.waitlist_spot(ja->>'view_token', null);   jall4 := jall4 || js;
     if js->>'state' <> 'left' or js->>'position' is not null then raise exception 'waitlist self-test 5c: A after stop: %', js; end if;
-    pos_b2 := (public.waitlist_spot(jb->>'view_token', null)->>'position')::int;
-    if pos_b2 <> pos_b - 1 then raise exception 'waitlist self-test 5d: B should move up one when A leaves (% -> %)', pos_b, pos_b2; end if;
-    jr := public.waitlist_join(a_email, '', 'selftest', 'waitlist-queue-v3');         -- A rejoins: at the back, unconfirmed
-    js := public.waitlist_spot(ja->>'view_token', null);
-    if jr->>'status' <> 'exists' or js->>'state' <> 'unconfirmed' or (js->>'position')::int <= pos_b2 then
-      raise exception 'waitlist self-test 5e: A rejoining gave % / %', jr, js; end if;
+    js := public.waitlist_spot(jc->>'view_token', null);   jall4 := jall4 || js;
+    pos_c2 := (js->>'position')::int;
+    if pos_c2 <> pos_c - 1 then raise exception 'waitlist self-test 5d: C should move up one when A leaves (% -> %)', pos_c, pos_c2; end if;
+    -- A rejoins with C's link: in line at the back at once, and C is credited
+    jr := public.waitlist_join(a_email, jc->>'ref_code', 'selftest', 'waitlist-queue-v3');
+    js := public.waitlist_spot(ja->>'view_token', null);   jall4 := jall4 || js;
+    select count(*) into cnt from public.lynxr_waitlist w
+     where w.confirmed_at is not null and w.released_at is null and w.unsubscribed_at is null;
+    if jr->>'status' <> 'exists' or jr->>'kind' <> 'spot' or js->>'state' <> 'waiting' or (js->>'position')::int <> cnt then
+      raise exception 'waitlist self-test 5e: A rejoining should be waiting at the back (#%): % / %', cnt, jr, js; end if;
+    if (select credit from public.lynxr_waitlist where email = a_email) is distinct from 'moved' then
+      raise exception 'waitlist self-test 5e2: A rejoining with C''s link did not credit C'; end if;
+    js := public.waitlist_spot(jc->>'view_token', null);   jall4 := jall4 || js;
+    if (js->>'position')::int <> greatest(1, pos_c2 - 10) or (js->>'referrals')::int <> 1 then
+      raise exception 'waitlist self-test 5e3: C should be #% with 1 referral after A rejoined, got %', greatest(1, pos_c2 - 10), js; end if;
+    -- A leaves and rejoins with D's link: one inbox counts once, so D gets nothing
     if not public.waitlist_stop(ja->>'view_token') then raise exception 'waitlist self-test 5f'; end if;
+    ref_d := (select referrals from public.lynxr_waitlist where email = d_email);
+    jr := public.waitlist_join(a_email, jd->>'ref_code', 'selftest', '');
+    if jr->>'status' <> 'exists' or (select referrals from public.lynxr_waitlist where email = d_email) is distinct from ref_d then
+      raise exception 'waitlist self-test 5g: the same inbox counted twice (D % -> %)', ref_d,
+        (select referrals from public.lynxr_waitlist where email = d_email); end if;
+    if not public.waitlist_stop(ja->>'view_token') then raise exception 'waitlist self-test 5h'; end if;
+    -- 4g (the collected answers)
+    if jall4::text ~ '"(email|view_token|confirm_token|code|just_confirmed)":' then
+      raise exception 'waitlist self-test 4g: a spot answer carried a secret: %', jall4; end if;
 
     -- 6. mail bookkeeping and the throttle
     jr := public.waitlist_mail_info(jd->>'view_token');
-    if jr->>'ok' <> 'true' or jr->>'kind' <> 'spot' or jr->>'code' is not null then
-      raise exception 'waitlist self-test 6a: mail_info for a confirmed D gave %', jr; end if;
+    if jr->>'ok' <> 'true' or jr->>'kind' <> 'spot' or jr->>'code' is not null or jr ? 'confirm_token' then
+      raise exception 'waitlist self-test 6a: mail_info for D gave %', jr; end if;
     perform public.waitlist_mark_mailed(array[d_email], 'spot');
     jr := public.waitlist_mail_info(jd->>'view_token');
     if jr->>'ok' <> 'false' or (jr->>'wait_s')::int not between 1 and 900 then
@@ -1852,7 +2306,19 @@ begin
     or has_function_privilege('authenticated', 'public.lynxr_signup_verdict(text,text,text)', 'execute')
     or has_function_privilege('anon',          'public.waitlist_let_in(text)', 'execute')
     or has_function_privilege('authenticated', 'public.waitlist_let_in(text)', 'execute')
-    or has_function_privilege('anon',          'public.staff_waitlist_stats()', 'execute') then
+    or has_function_privilege('anon',          'public.staff_waitlist_stats()', 'execute')
+    or has_function_privilege('anon',          'public.lynxr_wl_credit_friend(text)', 'execute')
+    or has_function_privilege('authenticated', 'public.lynxr_wl_credit_friend(text)', 'execute')
+    or has_function_privilege('anon',          'public.lynxr_wl_uncredit(text)', 'execute')
+    or has_function_privilege('authenticated', 'public.lynxr_wl_uncredit(text)', 'execute')
+    or has_function_privilege('anon',          'public.waitlist_strip(text,text,boolean)', 'execute')
+    or has_function_privilege('authenticated', 'public.waitlist_strip(text,text,boolean)', 'execute')
+    or has_function_privilege('anon',          'public.waitlist_set_name(text,text)', 'execute')
+    or has_function_privilege('authenticated', 'public.waitlist_set_name(text,text)', 'execute')
+    or has_function_privilege('anon',          'public.waitlist_ref_name(text)', 'execute')
+    or has_function_privilege('authenticated', 'public.waitlist_ref_name(text)', 'execute')
+    or has_function_privilege('anon',          'public.lynxr_wl_from_confirm()', 'execute')
+    or has_function_privilege('authenticated', 'public.lynxr_wl_from_confirm()', 'execute') then
       raise exception 'waitlist self-test 10a: a browser role can call a server-only function'; end if;
     if not has_function_privilege('service_role', 'public.waitlist_join(text,text,text,text)', 'execute')
     or not has_function_privilege('authenticated', 'public.staff_waitlist_stats()', 'execute') then
@@ -1898,6 +2364,18 @@ begin
     js := public.waitlist_spot(jd->>'view_token', null);
     if js->'discord' is not null then
       raise exception 'waitlist self-test 11d: with no Discord link the key should be absent, got %', js; end if;
+    begin
+      update public.lynxr_waitlist_settings set credit_when = 'later' where id = 1;
+      raise exception 'waitlist self-test 11e: credit_when accepted a word that is neither join nor open';
+    exception when check_violation then
+      null;
+    end;
+    begin
+      update public.lynxr_waitlist_settings set credit_day = -1 where id = 1;
+      raise exception 'waitlist self-test 11f: credit_day accepted a negative number';
+    exception when check_violation then
+      null;
+    end;
 
     -- 12-13 need two real accounts (to give from, and to be linked to). This project has more than two.
     select array_agg(a.id) into accts from (select au.id from auth.users au order by au.created_at, au.id limit 2) a;
@@ -1946,8 +2424,8 @@ begin
          or (select count(*) from public.lynxr_gift_claims where giver_id = u_id) <> 1 then
         raise exception 'waitlist self-test 12f: a roster address gave % (want account, claims unchanged)', jh; end if;
 
-      jk := public.waitlist_join(gw_email, '', 'selftest', '');                     -- a fresh waitlister, confirmed
-      js := public.waitlist_spot(jk->>'view_token', jk->>'confirm_token');
+      jk := public.waitlist_join(gw_email, '', 'selftest', '');                     -- a fresh waitlister: in line by joining alone
+      js := public.waitlist_spot(jk->>'view_token', null);
       if jk->>'status' is distinct from 'new' or js->>'state' is distinct from 'waiting' then
         raise exception 'waitlist self-test 12g: could not set up the gifted waitlister: % / %', jk, js; end if;
       jh := public.waitlist_gift_claim(gcode, gw_email);
@@ -2006,39 +2484,38 @@ begin
 
       -- 13. crew and title
       jq := public.waitlist_join(r_email, '', 'selftest', '');
-      js := public.waitlist_spot(jq->>'view_token', jq->>'confirm_token');
+      r_tok := jq->>'view_token';  r_code := jq->>'ref_code';
+      js := public.waitlist_spot(r_tok, null);
       if jq->>'status' is distinct from 'new' or js->>'state' is distinct from 'waiting' then
         raise exception 'waitlist self-test 13: could not set up the referrer: % / %', jq, js; end if;
-      jx1 := public.waitlist_join(r1_email, jq->>'ref_code', 'selftest', '');
-      jx2 := public.waitlist_join(r2_email, jq->>'ref_code', 'selftest', '');
-      jx3 := public.waitlist_join(r3_email, jq->>'ref_code', 'selftest', '');
-      if jx1->>'status' is distinct from 'new' or jx2->>'status' is distinct from 'new' or jx3->>'status' is distinct from 'new'
-         or (select count(*) from public.lynxr_waitlist where referred_by = r_email) <> 3 then
-        raise exception 'waitlist self-test 13: the three friends were not tied to the referrer''s link'; end if;
-      js := public.waitlist_spot(jx1->>'view_token', jx1->>'confirm_token');   jall := jall || js;
-      js := public.waitlist_spot(jx2->>'view_token', jx2->>'confirm_token');   jall := jall || js;
-      js := public.waitlist_spot(jq->>'view_token', null);                      jall := jall || js;
+      jx1 := public.waitlist_join(r1_email, r_code, 'selftest', '');
+      jx2 := public.waitlist_join(r2_email, r_code, 'selftest', '');
+      if jx1->>'status' is distinct from 'new' or jx2->>'status' is distinct from 'new'
+         or (select count(*) from public.lynxr_waitlist where referred_by = r_email) <> 2 then
+        raise exception 'waitlist self-test 13: the two friends were not tied to the referrer''s link'; end if;
+      js := public.waitlist_spot(r_tok, null);                                  jall := jall || js;
       if (js->>'crew')::int is distinct from 2 or (js->>'title_crew')::int is distinct from 3 or js->'title' is not null then
         raise exception 'waitlist self-test 13a: after two friends the referrer should have crew 2, no title: %', js; end if;
-      js := public.waitlist_spot(jx3->>'view_token', jx3->>'confirm_token');   jall := jall || js;
-      js := public.waitlist_spot(jq->>'view_token', null);                      jall := jall || js;
-      if (js->>'crew')::int is distinct from 3 or js->>'title' is distinct from 'founding' then
+      jx3 := public.waitlist_join(r3_email, r_code, 'selftest', '');
+      js := public.waitlist_spot(r_tok, null);                                  jall := jall || js;
+      if jx3->>'status' is distinct from 'new' or (js->>'crew')::int is distinct from 3 or js->>'title' is distinct from 'founding' then
         raise exception 'waitlist self-test 13b: after three friends the referrer should be a founding creator: %', js; end if;
       if (select title_at from public.lynxr_waitlist where email = r_email) is null then
         raise exception 'waitlist self-test 13c: the title was given without a title_at'; end if;
       js := public.waitlist_spot(jx1->>'view_token', null);                     jall := jall || js;
       if (js->>'crew')::int is distinct from 0 or js->'title' is not null then
         raise exception 'waitlist self-test 13d: a friend with no crew of their own got % ', js; end if;
+      -- opening r1's page is what seen_at records, so put it back: 13h strips r1 as a friend who never opened their email
+      update public.lynxr_waitlist set seen_at = null where email = r1_email;
       perform public.lynxr_link_account(u_id, r_email);                          -- 13e: the title travels to the account
       if (select title from public.lynxr_members where id = u_id) is distinct from 'founding' then
         raise exception 'waitlist self-test 13e: the waitlist title was not carried to the account'; end if;
 
       update public.lynxr_waitlist_settings set title_crew = 0 where id = 1;      -- 13f: the owner stopped awarding it
       jq := public.waitlist_join(s_email, '', 'selftest', '');
-      js := public.waitlist_spot(jq->>'view_token', jq->>'confirm_token');
+      js := public.waitlist_spot(jq->>'view_token', null);
       for n_i in 1..3 loop
         jx1 := public.waitlist_join('wl-selftest-s' || n_i || '@example.invalid', jq->>'ref_code', 'selftest', '');
-        js := public.waitlist_spot(jx1->>'view_token', jx1->>'confirm_token');
       end loop;
       js := public.waitlist_spot(jq->>'view_token', null);                      jall := jall || js;
       update public.lynxr_waitlist_settings set title_crew = 3 where id = 1;
@@ -2046,8 +2523,63 @@ begin
          or (select title from public.lynxr_waitlist where email = s_email) is not null then
         raise exception 'waitlist self-test 13f: a title was awarded with title_crew = 0: %', js; end if;
 
-      if jall::text ~ '"(email|view_token|confirm_token|code)":' then
+      if jall::text ~ '"(email|view_token|confirm_token|code|just_confirmed)":' then
         raise exception 'waitlist self-test 13g: a spot answer carried a secret: %', jall; end if;
+
+      -- 13h: the staff strip. r's three friends never opened their email: all three credits are taken back and the fakes
+      -- are deleted. The title earned with them goes too, on the waitlist row AND on the account it was carried to.
+      jl := public.waitlist_strip(r_email, 'unseen', true);
+      if (jl->>'stripped')::int is distinct from 3 or (jl->>'dropped')::int is distinct from 3
+         or (jl->>'referrals')::int is distinct from 0 or jl->>'title' is not null
+         or (select title from public.lynxr_waitlist where email = r_email) is not null
+         or (select title from public.lynxr_members where id = u_id) is not null
+         or exists (select 1 from public.lynxr_waitlist where email in (r1_email, r2_email, r3_email))
+         or exists (select 1 from public.lynxr_crew where member_norm in
+                      (public.lynxr_wl_norm(r1_email), public.lynxr_wl_norm(r2_email), public.lynxr_wl_norm(r3_email))) then
+        raise exception 'waitlist self-test 13h: waitlist_strip gave % (want 3 stripped, 3 dropped, 0 referrals, no title, no friends left)', jl; end if;
+      select count(*), count(distinct public.lynxr_wl_position(w.sort_key)), max(public.lynxr_wl_position(w.sort_key))
+        into cnt, dist, mx
+        from public.lynxr_waitlist w
+       where w.confirmed_at is not null and w.released_at is null and w.unsubscribed_at is null;
+      if dist <> cnt or mx <> cnt then
+        raise exception 'waitlist self-test 13h2: positions are not 1..% exactly once after a strip (distinct %, max %)', cnt, dist, mx; end if;
+      -- 13i: nobody to strip, and a scope that does not exist
+      jl := public.waitlist_strip(nobody, 'unseen', false);
+      if jl->>'error' is distinct from 'none' then raise exception 'waitlist self-test 13i: stripping a stranger gave %', jl; end if;
+      jl := public.waitlist_strip(r_email, 'x', false);
+      if jl->>'error' is distinct from 'bad_scope' then raise exception 'waitlist self-test 13i2: a bad scope gave %', jl; end if;
+
+      -- 13j: the invite name
+      jn := public.waitlist_set_name(r_tok, '  Maya  Lee ');
+      if jn->>'ok' is distinct from 'true' or jn->>'name' is distinct from 'Maya' then
+        raise exception 'waitlist self-test 13j: setting a name gave %', jn; end if;
+      if public.waitlist_ref_name(lower(r_code)) is distinct from jsonb_build_object('name', 'Maya')
+         or public.waitlist_spot(r_tok, null)->>'name' is distinct from 'Maya' then
+        raise exception 'waitlist self-test 13j2: the name did not reach ref_name / the spot answer: % / %',
+          public.waitlist_ref_name(lower(r_code)), public.waitlist_spot(r_tok, null); end if;
+      for v in select t from unnest(array['1000', 'a.com', '<b>', repeat('a', 21)]) t loop
+        jn := public.waitlist_set_name(r_tok, v);
+        if jn->>'ok' is distinct from 'false' or jn->>'reason' is distinct from 'bad_name' then
+          raise exception 'waitlist self-test 13j3: the name % was not refused: %', v, jn; end if;
+      end loop;
+      if public.waitlist_ref_name(lower(r_code)) is distinct from jsonb_build_object('name', 'Maya') then
+        raise exception 'waitlist self-test 13j4: a refused name changed the stored one'; end if;
+      jn := public.waitlist_set_name(repeat('0', 32), 'Maya');
+      if jn->>'ok' is distinct from 'false' or jn->>'reason' is distinct from 'none' then
+        raise exception 'waitlist self-test 13j5: an unknown token gave %', jn; end if;
+      begin
+        update public.lynxr_waitlist set display_name = '1x' where email = r_email;
+        raise exception 'waitlist self-test 13j6: the table accepted a name with a digit';
+      exception when check_violation then
+        null;
+      end;
+      jn := public.waitlist_set_name(r_tok, '');
+      if jn->>'ok' is distinct from 'true' or public.waitlist_ref_name(lower(r_code)) is distinct from '{}'::jsonb then
+        raise exception 'waitlist self-test 13j7: clearing the name gave % / %', jn, public.waitlist_ref_name(lower(r_code)); end if;
+      perform public.waitlist_set_name(r_tok, 'Maya');
+      perform public.waitlist_stop(r_tok);
+      if public.waitlist_ref_name(r_code) is distinct from '{}'::jsonb then
+        raise exception 'waitlist self-test 13j8: a name was shown for an entry that left'; end if;
     end if;
 
     -- 14. who may call what (the community layer)
@@ -2064,7 +2596,19 @@ begin
     or has_function_privilege('anon',          'public.lynxr_wl_title_check(text,text,uuid)', 'execute')
     or has_function_privilege('authenticated', 'public.lynxr_wl_title_check(text,text,uuid)', 'execute')
     or has_function_privilege('anon',          'public.lynxr_wl_crew(text,uuid)', 'execute')
-    or has_function_privilege('authenticated', 'public.lynxr_wl_crew(text,uuid)', 'execute') then
+    or has_function_privilege('authenticated', 'public.lynxr_wl_crew(text,uuid)', 'execute')
+    or has_function_privilege('anon',          'public.lynxr_wl_credit_friend(text)', 'execute')
+    or has_function_privilege('authenticated', 'public.lynxr_wl_credit_friend(text)', 'execute')
+    or has_function_privilege('anon',          'public.lynxr_wl_uncredit(text)', 'execute')
+    or has_function_privilege('authenticated', 'public.lynxr_wl_uncredit(text)', 'execute')
+    or has_function_privilege('anon',          'public.waitlist_strip(text,text,boolean)', 'execute')
+    or has_function_privilege('authenticated', 'public.waitlist_strip(text,text,boolean)', 'execute')
+    or has_function_privilege('anon',          'public.waitlist_set_name(text,text)', 'execute')
+    or has_function_privilege('authenticated', 'public.waitlist_set_name(text,text)', 'execute')
+    or has_function_privilege('anon',          'public.waitlist_ref_name(text)', 'execute')
+    or has_function_privilege('authenticated', 'public.waitlist_ref_name(text)', 'execute')
+    or has_function_privilege('anon',          'public.lynxr_wl_from_confirm()', 'execute')
+    or has_function_privilege('authenticated', 'public.lynxr_wl_from_confirm()', 'execute') then
       raise exception 'waitlist self-test 14a: a browser role can call a server-only gift function'; end if;
     if not has_function_privilege('authenticated', 'public.my_gifts()', 'execute')
     or has_function_privilege('anon', 'public.my_gifts()', 'execute') then
@@ -2094,3 +2638,9 @@ notify pgrst, 'reload schema';
 -- (a second notice  "12-13 skipped: needs two accounts"  is fine ONLY on a project with fewer than two accounts).
 -- Two non-internal triggers on auth.users should now exist:  lynxr_signup_gate  and  lynxr_after_signup.
 -- Sign-up behaves exactly as before until you run the one line in the header (plan step 20).
+-- 2026-11-21 revision (no confirmation): the first run also performed the one-time switch (section 1i4). To check it:
+--     select count(*) filter (where confirmed_at is null and unsubscribed_at is null) as unconfirmed,    -- expect 0
+--            count(*) filter (where credit is not null) as decided from public.lynxr_waitlist;
+-- Deploy order is safe either way, recommended: the Edge Function first, then this file, then the front end. The new function
+-- works against the old SQL, and this SQL works with the old function (a new row comes back as kind 'spot', so the old
+-- function sends its "your spot" email with a working link, never a broken confirm email).

@@ -6,7 +6,7 @@ Writes into the repo root (or --out DIR):
   favicon.png            32x32, same faceless X (shown at 16 CSS px on retina tabs)
   favicon.ico            16 faceless; 32 and 48 with the face (OS surfaces at true size)
   apple-touch-icon.png   180x180 opaque, full idle avatar on the dark --bg tile
-  og-v3.png, og-creator-v3.png, og-agency-v3.png   1200x630
+  og-v3.png, og-creator-v3.png, og-agency-v3.png, og-invite.png   1200x630
 
 WHY FACELESS AT 16: rendered and measured on 2026-09-14 -- at 16px the eyes and
 mouth resolve to two pink smudges over the gradient, while the bare X stays
@@ -161,6 +161,8 @@ def main():
         render_og("", out / "og-v3.png", tmp, fonts)
         render_og("creators", out / "og-creator-v3.png", tmp, fonts)
         render_og("agency", out / "og-agency-v3.png", tmp, fonts)
+        # The share link's preview (/join/, owner 2026-11-21): the same lockup, labelled for the friend who opens it.
+        render_og("you're invited", out / "og-invite.png", tmp, fonts)
 
 if __name__ == "__main__":
     main()
