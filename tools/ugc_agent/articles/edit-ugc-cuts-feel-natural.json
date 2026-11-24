@@ -1,0 +1,231 @@
+{
+  "question_id": "a047",
+  "slug": "edit-ugc-cuts-feel-natural",
+  "theme": "ugc-filming",
+  "title": "How do you edit a UGC video so the cuts feel natural?",
+  "description": "How to edit UGC so the cuts feel natural: where to cut a talking clip, how to keep the pace even, and how to hide jump cuts with cutaways.",
+  "short_answer": "Cut a UGC video on the end of a thought, not in the middle of one, and cover any visible jump with a cutaway of the product or your hands. Trim the pauses before and after each line, keep every shot about as long as the words in it, and watch the finished edit with fresh eyes before you send it.",
+  "sections": [
+    {
+      "heading": "Where should you cut a talking clip in a UGC video?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Cut where a sentence finishes and your face settles, so the next clip starts on a fresh thought instead of a half-finished one.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A cut in the middle of a sentence reads as a mistake, because the viewer hears the words break. A cut at the end of a sentence reads as a change of topic, which is what the viewer expects. If you planned the video as a [two-column script](/blog/two-column-script/), each row is a natural cut point: one line said, one thing shown, then the next row.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Cut the breath and the pause before you start speaking, so each clip opens on the first word.",
+            "Leave a few frames after the last word, so the line has room to land before the next one begins.",
+            "Cut on movement when you can, such as a head turn or picking up the product, because the motion carries the eye across the join.",
+            "Avoid cutting while your mouth is still closing on a word, since it makes the edit feel clipped."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you hide a jump cut without it looking edited?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Lay a cutaway over the join, so the viewer is looking at the product or your hands while the talking clip changes underneath.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A jump cut shows when your head shifts position between two takes of the same framing. A short cutaway hides that shift, and it also gives the viewer something new to look at. That only works if you filmed the cutaways, so plan them on your [shot list](/glossary/#shot-list) before filming day. [What B-roll should you film for a UGC video?](/blog/ugc-b-roll/) covers which shots earn their place.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "What the viewer sees",
+            "Why it looks wrong",
+            "Fix in the edit"
+          ],
+          "table_rows": [
+            [
+              "Your head jumps sideways between two lines",
+              "Same framing, slightly different position",
+              "Cover the join with a close-up of the product in your hands"
+            ],
+            [
+              "A line starts with a gasp or an um",
+              "The pause before speaking was left in",
+              "Trim to the first clear word"
+            ],
+            [
+              "The light or background changes mid-video",
+              "Clips from different takes or times",
+              "Swap in a take from the same session, or cut to a cutaway first"
+            ],
+            [
+              "The voice sounds different from one line to the next",
+              "Different distance from the phone",
+              "Use takes recorded at the same distance, or keep the cutaway over the weaker line"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the audio from the talking clip running under the cutaway. When the voice carries on unbroken, the viewer reads the picture change as a choice, not a gap.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How long should each shot stay on screen?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Keep each shot on screen for as long as the words over it take to say, and no longer, so the picture and the line finish together.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "When a shot outlasts its line, the viewer is left watching nothing happen. When a shot is shorter than its line, the picture races ahead of the voice and the viewer stops following either. Treat each [beat](/glossary/#beat) as one unit: its line, its shot, then the cut. Showing the product working is the exception, because the viewer needs time to see it, so let a demo shot breathe a little longer.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Vary the length a little from beat to beat. A run of shots that are all the same length starts to feel like a slideshow, while a mix of short and slightly longer shots feels like someone talking.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you keep the pace even from hook to close?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Make the opening the tightest part of the edit, then let the middle settle into a steady rhythm and give the close one clear moment.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The [hook](/glossary/#hook) has no room for pauses, so trim it hardest. The middle carries the explanation, so it can run at the speed you would talk to a friend. At the close, hold your last shot long enough for the viewer to read any on-screen text and hear the ask. Knowing the job of each [part of a script](/short-form-script-structure/) tells you how fast to cut it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Watch the edit once with the sound off, to check the pictures change at a steady rate on their own.",
+            "Watch it once with your eyes closed, to check the voice flows without odd gaps or doubled words.",
+            "Mark any moment where your attention drifts, and cut there first.",
+            "Leave it for a while and watch it again before sending, because a fresh look catches joins you stopped noticing."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you do when a cut still feels wrong?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Try a different take of the same line before you try a cleverer edit, because swapping a take is quick and leaves the rest of the edit untouched.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Line up the takes of one line side by side and pick the one whose energy matches the clip before it. If none fit, the line may be the problem, so try cutting it altogether and see whether the video still makes sense. If a line from the brief is the one that will not sit, check the [brief](/glossary/#brief) to see whether it must stay, and ask the brand before you drop it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Editing is easier when the footage is in order before you start. [How do you organise UGC footage before you edit?](/blog/organise-ugc-footage/) shows how to label takes so the right one is easy to find. If the join only breaks because the light changed, the guide to [reshooting a single scene to match](/blog/reshoot-a-ugc-scene-to-match/) walks through refilming one line so it fits.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-24",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

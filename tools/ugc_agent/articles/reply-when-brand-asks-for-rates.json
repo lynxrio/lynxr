@@ -1,0 +1,198 @@
+{
+  "question_id": "a050",
+  "slug": "reply-when-brand-asks-for-rates",
+  "theme": "ugc-brand-deals",
+  "title": "How do you reply when a brand asks for your rates first?",
+  "description": "How to reply when a brand asks for your UGC rates first: wording that asks about scope before you quote and keeps the conversation moving.",
+  "short_answer": "Reply to a brand that asks for your rates first by thanking them, asking a few short questions about the job, and promising a quote once you have the answers. Scope decides the work, so a quote built on it is one you can stand behind, and the questions show the brand you take the job seriously.",
+  "sections": [
+    {
+      "heading": "Why ask about the job before you give a rate?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Asking first lets you quote for the actual job, instead of guessing and then having to walk the number back.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Two requests that both say \"one video\" can be very different pieces of work. One may need a single talking clip filmed at home, another several hooks, raw footage and the right to run it as an ad. A rate given before you know which can leave you either underquoted or looking expensive for a simple job. The [brief](/glossary/#brief), or the questions that stand in for one, is what turns a vague request into something you can price. Once you have the details, [turning a brand brief into a script](/blog/brief-to-script/) shows how to read them for the work involved, and the answer on [working out what to charge](/blog/how-to-set-ugc-rates/) covers building the number itself.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you ask the brand before you quote?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Ask only what changes the price: how many videos, what goes in them, how the brand will use them and by when.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Question to ask",
+            "Why it changes the quote"
+          ],
+          "table_rows": [
+            [
+              "How many videos, and how many versions of the hook?",
+              "Each extra [hook](/glossary/#hook) is more filming and editing"
+            ],
+            [
+              "Is there a script, or do you want me to write one?",
+              "Writing the script is a separate piece of work"
+            ],
+            [
+              "Do you need raw footage as well as the edit?",
+              "Raw files take time to sort and hand over"
+            ],
+            [
+              "Where will the videos run, and for how long?",
+              "Paid use is worth agreeing separately from an organic post"
+            ],
+            [
+              "When do you need the finished files?",
+              "A short deadline can mean moving other work"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep the list short. Four or five questions show you know the work, while a long questionnaire can make a small job feel like a lot of effort for the brand.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a good reply look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A good reply is warm, short and specific: it thanks the brand, asks your questions in a list and says when the quote will follow.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hi [NAME], thanks for reaching out about [PRODUCT], I would love to make this with you.",
+            "So I can send you an accurate quote, could you tell me how many videos you need, whether you have a script, whether you want raw footage, and where the videos will run?",
+            "If you have a brief or a reference video, send that over and I can work from it.",
+            "Once I have those details I will send a quote with what is included the same day."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Only promise a turnaround you can keep. If you can't reply the same day, name the [DATE] you will. Ending on a clear next step keeps the thread open, which is the point of the reply.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What if the brand still wants a number first?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Give a starting point for a clearly defined basic package, so the brand has a figure to work with and you have not committed to the full job.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Spell out what the starting rate covers, such as one edited video, one hook and organic use only, and say that extras are quoted once you know the scope. A [rate card](/blog/ugc-rate-card/) makes this easy, because you can send the basic package and keep the add-ons separate. You could write: my starting rate for one edited video with one hook for organic use is [AMOUNT]. Extra hooks, raw footage and paid use are priced on top, and I can confirm the total once I know what you need.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the brand pushes back on the number, [how do you explain your UGC rate to a brand?](/blog/explain-your-ugc-rate/) helps you talk through what it includes without dropping it on the spot.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "When should you walk away instead of quoting?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Walk away when the brand will not share any detail about the job, because you cannot price or plan work that has no shape.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Refusing to say how many videos or how they will be used makes the job hard to quote fairly. Before you decide, check the request against the signs of [a deal that isn't worth taking](/blog/spot-a-bad-ugc-deal/). If you pass, do it politely and leave the door open, so the brand can come back with a clearer request later. A single line works: thanks for thinking of me, I will need a little more detail to quote, so feel free to get back in touch when the brief is ready.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-24",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}
