@@ -5,7 +5,7 @@ Source of the art: the owner's logo kit v2, ~/Lynxr-redesign/logo-kit-v2/lynxr-l
 is copied below exactly (viewBox 0 0 400 400, tight logo box 50 55 300 300); nothing is redrawn by eye.
 
 Writes into the repo root (or --out DIR):
-  favicon.svg            tab icon: the kit's favicon art (ink rounded tile, white guy, thicker eyes that survive 16 px)
+  favicon.svg            tab icon: the bare white guy, a thin ink ring, transparent (no tile, owner 2026-11-26)
   favicon.png            32x32, the same art
   favicon.ico            48, 32 and 16, the same art
   apple-touch-icon.png   180x180 opaque: the kit's app icon (full-bleed ink, white guy; iOS rounds the corners)
@@ -61,10 +61,14 @@ def guy_g(body, eye, eyes=EYES, sw=22.5):
     return (f'<path d="{CIRCLE}" fill="{body}"/><g fill="none" stroke="{eye}" stroke-width="{sw}" '
             f'stroke-linecap="round" stroke-linejoin="round">{pl}</g>')
 
-def favicon_svg(px):     # the kit's svg/favicon.svg
+def favicon_svg(px):     # the tab icon: the bare circle (owner, 2026-11-26: "get rid of the black square around the circle")
+    # No ink tile any more: the guy fills the box on a transparent ground. A thin ink ring (18 units, about 1px at 16px)
+    # keeps the soft-white body visible on a white tab or a white search page; on a dark tab it disappears into it.
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{px}" height="{px}" viewBox="0 0 64 64">'
-            f'<rect width="64" height="64" rx="14" fill="{GUY_INK}"/>'
-            f'<g transform="translate(32,32) scale(0.18) translate(-200,-205)">{guy_g(GUY_WHITE, GUY_INK, FAV_EYES, 34)}</g></svg>\n')
+            f'<g transform="translate(32,32) scale(0.2) translate(-200,-205)">'
+            f'<path d="{CIRCLE}" fill="{GUY_WHITE}" stroke="{GUY_INK}" stroke-width="18"/>'
+            f'<g fill="none" stroke="{GUY_INK}" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">'
+            + "".join(f'<polyline points="{q}"/>' for q in FAV_EYES) + '</g></g></svg>\n')
 
 def app_icon_svg(px):    # the kit's svg/app-icon.svg: full bleed, no corner rounding
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{px}" height="{px}" viewBox="0 0 1024 1024">'
