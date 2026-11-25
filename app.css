@@ -14612,7 +14612,7 @@ html:not([data-look="v1"]), html:not([data-look="v1"]) body, html:not([data-look
      The probe will flag the join buttons; that is expected. The pink above is superseded. */
   /* "make this orange more vibrant" (owner, same day): #e29a2e -> #f58a14; then "vibrant but lighter": #ff9f2e, white on
      it is 2.02:1. */
-  --act: #ff9f2e; --act-hov: #f5901c; --act-glow: rgba(255, 159, 46, .45);
+  --act: #ff9f2e; --act-hov: #ffaa45; --act-glow: rgba(255, 159, 46, .45);
   --on-act: #fefdff; --off-bg: #ebe9ef; --off-t: #77738a;
 }
 /* SUPERSEDED 2026-11-25 (the press colour is ochre with white text now, see the tokens). History: A KNOWN, ACCEPTED CONTRAST EXCEPTION: white on #ff7eb8 measures 2.32:1, under the 4.5:1 line for 16px text.
@@ -15285,4 +15285,277 @@ html body.home .lp-rush { cursor: default; pointer-events: none; }
 @media (max-width: 640px) {
   html body.home .lp-ring, html body.home .lp-ring:hover, html body.home .lp-ring:active { transform: rotate(76deg); }
   html body.home .lp-ring:active img { transform: none; }
+}
+/* HOVER GETS LIGHTER (owner, 2026-11-26: "when i hover, have it get lighter"): --act-hov went #f5901c (a darker orange)
+   -> #ffb65e, then "just slight and add a fade in out": #ffaa45, fading .3s both ways. White on it is about 1.9:1, the same
+   accepted exception as the resting button. */
+html:not([data-look="v1"]) .btn { transition: transform .12s var(--ease, ease), box-shadow .12s var(--ease, ease), background-color .3s ease-in-out; }
+@media (prefers-reduced-motion: reduce) { html:not([data-look="v1"]) .btn { transition: none; } }
+/* ================= THE NIGHT ON EVERY SUBPAGE (owner, 2026-11-26: "go into all the subpages and apply our theme to it.
+   like why is the blog page still white") =================
+   Every public page except the landing carries body.night (the blog and its articles, the FAQ, the guides, about,
+   how it works, pricing, the legal pages, 404, waitlist and join). The landing keeps its own rules; the creator app
+   (body.lp without .home) and the agency app never get .night, so they stay light. tools/ugc_agent/render.py copies
+   the model page's <body> tag, so new articles inherit it.
+   Same look as the landing's body: the #212227 night with the drifting star dots, soft-white words, no white bubbles.
+   The sections become full-width bands divided by a hairline, the bar is the dark page with light words, and the
+   tokens flip so links, lines, tables and fields follow. The orange join button is unchanged. */
+html:not([data-look="v1"]) body.night {
+  color-scheme: dark; background: #212227; color: #eeedf5;
+  --bg: #212227; --surface: #2a2b31; --surface-flat: #2a2b31; --surface-2: #303138;
+  --glass: #2a2b31; --glass-solid: #212227; --hover: #ffffff0f;
+  --line: #ffffff14; --line-2: #ffffff33; --field-edge: #6e6c7c;
+  --text: #eeedf5; --text-2: #c9c7d6; --text-3: #a9a7b9;
+  --accent: #b9a0ff; --focus-ring: #b9a0ff; --info: #b9a0ff; --info-t: #2f2a45;
+  --good: #6fe0a0; --good-t: #1f3329; --even: #e8b866; --bad: #ff8f8a;
+  --sh-1: none; --sh-2: none; --sh-3: none; --shadow-card: none; --shadow-pop: none; --g-shadow: none; --g-shadow-lift: none;
+  --glass-edge: var(--line); --glass-hi: transparent; --glass-shadow: transparent;
+  --gl-fill: #2a2b31; --gl-edge: var(--line); --gl-shadow: none; --gl-well-fill: #2a2b31; --gl-well-edge: var(--line);
+  --tile-chip: #2a2b31; --tile-chip-edge: var(--line); --tile-chip-shadow: none;
+  --beat-bg: #2a2b31; --callout-bg: #2a2b31; --callout-edge: var(--line);
+  --ico-grad: #2f2a45; --ico-on-grad: #b9a0ff; --lbl-say-bg: #b9a0ff1f; --lbl-do-bg: #ffffff0f;
+  --lpc-white: #2a2b31; --off-bg: #3a3b42; --off-t: #9c9aae;
+  --lx-body: #f2f2f0; --lx-eye: #141414;
+}
+html:not([data-look="v1"]) body.night::before {
+  background-color: #212227;
+  background-image:
+    radial-gradient(circle at 17% 23%, rgba(238, 237, 245, .55) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 71% 64%, rgba(238, 237, 245, .4) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 42% 88%, rgba(238, 237, 245, .3) 0 .8px, transparent 1.4px),
+    radial-gradient(circle at 88% 12%, rgba(238, 237, 245, .45) 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 5% 57%, rgba(238, 237, 245, .35) 0 1px, transparent 1.6px);
+  background-size: 211px 197px, 263px 241px, 151px 163px, 331px 307px, 419px 389px;
+  animation: lp-stars-drift 180s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) { html:not([data-look="v1"]) body.night::before { animation: none; } }
+/* the bar: the dark page itself, light words, a hairline under it */
+html:not([data-look="v1"]) body.night .lp-bar,
+html:not([data-look="v1"]) body.night .lp-bar.is-scrolled { background: #212227; border-bottom: 1px solid #ffffff14; color: #eeedf5; }
+html:not([data-look="v1"]) body.night .lp-bar-in { background: transparent; border-color: transparent; box-shadow: none; }
+html:not([data-look="v1"]) body.night .lp-bar .wordmark { color: #f2f2f0; }
+html:not([data-look="v1"]) body.night .lp-nav a:not(.btn), html:not([data-look="v1"]) body.night .lp-menu > a:not(.btn) { color: #c9c7d6; }
+html:not([data-look="v1"]) body.night .lp-nav a:not(.btn):hover { color: #eeedf5; }
+/* no bubbles: every section of a content page and of a legal page is a band on the night, a hairline between them */
+html:not([data-look="v1"]) body.night > main:not(.legal) > :is(.lp-hero, .lp-sec, .lp-band, .lp-final),
+html:not([data-look="v1"]) body.night main.legal:has(> section) > section {
+  background: transparent; border: 0; border-top: 1px solid #ffffff14; border-radius: 0; box-shadow: none;
+}
+html:not([data-look="v1"]) body.night > main:not(.legal) > :first-child,
+html:not([data-look="v1"]) body.night main.legal:has(> section) > section:first-child { border-top: 0; }
+/* words and links */
+html:not([data-look="v1"]) body.night :is(h1, h2, h3, h4, .lp-h1, .lp-h2, strong, b) { color: #eeedf5; }
+html:not([data-look="v1"]) body.night :is(p, li, dd, dt, td, th, .lp-lede, .lp-seclede, figcaption) { color: #c9c7d6; }
+html:not([data-look="v1"]) body.night main a:not(.btn) { color: #eeedf5; text-decoration-color: #ffffff4d; border-bottom-color: #ffffff4d; }
+html:not([data-look="v1"]) body.night main a:not(.btn):hover { text-decoration-color: #eeedf5; border-bottom-color: #eeedf5; }
+html:not([data-look="v1"]) body.night :is(.legal-date, .post-meta, small) { color: #a9a7b9; }
+/* the footer: a full-width dark band, like the landing's */
+html:not([data-look="v1"]) body.night > #site-footer {
+  width: 100%; max-width: none; margin: 0; border: 0; border-top: 1px solid #ffffff14; border-radius: 0; box-shadow: none;
+  background: transparent; padding-left: clamp(16px, 5vw, 80px); padding-right: clamp(16px, 5vw, 80px);
+}
+html:not([data-look="v1"]) body.night #site-footer .foot-wordmark { color: #f2f2f0; }
+html:not([data-look="v1"]) body.night #site-footer :is(.foot-brand p, .foot-link) { color: #b9b7c9; }
+html:not([data-look="v1"]) body.night #site-footer .foot-link:hover { color: #eeedf5; border-bottom-color: #ffffff33; }
+html:not([data-look="v1"]) body.night #site-footer :is(.foot-label, .foot-legal) { color: #9c9aae; }
+html:not([data-look="v1"]) body.night #site-footer .foot-grid { border-bottom-color: #ffffff14; }
+html:not([data-look="v1"]) body.night #site-footer .fw-ch.spin { color: #8e8ca2; }
+/* controls on the night get the light violet focus ring (6.1:1), as on the landing */
+html:not([data-look="v1"]) body.night :focus-visible { outline-color: #b9a0ff; }
+/* EVERY SECTION IS A VIDEO (owner, 2026-11-26: "for each section ... eventually just be a video", "horizontal videos"):
+   a 16:9 frame, whole (never cut by the band's edge, since people watch it), centred in its half on a desktop and full
+   width on a phone. Until a cut exists it is the launch placeholder's panel: one step lighter than the night, a hairline
+   edge, the white guy and one line. The desktop split goes 58/42 toward the video so the frame is big enough to watch. */
+body.lp.home .lp-how-card:has(> .lp-art-video) { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+body.lp.home .lp-how-card:nth-child(even):has(> .lp-art-video) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
+body.lp.home .lp-art-video { display: flex; align-items: center; justify-content: center; padding: clamp(32px, 4vw, 64px) clamp(16px, 3vw, 48px); }
+body.lp.home .lp-how-vid {
+  width: 100%; max-width: 760px; aspect-ratio: 16 / 9; box-sizing: border-box; overflow: hidden;
+  border-radius: clamp(16px, 1.6vw, 24px); background: #33343b; border: 1px solid #ffffff1f;
+}
+body.lp.home .lp-how-vid-ph { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+body.lp.home .lp-how-vid .lp-ph-guy { width: 64px; height: 64px; --gw: 64px; }
+body.lp.home .lp-how-vid-t { margin: 0; color: #b9b7c9; font-size: 15px; font-weight: 600; }
+@media (max-width: 640px) {
+  html body.lp.home .lp-how-card:has(> .lp-art-video) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; }
+  body.lp.home .lp-art-video { padding: 32px 16px 0; }
+  body.lp.home .lp-how-vid { border-radius: 16px; }
+  body.lp.home .lp-how-vid .lp-ph-guy { width: 48px; height: 48px; --gw: 48px; }
+  body.lp.home .lp-how-vid { gap: 10px; }
+}
+/* THE VIDEO IN FOCUS (owner, 2026-11-26: "once i scroll to a certain threshold that video that is in the section is
+   emphasized, like the colors are normal and the video box is bigger", "the sections that are kinda on screen but
+   arent in the threshold have ... the video faded and the box isnt emphasized"). home.js howFocus puts .is-focus on the
+   card whose video crosses the middle band of the screen and .lp-how--focus on the list; until it runs (or without JS)
+   every video shows in full. Out of focus: the frame shrinks to 86%, drops its colour and fades; its words fade a little.
+   In focus: full size, full colour. The change eases over .5s; under reduced motion only the fade remains, instant. */
+body.lp.home .lp-how--focus .lp-how-vid {
+  transform: scale(.9); filter: grayscale(1); opacity: .5;
+  transition: transform .8s cubic-bezier(.25, .8, .3, 1), filter .8s ease, opacity .8s ease;
+}
+body.lp.home .lp-how--focus .lp-how-text { opacity: .55; transition: opacity .8s ease; }
+body.lp.home .lp-how--focus .lp-how-card.is-focus .lp-how-vid { transform: none; filter: none; opacity: 1; }
+body.lp.home .lp-how--focus .lp-how-card.is-focus .lp-how-text { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  body.lp.home .lp-how--focus .lp-how-vid { transform: none; transition: none; }
+  body.lp.home .lp-how--focus .lp-how-text { transition: none; }
+}
+/* NO LINES BETWEEN SECTIONS (owner, 2026-11-26: "get rid of the horizontal lines that section off the sections"): the
+   landing's bands, its footer and every subpage's bands run into each other on the night with no hairline. */
+html:not([data-look="v1"]) body.lp.home .lp-how-card,
+html:not([data-look="v1"]) body.lp.home .lp-how-card:last-child { border-top: 0; border-bottom: 0; }
+html:not([data-look="v1"]) body.lp.home #lp-main > #site-footer,
+html:not([data-look="v1"]) body.night > #site-footer { border-top: 0; }
+html:not([data-look="v1"]) body.night > main:not(.legal) > :is(.lp-hero, .lp-sec, .lp-band, .lp-final),
+html:not([data-look="v1"]) body.night main.legal:has(> section) > section { border-top: 0; }
+/* fixes from the first look (2026-11-26): the bar loses its hairline too (no lines between parts of the page); on a phone
+   the even cards' two-column rule out-specified the one-column one, so the phone rule is made as specific; the how it
+   works switch's lit half is the soft white pill with near-black words, since its words turned light with the night. */
+html:not([data-look="v1"]) body.night .lp-bar,
+html:not([data-look="v1"]) body.night .lp-bar.is-scrolled { border-bottom: 0; }
+@media (max-width: 640px) {
+  html body.lp.home .lp-how-card:nth-child(n):has(> .lp-art-video) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; }
+}
+html:not([data-look="v1"]) body.night .hiw-switch { background: #2a2b31; }
+html:not([data-look="v1"]) body.night .hiw-switch a { color: #c9c7d6; }
+html:not([data-look="v1"]) body.night .hiw-switch a[aria-current="page"] { background: #f2f2f0; color: #141414; box-shadow: none; }
+/* THE JOIN CARD AS A FILL-IN-THE-BLANK (owner, 2026-11-26: "have it be like this style of fill in the blank [an
+   Instagram post: a form written as one sentence, blanks underlined inside it], but our style"). On the landing, while
+   the join card ("wait") shows: no white card, the night behind it; the guy and the word stay; the small "join the
+   waitlist" line goes (the sentence says it); the sentence is big, bold and soft white, its blank an underline in the
+   same words' size that grows with what's typed (field-sizing; a fixed 10ch where unsupported). Typed text is soft
+   white, the placeholder a quiet grey, the underline brightens on focus and turns the error red on a bad address. The
+   orange button stays the one thing to press, full width under the sentence. */
+html:not([data-look="v1"]) body.lp.home #gate > .gate-card:has(> .gate-wait:not([hidden])) {
+  max-width: 640px; background: none; border: 0; box-shadow: none; color: #eeedf5;
+}
+html:not([data-look="v1"]) body.lp.home #gate > .gate-card:has(> .gate-wait:not([hidden])) > .tagline { display: none; }
+html:not([data-look="v1"]) body.lp.home #gate > .gate-card:has(> .gate-wait:not([hidden])) .wordmark { color: #f2f2f0; }
+html:not([data-look="v1"]) body.lp.home #gate > .gate-card:has(> .gate-wait:not([hidden])) :is(.gate-switch, .gate-other) { color: #b9b7c9; }
+html:not([data-look="v1"]) body.lp.home #gate > .gate-card:has(> .gate-wait:not([hidden])) :is(.gate-switch, .gate-other) :is(a, .linkish) { color: #eeedf5; }
+html:not([data-look="v1"]) body.lp.home #gate .gate-wait .wl-promise { color: #a9a7b9; }
+html:not([data-look="v1"]) body.lp.home #gate .gate-wait .wl-promise a { color: #c9c7d6; border-bottom-color: #ffffff4d; }
+#gate #wl-form.wl-mad { display: block; }
+#gate .wl-mad-line {
+  margin: 8px 0 28px; font-size: clamp(26px, 3.4vw, 38px); font-weight: 800; line-height: 1.55; letter-spacing: -.02em;
+  color: #eeedf5; text-align: center; text-wrap: balance;
+}
+#gate #wl-form.wl-mad input#wl-email {
+  display: inline-block; vertical-align: baseline; box-sizing: content-box;
+  min-width: 10ch; max-width: 100%; field-sizing: content;
+  height: auto; margin: 0 .25em; padding: 0 .15em .05em; font: inherit; letter-spacing: inherit; color: #eeedf5;
+  background: none; border: 0; border-bottom: 3px solid #ffffff59; border-radius: 0; box-shadow: none; outline: 0;
+  text-align: center; transition: border-color .25s ease-in-out;
+}
+#gate #wl-form.wl-mad input#wl-email::placeholder { color: #77758a; opacity: 1; }
+#gate #wl-form.wl-mad input#wl-email:focus { border-bottom-color: #eeedf5; }
+#gate #wl-form.wl-mad input#wl-email:focus-visible { outline: 2px solid #b9a0ff; outline-offset: 4px; border-radius: 4px; }
+#gate #wl-form.wl-mad input#wl-email[aria-invalid="true"] { border-bottom-color: #ff8f8a; }
+#gate #wl-form.wl-mad #wl-go { width: 100%; }
+@media (prefers-reduced-motion: reduce) { #gate #wl-form.wl-mad input#wl-email { transition: none; } }
+@media (max-width: 640px) {
+  #gate .wl-mad-line { font-size: 26px; margin-bottom: 22px; }
+  #gate #wl-form.wl-mad input#wl-email { min-width: 6ch; }
+}
+/* the sentence's first clause on its own line, so the blank always starts the second; the disabled join button is a
+   dark step on the night (not a bright grey pill), still plainly disabled */
+#gate .wl-mad-1 { display: block; }
+#gate .wl-mad-line { text-wrap: wrap; }
+html:not([data-look="v1"]) body.lp.home { --off-bg: #3a3b42; --off-t: #a9a7b9; }
+/* the join card trimmed (owner, 2026-11-26: "remove whatever we dont need"): the one-line promise sits close under the
+   button and the sign-in line close under it, no empty band between them */
+html:not([data-look="v1"]) body.lp.home #gate > .gate-card:has(> .gate-wait:not([hidden])) .wl-promise { margin-top: 12px; font-size: 13px; }
+html:not([data-look="v1"]) body.lp.home #gate > .gate-card:has(> .gate-wait:not([hidden])) .gate-switch { margin-top: 20px; }
+html:not([data-look="v1"]) body.lp.home #gate > .gate-card:has(> .gate-wait:not([hidden])) .gate-wait ~ :is(.gate-other, .gate-consent):not([hidden]) { margin-top: 8px; }
+/* THE SECTIONS, SMOOTHER (owner, 2026-11-26: "the scroll for the sections look weird and feels off, make it better").
+   The CSS snap (it grabbed the page mid-swipe and fought trackpad momentum) and the on/off class swap are gone.
+   home.js howFocus now sets --f on each card every frame, 0 far from the middle of the screen and 1 at it, eased, with
+   a small fully-lit zone in the middle; the frame's size, colour and fade follow it continuously, so nothing jumps.
+   The hold is a gentle settle instead: when scrolling stops with a video near the middle, the page glides it to the
+   centre; keep scrolling and it simply moves on. Under reduced motion every card is fully lit and nothing settles. */
+body.lp.home .lp-how--focus .lp-how-card { --f: 0; }
+body.lp.home .lp-how--focus .lp-how-vid,
+body.lp.home .lp-how--focus .lp-how-card.is-focus .lp-how-vid {
+  transform: scale(calc(.9 + .1 * var(--f))); filter: grayscale(calc(1 - var(--f))); opacity: calc(.45 + .55 * var(--f));
+  transition: none; will-change: transform, opacity;   /* home.js eases --f itself; a CSS transition on top stutters */
+}
+body.lp.home .lp-how--focus .lp-how-text,
+body.lp.home .lp-how--focus .lp-how-card.is-focus .lp-how-text { opacity: calc(.5 + .5 * var(--f)); transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  body.lp.home .lp-how--focus .lp-how-card { --f: 1; }
+  body.lp.home .lp-how--focus :is(.lp-how-vid, .lp-how-text) { transition: none; }
+}
+/* the sentence is now just "hi lynxr, email me at ____ when it's my turn!" (owner, 2026-11-26), and the blank is longer
+   ("so users can see their full email once they put it in"): its own line, at least 16ch (about 26 characters of a
+   typical address in this face) and growing to the sentence's full width; a longer address scrolls inside it. */
+#gate .wl-mad-line { margin-top: 0; }
+#gate #wl-form.wl-mad input#wl-email { display: block; margin: .15em auto .2em; min-width: min(16ch, 100%); }
+/* "remove the screen lock" (owner, 2026-11-26): the settle in home.js is gone too; the page scrolls freely and only the
+   emphasis follows it, eased in home.js (see THE VIDEO IN FOCUS, SMOOTH). */
+/* the blank, full width (owner, 2026-11-26: "make the blank longer so users can see their full email"): it spans the
+   whole sentence (no growing, which pushed the phone card off the screen), and its letters are a step smaller than the
+   sentence's so a typical full address fits: about 34 characters on a 390px phone, 40+ on a desktop. Longer ones scroll
+   inside it. */
+#gate #wl-form.wl-mad input#wl-email {
+  field-sizing: fixed; width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; font-size: .72em;
+  padding: .1em 0 .12em; margin: .2em 0 .3em;
+}
+html:not([data-look="v1"]) body.lp.home #gate > .gate-card:has(> .gate-wait:not([hidden])) { width: 100%; min-width: 0; box-sizing: border-box; }
+#gate .gate-wait, #gate #wl-form.wl-mad, #gate .wl-mad-line { min-width: 0; max-width: 100%; }
+@media (max-width: 640px) { #gate #wl-form.wl-mad input#wl-email { font-size: 18px; } }   /* 20px clipped a 28-character address at 390px */
+/* THE CLOSING GIF (owner, 2026-11-26: "replace the we let people in 100 at a time. have it be this gif"): the One Piece
+   cheer sits where the line was, centred over the join button, in its own 5:4 shape with soft corners. 280px wide on a
+   desktop, 62% of a phone's width (at most 240px). */
+body.lp.home .lp-close-gif { display: block; width: min(280px, 62vw); margin: 0 auto clamp(20px, 3vw, 28px); }
+body.lp.home .lp-close-gif img { display: block; width: 100%; height: auto; border-radius: 0; }   /* square (owner, "no need to round the corners") */
+@media (max-width: 640px) { body.lp.home .lp-close-gif { width: min(240px, 62vw); } }
+/* the blank grows again, within limits (owner, 2026-11-26: "the line is too long now, have it just grow with the person
+   putting in the text up until a reasonable length"): back inline in the sentence, 10ch empty, widening with each
+   character (home.js wlBlank sets the width) up to 30ch or the line's width, whichever is less; past that it scrolls.
+   Its letters stay a step smaller than the sentence's, so a whole address fits before the cap. */
+#gate #wl-form.wl-mad input#wl-email { display: inline-block; width: 10ch; min-width: 0; max-width: min(30ch, 100%); margin: 0 .2em; }
+/* GIFS KEEP SQUARE CORNERS (owner, 2026-11-26: "for the gifs no need to round the corners"): every animated picture on
+   the landing (the hamster/cat, the Power Rangers, the pigeon and the One Piece cheer) shows its plain rectangle. */
+html body.home :is(.lpf-pic, .lp-chad, .lp-chad img, .lp-close-gif, .lp-close-gif img) { border-radius: 0; }
+/* THE CLOSE, SIDE BY SIDE (owner's marks, 2026-11-26: the GIF moved left into the box drawn beside it, the join button
+   moved up to the right of it, level with his open mouth). Desktop and tablet: a row, the GIF (300px, 5:4) on the left,
+   the button to its right, its middle at 62% of the GIF's height; the pair is centred. Phones keep the stack (GIF over
+   the full-width button): side by side is too narrow there. */
+@media (min-width: 641px) {
+  html body.home #lp-main > .lp-close > .lp-in {
+    --gw: 300px; display: flex; flex-direction: row; justify-content: center; align-items: flex-start; gap: clamp(20px, 3vw, 40px);
+  }
+  html body.home #lp-main > .lp-close .lp-close-gif { width: var(--gw); margin: 0; flex: 0 0 auto; }
+  html body.home #lp-main > .lp-close .lp-close-cta { margin-top: calc(var(--gw) * .8 * .62 - 26px); flex: 0 0 auto; }
+}
+/* MEMES AND GIFS, SQUARE (owner, 2026-11-26: "unround the corners of the memes"). The rule above lost to the older
+   html body.home .lpf-img.lpf-pic (14px), so this one is as specific: every meme and GIF on the landing (the shocked
+   meme, the hamster/cat, the Power Rangers, the distracted-boyfriend meme, the pigeon, the One Piece cheer) shows its
+   plain rectangle. The placeholder video tiles keep their rounded frames. */
+html body.home .lpf-img.lpf-pic,
+html body.home .lp-hold, html body.home .lp-hold img,
+html body.home .lp-chad, html body.home .lp-chad img,
+html body.home .lp-close-gif, html body.home .lp-close-gif img { border-radius: 0; }
+/* THE CLOSE, SIDE BY SIDE ON A PHONE TOO (owner, 2026-11-26: "same thing for mobile"): the GIF on the left at 50% of the
+   row, the join button beside it, its middle level with his mouth (62% of the GIF's height), a 12px gap. The button
+   loses its full width here (the owner's layout) but keeps a 48px height, over the 44px minimum. */
+@media (max-width: 640px) {
+  html body.home #lp-main > .lp-close > .lp-in {
+    display: flex; flex-direction: row; justify-content: center; align-items: flex-start; gap: 12px;
+    padding-left: 16px; padding-right: 16px;
+  }
+  html body.home #lp-main > .lp-close .lp-close-gif { width: 50%; max-width: 220px; margin: 0; flex: 0 0 auto; }
+  html body.home #lp-main > .lp-close .lp-close-cta {
+    width: auto; flex: 1 1 auto; max-width: 200px; min-width: 0; min-height: 48px; padding: 0 14px; font-size: 15px;
+    margin-top: calc(min(50vw - 22px, 220px) * .8 * .62 - 24px);
+  }
+}
+/* PHONE SECTIONS: WORDS FIRST, CENTRED (owner, 2026-11-26: "for mobile section have the text be first then the
+   videos", "fix this horizontal positioning"). The older phone rule kept the column at 100% - 32px while the full-width
+   band rule pinned it to the left edge, so every card sat 16px left of centre: the column is the full width again and
+   the video carries its own 16px gutters. Each card is the statement, then its video under it. */
+@media (max-width: 640px) {
+  html body.home #lp-main > #lp-how > .lp-in { width: 100%; margin: 0; }
+  html body.lp.home .lp-how-card:nth-child(n) > .lp-art-video { order: 2; padding: 0 16px 40px; }
+  html body.lp.home .lp-how-card:nth-child(n):has(> .lp-art-video) > .lp-how-text { order: 1; padding: 40px 24px 20px; }
 }

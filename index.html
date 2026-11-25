@@ -75,15 +75,15 @@
 <meta name="twitter:description" content="Paste a link. Get a script for your next UGC video, written for the brand you make it for.">
 <meta name="twitter:image" content="https://lynxr.io/og-v5.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261129d">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261129d">
-<link rel="shortcut icon" href="/favicon.ico?v=20261129d">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261129d">
-<link rel="manifest" href="/site.webmanifest?v=20261129d">
-<script src="/lynxr-guy.js?v=20261129d" defer></script>
-<link rel="stylesheet" href="/app.css?v=20261129d">
-<script src="/theme.js?v=20261129d"></script>
-<script src="/backdrop.js?v=20261129d" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261129t">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261129t">
+<link rel="shortcut icon" href="/favicon.ico?v=20261129t">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261129t">
+<link rel="manifest" href="/site.webmanifest?v=20261129t">
+<script src="/lynxr-guy.js?v=20261129t" defer></script>
+<link rel="stylesheet" href="/app.css?v=20261129t">
+<script src="/theme.js?v=20261129t"></script>
+<script src="/backdrop.js?v=20261129t" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -453,23 +453,22 @@
        edge (top or outer side), never by the words. Facts only: no invented creators, numbers, reviews, results or
        scripts, and the coach (still "coming soon" in the app) is not claimed. The heading is for screen readers; the
        cards speak for themselves on screen. id="lp-how", NOT "how": body.home #how carries old padding rules. -->
+  <!-- EVERY SECTION IS A VIDEO (owner, 2026-11-26: "for each section, starting with the first, i want it to
+       eventually just be a video that we put out that people watch and can understand the applications for lynxr";
+       "horizontal videos"). Each card holds a 16:9 frame in the launch placeholder's look until its cut exists; the
+       one nearest the middle of the screen is in full colour and full size, the others fade (home.js howFocus). When a
+       cut exists, put a <video controls playsinline> in place of that card's .lp-how-vid-ph and drop aria-hidden from its
+       .lp-how-art (a real video is content). The old drawn pictures are in git history. -->
   <section class="lp-sec lp-how" id="lp-how" aria-labelledby="lp-how-h">
     <div class="lp-in">
       <h2 class="sr-only" id="lp-how-h">What lynxr is and how it works</h2>
       <ol class="lp-how-list">
         <li class="lp-how-card">
-          <div class="lp-how-art lp-art-phone" aria-hidden="true">
-            <span class="lp-ph">
-              <span class="lp-ph-screen">
-                <span class="lp-ph-msg lp-ph-link">tiktok.com/@name/video/…</span>
-                <span class="lp-ph-script">
-                  <span class="lp-ph-row"><b>say</b><i class="lp-lead"></i></span>
-                  <span class="lp-ph-row"><b>do</b><i></i></span>
-                  <span class="lp-ph-row"><b>show</b><i></i></span>
-                </span>
-                <span class="lp-ph-compose"><span>paste a link</span><span class="lp-ph-send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></span>
-              </span>
-            </span>
+          <div class="lp-how-art lp-art-video" aria-hidden="true">
+            <div class="lp-how-vid lp-how-vid-ph">
+              <svg class="lp-ph-guy lx-guy" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
+              <p class="lp-how-vid-t">Video coming soon</p>
+            </div>
           </div>
           <div class="lp-how-text">
             <h3 class="lp-how-t">Turn videos into <span class="acr">UGC</span> scripts.</h3>
@@ -477,12 +476,11 @@
           </div>
         </li>
         <li class="lp-how-card">
-          <div class="lp-how-art lp-art-links" aria-hidden="true">
-            <svg class="mark lx-guy--black lx-guy-still" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><path d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g fill="none" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5"/><polyline points="224,227.5 257.8,182.5 291.5,227.5"/></g></svg>
-            <span class="lp-lks">
-              <span class="lp-lk"><span class="lp-lk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>tiktok.com/@name/video/…</span>
-              <span class="lp-lk"><span class="lp-lk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>instagram.com/reel/…</span>
-            </span>
+          <div class="lp-how-art lp-art-video" aria-hidden="true">
+            <div class="lp-how-vid lp-how-vid-ph">
+              <svg class="lp-ph-guy lx-guy" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
+              <p class="lp-how-vid-t">Video coming soon</p>
+            </div>
           </div>
           <div class="lp-how-text">
             <h3 class="lp-how-t">Paste a TikTok or Instagram link.</h3>
@@ -490,8 +488,11 @@
           </div>
         </li>
         <li class="lp-how-card">
-          <div class="lp-how-art lp-art-beats" aria-hidden="true">
-            <span class="lp-bt">hook</span><span class="lp-bt">beats</span><span class="lp-bt">turn</span><span class="lp-bt">close</span>
+          <div class="lp-how-art lp-art-video" aria-hidden="true">
+            <div class="lp-how-vid lp-how-vid-ph">
+              <svg class="lp-ph-guy lx-guy" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
+              <p class="lp-how-vid-t">Video coming soon</p>
+            </div>
           </div>
           <div class="lp-how-text">
             <h3 class="lp-how-t">lynxr reads the format.</h3>
@@ -499,12 +500,11 @@
           </div>
         </li>
         <li class="lp-how-card">
-          <div class="lp-how-art lp-art-script" aria-hidden="true">
-            <span class="lp-sc">
-              <span class="lp-sc-row"><b>say</b><span><i class="lp-lead"></i><i></i></span></span>
-              <span class="lp-sc-row"><b>do</b><span><i></i></span></span>
-              <span class="lp-sc-row"><b>show</b><span><i></i><i></i></span></span>
-            </span>
+          <div class="lp-how-art lp-art-video" aria-hidden="true">
+            <div class="lp-how-vid lp-how-vid-ph">
+              <svg class="lp-ph-guy lx-guy" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
+              <p class="lp-how-vid-t">Video coming soon</p>
+            </div>
           </div>
           <div class="lp-how-text">
             <h3 class="lp-how-t">Get a script for your brand.</h3>
@@ -512,12 +512,11 @@
           </div>
         </li>
         <li class="lp-how-card">
-          <div class="lp-how-art lp-art-track" aria-hidden="true">
-            <span class="lp-tr">
-              <span class="lp-tr-row"><span class="lp-tr-thumb"></span><span class="lp-tr-lines"><b>TikTok</b><i></i></span><span class="lp-tr-on">tracked</span></span>
-              <span class="lp-tr-row"><span class="lp-tr-thumb"></span><span class="lp-tr-lines"><b>Instagram</b><i></i></span><span class="lp-tr-on">tracked</span></span>
-              <span class="lp-tr-row"><span class="lp-tr-thumb"></span><span class="lp-tr-lines"><b>TikTok</b><i></i></span><span class="lp-tr-on">tracked</span></span>
-            </span>
+          <div class="lp-how-art lp-art-video" aria-hidden="true">
+            <div class="lp-how-vid lp-how-vid-ph">
+              <svg class="lp-ph-guy lx-guy" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
+              <p class="lp-how-vid-t">Video coming soon</p>
+            </div>
           </div>
           <div class="lp-how-text">
             <h3 class="lp-how-t">Post it. lynxr tracks it.</h3>
@@ -534,7 +533,11 @@
        moving button is the first screen's. -->
   <section class="lp-sec lp-close">
     <div class="lp-in">
-      <h2 class="lp-h2">we let people in 100 at a time.</h2>
+      <!-- THE GIF IN PLACE OF THE LINE (owner, 2026-11-26: "replace the we let people in 100 at a time. have it be this
+           gif", the One Piece cheer). The heading stays for screen readers only; the GIF is decoration (alt=""), still
+           under reduced motion. LEGAL REVIEW PENDING (anime clip), with the other meme images in the ledger. -->
+      <h2 class="lp-h2 sr-only">we let people in 100 at a time.</h2>
+      <picture class="lp-close-gif"><source media="(prefers-reduced-motion: reduce)" srcset="/assets/landing/reaction-luffy.webp"><img src="/assets/landing/reaction-luffy-dance.webp" width="480" height="384" alt="" decoding="async" loading="lazy"></picture>
       <a class="btn lp-close-cta" href="/?signup=1" data-gate="wait">Join the waitlist</a>
     </div>
   </section>
@@ -726,13 +729,20 @@
          once an email is typed, #wlr-text (phone), #wlr-share (computer with a share sheet) or #wlr-copy (without) on
          the refer screen, the queue page's one button (made by home.js), #wlg-go on the gift card. -->
     <div class="gate-wait" id="gate-wait" hidden>
-      <form class="field login wl-form" id="wl-form" novalidate>
-        <input type="email" id="wl-email" placeholder="Email" aria-label="Your email" autocomplete="email"
-               autocapitalize="none" autocorrect="off" spellcheck="false">
+      <!-- FILL IN THE BLANK (owner, 2026-11-26: "have it be like this style of fill in the blank [an Instagram post of a
+           form written as a sentence with blanks in it], but our style"). The join card is one sentence with the email
+           as its blank, big soft-white words on the night, the blank an underline that grows as you type. Still ONE
+           field (the email, nothing new is collected) and the same ids, so home.js and creator.js are unchanged. -->
+      <form class="field login wl-form wl-mad" id="wl-form" novalidate>
+        <p class="wl-mad-line"><span class="wl-mad-w wl-mad-1">Hi lynxr, save my spot.</span> <span class="wl-mad-w">Email me at</span>
+          <input type="email" id="wl-email" placeholder="your email" aria-label="Your email" autocomplete="email"
+               autocapitalize="none" autocorrect="off" spellcheck="false"><span class="wl-mad-w">when it's my turn.</span></p>
         <button type="submit" class="btn onb-shim" id="wl-go" disabled>Join the waitlist</button>
       </form>
-      <p class="wl-promise">We'll email you a link to your place in line now, and again when it's your turn, plus the
-        occasional lynxr update. One click stops them. <a href="/privacy/">Privacy policy</a></p>
+      <!-- "remove whatever we dont need" (owner, 2026-11-26): the promise is cut to what someone must know before
+           pressing: we email them (their spot, then the occasional update) and where the rules are. The unsubscribe
+           link is in every email itself. -->
+      <p class="wl-promise">We'll email your spot and the occasional update. <a href="/privacy/">Privacy</a></p>
     </div>
     <div class="gate-refer" id="gate-refer" hidden>
       <div class="wl-main">
@@ -1132,10 +1142,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20261129d" defer></script>
-<script src="/footer.js?v=20261129d" defer></script>
-<script src="/home.js?v=20261129d" defer></script>
-<script src="/avatar.js?v=20261129d" defer></script>
-<script src="/creator.js?v=20261129d" defer></script>
+<script src="/site.js?v=20261129t" defer></script>
+<script src="/footer.js?v=20261129t" defer></script>
+<script src="/home.js?v=20261129t" defer></script>
+<script src="/avatar.js?v=20261129t" defer></script>
+<script src="/creator.js?v=20261129t" defer></script>
 </body>
 </html>

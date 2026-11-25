@@ -2110,3 +2110,55 @@ else document.addEventListener("DOMContentLoaded", wlBoot);
   addEventListener("resize", queue);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(queue);
 })();
+
+/* THE VIDEO IN FOCUS, SMOOTH (owner, 2026-11-26: "once i scroll to a certain threshold that video ... is emphasized",
+   "the sections that are kinda on screen but arent in the threshold have ... the video faded", "make it better", then
+   "remove the screen lock just have the video emphasize and have that emphasis be smoother"). No snapping and no
+   settle: the page scrolls freely. Each card has a target from how far its video's centre is from the middle of the
+   screen: 1 within the middle 10%, easing (smoothstep) to 0 at 75% of a screen away. Its --f glides toward that target
+   (14% of the gap per frame, so a fast scroll eases in instead of jumping) and the loop stops once every card has
+   arrived. CSS turns --f into size, colour and fade (app.css "THE SECTIONS, SMOOTHER"). Under reduced motion every card
+   is fully lit and nothing moves. */
+(function howFocus() {
+  const list = document.querySelector("body.home .lp-how-list");
+  if (!list) return;
+  const cards = [...list.querySelectorAll(".lp-how-card")].filter((c) => c.querySelector(".lp-how-vid"));
+  if (!cards.length) return;
+  list.classList.add("lp-how--focus");
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  const vids = cards.map((c) => c.querySelector(".lp-how-vid"));
+  const cur = cards.map(() => -1);
+  const target = (v) => {
+    const r = v.getBoundingClientRect();
+    const d = Math.abs((r.top + r.bottom) / 2 - innerHeight / 2) / innerHeight;
+    const t = 1 - Math.min(1, Math.max(0, d - 0.05) / 0.7);
+    return t * t * (3 - 2 * t);
+  };
+  let raf = 0;
+  const step = () => {
+    raf = 0;
+    if (still.matches) { cards.forEach((c, i) => { c.style.removeProperty("--f"); cur[i] = -1; }); return; }
+    let moving = false;
+    cards.forEach((c, i) => {
+      const t = target(vids[i]);
+      let f = cur[i] < 0 ? t : cur[i] + (t - cur[i]) * 0.14;
+      if (Math.abs(t - f) < 0.002) f = t; else moving = true;
+      if (f !== cur[i]) { cur[i] = f; c.style.setProperty("--f", f.toFixed(3)); }
+    });
+    if (moving) raf = requestAnimationFrame(step);
+  };
+  const queue = () => { if (!raf) raf = requestAnimationFrame(step); };
+  addEventListener("scroll", queue, { passive: true });
+  addEventListener("resize", queue);
+  still.addEventListener?.("change", queue);
+  queue();
+})();
+
+/* THE BLANK GROWS WITH WHAT'S TYPED (owner, 2026-11-26): 10ch empty, one ch per character after that, capped by CSS at
+   30ch or the line's width. CSSOM width, so the CSP allows it; works in every browser (field-sizing does not, yet). */
+(function wlBlank() {
+  const f = document.getElementById("wl-email");
+  if (!f || !f.closest(".wl-mad")) return;
+  const fit = () => { f.style.width = Math.min(30, Math.max(10, (f.value || "").length + 1)) + "ch"; };
+  f.addEventListener("input", fit); fit();
+})();
