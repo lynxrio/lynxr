@@ -1,0 +1,278 @@
+{
+  "question_id": "a049",
+  "slug": "ugc-delivery-note",
+  "theme": "ugc-briefs",
+  "title": "How do you write a short delivery note to send with your files?",
+  "description": "How to write a UGC delivery message that lists every file, flags what needs a decision, and makes the brand's next step obvious in a few short lines.",
+  "short_answer": "A delivery note tells the brand what you sent, what each file is for, and what you need back from them. Keep it to a greeting, a short file list, any notes that need a decision, and one clear next step, so the person opening it can check the job without asking you anything.",
+  "sections": [
+    {
+      "heading": "What is a delivery note actually for?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A delivery note turns a folder of files into a finished job the brand can check in a few minutes.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The person who opens your files may not be the person who wrote the [brief](/glossary/#brief), or the one who approved your script when you [turned the brief into a script](/blog/brief-to-script/). They need to know what they are looking at, which file answers which part of the job, and whether anything is waiting on them. Without a note, they open every file, guess, and come back to you with questions you could have answered up front.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The note is separate from how you name and package the files. [How do you name and send UGC files to a brand?](/blog/sending-ugc-files/) covers the folder and the names. The note is the short message that sits on top and explains what is inside.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should a UGC delivery note include?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Include a greeting, a file list that maps to the brief, any decisions you made, what you need back, and the next step.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "A one-line opener that names the job, so the message is easy to find later.",
+            "The file list, in the same order as the deliverables in the brief, so the brand can tick them off.",
+            "Anything you changed or chose yourself, such as a second hook or a swapped location, with the reason in one sentence.",
+            "What you need from them, such as approval, feedback, or a choice between two versions.",
+            "The next step and how revisions work, so nobody has to ask what happens now."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you are unsure what the file list should hold, check it against [what you should deliver at the end of a UGC job](/blog/ugc-deliverables/). The note only lists what is there; it never adds work the brief did not ask for.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you word the note so it reads quickly?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write it as short labelled lines the brand can scan, not as a paragraph they have to read twice.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Lead with the thing they asked for, then the extras. Use the same words the brief used, so if the brief said three hook variations, your note says three hook variations, not alternative intros. Keep each file to one line: the name, what it is, and anything odd about it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Here is a version you can copy and adapt.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Part of the note",
+            "What to write"
+          ],
+          "table_rows": [
+            [
+              "Opener",
+              "Hi [NAME], here are the files for [PRODUCT], as in the brief from [DATE]."
+            ],
+            [
+              "File list",
+              "Main video, final edit. Hook variations, three files, same body. Raw clips, in the raw folder."
+            ],
+            [
+              "Your decisions",
+              "I filmed the hook in the kitchen instead of the bathroom, because the light was steadier there."
+            ],
+            [
+              "What you need",
+              "Could you confirm which hook you want to run first?"
+            ],
+            [
+              "Next step",
+              "Your round of revisions is included, so send any changes together and I will turn them around by [DATE]."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you do when something in the delivery is different from the brief?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Name the difference in the note, give the reason, and offer the fix, before the brand finds it themselves.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If a required line runs long, if a shot from the [shot list](/glossary/#shot-list) did not work, or if you filmed an extra take, say so in one line. A difference the brand spots on their own reads like a mistake. The same difference explained in your note reads like a decision.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Offer them a way back. Write, for example, I can swap the kitchen hook for a bathroom take if you prefer the original plan. That turns a possible complaint into a simple choice, and it keeps the conversation inside the round of revisions you agreed. [How should revisions work on a UGC job?](/blog/ugc-revisions/) helps you set that limit before the note goes out.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you end the note so the brand knows what to do next?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "End with one request and one date, so the brand knows exactly what reply you are waiting for.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Avoid closing with let me know what you think. It invites a vague reply, or no reply. Ask for one specific thing instead: approval, a choice between versions, or all changes in one message. Then say when you will act on it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Ask a question with a clear answer, such as which of the three hooks should run first.",
+            "Ask for all feedback in one message, because scattered notes are easy to miss.",
+            "Say how long the download link stays open, if your file service sets a limit.",
+            "Thank them in one line and stop."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If changes come back after you have delivered, the note gives you something to point to. The answer on [handling changes a brand asks for once the files are in](/blog/ugc-changes-after-delivery/) covers that reply.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you check before you hit send?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Open every link and file from the note as if you were the brand, then send it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Every file in the list is in the folder, and every file in the folder is in the list.",
+            "The link opens without asking the brand to request access.",
+            "The names in the note match the file names exactly.",
+            "The note answers each deliverable in the brief, in the same order.",
+            "There is one request and one date at the end, not several."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "This check takes a few minutes and saves the brand from writing back about a broken link. It also leaves a clean record of what you handed over and when, which matters if a question about the [script](/glossary/#script) or the files comes up weeks later.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-25",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 4,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

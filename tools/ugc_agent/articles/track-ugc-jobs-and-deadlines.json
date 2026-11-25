@@ -1,0 +1,260 @@
+{
+  "question_id": "a051",
+  "slug": "track-ugc-jobs-and-deadlines",
+  "theme": "ugc-getting-started",
+  "title": "How do you keep track of your UGC jobs and deadlines?",
+  "description": "A simple way to track UGC jobs, briefs and deadlines in one plain sheet, with a short weekly check so no draft, delivery or payment date slips past you.",
+  "short_answer": "Keep every UGC job on one plain sheet, one row per job, with the brand, what you owe, the next date and the next action. Look at it at the start of each working day and update it the moment anything changes, so the sheet is always more accurate than your memory.",
+  "sections": [
+    {
+      "heading": "Why do you need a system to track UGC jobs at all?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A tracking system holds every promise you made to a brand in one place, so you stop relying on memory and scattered messages.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Each job comes with its own [brief](/glossary/#brief), its own dates and its own list of files. Once you have two or three running at once, the details start to blur: which brand wanted raw clips, which one is waiting on a script, which date was the draft and which was the final. A missed date is far harder to repair than a date you saw coming and asked to move.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "You do not need anything clever. A plain sheet or a written list works, because what matters is that you look at it and keep it current. Before the dates go on your sheet, it helps to read the brief properly; the post on [going from a brand brief to a finished script](/blog/brief-to-script/) walks through that reading.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should go on your tracking sheet?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Give each job one row, with columns for the brand, the deliverables, the next date, the next action and where it stands.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Column",
+            "What to write",
+            "Why it helps"
+          ],
+          "table_rows": [
+            [
+              "Job",
+              "Brand name and a short label, such as [PRODUCT] kitchen video",
+              "You can find the row in a second"
+            ],
+            [
+              "Deliverables",
+              "What you owe, copied from the brief",
+              "You check delivery against it, not against memory"
+            ],
+            [
+              "Next date",
+              "The very next date that matters, not the final one",
+              "You see what is close, not what is far away"
+            ],
+            [
+              "Next action",
+              "One verb and an object, such as send script",
+              "You know what to do the moment you open the sheet"
+            ],
+            [
+              "Status",
+              "Script, filming, editing, delivered, revisions, paid",
+              "You see at a glance where each job is stuck"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep a link to the brief and any messages in the row too, so everything for that job opens from one place. Resist adding more columns until you miss one, because a sheet that takes long to update is a sheet you stop updating.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you turn a brief into rows and dates?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Read the brief once with the sheet open and copy every deliverable and every date into the job's row before you start the work.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Copy the deliverables in the brief's own words, so your list matches what the brand will check.",
+            "Write down each date the brief gives, such as script approval, draft and final delivery.",
+            "Add your own working dates in front of each one, such as film by [DATE] so the edit has room.",
+            "Note anything the brief leaves out, such as how many revisions, and ask the brand before you start.",
+            "Put the single nearest date in the next date column and leave the rest in the notes."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Working backwards from each brand date gives you a buffer, because filming and editing tend to take longer than they look on paper. If a date still looks tight once you have planned it, ask early. [Asking a brand for more time on a deadline](/blog/ask-for-a-ugc-deadline-extension/) is easier before the date than on the day.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How often should you check and update the sheet?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Check it at the start of every working day, and update the row the moment a message, approval or file changes anything.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The daily look takes a few minutes. Sort by next date, read the top few rows, and do the first next action before anything else. That habit catches a date while there is still time to act on it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Then once a week, go through every row in full. Close out jobs that are delivered and paid, chase anything that has gone quiet, and move dates you have agreed to change. If you fit this work around other commitments, [doing UGC alongside a full-time job](/blog/ugc-alongside-a-full-time-job/) covers how to protect the hours the sheet tells you that you need.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you keep track of what happens after delivery?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Keep the row open after delivery until revisions are done and you have been paid, because the job is not finished when the files go out.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Change the status to delivered and set the next date to when you expect feedback. If changes come in, write what was asked and the date you agreed to send them. If the brief named a payment date, put that in the row and treat it like any other deadline.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Note the date you delivered and what you sent, and compare it with the [list of end-of-job deliverables](/blog/ugc-deliverables/).",
+            "Record each round of revisions and what it changed, so you can see if a job has gone past what you agreed.",
+            "Keep the final [script](/glossary/#script) and files linked in the row, in case the brand comes back to you later.",
+            "Mark the row paid only when the payment has arrived, not when it was promised."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you do when two deadlines land on the same day?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Decide which job to finish first by looking at what each one blocks, then tell the other brand early if you need to move anything.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A script waiting for approval blocks the brand's next step, so send that before an edit only you are waiting on. Film both jobs on the same day if the setups match, and keep a [shot list](/glossary/#shot-list) for each so nothing gets mixed up between them.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If the clash is real and one date has to move, say so as soon as you see it on the sheet, with a new date you can keep. Then update the row, so tomorrow's look at the sheet shows the plan you actually agreed.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-25",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

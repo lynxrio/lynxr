@@ -475,5 +475,122 @@
     "slug": "explain-whats-included-in-ugc-price",
     "target_query": "what is included ugc price",
     "angle": "Listing deliverables, revision rounds and usage in plain wording so scope is clear; no figures, no legal or tax advice."
+  },
+  {
+    "id": "a054",
+    "theme": "ugc-rates-and-pay",
+    "priority": 3,
+    "question": "How do you quote a rush UGC job?",
+    "slug": "quote-a-rush-ugc-job",
+    "target_query": "rush ugc job quote",
+    "angle": "How to word a quote for a short-turnaround job: what changes in scope, dates and revisions. No figures or percentages."
+  },
+  {
+    "id": "a055",
+    "theme": "ugc-rates-and-pay",
+    "priority": 3,
+    "question": "How do you raise your UGC rates with an existing brand?",
+    "slug": "raise-ugc-rates-with-existing-brand",
+    "target_query": "raise ugc rates existing client",
+    "angle": "How to tell a returning brand your price is changing, with timing and wording. No figures or income claims."
+  },
+  {
+    "id": "a056",
+    "theme": "ugc-rates-and-pay",
+    "priority": 3,
+    "question": "How do you respond when a brand asks for a discount?",
+    "slug": "respond-to-ugc-discount-request",
+    "target_query": "ugc discount request reply",
+    "angle": "Reply options that trade scope instead of lowering the price, with example wording. No figures."
+  },
+  {
+    "id": "a057",
+    "theme": "ugc-rates-and-pay",
+    "priority": 3,
+    "question": "How do you explain usage rights to a brand in plain words?",
+    "slug": "explain-usage-rights-in-plain-words",
+    "target_query": "explain ugc usage rights to brand",
+    "angle": "Plain-language wording for where and how long videos can be used; tells the reader to agree terms in writing. No legal advice."
+  },
+  {
+    "id": "a058",
+    "theme": "ugc-scripts",
+    "priority": 3,
+    "question": "How do you read a UGC script aloud to check it?",
+    "slug": "read-ugc-script-aloud",
+    "target_query": "read ugc script out loud",
+    "angle": "A read-aloud check for rhythm, breath points and lines that trip you up, and how to fix them."
+  },
+  {
+    "id": "a059",
+    "theme": "ugc-hooks",
+    "priority": 3,
+    "question": "How do you write a hook that starts mid-action?",
+    "slug": "hook-that-starts-mid-action",
+    "target_query": "mid action ugc hook",
+    "angle": "Opening on movement instead of speech, what to film and say; distinct from visual hooks in general."
+  },
+  {
+    "id": "a060",
+    "theme": "ugc-brand-deals",
+    "priority": 3,
+    "question": "How do you reply when a brand says your samples aren't a fit?",
+    "slug": "reply-when-samples-arent-a-fit",
+    "target_query": "ugc samples not a fit reply",
+    "angle": "A gracious reply and what to ask so the next pitch fits better; no promises of bookings."
+  },
+  {
+    "id": "a061",
+    "theme": "ugc-brand-deals",
+    "priority": 3,
+    "question": "How do you pitch a brand that already uses UGC?",
+    "slug": "pitch-brand-that-already-uses-ugc",
+    "target_query": "pitch brand already using ugc",
+    "angle": "How to study their existing videos and pitch a gap you can fill, without criticising their current creators."
+  },
+  {
+    "id": "a062",
+    "theme": "ugc-filming",
+    "priority": 3,
+    "question": "How do you film UGC on a windy or noisy day?",
+    "slug": "film-ugc-on-a-noisy-day",
+    "target_query": "film ugc noisy day",
+    "angle": "Practical fixes for sound and setup when conditions are poor, and when to reschedule."
+  },
+  {
+    "id": "a063",
+    "theme": "ugc-filming",
+    "priority": 3,
+    "question": "How do you film yourself using a product naturally?",
+    "slug": "film-yourself-using-a-product",
+    "target_query": "film yourself using product ugc",
+    "angle": "Making use look real on camera: pacing, hands, framing and retakes; no faking use."
+  },
+  {
+    "id": "a064",
+    "theme": "ugc-getting-started",
+    "priority": 3,
+    "question": "How do you set up a simple folder system for UGC work?",
+    "slug": "folder-system-for-ugc-work",
+    "target_query": "ugc folder system",
+    "angle": "One folder structure per job for briefs, footage, edits and delivery; no named tools."
+  },
+  {
+    "id": "a065",
+    "theme": "ugc-getting-started",
+    "priority": 3,
+    "question": "How do you set working hours as a new UGC creator?",
+    "slug": "set-working-hours-ugc-creator",
+    "target_query": "ugc creator working hours",
+    "angle": "Planning regular hours for pitching, filming and admin; no income or timeline claims."
+  },
+  {
+    "id": "a066",
+    "theme": "ugc-briefs",
+    "priority": 3,
+    "question": "How do you ask a brand to clarify one line in the brief?",
+    "slug": "clarify-a-line-in-a-ugc-brief",
+    "target_query": "clarify ugc brief",
+    "angle": "A short, specific question format for one unclear point; distinct from vague briefs in general."
   }
 ]
