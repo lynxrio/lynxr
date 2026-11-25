@@ -15559,3 +15559,21 @@ html body.home .lp-close-gif, html body.home .lp-close-gif img { border-radius: 
   html body.lp.home .lp-how-card:nth-child(n) > .lp-art-video { order: 2; padding: 0 16px 40px; }
   html body.lp.home .lp-how-card:nth-child(n):has(> .lp-art-video) > .lp-how-text { order: 1; padding: 40px 24px 20px; }
 }
+/* THE JOIN CARD'S PHONE SPACING (owner, 2026-11-26: "mobile spacing looks weird"). It was a bottom sheet: pinned to the
+   foot of the screen with 300px of empty night above it, two paddings (24 + 28px) squeezing the column, and the empty
+   error line adding 32px above "sign in". Now: one 20px gutter; "back to lynxr" in the top corner; the guy, the
+   sentence, the button and the small lines centred as one group in the rest of the screen; the error line takes no
+   room until it has something to say. */
+@media (max-width: 640px) {
+  html:not([data-look="v1"]) body.lp.home.gate-wl #gate:has(> .gate-card > .gate-wait:not([hidden])) { padding: 0; align-items: stretch; }
+  html:not([data-look="v1"]) body.lp.home.gate-wl #gate > .gate-card:has(> .gate-wait:not([hidden])) {
+    min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; border-radius: 0;
+    padding: calc(16px + env(safe-area-inset-top)) 20px calc(28px + env(safe-area-inset-bottom));
+  }
+  html:not([data-look="v1"]) body.lp.home.gate-wl #gate > .gate-card:has(> .gate-wait:not([hidden])) > .gate-back { align-self: flex-start; margin: 0; min-height: 44px; }
+  html:not([data-look="v1"]) body.lp.home.gate-wl #gate > .gate-card:has(> .gate-wait:not([hidden])) > .wordmark { margin-top: auto; margin-bottom: 28px; }
+  html:not([data-look="v1"]) body.lp.home.gate-wl #gate > .gate-card:has(> .gate-wait:not([hidden])) > .gate-switch { margin-bottom: auto; }
+  html:not([data-look="v1"]) body.lp.home.gate-wl #gate > .gate-card:has(> .gate-wait:not([hidden])) .gate-wait { flex: 0 0 auto; }
+  html:not([data-look="v1"]) body.lp.home.gate-wl #gate > .gate-card:has(> .gate-wait:not([hidden])) #err:empty { display: none; }
+  #gate .wl-mad-line { font-size: 28px; }
+}
