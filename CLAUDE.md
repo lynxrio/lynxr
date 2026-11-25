@@ -7,6 +7,8 @@ A static site on GitHub Pages backed by a Python data pipeline.
 what is blocked and on what, and the exact commands to continue. `README.md`
 covers architecture, the pipeline, and the security model.
 
+**Brand:** `BRAND.md` is the brand story: the guy, what the name means, the constellation metaphor, copy lines and guardrails. Read it before writing copy or touching the logo.
+
 ## Orientation
 
 Three separate front-ends share one stylesheet. Know which one you are in —

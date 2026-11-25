@@ -595,13 +595,13 @@ function safeUrl(u) {
     return (p.protocol === "http:" || p.protocol === "https:") ? p.href : "";
   } catch { return ""; }
 }
-/** THE LOADING MARK: the lynxr avatar (avatar.js) in a working mood. "reading"
+/** THE LOADING MARK: the lynxr guy (avatar.js), awake while the mood is "reading" or "writing".
  *  by default, "writing" while a script is being written. Every long wait in
  *  both apps goes through here. A mood change after render goes through
  *  lynxrMood(), never a re-render (see paintEta in creator.js).
  */
 function loaderMark(mood = "reading") {
-  return typeof lynxrAvatar === "function" ? lynxrAvatar(mood, "loader-mark") : "";
+  return typeof lynxrAvatar === "function" ? lynxrAvatar(mood, "loader-mark", true) : "";
 }
 /** A decorative lynxr leading an empty or failed panel (AGENCY GLASS PASS,
  *  2026-09-15): idle = nothing here yet, confused = we could not read it.

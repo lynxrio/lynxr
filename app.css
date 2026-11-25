@@ -352,7 +352,7 @@
   }
   .mark { width: 22px; height: 22px; flex: none; }
   .gate-card .wordmark { justify-content: center; gap: 12px; }
-  .gate-card .mark { width: 34px; height: 34px; }
+  .gate-card .mark { width: 34px; height: 34px; --gw: 34px; }
 
   /* ---------- Gate ---------- */
   #gate { min-height: 100svh; display: grid; place-items: center; padding: 24px; }
@@ -825,7 +825,7 @@
 
   @keyframes loader-glow { 50% { opacity: .55; } }
   .loader { display: flex; align-items: center; gap: 16px; padding: 28px 0; }
-  .loader-mark { width: 46px; height: 46px; flex: none; color: var(--text); overflow: visible; }
+  .loader-mark { width: 46px; height: 46px; --gw: 46px; flex: none; color: var(--text); overflow: visible; }
   .loader-text { min-width: 0; }
   .loader-stage { font-size: var(--fs-15); }
   .loader-sub { margin-top: 2px; }
@@ -834,7 +834,7 @@
      wait to need the signal. */
   .loader.inline { display: inline-flex; align-items: center; gap: 9px; padding: 0; }
   /* 20px: the avatar's face still reads at 20px (measured); smaller instances hide it. */
-  .loader.inline .loader-mark { width: 20px; height: 20px; }
+  .loader.inline .loader-mark { width: 20px; height: 20px; --gw: 20px; }
 
   /* Four segments, one per published phase. A rail rather than a spinner
      because a spinner says "busy" and this has to say "moving" — a creator
@@ -2412,7 +2412,7 @@
   }
   /* .home .foot-brand: the landing's own `.home .mark { 32px }` (further down) would otherwise shrink this one
      (owner, 2026-10-09: "make it slightly bigger x on the bottom") */
-  .foot-brand .mark, .home .foot-brand .mark { width: 44px; height: 44px; margin-bottom: 14px; }
+  .foot-brand .mark, .home .foot-brand .mark { width: 44px; height: 44px; --gw: 44px; margin-bottom: 14px; }
   .foot-brand p { margin: 0; color: var(--text-2); font-size: var(--fs-14); max-width: 44ch; }
   .foot-label {
     color: var(--text-3); font-size: var(--fs-11); font-weight: 600;
@@ -3718,7 +3718,7 @@
   .home-chrome { min-height: 0; padding: 52px 24px 76px; }
   @media (max-width: 560px) { .home-chrome { padding: 34px 18px 56px; } }
   .home .wordmark { font-size: var(--fs-30); gap: 12px; margin-bottom: 44px; }
-  .home .mark { width: 32px; height: 32px; }
+  .home .mark { width: 32px; height: 32px; --gw: 32px; }
   .home-lead {
     font-size: clamp(22px, 6vw, 44px); font-weight: 600; line-height: 1.18;
     letter-spacing: -0.03em; color: var(--text); margin: 0 0 20px;
@@ -8258,7 +8258,7 @@
     color: var(--text-2); font-size: var(--fs-13); line-height: 1.5;
   }
   .pane-body .bp-partial strong { color: var(--text); }
-  .pane-body .bp-fit-mark { flex: none; width: 42px; height: 42px; }
+  .pane-body .bp-fit-mark { flex: none; width: 42px; height: 42px; --gw: 42px; }
 
   /* tags: glass pills */
   .pane-body .bp-tags,
@@ -8518,7 +8518,7 @@
   .pane-body #brand-editor .ce-field :is(input, textarea):not(.ce-missing):focus { border-color: var(--focus-ring); }
   .pane-body .lookup-hint { font-size: var(--fs-13); color: var(--text-2); text-align: center; }
   .pane-body .lookup-loader { padding: 20px 0 2px; }
-  .pane-body .lookup-loader .loader-mark { width: 64px; height: 64px; filter: drop-shadow(0 12px 16px var(--av-glow)); }
+  .pane-body .lookup-loader .loader-mark { width: 64px; height: 64px; --gw: 64px; filter: drop-shadow(0 12px 16px var(--av-glow)); }
   .pane-body #brand-editor .ce-body { margin-top: 0; }
   .pane-body #brand-editor .ce-grid { gap: 18px 20px; margin-bottom: 0; }
   .pane-body #brand-editor .ce-field { gap: 8px; }
@@ -8551,7 +8551,7 @@
   .side-home .mark, #app > header .wordmark .mark { width: 32px; height: 32px; }
   .side-home { gap: 10px; }
   @media (max-width: 820px) {
-    .pane-mark { width: 26px; height: 26px; top: 21px; }
+    .pane-mark { width: 26px; height: 26px; --gw: 26px; top: 21px; }
     .pane-mark .lx-face { display: inline; }
   }
 
@@ -9266,7 +9266,7 @@
   }
 
   /* ---- (agency) the working lynxr, a size up, with its glow ---- */
-  body.agency #app main .loader:not(.inline) .loader-mark { width: 56px; height: 56px; filter: drop-shadow(0 12px 16px var(--av-glow)); }
+  body.agency #app main .loader:not(.inline) .loader-mark { width: 56px; height: 56px; --gw: 56px; filter: drop-shadow(0 12px 16px var(--av-glow)); }
 
 
   /* ---- (agency) one glowing primary; secondaries are pills ---- */
@@ -9533,7 +9533,7 @@
 
 
   /* ---- (agency) the lynxr that leads an empty or failed panel ---- */
-  body.agency #app main .empty .empty-mark { display: block; width: 64px; height: 64px; margin: 0 auto 12px; overflow: visible; filter: drop-shadow(0 12px 16px var(--av-glow)); }
+  body.agency #app main .empty .empty-mark { display: block; width: 64px; height: 64px; --gw: 64px; margin: 0 auto 12px; overflow: visible; filter: drop-shadow(0 12px 16px var(--av-glow)); }
 
 
   /* ---- (agency) scripts: the creator's script look ("for both creator and agency make the scripts
@@ -10207,7 +10207,7 @@
   .pane-body .lp-plan-head .lp-plan-name { flex: 1 1 auto; min-width: 0; margin: 0; }
   /* An <h2> for the outline, so the global h2 eyebrow dash comes off. */
   .pane-body .lp-plan-name::before { display: none; }
-  .pane-body .lp-plan-av { flex: none; width: 40px; height: 40px; }
+  .pane-body .lp-plan-av { flex: none; width: 40px; height: 40px; --gw: 40px; }
   /* Poses, not loops: done and hyped hop forever elsewhere. On a page where
      someone is reading prices, three bouncing faces are decoration. The pose
      (arms, face, hyped's sparkle) still says which is which. */
@@ -10986,7 +10986,7 @@
     background: var(--gl-fill); border-color: var(--gl-edge); box-shadow: var(--gl-shadow);
     -webkit-backdrop-filter: var(--gl-blur); backdrop-filter: var(--gl-blur);
   }
-  body.hiw .hs-av { display: block; width: 64px; height: 64px; opacity: .5; transition: opacity .2s; }
+  body.hiw .hs-av { display: block; width: 64px; height: 64px; --gw: 64px; opacity: .5; transition: opacity .2s; }
   @media (hover: hover) { body.hiw .hs-stage:hover .hs-av { opacity: .75; } }
   body.hiw .hs-stage[aria-pressed="true"] .hs-av { opacity: 1; }
   /* Only the chosen stage is alive: the others rest in their pose (motion marks the selection). */
@@ -11169,7 +11169,7 @@
       flex-direction: row; align-items: center; justify-content: flex-start; text-align: left;
       gap: 14px; padding: 10px 16px; border-radius: 18px;
     }
-    body.hiw .hs-av { width: 48px; height: 48px; flex: none; }
+    body.hiw .hs-av { width: 48px; height: 48px; --gw: 48px; flex: none; }
     body.hiw .hs-lbl {
       flex: 1 1 auto; min-height: 0; justify-content: flex-start; text-align: left; font-size: 16px;
     }
@@ -11322,7 +11322,7 @@
     display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
     padding: 24px 0 8px;
   }
-  body.hiw .hiw-av { display: block; width: 72px; height: 72px; }
+  body.hiw .hiw-av { display: block; width: 72px; height: 72px; --gw: 72px; }
   body.hiw :is(.hiw-av, .hiw-preview-av) .lx { display: block; width: 100%; height: 100%; overflow: visible; }
   body.hiw .hiw-av .lx { filter: drop-shadow(0 12px 16px var(--av-glow)); }
   body.hiw .hiw-lede { margin: 0; max-width: 44ch; font-size: 18px; line-height: 1.5; color: var(--text-2); text-wrap: balance; }
@@ -11411,7 +11411,7 @@
     border-radius: 20px;
   }
   body.hiw .hiw-preview-head { display: flex; align-items: center; gap: 8px; }
-  body.hiw .hiw-preview-av { display: block; width: 26px; height: 26px; flex: none; }
+  body.hiw .hiw-preview-av { display: block; width: 26px; height: 26px; --gw: 26px; flex: none; }
   body.hiw .hiw-preview-msg { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.45; color: var(--text); }
 
   /* ---- good to know: one island, questions under hairlines ---- */
@@ -11428,7 +11428,7 @@
     margin: clamp(56px, 8vw, 96px) 0 0;
   }
   body.hiw .hiw-close .hiw-h2 { margin: 0; }
-  body.hiw .hiw-av-close { width: 80px; height: 80px; }
+  body.hiw .hiw-av-close { width: 80px; height: 80px; --gw: 80px; }
   body.hiw .hiw-cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 20px; margin-top: 8px; }
   body.hiw .hiw-btn { display: inline-flex; align-items: center; min-height: 46px; box-sizing: border-box; padding: 0 26px; font-size: 16px; text-decoration: none; }
   body.hiw .hiw-link { font-size: 15px; font-weight: 600; color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
@@ -11441,7 +11441,7 @@
   @media (max-width: 640px) {
     body.lp.hiw:not(.home) > main.hiw-main { padding-top: 24px; }
     body.hiw .hiw-head { padding-top: 12px; }
-    body.hiw .hiw-av { width: 60px; height: 60px; }
+    body.hiw .hiw-av { width: 60px; height: 60px; --gw: 60px; }
     body.hiw .hiw-lede { font-size: 16px; }
     /* the 4-card grids stay two-up: each card is one short line, and stacked they made a long scroll */
     body.hiw .hiw-grid-2 { grid-template-columns: minmax(0, 1fr); }
@@ -11890,11 +11890,11 @@
   /* The x above each question (avatar.js: the moods it already has; poses are its own classes). A short hop on arrival
      and when a chip is tapped, under 300ms, off with reduced motion. */
   .setup-av { display: flex; justify-content: center; margin: 0 0 12px; }
-  .setup-lx { width: 64px; height: 64px; flex: none; }
+  .setup-lx { width: 64px; height: 64px; --gw: 64px; flex: none; }
   .setup-av.hop { animation: setup-hop .26s var(--ease); }
   @keyframes setup-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-9px); } 100% { transform: translateY(0); } }
   @media (prefers-reduced-motion: reduce) { .setup-av.hop { animation: none; } }
-  @media (max-width: 560px) { .setup-lx { width: 52px; height: 52px; } .setup-av { margin-bottom: 8px; } .setup-dots { margin-bottom: 14px; } }
+  @media (max-width: 560px) { .setup-lx { width: 52px; height: 52px; --gw: 52px; } .setup-av { margin-bottom: 8px; } .setup-dots { margin-bottom: 14px; } }
   .setup-q { display: block; margin: 0 0 8px; font-size: var(--fs-21); font-weight: 700; letter-spacing: -.01em; line-height: 1.25; color: var(--text); text-align: center; }
   .setup-q::before { display: none; }
   .setup-why { margin: 0 0 20px; font-size: var(--fs-13); line-height: 1.5; color: var(--text-2); }
@@ -12297,7 +12297,7 @@
   .newscript.home { justify-content: flex-start; min-height: 0; max-width: 680px; gap: 16px; padding-top: clamp(0px, 2vh, 20px); }
   .home-greet { gap: 6px; }
   .home-av { display: flex; justify-content: center; }
-  .home-lx { width: 52px; height: 52px; flex: none; }
+  .home-lx { width: 52px; height: 52px; --gw: 52px; flex: none; }
   .newscript.home .newscript-h { text-wrap: balance; }
   #home-writing:empty { display: none; }
   .pane-body .home-writing { margin: 0; padding: 14px 18px; }
@@ -12308,7 +12308,7 @@
   .pane-body #posts-goal :is(.goal-chips, .prio-chips) { justify-content: flex-start; gap: 8px; }
   .pane-body #posts-goal .chip.pick { min-height: 40px; padding: 8px 16px; text-transform: lowercase; }
   @media (max-width: 560px) {
-    .home-lx { width: 44px; height: 44px; }
+    .home-lx { width: 44px; height: 44px; --gw: 44px; }
     .newscript.home { gap: 14px; }
   }
 
@@ -12338,7 +12338,7 @@
   .tour-card.phone[data-pos="top"] { top: max(12px, env(safe-area-inset-top)); }
   .tour-card.phone[data-pos="bottom"] { bottom: max(12px, env(safe-area-inset-bottom)); }
   .tour-av { flex: none; }
-  .tour-lx { width: 44px; height: 44px; display: block; }
+  .tour-lx { width: 44px; height: 44px; --gw: 44px; display: block; }
   .tour-main { flex: 1 1 auto; min-width: 0; }
   .tour-line { margin: 2px 0 0; font-size: var(--fs-15); line-height: 1.45; color: var(--text); }
   .tour-foot { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
@@ -12833,7 +12833,7 @@
 
   /* The question: the x, the heading, the one line under it. */
   #setup-modal.onb-v2 .setup-av { margin: 0; }
-  #setup-modal.onb-v2 .setup-lx { width: 64px; height: 64px; }
+  #setup-modal.onb-v2 .setup-lx { width: 64px; height: 64px; --gw: 64px; }
   #setup-modal.onb-v2 .onb-h { margin: 6px 0 0; font-size: 26px; line-height: 1.15; font-weight: 700; letter-spacing: -.01em; text-align: center; text-wrap: balance; }
   #setup-modal.onb-v2 .onb-sub { margin: 0; font-size: 15px; line-height: 1.4; color: var(--text-2); text-align: center; }
   #setup-modal.onb-v2 .onb-sub:empty, #setup-modal.onb-v2 .onb-sub[hidden] { display: none; }
@@ -12936,7 +12936,7 @@
     #setup-modal.onb-v2 .onb-page { padding-bottom: 48px; }
     #setup-modal.onb-v2 .onb-back { display: inline-flex; }
     #setup-modal.onb-v2 .setup-av { align-self: center; }
-    #setup-modal.onb-v2 .setup-lx { width: 60px; height: 60px; }
+    #setup-modal.onb-v2 .setup-lx { width: 60px; height: 60px; --gw: 60px; }
     #setup-modal.onb-v2 .onb-h { font-size: 30px; }
     #setup-modal.onb-v2 .onb-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     #setup-modal.onb-v2 .onb-tile { height: 96px; }
@@ -12961,7 +12961,7 @@
   #setup-modal.onb-v2 .onb-top-win { padding: 0; }
   #setup-modal.onb-v2 .onb-win { flex: 1 1 auto; display: flex; flex-direction: column; gap: 18px; margin-top: 12px; }
   #setup-modal.onb-v2 .onb-win-head { display: flex; align-items: center; gap: 12px; }
-  #setup-modal.onb-v2 .onb-win-head .setup-lx { width: 52px; height: 52px; }
+  #setup-modal.onb-v2 .onb-win-head .setup-lx { width: 52px; height: 52px; --gw: 52px; }
   #setup-modal.onb-v2 .onb-win-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   #setup-modal.onb-v2 .onb-win .onb-h { margin: 0; font-size: 24px; text-align: left; }
   #setup-modal.onb-v2 .onb-meta { margin: 0; font-family: var(--mono); font-size: 11px; color: var(--text-2); }
@@ -13017,7 +13017,7 @@
     #setup-modal.onb-v2 .onb-at-win { padding: 0 0 48px; }
     #setup-modal.onb-v2 .onb-top-win { width: 100%; max-width: 1200px; margin: 0 auto; padding: 20px 32px; box-sizing: border-box; }
     #setup-modal.onb-v2 .onb-win { width: 100%; max-width: 1040px; margin: 0 auto; box-sizing: border-box; padding: 24px 32px 0; gap: 22px; }
-    #setup-modal.onb-v2 .onb-win-head .setup-lx { width: 60px; height: 60px; }
+    #setup-modal.onb-v2 .onb-win-head .setup-lx { width: 60px; height: 60px; --gw: 60px; }
     #setup-modal.onb-v2 .onb-win .onb-h { font-size: 32px; line-height: 1.1; }
     #setup-modal.onb-v2 .onb-meta { font-size: 12px; }
     #setup-modal.onb-v2 .onb-win-cols { flex-direction: row; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
@@ -13095,7 +13095,7 @@
   }
 
   /* HOME: the goal chip, the sub line, the labelled composer with its inline check and shimmering send, the quota line. */
-  .newscript.home.onb2 .home-lx { width: 72px; height: 72px; }
+  .newscript.home.onb2 .home-lx { width: 72px; height: 72px; --gw: 72px; }
   .newscript.home.onb2 #home-goal { display: flex; justify-content: center; }
   .newscript.home.onb2 #home-goal:empty { display: none; }
   .newscript.home.onb2 .onb-goal {
@@ -13139,7 +13139,7 @@
   #nav-posts .onb-dot { margin-left: auto; flex: none; width: 8px; height: 8px; border-radius: 50%; background: #ff7eb8; }
   #nav-posts .onb-dot[hidden] { display: none; }
   @media (max-width: 820px) {
-    .newscript.home.onb2 .home-lx { width: 64px; height: 64px; }
+    .newscript.home.onb2 .home-lx { width: 64px; height: 64px; --gw: 64px; }
     .newscript.home.onb2 .onb-goal { width: 100%; min-height: 48px; padding-left: 16px; }
     .newscript.home.onb2 .onb-goal-v { flex: 1 1 auto; }
     .newscript.home.onb2 .onb-goal .onb-goal-bar { width: 56px; }
@@ -13987,10 +13987,10 @@
   }
   html body.home .lp-ph-send svg { width: 14px; height: 14px; }
 
-  /* 2. the glass x beside two pasted links, the links running off the card's outer side (the x is the bar's own
-     mark markup, unchanged, just larger) */
+  /* 2. the lynxr guy beside two pasted links, the links running off the card's outer side (the resting guy,
+     .lx-guy-still: no script and no animation inside him, because cardScrub scrubs every animation in the card) */
   html body.home .lp-art-links { display: flex; align-items: center; gap: clamp(12px, 1.6vw, 20px); padding-left: clamp(20px, 3vw, 44px); }
-  html body.home .lp-art-links > .mark { flex: none; width: clamp(72px, 9vw, 120px); height: clamp(72px, 9vw, 120px); filter: drop-shadow(0 14px 18px rgba(123, 97, 255, .28)); }
+  html body.home .lp-art-links > .mark { flex: none; width: clamp(72px, 9vw, 120px); height: clamp(72px, 9vw, 120px); }
   html body.home .lp-lks { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 14px; margin-right: -80px; }
   html body.home .lp-lk {
     display: flex; align-items: center; gap: 12px; box-sizing: border-box; height: 56px;
@@ -14152,7 +14152,7 @@
   @keyframes lpm-land { from { opacity: 0; transform: translateY(-24px) scale(.96); } }
   @keyframes lpm-grow { from { transform: scaleX(0); } }
   @keyframes lpm-in { from { opacity: 0; transform: translateX(24px); } }
-  @keyframes lpm-lean { 0% { transform: translateX(-6px) rotate(-8deg); } 60% { transform: translateX(3px) rotate(5deg); } }
+  @keyframes lpm-lean { 0% { transform: translateX(-6px); } 60% { transform: translateX(3px); } }
   @keyframes lpm-draw { from { transform: scaleY(0); } }
   @keyframes lpm-ring { from { background-size: 100% 100%, 0% 100%; opacity: .45; } }
   @keyframes lpm-tick { from { opacity: 0; transform: scale(.8); } }
@@ -14488,7 +14488,7 @@
   html body.home .lp-invite {
     display: grid; grid-template-columns: 72px minmax(0, 1fr); column-gap: 16px; align-items: center; width: 100%; text-align: left;
   }
-  html body.home .lp-invite-x { grid-row: 1 / span 2; display: block; width: 72px; height: 72px; }
+  html body.home .lp-invite-x { grid-row: 1 / span 2; display: block; width: 72px; height: 72px; --gw: 72px; }
   html body.home .lp-invite-x .lx { display: block; width: 100%; height: 100%; }
   html body.home .lp-invite.is-pending :is(.lp-invite-t, .lp-invite-s) { visibility: hidden; }
   html body.home .lp-invite-t { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.25; color: var(--text); }
@@ -14502,5 +14502,787 @@
       grid-template-columns: 64px minmax(0, 1fr); column-gap: 14px; align-content: center;
       min-height: calc(2 * 1.25 * 18px + 3px + 2 * 1.4 * var(--fs-14));
     }
-    html body.home .lp-invite-x { width: 64px; height: 64px; }
+    html body.home .lp-invite-x { width: 64px; height: 64px; --gw: 64px; }
   }
+
+  /* ================= THE LYNXR GUY: THE LOGO (owner, 2026-11-23) =================
+     The owner's logo kit v3 (2026-11-25, the circle replaced the v2 dome): ~/Lynxr-redesign/logo-kit-v3/lynxr-logo-kit/ (LOGO-HANDOFF.md, web/lynxr-guy.css,
+     web/lynxr-guy.js, web/lynxr-guy.snippet.html); plan ~/.claude/plans/lynxr-guy-logo.md. Resting: a circle with ^^
+     eyes, still. Awake (hover, keyboard focus, press, or .is-active while a script is being written): /lynxr-guy.js
+     morphs the circle's outline into a breathing blob and back, one shape, no cross-fade, and sets .is-awake (the ^^
+     blink) and .is-pressed (the squish). Without the script he stays a still circle. The eyes never change shape. The
+     site is light only, so every guy wears .lx-guy--black, which since 2026-11-25 is ALSO the white guy (owner).
+     .lx-guy sits on the link or button that holds him (the header's a.wordmark, the rail's #nav-home, the agency's
+     #home-mark), so hovering or focusing the word "lynxr" wakes him too. Where there is no control (footers, sign-in
+     cards, the phone corner, the onboarding logo, 404, every live avatar) it sits on the <svg>.
+     Where this differs from the kit's CSS, and why:
+       1. No display, line-height or width on .lx-guy or its svg: the class sits on a.wordmark and buttons whose layout
+          other rules own, and every .mark size rule above still sizes the svg (the 300x300 viewBox fills
+          the square box). .pane-mark is display:none on a desktop and must stay so.
+       2. The keyframes are lx-guy-blink: the x's avatar block above owns @keyframes lx-blink.
+       3. fill and stroke are restated here, so painting never depends on var() inside an SVG presentation attribute.
+       4. No :focus-visible outline of the kit's own: the links and buttons keep the site's focus ring.
+       5. .lx-guy-still is the resting guy with no script and no animation: the landing's how-it-works card, whose
+          pieces home.js cardScrub drives through getAnimations({ subtree: true }).
+     Reduced motion: the script swaps straight to one still blob, with no breathing and no loop; the blink is off; and
+     the site-wide rule stops every CSS animation and transition. */
+  .lx-guy { --lx-body: #f2f2f0; --lx-eye: #141414; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  /* OWNER, 2026-11-25: "the logo should be white body black eyes", everywhere, light pages included ("just do it as
+     i said", after being told the kit says never white on white). So the --black variant now paints the white guy
+     too; the class stays on the markup so one line here can flip it back. */
+  .lx-guy--black { --lx-body: #f2f2f0; --lx-eye: #141414; }
+  .lx-guy svg, svg.lx-guy, .lx-guy-still { overflow: visible; }
+  .lx-guy .lx-body, .lx-guy-still > path { fill: var(--lx-body); }
+  .lx-guy .lx-blink, .lx-guy-still > g { stroke: var(--lx-eye); }
+  .lx-guy .lx-squish { transform-box: view-box; transform-origin: 200px 355px; transition: transform .35s cubic-bezier(.34, 1.4, .64, 1); }
+  .lx-guy.is-pressed .lx-squish { transform: scale(.95, .91); }
+  .lx-guy .lx-blink { transform-box: view-box; transform-origin: 200px 205px; }
+  /* EYE WEIGHT (deviation from the kit, found 2026-11-23): the kit's eye polylines carry vector-effect="non-scaling-stroke",
+     which keeps the stroke a constant 22.5 SCREEN px at every size, so a 36 px guy painted a white blob and no ^^. The
+     effect stays (it keeps the eyes a visible "--" when the blink scales them to scaleY(.06)), but the stroke is now
+     proportional to the guy's rendered width: 22.5/300 = .075 of it (kit v3; the v2 dome was 20/290). --gw is that width in px, set next to each size rule
+     (the guy is as wide as its square box); 36px is the header's. No inline style: app.css owns every value. */
+  .lx-guy .lx-blink { stroke-width: calc(var(--gw, 36px) * .075); }
+  .lx-guy.is-awake .lx-blink { animation: lx-guy-blink 7s infinite; }
+  /* the first blink ~0.6 s after waking, then a single and a double blink every 7 s */
+  @keyframes lx-guy-blink { 0%, 7% { transform: scaleY(1); } 8.5% { transform: scaleY(.06); } 10%, 48% { transform: scaleY(1); } 49.5% { transform: scaleY(.06); } 51% { transform: scaleY(1); } 52.5% { transform: scaleY(.06); } 54%, 100% { transform: scaleY(1); } }
+  @media (prefers-reduced-motion: reduce) {
+    .lx-guy.is-awake .lx-blink { animation: none; }
+    .lx-guy .lx-squish { transition: none; }
+  }
+  /* HEADER SIZE (LOGO-HANDOFF.md 3.2: "~36-48 px in the header"; it was 28-34): 36 px wide and tall (the
+     square box). Every header that carries the logo: the public bars, the landing's and the queue page's corner, the
+     creator rail, the agency header, the onboarding header. Each selector out-ranks the old size rule it replaces. */
+  html body .lp-bar .wordmark.lx-guy > .mark,
+  html body.wl-page #gate .gate-card > .wordmark .mark.lx-guy,
+  html body .side-home.lx-guy > .mark,
+  html body.agency #app > header .ag-home.lx-guy > .mark,
+  html body #setup-modal.onb-v2 .onb-logo-mark.lx-guy { width: 36px; height: 36px; --gw: 36px; }
+  /* 404: the guy, awake (LOGO-HANDOFF.md 3.8). 404.html has no styles of its own, so the rule lives here. */
+  .legal .nf-guy { display: block; width: 120px; height: auto; margin: 8px 0 32px; --gw: 120px; }
+
+  /* THE GUY IS THE MASCOT TOO (D3, 2026-11-23): avatar.js draws him for every live avatar. The x's wrapper rules that
+     key on .lx get .lx-guy twins; the kit allows no shadow; nothing live is drawn under the kit's 20 px minimum; on the
+     ink send button he is the white guy. */
+  html body.home .lp-invite-x .lx-guy { display: block; width: 100%; height: 100%; }
+  body.hiw :is(.hiw-av, .hiw-preview-av) .lx-guy { display: block; width: 100%; height: 100%; }
+  .pane-body .lookup-loader .loader-mark.lx-guy,
+  body.agency #app main .loader:not(.inline) .loader-mark.lx-guy,
+  body.agency #app main .empty .empty-mark.lx-guy { filter: none; }
+  .cb-state .loader-mark.lx-guy { width: 20px; height: 20px; --gw: 20px; }
+  .composer-send .lx-guy { width: 22px; height: 22px; --gw: 22px; }
+  .composer-send .lx-guy.lx-guy--black { --lx-body: #f2f2f0; --lx-eye: #141414; }
+
+
+/* ================= THE 2026-11 LOOK (owner, 2026-11-25: "make the real one ... look like http://localhost:8813/") =================
+   Promoted verbatim from ~/Lynxr-redesign/v2/v2.css, where it was reviewed page by page (ledger ~/Lynxr-redesign/ledger.md).
+   It is the LAST section on purpose: it overrides the glass look above. Every selector is html:not([data-look="v1"]),
+   which applies on every page and has the same specificity as the review's html[data-look="v2"] (0,1,1), so the cascade
+   is identical to the preview. Setting data-look="v1" on a page's <html> would show the old look, for comparison only.
+   The tokens below supersede the glass palette's; the glass rules above stay until a cleanup pass removes them. */
+
+
+/* ---------- 1. tokens ---------- */
+html:not([data-look="v1"]), html:not([data-look="v1"]) body, html:not([data-look="v1"]) body.home {
+  color-scheme: light;
+  --bg: #d9dbe7; --surface: #fefdff; --surface-flat: #fefdff; --surface-2: #f4f3f7;
+  --glass: #fefdff; --glass-solid: #fefdff; --hover: #14122b0d;
+  --line: #14122b14; --line-2: #14122b33; --field-edge: #8e8c99;
+  --text: #14122b; --text-2: #4a4566; --text-3: #5c5875;
+  --accent: #5a2fd6; --focus-ring: #5a2fd6; --info: #7b61ff; --info-t: #efeafd;
+  --good: #146b3e; --good-t: #e8f4ec; --even: #735610; --bad: #a92c24;
+  --sh-1: 0 1px 2px rgba(20, 18, 43, .04), 0 6px 20px -8px rgba(20, 18, 43, .08);
+  --sh-2: 0 2px 4px rgba(20, 18, 43, .05), 0 12px 32px -10px rgba(20, 18, 43, .12);
+  --sh-3: 0 4px 8px rgba(20, 18, 43, .06), 0 24px 56px -12px rgba(20, 18, 43, .18);
+  --glass-edge: var(--line); --glass-hi: transparent; --glass-shadow: rgba(20, 18, 43, .12); --glass-blur: none;
+  --shadow-card: var(--sh-1); --shadow-pop: var(--sh-3); --g-shadow: var(--sh-1); --g-shadow-lift: var(--sh-2);
+  --g-hi-fallback: transparent; --app-soft: var(--sh-1); --app-lift: var(--sh-2);
+  --gl-fill: #fefdff; --gl-blur: none; --gl-edge: var(--line); --gl-shadow: var(--sh-1);
+  --gl-well-fill: #fefdff; --gl-well-edge: var(--line); --gl-well-shadow: none;
+  --tile-chip: #fefdff; --tile-chip-edge: var(--line); --tile-chip-blur: none; --tile-chip-shadow: var(--sh-1);
+  --beat-bg: #fefdff; --callout-bg: var(--surface-2); --callout-edge: var(--line);
+  --ico-grad: var(--info-t); --ico-on-grad: var(--accent); --ico-glow: none; --av-glow: transparent; --beat-glow: none;
+  --lbl-say-bg: #5a2fd614; --lbl-do-bg: #14122b0d;
+  --field: none; --logo-grad: linear-gradient(#7b61ff, #7b61ff);
+  --lpc-white: #fefdff;
+  /* the press colour: the logo's pink, solid, white text (owner, 2026-11-23: "lets try this text to be white", then
+     "make this button color the pink that the lynxr logo uses, not a gradient"). The x's middle stop is #ff7eb8. */
+  /* OCHRE (owner, 2026-11-25: "make the accent color ochre/orange", "so action buttons and such", then "text white").
+     A KNOWN, ACCEPTED CONTRAST EXCEPTION, the owner's call: white on #e29a2e is 2.33:1 (dark #20212a would be 6.78:1).
+     The probe will flag the join buttons; that is expected. The pink above is superseded. */
+  /* "make this orange more vibrant" (owner, same day): #e29a2e -> #f58a14; then "vibrant but lighter": #ff9f2e, white on
+     it is 2.02:1. */
+  --act: #ff9f2e; --act-hov: #f5901c; --act-glow: rgba(255, 159, 46, .45);
+  --on-act: #fefdff; --off-bg: #ebe9ef; --off-t: #77738a;
+}
+/* SUPERSEDED 2026-11-25 (the press colour is ochre with white text now, see the tokens). History: A KNOWN, ACCEPTED CONTRAST EXCEPTION: white on #ff7eb8 measures 2.32:1, under the 4.5:1 line for 16px text.
+   The owner saw readable versions (ink text 7.76:1; deeper #cf2e7e with white 4.77:1) and chose this one
+   ("lets do option 1", 2026-11-23). The probe will keep flagging the join buttons; that is expected, not a bug. */
+
+/* ---------- 2. no glass anywhere ---------- */
+html:not([data-look="v1"]) *, html:not([data-look="v1"]) *::before, html:not([data-look="v1"]) *::after {
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html:not([data-look="v1"]) .backdrop { display: none !important; }
+/* THE BACKGROUND (owner, 2026-11-25): first "a darker white" (#efedf3), then "a nice pastelle gray ish kinda of like the
+   night sky or space": #d9dbe7, a soft blue-violet grey. One flat colour, no gradient and no stars (BRAND guardrail: the
+   night sky is a feeling, never a theme). Cards stay #fefdff and now stand off it (1.36:1), and the white guy reads on it.
+   --text-3 went #66627e -> #5c5875 so small grey text sitting on the page stays readable: 4.9:1 here, 6.7:1 on cards. */
+html:not([data-look="v1"]) body { background: #d9dbe7; }
+
+/* ---------- 3. the primary button: the press colour, every state ---------- */
+html:not([data-look="v1"]) .btn {
+  background: var(--act); color: var(--on-act); border: 1px solid transparent; opacity: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 4px 12px -4px var(--act-glow);
+  transition: transform .12s var(--ease, ease), box-shadow .12s var(--ease, ease);
+}
+html:not([data-look="v1"]) .btn:hover:not(:disabled) { background: var(--act-hov); opacity: 1; }
+html:not([data-look="v1"]) .btn:active:not(:disabled) { transform: scale(.97); box-shadow: inset 0 2px 6px rgba(20, 18, 43, .22); }
+html:not([data-look="v1"]) .btn:disabled { background: var(--off-bg); color: var(--off-t); box-shadow: none; opacity: 1; cursor: not-allowed; }
+html:not([data-look="v1"]) .btn[aria-busy="true"] { cursor: progress; pointer-events: none; }
+html:not([data-look="v1"]) .onb-shim[aria-busy="true"]::after { display: none; }
+@media (forced-colors: active) { html:not([data-look="v1"]) .btn { border-color: ButtonText; } }
+
+/* ============== v2 · P1 the landing (/) ============== */
+/* the corner row: the logo only. "sign in" is gone from the landing (owner, 2026-11-23: "remove this"); a returning
+   creator signs in from the waitlist card's own "sign in" switch (creator.js switch-mode), one tap further in. */
+html:not([data-look="v1"]) body.home .lp-bar .lp-signin { display: none; }
+
+/* the video: a solid bubble, solid controls */
+html:not([data-look="v1"]) body.home .lp-intro-card { background: #fefdff; border: 1px solid var(--line); box-shadow: var(--sh-2); }
+html:not([data-look="v1"]) body.home .lpv-big,
+html:not([data-look="v1"]) body.home .lpv-bar { background: #fefdff; border: 1px solid var(--line); box-shadow: var(--sh-2); }
+html:not([data-look="v1"]) body.home .lpv-big:hover { background: #fefdff; }
+html:not([data-look="v1"]) body.home .lpv-big:focus-visible { box-shadow: 0 0 0 3px #fefdff, 0 0 0 6px var(--focus-ring), var(--sh-2); }
+
+/* the five cards: solid near-white bubbles, a hairline and a soft shadow */
+html:not([data-look="v1"]) body.home .lp-how-card { background: #fefdff; border: 1px solid var(--line); box-shadow: var(--sh-1); }
+
+/* their pictures: neutral shapes, violet as the one accent (pink and orange now mean "press this") */
+html:not([data-look="v1"]) body.home .lp-how-art i { background: #e9e7ef; }
+html:not([data-look="v1"]) body.home .lp-how-art .lp-lead { background: #7b61ff; opacity: .55; }
+html:not([data-look="v1"]) body.home :is(.lp-ph-row b, .lp-sc-row b, .lp-bt) {
+  border: 1.5px solid var(--line-2); background: #fefdff;
+}
+/* 1. the phone */
+html:not([data-look="v1"]) body.home .lp-art-phone .lp-ph {
+  background: #ebe9ef; border: 1px solid var(--line-2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .6), var(--sh-3);
+}
+html:not([data-look="v1"]) body.home .lp-ph-screen { background: #fefdff; box-shadow: inset 0 0 0 1px var(--line); }
+html:not([data-look="v1"]) body.home .lp-ph-link { background: var(--info-t); }
+html:not([data-look="v1"]) body.home .lp-ph-script { background: #f7f6f9; border: 1px solid var(--line); }
+html:not([data-look="v1"]) body.home .lp-ph-compose { background: #fefdff; border: 1px solid var(--line-2); }
+/* 2. the pasted links */
+html:not([data-look="v1"]) body.home .lp-lk { background: #fefdff; border: 1px solid var(--line); box-shadow: var(--sh-2); }
+html:not([data-look="v1"]) body.home .lp-lk-ico { background: var(--info-t); color: var(--accent); }
+/* 3. the four parts of a format */
+html:not([data-look="v1"]) body.home .lp-art-beats::before { background: #7b61ff; opacity: .3; }
+html:not([data-look="v1"]) body.home .lp-bt { box-shadow: var(--sh-1); }
+/* 4 and 5. the script well and the tracked posts */
+html:not([data-look="v1"]) body.home :is(.lp-art-script .lp-sc, .lp-art-track .lp-tr) {
+  background: #fefdff; border: 1px solid var(--line); box-shadow: var(--sh-2);
+}
+html:not([data-look="v1"]) body.home .lp-tr-row { background: #f7f6f9; border: 1px solid var(--line); }
+html:not([data-look="v1"]) body.home .lp-tr-thumb { background: #e4ddfb; }
+html:not([data-look="v1"]) body.home .lp-tr-row:nth-child(2) .lp-tr-thumb { background: #d6ccfa; }
+html:not([data-look="v1"]) body.home .lp-tr-row:nth-child(3) .lp-tr-thumb { background: #ece8f7; }
+html:not([data-look="v1"]) body.home .lp-tr-lines i { background: #e9e7ef; opacity: 1; }
+/* "tracked" is a success state: green, not a brand colour */
+html:not([data-look="v1"]) body.home .lp-tr-on { background: var(--good-t); color: var(--good); }
+html:not([data-look="v1"]) body.home .lp-tr-on::before { background: var(--good); }
+
+/* the footer card */
+html:not([data-look="v1"]) body.home #site-footer { background: #fefdff; border: 1px solid var(--line); box-shadow: var(--sh-1); }
+
+/* ============== THE NIGHT (owner, 2026-11-25): the landing's background goes "kinda black" ==============
+   After "a nice pastelle gray ish kinda of like the night sky or space", then "maybe like a black kinda", then "lighter
+   color, kinda like a grayish black" (#2e2f35; #20212a tried and reverted), then "back the background slightly
+   darker": #27282e. BRAND.md agrees:
+   "Dark background, white guy, a few warm accents", and "no space theme" (one flat colour, no stars or gradient).
+   SCOPE: the signed-out landing only (body.lp.home; enterApp() drops .home on sign-in, so the creator app keeps the light
+   page). Other pages follow one by one after the owner's review. Cards, the video and the footer stay near-white
+   surfaces with dark text; only what sits directly on the night is turned light. The white guy now reads in full. */
+html:not([data-look="v1"]) body.lp.home { background: #212227; --night: #212227; --on-night: #eeedf5; --on-night-2: #b9b7c9; }
+/* the page colour is really painted by the fixed body::before layer (var(--bg)), so it is set there too. --bg itself is
+   left alone: inputs and wells inside the cards use it and must stay light. */
+html:not([data-look="v1"]) body.lp.home::before {
+  /* the stars (owner, 2026-11-25: "add stars and things (essentially just dots. keep it superrrr simple)"): five static
+     layers of one tiny dot each, tiled at odd sizes so they never line up. No motion, no glow, no shapes. */
+  background-color: #212227;   /* "make the background slightly darker" (owner, 2026-11-26): was #27282e */
+  background-image:
+    radial-gradient(circle at 17% 23%, rgba(238, 237, 245, .55) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 71% 64%, rgba(238, 237, 245, .4) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 42% 88%, rgba(238, 237, 245, .3) 0 .8px, transparent 1.4px),
+    radial-gradient(circle at 88% 12%, rgba(238, 237, 245, .45) 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 5% 57%, rgba(238, 237, 245, .35) 0 1px, transparent 1.6px);
+  background-size: 211px 197px, 263px 241px, 151px 163px, 331px 307px, 419px 389px;
+}
+html:not([data-look="v1"]) body.lp.home .lp-bar,
+html:not([data-look="v1"]) body.lp.home .lp-first-h,
+html:not([data-look="v1"]) body.lp.home .lp-close .lp-h2 { color: var(--on-night); }
+html:not([data-look="v1"]) body.lp.home .gate-back { color: var(--on-night-2); }
+html:not([data-look="v1"]) body.lp.home .gate-back:hover { color: var(--on-night); }
+/* the focus ring: the violet ring is 2.39:1 on the night, under the 3:1 a focus indicator needs, so controls that sit
+   on the night get a light violet ring (6.1:1 on the charcoal). Controls inside cards keep the violet (7.4:1 on near-white). */
+html:not([data-look="v1"]) body.lp.home :is(.lp-bar, .lp-first-go, .lp-close, #gate > .gate-back) :focus-visible,
+html:not([data-look="v1"]) body.lp.home :is(.lp-first-go, .lp-close) .btn:focus-visible { outline: 2px solid #b9a0ff; outline-offset: 3px; }
+/* the launch-video placeholder (owner, 2026-11-25): the hero card keeps its 16:9 box and holds the white guy (rests, wakes
+   on hover via lynxr-guy.js) and one line. A panel one step lighter than the night, so the card reads as a frame. */
+html:not([data-look="v1"]) body.home .lp-intro-card--ph { background: #33343b; border: 1px solid #ffffff1f; box-shadow: none; }
+body.home .lp-intro-ph { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+body.home .lp-intro-ph .lp-ph-guy { width: 84px; height: 84px; --gw: 84px; }
+body.home .lp-intro-ph-t { margin: 0; color: #b9b7c9; font-size: 15px; font-weight: 600; }
+@media (max-width: 640px) { body.home .lp-intro-ph .lp-ph-guy { width: 64px; height: 64px; --gw: 64px; } body.home .lp-intro-ph { gap: 12px; } }
+@media (max-width: 640px) { html body.home .lp-first .lp-intro-card--ph { aspect-ratio: 16 / 9; } }
+/* THE LOGO'S TWO COLOURS (owner, 2026-11-25: "just make it black and white like pure black and white or just enough so
+   that it doesnt hurt the average human eye"): a neutral soft white #f2f2f0 (no lavender tint, a touch under #fff so it
+   doesn't glare on the night) and the near-black #141414. The guy's body uses it above; the wordmark beside him matches. */
+html:not([data-look="v1"]) body.lp.home .lp-bar .wordmark { color: #f2f2f0; }
+/* THE JOIN BUTTON'S TEXTURE (owner, 2026-11-25: "instead of a shine add a texture over the join the waitlist button").
+   The sweep is gone from every join button; a fine static grain (assets/texture/grain-1.svg, same origin so img-src 'self'
+   allows it) sits over the orange instead, blended so the colour stays vibrant. Nothing animates, so reduced motion
+   changes nothing here. Disabled buttons drop it, so disabled still looks disabled. */
+html:not([data-look="v1"]) :is(.btn.lp-first-cta, .btn.lp-close-cta, #wl-go) { position: relative; overflow: hidden; isolation: isolate; }
+html:not([data-look="v1"]) :is(.btn.lp-first-cta, .btn.lp-close-cta, #wl-go)::after {
+  content: ""; display: block; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: url("/assets/texture/grain-1.svg") repeat; background-size: 140px 140px;
+  mix-blend-mode: soft-light; opacity: .55; transform: none; animation: none;
+}
+html:not([data-look="v1"]) #wl-go:disabled::after { display: none; }
+/* THE BIG WORD (owner, 2026-11-25): "lynxr" huge and centred over the heading, and the pair fills most of the first
+   screen, so the video card starts near the bottom edge and is cut off until you scroll. The fit-to-one-screen sizing
+   of the card above is replaced by a plain wide card. Colour = the logo's soft white (BRAND.md). */
+html body.home .lp-hero-top {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;
+  /* "have the video be cut off at the half way point" (owner): the card's top sits at 100svh minus half its own height
+     (its width x 9/16 / 2), less its top margin, so the screen edge cuts it in half on any size. */
+  min-height: calc(100svh - var(--lpf-top) - min(100vw - 2 * var(--lpc-edge), 1040px) * 9 / 32 - clamp(16px, 3vh, 32px));
+}
+html body.home .lp-hero-word {
+  margin: 0 0 .26em; font-size: clamp(60px, 8.6vw, 132px);   /* "too big", then "smaller creating some space, making it stand out more": 11vw -> 8.6vw */   /* .26em clears the y's tail above the heading */ font-weight: 800; line-height: .9;
+  letter-spacing: -.055em; text-align: center; color: #f2f2f0; text-transform: lowercase;
+}
+html body.home #lp-main > .lp-first { justify-content: flex-start; }
+html body.home .lp-first .lp-intro-card { width: min(100%, 1040px); margin-top: clamp(16px, 3vh, 32px); }
+@media (max-width: 640px) {
+  html body.home .lp-hero-top { min-height: calc(100svh - var(--lpf-top) - (100vw - 32px) * 9 / 32 - 24px - var(--lp-lift, 0px)); }
+  html body.home .lp-hero-word { font-size: clamp(60px, 18vw, 96px); margin-bottom: .22em; }
+  html body.home .lp-first .lp-intro-card { width: 100%; margin-top: 24px; }
+}
+/* the new order (owner, 2026-11-25): heading, then the big word, then the join button right under it */
+html body.home .lp-hero-top .lp-first-h { margin: 0 0 clamp(18px, 3vh, 30px); font-size: clamp(16px, 1.4vw, 20px); font-weight: 400; color: #b9b7c9; letter-spacing: .02em; }   /* "have it be smaller text" (owner): the line over the word, quieter */
+html body.home .lp-hero-top .lp-hero-word { margin-bottom: .28em; }   /* clears the y's tail above the line under it */
+html body.home .lp-hero-top .lp-first-go { margin-top: 0; }
+/* order (owner, 2026-11-25, last word): the big word, then the line "your agentic content coach" under it ("put this text
+   under the main lynxr", "smaller", "like skinnier": weight 300), then the join button. The phone keeps weight 300 too. */
+@media (max-width: 640px) { html body.home .lp-hero-top .lp-first-h { font-weight: 400; font-size: 17px; } }   /* 300 was "too skinny" */
+/* THE STARS DRIFT (owner, 2026-11-25: "have the stars in the back move gradually"). Each dot layer slides up and to the
+   left by exactly one of its own tiles per loop, so the loop is seamless, and the bigger tiles move further in the same
+   time, so the layers drift at different speeds (a little depth). Very slow: one loop is 3 minutes. Still under reduced
+   motion. */
+html:not([data-look="v1"]) body.lp.home::before { animation: lp-stars-drift 180s linear infinite; }
+@keyframes lp-stars-drift {
+  from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0; }
+  to { background-position: -211px -197px, -263px -241px, -151px -163px, -331px -307px, -419px -389px; }
+}
+@media (prefers-reduced-motion: reduce) { html:not([data-look="v1"]) body.lp.home::before { animation: none; } }
+/* THE FLOATING COLLAGE (owner, 2026-11-25): video tiles (.lpf-v tall 9:16, .lpf-h wide 16:9) and round GIF/image spots
+   (.lpf-o) scattered around the hero, at the spots the owner marked on a 2000 px wide screenshot. Placeholders: a tile is
+   a dark card with a small play mark, a circle is a soft disc. They sit behind the words and above the stars. */
+html body.home #lp-main > .lp-first { position: relative; overflow-x: clip; }
+html body.home #lp-main > .lp-first > .lp-in { position: relative; z-index: 2; }
+html body.home .lp-float { position: absolute; inset: 0; pointer-events: none; }   /* no z-index: no stacking context, so .lpf-10 can sit over the card */
+html body.home .lpf { position: absolute; z-index: 1; display: block; box-sizing: border-box; background: #33343b; border: 1px solid #ffffff1a; }
+html body.home .lpf-v, html body.home .lpf-h { border-radius: 14px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .6); }
+html body.home .lpf-v { aspect-ratio: 9 / 16; }
+html body.home .lpf-h { aspect-ratio: 16 / 9; }
+html body.home .lpf-o { aspect-ratio: 1; border-radius: 50%; background: #3a3b43; }
+/* the play mark: a small soft triangle in the middle of each video tile */
+html body.home :is(.lpf-v, .lpf-h)::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform: translate(-35%, -50%);
+  border-style: solid; border-width: 9px 0 9px 15px; border-color: transparent transparent transparent #f2f2f066;
+}
+/* desktop spots, from the owner's sketch (x and size as vw, y as vh) */
+html body.home .lpf-1 { left: 6.4vw; top: 14vh; width: 10.2vw; }    /* tall video, left ("move this video placeholder more right": was 2.8vw) */
+html body.home .lpf-2 { left: 78.7vw; top: 5.2vh; width: 15.6vw; }  /* wide video, top right */
+html body.home .lpf-3 { left: 67vw; top: 53vh; width: 11.8vw; }     /* wide video, right of the button */
+html body.home .lpf-4 { left: 80.5vw; top: 35vh; width: 8.6vw; }    /* tall video, right */
+html body.home .lpf-5 { left: 25vw; top: 9vh; width: 5vw; }
+html body.home .lpf-6 { left: 52.6vw; top: 4vh; width: 4.8vw; }
+html body.home .lpf-7 { left: 76.2vw; top: 18.6vh; width: 3.9vw; }
+html body.home .lpf-8 { left: 17.1vw; top: 41vh; width: 4.9vw; }
+html body.home .lpf-9 { left: 26.8vw; top: 51vh; width: 8.2vw; aspect-ratio: 3 / 2; border-radius: 50%; }   /* the wide oval */
+html body.home .lpf-10 { left: 13.8vw; top: 67.8vh; width: 7.2vw; z-index: 3; }   /* overlaps the video card's corner, as drawn */
+html body.home .lpf-11 { left: 90.6vw; top: 88vh; width: 6.2vw; }
+/* phone: the middle column is the words and the button, so only the edges carry pieces, smaller and partly off-screen */
+@media (max-width: 640px) {
+  html body.home .lpf-2, html body.home .lpf-3, html body.home .lpf-8, html body.home .lpf-9 { display: none; }
+  html body.home .lpf-1 { left: -6vw; top: 16vh; width: 22vw; }
+  html body.home .lpf-4 { left: 82vw; top: 30vh; width: 21vw; }
+  html body.home .lpf-5 { left: 22vw; top: 10vh; width: 11vw; }
+  html body.home .lpf-6 { left: 68vw; top: 12vh; width: 9vw; }
+  html body.home .lpf-7 { left: 4vw; top: 70vh; width: 10vw; }
+  html body.home .lpf-10 { left: 74vw; top: 62vh; width: 14vw; z-index: 1; }
+  html body.home .lpf-11 { left: 40vw; top: 92vh; width: 8vw; }
+  html body.home :is(.lpf-v, .lpf-h)::after { border-width: 6px 0 6px 10px; }
+}
+/* THE BLINK EVERY 3 SECONDS (owner, 2026-11-25: "make the blinking every 3 seconds"), on every awake guy: one quick blink
+   per 3 s cycle (the 7 s single-then-double pattern above is superseded). Still off under reduced motion. */
+/* MORE HUMAN (owner, same day: "have the blinking feel more human like not just a 3 second timer ... sometimes do double
+   blinks"): an irregular 17 s pattern of six moments, singles and two doubles, about one every 3 s on average. */
+.lx-guy.is-awake .lx-blink { animation: lx-guy-blink-human 17s infinite; }
+@keyframes lx-guy-blink-human { 0% { transform: scaleY(1); } 14.12% { transform: scaleY(1); } 14.53% { transform: scaleY(.06); } 15.06% { transform: scaleY(1); } 31.18% { transform: scaleY(1); } 31.59% { transform: scaleY(.06); } 32.12% { transform: scaleY(1); } 33.06% { transform: scaleY(1); } 33.47% { transform: scaleY(.06); } 34.00% { transform: scaleY(1); } 50.59% { transform: scaleY(1); } 51.00% { transform: scaleY(.06); } 51.53% { transform: scaleY(1); } 65.29% { transform: scaleY(1); } 65.71% { transform: scaleY(.06); } 66.24% { transform: scaleY(1); } 78.82% { transform: scaleY(1); } 79.24% { transform: scaleY(.06); } 79.76% { transform: scaleY(1); } 80.71% { transform: scaleY(1); } 81.12% { transform: scaleY(.06); } 81.65% { transform: scaleY(1); } 94.71% { transform: scaleY(1); } 95.12% { transform: scaleY(.06); } 95.65% { transform: scaleY(1); } 100% { transform: scaleY(1); } }
+@keyframes lx-guy-blink3 { 0%, 88% { transform: scaleY(1); } 91% { transform: scaleY(.06); } 94%, 100% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .lx-guy.is-awake .lx-blink { animation: none; } }
+/* the pixel camcorder takes the top-left circle's spot (owner, 2026-11-25), a little wider than the circle and centred on
+   where it was. A picture, not a placeholder: no disc behind it. */
+html body.home .lpf-img { position: absolute; z-index: 1; display: block; height: auto; pointer-events: none; }
+html body.home .lpf-cam.lpf-5 { left: 18vw; top: calc(27vh - 1.8vw); width: 6vw; }   /* moved next to the left tile (owner's arrow, 2026-11-26) */   /* "slightly smaller", then "even smaller": 9.6 -> 7.8 -> 6vw, same centre */
+@media (max-width: 640px) { html body.home .lpf-cam.lpf-5 { left: 22vw; top: 10vh; width: 13vw; perspective: 19.5vw; } }   /* same depth as desktop: perspective = 1.5 x its width */
+/* a real picture keeps ITS OWN shape (owner, 2026-11-25: "make it the actual shape of the file not the circle, those are
+   place holders"): the reaction photo is its own 480x264 rectangle with the tiles' rounded corners, centred on the spot
+   the circle held, and still over the video card's corner as drawn. */
+html body.home .lpf-img.lpf-pic { border-radius: 14px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .6); z-index: 1; }   /* behind the launch-video card ("make the launch video be in front of that") */
+html body.home .lpf-img.lpf-10 { left: 3.4vw; top: calc(67.5vh + .5vw); width: 13vw; aspect-ratio: 480 / 264; transform: rotate(-18deg); }   /* "tilt it the other way" after "have it like this" (owner's drawing): bigger, up-left over the card's left edge, tilted like a sticker */
+@media (max-width: 640px) { html body.home .lpf-img.lpf-10 { left: 69.6vw; top: calc(100svh - (100vw - 32px) * 9 / 32 - 11px - 7.7vw - var(--lp-lift, 0px)); width: 28vw; z-index: 1; transform: rotate(-12deg); } }   /* phone: on the video card's top-right corner, behind it (owner's mark, 2026-11-26) */
+/* the camcorder's screen swings on its hinge (owner, 2026-11-25): open, folds most of the way shut, opens again, about every
+   3.6 s. Pure transform, so it is cheap. Still under reduced motion (it stays open). */
+html body.home .lpf-cam { position: absolute; z-index: 1; display: block; aspect-ratio: 480 / 289; pointer-events: none; perspective: 9vw; perspective-origin: 43% 50%; }
+html body.home .lpf-cam img { display: block; position: absolute; height: auto; }
+html body.home .lpf-cam-body { left: 0; top: 0; width: 100%; }
+html body.home .lpf-cam-screen { position: absolute; display: block; left: 43.125%; top: 35.986%; width: 56.875%; aspect-ratio: 273 / 185; transform-origin: 0 0; animation: cam-flip 3.6s ease-in-out infinite; }
+html body.home .lpf-cam-screen img { left: 0; top: 0; width: 100%; }
+html body.home .lpf-cam-front { animation: cam-face 3.6s linear infinite; }
+html body.home .lpf-cam-back { opacity: 0; animation: cam-back 3.6s linear infinite; }
+/* ONE MOVE (owner, 2026-11-26), now ANGLED AND KEEPING ITS FACE ("angle the fold so that it matches up with where it
+   should be and keep the text even when closed"): open as drawn, a single smooth swing shut onto the camera's side, slanted
+   12 degrees up toward the back like the camera's own lines, with its "32GB / Full HD / HD 1080P" face still showing (no patch behind it: "the folding part should be the border"); a
+   rest; a single swing open. The body image's grey side is the same slanted shape, so nothing pokes out. */
+/* A REAL SWING, NOT A SQUASH (owner: "it shouldnt just shrink, it should look like its actually flipping into the camera
+   like a real camcorder"): the screen turns in 3D on its hinge (rotateY about its left edge, with perspective set on the
+   camcorder), so its far edge recedes and shortens as it swings in; at rest shut it lies along the camera's slanted side
+   (skewY -12deg) at the side's height (scaleY), face and text still showing. The hinge strip stays on the body. */
+@keyframes cam-flip {
+  0%, 30% { transform: skewY(0deg) rotateY(0deg) scaleY(1); }
+  50%, 72% { transform: skewY(0deg) rotateY(58deg) scaleY(.84); }   /* "cover the whole side": hinge to the camera's back edge, under the top block to the bottom (measured on a 40vw blow-up) */
+  92%, 100% { transform: skewY(0deg) rotateY(0deg) scaleY(1); }
+}
+@keyframes cam-face { from, to { opacity: 1; } }
+@keyframes cam-back { from, to { opacity: 0; } }
+}
+@media (prefers-reduced-motion: reduce) { html body.home .lpf-cam-screen, html body.home .lpf-cam-front { animation: none; } html body.home .lpf-cam-back { animation: none; opacity: 0; } }
+/* the ring light takes the oval's spot (owner, 2026-11-25: "add this here and have the light face the lynxr text"): the
+   picture is mirrored so its lit face points right, and tipped back a little so it aims up at the big word. Its own
+   shape (tall), centred where the oval was. Phone: that spot stays hidden, as the oval was, to keep the middle clear. */
+html body.home .lp-ring {
+  position: absolute; z-index: 3; left: 29.1vw; top: calc(100svh - min(100vw - 2 * var(--lpc-edge), 1040px) * 9 / 32 - 5.79vw); width: 3.6vw; min-width: 44px; aspect-ratio: 420 / 676;
+  padding: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}   /* "smaller", twice: 6vw -> 4.6vw -> 3.6vw, same centre */
+html body.home .lp-ring img { display: block; width: 100%; height: auto; transition: filter .25s ease; }
+html body.home .lp-ring:focus-visible { outline: 2px solid #b9a0ff; outline-offset: 6px; border-radius: 8px; }
+html body.home .lp-ring:active img { transform: scale(.97); }
+/* the four states, set by home.js on the hero section as data-ring: 0 on (as drawn), 1 brighter, 2 brightest, 3 off */
+html body.home .lp-first[data-ring="1"] .lp-ring img { filter: brightness(1.12) drop-shadow(0 0 10px rgba(255, 232, 190, .55)); }
+html body.home .lp-first[data-ring="2"] .lp-ring img { filter: brightness(1.25) drop-shadow(0 0 22px rgba(255, 226, 170, .85)); }
+html body.home .lp-first[data-ring="3"] .lp-ring img { filter: brightness(.5) saturate(.2); }
+/* ...and what it does to the big word: a warm light falls on it, stronger at each step; off, the word dims a touch */
+html body.home .lp-hero-top { position: relative; }
+html body.home .lp-hero-top > * { position: relative; z-index: 1; }
+html body.home .lp-hero-top::before {
+  content: ""; position: absolute; z-index: 0; left: 50%; top: 42%; width: min(70vw, 900px); aspect-ratio: 2 / 1;
+  transform: translate(-50%, -50%); pointer-events: none; opacity: 0; transition: opacity .35s ease;
+  background: radial-gradient(closest-side, rgba(255, 226, 176, .16), rgba(255, 226, 176, .06) 55%, transparent);
+}
+html body.home .lp-hero-word { transition: color .3s ease, text-shadow .3s ease; }
+html body.home .lp-first[data-ring="1"] .lp-hero-top::before { opacity: .6; }
+html body.home .lp-first[data-ring="2"] .lp-hero-top::before { opacity: 1; }
+html body.home .lp-first[data-ring="1"] .lp-hero-word { color: #fbf8f0; text-shadow: 0 0 18px rgba(255, 236, 200, .35), 0 0 48px rgba(255, 214, 150, .22); }
+html body.home .lp-first[data-ring="2"] .lp-hero-word { color: #fffcf4; text-shadow: 0 0 22px rgba(255, 236, 200, .6), 0 0 90px rgba(255, 210, 140, .42); }
+/* off leaves the word its normal colour (owner, 2026-11-26: "even when it is off, have the lynxr still be the original color") */
+@media (prefers-reduced-motion: reduce) { html body.home .lp-ring img, html body.home .lp-hero-word, html body.home .lp-hero-top::before { transition: none; } }
+@media (max-width: 640px) { html body.home .lp-ring { left: 31.75vw; top: calc(100svh - (100vw - 32px) * 9 / 32 - 16.9vw - var(--lp-lift, 0px)); width: 10.5vw; } }   /* phone: under the join button, between the two photos (owner's mark, 2026-11-26) */
+/* the portrait meme takes the circle under the top-right tile (owner, 2026-11-26), in its own portrait shape, a little
+   bigger than the circle and centred on it. */
+html body.home .lpf-img.lpf-7 { left: 75.4vw; top: calc(18.6vh - 1.15vw); width: 5.5vw; aspect-ratio: 360 / 405; }
+@media (max-width: 640px) { html body.home .lpf-img.lpf-7 { left: 4vw; top: 70vh; width: 13vw; } }
+/* THE CONE OF LIGHT (owner, 2026-11-26: "have the ring light portray a cone of light that makes sense like a real ring
+   light"): narrow at the ring's face, widening to cover the big word, warm and soft, brightest near the ring and fading
+   with distance. home.js aims it; it shows on brighter (1) and brightest (2) only. Behind the words. */
+html body.home .lp-ring-beam {
+  position: absolute; z-index: 1; display: block; pointer-events: none; transform-origin: 0 50%; opacity: 0;
+  background: linear-gradient(to right, rgba(255, 238, 205, .34), rgba(255, 228, 182, .14) 55%, rgba(255, 220, 170, 0) 100%);
+  clip-path: polygon(0 46%, 100% 0, 100% 100%, 0 54%);
+  filter: blur(10px); transition: opacity .35s ease;
+}
+html body.home .lp-first[data-ring="1"] .lp-ring-beam { opacity: .55; }
+html body.home .lp-first[data-ring="2"] .lp-ring-beam { opacity: 1; }
+html body.home .lp-first[data-ring="1"] .lp-hero-top::before { opacity: .35; }
+html body.home .lp-first[data-ring="2"] .lp-hero-top::before { opacity: .6; }
+@media (prefers-reduced-motion: reduce) { html body.home .lp-ring-beam { transition: none; } }
+/* the cone shows on phone too, aimed up from the ring at the word (behind the button) */
+/* the distracted-boyfriend meme takes the top circle (owner, 2026-11-26), its own 4:3 shape, centred where the circle was */
+html body.home .lp-hold {
+  position: absolute; z-index: 3; left: 48vw; top: 2.5vh; width: 14vw; aspect-ratio: 4 / 3; padding: 0; border: 0;
+  background: none; cursor: pointer; border-radius: 14px; touch-action: none; -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none; user-select: none; transition: transform .12s ease;
+}   /* "make this bigger so i can actually read it": 9vw -> 14vw; now a hold-to-play button */
+html body.home .lp-hold img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 14px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .6); -webkit-user-drag: none; pointer-events: none; }
+html body.home .lp-hold.is-held { transform: scale(.97); }
+html body.home .lp-hold:focus-visible { outline: 2px solid #b9a0ff; outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) { html body.home .lp-hold { transition: none; } }   /* "make this bigger so i can actually read it": 9vw -> 14vw */
+@media (max-width: 640px) { html body.home .lp-hold { left: 60vw; top: 9vh; width: 34vw; } }
+/* the portrait as a button: same spot and shape as before, it lifts a little on hover, the focus ring shows on keyboard */
+html body.home .lp-chad {
+  position: absolute; z-index: 3; left: 75.4vw; top: calc(18.6vh - 1.15vw); width: 5.5vw; min-width: 44px; aspect-ratio: 360 / 405;
+  padding: 0; border: 0; background: none; cursor: pointer; border-radius: 14px; -webkit-tap-highlight-color: transparent;
+  transition: transform .15s ease;
+}
+html body.home .lp-chad img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 14px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .6); }
+html body.home .lp-chad:hover { transform: translateY(-3px) rotate(-2deg); }
+html body.home .lp-chad:focus-visible { outline: 2px solid #b9a0ff; outline-offset: 4px; }
+@media (max-width: 640px) { html body.home .lp-chad { left: 6vw; top: 35vh; width: 17vw; } }   /* phone: under the left video tile, beside "lynxr" (owner's mark, 2026-11-26) */
+/* the popup: the video big and centred on a dimmed page, a close button in its corner */
+html body.home .lp-rick { padding: 0; border: 0; background: transparent; width: min(92vw, 960px); max-width: none; overflow: visible; }
+html body.home .lp-rick::backdrop { background: rgba(10, 10, 14, .78); }
+html body.home .lp-rick-frame { aspect-ratio: 16 / 9; width: 100%; border-radius: 16px; overflow: hidden; background: #111114; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .8); }
+html body.home .lp-rick-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+html body.home .lp-rick-x {
+  position: absolute; top: -52px; right: 0; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
+  background: #f2f2f0; color: #141414; font-size: 26px; line-height: 44px; text-align: center;
+}
+html body.home .lp-rick-x:focus-visible { outline: 2px solid #b9a0ff; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { html body.home .lp-chad { transition: none; } html body.home .lp-chad:hover { transform: none; } }
+/* the corner guy's lean toward the mouse (home.js guyFollows) eases instead of snapping */
+html body.home .lp-bar .wordmark svg.mark { transition: transform .22s cubic-bezier(.3, .7, .4, 1); transform-origin: 50% 50%; will-change: transform; }
+@media (prefers-reduced-motion: reduce) { html body.home .lp-bar .wordmark svg.mark { transition: none; } }
+/* the camcorder stays open, as drawn (owner, 2026-11-26: "have it just stay like this"): no fold animation */
+html body.home .lpf-cam-screen, html body.home .lpf-cam-front, html body.home .lpf-cam-back { animation: none; }
+html body.home .lpf-cam-back { opacity: 0; }
+/* the ring light stands ON the launch-video card's top edge (owner, 2026-11-26: "have this rest on top of the launch video
+   border"): the card's top sits at 100svh minus half its height (the halfway cut), so the light's top is that line minus its
+   own height (3.6vw x 767/420 = 6.57vw; a touch less, so the tilted feet touch the border). */
+/* THE RING LIGHT, REBUILT (owner, 2026-11-26: "have all the legs look like its on the border, change the image if needed
+   and also angle the light portion up to the lynxr text"). Two pieces: the stand, whose three feet now end on one line
+   (the two longer legs trimmed to the shortest, each with a dark foot), sitting upright on the card's top edge; and the
+   lit head, tilted back 18deg on its mount so it faces up at the big word. */
+html body.home .lp-ring img { position: static; }
+html body.home .lp-ring .lp-ring-head { display: block; width: 100%; height: auto; transform-origin: 46.4% 100%; transform: rotate(-18deg); transition: transform .2s ease; }   /* home.js turns it to face the word */
+html body.home .lp-ring .lp-ring-stand { display: block; width: 100%; height: auto; }
+/* the dancing hamster (owner, 2026-11-26: "make this here and slightly cut off hidden behind the video, but majority
+   showing"): left of the left video tile, about a third of it tucked behind the tile, which sits in front of it. */
+html body.home .lpf-img.lpf-hamster { left: 1.4vw; top: calc(14vh + 2.9vw); width: 5.6vw; aspect-ratio: 480 / 476; z-index: 0; }
+@media (max-width: 640px) { html body.home .lpf-img.lpf-hamster { display: none; } }
+/* the dancing Power Rangers take the circle by the left tile's corner (owner, 2026-11-26), in their own 4:3 shape, just
+   right of the tile. Desktop only, like the circle was. */
+html body.home .lpf-img.lpf-8 { left: 90.2vw; top: 31.7vh; width: 7.8vw; aspect-ratio: 300 / 225; }   /* moved beside the top of the tall right tile (owner's box, 2026-11-26) */
+/* Mount Rushmore trigger (placeholder card) in the Power Rangers' first spot, beside the left tile's corner */
+html body.home .lp-rush {
+  position: absolute; z-index: 3; left: 17vw; top: calc(41vh - .55vw); width: 8vw; min-width: 88px; aspect-ratio: 4 / 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0;
+  border: 1px solid #ffffff1f; border-radius: 14px; background: #33343b; color: #eeedf5; cursor: pointer;
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, .6); transition: transform .15s ease;
+}
+html body.home .lp-rush-ico { font-size: clamp(22px, 2.2vw, 34px); line-height: 1; }
+html body.home .lp-rush-t { font-size: 12px; font-weight: 600; color: #b9b7c9; }
+html body.home .lp-rush:hover { transform: translateY(-3px) rotate(2deg); }
+html body.home .lp-rush:focus-visible { outline: 2px solid #b9a0ff; outline-offset: 4px; }
+@media (max-width: 640px) { html body.home .lp-rush { display: none; } }
+/* the team popup, with iMessage bubbles over each of us */
+html body.home .lp-team { padding: 0; border: 0; background: transparent; width: min(92vw, 900px); max-width: none; overflow: visible; }
+html body.home .lp-team::backdrop { background: rgba(10, 10, 14, .78); }
+html body.home .lp-team-fig { position: relative; margin: 0; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .8); }
+html body.home .lp-team-fig img { display: block; width: 100%; height: auto; }
+html body.home .lp-imsg {
+  position: absolute; padding: .45em .9em; border-radius: 1.1em; font: 600 clamp(15px, 2.2vw, 22px)/1.2 -apple-system, "SF Pro Text", "Albert Sans", system-ui, sans-serif;
+  text-transform: none; letter-spacing: 0; opacity: 0; transform: scale(.4) translateY(10px); transition: opacity .25s ease, transform .35s cubic-bezier(.3, 1.6, .5, 1);
+}
+/* the left one is an incoming grey bubble, its tail bottom-left; the right one an outgoing blue bubble, tail bottom-right */
+html body.home .lp-imsg--in { left: 31%; top: 9%; background: #e9e9eb; color: #111; transform-origin: 0 100%; }
+html body.home .lp-imsg--out { left: 57%; top: 10%; background: #0b84ff; color: #fefefe; transform-origin: 100% 100%; }
+html body.home .lp-imsg::after { content: ""; position: absolute; bottom: 0; width: .9em; height: .9em; background: inherit; }
+html body.home .lp-imsg--in::after { left: -.28em; border-bottom-right-radius: .9em; clip-path: polygon(0 100%, 100% 0, 100% 100%); }
+html body.home .lp-imsg--out::after { right: -.28em; border-bottom-left-radius: .9em; clip-path: polygon(0 0, 100% 100%, 0 100%); }
+html body.home .lp-team.is-open .lp-imsg { opacity: 1; transform: none; }
+html body.home .lp-team.is-open .lp-imsg--in { transition-delay: .25s; }
+html body.home .lp-team.is-open .lp-imsg--out { transition-delay: .85s; }
+@media (prefers-reduced-motion: reduce) { html body.home .lp-imsg { transition: none; transform: none; } html body.home .lp-rush { transition: none; } }
+/* phone: a shorter gap between the join button and the video card (owner, 2026-11-26: "for mobile shorten this gap"): the
+   card comes up 140px, so less than half of it is cut off now; the ring light and the shocked meme ride up with it. */
+@media (max-width: 640px) { html body.home { --lp-lift: 140px; } }
+/* PHONE ONLY (owner, 2026-11-26: "this and the cat are for mobile view"): the cat peeks over the top-right of the
+   hold-to-play meme from behind it, and the Power Rangers sit at the left edge just under the join button. On desktop the
+   cat stays only by the left tile, and the Rangers stay beside the tall right tile. */
+html body.home .lpf-img.lpf-cat2 { display: none; }
+@media (max-width: 640px) {
+  html body.home .lpf-img.lpf-cat2 { display: block; position: absolute; left: 76vw; top: calc(9vh - 6.2vw); width: 13vw; aspect-ratio: 240 / 238; z-index: 2; }
+  html body.home .lpf-img.lpf-8 { display: block; left: 3vw; top: 52vh; width: 30vw; }
+}
+/* the Mount Rushmore trigger is now the team photo itself, as a thumbnail card (it lifts and tilts on hover) */
+html body.home .lp-rush { padding: 0; overflow: hidden; background: none; border: 0; }
+html body.home .lp-rush img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 14px; }
+/* phone: no video-tile placeholders, only the launch-video card (owner, 2026-11-26: "for mobile, get rid of the video things
+   besides the launch video") */
+@media (max-width: 640px) { html body.home .lpf-v, html body.home .lpf-h { display: none; } }
+/* THE iMESSAGE BUBBLES, LIKE THE REAL ONES (owner, 2026-11-26: "have the messages both be blue and more like the real apple
+   one", with a screenshot of an iMessage): both are sent-blue bubbles in Apple's system font at a regular weight, with the
+   curled tail at the bottom right (drawn with a CSS gradient mask: the CSP allows no data: images), and a small grey
+   "Delivered" under the last one. Same pop-in timing as before. */
+html body.home .lp-imsg {
+  padding: .4em .82em .42em; border-radius: 1.05em; background: #0a84ff; color: #fefeff;
+  font: 400 clamp(15px, 1.9vw, 20px)/1.25 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -.01em; text-transform: none; transform-origin: 100% 100%;
+}
+html body.home .lp-imsg--in, html body.home .lp-imsg--out { background: #0a84ff; color: #fefeff; transform-origin: 100% 100%; }
+html body.home .lp-imsg::after, html body.home .lp-imsg--in::after, html body.home .lp-imsg--out::after {
+  content: ""; position: absolute; left: auto; right: -.36em; bottom: 0; width: .9em; height: 1em; background: #0a84ff;
+  border-radius: 0; clip-path: none;
+  -webkit-mask: radial-gradient(circle at 0 0, transparent .78em, #000 .8em); mask: radial-gradient(circle at 0 0, transparent .78em, #000 .8em);
+}
+html body.home .lp-imsg--out::before {
+  content: "Delivered"; position: absolute; right: .2em; top: 100%; margin-top: .3em; white-space: nowrap;
+  font-size: .62em; font-weight: 600; color: #dcdce0; text-shadow: 0 1px 3px rgba(0, 0, 0, .55);
+}
+/* the trigger is the 📚 itself (owner, 2026-11-26: "this should first be the books emoji"): a big emoji with a small label,
+   no card behind it; the team photo shows only in the popup */
+html body.home .lp-rush { aspect-ratio: auto; height: auto; background: none; border: 0; box-shadow: none; overflow: visible; padding: 6px 4px; width: auto; min-width: 44px; min-height: 44px; }
+html body.home .lp-rush-ico { font-size: clamp(34px, 3.6vw, 56px); }
+/* tails, take two: the real iMessage curl (the edge sweeps from the bubble's side down to a point at the bottom right) */
+html body.home .lp-imsg::after, html body.home .lp-imsg--in::after, html body.home .lp-imsg--out::after {
+  right: -.38em; width: .9em; height: .82em;
+  -webkit-mask: radial-gradient(circle at 100% 0, transparent .86em, #000 .875em); mask: radial-gradient(circle at 100% 0, transparent .86em, #000 .875em);
+}
+/* PHONE: EVERY FUN PIECE ABOVE THE JOIN BUTTON (owner, 2026-11-26: "do it so that all the fun components ive been adding are
+   above the action button"). The button drops to the bottom of the first block, right above the launch-video card (and
+   into the thumb zone); the big word and its line stay where they were; the Power Rangers, the ring light (now standing on
+   the button) and the shocked meme fill the space between the line and the button. */
+@media (max-width: 640px) {
+  html body.home .lp-hero-top { justify-content: flex-start; }
+  html body.home .lp-hero-top .lp-hero-word { margin-top: var(--lp-word-top, 150px); }
+  html body.home .lp-hero-top .lp-first-go { margin-top: auto; }
+  html body.home { --lp-btn-top: calc(100svh - (100vw - 32px) * 9 / 32 - var(--lp-lift, 0px) - 24px - var(--lp-btn-h, 56px)); }
+  html body.home .lpf-img.lpf-8 { left: 4vw; top: calc(var(--lp-btn-top) - 22.5vw - 48px); width: 30vw; }
+  html body.home .lpf-img.lpf-10 { left: 62vw; top: calc(var(--lp-btn-top) - 17vw - 58px); width: 30vw; transform: rotate(-12deg); }
+  html body.home .lp-ring { left: 44vw; top: calc(var(--lp-btn-top) - 16.9vw + 1px); width: 10.5vw; }
+}
+/* the 📚 sits right by the left tile's bottom-right corner (owner, 2026-11-26: "make this closer") */
+html body.home .lp-rush { left: 16.9vw; top: calc(14vh + 18.13vw - 3.6vw); }
+/* NOTHING MOVES ON HOVER (owner, 2026-11-26: "when i hover over items dont have them move, just indicate its clickable
+   through the cursor"): the clickable pieces (the 📚, the portrait, the ring light, the hold-to-play meme) keep the pointer
+   cursor and their keyboard focus ring, and no longer lift, tilt or slide when the mouse is over them. */
+html body.home :is(.lp-rush, .lp-chad, .lp-ring, .lp-hold):hover { transform: none; }
+html body.home .lp-rush, html body.home .lp-chad, html body.home .lp-hold { transition: none; }
+html body.home :is(.lp-rush, .lp-chad, .lp-ring, .lp-hold) { cursor: pointer; }
+/* the left cluster (the cat, the tall tile, the camcorder, the 📚) moves 4vw to the right, together (owner, 2026-11-26:
+   "have this whole section of fun stuff more to the right"). Desktop; the phone layout sets its own spots. */
+@media (min-width: 641px) {
+  html body.home .lpf-img.lpf-hamster { left: 5.4vw; }
+  html body.home .lpf-1 { left: 10.4vw; }
+  html body.home .lpf-cam.lpf-5 { left: 22vw; }
+  html body.home .lp-rush { left: 20.9vw; }
+}
+/* the bubbles where the owner drew them (2026-11-26: "more like this and have it not say delivered"): CEO beside the left
+   guy's head with its tail on the right, pointing at him; CMO beside the right guy's head with its tail on the left,
+   pointing at him. No "Delivered". */
+html body.home .lp-imsg--in { left: 20%; top: 17%; }
+html body.home .lp-imsg--out { left: 70%; top: 16%; transform-origin: 0 100%; }
+html body.home .lp-imsg--out::before { content: none; }
+html body.home .lp-imsg--out::after {
+  right: auto; left: -.38em;
+  -webkit-mask: radial-gradient(circle at 0 0, transparent .86em, #000 .875em); mask: radial-gradient(circle at 0 0, transparent .86em, #000 .875em);
+}
+/* phone: the fun pieces above the join button about a quarter smaller, each kept centred on its spot (owner, 2026-11-26:
+   "make this stuff above the action button smaller"). The ring light keeps its 44px minimum so it stays easy to tap. */
+@media (max-width: 640px) {
+  html body.home .lp-hold { left: 64vw; top: calc(9vh + 2vw); width: 26vw; }
+  html body.home .lpf-img.lpf-cat2 { left: 77vw; top: calc(9vh + 2vw - 4.8vw); width: 10vw; }
+  html body.home .lpf-cam.lpf-5 { left: 23.5vw; top: calc(10vh + .9vw); width: 10vw; perspective: 15vw; }
+  html body.home .lp-chad { left: 8vw; top: calc(35vh + 2.2vw); width: 13vw; }
+  html body.home .lpf-img.lpf-8 { left: 7.5vw; top: calc(var(--lp-btn-top) - 17.3vw - 52px); width: 23vw; }
+  html body.home .lpf-img.lpf-10 { left: 65.5vw; top: calc(var(--lp-btn-top) - 13vw - 60px); width: 23vw; }
+}
+/* the bubble tails, fixed (owner, 2026-11-26: "these parts need fixing"): the bubble's corner on the tail side is nearly
+   square, so the tail grows straight out of the bubble with no notch between them, the way iMessage draws it */
+html body.home .lp-imsg--in { border-bottom-right-radius: .3em; }
+html body.home .lp-imsg--out { border-bottom-left-radius: .3em; }
+html body.home .lp-imsg--in::after { right: -.42em; width: 1em; height: .85em;
+  -webkit-mask: radial-gradient(circle at 100% 0, transparent .92em, #000 .935em); mask: radial-gradient(circle at 100% 0, transparent .92em, #000 .935em); }
+html body.home .lp-imsg--out::after { left: -.42em; width: 1em; height: .85em;
+  -webkit-mask: radial-gradient(circle at 0 0, transparent .92em, #000 .935em); mask: radial-gradient(circle at 0 0, transparent .92em, #000 .935em); }
+/* tail size, tuned: a small curl that grows out of the squared corner and sweeps to a point beside it */
+html body.home .lp-imsg--in::after { right: -.5em; width: .8em; height: .85em;
+  -webkit-mask: radial-gradient(circle at 100% 0, transparent .72em, #000 .735em); mask: radial-gradient(circle at 100% 0, transparent .72em, #000 .735em); }
+html body.home .lp-imsg--out::after { left: -.5em; width: .8em; height: .85em;
+  -webkit-mask: radial-gradient(circle at 0 0, transparent .72em, #000 .735em); mask: radial-gradient(circle at 0 0, transparent .72em, #000 .735em); }
+/* EXACTLY LIKE iMESSAGE (owner, 2026-11-26: "have the text with CEO and CMO be exactly like the imessage one"): Apple's
+   system font at the message size (17px, regular, 22px line), 7px x 12px padding, an 18px corner, system blue, and the real
+   curled tail drawn as a small inline SVG at the bottom corner (the CSS-mask tails are retired). CMO's tail is mirrored to
+   the left, pointing at him. */
+html body.home .lp-imsg {
+  padding: 7px 12px; border-radius: 18px; background: #0a84ff; color: #fefeff;
+  font: 400 17px/22px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: -.41px; text-transform: none; white-space: nowrap;
+}
+html body.home .lp-imsg--in, html body.home .lp-imsg--out { border-radius: 18px; }
+html body.home .lp-imsg::after, html body.home .lp-imsg--in::after, html body.home .lp-imsg--out::after { content: none; }
+html body.home .lp-imsg-tail { position: absolute; bottom: 0; width: 20px; height: 20px; overflow: visible; fill: #0a84ff; pointer-events: none; }
+html body.home .lp-imsg--in .lp-imsg-tail { right: -10px; }
+html body.home .lp-imsg--out .lp-imsg-tail { left: -10px; transform: scaleX(-1); }
+@media (max-width: 640px) { html body.home .lp-imsg { font-size: 15px; line-height: 20px; padding: 6px 11px; } }
+/* the portrait is now the "Mogged" pigeon GIF (owner, 2026-11-26), its own near-square shape, same spot; still opens the
+   Rickroll */
+html body.home .lp-chad { aspect-ratio: 360 / 354; }
+html body.home .lp-chad picture { display: block; width: 100%; height: 100%; }
+/* the tail sits under the bubble's text (it fills the corner, so it reaches up beside the last letter) */
+html body.home .lp-imsg { isolation: isolate; }
+html body.home .lp-imsg-tail { z-index: -1; }
+/* NEW PHONE LAYOUT (owner, 2026-11-26, a marked-up phone screenshot): the pigeon up to the top-left with the 📚 under it;
+   the top-right meme bigger (the cat still peeks over it); the Power Rangers and the shocked meme up into tilted spots
+   either side of the word; the ring light into the gap between them, above the button. Positions from the marks. */
+@media (max-width: 640px) {
+  html body.home .lp-chad { left: 4.4vw; top: 12.3vh; width: 13vw; }
+  html body.home .lp-rush { display: flex; left: 18vw; top: 21vh; width: auto; min-width: 44px; padding: 2px; }
+  html body.home .lp-rush-ico { font-size: 30px; }
+  html body.home .lp-hold { left: 55.5vw; top: 6.2vh; width: 38vw; }
+  html body.home .lpf-img.lpf-cat2 { left: 76vw; top: calc(6.2vh - 5.6vw); width: 12vw; }
+  html body.home .lpf-img.lpf-8 { left: 1vw; top: calc(38.2vh - 8.25vw); width: 22vw; transform: rotate(-14deg); }
+  html body.home .lpf-img.lpf-10 { left: 72vw; top: calc(40.5vh - 6.6vw); width: 24vw; transform: rotate(-22deg); }
+  html body.home .lp-ring { left: 25.5vw; top: 44vh; width: 10.5vw; }
+}
+/* phone: the empty band above the join button closed (owner, 2026-11-26: "Close the gap"): the button and the launch card
+   come up another 40px, so the button sits just under the ring light */
+@media (max-width: 640px) { html body.home { --lp-lift: 180px; } }
+/* THE BODY AND THE FOOTER, FULL WIDTH ON THE NIGHT (owner, 2026-11-26: "for the body of the site have it not just be
+   bubbles, have it be like the whole screen and keep going with our color scheme. same with the footer"). The five
+   how-it-works cards stop being white bubbles: each is a full-width band of the dark page, divided by a hairline, its
+   words in the soft white; the drawn pictures inside stay as they are (they read as little screens). The footer is a
+   full-width dark band too. Landing only (body.lp.home). */
+html:not([data-look="v1"]) body.lp.home #lp-main > #lp-how { padding: clamp(24px, 4vw, 56px) 0 0; }
+html:not([data-look="v1"]) body.lp.home #lp-how > .lp-in { width: 100%; max-width: none; margin: 0; padding: 0; }
+html:not([data-look="v1"]) body.lp.home .lp-how-list { gap: 0; }
+html:not([data-look="v1"]) body.lp.home .lp-how-card {
+  background: transparent; border: 0; border-top: 1px solid #ffffff14; border-radius: 0; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none; min-height: clamp(420px, 40vw, 600px);
+}
+html:not([data-look="v1"]) body.lp.home .lp-how-card:last-child { border-bottom: 1px solid #ffffff14; }
+html:not([data-look="v1"]) body.lp.home .lp-how-t { color: #eeedf5; }
+html:not([data-look="v1"]) body.lp.home .lp-how-p { color: #b9b7c9; }
+html:not([data-look="v1"]) body.lp.home #lp-main > #site-footer {
+  width: 100%; max-width: none; margin: 0; border: 0; border-top: 1px solid #ffffff14; border-radius: 0; box-shadow: none;
+  background: transparent; padding-left: clamp(16px, 5vw, 80px); padding-right: clamp(16px, 5vw, 80px);
+}
+html:not([data-look="v1"]) body.lp.home #site-footer .foot-wordmark { color: #f2f2f0; }
+html:not([data-look="v1"]) body.lp.home #site-footer .foot-brand p,
+html:not([data-look="v1"]) body.lp.home #site-footer .foot-link { color: #b9b7c9; }
+html:not([data-look="v1"]) body.lp.home #site-footer .foot-link:hover { color: #eeedf5; border-bottom-color: #ffffff33; }
+html:not([data-look="v1"]) body.lp.home #site-footer .foot-label,
+html:not([data-look="v1"]) body.lp.home #site-footer .foot-legal { color: #9c9aae; }
+html:not([data-look="v1"]) body.lp.home #site-footer .foot-grid { border-bottom-color: #ffffff14; }
+@media (max-width: 640px) {
+  html:not([data-look="v1"]) body.lp.home .lp-how-card { min-height: 0; border-radius: 0; }
+  html:not([data-look="v1"]) body.lp.home #lp-main > #site-footer { margin: 0; }
+}
+html:not([data-look="v1"]) body.lp.home #site-footer .fw-ch.spin { color: #8e8ca2; }   /* the scramble's letters, readable on the night */
+html:not([data-look="v1"]) body.lp.home #lp-how-h { color: #eeedf5; }   /* the screen-reader heading */
+/* phone, from the owner's next marks (2026-11-26): the pigeon fills its box; the cat moves to peek out from under the
+   meme's bottom-right corner (partly off the edge); the join button comes up to the ring light's feet, so the ring
+   light stands on it again. */
+@media (max-width: 640px) {
+  html body.home { --lp-lift: 225px; }
+  html body.home .lp-chad { left: 2.5vw; top: 10.5vh; width: 19.5vw; }
+  html body.home .lpf-img.lpf-cat2 { left: 86vw; top: calc(6.2vh + 24vw); width: 15vw; z-index: 2; }
+  html body.home .lp-ring { left: 25.5vw; top: calc(var(--lp-btn-top) - 16.9vw + 1px); width: 10.5vw; }
+}
+/* phone (owner's marks, 2026-11-26): the Power Rangers up into the space under the 📚, the shocked meme up beside the word */
+@media (max-width: 640px) {
+  html body.home .lpf-img.lpf-8 { top: calc(38.2vh - 8.25vw - 105px); }
+  html body.home .lpf-img.lpf-10 { top: calc(40.5vh - 6.6vw - 50px); }
+}
+/* phone (owner's marks, 2026-11-26): the pigeon a little bigger and further in; the camcorder down beside it; the gap
+   between "let's go viral" and the join button closed (the button and launch card up 60px; the ring light rides along) */
+@media (max-width: 640px) {
+  html body.home { --lp-lift: 285px; }
+  html body.home .lp-chad { left: 6vw; top: calc(10.5vh - 12px); width: 22vw; }
+  html body.home .lpf-cam.lpf-5 { left: 31vw; top: calc(10.5vh + 44px); width: 11vw; perspective: 16.5vw; }
+}
+/* the lift follows the phone's height, so the button always lands just under the ring light (a fixed 285px pushed it into
+   the word on shorter phones) */
+@media (max-width: 640px) { html body.home { --lp-lift: calc(268px + 100svh - 844px); } }
+/* phone (owner's marks, 2026-11-26): the Power Rangers cut off by the left edge of the screen; the 📚 moves up beside
+   the top meme's left edge */
+@media (max-width: 640px) {
+  html body.home .lpf-img.lpf-8 { left: -9vw; width: 26vw; }
+  html body.home .lp-rush { left: 46.5vw; top: 64px; }
+}
+/* phone: the shocked meme further right, cut off by the right edge like the Rangers on the left (owner, 2026-11-26) */
+@media (max-width: 640px) { html body.home .lpf-img.lpf-10 { left: 80vw; } }
+/* phone (owner's marks, 2026-11-26): the ring light moves up beside the Power Rangers, aimed at the word; the join button
+   comes up under "let's go viral" (home.js phoneLift) */
+@media (max-width: 640px) { html body.home .lp-ring { left: 29vw; top: calc(38.2vh - 8.25vw - 105px + 4px); width: 10.5vw; } }
+/* the ring light, anchored to the word instead of the screen height: it stands just above and left of "lynxr" (whose top
+   is the corner row + 150px on every phone), beside the Power Rangers, never on the letters */
+@media (max-width: 640px) { html body.home .lp-ring { left: 17vw; top: calc(var(--lpf-top) + 150px - 16.9vw - 14px); } }
+/* the camcorder is a button now: same spot and size, clickable, no button chrome; the pointer cursor shows it can be pressed */
+html body.home .lp-camb { padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto; z-index: 3; -webkit-tap-highlight-color: transparent; }
+html body.home .lp-camb:focus-visible { outline: 2px solid #b9a0ff; outline-offset: 4px; border-radius: 6px; }
+/* phone: the ring light beside the top of the "l", clear of the pigeon above it on taller phones */
+@media (max-width: 640px) { html body.home .lp-ring { left: 17vw; top: calc(var(--lpf-top) + 150px - 6vw); } }
+/* the camcorder button's tap target is at least 44px tall (the picture stays where it was; the extra is invisible) */
+html body.home .lp-camb { min-height: 44px; }
+html body.home .lp-camb .lpf-cam-body { top: 50%; transform: translateY(-50%); }
+html body.home .lp-camb .lpf-cam-screen { top: calc(50% - var(--cam-h) / 2 + var(--cam-h) * .35986); }
+html body.home .lp-camb { --cam-h: calc(var(--cam-w, 6vw) * 289 / 480); }
+html body.home .lp-camb.lpf-5 { --cam-w: 6vw; }
+@media (max-width: 640px) { html body.home .lp-camb.lpf-5 { --cam-w: 11vw; } }
+/* the 📚 is decoration for now (owner, 2026-11-26: "have the book not do anything for now"): no pointer, no clicks */
+html body.home .lp-rush { cursor: default; pointer-events: none; }
+/* phone (owner, 2026-11-26): the Power Rangers further off the left edge, and the ring light standing on the Rangers'
+   top-right edge (its feet on the card's tilted top edge, near the corner) */
+@media (max-width: 640px) {
+  html body.home .lpf-img.lpf-8 { left: -14vw; width: 26vw; }
+  html body.home .lp-ring { left: 1.1vw; top: calc(38.2vh - 8.25vw - 105px - 19vw); width: 10.5vw; }
+}
+/* phone (owner, 2026-11-26): more room between the join button and the launch-video card ("add more spacing between the
+   cta button and the video"), and no empty screen under the card ("remove this giant space"): the first section no longer
+   reserves a full screen of height now that its content has moved up */
+@media (max-width: 640px) {
+  html body.home .lp-first .lp-intro-card { margin-top: 44px; }
+  html body.home #lp-main > .lp-first { min-height: 0; padding-bottom: 40px; }
+}
+/* phone (owner, 2026-11-26): the Power Rangers down 40px, and the ring light standing right at the Rangers card's top-right
+   corner, its feet on that edge */
+@media (max-width: 640px) {
+  html body.home .lpf-img.lpf-8 { top: calc(38.2vh - 8.25vw - 65px); }
+  html body.home .lp-ring { left: 4.6vw; top: calc(38.2vh - 8.25vw - 65px - 19.4vw); }
+}
+/* phone: the bubbles keep the desktop layout (beside each head, tails pointing in) but smaller, so they sit beside the
+   faces instead of over them (owner, 2026-11-26: "for mobile have the messages not over our face", "same orientation as
+   desktop") */
+@media (max-width: 640px) {
+  html body.home .lp-imsg { font-size: 12px; line-height: 15px; padding: 4px 8px; border-radius: 12px; }
+  html body.home .lp-imsg-tail { width: 13px; height: 13px; }
+  html body.home .lp-imsg--in .lp-imsg-tail { right: -6.5px; }
+  html body.home .lp-imsg--out .lp-imsg-tail { left: -6.5px; }
+  html body.home .lp-imsg--in { left: 16%; top: 15%; }
+  html body.home .lp-imsg--out { left: 72%; top: 14%; }
+}
+/* phone (owner's mark, 2026-11-26): the ring light stands just right of the Power Rangers, its feet level with the card's
+   upper part, clear of the pigeon above */
+@media (max-width: 640px) { html body.home .lp-ring { left: 21vw; top: calc(38.2vh - 8.25vw - 65px + 24px - 16.9vw); } }
+/* phone (owner, 2026-11-26: "the thing should be mounted on the right edge of the powerrangers thing and have the light
+   part be orientated facing the lynxr text"): the ring light is clamped sideways onto the middle of the Rangers card's right
+   edge (its feet on the edge, the stand sticking straight out of it, perpendicular to the card's -14deg tilt), and
+   home.js turns the head so its light faces the word. */
+@media (max-width: 640px) {
+  html body.home .lp-ring {
+    left: 6.73vw; top: calc(38.2vh - 8.25vw - 65px - 10.3vw); width: 10.5vw;
+    transform-origin: 46.4% 100%; transform: rotate(76deg);
+  }
+}
+/* phone fix (owner, 2026-11-26: "the light doesnt light it just moves back"): a tap leaves the button in :hover, and the
+   "nothing moves on hover" rule reset its transform, so the mounted light swung back upright. It keeps its mount on hover
+   and press now; a tap only steps the brightness. */
+@media (max-width: 640px) {
+  html body.home .lp-ring, html body.home .lp-ring:hover, html body.home .lp-ring:active { transform: rotate(76deg); }
+  html body.home .lp-ring:active img { transform: none; }
+}

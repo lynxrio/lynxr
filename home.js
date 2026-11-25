@@ -1520,7 +1520,7 @@ window.lynxrWaitlist = { open: wlOpen };
   };
   const wave = () => {
     if (inv.dataset.waved || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const x = inv.querySelector(".lp-invite-x .lx");
+    const x = inv.querySelector(".lp-invite-x .lx-guy");
     if (!x || typeof window.lynxrGesture !== "function") return;
     inv.dataset.waved = "1";
     // the gesture is one-shot (0.7 s); taking its class off lets the arm settle back into the giggle pose
@@ -1583,23 +1583,16 @@ window.lynxrWaitlist = { open: wlOpen };
     };
     glow(540, 520, 700, "rgba(123,97,255,0.35)");
     glow(160, 1500, 600, "rgba(255,126,184,0.18)");
-    // the x: four glass arms (favicon.svg, viewBox 0 0 120 120), scale 2.5, its centre (60, 62) at (540, 400)
-    if (typeof Path2D.prototype.addPath === "function" && typeof DOMMatrix === "function") {
-      const arm = rrPath(43, 10, 34, 60, 17), xp = new Path2D();
-      for (const deg of [-45, 45, 135, -135]) xp.addPath(arm, new DOMMatrix().translate(60, 62).rotate(deg).translate(-60, -62));
+    // the lynxr guy (the logo since 2026-11-23: the kit v3 circle and ^^, viewBox 0 0 400 400), 1x, centred at (540, 400)
+    if (typeof Path2D === "function") {
       ctx.save();
-      ctx.translate(540, 400); ctx.scale(2.5, 2.5); ctx.translate(-60, -62);
-      const g1 = ctx.createLinearGradient(10, 0, 110, 118);
-      g1.addColorStop(0, "#ffb38a"); g1.addColorStop(0.48, "#ff7eb8"); g1.addColorStop(1, "#7b61ff");
-      ctx.fillStyle = g1; ctx.fill(xp);
-      const g2 = ctx.createLinearGradient(0, 14, 0, 108);
-      g2.addColorStop(0, "rgba(246,244,255,.2)"); g2.addColorStop(0.5, "rgba(246,244,255,0)"); g2.addColorStop(1, "rgba(58,20,120,.32)");
-      ctx.fillStyle = g2; ctx.fill(xp);
-      ctx.fillStyle = "#f6f4ff";
-      ctx.fill(rrPath(47, 48.5, 8, 13, 4)); ctx.fill(rrPath(65, 48.5, 8, 13, 4));
-      ctx.translate(60, 70);
-      ctx.beginPath(); ctx.moveTo(-5, 0); ctx.quadraticCurveTo(0, 4, 5, 0);
-      ctx.strokeStyle = "#f6f4ff"; ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.stroke();
+      ctx.translate(540, 400); ctx.translate(-200, -205);
+      ctx.fillStyle = "#F2F2F0";   // the logo white (owner 2026-11-25: soft white, every logo)
+      ctx.fill(new Path2D("M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"));
+      ctx.beginPath();
+      ctx.moveTo(108.5, 227.5); ctx.lineTo(142.2, 182.5); ctx.lineTo(176, 227.5);
+      ctx.moveTo(224, 227.5); ctx.lineTo(257.8, 182.5); ctx.lineTo(291.5, 227.5);
+      ctx.strokeStyle = "#141414"; ctx.lineWidth = 22.5; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.stroke();
       ctx.restore();
     }
     // the glass panel
@@ -1901,4 +1894,219 @@ function wlBoot() {
 }
 if (document.readyState === "complete") wlBoot();
 else document.addEventListener("DOMContentLoaded", wlBoot);
+})();
+
+/* THE RING LIGHT (owner, 2026-11-26). index.html #lp-ring, app.css .lp-ring and .lp-first[data-ring]. Like a real ring
+   light's button: each press steps on -> brighter -> brightest -> off -> on. The hero section carries the level, so the
+   light and the warm glow on the big word follow it. A short tap of haptics where the browser has it. */
+(function ringLight() {
+  const btn = document.getElementById("lp-ring"), hero = btn && btn.closest(".lp-first");
+  if (!btn || !hero) return;
+  const SAY = ["on. Tap to brighten.", "brighter. Tap to brighten more.", "brightest. Tap to turn off.", "off. Tap to turn on."];
+  let level = 0;
+  /* the cone: from the middle of the lit ring to past the far side of the big word, as wide there as the word. Measured
+     live (resize, fonts), so the angle is right on any screen. Positions go through CSSOM (the CSP drops style attributes). */
+  const beam = document.getElementById("lp-ring-beam"), word = hero.querySelector(".lp-hero-word");
+  const aim = () => {
+    if (!beam || !word || !btn.offsetWidth) return;
+    /* first turn the lit head to face the word (owner, phone: "the ring light and the shine dont match"): the head pivots on
+       its mount (the top of the stand, 46.4% across); its face points right when unturned, so its turn is the angle from the
+       mount to the word, kept between straight right (0) and straight up (-80deg). Then the cone starts at the turned head. */
+    const head = btn.querySelector(".lp-ring-head"), stand = btn.querySelector(".lp-ring-stand");
+    const w0 = word.getBoundingClientRect();
+    if (head && stand) {
+      /* the whole light may be turned (on a phone it is mounted sideways on the Power Rangers' right edge): read that turn
+         from the button's own transform, and aim from the head's centre in screen space */
+      const m = new DOMMatrix(getComputedStyle(btn).transform === "none" ? undefined : getComputedStyle(btn).transform);
+      const turn = Math.atan2(m.b, m.a) * 180 / Math.PI;
+      const hb = head.getBoundingClientRect(), s = stand.getBoundingClientRect();
+      const px = turn ? hb.left + hb.width / 2 : s.left + s.width * 0.464, py = turn ? hb.top + hb.height / 2 : s.top;
+      /* about half the angle to the word, never past 40deg ("this is angled back too far"): it reads as aimed up at the
+         word without lying on its back; the cone still runs from the ring to the word. */
+      const full = Math.atan2(w0.top + w0.height * 0.48 - py, w0.left + w0.width / 2 - px) * 180 / Math.PI;
+      // upright (desktop): about half the angle to the word, never past 40deg; turned (phone): the face points at the word
+      const deg = turn ? Math.max(-150, Math.min(60, full - turn)) : Math.max(-40, Math.min(0, full * 0.5));
+      head.style.transform = `rotate(${deg.toFixed(1)}deg)`;
+    }
+    const h = hero.getBoundingClientRect(), r = (head || btn).getBoundingClientRect(), w = word.getBoundingClientRect();
+    const x0 = r.left + r.width * 0.5 - h.left, y0 = r.top + r.height * 0.5 - h.top;            // the lit ring's centre (the tilted head)
+    const x1 = w.left + w.width / 2 - h.left, y1 = w.top + w.height * 0.48 - h.top;              // the word's centre
+    const len = Math.hypot(x1 - x0, y1 - y0) + w.width * 0.42, ang = Math.atan2(y1 - y0, x1 - x0);
+    beam.style.left = x0 + "px"; beam.style.top = y0 + "px";
+    beam.style.width = len + "px"; beam.style.height = Math.max(w.width * 1.05, 260) + "px";
+    beam.style.transform = `translateY(-50%) rotate(${ang}rad)`;
+  };
+  aim();
+  addEventListener("resize", aim);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(aim);
+  btn.addEventListener("click", () => {
+    aim();
+    level = (level + 1) % 4;
+    hero.dataset.ring = String(level);
+    btn.setAttribute("aria-label", "Ring light: " + SAY[level]);
+    if (navigator.vibrate) navigator.vibrate(8);
+  });
+})();
+
+/* THE RICKROLL (owner, 2026-11-26). index.html #lp-chad opens #lp-rick, a native <dialog> (focus trap, Esc to close). The
+   official video is embedded from YouTube's privacy-enhanced player, created only when opened (so nothing loads for
+   visitors who never click) and removed on close, which stops the sound. Click outside the video closes it too. */
+(function rickPopup() {
+  const open = document.getElementById("lp-cam"), dlg = document.getElementById("lp-rick");   // the camcorder (was the portrait)
+  const frame = document.getElementById("lp-rick-frame"), x = document.getElementById("lp-rick-x");
+  if (!open || !dlg || !frame || typeof dlg.showModal !== "function") return;
+  open.addEventListener("click", () => {
+    const f = document.createElement("iframe");
+    f.src = "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0&playsinline=1";
+    f.title = "Rick Astley - Never Gonna Give You Up (official video)";
+    f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+    f.allowFullscreen = true;
+    f.referrerPolicy = "strict-origin-when-cross-origin";
+    frame.replaceChildren(f);
+    dlg.showModal();
+  });
+  const shut = () => { if (dlg.open) dlg.close(); };
+  x.addEventListener("click", shut);
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) shut(); });
+  dlg.addEventListener("close", () => { frame.replaceChildren(); open.focus(); });
+})();
+
+/* HOLD TO PLAY (owner, 2026-11-26). index.html #lp-hold + #lp-hold-sound (assets/landing/hold-sound.mp3, cleared by the
+   owner's legal team). Press and hold (mouse, touch, pen, or Space / Enter): it plays from the start; let go, leave or
+   cancel and it FADES OUT over 0.8 s ("for the mp3 have it fade out"), then pauses. The fade runs through Web Audio (a
+   gain node), because iOS Safari ignores <audio>.volume. The file (5 MB) only starts loading when a pointer comes over the
+   meme or it takes focus, so visitors who never touch it never download it. */
+(function holdSound() {
+  const btn = document.getElementById("lp-hold"), snd = document.getElementById("lp-hold-sound");
+  if (!btn || !snd) return;
+  let on = false, ctx = null, gain = null, fadeT = 0;
+  const warm = () => { if (snd.preload !== "auto") { snd.preload = "auto"; snd.load(); } };
+  btn.addEventListener("pointerenter", warm);
+  btn.addEventListener("focus", warm);
+  const graph = () => {
+    if (ctx || !window.AudioContext && !window.webkitAudioContext) return;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      gain = ctx.createGain();
+      ctx.createMediaElementSource(snd).connect(gain).connect(ctx.destination);
+    } catch (e) { ctx = null; gain = null; }
+  };
+  const start = () => {
+    if (on) return; on = true; btn.classList.add("is-held");
+    clearTimeout(fadeT); graph();
+    if (ctx && ctx.state === "suspended") ctx.resume();
+    if (gain) { gain.gain.cancelScheduledValues(ctx.currentTime); gain.gain.setValueAtTime(1, ctx.currentTime); }
+    snd.currentTime = 0;
+    const p = snd.play(); if (p && p.catch) p.catch(() => {});
+  };
+  const stop = () => {
+    if (!on) return; on = false; btn.classList.remove("is-held");
+    if (gain) {
+      const t = ctx.currentTime;
+      gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(gain.gain.value, t); gain.gain.linearRampToValueAtTime(0, t + 0.8);
+      fadeT = setTimeout(() => { if (!on) snd.pause(); }, 820);
+    } else snd.pause();
+  };
+  btn.addEventListener("pointerdown", (e) => { btn.setPointerCapture && btn.setPointerCapture(e.pointerId); start(); });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach((t) => btn.addEventListener(t, stop));
+  btn.addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); start(); } });
+  btn.addEventListener("keyup", (e) => { if (e.key === " " || e.key === "Enter") stop(); });
+  btn.addEventListener("blur", stop);
+  btn.addEventListener("contextmenu", (e) => e.preventDefault());   // a long press must not open the phone's menu
+  addEventListener("pagehide", () => { on = true; stop(); });
+})();
+
+/* THE CORNER GUY FOLLOWS THE MOUSE (owner, 2026-11-26: "when i move my mouse around it it moves with it the shapeshifting
+   thing"). On the landing, with a mouse, the awake guy in the corner, when the mouse is on him or very close, leans a few pixels toward the cursor and his blob
+   stretches a little along that line (the stretch is oriented, not a turn: rotate, scale, rotate back), easing as it goes.
+   The eyes ride along unchanged. Off for touch, and off under reduced motion. */
+(function guyFollows() {
+  const svg = document.querySelector("body.home .lp-bar .wordmark svg.mark");
+  if (!svg || matchMedia("(prefers-reduced-motion: reduce)").matches || !matchMedia("(pointer: fine)").matches) return;
+  let raf = 0, mx = 0, my = 0;
+  const paint = () => {
+    raf = 0;
+    const r = svg.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const dx = mx - cx, dy = my - cy, d = Math.hypot(dx, dy) || 1;
+    /* only when the mouse is on him or very close (owner: "only when i like on it or superrrr close to it"): within
+       NEAR px of his centre he leans, strongest at the edge of that ring; farther away he rests. */
+    const NEAR = Math.max(70, r.width * 1.6);
+    if (d > NEAR) { svg.style.transform = ""; return; }
+    const m = Math.min(1, d / (r.width * 0.9));
+    const ux = dx / d, uy = dy / d, a = Math.atan2(dy, dx) * 180 / Math.PI;
+    svg.style.transform = `translate(${(ux * 4 * m).toFixed(2)}px, ${(uy * 4 * m).toFixed(2)}px) rotate(${a.toFixed(1)}deg) scale(${(1 + 0.09 * m).toFixed(3)}, ${(1 - 0.06 * m).toFixed(3)}) rotate(${(-a).toFixed(1)}deg)`;
+  };
+  addEventListener("pointermove", (e) => { if (e.pointerType !== "mouse") return; mx = e.clientX; my = e.clientY; if (!raf) raf = requestAnimationFrame(paint); }, { passive: true });
+  document.documentElement.addEventListener("pointerleave", () => { svg.style.transform = ""; });
+})();
+
+/* MOUNT RUSHMORE -> THE TEAM (owner, 2026-11-26). index.html #lp-rush (the 📚) opens #lp-team, a native <dialog>. It GROWS
+   OUT OF THE 📚 ("have it be like it comes from this emoji"): the photo starts as a tiny copy sitting on the emoji and
+   scales up to the middle of the screen; closing shrinks it back into the emoji. Then the two iMessage bubbles pop in. Close
+   button, a click outside the photo, or Esc. Reduced motion: it simply appears and disappears. */
+(function teamPopup() {
+  const triggers = [document.getElementById("lp-chad")].filter(Boolean);   // the pigeon (the 📚 does nothing for now)
+  const dlg = document.getElementById("lp-team"), x = document.getElementById("lp-team-x");
+  if (!triggers.length || !dlg || typeof dlg.showModal !== "function") return;
+  let open = triggers[0];   // the one that was pressed: the photo grows out of it and shrinks back into it
+  const calm = matchMedia("(prefers-reduced-motion: reduce)");
+  const fromEmoji = () => {
+    const d = dlg.getBoundingClientRect(), e = open.getBoundingClientRect();
+    const dx = e.left + e.width / 2 - (d.left + d.width / 2), dy = e.top + e.height / 2 - (d.top + d.height / 2);
+    return `translate(${dx}px, ${dy}px) scale(${Math.max(0.04, e.width / d.width).toFixed(3)})`;
+  };
+  let busy = false, bubbleT = 0;
+  const show = (from) => {
+    if (busy) return;
+    open = from;
+    dlg.classList.remove("is-open");
+    dlg.showModal();
+    if (calm.matches) { dlg.classList.add("is-open"); return; }
+    busy = true;
+    dlg.style.transition = "none"; dlg.style.transform = fromEmoji(); dlg.style.opacity = "0";
+    void dlg.offsetWidth;
+    dlg.style.transition = "transform .42s cubic-bezier(.2, .9, .3, 1.08), opacity .18s ease";
+    dlg.style.transform = ""; dlg.style.opacity = "";
+    clearTimeout(bubbleT); bubbleT = setTimeout(() => { dlg.classList.add("is-open"); busy = false; }, 400);
+  };
+  triggers.forEach((t) => t.addEventListener("click", () => show(t)));
+  const shut = () => {
+    if (!dlg.open || busy) return;
+    clearTimeout(bubbleT); dlg.classList.remove("is-open");
+    if (calm.matches) { dlg.close(); return; }
+    busy = true;
+    dlg.style.transition = "transform .32s cubic-bezier(.5, 0, .7, .4), opacity .32s ease .08s";
+    dlg.style.transform = fromEmoji(); dlg.style.opacity = "0";
+    setTimeout(() => { dlg.close(); dlg.style.transition = ""; dlg.style.transform = ""; dlg.style.opacity = ""; busy = false; }, 340);
+  };
+  x.addEventListener("click", shut);
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) shut(); });
+  dlg.addEventListener("cancel", (e) => { e.preventDefault(); shut(); });   // Esc shrinks it back too
+  dlg.addEventListener("close", () => { dlg.classList.remove("is-open"); open.focus(); });
+})();
+
+/* PHONE: THE JOIN BUTTON SITS JUST UNDER THE RING LIGHT (owner, 2026-11-26: "close the gap"), on every phone size. CSS
+   places the button from the bottom (a lift above the half-cut launch card); the text above it is sized by width, so no
+   single lift fits every phone. This measures the line "let's go viral" and the ring light and sets --lp-lift so the
+   button's top is the line + 28px. Phones only; re-run on resize and once fonts load. */
+(function phoneLift() {
+  const line = document.querySelector("body.home .lp-hero-top .lp-first-h"), btn = document.getElementById("lp-first-cta");
+  const ring = document.getElementById("lp-ring"), root = document.body;
+  if (!line || !btn) return;
+  const mq = matchMedia("(max-width: 640px)");
+  let raf = 0;
+  const fit = () => {
+    raf = 0;
+    if (!mq.matches) { root.style.removeProperty("--lp-lift"); return; }
+    const cur = parseFloat(getComputedStyle(root).getPropertyValue("--lp-lift")) || 0;
+    /* the ring light moved up beside the Power Rangers (owner, 2026-11-26), so the button now sits just under the line */
+    const want = line.getBoundingClientRect().bottom + 28;
+    const now = btn.getBoundingClientRect().top;
+    const next = Math.round(cur + (now - want));
+    if (Math.abs(next - cur) > 1) root.style.setProperty("--lp-lift", next + "px");
+  };
+  const queue = () => { if (!raf) raf = requestAnimationFrame(() => { fit(); requestAnimationFrame(fit); }); };
+  queue();
+  addEventListener("resize", queue);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(queue);
 })();

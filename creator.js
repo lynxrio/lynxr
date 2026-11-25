@@ -38,13 +38,13 @@ function safeUrl(u) {
     return (p.protocol === "http:" || p.protocol === "https:") ? p.href : "";
   } catch { return ""; }
 }
-/** THE LOADING MARK: the lynxr avatar (avatar.js) in a working mood. "reading"
+/** THE LOADING MARK: the lynxr guy (avatar.js), awake while the mood is "reading" or "writing".
  *  by default, "writing" while a script is being written. Every long wait in
  *  both apps goes through here. A mood change after render goes through
  *  lynxrMood(), never a re-render (see paintEta in creator.js).
  */
 function loaderMark(mood = "reading") {
-  return typeof lynxrAvatar === "function" ? lynxrAvatar(mood, "loader-mark") : "";
+  return typeof lynxrAvatar === "function" ? lynxrAvatar(mood, "loader-mark", true) : "";
 }
 /** Put a status line into a working state: the mark at text size, plus what it
  *  is doing. `text` is ours, never server-supplied — failures use textContent. */
@@ -5934,7 +5934,7 @@ function paintLinkWall(moveFocus = false) {
     q("#linkwall-note").textContent = LINKWALL_NOTES[Math.min(LINKWALL_PRESSES, LINKWALL_NOTES.length - 1)];
     sub.hidden = true;
   }
-  if (typeof lynxrMood === "function") lynxrMood(q(".lx"), rel ? "hyped" : "hmm");
+  if (typeof lynxrMood === "function") lynxrMood(q(".linkwall-av .lx-guy"), rel ? "hyped" : "hmm");
   if (rel && moveFocus) q("#linkwall-go").focus();       // the form just left: focus must land on something real
   // `moveFocus` is the add that just happened, so this fires on the one that linked the SECOND platform and never on a
   // repaint, a reopen or the dev preview's state switcher. Last, so the rows and the button it decorates already exist.
@@ -5959,7 +5959,7 @@ function linkWallCheer() {
   av.classList.add("lw-pop");
   // ...and the x waves, with the gesture avatar.js already has. The pop is on the .lw-av-in wrapper and the wave's rock
   // is on the svg itself, so the two compose instead of overwriting each other's transform.
-  const lx = modal.querySelector(".lx");
+  const lx = modal.querySelector(".linkwall-av .lx-guy");
   if (typeof lynxrGesture === "function") lynxrGesture(lx, "hello");
   // Off again once it has played, exactly like .shake: nothing is left holding a final keyframe, and .linkwall-card's
   // `animation: none` comes back so a later repaint cannot replay rise-in.
@@ -7860,7 +7860,7 @@ function setupCelebrate(then) {
   const av = setupHost()?.querySelector(".setup-av");
   if (!av || setupReducedMotion()) { then(); return; }
   SETUP_BUSY = true;
-  lynxrMood(av.querySelector(".lx"), "done");
+  lynxrMood(av.querySelector(".lx-guy"), "done");
   av.classList.remove("hop");
   void av.offsetWidth;                       // restart the animation if it already ran
   av.classList.add("hop");
@@ -8141,7 +8141,7 @@ async function setupCheckBio(btn) {
   if (!p) { setupAdvance(); return; }
   if (plat === "instagram" && Number(p.verify_tries) >= IG_VERIFY_TRIES) { setupErr(HANDLE_WHY.too_many); return; }
   const mine = ++SETUP_CHECK;
-  const lx = host.querySelector(".lx");
+  const lx = host.querySelector(".setup-av .lx-guy");
   const whyEl = host.querySelector(".setup-why");
   const was = { label: btn.textContent, why: whyEl.textContent };
   const rest = (msg) => {          // back to waiting for a press, optionally saying why the last one failed
@@ -10512,7 +10512,7 @@ function showTourStop(i) {
   e.line.textContent = stop.line;
   e.n.textContent = `${i + 1} of ${t.stops.length}`;
   e.next.textContent = last ? "Done" : "Next";
-  if (typeof lynxrMood === "function") lynxrMood(e.av.querySelector(".lx"), last ? "hyped" : "done");
+  if (typeof lynxrMood === "function") lynxrMood(e.av.querySelector(".lx-guy"), last ? "hyped" : "done");
   document.getElementById(stop.id)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   tourPlace();
   e.next.focus({ preventScroll: true });
@@ -11646,6 +11646,17 @@ function etaBlockHtml(a, stage) {
     </div>`;
 }
 
+/* THE GUY WORKS WHILE A SCRIPT IS BEING WRITTEN (logo kit, LOGO-HANDOFF.md 3.4; plan lynxr-guy-logo.md). The rail's guy,
+   the phone's corner guy and the onboarding logo are awake (.is-active, which /lynxr-guy.js turns into the morph)
+   whenever any of this creator's scripts is queued or running, and rest when none is. Called from paintEta, which
+   already runs on every render, every poll and every eta tick, so there is no new timer and no new spinner. The rail's
+   .lx-guy is the #nav-home button itself; the other two are svgs. */
+function paintGuyWorking() {
+  const on = (ME.adaptations || []).some(isWriting);
+  document.querySelectorAll("#nav-home.lx-guy, .pane-mark.lx-guy, .onb-logo-mark.lx-guy")
+    .forEach((g) => g.classList.toggle("is-active", on));
+}
+
 /* FILL IN EVERY PROGRESS BLOCK ON SCREEN, IN PLACE.
    The only thing that moves without the data moving is the estimate, the
    overdue warning and how much of the rail is lit — so those are the only three
@@ -11663,11 +11674,12 @@ function etaBlockHtml(a, stage) {
    the estimate every 2.5 seconds. */
 function paintEta(root = document) {
   if (!root) return;
+  paintGuyWorking();
   root.querySelectorAll(".loader[data-eta]").forEach((el) => {
     const a = (ME.adaptations || []).find((x) => x.id === el.dataset.eta);
     if (!a) return;
     const eta = etaFor(a);
-    if (typeof lynxrMood === "function") lynxrMood(el.querySelector(".lx"), eta.phase === "writing" ? "writing" : "reading");
+    if (typeof lynxrMood === "function") lynxrMood(el.querySelector(".loader-mark"), eta.phase === "writing" ? "writing" : "reading");
     const sub = el.querySelector(".bp-eta");
     if (sub) {
       if (sub.textContent !== eta.text) sub.textContent = eta.text;

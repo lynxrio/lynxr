@@ -20,7 +20,7 @@ SITE = "https://lynxr.io"
 ORG = SITE + "/#organization"
 WEBSITE = SITE + "/#website"
 LYNXR = SITE + "/#lynxr"
-OG_IMAGE = SITE + "/og-v3.png"
+OG_IMAGE = SITE + "/og-v5.png"
 MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
           "September", "October", "November", "December"]
 RESERVED_IDS = {"do-it-with-lynxr", "more-questions", "keep-reading", "questions"}

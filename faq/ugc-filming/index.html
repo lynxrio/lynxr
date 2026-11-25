@@ -8,7 +8,7 @@
      type. Verified: this page loads with an empty console and no CSP report.
      If that ever changes, the fix is a 'sha256-…' for the block, NOT
      'unsafe-inline'. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; manifest-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Filming and editing UGC — questions and answers</title>
 <meta name="description" content="How to film and edit UGC on a phone: light, sound, B-roll, product demos, captions and the shots a brand needs.">
@@ -17,21 +17,23 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="lynxr">
 <meta property="og:url" content="https://lynxr.io/faq/ugc-filming/">
-<meta property="og:image" content="https://lynxr.io/og-v3.png">
+<meta property="og:image" content="https://lynxr.io/og-v5.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Filming and editing UGC — questions and answers">
 <meta name="twitter:description" content="How to film and edit UGC on a phone: light, sound, B-roll, product demos, captions and the shots a brand needs.">
-<meta name="twitter:image" content="https://lynxr.io/og-v3.png">
+<meta name="twitter:image" content="https://lynxr.io/og-v5.png">
 <link rel="canonical" href="https://lynxr.io/faq/ugc-filming/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261120e">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261120e">
-<link rel="shortcut icon" href="/favicon.ico?v=20261120e">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261120e">
-<link rel="stylesheet" href="/app.css?v=20261120e">
-<script src="/theme.js?v=20261120e"></script>
-<script src="/backdrop.js?v=20261120e" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261129d">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261129d">
+<link rel="shortcut icon" href="/favicon.ico?v=20261129d">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261129d">
+<link rel="manifest" href="/site.webmanifest?v=20261129d">
+<script src="/lynxr-guy.js?v=20261129d" defer></script>
+<link rel="stylesheet" href="/app.css?v=20261129d">
+<script src="/theme.js?v=20261129d"></script>
+<script src="/backdrop.js?v=20261129d" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -53,8 +55,8 @@
       "logo": {
         "@type": "ImageObject",
         "@id": "https://lynxr.io/#logo",
-        "url": "https://lynxr.io/lynxr-logo.png",
-        "contentUrl": "https://lynxr.io/lynxr-logo.png",
+        "url": "https://lynxr.io/lynxr-logo-v2.png",
+        "contentUrl": "https://lynxr.io/lynxr-logo-v2.png",
         "width": 512,
         "height": 512,
         "caption": "lynxr"
@@ -399,11 +401,10 @@
      copy there is. .lp unsets the app's bare main{} container so the sections
      below can be full-bleed. See the marketing-page block in app.css. -->
 <body class="lp">
-<svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
 
 <header class="lp-bar">
   <div class="lp-in lp-bar-in">
-    <a class="wordmark" href="/"><svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg><span>lynxr</span></a>
+    <a class="wordmark lx-guy lx-guy--black" href="/"><svg class="mark" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg><span>lynxr</span></a>
     <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
          fragment does nothing from /faq/ or /privacy/ — it appends a hash to
          the current URL and stays put. -->
@@ -555,8 +556,8 @@
   <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr</div>
   <div class="foot-grid foot-grid-wide">
     <div class="foot-brand">
-      <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
-      <p>your <span class="acr">UGC</span> buddy</p>
+      <svg class="mark lx-guy lx-guy--black" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
+      <p>Let's go viral</p>
     </div>
     <div class="foot-col">
       <div class="foot-label">lynxr</div>
@@ -601,8 +602,8 @@
 
 <!-- The top bar's hide-on-scroll. Public pages only — see the file's
      own header for why it must never reach either app. -->
-<script src="/site.js?v=20261120e" defer></script>
-<script src="/footer.js?v=20261120e" defer></script>
+<script src="/site.js?v=20261129d" defer></script>
+<script src="/footer.js?v=20261129d" defer></script>
 
 </body>
 </html>

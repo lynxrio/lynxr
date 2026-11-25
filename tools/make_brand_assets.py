@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""Regenerate every raster brand asset from the idle lynxr avatar.
+"""Regenerate every raster brand asset from the lynxr guy (the logo since 2026-11-23; a circle since kit v3, 2026-11-25).
+
+Source of the art: the owner's logo kit v2, ~/Lynxr-redesign/logo-kit-v2/lynxr-logo-kit/ (LOGO-HANDOFF.md). Its geometry
+is copied below exactly (viewBox 0 0 400 400, tight logo box 50 55 300 300); nothing is redrawn by eye.
 
 Writes into the repo root (or --out DIR):
-  favicon.svg            tab icon: the faceless, highlight-less X (16 CSS px slot)
-  favicon.png            32x32, same faceless X (shown at 16 CSS px on retina tabs)
-  favicon.ico            16 faceless; 32 and 48 with the face (OS surfaces at true size)
-  apple-touch-icon.png   180x180 opaque, full idle avatar on the dark --bg tile
-  og-v3.png, og-creator-v3.png, og-agency-v3.png, og-invite.png   1200x630
+  favicon.svg            tab icon: the kit's favicon art (ink rounded tile, white guy, thicker eyes that survive 16 px)
+  favicon.png            32x32, the same art
+  favicon.ico            48, 32 and 16, the same art
+  apple-touch-icon.png   180x180 opaque: the kit's app icon (full-bleed ink, white guy; iOS rounds the corners)
+  icon-192.png, icon-512.png   the same app icon, for site.webmanifest
+  lynxr-logo-v2.png      512x512 opaque ink square with the white guy: the JSON-LD Organization logo
+  og-v5.png, og-agency-v5.png, og-invite-v2.png   1200x630 link previews, the night look (render_og_night)
+With --social DIR (keep it OUTSIDE the repo): lynxr-profile-1024.png, the app icon at 1024, for the Instagram, TikTok
+and LinkedIn profile pictures, which the owner uploads by hand.
 
-WHY FACELESS AT 16: rendered and measured on 2026-09-14 -- at 16px the eyes and
-mouth resolve to two pink smudges over the gradient, while the bare X stays
-crisp. From 22px up the face reads. The soft highlight is dropped with it at 16
-(it only lightens one arm by a shade there).
-
-No new dependencies: PIL (./venv) composes and sets type from the self-hosted
-woff2 files; macOS `sips` (CoreSVG) rasterises the SVG avatar and the field,
-verified to render the mask, both gradients and the Gaussian blur.
-Lives in tools/, not pipeline/: a push touching pipeline/** redeploys Fly.
+No new dependencies: PIL (./venv) composes and sets type from the self-hosted woff2 files; macOS `sips` (CoreSVG)
+rasterises the SVG art. Lives in tools/, not pipeline/: a push touching pipeline/** redeploys Fly.
 
     ./venv/bin/python tools/make_brand_assets.py
-    ./venv/bin/python tools/make_brand_assets.py --out /private/tmp/lynxr-rebrand/brand-dry
+    ./venv/bin/python tools/make_brand_assets.py --out /private/tmp/lynxr-guy-brand-dry --social /private/tmp/lynxr-guy-brand-dry/social
 """
 import argparse, subprocess, tempfile
 from pathlib import Path
@@ -28,6 +28,13 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 
 # ----------------------------------------------------------------- BRAND (plan section 3)
+# The guy's two colours (owner decision D1, 2026-11-23). Kit: "#141414", "#FFFFFF". Site tokens: "#14122b", "#f6f4ff".
+GUY_INK, GUY_WHITE = "#141414", "#F2F2F0"   # owner 2026-11-25: soft white, "doesnt hurt the average human eye"
+LOGO_GROUND = GUY_INK            # the JSON-LD logo's square: opaque ink (owner 2026-11-25: the guy is always white), so it reads on any card
+# The link-preview look (owner decision D5): "dark" = the kit's og-image (ink field, white guy) plus the wordmark and
+# label; "light" = the pastel field below with the black guy and the ink wordmark; "bare" = the kit's og-image as is.
+OG_LOOK = "dark"
+LABEL_DARK = "#a3a3a3"           # the label on the dark card: 7.3:1 on #141414 (with the site ink use "#a9a5c2": 7.7:1)
 BG = "#f6eefa"                                   # light --bg (light only since 2026-09-15)
 FIELD = [(40, 55, 18, 28, (255, 179, 138), .60),  # the light --field / backdrop blobs: rx% ry% cx% cy% rgb alpha,
          (38, 50, 80, 20, (255, 126, 184), .40),  # a little stronger than the page (x1.2-1.3): a preview is seen
@@ -44,21 +51,33 @@ WORD_FONT, WORD_WGHT, WORD_TRACK = "fonts/albert-sans-latin-wght.woff2", 700, -0
 LABEL_FONT, LABEL_TRACK = "fonts/ibm-plex-mono-latin-400.woff2", 0.04
 # ----------------------------------------------------------------- /BRAND
 
-ARMS = (-45, 45, 135, -135)
+CIRCLE = "M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"
+EYES = ("108.5,227.5 142.2,182.5 176,227.5", "224,227.5 257.8,182.5 291.5,227.5")  # stroke 22.5: the logo (kit v3)
+FAV_EYES = EYES                                      # kit v3 favicon: the same eyes at stroke 34, survives 16 px
+BOX_W, BOX_H = 300, 300                              # the tight logo box, viewBox 50 55 300 300
 
-def avatar_svg(px, face=True, highlight=True, tile=None):
-    arms = "".join(f'<rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate({a} 60 62)"/>' for a in ARMS)
-    s = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="{px}" height="{px}"><defs>'
-         '<linearGradient id="g" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient>'
-         '<linearGradient id="s" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient>'
-         '<filter id="f" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter>'
-         f'<mask id="m" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160">{arms}</mask></defs>')
-    if tile: s += f'<rect x="-40" y="-40" width="200" height="200" fill="{tile}"/>'
-    s += '<rect x="-20" y="-20" width="160" height="160" fill="url(#g)" mask="url(#m)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#s)" mask="url(#m)"/>'
-    if highlight: s += '<g mask="url(#m)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#f)"/></g>'
-    if face: s += ('<rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/>'
-                   '<path d="M55 70q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>')
-    return s + "</svg>\n"
+def guy_g(body, eye, eyes=EYES, sw=22.5):
+    pl = "".join(f'<polyline points="{p}"/>' for p in eyes)
+    return (f'<path d="{CIRCLE}" fill="{body}"/><g fill="none" stroke="{eye}" stroke-width="{sw}" '
+            f'stroke-linecap="round" stroke-linejoin="round">{pl}</g>')
+
+def favicon_svg(px):     # the kit's svg/favicon.svg
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{px}" height="{px}" viewBox="0 0 64 64">'
+            f'<rect width="64" height="64" rx="14" fill="{GUY_INK}"/>'
+            f'<g transform="translate(32,32) scale(0.18) translate(-200,-205)">{guy_g(GUY_WHITE, GUY_INK, FAV_EYES, 34)}</g></svg>\n')
+
+def app_icon_svg(px):    # the kit's svg/app-icon.svg: full bleed, no corner rounding
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{px}" height="{px}" viewBox="0 0 1024 1024">'
+            f'<rect width="1024" height="1024" fill="{GUY_INK}"/>'
+            f'<g transform="translate(512,512) scale(2) translate(-200,-205)">{guy_g(GUY_WHITE, GUY_INK)}</g></svg>\n')
+
+def logo_svg(w, h, body, eye):   # the tight logo box: the kit's svg/lynxr-guy.svg and lynxr-guy-black.svg
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="50 55 300 300" width="{w}" height="{h}">{guy_g(body, eye)}</svg>\n'
+
+def opaque(img, ground):
+    flat = Image.new("RGB", img.size, ground)
+    flat.paste(img, (0, 0), img)
+    return flat
 
 def field_svg(w, h):
     grads, rects = "", ""
@@ -101,36 +120,77 @@ def ink_left(ch, f):
 
 def render_og(label, out, tmp, fonts):
     SS, W, H = 2, 1200, 630
-    img = sips(field_svg(W, H), W * SS, H * SS, tmp, "field").convert("RGBA")
-    WORD_PX = 158                                    # was 132; owner, 2026-09-15: "make the logo slightly bigger"
-    wf = font(fonts / Path(WORD_FONT).name, WORD_PX * SS, WORD_WGHT)
+    if OG_LOOK == "light":
+        img = sips(field_svg(W, H), W * SS, H * SS, tmp, "field").convert("RGBA")
+        body, eye, ink, muted = GUY_INK, GUY_WHITE, TEXT, LABEL
+    else:
+        img = Image.new("RGBA", (W * SS, H * SS), GUY_INK)
+        body, eye, ink, muted = GUY_WHITE, GUY_INK, GUY_WHITE, LABEL_DARK
+    if OG_LOOK == "bare":
+        # the kit's svg/og-image.svg exactly: translate(600,315) scale(1.3) translate(-200,-205), no words.
+        # The box's top-left (50, 55) lands at (600 - 150 * 1.3, 315 - 150 * 1.3).
+        gw, gh = round(BOX_W * 1.3 * SS), round(BOX_H * 1.3 * SS)
+        g = sips(logo_svg(gw, gh, body, eye), gw, gh, tmp, "guy")
+        img.alpha_composite(g, (round((600 - 150 * 1.3) * SS), round((315 - 150 * 1.3) * SS)))
+    else:
+        WORD_PX = 158
+        wf = font(fonts / Path(WORD_FONT).name, WORD_PX * SS, WORD_WGHT)
+        d = ImageDraw.Draw(img)
+        gw = 190 * SS; gh = round(gw * BOX_H / BOX_W); gap = 44 * SS
+        track = WORD_TRACK * WORD_PX * SS
+        ww = tracked_width(d, WORD, wf, track)
+        total = gw + gap + ww
+        asc, desc = wf.getmetrics()
+        lab_h = 0
+        if label:
+            lf = font(fonts / Path(LABEL_FONT).name, 30 * SS); lab_h = 64 * SS
+        row_h = max(gh, asc + desc)
+        x0 = (W * SS - total) / 2; y0 = (H * SS - row_h - lab_h) / 2
+        g = sips(logo_svg(gw, gh, body, eye), gw, gh, tmp, "guy")
+        img.alpha_composite(g, (round(x0), round(y0 + (row_h - gh) / 2)))
+        wx = x0 + gw + gap
+        tracked(d, wx, y0 + (row_h - (asc + desc)) / 2, WORD, wf, track, ink)
+        if label:
+            # left-aligned to the first ink of the l (owner, 2026-09-15), both side bearings subtracted
+            lt = LABEL_TRACK * 30 * SS
+            lx = wx + ink_left(WORD[0], wf) - ink_left(label[0], lf)
+            tracked(d, lx, y0 + row_h + 18 * SS, label, lf, lt, muted)
+    img.convert("RGB").resize((W, H), Image.LANCZOS).save(out, optimize=True)
+    print("wrote", out, (W, H))
+
+NIGHT, NIGHT_DOT, NIGHT_SUB, NIGHT_ACT = "#212227", (238, 237, 245), "#b9b7c9", "#ff9f2e"
+
+def render_og_night(label, out, tmp, fonts):
+    """THE 2026-11 LOOK (owner, 2026-11-26: "change all the share banners too with this revamp"): the landing's night
+    (#212227) with a scatter of faint star dots, the soft-white guy over the big lowercase "lynxr", and one line under it:
+    "let's go viral", or the label (the invite's in the press orange)."""
+    import random
+    SS, W, H = 2, 1200, 630
+    img = Image.new("RGBA", (W * SS, H * SS), NIGHT)
     d = ImageDraw.Draw(img)
-    av_px = 180 * SS; gap = 40 * SS                  # was 150 / 34, scaled with the wordmark
-    track = WORD_TRACK * WORD_PX * SS
+    rnd = random.Random(7)
+    for _ in range(90):
+        x, y, r = rnd.uniform(0, W * SS), rnd.uniform(0, H * SS), rnd.choice([1.6, 2, 2.4, 3])
+        a = rnd.choice([70, 100, 130, 160])
+        d.ellipse((x - r, y - r, x + r, y + r), fill=NIGHT_DOT + (a,))
+    gw = 132 * SS
+    g = sips(logo_svg(gw, gw, GUY_WHITE, GUY_INK), gw, gw, tmp, "nguy")
+    WORD_PX = 200
+    wf = font(fonts / Path(WORD_FONT).name, WORD_PX * SS, 800)
+    track = -0.05 * WORD_PX * SS
     ww = tracked_width(d, WORD, wf, track)
-    total = av_px + gap + ww
     asc, desc = wf.getmetrics()
-    lab_h = 0
-    if label:
-        lf = font(fonts / Path(LABEL_FONT).name, 30 * SS); lab_h = 64 * SS
-    block_h = max(av_px, asc + desc) + lab_h
-    x0 = (W * SS - total) / 2; y0 = (H * SS - block_h) / 2
-    # No box behind the lockup (owner, 2026-09-15: "get rid of the box over the
-    # logo, just have the colorful background and the logo and text logo"). The
-    # ink wordmark sits straight on the pastel blobs, which stay light enough
-    # behind it to read at a glance.
-    av = sips(avatar_svg(av_px), av_px, av_px, tmp, "av")
-    cap_top = y0 + (max(av_px, asc + desc) - (asc + desc)) / 2
-    img.alpha_composite(av, (round(x0), round(y0 + (max(av_px, asc + desc) - av_px) / 2)))
-    tracked(d, x0 + av_px + gap, cap_top, WORD, wf, track, TEXT)
-    if label:
-        lt = LABEL_TRACK * 30 * SS
-        # Left-aligned to the wordmark (owner, 2026-09-15: "in line with the start of
-        # the l in lynxr"). Both side bearings are subtracted, so the label's first
-        # ink lines up with the l's stem rather than with its glyph box.
-        wx = x0 + av_px + gap
-        lx = wx + ink_left(WORD[0], wf) - ink_left(label[0], lf)
-        tracked(d, lx, y0 + max(av_px, asc + desc) + 18 * SS, label, lf, lt, LABEL)
+    sub = label or "let's go viral"
+    sf = font(fonts / Path(WORD_FONT).name, 46 * SS, 500)
+    sw = tracked_width(d, sub, sf, 0)
+    gap1, gap2 = 22 * SS, 18 * SS
+    block = gw + gap1 + asc + desc + gap2 + 50 * SS - asc * 0.18
+    y0 = (H * SS - block) / 2
+    img.alpha_composite(g, (round((W * SS - gw) / 2), round(y0)))
+    wy = y0 + gw + gap1 - asc * 0.18
+    tracked(d, (W * SS - ww) / 2, wy, WORD, wf, track, GUY_WHITE)
+    sy = wy + asc + desc + gap2 * 0.2   # below the y's descender
+    tracked(d, (W * SS - sw) / 2, sy, sub, sf, 0, NIGHT_ACT if label == "you're invited" else NIGHT_SUB)
     img.convert("RGB").resize((W, H), Image.LANCZOS).save(out, optimize=True)
     print("wrote", out, (W, H))
 
@@ -138,31 +198,35 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=str(ROOT))
     ap.add_argument("--fonts", default=str(ROOT / "fonts"))
+    ap.add_argument("--social", default="", help="a directory OUTSIDE the repo for the profile picture")
     a = ap.parse_args(); out = Path(a.out); fonts = Path(a.fonts); out.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
-        (out / "favicon.svg").write_text(avatar_svg(32, face=False, highlight=False).replace(' width="32" height="32"', ""))
+        (out / "favicon.svg").write_text(favicon_svg(64))
         print("wrote", out / "favicon.svg")
-        sips(avatar_svg(32, face=False, highlight=False), 32, 32, tmp, "f32").save(out / "favicon.png", optimize=True)
+        sips(favicon_svg(32), 32, 32, tmp, "f32").save(out / "favicon.png", optimize=True)
         print("wrote", out / "favicon.png")
-        f48 = sips(avatar_svg(48), 48, 48, tmp, "i48"); f32 = sips(avatar_svg(32), 32, 32, tmp, "i32")
-        f16 = sips(avatar_svg(16, face=False, highlight=False), 16, 16, tmp, "i16")
+        f48, f32, f16 = (sips(favicon_svg(n), n, n, tmp, f"i{n}") for n in (48, 32, 16))
         f48.save(out / "favicon.ico", format="ICO", sizes=[(48, 48), (32, 32), (16, 16)], append_images=[f32, f16])
         print("wrote", out / "favicon.ico")
-        tile = sips(avatar_svg(180, tile=BG).replace('viewBox="0 0 120 120"', 'viewBox="-24 -24 168 168"'), 180, 180, tmp, "apple")
-        flat = Image.new("RGB", tile.size, BG); flat.paste(tile, (0, 0), tile); flat.save(out / "apple-touch-icon.png", optimize=True)
-        print("wrote", out / "apple-touch-icon.png")
-        # The Organization logo for search engines (JSON-LD "logo"): square, on
-        # our own domain, on solid white so no crawler or card fills it black.
-        lg = sips(avatar_svg(1024), 1024, 1024, tmp, "logo")
-        white = Image.new("RGB", (512, 512), "#ffffff")
-        lg = lg.resize((448, 448), Image.LANCZOS); white.paste(lg, (32, 32), lg)
-        white.save(out / "lynxr-logo.png", optimize=True)
-        print("wrote", out / "lynxr-logo.png")
-        render_og("", out / "og-v3.png", tmp, fonts)
-        render_og("creators", out / "og-creator-v3.png", tmp, fonts)
-        render_og("agency", out / "og-agency-v3.png", tmp, fonts)
+        for name, n in (("apple-touch-icon.png", 180), ("icon-192.png", 192), ("icon-512.png", 512)):
+            opaque(sips(app_icon_svg(n), n, n, tmp, f"app{n}"), GUY_INK).save(out / name, optimize=True)
+            print("wrote", out / name)
+        # The Organization logo for search engines (JSON-LD "logo"): square, on our own domain, on an opaque light
+        # ground so no crawler or card fills it black. The black guy 360 wide: more than one eye's height clear all round.
+        lw, lh = 360, round(360 * BOX_H / BOX_W)
+        logo = Image.new("RGB", (512, 512), LOGO_GROUND)
+        g = sips(logo_svg(lw, lh, GUY_WHITE, GUY_INK), lw, lh, tmp, "logo")
+        logo.paste(g, ((512 - lw) // 2, (512 - lh) // 2), g)
+        logo.save(out / "lynxr-logo-v2.png", optimize=True)
+        print("wrote", out / "lynxr-logo-v2.png")
+        render_og_night("", out / "og-v5.png", tmp, fonts)
+        render_og_night("agency", out / "og-agency-v5.png", tmp, fonts)
         # The share link's preview (/join/, owner 2026-11-21): the same lockup, labelled for the friend who opens it.
-        render_og("you're invited", out / "og-invite.png", tmp, fonts)
+        render_og_night("you're invited", out / "og-invite-v2.png", tmp, fonts)
+        if a.social:
+            s = Path(a.social); s.mkdir(parents=True, exist_ok=True)
+            opaque(sips(app_icon_svg(1024), 1024, 1024, tmp, "app1024"), GUY_INK).save(s / "lynxr-profile-1024.png", optimize=True)
+            print("wrote", s / "lynxr-profile-1024.png")
 
 if __name__ == "__main__":
     main()

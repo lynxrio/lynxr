@@ -6,6 +6,12 @@
       "runtimeExecutable": "./venv/bin/python",
       "runtimeArgs": ["-m", "http.server", "8811", "--bind", "127.0.0.1"],
       "port": 8811
+    },
+    {
+      "name": "landing-mockups",
+      "runtimeExecutable": "./venv/bin/python",
+      "runtimeArgs": ["-m", "http.server", "8850", "--bind", "127.0.0.1", "--directory", "/Users/junsahwang/Lynxr-redesign/landing10"],
+      "port": 8850
     }
   ]
 }

@@ -22,7 +22,7 @@
      Instagram players on an agency brief's "the original". Briefs now play the self-hosted clip in the
      same native <video> as a creator's own scripts (owner: "native to lynxr"), so nothing on this page
      frames anything and default-src 'none' refuses every frame again. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokcdn-eu.com; media-src 'self' blob: https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://www.youtube-nocookie.com; manifest-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self' https://api.allorigins.win https://api.codetabs.com https://www.tiktok.com https://www.youtube.com https://esakjfogplfszievvabi.supabase.co https://script.google.com https://script.googleusercontent.com; img-src 'self' https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io https://*.tiktokcdn.com https://*.tiktokcdn-us.com https://*.tiktokcdn-eu.com; media-src 'self' blob: https://esakjfogplfszievvabi.supabase.co https://cdn.lynxr.io; form-action 'none'; base-uri 'none'; object-src 'none'">
 <!-- maximum-scale=1 SUPPRESSES iOS SAFARI'S FOCUS-ZOOM, and it is here in
      exchange for the find bar's type size: the search and sort controls came
      off the 16px floor on 2026-08-19 (owner's call) so they sit proportionally
@@ -60,28 +60,30 @@
      enterApp() in creator.js rewrites this meta to resizes-content when the
      app takes the page. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=overlays-content">
-<title>lynxr — the UGC creator tool</title>
+<title>lynxr | makes you viral</title>
 <meta name="description" content="lynxr is the UGC creator tool. Paste any TikTok or Instagram video and get a script for your next brand video: it reads the format underneath — hook, beats, turn, close — and rewrites it for the brand you make content for. Free to start: 3 scripts a week, no card.">
-<meta property="og:title" content="lynxr — the UGC creator tool">
+<meta property="og:title" content="lynxr | makes you viral">
 <meta property="og:description" content="Paste a link. Get a script for your next UGC video, written for the brand you make it for.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="lynxr">
 <meta property="og:url" content="https://lynxr.io/">
-<meta property="og:image" content="https://lynxr.io/og-v3.png">
+<meta property="og:image" content="https://lynxr.io/og-v5.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="lynxr — the UGC creator tool">
+<meta name="twitter:title" content="lynxr | makes you viral">
 <meta name="twitter:description" content="Paste a link. Get a script for your next UGC video, written for the brand you make it for.">
-<meta name="twitter:image" content="https://lynxr.io/og-v3.png">
+<meta name="twitter:image" content="https://lynxr.io/og-v5.png">
 <link rel="canonical" href="https://lynxr.io/">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261120e">
-<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261120e">
-<link rel="shortcut icon" href="/favicon.ico?v=20261120e">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261120e">
-<link rel="stylesheet" href="/app.css?v=20261120e">
-<script src="/theme.js?v=20261120e"></script>
-<script src="/backdrop.js?v=20261120e" defer></script>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261129d">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261129d">
+<link rel="shortcut icon" href="/favicon.ico?v=20261129d">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261129d">
+<link rel="manifest" href="/site.webmanifest?v=20261129d">
+<script src="/lynxr-guy.js?v=20261129d" defer></script>
+<link rel="stylesheet" href="/app.css?v=20261129d">
+<script src="/theme.js?v=20261129d"></script>
+<script src="/backdrop.js?v=20261129d" defer></script>
 <!-- BEGIN SHARED ENTITY JSON-LD -->
 <script type="application/ld+json">
 {
@@ -103,8 +105,8 @@
       "logo": {
         "@type": "ImageObject",
         "@id": "https://lynxr.io/#logo",
-        "url": "https://lynxr.io/lynxr-logo.png",
-        "contentUrl": "https://lynxr.io/lynxr-logo.png",
+        "url": "https://lynxr.io/lynxr-logo-v2.png",
+        "contentUrl": "https://lynxr.io/lynxr-logo-v2.png",
         "width": 512,
         "height": 512,
         "caption": "lynxr"
@@ -283,7 +285,7 @@
   "about": { "@id": "https://lynxr.io/#lynxr" },
   "primaryImageOfPage": {
     "@type": "ImageObject",
-    "url": "https://lynxr.io/og-v3.png",
+    "url": "https://lynxr.io/og-v5.png",
     "width": 1200,
     "height": 630
   }
@@ -297,11 +299,12 @@
      scroll `.pane`'s own comment in app.css records. `body.home` is the flag
      the new CSS state machine and creator.js both key on instead. -->
 <body class="lp home">
-<svg class="lx-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lx-glass" x1="10" y1="0" x2="110" y2="118" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb38a"/><stop offset=".48" stop-color="#ff7eb8"/><stop offset="1" stop-color="#7b61ff"/></linearGradient><linearGradient id="lx-shade" x1="0" y1="14" x2="0" y2="108" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#3a1478" stop-opacity=".32"/></linearGradient><filter id="lx-soft" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter><mask id="lx-idle" maskUnits="userSpaceOnUse" x="-20" y="-20" width="160" height="160"><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(45 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(135 60 62)"/><rect x="43" y="10" width="34" height="60" rx="17" fill="#fff" transform="rotate(-135 60 62)"/></mask></defs></svg>
 
 <header class="lp-bar">
   <div class="lp-in lp-bar-in">
-    <a class="wordmark" href="/"><svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg><span>lynxr</span></a>
+    <!-- the corner guy is always awake on the landing (owner, 2026-11-25: "have it start shapeshifting ... and the blinking
+         automatically"): .is-active keeps lynxr-guy.js morphing and blinking him; under reduced motion he holds one still blob. -->
+    <a class="wordmark lx-guy lx-guy--black is-active" href="/"><svg class="mark" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg><span>lynxr</span></a>
     <!-- THE LANDING'S BAR IS THE WORDMARK AND "SIGN IN" (owner, 2026-11-13: "The top nav bar is pretty much gone ...
          There is no need for an FAQ or How It Works tab at the top"; plan ~/.claude/plans/landing-video-first.md).
          How it works, faq and pricing live in the footer. "sign in" is top right (Jakob) and a text link, not the ink
@@ -342,17 +345,92 @@
        under reduced motion, Save-Data or a stored session. There is no autoplay and no loop attribute on purpose.
        No inline styles (CSP). -->
   <section class="lp-sec lp-intro lp-first" id="lp-intro" aria-labelledby="lp-intro-h">
+    <!-- THE FLOATING COLLAGE (owner, 2026-11-25, from a marked-up screenshot): rectangles are videos in their recorded
+         shape (tall = filmed vertically, wide = filmed horizontally), circles are GIFs, images or small clickable objects.
+         Placed where the owner drew them, in screen units (vw/vh) so they hold the same spots on any desktop. PLACEHOLDERS
+         for now: no video, GIF or image is chosen yet (the GIPHY plan is pending its legal check), and nothing is clickable
+         until each circle has a job. Decorative: aria-hidden. -->
+    <div class="lp-float" aria-hidden="true">
+      <picture><source media="(prefers-reduced-motion: reduce)" srcset="/assets/landing/reaction-hamster.webp"><img class="lpf-img lpf-pic lpf-hamster" src="/assets/landing/reaction-hamster-dance.webp" width="240" height="238" alt="" decoding="async"></picture>   <!-- the owner's dancing-hamster meme, tucked behind the left tile (2026-11-26) -->
+      <span class="lpf lpf-v lpf-1"></span>
+      <span class="lpf lpf-h lpf-2"></span>
+      <span class="lpf lpf-h lpf-3"></span>
+      <span class="lpf lpf-v lpf-4"></span>
+      <!-- the pixel camcorder (owner, 2026-11-25), in two pieces so its flip-out screen can swing shut and open again on a
+           loop ("have it flip in and out constantly"): the body (with the camera's side filled in behind the screen) and the
+           screen, hinged on its left edge; it folds LEFT over the hinge, toward the lens, showing its plain back while shut. -->
+      <picture><source media="(prefers-reduced-motion: reduce)" srcset="/assets/landing/reaction-rangers.webp"><img class="lpf-img lpf-pic lpf-8" src="/assets/landing/reaction-rangers-dance.webp" width="300" height="225" alt="" decoding="async"></picture>   <!-- the owner's dancing Power Rangers GIF (2026-11-26) -->
+      <img class="lpf-img lpf-pic lpf-10" src="/assets/landing/reaction-shock.webp" width="480" height="264" alt="" decoding="async">   <!-- the owner's reaction image, his call (2026-11-25) -->
+    </div>
+    <!-- THE RING LIGHT, A REAL SWITCH (owner, 2026-11-26: "when i click it it brightens for 2 more clicks and then the third
+         turns off so its like a cycle ... like a real ringlight. and when it brightens have it showcase the lynxr text more").
+         Outside the decorative layer because it is a control. home.js ringLight cycles on -> brighter -> brightest -> off. -->
+    <span class="lp-ring-beam" id="lp-ring-beam" aria-hidden="true"></span>   <!-- the cone of light from the ring to the word (home.js aims it) -->
+    <!-- THE PORTRAIT IS A BUTTON (owner, 2026-11-26: "have this mp4 be a popup when i click on the portrait"). It opens
+         #lp-rick, the official Rick Astley video embedded from YouTube (the label allows embedding; no copy of the video is
+         hosted here). home.js rickPopup loads the player only when opened and unloads it on close. -->
+    <!-- HOLD TO PLAY (owner, 2026-11-26): pressing and holding the top meme plays a sound; letting go stops it. The sound is
+         whatever licensed clip sits at /assets/landing/hold-sound.mp3 (none ships yet, so holding plays nothing). home.js
+         holdSound. Keyboard: hold Space or Enter. -->
+    <picture><source media="(prefers-reduced-motion: reduce)" srcset="/assets/landing/reaction-hamster.webp"><img class="lpf-img lpf-pic lpf-cat2" src="/assets/landing/reaction-hamster-dance.webp" width="240" height="238" alt="" decoding="async"></picture>   <!-- the cat again, peeking over the top of the hold-to-play meme from behind it (owner, 2026-11-26) -->
+    <button type="button" class="lp-hold lpf-6" id="lp-hold" aria-label="Hold to play a sound">
+      <img src="/assets/landing/reaction-distracted.webp" width="720" height="540" alt="" decoding="async">
+    </button>
+    <audio id="lp-hold-sound" src="/assets/landing/hold-sound.mp3" preload="none"></audio>
+    <!-- MOUNT RUSHMORE (owner, 2026-11-26): where the Power Rangers first sat. Clicking it opens the team photo, and two
+         iMessage bubbles pop up over the two of us: "CEO" over the left, "CMO" over the right. The trigger is a thumbnail of the photo itself (the
+         team's "mount rushmore"). home.js teamPopup. -->
+    <span class="lp-rush" aria-hidden="true">
+      <span class="lp-rush-ico" aria-hidden="true">📚</span>
+    </span>   <!-- the 📚 does nothing for now (owner, 2026-11-26) -->
+    <dialog class="lp-team" id="lp-team" aria-label="The team">
+      <figure class="lp-team-fig">
+        <img src="/assets/landing/team.webp" width="1800" height="1350" alt="The lynxr team: our CEO on the left, our CMO on the right" decoding="async" loading="lazy">
+        <span class="lp-imsg lp-imsg--in" aria-hidden="true">CEO<svg class="lp-imsg-tail" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M-10 20V0H10c0 8 3 15 9.5 19.6C13 20.6 6 20.3 0 20z"/></svg></span>
+        <span class="lp-imsg lp-imsg--out" aria-hidden="true">CMO<svg class="lp-imsg-tail" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M-10 20V0H10c0 8 3 15 9.5 19.6C13 20.6 6 20.3 0 20z"/></svg></span>
+      </figure>
+      <button type="button" class="lp-rick-x" id="lp-team-x" aria-label="Close">&times;</button>
+    </dialog>
+    <!-- the camcorder opens the Rickroll (owner, 2026-11-26: "have the camcorder once clicked or tapped to be the rickrolld") -->
+    <button type="button" class="lpf-cam lpf-5 lp-camb" id="lp-cam" aria-haspopup="dialog" aria-controls="lp-rick" aria-label="A surprise video"><img class="lpf-cam-body" src="/assets/landing/camcorder-body.webp" width="480" height="289" alt="" decoding="async"><span class="lpf-cam-screen"><img class="lpf-cam-front" src="/assets/landing/camcorder-screen.webp" width="273" height="185" alt="" decoding="async"><img class="lpf-cam-back" src="/assets/landing/camcorder-screen-back.webp" width="273" height="185" alt="" decoding="async"></span></button>
+    <!-- the "Mogged" pigeon opens the team photo with the CEO and CMO bubbles (owner, 2026-11-26) -->
+    <button type="button" class="lp-chad lpf-7" id="lp-chad" aria-haspopup="dialog" aria-controls="lp-team" aria-label="Meet the team">
+      <picture><source media="(prefers-reduced-motion: reduce)" srcset="/assets/landing/reaction-pigeon.webp"><img src="/assets/landing/reaction-pigeon-dance.webp" width="360" height="354" alt="" decoding="async"></picture>
+    </button>
+    <dialog class="lp-rick" id="lp-rick" aria-label="A surprise video">
+      <div class="lp-rick-frame" id="lp-rick-frame"></div>
+      <button type="button" class="lp-rick-x" id="lp-rick-x" aria-label="Close">&times;</button>
+    </dialog>
+    <button type="button" class="lp-ring" id="lp-ring" aria-label="Ring light: on. Tap to brighten.">
+      <img class="lp-ring-head" src="/assets/landing/ring-head.webp" width="420" height="366" alt="" decoding="async"><img class="lp-ring-stand" src="/assets/landing/ring-stand.webp" width="420" height="310" alt="" decoding="async">
+    </button>
     <div class="lp-in">
       <div class="lp-first-mid">
-        <h1 class="lp-first-h" id="lp-intro-h">A content coach that <br>lives on your phone.</h1>
-        <div class="lp-intro-card">
-          <video class="lp-intro-video" id="lp-intro-video" width="1280" height="720"
-            poster="/assets/intro/intro-poster.jpg?r=20261114b"
-            controls muted playsinline preload="none" data-audio="on"
-            controlslist="nodownload noplaybackrate noremoteplayback" disablepictureinpicture disableremoteplayback
-            aria-label="lynxr intro video">
-            <source src="/assets/intro/intro.mp4?r=20261114b" type="video/mp4">
-          </video>
+        <!-- THE BIG WORD (owner, 2026-11-25: "have the word lynxr be large and centered horizontally. so the launch video is
+             kind of cut off and people have to scroll slightly to see it"). Decorative: the h1 below stays the heading. -->
+        <div class="lp-hero-top">
+          <p class="lp-hero-word" aria-hidden="true">lynxr</p>
+          <h1 class="lp-first-h" id="lp-intro-h">Let's go viral</h1>
+          <!-- the join button sits right under the big word (owner, 2026-11-25: "have this be above the lynxr text, and then
+               have the join the waitlist where this is"); the friend's banner travels with it. -->
+          <div class="lp-first-go">
+            <div class="lp-invite" id="lp-invite" hidden>
+              <span class="lp-invite-x" data-lx-mood="giggle" aria-hidden="true"></span>
+              <p class="lp-invite-t" id="lp-invite-t">A friend is inviting you to lynxr</p>
+              <p class="lp-invite-s" id="lp-invite-s">Join the waitlist and you'll help them move up 10 places.</p>
+            </div>
+            <a class="btn lp-first-cta onb-shim" id="lp-first-cta" href="/?signup=1" data-gate="wait">Join the waitlist</a>
+          </div>
+        </div>
+        <!-- THE LAUNCH VIDEO IS A PLACEHOLDER (owner, 2026-11-25: "make the launch video just a placeholder, remove this
+             current video"). The old cut showed the retired x. The same 16:9 card holds the guy and one line until the
+             new cut exists; with no #lp-intro-video, home.js introVideo() returns at its first line and builds no controls.
+             To bring a video back, put the <video id="lp-intro-video"> (see git history) back in place of .lp-intro-ph. -->
+        <div class="lp-intro-card lp-intro-card--ph">
+          <div class="lp-intro-ph">
+            <svg class="lp-ph-guy lx-guy" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
+            <p class="lp-intro-ph-t">Launch video coming soon</p>
+          </div>
         </div>
       </div>
       <!-- THE FRIEND'S BANNER (owner, 2026-11-20: "there is a nice banner the other user can see on their end"). A friend's
@@ -362,17 +440,8 @@
            second "join" next to it; the referral rides in the code home.js keeps at arrival (wlRef / wlGift). On a phone the
            card sits in the thumb zone under the video; on a desktop right under it. THE NAME (owner, 2026-11-21: "[name]
            is inviting you to lynxr", "really cute with the x"): the link carries only the code; home.js asks the
-           function for the name that code's owner chose (ref_peek) and says "a friend" without one. The x is a live
-           glass x (avatar.js renders [data-lx-mood]) in its happy giggle face, which does not loop; it waves once as the
-           words appear, never under reduced motion. Text by textContent in home.js; nothing here is interpolated. -->
-      <div class="lp-first-go">
-        <div class="lp-invite" id="lp-invite" hidden>
-          <span class="lp-invite-x" data-lx-mood="giggle" aria-hidden="true"></span>
-          <p class="lp-invite-t" id="lp-invite-t">A friend is inviting you to lynxr</p>
-          <p class="lp-invite-s" id="lp-invite-s">Join the waitlist and you'll help them move up 10 places.</p>
-        </div>
-        <a class="btn lp-first-cta onb-shim" id="lp-first-cta" href="/?signup=1" data-gate="wait">Join the waitlist</a>
-      </div>
+           function for the name that code's owner chose (ref_peek) and says "a friend" without one. The guy (avatar.js renders [data-lx-mood]) rests
+           there, and wakes for 1.4 s as the words appear (lynxrGesture "hello"), never under reduced motion. Text by textContent in home.js; nothing here is interpolated. -->
     </div>
   </section>
 
@@ -409,7 +478,7 @@
         </li>
         <li class="lp-how-card">
           <div class="lp-how-art lp-art-links" aria-hidden="true">
-            <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
+            <svg class="mark lx-guy--black lx-guy-still" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><path d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g fill="none" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5"/><polyline points="224,227.5 257.8,182.5 291.5,227.5"/></g></svg>
             <span class="lp-lks">
               <span class="lp-lk"><span class="lp-lk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>tiktok.com/@name/video/…</span>
               <span class="lp-lk"><span class="lp-lk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>instagram.com/reel/…</span>
@@ -478,8 +547,8 @@
     <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr</div>
     <div class="foot-grid foot-grid-wide">
       <div class="foot-brand">
-        <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
-        <p>your <span class="acr">UGC</span> buddy</p>
+        <svg class="mark lx-guy lx-guy--black" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
+        <p>Let's go viral</p>
       </div>
       <div class="foot-col">
         <div class="foot-label">lynxr</div>
@@ -555,7 +624,7 @@
          opened (see showGate() in creator.js), so Back does the same thing;
          this is the same action for someone who never touched the URL bar. -->
     <button type="button" class="linkish gate-back" id="gate-back">&larr; back to lynxr</button>
-    <div class="wordmark"><svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg><span>lynxr</span></div>
+    <div class="wordmark"><svg class="mark lx-guy lx-guy--black" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg><span>lynxr</span></div>
     <p class="tagline" id="gate-tagline">for creators</p>
     <!-- THE AGREEMENT (owner, 2026-09-25: replace the tick box with a plain line, the way the landing's
          .hxs card already reads). Above every way to continue — the Google button and the email form — so
@@ -754,8 +823,8 @@
              them is a button of its own and cannot sit inside another. The
              name keeps the visible word "lynxr" in it, so "click lynxr" by
              voice still finds it. Wired in creator.js next to #nav-new. -->
-        <button type="button" class="side-home" id="nav-home" aria-label="lynxr — New script">
-          <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
+        <button type="button" class="side-home lx-guy lx-guy--black" id="nav-home" aria-label="lynxr — New script">
+          <svg class="mark" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
           <span class="wordmark"><span>lynxr</span></span>
         </button>
         <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
@@ -869,7 +938,7 @@
     <div class="pane">
       <!-- Phones only (see .pane-mark): the rail is a drawer there, so this is
            the only lynxr mark on screen once it is closed. -->
-      <svg class="pane-mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
+      <svg class="pane-mark lx-guy lx-guy--black" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
       <div class="pane-scroll" id="pane-scroll">
         <div class="pane-head" id="pane-head" tabindex="-1"></div>
         <div class="pane-body" id="pane-body"></div>
@@ -885,8 +954,8 @@
           <div class="foot-wordmark" aria-hidden="true">lynxr</div>
           <div class="foot-grid">
             <div class="foot-brand">
-              <svg class="mark lx lx-still" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-glass)" mask="url(#lx-idle)"/><rect x="-20" y="-20" width="160" height="160" fill="url(#lx-shade)" mask="url(#lx-idle)"/><g class="lx-hl" mask="url(#lx-idle)"><ellipse cx="42" cy="36" rx="30" ry="10" transform="rotate(-40 42 36)" fill="#fff" opacity=".4" filter="url(#lx-soft)"/></g><g class="lx-face"><g><rect x="47" y="48.5" width="8" height="13" rx="4" fill="#fff"/><rect x="65" y="48.5" width="8" height="13" rx="4" fill="#fff"/></g><g transform="translate(60 70)"><path d="M-5 0q5 4 10 0" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g></g></svg>
-              <p>your <span class="acr">UGC</span> buddy</p>
+              <svg class="mark lx-guy lx-guy--black" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
+              <p>Let's go viral</p>
             </div>
             <div class="foot-col">
               <div class="foot-label">lynxr</div>
@@ -1063,10 +1132,10 @@
      the seats-full link when nothing inbound has already claimed one, and
      home.js's carry-utm loop must have run first for that check to mean
      anything. -->
-<script src="/site.js?v=20261120e" defer></script>
-<script src="/footer.js?v=20261120e" defer></script>
-<script src="/home.js?v=20261120e" defer></script>
-<script src="/avatar.js?v=20261120e" defer></script>
-<script src="/creator.js?v=20261120e" defer></script>
+<script src="/site.js?v=20261129d" defer></script>
+<script src="/footer.js?v=20261129d" defer></script>
+<script src="/home.js?v=20261129d" defer></script>
+<script src="/avatar.js?v=20261129d" defer></script>
+<script src="/creator.js?v=20261129d" defer></script>
 </body>
 </html>
