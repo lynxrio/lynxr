@@ -1,0 +1,223 @@
+{
+  "question_id": "a052",
+  "slug": "review-your-own-ugc-samples",
+  "theme": "ugc-getting-started",
+  "title": "How do you review your own UGC samples before sharing them?",
+  "description": "A self-check to review your UGC samples before you share them: watch as a stranger, then test the hook, clarity, sound and framing one pass at a time.",
+  "short_answer": "Review a UGC sample by watching it once as a stranger, then checking the hook, the clarity, the sound and the framing in separate passes. Fix whatever fails, export again and repeat the check, so every sample a brand sees shows what you can do on a good day.",
+  "sections": [
+    {
+      "heading": "Why review a sample when you already watched it while editing?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Editing makes you watch your own video too closely to see it, so a separate review is the only time you see what a brand will see.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "While you cut, you know what each line means, where the product is and why a shot is there. A brand watching your sample knows none of that. It sees the finished file once, on its own screen, with no explanation. The review is your chance to borrow that view before you send anything, and it matters more for a sample than for paid work, because a sample is often the whole first impression. If you are still building your first set, [how to make UGC samples before any brand hires you](/blog/ugc-samples-without-a-brand/) covers making them; this is the check that comes after.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Leave a gap between finishing the edit and starting the review. Even a short break, like making a drink, helps you watch with fresher eyes.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should the first watch-through look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Watch the whole sample once on your phone, at full speed, without pausing or taking notes.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "This pass is about your gut reaction, not details. Hold the phone the way you would while scrolling, at the volume you would really use. At the end, answer two questions in one line each: what was this video about, and what did it want me to do? If you can't answer either one quickly, the problem is bigger than any single shot, and the fix probably belongs in the script rather than the edit. The [hook and payoff](/blog/hook-payoff/) check is a good place to look first, because a mismatch there makes the whole video feel off.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Only once you have those two answers should you start the slower passes below.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which checks should each review pass cover?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Run one pass per area, in this order, because each one is easier to judge when you are not also watching for everything else.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Pass",
+            "What to check",
+            "What a fail looks like"
+          ],
+          "table_rows": [
+            [
+              "Hook",
+              "The opening shot and line make sense on their own, before any context",
+              "You need the second line to understand the first"
+            ],
+            [
+              "Clarity",
+              "The product is visible, named or shown clearly, and in focus when it matters",
+              "The viewer could watch to the end and not know what it was"
+            ],
+            [
+              "Sound",
+              "Every line is easy to hear on a phone speaker, with no hum, echo or clipped words",
+              "You turn the volume up to catch a word"
+            ],
+            [
+              "Framing",
+              "Your face, hands and the product sit well inside the frame, with room at the top and bottom",
+              "Text on screen or your chin runs off the edge"
+            ],
+            [
+              "Ending",
+              "The [call to action](/glossary/#call-to-action) is clear and the video stops soon after it",
+              "It trails off, or ends mid-sentence"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "For the [hook](/glossary/#hook) pass, watch only the opening, then close the video and ask whether you would have kept watching. For the sound pass, listen once with the screen turned away, so the picture can't help you guess the words. For framing, watch once with the sound off, which also shows you whether your on-screen text carries the video without audio.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you fix a sample that fails a check?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Fix the smallest thing that solves the problem, export again, and rerun only the pass that failed before doing a final full watch.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Weak hook: try trimming the dead moment before the first line, because a slow start can hide a good line. If that is not enough, film a new opening rather than reworking the whole video.",
+            "Unclear product: add a close shot or an on-screen label, so the viewer can see it without you saying it twice.",
+            "Muddy sound: re-record the line in a quieter spot and lay it over the shot, or refilm the shot if your mouth is clearly visible.",
+            "Bad framing: crop in slightly if the footage is sharp enough, and refilm if cropping makes it soft.",
+            "Loose ending: cut the video a beat after the last useful line, so it finishes with purpose."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep a short note of what failed and how you fixed it. After a few samples, that note tells you what to watch for while filming, which is cheaper than fixing it afterwards.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "When is a sample ready to share with a brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A sample is ready when it passes every check on a fresh full watch and you would be happy for a brand to judge you on it alone.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "That last test matters, because a brand may watch only one of your samples. If you hesitate, ask yourself which part made you hesitate, and fix that or leave the sample out. A smaller set of samples you are sure of shows your range better than a bigger set with a weak one in it. When your set passes, [what a UGC portfolio should include](/blog/what-to-put-in-a-ugc-portfolio/) helps you decide how to present it.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "As a last step, check the file itself: it plays from start to end, it is the right shape for TikTok or Reels, it has a clear file name, and it contains nothing you are not free to share, such as music you do not have the right to use or another person who has not agreed to appear.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-26",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

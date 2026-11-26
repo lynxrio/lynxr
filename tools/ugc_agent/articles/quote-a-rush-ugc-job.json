@@ -1,0 +1,223 @@
+{
+  "question_id": "a054",
+  "slug": "quote-a-rush-ugc-job",
+  "theme": "ugc-rates-and-pay",
+  "title": "How do you quote a rush UGC job?",
+  "description": "How to word a rush UGC job quote: price the short turnaround as its own line, tighten scope and revisions, and fix every date before you say yes.",
+  "short_answer": "Quote a rush UGC job by naming the short turnaround as its own line, on top of your usual price for the work. Then tighten the scope, cut the revision rounds to what the time allows, and fix every date, including when the brand must reply, so the deadline holds for both of you.",
+  "sections": [
+    {
+      "heading": "What makes a UGC job a rush job?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A job is a rush when the deadline forces you to move other work, skip a step you would normally take, or work hours you would normally keep free.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "That test is about your week, not about a set number of days, because the same deadline can be easy one week and a scramble the next. Before you quote, walk through the whole job backwards from the delivery date: product arriving, reading the [brief](/glossary/#brief), writing the [script](/glossary/#script), approval, filming, editing, revisions and delivery. If you planned the job the way [how to turn a brand brief into a script](/blog/brief-to-script/) sets out, you already know which steps take the longest. If every step fits without moving anything, it is a normal job on a short timeline, and you can quote it normally.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If something has to give, decide what before you reply. That list is the reason for the rush line in your quote, and it makes the price easy to explain.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you show the rush in the quote itself?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Put the rush on its own line, separate from the price of the videos, so the brand can see exactly what the short turnaround adds.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A single bigger number with no explanation invites a haggle over the whole job. A separate line keeps your normal price intact and turns the rush into a choice the brand can make: pay for the date, or move the date. It also means the next job, on a normal timeline, starts from your usual price rather than from a discount you gave this time. The way [how to explain what is included in your UGC price](/blog/explain-whats-included-in-ugc-price/) lists each part of the job works well here, with the rush added as one more line.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Line in the quote",
+            "Normal job",
+            "Rush job"
+          ],
+          "table_rows": [
+            [
+              "Videos",
+              "Your usual price for the agreed videos",
+              "The same price, unchanged"
+            ],
+            [
+              "Turnaround",
+              "Not listed",
+              "A separate rush line at [AMOUNT], with the delivery date it buys"
+            ],
+            [
+              "Revisions",
+              "Your usual rounds",
+              "Fewer rounds, each with a reply-by time"
+            ],
+            [
+              "Script approval",
+              "Sent for approval before filming",
+              "Sent for approval with a fixed reply-by time"
+            ],
+            [
+              "Delivery",
+              "A date that suits your week",
+              "A firm date and time, tied to the brand's replies"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should change in scope and revisions on a rush job?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Shrink anything that adds a round of waiting, because waiting is what breaks a rush deadline.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Fewer revision rounds. Offer the number that fits before the deadline, and say any extra round moves the date.",
+            "Fewer hook versions or edits, unless the brand pays for the extra time, because each one adds editing.",
+            "A fixed product. If the product has not arrived, say the dates start from the day it does.",
+            "One person giving feedback, so you are not waiting for two sets of notes that disagree.",
+            "Raw footage or extra files only if they were already in the plan, so delivery is not slowed by a last request."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Say each of these as a condition of the rush date rather than as a rule you impose. For example: to hit [DATE], I can offer one round of revisions. A second round would move delivery by a day.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you word a rush quote to a brand?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write one short message that restates the job, gives the price with the rush line, and lists the dates the brand has to meet as well as yours.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Hi [NAME], thanks for thinking of me for [PRODUCT]. I can deliver [NUMBER] videos by [DATE]. The price is [AMOUNT] for the videos, plus a rush fee of [AMOUNT] for the short turnaround. To hold that date, I would need the product by [DATE], script approval within a day of sending it, and one round of revisions. If any of those slip, delivery moves by the same amount. If the date can move to [DATE], I can drop the rush fee and include my usual revisions. Let me know which works and I will get started.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Offering the slower option in the same message gives the brand an easy way to say yes without a back and forth. Ask for a written yes to whichever version it picks, and agree payment terms with the brand at the same time, as covered in [what to agree in writing before a UGC job starts](/blog/agree-in-writing-before-ugc/).",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What if the brand says no to the rush fee?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Offer the later date at your normal price, or a smaller scope that fits the short deadline without the rush line.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Dropping the fee while keeping the same deadline and scope teaches the brand that rush work costs nothing extra, so keep at least one thing in the trade. You could deliver fewer videos by the rush date and the rest later, skip alternate hooks, or deliver one edit with no revisions. Each option keeps the deal fair and gives the brand a real choice. If none of them works and the date still cannot move, it is fine to turn the job down politely, because a deadline you can't meet does more damage than a no.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you do take it, write the final version down in one message, with every date in it, before you start.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-26",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

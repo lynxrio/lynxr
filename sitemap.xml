@@ -350,6 +350,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/quote-a-rush-ugc-job/</loc>
+    <lastmod>2026-11-26</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/raw-footage-in-ugc/</loc>
     <lastmod>2026-10-17</lastmod>
     <priority>0.6</priority>
@@ -372,6 +377,11 @@
   <url>
     <loc>https://lynxr.io/blog/reshoot-a-ugc-scene-to-match/</loc>
     <lastmod>2026-11-13</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/review-your-own-ugc-samples/</loc>
+    <lastmod>2026-11-26</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -681,7 +691,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-getting-started/</loc>
-    <lastmod>2026-11-25</lastmod>
+    <lastmod>2026-11-26</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -691,7 +701,7 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-rates-and-pay/</loc>
-    <lastmod>2026-11-25</lastmod>
+    <lastmod>2026-11-26</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
