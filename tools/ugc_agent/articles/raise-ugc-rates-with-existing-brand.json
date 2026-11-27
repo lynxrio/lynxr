@@ -1,0 +1,263 @@
+{
+  "question_id": "a055",
+  "slug": "raise-ugc-rates-with-existing-brand",
+  "theme": "ugc-rates-and-pay",
+  "title": "How do you raise your UGC rates with an existing brand?",
+  "description": "How to raise your UGC rates with an existing client: when to give notice, the message to send, how to explain the change and what to say if they push back.",
+  "short_answer": "Tell an existing brand about a new UGC rate in writing, before their next brief arrives, with the new price, the date it starts and one line on why. Finish the work already agreed at the old rate, so the change applies to new jobs and never to a job in progress.",
+  "sections": [
+    {
+      "heading": "When should you tell a returning brand your rate is going up?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Tell them between jobs, after a delivery has landed well and before the next brief is written.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If a [brand](/glossary/#brand) has budgeted around your current price and your new rate turns up attached to a quote for a [brief](/glossary/#brief) they have already sent, after you have started [turning it into a script](/blog/brief-to-script/), they have to go back and rebudget a job they thought was settled. If it turns up as a heads-up with a start date, they can plan for it. That is the reason to send it early: you are giving them time to plan before any money is committed.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Before you send anything, be sure of the number itself. Work it out the same way you set your first one, using [how to work out what to charge for a UGC video](/blog/how-to-set-ugc-rates/), so you can stand behind it when they reply.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Good moment: the day after they approve a delivery, because the work is fresh in their mind.",
+            "Good moment: when they ask about your availability for the coming weeks, because they are already planning.",
+            "Bad moment: halfway through a job, because it reads as changing the deal after it was made.",
+            "Bad moment: inside a quote for a brief they already sent, because there is no time left to plan around it."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should the message to the brand actually say?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Say the new rate, the date it starts, what stays the same and one reason, in a few short lines.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Keep it short and calm. A long message full of apologies tells the reader you expect a fight. A short one tells them this is a normal update from someone who runs their work properly. You could adapt wording like this:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hi [NAME], the last batch for [PRODUCT] was a pleasure to make, so thank you.",
+            "A quick heads-up before you plan the next round: from [DATE], my rate for a single video goes to [AMOUNT].",
+            "Anything we have already agreed stays at the current rate, and what is included in each video does not change.",
+            "The change reflects the extra time I now put into each script and the number of hooks I send with every video.",
+            "Happy to talk it through, and I would love to keep working together on the next brief."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Send it as one message in the thread you already use with them, so it sits next to your past work. Then stop. Give them a few days before you follow up, since they may need to check their plans or ask whoever signs off the spend.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you explain why your price has changed?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Explain it with something the brand can see in the work, not with your own costs or how busy you are.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Your bills going up is true, but it is your problem, not theirs, and it invites them to argue about it. A reason tied to what they receive gives them something to point at when they explain the change to whoever signs off the spend. If you have already set out how you price, [how do you explain your UGC rate to a brand?](/blog/explain-your-ugc-rate/) covers the wording in more depth.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Reason that invites a debate",
+            "Reason the brand can see"
+          ],
+          "table_rows": [
+            [
+              "Everything costs more for me now.",
+              "Each video now comes with three hook options instead of one."
+            ],
+            [
+              "I am getting a lot more work these days.",
+              "I now send a written script for approval before I film."
+            ],
+            [
+              "Other people charge more than I do.",
+              "My filming setup has changed, so close-ups are sharper and the sound is cleaner."
+            ],
+            [
+              "I have been undercharging for ages.",
+              "I have filmed far more in this format since we started, and the edits show it."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Pick one reason, not four, and only use one that is true for your work. One clear reason sounds settled. A list of them sounds like you are still trying to convince yourself.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Should you offer a loyal brand anything to soften the change?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "You can, if you choose one small, time-limited gesture and decide it before you send the message.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A gesture works when it rewards the relationship without quietly cancelling the new price. Deciding it in advance stops you from inventing a discount on the spot when they reply, which is how a raise ends up worth nothing. Choose one of these, or none:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hold the current rate for any brief they confirm before [DATE], so they have a clear window to book at the old price.",
+            "Keep the old rate on one booked series until it finishes, then move to the new one for anything after it.",
+            "Offer a set price for a batch of videos booked together, using the approach in [how do you price a bundle of UGC videos?](/blog/ugc-video-bundles/), so the saving comes from them committing to more work.",
+            "Add something that costs you little time, such as an extra hook option, rather than taking money off."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you do if the brand pushes back on the new rate?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Offer to change the scope to fit their budget, and keep the rate for the full job where it is.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you drop the price as soon as they hesitate, the next raise starts from a weaker place, because they have learned your number moves. Changing what they get instead keeps your rate meaningful and still gives them a way to say yes. You could reply with something like this:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Thanks for being straight with me, [NAME]. I would rather find something that works than lose the project.",
+            "If the budget for the next round is fixed at [AMOUNT], I could do fewer videos at the new rate, or the same number with one hook each instead of three.",
+            "Let me know which suits you better and I will send over the updated quote."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Whatever you agree, write the new rate and the scope into the confirmation for the next job, following [what should you agree in writing before a UGC job starts?](/blog/agree-in-writing-before-ugc/). If they decide the new price does not work for them at all, thank them, say the door stays open, and put that time into finding the next brand. Leaving on good terms keeps the door open if they come back later.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-27",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

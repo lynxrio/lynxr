@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Static prose, no scripts of its own, no network calls. The one <script> in
+     this document is a `type="application/ld+json"` DATA BLOCK — it is never
+     executed, and browsers do not apply script-src to a non-executable script
+     type. Verified: this page loads with an empty console and no CSP report.
+     If that ever changes, the fix is a 'sha256-…' for the block, NOT
+     'unsafe-inline'. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; manifest-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How do you write a hook that starts mid-action?</title>
+<meta name="description" content="How to write a mid action UGC hook: which movements to open on, what to say over them, how to film the first frame, and a full example script.">
+<meta property="og:title" content="How do you write a hook that starts mid-action?">
+<meta property="og:description" content="How to write a mid action UGC hook: which movements to open on, what to say over them, how to film the first frame, and a full example script.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="lynxr">
+<meta property="og:url" content="https://lynxr.io/blog/hook-that-starts-mid-action/">
+<meta property="og:image" content="https://lynxr.io/og-v5.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How do you write a hook that starts mid-action?">
+<meta name="twitter:description" content="How to write a mid action UGC hook: which movements to open on, what to say over them, how to film the first frame, and a full example script.">
+<meta name="twitter:image" content="https://lynxr.io/og-v5.png">
+<link rel="canonical" href="https://lynxr.io/blog/hook-that-starts-mid-action/">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20261129v">
+<link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon.png?v=20261129v">
+<link rel="shortcut icon" href="/favicon.ico?v=20261129v">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261129v">
+<link rel="manifest" href="/site.webmanifest?v=20261129v">
+<script src="/lynxr-guy.js?v=20261129v" defer></script>
+<link rel="stylesheet" href="/app.css?v=20261129v">
+<script src="/theme.js?v=20261129v"></script>
+<script src="/backdrop.js?v=20261129v" defer></script>
+<!-- BEGIN SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://lynxr.io/#organization",
+      "name": "lynxr",
+      "legalName": "lynxr LLC",
+      "disambiguatingDescription": "lynxr (lynxr.io) is the UGC creator tool: a web app that turns a TikTok or Instagram video into a script for a brand, made by lynxr LLC in Allston, Massachusetts. It is unrelated to the Honeywell and Ademco LYNXR, LYNXR-2 and LYNXR-I security control panels, to the Lynx R-1 and R-2 mixed reality headsets, and to lynxr.com.",
+      "alternateName": [
+        "lynxr.io",
+        "lynxr LLC"
+      ],
+      "url": "https://lynxr.io/",
+      "slogan": "the UGC creator tool",
+      "description": "lynxr LLC makes lynxr, the UGC creator tool: paste a TikTok or Instagram video and it writes that video's format as a script for the brand you make content for. lynxr LLC is a partner company of Lynx Media Group, the UGC agency.",
+      "logo": {
+        "@type": "ImageObject",
+        "@id": "https://lynxr.io/#logo",
+        "url": "https://lynxr.io/lynxr-logo-v2.png",
+        "contentUrl": "https://lynxr.io/lynxr-logo-v2.png",
+        "width": 512,
+        "height": 512,
+        "caption": "lynxr"
+      },
+      "image": {
+        "@id": "https://lynxr.io/#logo"
+      },
+      "email": "hello@lynxr.io",
+      "sameAs": [
+        "https://www.instagram.com/lynxr.io/",
+        "https://www.tiktok.com/@lynxr.io",
+        "https://www.linkedin.com/company/lynxr",
+        "https://github.com/lynxrio/lynxr"
+      ],
+      "founder": [
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#junsa-hwang",
+          "name": "Junsa Hwang",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/junsahwang/",
+          "sameAs": [
+            "https://www.instagram.com/junsahwang/"
+          ]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://lynxr.io/#gawin-hsu",
+          "name": "Gawin Hsu",
+          "jobTitle": "Co-founder",
+          "url": "https://www.instagram.com/gawinhsu/",
+          "sameAs": [
+            "https://www.instagram.com/gawinhsu/"
+          ]
+        }
+      ],
+      "knowsAbout": [
+        "short-form video scripts",
+        "UGC scripts",
+        "video formats",
+        "hooks",
+        "TikTok",
+        "Instagram Reels"
+      ]
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://lynxmediagroup.org/#org",
+      "name": "Lynx Media Group",
+      "legalName": "Lynx Media Group LLC",
+      "url": "https://lynxmediagroup.org/",
+      "description": "A UGC agency in Allston, Massachusetts that runs creator campaigns for brands. Its partner company, lynxr LLC, makes lynxr.",
+      "logo": "https://lynxmediagroup.org/imgs/logo-social.png",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "57 Glenville Ave",
+        "addressLocality": "Allston",
+        "addressRegion": "MA",
+        "postalCode": "02134",
+        "addressCountry": "US"
+      },
+      "sameAs": [
+        "https://www.instagram.com/lynxmediagroup/",
+        "https://www.tiktok.com/@lynxmediagroup",
+        "https://www.linkedin.com/company/lynxmediagroup"
+      ],
+      "founder": [
+        {
+          "@id": "https://lynxr.io/#junsa-hwang"
+        },
+        {
+          "@id": "https://lynxr.io/#gawin-hsu"
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://lynxr.io/#website",
+      "url": "https://lynxr.io/",
+      "name": "lynxr",
+      "inLanguage": "en",
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "about": {
+        "@id": "https://lynxr.io/#lynxr"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://lynxr.io/#lynxr",
+      "name": "lynxr",
+      "url": "https://lynxr.io/",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any modern web browser",
+      "description": "lynxr is the UGC creator tool. It turns a short-form video into a script. You send it a public link to a TikTok or Instagram video; it watches the video, transcribes what is said, works out the format underneath — the hook, the beats, the order they come in — and rewrites that format as a script for the company you are making content for.",
+      "featureList": [
+        "Reads a public TikTok or Instagram link. There is no file upload.",
+        "Transcribes the video and extracts the format underneath it: the hook, the beats and the order they come in.",
+        "Writes one script per company from a single link, reading the video only once.",
+        "Never asks for a platform password and never posts anything on your behalf."
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "UGC creators: people who make short-form videos for brands, and the people who brief them"
+      },
+      "isAccessibleForFree": true,
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Free to start: every account gets 3 scripts a week, no card required. Sign-up is open."
+        },
+        {
+          "@type": "Offer",
+          "name": "lynxr pro",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "24.99",
+            "priceCurrency": "USD",
+            "billingDuration": "P1M",
+            "unitText": "month"
+          },
+          "availability": "https://schema.org/InStock",
+          "url": "https://lynxr.io/pricing/",
+          "description": "Up to 150 scripts in any rolling 30 days and up to 30 in any 24 hours, billed monthly. Tax is added at checkout where it applies."
+        }
+      ],
+      "publisher": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "creator": {
+        "@id": "https://lynxr.io/#organization"
+      },
+      "alternateName": "lynxr.io"
+    }
+  ]
+}
+</script>
+<!-- END SHARED ENTITY JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "@id": "https://lynxr.io/blog/hook-that-starts-mid-action/#article",
+  "headline": "How do you write a hook that starts mid-action?",
+  "description": "How to write a mid action UGC hook: which movements to open on, what to say over them, how to film the first frame, and a full example script.",
+  "image": "https://lynxr.io/og-v5.png",
+  "inLanguage": "en",
+  "datePublished": "2026-11-27",
+  "dateModified": "2026-11-27",
+  "author": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "publisher": {
+    "@id": "https://lynxr.io/#organization"
+  },
+  "isPartOf": {
+    "@id": "https://lynxr.io/#website"
+  },
+  "mentions": {
+    "@id": "https://lynxr.io/#lynxr"
+  },
+  "mainEntityOfPage": "https://lynxr.io/blog/hook-that-starts-mid-action/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "lynxr",
+      "item": "https://lynxr.io/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "questions and answers",
+      "item": "https://lynxr.io/faq/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "UGC hooks",
+      "item": "https://lynxr.io/faq/ugc-hooks/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "name": "How do you write a hook that starts mid-action?",
+      "item": "https://lynxr.io/blog/hook-that-starts-mid-action/"
+    }
+  ]
+}
+</script>
+</head>
+<!-- This page's visible copy is written in normal sentence case in the
+     source, unlike the lowercase-with-exceptions convention the rest of the
+     site uses. Painted output is identical either way — text-transform:
+     lowercase in app.css flattens all of it — but a model reading the source
+     sees real casing here, because this page carries no JSON-LD twin of its
+     prose the way /faq/ does, so the body text is the only machine-readable
+     copy there is. .lp unsets the app's bare main{} container so the sections
+     below can be full-bleed. See the marketing-page block in app.css. -->
+<body class="lp night">
+
+<header class="lp-bar">
+  <div class="lp-in lp-bar-in">
+    <a class="wordmark lx-guy lx-guy--black" href="/"><svg class="mark" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg><span>lynxr</span></a>
+    <!-- ABSOLUTE, not `#how`. This bar is on all six public pages, and a bare
+         fragment does nothing from /faq/ or /privacy/ — it appends a hash to
+         the current URL and stays put. -->
+    <nav class="lp-nav" aria-label="Main">
+      <a href="/how-it-works/">how it works</a>
+      <a href="/faq/">faq</a>
+    </nav>
+    <span class="lp-actions">
+    <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch between light and dark mode">
+      <svg class="tt-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.4 14.2A8.6 8.6 0 0 1 9.8 3.6a8.6 8.6 0 1 0 10.6 10.6z"/></svg>
+      <svg class="tt-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.8v2.3M12 18.9v2.3M2.8 12h2.3M18.9 12h2.3M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M18.5 5.5l-1.6 1.6M7.1 16.9l-1.6 1.6"/></g></svg>
+      <span class="tt-knob"></span>
+    </button>
+    <a class="btn" href="/">get started</a>
+    <!-- Under 760px the nav and the CTA above are display:none and this takes
+         their place. aria-expanded carries the state to a screen reader AND
+         drives which glyph is drawn, so the two cannot disagree. -->
+    <button class="lp-burger" type="button" id="lp-burger" aria-label="menu"
+            aria-expanded="false" aria-controls="lp-menu">
+      <svg class="ico-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button></span>
+  </div>
+  <!-- Inside the bar on purpose: the bar is the sticky element, so a panel
+       parented anywhere else would scroll away from the burger that opened it.
+       `hidden` — not opacity — is what takes these links out of the tab order
+       when it is closed. -->
+  <nav class="lp-menu" id="lp-menu" aria-label="Menu" hidden>
+    <a href="/how-it-works/">how it works</a>
+    <a href="/faq/">faq</a>
+    <a class="btn" href="/">get started</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="lp-hero">
+    <div class="lp-in">
+      <nav class="post-crumbs" aria-label="Breadcrumb"><a href="/">lynxr</a> / <a href="/faq/">questions</a> / <a href="/faq/ugc-hooks/">hooks</a></nav>
+      <h1 class="lp-h1">How do you write a hook that starts mid-action?</h1>
+      <p class="lp-lede">A mid-action hook opens on a movement that is already halfway done, so the first frame shows something happening instead of someone about to speak. Pick an action with an obvious next step, film from before it starts, cut in at the middle, and say one short line that explains why you are doing it.</p>
+      <p class="post-meta">Published <time datetime="2026-11-27">27 November 2026</time></p>
+    </div>
+  </section>
+
+  <section class="lp-sec">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="what-does-it-mean-for-a">What does it mean for a hook to start mid-action?</h2>
+      <p class="lp-p">It means the video opens partway through a movement, with your hands or body already doing something, and the talking comes second.</p>
+      <p class="lp-p">Compare two openings for the same video. In one, you sit facing the camera, take a breath and begin your line. In the other, the first frame catches you yanking a drawer that sticks, and your line starts over the noise. The second one gives the viewer a question straight away: what is that, and why are you fighting it. The <a href="/glossary/#hook">hook</a> becomes something they watch, not just something they hear.</p>
+      <p class="lp-p">This is narrower than a visual hook in general. <a href="/blog/ugc-visual-hooks/">What is a visual hook in <span class="acr">UGC</span>?</a> covers any striking first image, including a still one. A mid-action hook is always about motion that is already under way. For the line you say over the movement, the general <a href="/how-to-write-a-hook/">guide to writing hooks</a> still holds.</p>
+
+      <h2 class="lp-h2" id="which-actions-make-a-good-mid-action">Which actions make a good mid-action opening?</h2>
+      <p class="lp-p">Pick an action the viewer can read in a moment, that has a clear next step, and that ties to the problem the product deals with.</p>
+      <p class="lp-p">The action should set up a question the video answers later. If it has no link to the product, you get a strong opening and a weak middle, which is the gap described in <a href="/blog/hook-payoff/">hook and payoff</a>. Choose the action by asking where the problem shows up in your day, then open on that exact moment.</p>
+      <div class="post-table">
+        <table>
+          <thead><tr><th scope="col">Action to open on</th><th scope="col">The question it raises</th><th scope="col">Fits a product like</th></tr></thead>
+          <tbody>
+            <tr><td>Tipping a bag upside down onto the bed, looking for something.</td><td>What did you lose, and why is it always in there?</td><td>A bag organiser or a key finder</td></tr>
+            <tr><td>Pulling a jumper over your head while walking to the door.</td><td>Why the rush, and where are you going?</td><td>A morning routine product or a quick breakfast</td></tr>
+            <tr><td>Wiping a counter that you clearly just wiped.</td><td>Why is it still dirty?</td><td>A cleaning cloth or a spray</td></tr>
+            <tr><td>Kneeling to fish something out from under the sofa.</td><td>What keeps ending up down there?</td><td>A cable clip, a pet toy or storage</td></tr>
+            <tr><td>Wheeling a bike out of a hallway in the dark.</td><td>Where are you going this late, and can anyone see you?</td><td>A bike light or reflective gear</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 class="lp-h2" id="what-should-you-say-over-a">What should you say over a hook that starts mid-action?</h2>
+      <p class="lp-p">Say one short line that gives the reason behind the action, and start it as if you were already talking before the camera rolled.</p>
+      <p class="lp-p">The action is doing the hard work, so the line only needs to point at it. A long sentence competes with what the viewer is watching. A line that sounds like it is picking up mid-conversation matches the footage, because both feel like the viewer has walked in on something. Keep it to what you are doing and why, in your own words.</p>
+      <ul class="lp-list">
+        <li>Over tipping out a bag: This is the third time today I've done this for my keys.</li>
+        <li>Over wiping a counter: I wiped this ten minutes ago. Look at it.</li>
+        <li>Over reaching under a sofa: Every single cable in this house ends up down here.</li>
+        <li>Over pulling on a jumper while walking: I have exactly no time this morning, so watch this.</li>
+        <li>Write your own by finishing the sentence I'm doing this because, then cutting the first four words.</li>
+      </ul>
+
+      <h2 class="lp-h2" id="how-do-you-film-the-first">How do you film the first frame so it really is mid-action?</h2>
+      <p class="lp-p">Start recording well before the action, do the whole movement, and cut in at the middle when you edit.</p>
+      <p class="lp-p">If you try to hit record and be moving at the same moment, the first frame catches you settling in, which is the opposite of the effect. Filming the full movement gives you room to choose the exact frame later.</p>
+      <ul class="lp-list">
+        <li>Frame the shot so the action fills it. Hands and the object should be large, not small in a corner of the room.</li>
+        <li>Press record, wait a moment, then do the full action at real speed. Do not slow it down for the camera.</li>
+        <li>Start your line while you are moving, not after you stop, so voice and motion overlap.</li>
+        <li>Film it three times, because the movement rarely looks right on the first go.</li>
+        <li>In the edit, cut away everything before the action is halfway through. If the first frame could be a still from the middle of something, you have it.</li>
+        <li>Check the opening against <a href="/blog/ugc-hook-too-slow/">how do you know if your <span class="acr">UGC</span> hook is too slow?</a> before you send it.</li>
+      </ul>
+      <p class="lp-p">Add the opening action to your <a href="/glossary/#shot-list">shot list</a> as its own line, so it does not get forgotten among the product shots.</p>
+
+      <h2 class="lp-h2" id="what-does-a-full-script-with">What does a full script with a mid-action hook look like?</h2>
+      <p class="lp-p">It opens on the movement, uses the setup to explain it, and comes back to the same action at the close so the video feels finished.</p>
+      <figure class="post-script">
+        <figcaption>Example script — written for this answer, for a clip-on bike light</figcaption>
+        <ol class="ps-beats">
+          <li><span class="ps-part">hook</span><span class="ps-say">say: &ldquo;It's dark already and I'm still dragging this thing out the door.&rdquo;</span><span class="ps-do">do: First frame: creator halfway through wheeling a bike out of a narrow hallway at night, front wheel bumping the doorframe.</span></li>
+          <li><span class="ps-part">setup</span><span class="ps-say">say: &ldquo;My old light needed a tool to get on, so it mostly stayed in a drawer.&rdquo;</span><span class="ps-do">do: Quick cut to a drawer pulled open, an old light and a small tool rattling around inside.</span></li>
+          <li><span class="ps-part">beat 1</span><span class="ps-say">say: &ldquo;This one just clips on.&rdquo;</span><span class="ps-do">do: Close-up of the light clipped onto the handlebar in one push, no tool.</span></li>
+          <li><span class="ps-part">beat 2</span><span class="ps-say">say: &ldquo;One press and it's on.&rdquo;</span><span class="ps-do">do: Thumb presses the button. The light comes on in the dark street.</span></li>
+          <li><span class="ps-part">turn</span><span class="ps-say">say: &ldquo;And when I get in, it comes off with me, so it charges with my phone.&rdquo;</span><span class="ps-do">do: Creator unclips it at the door and plugs it in next to a phone on a shelf.</span></li>
+          <li><span class="ps-part">close</span><span class="ps-say">say: &ldquo;It's linked below if yours lives in a drawer too.&rdquo;</span><span class="ps-do">do: Same hallway, next evening. The bike rolls out the door with the light already on.</span></li>
+        </ol>
+      </figure>
+    </div>
+  </section>
+
+  <section class="lp-band post-end">
+    <div class="lp-in">
+      <h2 class="lp-h2" id="do-it-with-lynxr">Write your next <span class="acr">UGC</span> script with lynxr</h2>
+      <p class="lp-p">Paste a public TikTok or Instagram link on <a href="/">the homepage</a> and lynxr works out the format — hook, beats, turn, close — and writes it as a script for the brand you make content for. <a href="/how-it-works/">How lynxr writes scripts</a> shows each step. Free to start: <a href="/faq/#what-it-costs">3 scripts a week, no card</a>.</p>
+      <h2 class="lp-h2" id="more-questions">More questions about <span class="acr">UGC</span> hooks</h2>
+      <ul class="lp-list">
+        <li><b><a href="/blog/test-ugc-hooks-before-sending/">How do you test your own hooks before sending them to a brand?</a></b> — You test a hook before sending it by reading it aloud, cutting every word it can lose, and checking the video delivers what it promises.</li>
+        <li><b><a href="/blog/ugc-hook-with-sound-off/">How do you write a hook that works with the sound off?</a></b> — A hook works with the sound off when the first frame shows the problem happening and a few words of on-screen text name it.</li>
+        <li><b><a href="/blog/hook-for-a-familiar-product/">How do you write a hook for a product most people already know?</a></b> — Write a hook for a familiar product by opening on a specific moment from your own life, not on the product category.</li>
+        <li><b><a href="/faq/ugc-hooks/">All questions about <span class="acr">UGC</span> hooks</a></b> — the first seconds of a <span class="acr">UGC</span> video.</li>
+      </ul>
+      <h2 class="lp-h2" id="keep-reading">Keep reading</h2>
+      <ul class="lp-list">
+        <li><b><a href="/how-to-write-a-hook/">How to write a <span class="acr">UGC</span> hook that stops the scroll</a></b></li>
+        <li><b><a href="/blog/question-hooks/">Question hooks: asking one a viewer can't scroll past</a></b></li>
+        <li><b><a href="/faq/">Questions and answers</a></b> — about lynxr, and every topic <span class="acr">UGC</span> creators ask about.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer id="site-footer">
+  <div class="foot-wordmark" id="foot-wordmark" aria-hidden="true">lynxr</div>
+  <div class="foot-grid foot-grid-wide">
+    <div class="foot-brand">
+      <svg class="mark lx-guy lx-guy--black" viewBox="50 55 300 300" aria-hidden="true" focusable="false"><g class="lx-squish"><path class="lx-body" fill="var(--lx-body)" d="M50,205 A150,150 0 1 1 350,205 A150,150 0 1 1 50,205 Z"/><g class="lx-eyes"><g class="lx-blink" fill="none" stroke="var(--lx-eye)" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="108.5,227.5 142.2,182.5 176,227.5" vector-effect="non-scaling-stroke"/><polyline points="224,227.5 257.8,182.5 291.5,227.5" vector-effect="non-scaling-stroke"/></g></g></g></svg>
+      <p>Let's go viral</p>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">lynxr</div>
+      <a class="foot-link" href="/">home</a>
+      <a class="foot-link" href="/how-it-works/">how it works</a>
+      <a class="foot-link" href="/faq/">faq</a>
+      <a class="foot-link" href="/pricing/">pricing</a>
+      <a class="foot-link" href="/about/">about</a>
+      <!-- Visible label "try it", accessible name "try it — join the wait
+           list". The .sr-only tail is inside the <a>, so it is part of the
+           name computation rather than a title attribute nobody hears. -->
+      <a class="foot-link" href="/">get started<span class="sr-only"> &mdash; sign-up is open to everyone</span></a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">guides</div>
+      <a class="foot-link" href="/blog/">blog</a>
+      <a class="foot-link" href="/what-is-a-video-format/">video formats</a>
+      <a class="foot-link" href="/turn-a-video-into-a-script/">video to script</a>
+      <a class="foot-link" href="/short-form-script-structure/">script structure</a>
+      <a class="foot-link" href="/glossary/">glossary</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">company</div>
+      <a class="foot-link entity" href="https://lynxmediagroup.org/" target="_blank" rel="noopener noreferrer">Lynx Media Group</a>
+      <a class="foot-link" href="/privacy/">privacy policy</a>
+      <a class="foot-link" href="/terms/">terms of service</a>
+      <a class="foot-link" href="/accessibility/">accessibility</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-label">socials</div>
+      <a class="foot-link" href="https://www.instagram.com/lynxr.io/" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <a class="foot-link" href="https://www.tiktok.com/@lynxr.io" target="_blank" rel="noopener noreferrer">TikTok</a>
+      <a class="foot-link" href="https://www.linkedin.com/company/lynxr" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+    </div>
+  </div>
+  <!-- THIS LINE CARRIES THE AFFILIATION. .entity opts the registered name out
+       of the sitewide lowercase text-transform. -->
+  <div class="foot-legal">
+    &copy; <span class="entity">lynxr LLC</span> 2026
+  </div>
+</footer>
+
+<!-- The top bar's hide-on-scroll. Public pages only — see the file's
+     own header for why it must never reach either app. -->
+<script src="/site.js?v=20261129v" defer></script>
+<script src="/footer.js?v=20261129v" defer></script>
+
+</body>
+</html>

@@ -1,0 +1,263 @@
+{
+  "question_id": "a059",
+  "slug": "hook-that-starts-mid-action",
+  "theme": "ugc-hooks",
+  "title": "How do you write a hook that starts mid-action?",
+  "description": "How to write a mid action UGC hook: which movements to open on, what to say over them, how to film the first frame, and a full example script.",
+  "short_answer": "A mid-action hook opens on a movement that is already halfway done, so the first frame shows something happening instead of someone about to speak. Pick an action with an obvious next step, film from before it starts, cut in at the middle, and say one short line that explains why you are doing it.",
+  "sections": [
+    {
+      "heading": "What does it mean for a hook to start mid-action?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "It means the video opens partway through a movement, with your hands or body already doing something, and the talking comes second.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Compare two openings for the same video. In one, you sit facing the camera, take a breath and begin your line. In the other, the first frame catches you yanking a drawer that sticks, and your line starts over the noise. The second one gives the viewer a question straight away: what is that, and why are you fighting it. The [hook](/glossary/#hook) becomes something they watch, not just something they hear.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "This is narrower than a visual hook in general. [What is a visual hook in UGC?](/blog/ugc-visual-hooks/) covers any striking first image, including a still one. A mid-action hook is always about motion that is already under way. For the line you say over the movement, the general [guide to writing hooks](/how-to-write-a-hook/) still holds.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Which actions make a good mid-action opening?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Pick an action the viewer can read in a moment, that has a clear next step, and that ties to the problem the product deals with.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The action should set up a question the video answers later. If it has no link to the product, you get a strong opening and a weak middle, which is the gap described in [hook and payoff](/blog/hook-payoff/). Choose the action by asking where the problem shows up in your day, then open on that exact moment.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "Action to open on",
+            "The question it raises",
+            "Fits a product like"
+          ],
+          "table_rows": [
+            [
+              "Tipping a bag upside down onto the bed, looking for something.",
+              "What did you lose, and why is it always in there?",
+              "A bag organiser or a key finder"
+            ],
+            [
+              "Pulling a jumper over your head while walking to the door.",
+              "Why the rush, and where are you going?",
+              "A morning routine product or a quick breakfast"
+            ],
+            [
+              "Wiping a counter that you clearly just wiped.",
+              "Why is it still dirty?",
+              "A cleaning cloth or a spray"
+            ],
+            [
+              "Kneeling to fish something out from under the sofa.",
+              "What keeps ending up down there?",
+              "A cable clip, a pet toy or storage"
+            ],
+            [
+              "Wheeling a bike out of a hallway in the dark.",
+              "Where are you going this late, and can anyone see you?",
+              "A bike light or reflective gear"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What should you say over a hook that starts mid-action?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Say one short line that gives the reason behind the action, and start it as if you were already talking before the camera rolled.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The action is doing the hard work, so the line only needs to point at it. A long sentence competes with what the viewer is watching. A line that sounds like it is picking up mid-conversation matches the footage, because both feel like the viewer has walked in on something. Keep it to what you are doing and why, in your own words.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Over tipping out a bag: This is the third time today I've done this for my keys.",
+            "Over wiping a counter: I wiped this ten minutes ago. Look at it.",
+            "Over reaching under a sofa: Every single cable in this house ends up down here.",
+            "Over pulling on a jumper while walking: I have exactly no time this morning, so watch this.",
+            "Write your own by finishing the sentence I'm doing this because, then cutting the first four words."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you film the first frame so it really is mid-action?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Start recording well before the action, do the whole movement, and cut in at the middle when you edit.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If you try to hit record and be moving at the same moment, the first frame catches you settling in, which is the opposite of the effect. Filming the full movement gives you room to choose the exact frame later.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Frame the shot so the action fills it. Hands and the object should be large, not small in a corner of the room.",
+            "Press record, wait a moment, then do the full action at real speed. Do not slow it down for the camera.",
+            "Start your line while you are moving, not after you stop, so voice and motion overlap.",
+            "Film it three times, because the movement rarely looks right on the first go.",
+            "In the edit, cut away everything before the action is halfway through. If the first frame could be a still from the middle of something, you have it.",
+            "Check the opening against [how do you know if your UGC hook is too slow?](/blog/ugc-hook-too-slow/) before you send it."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Add the opening action to your [shot list](/glossary/#shot-list) as its own line, so it does not get forgotten among the product shots.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a full script with a mid-action hook look like?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "It opens on the movement, uses the setup to explain it, and comes back to the same action at the close so the video feels finished.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a clip-on bike light",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "It's dark already and I'm still dragging this thing out the door.",
+              "do": "First frame: creator halfway through wheeling a bike out of a narrow hallway at night, front wheel bumping the doorframe."
+            },
+            {
+              "part": "setup",
+              "say": "My old light needed a tool to get on, so it mostly stayed in a drawer.",
+              "do": "Quick cut to a drawer pulled open, an old light and a small tool rattling around inside."
+            },
+            {
+              "part": "beat 1",
+              "say": "This one just clips on.",
+              "do": "Close-up of the light clipped onto the handlebar in one push, no tool."
+            },
+            {
+              "part": "beat 2",
+              "say": "One press and it's on.",
+              "do": "Thumb presses the button. The light comes on in the dark street."
+            },
+            {
+              "part": "turn",
+              "say": "And when I get in, it comes off with me, so it charges with my phone.",
+              "do": "Creator unclips it at the door and plugs it in next to a phone on a shelf."
+            },
+            {
+              "part": "close",
+              "say": "It's linked below if yours lives in a drawer too.",
+              "do": "Same hallway, next evening. The bike rolls out the door with the light already on."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-27",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "It's dark already and I'm still dragging this thing out the door."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}

@@ -290,6 +290,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/hook-that-starts-mid-action/</loc>
+    <lastmod>2026-11-27</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/how-do-ugc-creators-get-paid/</loc>
     <lastmod>2026-10-05</lastmod>
     <priority>0.6</priority>
@@ -355,8 +360,18 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://lynxr.io/blog/raise-ugc-rates-with-existing-brand/</loc>
+    <lastmod>2026-11-27</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://lynxr.io/blog/raw-footage-in-ugc/</loc>
     <lastmod>2026-10-17</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://lynxr.io/blog/read-ugc-script-aloud/</loc>
+    <lastmod>2026-11-27</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -696,17 +711,17 @@
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-hooks/</loc>
-    <lastmod>2026-11-23</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-rates-and-pay/</loc>
-    <lastmod>2026-11-26</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://lynxr.io/faq/ugc-scripts/</loc>
-    <lastmod>2026-11-22</lastmod>
+    <lastmod>2026-11-27</lastmod>
     <priority>0.6</priority>
   </url>
   <!-- END UGC AGENT -->

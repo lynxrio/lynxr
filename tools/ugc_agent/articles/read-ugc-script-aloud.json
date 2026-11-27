@@ -1,0 +1,252 @@
+{
+  "question_id": "a058",
+  "slug": "read-ugc-script-aloud",
+  "theme": "ugc-scripts",
+  "title": "How do you read a UGC script aloud to check it?",
+  "description": "How to read a UGC script out loud before you film: a three-pass check for rhythm, breath points and tricky lines, and how to rewrite each one.",
+  "short_answer": "Read a UGC script aloud at filming speed, standing up, and record yourself on your phone. Do three passes: one for breath, one for words that trip you, one for lines that sound written. Mark every stumble on the page, then rewrite that line until you can say it twice in a row without thinking.",
+  "sections": [
+    {
+      "heading": "Why should you read a UGC script aloud before filming?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Reading aloud finds the lines your eyes skip over, before they cost you a dozen takes on set.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A [script](/glossary/#script) can look clean on the page and still be hard to say. Your eyes read in chunks and fill in what is missing, so a sentence with no place to breathe, or two words that knot your tongue, looks fine in silence. Out loud, you hit it straight away. Finding that at your desk takes a minute. Finding it with the light set up, the product in your hand and your energy dropping on every retake takes far longer.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The check also tells you whether the parts of the script hold together when spoken. If the [hook](/glossary/#hook) runs straight into the setup with no pause, or the close arrives before the viewer has seen the product, you hear the gap. Knowing the job of each [part of a script](/short-form-script-structure/) helps when you are deciding whether a line is wrong or just in the wrong place.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you run the read-aloud check step by step?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Print or open the script, stand where you will film, record a voice memo, and read the whole thing through three times.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Standing matters, because you breathe differently sitting at a desk than you do holding a product at chest height. If your script is laid out as a [two-column script](/blog/two-column-script/), read only the say column, but glance across at the do column as you go so you notice any line that has to be spoken while your hands are busy.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "First pass, breath: read at the speed you will film and put a slash wherever you naturally breathe. A line with no slash is too long.",
+            "Second pass, words: read again and circle any word you stumbled on, slurred or said twice. Circle it even if you recovered.",
+            "Third pass, voice: read once more and underline any line you would never say to a friend. These are the lines that will sound read.",
+            "Play the voice memo back once with the page in front of you, because you will hear stumbles in the recording that you smoothed over while reading.",
+            "Fix every marked line, then read only the fixed lines aloud twice in a row. If either read catches, fix it again."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What are you listening for on each pass?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "You are listening for five problems, and each one has its own quick fix.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "What you hear",
+            "Why it happens",
+            "How to fix it"
+          ],
+          "table_rows": [
+            [
+              "You run out of air before the full stop.",
+              "Two thoughts are joined into one sentence.",
+              "Split it at the word and, but or so, and make two sentences."
+            ],
+            [
+              "Your tongue catches on a pair of words.",
+              "Similar sounds sit side by side.",
+              "Swap one word for a plainer one, or move it later in the line."
+            ],
+            [
+              "Your voice goes flat and formal.",
+              "The line uses written words nobody says out loud.",
+              "Say what you mean to an imaginary friend, then write that down instead."
+            ],
+            [
+              "You rush the end of a line.",
+              "The important word is buried in the middle.",
+              "Move the word that matters to the end, where your voice lands on it."
+            ],
+            [
+              "You pause where the script has no break.",
+              "Your body needs a beat to move the product or the camera.",
+              "Cut the line into two and let the action fill the gap."
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you fix a line that keeps tripping you up?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Say the idea in your own words without looking, then write down exactly what came out and use that.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "The line you improvise is the shape your mouth already wants, so it is the easiest one to repeat cleanly. Keep the meaning, drop the wording. [How do you write a UGC script that doesn't sound scripted?](/blog/ugc-script-that-sounds-natural/) goes further into writing that way from the start. Here is how a few tripping lines change:",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Before: I was searching for a solution that would simplify my laundry routine. After: I wanted laundry to take less of my evening.",
+            "Before: It's incredibly lightweight yet surprisingly sturdy and durable. After: It's light. It still holds a full load.",
+            "Before: Which means that I can finally store it away easily. After: So it goes behind the door now.",
+            "Before: Six slick sheets slide straight in. After: The sheets go straight in."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Some lines are not yours to change. If the [brief](/glossary/#brief) gives wording you must say word for word and it still trips you, keep it exact, slow down on it and build easier lines around it. There is more on [working required wording in](/blog/required-wording-in-ugc-script/) without it sounding stiff. If it is truly unsayable, ask the brand whether a small change is allowed, and get the answer in writing before you film.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What does a script look like after the read-aloud fixes?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "It has short lines, one thought per breath, and a pause written in wherever your hands have work to do.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "script",
+          "text": "",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "Example script — written for this answer, for a fold-flat laundry basket",
+          "script_beats": [
+            {
+              "part": "hook",
+              "say": "My laundry basket used to live in the middle of the hallway.",
+              "do": "Wide shot of a hallway with a bulky basket in the way, creator stepping around it."
+            },
+            {
+              "part": "setup",
+              "say": "It was too big for the cupboard. So it just stayed out.",
+              "do": "Creator tries to push the old basket into a narrow cupboard. The door won't shut."
+            },
+            {
+              "part": "beat 1",
+              "say": "This one folds.",
+              "do": "Close-up of hands pressing the new basket flat in one move. No talking over the action."
+            },
+            {
+              "part": "beat 2",
+              "say": "Open, it takes a full load from the machine.",
+              "do": "Creator pops it open and drops in a pile of washing straight from the drum."
+            },
+            {
+              "part": "turn",
+              "say": "And when it's empty, it slides behind the door.",
+              "do": "Creator folds it flat and slots it into the gap behind an open door."
+            },
+            {
+              "part": "close",
+              "say": "It's linked below, if your hallway needs its floor back.",
+              "do": "Back to the wide hallway shot, now clear. Creator walks through without stepping around anything."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-27",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [
+    "My laundry basket used to live in the middle of the hallway."
+  ],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 4,
+      "originality": 4,
+      "voice": 5
+    }
+  }
+}
