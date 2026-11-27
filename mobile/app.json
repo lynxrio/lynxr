@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "lynxr",
+    "slug": "lynxr-mobile",
+    "scheme": "lynxr-mobile",
+    "platforms": ["ios", "android"],
+    "userInterfaceStyle": "light",
+    "ios": { "bundleIdentifier": "io.lynxr.mobile" },
+    "android": { "package": "io.lynxr.mobile" },
+    "plugins": ["expo-router", "expo-secure-store"]
+  }
+}
