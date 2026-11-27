@@ -29,7 +29,7 @@ function memory() {
     removeItem: async (key: string) => { items.delete(key); } };
 }
 
-function simulate() {
+function simulate(mobile = false) {
   const values = memory();
   const keys = memory();
   // Native AES-GCM and SecureStore are replaced by Node crypto and memory.
@@ -107,7 +107,7 @@ function simulate() {
     return json(controls.misdirect ? [rows.get(creatorB)] : row ? [row] : []);
   };
   async function newClient() {
-    const client = createLynxrClient(endpoint, publicKey, makeStorage(), fakeFetch);
+    const client = createLynxrClient(endpoint, publicKey, makeStorage(), fakeFetch, mobile);
     await client.auth.stopAutoRefresh();
     return client;
   }
@@ -352,4 +352,12 @@ test('an expired revoked refresh token clears the session and cannot read the li
   assert.equal((await restarted.auth.getSession()).data.session, null);
   await assert.rejects(creatorApi(restarted, creatorA).read(), /sign in again/i);
   assert.equal(m.events.some(({ path }) => path.startsWith('/rest/')), false);
+});
+
+
+test('mobile allowlist permits the real Supabase JS password flow and session storage', async () => {
+  const m=simulate(true);
+  const {client,api}=await m.signIn();
+  assert.equal((await api.read()).name,'Fixture one');
+  assert.ifError((await client.auth.signOut({scope:'local'})).error);
 });

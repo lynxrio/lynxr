@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
-import { client } from '../src/native-client';
+import { Keyboard, Text, TextInput, View } from 'react-native';
+import { client, storage } from '../src/native-client';
 import { Button, color, ErrorText, Screen, styles } from '../src/ui';
 
 export default function SignIn() {
@@ -13,8 +13,10 @@ export default function SignIn() {
   async function submit() {
     if (!client || lock.current || !email.trim() || !password) return;
     lock.current = true;
+    Keyboard.dismiss();
     setBusy(true);
     setError(null);
+    storage.clearIssue();
     try {
       const result = await client.auth.signInWithPassword({ email: email.trim(), password });
       if (result.error) {
@@ -25,7 +27,7 @@ export default function SignIn() {
             : 'Couldn’t sign in right now. Check your connection and try again.');
       } else setPassword('');
     } catch {
-      setError('Couldn’t sign in right now. Try again.');
+      setError(storage.hasIssue() ? 'Couldn’t save a secure session. Unlock your device and try again.' : 'Couldn’t sign in right now. Try again.');
     } finally {
       lock.current = false;
       setBusy(false);
@@ -33,7 +35,7 @@ export default function SignIn() {
   }
 
   return <Screen>
-    <Text style={styles.kicker}>Lynxr / Companion</Text>
+    <Text style={styles.kicker}>Lynxr</Text>
     <Text accessibilityRole="header" style={styles.h1}>Sign in</Text>
     <Text style={styles.body}>Use the email and password for your existing Lynxr account.</Text>
     <View style={styles.card}>
@@ -48,6 +50,6 @@ export default function SignIn() {
       <ErrorText message={error} />
       <Button label={busy ? 'Signing in…' : 'Sign in'} disabled={busy || !email.trim() || !password} onPress={submit} />
     </View>
-    <Text style={styles.dim}>For password resets or accounts that use Google, visit lynxr.io.</Text>
+    <Text style={styles.dim}>This internal MVP uses existing email/password test accounts. Ask the team for an approved test account.</Text>
   </Screen>;
 }

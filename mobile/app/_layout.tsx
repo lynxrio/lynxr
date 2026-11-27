@@ -20,6 +20,7 @@ function Routes() {
 export default function RootLayout() {
   return <>
     <StatusBar style="dark" />
+    {process.env.EXPO_PUBLIC_LOCAL_TEST === '1' && <Text style={[styles.dim, {padding: 12, paddingTop: 56}]}>Local test environment • No paid inference</Text>}
     {client ? <AuthProvider loading={<Loading label="Opening lynxr…" />}><Routes /></AuthProvider>
       : <Screen>
         <Text accessibilityRole="header" style={styles.h1}>lynxr</Text>

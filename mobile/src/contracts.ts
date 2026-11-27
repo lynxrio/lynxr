@@ -47,7 +47,14 @@ export type Database = {
       };
     };
     Views: Record<never, never>;
-    Functions: Record<never, never>;
+    Functions: {
+      mobile_snapshot: { Args: Record<string, never>; Returns: unknown };
+      mobile_submit_job: { Args: {p_id: string; p_url: string; p_brand: string; p_consent: boolean}; Returns: string };
+      mobile_retry_job: { Args: {p_id: string}; Returns: string };
+      mobile_create_brand: { Args: {p_id: string; p_name: string; p_description: string}; Returns: string };
+      mobile_request_deletion: { Args: Record<string, never>; Returns: string };
+      mobile_report_script: { Args: {p_id: string; p_reason: string}; Returns: null };
+    };
   };
 };
 

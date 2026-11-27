@@ -33,7 +33,7 @@ export const styles = StyleSheet.create({
 export function Screen({ children }: { children: ReactNode }) {
   return <SafeAreaView style={styles.screen} edges={['top', 'bottom', 'left', 'right']}>
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {children}
       </ScrollView>
     </KeyboardAvoidingView>

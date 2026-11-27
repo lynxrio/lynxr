@@ -1,12 +1,26 @@
 {
   "expo": {
-    "name": "lynxr",
+    "name": "Lynxr",
     "slug": "lynxr-mobile",
     "scheme": "lynxr-mobile",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "userInterfaceStyle": "light",
-    "ios": { "bundleIdentifier": "io.lynxr.mobile" },
-    "android": { "package": "io.lynxr.mobile" },
-    "plugins": ["expo-router", "expo-secure-store"]
+    "ios": {
+      "bundleIdentifier": "io.lynxr.mobile",
+      "buildNumber": "1",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "io.lynxr.mobile"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "./plugins/with-share-inbox"
+    ],
+    "version": "1.0.0"
   }
 }

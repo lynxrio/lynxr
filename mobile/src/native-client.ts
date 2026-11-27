@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AESEncryptionKey, AESSealedData, aesDecryptAsync, aesEncryptAsync } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
+import { localTestHost } from './environment';
 import { createLynxrClient } from './client';
 import { sessionStorage } from './session-storage';
 
@@ -30,8 +31,9 @@ function configuredClient() {
   if (!url || !key?.startsWith('sb_publishable_')) return null;
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'https:' || parsed.origin !== url.replace(/\/$/, '')) return null;
-    return createLynxrClient(url, key, storage);
+    const local = process.env.EXPO_PUBLIC_LOCAL_TEST === '1' && localTestHost(parsed.hostname);
+    if ((!local && parsed.protocol !== 'https:') || parsed.origin !== url.replace(/\/$/, '')) return null;
+    return createLynxrClient(url, key, storage, fetch, true);
   } catch {
     return null;
   }

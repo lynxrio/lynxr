@@ -5,3 +5,8 @@ ios/
 android/
 .env*
 !.env.example
+.build/
+__pycache__/
+# Native module source is authored, not generated ios/ output.
+!/modules/lynxr-share-inbox/ios/
+!/modules/lynxr-share-inbox/ios/**

@@ -5,13 +5,17 @@ import { creatorApi } from './creator-api';
 import { entries, hasWork } from './contracts';
 import { libraryStore } from './library-store';
 import type { LibraryState } from './library-store';
+import { mobileApi } from './jobs';
 import { client } from './native-client';
 
 type Library = LibraryState & { refresh: () => Promise<void> };
 const LibraryContext = createContext<Library | null>(null);
 
 export function LibraryProvider({ userId, children }: { userId: string; children: ReactNode }) {
-  const store = useMemo(() => libraryStore(creatorApi(client!, userId).read), [userId]);
+  const store = useMemo(() => libraryStore(async () => {
+    const [legacy, mobile] = await Promise.all([creatorApi(client!, userId).read(), mobileApi(client!, userId).snapshot()]);
+    return { ...legacy, mobile, adaptations: [...entries(legacy), ...mobile.jobs] };
+  }), [userId]);
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
   const [foreground, setForeground] = useState(AppState.currentState == null || AppState.currentState === 'active');
 

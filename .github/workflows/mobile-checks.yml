@@ -1,0 +1,30 @@
+name: mobile offline checks
+permissions:
+  contents: read
+on:
+  pull_request:
+    paths: ['mobile/**', '.github/workflows/mobile-checks.yml']
+  push:
+    branches: ['codex/ios-app-store-launch']
+    paths: ['mobile/**', '.github/workflows/mobile-checks.yml']
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci --prefix mobile --no-audit --no-fund
+      - run: npm --prefix mobile run typecheck
+      - run: npm --prefix mobile test
+      - name: Real isolated local Postgres authorization and concurrency
+        run: |
+          python3 mobile/tools/start_local.py
+          python3 mobile/backend/tests/bootstrap_local.py
+          python3 -m unittest discover -s mobile/backend/tests -p 'test_*.py' -v

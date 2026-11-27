@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AppState, Text } from 'react-native';
+import { shareInbox } from '../modules/lynxr-share-inbox';
 import { observeSession } from './auth-state';
 import type { AuthState } from './auth-state';
 import { client, storage } from './native-client';
@@ -32,6 +33,9 @@ export function AuthProvider({ children, loading }: { children: ReactNode; loadi
     };
   }, [attempt]);
 
+  useEffect(() => {
+    if (state.ready) void shareInbox.setOwner(state.session?.user.id ?? null).catch(() => {});
+  }, [state.ready, state.session?.user.id]);
   if (!state.ready) return loading;
   if (state.error) return <Screen>
     <Text accessibilityRole="header" style={styles.h1}>Open lynxr</Text>
