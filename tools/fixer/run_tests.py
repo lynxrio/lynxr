@@ -43,6 +43,7 @@ TESTS = [
     "pipeline/test_views.py",
     "pipeline/test_watchdog.py",
     "tools/fixer/test_gate.py",
+    "pipeline/test_quant_lab.py",
 ]
 
 

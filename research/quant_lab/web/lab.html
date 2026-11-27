@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lynxr Quant Lab</title>
+    <link rel="stylesheet" href="/lab.css" />
+    <script defer src="/lab.js"></script>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <a class="brand" href="/">lynxr<span>QUANT LAB</span></a>
+      <div class="local"><i></i> LOCAL RESEARCH ENVIRONMENT</div>
+      <nav aria-label="Research sections">
+        <button data-tab="catalog" class="nav active">
+          01 <span>Reel catalog</span><b>↗</b></button
+        ><button data-tab="cohorts" class="nav">
+          02 <span>Cohort comparisons</span></button
+        ><button data-tab="provenance" class="nav">
+          03 <span>Evidence & sources</span>
+        </button>
+      </nav>
+      <div class="sidebar-note">
+        <span class="eyebrow">THE RESEARCH RULE</span>
+        <p>Counts are observations.<br />Context makes them useful.</p>
+        <small
+          >No prediction or causal claims.<br />No production
+          connections.</small
+        >
+      </div>
+      <footer>MISSION 004 <span>•</span> EVALUATION BUILD</footer>
+    </aside>
+    <main>
+      <header>
+        <div class="breadcrumb">
+          LYNXR RESEARCH <span>/</span> INSTAGRAM REELS
+        </div>
+        <span class="badge">PUBLIC SAMPLE · LOCAL ONLY</span>
+      </header>
+      <section class="hero">
+        <div>
+          <div class="eyebrow">THE OBSERVATION ROOM</div>
+          <h1>Real Reels.<br /><span>Honest context.</span></h1>
+          <p>
+            Explore what the sample shows. Keep what it cannot tell us visible.
+          </p>
+        </div>
+        <div class="source-tag">
+          <span class="dot"></span>
+          <div>
+            Bright Data public sample<small id="source-summary"
+              >Loading verified local records…</small
+            >
+          </div>
+        </div>
+      </section>
+      <div id="error" role="alert" hidden></div>
+      <section class="stats" aria-label="Sample summary">
+        <article>
+          <span>REELS IN THE SAMPLE</span><strong id="stat-reels">—</strong
+          ><small id="stat-source">—</small>
+        </article>
+        <article>
+          <span>OBSERVED MEDIAN VIEWS</span><strong id="stat-median">—</strong
+          ><small>Mixed post ages · descriptive only</small>
+        </article>
+        <article>
+          <span>CREATORS REPRESENTED</span><strong id="stat-creators">—</strong
+          ><small>Selected sample, not a fixed panel</small>
+        </article>
+        <article class="stat-warning">
+          <span>ELIGIBLE CREATOR BASELINES</span
+          ><strong>0 <em>not yet</em></strong
+          ><small>Original observation clocks unavailable</small>
+        </article>
+      </section>
+      <section id="catalog" class="tab-section">
+        <div class="insight-row">
+          <article class="distribution">
+            <div class="section-kicker">
+              SAMPLE DISTRIBUTION <span>OBSERVED VIEWS</span>
+            </div>
+            <div id="histogram" class="histogram"></div>
+          </article>
+          <article class="evidence-note">
+            <span class="evidence-icon">!</span>
+            <div>
+              <h3>A snapshot with an unknown clock.</h3>
+              <p>
+                Publication dates are supplied. Original metric observation
+                times are not. These counts cannot support a January 2025
+                backtest.
+              </p>
+              <button class="text-button" id="evidence-link">
+                Inspect provenance ↗
+              </button>
+            </div>
+          </article>
+        </div>
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">EXPLORE THE EVIDENCE</span>
+            <h2>The Reel index <span id="result-count"></span></h2>
+          </div>
+          <div class="actions">
+            <button id="compare" disabled>
+              Compare selected <span id="compare-count">0/2</span></button
+            ><a id="export-json" class="button primary" href="/api/export.json"
+              >Export research ↓</a
+            ><a id="export-csv" class="button" href="/api/export.csv">CSV ↓</a>
+          </div>
+        </div>
+        <form id="filters">
+          <div class="filter-primary">
+            <label class="search"
+              >Search caption, hashtag or creator<input
+                name="q"
+                placeholder="Search the sample…"
+                type="search" /></label
+            ><label
+              >Creator<input
+                name="creator"
+                placeholder="e.g. abpmajhatv"
+                list="creators" /></label
+            ><label>Posted from · UTC<input name="start" type="date" /></label
+            ><label>Posted through · UTC<input name="end" type="date" /></label>
+          </div>
+          <div class="filter-secondary">
+            <label
+              >Content type<select name="type">
+                <option value="clips">Reels · clips</option>
+                <option value="all">All source records</option>
+                <option value="feed">Feed · not labeled Reels</option>
+                <option value="igtv">IGTV · not labeled Reels</option>
+              </select></label
+            ><label
+              >Caption cue · inferred<select name="cue">
+                <option value="">Any cue</option>
+                <option>How-to wording</option>
+                <option>Question wording</option>
+                <option>Before/after wording</option>
+                <option>Try-on wording</option>
+                <option>No classified cue</option>
+              </select></label
+            ><label
+              >Sort by<select name="sort">
+                <option value="views">Observed views</option>
+                <option value="video_play_count">Observed plays</option>
+                <option value="engagement_per_view">
+                  (Likes + comments) / views
+                </option>
+                <option value="published_at">Publication date</option>
+                <option value="duration">Duration</option>
+                <option value="likes">Likes</option>
+                <option value="num_comments">Comments</option>
+              </select></label
+            ><label
+              >Order<select name="direction">
+                <option value="desc">High to low / newest</option>
+                <option value="asc">Low to high / oldest</option>
+              </select></label
+            ><button class="primary" type="submit">Apply filters</button
+            ><button type="reset">Reset</button>
+          </div>
+        </form>
+        <datalist id="creators"></datalist>
+        <p class="table-caption">
+          Views and plays are separate provider fields. “Unknown” is never
+          converted to zero. Select two records to compare.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th><span class="sr-only">Select</span></th>
+                <th>CREATOR / REEL</th>
+                <th>POSTED · UTC</th>
+                <th id="views-heading">VIEWS ↓</th>
+                <th>PLAYS</th>
+                <th>INTERACTION RATIO¹</th>
+                <th>CAPTION CUE²</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <span id="page-label"></span>
+          <div>
+            <button id="previous">← Previous</button
+            ><button id="next">Next →</button>
+          </div>
+        </div>
+        <p class="footnote">
+          ¹ (Likes + comments) / provider views. Not reach-normalized; counter
+          definitions and observation ages are unverified. ² Text cue only, not
+          an analysis of the video.
+        </p>
+      </section>
+      <section id="cohorts" class="tab-section" hidden>
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">DESCRIPTIVE ASSOCIATIONS</span>
+            <h2>Compare the observed sample.</h2>
+          </div>
+        </div>
+        <p class="section-intro">
+          These comparisons use the currently applied catalog filters. Higher
+          counts do not establish stronger creator-relative performance. Small
+          groups, unknown ages and source selection prevent predictive or causal
+          conclusions.
+        </p>
+        <div id="quartiles" class="comparison-grid"></div>
+        <h3>Duration cohorts</h3>
+        <div id="duration-cohorts"></div>
+        <h3>Caption cues · inferred, not visual structure</h3>
+        <div id="cue-cohorts"></div>
+      </section>
+      <section id="provenance" class="tab-section" hidden>
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">FOLLOW THE OBSERVATION</span>
+            <h2>Evidence has a timeline.</h2>
+          </div>
+        </div>
+        <div id="provenance-content"></div>
+      </section>
+      <footer class="main-footer">
+        <span>LYNXR QUANT LAB</span
+        ><span>Real records. Descriptive research. Explicit uncertainty.</span>
+      </footer>
+    </main>
+    <dialog id="detail">
+      <button class="close" id="close-dialog" aria-label="Close detail">
+        ×
+      </button>
+      <div id="detail-content"></div>
+    </dialog>
+  </body>
+</html>
