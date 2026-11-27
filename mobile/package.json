@@ -1,0 +1,46 @@
+{
+  "name": "lynxr-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "2.119.0",
+    "expo": "~58.1.0",
+    "expo-clipboard": "~58.0.4",
+    "expo-constants": "~58.0.16",
+    "expo-crypto": "~58.0.9",
+    "expo-linking": "~58.0.17",
+    "expo-router": "~58.0.33",
+    "expo-secure-store": "~58.0.3",
+    "expo-status-bar": "~58.0.5",
+    "lynxr-share-inbox": "file:./modules/lynxr-share-inbox",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1",
+    "react-native-url-polyfill": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "~19.3.0",
+    "tsx": "^4.20.0",
+    "typescript": "~6.0.3"
+  },
+  "overrides": {
+    "@expo/fingerprint": {
+      "minimatch": "11.0.1"
+    }
+  }
+}
