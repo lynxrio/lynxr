@@ -1,0 +1,234 @@
+{
+  "question_id": "a056",
+  "slug": "respond-to-ugc-discount-request",
+  "theme": "ugc-rates-and-pay",
+  "title": "How do you respond when a brand asks for a discount?",
+  "description": "How to reply to a UGC discount request: keep your price, offer a smaller scope instead, and send clear wording that leaves the brand a real choice.",
+  "short_answer": "Answer a discount request by keeping your price and offering to change what the brand gets for less money. Thank them, restate what your quote covers, then give two smaller options, such as fewer hooks or a shorter usage period, so the brand can pick a version that fits its budget without your rate dropping.",
+  "sections": [
+    {
+      "heading": "Why trade scope instead of just lowering the price?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Trading scope keeps your rate intact, because the brand pays less for less work rather than less for the same work.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A straight cut tells the [brand](/glossary/#brand) that your first quote had room in it, and that number becomes the starting point next time. A scope trade keeps the link between price and work visible. It also turns a yes-or-no standoff into a choice, which is easier for the person on the other side to take back to whoever controls the budget. Before you reply, reread what your quote includes, using the breakdown in [explaining what is in your price](/blog/explain-whats-included-in-ugc-price/), so you know exactly what you can take out.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What can you take out of the job to meet a lower budget?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Take out the parts that cost you time or carry extra value to the brand, and keep the core video the brand actually needs.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Each lever below lowers the total without lowering what you charge per piece of work. Pick two or three that you are comfortable losing, and check them against the [brief](/glossary/#brief) so you don't offer to remove something the brand has already said it needs. If you marked the fixed parts when you first read it, as in [working from a brief](/blog/brief-to-script/), this takes a minute.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "table",
+          "text": "",
+          "items": [],
+          "table_head": [
+            "What you trim",
+            "What the brand still gets",
+            "Why it works"
+          ],
+          "table_rows": [
+            [
+              "Fewer hook variations",
+              "The full video with one opening",
+              "Each extra hook is extra writing and filming"
+            ],
+            [
+              "Fewer videos in the package",
+              "The strongest concept, done properly",
+              "Your per-video price stays the same"
+            ],
+            [
+              "A shorter usage period",
+              "Rights for the time it needs now",
+              "Longer use carries more value for the brand"
+            ],
+            [
+              "Paid ad use left out",
+              "Organic posting on its own pages",
+              "Ad use can be added later as a separate line"
+            ],
+            [
+              "Raw footage left out",
+              "The finished edit only",
+              "Raw files are a separate deliverable"
+            ],
+            [
+              "One revision round instead of two",
+              "A finished video with one round of changes",
+              "Each round is time you would otherwise spend elsewhere"
+            ]
+          ],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "If usage is on the table, [what usage rights are](/blog/what-are-ugc-usage-rights/) explains the terms, and you can agree the exact period in writing with the brand.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What do you actually write back?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Write a short, warm reply that keeps the original price, offers two trimmed options with their prices, and asks the brand to choose.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "list",
+          "text": "",
+          "items": [
+            "Hi [NAME], thanks for coming back to me, and I understand budgets are tight on [PRODUCT].",
+            "My quote of [AMOUNT] covers three videos, three hooks each, two rounds of revisions and organic use for [DATE].",
+            "I keep my rate the same across jobs, but I can change what's included so it fits your budget.",
+            "Option one: two videos with the same hooks and revisions, for [AMOUNT].",
+            "Option two: all three videos with one hook each and one round of revisions, for [AMOUNT].",
+            "Let me know which suits you, or what budget you are working to, and I'll shape the package around it."
+          ],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Asking for the budget at the end is useful, because it gives you a real number to build around instead of guessing what would be acceptable.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "Is it ever fine to give a straight discount?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "A straight discount can make sense when you name the reason for it and that reason is something the brand gives you in return.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "Booking several videos at once, paying upfront or committing to a run of monthly jobs all save you time or uncertainty, so a lower total has a clear cause. Say that cause out loud in your reply: because you are booking six videos together, the package comes to [AMOUNT]. That keeps your standard rate as the reference point. [Pricing a bundle](/blog/ugc-video-bundles/) covers how to set this up so it doesn't read as a favour you can be asked for again.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "What if the brand still says no to every option?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Thank them, leave the door open, and let the job go if the budget and the work can't meet in a way you are happy with.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A job you take below your rate costs the same hours as a full-price one and leaves less time for better work. You could close with: I understand, and thanks for considering me. If the budget changes or you'd like a smaller test with [PRODUCT], I'd be glad to help. That keeps the relationship friendly without arguing. If you want to step away more firmly, [saying no to a job politely](/blog/turn-down-a-ugc-job/) has wording for that.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    },
+    {
+      "heading": "How do you lock in whatever you agree?",
+      "blocks": [
+        {
+          "kind": "paragraph",
+          "text": "Confirm the chosen option in writing, listing exactly what is included and what was removed, before you start any work.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        },
+        {
+          "kind": "paragraph",
+          "text": "A trimmed package is only useful if the trim is remembered. When the brand later asks for the extra hook it gave up, your confirmation lets you reply with the price to add it back rather than reopening the whole deal. [What to agree in writing](/blog/agree-in-writing-before-ugc/) lists the other points worth confirming at the same time.",
+          "items": [],
+          "table_head": [],
+          "table_rows": [],
+          "script_caption": "",
+          "script_beats": []
+        }
+      ]
+    }
+  ],
+  "status": "live",
+  "published": "2026-11-28",
+  "withdrawn": null,
+  "origin": "agent",
+  "hooks": [],
+  "model": "claude-code-routine",
+  "cost_usd": 0.0,
+  "judge": {
+    "verdict": "pass",
+    "scores": {
+      "answers_first": 5,
+      "useful_specific": 5,
+      "ugc_focus": 5,
+      "originality": 4,
+      "voice": 4
+    }
+  }
+}

@@ -422,9 +422,9 @@
     "published": "2026-11-24"
   },
   "a048": {
-    "fails": 2,
-    "last_fail": "2026-11-26",
-    "last_error": "originality: 1 shared 12-word run(s) with blog/ugc-changes-after-delivery/index.html, e.g. 'lynxr questions briefs and revisions what do you do when a brand' (breadcrumb+question title; not fixable in"
+    "fails": 3,
+    "last_fail": "2026-11-28",
+    "last_error": "originality: 1 shared 12-word run(s) with blog/faceless-ugc/index.html, e.g. 'the steps in how to turn a brand brief into a script'"
   },
   "a050": {
     "fails": 0,
@@ -461,5 +461,13 @@
   "a059": {
     "fails": 0,
     "published": "2026-11-27"
+  },
+  "a056": {
+    "fails": 0,
+    "published": "2026-11-28"
+  },
+  "a060": {
+    "fails": 0,
+    "published": "2026-11-28"
   }
 }
